@@ -178,8 +178,8 @@ public sealed record GraphMemoryOptions
     /// <para><b>Why it exists.</b> <see cref="EdgeHalfLife"/> decays the EDGE; nothing consulted the ENTRY on
     /// this path, so a recall could bury a superseded fact and an expansion of its neighbour handed that fact
     /// straight back — forgetting governed recall and had no vote in traversal. Measured on LongMemEval's
-    /// knowledge-update class: a context holding the current value and NOT the superseded one fell from 40.0%
-    /// to 36.0% as the walk went deeper, and a floor of 0.8 holds it flat at 40.0% instead.</para>
+    /// knowledge-update class, all 70 questions: a context holding the current value and NOT the superseded
+    /// one fell from 31.4% to 28.6% as the walk went deeper, and a floor of 0.8 holds it at 31.4%.</para>
     ///
     /// <para><b>It EXCLUDES, and ordering was tried first and measured doing nothing.</b> Weighting the walk
     /// order by retrievability cannot help unless the caller's budget binds, and in the measured case it did
@@ -191,9 +191,11 @@ public sealed record GraphMemoryOptions
     /// from it is filtered. Nor does it delete anything (<b>D41</b>): a floored neighbour stays stored and
     /// stays reachable by a recall that scores it.</para>
     ///
-    /// <para><b>It costs recall, so it is off by default.</b> The same measurement lost 4 points of
-    /// current-fact hit rate buying those 4 points of precision. Which side a deployment wants is a property
-    /// of its workload, not of this library.</para></summary>
+    /// <para><b>It costs recall, so it is off by default.</b> That gain gave back 1.5 points of current-fact
+    /// hit rate. On a SEARCH workload it is cheaper still — LoCoMo loses 0.5 points at shot 2 and none at
+    /// shot 3 while cutting context 17% — but which side a deployment wants is a property of its workload,
+    /// and the value that BINDS depends on how decayed the store is rather than on the questions asked: 0.5
+    /// excludes nothing on a freshly ingested one.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set outside [0, 1] or to a non-finite value.</exception>
     public double ExpansionRetrievabilityFloor
     {

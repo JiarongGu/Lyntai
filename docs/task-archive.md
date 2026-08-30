@@ -1655,4 +1655,38 @@ row reads the `lyntai` arm's own published 54.5% to the decimal; the haystack la
 The first attempt at the harness died on a `KeyNotFoundException` rather than scoring nothing quietly — an
 early `continue` skipped a dictionary a later scoring path read — which is the loud direction.
 
+## Part 123 — the expansion floor, swept: a better deal than its own doc said (2026-08-30)
+
+✅ done 2026-08-30 — `TASKS.md` Part 116's `ExpansionRetrievabilityFloor` sweep. `--expand-floor` was added
+to the LoCoMo harness so both workloads can be priced, and the knowledge-update arm re-run at 70 questions.
+Tables in `docs/memory.md` §5. **The default did not move; the DOCUMENTATION did, and that is the finding.**
+
+**It cannot be swept the cheap way, and saying why matters.** The `K` ladder one section earlier scores
+offline from a single ingestion because K only re-ranks a fixed pool. The floor changes which neighbours are
+FETCHED, and expansion reinforces what it walks, so each value needs its own run against its own store —
+three LoCoMo runs and one haystack run rather than one of each.
+
+**The shipped XML doc quoted a superseded sample.** `ExpansionRetrievabilityFloor` documented the trade as
+40.0% falling to 36.0% and held flat at 40.0%, costing 4 points of current-fact hit — the 25-question
+figures. At 70 it is **+2.8 points of `clean` for −1.5 of `current@k`**: both sides shrank, the cost by
+more, so the doc overstated it by **2.7×**. `docs/memory.md` carried the "not re-run at 70" caveat all
+along; the XML doc did not, and XML docs SHIP. Same tier as `MaxSalience` keeping *"Unmeasured — a starting
+point"* after the ladder that measured it, and as the README's stale gate count fixed the same day.
+
+**On a SEARCH workload the floor is close to free**, which is the opposite of what D98 worried about. LoCoMo
+at 0.8 loses one question of 200 at shot 2 and none at shot 3, while cutting context 17% and 8% — hit per 1k
+characters goes 0.132 to 0.158. The knob was justified as buying precision with recall; on the workload
+where recall IS the metric, it barely charges.
+
+**0.5 is inert, and that is the transferable part.** Byte-identical to 0 on every column, because LoCoMo is
+ingested fresh and nothing has decayed that far. On knowledge-update the `--ranks` diagnostic puts the
+current fact at retrievability 0.8556 and the superseded one at 0.7206, so 0.8 sits BETWEEN them. The value
+that binds is therefore a property of **how decayed a store is**, not of the questions — which is what the
+backlog item predicted, and what makes "adopt 0.8" the wrong lesson to draw.
+
+**One control is exact and one is not, stated rather than blurred.** Two LoCoMo floor-0 runs reproduced
+byte-identically, which is what licenses reading a 0.5-point move there as one real question. No repeat was
+taken on the haystack arm, whose reproducibility this repository elsewhere puts at about one question — so
+its +2.8 is a shape, not a decimal.
+
 - **Extend the shot curve past what was sampled.**

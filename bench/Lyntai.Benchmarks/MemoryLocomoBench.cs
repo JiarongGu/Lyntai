@@ -126,6 +126,11 @@ internal static class MemoryLocomoBench
         // the model-free grades and drops it.
         var judged = !args.Contains("--no-judge");
         if (ArgValue(args, "--seeds") is { } sd && int.TryParse(sd, out var seedCount)) expandSeeds = seedCount;
+        // `--expand-floor` is D98's `GraphMemoryOptions.ExpansionRetrievabilityFloor`, which ships at 0. It
+        // gates a WALK, so unlike the K ladder it cannot be scored offline from one ingestion: the floor
+        // changes which neighbours are FETCHED, and every later step reads a store the earlier ones moved.
+        // One real run per value is therefore the only honest way to price it.
+        var expandFloor = ArgValue(args, "--expand-floor") is { } ff && double.TryParse(ff, out var ef) ? ef : 0;
         var probed = false;
         // The QA arms are a DIFFERENT question from the retrieval ladder's, so they are a different list.
         // The ladder varies ranking knobs against a model-free metric; QA asks what a reader can do with
@@ -146,6 +151,12 @@ internal static class MemoryLocomoBench
 
         PrintPreamble(chat?.Model ?? "(none - retrieval only)", embedder,
             conversations.Count, questions.Count, sampled.Count, arms, retrievalOnly || shotsOnly || ranksOnly);
+
+        // Printed even at 0, so a run says which arm it is rather than leaving the reader to infer it from
+        // the absence of a flag — the same reason the LongMemEval preamble prints its variant unconditionally.
+        if (shotsOnly)
+            Console.WriteLine($"Expansion floor: {expandFloor:F2}   "
+                + "(GraphMemoryOptions.ExpansionRetrievabilityFloor, D98; ships at 0)\n");
 
         var stopwatch = Stopwatch.StartNew();
         var correct = new Dictionary<(string Arm, int Category), int>();
@@ -199,7 +210,10 @@ internal static class MemoryLocomoBench
                 : retrievalOnly
                 ? Ladder()
                 : shotsOnly
-                    ? [(ThreeShot, null, null)]
+                    // The explicit options object is INERT at floor 0 — the engine's own fallback is
+                    // `options ?? new GraphMemoryOptions()` — so an unswept run is byte-identical to one
+                    // that never passed one, which archive Part 119 measured rather than assumed.
+                    ? [(ThreeShot, new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor }, null)]
                     : [("lyntai", null, null), (ThreeShot, null, null)];
 
             (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking)[] Ladder() =>

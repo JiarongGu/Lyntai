@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is FOUR items: Part 116's two, Part 109's QA half, and the
+**The startable set is THREE items: Part 116's one, Part 109's QA half, and the
 3D-backend survey inside Part 33 / GEN7.** Each is a `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -577,7 +577,9 @@ top-k. The instruments exist — `node devtools/dev.mjs memory-locomo --shots` a
 `memory-longmemeval --shots [--haystack] [--expand-floor w]` — and the tables are `docs/memory.md` §5.
 Closed alongside it: **D98** (expansion had no vote from forgetting) and **D99** (co-activation is one store
 call). The session that produced all three is `docs/task-archive.md` Parts 112–115.
-<br>**This Part held five items and now holds two, both startable and both measurement.** The write-back
+<br>**This Part held five items and now holds ONE** — the shot curves for LongMemEval's four unmeasured
+classes, whose hard half is deciding what a shot BUYS on a single-session question rather than running it.
+The expansion-floor sweep closed 2026-08-30 as `docs/task-archive.md` **Part 123**. The write-back
 collapse closed as `docs/task-archive.md` **Part 117** (**D101** — the whole write-back is one store call,
 not just the co-activation half D99 did), the LoCoMo contamination as **Part 118**, two thirds of the
 shot-curve item as **Part 119**, **the n-shot SURFACE itself as Part 120** (**D102** —
@@ -589,11 +591,6 @@ three times: every LoCoMo arm by 20–25 points, D100's *"search wants two shots
 knowledge-update's level down 6–9 points off a small sample. **None was a library defect — all three were
 the instrument.** So treat the remaining measurement items as RE-measurements: they were scoped against
 figures that have since moved._
-
-- [ ] **Sweep `ExpansionRetrievabilityFloor` across workloads before any default moves** (**D98**). It ships
-  at `0`. At `0.8` it held the knowledge-update shot curve flat at 40.0% instead of falling to 36.0%, and
-  cost 4 points of current-fact hit rate — one class, one variant, 25 questions. The floor is a
-  RETRIEVABILITY, so its right value depends on the decay curve's shape and not on the workload alone.
 
 - [ ] **Give LongMemEval's four remaining classes a shot curve.** `multi-session` (133 questions) and the
   three single-session classes have none. **This is no longer "cheap and model-free" work** — the two classes

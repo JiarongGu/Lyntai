@@ -920,9 +920,9 @@ expansion resurrected exactly what recall had buried. **D98** adds
 `stale@k` back at 56.0%, for 4 points of `current@k`. **An ordering weight was tried first and measured
 moving nothing** — ordering only matters when the caller's budget binds, and at 15.9 items against a budget
 of 20 it did not.
-<br>_Those floor figures are the **25-question** sample and have not been re-run at 70; the fall they
-correct is −2.8 points on the full sample against −4.0 on the sample, so the defect is the same shape and
-smaller than it looked. Sweeping the floor across workloads is `TASKS.md` Part 116._
+<br>_Those floor figures were the **25-question** sample. **Re-run at 70 on 2026-08-30** — see the floor
+sweep in the section below: the shape holds and both sides shrink, to +2.8 points of `clean` bought for 1.5
+of `current@k`, where the sample read +4.0 for −4.0._
 
 **The class where expansion actually PAYS, and it is the one that had no shot curve at all**
 (`memory-longmemeval --shots --temporal --haystack`, all 132 questions, 2026-08-29). Temporal reasoning
@@ -1005,6 +1005,50 @@ byte-identical across the change, which is what says the re-measurement moved th
 harness. **The effect was five times what filing it had suggested**: `shot-1` was reported moving 30.0% →
 28.0%, and the isolated control puts it at 65.4% against 53.8% on the same pair of runs. Every LoCoMo
 figure in this document is either re-measured or marked with the regime it was taken in.
+
+### The expansion floor, swept across workloads (2026-08-30)
+
+`GraphMemoryOptions.ExpansionRetrievabilityFloor` (**D98**) ships at `0`. It was adopted on one class of one
+variant at 25 questions, and its shipped XML doc quoted those figures. **Both workloads were re-measured on
+2026-08-30, and the knob is a better deal than its own documentation said.**
+
+It cannot be swept the cheap way. `K` above is scoreable offline from one candidate set because it only
+re-ranks a fixed pool; the floor changes which neighbours are FETCHED, and expansion reinforces what it
+walks, so every value needs its own run against its own store.
+
+| workload | floor | headline | items/q | chars/q |
+|---|---|---|---|---|
+| knowledge-update, haystack, 70q | 0 | `clean` 31.4 / 28.6 / 28.6 | 10.0 / 19.4 / 19.9 | 1169 / 5236 / 8286 |
+| knowledge-update, haystack, 70q | **0.8** | `clean` 31.4 / **31.4** / **30.0** | 10.0 / 18.4 / 19.0 | 1169 / 5122 / 8022 |
+| LoCoMo, 200q | 0 | evidence-hit 54.5 / 56.0 / 57.0 | 20.0 / 35.9 / 39.9 | 2264 / 4246 / 4855 |
+| LoCoMo, 200q | 0.5 | evidence-hit 54.5 / 56.0 / 57.0 | 20.0 / 35.9 / 39.9 | 2264 / 4246 / 4855 |
+| LoCoMo, 200q | **0.8** | evidence-hit 54.5 / **55.5** / 57.0 | 20.0 / **29.4** / **36.6** | 2264 / **3515** / **4478** |
+
+**The trade is roughly 2:1 in the floor's favour, not the 1:1 the doc sold.** On knowledge-update, 0.8 holds
+the shot curve flat where it otherwise falls — **+2.8 points** of `clean` at shot 2 — and gives back **1.5**
+points of `current@k`. The 25-question sample read that as +4.0 for −4.0, so BOTH sides shrank at full
+sample and the cost shrank further. `stale@k` improves 2.8 points as well.
+
+**On a SEARCH workload it is close to free.** LoCoMo loses one question of 200 at shot 2 and none at shot 3,
+while cutting context 17% and 8% — lifting hit per 1k characters from 0.132 to 0.158. That runs against
+D98's stated worry that the floor buys precision with recall; on the workload where recall is the whole
+metric, it barely charges for it.
+
+**0.5 is inert, and that is the useful part.** It is byte-identical to 0 on every column, so the floor does
+not begin to bind until somewhere between 0.5 and 0.8. The reason is the store, not the questions: LoCoMo is
+ingested fresh, so nothing has decayed below 0.5. On knowledge-update the `--ranks` diagnostic puts the
+current fact at retrievability **0.8556** and the superseded one at **0.7206** — 0.8 sits between them,
+which is why it separates the pair and why the value is a property of **how decayed a store is** rather than
+of the workload. A deployment picking this number must read its own retrievability distribution; there is no
+constant to adopt.
+
+**The default did not move.** A knob that costs recall at all is one a deployment should opt into, and two
+benchmarks are not every workload. What changed is the documentation, which overstated the cost by 2.7×.
+
+**What this does not settle.** Two workloads, one embedder, two floor values above zero. The LoCoMo control
+is exact — two floor-0 runs reproduced byte-identically, which is what makes a 0.5-point move there one real
+question rather than noise — but no such repeat was taken on the haystack arm, whose own reproducibility
+this document elsewhere puts at about one question.
 
 ### How these choices sit against the published field (surveyed 2026-08-29)
 
