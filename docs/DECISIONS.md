@@ -2311,10 +2311,10 @@ them, and through 3.0.2 exactly two things ever read one — the write path's ow
 reuse list, **both at write time**. So the handle `配偶` recorded against a fact whose text says `太太` was an
 index only its writer could use. Reported by an adopter who had paid for it and closed it app-side.
 
-`SubjectSeedOptions.K` (`AddMemorySubjectSeeds`, registered by default — moved off `GraphMemoryOptions` when
-every seed channel gained its own registration) puts the entries recorded under whichever subjects a query
-NAMES into the candidate set at hop 0, ranked by the same policy as everything else. `SubjectSeedOptions.Scan`
-bounds how many of a task's handles the query is matched against.
+`SubjectSeedOptions.K` (`AddMemoryEngine` registers this channel unconditionally; `AddMemorySubjectSeeds`
+only CONFIGURES it) puts the entries recorded under whichever subjects a query NAMES into the candidate set
+at hop 0, ranked by the same policy as everything else. `SubjectSeedOptions.Scan` bounds how many of a
+task's handles the query is matched against.
 
 **The decision is the DEFAULT, and it is deliberately unlike the semantic seed's.** `AddMemorySemanticSeeds`
 is NOT registered by default: an embedder is registered for reasons of its own, so seeding recall from it

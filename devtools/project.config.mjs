@@ -689,22 +689,25 @@ export default {
     },
     {
       // The prose half of the seed-source-fusion removal above; `retiredApiNames` fences the surface. Bare
-      // whole-identifier alternation would be safe on MEANING — none of the three is a substring of a live
-      // identifier (`SemanticSeedOptions`, `SubjectSeedOptions.Scan`) — but not on SCOPE: `check-docs` also
-      // reads code-tier COMMENTS (src/tests/bench), where Task 7 left the removed names in four `///`/`//`
-      // sites that state a fixed HISTORICAL value ("was on at <c>SubjectSeedK</c>'s default of 5",
-      // "SemanticSeedK defaulted to 0", "<c>SubjectSeedScan = 256</c>") — accurate the way a `CHANGELOG.md`
-      // entry is accurate, and out of this task's reach (code is reviewed and not to be re-touched for a
-      // vocabulary sweep). The trailing lookahead excludes exactly that VALUE-STATEMENT shape — the term
-      // immediately followed by "default of N" / "defaulted to N" / "was on/off at N" / "= N" — which is
-      // also why it deliberately does NOT match a measurement table's arm names (`+sem`, `+sem80`): those
-      // are not these identifiers at all, the same reasoning "why" gives below.
-      // Traded off deliberately: a prose line reading e.g. "`SemanticSeedK = 30`" now also passes this rule
-      // unflagged. Every current instance of that shape is swept by hand in this same change; the residual
-      // risk is a FUTURE doc regression in exactly that value-literal form going undetected, which is judged
-      // acceptable against re-touching reviewed code for a docs-only task.
-      term: '\\b(?:SemanticSeedK|SubjectSeedK|SubjectSeedScan)\\b'
-        + '(?![^\\n]{0,20}(?:default(?:ed)?\\s+(?:of|to)\\s+\\d|was\\s+(?:on|off)\\s+at\\s+\\d|=\\s*\\d))',
+      // whole-identifier alternation is safe: none of the three is a substring of a live identifier
+      // (`SemanticSeedOptions`, `SubjectSeedOptions.Scan`), and it deliberately does NOT match a
+      // measurement table's arm names (`+sem`, `+sem80`), which are not these identifiers at all.
+      //
+      // A narrower, lookahead-excluding version of this rule shipped briefly and was WITHDRAWN the same
+      // day: it excluded the term when immediately followed by a value-statement shape ("defaulted to N",
+      // "was on/off at N", "= N"), to route around 7 code-tier comment lines this task was told not to
+      // touch. Measured against the live pattern before reverting: `"SemanticSeedK = 30"`,
+      // `"SubjectSeedK was on at 5 by default"` and `"SemanticSeedK defaulted to 5, but this is stale"` —
+      // exactly the shape a stale doc reintroducing this option would take — were all silently EXCLUDED,
+      // permanently, in every scanned file, not just the 7 lines it was built for. And unlike
+      // `retiredApiNames`' `allow: [{signature}]`, which FAILS the moment its exact string stops matching,
+      // a regex exclusion has no self-correction: nothing would ever notice it swallowing a real
+      // regression. The 7 lines were fixed at the source instead — see
+      // `src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs`,
+      // `src/Lyntai.Core/Memory/MemoryEngineRegistration.cs` and
+      // `tests/Lyntai.Tests/Memory/GraphMemorySeedRankTests.cs` — because "do not touch src/tests/bench"
+      // meant do not change LOGIC, and a comment is not logic.
+      term: '\\b(?:SemanticSeedK|SubjectSeedK|SubjectSeedScan)\\b',
       use: '`SemanticSeedOptions.K` (`AddMemorySemanticSeeds`, opt-in) or `SubjectSeedOptions.K` / `.Scan` '
         + '(`AddMemorySubjectSeeds`, registered by default)',
       why: 'the three GraphMemoryOptions properties were removed and replaced by registered seed sources, '

@@ -50,12 +50,6 @@ export function defaultOf(r, relative, field) {
   return new RegExp(`private readonly \\w+ _${field}\\s*;`).test(src) ? 0 : NaN;
 }
 
-/** An `init`-style property default, by property name. */
-export function initDefaultOf(r, relative, prop) {
-  const m = new RegExp(`\\b${prop}\\s*\\{[^}]*\\}\\s*=\\s*(-?[\\d.]+)\\s*;`).exec(read(r, relative));
-  return m ? Number(m[1]) : NaN;
-}
-
 /**
  * Every claim registered so far, each one VERIFIED BY HAND during the 2026-08-31 audit before being
  * registered — a predicate nobody checked is a second unverified claim, not a gate.
@@ -96,7 +90,7 @@ export const DECISION_CLAIMS = [
     claim: 'the subject seed is ON by default: SubjectSeedOptions.K > 0',
     // The seed-source-fusion work moved this off GraphMemoryOptions onto its own options record
     // (src/Lyntai.Core/Memory/Seeding/SubjectSeedOptions.cs), where the default lives on the BACKING FIELD
-    // (`_k`) rather than an inline property initializer — `defaultOf`, not `initDefaultOf`.
+    // (`_k`), read by `defaultOf` like every other claim in this registry.
     holds: (r) => defaultOf(r, 'src/Lyntai.Core/Memory/Seeding/SubjectSeedOptions.cs', 'k') > 0,
     detail: (r) => `SubjectSeedOptions.K = ${defaultOf(r, 'src/Lyntai.Core/Memory/Seeding/SubjectSeedOptions.cs', 'k')}`,
     why: 'D88 turns this ON deliberately, unlike SemanticSeedOptions.K (AddMemorySemanticSeeds is not '

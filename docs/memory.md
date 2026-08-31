@@ -151,9 +151,10 @@ Two properties of that pipeline are easy to get wrong and are worth stating:
 - **A SUBJECT is readable, not just writable.** `AddMemoryAnnotation` records what each fact is *about*;
   a recall matches its query against the handles in use and seeds the entries recorded under whichever ones
   it names, so a query for `配偶` reaches the fact whose text says `太太`. **On by default**
-  (`SubjectSeedOptions.K`, `AddMemorySubjectSeeds`), unlike the semantic seed — a subject exists only because
-  an annotator was registered and paid for, so reading it back needs no second opt-in. Matching is
-  per-script: a handle in a space-writing script needs a
+  (`SubjectSeedOptions.K` — `AddMemoryEngine` registers this channel unconditionally, `AddMemorySubjectSeeds`
+  only configures it), unlike the semantic seed, which `AddMemorySemanticSeeds` must register — a subject
+  exists only because an annotator was registered and paid for, so reading it back needs no second opt-in.
+  Matching is per-script: a handle in a space-writing script needs a
   word boundary (`pairbond` must not match `repairbonded`), one in a spaceless script matches as a
   substring. Seeded entries are ordinary candidates — ranked, limited, and not appended past the page.
 - **Reinforcement follows the verdict, the review log follows the recall.** What gets touched and what gets
@@ -1625,7 +1626,7 @@ spaceless scripts expanded into character n-grams. Thai, Lao, Khmer, Burmese and
 | `CandidateMultiplier` | 4 | candidates fetched per returned slot |
 | `AuthoritativeReserve` | `null` (unbounded) | slots exact facts may take **within** the limit |
 | `SemanticSeedOptions.K` | not registered by default (`AddMemorySemanticSeeds`; `K` = 20 once added) | entries the query's embedding pulls into the candidate set |
-| `SubjectSeedOptions.K` | 5 (`AddMemorySubjectSeeds`, registered by default) | entries each SUBJECT the query names pulls into the candidate set |
+| `SubjectSeedOptions.K` | 5 (channel registered by `AddMemoryEngine`; `AddMemorySubjectSeeds` only configures it) | entries each SUBJECT the query names pulls into the candidate set |
 | `SubjectSeedOptions.Scan` | 256 | handles a recall matches its query against |
 
 ### Learning

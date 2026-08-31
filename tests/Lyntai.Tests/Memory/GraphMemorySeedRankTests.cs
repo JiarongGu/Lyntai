@@ -263,13 +263,12 @@ public sealed class GraphMemorySeedRankTests : IDisposable
 
     // ---- registration ----------------------------------------------------------------------------------
 
-    /// <summary>The default registration reproduces what the removed options defaulted to: the unconditional
-    /// store read (<c>lexical</c>), the handle channel that was on at <c>SubjectSeedK = 5</c> /
-    /// <c>SubjectSeedScan = 256</c> (<c>subject</c>), and NOT the vector channel, which was off at
-    /// <c>SemanticSeedK = 0</c>.
+    /// <summary>The default registration wires the unconditional store read (<c>lexical</c>) and the handle
+    /// channel, on by default at <c>SubjectSeedOptions.K = 5</c> / <c>SubjectSeedOptions.Scan = 256</c>
+    /// (<c>subject</c>) — and NOT the vector channel, which stays unregistered by default.
     /// <para>The VALUES are half the reproduction claim, so they are asserted too: nothing registers a
     /// <see cref="SubjectSeedOptions"/>, which is what makes the registered source take its own defaults, and
-    /// those defaults are the two numbers the removed options carried.</para></summary>
+    /// those defaults are the two numbers below.</para></summary>
     [Fact]
     public void The_default_registration_wires_lexical_and_subject_but_not_semantic()
     {

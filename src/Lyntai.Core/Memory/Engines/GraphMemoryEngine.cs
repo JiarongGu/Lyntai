@@ -246,7 +246,7 @@ public sealed class GraphMemoryEngine(
     }
 
     /// <summary>Null or empty takes the two channels this engine has always run — the unconditional store
-    /// read and the handle lookup that was on at the removed <c>SubjectSeedK</c>'s default of 5.
+    /// read and the handle lookup, on by default at <c>SubjectSeedOptions.K</c>'s own default of 5.
     /// <para><b>So an empty collection does NOT disable seeding</b>, the same rule
     /// <see cref="NormalizeSaliencePolicies"/> states for its own domain. The supported way to narrow is to
     /// pass exactly the sources wanted; the supported way to switch one OFF is its own options record.</para>
@@ -295,8 +295,7 @@ public sealed class GraphMemoryEngine(
     /// <summary>This engine embeds every write and no recall reads those vectors — an embedder and a vector
     /// store are wired, so novelty and similarity linking run on the WRITE path, while no
     /// <see cref="SemanticSeedSource"/> is registered so the READ path consults none of it. Still the shipped
-    /// default: the vector channel is opt-in (<c>AddMemorySemanticSeeds</c>), exactly as the removed
-    /// <c>SemanticSeedK</c> was off at 0.
+    /// default: the vector channel is opt-in (<c>AddMemorySemanticSeeds</c>).
     /// <para>Internal, and read only by <see cref="MemoryWiring"/>: it is a wiring diagnostic, not something
     /// a consumer branches on. Exposed as a property rather than reflected over, so a rename is a compile
     /// error instead of a sweep that throws the next time somebody runs it.</para></summary>

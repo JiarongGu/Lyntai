@@ -150,9 +150,10 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 - **`GraphMemoryOptions.SemanticSeedK`, `.SubjectSeedK` and `.SubjectSeedScan` are REMOVED**, replaced by a <!-- drift-ok link-ok: the entry announcing a removal must name what was removed, and none of the three exists any more -->
   registered `IMemorySeedSource` collection, each source carrying its own options record:
   `SemanticSeedOptions.K` (`AddMemorySemanticSeeds`, NOT registered by default — an embedder registered for
-  its own reasons must not silently start steering recall) and `SubjectSeedOptions.K` / `.Scan`
-  (`AddMemorySubjectSeeds`, registered by default — a subject exists only because an annotator was already
-  paid for). Both new records ship the same defaults the removed properties carried, including
+  its own reasons must not silently start steering recall) and `SubjectSeedOptions.K` / `.Scan` (on by
+  default — `AddMemoryEngine` registers this channel unconditionally, and `AddMemorySubjectSeeds` only
+  configures it, since a subject exists only because an annotator was already paid for). Both new records
+  ship the same defaults the removed properties carried, including
   `SubjectSeedOptions.K = 0` as the off-switch. `UseGraph(..., seedSources: …)` overrides the set per engine.
 
 ### Fixed
