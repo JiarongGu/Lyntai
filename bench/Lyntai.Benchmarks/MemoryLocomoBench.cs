@@ -164,7 +164,7 @@ internal static class MemoryLocomoBench
                         .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
                         "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "+sem+fuse", "+fuse",
                         "vector"]
-                : ["lyntai", TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
+                : ["lyntai", "lyntai-fused", TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
 
         var (conversations, questions) = Load(path);
         var sampled = Stratify(questions, take);
@@ -259,7 +259,14 @@ internal static class MemoryLocomoBench
                     // ABSOLUTE VALUES ARE NOT COMPARABLE TO ANY PUBLISHED NUMBER. They are a
                     // property of a 4B local reader. Only the ARM DIFFERENCE transfers -- TASKS.md
                     // Part 109 says exactly this. Do not place either figure beside a third party's.
-                    : [("lyntai", null, null, null, null), (ThreeShot, null, null, null, null)];
+                    : [("lyntai", null, null, null, null),
+                        ("lyntai-fused", null,
+                            new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+                            {
+                                RetrievabilityWeight = 0,
+                                HopWeight = 0,
+                            }), null, RecallLimit),
+                        (ThreeShot, null, null, null, null)];
 
             (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking,
                 IMemoryVerificationPolicy? Verification, int? SemanticK)[] Ladder() =>
