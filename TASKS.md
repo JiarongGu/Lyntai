@@ -60,13 +60,19 @@ of the INSTRUMENT until proven otherwise: `memory-salience`'s OFF arm was never 
 2026-08-30), which is the same family as Parts 118, 119 and D100's withdrawn "search wants two shots".
 Before believing a delta, run the arm that structurally CANNOT move.
 
-**And a caution about this session's own reasoning, recorded because it is unusual to be able to measure
-it.** Four hypotheses were proposed and all four were refuted by checking: the edges, magnitude preservation,
-a homeless removal domain, and retention being unreachable via DI. The MEASUREMENTS held; the priors did
-not. Three further defects were caught by gates rather than by the author — a blind `sed` onto the wrong SQL
+**And a caution about this session's own reasoning, recorded because it is unusual to be able to measure it —
+with the one thing that worked.** FIVE hypotheses were proposed and FOUR were refuted by checking: the edges,
+magnitude preservation, a homeless removal domain, and retention being unreachable via DI. Two of those were
+inferred from a NAME or a SENTENCE rather than from what the code does, and one nearly shipped a breaking
+namespace change for nothing.
+<br>**The one that held is the only one whose prediction was written down BEFORE the run** — `+sem+rel-only`
+carried both branches in its own source comment, so 63.5% settled it instead of becoming another plausible
+story. The MEASUREMENTS were reliable throughout; the priors were not. **Pre-register the prediction; it is
+what made the difference.**
+<br>Three further defects were caught by GATES rather than by the author — a blind `sed` onto the wrong SQL
 select, two fused XML doc runs, and a dangling `paramref` plus two undocumented parameters that `verify`
-stopped from shipping. **Weight a confident reading here accordingly, and run the gate rather than the
-filtered suite.**
+stopped from shipping into consumer-facing XML docs. All three came from verifying narrowly and declaring
+done. **Run `verify`, not a filtered suite.**
 
 1. ~~**`SalienceOptions.MaxSalience` and `NoveltyWeight` — do the two shipped defaults stay?**~~ **ANSWERED
    2026-08-30 by measurement: YES, both stay.** `MaxSalience` is a switch rather than a dial and at
