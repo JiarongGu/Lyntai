@@ -89,6 +89,16 @@ namespace Lyntai.Memory.Engines;
 /// past the limit (see <see cref="Lyntai.Memory.Verification.IMemoryVerificationPolicy"/>). Null is the
 /// model-free floor: the ranking policy's order stands and everything a recall returns is reinforced,
 /// exactly as before this seam existed.</param>
+/// <param name="retentionPolicies">The coexisting retention dimensions — a DI collection, like
+/// <paramref name="agePolicies"/> and <paramref name="saliencePolicies"/>, because retention is a PLURAL
+/// domain (<c>docs/DECISIONS.md</c> <b>D48</b>). The engine composes them over
+/// <paramref name="retrievability"/> itself; null or empty leaves the curve exactly as supplied.
+/// <para><b>Supplying these AND an already-modulated curve throws</b>, because it would apply retention
+/// twice — see the guard's own remarks. Composing a
+/// <see cref="Lyntai.Memory.Modulation.ModulatedRetrievability"/> yourself and passing it as
+/// <paramref name="retrievability"/> ALONE stays supported.</para></param>
+/// <param name="retentionComposition">How several coexisting retention dimensions combine into one factor;
+/// null takes the multiplicative default. Irrelevant when fewer than two are registered.</param>
 public sealed class GraphMemoryEngine(
     string name,
     IMemoryGraphStore store,

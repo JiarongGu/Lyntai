@@ -720,6 +720,61 @@ knowledge updates, distractors that should be suppressed. **LongMemEval's knowle
 categories** are the closer fit, and on those a working decay model should beat a flat archive rather than
 apologise to it.
 
+### Where the −26 actually goes, and two hypotheses that died finding out (`memory-locomo --retrieval`, 2026-08-31)
+
+Three ladders, 200 questions, model-free except where a judge is named, all against `vector` at **80.5%**.
+Opened because the owner asked why search quality is not good enough; the gap turned out to decompose
+cleanly, and neither of the first two explanations survived.
+
+| arm | multi-hop | temporal | open-domain | single-hop | **overall** |
+|---|---|---|---|---|---|
+| `lyntai` (shipped) | 45.9% | 47.6% | 33.3% | 62.4% | **54.5%** |
+| `+sem` (`SemanticSeedK = 20`) | 51.4% | 50.0% | 33.3% | 65.1% | 57.5% |
+| `+sem80` | 51.4% | 47.6% | 33.3% | 61.5% | 55.0% |
+| `+forget0` (`RetrievabilityWeight = 0`) | 51.4% | 54.8% | 41.7% | 67.0% | **60.0%** |
+| `+rel-only` (also `HopWeight = 0`) | 51.4% | 54.8% | 41.7% | 67.0% | 60.0% |
+| `+sem+mult` (magnitude preserved) | **64.9%** | 64.3% | 41.7% | 61.5% | 61.5% |
+| `+sem80+mult` | 27.0% | 9.5% | 8.3% | 25.7% | **21.5%** |
+| `+forget0+oracle` (PERFECT judge) | 64.9% | **85.7%** | 58.3% | 80.7% | **77.5%** |
+| `vector` (plain cosine) | 81.1% | 81.0% | 58.3% | 82.6% | **80.5%** |
+
+`items/q` is 20.0 on every arm, so **nothing is filtered before ranking** — the column exists to catch that
+and it is clean.
+
+**Decay costs 5.5 points and no more.** `+forget0` removes forgetting's vote from ranking and improves every
+category. LoCoMo rewards a perfect archive by construction, so some of this is the benchmark punishing the
+design's premise rather than a defect — but it bounds that share at 5.5 of 26.
+
+**HYPOTHESIS 1, REFUTED: "the edges aren't connecting evidence to queries."** The n-shot walk recovers only
++1.5/+1.0 (Part 118), so a map argument predicts recovery the walk does not deliver — but **D59 already
+decomposed this**: 100% of misses are reachable-but-outranked, 0% unreachable. The pool holds the evidence.
+
+**HYPOTHESIS 2, REFUTED: "RRF flattens the cosine magnitude, so preserve it."** `MultiplicativeRankingPolicy`
+nets **+1.5** overall. It is not nothing — multi-hop goes 51.4 → 64.9, exactly what a PERFECT judge achieves
+there — but single-hop pays it back (67.0 → 61.5). And `+sem80+mult` **collapses to 21.5%**: multiplicative
+ranking over a large pool is actively destructive, which is worth knowing before anyone reaches for it.
+
+**What survives is sharper, and it was visible in the first table.** `+sem` (57.5%) is WORSE than `+forget0`
+(60.0%). At `SemanticSeedK = 20` the pool provably contains cosine's entire top-20 — the exact set that
+scores 80.5% — and the engine ranks them out. At 80 seeds it holds cosine's top-80 and still scores 55.0%.
+**Adding good candidates makes it worse.** `GraphNode.Relevance`'s own contract names the mechanism: for a
+lexical hit it is "a backend's own normalized rank POSITION within one seed, not a portable score", while a
+semantic seed carries a COSINE. The fusion treats two incomparable scales as one signal.
+
+**The judge recovers what ranking loses, and is still not enough.** A perfect judge promoting before the cut
+takes 60.0% → 77.5%, beating cosine on temporal (85.7 vs 81.0) and tying it on open-domain. That is D59
+confirmed on this workload. But **cosine at 80.5% beats the engine WITH a perfect judge**, so on a
+uniform-history search workload the graph is not paying for itself, and no arm on this ladder makes it.
+
+**Read the oracle as a CEILING.** It endorses exactly the evidence LoCoMo names, agrees with the metric by
+construction, and says nothing about any real model's accuracy. Its purpose is to price the mechanism before
+spending a model run — the stance `memory-annotation` takes with a perfect annotator.
+
+**What is NOT settled.** Whether a real judge approaches 77.5% (the arm exists, `+forget0+judge`, and had not
+completed when this was written). Whether multi-hop's residual — 64.9% even with a perfect judge, against
+cosine's 81.1% — is evidence outside `VerificationDepth`, which no judge quality could reach. And every
+figure here is one embedder on one workload.
+
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 
 LoCoMo rewards a perfect archive and penalises decay by construction. This is the opposite shape and the

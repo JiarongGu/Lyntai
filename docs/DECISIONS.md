@@ -1064,8 +1064,10 @@ performance regression rather than a simplification.
 make the graph's spreading activation work there — that is a separate mechanism with its own measurement.
 
 ## D56 — objective (1) does not trade: an authoritative fact takes a slot WITHIN the limit (2026-08-13)
-Design §5.7.0 makes "never lose an authoritative fact" the only objective with no acceptable failure rate,
-and it had never been measured — the corpus held no graded material. The first measurement lost all three
+Design §5.7.0 makes "never lose an authoritative fact" the only OBJECTIVE with no acceptable failure rate,
+and it had never been measured — the corpus held no graded material. (**D90** later lifted that line into one
+of four INVARIANTS, each an absolute, so it is no longer the only absolute in the section — read this
+sentence as about the lexicographic objectives it was written against.) The first measurement lost all three
 facts in all five languages. Exact facts now take reserved slots inside the limit and may displace ordinary
 hits, because that is what marking a fact authoritative MEANS. `AuthoritativeReserve` bounds how many, so
 the trade is bounded rather than unbounded. **A small-limit recall returning fewer ordinary hits is the

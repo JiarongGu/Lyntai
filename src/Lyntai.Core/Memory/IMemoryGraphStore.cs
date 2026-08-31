@@ -300,7 +300,7 @@ public sealed record GraphNeighbour(GraphNode Node, double EdgeWeight, double Ed
 /// about this entry for the recall that logged it: <c>true</c> it answered the query, <c>false</c> it did
 /// not, <c>null</c> no verifier ran.
 /// <para><b>This is the only column in the log that is not derived from the curve's own prediction, which is
-/// the whole reason it exists.</b> <paramref name="Grade"/> comes from
+/// the whole reason it exists.</b> <paramref name="ReviewGrade"/> comes from
 /// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.DerivedGrade"/>, computed from the very
 /// constants a fit would estimate — so maximising the likelihood of those grades recovers whatever produced
 /// the log (<c>docs/DECISIONS.md</c> <b>D51</b>). An external judgement breaks that circularity.</para>
