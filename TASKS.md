@@ -51,10 +51,11 @@ rather than by decision, the third outright — and each is struck through below
 in that list is work any more.
 
 **What replaced them is one number.** Plain cosine scores **80.5%** on LoCoMo evidence-hit@20; this engine
-scores **54.5%** shipped, **61.5%** on its best mechanical arm, and **77.5%** with a PERFECT judge. A pure
-formula beats formula-plus-oracle, so **the deficit is not the model tier** — which matters, because the
-owner's stated design is that a model is an add-on that raises the ceiling and never holds the floor
-(`model-decoupling.md` says the same). Part 128 carries it.
+scores **54.5%** shipped, **83.0%** on its best mechanical arm (`+sem+rel-only`, per-source fusion,
+`docs/task-archive.md` **Part 131**), and **77.5%** with a PERFECT judge. A pure formula beats
+formula-plus-oracle, so **the deficit is not the model tier** — which matters, because the owner's stated
+design is that a model is an add-on that raises the ceiling and never holds the floor (`model-decoupling.md`
+says the same). Part 128 carries it.
 
 **The standing trap still applies and now has a fifth instance.** Every recall-quality number is a property
 of the INSTRUMENT until proven otherwise: `memory-salience`'s OFF arm was never off (`docs/FIXES.md`,
@@ -716,11 +717,24 @@ good enough". Tables and the full reading are `docs/memory.md` §5; this Part ca
 do. **Two hypotheses died in those runs and are recorded so nobody re-runs them**: the edges are not the
 problem (**D59** decomposed it — 100% of misses reachable-but-outranked, 0% unreachable), and preserving the
 cosine MAGNITUDE is not the fix (`MultiplicativeRankingPolicy` nets +1.5 overall, and `+sem80+mult`
-collapses to 21.5%)._
+collapsed to 21.5% at the time)._
+
+_**`+sem80+mult` is now 57.0%, not 21.5%** — a direct side effect of per-source fusion: `SemanticSeedSource`
+now sets `Matched = true` carrying an honest cosine, and `MultiplicativeRankingPolicy` reads
+`Matched is null ? 1 : Relevance`, so a semantic seed stopped acting as an implicit neutral multiplier
+(`docs/memory.md` §5, `docs/task-archive.md` **Part 131**). **The conclusion above is UNCHANGED, only its
+supporting figure moved**: 57.0% is still far below `+sem+rel-only`'s 83.0%, so magnitude preservation is
+still not the fix._
 
 _**The uncomfortable summary, stated once so it is not softened later:** plain cosine scores **80.5%**, this
 engine's best mechanical arm **61.5%**, and the engine WITH A PERFECT JUDGE **77.5%**. On a uniform-history
 search workload the graph is not paying for itself, and no arm measured so far makes it._
+
+_**61.5% above is superseded, not retracted — it is quoted as written on 2026-08-31.** Per-source fusion
+later moved the best mechanical arm to **83.0%** (`+sem+rel-only`; see the closure note below and
+`docs/memory.md` §5). The rest of that paragraph's claim — cosine beating the engine even WITH a perfect
+judge — is untouched by that later change: neither `vector` (80.5%) nor `+forget0+oracle` (77.5%) uses
+semantic seeds._
 
 _**The mixed-scale hypothesis was TESTED on 2026-08-31 and CONFIRMED, on a prediction registered in the
 source before the run.** `+sem+rel-only` — semantic seeds present, every other vote off, so relevance alone
