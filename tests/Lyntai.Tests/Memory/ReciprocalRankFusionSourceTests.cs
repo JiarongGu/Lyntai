@@ -40,6 +40,12 @@ public class ReciprocalRankFusionSourceTests
         Assert.Equal(2, ranked[0].Candidate.Node.Id);
     }
 
+    // Ids deliberately arranged so the id tiebreak OPPOSES the expected result: the single-source
+    // candidate carries the higher id (2) and the two-source candidate the lower one (1).
+    // MemoryRankingContract.Finish breaks a tie by Node.Id DESCENDING, so if agreement stopped
+    // being rewarded and every signal fell back to a tie, id 2 would win by tiebreak alone — the
+    // opposite of what this test asserts. Only a genuinely higher per-source score can make id 1
+    // lead here.
     [Fact]
     public void A_candidate_two_sources_agree_on_outranks_one_only_a_single_source_found()
     {
@@ -49,18 +55,24 @@ public class ReciprocalRankFusionSourceTests
             HopWeight = 0,
         });
 
-        var oneSource = Candidate(1, 0.5, 0.5, new MemorySeedRank("lexical", 1));
-        var bothAgree = Candidate(2, 0.5, 0.5,
+        var oneSource = Candidate(2, 0.5, 0.5, new MemorySeedRank("lexical", 1));
+        var bothAgree = Candidate(1, 0.5, 0.5,
             new MemorySeedRank("lexical", 1), new MemorySeedRank("semantic", 1));
 
         var ranked = policy.Rank([oneSource, bothAgree], Ctx);
 
-        Assert.Equal(2, ranked[0].Candidate.Node.Id);
+        Assert.Equal(1, ranked[0].Candidate.Node.Id);
     }
 
     // Empty ranks means "no relevance evidence", NOT "ranked worst". A hop neighbour beside a
     // ranked seed must contribute no relevance term rather than sorting to the bottom of one.
     // With relevance the only live signal, the seed leads and the neighbour still survives.
+    //
+    // The pooled Relevance field is deliberately INVERTED against the expected answer (the
+    // rank-less hop neighbour carries the HIGHER pooled relevance, 0.9 against the ranked seed's
+    // 0.1): if the pooled field were still what decided this, the hop neighbour would lead. Only
+    // treating "no ranks" as "no relevance term" — rather than reading the pooled field — puts the
+    // seed first.
     [Fact]
     public void A_candidate_no_source_matched_contributes_no_relevance_term_and_is_not_dropped()
     {
@@ -70,8 +82,8 @@ public class ReciprocalRankFusionSourceTests
             HopWeight = 0,
         });
 
-        var hopNeighbour = Candidate(1, 0, 0.9);                                  // no ranks
-        var seed = Candidate(2, 0.5, 0.1, new MemorySeedRank("lexical", 1));
+        var hopNeighbour = Candidate(1, 0.9, 0.9);                                // no ranks
+        var seed = Candidate(2, 0.1, 0.1, new MemorySeedRank("lexical", 1));
 
         var ranked = policy.Rank([hopNeighbour, seed], Ctx);
 
