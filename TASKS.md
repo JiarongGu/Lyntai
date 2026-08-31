@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SEVEN items, across Parts 105, 109, 116, 128, 129 and 132.** Each is a `- [ ]` you
+**The startable set is EIGHT items, across Parts 105, 109, 116, 128, 129, 132 and 133.** Each is a `- [ ]` you
 could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -835,6 +835,45 @@ exactly that failure mode, latent until a BYO channel meets `StrictWiring`._
   interface shipping this same branch, so it did not belong in the fix wave that found it: widening
   `IMemorySeedSource` deserves its own measurement of what a BYO implementer should be expected to declare,
   not a same-session patch.
+
+---
+
+## Part 133 — the gate for the withdrawn position rule is narrower than the rule (2026-09-01)
+
+_Opened by the seed-source-fusion branch's final re-review, and filed here rather than left in an untracked
+ledger because the ledger is deleted when the branch merges._
+
+_**D103** withdrew "position IS the rank" in favour of ranking by a source's own `Relevance` gradient. Six
+prose instances of the withdrawn rule existed; a grep for the retired IDENTIFIERS found four, and the two
+that survived a green `check-docs` did so because the withdrawn RULE was never registered as vocabulary. A
+`retiredTerms` entry was then added for the phrasing — and it is too narrow to do its job._
+
+_**Measured, by compiling the shipped pattern and running strings through it** (not by reading it):
+`position IS the rank` **escapes**, because the connector words are spelled lowercase-only with no `i` flag
+while `Position`/`POSITION` and `Rank`/`rank` ARE case-handled — so capitalising one connector defeats the
+rule, in a repository whose house style leans on ALL-CAPS emphasis constantly. `ranks by position within the
+candidate set` **escapes** too, because the pattern requires an exact `is the` / `as a|the` template and a
+paraphrase of the identical claim walks straight through._
+
+_The article requirement exists solely to avoid firing on `CompositeRankingPolicy.cs`, which legitimately
+QUOTES the withdrawn rule. **That is the second time on one branch a gate was narrowed to dodge a false
+positive rather than annotating the false positive** — the first was a `retiredTerms` lookahead that <!-- drift-ok: names the retired identifier as the DATA the reverted lookahead excluded -->
+silently excluded `SemanticSeedK = 30`, reverted the day it shipped and recorded in <!-- drift-ok: same quotation, wrapped onto this line -->
+
+`.claude/knowledge/pitfalls.md`. Both narrowings were invisible, permanent, and aimed exactly where the gate
+was needed. **A `drift-ok` is line-local, visible and reviewable; a pattern shaped to miss one legitimate
+line misses every future illegitimate line of that shape, and nothing ever notices.**_
+
+- [ ] **Broaden the pattern, and annotate the one legitimate quote instead of dodging it.** Case-cover
+  `is` / `as` / `a` / `the` individually rather than relying on a missing `i` flag, make the article
+  OPTIONAL rather than required, and cover the `ranks`/`ranked BY position` construction. Then put a
+  `drift-ok` on `CompositeRankingPolicy.cs`'s legitimate quote, with its reason in the same edit.
+  **Prove it bites on a PARAPHRASE and on a capitalised connector, not on the original sentence replayed
+  verbatim** — replaying the known-bad string is what let the current narrowing pass its own author's check.
+  <br>_**Confirmed in the tree, not just in a probe**: writing this Part quoted both escaping forms above in
+  plain prose and `check-docs` passed them both, while flagging the retired IDENTIFIER two paragraphs up on
+  the very same run — which is why that one carries a `drift-ok` and these do not need one. The gate can see
+  the name it banned and cannot see the rule it banned._
 
 ---
 
