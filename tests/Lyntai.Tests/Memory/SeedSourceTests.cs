@@ -161,18 +161,30 @@ public sealed class SeedSourceTests : IDisposable
 
     /// <summary>Records the <c>limit</c> <see cref="SubjectSeedSource"/> actually asks
     /// <see cref="IMemoryGraphStore.NodesBySubjectAsync"/> for, independent of what comes back — so a test can
-    /// tell "the fetch used K" from "the fetch used Limit" purely from the recorded value. Everything else
-    /// delegates to a real in-process store, so <see cref="GraphMemoryEngine.RememberAsync"/> works normally
-    /// against it.</summary>
+    /// tell "the fetch used K" from "the fetch used Limit" purely from the recorded value. Also COUNTS calls
+    /// to both subject-index reads, so a test can assert the COST-avoidance half of a guard (no call at all)
+    /// rather than only its output shape, which a downstream guard the store already carries can satisfy on
+    /// its own. Everything else delegates to a real in-process store, so
+    /// <see cref="GraphMemoryEngine.RememberAsync"/> works normally against it.</summary>
     private sealed class RecordingSubjectGraphStore : IMemoryGraphStore
     {
         private readonly InMemoryMemoryGraphStore _inner = new();
 
         public int? RequestedNodesLimit { get; private set; }
+        public int KnownSubjectsCalls { get; private set; }
+        public int NodesBySubjectCalls { get; private set; }
+
+        public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
+            int limit, CancellationToken ct = default)
+        {
+            KnownSubjectsCalls++;
+            return _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
+        }
 
         public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
             string subject, int limit, CancellationToken ct = default)
         {
+            NodesBySubjectCalls++;
             RequestedNodesLimit = limit;
             return _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
         }
@@ -204,9 +216,6 @@ public sealed class SeedSourceTests : IDisposable
             _inner.ReviewsAsync(engine, ct);
         public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
             CancellationToken ct = default) => _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
-        public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
-            int limit, CancellationToken ct = default) =>
-            _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
     }
 
     /// <summary>The same capture as <see cref="CapturingLogger"/>, typed for <see cref="SubjectSeedSource"/> —
@@ -403,23 +412,73 @@ public sealed class SeedSourceTests : IDisposable
         Assert.Single(log.Warnings);   // the assertion that tells the two apart
     }
 
-    [Fact]
-    public async Task With_K_or_Scan_at_zero_the_subject_source_seeds_nothing()
+    /// <summary>Writes one fact tagged "topic" into a fresh <see cref="RecordingSubjectGraphStore"/> — the
+    /// shared setup for every guard test below, each of which needs a store that genuinely HAS a matching
+    /// subject so "zero calls" cannot be mistaken for "nothing to find".</summary>
+    private static async Task<RecordingSubjectGraphStore> SubjectSeededStoreAsync()
     {
-        var store = new SqliteMemoryGraphStore(_db.Factory);
+        var store = new RecordingSubjectGraphStore();
         var engine = new GraphMemoryEngine("seedtest", store);
         var written = await engine.RememberAsync(new MemoryWrite("task", "scope", "a fact about the topic"));
         await store.RecordSubjectsAsync("seedtest", long.Parse(written.Id, CultureInfo.InvariantCulture),
             ["topic"], CancellationToken.None);
+        return store;
+    }
 
-        var request = new MemorySeedRequest("seedtest", store,
+    [Fact]
+    public async Task With_K_or_Scan_at_zero_the_subject_source_makes_no_store_calls()
+    {
+        // K=0: the per-subject FETCH never happens — KnownSubjectsAsync may still run (Scan is untouched),
+        // but NodesBySubjectAsync must not, which is the call K=0 exists to skip paying for.
+        var kOffStore = await SubjectSeededStoreAsync();
+        var kOff = new SubjectSeedSource(new SubjectSeedOptions { K = 0 });
+        var kOffRequest = new MemorySeedRequest("seedtest", kOffStore,
             new MemoryQuery("task", Scope: "scope", Query: "topic"), Limit: 10);
 
-        var kOff = new SubjectSeedSource(new SubjectSeedOptions { K = 0 });
-        var scanOff = new SubjectSeedSource(new SubjectSeedOptions { Scan = 0 });
+        Assert.Empty(await kOff.SeedAsync(kOffRequest, CancellationToken.None));
+        Assert.Equal(0, kOffStore.KnownSubjectsCalls);
+        Assert.Equal(0, kOffStore.NodesBySubjectCalls);
 
-        Assert.Empty(await kOff.SeedAsync(request, CancellationToken.None));
-        Assert.Empty(await scanOff.SeedAsync(request, CancellationToken.None));
+        // Scan=0: the handle SCAN never happens at all — the one grouped read SubjectSeedScan's own doc
+        // says this knob exists to stop paying for, so no call reaches either method.
+        var scanOffStore = await SubjectSeededStoreAsync();
+        var scanOff = new SubjectSeedSource(new SubjectSeedOptions { Scan = 0 });
+        var scanOffRequest = new MemorySeedRequest("seedtest", scanOffStore,
+            new MemoryQuery("task", Scope: "scope", Query: "topic"), Limit: 10);
+
+        Assert.Empty(await scanOff.SeedAsync(scanOffRequest, CancellationToken.None));
+        Assert.Equal(0, scanOffStore.KnownSubjectsCalls);
+        Assert.Equal(0, scanOffStore.NodesBySubjectCalls);
+    }
+
+    [Fact]
+    public async Task A_blank_query_makes_no_subject_store_calls()
+    {
+        var store = await SubjectSeededStoreAsync();
+        var source = new SubjectSeedSource();
+        var request = new MemorySeedRequest("seedtest", store,
+            new MemoryQuery("task", Scope: "scope", Query: "   "), Limit: 10);
+
+        var seeded = await source.SeedAsync(request, CancellationToken.None);
+
+        Assert.Empty(seeded);
+        Assert.Equal(0, store.KnownSubjectsCalls);
+        Assert.Equal(0, store.NodesBySubjectCalls);
+    }
+
+    [Fact]
+    public async Task A_non_positive_limit_makes_no_subject_store_calls()
+    {
+        var store = await SubjectSeededStoreAsync();
+        var source = new SubjectSeedSource();
+        var request = new MemorySeedRequest("seedtest", store,
+            new MemoryQuery("task", Scope: "scope", Query: "topic"), Limit: 0);
+
+        var seeded = await source.SeedAsync(request, CancellationToken.None);
+
+        Assert.Empty(seeded);
+        Assert.Equal(0, store.KnownSubjectsCalls);
+        Assert.Equal(0, store.NodesBySubjectCalls);
     }
 
     [Fact]
