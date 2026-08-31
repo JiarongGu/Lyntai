@@ -770,10 +770,40 @@ uniform-history search workload the graph is not paying for itself, and no arm o
 construction, and says nothing about any real model's accuracy. Its purpose is to price the mechanism before
 spending a model run — the stance `memory-annotation` takes with a perfect annotator.
 
-**What is NOT settled.** Whether a real judge approaches 77.5% (the arm exists, `+forget0+judge`, and had not
-completed when this was written). Whether multi-hop's residual — 64.9% even with a perfect judge, against
-cosine's 81.1% — is evidence outside `VerificationDepth`, which no judge quality could reach. And every
-figure here is one embedder on one workload.
+**CONFIRMED 2026-08-31, on a PRE-REGISTERED prediction.** The arm that isolates it — `+sem+rel-only`,
+semantic seeds present and every other vote off, so relevance alone orders a pool provably containing
+cosine's entire top-20 — was written with both branches stated in the source before it ran: *reaching ~80%
+means the WEIGHTS diluted a good ordering; staying near 60% means the defect is RELEVANCE ITSELF.*
+
+| arm | multi-hop | temporal | open-domain | single-hop | overall |
+|---|---|---|---|---|---|
+| `+sem+rel-only` | 51.4% | 64.3% | 41.7% | **69.7%** | **63.5%** |
+
+**63.5% is the second branch.** Strip every other vote, hand relevance the right candidates, and it still
+loses 17 points to cosine. **The weights were never the problem**, which retires weight-tuning as a direction
+— though the arm is now the best mechanical configuration measured, and it is one line.
+
+**The mechanism is visible in the harness's own control output**, and it is why no weighting can fix it:
+
+```
+returned Relevance : 0.963, 0.700, 0.738, 0.690, 0.900, …
+semantic  cosines  : 0.742, 0.732, 0.726, 0.723, 0.721, …
+```
+
+Lexical hits carry a rank POSITION (0.963, 0.900), semantic seeds carry a COSINE (0.742, 0.732), and the two
+are compared directly on one field. The lexical values sit systematically higher, so a semantic candidate is
+outranked *by construction* however good its similarity — which is also why ADDING semantic seeds makes the
+arm worse rather than better.
+
+**What that leaves as a direction** (a design question, not a measured result): relevance has to be
+comparable before it is ranked — normalised per SOURCE, or each source ranked within itself and fused
+afterwards. Neither is measured, and `GraphNode.Relevance`'s contract would have to change, since it
+currently promises only a backend-specific position.
+
+**What is NOT settled.** Whether a real judge approaches 77.5% (the arm exists, `+forget0+judge`, and has
+never completed). Whether multi-hop's residual — 64.9% even with a perfect judge, against cosine's 81.1% — is
+evidence outside `VerificationDepth`, which no judge quality could reach. And every figure here is one
+embedder on one workload.
 
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 

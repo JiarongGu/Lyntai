@@ -37,8 +37,10 @@ with their write-ups sitting in `docs/memory.md` §5 while the banner advertised
 it from eight to seven. Every number here is edited in the same change as the item, which is the habit
 `pitfalls.md` prescribes after four stale banners._
 
-**START WITH `## Part 128`.** It is the only one that answers "why is retrieval not good enough", and its
-first item is the only surviving explanation after two hypotheses were measured dead.
+**START WITH `## Part 128`.** It is the only one that answers "why is retrieval not good enough", and by the
+end of 2026-08-31 it had measured THREE hypotheses dead and confirmed the fourth: relevance carries two
+incomparable scales, so weight-tuning is retired and the surviving direction is a contract-shaped one.
+**Its bar is 63.5%** — the best mechanical arm — not the shipped 54.5%.
 
 **HANDOVER (2026-08-31, end of session).** The direction was MEMORY OPTIMIZATION and it moved a long way, so
 read this before picking anything up.
@@ -713,19 +715,26 @@ _**The uncomfortable summary, stated once so it is not softened later:** plain c
 engine's best mechanical arm **61.5%**, and the engine WITH A PERFECT JUDGE **77.5%**. On a uniform-history
 search workload the graph is not paying for itself, and no arm measured so far makes it._
 
-- [ ] **Test the mixed-relevance-scale hypothesis — the only surviving explanation.** At
-  `SemanticSeedK = 20` the candidate pool provably contains cosine's entire top-20 (the set scoring 80.5%)
-  and the engine returns 57.5%; at 80 seeds it holds the top-80 and returns 55.0%. **Adding good candidates
-  makes it worse**, which is the shape to explain.
-  <br>`GraphNode.Relevance`'s own contract names the mechanism: for a lexical hit it is "a backend's own
-  normalized rank POSITION within one seed, not a portable score", while a semantic seed carries a COSINE.
-  The fusion treats two incomparable scales as one signal.
-  <br>**The experiment**: an arm where semantic relevance ORDERS the pool outright rather than being fused
-  with lexical rank positions — the closest the engine can get to being cosine while keeping its own
-  pipeline. If it reaches ~80%, the 19 points are a scale defect and fixable. If it does not,
-  lexical-seed-then-rerank is a structural limit and that is a much larger design question.
-  <br>_Model-free, so minutes. `bench/Lyntai.Benchmarks/MemoryLocomoBench.cs`'s `Ladder()` is where an arm
-  goes._
+_**The mixed-scale hypothesis was TESTED on 2026-08-31 and CONFIRMED, on a prediction registered in the
+source before the run.** `+sem+rel-only` — semantic seeds present, every other vote off, so relevance alone
+orders a pool provably holding cosine's entire top-20 — scores **63.5%**, not the ~80% that would have meant
+the weights were diluting a good ordering. **Weight-tuning is therefore retired as a direction.** The
+mechanism is in the harness's own control output: lexical hits carry a rank POSITION (0.963, 0.900) and
+semantic seeds a COSINE (0.742, 0.732), compared on one field, so a semantic candidate is outranked by
+construction however similar it is — which is also why ADDING semantic seeds makes the arm worse.
+`docs/memory.md` §5 carries the table. Incidentally, `+sem+rel-only` is now the best mechanical arm measured
+and is one line._
+
+- [ ] **Make `Relevance` comparable before it is ranked.** The surviving direction, and it is a DESIGN
+  question rather than a knob: either normalise relevance per SOURCE, or rank each source within itself and
+  fuse afterwards. Neither is measured.
+  <br>**It changes a contract.** `GraphNode.Relevance` currently promises only "a backend's own normalized
+  rank POSITION within one seed, not a portable score", and every backend's `SeedAsync` is written to that.
+  Making it portable is a cross-backend change with the InMemory/SQLite/Postgres parity problem D60 and D77
+  already record; ranking per source instead leaves the contract alone and moves the work into the ranking
+  policy, which is the cheaper half to try first.
+  <br>**The bar it has to clear is 63.5%**, not the shipped 54.5% — anything less is worse than a one-line
+  configuration change that already exists.
 
 - [ ] **Finish the REAL judge arm.** `+forget0+judge` is built and wired (the shipped
   `LlmMemoryVerificationPolicy` driven through an `ILlmClientFactory` adapter, deliberately not a
