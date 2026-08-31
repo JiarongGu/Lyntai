@@ -306,6 +306,25 @@ public sealed class GraphMemorySeedRankTests : IDisposable
             sp.GetServices<IMemorySeedSource>().Select(s => s.Name).Order(StringComparer.Ordinal));
     }
 
+    /// <summary>Pins WHERE the missing-dependency failure actually fires, corrected by
+    /// <see cref="MemorySeedRegistration.AddMemorySemanticSeeds"/>'s own doc: NOT at
+    /// <c>BuildServiceProvider</c> — nothing in this library validates on build — but on the first
+    /// resolution of <see cref="IMemoryEngineFactory"/>, since that is what eagerly builds every registered
+    /// <see cref="IMemoryEngine"/> and so first constructs <see cref="SemanticSeedSource"/>.</summary>
+    [Fact]
+    public void AddMemorySemanticSeeds_without_an_embedder_throws_on_the_first_factory_resolution()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .UseInMemoryStorage()
+            .AddMemory()
+            .AddMemorySemanticSeeds());   // no IEmbedder / IVectorStore registered
+        using var sp = services.BuildServiceProvider();   // does NOT throw
+
+        Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<IMemoryEngineFactory>());
+    }
+
     /// <summary>Calling the subject registration on top of the default configures the ONE source rather than
     /// adding a second under the same name — two sources sharing a <see cref="IMemorySeedSource.Name"/> would
     /// each contribute their own fusion term for the same evidence.</summary>

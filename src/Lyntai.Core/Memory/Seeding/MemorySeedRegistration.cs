@@ -21,9 +21,12 @@ public static class MemorySeedRegistration
     /// exists only because an annotator was already paid for.</para>
     ///
     /// <para><b>Needs an <see cref="Lyntai.Embeddings.IEmbedder"/> and an
-    /// <see cref="Lyntai.Memory.IVectorStore"/> in the container</b>; without them the container fails to
-    /// build, naming the missing one, rather than registering a channel that could only ever return
-    /// nothing.</para>
+    /// <see cref="Lyntai.Memory.IVectorStore"/> in the container</b> — <see cref="SemanticSeedSource"/>'s own
+    /// constructor requires both. Neither is validated HERE: engines resolve LAZILY inside
+    /// <see cref="Lyntai.Memory.IMemoryEngineFactory"/>, and nothing in this library calls
+    /// <c>BuildServiceProvider(validateOnBuild: true)</c>, so a container missing either throws on the FIRST
+    /// resolution of <see cref="Lyntai.Memory.IMemoryEngineFactory"/> — not at this call, and not at
+    /// container build time.</para>
     ///
     /// <para><b>Calling it twice yields ONE channel.</b> Two sources sharing a
     /// <see cref="IMemorySeedSource.Name"/> would each contribute a rank-fusion term for the same evidence,

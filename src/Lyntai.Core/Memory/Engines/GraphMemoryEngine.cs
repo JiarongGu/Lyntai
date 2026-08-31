@@ -276,7 +276,15 @@ public sealed class GraphMemoryEngine(
 
     /// <summary>Whether a channel of this name is registered — how the two wiring diagnostics below ask
     /// their question now that the seed options are gone. Ordinal, matching
-    /// <see cref="MemorySeedRanks.TryGet"/>'s own comparison.</summary>
+    /// <see cref="MemorySeedRanks.TryGet"/>'s own comparison.
+    /// <para><b>Known limitation: this asks about a NAME, and <see cref="IMemorySeedSource"/> exposes
+    /// nothing else to ask.</b> Renaming <see cref="SemanticSeedSource.Name"/> silently MUTES the finding
+    /// below (the permissive direction); a consumer's BYO semantic channel under any other name produces a
+    /// FALSE finding recommending <c>AddMemorySemanticSeeds()</c> on a wiring that is already correct; and
+    /// under <see cref="MemoryEngineBuilder.StrictWiring"/> that false finding THROWS at startup on that
+    /// same correct wiring. <see cref="MemoryWiring"/>'s own class doc says a finding that is usually wrong
+    /// is worse than no check — this is exactly that failure mode, tracked as <c>TASKS.md</c> Part
+    /// 132.</para></summary>
     private bool Seeds(string source) =>
         _seedSources.Any(s => string.Equals(s.Name, source, StringComparison.Ordinal));
 
@@ -298,7 +306,9 @@ public sealed class GraphMemoryEngine(
     /// default: the vector channel is opt-in (<c>AddMemorySemanticSeeds</c>).
     /// <para>Internal, and read only by <see cref="MemoryWiring"/>: it is a wiring diagnostic, not something
     /// a consumer branches on. Exposed as a property rather than reflected over, so a rename is a compile
-    /// error instead of a sweep that throws the next time somebody runs it.</para></summary>
+    /// error instead of a sweep that throws the next time somebody runs it.</para>
+    /// <para>See <see cref="Seeds"/>'s own remarks for this diagnostic's known limitation — it asks about a
+    /// registered NAME, not a channel's role.</para></summary>
     internal bool EmbedsWithoutSeeding => Enriches && !Seeds("semantic");
 
     /// <summary>This engine records subject handles and no recall can reach one — an annotator is wired, so

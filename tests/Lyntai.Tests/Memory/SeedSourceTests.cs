@@ -12,7 +12,9 @@ namespace Lyntai.Tests.Memory;
 
 /// <summary>Pins <see cref="LexicalSeedSource"/>'s whole contract: it is a thin pass-through to
 /// <see cref="IMemoryGraphStore.SeedAsync"/>, so the source's output must equal a direct store call
-/// entry-for-entry and in the SAME order — position is the rank this seam exists to carry.
+/// entry-for-entry and in the SAME order — a PASS-THROUGH guarantee about what this source returns, not a
+/// ranking one: <see cref="IMemorySeedSource"/>'s own contract ranks by <c>Relevance</c>, never by list
+/// position.
 ///
 /// <para><see cref="SemanticSeedSource"/>'s tests below pin the same "own order" contract for the vector
 /// channel, plus the two behaviours moved verbatim out of <c>GraphMemoryEngine.SemanticScoresAsync</c> /
@@ -428,8 +430,8 @@ public sealed class SeedSourceTests : IDisposable
     [Fact]
     public async Task With_K_or_Scan_at_zero_the_subject_source_makes_no_store_calls()
     {
-        // K=0: the per-subject FETCH never happens — KnownSubjectsAsync may still run (Scan is untouched),
-        // but NodesBySubjectAsync must not, which is the call K=0 exists to skip paying for.
+        // K=0: the guard is one combined early return (K, Scan, Limit and Query all checked together), so
+        // NEITHER store call runs — not even KnownSubjectsAsync, despite Scan being untouched.
         var kOffStore = await SubjectSeededStoreAsync();
         var kOff = new SubjectSeedSource(new SubjectSeedOptions { K = 0 });
         var kOffRequest = new MemorySeedRequest("seedtest", kOffStore,

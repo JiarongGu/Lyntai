@@ -714,6 +714,28 @@ export default {
         + 'each with its own options record, so a per-source registration can be added, overridden or left '
         + 'out without touching an unrelated option (docs/DECISIONS.md D88)',
     },
+    // D103's own "why position-ranking was tried and withdrawn": an earlier ReciprocalRankFusionPolicy cut
+    // ranked each seed source by its RETURN-LIST POSITION, assuming every source already returns a
+    // relevance-ordered list. It does not — InMemoryMemoryGraphStore orders by recency, not relevance — so
+    // position-ranking fabricated a gradient that was not there. Two test XML docs survived the fix still
+    // asserting the withdrawn rule (found only by grepping IDENTIFIERS, which a PHRASING claim has none of),
+    // which is what this entry is for: the RULE, not a symbol.
+    //
+    // Narrowed to REQUIRE an article ("is THE rank" / "as A/THE rank") after measuring the tree: without it,
+    // the pattern also caught `CompositeRankingPolicy.cs`'s "Treating list position AS RANK would silently
+    // re-introduce the exact bug ... exists to avoid" — a legitimate warning AGAINST the withdrawn rule, not
+    // an assertion of it. Both confirmed-bad sentences carry an article ("is THE rank", "as A rank of their
+    // own"); the one confirmed-legitimate one does not. Verified clean against the whole tracked tree with
+    // the article requirement in place, and verified to BITE by reintroducing one bad sentence (reverted).
+    {
+      term: '(?:[Pp]osition|POSITION)(?:\\s+\\S+){0,6}?\\s+(?:is\\s+the|as\\s+(?:a|the))\\s+[Rr]ank\\b',
+      use: 'the source is UNORDERED, or ranked by ITS OWN Relevance gradient — never that list position IS '
+        + 'or SERVES AS a rank',
+      why: 'an earlier ReciprocalRankFusionPolicy cut ranked each seed source by return-list position, which '
+        + 'assumes every source already returns a relevance-ordered list; InMemoryMemoryGraphStore does not '
+        + '(it orders by recency), so position-ranking fabricated a gradient — D103\'s "why position-ranking '
+        + 'was tried and withdrawn"',
+    },
   ],
 
   /**

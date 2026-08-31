@@ -137,6 +137,9 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   unreachable — a real cosine could never outrank a fabricated pooled value — and with per-source fusion its
   `+sem+rel-only` arm now reads **83.0%**, above plain cosine's own **80.5%**, the first mechanical arm to
   clear it. **No default moved** — `SemanticSeedOptions` still ships unregistered.
+  <br>**83.0% is a SQLite figure.** Under the shipped default registration (lexical + subject, no semantic)
+  against `InMemoryMemoryGraphStore`, no candidate carries a rank, so the whole recall still runs the pooled
+  fallback this change replaces — one of three shipped backends is unaffected.
 
 ### Breaking
 

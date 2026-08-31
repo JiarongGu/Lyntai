@@ -1,13 +1,13 @@
 namespace Lyntai.Memory.Ranking;
 
 /// <summary>Constants of <see cref="ReciprocalRankFusionPolicy"/>'s formula: <c>score = Σₛ wₛ / (K +
-/// rankₛ)</c>, summed over five signals — relevance, retrievability, salience, hop and diagnosticity — each
-/// contributing its own 1-based RANK POSITION within the candidate set, never its raw value. Ranking by
-/// POSITION rather
-/// than value is the whole reason this policy exists beside <see cref="MultiplicativeRankingPolicy"/>: a
-/// bm25-derived relevance, a [0,1] retrievability, an unbounded salience and an integer hop count share no
-/// numeric scale, so a product of them (Multiplicative's own formula) implicitly assumes one that fusing by
-/// rank never has to.</summary>
+/// rankₛ)</c>, summed over five signals — relevance, retrievability, salience, hop and diagnosticity.
+/// Retrievability, salience, hop and diagnosticity each contribute one 1-based RANK POSITION within the
+/// candidate set; relevance instead sums ONE such term PER SOURCE that ranked the candidate — see
+/// <see cref="RelevanceWeight"/>'s own remarks. Ranking by POSITION rather than value is the whole reason
+/// this policy exists beside <see cref="MultiplicativeRankingPolicy"/>: a bm25-derived relevance, a [0,1]
+/// retrievability, an unbounded salience and an integer hop count share no numeric scale, so a product of
+/// them (Multiplicative's own formula) implicitly assumes one that fusing by rank never has to.</summary>
 public sealed record ReciprocalRankFusionOptions
 {
     private readonly double _k = 60;
@@ -49,9 +49,17 @@ public sealed record ReciprocalRankFusionOptions
             + "value.");
     }
 
-    /// <summary>This signal's contribution to the fused score, as the numerator of its own <c>wₛ / (K +
-    /// rankₛ)</c> term — <see cref="GraphNode.Relevance"/>, ranked DESCENDING (a higher relevance is a
-    /// better, numerically SMALLER rank).
+    /// <summary>This signal's contribution to the fused score — one <c>wₛ / (K + rankₛ)</c> term PER SOURCE
+    /// that matched the candidate (<see cref="MemoryCandidate.Ranks"/>), each term's <c>rankₛ</c> that
+    /// source's OWN <see cref="GraphNode.Relevance"/> gradient, ranked DESCENDING (a higher relevance is a
+    /// better, numerically SMALLER rank) — never one rank over the pooled candidate set.
+    /// <para><b>So this weight's pull against <see cref="RetrievabilityWeight"/> is not fixed — it scales
+    /// with how many sources matched a candidate.</b> Two sources agreeing on a candidate earn it two terms
+    /// at this weight where one source would earn one, so registering another
+    /// <see cref="Lyntai.Memory.Seeding.IMemorySeedSource"/> changes what this knob MEANS, not merely how
+    /// often it fires. Measured NOT to be what drove the 83.0% LoCoMo gain per-source fusion produced
+    /// (<c>docs/memory.md</c> §5, <c>docs/DECISIONS.md</c> D103) — a consumer tuning this weight against a
+    /// growing source count should read it as this scaling, not a stronger relevance signal.</para>
     /// <para><b>Must be FINITE and <c>&gt;= 0</c>.</b> A negative weight would not merely weaken this
     /// signal's pull, it would INVERT it: a smaller (better) <c>rankₛ</c> produces a LARGER <c>1/(K +
     /// rankₛ)</c> term, and multiplying that by a negative weight SUBTRACTS more from the fused score the
@@ -200,10 +208,10 @@ public sealed record ReciprocalRankFusionOptions
 /// deviation from the design spec's three-signal list.
 /// <para><b>Relevance is the one term fused per SOURCE, not per candidate.</b> One <c>w/(K+rank)</c> term
 /// sums for every <see cref="MemoryCandidate.Ranks"/> entry that matched — two sources agreeing earns two
-/// terms rather than one averaged value, the formula this class is named for applied to actual ranked lists.
-/// With NO candidate in the set carrying a rank — a BYO gather, or a caller constructing
-/// <see cref="MemoryCandidate"/> directly — this falls back to <see cref="GraphNode.Relevance"/> ranked by
-/// position, the pooled-field behaviour this class shipped with before
+/// terms, the formula this class is named for applied to actual ranked lists. With NO candidate carrying a
+/// rank — a BYO gather, a direct <see cref="MemoryCandidate"/> construction, or the shipped DEFAULT
+/// registration against <c>InMemoryMemoryGraphStore</c> (<c>docs/DECISIONS.md</c> D103) — this falls back to
+/// <see cref="GraphNode.Relevance"/> ranked by position, byte-identical to before
 /// <see cref="MemoryCandidate.Ranks"/> existed.</para>
 /// <para><see cref="ReciprocalRankFusionOptions.RelativeFloor"/> ships at <c>0</c> here, not
 /// <see cref="MultiplicativeRankingOptions.RelativeFloor"/>'s <c>0.02</c> — see its own doc for why.</para>

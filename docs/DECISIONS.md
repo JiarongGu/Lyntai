@@ -2985,3 +2985,10 @@ fix reads each source's own `Relevance` gradient instead of where it sat in the 
 **`SubjectSeedOptions.K = 0` remains a legitimate off-switch** — the one registered route to "no subject
 seeding" today. If a second, non-registration off-route is ever added on top of it, **D85** applies: report
 the collision at wiring time rather than let the two silently disagree about whether the channel runs.
+
+**Two scope limits of 83.0%, unstated until this fix.** It is a SQLITE result: `InMemoryMemoryGraphStore`
+reports a flat `Relevance` for every lexical match and `Matched null` for every subject fetch, so under the
+shipped default registration (lexical + subject, no semantic) no candidate carries a rank and the recall
+runs the pre-branch pooled fallback — one of three shipped backends is unaffected by this decision.
+`MultiplicativeRankingPolicy` still ranks on the pooled `GraphNode.Relevance` field, so the mixed-scale
+defect this decision removes survives unchanged in the second shipped ranking policy.

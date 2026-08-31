@@ -29,7 +29,10 @@ public readonly struct MemorySeedRanks : IEquatable<MemorySeedRanks>
     public static MemorySeedRanks Empty { get; }
 
     /// <summary>Wraps a source-rank sequence; null or empty yields <see cref="Empty"/>.</summary>
-    /// <param name="ranks">The pairs, in any order.</param>
+    /// <param name="ranks">The pairs. ORDER IS PRESERVED, and <see cref="Equals(MemorySeedRanks)"/> is
+    /// ORDER-SENSITIVE (a sequence comparison) — two callers passing the same pairs in a different order
+    /// build unequal instances. The engine always builds in registered-source order, so this stays latent
+    /// there; a caller constructing one directly should pass a stable order too.</param>
     public MemorySeedRanks(IEnumerable<MemorySeedRank>? ranks)
     {
         MemorySeedRank[] materialized = ranks is null ? [] : ranks.ToArray();

@@ -27,16 +27,17 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SIX items, across Parts 105, 109, 116, 128 and 129.** Each is a `- [ ]` you could
-open today — which is the test this
+**The startable set is SEVEN items, across Parts 105, 109, 116, 128, 129 and 132.** Each is a `- [ ]` you
+could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
 <br>_It was three on 2026-08-30; **Parts 128 and 129 opened on 2026-08-31**, Part 65's last item closed
 (`docs/task-archive.md` **Part 127**) and Part 129's gate item was BUILT the same day (**Part 130**), taking
 it from eight to seven, and Part 128's first item CLOSED the same day as **Part 131**, taking it from seven
-to six. Every number here is edited in the same change as the item, which is the habit `pitfalls.md`
-prescribes after four stale banners._
+to six. **Part 132 opened 2026-09-01** — a wiring-diagnostic limitation found in the branch's final review —
+taking it from six to seven. Every number here is edited in the same change as the item, which is the habit
+`pitfalls.md` prescribes after four stale banners._
 
 **START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
 per-source fusion (**D103**) took `+sem+rel-only` from **63.5%** to **83.0%**, above plain cosine's
@@ -811,6 +812,29 @@ _**The gate this Part argued for is BUILT** — `docs/task-archive.md` **Part 13
 `check-decision-claims` is wired into `verify` (now seventeen gates) with six predicates, each verified by
 hand before registering and each driven RED by a synthesized tree in its own test. What is left of this Part
 is the sweep above._
+
+---
+
+## Part 132 — the two seam-name diagnostics key on a hardcoded string, and a BYO channel can trip them (2026-09-01)
+
+_Opened by the seed-source-fusion branch's final review. `GraphMemoryEngine.EmbedsWithoutSeeding` and
+`.RecordsSubjectsWithoutSeeding` ask `Seeds("semantic")` / `Seeds("subject")` —
+`IMemorySeedSource.Name` compared by ordinal string, because the seam exposes nothing else to ask
+(`GraphMemoryEngine.cs`'s own remarks on `Seeds` now carry the finding in full). Three consequences: renaming
+`SemanticSeedSource.Name` silently MUTES the finding (the permissive direction, so nobody notices); a
+consumer's BYO semantic channel under any other name produces a FALSE finding recommending
+`AddMemorySemanticSeeds()` on a wiring that is already correct; and under
+`MemoryEngineBuilder.StrictWiring()` that false finding THROWS at startup on that same correct wiring.
+`MemoryWiring`'s own class doc says a finding that is usually wrong is worse than no check at all — this is
+exactly that failure mode, latent until a BYO channel meets `StrictWiring`._
+
+- [ ] **Give a seed source a way to say WHAT it is, not just its `Name`.** A robust predicate needs
+  `IMemorySeedSource` to expose more than a display name — a `MemorySeedKind` (`Lexical` / `Semantic` /
+  `Subject` / `Custom`) or similar — so the two diagnostics can ask a channel what ROLE it plays instead of
+  string-matching a name a consumer is free to pick however they like. That is a seam change to a public
+  interface shipping this same branch, so it did not belong in the fix wave that found it: widening
+  `IMemorySeedSource` deserves its own measurement of what a BYO implementer should be expected to declare,
+  not a same-session patch.
 
 ---
 

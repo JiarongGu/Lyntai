@@ -18,7 +18,9 @@ namespace Lyntai.Tests.Memory;
 /// <para>Before this channel the graph engine had no semantic retrieval at all: the vector store was
 /// consulted at WRITE time and never at query time, so a fact worded differently from the query was
 /// unreachable however good the model. With it, the query is embedded and its nearest entries join the
-/// candidate set carrying their POSITION in cosine order as a rank of their own.</para>
+/// candidate set carrying their own cosine as this channel's <c>Relevance</c> — the gradient
+/// <c>ReciprocalRankFusionPolicy</c> ranks WITHIN this source, never the list position
+/// <c>SemanticSeedSource</c> happens to return them in.</para>
 ///
 /// <para><b>Measured here: the target is present at a wide limit and absent at limit 5</b>, outranked by
 /// recent unrelated notes. That is the same shape as the corpus-wide decomposition — every miss was a
@@ -113,9 +115,10 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
     /// <summary><b>Weighting relevance above recency IS the fix — the seed was always there, the default
     /// fusion just would not spend a slot on it.</b>
     ///
-    /// <para>`ReciprocalRankFusionPolicy` fuses four signals at equal weight, so a paraphrase that ranks
-    /// FIRST on relevance and LAST on retrievability (it is the oldest entry — everything else was written
-    /// after it) nets out behind recent unrelated notes. That is not a defect in fusion; it is fusion
+    /// <para>`ReciprocalRankFusionPolicy` fuses five signals at equal weight, with relevance summing one term
+    /// PER SOURCE that matched a candidate. This paraphrase matches only through the semantic channel and
+    /// ranks FIRST there, but LAST on retrievability (it is the oldest entry — everything else was written
+    /// after it), so it nets out behind recent unrelated notes. That is not a defect in fusion; it is fusion
     /// doing what it says. It does mean semantic seeding and the DEFAULT weights disagree about what a
     /// recall is for.</para>
     ///

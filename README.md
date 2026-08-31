@@ -660,7 +660,7 @@ score.** `MultiplicativeRankingPolicy`'s score is a bounded product roughly in `
 contract already says a score means nothing outside the policy that produced it. Averaging the two numbers
 directly would be arithmetic over quantities that share no scale, so this class instead re-derives each
 member's own competition rank position over the candidate set and fuses THOSE, the same
-`score = w / (K + rank)` shape `ReciprocalRankFusionPolicy` already uses for its own four signals:
+`score = w / (K + rank)` shape `ReciprocalRankFusionPolicy` already uses for its own five signals:
 
 ```csharp
 services.AddSingleton<IMemoryRankingPolicy>(new CompositeRankingPolicy(
