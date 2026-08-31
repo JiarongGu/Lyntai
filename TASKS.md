@@ -27,22 +27,43 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is THREE items: Part 116's one, Part 109's QA half, and Part 105's gist tier.** Each is a
-`- [ ]` you could open
-today — which is the test this
+**The startable set is EIGHT items, across Parts 105, 109, 116, 128 and 129.** Each is a `- [ ]` you could
+open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
-<br>_It held THREE on 2026-08-30 before GEN7a closed as `docs/task-archive.md` **Part 126**, dropping it to
-two; **Part 105 joined later the same day**, when the corpus fix the owner asked for refuted `mean` and left
-that item with a design to build rather than a fork nobody could choose between. The first two are
-measurement; Part 105 is the only one that is code._
+<br>_It was three on 2026-08-30; **Parts 128 and 129 opened on 2026-08-31** and Part 65's last item closed
+(`docs/task-archive.md` **Part 127**). Both numbers are edited in the same change as the items, which is the
+habit `pitfalls.md` prescribes after four stale banners._
 
-**HANDOVER (2026-08-30, end of session): the next session's direction is MEMORY OPTIMIZATION**, at the
-owner's request. It named three questions as the bottleneck. **They were put to the owner on 2026-08-30 and
-the answer converted two of them from decisions into MEASUREMENTS**, which is why the first two now name an
-instrument instead of a fork: the owner asked for the best value to be found rather than chosen. The third
-was decided outright.
+**START WITH `## Part 128`.** It is the only one that answers "why is retrieval not good enough", and its
+first item is the only surviving explanation after two hypotheses were measured dead.
+
+**HANDOVER (2026-08-31, end of session).** The direction was MEMORY OPTIMIZATION and it moved a long way, so
+read this before picking anything up.
+
+**The 2026-08-30 handover's three questions are all ANSWERED** — two by measurement at the owner's direction
+rather than by decision, the third outright — and each is struck through below with what settled it. Nothing
+in that list is work any more.
+
+**What replaced them is one number.** Plain cosine scores **80.5%** on LoCoMo evidence-hit@20; this engine
+scores **54.5%** shipped, **61.5%** on its best mechanical arm, and **77.5%** with a PERFECT judge. A pure
+formula beats formula-plus-oracle, so **the deficit is not the model tier** — which matters, because the
+owner's stated design is that a model is an add-on that raises the ceiling and never holds the floor
+(`model-decoupling.md` says the same). Part 128 carries it.
+
+**The standing trap still applies and now has a fifth instance.** Every recall-quality number is a property
+of the INSTRUMENT until proven otherwise: `memory-salience`'s OFF arm was never off (`docs/FIXES.md`,
+2026-08-30), which is the same family as Parts 118, 119 and D100's withdrawn "search wants two shots".
+Before believing a delta, run the arm that structurally CANNOT move.
+
+**And a caution about this session's own reasoning, recorded because it is unusual to be able to measure
+it.** Four hypotheses were proposed and all four were refuted by checking: the edges, magnitude preservation,
+a homeless removal domain, and retention being unreachable via DI. The MEASUREMENTS held; the priors did
+not. Three further defects were caught by gates rather than by the author — a blind `sed` onto the wrong SQL
+select, two fused XML doc runs, and a dangling `paramref` plus two undocumented parameters that `verify`
+stopped from shipping. **Weight a confident reading here accordingly, and run the gate rather than the
+filtered suite.**
 
 1. ~~**`SalienceOptions.MaxSalience` and `NoveltyWeight` — do the two shipped defaults stay?**~~ **ANSWERED
    2026-08-30 by measurement: YES, both stay.** `MaxSalience` is a switch rather than a dial and at
@@ -675,6 +696,91 @@ figures that have since moved._
   <br>**Read the reproducibility caveat in `docs/memory.md` §5 before adding a fifth curve**: a haystack
   figure is reproducible to about ONE question, not to a tenth of a point, and the oracle overstates the
   multi-shot gain by 2.7× on the class where that was checked.
+
+---
+
+## Part 128 — the retrieval gap is RANKING OUT candidates the engine already holds (2026-08-31)
+
+_Opened by three LoCoMo ladders run at the owner's direction after "the memory system performance is not
+good enough". Tables and the full reading are `docs/memory.md` §5; this Part carries only what is still to
+do. **Two hypotheses died in those runs and are recorded so nobody re-runs them**: the edges are not the
+problem (**D59** decomposed it — 100% of misses reachable-but-outranked, 0% unreachable), and preserving the
+cosine MAGNITUDE is not the fix (`MultiplicativeRankingPolicy` nets +1.5 overall, and `+sem80+mult`
+collapses to 21.5%)._
+
+_**The uncomfortable summary, stated once so it is not softened later:** plain cosine scores **80.5%**, this
+engine's best mechanical arm **61.5%**, and the engine WITH A PERFECT JUDGE **77.5%**. On a uniform-history
+search workload the graph is not paying for itself, and no arm measured so far makes it._
+
+- [ ] **Test the mixed-relevance-scale hypothesis — the only surviving explanation.** At
+  `SemanticSeedK = 20` the candidate pool provably contains cosine's entire top-20 (the set scoring 80.5%)
+  and the engine returns 57.5%; at 80 seeds it holds the top-80 and returns 55.0%. **Adding good candidates
+  makes it worse**, which is the shape to explain.
+  <br>`GraphNode.Relevance`'s own contract names the mechanism: for a lexical hit it is "a backend's own
+  normalized rank POSITION within one seed, not a portable score", while a semantic seed carries a COSINE.
+  The fusion treats two incomparable scales as one signal.
+  <br>**The experiment**: an arm where semantic relevance ORDERS the pool outright rather than being fused
+  with lexical rank positions — the closest the engine can get to being cosine while keeping its own
+  pipeline. If it reaches ~80%, the 19 points are a scale defect and fixable. If it does not,
+  lexical-seed-then-rerank is a structural limit and that is a much larger design question.
+  <br>_Model-free, so minutes. `bench/Lyntai.Benchmarks/MemoryLocomoBench.cs`'s `Ladder()` is where an arm
+  goes._
+
+- [ ] **Finish the REAL judge arm.** `+forget0+judge` is built and wired (the shipped
+  `LlmMemoryVerificationPolicy` driven through an `ILlmClientFactory` adapter, deliberately not a
+  bench-local judge), but the run was stopped mid-flight to pivot and has never completed. The oracle
+  ceiling is 77.5%; what a real model achieves against it is unmeasured, and that gap is the model's error
+  rather than the mechanism's limit. Needs a chat model, so it is slow — `--no-judge` skips it.
+
+- [ ] **Multi-hop is the one category no judge fixes.** 64.9% even with a PERFECT judge, against cosine's
+  81.1%. Every other category closes to within 3 points or beats cosine. That says multi-hop evidence sits
+  outside `VerificationDepth`, so no judge quality reaches it — a depth or seeding question, not a ranking
+  one. Probe what raising the depth costs before assuming it is affordable.
+
+_**Not startable and deliberately not listed above:** whether `RetrievabilityWeight` should move off 1. It is
+worth 5.5 points on LoCoMo and forgetting HELPS on LongMemEval knowledge-update, so moving it on one
+benchmark optimises for the one that flatters the change. It needs both workloads measured, which is the
+`+forget0` arm re-run on LongMemEval._
+
+---
+
+## Part 129 — the decisions-vs-implementation audit, and the gate it argues for (2026-08-31)
+
+_Opened at the owner's direction: "there might be some conflict to the actual implementation of the decision
+itself". There was. **The pattern is the finding**: the log is accurate about VALUES and drifts on COUNTS and
+CLASSIFICATIONS. Every stated constant verified (`ReinforceGain 0`, `SalienceWeight 0`,
+`DiagnosticityWeight 0`, `SpacingWeight 1.5`, all of `DsrOptions`); every defect was a number of things or a
+category._
+
+_Fixed this session: D46's title said "four DOMAINS" against seven; D46's "the only thing that belongs at the
+root" was literally false; `CLAUDE.md` said `IMemoryGraphStore` has five required members against **13**,
+having dropped the "in this major" qualifier D67 carries; D47 gained the rule that its naming shape does NOT
+mean "this is a domain"; D56 now points at D90 for the invariant it predates. **Two findings were WITHDRAWN
+after checking** — retention was reachable via DI all along, and `IMemoryRemovalPolicy` belongs at the root
+because it governs blend MEMBERS rather than entries. Both were inferred from a name or a sentence rather
+than from what the code does, which is the audit's own subject turned on the auditor._
+
+_The full record, including the findings NOT yet acted on, is the untracked
+`local/superpowers/records/2026-08-31-decisions-vs-implementation-audit.md`. **It is on one machine and in no
+history** — anything below that must outlive it is here._
+
+- [ ] **Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memory entries** (everything
+  below D39, essentially untouched — the pass concentrated where the churn is).
+  The probe is the gitignored
+  `devtools/_decisions-audit.mjs` <!-- link-ok: gitignored scratch, named as data; re-creatable from the record -->
+  (re-creatable from the record's Method section — it splits on `## D<n> —`
+  and extracts count / default / on-off / exclusivity / placement shapes). Sampled rather than exhausted so
+  far; **prose claims with no extractable shape are invisible to it**, and that is probably where the
+  remaining defects are.
+
+- [ ] **Build `check-decisions-claims`, the gate this argues for.** A registry mirroring `COUNTED_CLAIMS` —
+  each entry a decision plus a predicate over the tree, with an entry matching nothing FAILING so exclusions
+  cannot rot. No existing gate can see this drift: `check-docs` gates retired vocabulary, `check-links`
+  references and member citations, `check-counts` registered counts. **A one-time sweep fixes today's four;
+  the registry stops the fifth.** Already verified and therefore free to register: D54 `ReinforceGain == 0`,
+  D89 `SalienceWeight == 0`, D88 `SubjectSeedK > 0`, D62 `DiagnosticityWeight == 0`, D46's policy-domain
+  folder count, D47's "every `IMemory*Policy` lives in a domain folder" (which is what made the withdrawn
+  finding checkable rather than arguable).
 
 ---
 
