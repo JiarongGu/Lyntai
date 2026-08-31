@@ -157,10 +157,10 @@ internal static class MemoryLocomoBench
                 ? wantFull
                     ? ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
                         .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
-                        "+sem+mult", "+sem80+mult", "+rel-only", "vector", "full"]
+                        "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "vector", "full"]
                     : ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
                         .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
-                        "+sem+mult", "+sem80+mult", "+rel-only", "vector"]
+                        "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "vector"]
                 : ["lyntai", TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
 
         var (conversations, questions) = Load(path);
@@ -287,12 +287,11 @@ internal static class MemoryLocomoBench
                             new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 }),
                         new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat)))],
 
-                // The FORMULA arms, added 2026-08-31, and they test the reading that makes the judge an
-                // add-on rather than a rescue. `vector` is PURE tier-2 — one embedder, cosine, no graph, no
-                // judge — and it scores 80.5%, above this engine WITH a perfect judge at 77.5%. A plain
-                // formula beating formula-plus-oracle says the deficit is in the formula tier, not the model
-                // tier, which is the shape `model-decoupling.md` warns about: a model becoming the floor
-                // rather than the ceiling.
+                // The FORMULA arms (2026-08-31): they test what makes the judge an add-on rather than a
+                // rescue. `vector` is PURE tier-2 — one embedder, cosine, no graph, no judge — and scores
+                // 80.5%, above this engine WITH a perfect judge at 77.5%. A plain formula beating
+                // formula-plus-oracle puts the deficit in the formula tier, which is the shape
+                // `model-decoupling.md` warns about: a model becoming the floor rather than the ceiling.
                 //
                 // Two mechanisms are suspected and each arm isolates one.
                 //   - `SemanticSeedK` DEFAULTS TO 0, so the shipped engine embeds every write and then
@@ -305,6 +304,21 @@ internal static class MemoryLocomoBench
                 //
                 // `MultiplicativeRankingPolicy` preserves magnitude, ships, and `CLAUDE.md` calls it one
                 // line to restore. It has never been run against this benchmark.
+                // THE arm that isolates the mixed-scale hypothesis (2026-08-31). The pool holds cosine's
+                // top-20 and every other vote is off, so relevance alone orders it — a combination the
+                // measured arms leave untested (`+rel-only` has no semantic seeds at 60.0%, `+sem+hop0`
+                // keeps retrievability at 31.5%, `+sem` has every weight on at 57.5%).
+                //
+                // Reaching ~80% means the other WEIGHTS diluted a good ordering. Staying near 60% means the
+                // defect is RELEVANCE ITSELF — a lexical hit carries a rank POSITION and a semantic seed a
+                // COSINE, and no weighting of one field repairs two scales sharing it. `TASKS.md` Part 128.
+                ("+sem+rel-only", new GraphMemoryOptions { SemanticSeedK = RecallLimit },
+                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+                    {
+                        RetrievabilityWeight = 0,
+                        HopWeight = 0,
+                    }), null),
+
                 ("+sem+mult", new GraphMemoryOptions { SemanticSeedK = RecallLimit },
                     new MultiplicativeRankingPolicy(), null),
                 ("+sem80+mult", new GraphMemoryOptions { SemanticSeedK = 80 },

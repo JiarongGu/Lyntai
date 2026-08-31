@@ -1857,3 +1857,37 @@ shapes; at six, a provably-silent arm came back significantly worse than "off" o
 than the spread of the arms being ranked.
 
 - Two option defaults, and one makes the other inert
+
+## Part 130 — `check-decision-claims`: the gate for drift no other gate can see (2026-08-31)
+
+✅ done 2026-08-31 — `TASKS.md` Part 129's gate item. **The FIFTH member of the prose family**, and the first
+that gates a decision's TRUTH rather than its form: `check-docs` asks whether a document still SAYS what a
+decision settled, `check-links` whether what it POINTS AT exists, `check-counts` whether what it COUNTS is
+true, `check-comments` whether a comment still does a comment's job — and none can see a decision that stops
+describing the code, because that retires no vocabulary, dangles no path and moves no registered count.
+
+**The measured cost of not having it** is the audit that produced it: the log is accurate about VALUES and
+drifts on COUNTS and CLASSIFICATIONS. Every stated constant verified; every defect was a number of things or
+a category — D46's own title said "four DOMAINS" against seven (and `decisions-index` rendered it into the
+index table on top), and `CLAUDE.md` claimed five required `IMemoryGraphStore` members against **13**.
+
+**Six predicates, each verified BY HAND before being registered** — D54 `ReinforceGain == 0`, D89
+`SalienceWeight == 0`, D62 the fan effect present AND off, D88 `SubjectSeedK > 0`, D46's live policy-domain
+count, and D47's "every `IMemory*Policy` lives in a domain folder EXCEPT the composite-level removal policy".
+That last one earns its place twice over: it is the exception this audit filed as a violation on the strength
+of the name alone and nearly moved, breaking the API for nothing. The predicate is what makes the exception
+checkable rather than arguable.
+
+**A registry, not a scan**, for the reason `pitfalls.md` gives — an existence check over this repository's
+prose returned ~45 hits and zero defects, because naming something absent is frequently correct here. Its
+honest limit is stated in its own header: it covers what is registered.
+
+**Two things the build itself taught, both kept.** Its first run went RED on a predicate that was wrong, not
+a decision that was stale — `_diagnosticityWeight` ships at 0 by declaring no initializer, and a matcher
+requiring `= 0` read that as the field being ABSENT. The helper now returns 0 for a declared-uninitialised
+field and NaN only for a missing one, so "ships at 0" and "deleted" stay distinguishable, and a throwing
+predicate is reported as a broken GATE rather than as stale prose. And the tests drive it against SYNTHESIZED
+trees: asserting only that the real repository is green passes on a predicate that can never go red, which is
+the exact failure `test-devtools` exists for.
+
+- Build `check-decision-claims`, the gate the audit argued for

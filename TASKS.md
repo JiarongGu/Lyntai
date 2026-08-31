@@ -27,14 +27,15 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is EIGHT items, across Parts 105, 109, 116, 128 and 129.** Each is a `- [ ]` you could
+**The startable set is SEVEN items, across Parts 105, 109, 116, 128 and 129.** Each is a `- [ ]` you could
 open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
-<br>_It was three on 2026-08-30; **Parts 128 and 129 opened on 2026-08-31** and Part 65's last item closed
-(`docs/task-archive.md` **Part 127**). Both numbers are edited in the same change as the items, which is the
-habit `pitfalls.md` prescribes after four stale banners._
+<br>_It was three on 2026-08-30; **Parts 128 and 129 opened on 2026-08-31**, Part 65's last item closed
+(`docs/task-archive.md` **Part 127**) and Part 129's gate item was BUILT the same day (**Part 130**), taking
+it from eight to seven. Every number here is edited in the same change as the item, which is the habit
+`pitfalls.md` prescribes after four stale banners._
 
 **START WITH `## Part 128`.** It is the only one that answers "why is retrieval not good enough", and its
 first item is the only surviving explanation after two hypotheses were measured dead.
@@ -773,14 +774,10 @@ history** — anything below that must outlive it is here._
   far; **prose claims with no extractable shape are invisible to it**, and that is probably where the
   remaining defects are.
 
-- [ ] **Build `check-decisions-claims`, the gate this argues for.** A registry mirroring `COUNTED_CLAIMS` —
-  each entry a decision plus a predicate over the tree, with an entry matching nothing FAILING so exclusions
-  cannot rot. No existing gate can see this drift: `check-docs` gates retired vocabulary, `check-links`
-  references and member citations, `check-counts` registered counts. **A one-time sweep fixes today's four;
-  the registry stops the fifth.** Already verified and therefore free to register: D54 `ReinforceGain == 0`,
-  D89 `SalienceWeight == 0`, D88 `SubjectSeedK > 0`, D62 `DiagnosticityWeight == 0`, D46's policy-domain
-  folder count, D47's "every `IMemory*Policy` lives in a domain folder" (which is what made the withdrawn
-  finding checkable rather than arguable).
+_**The gate this Part argued for is BUILT** — `docs/task-archive.md` **Part 130**, 2026-08-31:
+`check-decision-claims` is wired into `verify` (now seventeen gates) with six predicates, each verified by
+hand before registering and each driven RED by a synthesized tree in its own test. What is left of this Part
+is the sweep above._
 
 ---
 

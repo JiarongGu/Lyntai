@@ -142,7 +142,7 @@ silently break; the reasoning is in the decision named beside it.
     working.** Guarded by `MemoryAuthoritativeSurvivalTests` plus a control requiring the same facts to be
     LOST without the grade.
 
-**The packaging rules are gated, not remembered** — `verify` runs sixteen checks. `check-warnings` (a warning
+**The packaging rules are gated, not remembered** — `verify` runs seventeen checks. `check-warnings` (a warning
 in a published project fails the build, because an unfailed IL2026 is a FALSE trim promise), `check-packages`
 (a package must be registered in all nine registries — a missing `ApiSurfaceTests` entry means no API gate at
 all), `check-bundle` (the bundle's dependency closure cannot grow without a decision), `check-docs` (a doc
@@ -151,7 +151,7 @@ plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3508 passed / 3529 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 457/457, doc samples 80/80.
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 466/466, doc samples 80/80.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -277,9 +277,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
 
 ## Dev loop
 
-- **`node devtools/dev.mjs verify`** — the "am I done?" gate, sixteen checks stopping at the first failure:
+- **`node devtools/dev.mjs verify`** — the "am I done?" gate, seventeen checks stopping at the first failure:
   **guard tests** → build → warnings → packages → bundle → **encoding** → **docs** → **links** →
-  **counts** → **comments** → **decisions** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
+  **counts** → **comments** → **decisions** → **decision claims** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
   the step list, so a gate added without updating prose still names itself. Run before
   claiming a change is complete. The guard tests run FIRST on purpose: nothing below that gate can be
   trusted if the gates themselves are broken.
@@ -469,6 +469,24 @@ owned outside the deployment; `DECISIONS.md` D30) /
   16, p75 35); 21 entries were already over it, so it is a ratchet like `check-comments` —
   `decisionLengthAllowances`, where an allowance looser than the entry needs FAILS. **No escape token**,
   deliberately: an allowance is a visible ratcheted number and is the only way out.
+- `node devtools/dev.mjs check-decision-claims` — **fail if a DECISION stops describing the code it
+  governs** (part of `verify`). Its sibling above gates an entry's LENGTH; this gates its TRUTH, and it is
+  the FIFTH member of the prose family — `check-docs` asks whether a document still SAYS what a decision
+  settled, `check-links` whether what it POINTS AT exists, `check-counts` whether what it COUNTS is true,
+  `check-comments` whether a comment is still doing a comment's job, and this whether a decision is still
+  true of the tree. **None of the other four can see it**: a decision going stale retires no vocabulary,
+  dangles no path and moves no registered count, so the sentence stays grammatical, plausible and wrong —
+  and `decisions-index` renders a stale TITLE into the index table on top of that.
+  Measured cost of not having it (2026-08-31, `TASKS.md` Part 129): auditing the log against the tree found
+  it **accurate about VALUES and drifting on COUNTS and CLASSIFICATIONS** — every stated constant verified,
+  while D46's own title said "four DOMAINS" against seven and this very file claimed five required
+  `IMemoryGraphStore` members against **13**, having dropped the "in this major" qualifier D67 carries.
+  Registry is `DECISION_CLAIMS` in the script rather than `project.config.mjs`, because an entry is a
+  predicate over the tree and that file is data — the same reasoning `check-counts` carries.
+  **Every registered predicate was verified BY HAND before being registered**, and each is driven RED by a
+  synthesized tree in its own test: a predicate nobody checked is a second unverified claim, not a gate.
+  **Its honest limit**: it covers claims somebody registered, so it is a gate against recurrence rather than
+  a proof that every decision is true — and prose claims with no extractable shape are invisible to it.
 - `node devtools/dev.mjs check-api-vocabulary` — **fail if the FROZEN public surface reintroduces a name a
   decision retired** (part of `verify`, beside `check-docs`). The two are twins: one asks whether the PROSE
   still says what a decision settled, the other asks it of the SURFACE. It exists because the API baseline

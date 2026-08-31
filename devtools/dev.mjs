@@ -8,6 +8,7 @@
 //   node devtools/dev.mjs check-counts     - FAIL if a COUNT written in prose disagrees with the tree
 //   node devtools/dev.mjs check-comments   - FAIL if a comment block outgrows what it explains
 //   node devtools/dev.mjs check-decisions  - FAIL if a DECISIONS.md entry outgrows the decision
+//   node devtools/dev.mjs check-decision-claims - FAIL if a DECISION stops describing the code
 //   node devtools/dev.mjs check-api-vocabulary
 //                                          - FAIL if a committed API baseline still spells a retired name
 //   node devtools/dev.mjs check-samples [--list]
@@ -28,8 +29,7 @@
 //                                          - PREVIEW the GitHub Release body the workflow will publish
 //   node devtools/dev.mjs install-hooks    - git core.hooksPath -> devtools/hooks (pre-commit guard)
 //   node devtools/dev.mjs check-sensitive  - scan staged changes (--tree for all tracked files)
-//   node devtools/dev.mjs decisions-index  - regenerate the index table at the top of docs/DECISIONS.md
-//                                          - (--check to fail instead of writing)
+//   node devtools/dev.mjs decisions-index  - regenerate DECISIONS.md's index table (--check to fail)
 import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -599,6 +599,16 @@ switch (cmd) {
     break;
   }
 
+  // check-decision-claims — FAIL when a DECISION stops describing the code it governs. Its sibling above
+  // gates an entry's LENGTH; this gates its TRUTH. No other gate can: check-docs gates retired vocabulary,
+  // check-links gates whether a reference resolves, check-counts gates counts written in prose - and a
+  // decision going stale retires nothing, dangles nothing and moves no registered count, so the sentence
+  // stays grammatical, plausible and wrong. Registry, not a scan, for the reason pitfalls.md gives.
+  case 'check-decision-claims': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-decision-claims.mjs'), ...args]);
+    break;
+  }
+
   // FAIL when a tracked text file contains mojibake — UTF-8 decoded as another codepage and written back.
   //
   // A gate rather than a rule because the rule already existed and was still broken THREE TIMES in one
@@ -679,6 +689,7 @@ switch (cmd) {
     const steps = [['test-devtools', []], ['build', []], ['check-warnings', []], ['check-packages', []],
       ['check-bundle', []], ['check-encoding', []], ['check-docs', []], ['check-links', []],
       ['check-counts', []], ['check-comments', []], ['check-decisions', []],
+      ['check-decision-claims', []],
       ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
     // Fingerprinted before and after: every line below describes the tree as it was HERE, so a file edited
