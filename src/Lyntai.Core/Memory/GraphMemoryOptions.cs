@@ -74,47 +74,6 @@ public sealed record GraphMemoryOptions
     /// annotated write.</summary>
     public int AnnotationKnownSubjects { get; init; } = 24;
 
-    /// <summary>How many entries each SUBJECT the query names contributes to a recall's candidate set,
-    /// newest first.
-    ///
-    /// <para><b>This is what makes an annotated subject readable.</b> Handles are written by
-    /// <see cref="Lyntai.Memory.Annotation.IMemoryAnnotationPolicy"/> at a model call per write, and until
-    /// this existed the only things that ever read one were the writer's own linking and the annotator's
-    /// reuse list — so a recall for <c>"配偶"</c> could not reach the fact recorded under that handle whose
-    /// text says <c>太太</c>. Reported by an adopter who had paid for the index and could not query it.</para>
-    ///
-    /// <para><b>Non-zero by default, unlike <see cref="SemanticSeedK"/>, and the difference is real.</b> An
-    /// embedder is registered for reasons of its own, so seeding recall from it changes engines that never
-    /// asked; a subject exists ONLY because an annotator was registered and paid for. Reading back what a
-    /// deployment already bought should not need a second opt-in. <c>0</c> turns the seed off entirely, for a
-    /// deployment that wants handles for linking alone.</para>
-    ///
-    /// <para><b>Seeds, never a separate result list.</b> A matched entry enters the candidate set at hop 0
-    /// and is ranked by the same policy as everything else, so it competes on retrievability and degree
-    /// rather than arriving with a fabricated relevance score. It is not appended past the limit and takes no
-    /// reserved slot — <see cref="MemoryGrade.Authoritative"/> is the only thing that does.</para>
-    ///
-    /// <para>Reasoned, not measured — the mechanism is what this establishes; the constant is a starting
-    /// point, matching <see cref="SimilarityK"/>'s.</para></summary>
-    public int SubjectSeedK { get; init; } = 5;
-
-    /// <summary>How many of a task's already-used handles a recall matches its query against, most-used
-    /// first — the scan <see cref="SubjectSeedK"/> draws from.
-    ///
-    /// <para>Separate from <see cref="AnnotationKnownSubjects"/> on purpose, though both read the same list:
-    /// that one bounds what an ANNOTATOR is shown, where a short list is a feature (it anchors the model on
-    /// the handles that matter). This one bounds what a RECALL can reach, where a short list silently makes a
-    /// rare handle unfindable. Sharing one number would mean tuning the annotator's prompt changed which
-    /// facts a query can reach.</para>
-    ///
-    /// <para><b>Costs one grouped read per recall</b>, and only while <see cref="SubjectSeedK"/> is positive.
-    /// It bounds what is RETURNED, not what is read: the shipped backends group over this engine's subject
-    /// rows, so the read grows with the store rather than with this number. Set <see cref="SubjectSeedK"/> to
-    /// 0 to stop paying it. A store that does not implement
-    /// <see cref="IMemoryGraphStore.KnownSubjectsAsync"/> — the one member of that seam with a default body —
-    /// returns nothing here and seeds nothing, exactly as before.</para></summary>
-    public int SubjectSeedScan { get; init; } = 256;
-
     /// <summary>How many candidates to fetch per requested item. The store bounds the candidate set with
     /// plain arithmetic and the policy ranks it exactly afterwards, so a multiple above 1 is what keeps
     /// that ranking meaningful.</summary>
@@ -122,10 +81,6 @@ public sealed record GraphMemoryOptions
 
     /// <summary>Items returned when the query names no limit.</summary>
     public int DefaultLimit { get; init; } = 10;
-
-    /// <summary>How many semantically-similar entries a recall considers, in ADDITION to its lexical
-    /// matches. <c>0</c> (the default) considers none, which is what every version before this did.</summary>
-    public int SemanticSeedK { get; init; }
 
     /// <summary>How many near neighbours a new entry is linked to when similarity enrichment is wired (an
     /// <see cref="Lyntai.Embeddings.IEmbedder"/> and an <see cref="IVectorStore"/> are registered).

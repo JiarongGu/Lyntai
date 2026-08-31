@@ -47,7 +47,7 @@ namespace Lyntai.Benchmarks;
 /// paired.</para>
 ///
 /// <para><b>What this does NOT vary, stated rather than left implicit.</b>
-/// <c>GraphMemoryOptions.SemanticSeedK</c> stays <c>0</c> throughout — its default — so no arm has a
+/// No <c>SemanticSeedSource</c> is registered on any arm — the shipped default — so no arm has a
 /// query-time semantic path and the whole difference is write-time, which is the question. The seed is a
 /// separate shipped feature with its own measurement; mixing it in here would reintroduce exactly the
 /// confound this study exists to remove.</para>
@@ -177,7 +177,7 @@ internal static class MemoryEnrichmentSweep
         Console.WriteLine($"  {NoveltyOnly,-13} embed + search, MinSimilarity>1 so NO edge -> (b) alone");
         Console.WriteLine($"  {Both,-13} the shipped enriched configuration         -> (a)+(b)");
         Console.WriteLine();
-        Console.WriteLine($"Embedder: {model} (REAL). SemanticSeedK stays 0, so no arm has a query-time");
+        Console.WriteLine($"Embedder: {model} (REAL). No semantic seed source, so no arm has a query-time");
         Console.WriteLine("semantic path and the whole difference is write-time.");
         Console.WriteLine();
         Console.WriteLine($"Shapes: {string.Join(", ", shapes.Select(s => s.Label))}");

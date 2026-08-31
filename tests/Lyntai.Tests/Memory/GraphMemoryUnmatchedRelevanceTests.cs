@@ -16,7 +16,7 @@ namespace Lyntai.Tests.Memory;
 /// <c>Relevance = 1</c> — the MAXIMUM — and only <c>SeedAsync</c> overwrote it. So a graph-walk neighbour,
 /// or any node fetched by id for a semantic or subject seed, outranked every candidate that had actually
 /// been scored. Measured on LoCoMo (<c>docs/memory.md</c> §5): evidence-hit@20 of 11.0% against 80.5% for
-/// plain cosine, and <c>SemanticSeedK</c> worth exactly 0.0 points because a real 0.785 cosine could never
+/// plain cosine, and semantic seeding worth exactly 0.0 points because a real 0.785 cosine could never
 /// beat a fabricated 1.000.</para>
 ///
 /// <para><b>Half two, the fix that was tried and refused.</b> Setting the literal to <c>0</c> nearly tripled

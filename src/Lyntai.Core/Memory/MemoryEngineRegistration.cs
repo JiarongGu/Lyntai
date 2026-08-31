@@ -4,6 +4,7 @@ using Lyntai.Memory.Forgetting;
 using Lyntai.Memory.Modulation;
 using Lyntai.Memory.Ranking;
 using Lyntai.Memory.Salience;
+using Lyntai.Memory.Seeding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -116,6 +117,24 @@ public static class MemoryEngineRegistration
         // deleting that curve in 3.0 is what let the two call sites' fallbacks go entirely.
         builder.Services.TryAddSingleton<IMemoryRetrievabilityPolicy>(sp =>
             new DsrRetrievability(sp.GetService<DsrOptions>()));
+
+        // THE TWO SHIPPED SEED CHANNELS, and this registration is what "the default" now means: the store's
+        // own text read, which was an unconditional store.SeedAsync call before the seam existed, and the
+        // handle lookup, which was on at the removed GraphMemoryOptions.SubjectSeedK's default of 5. The
+        // VECTOR channel is deliberately absent — SemanticSeedK defaulted to 0, and an embedder registered
+        // for reasons of its own must not silently start steering recall (AddMemorySemanticSeeds opts in).
+        //
+        // TryAddEnumerable, not AddSingleton: the seam is PLURAL, so it must accumulate distinct channels —
+        // which TryAddEnumerable does, refusing only a repeat of the same implementation type. That is
+        // exactly the case that must not happen twice, because two sources sharing a Name each contribute
+        // their own rank-fusion term for one piece of evidence and the engine refuses the pair outright. A
+        // second AddMemoryEngine call, and AddMemorySubjectSeeds either side of one, therefore all converge
+        // on ONE subject source; its options ride in through the container (SubjectSeedOptions), the same
+        // way SalienceOptions reaches StructuralSaliencePolicy above.
+        builder.Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IMemorySeedSource, LexicalSeedSource>());
+        builder.Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IMemorySeedSource, SubjectSeedSource>());
 
         var engineBuilder = new MemoryEngineBuilder(name);
         configure?.Invoke(engineBuilder);

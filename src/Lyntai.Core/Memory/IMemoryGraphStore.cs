@@ -586,7 +586,7 @@ public interface IMemoryGraphStore
     /// <para><b>Kept out of the content index deliberately.</b> Appending subjects to the searchable text
     /// would make the existing seed path find them with no new method at all — and would silently change what
     /// every ordinary recall matches, which is a far larger blast radius than an index needs. A subject
-    /// steers linking AND seeds recall (<see cref="GraphMemoryOptions.SubjectSeedK"/>), but through
+    /// steers linking AND seeds recall (<see cref="Lyntai.Memory.Seeding.SubjectSeedSource"/>), but through
     /// <see cref="NodesBySubjectAsync"/> on an exact handle — never by widening what content matching
     /// finds.</para>
     ///

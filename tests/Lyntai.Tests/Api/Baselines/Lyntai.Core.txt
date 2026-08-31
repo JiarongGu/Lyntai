@@ -1712,7 +1712,7 @@ sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.GraphMemoryEngine
-    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IMemoryRetrievabilityPolicy retrievability = null, IEnumerable<IMemoryAgePolicy> agePolicies = null, ILogger<GraphMemoryEngine> logger = null, IEmbedder embedder = null, IVectorStore vectors = null, IEnumerable<IMemorySaliencePolicy> saliencePolicies = null, IMemoryRankingPolicy ranking = null, IMemoryAgeCompositionPolicy ageComposition = null, IMemorySalienceCompositionPolicy salienceComposition = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, Func<DateTimeOffset> clock = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null, IEnumerable<IMemoryRetentionPolicy> retentionPolicies = null, IMemoryRetentionCompositionPolicy retentionComposition = null)
+    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IMemoryRetrievabilityPolicy retrievability = null, IEnumerable<IMemoryAgePolicy> agePolicies = null, ILogger<GraphMemoryEngine> logger = null, IEmbedder embedder = null, IVectorStore vectors = null, IEnumerable<IMemorySaliencePolicy> saliencePolicies = null, IMemoryRankingPolicy ranking = null, IMemoryAgeCompositionPolicy ageComposition = null, IMemorySalienceCompositionPolicy salienceComposition = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, Func<DateTimeOffset> clock = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null, IEnumerable<IMemoryRetentionPolicy> retentionPolicies = null, IMemoryRetentionCompositionPolicy retentionComposition = null, IEnumerable<IMemorySeedSource> seedSources = null)
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -1813,10 +1813,7 @@ sealed class Lyntai.Memory.GraphMemoryOptions
     ReinforceOn : MemoryReinforcementActs
     Reinforcement : MemoryReinforcementEffects
     ReviewLogCap : Int32
-    SemanticSeedK : Int32
     SimilarityK : Int32
-    SubjectSeedK : Int32
-    SubjectSeedScan : Int32
     ToString() : String
     VerificationDepth : Nullable<Int32>
     VerificationFilters : Boolean
@@ -2060,7 +2057,7 @@ sealed class Lyntai.Memory.MemoryEngineBuilder
     StrictWiring() : MemoryEngineBuilder
     UseCurated(String kind = "memory", String label = null) : MemoryEngineBuilder
     UseCurated(String kind, Func<CuratedMemory,MemoryGrade> grade, String label = null) : MemoryEngineBuilder
-    UseGraph(GraphMemoryOptions options = null, String label = "graph", IMemoryRankingPolicy ranking = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, IMemoryRetrievabilityPolicy retrievability = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null) : MemoryEngineBuilder
+    UseGraph(GraphMemoryOptions options = null, String label = "graph", IMemoryRankingPolicy ranking = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, IMemoryRetrievabilityPolicy retrievability = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null, IEnumerable<IMemorySeedSource> seedSources = null) : MemoryEngineBuilder
     UseLexical(String label = "lexical") : MemoryEngineBuilder
     UseSemantic(String label = "semantic") : MemoryEngineBuilder
 sealed class Lyntai.Memory.MemoryEngineFactory
@@ -2537,6 +2534,9 @@ static class Lyntai.MemoryEngineRegistration
     static AddMemoryEngine(LyntaiBuilder builder, String name, Action<MemoryEngineBuilder> configure = null) : LyntaiBuilder
     static AddMemoryTools(LyntaiBuilder builder, String name, String taskKey, String scope = null, String prefix = null) : LyntaiBuilder
     static UseMemoryComposer(LyntaiBuilder builder, String name) : LyntaiBuilder
+static class Lyntai.MemorySeedRegistration
+    static AddMemorySemanticSeeds(LyntaiBuilder builder, SemanticSeedOptions options = null) : LyntaiBuilder
+    static AddMemorySubjectSeeds(LyntaiBuilder builder, SubjectSeedOptions options = null) : LyntaiBuilder
 static class Lyntai.MemoryVerificationRegistration
     static AddMemoryVerification(LyntaiBuilder builder, Action<LlmVerificationOptions> configure = null) : LyntaiBuilder
 interface Lyntai.Processes.IProcessRunner

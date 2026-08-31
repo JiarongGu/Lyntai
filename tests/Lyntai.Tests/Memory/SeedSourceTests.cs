@@ -439,7 +439,7 @@ public sealed class SeedSourceTests : IDisposable
         Assert.Equal(0, kOffStore.KnownSubjectsCalls);
         Assert.Equal(0, kOffStore.NodesBySubjectCalls);
 
-        // Scan=0: the handle SCAN never happens at all — the one grouped read SubjectSeedScan's own doc
+        // Scan=0: the handle SCAN never happens at all — the one grouped read SubjectSeedOptions.Scan's own doc
         // says this knob exists to stop paying for, so no call reaches either method.
         var scanOffStore = await SubjectSeededStoreAsync();
         var scanOff = new SubjectSeedSource(new SubjectSeedOptions { Scan = 0 });

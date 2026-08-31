@@ -188,7 +188,7 @@ public sealed class M202608121100_MemoryRetentionModel : Migration
         // Its own table rather than extra searchable text on the node: appending subjects to the content
         // index would let the existing seed path find them with no new code at all, and would silently change
         // what every ordinary recall matches — a far larger blast radius than an index needs. Recall reaches
-        // a subject through an exact-handle lookup instead (GraphMemoryOptions.SubjectSeedK).
+        // a subject through an exact-handle lookup instead (SubjectSeedSource).
         //
         // The primary key IS the uniqueness rule (one row per node per subject); the lookup index is what
         // NodesBySubjectAsync plans against — subject first, because that is the equality predicate, then

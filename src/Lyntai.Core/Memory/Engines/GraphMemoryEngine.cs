@@ -6,6 +6,7 @@ using Lyntai.Memory.Interference;
 using Lyntai.Memory.Modulation;
 using Lyntai.Memory.Ranking;
 using Lyntai.Memory.Salience;
+using Lyntai.Memory.Seeding;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -99,6 +100,15 @@ namespace Lyntai.Memory.Engines;
 /// <paramref name="retrievability"/> ALONE stays supported.</para></param>
 /// <param name="retentionComposition">How several coexisting retention dimensions combine into one factor;
 /// null takes the multiplicative default. Irrelevant when fewer than two are registered.</param>
+/// <param name="seedSources">The retrieval CHANNELS a recall gathers candidates from — a DI collection, like
+/// <paramref name="agePolicies"/>, because seeding is a PLURAL domain (<c>docs/DECISIONS.md</c> <b>D48</b>):
+/// lexical reads text, semantic reads a vector space, subject reads handles, and all three are true at once.
+/// Null or empty takes the two this engine has always run — <see cref="LexicalSeedSource"/> and
+/// <see cref="SubjectSeedSource"/> — so a hand-built engine seeds exactly as it did before this parameter
+/// existed. Two sources sharing a <see cref="IMemorySeedSource.Name"/> throws.
+/// <para>Appended LAST on purpose (<c>docs/DECISIONS.md</c> D50): inserting it beside the other collections
+/// would silently re-bind every positional caller.</para></param>
+/// <exception cref="ArgumentException">Two <paramref name="seedSources"/> share a name.</exception>
 public sealed class GraphMemoryEngine(
     string name,
     IMemoryGraphStore store,
@@ -117,7 +127,8 @@ public sealed class GraphMemoryEngine(
     Lyntai.Memory.Annotation.IMemoryAnnotationPolicy? annotation = null,
     Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null,
     IEnumerable<IMemoryRetentionPolicy>? retentionPolicies = null,
-    IMemoryRetentionCompositionPolicy? retentionComposition = null)
+    IMemoryRetentionCompositionPolicy? retentionComposition = null,
+    IEnumerable<IMemorySeedSource>? seedSources = null)
     : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
@@ -135,6 +146,7 @@ public sealed class GraphMemoryEngine(
     private readonly IReadOnlyDictionary<string, IMemoryRankingPolicy> _namedRanking =
         NormalizeNamedRanking(namedRankingPolicies);
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
+    private readonly IReadOnlyList<IMemorySeedSource> _seedSources = NormalizeSeedSources(seedSources);
 
     /// <summary>Copies into a fresh, ORDINAL-compared dictionary regardless of what comparer the caller's own
     /// dictionary used — the same comparison <see cref="MemoryEngineFactory"/> uses for engine names, so a
@@ -233,6 +245,41 @@ public sealed class GraphMemoryEngine(
         return list;
     }
 
+    /// <summary>Null or empty takes the two channels this engine has always run — the unconditional store
+    /// read and the handle lookup that was on at the removed <c>SubjectSeedK</c>'s default of 5.
+    /// <para><b>So an empty collection does NOT disable seeding</b>, the same rule
+    /// <see cref="NormalizeSaliencePolicies"/> states for its own domain. The supported way to narrow is to
+    /// pass exactly the sources wanted; the supported way to switch one OFF is its own options record.</para>
+    /// <para><b>Two sources under one <see cref="IMemorySeedSource.Name"/> throws.</b>
+    /// <see cref="MemorySeedRanks.TryGet"/> keys by name and reports only the first, while rank fusion sums a
+    /// term for EVERY entry — so the second is evidence nothing can read that still moves the score. Reported
+    /// at wiring time (<b>D85</b>) rather than silently de-duplicated, because either silent choice is a
+    /// ranking nobody asked for.</para></summary>
+    /// <exception cref="ArgumentException">Two sources share a name.</exception>
+    private static IReadOnlyList<IMemorySeedSource> NormalizeSeedSources(
+        IEnumerable<IMemorySeedSource>? seedSources)
+    {
+        var list = seedSources?.ToList() ?? [];
+        if (list.Count == 0) return [new LexicalSeedSource(), new SubjectSeedSource()];
+
+        var duplicate = list
+            .GroupBy(s => s.Name, StringComparer.Ordinal)
+            .FirstOrDefault(g => g.Count() > 1);
+        if (duplicate is not null)
+            throw new ArgumentException(
+                $"{duplicate.Count()} seed sources are named '{duplicate.Key}' ({string.Join(", ", duplicate
+                    .Select(s => s.GetType().Name))}); a name identifies one retrieval channel. Rank fusion " +
+                "sums a term per matched source, so two under one name would count the same evidence twice, " +
+                "and MemorySeedRanks reports only the first.", nameof(seedSources));
+        return list;
+    }
+
+    /// <summary>Whether a channel of this name is registered — how the two wiring diagnostics below ask
+    /// their question now that the seed options are gone. Ordinal, matching
+    /// <see cref="MemorySeedRanks.TryGet"/>'s own comparison.</summary>
+    private bool Seeds(string source) =>
+        _seedSources.Any(s => string.Equals(s.Name, source, StringComparison.Ordinal));
+
     /// <summary>Validates a single retrievability policy's own declared provenance bit — real (never
     /// <c>None</c>) and single, the same two facts <see cref="NormalizeSaliencePolicies"/> checks across several
     /// salience policies, applied here to the one policy this seam ever has.</summary>
@@ -246,21 +293,26 @@ public sealed class GraphMemoryEngine(
     private bool Enriches => embedder is not null && vectors is not null;
 
     /// <summary>This engine embeds every write and no recall reads those vectors — an embedder and a vector
-    /// store are wired, so novelty and similarity linking run on the WRITE path, while
-    /// <see cref="GraphMemoryOptions.SemanticSeedK"/> is 0 so the READ path consults none of it.
+    /// store are wired, so novelty and similarity linking run on the WRITE path, while no
+    /// <see cref="SemanticSeedSource"/> is registered so the READ path consults none of it. Still the shipped
+    /// default: the vector channel is opt-in (<c>AddMemorySemanticSeeds</c>), exactly as the removed
+    /// <c>SemanticSeedK</c> was off at 0.
     /// <para>Internal, and read only by <see cref="MemoryWiring"/>: it is a wiring diagnostic, not something
     /// a consumer branches on. Exposed as a property rather than reflected over, so a rename is a compile
     /// error instead of a sweep that throws the next time somebody runs it.</para></summary>
-    internal bool EmbedsWithoutSeeding => Enriches && _options.SemanticSeedK <= 0;
+    internal bool EmbedsWithoutSeeding => Enriches && !Seeds("semantic");
 
     /// <summary>This engine records subject handles and no recall can reach one — an annotator is wired, so
-    /// every write pays a model call to say what the fact is ABOUT, while
-    /// <see cref="GraphMemoryOptions.SubjectSeedK"/> (or its scan) is 0 so the only readers left are the
-    /// write path's own linking and the annotator's reuse list.
+    /// every write pays a model call to say what the fact is ABOUT, while no <see cref="SubjectSeedSource"/>
+    /// is registered so the only readers left are the write path's own linking and the annotator's reuse
+    /// list.
+    /// <para><b>It asks about REGISTRATION, not about the source's own knob.</b>
+    /// <see cref="SubjectSeedOptions.K"/> of 0 is a documented off-switch a deployment chose deliberately on
+    /// the source it registered, and the seam exposes only <see cref="IMemorySeedSource.Name"/> — so this
+    /// reports the channel being absent, which is the gap an adopter actually hit.</para>
     /// <para>Internal and read only by <see cref="MemoryWiring"/>, exactly like
     /// <see cref="EmbedsWithoutSeeding"/> — the same defect on the other index.</para></summary>
-    internal bool RecordsSubjectsWithoutSeeding =>
-        annotation is not null && (_options.SubjectSeedK <= 0 || _options.SubjectSeedScan <= 0);
+    internal bool RecordsSubjectsWithoutSeeding => annotation is not null && !Seeds("subject");
 
     /// <inheritdoc />
     public string Name { get; } = name;
@@ -562,7 +614,7 @@ public sealed class GraphMemoryEngine(
 
         var limit = query.Limit ?? _options.DefaultLimit;
 
-        List<(GraphNode Node, int Hop)> found;
+        List<GatheredCandidate> found;
         try
         {
             found = await GatherAsync(query, limit, ct).ConfigureAwait(false);
@@ -576,7 +628,7 @@ public sealed class GraphMemoryEngine(
         }
 
         var candidates = found
-            .Select(f => new MemoryCandidate(f.Node, Retrievability(f.Node), f.Hop))
+            .Select(f => new MemoryCandidate(f.Node, Retrievability(f.Node), f.Hop) { Ranks = f.Ranks })
             .ToList();
 
         var ranked = ranking.Rank(candidates, new MemoryRankingContext(limit, Name));
@@ -1003,9 +1055,9 @@ public sealed class GraphMemoryEngine(
     }
 
     /// <summary>This engine's similarity-index address for one (task, scope).
-    /// <para>Spelled once because four sites read it — enrichment's write, the scoped semantic seed, and both
-    /// removal verbs — and a fifth (<see cref="AcrossScopesAsync"/>) builds a PREFIX over the same shape. Two
-    /// spellings of one address is how a removal quietly misses the collection a write created.</para></summary>
+    /// <para>Spelled once because three sites read it — enrichment's write and both removal verbs — and
+    /// <see cref="SemanticSeedSource"/> rebuilds the same shape on the read side. Two spellings of one
+    /// address is how a removal quietly misses the collection a write created.</para></summary>
     private string VectorCollection(string taskKey, string scope) => $"{Name}|{taskKey}|{scope}";
 
     /// <summary>Clamp one component of a composed <see cref="MemoryTick"/> to something a store may keep.
@@ -1148,112 +1200,56 @@ public sealed class GraphMemoryEngine(
         _ageComposition.Age([.. _agePolicies.Select(c =>
             c.Kind == MemoryAgeKind.Derivable ? c.Age(neighbour.EdgeAgeSample) : neighbour.EdgeAge)]);
 
-    /// <summary>Cosine similarity of the query against the vector store, per node id. Empty unless an
-    /// embedder, a vector store and <see cref="GraphMemoryOptions.SemanticSeedK"/> are all present.
-    /// <para><b>A null <see cref="MemoryQuery.Scope"/> spans the task's scopes</b>, so this half agrees with
-    /// the LEXICAL half about what an unscoped recall means. It did not until an adopter measured it: a write
-    /// always names a scope, so the literal collection <c>{Name}|{task}|</c> a null scope produced could
-    /// never exist, and an unscoped recall — the common case — was silently unimproved while the same query
-    /// answered when a scope was named. Spanning needs <see cref="IListableVectorStore"/>; a store without it
-    /// yields nothing here, exactly as before.</para></summary>
-    private async Task<Dictionary<long, double>> SemanticScoresAsync(MemoryQuery query, CancellationToken ct)
-    {
-        if (!Enriches || _options.SemanticSeedK <= 0 || string.IsNullOrWhiteSpace(query.Query)) return [];
+    /// <summary>One gathered candidate: the entry, how far out it was reached, and which sources matched it
+    /// at what rank. A hop neighbour carries <see cref="MemorySeedRanks.Empty"/>.</summary>
+    private readonly record struct GatheredCandidate(GraphNode Node, int Hop, MemorySeedRanks Ranks);
 
-        // Best-effort, and the try/catch is the whole point. This runs AFTER store.SeedAsync has already
-        // produced the lexical seeds, so letting an embedder or vector-store fault propagate would throw out
-        // of GatherAsync into RecallAsync's catch and return MemoryRecall.Empty — discarding good seeds and
-        // reporting a transient outage as "nothing matched", which a caller cannot tell apart from a genuine
-        // miss. Design §5.7.0: enrichment's failure degrades QUALITY, never CORRECTNESS. The WRITE path's
-        // twin (SearchAsync's own guard) has always worked this way; the read path did not.
-        // Cancellation is never swallowed — that is the caller leaving, not an enrichment fault.
-        IReadOnlyList<VectorMatch> near;
-        try
-        {
-            var vector = await embedder!.EmbedAsync(query.Query, ct).ConfigureAwait(false);
-            near = query.Scope is null
-                ? await AcrossScopesAsync(vector, query.TaskKey, ct).ConfigureAwait(false)
-                : await vectors!
-                    .SearchAsync(VectorCollection(query.TaskKey, query.Scope), vector, _options.SemanticSeedK, ct)
-                    .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "semantic seeding failed for {Engine}; falling back to the lexical seeds", Name);
-            return [];
-        }
-
-        var scores = new Dictionary<long, double>(near.Count);
-        foreach (var match in near)
-            if (long.TryParse(match.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
-                scores[id] = Math.Clamp(match.Score, 0, 1);
-        return scores;
-    }
-
-    /// <summary>Search every scope this engine holds under <paramref name="taskKey"/> and merge — one search
-    /// per scope, each already bounded by <c>SemanticSeedK</c>, so the global top-k is a subset of the
-    /// per-scope top-k's and merging afterwards misses nothing.</summary>
-    /// <remarks>Ties break by id, ordinally. Without it two equally-scoring nodes in different scopes swap
-    /// places between runs and one silently drops out at the k boundary — and here those scores become
-    /// RANKING input, so the arbitrariness would land in what a recall returns.</remarks>
-    private async Task<IReadOnlyList<VectorMatch>> AcrossScopesAsync(float[] vector, string taskKey,
-        CancellationToken ct)
-    {
-        if (vectors is not IListableVectorStore listable) return [];
-
-        var prefix = $"{Name}|{taskKey}|";
-        var merged = new List<VectorMatch>();
-        foreach (var collection in await listable.ListCollectionsAsync(prefix, ct).ConfigureAwait(false))
-        {
-            ct.ThrowIfCancellationRequested();
-            merged.AddRange(await vectors!
-                .SearchAsync(collection, vector, _options.SemanticSeedK, ct).ConfigureAwait(false));
-        }
-
-        return [.. merged
-            .OrderByDescending(m => m.Score)
-            .ThenBy(m => m.Id, StringComparer.Ordinal)
-            .Take(_options.SemanticSeedK)];
-    }
-
-    private async Task<List<(GraphNode Node, int Hop)>> GatherAsync(MemoryQuery query, int limit,
+    /// <summary>Gather the candidate set: every registered <see cref="IMemorySeedSource"/> in turn, then the
+    /// hop expansion out from everything they found.
+    ///
+    /// <para><b>Rank is POSITION in each source's own returned order, 1-based</b> — a reciprocal-rank term is
+    /// <c>w / (K + rank)</c>, so rank 0 would make a source's best hit score as though the fusion constant
+    /// alone governed it. No score crosses the seam, which is what stops a lexical rank ramp and a semantic
+    /// cosine being compared as though they shared a scale.</para>
+    ///
+    /// <para><b>A node the source did not MATCH is skipped, and the counter does NOT advance for it.</b>
+    /// Store seeds arrive GRADE-FIRST, so an authoritative entry the query never matched sorts to position 0;
+    /// ranking by raw position would hand it the best lexical rank and silently undo <b>D97</b>. It still
+    /// enters the set and is still re-admitted under the grade carve-out — it simply carries no relevance
+    /// evidence, which is what <see cref="GraphNode.Matched"/> <c>false</c> already means.</para>
+    ///
+    /// <para>Sources are read in their registered order and each candidate's ranks are appended in it, so two
+    /// candidates matched by the same sources build IDENTICAL rank lists —
+    /// <see cref="MemorySeedRanks"/> compares by sequence.</para></summary>
+    private async Task<List<GatheredCandidate>> GatherAsync(MemoryQuery query, int limit,
         CancellationToken ct)
     {
         // no faintness bound: the store returns candidates grade-first, then most-recently-used, and the
         // count is the only limit, so nothing is excluded for having decayed — burial happens by rank, above
         var candidates = limit * Math.Max(1, _options.CandidateMultiplier);
+        var request = new MemorySeedRequest(Name, store, query, candidates);
 
-        var seeds = await store.SeedAsync(Name, query.TaskKey, query.Scope, query.Query, candidates, ct)
-            .ConfigureAwait(false);
+        var found = new List<(GraphNode Node, int Hop)>();
+        var seen = new HashSet<long>();
+        var ranks = new Dictionary<long, List<MemorySeedRank>>();
 
-        var found = new List<(GraphNode Node, int Hop)>(seeds.Select(n => (n, 0)));
-        var seen = seeds.Select(n => n.Id).ToHashSet();
-
-        var similar = await SemanticScoresAsync(query, ct).ConfigureAwait(false);
-        if (similar.Count > 0)
+        foreach (var source in _seedSources)
         {
-            for (var i = 0; i < found.Count; i++)
-                if (similar.TryGetValue(found[i].Node.Id, out var boost) && boost > found[i].Node.Relevance)
-                    found[i] = (found[i].Node with { Relevance = boost }, found[i].Hop);
+            ct.ThrowIfCancellationRequested();
+            var produced = await source.SeedAsync(request, ct).ConfigureAwait(false);
 
-            foreach (var pair in similar)
+            var rank = 0;
+            var fromThisSource = new HashSet<long>();
+            foreach (var node in produced)
             {
-                if (!seen.Add(pair.Key)) continue;
-                var node = await store.GetAsync(Name, pair.Key, ct).ConfigureAwait(false);
-                if (node is not null) found.Add((node with { Relevance = pair.Value }, 0));
+                // one rank per source per candidate: a source repeating a node would otherwise buy a second
+                // fusion term for the same evidence, and MemorySeedRanks reports only the first
+                if (!fromThisSource.Add(node.Id)) continue;
+                if (seen.Add(node.Id)) found.Add((node, 0));
+                if (node.Matched == false) continue;
+                if (!ranks.TryGetValue(node.Id, out var list)) ranks[node.Id] = list = [];
+                list.Add(new MemorySeedRank(source.Name, ++rank));
             }
-        }
-
-        foreach (var id in await SubjectSeedsAsync(query, ct).ConfigureAwait(false))
-        {
-            if (!seen.Add(id)) continue;   // already a lexical or semantic hit — nothing to add
-            var node = await store.GetAsync(Name, id, ct).ConfigureAwait(false);
-            // No fabricated Relevance: the store reports how well the entry's own TEXT matched, and a subject
-            // match says something different — that the entry is ABOUT what was asked. Handing it a score on
-            // the text axis would let it displace entries that genuinely matched; entering as a candidate lets
-            // it compete on retrievability and degree, which is what it actually has.
-            if (node is not null) found.Add((node, 0));
         }
 
         var frontier = seen.ToList();
@@ -1278,52 +1274,8 @@ public sealed class GraphMemoryEngine(
                 }
         }
 
-        return found;
-    }
-
-    /// <summary>The entries recorded under whichever SUBJECTS this query names, newest first per subject.
-    ///
-    /// <para><b>Why the query is matched against the handle list rather than the handles searched for.</b>
-    /// A handle is stored as an index, not as text, so there is nothing to search; the only lookup the store
-    /// offers is by an exact normalized handle
-    /// (<see cref="IMemoryGraphStore.NodesBySubjectAsync"/>). Reading the handles in use and asking which
-    /// ones the query names is what turns that exact lookup into something a free-text recall can use, and
-    /// <see cref="MemorySubject.Matches"/> owns the per-script rule for "names".</para>
-    ///
-    /// <para>BEST-EFFORT, like the semantic seed beside it and for the same reason: this runs after the
-    /// lexical seeds exist, so letting a fault propagate would discard them and report a storage problem as
-    /// "nothing matched". Cancellation is never swallowed.</para></summary>
-    private async Task<IReadOnlyList<long>> SubjectSeedsAsync(MemoryQuery query, CancellationToken ct)
-    {
-        if (_options.SubjectSeedK <= 0 || _options.SubjectSeedScan <= 0 ||
-            string.IsNullOrWhiteSpace(query.Query))
-            return [];
-
-        try
-        {
-            var known = await store
-                .KnownSubjectsAsync(Name, query.TaskKey, query.Scope, _options.SubjectSeedScan, ct)
-                .ConfigureAwait(false);
-
-            var ids = new List<long>();
-            var seen = new HashSet<long>();
-            foreach (var subject in known)
-            {
-                if (!MemorySubject.Matches(query.Query, subject)) continue;
-                var found = await store.NodesBySubjectAsync(Name, query.TaskKey, query.Scope,
-                    MemorySubject.Normalize(subject), _options.SubjectSeedK, ct).ConfigureAwait(false);
-                foreach (var id in found)
-                    if (seen.Add(id)) ids.Add(id);
-            }
-
-            return ids;
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "subject seeding failed for {Engine}; recalling on the other seeds", Name);
-            return [];
-        }
+        return [.. found.Select(f => new GatheredCandidate(f.Node, f.Hop,
+            ranks.TryGetValue(f.Node.Id, out var r) ? new MemorySeedRanks(r) : MemorySeedRanks.Empty))];
     }
 
     /// <summary>Asks the verifier which of these actually answered the query, fail-open in every direction.

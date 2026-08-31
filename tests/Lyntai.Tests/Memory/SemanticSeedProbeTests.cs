@@ -3,6 +3,7 @@ using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Interference;
 using Lyntai.Memory.Ranking;
+using Lyntai.Memory.Seeding;
 using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Live;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,18 +12,17 @@ using Xunit;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary><b><see cref="GraphMemoryOptions.SemanticSeedK"/> makes a paraphrased entry a CANDIDATE — and
-/// the default ranking still loses it. Both halves are the finding.</b>
+/// <summary><b><see cref="SemanticSeedSource"/> makes a paraphrased entry a CANDIDATE — and the default
+/// ranking still loses it. Both halves are the finding.</b>
 ///
-/// <para>Before this option the graph engine had no semantic retrieval at all: the vector store was
+/// <para>Before this channel the graph engine had no semantic retrieval at all: the vector store was
 /// consulted at WRITE time and never at query time, so a fact worded differently from the query was
 /// unreachable however good the model. With it, the query is embedded and its nearest entries join the
-/// candidate set carrying their cosine as <c>Relevance</c> — because a node read back from the store has
-/// Relevance 0, which is indistinguishable from noise to every ranking policy.</para>
+/// candidate set carrying their POSITION in cosine order as a rank of their own.</para>
 ///
 /// <para><b>Measured here: the target is present at a wide limit and absent at limit 5</b>, outranked by
 /// recent unrelated notes. That is the same shape as the corpus-wide decomposition — every miss was a
-/// reachable candidate something outranked — and it is why this option is off by default and why it pairs
+/// reachable candidate something outranked — and it is why this channel is off by default and why it pairs
 /// with <c>AddMemoryVerification</c> rather than replacing it: seeding widens what is considered, the judge
 /// is what surfaces it.</para>
 ///
@@ -33,8 +33,11 @@ namespace Lyntai.Tests.Memory;
 /// a silent failure loud.</para></summary>
 public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
 {
+    /// <summary>Listens to BOTH the engine and the vector channel, because the semantic seed's own
+    /// best-effort catch lives in <see cref="SemanticSeedSource"/> now — hearing only the engine would leave
+    /// exactly the swallowed fault this class was written about inaudible.</summary>
     private sealed class CapturingLogger(Xunit.Abstractions.ITestOutputHelper output)
-        : ILogger<GraphMemoryEngine>
+        : ILogger<GraphMemoryEngine>, ILogger<SemanticSeedSource>
     {
         public List<string> Warnings { get; } = [];
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
@@ -71,12 +74,15 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
 
         var logger = new CapturingLogger(output);
         var store = new InMemoryMemoryGraphStore();
+        var embedder = sp.GetRequiredService<IEmbedder>();
+        var vectors = new InMemoryVectorStore();
         var engine = new GraphMemoryEngine("e", store,
-            options: new GraphMemoryOptions { SemanticSeedK = 5 },
             agePolicies: [new PerWriteAgePolicy()],
             logger: logger,
-            embedder: sp.GetRequiredService<IEmbedder>(),
-            vectors: new InMemoryVectorStore());
+            embedder: embedder,
+            vectors: vectors,
+            seedSources: [new LexicalSeedSource(),
+                new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = 5 }, logger)]);
 
         var target = await engine.RememberAsync(
             new MemoryWrite("t", "s", "the meeting was postponed until next week"));
@@ -94,7 +100,7 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
 
         Assert.Empty(logger.Warnings);   // any warning here IS the swallowed failure
 
-        // (1) SEEDING WORKS: the paraphrase is a candidate, which it could not be before this option — no
+        // (1) SEEDING WORKS: the paraphrase is a candidate, which it could not be before this channel — no
         //     lexical route reaches it, and the vector store was never consulted at query time.
         Assert.Contains(wideOpen.Items, i => i.Reference.Id == target.Id);
 
@@ -115,7 +121,7 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
     ///
     /// <para>Measured here rather than reasoned: raising <c>RelevanceWeight</c> surfaces the entry at the
     /// same limit that loses it above, with everything else identical. That makes the pairing concrete —
-    /// <c>SemanticSeedK</c> widens the candidate set, and either a relevance-weighted fusion or a verifier
+    /// the vector channel widens the candidate set, and either a relevance-weighted fusion or a verifier
     /// is what spends a slot on it.</para></summary>
     [SkippableFact]
     public async Task Weighting_relevance_above_recency_surfaces_the_semantic_seed()
@@ -146,8 +152,8 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
         // actually matter, since K=60 compresses rank 1 and rank 21 to within a third of each other), not
         // both together, and not MultiplicativeRankingPolicy.
         //
-        // So `SemanticSeedK` widens the CANDIDATE SET and no shipped policy will spend a slot on the
-        // result. That is a real limitation of the option as shipped, not a tuning gap someone can close
+        // So the vector CHANNEL widens the CANDIDATE SET and no shipped policy will spend a slot on the
+        // result. That is a real limitation of the channel as shipped, not a tuning gap someone can close
         // from configuration — which is why the docs say it pairs with `AddMemoryVerification` rather than
         // replacing it, and why it is off by default.
         //
@@ -168,10 +174,12 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
         IEmbedder embedder, IMemoryRankingPolicy ranking)
     {
         var store = new InMemoryMemoryGraphStore();
+        var vectors = new InMemoryVectorStore();
         var engine = new GraphMemoryEngine("e", store,
-            options: new GraphMemoryOptions { SemanticSeedK = 5 },
             agePolicies: [new PerWriteAgePolicy()],
-            embedder: embedder, vectors: new InMemoryVectorStore(), ranking: ranking);
+            embedder: embedder, vectors: vectors, ranking: ranking,
+            seedSources: [new LexicalSeedSource(),
+                new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = 5 })]);
 
         var target = await engine.RememberAsync(
             new MemoryWrite("t", "s", "the meeting was postponed until next week"));

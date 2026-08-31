@@ -1,6 +1,7 @@
 using Lyntai.Memory;
 using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Engines;
+using Lyntai.Memory.Seeding;
 using Lyntai.Memory.Verification;
 using Lyntai.Storage;
 using Lyntai.Storage.InMemory;
@@ -99,9 +100,9 @@ public class MemoryWiringDiagnosticsTests
     }
 
     /// <summary>Part 92: an embedder plus a vector store turns enrichment on, so every write is embedded for
-    /// novelty and similarity linking — while <c>SemanticSeedK</c> defaults to 0, so no recall reads any of
-    /// it. The consumer pays an embedding per write, gets vectors on disk, and sees no change in what recall
-    /// returns; it cost an adopter most of a session to find, with every check green.</summary>
+    /// novelty and similarity linking — while the vector CHANNEL is opt-in, so no recall reads any of it. The
+    /// consumer pays an embedding per write, gets vectors on disk, and sees no change in what recall returns;
+    /// it cost an adopter most of a session to find, with every check green.</summary>
     [Fact]
     public void A_graph_member_that_embeds_every_write_and_seeds_no_recall_is_reported()
     {
@@ -111,17 +112,19 @@ public class MemoryWiringDiagnosticsTests
         var found = Assert.Single(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
 
-        Assert.Contains("SemanticSeedK", found, StringComparison.Ordinal);
+        Assert.Contains("AddMemorySemanticSeeds", found, StringComparison.Ordinal);
     }
 
-    /// <summary>Setting the knob closes it — the finding is about the GAP between the two paths, not about
-    /// having an embedder.</summary>
+    /// <summary>Registering the channel closes it — the finding is about the GAP between the two paths, not
+    /// about having an embedder.</summary>
     [Fact]
     public void The_same_member_with_seeding_configured_reports_nothing()
     {
+        var embedder = new FakeEmbedder();
+        var vectors = new InMemoryVectorStore();
         var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            options: new GraphMemoryOptions { SemanticSeedK = 3 },
-            embedder: new FakeEmbedder(), vectors: new InMemoryVectorStore());
+            embedder: embedder, vectors: vectors,
+            seedSources: [new LexicalSeedSource(), new SemanticSeedSource(embedder, vectors)]);
 
         Assert.Empty(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
@@ -145,17 +148,17 @@ public class MemoryWiringDiagnosticsTests
     public void A_graph_member_that_records_subjects_and_seeds_no_recall_is_reported()
     {
         var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            options: new GraphMemoryOptions { SubjectSeedK = 0 },
-            annotation: new FakeAnnotator());
+            annotation: new FakeAnnotator(),
+            seedSources: [new LexicalSeedSource()]);
 
         var found = Assert.Single(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
 
-        Assert.Contains("SubjectSeedK", found, StringComparison.Ordinal);
+        Assert.Contains("AddMemorySubjectSeeds", found, StringComparison.Ordinal);
     }
 
-    /// <summary>The shipped default seeds, so the ordinary annotated wiring is clean — the finding is about
-    /// the GAP between write and read, not about having an annotator.</summary>
+    /// <summary>The shipped default registers the handle channel, so the ordinary annotated wiring is clean —
+    /// the finding is about the GAP between write and read, not about having an annotator.</summary>
     [Fact]
     public void An_annotated_member_on_the_default_options_reports_nothing()
     {
@@ -166,13 +169,13 @@ public class MemoryWiringDiagnosticsTests
             verification: false, annotation: false));
     }
 
-    /// <summary>…and a member with no annotator never records a handle, so switching the seed off is not a
+    /// <summary>…and a member with no annotator never records a handle, so leaving the channel out is not a
     /// gap. Without this half the finding would fire on the zero-configuration path.</summary>
     [Fact]
     public void A_member_with_no_annotator_and_no_subject_seed_reports_nothing()
     {
         var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            options: new GraphMemoryOptions { SubjectSeedK = 0 });
+            seedSources: [new LexicalSeedSource()]);
 
         Assert.Empty(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));

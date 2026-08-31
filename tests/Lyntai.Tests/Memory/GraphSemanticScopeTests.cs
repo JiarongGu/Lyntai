@@ -1,6 +1,7 @@
 using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
+using Lyntai.Memory.Seeding;
 using Lyntai.Storage.InMemory;
 using Microsoft.Extensions.Logging;
 
@@ -46,8 +47,11 @@ public class GraphSemanticScopeTests
     /// <summary>`RecallAsync` converts anything `GatherAsync` throws into an empty result, so a swallowed
     /// defect is indistinguishable from "nothing matched" — the trap `SemanticSeedProbeTests` records having
     /// been debugged blind twice. Asserting the warning list stayed empty is what keeps the NEGATIVE control
-    /// below from passing for the wrong reason.</summary>
-    private sealed class CapturingLogger : ILogger<GraphMemoryEngine>
+    /// below from passing for the wrong reason.
+    /// <para>Wired to BOTH loggers, because the semantic channel's own best-effort catch now lives in
+    /// <see cref="SemanticSeedSource"/> and reports through that type's logger — listening only to the
+    /// engine's would leave exactly the fault this fixture exists to hear inaudible.</para></summary>
+    private sealed class CapturingLogger : ILogger<GraphMemoryEngine>, ILogger<SemanticSeedSource>
     {
         public List<string> Warnings { get; } = [];
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
@@ -60,12 +64,20 @@ public class GraphSemanticScopeTests
         }
     }
 
+    /// <summary><paramref name="seedK"/> of 0 leaves the vector CHANNEL unregistered, which is now what
+    /// "seeding off" means — the source's own <see cref="SemanticSeedOptions.K"/> refuses a non-positive
+    /// value, because a channel that can never search is indistinguishable from an outage.</summary>
     private static (GraphMemoryEngine Engine, CapturingLogger Log) Build(int seedK)
     {
         var log = new CapturingLogger();
+        var embedder = new ScriptedEmbedder();
+        var vectors = new InMemoryVectorStore();
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            options: new GraphMemoryOptions { SemanticSeedK = seedK },
-            logger: log, embedder: new ScriptedEmbedder(), vectors: new InMemoryVectorStore());
+            logger: log, embedder: embedder, vectors: vectors,
+            seedSources: seedK <= 0
+                ? [new LexicalSeedSource()]
+                : [new LexicalSeedSource(),
+                    new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = seedK }, log)]);
         return (engine, log);
     }
 
@@ -127,9 +139,12 @@ public class GraphSemanticScopeTests
     public async Task A_store_that_cannot_list_leaves_the_unscoped_path_empty_and_the_scoped_path_working()
     {
         var log = new CapturingLogger();
+        var embedder = new ScriptedEmbedder();
+        var vectors = new UnlistableVectorStore();
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            options: new GraphMemoryOptions { SemanticSeedK = 3 },
-            logger: log, embedder: new ScriptedEmbedder(), vectors: new UnlistableVectorStore());
+            logger: log, embedder: embedder, vectors: vectors,
+            seedSources: [new LexicalSeedSource(),
+                new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = 3 }, log)]);
         await SeedAsync(engine);
 
         Assert.Empty((await engine.RecallAsync(new MemoryQuery("household", null, Query))).Items);

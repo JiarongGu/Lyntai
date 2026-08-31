@@ -6,6 +6,7 @@ using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Ranking;
+using Lyntai.Memory.Seeding;
 using Lyntai.Llm;
 using Lyntai.Memory.Verification;
 using Lyntai.Storage.Sqlite;
@@ -222,28 +223,32 @@ internal static class MemoryLocomoBench
             // and they get separate stores for the reason the paragraph above gives, which applies with
             // extra force here: ExpandAsync reinforces what it walks, so a three-shot arm sharing a store
             // would hand the one-shot arm a graph it had already dug through.
+
+            // SemanticK is the vector CHANNEL's width, null for "leave it unregistered" — it cannot be a
+            // prebuilt IMemorySeedSource, because the vector store one reads is created per arm below.
             (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking,
-                IMemoryVerificationPolicy? Verification)[] configs = ranksOnly
-                ? [("lyntai", null, rankProbe, null)]
+                IMemoryVerificationPolicy? Verification, int? SemanticK)[] configs = ranksOnly
+                ? [("lyntai", null, rankProbe, null, null)]
                 : retrievalOnly
                 ? Ladder()
                 : shotsOnly
                     // The explicit options object is INERT at floor 0 — the engine's own fallback is
                     // `options ?? new GraphMemoryOptions()` — so an unswept run is byte-identical to one
                     // that never passed one, which archive Part 119 measured rather than assumed.
-                    ? [(ThreeShot, new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor }, null, null)]
-                    : [("lyntai", null, null, null), (ThreeShot, null, null, null)];
+                    ? [(ThreeShot, new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor }, null, null, null)]
+                    : [("lyntai", null, null, null, null), (ThreeShot, null, null, null, null)];
 
             (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking,
-                IMemoryVerificationPolicy? Verification)[] Ladder() =>
+                IMemoryVerificationPolicy? Verification, int? SemanticK)[] Ladder() =>
             [
-                ("lyntai", null, null, null),
-                ("+sem", new GraphMemoryOptions { SemanticSeedK = RecallLimit }, null, null),
-                ("+sem+hop0", new GraphMemoryOptions { SemanticSeedK = RecallLimit },
-                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 }), null),
-                ("+sem80", new GraphMemoryOptions { SemanticSeedK = 80 }, null, null),
-                ("+sem80+hop0", new GraphMemoryOptions { SemanticSeedK = 80 },
-                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 }), null),
+                ("lyntai", null, null, null, null),
+                ("+sem", null, null, null, RecallLimit),
+                ("+sem+hop0", null,
+                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 }), null,
+                    RecallLimit),
+                ("+sem80", null, null, null, 80),
+                ("+sem80+hop0", null,
+                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 }), null, 80),
 
                 // Added 2026-08-31 to SPLIT the -26 gap against `vector`, which the ladder above could not:
                 // every arm in it keeps RetrievabilityWeight at its shipped 1, so forgetting votes on the
@@ -254,7 +259,7 @@ internal static class MemoryLocomoBench
                 // much of the gap is that construction rather than a ranking defect.
                 ("+forget0", null,
                     new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 }),
-                    null),
+                    null, null),
 
                 // The VERDICT arms, added 2026-08-31. D59 decomposed this subsystem's misses and found 100%
                 // reachable-but-outranked and 0% unreachable, naming `IMemoryVerificationPolicy` — a judge
@@ -274,18 +279,20 @@ internal static class MemoryLocomoBench
                 // rather than against a baseline we know is beaten.
                 ("+forget0+oracle", null,
                     new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 }),
-                    new EvidenceOracleVerifier(mine.ToDictionary(q => q.Text, q => q.Evidence.ToHashSet()))),
+                    new EvidenceOracleVerifier(mine.ToDictionary(q => q.Text, q => q.Evidence.ToHashSet())),
+                    null),
 
                 // The REAL judge, beside its own ceiling. `+oracle` says how much promotion could recover;
                 // this says how much a model actually does, and the gap between them is the model's error
                 // rather than the mechanism's limit. Skipped when no chat model answers — the arm measures
                 // what a MODEL is worth, so a scripted stand-in would measure the stand-in.
                 .. judgeChat is null
-                    ? Array.Empty<(string, GraphMemoryOptions?, IMemoryRankingPolicy?, IMemoryVerificationPolicy?)>()
+                    ? Array.Empty<(string, GraphMemoryOptions?, IMemoryRankingPolicy?, IMemoryVerificationPolicy?,
+                        int?)>()
                     : [("+forget0+judge", null,
                         new ReciprocalRankFusionPolicy(
                             new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 }),
-                        new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat)))],
+                        new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat)), null)],
 
                 // The FORMULA arms (2026-08-31): they test what makes the judge an add-on rather than a
                 // rescue. `vector` is PURE tier-2 — one embedder, cosine, no graph, no judge — and scores
@@ -294,7 +301,7 @@ internal static class MemoryLocomoBench
                 // `model-decoupling.md` warns about: a model becoming the floor rather than the ceiling.
                 //
                 // Two mechanisms are suspected and each arm isolates one.
-                //   - `SemanticSeedK` DEFAULTS TO 0, so the shipped engine embeds every write and then
+                //   - the vector CHANNEL is not registered by default, so the shipped engine embeds every write and then
                 //     retrieves lexically, consulting none of it on read. `+sem` already showed turning it
                 //     on is worth only 3 points, which is the puzzle these arms exist to explain.
                 //   - RRF fuses RANKS (D82, "ranks by COMPETITION"), so a cosine of 0.742 against 0.713
@@ -312,17 +319,15 @@ internal static class MemoryLocomoBench
                 // Reaching ~80% means the other WEIGHTS diluted a good ordering. Staying near 60% means the
                 // defect is RELEVANCE ITSELF — a lexical hit carries a rank POSITION and a semantic seed a
                 // COSINE, and no weighting of one field repairs two scales sharing it. `TASKS.md` Part 128.
-                ("+sem+rel-only", new GraphMemoryOptions { SemanticSeedK = RecallLimit },
+                ("+sem+rel-only", null,
                     new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
                     {
                         RetrievabilityWeight = 0,
                         HopWeight = 0,
-                    }), null),
+                    }), null, RecallLimit),
 
-                ("+sem+mult", new GraphMemoryOptions { SemanticSeedK = RecallLimit },
-                    new MultiplicativeRankingPolicy(), null),
-                ("+sem80+mult", new GraphMemoryOptions { SemanticSeedK = 80 },
-                    new MultiplicativeRankingPolicy(), null),
+                ("+sem+mult", null, new MultiplicativeRankingPolicy(), null, RecallLimit),
+                ("+sem80+mult", null, new MultiplicativeRankingPolicy(), null, 80),
 
                 // The BRIDGE arm, and the one that decides where to look next. Relevance alone through the
                 // engine's own pipeline (salience already ships at 0, D89), so it scores the same quantity
@@ -332,7 +337,7 @@ internal static class MemoryLocomoBench
                 // Part 113 established the pool CONTAINS the evidence; it did not establish at what depth,
                 // and those two readings need different work.
                 ("+rel-only", null, new ReciprocalRankFusionPolicy(
-                    new ReciprocalRankFusionOptions { RetrievabilityWeight = 0, HopWeight = 0 }), null),
+                    new ReciprocalRankFusionOptions { RetrievabilityWeight = 0, HopWeight = 0 }), null, null),
             ];
 
             // The dia_id rides along in the CONTENT so an evidence hit is checkable without a model. It is
@@ -347,7 +352,7 @@ internal static class MemoryLocomoBench
             if (shotsOnly) foreach (var q in mine) await embedder.EmbedAsync(q.Text);
 
             var recalled = new Dictionary<(string Arm, string Question), List<string>>();
-            foreach (var (arm, options, ranking, verification) in configs)
+            foreach (var (arm, options, ranking, verification, semanticK) in configs)
             {
                 // INGESTED ONCE into a template nothing reads, then CLONED per question. A recall reinforces
                 // what it returned and ExpandAsync reinforces what it walks, so questions sharing one store
@@ -356,9 +361,18 @@ internal static class MemoryLocomoBench
                 // store affordable where re-ingesting every question is not.
                 using var template = new MemoryPolicySweep.SweepDb();
                 var vectors = new InMemoryVectorStore();
+
+                // null leaves the engine on its own default pair (lexical + subject), which is the shipped
+                // wiring this benchmark measures; a width registers the vector channel BESIDE them.
+                IMemorySeedSource[]? seeds = semanticK is { } k
+                    ? [new LexicalSeedSource(), new SubjectSeedSource(),
+                        new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = k })]
+                    : null;
+
                 var ingest = new GraphMemoryEngine("locomo",
                     new SqliteMemoryGraphStore(template.Factory), options: options,
-                    embedder: embedder, vectors: vectors, ranking: ranking, verification: verification);
+                    embedder: embedder, vectors: vectors, ranking: ranking, verification: verification,
+                    seedSources: seeds);
 
                 foreach (var text in texts)
                     await ingest.RememberAsync(new MemoryWrite(convId, "session", text));
@@ -369,13 +383,14 @@ internal static class MemoryLocomoBench
                 // READ, and it is the one being cloned.
                 GraphMemoryEngine Fresh(MemoryPolicySweep.SweepDb clone) =>
                     new("locomo", new SqliteMemoryGraphStore(clone.Factory), options: options,
-                        embedder: embedder, vectors: vectors, ranking: ranking, verification: verification);
+                        embedder: embedder, vectors: vectors, ranking: ranking, verification: verification,
+                        seedSources: seeds);
 
-                // CONTROL, added for TASKS.md Part 109: SemanticSeedK = 20 moved evidence-hit by 0.0 points
-                // and the read path looks correct on inspection, so the question is whether the vectors are
-                // there and whether a search finds them. Reading it back from what actually ran is the only
-                // way to tell an option that does nothing from an option that is never reached.
-                if (options?.SemanticSeedK > 0 && !probed)
+                // CONTROL, added for TASKS.md Part 109: a semantic width of 20 moved evidence-hit by 0.0
+                // points and the read path looks correct on inspection, so the question is whether the vectors
+                // are there and whether a search finds them. Reading it back from what actually ran is the only
+                // way to tell a channel that does nothing from a channel that is never reached.
+                if (semanticK > 0 && !probed)
                 {
                     probed = true;
                     // on its own clone: the probe issues a real recall, and a recall reinforces — running it

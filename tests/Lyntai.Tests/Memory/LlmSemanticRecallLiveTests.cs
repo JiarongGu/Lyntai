@@ -4,6 +4,7 @@ using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Forgetting;
 using Lyntai.Memory.Interference;
+using Lyntai.Memory.Seeding;
 using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Live;
 using Lyntai.Tests.Memory.Corpus;
@@ -32,9 +33,9 @@ namespace Lyntai.Tests.Memory;
 /// missing instrument: a REAL embedding model. Both were needed; either alone still measures nothing.</para>
 ///
 /// <para><b>THE ANSWER, measured 2026-08-13, and it is not the one this file was built to find:</b> a real
-/// embedding model recovers <b>none</b> of them — 0/3, the same as no embedder — because with
-/// <c>SemanticSeedK</c> at 0 the vector store is consulted at WRITE time only. The mechanism, and the
-/// correction it forces on Part 69's own explanation, are argued at the assertion that pins them.</para>
+/// embedding model recovers <b>none</b> of them — 0/3, the same as no embedder — because without the vector
+/// CHANNEL registered the vector store is consulted at WRITE time only. The mechanism, and the correction it
+/// forces on Part 69's own explanation, are argued at the assertion that pins them.</para>
 ///
 /// <para>Runs only when <c>LYNTAI_LIVE_MODEL</c> (or the legacy <c>LYNTAI_LIVE_OLLAMA</c>) is set AND a model
 /// endpoint is reachable; otherwise SKIPPED, never a pass that observed nothing.
@@ -139,8 +140,8 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
             $"""
              embedder: {EmbedModel}
                                    paraphrases reachable (limit 500)
-               SemanticSeedK = 0   {off.Hits}/{off.Asked}
-               SemanticSeedK = 5   {on.Hits}/{on.Asked}
+               no semantic channel   {off.Hits}/{off.Asked}
+               semantic K = 5        {on.Hits}/{on.Asked}
              """);
         output.WriteLine(table);
 
@@ -154,12 +155,16 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
     {
         var lex = CorpusLexicon.For(CorpusLanguage.English);
         var store = new InMemoryMemoryGraphStore();
+        var vectors = embedder is null ? null : new InMemoryVectorStore();
         var engine = new GraphMemoryEngine("e", store,
-            options: new GraphMemoryOptions { SemanticSeedK = semanticSeedK },
             retrievability: new DsrRetrievability(),
             agePolicies: [new PerWriteAgePolicy()],
             embedder: embedder,
-            vectors: embedder is null ? null : new InMemoryVectorStore());
+            vectors: vectors,
+            seedSources: semanticSeedK <= 0 || embedder is null || vectors is null
+                ? [new LexicalSeedSource()]
+                : [new LexicalSeedSource(),
+                    new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = semanticSeedK })]);
 
         // the statements under test, plus unrelated filler so a recall has something to get wrong
         var targets = new List<string>();

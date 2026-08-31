@@ -4,6 +4,7 @@ using Lyntai.Memory.Engines;
 using Lyntai.Memory.Forgetting;
 using Lyntai.Memory.Interference;
 using Lyntai.Memory.Ranking;
+using Lyntai.Memory.Seeding;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Storage;
 
@@ -20,7 +21,7 @@ namespace Lyntai.Tests.Memory;
 ///
 /// <para>The pairs below are written so the target is <b>lexically unreachable</b>: a query sharing a word
 /// with the content would prove nothing about subjects. Each headline fact therefore carries its own
-/// control at <c>SubjectSeedK: 0</c>, which is the same corpus and the same query with only the seed
+/// control at <c>subjectSeedK: 0</c>, which is the same corpus and the same query with only the seed
 /// switched off — if a control ever starts passing, the fact above it has stopped measuring the seed.</para>
 /// </summary>
 public class MemorySubjectRecallTests
@@ -35,12 +36,17 @@ public class MemorySubjectRecallTests
                 : MemoryAnnotation.None);
     }
 
+    /// <summary><paramref name="subjectSeedK"/> is the handle channel's own knob — <c>0</c> is its documented
+    /// off-switch, and the source stays REGISTERED at it, which is what keeps the controls below the same
+    /// wiring as the facts they control for rather than a different one.</summary>
     private static GraphMemoryEngine NewEngine(TempDb db, IMemoryAnnotationPolicy? annotator,
-        GraphMemoryOptions? options = null) =>
-        new("subjects", new SqliteMemoryGraphStore(db.Factory), options: options,
+        int subjectSeedK = 5) =>
+        new("subjects", new SqliteMemoryGraphStore(db.Factory),
             agePolicies: [new PerWriteAgePolicy()],
             retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy(),
-            annotation: annotator);
+            annotation: annotator,
+            seedSources: [new LexicalSeedSource(),
+                new SubjectSeedSource(new SubjectSeedOptions { K = subjectSeedK })]);
 
     private static IReadOnlyList<string> TextsOf(MemoryRecall recall) =>
         [.. recall.Items.Select(i => i.Content ?? i.Headline ?? string.Empty)];
@@ -73,8 +79,7 @@ public class MemorySubjectRecallTests
     public async Task With_the_subject_seed_off_the_same_query_reaches_nothing()
     {
         using var db = new TempDb();
-        var engine = NewEngine(db, new TableAnnotator(OneFactAbout(SpouseCn, "配偶")),
-            new GraphMemoryOptions { SubjectSeedK = 0 });
+        var engine = NewEngine(db, new TableAnnotator(OneFactAbout(SpouseCn, "配偶")), subjectSeedK: 0);
         await engine.RememberAsync(new MemoryWrite("t", "s", SpouseCn));
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "配偶", Limit: 10));

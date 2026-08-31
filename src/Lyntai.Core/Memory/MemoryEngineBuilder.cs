@@ -141,17 +141,26 @@ public sealed class MemoryEngineBuilder
     /// follows evidence rather than the ranker's own prior. Null falls back to the container registration,
     /// and nothing registered means the ranking policy's order stands unreviewed: the model-free floor.
     /// <para>Appended LAST for the same reason the two parameters above it were.</para></param>
+    /// <param name="seedSources">THIS engine's own retrieval CHANNELS — which
+    /// <see cref="Lyntai.Memory.Seeding.IMemorySeedSource"/>s a recall gathers candidates from. Null falls
+    /// back to the container registration, which <c>AddMemoryEngine</c> seeds with the lexical and subject
+    /// channels and <c>AddMemorySemanticSeeds</c> adds the vector one to.
+    /// <para>Appended LAST for the same reason the three parameters above it were. Unlike them this is a
+    /// COLLECTION, so naming it replaces the container's whole set for this engine rather than selecting one
+    /// implementation — which is the point: an engine that must not pay for a channel says so by listing the
+    /// ones it wants.</para></param>
     public MemoryEngineBuilder UseGraph(GraphMemoryOptions? options = null, string label = "graph",
         IMemoryRankingPolicy? ranking = null,
         IReadOnlyDictionary<string, IMemoryRankingPolicy>? namedRankingPolicies = null,
         IMemoryRetrievabilityPolicy? retrievability = null,
         Lyntai.Memory.Annotation.IMemoryAnnotationPolicy? annotation = null,
-        Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null)
+        Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null,
+        IEnumerable<Lyntai.Memory.Seeding.IMemorySeedSource>? seedSources = null)
     {
         var resolved = options ?? new GraphMemoryOptions();
         _members.Add(new MemberSpec(label, (sp, full) => BuildGraph(
             sp, full, Required<IMemoryGraphStore>(sp), resolved,
-            ranking, namedRankingPolicies, retrievability, annotation, verification)));
+            ranking, namedRankingPolicies, retrievability, annotation, verification, seedSources)));
         return this;
     }
 
@@ -174,7 +183,7 @@ public sealed class MemoryEngineBuilder
     /// <c>GraphMemoryWiringTests.The_one_line_AddMemory_path_honours_a_registered_annotation_and_verification_policy</c>.</para>
     ///
     /// <para>Every argument that is a DI collection is read here unconditionally — registering a retention,
-    /// age or salience dimension is a registration, never an edit to this method. The five OVERRIDE
+    /// age or salience dimension is a registration, never an edit to this method. The six OVERRIDE
     /// parameters are the per-engine selections <see cref="UseGraph"/> exposes and
     /// <see cref="UseBestAvailable"/>, having no configuration surface of its own, leaves null: null means
     /// "take the container registration", which is exactly the fallback each one documents.</para>
@@ -185,7 +194,8 @@ public sealed class MemoryEngineBuilder
         IReadOnlyDictionary<string, IMemoryRankingPolicy>? namedRankingPolicies = null,
         IMemoryRetrievabilityPolicy? retrievability = null,
         Lyntai.Memory.Annotation.IMemoryAnnotationPolicy? annotation = null,
-        Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null) =>
+        Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null,
+        IEnumerable<Lyntai.Memory.Seeding.IMemorySeedSource>? seedSources = null) =>
         new(
             full, store,
             options,
@@ -233,7 +243,12 @@ public sealed class MemoryEngineBuilder
             // Same per-engine selection story. Absent from the container AND unnamed here means the ranking
             // policy's order stands unreviewed — the model-free floor.
             verification: verification
-                ?? sp.GetService<Lyntai.Memory.Verification.IMemoryVerificationPolicy>());
+                ?? sp.GetService<Lyntai.Memory.Verification.IMemoryVerificationPolicy>(),
+            // A DI COLLECTION with a per-engine override, which the other collections above have no need of:
+            // a retention or age dimension is a property of the deployment, while which channels a recall
+            // pays for is a property of the ENGINE — a blend can hold one graph member that consults vectors
+            // beside one that must not. Naming it replaces the whole set for this member.
+            seedSources: seedSources ?? sp.GetServices<Lyntai.Memory.Seeding.IMemorySeedSource>());
 
     /// <summary>The zero-configuration member: the graph engine when an <see cref="IMemoryGraphStore"/>
     /// reached the container, the keyword store otherwise. Resolved when the container is BUILT, not when

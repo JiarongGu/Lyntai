@@ -15,7 +15,7 @@ namespace Lyntai.Tests.Memory;
 /// content, verbatim — and neither <c>ForgetAsync</c> nor <c>PruneAsync</c> touched that store. So the
 /// consent-withdrawal path (<see cref="IForgettableMemory"/>: "the deletion path an application uses when a
 /// user withdraws consent") left the content readable in the projection, and pruning left an orphan that
-/// still costs a <c>SemanticSeedK</c> slot and a <c>GetAsync</c> round trip on every later recall.</para>
+/// still costs a semantic-seed slot and a <c>GetAsync</c> round trip on every later recall.</para>
 ///
 /// <para><b>Why the graph store's own contract could not catch it.</b> The identical defect was found for
 /// SUBJECT rows and fixed inside <c>IMemoryGraphStore</c>, where a contract fact can see it. Vectors live in
@@ -131,8 +131,8 @@ public class MemoryRemovalCompletenessTests
     [Fact]
     public async Task Pruning_removes_the_vector_payloads_of_the_entries_it_removed()
     {
-        // An orphaned vector is not merely disk: SearchAsync still returns it, so it consumes a SemanticSeedK
-        // slot and a GetAsync round trip on every later recall, and GatherAsync then drops it silently
+        // An orphaned vector is not merely disk: SearchAsync still returns it, so it consumes a semantic
+        // seed slot and a GetAsync round trip on every later recall, and the source then drops it silently
         // because the id no longer resolves. The seed budget is spent on nothing.
         var vectors = new InMemoryVectorStore();
         var engine = Engine(vectors, new GraphMemoryOptions { MinRetrievability = 0.9 });

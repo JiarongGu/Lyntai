@@ -1,8 +1,9 @@
 namespace Lyntai.Memory.Ranking;
 
 /// <summary>Constants of <see cref="ReciprocalRankFusionPolicy"/>'s formula: <c>score = Σₛ wₛ / (K +
-/// rankₛ)</c>, summed over four signals — relevance, retrievability, salience and hop — each contributing
-/// its own 1-based RANK POSITION within the candidate set, never its raw value. Ranking by POSITION rather
+/// rankₛ)</c>, summed over five signals — relevance, retrievability, salience, hop and diagnosticity — each
+/// contributing its own 1-based RANK POSITION within the candidate set, never its raw value. Ranking by
+/// POSITION rather
 /// than value is the whole reason this policy exists beside <see cref="MultiplicativeRankingPolicy"/>: a
 /// bm25-derived relevance, a [0,1] retrievability, an unbounded salience and an integer hop count share no
 /// numeric scale, so a product of them (Multiplicative's own formula) implicitly assumes one that fusing by
@@ -193,10 +194,10 @@ public sealed record ReciprocalRankFusionOptions
 /// <b>This is the registered default as of 3.0</b> (<c>docs/DECISIONS.md</c> D49);
 /// <see cref="MultiplicativeRankingPolicy"/> stays shipped, unchanged and registerable in one line. See
 /// <c>MemoryEngineRegistration.AddMemoryEngine</c>'s own remarks for the full reasoning.
-/// <c>Score = Σₛ wₛ / (K + rankₛ)</c>, summed over retrievability, salience and hop by rank POSITION within
-/// the whole candidate set — see <see cref="ReciprocalRankFusionOptions"/>'s own remarks for why that is the
-/// point of fusing by rank at all, and for hop's deliberate ascending direction, the one deviation from the
-/// design spec's three-signal list.
+/// <c>Score = Σₛ wₛ / (K + rankₛ)</c>, summed over retrievability, salience, hop and diagnosticity by rank
+/// POSITION within the whole candidate set — see <see cref="ReciprocalRankFusionOptions"/>'s own remarks for
+/// why that is the point of fusing by rank at all, and for hop's deliberate ascending direction, the one
+/// deviation from the design spec's three-signal list.
 /// <para><b>Relevance is the one term fused per SOURCE, not per candidate.</b> One <c>w/(K+rank)</c> term
 /// sums for every <see cref="MemoryCandidate.Ranks"/> entry that matched — two sources agreeing earns two
 /// terms rather than one averaged value, the formula this class is named for applied to actual ranked lists.
