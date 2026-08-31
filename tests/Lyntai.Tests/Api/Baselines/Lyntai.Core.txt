@@ -2441,6 +2441,17 @@ struct Lyntai.Memory.Seeding.MemorySeedRequest
     Query : MemoryQuery
     Store : IMemoryGraphStore
     ToString() : String
+sealed class Lyntai.Memory.Seeding.SemanticSeedOptions
+    .ctor()
+    Equals(Object obj) : Boolean
+    Equals(SemanticSeedOptions other) : Boolean
+    GetHashCode() : Int32
+    K : Int32
+    ToString() : String
+sealed class Lyntai.Memory.Seeding.SemanticSeedSource
+    .ctor(IEmbedder embedder, IVectorStore vectors, SemanticSeedOptions options = null, ILogger<SemanticSeedSource> logger = null)
+    Name : String
+    SeedAsync(MemorySeedRequest request, CancellationToken ct) : Task<IReadOnlyList<GraphNode>>
 sealed class Lyntai.Memory.SemanticHit
     .ctor(String Content, Double Score)
     Content : String
