@@ -770,7 +770,14 @@ history** — anything below that must outlive it is here._
   The probe is the gitignored
   `devtools/_decisions-audit.mjs` <!-- link-ok: gitignored scratch, named as data; re-creatable from the record -->
   (re-creatable from the record's Method section — it splits on `## D<n> —`
-  and extracts count / default / on-off / exclusivity / placement shapes). Sampled rather than exhausted so
+  and extracts count / default / on-off / exclusivity / placement shapes).
+  <br>**Verified clean on 2026-08-31 so they are not re-done:** all ten `default`/`onoff` claims; D96's
+  counts (past-tense and correctly so); D49's "the ONLY forgetting curve" (two implementors, one a
+  decorator — defensible as written); and five `placement` claims — D17 (the dialect SEAM is in
+  `Core/Llm/Cli`, the dialects in `Providers.Default`, the hosting package holds neither), D25 (generation
+  contracts in `Core/Generation`, backends in `src/Lyntai.Generation`), D79, D85 (`MemoryWiring` is in
+  `src`), D95 (`local/sensitive-patterns.txt` is untracked — `git ls-files` returns nothing).
+  <br>Sampled rather than exhausted so
   far; **prose claims with no extractable shape are invisible to it**, and that is probably where the
   remaining defects are.
 
