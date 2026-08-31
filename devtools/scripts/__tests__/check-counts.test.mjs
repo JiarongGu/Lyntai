@@ -202,11 +202,11 @@ describe('check-counts — the counters, pinned against the real tree', () => {
       (t, f) => t + (fs.readFileSync(path.join(repo, f), 'utf8').match(/MemoryOption\.Require\b/g) ?? []).length, 0);
     assert.equal(n, independent, 'the counter must agree with an independent walk of the same tree');
 
-    // The claim is per-FILE as well as per-site, and D78's prose names six files. A counter that only
-    // checked the total would pass while the "across six files" half rotted — which is exactly how the
+    // The claim is per-FILE as well as per-site, and D78's prose names eight files. A counter that only
+    // checked the total would pass while the "across eight files" half rotted — which is exactly how the
     // original pair (23 / four files) went wrong: BOTH numbers were stale, and only one was ever quoted twice.
     const files = tracked.filter((f) => /MemoryOption\.Require\b/.test(fs.readFileSync(path.join(repo, f), 'utf8')));
-    assert.equal(files.length, 6, `D78 says six files; the tree has ${files.length}`);
+    assert.equal(files.length, 8, `D78 says eight files; the tree has ${files.length}`);
 
     // The pattern must read the LIVE count and ignore the historical one sitting in the same paragraph —
     // the distinction that keeps this gate from failing every time a new option is guarded.

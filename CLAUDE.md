@@ -82,10 +82,11 @@ connect and open as a cheap index (`UseGraph()`), decay measured in **interferen
 with the age policy as a seam (**D40**), **burial rather than deletion** (**D41**), InMemory + SQLite +
 Postgres backends under one contract, and `AddMemoryTools` exposing recall/expand to the model.
 `IMemoryStore`, `ISemanticMemory` and `ICuratedMemoryStore` co-exist with it. The contract is design §5.7.
-<br>**A SUBJECT handle is readable** (`GraphMemoryOptions.SubjectSeedK`, **D88**): a recall matches its query
-against the handles in use and seeds the entries recorded under whichever ones it names. Unlike
-`SemanticSeedK` it is **ON by default**, because a handle exists only where an annotator was registered and
-paid for.
+<br>**A SUBJECT handle is readable** (`SubjectSeedOptions.K`, registered by default via `AddMemorySubjectSeeds`,
+**D88**): a recall matches its query against the handles in use and seeds the entries recorded under
+whichever ones it names. Unlike `SemanticSeedOptions.K` (`AddMemorySemanticSeeds`, NOT registered by
+default) it is **ON by default**, because a handle exists only where an annotator was registered and paid
+for.
 
 **The memory subsystem's load-bearing invariants**, stated as what they ARE. Each one is a rule a change can
 silently break; the reasoning is in the decision named beside it.

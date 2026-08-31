@@ -254,7 +254,7 @@ code.
 Two things kept it invisible. `IVectorStore` has always had `DeleteAsync` and `RemoveCollectionAsync`, so
 nothing was missing to notice; and an orphaned vector cannot surface as a recall ITEM — `GatherAsync` drops
 an id `store.GetAsync` no longer resolves — so the only symptoms were data at rest plus a silently wasted
-`SemanticSeedK` slot.
+`SemanticSeedOptions.K` slot.
 
 **Fix.** `src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs`.
 

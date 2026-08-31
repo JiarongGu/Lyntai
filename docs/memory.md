@@ -126,14 +126,15 @@ query
 
 Two properties of that pipeline are easy to get wrong and are worth stating:
 
-- **Candidate seeding is LEXICAL by default.** Without `SemanticSeedK` the vector store is consulted at
-  *write* time only — novelty for salience, and similarity linking — so an embedder cannot reach a fact
-  whose wording shares nothing with the query. Measured with a real embedding model against paraphrase
-  cues: **0 of 3**, identical to no embedder. Setting `SemanticSeedK` embeds the query and joins its
-  nearest entries to the candidate set, carrying their cosine as `Relevance`; the paraphrases then become
-  reachable. **Reachable is not the same as returned** — see below.
-- **Registering an embedder changes recall even with `SemanticSeedK = 0`, and it is a TRADE rather than a
-  cost.** Both write-time mechanisms were measured separately (`node devtools/dev.mjs memory-enrichment`,
+- **Candidate seeding is LEXICAL by default.** Without `AddMemorySemanticSeeds` registered, the vector store
+  is consulted at *write* time only — novelty for salience, and similarity linking — so an embedder cannot
+  reach a fact whose wording shares nothing with the query. Measured with a real embedding model against
+  paraphrase cues: **0 of 3**, identical to no embedder. Registering the semantic seed source
+  (`SemanticSeedOptions.K`) embeds the query and joins its nearest entries to the candidate set, carrying
+  their cosine as `Relevance`; the paraphrases then become reachable. **Reachable is not the same as
+  returned** — see below.
+- **Registering an embedder changes recall even with the semantic seed unregistered, and it is a TRADE
+  rather than a cost.** Both write-time mechanisms were measured separately (`node devtools/dev.mjs memory-enrichment`,
   a real model), and they behave differently enough that a single verdict would mislead:
   **similarity linking is a redistribution** — it roughly halves misses on entries that cluster with
   others (topical material, an attribute cluster reached by its subject) and it badly hurts the
@@ -149,9 +150,10 @@ Two properties of that pipeline are easy to get wrong and are worth stating:
   resembles. Novelty is unaffected — it reads the probe's top score, not this floor.
 - **A SUBJECT is readable, not just writable.** `AddMemoryAnnotation` records what each fact is *about*;
   a recall matches its query against the handles in use and seeds the entries recorded under whichever ones
-  it names, so a query for `配偶` reaches the fact whose text says `太太`. **On by default** (`SubjectSeedK`),
-  unlike `SemanticSeedK` — a subject exists only because an annotator was registered and paid for, so
-  reading it back needs no second opt-in. Matching is per-script: a handle in a space-writing script needs a
+  it names, so a query for `配偶` reaches the fact whose text says `太太`. **On by default**
+  (`SubjectSeedOptions.K`, `AddMemorySubjectSeeds`), unlike the semantic seed — a subject exists only because
+  an annotator was registered and paid for, so reading it back needs no second opt-in. Matching is
+  per-script: a handle in a space-writing script needs a
   word boundary (`pairbond` must not match `repairbonded`), one in a spaceless script matches as a
   substring. Seeded entries are ordinary candidates — ranked, limited, and not appended past the page.
 - **Reinforcement follows the verdict, the review log follows the recall.** What gets touched and what gets
@@ -550,7 +552,7 @@ blamed or credited.
 | arm | multi-hop | temporal | open-domain | single-hop | overall | items/q |
 |---|---|---|---|---|---|---|
 | `lyntai` (shipped defaults) | 13.5% | 14.3% | 8.3% | 9.2% | **11.0%** | 20.0 |
-| `lyntai+sem` (`SemanticSeedK = 20`) | 10.8% | 16.7% | 8.3% | 9.2% | **11.0%** | 20.0 |
+| `lyntai+sem` (`SemanticSeedOptions.K = 20`) | 10.8% | 16.7% | 8.3% | 9.2% | **11.0%** | 20.0 |
 | `lyntai+rel` (+ `RetrievabilityWeight = 0`) | 13.5% | 23.8% | 16.7% | 25.7% | **22.5%** | 20.0 |
 | `vector` (plain cosine, same embedder, same k) | 81.1% | 81.0% | 58.3% | 82.6% | **80.5%** | 20.0 |
 
@@ -566,7 +568,7 @@ spread evenly over the whole history.
 relevance is recency-correlated by construction, so the two signals never disagree there. LoCoMo makes them
 disagree on purpose.
 
-**`SemanticSeedK` changed NOTHING, and the reason is that it CANNOT — measured, not inferred.** Turning it
+**`SemanticSeedOptions.K` changed NOTHING, and the reason is that it CANNOT — measured, not inferred.** Turning it
 to 20 moved the overall figure by 0.0 points. Four plumbing explanations were ruled out by a control that
 reads back what actually ran:
 
@@ -613,8 +615,8 @@ carry the same offset and the within-regime comparison this table exists to make
 as measured rather than restated, because re-running it would need a `RetrievabilityWeight` ladder the
 shipped harness no longer has._
 
-The control's being byte-identical is what says the harness did not move underneath. `SemanticSeedK` becomes
-worth **+5.0 points** where it was worth exactly 0.0 — it was unreachable, not weak. **That also revises the
+The control's being byte-identical is what says the harness did not move underneath. `SemanticSeedOptions.K`
+becomes worth **+5.0 points** where it was worth exactly 0.0 — it was unreachable, not weak. **That also revises the
 "two separate costs" reading above**: much of what looked like a recency preference was this literal, since
 relevance-only ranking still put unscored neighbours first.
 
@@ -639,7 +641,7 @@ walked ones changed. The finding is therefore intact and newly bounded: it is ab
 candidates, and says nothing about unscored ones.
 
 **Two harness defects were caught before publishing, and both would have produced a wrong headline.** The
-first run benchmarked `SemanticSeedK = 0` against a cosine baseline, which is measuring a misconfiguration —
+first run benchmarked `SemanticSeedOptions.K = 0` against a cosine baseline, which is measuring a misconfiguration —
 the complaint one vendor levelled at another's published LoCoMo table. The second was worse: the arms shared
 a store, and **a recall reinforces what it returns**, so adding a fourth arm moved `lyntai` from 10.0% to
 5.5% with the seed and data unchanged. Same-seed drift is the tell. Each arm now ingests into a pristine
@@ -681,9 +683,9 @@ table said before it, kept because the gap between the columns is itself the fin
 | arm | evidence-hit@20 | as first published (questions shared a store) |
 |---|---|---|
 | `lyntai` | **54.5%** | 31.0% |
-| `+sem` (`SemanticSeedK = 20`) | **57.5%** | 36.0% |
+| `+sem` (`SemanticSeedOptions.K = 20`) | **57.5%** | 36.0% |
 | `+sem+hop0` (`HopWeight = 0`) | 31.5% | 11.5% |
-| `+sem80` (`SemanticSeedK = 80`) | 55.0% | 30.0% |
+| `+sem80` (`SemanticSeedOptions.K = 80`) | 55.0% | 30.0% |
 | `+sem80+hop0` | 41.0% | 17.5% |
 | `vector` | 80.5% | 80.5% |
 
@@ -729,7 +731,7 @@ cleanly, and neither of the first two explanations survived.
 | arm | multi-hop | temporal | open-domain | single-hop | **overall** |
 |---|---|---|---|---|---|
 | `lyntai` (shipped) | 45.9% | 47.6% | 33.3% | 62.4% | **54.5%** |
-| `+sem` (`SemanticSeedK = 20`) | 51.4% | 50.0% | 33.3% | 65.1% | 57.5% |
+| `+sem` (`SemanticSeedOptions.K = 20`) | 51.4% | 50.0% | 33.3% | 65.1% | 57.5% |
 | `+sem80` | 51.4% | 47.6% | 33.3% | 61.5% | 55.0% |
 | `+forget0` (`RetrievabilityWeight = 0`) | 51.4% | 54.8% | 41.7% | 67.0% | **60.0%** |
 | `+rel-only` (also `HopWeight = 0`) | 51.4% | 54.8% | 41.7% | 67.0% | 60.0% |
@@ -755,7 +757,7 @@ there — but single-hop pays it back (67.0 → 61.5). And `+sem80+mult` **colla
 ranking over a large pool is actively destructive, which is worth knowing before anyone reaches for it.
 
 **What survives is sharper, and it was visible in the first table.** `+sem` (57.5%) is WORSE than `+forget0`
-(60.0%). At `SemanticSeedK = 20` the pool provably contains cosine's entire top-20 — the exact set that
+(60.0%). At `SemanticSeedOptions.K = 20` the pool provably contains cosine's entire top-20 — the exact set that
 scores 80.5% — and the engine ranks them out. At 80 seeds it holds cosine's top-80 and still scores 55.0%.
 **Adding good candidates makes it worse.** `GraphNode.Relevance`'s own contract names the mechanism: for a
 lexical hit it is "a backend's own normalized rank POSITION within one seed, not a portable score", while a
@@ -1622,9 +1624,9 @@ spaceless scripts expanded into character n-grams. Thai, Lao, Khmer, Burmese and
 | `Hops` | 2 | edge-traversal depth |
 | `CandidateMultiplier` | 4 | candidates fetched per returned slot |
 | `AuthoritativeReserve` | `null` (unbounded) | slots exact facts may take **within** the limit |
-| `SemanticSeedK` | `0` (off) | entries the query's embedding pulls into the candidate set |
-| `SubjectSeedK` | 5 | entries each SUBJECT the query names pulls into the candidate set |
-| `SubjectSeedScan` | 256 | handles a recall matches its query against |
+| `SemanticSeedOptions.K` | not registered by default (`AddMemorySemanticSeeds`; `K` = 20 once added) | entries the query's embedding pulls into the candidate set |
+| `SubjectSeedOptions.K` | 5 (`AddMemorySubjectSeeds`, registered by default) | entries each SUBJECT the query names pulls into the candidate set |
+| `SubjectSeedOptions.Scan` | 256 | handles a recall matches its query against |
 
 ### Learning
 
@@ -1833,9 +1835,10 @@ Each of these cost a real measurement to find.
   layer down and was fixed after an adopter measured it — one engine had held two answers to "unscoped",
   because its lexical half spanned scopes and its semantic half did not.
 - **Registering an embedder does not switch semantic RECALL on.** It switches semantic WRITES on: novelty and
-  similarity linking run, every write is embedded, and `SemanticSeedK` still defaults to `0`, so no recall
-  reads any of it. That gap is now reported at wiring time (**D85**) — but the shape is worth knowing, since
-  the bill arrives per write and the benefit does not arrive at all until you set the knob.
+  similarity linking run, every write is embedded, and the semantic seed source still is not registered by
+  default (`AddMemorySemanticSeeds`), so no recall reads any of it. That gap is now reported at wiring time
+  (**D85**) — but the shape is worth knowing, since the bill arrives per write and the benefit does not
+  arrive at all until you register the source.
 - **The review log records every returned entry, not every reinforced one.** A judge-rejected entry is
   logged with `Verified = false` and never touched, which is what lets the log contain failures at all.
   `null` (no verifier ran) and `false` (judged irrelevant) are **not** interchangeable.
@@ -1853,15 +1856,15 @@ Each of these cost a real measurement to find.
   and links those entries together; run one arm to completion and then the other and you have compared a
   cold graph against one the first arm warmed. Ask each query under both arms back to back with the order
   alternating. The bias is silent and lands on whichever arm ran second.
-- **An embedder alone does not give you semantic recall**, and **`SemanticSeedK` alone does not either.**
-  It is what consults the vector store at query time, and it is off by default. Switched on, it makes a
-  paraphrase *reachable* — but **no shipped ranking configuration will spend a slot on it**: measured
-  against RRF's defaults, an 8× relevance weight, `K = 1`, both together, and
+- **An embedder alone does not give you semantic recall**, and **registering the semantic seed source alone
+  does not either.** It is what consults the vector store at query time, and it is not registered by
+  default. Registered, it makes a paraphrase *reachable* — but **no shipped ranking configuration will spend
+  a slot on it**: measured against RRF's defaults, an 8× relevance weight, `K = 1`, both together, and
   `MultiplicativeRankingPolicy`, the paraphrase is outranked by recent unrelated material in every one.
-  <br>That is a limitation of the option as shipped, not a tuning gap you can close from configuration.
-  **`SemanticSeedK` is useful in combination with `AddMemoryVerification`** — seeding widens the candidate
-  set, the judge is what promotes from it. Pinned by `SemanticSeedProbeTests`, which asserts the negative
-  for all five configurations so a future ranking change forces this claim to be re-read.
+  <br>That is a limitation of the source as shipped, not a tuning gap you can close from configuration.
+  **`SemanticSeedOptions.K` is useful in combination with `AddMemoryVerification`** — seeding widens the
+  candidate set, the judge is what promotes from it. Pinned by `SemanticSeedProbeTests`, which asserts the
+  negative for all five configurations so a future ranking change forces this claim to be re-read.
 - **`Stability` has exactly one meaning**: the position delta at which retrievability is `0.5`. FSRS anchors
   at 90%; adopting that convention would silently reinterpret every stored value, so a contract fact makes
   it unshippable.

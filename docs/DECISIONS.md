@@ -1990,7 +1990,7 @@ the two backends 23 → 5, every survivor one of the exceptions named above.
 
 **The decision.** One function guards every option domain in the memory subsystem:
 `MemoryOption.Require(value, MemoryOptionRange, owner, why)` is the sole `ArgumentOutOfRangeException` guard
-at all 33 sites across six files. It replaced 31 hand-rolled copies across five when it landed —
+at all 36 sites across eight files. It replaced 31 hand-rolled copies across five when it landed —
 `DsrOptions`, `GraphMemoryOptions` and the three ranking options records — and every option guarded since has
 gone through it, `SalienceOptions.NoveltyWeight` first. `MemoryOptionRange` both TESTS the value and DESCRIBES itself, so the message's domain phrase and
 the comparison that rejected the caller come from one place. Both types are `internal`.
@@ -2208,10 +2208,10 @@ would turn a diagnostic into the startup failure it exists to describe. A contai
 service leaves both policy checks silent rather than guessing.
 
 **Amended 2026-08-21 — a FOURTH finding, and it is the one with no ambiguity at all.** A graph member wired
-with an embedder AND a vector store embeds every write (novelty, similarity linking) while
-`GraphMemoryOptions.SemanticSeedK` defaults to `0`, so no recall reads any of it: the consumer pays an
-embedding per write, gets vectors on disk, and sees no change in what recall returns. An adopter spent most
-of a session finding that with every check green.
+with an embedder AND a vector store embeds every write (novelty, similarity linking) while no semantic seed
+source is registered (`AddMemorySemanticSeeds` not called), so no recall reads any of it: the consumer pays
+an embedding per write, gets vectors on disk, and sees no change in what recall returns. An adopter spent
+most of a session finding that with every check green.
 <br>Unlike the policy findings it needs no "is this engine one we recognise?" hedge — it reads two
 registrations and one options value **off the engine itself**, through an internal
 `GraphMemoryEngine.EmbedsWithoutSeeding`. A property rather than reflection, deliberately: `pitfalls.md`
@@ -2262,7 +2262,7 @@ a null scope searched `{Name}|{task}|` — a name no write can create, since `Me
 nullable. The graph's LEXICAL half meanwhile spans scopes normally (`@scope IS NULL OR n.scope = @scope`), so
 one engine held two different answers to "what does an unscoped recall mean", and the unscoped path — the
 common case — was silently unimproved while the same query answered when a scope was named.
-<br>It now spans through the same `IListableVectorStore`, merged and bounded by `SemanticSeedK`, with ties
+<br>It now spans through the same `IListableVectorStore`, merged and bounded by `SemanticSeedOptions.K`, with ties
 broken by id: those scores become RANKING input, so an untiebroken merge would write run-to-run
 arbitrariness into what a recall returns.
 <br>**The generalisation, since fixing this seam once did not fix it:** when a null argument gains a meaning,
@@ -2311,16 +2311,17 @@ them, and through 3.0.2 exactly two things ever read one — the write path's ow
 reuse list, **both at write time**. So the handle `配偶` recorded against a fact whose text says `太太` was an
 index only its writer could use. Reported by an adopter who had paid for it and closed it app-side.
 
-`GraphMemoryOptions.SubjectSeedK` puts the entries recorded under whichever subjects a query NAMES into the
-candidate set at hop 0, ranked by the same policy as everything else. `SubjectSeedScan` bounds how many of a
-task's handles the query is matched against.
+`SubjectSeedOptions.K` (`AddMemorySubjectSeeds`, registered by default — moved off `GraphMemoryOptions` when
+every seed channel gained its own registration) puts the entries recorded under whichever subjects a query
+NAMES into the candidate set at hop 0, ranked by the same policy as everything else. `SubjectSeedOptions.Scan`
+bounds how many of a task's handles the query is matched against.
 
-**The decision is the DEFAULT, and it is deliberately unlike `SemanticSeedK`'s.** That one is `0` because an
-embedder is registered for reasons of its own, so seeding recall from it would change engines that never
-asked. A subject exists ONLY because an annotator was registered and paid for; reading back what a deployment
-already bought should not need a second opt-in, and shipping this at `0` would have repeated the defect it
-fixes exactly — a feature that arrives disabled and needs a later wiring finding to be noticed
-(**D85**'s fourth amendment). `0` restores the old behaviour in one line.
+**The decision is the DEFAULT, and it is deliberately unlike the semantic seed's.** `AddMemorySemanticSeeds`
+is NOT registered by default: an embedder is registered for reasons of its own, so seeding recall from it
+would change engines that never asked. A subject exists ONLY because an annotator was registered and paid
+for, so reading it back should not need a second opt-in — leaving the source unregistered would have repeated
+the defect it fixes exactly, a feature that arrives disabled and needs a later wiring finding to be noticed
+(**D85**'s fourth amendment). `SubjectSeedOptions.K = 0` is the one-line off-switch.
 
 **Seeds, never an appended tail.** The adopter's app-side version appended subject matches after the ranked
 page so nothing already found could be displaced, which is right for code that cannot measure retrievability
@@ -2337,12 +2338,11 @@ matched; entering as a candidate lets it compete on retrievability and degree, w
 inside `repairbonded` — and matches a spaceless one as a plain SUBSTRING, because Chinese writes `配偶`
 straight against its neighbours and there is no boundary to demand. The adopter stated the rule as
 "non-ASCII versus ASCII", which is the same answer for their corpus and the wrong one for Cyrillic (spaced,
-non-ASCII) and Thai (spaceless, non-ASCII) in opposite directions. Reading the existing seam is what makes it
-right for both.
+non-ASCII) and Thai (spaceless, non-ASCII) in opposite directions.
 
 **`KnownSubjectsAsync` is the one member of `IMemoryGraphStore` with a default body**, so a BYO store that
-does not implement it seeds nothing here and behaves exactly as before. That was already its documented
-posture as an accuracy hint; it is now also a recall path, which is worth knowing before writing one.
+does not implement it seeds nothing here and behaves exactly as before — already its documented posture as
+an accuracy hint, now also a recall path worth knowing before writing one.
 
 **An adopter running the app-side workaround should DELETE it**, not leave it: engine-side matches arrive as
 ordinary ranked hits carrying real retrievability and degree, which the app-side ones never had, and a
@@ -2754,10 +2754,10 @@ that had actually been scored. Measured on LoCoMo (`docs/memory.md` §5), eviden
 | | shipped | fixed |
 |---|---|---|
 | defaults | 11.0% | **31.0%** |
-| `SemanticSeedK = 20` | 11.0% | **36.0%** |
+| `SemanticSeedOptions.K = 20` | 11.0% | **36.0%** |
 | + `RetrievabilityWeight = 0` | 22.5% | **63.5%** |
 
-`SemanticSeedK` becomes worth **+5.0 points** where it was worth exactly 0.0 — a real 0.785 cosine could
+`SemanticSeedOptions.K` becomes worth **+5.0 points** where it was worth exactly 0.0 — a real 0.785 cosine could
 never beat a fabricated 1.000, so the option was unreachable rather than weak.
 <br>_Both columns predate the per-question isolation fix (`docs/task-archive.md` **Part 118**), which moved
 every LoCoMo engine arm up 20–25 points; isolated, `defaults` reads 54.5% rather than 31.0%. The DELTA this
@@ -2807,7 +2807,7 @@ must still return it. Only the walk OUT from a seed is filtered.
 
 **Default `0`, because it buys precision with recall.** The same run lost 4 points of current-fact hit rate
 for its 4 points of clean context. Which side a deployment wants is a property of its workload — the same
-reason `SemanticSeedK` ships off — and one class of one benchmark does not settle it for everyone.
+reason the semantic seed ships unregistered — and one class of one benchmark does not settle it for everyone.
 
 ## D99 — a batched link, with a default body, and a speedup the instrument could not see (2026-08-29)
 

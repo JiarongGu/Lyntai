@@ -1519,7 +1519,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 - **A candidate scored on a DIFFERENT SCALE than the pool it joins cannot win, however relevant it is — and
   the feature that added it then reads as inert rather than as broken.** Measured 2026-08-29
-  (`docs/task-archive.md` Part 110). `GraphMemoryOptions.SemanticSeedK` adds semantically-similar entries to
+  (`docs/task-archive.md` Part 110). `GraphMemoryOptions.SemanticSeedK` adds semantically-similar entries to <!-- drift-ok link-ok: names the property under measurement on the dated run; since removed and replaced by `SemanticSeedOptions.K`, whose per-source rank fusion is what closed this trap -->
   a recall's candidate pool carrying their raw COSINE as `Relevance`; the pool they join is saturated with
   flat `1.000`. The best semantic match in an entire 369-vector collection entered at **0.785** and was
   outranked by everything already there, so raising the knob from 0 to 20 moved a benchmark's evidence-hit

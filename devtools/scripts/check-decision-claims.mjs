@@ -93,10 +93,14 @@ export const DECISION_CLAIMS = [
   },
   {
     id: 'D88',
-    claim: 'the subject seed is ON by default: SubjectSeedK > 0',
-    holds: (r) => initDefaultOf(r, 'src/Lyntai.Core/Memory/GraphMemoryOptions.cs', 'SubjectSeedK') > 0,
-    detail: (r) => `SubjectSeedK = ${initDefaultOf(r, 'src/Lyntai.Core/Memory/GraphMemoryOptions.cs', 'SubjectSeedK')}`,
-    why: 'D88 turns this ON deliberately, unlike SemanticSeedK; the two are one line apart and easy to conflate',
+    claim: 'the subject seed is ON by default: SubjectSeedOptions.K > 0',
+    // The seed-source-fusion work moved this off GraphMemoryOptions onto its own options record
+    // (src/Lyntai.Core/Memory/Seeding/SubjectSeedOptions.cs), where the default lives on the BACKING FIELD
+    // (`_k`) rather than an inline property initializer — `defaultOf`, not `initDefaultOf`.
+    holds: (r) => defaultOf(r, 'src/Lyntai.Core/Memory/Seeding/SubjectSeedOptions.cs', 'k') > 0,
+    detail: (r) => `SubjectSeedOptions.K = ${defaultOf(r, 'src/Lyntai.Core/Memory/Seeding/SubjectSeedOptions.cs', 'k')}`,
+    why: 'D88 turns this ON deliberately, unlike SemanticSeedOptions.K (AddMemorySemanticSeeds is not '
+      + 'registered by default); the two are easy to conflate',
   },
   {
     id: 'D46',

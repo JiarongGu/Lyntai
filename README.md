@@ -267,8 +267,9 @@ catch (LlmVerdictException ex) when (ex.Verdict == LlmVerdict.NotConfigured) { S
   `AddLlmClient("memory-fast", …)` and `ClientName`. Absent, memory behaves exactly as it always has.
   <br>Those subjects are **searchable, not just linkable**: a recall matches its query against the handles in
   use and seeds the entries recorded under whichever ones it names, so `"配偶"` reaches the fact whose text
-  says `"太太"`. On by default (`GraphMemoryOptions.SubjectSeedK`) once an annotator is wired — a handle
-  exists only because you paid for it, so reading it back needs no second opt-in.
+  says `"太太"`. On by default (`SubjectSeedOptions.K`, registered via `AddMemorySubjectSeeds`) once an
+  annotator is wired — a handle exists only because you paid for it, so reading it back needs no second
+  opt-in.
 - **A model can judge which recalled entries actually ANSWERED the query** (opt-in, and the largest
   recall-quality lever here). `AddMemoryVerification()` shows a judge the query and the candidate headlines
   before the limit is applied, so an answer the ranking buried gets promoted — and reinforcement then follows

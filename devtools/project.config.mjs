@@ -318,6 +318,18 @@ export default {
         + 'every seam method in this domain is named for what it returns. These two were created in the '
         + 'same window as that ruling and did not inherit it',
     },
+    {
+      // The seed-source-fusion work (2026-08-31) DELETED these three GraphMemoryOptions properties outright
+      // — no rename, no forward alias — replacing pooled Relevance seeding with a plural IMemorySeedSource
+      // collection, each implementation carrying its own options record. Registered with the removal, same
+      // discipline as the Appraise/Compose entries above.
+      names: ['SemanticSeedK', 'SubjectSeedK', 'SubjectSeedScan'],
+      use: '`SemanticSeedOptions.K` (`AddMemorySemanticSeeds`, NOT registered by default) and '
+        + '`SubjectSeedOptions.K` / `.Scan` (`AddMemorySubjectSeeds`, registered by default)',
+      why: 'a per-source seed pipeline needs a per-source options record; one composite `GraphMemoryOptions` '
+        + 'carrying all three made every seed source\'s knobs live on an unrelated type, and let a query '
+        + 'against one silently narrow another (docs/DECISIONS.md D88)',
+    },
   ],
 
   /**
@@ -674,6 +686,30 @@ export default {
         + 'unmeasured-and-wrong, it lost one measured comparison and remains the better choice on a scale '
         + 'where raw magnitude carries meaning. A doc calling it the default is wrong; a doc RECOMMENDING it '
         + 'for such a scale is not.',
+    },
+    {
+      // The prose half of the seed-source-fusion removal above; `retiredApiNames` fences the surface. Bare
+      // whole-identifier alternation would be safe on MEANING — none of the three is a substring of a live
+      // identifier (`SemanticSeedOptions`, `SubjectSeedOptions.Scan`) — but not on SCOPE: `check-docs` also
+      // reads code-tier COMMENTS (src/tests/bench), where Task 7 left the removed names in four `///`/`//`
+      // sites that state a fixed HISTORICAL value ("was on at <c>SubjectSeedK</c>'s default of 5",
+      // "SemanticSeedK defaulted to 0", "<c>SubjectSeedScan = 256</c>") — accurate the way a `CHANGELOG.md`
+      // entry is accurate, and out of this task's reach (code is reviewed and not to be re-touched for a
+      // vocabulary sweep). The trailing lookahead excludes exactly that VALUE-STATEMENT shape — the term
+      // immediately followed by "default of N" / "defaulted to N" / "was on/off at N" / "= N" — which is
+      // also why it deliberately does NOT match a measurement table's arm names (`+sem`, `+sem80`): those
+      // are not these identifiers at all, the same reasoning "why" gives below.
+      // Traded off deliberately: a prose line reading e.g. "`SemanticSeedK = 30`" now also passes this rule
+      // unflagged. Every current instance of that shape is swept by hand in this same change; the residual
+      // risk is a FUTURE doc regression in exactly that value-literal form going undetected, which is judged
+      // acceptable against re-touching reviewed code for a docs-only task.
+      term: '\\b(?:SemanticSeedK|SubjectSeedK|SubjectSeedScan)\\b'
+        + '(?![^\\n]{0,20}(?:default(?:ed)?\\s+(?:of|to)\\s+\\d|was\\s+(?:on|off)\\s+at\\s+\\d|=\\s*\\d))',
+      use: '`SemanticSeedOptions.K` (`AddMemorySemanticSeeds`, opt-in) or `SubjectSeedOptions.K` / `.Scan` '
+        + '(`AddMemorySubjectSeeds`, registered by default)',
+      why: 'the three GraphMemoryOptions properties were removed and replaced by registered seed sources, '
+        + 'each with its own options record, so a per-source registration can be added, overridden or left '
+        + 'out without touching an unrelated option (docs/DECISIONS.md D88)',
     },
   ],
 

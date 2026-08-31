@@ -147,6 +147,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `var (engine, task, …) = write` now needs one more slot. A BYO `IMemoryGraphStore` that ignores the new
   member keeps the old grade-overwriting behaviour, which is the bug below; honour it to get the fix.
 
+- **`GraphMemoryOptions.SemanticSeedK`, `.SubjectSeedK` and `.SubjectSeedScan` are REMOVED**, replaced by a <!-- drift-ok link-ok: the entry announcing a removal must name what was removed, and none of the three exists any more -->
+  registered `IMemorySeedSource` collection, each source carrying its own options record:
+  `SemanticSeedOptions.K` (`AddMemorySemanticSeeds`, NOT registered by default — an embedder registered for
+  its own reasons must not silently start steering recall) and `SubjectSeedOptions.K` / `.Scan`
+  (`AddMemorySubjectSeeds`, registered by default — a subject exists only because an annotator was already
+  paid for). Both new records ship the same defaults the removed properties carried, including
+  `SubjectSeedOptions.K = 0` as the off-switch. `UseGraph(..., seedSources: …)` overrides the set per engine.
+
 ### Fixed
 
 - **ComfyUI told the router it accepted input media and then discarded it.** `ComfyUiProvider` declared
@@ -229,7 +237,8 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `IEmbedder` and an `IVectorStore` wired, every write is indexed with the entry's **full content as the
   vector payload** — and neither `ForgetAsync` nor `PruneAsync` touched that store, so a consent withdrawal
   (`IForgettableMemory`, the path `docs/DECISIONS.md` **D72** requires to be COMPLETE) left the content
-  readable at rest, and pruning left orphans that still cost a `SemanticSeedK` slot on every later recall.
+  readable at rest, and pruning left orphans that still cost a `SemanticSeedOptions.K` slot on every later
+  recall.
   Both verbs now clear it.
   <br>**Only a deployment that registered both an embedder and a vector store was affected** — nothing else
   ever wrote a payload. An orphan could never surface as a recall item, because the gather path drops an id
