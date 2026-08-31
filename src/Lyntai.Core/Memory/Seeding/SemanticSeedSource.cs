@@ -23,7 +23,12 @@ namespace Lyntai.Memory.Seeding;
 ///
 /// <para><b>Own best-first order, imposed rather than borrowed.</b> <see cref="IVectorStore.SearchAsync"/>
 /// leaves ties between equal scores UNSPECIFIED, so this source re-orders every match itself — score
-/// descending, then id ordinally — before handing any of it back as rank.</para></summary>
+/// descending, then id ordinally — before handing any of it back as rank.</para>
+///
+/// <para><b>Two different bounds, on two different things.</b> <see cref="SemanticSeedOptions.K"/> is the
+/// SEARCH width, independent of any one recall; <see cref="MemorySeedRequest.Limit"/> additionally caps what
+/// is RETURNED, per that field's own "may return at most" contract. Coupling the two would narrow the search
+/// itself whenever a recall's limit is smaller than <c>K</c>, silently shrinking what this source can consider.</para></summary>
 public sealed class SemanticSeedSource(
     IEmbedder embedder,
     IVectorStore vectors,
@@ -39,21 +44,20 @@ public sealed class SemanticSeedSource(
     /// <inheritdoc />
     public async Task<IReadOnlyList<GraphNode>> SeedAsync(MemorySeedRequest request, CancellationToken ct)
     {
-        // Bounded by BOTH this source's own SemanticSeedOptions.K and the caller's MemorySeedRequest.Limit —
-        // the seam's own contract says a source may return at most Limit, and this source additionally caps
-        // its own fan-out so a recall's candidate budget and this channel's search width can be tuned apart.
-        var k = Math.Min(_options.K, request.Limit);
-        if (k <= 0 || string.IsNullOrWhiteSpace(request.Query.Query)) return [];
+        if (request.Limit <= 0 || string.IsNullOrWhiteSpace(request.Query.Query)) return [];
 
         IReadOnlyList<VectorMatch> near;
         try
         {
             var vector = await embedder.EmbedAsync(request.Query.Query, ct).ConfigureAwait(false);
+            // SEARCH width is _options.K alone, exactly what today's engine passes to every SearchAsync call
+            // — never narrowed by request.Limit, or a small recall limit would silently shrink what this
+            // source can ever consider before RETURN even enters the picture.
             near = request.Query.Scope is null
-                ? await AcrossScopesAsync(vector, request.Engine, request.Query.TaskKey, k, ct)
+                ? await AcrossScopesAsync(vector, request.Engine, request.Query.TaskKey, ct)
                     .ConfigureAwait(false)
                 : await vectors.SearchAsync(
-                    Collection(request.Engine, request.Query.TaskKey, request.Query.Scope), vector, k, ct)
+                    Collection(request.Engine, request.Query.TaskKey, request.Query.Scope), vector, _options.K, ct)
                     .ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
@@ -64,12 +68,15 @@ public sealed class SemanticSeedSource(
             return [];
         }
 
+        // RETURN is capped by both — MemorySeedRequest.Limit's own contract ("may return at most") applies
+        // here regardless of how wide the search was.
+        var take = Math.Min(_options.K, request.Limit);
         var ordered = near
             .OrderByDescending(m => m.Score)
             .ThenBy(m => m.Id, StringComparer.Ordinal)
-            .Take(k);
+            .Take(take);
 
-        var results = new List<GraphNode>(k);
+        var results = new List<GraphNode>(take);
         var seen = new HashSet<long>();
         foreach (var match in ordered)
         {
@@ -82,11 +89,11 @@ public sealed class SemanticSeedSource(
     }
 
     /// <summary>Search every collection the vector store holds under <paramref name="taskKey"/> and merge —
-    /// one search per collection, each already bounded by <paramref name="k"/>. Returns the raw merge
-    /// unordered; <see cref="SeedAsync"/> applies the final score/id order and the overall
-    /// <paramref name="k"/> cap once, after either branch produces its matches.</summary>
+    /// one search per collection, each already bounded by <see cref="SemanticSeedOptions.K"/>. Returns the
+    /// raw merge unordered; <see cref="SeedAsync"/> applies the final score/id order and the
+    /// request-and-option cap once, after either branch produces its matches.</summary>
     private async Task<IReadOnlyList<VectorMatch>> AcrossScopesAsync(float[] vector, string engine,
-        string taskKey, int k, CancellationToken ct)
+        string taskKey, CancellationToken ct)
     {
         if (vectors is not IListableVectorStore listable) return [];
 
@@ -95,7 +102,7 @@ public sealed class SemanticSeedSource(
         foreach (var collection in await listable.ListCollectionsAsync(prefix, ct).ConfigureAwait(false))
         {
             ct.ThrowIfCancellationRequested();
-            merged.AddRange(await vectors.SearchAsync(collection, vector, k, ct).ConfigureAwait(false));
+            merged.AddRange(await vectors.SearchAsync(collection, vector, _options.K, ct).ConfigureAwait(false));
         }
         return merged;
     }

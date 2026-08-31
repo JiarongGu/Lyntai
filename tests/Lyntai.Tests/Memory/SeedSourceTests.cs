@@ -77,6 +77,44 @@ public sealed class SeedSourceTests : IDisposable
         }
     }
 
+    /// <summary>Returns exactly the matches it is given, in the CALLER'S order, regardless of score —
+    /// <see cref="IVectorStore.SearchAsync"/>'s own contract leaves ties between backends unspecified and
+    /// says a SQL-backed store need not break them, so this is a legitimate shape for a real backend to have.
+    /// Used to prove <see cref="SemanticSeedSource"/> imposes its OWN order rather than merely forwarding
+    /// whatever the store already returned — <see cref="InMemoryVectorStore"/> cannot stand in for this
+    /// because it already sorts (descending score, id-ordinal tiebreak) before this source ever sees it.</summary>
+    private sealed class UnsortedVectorStore(IReadOnlyList<VectorMatch> matches) : IVectorStore
+    {
+        public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k,
+            CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<VectorMatch>>([.. matches.Take(k)]);
+
+        public Task UpsertAsync(string collection, string id, float[] vector, string payload,
+            CancellationToken ct = default) => throw new NotSupportedException();
+        public Task DeleteAsync(string collection, string id, CancellationToken ct = default) => Task.CompletedTask;
+        public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
+    /// <summary>Returns every seeded match regardless of the requested <c>k</c>, but RECORDS it — so a test
+    /// can observe what width <see cref="SemanticSeedSource"/> actually asked the store for, independent of
+    /// what came back.</summary>
+    private sealed class RecordingVectorStore(IReadOnlyList<VectorMatch> matches) : IVectorStore
+    {
+        public int? RequestedK { get; private set; }
+
+        public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k,
+            CancellationToken ct = default)
+        {
+            RequestedK = k;
+            return Task.FromResult(matches);
+        }
+
+        public Task UpsertAsync(string collection, string id, float[] vector, string payload,
+            CancellationToken ct = default) => throw new NotSupportedException();
+        public Task DeleteAsync(string collection, string id, CancellationToken ct = default) => Task.CompletedTask;
+        public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
     [Fact]
     public async Task The_semantic_source_returns_nodes_in_descending_cosine_order()
     {
@@ -87,11 +125,14 @@ public sealed class SeedSourceTests : IDisposable
         var two = await engine.RememberAsync(new MemoryWrite(TaskKey: "task", Scope: "scope", Content: "entry two"));
         var three = await engine.RememberAsync(new MemoryWrite(TaskKey: "task", Scope: "scope", Content: "entry three"));
 
-        // entry three is nearest the [1,0] query, then entry one (45 degrees off), then entry two (orthogonal)
-        var vectors = new InMemoryVectorStore();
-        await vectors.UpsertAsync("seedtest|task|scope", three.Id, [1f, 0f], "entry three", CancellationToken.None);
-        await vectors.UpsertAsync("seedtest|task|scope", one.Id, [0.7f, 0.7f], "entry one", CancellationToken.None);
-        await vectors.UpsertAsync("seedtest|task|scope", two.Id, [0f, 1f], "entry two", CancellationToken.None);
+        // Seeded DELIBERATELY out of score order (two, three, one) — a store need not sort its own matches,
+        // so this test must observe the SOURCE'S order, never the store's. A real cosine geometry would let
+        // a tie-break-only regression slip through unnoticed if the store happened to already sort.
+        var vectors = new UnsortedVectorStore([
+            new VectorMatch(two.Id, "entry two", 0.1),
+            new VectorMatch(three.Id, "entry three", 0.9),
+            new VectorMatch(one.Id, "entry one", 0.5),
+        ]);
 
         var source = new SemanticSeedSource(new FixedEmbedder([1f, 0f]), vectors);
         var request = new MemorySeedRequest("seedtest", store,
@@ -102,6 +143,38 @@ public sealed class SeedSourceTests : IDisposable
         Assert.Equal("semantic", source.Name);
         Assert.Equal([three.Id, one.Id, two.Id],
             seeded.Select(n => n.Id.ToString(CultureInfo.InvariantCulture)));
+    }
+
+    [Fact]
+    public async Task The_search_width_is_Ks_own_bound_while_the_return_is_capped_by_the_requests_limit()
+    {
+        var store = new SqliteMemoryGraphStore(_db.Factory);
+        var engine = new GraphMemoryEngine("seedtest", store);
+
+        var ids = new List<string>();
+        for (var i = 0; i < 5; i++)
+        {
+            var written = await engine.RememberAsync(
+                new MemoryWrite(TaskKey: "task", Scope: "scope", Content: $"entry {i}"));
+            ids.Add(written.Id);
+        }
+
+        // Every match a real store COULD return at K=5 — RecordingVectorStore hands all of them back
+        // regardless of the requested k, so the test can tell "search asked for 5" from "search asked for 2"
+        // purely from the recorded value, independent of what the source does with the result afterwards.
+        var matches = ids.Select((id, i) => new VectorMatch(id, $"entry {i}", 1.0 - i * 0.1)).ToList();
+        var vectors = new RecordingVectorStore(matches);
+
+        var source = new SemanticSeedSource(new FixedEmbedder([1f, 0f]), vectors, new SemanticSeedOptions { K = 5 });
+        var request = new MemorySeedRequest("seedtest", store,
+            new MemoryQuery(TaskKey: "task", Scope: "scope", Query: "anything"), Limit: 2);
+
+        var seeded = await source.SeedAsync(request, CancellationToken.None);
+
+        // SEARCH was not narrowed: the store was asked for K (5), never Math.Min(K, Limit) (2).
+        Assert.Equal(5, vectors.RequestedK);
+        // RETURN honours Limit's own "may return at most" contract, regardless of how wide the search was.
+        Assert.Equal(2, seeded.Count);
     }
 
     [Fact]

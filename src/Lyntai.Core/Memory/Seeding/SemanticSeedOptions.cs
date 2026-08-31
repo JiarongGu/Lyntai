@@ -10,10 +10,11 @@ public sealed record SemanticSeedOptions
     private readonly int _k = 20;
 
     /// <summary>How many semantically-similar entries this source considers per collection searched — a
-    /// per-source bound independent of <see cref="MemorySeedRequest.Limit"/>, so a recall's own candidate
-    /// budget and this channel's own fan-out can be tuned apart. Reasoned, not measured — the mechanism is
-    /// what registering this source establishes; the constant is a starting point, matching
-    /// <c>GraphMemoryOptions.SimilarityK</c>'s.
+    /// per-source SEARCH bound independent of <see cref="MemorySeedRequest.Limit"/>, which separately caps
+    /// what this source RETURNS (see <see cref="SemanticSeedSource"/>'s own remarks on why the two stay
+    /// apart). Reasoned, not measured — the mechanism is what registering this source establishes; the
+    /// constant is a starting point, carrying the same "reasoned, not measured" status as
+    /// <c>GraphMemoryOptions.SimilarityK</c> (not its value — that default is 5).
     /// <para><b>Must be positive.</b> Zero or negative stops this source from ever searching, which is
     /// indistinguishable from an outage — the seam already has a way to opt out of this source entirely:
     /// simply do not register it (see <see cref="Lyntai.LyntaiBuilder"/>'s <c>AddMemorySemanticSeeds</c>).</para></summary>
