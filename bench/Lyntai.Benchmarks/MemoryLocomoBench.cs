@@ -259,6 +259,31 @@ internal static class MemoryLocomoBench
                     // ABSOLUTE VALUES ARE NOT COMPARABLE TO ANY PUBLISHED NUMBER. They are a
                     // property of a 4B local reader. Only the ARM DIFFERENCE transfers -- TASKS.md
                     // Part 109 says exactly this. Do not place either figure beside a third party's.
+
+                    // PRE-REGISTERED, 2026-09-01, before the first run of the fused multi-shot arm.
+                    //
+                    // `lyntai-fused` converted the retrieval gain (+6.9 token-F1 at equal context)
+                    // but sits at 29.1% against `vector`'s 45.7% while BEATING it on evidence-hit.
+                    // It also answered "the excerpts contained none" 18 times against vector's 5,
+                    // on better evidence. The hypothesis: the engine returns HEADLINES (D100) and
+                    // the reader cannot answer from a pointer. Expansion is what fetches content.
+                    //
+                    // Prediction: a MODEST improvement over `lyntai-fused`, still well below
+                    // `vector` at matched context. Grounds: multi-shot on the SHIPPED ranking
+                    // bought only +2.7 token-F1 (22.2 -> 24.9) for 2.2x the context, so expansion
+                    // is already measured as expensive and weak; better seeds should help it but
+                    // are unlikely to change its character.
+                    //   near `vector` at matched chars => the headline hypothesis is RIGHT and
+                    //                                     expansion is the fix. Biggest result.
+                    //   modest gain, still trailing    => headlines are part of it, not all of it.
+                    //   flat                           => expansion does not fetch what the reader
+                    //                                     needs; the gap is the headline CONTENT.
+                    //   NEGATIVE                       => instrument problem to find, not a
+                    //                                     finding. More evidence cannot hurt.
+                    //
+                    // Absolute values are a property of a 4B local reader. Only the arm DIFFERENCE
+                    // transfers (TASKS.md Part 109). Compare against `vector-40`, the size-matched
+                    // control, not against `vector` alone.
                     : [("lyntai", null, null, null, null),
                         ("lyntai-fused", null,
                             new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
