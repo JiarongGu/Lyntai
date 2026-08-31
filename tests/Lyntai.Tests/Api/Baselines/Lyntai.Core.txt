@@ -2404,6 +2404,13 @@ sealed class Lyntai.Memory.Salience.StructuralSaliencePolicy
     .ctor(SalienceOptions options = null)
     Provenance : MemorySalienceProvenance
     Signals(MemoryWrite write, SalienceContext& context) : MemorySignals
+interface Lyntai.Memory.Seeding.IMemorySeedSource
+    Name : String
+    SeedAsync(MemorySeedRequest request, CancellationToken ct) : Task<IReadOnlyList<GraphNode>>
+sealed class Lyntai.Memory.Seeding.LexicalSeedSource
+    .ctor()
+    Name : String
+    SeedAsync(MemorySeedRequest request, CancellationToken ct) : Task<IReadOnlyList<GraphNode>>
 struct Lyntai.Memory.Seeding.MemorySeedRank
     .ctor(String Source, Int32 Rank)
     Deconstruct(String& Source, Int32& Rank) : Void
@@ -2423,6 +2430,17 @@ struct Lyntai.Memory.Seeding.MemorySeedRanks
     Span : ReadOnlySpan<MemorySeedRank>
     TryGet(String source, Int32& rank) : Boolean
     static Empty : MemorySeedRanks
+struct Lyntai.Memory.Seeding.MemorySeedRequest
+    .ctor(String Engine, IMemoryGraphStore Store, MemoryQuery Query, Int32 Limit)
+    Deconstruct(String& Engine, IMemoryGraphStore& Store, MemoryQuery& Query, Int32& Limit) : Void
+    Engine : String
+    Equals(MemorySeedRequest other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Limit : Int32
+    Query : MemoryQuery
+    Store : IMemoryGraphStore
+    ToString() : String
 sealed class Lyntai.Memory.SemanticHit
     .ctor(String Content, Double Score)
     Content : String
