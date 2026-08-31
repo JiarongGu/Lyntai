@@ -118,6 +118,26 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   rather than a fit. **No score-floor policy ships**: the threshold is a property of the deployment's embedder
   and corpus (`generic-library` rule 7). `docs/DECISIONS.md` **D93**.
 
+- **`IMemorySeedSource` — seed retrieval is now a registered, PLURAL collection of retrieval channels, and
+  `ReciprocalRankFusionPolicy` fuses the RANKED LISTS they return** instead of one pooled `Relevance` field
+  (`docs/DECISIONS.md` **D103**). Three ship: `LexicalSeedSource` (the store's own text read, registered
+  unconditionally — the channel every graph engine already had), `SemanticSeedSource`
+  (`AddMemorySemanticSeeds`, still NOT registered by default — an embedder registered for its own reasons
+  must not silently start steering recall), and `SubjectSeedSource` (`AddMemoryEngine` registers this channel
+  unconditionally; `AddMemorySubjectSeeds` only CONFIGURES it, since a subject exists only because an
+  annotator was already paid for). `UseGraph(..., seedSources: …)` overrides the set per engine.
+  <br>**Within one source, a candidate is ranked by that source's OWN `GraphNode.Relevance` gradient, never by
+  list position** — competition-ranked, ties sharing a rank; a node the source did not MATCH earns no rank at
+  all, and a source whose matched nodes all carry one value is UNORDERED and earns none either. A candidate
+  found by two sources scores the SUM of both reciprocal-rank terms, so agreement between channels is
+  rewarded — something a single pooled field could not express. `MemoryCandidate.Ranks` (`MemorySeedRanks`)
+  carries the evidence; a candidate carrying no ranks at all — a hand-built engine, a BYO gather — falls back
+  to today's pooled-relevance term, byte-identical to before this shipped.
+  <br>**Measured on LoCoMo evidence-hit@20** (`docs/memory.md` §5): the semantic channel was previously
+  unreachable — a real cosine could never outrank a fabricated pooled value — and with per-source fusion its
+  `+sem+rel-only` arm now reads **83.0%**, above plain cosine's own **80.5%**, the first mechanical arm to
+  clear it. **No default moved** — `SemanticSeedOptions` still ships unregistered.
+
 ### Breaking
 
 - **`SalienceContext` gains one trailing member**, widening its constructor and its `Deconstruct`. Additive

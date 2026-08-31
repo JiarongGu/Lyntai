@@ -304,8 +304,8 @@ internal static class MemoryLocomoBench
                 //
                 // Two mechanisms are suspected and each arm isolates one.
                 //   - the vector CHANNEL is not registered by default, so the shipped engine embeds every write and then
-                //     retrieves lexically, consulting none of it on read. `+sem` already showed turning it
-                //     on is worth only 3 points, which is the puzzle these arms exist to explain.
+                //     retrieves lexically, consulting none of it on read. `+sem` was worth only 3 points
+                //     before per-source fusion; it now reads 76.5% (`docs/DECISIONS.md` D103).
                 //   - RRF fuses RANKS (D82, "ranks by COMPETITION"), so a cosine of 0.742 against 0.713
                 //     collapses to "1st against 8th" and the size of the difference — the whole signal on a
                 //     semantic-matching workload — is discarded by construction. That is what RRF IS, not a
@@ -316,7 +316,7 @@ internal static class MemoryLocomoBench
                 // THE arm that isolates the mixed-scale hypothesis (2026-08-31). The pool holds cosine's
                 // top-20 and every other vote is off, so relevance alone orders it — a combination the
                 // measured arms leave untested (`+rel-only` has no semantic seeds at 60.0%, `+sem+hop0`
-                // keeps retrievability at 31.5%, `+sem` has every weight on at 57.5%).
+                // keeps retrievability at 31.5%, `+sem` has every weight on at 76.5%).
                 //
                 // Reaching ~80% means the other WEIGHTS diluted a good ordering. Staying near 60% means the
                 // defect is RELEVANCE ITSELF — a lexical hit carries a rank POSITION and a semantic seed a

@@ -1891,3 +1891,31 @@ trees: asserting only that the real repository is green passes on a predicate th
 the exact failure `test-devtools` exists for.
 
 - Build `check-decision-claims`, the gate the audit argued for
+
+## Part 131 — per-source fusion clears cosine: `+sem+rel-only` at 83.0%, and the 63.5% bar it replaces (2026-08-31)
+
+✅ done 2026-08-31 — `TASKS.md` Part 128's first item, "make `Relevance` comparable before it is ranked."
+Shipped as `IMemorySeedSource` (`docs/DECISIONS.md` **D103**): `ReciprocalRankFusionPolicy` now fuses each
+source's own ranked list instead of one pooled `Relevance` field. Tables and the full reading are
+`docs/memory.md` §5.
+
+**Outcome, controls beside the result.** Three controls reproduced exactly across two runs — `vector` 80.5%,
+`+rel-only` 60.0%, `lyntai` 54.5% — so the harness did not move. `+sem+fuse` clears the old 63.5% bar at
+**76.5%**; `+fuse` (lexical only, where the pre-registered weight-shift confound cannot occur by
+construction) does not move at all, so the gain is per-source fusion. **`+sem+rel-only` — not `+sem+fuse` —
+is the actual best mechanical arm**: the spec's own control assumption was wrong (it called that arm inert
+at 63.5%; it is in fact the arm MOST sensitive to fusion), and it now reads **83.0%, above plain cosine's
+80.5%** — the first mechanical arm to beat the formula this engine was losing to by 26 points. The two runs'
+arm tables are byte-identical, which establishes determinism only (the harness is deterministic by
+construction) and bounds no stochastic noise, since there is none to bound. **No default moved** —
+`SemanticSeedOptions` still ships unregistered.
+
+**Two findings kept though neither is this item's headline.** `+sem+fuse` and `+sem` are IDENTICAL at
+76.5% — their config tuples match except the name (`MemoryLocomoBench.cs:247` vs `:358`) — so the arm is
+**permanently redundant** and should be removed or renamed rather than kept as two names that can never
+disagree. And the Multiplicative arms moved as a side effect nobody targeted: `+sem80+mult` from a recorded
+21.5% to **57.0%**, because `SemanticSeedSource` now reports `Matched = true` carrying an honest cosine and
+`MultiplicativeRankingPolicy`'s existing `Matched is null ? 1 : Relevance` read stopped treating a semantic
+seed as "nobody asked" — `MultiplicativeRankingPolicy` itself was never touched.
+
+- Make `Relevance` comparable before it is ranked.

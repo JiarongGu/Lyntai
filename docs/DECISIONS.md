@@ -172,8 +172,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D100](#d100--the-n-shot-walk-is-the-mode-this-engine-is-evaluated-in-not-a-single-top-k-2026-08-29) | 2026-08-29 | the n-shot WALK is the mode this engine is evaluated in, not a single top-k |
 | [D101](#d101--a-recalls-write-back-is-one-store-call-and-the-review-log-goes-last-2026-08-29) | 2026-08-29 | a recall's write-back is ONE store call, and the review log goes LAST |
 | [D102](#d102--the-n-shot-walk-is-an-extension-over-the-existing-seams-not-a-new-engine-member-2026-08-30) | 2026-08-30 | the n-shot walk is an EXTENSION over the existing seams, not a new engine member |
+| [D103](#d103--seed-retrieval-is-a-plural-producer-seam-and-rrf-fuses-the-ranked-lists-it-was-named-for-2026-08-31) | 2026-08-31 | seed retrieval is a plural PRODUCER seam, and RRF fuses the ranked lists it was named for |
 
-_All 102 entries are live decisions._
+_All 103 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2951,3 +2952,36 @@ exactly, since no existing type changed.
 `SeedSelector`, and `MaxEntries` → `MaxItems` — that last because this repository already spends
 `MaxEntries` on STORE capacity (`CacheOptions`, `MemoryEvictionPolicy`, `BoundedProviderPool`) while a walk
 bounds a returned context, which is the `AuthoritativeReserve` collision again.
+
+## D103 — seed retrieval is a plural PRODUCER seam, and RRF fuses the ranked lists it was named for (2026-08-31)
+
+**The decision.** `IMemorySeedSource` is PLURAL (**D48**): lexical, semantic and subject sources coexist,
+each reading a different aspect of the same query, and `GraphMemoryEngine` gathers every registered one in
+turn. `ReciprocalRankFusionPolicy` sums one `RelevanceWeight / (K + rank)` term per source that ranked a
+candidate, replacing a single term over a pooled `Relevance` field — reciprocal rank fusion given the ranked
+LISTS it was defined over (Cormack, Clarke & Buettcher 2009), rather than one field it was never handed.
+
+**Rejected: `IMemorySeedCompositionPolicy`.** A seam ordering seed lists in front of `IMemoryRankingPolicy`
+ordering candidates is a SECOND orderer, and ranking is SINGULAR (**D48**): "two curves are two answers to
+one question, and running both means believing neither." Fusion stays inside the one ranking policy that
+already owns ordering, so exactly one place decides a candidate's position.
+
+**The rank rule.** Within one source, eligible nodes are competition-ranked by that source's OWN
+`GraphNode.Relevance`, descending — ties share a rank, the next distinct value skips the tied group's width.
+`Matched != true` earns NO rank, whether `false` (the grade carve-out) or `null` (the read never asked a
+relevance question) — **D97**'s rule, applied to ranking rather than to display. A source whose eligible
+nodes all report ONE value carries no relevance evidence and earns no ranks at all — not a shared rank 1,
+which would hand every one of them that source's best fusion term and promote an uninformative channel
+instead of silencing it, the outcome **D82**'s competition argument already rules out.
+
+**Why position-ranking was tried and withdrawn.** An earlier cut ranked each source by list POSITION, which
+assumes every source already returns a relevance-ordered list. `InMemoryMemoryGraphStore` reports a flat
+`Relevance = 1` on every match and orders by grade, salience and recency — so position-ranking turned a
+RECENCY ordering into a fabricated relevance gradient, **D97** in a new costume: there a candidate nobody
+scored reported the maximum relevance; here a candidate nobody ordered by relevance reported a relevance
+RANK. It broke five corpus tests and reversed three recorded findings before the measurement caught it. The
+fix reads each source's own `Relevance` gradient instead of where it sat in the returned list.
+
+**`SubjectSeedOptions.K = 0` remains a legitimate off-switch** — the one registered route to "no subject
+seeding" today. If a second, non-registration off-route is ever added on top of it, **D85** applies: report
+the collision at wiring time rather than let the two silently disagree about whether the channel runs.

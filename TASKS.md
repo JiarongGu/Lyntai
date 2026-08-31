@@ -27,20 +27,21 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SEVEN items, across Parts 105, 109, 116, 128 and 129.** Each is a `- [ ]` you could
+**The startable set is SIX items, across Parts 105, 109, 116, 128 and 129.** Each is a `- [ ]` you could
 open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
 <br>_It was three on 2026-08-30; **Parts 128 and 129 opened on 2026-08-31**, Part 65's last item closed
 (`docs/task-archive.md` **Part 127**) and Part 129's gate item was BUILT the same day (**Part 130**), taking
-it from eight to seven. Every number here is edited in the same change as the item, which is the habit
-`pitfalls.md` prescribes after four stale banners._
+it from eight to seven, and Part 128's first item CLOSED the same day as **Part 131**, taking it from seven
+to six. Every number here is edited in the same change as the item, which is the habit `pitfalls.md`
+prescribes after four stale banners._
 
-**START WITH `## Part 128`.** It is the only one that answers "why is retrieval not good enough", and by the
-end of 2026-08-31 it had measured THREE hypotheses dead and confirmed the fourth: relevance carries two
-incomparable scales, so weight-tuning is retired and the surviving direction is a contract-shaped one.
-**Its bar is 63.5%** — the best mechanical arm — not the shipped 54.5%.
+**START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
+per-source fusion (**D103**) took `+sem+rel-only` from **63.5%** to **83.0%**, above plain cosine's
+**80.5%** — the first mechanical arm to clear it, replacing the bar this line used to quote. What is left
+in the Part is the REAL judge arm and multi-hop, neither of which a ranking fix touches.
 
 **HANDOVER (2026-08-31, end of session).** The direction was MEMORY OPTIMIZATION and it moved a long way, so
 read this before picking anything up.
@@ -723,24 +724,20 @@ search workload the graph is not paying for itself, and no arm measured so far m
 
 _**The mixed-scale hypothesis was TESTED on 2026-08-31 and CONFIRMED, on a prediction registered in the
 source before the run.** `+sem+rel-only` — semantic seeds present, every other vote off, so relevance alone
-orders a pool provably holding cosine's entire top-20 — scores **63.5%**, not the ~80% that would have meant
+orders a pool provably holding cosine's entire top-20 — scored **63.5%**, not the ~80% that would have meant
 the weights were diluting a good ordering. **Weight-tuning is therefore retired as a direction.** The
 mechanism is in the harness's own control output: lexical hits carry a rank POSITION (0.963, 0.900) and
 semantic seeds a COSINE (0.742, 0.732), compared on one field, so a semantic candidate is outranked by
 construction however similar it is — which is also why ADDING semantic seeds makes the arm worse.
-`docs/memory.md` §5 carries the table. Incidentally, `+sem+rel-only` is now the best mechanical arm measured
-and is one line._
+`docs/memory.md` §5 carries the table._
 
-- [ ] **Make `Relevance` comparable before it is ranked.** The surviving direction, and it is a DESIGN
-  question rather than a knob: either normalise relevance per SOURCE, or rank each source within itself and
-  fuse afterwards. Neither is measured.
-  <br>**It changes a contract.** `GraphNode.Relevance` currently promises only "a backend's own normalized
-  rank POSITION within one seed, not a portable score", and every backend's `SeedAsync` is written to that.
-  Making it portable is a cross-backend change with the InMemory/SQLite/Postgres parity problem D60 and D77
-  already record; ranking per source instead leaves the contract alone and moves the work into the ranking
-  policy, which is the cheaper half to try first.
-  <br>**The bar it has to clear is 63.5%**, not the shipped 54.5% — anything less is worse than a one-line
-  configuration change that already exists.
+_**This item CLOSED 2026-08-31 as `docs/task-archive.md` Part 131.** Per-source fusion —
+`IMemorySeedSource` plus `ReciprocalRankFusionPolicy` fusing each source's own ranked list instead of one
+pooled `Relevance` field (`docs/DECISIONS.md` **D103**) — is what the 63.5% two paragraphs up now
+predates: the SAME arm, same name, reads **83.0%** under the fused engine, above plain cosine's 80.5%. That
+makes `+sem+rel-only`, not `+sem+fuse`, the current best mechanical arm. `docs/memory.md` §5 carries the
+current table; the 61.5%/63.5% figures above are the PRE-fusion measurement that opened this Part and stay
+for that reason._
 
 - [ ] **Finish the REAL judge arm.** `+forget0+judge` is built and wired (the shipped
   `LlmMemoryVerificationPolicy` driven through an `ILlmClientFactory` adapter, deliberately not a

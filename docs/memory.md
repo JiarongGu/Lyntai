@@ -808,6 +808,72 @@ never completed). Whether multi-hop's residual — 64.9% even with a perfect jud
 evidence outside `VerificationDepth`, which no judge quality could reach. And every figure here is one
 embedder on one workload.
 
+### Per-source fusion clears cosine, and the 63.5% bar above is now STALE (`memory-locomo --retrieval`, seed-source fusion, 2026-08-31)
+
+Part 128's surviving direction — make `Relevance` comparable before it is ranked — shipped as
+`IMemorySeedSource` (**D103**): `ReciprocalRankFusionPolicy` now fuses each source's own ranked list instead
+of one pooled `Relevance` field. **This measurement is what the 63.5% figure two sections up predates.** That
+number was `+sem+rel-only` BEFORE this shipped; the same arm, same name, now reads 83.0% below — read the
+table here, not the one above, for the current best mechanical arm.
+
+**Controls, read before the result** — the same three the harness has reproduced before, run twice on tree
+`7e77020`:
+
+| control | why it cannot move | expected | read (both runs) |
+|---|---|---|---|
+| `vector` | never touches the graph store | 80.5% | **80.5%** |
+| `+rel-only` | no semantic seeds, so a single ranked source | 60.0% | **60.0%** |
+| `lyntai` (shipped) | semantic seeds not registered | 54.5% | **54.5%** |
+
+All three reproduce to the decimal — the harness did not move under this change.
+
+**One designated control failed, and it was a SPEC error, not a harness defect.** The design spec listed
+`+sem+rel-only` as a control expected to *"reproduce 63.5% with the plumbing inert."* It read 83.0% instead:
+that arm registers semantic seeds, so it is the arm MOST sensitive to per-source fusion, not the least. It
+was never a valid control — `vector` was always the real one.
+
+| arm | before this change | run 1 | run 2 |
+|---|---|---|---|
+| `+sem+fuse` | — | **76.5%** | **76.5%** |
+| `+fuse` (lexical only) | 54.5% (`lyntai`) | **54.5%** | **54.5%** |
+| `+sem+rel-only` | 63.5% | **83.0%** | **83.0%** |
+| `vector` (plain cosine) | 80.5% | 80.5% | 80.5% |
+
+**The first pre-registered branch fired.** `+sem+fuse` clears the old 63.5% bar; `+fuse` (a single source,
+where the weight-shift confound the spec pre-registered cannot occur by construction) does not move at all.
+The gain is per-source fusion, not an incidental reweighting.
+
+**`+sem+rel-only` at 83.0% is the actual best mechanical arm, above plain cosine's 80.5%** — the first time
+this engine has beaten the formula it was losing to by 26.0 points two sections up. Category detail:
+multi-hop 81.1% against cosine's own 81.1% (equal, where Part 128 recorded 64.9% even with a PERFECT judge),
+single-hop 87.2% against cosine's 82.6%.
+
+**Reproducibility establishes DETERMINISM, not a noise bound.** The two runs' arm tables are byte-identical.
+This harness is deterministic by construction — each conversation ingested once, cloned per question,
+embeddings cached — so there is no stochastic variation to bound; the repeat can only detect
+non-determinism, and found none.
+
+**Two readings that are not independent evidence.** `+sem+fuse` and `+sem` are identical at 76.5% because
+`+sem+fuse` IS `+sem` once RRF fuses per source by default — their config tuples match except the name
+(`MemoryLocomoBench.cs:247` vs `:358`), so the arm is permanently redundant and will never disagree with its
+twin. And `+sem+hop0` still matches `+sem` exactly, as before.
+
+**An unplanned side effect: the Multiplicative arms moved**, `+sem+mult` to 60.5% and `+sem80+mult` from a
+recorded 21.5% to **57.0%**. `MultiplicativeRankingPolicy` itself was never touched — `SemanticSeedSource`
+now reports `Matched = true` carrying its clamped cosine as `Relevance`, so the policy's own
+`Matched is null ? 1 : Relevance` read stops treating a semantic seed as "nobody asked" and starts
+multiplying an honest relevance into the product.
+
+**No default moved.** Clearing the bar earns the seam; whether semantic seeding ships ON is a separate
+decision on separate evidence, and `SemanticSeedOptions` is still not registered by default.
+
+**What this does not settle**, same shape as the section above: one workload (LoCoMo rewards a perfect
+archive and penalises forgetting by construction; LongMemEval knowledge-update — the shape this design
+actually claims — was not run); one embedder (`nomic-embed-text` only; `embeddinggemma:300m` sits on this
+machine unused, and earlier sweeps found the two disagree by ~2.5× and reverse sign on one shape); and the
+real-judge arm (`--no-judge`), still unrun. `items/q` is 20.0 on every arm, so no arm is filtered before
+ranking here either.
+
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 
 LoCoMo rewards a perfect archive and penalises decay by construction. This is the opposite shape and the

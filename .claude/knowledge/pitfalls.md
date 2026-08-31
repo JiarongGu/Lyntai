@@ -65,6 +65,19 @@ the tests) while being wrong. Skim before touching the relevant area.
   rather than an existence check: the registry only ever contains claims someone deliberately settled, so a
   hit is a defect by construction. Reach for a registry, not a corpus scan, whenever "wrong" depends on
   intent rather than on the text.
+- **A gate weakened by a regex LOOKAHEAD has no expiry — worse than the `drift-ok` it was built to
+  avoid.** Found 2026-08-31 narrowing `retiredTerms` to silence seven accurate past-tense code comments
+  (`` `SubjectSeedK`'s default of 5 ``, `` `SemanticSeedK` defaulted to 0 ``): <!-- drift-ok: names the two retired identifiers the withdrawn lookahead actually excluded --> a trailing negative lookahead
+  excluded any hit followed by a VALUE-STATEMENT shape (`default of N`, `defaulted to N`, `= N`) within 20
+  characters. That also silently excluded `SemanticSeedK = 30` and `defaulted to 5` — <!-- drift-ok: the reintroduction shape the withdrawn lookahead let through --> the exact shape a
+  REINTRODUCED stale doc takes — in every file the gate scans, permanently, not just the seven lines it was
+  written for. **It is worse than an explicit escape because `retiredApiNames`' allowances FAIL the moment
+  they stop matching (self-correcting), while a lookahead has nothing to expire** — documenting the
+  trade-off inline described the hole without closing it. Withdrawn the same day: reworded the seven
+  comments instead (none needed an escape) and restored the plain alternation. **The general shape: when a
+  gate's false positives all share one CONCRETE textual pattern, exclude those exact LINES (an allowance,
+  self-expiring) rather than the pattern that makes them false positives (a lookahead, permanent)** — the
+  choice `check-api-vocabulary`'s allowance list already made correctly.
 - **Scope a doc gate by "is this maintained state?", not by directory.** The same gate omitted the two
   repo-root files, `CLAUDE.md` and `TASKS.md`, purely because the scope test was three `startsWith` calls.
   Both are maintained state and `CLAUDE.md` is the highest-leverage document in the repo — a stale claim
@@ -660,8 +673,16 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   the axis the protected row is weakest on. All three `IMemoryGraphStore` backends filtered authoritative
   material into every seed candidate set correctly, then ordered by recency alone and took a capped
   count — so a long-quiet exact fact, which by definition has the lowest recency in its scope, sorted last
-  and was cut before ranking ever saw it. Grade now leads the seed ordering ahead of recency on every
-  backend. Check both halves whenever a query claims to exempt something.
+  and was cut before ranking ever saw it. Grade now leads the seed ordering ahead of recency **on the paths
+  that HAVE one** — the in-process store's single ordering, and two of `SqliteMemoryGraphStore.SeedAsync`'s
+  three branches (the LIKE-fallback and no-query ones). Check both halves whenever a query claims to exempt
+  something.
+  <br>**Grade-first is not uniform across backends, found measuring the seed-source fusion plan
+  (2026-08-31).** SQLite's FTS/bm25 branch has NO grade term in its own `ORDER BY` at all — bm25 leads
+  because everything in that result already matched, so match quality outranks grade there by design; an
+  authoritative fact is instead fetched by a SEPARATE query and merged in afterwards. **A fixture written
+  against SQLite's FTS path alone passes a rule it never exercises.** Read the backend's actual query, never
+  generalise the ordering from one branch or from a sibling backend.
 - **A bound configured on one SCOPE and enforced on another is not a bound — and the tests will only ever
   exercise the regime where the gap is invisible.** The sequel to the entry above, and it shipped inside the
   fix for it. `GraphMemoryOptions.AuthoritativeReserve` is a per-ENGINE option that reserves recall slots;
