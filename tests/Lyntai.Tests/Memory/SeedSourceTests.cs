@@ -3,6 +3,7 @@ using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Seeding;
+using Lyntai.Storage.InMemory;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Storage;
 using Microsoft.Extensions.Logging;
@@ -115,6 +116,115 @@ public sealed class SeedSourceTests : IDisposable
         public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) => Task.CompletedTask;
     }
 
+    /// <summary>Faults on every subject-index READ — delegates everything else to a real in-process store, so
+    /// a test using this can tell "the index read is broken" from "nothing matched" by watching that the rest
+    /// of the store still works.</summary>
+    private sealed class SubjectIndexHostileGraphStore : IMemoryGraphStore
+    {
+        private readonly InMemoryMemoryGraphStore _inner = new();
+
+        public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
+            int limit, CancellationToken ct = default) =>
+            throw new InvalidOperationException("the subject index is unavailable");
+
+        public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
+            _inner.UpsertAsync(write, ct);
+        public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
+            string? query, int limit, CancellationToken ct = default) =>
+            _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
+        public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
+            IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default) =>
+            _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
+        public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
+            _inner.GetAsync(engine, id, ct);
+        public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
+            CancellationToken ct = default) => _inner.TouchAsync(engine, touches, ct);
+        public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
+            CancellationToken ct = default) => _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
+        public Task<int> PruneAsync(string engine, string taskKey, string? scope, double? maxAgeOverStability,
+            TimeSpan? olderThan, CancellationToken ct = default) =>
+            _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
+        public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
+            _inner.DeleteAsync(engine, ids, ct);
+        public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
+            _inner.ForgetAsync(engine, taskKey, scope, ct);
+        public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
+            CancellationToken ct = default) => _inner.RecordReviewsAsync(engine, reviews, cap, ct);
+        public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
+            _inner.ReviewsAsync(engine, ct);
+        public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
+            CancellationToken ct = default) => _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
+        public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
+            string subject, int limit, CancellationToken ct = default) =>
+            _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+    }
+
+    /// <summary>Records the <c>limit</c> <see cref="SubjectSeedSource"/> actually asks
+    /// <see cref="IMemoryGraphStore.NodesBySubjectAsync"/> for, independent of what comes back — so a test can
+    /// tell "the fetch used K" from "the fetch used Limit" purely from the recorded value. Everything else
+    /// delegates to a real in-process store, so <see cref="GraphMemoryEngine.RememberAsync"/> works normally
+    /// against it.</summary>
+    private sealed class RecordingSubjectGraphStore : IMemoryGraphStore
+    {
+        private readonly InMemoryMemoryGraphStore _inner = new();
+
+        public int? RequestedNodesLimit { get; private set; }
+
+        public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
+            string subject, int limit, CancellationToken ct = default)
+        {
+            RequestedNodesLimit = limit;
+            return _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+        }
+
+        public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
+            _inner.UpsertAsync(write, ct);
+        public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
+            string? query, int limit, CancellationToken ct = default) =>
+            _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
+        public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
+            IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default) =>
+            _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
+        public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
+            _inner.GetAsync(engine, id, ct);
+        public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
+            CancellationToken ct = default) => _inner.TouchAsync(engine, touches, ct);
+        public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
+            CancellationToken ct = default) => _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
+        public Task<int> PruneAsync(string engine, string taskKey, string? scope, double? maxAgeOverStability,
+            TimeSpan? olderThan, CancellationToken ct = default) =>
+            _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
+        public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
+            _inner.DeleteAsync(engine, ids, ct);
+        public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
+            _inner.ForgetAsync(engine, taskKey, scope, ct);
+        public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
+            CancellationToken ct = default) => _inner.RecordReviewsAsync(engine, reviews, cap, ct);
+        public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
+            _inner.ReviewsAsync(engine, ct);
+        public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
+            CancellationToken ct = default) => _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
+        public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
+            int limit, CancellationToken ct = default) =>
+            _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct);
+    }
+
+    /// <summary>The same capture as <see cref="CapturingLogger"/>, typed for <see cref="SubjectSeedSource"/> —
+    /// <see cref="ILogger{TCategoryName}"/>'s generic parameter is the category, so the two cannot share a
+    /// type.</summary>
+    private sealed class SubjectCapturingLogger : ILogger<SubjectSeedSource>
+    {
+        public List<string> Warnings { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (level >= LogLevel.Warning) Warnings.Add(formatter(state, ex));
+        }
+    }
+
     [Fact]
     public async Task The_semantic_source_returns_nodes_in_descending_cosine_order()
     {
@@ -214,5 +324,126 @@ public sealed class SeedSourceTests : IDisposable
         Assert.Equal(2, seeded.Count);
         Assert.Contains(seeded, n => n.Id.ToString(CultureInfo.InvariantCulture) == home.Id);
         Assert.Contains(seeded, n => n.Id.ToString(CultureInfo.InvariantCulture) == garden.Id);
+    }
+
+    [Fact]
+    public async Task The_subject_source_returns_a_matched_subjects_nodes_in_the_stores_own_order()
+    {
+        var store = new SqliteMemoryGraphStore(_db.Factory);
+        var engine = new GraphMemoryEngine("seedtest", store);
+
+        var one = await engine.RememberAsync(new MemoryWrite("task", "scope", "first fact about the topic"));
+        var two = await engine.RememberAsync(new MemoryWrite("task", "scope", "second fact about the topic"));
+        var three = await engine.RememberAsync(new MemoryWrite("task", "scope", "third fact about the topic"));
+
+        // Every write is tagged the SAME subject, so the only thing that can produce this sequence is the
+        // store's own newest-first order (highest id first) — a re-sort (by id ascending, say) would diverge
+        // from it immediately, since three writes never sort ascending and descending the same way.
+        foreach (var id in new[] { one.Id, two.Id, three.Id })
+            await store.RecordSubjectsAsync("seedtest", long.Parse(id, CultureInfo.InvariantCulture), ["topic"],
+                CancellationToken.None);
+
+        var source = new SubjectSeedSource();
+        var request = new MemorySeedRequest("seedtest", store,
+            new MemoryQuery("task", Scope: "scope", Query: "topic"), Limit: 10);
+
+        var seeded = await source.SeedAsync(request, CancellationToken.None);
+        var direct = await store.NodesBySubjectAsync("seedtest", "task", "scope", "topic", 10,
+            CancellationToken.None);
+
+        Assert.Equal("subject", source.Name);
+        Assert.Equal(direct, seeded.Select(n => n.Id));
+        Assert.NotEmpty(seeded);
+    }
+
+    [Fact]
+    public async Task The_subject_source_de_duplicates_a_node_shared_across_matched_subjects()
+    {
+        var store = new SqliteMemoryGraphStore(_db.Factory);
+        var engine = new GraphMemoryEngine("seedtest", store);
+
+        var shared = await engine.RememberAsync(new MemoryWrite("task", "scope", "the shared fact"));
+        var urgentOnly = await engine.RememberAsync(new MemoryWrite("task", "scope", "an urgent-only fact"));
+        var billingOnly = await engine.RememberAsync(new MemoryWrite("task", "scope", "a billing-only fact"));
+
+        var sharedId = long.Parse(shared.Id, CultureInfo.InvariantCulture);
+        // The shared fact carries BOTH handles the query below names — the fixture a missing `seen` guard
+        // cannot survive, since each matched subject's own NodesBySubjectAsync call would report it again.
+        await store.RecordSubjectsAsync("seedtest", sharedId, ["urgent", "billing"], CancellationToken.None);
+        await store.RecordSubjectsAsync("seedtest", long.Parse(urgentOnly.Id, CultureInfo.InvariantCulture),
+            ["urgent"], CancellationToken.None);
+        await store.RecordSubjectsAsync("seedtest", long.Parse(billingOnly.Id, CultureInfo.InvariantCulture),
+            ["billing"], CancellationToken.None);
+
+        var source = new SubjectSeedSource();
+        var request = new MemorySeedRequest("seedtest", store,
+            new MemoryQuery("task", Scope: "scope", Query: "urgent billing report"), Limit: 10);
+
+        var seeded = await source.SeedAsync(request, CancellationToken.None);
+
+        // Three DISTINCT nodes, never four: without the `seen` guard the shared fact would be counted once
+        // per matched subject.
+        Assert.Equal(3, seeded.Count);
+        Assert.Equal(3, seeded.Select(n => n.Id).Distinct().Count());
+        Assert.Contains(seeded, n => n.Id == sharedId);
+    }
+
+    [Fact]
+    public async Task The_subject_source_returns_empty_rather_than_throwing_when_the_subject_index_faults()
+    {
+        var store = new SubjectIndexHostileGraphStore();
+        var log = new SubjectCapturingLogger();
+        var source = new SubjectSeedSource(logger: log);
+        var request = new MemorySeedRequest("seedtest", store,
+            new MemoryQuery("task", Scope: "scope", Query: "anything"), Limit: 10);
+
+        var seeded = await source.SeedAsync(request, CancellationToken.None);
+
+        Assert.Empty(seeded);   // empty because the fault was swallowed, never because nothing matched
+        Assert.Single(log.Warnings);   // the assertion that tells the two apart
+    }
+
+    [Fact]
+    public async Task With_K_or_Scan_at_zero_the_subject_source_seeds_nothing()
+    {
+        var store = new SqliteMemoryGraphStore(_db.Factory);
+        var engine = new GraphMemoryEngine("seedtest", store);
+        var written = await engine.RememberAsync(new MemoryWrite("task", "scope", "a fact about the topic"));
+        await store.RecordSubjectsAsync("seedtest", long.Parse(written.Id, CultureInfo.InvariantCulture),
+            ["topic"], CancellationToken.None);
+
+        var request = new MemorySeedRequest("seedtest", store,
+            new MemoryQuery("task", Scope: "scope", Query: "topic"), Limit: 10);
+
+        var kOff = new SubjectSeedSource(new SubjectSeedOptions { K = 0 });
+        var scanOff = new SubjectSeedSource(new SubjectSeedOptions { Scan = 0 });
+
+        Assert.Empty(await kOff.SeedAsync(request, CancellationToken.None));
+        Assert.Empty(await scanOff.SeedAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task The_subject_fetch_is_Ks_own_bound_while_the_return_is_capped_by_the_requests_limit()
+    {
+        var store = new RecordingSubjectGraphStore();
+        var engine = new GraphMemoryEngine("seedtest", store);
+
+        for (var i = 0; i < 5; i++)
+        {
+            var written = await engine.RememberAsync(new MemoryWrite("task", "scope", $"entry {i}"));
+            await store.RecordSubjectsAsync("seedtest", long.Parse(written.Id, CultureInfo.InvariantCulture),
+                ["topic"], CancellationToken.None);
+        }
+
+        var source = new SubjectSeedSource(new SubjectSeedOptions { K = 5 });
+        var request = new MemorySeedRequest("seedtest", store,
+            new MemoryQuery("task", Scope: "scope", Query: "topic"), Limit: 2);
+
+        var seeded = await source.SeedAsync(request, CancellationToken.None);
+
+        // FETCH was not narrowed: the store was asked for K (5), never Math.Min(K, Limit) (2).
+        Assert.Equal(5, store.RequestedNodesLimit);
+        // RETURN honours Limit's own "may return at most" contract, regardless of how wide the fetch was.
+        Assert.Equal(2, seeded.Count);
     }
 }

@@ -2452,6 +2452,18 @@ sealed class Lyntai.Memory.Seeding.SemanticSeedSource
     .ctor(IEmbedder embedder, IVectorStore vectors, SemanticSeedOptions options = null, ILogger<SemanticSeedSource> logger = null)
     Name : String
     SeedAsync(MemorySeedRequest request, CancellationToken ct) : Task<IReadOnlyList<GraphNode>>
+sealed class Lyntai.Memory.Seeding.SubjectSeedOptions
+    .ctor()
+    Equals(Object obj) : Boolean
+    Equals(SubjectSeedOptions other) : Boolean
+    GetHashCode() : Int32
+    K : Int32
+    Scan : Int32
+    ToString() : String
+sealed class Lyntai.Memory.Seeding.SubjectSeedSource
+    .ctor(SubjectSeedOptions options = null, ILogger<SubjectSeedSource> logger = null)
+    Name : String
+    SeedAsync(MemorySeedRequest request, CancellationToken ct) : Task<IReadOnlyList<GraphNode>>
 sealed class Lyntai.Memory.SemanticHit
     .ctor(String Content, Double Score)
     Content : String
