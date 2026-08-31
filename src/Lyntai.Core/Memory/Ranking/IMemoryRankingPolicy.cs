@@ -1,3 +1,5 @@
+using Lyntai.Memory.Seeding;
+
 namespace Lyntai.Memory.Ranking;
 
 /// <summary>
@@ -55,7 +57,21 @@ public interface IMemoryRankingPolicy
 /// evaluates decay itself; it only reads what has already been decided.</param>
 /// <param name="Hop">How many edges out from the seed set this candidate was reached through — 0 for a
 /// direct hit.</param>
-public readonly record struct MemoryCandidate(GraphNode Node, double Retrievability, int Hop);
+public readonly record struct MemoryCandidate(GraphNode Node, double Retrievability, int Hop)
+{
+    /// <summary>Which sources MATCHED this candidate, and at what 1-based rank within each.
+    /// <para><b>Empty covers two cases and means the same thing in both</b>: no source produced it (a hop
+    /// neighbour, reached by traversal rather than by a query), or a source returned it without matching it
+    /// (the <see cref="MemoryGrade.Authoritative"/> carve-out, whose candidates arrive with
+    /// <see cref="GraphNode.Matched"/> <c>false</c>). Either way it is "no relevance evidence"
+    /// (<c>docs/DECISIONS.md</c> D97), which is NOT the same claim as "ranked worst" — a policy should
+    /// contribute no relevance term for it rather than score it at the bottom.</para>
+    /// <para>Declared outside the primary constructor deliberately: adding a positional parameter would
+    /// change the constructor signature and the generated <see cref="Deconstruct"/>, breaking every
+    /// pre-compiled caller and every positional pattern. This way the addition is purely additive.</para>
+    /// </summary>
+    public MemorySeedRanks Ranks { get; init; }
+}
 
 /// <summary>What the caller ultimately wants, passed alongside the candidates themselves rather than folded
 /// into them because it describes the CALL, not any one candidate.</summary>

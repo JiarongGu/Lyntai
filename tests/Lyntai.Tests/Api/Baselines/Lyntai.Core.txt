@@ -2315,6 +2315,7 @@ struct Lyntai.Memory.Ranking.MemoryCandidate
     GetHashCode() : Int32
     Hop : Int32
     Node : GraphNode
+    Ranks : MemorySeedRanks
     Retrievability : Double
     ToString() : String
 struct Lyntai.Memory.Ranking.MemoryRankingContext
