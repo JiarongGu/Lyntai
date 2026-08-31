@@ -1204,19 +1204,67 @@ public sealed class GraphMemoryEngine(
     /// at what rank. A hop neighbour carries <see cref="MemorySeedRanks.Empty"/>.</summary>
     private readonly record struct GatheredCandidate(GraphNode Node, int Hop, MemorySeedRanks Ranks);
 
+    /// <summary>
+    /// One source's matched nodes, ranked by that source's OWN <see cref="GraphNode.Relevance"/> gradient —
+    /// <c>0</c> in a slot means "no rank", which a ranking policy reads as no relevance evidence.
+    ///
+    /// <para><b>The gradient, not the list POSITION.</b> Position assumes every source returns a
+    /// relevance-ordered list, and <see cref="IMemoryGraphStore.SeedAsync"/>'s own contract says the
+    /// in-process store has no rank order at all. Treating its <c>grade → salience → recency</c> order as a
+    /// relevance ramp is D97 in a new costume: there, a candidate nobody SCORED reported maximum relevance;
+    /// here, a candidate nobody ORDERED BY RELEVANCE would report a relevance RANK.</para>
+    ///
+    /// <para><b>All matched nodes on ONE value means the source is UNORDERED, and it earns NO ranks.</b> Not
+    /// a shared rank 1 — that would hand every one of them this source's BEST term (<c>w/(K+1)</c>),
+    /// promoting an uninformative channel instead of silencing it. Silence is also what a uniformly-tied
+    /// signal already contributed under the pooled path (<b>D82</b>). A SINGLE matched node is the exception:
+    /// there is no gradient to place it on and it is that source's top hit, so it takes rank 1.</para>
+    ///
+    /// <para>Ties among several values share a rank and the next distinct value skips by the width of the
+    /// tied group — "1, 1, 3", never "1, 1, 2" — the same COMPETITION ranking
+    /// <see cref="Lyntai.Memory.Ranking.ReciprocalRankFusionPolicy"/> applies to its other signals.</para>
+    ///
+    /// <para>Comparing <see cref="GraphNode.Relevance"/> here does NOT put a score across the seam: the
+    /// comparison is strictly WITHIN one source, which is the only scope that member's contract claims
+    /// ("higher is better, within one seed, from one backend"). Two sources' values are never compared.</para>
+    /// </summary>
+    private static int[] SourceRanks(IReadOnlyList<GraphNode> matched)
+    {
+        var n = matched.Count;
+        if (n == 0) return [];
+        if (n == 1) return [1];
+
+        var values = new double[n];
+        for (var i = 0; i < n; i++) values[i] = matched[i].Relevance;
+
+        var distinct = new HashSet<double>(values);
+        if (distinct.Count == 1) return new int[n];   // unordered — every slot stays 0
+
+        var order = new int[n];
+        for (var i = 0; i < n; i++) order[i] = i;
+        Array.Sort(order, (x, y) => values[y].CompareTo(values[x]));   // higher relevance is better
+
+        var rank = new int[n];
+        var currentRank = 1;
+        for (var i = 0; i < n; i++)
+        {
+            if (i > 0 && values[order[i]].CompareTo(values[order[i - 1]]) != 0) currentRank = i + 1;
+            rank[order[i]] = currentRank;
+        }
+        return rank;
+    }
+
     /// <summary>Gather the candidate set: every registered <see cref="IMemorySeedSource"/> in turn, then the
     /// hop expansion out from everything they found.
     ///
-    /// <para><b>Rank is POSITION in each source's own returned order, 1-based</b> — a reciprocal-rank term is
-    /// <c>w / (K + rank)</c>, so rank 0 would make a source's best hit score as though the fusion constant
-    /// alone governed it. No score crosses the seam, which is what stops a lexical rank ramp and a semantic
-    /// cosine being compared as though they shared a scale.</para>
+    /// <para><b>A node the source did not MATCH earns no rank.</b> Store seeds arrive GRADE-FIRST, so an
+    /// authoritative entry the query never matched sorts to the top; crediting it would silently undo
+    /// <b>D97</b>. It still enters the set and is still re-admitted under the grade carve-out — it simply
+    /// carries no relevance evidence, which is what <see cref="GraphNode.Matched"/> <c>false</c> already
+    /// means.</para>
     ///
-    /// <para><b>A node the source did not MATCH is skipped, and the counter does NOT advance for it.</b>
-    /// Store seeds arrive GRADE-FIRST, so an authoritative entry the query never matched sorts to position 0;
-    /// ranking by raw position would hand it the best lexical rank and silently undo <b>D97</b>. It still
-    /// enters the set and is still re-admitted under the grade carve-out — it simply carries no relevance
-    /// evidence, which is what <see cref="GraphNode.Matched"/> <c>false</c> already means.</para>
+    /// <para>What ranks the rest is <see cref="SourceRanks"/>, which reads each source's own
+    /// <see cref="GraphNode.Relevance"/> gradient rather than its list POSITION.</para>
     ///
     /// <para>Sources are read in their registered order and each candidate's ranks are appended in it, so two
     /// candidates matched by the same sources build IDENTICAL rank lists —
@@ -1238,7 +1286,7 @@ public sealed class GraphMemoryEngine(
             ct.ThrowIfCancellationRequested();
             var produced = await source.SeedAsync(request, ct).ConfigureAwait(false);
 
-            var rank = 0;
+            var matched = new List<GraphNode>(produced.Count);
             var fromThisSource = new HashSet<long>();
             foreach (var node in produced)
             {
@@ -1247,8 +1295,16 @@ public sealed class GraphMemoryEngine(
                 if (!fromThisSource.Add(node.Id)) continue;
                 if (seen.Add(node.Id)) found.Add((node, 0));
                 if (node.Matched == false) continue;
-                if (!ranks.TryGetValue(node.Id, out var list)) ranks[node.Id] = list = [];
-                list.Add(new MemorySeedRank(source.Name, ++rank));
+                matched.Add(node);
+            }
+
+            var assigned = SourceRanks(matched);
+            for (var i = 0; i < assigned.Length; i++)
+            {
+                if (assigned[i] == 0) continue;
+                var id = matched[i].Id;
+                if (!ranks.TryGetValue(id, out var list)) ranks[id] = list = [];
+                list.Add(new MemorySeedRank(source.Name, assigned[i]));
             }
         }
 

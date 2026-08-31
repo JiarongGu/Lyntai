@@ -4,28 +4,43 @@ using Lyntai.Memory.Engines;
 using Lyntai.Memory.Ranking;
 using Lyntai.Memory.Seeding;
 using Lyntai.Storage.InMemory;
+using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Fakes;
+using Lyntai.Tests.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Memory;
 
 /// <summary>
-/// <b>What a candidate carries out of <c>GatherAsync</c>: which SOURCES matched it, and at what 1-based
-/// position within each source's own returned order.</b>
+/// <b>What a candidate carries out of <c>GatherAsync</c>: which SOURCES matched it, and at what rank within
+/// each source's OWN <see cref="GraphNode.Relevance"/> gradient.</b>
 ///
-/// <para>Position is the rank because no score crosses the <see cref="IMemorySeedSource"/> boundary — a
-/// lexical hit's rank ramp and a semantic hit's cosine share no scale, and pooling them into one
-/// <see cref="GraphNode.Relevance"/> field is what made a semantic top hit outrankable by construction.</para>
+/// <para>Ranking per source is what keeps the scales apart — a lexical hit's rank ramp and a semantic hit's
+/// cosine are never compared, and pooling them into one field is what made a semantic top hit outrankable by
+/// construction.</para>
 ///
-/// <para><b>The rule with teeth is the exception:</b> a node the source did not MATCH is skipped and the
-/// counter does NOT advance for it. Store seeds arrive GRADE-FIRST, so an authoritative entry the query
-/// never matched sorts to position 0 — ranking by raw position would hand it the best lexical rank and
-/// silently undo <c>docs/DECISIONS.md</c> <b>D97</b>.</para>
+/// <para><b>Two rules with teeth.</b> A node the source did not MATCH earns no rank at all: store seeds
+/// arrive GRADE-FIRST, so an authoritative entry the query never matched sorts to the top and crediting it
+/// would silently undo <c>docs/DECISIONS.md</c> <b>D97</b>. And a source whose matched nodes ALL report one
+/// relevance value is UNORDERED and earns no ranks either — that is D97 in a new costume, a candidate nobody
+/// ordered by relevance reporting a relevance rank.</para>
+///
+/// <para><b>The gradient facts run on SQLite</b>, per the design spec and <c>pitfalls.md</c> §Storage:
+/// <see cref="InMemoryMemoryGraphStore"/> reports a flat <c>1</c> for every match and orders by recency, so
+/// it is the very store that has no gradient to observe. It is used only where the fixture's subject is
+/// something else.</para>
 /// </summary>
-public sealed class GraphMemorySeedRankTests
+public sealed class GraphMemorySeedRankTests : IDisposable
 {
     private const string TaskKey = "t";
     private const string Scope = "s";
+
+    private readonly TempDb _db = new();
+
+    public void Dispose() => _db.Dispose();
+
+    private static long IdOf(MemoryRef reference) =>
+        long.Parse(reference.Id, System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>Captures the candidate set the engine handed the ranker, then delegates — the only way to
     /// observe <see cref="MemoryCandidate.Ranks"/>, which never reaches <see cref="MemoryItem"/>. Mirrors
@@ -46,47 +61,107 @@ public sealed class GraphMemorySeedRankTests
     private static MemoryCandidate CandidateFor(CandidateProbe probe, long id) =>
         probe.Captured.Single(c => c.Node.Id == id);
 
-    // ---- lexical position ------------------------------------------------------------------------------
+    // ---- the lexical gradient --------------------------------------------------------------------------
 
-    /// <summary>Rank is POSITION within the source's own list, 1-based. Compared against a direct
-    /// <see cref="IMemoryGraphStore.SeedAsync"/> call at the width the engine asks for, so the expected
-    /// order is the store's own rather than one this test invented.</summary>
+    /// <summary>A lexical seed is ranked by the STORE's own relevance gradient, best first, competition-style.
+    /// SQLite because that is a backend which computes one; the expected order is read back off the store
+    /// rather than invented here.</summary>
     [Fact]
-    public async Task A_lexical_seed_carries_its_1_based_position_within_its_own_source()
+    public async Task A_lexical_seed_is_ranked_by_the_stores_own_relevance_gradient()
     {
-        var store = new InMemoryMemoryGraphStore();
+        var store = new SqliteMemoryGraphStore(_db.Factory);
         var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
         var engine = new GraphMemoryEngine("e", store, ranking: probe);
 
-        await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta one"));
-        await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta two"));
-        await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta three"));
+        await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta gamma delta epsilon"));
+        await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta gamma"));
+        await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta"));
 
         const int limit = 10;
-        await engine.RecallAsync(new MemoryQuery(TaskKey, Scope: Scope, Query: "beta", Limit: limit));
+        await engine.RecallAsync(new MemoryQuery(TaskKey, Scope: Scope, Query: "beta gamma", Limit: limit));
 
         // the engine asks each source for limit x CandidateMultiplier, so this is the same list it saw
-        var expected = await store.SeedAsync("e", TaskKey, Scope, "beta",
+        var seeded = await store.SeedAsync("e", TaskKey, Scope, "beta gamma",
             limit * new GraphMemoryOptions().CandidateMultiplier);
 
-        Assert.Equal(3, expected.Count);
+        // the fixture's premise: this backend really does report a gradient, or there is nothing to rank by
+        Assert.Equal(3, seeded.Count);
+        Assert.True(seeded.Select(n => n.Relevance).Distinct().Count() > 1,
+            "the store reported a FLAT relevance, so this fixture cannot observe a gradient at all");
+
+        var expected = seeded.OrderByDescending(n => n.Relevance).ToList();
         for (var i = 0; i < expected.Count; i++)
         {
             var candidate = CandidateFor(probe, expected[i].Id);
             Assert.True(candidate.Ranks.TryGet("lexical", out var rank),
-                $"the seed at position {i} carries no lexical rank at all");
+                $"the seed at relevance position {i} carries no lexical rank at all");
             Assert.Equal(i + 1, rank);
         }
     }
 
+    /// <summary><b>A source whose matched nodes all report ONE relevance value is UNORDERED, and contributes
+    /// no relevance evidence.</b> Not a shared rank 1 — that would hand every one of them the source's BEST
+    /// possible fusion term, promoting a channel that said nothing instead of silencing it.
+    ///
+    /// <para>This is <b>D97 in a new costume</b>: there, a candidate nobody SCORED reported maximum
+    /// relevance; here, a candidate nobody ORDERED BY RELEVANCE would report a relevance RANK.
+    /// <see cref="InMemoryMemoryGraphStore"/> is exactly that source — a flat <c>1</c> per match over a
+    /// <c>grade → salience → recency</c> order — so the fixture is the shipped default on the shipped test
+    /// backend, not a contrivance.</para>
+    ///
+    /// <para>Positive on the other side too: a gradient-bearing source over the SAME corpus and query DOES
+    /// earn ranks, so this cannot pass by the engine simply failing to rank anything.</para></summary>
+    [Fact]
+    public async Task A_source_whose_matched_nodes_all_tie_on_relevance_contributes_no_ranks()
+    {
+        var flat = new InMemoryMemoryGraphStore();
+        var flatProbe = new CandidateProbe(new ReciprocalRankFusionPolicy());
+        var flatEngine = new GraphMemoryEngine("e", flat, ranking: flatProbe);
+
+        var graded = new SqliteMemoryGraphStore(_db.Factory);
+        var gradedProbe = new CandidateProbe(new ReciprocalRankFusionPolicy());
+        var gradedEngine = new GraphMemoryEngine("e", graded, ranking: gradedProbe);
+
+        foreach (var engine in new[] { flatEngine, gradedEngine })
+        {
+            await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta gamma delta epsilon"));
+            await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta gamma"));
+            await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta"));
+        }
+
+        var query = new MemoryQuery(TaskKey, Scope: Scope, Query: "beta gamma", Limit: 10);
+        await flatEngine.RecallAsync(query);
+        await gradedEngine.RecallAsync(query);
+
+        // the premise, asserted rather than assumed — one store reports a gradient and the other does not
+        Assert.Equal(1, (await flat.SeedAsync("e", TaskKey, Scope, "beta gamma", 40))
+            .Select(n => n.Relevance).Distinct().Count());
+        Assert.True((await graded.SeedAsync("e", TaskKey, Scope, "beta gamma", 40))
+            .Select(n => n.Relevance).Distinct().Count() > 1);
+
+        Assert.All(flatProbe.Captured, c => Assert.True(c.Ranks.IsEmpty,
+            "an UNORDERED source earned a rank — a flat relevance means 'I have no ordering', "
+            + "never 'everything is maximally relevant'"));
+        Assert.Contains(gradedProbe.Captured, c => c.Ranks.TryGet("lexical", out _));
+    }
+
     // ---- D97, the regression this change can most easily introduce -------------------------------------
 
-    /// <summary><b>An authoritative entry the query never matched earns NO lexical rank, and does not consume
-    /// the number.</b> Both halves: it must not claim relevance evidence it did not earn, and the matched
-    /// entry behind it must hold rank <c>1</c> rather than rank <c>2</c>.
-    /// <para>It still ENTERS the candidate set — the grade carve-out admits it and the engine re-admits it
-    /// into the returned page — so its absence from the probe would be a different defect, and is asserted
-    /// against too.</para></summary>
+    /// <summary><b>An authoritative entry the query never matched earns NO lexical rank, and is not counted
+    /// as a second value in the source's gradient.</b>
+    ///
+    /// <para><see cref="InMemoryMemoryGraphStore"/> deliberately, and the fixture asserts why: it sorts an
+    /// exact fact to position <b>0</b>, which is the placement that made rank-by-position dangerous. The two
+    /// shipped SQL backends put a grade-admitted non-match at the LOW end instead, so a fixture built on one
+    /// of those would pass on a rule this one refutes.</para>
+    ///
+    /// <para>Both assertions carry weight, against different mutations. Dropping the
+    /// <see cref="GraphNode.Matched"/> skip puts the exact fact into the ranked set and the first fails.
+    /// Counting it as a second distinct value — or letting it tie with the match — turns a one-node set into
+    /// an UNORDERED two-node set, the match loses its rank, and the second fails.</para>
+    ///
+    /// <para>It still ENTERS the candidate set, so its absence from the probe would be a different defect and
+    /// is asserted against too (<c>CandidateFor</c> throws on a missing id).</para></summary>
     [Fact]
     public async Task An_authoritative_non_match_sorted_first_by_grade_earns_NO_lexical_rank()
     {
@@ -94,7 +169,7 @@ public sealed class GraphMemorySeedRankTests
         var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
         var engine = new GraphMemoryEngine("e", store, ranking: probe);
 
-        // shares no term with the query, and is admitted purely by grade — the store sorts it FIRST
+        // shares no term with the query, and is admitted purely by grade
         var exact = await engine.RememberAsync(new MemoryWrite(TaskKey, Scope,
             "the vault passphrase is kept off site", Grade: MemoryGrade.Authoritative));
         var matched = await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta rollout begins monday"));
@@ -102,18 +177,15 @@ public sealed class GraphMemorySeedRankTests
         await engine.RecallAsync(new MemoryQuery(TaskKey, Scope: Scope, Query: "beta", Limit: 10));
 
         var seeded = await store.SeedAsync("e", TaskKey, Scope, "beta", 40);
-        Assert.Equal(long.Parse(exact.Id, System.Globalization.CultureInfo.InvariantCulture), seeded[0].Id);
-        Assert.False(seeded[0].Matched);   // the fixture's whole premise: admitted, never matched
+        Assert.Equal(IdOf(exact), seeded[0].Id);   // the dangerous placement, asserted not assumed
+        Assert.False(seeded[0].Matched);           // admitted, never matched
+        Assert.Single(seeded.Where(n => n.Matched == true));
 
-        var exactCandidate = CandidateFor(probe,
-            long.Parse(exact.Id, System.Globalization.CultureInfo.InvariantCulture));
-        var matchedCandidate = CandidateFor(probe,
-            long.Parse(matched.Id, System.Globalization.CultureInfo.InvariantCulture));
-
-        Assert.True(exactCandidate.Ranks.IsEmpty,
-            "the exact fact the query never matched claimed a rank — ranking by raw position undoes D97");
-        Assert.True(matchedCandidate.Ranks.TryGet("lexical", out var rank));
-        Assert.Equal(1, rank);   // NOT 2: the skipped node must not consume the number
+        Assert.True(CandidateFor(probe, IdOf(exact)).Ranks.IsEmpty,
+            "the exact fact the query never matched claimed a rank — crediting it undoes D97");
+        Assert.True(CandidateFor(probe, IdOf(matched)).Ranks.TryGet("lexical", out var rank),
+            "the one genuine match lost its rank — the unmatched node was counted into the gradient");
+        Assert.Equal(1, rank);
     }
 
     // ---- agreement across sources ----------------------------------------------------------------------

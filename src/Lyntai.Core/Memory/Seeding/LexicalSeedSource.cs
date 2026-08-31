@@ -3,10 +3,12 @@ namespace Lyntai.Memory.Seeding;
 /// <summary>The store's own text read — the channel every graph engine has, registered unconditionally by
 /// <c>AddMemoryEngine</c> because <see cref="IMemoryGraphStore.SeedAsync"/> was unconditional before this
 /// seam existed.
-/// <para><b>Returns the store's order untouched</b>, which is grade-first then by the backend's own
-/// relevance gradient. The engine, not this source, decides that a
-/// <see cref="GraphNode.Matched"/>-<c>false</c> node earns no rank — see
-/// <c>GraphMemoryEngine.GatherAsync</c>.</para></summary>
+/// <para><b>Returns the store's rows untouched</b>, <see cref="GraphNode.Relevance"/> included — so this
+/// channel is ranked by whatever gradient the backend computed. SQLite and Postgres normalize a real one;
+/// <b>the in-process store reports a flat <c>1</c> for every match and is therefore treated as UNORDERED</b>,
+/// contributing no relevance evidence, which is the honest reading of a store whose own contract says it has
+/// no rank order. The engine, not this source, applies that rule and the
+/// <see cref="GraphNode.Matched"/>-<c>false</c> one — see <c>GraphMemoryEngine.SourceRanks</c>.</para></summary>
 public sealed class LexicalSeedSource : IMemorySeedSource
 {
     /// <inheritdoc />

@@ -11,18 +11,24 @@ public readonly record struct MemorySeedRequest(
     string Engine, IMemoryGraphStore Store, MemoryQuery Query, int Limit);
 
 /// <summary>
-/// One retrieval channel — a PRODUCER of candidates, not a policy that varies a per-entry rule, so it is
-/// the same category as <see cref="IMemoryGraphStore"/> rather than one of the memory policy domains
-/// (<c>docs/DECISIONS.md</c> D47).
+/// One retrieval channel — a PRODUCER of candidates, not a policy varying a per-entry rule, so it is the
+/// same category as <see cref="IMemoryGraphStore"/> rather than a memory policy domain (D47). <b>PLURAL
+/// (D48): implementations COEXIST</b> — lexical, semantic and subject read different aspects, all true at
+/// once. Register as many as apply; the engine reads the whole collection.
 ///
-/// <para><b>PLURAL (D48): implementations COEXIST.</b> Lexical reads text, semantic reads a vector space,
-/// subject reads handles — different aspects, all true at once. Register as many as apply; the engine reads
-/// the whole collection.</para>
-///
-/// <para><b>THE RETURN CONTRACT, and it is the whole point of this seam: the list is in THIS source's own
-/// best-first order, and position IS the rank. No score crosses this boundary.</b> Two sources cannot share
-/// a scale if neither reports one — which is what stops a lexical rank position and a semantic cosine being
-/// compared as though they meant the same thing.</para>
+/// <para><b>THE RETURN CONTRACT: a source is ranked by its OWN <see cref="GraphNode.Relevance"/> gradient,
+/// never by list POSITION.</b> Higher is better, and the engine competition-ranks the matched nodes by it —
+/// equal values share a rank, the next distinct value skips the tied group's width.
+/// <list type="bullet">
+/// <item>A node this source did not match reports <see cref="GraphNode.Matched"/> <c>false</c> and is left
+/// unranked, whatever its position.</item>
+/// <item><b>Matched nodes ALL on one value means "I have no ordering", not "everything is maximally
+/// relevant"</b> — the source contributes no relevance evidence. Return a flat value when that is the truth
+/// about your channel; do not fabricate a gradient to avoid it.</item>
+/// <item>A single matched node is that source's top hit and takes rank 1.</item>
+/// </list>
+/// The value is WITHIN-SOURCE and no score crosses this boundary: two sources' values are never compared,
+/// which stops a lexical ramp and a semantic cosine being read as one scale.</para>
 ///
 /// <para><b>Best-effort.</b> A source that cannot answer returns empty; it must not throw for a transient
 /// fault, because the engine gathers sources in sequence and a throw would discard the candidates the
@@ -34,9 +40,11 @@ public interface IMemorySeedSource
     /// <see cref="MemorySeedRanks"/>. Ordinal comparison, so it is case-sensitive.</summary>
     string Name { get; }
 
-    /// <summary>Candidates in this source's own best-first order.</summary>
+    /// <summary>This channel's candidates, each carrying its own <see cref="GraphNode.Relevance"/> — see the
+    /// type's remarks for what the engine does with that value and what a flat one means.</summary>
     /// <param name="request">What is being asked for.</param>
     /// <param name="ct">Cancellation.</param>
-    /// <returns>Best first; empty when this source has nothing to contribute.</returns>
+    /// <returns>Empty when this source has nothing to contribute. List ORDER is not read; the relevance
+    /// gradient is.</returns>
     Task<IReadOnlyList<GraphNode>> SeedAsync(MemorySeedRequest request, CancellationToken ct);
 }

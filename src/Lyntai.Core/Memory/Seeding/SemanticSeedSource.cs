@@ -15,20 +15,21 @@ namespace Lyntai.Memory.Seeding;
 /// QUALITY and never CORRECTNESS. <see cref="OperationCanceledException"/> is the one exception never
 /// swallowed — that is the caller leaving, not an enrichment fault.</para>
 ///
-/// <para><b>A null <see cref="MemoryQuery.Scope"/> spans every collection the vector store holds under the
-/// task</b>, agreeing with what an unscoped LEXICAL seed already means: a write always names a scope, so the
-/// single literal collection a null scope would otherwise address can never exist. Spanning needs an
-/// <see cref="IListableVectorStore"/>; a store without it contributes nothing on the unscoped path, exactly
-/// as a scoped query on the same store still would.</para>
+/// <para><b>A null <see cref="MemoryQuery.Scope"/> spans every collection the store holds under the task</b>,
+/// agreeing with what an unscoped LEXICAL seed means: a write always names a scope, so the single literal
+/// collection a null scope would address can never exist. Spanning needs an
+/// <see cref="IListableVectorStore"/>; a store without it contributes nothing there.</para>
 ///
-/// <para><b>Own best-first order, imposed rather than borrowed.</b> <see cref="IVectorStore.SearchAsync"/>
-/// leaves ties between equal scores UNSPECIFIED, so this source re-orders every match itself — score
-/// descending, then id ordinally — before handing any of it back as rank.</para>
+/// <para><b>Each returned node carries its clamped COSINE as <see cref="GraphNode.Relevance"/> and
+/// <see cref="GraphNode.Matched"/> <c>true</c>.</b> That is this channel's WITHIN-SOURCE gradient, the thing
+/// the engine ranks it by (<see cref="IMemorySeedSource"/>), and never a portable score. Without it every
+/// node would carry <see cref="IMemoryGraphStore.GetAsync"/>'s <c>Relevance 0</c>, the channel would read as
+/// UNORDERED, and it would contribute no relevance evidence at all.</para>
 ///
-/// <para><b>Two different bounds, on two different things.</b> <see cref="SemanticSeedOptions.K"/> is the
-/// SEARCH width, independent of any one recall; <see cref="MemorySeedRequest.Limit"/> additionally caps what
-/// is RETURNED, per that field's own "may return at most" contract. Coupling the two would narrow the search
-/// itself whenever a recall's limit is smaller than <c>K</c>, silently shrinking what this source can consider.</para></summary>
+/// <para><b>Two bounds on two different things.</b> <see cref="SemanticSeedOptions.K"/> is the SEARCH width;
+/// <see cref="MemorySeedRequest.Limit"/> additionally caps what is RETURNED. Coupling them would narrow the
+/// search itself whenever a recall's limit is smaller. The cap is deterministic because this source sorts by
+/// score then id ordinally first — <see cref="IVectorStore.SearchAsync"/> leaves ties UNSPECIFIED.</para></summary>
 public sealed class SemanticSeedSource(
     IEmbedder embedder,
     IVectorStore vectors,
@@ -83,7 +84,10 @@ public sealed class SemanticSeedSource(
             if (!long.TryParse(match.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)) continue;
             if (!seen.Add(id)) continue;
             var node = await request.Store.GetAsync(request.Engine, id, ct).ConfigureAwait(false);
-            if (node is not null) results.Add(node);
+            // The cosine rides out as this source's own gradient — see the type's remarks. A fetch by id
+            // reports Relevance 0 / Matched null ("nobody asked"), and this read DID ask.
+            if (node is not null)
+                results.Add(node with { Relevance = Math.Clamp(match.Score, 0, 1), Matched = true });
         }
         return results;
     }

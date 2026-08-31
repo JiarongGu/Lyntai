@@ -9,22 +9,24 @@ namespace Lyntai.Memory.Seeding;
 ///
 /// <para><b>Ownership stays with <see cref="MemorySubject"/>.</b> Whether the query names a handle is
 /// <see cref="MemorySubject.Matches"/>'s call, and the handle reaching the store is always
-/// <see cref="MemorySubject.Normalize"/>'s form — this source calls both rather than restating either
-/// rule.</para>
+/// <see cref="MemorySubject.Normalize"/>'s form — this source calls both rather than restating either.</para>
 ///
 /// <para><b>Best-effort, per the seam's own contract</b> (<see cref="IMemorySeedSource"/>): a faulting
 /// <see cref="IMemoryGraphStore.KnownSubjectsAsync"/> or <see cref="IMemoryGraphStore.NodesBySubjectAsync"/>
-/// logs a warning and returns empty rather than throwing. <see cref="OperationCanceledException"/> is the
-/// one exception never swallowed.</para>
+/// logs a warning and returns empty rather than throwing; <see cref="OperationCanceledException"/> is never
+/// swallowed. De-duplicated across subjects, so two handles naming one node yield it once.</para>
 ///
-/// <para><b>De-duplicated across subjects, first-seen order preserved.</b> Two matched handles can name the
-/// same node, and a node reached through an earlier handle is not repeated for a later one.</para>
+/// <para><b>UNORDERED, deliberately.</b> Nodes arrive at a flat <see cref="GraphNode.Relevance"/> and what
+/// ordering this source has is newest-first per subject — recency, not relevance — so it contributes no
+/// relevance term (<see cref="IMemorySeedSource"/>'s return contract). That is the truth about the channel: a
+/// handle match says an entry is ABOUT what was asked, never how WELL it matched. Its candidates still
+/// compete on retrievability, hop and degree.</para>
 ///
 /// <para><b>Two different bounds, on two different things</b> — the same shape
 /// <see cref="SemanticSeedSource"/> already carries. <see cref="SubjectSeedOptions.K"/> bounds what is
 /// FETCHED per matched subject; <see cref="MemorySeedRequest.Limit"/> additionally caps what is RETURNED,
-/// applied once at the very end, after every matched subject's nodes are merged and de-duplicated. Coupling
-/// the two would search shallower per subject whenever a recall's limit is smaller than <c>K</c>.</para></summary>
+/// once at the end. Coupling them would search shallower per subject whenever a recall's limit is
+/// smaller.</para></summary>
 public sealed class SubjectSeedSource(
     SubjectSeedOptions? options = null,
     ILogger<SubjectSeedSource>? logger = null) : IMemorySeedSource
