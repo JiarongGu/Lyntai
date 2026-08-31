@@ -51,6 +51,12 @@ internal static class MemoryLocomoBench
     /// </summary>
     private const string TwoShot = "lyntai-2shot";
     private const string ThreeShot = "lyntai-3shot";
+    // Fused ranking's own three-shot walker (D103) — same walk shape as `ThreeShot`, joined to it in
+    // `MultiShotArms` rather than given a parallel doc block, since that walk is what this one inherits.
+    private const string FusedThreeShot = "lyntai-fused-3shot";
+    // Arms whose walk continues past step 1. Only `ThreeShot` also publishes its step-2 snapshot as
+    // `TwoShot` — nothing in `arms` names a fused two-shot form, so a member added here need not.
+    private static readonly HashSet<string> MultiShotArms = [ThreeShot, FusedThreeShot];
     private const int ShotBudget = 2 * RecallLimit;
     /// <summary>How many of the previous shot's entries a shot buys the detail on. <b>It is a harness
     /// parameter, not a property of the engine</b>, and it binds hard: at 3 against a 20-entry first load,
@@ -164,7 +170,8 @@ internal static class MemoryLocomoBench
                         .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
                         "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "+sem+fuse", "+fuse",
                         "vector"]
-                : ["lyntai", "lyntai-fused", TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
+                : ["lyntai", "lyntai-fused", FusedThreeShot, TwoShot, ThreeShot, "vector",
+                    $"vector-{ShotBudget}", "full"];
 
         var (conversations, questions) = Load(path);
         var sampled = Stratify(questions, take);
@@ -286,6 +293,12 @@ internal static class MemoryLocomoBench
                     // control, not against `vector` alone.
                     : [("lyntai", null, null, null, null),
                         ("lyntai-fused", null,
+                            new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+                            {
+                                RetrievabilityWeight = 0,
+                                HopWeight = 0,
+                            }), null, RecallLimit),
+                        (FusedThreeShot, null,
                             new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
                             {
                                 RetrievabilityWeight = 0,
@@ -549,8 +562,8 @@ internal static class MemoryLocomoBench
                     {
                         context = [.. step.Items.Select(i => i.Content ?? i.Headline)];
 
-                        // the single-shot arms take step 1 and stop; only ThreeShot walks
-                        if (arm != ThreeShot)
+                        // single-shot arms take step 1 and stop; MultiShotArms walks on
+                        if (!MultiShotArms.Contains(arm))
                         {
                             recalled[(arm, q.Text)] = context;
                             break;
@@ -558,8 +571,10 @@ internal static class MemoryLocomoBench
 
                         reached = step.Number;
                         Snapshot(step.Number, context);
-                        if (!shotsOnly && step.Number is 2 or 3)
-                            recalled[(step.Number == 2 ? TwoShot : ThreeShot, q.Text)] = context;
+                        if (!shotsOnly && step.Number == 2 && arm == ThreeShot)
+                            recalled[(TwoShot, q.Text)] = context;
+                        if (!shotsOnly && step.Number == 3)
+                            recalled[(arm, q.Text)] = context;
                         if (step.Number >= 3) break;
                     }
 
@@ -567,12 +582,14 @@ internal static class MemoryLocomoBench
                     // unconditionally and re-snapshotted the unchanged context. Filling the gap keeps that:
                     // dropping a row would change the DENOMINATOR of every rate below rather than the
                     // retrieval, which is a harness difference wearing a result's clothes.
-                    if (arm == ThreeShot)
+                    if (MultiShotArms.Contains(arm))
                         for (var shot = reached + 1; shot <= 3; shot++)
                         {
                             Snapshot(shot, context);
-                            if (!shotsOnly)
-                                recalled[(shot == 2 ? TwoShot : ThreeShot, q.Text)] = context;
+                            if (!shotsOnly && shot == 2 && arm == ThreeShot)
+                                recalled[(TwoShot, q.Text)] = context;
+                            if (!shotsOnly && shot == 3)
+                                recalled[(arm, q.Text)] = context;
                         }
 
                     // Each shot is priced where it happens: cumulative items, characters and elapsed time,
