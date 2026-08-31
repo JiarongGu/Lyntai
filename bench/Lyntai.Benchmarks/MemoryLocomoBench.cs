@@ -158,10 +158,12 @@ internal static class MemoryLocomoBench
                 ? wantFull
                     ? ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
                         .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
-                        "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "vector", "full"]
+                        "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "+sem+fuse", "+fuse",
+                        "vector", "full"]
                     : ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
                         .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
-                        "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "vector"]
+                        "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "+sem+fuse", "+fuse",
+                        "vector"]
                 : ["lyntai", TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
 
         var (conversations, questions) = Load(path);
@@ -338,6 +340,23 @@ internal static class MemoryLocomoBench
                 // and those two readings need different work.
                 ("+rel-only", null, new ReciprocalRankFusionPolicy(
                     new ReciprocalRankFusionOptions { RetrievabilityWeight = 0, HopWeight = 0 }), null, null),
+
+                // PRE-REGISTERED, 2026-08-31, before the first run. Spec §2.5.
+                //
+                // The relevance term's magnitude now scales with how many sources matched a
+                // candidate, so at RelevanceWeight 1 against RetrievabilityWeight 1 the effective
+                // weight shifts toward relevance as sources are turned on. NOT pre-corrected.
+                //
+                //   `+sem+fuse` clears 63.5% and `+fuse` does NOT move
+                //       => the gain is per-source fusion, which is the hypothesis.
+                //   BOTH move
+                //       => at least part of it is the weight shift, and the honest next step is
+                //          a RelevanceWeight ladder rather than adopting anything.
+                //   Neither moves
+                //       => mixed scale was real (63.5% proved that) but repairing it is not
+                //          sufficient, and the deficit is the POOL rather than the ordering.
+                ("+sem+fuse", null, null, null, RecallLimit),
+                ("+fuse", null, null, null, null),
             ];
 
             // The dia_id rides along in the CONTENT so an evidence hit is checkable without a model. It is
@@ -363,11 +382,15 @@ internal static class MemoryLocomoBench
                 var vectors = new InMemoryVectorStore();
 
                 // null leaves the engine on its own default pair (lexical + subject), which is the shipped
-                // wiring this benchmark measures; a width registers the vector channel BESIDE them.
-                IMemorySeedSource[]? seeds = semanticK is { } k
-                    ? [new LexicalSeedSource(), new SubjectSeedSource(),
-                        new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = k })]
-                    : null;
+                // wiring this benchmark measures; a width registers the vector channel BESIDE them. `+fuse`
+                // is the exception: it isolates the lexical channel ALONE, so no candidate can ever carry
+                // more than one source's rank and the per-source fusion under test has nothing to fuse.
+                IMemorySeedSource[]? seeds = arm == "+fuse"
+                    ? [new LexicalSeedSource()]
+                    : semanticK is { } k
+                        ? [new LexicalSeedSource(), new SubjectSeedSource(),
+                            new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = k })]
+                        : null;
 
                 var ingest = new GraphMemoryEngine("locomo",
                     new SqliteMemoryGraphStore(template.Factory), options: options,
