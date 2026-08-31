@@ -193,11 +193,17 @@ public sealed record ReciprocalRankFusionOptions
 /// <b>This is the registered default as of 3.0</b> (<c>docs/DECISIONS.md</c> D49);
 /// <see cref="MultiplicativeRankingPolicy"/> stays shipped, unchanged and registerable in one line. See
 /// <c>MemoryEngineRegistration.AddMemoryEngine</c>'s own remarks for the full reasoning.
-/// <c>Score = Σₛ wₛ / (K + rankₛ)</c>, summed over relevance, retrievability, salience and hop, each
-/// contributing its own 1-based rank POSITION within the whole candidate set rather than its raw value —
-/// see <see cref="ReciprocalRankFusionOptions"/>'s own remarks for why that is the point of fusing by rank
-/// at all, and for hop's deliberate ascending direction, the one deviation from the design spec's
-/// three-signal list.
+/// <c>Score = Σₛ wₛ / (K + rankₛ)</c>, summed over retrievability, salience and hop by rank POSITION within
+/// the whole candidate set — see <see cref="ReciprocalRankFusionOptions"/>'s own remarks for why that is the
+/// point of fusing by rank at all, and for hop's deliberate ascending direction, the one deviation from the
+/// design spec's three-signal list.
+/// <para><b>Relevance is the one term fused per SOURCE, not per candidate.</b> One <c>w/(K+rank)</c> term
+/// sums for every <see cref="MemoryCandidate.Ranks"/> entry that matched — two sources agreeing earns two
+/// terms rather than one averaged value, the formula this class is named for applied to actual ranked lists.
+/// With NO candidate in the set carrying a rank — a BYO gather, or a caller constructing
+/// <see cref="MemoryCandidate"/> directly — this falls back to <see cref="GraphNode.Relevance"/> ranked by
+/// position, the pooled-field behaviour this class shipped with before
+/// <see cref="MemoryCandidate.Ranks"/> existed.</para>
 /// <para><see cref="ReciprocalRankFusionOptions.RelativeFloor"/> ships at <c>0</c> here, not
 /// <see cref="MultiplicativeRankingOptions.RelativeFloor"/>'s <c>0.02</c> — see its own doc for why.</para>
 /// <para><b>Owns the floor, not the grade exemption</b> — the same division of responsibility
@@ -257,7 +263,22 @@ public sealed class ReciprocalRankFusionPolicy(ReciprocalRankFusionOptions? opti
         var rankable = MemoryRankingContract.Rankable(candidates);
         if (rankable.Count == 0) return [];
 
-        var relevanceRank = RankPositions(rankable, static c => c.Node.Relevance, ascending: false);
+        // Does ANY candidate carry per-source ranks? Asked once, over the whole set, because the
+        // answer decides which relevance term the whole set is scored by and a per-candidate test
+        // would silently mix two scales — the very defect this change removes.
+        //
+        // FALSE is the compatibility path: a hand-built engine, a BYO gather, or any caller
+        // constructing MemoryCandidate directly never populates Ranks, and must rank exactly as it
+        // did before this member existed.
+        //
+        // The MIXED case is normal, not a fallback trigger: hop neighbours carry no ranks and sit
+        // beside seeds that do. They contribute no relevance term, which is what Matched null/false
+        // means (D97) — not a score of zero, which would be a claim nobody measured.
+        var anyRanks = false;
+        foreach (var candidate in rankable)
+            if (!candidate.Ranks.IsEmpty) { anyRanks = true; break; }
+
+        int[] relevanceRank = anyRanks ? [] : RankPositions(rankable, static c => c.Node.Relevance, ascending: false);
         var retrievabilityRank = RankPositions(rankable, static c => c.Retrievability, ascending: false);
         var salienceRank = RankPositions(rankable, static c => MemorySignals.Salience(c.Node.Signals),
             ascending: false);
@@ -274,8 +295,24 @@ public sealed class ReciprocalRankFusionPolicy(ReciprocalRankFusionOptions? opti
         var scored = new List<RankedMemory>(rankable.Count);
         for (var i = 0; i < rankable.Count; i++)
         {
+            double relevance;
+            if (anyRanks)
+            {
+                // One term per source that MATCHED this candidate — Cormack, Clarke & Buettcher's
+                // formula over ranked lists, which is what this policy is named for and had never
+                // been handed. A candidate two sources agree on earns two terms, so agreement is
+                // rewarded rather than averaged away.
+                relevance = 0;
+                foreach (var entry in rankable[i].Ranks.Span)
+                    relevance += _options.RelevanceWeight / (_options.K + entry.Rank);
+            }
+            else
+            {
+                relevance = _options.RelevanceWeight / (_options.K + relevanceRank[i]);
+            }
+
             var score =
-                _options.RelevanceWeight / (_options.K + relevanceRank[i]) +
+                relevance +
                 _options.RetrievabilityWeight / (_options.K + retrievabilityRank[i]) +
                 _options.SalienceWeight / (_options.K + salienceRank[i]) +
                 _options.HopWeight / (_options.K + hopRank[i]) +
