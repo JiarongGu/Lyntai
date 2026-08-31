@@ -2403,6 +2403,25 @@ sealed class Lyntai.Memory.Salience.StructuralSaliencePolicy
     .ctor(SalienceOptions options = null)
     Provenance : MemorySalienceProvenance
     Signals(MemoryWrite write, SalienceContext& context) : MemorySignals
+struct Lyntai.Memory.Seeding.MemorySeedRank
+    .ctor(String Source, Int32 Rank)
+    Deconstruct(String& Source, Int32& Rank) : Void
+    Equals(MemorySeedRank other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Rank : Int32
+    Source : String
+    ToString() : String
+struct Lyntai.Memory.Seeding.MemorySeedRanks
+    .ctor(IEnumerable<MemorySeedRank> ranks)
+    Count : Int32
+    Equals(MemorySeedRanks other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    IsEmpty : Boolean
+    Span : ReadOnlySpan<MemorySeedRank>
+    TryGet(String source, Int32& rank) : Boolean
+    static Empty : MemorySeedRanks
 sealed class Lyntai.Memory.SemanticHit
     .ctor(String Content, Double Score)
     Content : String
