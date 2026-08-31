@@ -16,17 +16,16 @@ public readonly record struct MemorySeedRequest(
 /// (D48): implementations COEXIST</b> — lexical, semantic and subject read different aspects, all true at
 /// once. Register as many as apply; the engine reads the whole collection.
 ///
-/// <para><b>THE RETURN CONTRACT: a source is ranked by its OWN <see cref="GraphNode.Relevance"/> gradient,
-/// never by list POSITION.</b> Higher is better, and the engine competition-ranks the matched nodes by it —
-/// equal values share a rank, the next distinct value skips the tied group's width.
-/// <list type="bullet">
-/// <item>A node this source did not match reports <see cref="GraphNode.Matched"/> <c>false</c> and is left
-/// unranked, whatever its position.</item>
-/// <item><b>Matched nodes ALL on one value means "I have no ordering", not "everything is maximally
-/// relevant"</b> — the source contributes no relevance evidence. Return a flat value when that is the truth
-/// about your channel; do not fabricate a gradient to avoid it.</item>
-/// <item>A single matched node is that source's top hit and takes rank 1.</item>
-/// </list>
+/// <para><b>THE RETURN CONTRACT, in two parts. Eligibility first:</b> only a node reporting
+/// <see cref="GraphNode.Matched"/> <c>true</c> can be ranked. <c>false</c> says the query did not match it;
+/// <b><c>null</c> says "I have no relevance opinion about this node"</b> — right for a channel that fetched
+/// by id or by handle rather than by scoring, and the ONLY way to stay unranked at every cardinality, since
+/// a single eligible node is a source's top hit and takes rank 1.
+/// <b>Then the gradient:</b> the eligible are ranked by this source's OWN
+/// <see cref="GraphNode.Relevance"/>, never by list POSITION — higher is better, equal values share a rank,
+/// the next distinct value skips the tied group's width. <b>Eligible nodes ALL on one value means "I have no
+/// ordering", not "everything is maximally relevant"</b>, and the source contributes nothing; return a flat
+/// value when that is the truth about your channel rather than fabricating a gradient.
 /// The value is WITHIN-SOURCE and no score crosses this boundary: two sources' values are never compared,
 /// which stops a lexical ramp and a semantic cosine being read as one scale.</para>
 ///

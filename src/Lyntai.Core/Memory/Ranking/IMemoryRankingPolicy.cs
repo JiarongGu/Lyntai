@@ -60,10 +60,12 @@ public interface IMemoryRankingPolicy
 public readonly record struct MemoryCandidate(GraphNode Node, double Retrievability, int Hop)
 {
     /// <summary>Which sources MATCHED this candidate, and at what 1-based rank within each.
-    /// <para><b>Empty covers two cases and means the same thing in both</b>: no source produced it (a hop
-    /// neighbour, reached by traversal rather than by a query), or a source returned it without matching it
-    /// (the <see cref="MemoryGrade.Authoritative"/> carve-out, whose candidates arrive with
-    /// <see cref="GraphNode.Matched"/> <c>false</c>). Either way it is "no relevance evidence"
+    /// <para><b>Empty covers several cases and means the same thing in all of them</b>: no source produced it
+    /// (a hop neighbour, reached by traversal rather than by a query); a source returned it without matching
+    /// it (the <see cref="MemoryGrade.Authoritative"/> carve-out, <see cref="GraphNode.Matched"/>
+    /// <c>false</c>); a source produced it without asking a relevance question at all
+    /// (<see cref="GraphNode.Matched"/> <c>null</c> — a handle lookup, a fetch by id); or the source's whole
+    /// eligible set tied, so it has no ordering to offer. Each is "no relevance evidence"
     /// (<c>docs/DECISIONS.md</c> D97), which is NOT the same claim as "ranked worst" — a policy should
     /// contribute no relevance term for it rather than score it at the bottom.</para>
     /// <para>Declared outside the primary constructor deliberately: adding a positional parameter would

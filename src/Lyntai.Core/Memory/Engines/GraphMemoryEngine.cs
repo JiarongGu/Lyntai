@@ -1205,7 +1205,7 @@ public sealed class GraphMemoryEngine(
     private readonly record struct GatheredCandidate(GraphNode Node, int Hop, MemorySeedRanks Ranks);
 
     /// <summary>
-    /// One source's matched nodes, ranked by that source's OWN <see cref="GraphNode.Relevance"/> gradient —
+    /// One source's ELIGIBLE nodes, ranked by that source's OWN <see cref="GraphNode.Relevance"/> gradient —
     /// <c>0</c> in a slot means "no rank", which a ranking policy reads as no relevance evidence.
     ///
     /// <para><b>The gradient, not the list POSITION.</b> Position assumes every source returns a
@@ -1214,11 +1214,12 @@ public sealed class GraphMemoryEngine(
     /// relevance ramp is D97 in a new costume: there, a candidate nobody SCORED reported maximum relevance;
     /// here, a candidate nobody ORDERED BY RELEVANCE would report a relevance RANK.</para>
     ///
-    /// <para><b>All matched nodes on ONE value means the source is UNORDERED, and it earns NO ranks.</b> Not
+    /// <para><b>All eligible nodes on ONE value means the source is UNORDERED, and it earns NO ranks.</b> Not
     /// a shared rank 1 — that would hand every one of them this source's BEST term (<c>w/(K+1)</c>),
     /// promoting an uninformative channel instead of silencing it. Silence is also what a uniformly-tied
-    /// signal already contributed under the pooled path (<b>D82</b>). A SINGLE matched node is the exception:
-    /// there is no gradient to place it on and it is that source's top hit, so it takes rank 1.</para>
+    /// signal already contributed under the pooled path (<b>D82</b>). A SINGLE eligible node is the
+    /// exception: there is no gradient to place it on and it is that source's top hit, so it takes rank
+    /// 1.</para>
     ///
     /// <para>Ties among several values share a rank and the next distinct value skips by the width of the
     /// tied group — "1, 1, 3", never "1, 1, 2" — the same COMPETITION ranking
@@ -1228,14 +1229,14 @@ public sealed class GraphMemoryEngine(
     /// comparison is strictly WITHIN one source, which is the only scope that member's contract claims
     /// ("higher is better, within one seed, from one backend"). Two sources' values are never compared.</para>
     /// </summary>
-    private static int[] SourceRanks(IReadOnlyList<GraphNode> matched)
+    private static int[] SourceRanks(IReadOnlyList<GraphNode> eligible)
     {
-        var n = matched.Count;
+        var n = eligible.Count;
         if (n == 0) return [];
         if (n == 1) return [1];
 
         var values = new double[n];
-        for (var i = 0; i < n; i++) values[i] = matched[i].Relevance;
+        for (var i = 0; i < n; i++) values[i] = eligible[i].Relevance;
 
         var distinct = new HashSet<double>(values);
         if (distinct.Count == 1) return new int[n];   // unordered — every slot stays 0
@@ -1257,13 +1258,19 @@ public sealed class GraphMemoryEngine(
     /// <summary>Gather the candidate set: every registered <see cref="IMemorySeedSource"/> in turn, then the
     /// hop expansion out from everything they found.
     ///
-    /// <para><b>A node the source did not MATCH earns no rank.</b> Store seeds arrive GRADE-FIRST, so an
-    /// authoritative entry the query never matched sorts to the top; crediting it would silently undo
-    /// <b>D97</b>. It still enters the set and is still re-admitted under the grade carve-out — it simply
-    /// carries no relevance evidence, which is what <see cref="GraphNode.Matched"/> <c>false</c> already
-    /// means.</para>
+    /// <para><b>ONLY a <see cref="GraphNode.Matched"/>-<c>true</c> node is eligible for a rank</b>, and the
+    /// other two states are refused for the same reason in two costumes. <c>false</c> is the grade carve-out:
+    /// store seeds arrive GRADE-FIRST, so an authoritative entry the query never matched sorts to the top and
+    /// crediting it would undo <b>D97</b>. <c>null</c> is "the read never asked a relevance question" — a
+    /// fetch by id, a handle lookup, a walk — and a RANK is exactly the number nobody measured that D97 says
+    /// not to invent. Both still enter the candidate set and compete on their other signals.</para>
     ///
-    /// <para>What ranks the rest is <see cref="SourceRanks"/>, which reads each source's own
+    /// <para><b>That gate is what keeps an UNORDERED channel silent at every cardinality.</b> Inferring
+    /// unorderedness from tie-ness alone cannot: one sample carries no tie information, so a
+    /// <see cref="SubjectSeedSource"/> resolving exactly one handle would have taken rank 1 — the BEST term —
+    /// while its own contract says it contributes none.</para>
+    ///
+    /// <para>What ranks the eligible is <see cref="SourceRanks"/>, which reads each source's own
     /// <see cref="GraphNode.Relevance"/> gradient rather than its list POSITION.</para>
     ///
     /// <para>Sources are read in their registered order and each candidate's ranks are appended in it, so two
@@ -1286,7 +1293,7 @@ public sealed class GraphMemoryEngine(
             ct.ThrowIfCancellationRequested();
             var produced = await source.SeedAsync(request, ct).ConfigureAwait(false);
 
-            var matched = new List<GraphNode>(produced.Count);
+            var eligible = new List<GraphNode>(produced.Count);
             var fromThisSource = new HashSet<long>();
             foreach (var node in produced)
             {
@@ -1294,15 +1301,16 @@ public sealed class GraphMemoryEngine(
                 // fusion term for the same evidence, and MemorySeedRanks reports only the first
                 if (!fromThisSource.Add(node.Id)) continue;
                 if (seen.Add(node.Id)) found.Add((node, 0));
-                if (node.Matched == false) continue;
-                matched.Add(node);
+                // true ONLY — see this method's own remarks for why null is refused alongside false
+                if (node.Matched != true) continue;
+                eligible.Add(node);
             }
 
-            var assigned = SourceRanks(matched);
+            var assigned = SourceRanks(eligible);
             for (var i = 0; i < assigned.Length; i++)
             {
                 if (assigned[i] == 0) continue;
-                var id = matched[i].Id;
+                var id = eligible[i].Id;
                 if (!ranks.TryGetValue(id, out var list)) ranks[id] = list = [];
                 list.Add(new MemorySeedRank(source.Name, assigned[i]));
             }

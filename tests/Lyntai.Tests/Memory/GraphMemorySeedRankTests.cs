@@ -1,5 +1,6 @@
 using Lyntai.Embeddings;
 using Lyntai.Memory;
+using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Ranking;
 using Lyntai.Memory.Seeding;
@@ -263,8 +264,12 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     // ---- registration ----------------------------------------------------------------------------------
 
     /// <summary>The default registration reproduces what the removed options defaulted to: the unconditional
-    /// store read (<c>lexical</c>), the handle channel that was on at <c>SubjectSeedK = 5</c>
-    /// (<c>subject</c>), and NOT the vector channel, which was off at <c>SemanticSeedK = 0</c>.</summary>
+    /// store read (<c>lexical</c>), the handle channel that was on at <c>SubjectSeedK = 5</c> /
+    /// <c>SubjectSeedScan = 256</c> (<c>subject</c>), and NOT the vector channel, which was off at
+    /// <c>SemanticSeedK = 0</c>.
+    /// <para>The VALUES are half the reproduction claim, so they are asserted too: nothing registers a
+    /// <see cref="SubjectSeedOptions"/>, which is what makes the registered source take its own defaults, and
+    /// those defaults are the two numbers the removed options carried.</para></summary>
     [Fact]
     public void The_default_registration_wires_lexical_and_subject_but_not_semantic()
     {
@@ -277,6 +282,10 @@ public sealed class GraphMemorySeedRankTests : IDisposable
 
         Assert.Equal(["lexical", "subject"],
             sp.GetServices<IMemorySeedSource>().Select(s => s.Name).Order(StringComparer.Ordinal));
+
+        Assert.Null(sp.GetService<SubjectSeedOptions>());   // so the source constructed with its own
+        Assert.Equal(5, new SubjectSeedOptions().K);        // = the removed SubjectSeedK
+        Assert.Equal(256, new SubjectSeedOptions().Scan);   // = the removed SubjectSeedScan
     }
 
     /// <summary>Registering the vector channel is one call, and it ADDS rather than replaces — the seam is
@@ -333,8 +342,8 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         Assert.Contains("lexical", ex.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Returns the same node twice — a BYO source's contract says best-first, never that the list is
-    /// distinct.</summary>
+    /// <summary>Returns the same node twice, ELIGIBLE — a BYO source's contract says nothing about the list
+    /// being distinct.</summary>
     private sealed class RepeatingSource(long id) : IMemorySeedSource
     {
         public string Name => "repeating";
@@ -342,12 +351,15 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         public async Task<IReadOnlyList<GraphNode>> SeedAsync(MemorySeedRequest request, CancellationToken ct)
         {
             var node = await request.Store.GetAsync(request.Engine, id, ct).ConfigureAwait(false);
-            return node is null ? [] : [node, node];
+            if (node is null) return [];
+            var scored = node with { Relevance = 0.9, Matched = true };
+            return [scored, scored];
         }
     }
 
-    /// <summary>One source contributes at most ONE rank per candidate. A repeat is skipped without advancing
-    /// the counter, so a duplicate cannot buy a second fusion term for the same evidence.</summary>
+    /// <summary>One source contributes at most ONE rank per candidate. The repeat is dropped before ranking,
+    /// so a duplicate cannot buy a second fusion term for the same evidence — nor turn a one-node eligible
+    /// set into a two-node TIED one, which would silence the source entirely.</summary>
     [Fact]
     public async Task A_source_that_returns_the_same_node_twice_contributes_one_rank()
     {
@@ -364,5 +376,101 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         Assert.Equal(1, candidate.Ranks.Count);
         Assert.True(candidate.Ranks.TryGet("repeating", out var rank));
         Assert.Equal(1, rank);
+    }
+
+    // ---- eligibility, and the tied-group skip ----------------------------------------------------------
+
+    /// <summary>Annotates from a fixed content→subjects table, so a failure here is the engine's.</summary>
+    private sealed class TableAnnotator(string content, string subject) : IMemoryAnnotationPolicy
+    {
+        public Task<MemoryAnnotation> AnnotateAsync(MemoryAnnotationRequest request, CancellationToken ct = default) =>
+            Task.FromResult(string.Equals(request.Write.Content, content, StringComparison.Ordinal)
+                ? new MemoryAnnotation([subject])
+                : MemoryAnnotation.None);
+    }
+
+    /// <summary><b>The handle channel earns no rank even when exactly ONE handle resolves.</b> That is the
+    /// cardinality where inferring unorderedness from a TIE cannot work — one sample carries no tie
+    /// information — so the single-node shortcut would hand a subject hit <c>w/(K+1)</c>, the BEST relevance
+    /// term of all, while that source's own contract says it contributes none.
+    ///
+    /// <para>It compounds: rank fusion flips the WHOLE candidate set onto the per-source path the moment ANY
+    /// candidate carries a rank, so one handle hit would invert the relevance axis for the entire recall.
+    /// What stops it is the eligibility gate — a handle lookup reports <see cref="GraphNode.Matched"/>
+    /// <c>null</c>, "nobody asked a relevance question", and only <c>true</c> is rankable.</para>
+    ///
+    /// <para>The candidate must still be THERE, or this would pass on a subject channel that returned
+    /// nothing — asserted first.</para></summary>
+    [Fact]
+    public async Task A_subject_source_resolving_exactly_one_handle_still_earns_no_rank()
+    {
+        const string fact = "she works as an anaesthetist";
+        var store = new SqliteMemoryGraphStore(_db.Factory);
+        var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
+
+        // the subject channel ALONE, so nothing else can contribute a rank or a candidate
+        var engine = new GraphMemoryEngine("e", store, ranking: probe,
+            annotation: new TableAnnotator(fact, "spouse"),
+            seedSources: [new SubjectSeedSource()]);
+
+        var only = await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, fact));
+
+        var recall = await engine.RecallAsync(
+            new MemoryQuery(TaskKey, Scope: Scope, Query: "what does my spouse do", Limit: 10));
+
+        Assert.Contains(only.Id, recall.Items.Select(i => i.Reference.Id));   // the handle DID resolve
+        var candidate = Assert.Single(probe.Captured);                        // and it resolved to ONE node
+        Assert.Equal(IdOf(only), candidate.Node.Id);
+        Assert.Null(candidate.Node.Matched);   // the premise: a handle lookup never asked
+
+        Assert.True(candidate.Ranks.IsEmpty,
+            "a single handle hit took a rank — at one node there is no tie to read, so unorderedness has to "
+            + "come from Matched, not from the values");
+    }
+
+    /// <summary>Hands back exactly the nodes it is given, so a fixture can state a gradient outright.</summary>
+    private sealed class ScoredSource(IReadOnlyList<GraphNode> nodes) : IMemorySeedSource
+    {
+        public string Name => "scored";
+
+        public Task<IReadOnlyList<GraphNode>> SeedAsync(MemorySeedRequest request, CancellationToken ct) =>
+            Task.FromResult(nodes);
+    }
+
+    /// <summary><b>A tied group shares a rank and the next distinct value skips the group's WIDTH — "1, 1, 3",
+    /// never "1, 1, 2".</b> Competition ranking, matching what
+    /// <see cref="ReciprocalRankFusionPolicy"/> already does for its other signals (<b>D82</b>); dense
+    /// ranking would understate how far behind the third candidate actually is.
+    ///
+    /// <para>The source hands its nodes back in an order that DISAGREES with the gradient — worst first — so
+    /// this one fixture separates three rules at once: <c>1, 1, 3</c> is competition ranking, <c>1, 1, 2</c>
+    /// is dense ranking, and <c>1, 2, 3</c> is the withdrawn rank-by-POSITION.</para></summary>
+    [Fact]
+    public async Task A_tied_group_shares_a_rank_and_the_next_value_skips_its_width()
+    {
+        var store = new SqliteMemoryGraphStore(_db.Factory);
+        var seeding = new GraphMemoryEngine("e", store);
+        var a = IdOf(await seeding.RememberAsync(new MemoryWrite(TaskKey, Scope, "alpha")));
+        var b = IdOf(await seeding.RememberAsync(new MemoryWrite(TaskKey, Scope, "bravo")));
+        var c = IdOf(await seeding.RememberAsync(new MemoryWrite(TaskKey, Scope, "charlie")));
+
+        GraphNode Scored(long id, double relevance) =>
+            (store.GetAsync("e", id).GetAwaiter().GetResult() ?? throw new InvalidOperationException())
+            with { Relevance = relevance, Matched = true };
+
+        // WORST FIRST, so list position and relevance gradient disagree
+        var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
+        var engine = new GraphMemoryEngine("e", store, ranking: probe,
+            seedSources: [new ScoredSource([Scored(c, 0.4), Scored(a, 0.9), Scored(b, 0.9)])]);
+
+        await engine.RecallAsync(new MemoryQuery(TaskKey, Scope: Scope, Query: "anything", Limit: 10));
+
+        Assert.True(CandidateFor(probe, a).Ranks.TryGet("scored", out var rankA));
+        Assert.True(CandidateFor(probe, b).Ranks.TryGet("scored", out var rankB));
+        Assert.True(CandidateFor(probe, c).Ranks.TryGet("scored", out var rankC));
+
+        Assert.Equal(1, rankA);
+        Assert.Equal(1, rankB);
+        Assert.Equal(3, rankC);   // NOT 2 (dense), and NOT 1 (its list position)
     }
 }

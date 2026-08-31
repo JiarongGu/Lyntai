@@ -11,7 +11,9 @@ public static class MemorySeedRegistration
 {
     /// <summary>
     /// Let a recall reach an entry through MEANING — the query is embedded and its nearest entries join the
-    /// candidate set, carrying their position in cosine order as a rank of their own.
+    /// candidate set, each carrying its clamped COSINE as this channel's own within-source relevance
+    /// gradient, which is what the engine ranks it by (<see cref="IMemorySeedSource"/>). Never a portable
+    /// score: it is comparable against the other cosines in the same recall and against nothing else.
     ///
     /// <para><b>Opt-in, and that is a deliberate asymmetry with the subject channel.</b> An
     /// <see cref="Lyntai.Embeddings.IEmbedder"/> is registered for reasons of its own — novelty, similarity

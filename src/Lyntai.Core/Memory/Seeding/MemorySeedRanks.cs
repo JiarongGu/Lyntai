@@ -3,9 +3,10 @@ namespace Lyntai.Memory.Seeding;
 /// <summary>One source's verdict on one candidate: which retrieval channel matched it, and where in that
 /// channel's own best-first order it landed.</summary>
 /// <param name="Source">The <c>IMemorySeedSource.Name</c> that matched it.</param>
-/// <param name="Rank">1-based position within that source's returned order. 1 is best. Never 0 — a
-/// reciprocal-rank term is <c>w / (K + rank)</c> and rank 0 would make one source's best hit score as though
-/// the fusion constant alone governed it.</param>
+/// <param name="Rank">1-based position within that source's own <see cref="GraphNode.Relevance"/> gradient —
+/// competition-ranked, so a tied group shares a number and the next distinct value skips its width. 1 is
+/// best. Never 0 — a reciprocal-rank term is <c>w / (K + rank)</c> and rank 0 would make one source's best
+/// hit score as though the fusion constant alone governed it.</param>
 public readonly record struct MemorySeedRank(string Source, int Rank);
 
 /// <summary>
