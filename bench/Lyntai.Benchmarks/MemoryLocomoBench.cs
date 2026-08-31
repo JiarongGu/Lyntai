@@ -238,6 +238,27 @@ internal static class MemoryLocomoBench
                     // `options ?? new GraphMemoryOptions()` — so an unswept run is byte-identical to one
                     // that never passed one, which archive Part 119 measured rather than assumed.
                     ? [(ThreeShot, new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor }, null, null, null)]
+                    // PRE-REGISTERED, 2026-09-01, before the first QA run of the fused arm.
+                    //
+                    // The retrieval half moved the best mechanical arm 63.5% -> 83.0% (D103,
+                    // docs/memory.md §5). This arm asks the only question that follows: does that
+                    // reach the READER, or does a 28.5-point retrieval gain wash out in answering?
+                    //
+                    // Prediction: PARTIAL conversion. gemma3:4b is the bottleneck on multi-hop and
+                    // open-domain, so a positive but sub-linear delta is expected.
+                    //   positive, sub-linear  => retrieval reaches the reader; the ceiling is the reader.
+                    //   positive, ~linear     => the reader was never the bottleneck; retrieval was.
+                    //   flat                  => the reader cannot use the extra evidence, so
+                    //                            retrieval gains stop at this tier and a better
+                    //                            reader is the only way to bank them.
+                    //   NEGATIVE              => treat as an INSTRUMENT problem to find, not a
+                    //                            finding. Extra correct evidence cannot make a
+                    //                            reader worse; a drop means the arm differs from
+                    //                            `lyntai` in some way beyond its ranking config.
+                    //
+                    // ABSOLUTE VALUES ARE NOT COMPARABLE TO ANY PUBLISHED NUMBER. They are a
+                    // property of a 4B local reader. Only the ARM DIFFERENCE transfers -- TASKS.md
+                    // Part 109 says exactly this. Do not place either figure beside a third party's.
                     : [("lyntai", null, null, null, null), (ThreeShot, null, null, null, null)];
 
             (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking,
