@@ -72,12 +72,16 @@ internal static class MemoryLocomoBench
     /// not deliver what the isolation measured.</summary>
     private const string FusedApiDetail = "lyntai-fused-api";
 
+    /// <summary>The three-shot walk at FULL detail — 40 items all carrying whole turns, which is the only
+    /// arm that is size-matched to <c>vector-40</c> on BOTH axes (40 slots, ~7k chars).</summary>
+    private const string FusedThreeShotFull = "lyntai-fused-3shot-full";
+
     /// <summary>Arms whose recall asks for whole entries. Kept as a set rather than a seventh field on the
     /// config tuple, which every one of ~20 config literals would have had to restate.</summary>
-    private static readonly HashSet<string> FullDetailArms = [FusedApiDetail];
+    private static readonly HashSet<string> FullDetailArms = [FusedApiDetail, FusedThreeShotFull];
     // Arms whose walk continues past step 1. Only `ThreeShot` also publishes its step-2 snapshot as
     // `TwoShot` — nothing in `arms` names a fused two-shot form, so a member added here need not.
-    private static readonly HashSet<string> MultiShotArms = [ThreeShot, FusedThreeShot];
+    private static readonly HashSet<string> MultiShotArms = [ThreeShot, FusedThreeShot, FusedThreeShotFull];
     private const int ShotBudget = 2 * RecallLimit;
     /// <summary>How many of the previous shot's entries a shot buys the detail on. <b>It is a harness
     /// parameter, not a property of the engine</b>, and it binds hard: at 3 against a 20-entry first load,
@@ -200,8 +204,8 @@ internal static class MemoryLocomoBench
                         .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
                         "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "+sem+fuse", "+fuse",
                         "vector"]
-                : ["lyntai", FusedOneShot, FusedRehydrated, FusedApiDetail, FusedThreeShot, TwoShot,
-                    ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
+                : ["lyntai", FusedOneShot, FusedRehydrated, FusedApiDetail, FusedThreeShot,
+                    FusedThreeShotFull, TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
 
         var (conversations, questions) = Load(path);
         var sampled = Stratify(questions, take);
@@ -429,6 +433,20 @@ internal static class MemoryLocomoBench
                                 HopWeight = 0,
                             }), null, RecallLimit),
                         (FusedThreeShot, null,
+                            new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+                            {
+                                RetrievabilityWeight = 0,
+                                HopWeight = 0,
+                            }), null, RecallLimit),
+
+                        // PRE-REGISTERED 2026-09-02, before this arm's first run. Reasoning and branches:
+                        // TASKS.md Part 137. The ONLY arm size-matched to `vector-40` on BOTH axes -- 40
+                        // slots and ~7k chars -- now that D104 lets the walk return whole entries.
+                        //
+                        // Prediction: 40-45%, gaining on `lyntai-fused-3shot`'s 38.0 but NOT reaching
+                        // `vector-40`'s 44.5. Absolute values are a property of a 4B local reader; only the
+                        // arm DIFFERENCE transfers (TASKS.md Part 109).
+                        (FusedThreeShotFull, null,
                             new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
                             {
                                 RetrievabilityWeight = 0,

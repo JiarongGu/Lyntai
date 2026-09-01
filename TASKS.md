@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SEVEN items, across Parts 105, 109, 116, 128, 129 and 132.** Each is a
+**The startable set is EIGHT items, across Parts 105, 109, 116, 128, 129, 132 and 137.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -58,8 +58,10 @@ REFUSED, because reciprocal rank fusion legitimately ranks by position within ea
 pattern separates that from the withdrawn rule. **Part 136 CLOSED the same day too** — eight to seven, as
 `docs/task-archive.md` **Part 136** — and it is the one whose ANSWER matters most: rehydrating the same 20
 items to whole turns is worth **+11.7 of a 12.0-point gap**, landing this engine level with plain cosine at
-matched slots and matched context. **The ranking was never the deficit; headline truncation was.**
-Every number here is edited in
+matched slots and matched context. **The ranking was never the deficit; headline truncation was.** That
+shipped as **D104** (`MemoryQuery.Detail`) and **Part 137 opened on it** — seven to eight — asking the one
+question 136 left: cosine gains +3.2 going from 20 slots to 40, and nobody has measured whether the WALK
+does. Every number here is edited in
 the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
 
 **START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
@@ -868,6 +870,36 @@ exactly that failure mode, latent until a BYO channel meets `StrictWiring`._
   interface shipping this same branch, so it did not belong in the fix wave that found it: widening
   `IMemorySeedSource` deserves its own measurement of what a BYO implementer should be expected to declare,
   not a same-session patch.
+
+---
+
+## Part 137 — does the WALK gain from its extra 20 slots the way deeper cosine does? (2026-09-02)
+
+_Opened by `docs/task-archive.md` **Part 136**, which settled the 20-slot question and left the 40-slot one
+open. At 20 slots with full content this engine draws LEVEL with plain cosine (41.0 against 41.3). Going to
+40 slots, cosine gains **+3.2** (41.3 → `vector-40`'s 44.5). **Nobody has measured whether the walk gains
+the same**, because until **D104** no arm could hold 40 slots of whole entries._
+
+_**Why it should not be assumed.** Cosine's items 21–40 are the next-most-similar turns; the walk's are
+graph NEIGHBOURS of what it already held — a different population, and the whole premise of the design.
+`lyntai-fused-3shot` scores **38.0** at 80% content, BELOW its own 20-slot full arm's 41.0, so either the
+residual headlines dilute or the neighbours do. `lyntai-fused-3shot-full` removes the first and isolates the
+second._
+
+- [ ] **Run `lyntai-fused-3shot-full` and read it against `vector-40`.** The arm is built and its prediction
+  is registered in the source before the run (`MemoryLocomoBench.cs`). **PRE-REGISTERED: 40–45%**, gaining
+  on 38.0 but not reaching 44.5.
+  <br>   · **≥ 44.5** → expansion's neighbours are worth as much as deeper cosine, and the graph pays at
+  SCALE rather than only drawing level at 20. That would be the strongest result this benchmark has produced
+  for the design.
+  <br>   · **41–44** → the walk keeps its 20-slot parity and expansion adds real but smaller value than
+  simply reading further down the cosine list.
+  <br>   · **38–41** → the extra 20 items add nothing a reader can use, so parity at 20 slots is this
+  engine's ceiling at this reader tier — and the walk's value would have to be argued somewhere other than
+  one-shot QA (which is what **D100** and LongMemEval already do).
+  <br>   · **< 38** → an INSTRUMENT problem to find, not a finding: given the same items, more of each one's
+  text cannot make a reader worse.
+  <br>**Cost**: one reader pass at `--n 200`, ~50 minutes, no new ingestion beyond the arm's own store.
 
 ---
 
