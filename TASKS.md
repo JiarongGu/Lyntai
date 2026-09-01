@@ -911,7 +911,12 @@ chars/q) — an EFFICIENCY gap, not a capability one. Nobody has looked inside t
   later shot, or two of the 40 items carrying near-identical text. This is a startable DIAGNOSTIC, not a
   design decision — the question is composition, not a target size — and it decides whether the 1.9× is
   compressible (duplication, a verbose format) or inherent (three shots' worth of genuinely distinct evidence
-  the one-shot arm never surfaces). The harness's `--dump` flag
+  the one-shot arm never surfaces). **The dump this needs ALREADY EXISTS** —
+  `devtools/_locomo-dump-181506.jsonl` <!-- link-ok: gitignored scratch, named because regenerating it costs a 5-hour run -->,
+  12,320 items (1,540 questions × 8 arms) from the 2026-09-01 full-sample run. It is gitignored scratch, so
+  `git clean -fdx` destroys it and a fresh clone never had it; regenerating it means
+  `node devtools/dev.mjs memory-locomo --n 1540 --seeds 16 --dump`, which took **18,116s (~5 hours)**. Check
+  for it before spending that. The harness's `--dump` flag
   (`bench/Lyntai.Benchmarks/MemoryLocomoBench.cs`) already emits a per-item record for a run of this shape and
   is the natural starting point rather than new instrumentation.
 
