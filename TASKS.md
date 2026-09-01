@@ -27,8 +27,8 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is EIGHT items, across Parts 105, 109, 116, 128, 129, 132 and 133.** Each is a `- [ ]` you
-could open today — which is the test this
+**The startable set is NINE items, across Parts 105, 109, 116, 128, 129, 132, 133 and 134.** Each is a
+`- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
@@ -36,8 +36,10 @@ with their write-ups sitting in `docs/memory.md` §5 while the banner advertised
 (`docs/task-archive.md` **Part 127**) and Part 129's gate item was BUILT the same day (**Part 130**), taking
 it from eight to seven, and Part 128's first item CLOSED the same day as **Part 131**, taking it from seven
 to six. **Part 132 opened 2026-09-01** — a wiring-diagnostic limitation found in the branch's final review —
-taking it from six to seven. Every number here is edited in the same change as the item, which is the habit
-`pitfalls.md` prescribes after four stale banners._
+taking it from six to seven, and **Part 133 opened the same day**, taking it from seven to eight. **Part 134
+opened the same day** — the QA-conversion follow-up, isolating whether the walk's residual gap against
+`vector-40` is context volume or content form — taking it from eight to nine. Every number here is edited in
+the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
 
 **START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
 per-source fusion (**D103**) took `+sem+rel-only` from **63.5%** to **83.0%**, above plain cosine's
@@ -874,6 +876,37 @@ line misses every future illegitimate line of that shape, and nothing ever notic
   plain prose and `check-docs` passed them both, while flagging the retired IDENTIFIER two paragraphs up on
   the very same run — which is why that one carries a `drift-ok` and these do not need one. The gate can see
   the name it banned and cannot see the rule it banned._
+
+---
+
+## Part 134 — the QA half converts, superadditively, but leaves a VOLUME-vs-FORM question open (2026-09-01)
+
+_Opened by two QA runs (`node devtools/dev.mjs memory-locomo --n 100`) answering whether Part 131's retrieval
+gain (**D103**, per-source fusion: 54.5% → 83.0% evidence-hit@20) converts into ANSWER accuracy. It does, and
+the walk (**D100**) turns out to be SUPERADDITIVE with it rather than merely additive — `docs/memory.md` §5
+carries the table and the five findings; this Part carries only what is still open. Reader and judge both
+`gemma3:4b` (local), embedder `nomic-embed-text`, n = 100 — the same limits Part 109's QA half already
+carries, and only the ARM DIFFERENCES transfer (`TASKS.md` Part 109 above)._
+
+_**What is now known.** The retrieval gain converts at equal context (+6.9 token-F1, `lyntai` → `lyntai-fused`).
+Ranking and the three-shot walk interact rather than merely add: +6.9 from ranking, +2.7 from the walk,
++16.3 joint — a +6.7 interaction neither part predicts alone. The headline hypothesis (D100) holds:
+`unknown` more than halves (18 → 8) once the fused walk expands. **What is NOT known:** with `unknown` down
+to 8, most of what remains is answer quality on evidence already present — `lyntai-fused-3shot` still trails
+`vector` by 7.2 token-F1 and `vector-40` (the item-matched control, 40.0 vs 39.7 items/q) by 11.3, and
+nothing has separated whether that residual is context VOLUME (fewer characters — 5010 vs `vector-40`'s
+7090 chars/q) or content FORM (a headline plus expanded fragments, never the contiguous full turn `vector`
+returns)._
+
+- [ ] **Separate volume from form: sweep `--seeds` until `lyntai-fused-3shot`'s chars/q matches
+  `vector-40`'s ~7090, and compare token-F1 at that point.** It is already ITEM-matched to `vector-40` (39.7
+  vs 40.0 items/q) but not character-matched (5010 vs 7090) — headlines and expanded fragments are more
+  compact than a full turn, so equal item counts do not mean equal context. `node devtools/dev.mjs
+  memory-locomo --n 100 --seeds N` for `N` above the shipped 3 is the existing lever
+  (`MemoryLocomoBench.expandSeeds`, whose own doc comment already says to "sweep it with `--seeds` before
+  reading a multi-shot arm as the design's ceiling"). If token-F1 closes most of the gap once characters are
+  matched, the residual was volume; if it does not, the headline-plus-fragment SHAPE is the limit and more
+  expansion will not fix it.
 
 ---
 

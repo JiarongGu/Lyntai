@@ -882,6 +882,75 @@ machine unused, and earlier sweeps found the two disagree by ~2.5× and reverse 
 real-judge arm (`--no-judge`), still unrun. `items/q` is 20.0 on every arm, so no arm is filtered before
 ranking here either.
 
+### Retrieval gain converts to answer accuracy, and ranking × the walk are SUPERADDITIVE (`memory-locomo --n 100`, QA halves, 2026-09-01)
+
+Two QA runs answer whether the retrieval gain two sections up (`+sem+rel-only`, per-source fusion, **D103**:
+54.5% → 83.0% evidence-hit@20, above plain cosine's 80.5%) converts into ANSWER accuracy rather than only
+better-ranked evidence.
+
+**Instrument and controls, read before the table.** `node devtools/dev.mjs memory-locomo --n 100`, the LoCoMo
+QA half (`docs/task-archive.md` Part 115), reader and judge both `gemma3:4b` (local, 3.3 GB) via Ollama,
+`nomic-embed-text` embedder, `SqliteMemoryGraphStore`. Run 1 (7 arms, 1423.0s wall clock) and run 2 (8 arms,
+2403.3s) — the added arm is `lyntai-fused-3shot`, fused ranking's own three-shot walk. Raw output: the
+gitignored `devtools/_locomo-qa-fusion.txt` and `devtools/_locomo-qa-fused3.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->. **`token-F1` is the
+PRIMARY column and is model-free** — overlap against the gold string; `judge` is the SAME small model that
+wrote the answer grading it, reported beside F1 rather than instead of it, so a `judge` figure is not an
+independent check. `unknown` counts answers where the reader said the excerpts held none — the harness's own
+gloss is that a high count is a retrieval failure, not a reasoning one.
+
+| arm | token-F1 | exact | judge | unknown | items/q | chars/q |
+|---|---|---|---|---|---|---|
+| `lyntai` (shipped) | 22.2% | 11.0% | 45.0% | 25 | 20.0 | 2283 |
+| `lyntai-fused` | 29.1% | 14.0% | 52.0% | 18 | 20.0 | 2302 |
+| `lyntai-fused-3shot` | 38.5% | 18.0% | 59.0% | 8 | 39.7 | 5010 |
+| `lyntai-2shot` | 26.0% | 11.0% | 42.0% | 27 | 35.9 | 4294 |
+| `lyntai-3shot` | 24.9% | 12.0% | 43.0% | 25 | 40.0 | 4914 |
+| `vector` | 45.7% | 21.0% | 64.0% | 5 | 20.0 | 3634 |
+| `vector-40` | 49.8% | 22.0% | 70.0% | 1 | 40.0 | 7090 |
+| `full` | 11.7% | 3.0% | 42.0% | 0 | 578.2 | 98304 |
+
+**`full` is a FLOOR, not a ceiling** — it exceeds this reader's measured 85,000-character window (above), so
+its head is dropped; read it as "this reader cannot use that much context," never as "even full context does
+badly."
+
+**1. The retrieval gain converts, at equal context.** `lyntai` → `lyntai-fused` holds items/q at 20.0 and
+moves chars/q by 19 (2283 → 2302) while token-F1 moves **+6.9** and judge **+7.0**, and `unknown` falls
+25 → 18. Per-source fusion (D103) hands the reader better evidence inside the same budget, not more of it.
+
+**2. Ranking and the n-shot WALK (D100) are SUPERADDITIVE — this is the important one.** The identical
+three-shot walk is worth **+2.7** token-F1 on the shipped ranking (22.2 → 24.9, `lyntai` → `lyntai-3shot`)
+and **+9.4** on fused ranking (29.1 → 38.5, `lyntai-fused` → `lyntai-fused-3shot`). Ranking alone buys +6.9,
+the walk alone +2.7, the sum predicts +9.6 — the measured joint gain is **+16.3**, a **+6.7 interaction**
+beyond either part added. D100 measured this engine as an n-shot walk while it was still being fed seeds the
+shipped ranking put in the wrong order; the walk was being judged on a ranking that buried what it should
+have surfaced.
+
+**3. The headline hypothesis (D100) is substantially confirmed.** The engine returns headlines and withholds
+associative content until `ExpandAsync` is asked for it. `unknown` fell 18 → 8 under the fused three-shot
+walk — more than halving — landing close to `vector`'s 5: expansion recovers most of the content the
+headline only pointed at.
+
+**4. The gap does not close, and what is left of it has changed character.** At 5010 chars/q,
+`lyntai-fused-3shot` sits between `vector` (3634) and `vector-40` (7090) on context and below BOTH on
+token-F1 — 7.2 points under the cheaper control, 11.3 under the one matched on item count (39.7 vs 40.0
+items/q). With `unknown` down to 8, the residual is no longer mostly a retrieval failure (finding 3): what
+remains is answer quality on evidence that is already present, a different problem than the one D103 fixed.
+
+**5. A reproducibility control.** All six arms present in both runs are byte-identical across them, on both
+tables — this harness ingests each conversation once and caches embeddings, so a repeat can only find
+non-determinism, and found none. It also confirms the shot-recognition change needed to add
+`lyntai-fused-3shot` (`arm != ThreeShot` → `!MultiShotArms.Contains(arm)`, plus guarding the step-2
+`TwoShot` write with `&& arm == ThreeShot`) left every existing arm's numbers untouched.
+
+**What this does not settle.** Absolute values are a property of a 4B local reader and are NOT comparable to
+any published figure from any other system — `TASKS.md` Part 109 says the same of its own QA numbers, and
+only the ARM DIFFERENCES here transfer. **n = 100**, so resolution is about one point per question. One
+workload (LoCoMo), one embedder (`nomic-embed-text`), one reader tier (`gemma3:4b`) — the same three limits
+Part 109's QA half already carries. And whether the residual in finding 4 is context VOLUME (fewer
+characters) or content FORM (a headline plus expanded fragments, never a contiguous turn) is unmeasured:
+`lyntai-fused-3shot` is already item-matched to `vector-40` (39.7 vs 40.0) but not character-matched (5010 vs
+7090), so the two candidate explanations are still tangled. `TASKS.md` Part 134 carries it.
+
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 
 LoCoMo rewards a perfect archive and penalises decay by construction. This is the opposite shape and the
