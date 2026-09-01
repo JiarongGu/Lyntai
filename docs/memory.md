@@ -1225,6 +1225,49 @@ multi-hop 38.0 vs 37.8 and single-hop 50.8 vs 48.9, but temporal 25.1 vs 29.2 an
 Whether a recall should be able to return content directly is a design question this measurement raises and
 does not answer.
 
+### At 40 slots of whole entries the walk reaches cosine — the first time this benchmark has put the engine ahead (`memory-locomo`, 2026-09-02)
+
+**Instrument.** `node devtools/dev.mjs memory-locomo --n 200 --no-judge`, seed 12345, reader `gemma3:4b`,
+embedder `nomic-embed-text`, 3,487s. Raw output: the gitignored
+`devtools/_locomo-40slot-v2.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+`lyntai-fused-3shot-full` is the three-shot walk asking for `MemoryDetail.Full` (**D104**) — the only arm
+size-matched to `vector-40` on BOTH axes.
+
+| arm | token-F1 | unknown | items/q | chars/q |
+|---|---|---|---|---|
+| `lyntai` (shipped defaults, 1 shot) | 19.9% | 53 | 20.0 | 2,283 |
+| `lyntai-fused` (+ fused ranking) | 28.9% | 30 | 20.0 | 2,289 |
+| `lyntai-fused-api` (+ full detail) | 41.1% | 12 | 20.0 | 3,583 |
+| **`lyntai-fused-3shot-full`** (+ the walk) | **44.8%** | 6 | 39.7 | 7,084 |
+| `vector` | 41.5% | 12 | 20.0 | 3,541 |
+| `vector-40` | 43.9% | 5 | 40.0 | 6,924 |
+
+**1. The engine ends AHEAD, and the whole ladder is worth stating in one line.** Shipped defaults at one shot
+score 19.9%; ranking, detail and the walk take it to **44.8%** against plain cosine's 43.9% at 40 slots, for
+2.3% more context. `unknown` falls from 53 refusals to 6, against cosine's 5.
+
+**2. Read +0.9 as LEVEL-or-slightly-ahead, not as a win.** This run measures its own noise floor: the
+harness-rehydrated and API arms send byte-identical prompts and score **40.7 against 41.1** — a 0.4-point
+spread from reader nondeterminism alone, replicating the 0.4 seen in the previous run. **+0.9 is about twice
+that floor**, which is suggestive and not decisive. The claim that survives is that the engine is no longer
+behind, which is a change from every previous reading here.
+
+**3. What the fix was worth, isolated.** The same arm scored 42.0% before expansion honoured the detail
+request, when it held 20 whole items and ~20 truncated ones (6,053 chars). Making the discovered items whole
+too is **+2.8** and +1,031 chars.
+
+**4. The pre-registration was HALF right, and the wrong half is the interesting one.** It called 40–45%
+(44.8 ✓) but said explicitly *"NOT reaching `vector-40`'s 44.5"* (✗), reasoning that the walk's items 21–40
+are graph NEIGHBOURS while cosine's are the next-most-similar turns, so the two populations should not be
+worth the same. **At this reader tier they are** — the neighbours a walk discovers are as useful to an
+answer as reading further down the cosine list, which is the strongest result this benchmark has produced
+for the design and the one it was built to test.
+
+**Not settled.** n = 200, one reader tier (`gemma3:4b`), one embedder, one workload. +0.9 needs the full
+1,540 to become a claim rather than a direction, and the category splits are not resolved at this sample.
+Nothing here licenses a default moving: `MemoryDetail.Full` is opt-in precisely because the cheap first load
+is what a different consumer wants (**D100**).
+
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 
 LoCoMo rewards a perfect archive and penalises decay by construction. This is the opposite shape and the

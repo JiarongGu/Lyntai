@@ -2066,3 +2066,36 @@ is not a task"). Also open: one reader tier, one embedder, n = 200, and category
 one way (temporal and open-domain still trail cosine).
 
 - Build the REHYDRATION arm and run it.
+
+## Part 137 — does the WALK gain from its extra 20 slots the way deeper cosine does?
+
+✅ done 2026-09-02 — **Yes, and slightly more.** `lyntai-fused-3shot-full` — the three-shot walk asking for
+`MemoryDetail.Full` — scores **44.8%** token-F1 against `vector-40`'s **43.9%** at 39.7 slots and 7,084 chars
+against 6,924. `memory-locomo --n 200 --no-judge`, seed 12345. Tables: `docs/memory.md` §5. **The first time
+this benchmark has put the engine ahead of plain cosine on a size-matched comparison.** The full ladder from
+shipped defaults: 19.9% → 28.9% (ranking) → 41.1% (detail) → 44.8% (the walk), with reader refusals falling
+from 53 to 6 against cosine's 5.
+
+**Read +0.9 as level-or-slightly-ahead.** The run measures its own noise floor — two arms sending
+byte-identical prompts score 40.7 and 41.1, a 0.4-point spread from reader nondeterminism, replicating
+across runs. +0.9 is about twice that. The claim that survives is that the engine is no longer behind.
+
+**The pre-registration was half right, and the wrong half is the finding.** It called 40–45% (44.8 ✓) and
+said explicitly "NOT reaching `vector-40`'s 44.5" (✗), reasoning that the walk's items 21–40 are graph
+NEIGHBOURS while cosine's are the next-most-similar turns, so the populations should not be worth the same.
+At this reader tier they are.
+
+**The FIRST run of this arm was void and is recorded because of how it was caught.** It scored 42.0% —
+inside the predicted band AND branch — while measuring 20 whole items plus ~20 truncated ones, because
+`ExpandAsync` projected discovered neighbours exactly as a recall does and D104 had only covered the recall.
+`chars/q` gave it away (6,053 where 40 whole turns cost ~7,000), not the accuracy column. **A prediction
+landing where you expected is when you are least inclined to ask what produced it**, so the re-run stated
+its instrument check in advance: chars/q must rise to ~6,600–6,900 or the fix had not reached the arm. It
+read 7,084.
+
+**And the test for that fix passed for the wrong reason first.** The walk SELF-HEALS — an entry discovered as
+a headline is upgraded once a later step seeds it — so asserting on the last step's held set passes whether
+or not expansion honoured anything; it passed with the fix reverted, and only a mutation check said so. The
+assertion belongs on `NewItems` at the step that discovered them.
+
+- Run `lyntai-fused-3shot-full` and read it against `vector-40`.

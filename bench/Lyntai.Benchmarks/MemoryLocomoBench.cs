@@ -439,13 +439,14 @@ internal static class MemoryLocomoBench
                                 HopWeight = 0,
                             }), null, RecallLimit),
 
-                        // PRE-REGISTERED 2026-09-02, before this arm's first run. Reasoning and branches:
-                        // TASKS.md Part 137. The ONLY arm size-matched to `vector-40` on BOTH axes -- 40
-                        // slots and ~7k chars -- now that D104 lets the walk return whole entries.
+                        // The ONLY arm size-matched to `vector-40` on BOTH axes -- 40 slots and ~7k chars --
+                        // now that D104 lets a walk return whole entries. RAN 2026-09-02:
+                        // 44.8% against `vector-40`'s 43.9% (docs/task-archive.md Part 137).
                         //
-                        // Prediction: 40-45%, gaining on `lyntai-fused-3shot`'s 38.0 but NOT reaching
-                        // `vector-40`'s 44.5. Absolute values are a property of a 4B local reader; only the
-                        // arm DIFFERENCE transfers (TASKS.md Part 109).
+                        // Its pre-registration was HALF right and is kept where it can be checked: 40-45%
+                        // (44.8, correct) but "NOT reaching 44.5" (wrong). The reasoning behind the wrong
+                        // half -- that graph NEIGHBOURS should be worth less to an answer than the
+                        // next-most-similar turns -- is what the run refuted.
                         (FusedThreeShotFull, null,
                             new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
                             {
