@@ -957,7 +957,8 @@ is worth ≈0.065 points (100/1540), so −0.6 points is about **9 questions** �
 arms level on accuracy. **The remaining gap is efficiency, not capability**: `lyntai-fused-3shot` spends
 **6,536** chars/q against `vector`'s **3,460** (≈1.9×) for a comparable score, and against `vector-40`'s own
 **6,780** chars/q it is now both item-matched (40.0/q) and roughly character-matched while still trailing by
-0.6. This is the same "mostly volume, not form" reading `docs/task-archive.md` **Part 134** reached at
+0.6. **Read those two comparisons together, never the first alone** — finding 9 decomposes them, and the
+1.9× is an item-COUNT difference rather than a per-item one. This is the same "mostly volume, not form" reading `docs/task-archive.md` **Part 134** reached at
 n = 100 — there, the trail against `vector-40` narrowed **11.3 → 5.3 → 2.5** points as `--seeds` rose. That
 qualitative conclusion survives the full sample where the interaction claim did not, because it was never a
 difference of differences.
@@ -992,6 +993,87 @@ that retrieves the right turn and answers with the absolute date scores zero on 
 category may be measuring answer formatting as much as memory. Anyone reading a temporal figure here, ours
 or a published one, needs this. Not quantified: what share of the temporal deficit it accounts for.
 
+**9. What the 6,536 chars are MADE of — and the ≈1.9× is an item-COUNT comparison, not a per-item one.**
+Most of it derived 2026-09-02 from this table, the harness and the corpus with NO new run, and the upgrade
+and duplication counts then measured by `memory-locomo --composition` (`docs/task-archive.md` Part 135). Dividing each
+row through by its own `items/q`, net of the `items − 1` join newlines:
+
+| arm | items/q | chars/item |
+|---|---|---|
+| `lyntai` / `lyntai-fused` | 20.0 | 112.7 / 112.8 |
+| `lyntai-2shot` | 40.0 | 135.6 |
+| `lyntai-3shot` | 40.0 | 156.2 |
+| `lyntai-fused-3shot` | 40.0 | **162.4** |
+| `vector` / `vector-40` | 20.0 / 40.0 | 172.1 / 168.5 |
+| `full` | 601.4 | 167.3 |
+
+**Metadata is zero, and there is no format to compress.** The prompt context is `string.Join("\n", pieces)`
+over `i.Content ?? i.Headline`, and both families draw from the SAME strings — one
+`[date] (dia_id) speaker: text` per turn feeds the vector index and `RememberAsync` alike. The graph arms
+serialise nothing cosine does not also carry.
+
+**The composition is headline versus content, and nothing else.** A derived headline is capped at
+`GraphMemoryOptions.HeadlineChars` = 120 (`MemoryHeadline.Derive`), which puts an all-headline floor at
+**113.9** chars/item on this corpus against a full-content ceiling of **168.0**. The one-shot arms sit at
+112.7 — on that floor, within 1% — and the three-shot arms at 156.2 / 162.4, near the ceiling.
+
+**Measured, all 1,540 questions.** `node devtools/dev.mjs memory-locomo --composition --seeds 16 --n 1540`,
+model-free, 1,269.7s. Raw output: the gitignored
+`devtools/_locomo-composition.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+
+| arm / shot | items/q | new | upgr | headline n / chars / avg | content n / chars / avg | chars/q |
+|---|---|---|---|---|---|---|
+| `lyntai-fused-3shot` shot-1 | 20.0 | 20.0 | 0.0 | 20.0 / 2,256 / 112.8 | 0.0 / 0 / — | 2,275 |
+| `lyntai-fused-3shot` shot-2 | 40.0 | 20.0 | 16.0 | 24.0 / 2,706 / 112.7 | 16.0 / 2,804 / 175.2 | 5,548 |
+| `lyntai-fused-3shot` shot-3 | 40.0 | 0.0 | 16.0 | 8.0 / 900 / 112.5 | 32.0 / 5,597 / 174.9 | **6,536** |
+| `vector-40` | 40.0 | — | — | 0.0 / 0 / — | 40.0 / 6,741 / 168.5 | **6,780** |
+
+**The control passes EXACTLY, which is what makes the rest readable.** 6,536 and 6,780 reproduce the QA
+table's own rows to the character, and shot-1's 2,275 reproduces the `lyntai-fused` row — three independent
+exact matches, so this decomposes those arms and not neighbours of them.
+
+**The upgraded share is 80%, and it is STRUCTURAL rather than empirical** — counted directly by
+`memory-locomo --composition` (built 2026-09-02, `MemoryWalkStep.UpgradedCount`) rather than inferred.
+The walk holds 20 headlines after shot 1, upgrades exactly `MemoryWalkOptions.SeedsPerStep` per expansion
+and fills to `MaxItems`: **16 + 16 = 32 of 40**, so 8 items are still a headline at shot 3 because the SEED
+BUDGET bounds the raise, not the corpus. The figure is `SeedsPerStep × (shots − 1) / MaxItems` at this
+benchmark's `--seeds 16`, which is a harness parameter and not a property of the engine.
+<br>**A first reading of this table inverted the mean lengths instead and got ≈90%** — directionally right,
+wrong as a point estimate, because it assumed both sub-populations sit at the corpus mean and **neither
+does**: the upgraded items measure **174.9** chars against a corpus mean of 168.0, and the 8 survivors
+**112.5** against the 113.9 all-headline floor. **It was pre-registered at 88–95% and is recorded as
+falsified**, since a structural quantity was never the kind of thing an interval over corpus statistics
+could have found.
+<br>**The walk's content items are 3.8% LONGER than cosine's** (174.9 against `vector-40`'s 168.5), which is
+a small finding in its own right: expansion walks toward richer turns. It is also why the mixture had to be
+measured rather than inverted — assuming the corpus mean for both populations is what produced the ≈90%.
+
+**Node duplication across shots cannot happen.** `MemoryWalkState.Hold` keys on `MemoryRef`: re-encountering
+a held entry raises it from headline to content and increments `MemoryWalkStep.UpgradedCount`, never taking
+a second slot. The obvious compression hypothesis is closed by construction rather than by measurement.
+<br>**Near-duplicate text across DISTINCT nodes measures ZERO**, which is the half construction could not
+settle: exact pairs, containment pairs and token-Jaccard ≥ 0.8 pairs are all **0.00 per question on BOTH
+arms**, over 61,600 items each. So the corpus is not repeating itself into either context, and there is
+nothing for a deduplication pass to reclaim.
+<br>**A zero from a counter nobody tested would look identical**, so the mode carries a POSITIVE CONTROL over
+a known-duplicate set and WITHHOLDS the table when it fails. It reports `PASS - exact 1/1, contained 3/3,
+near 3/3` on this run, and it was proven on the red path: neutering the counter to return zeros printed
+`FAIL` and refused the table.
+
+**So the walk's cost is in SLOTS, not characters.** At matched item count `lyntai-fused-3shot` spends
+**6,536** against `vector-40`'s **6,780** — **3.6% LESS**, because a fifth of its slots are still headlines.
+It needs 40 slots to reach what cosine does in 20, while being the cheaper arm per slot. An efficiency claim
+taken from the 20-item `vector` row alone inverts which arm is thriftier.
+
+**Control.** The corpus reconstruction reproduces the `full` row EXACTLY — 601.4 items/q and 101209 chars/q,
+to the character — which is what licenses reading 113.9 and 168.0 as this table's own floor and ceiling
+rather than as two separately-measured numbers.
+
+**Not settled.** The composition is a property of `--seeds 16` on THIS corpus. Every question saturated —
+`items/q` is exactly 40.0 and `headline` exactly 8.0 across all 1,540, so no short-recall question fell short
+of the seed budget here — but a corpus with sparser recalls would not, and the 80% would fall with it. And
+the figures are one embedder (`nomic-embed-text`) on one workload, like everything else in this section.
+
 **What this does not settle.** Absolute values are a property of a 4B local reader and are NOT comparable to
 any published figure from any other system — only ARM DIFFERENCES transfer. One workload (LoCoMo), one
 embedder (`nomic-embed-text`), one reader tier (`gemma3:4b`). **n = 1,540 now** — the complete published QA
@@ -1000,6 +1082,91 @@ small and +10.5 as large; n = 100's ≈1-point resolution supported neither call
 the category breakdown. The retraction closes the superadditivity question rather than leaving a fourth
 pending number — nothing here licenses reopening it without a reason to expect the earlier reading was
 right.
+
+### `evidence-hit@k` cannot see TRUNCATION, and only the graph arms truncate (2026-09-02)
+
+**One arm, two metrics, opposite verdicts against the same control.** `+sem+rel-only` (retrieval ladder) and
+`lyntai-fused` (QA table) are the SAME configuration under two names — `ReciprocalRankFusionPolicy` with
+`RetrievabilityWeight = 0` and `HopWeight = 0`, semantic seeds at `RecallLimit`, one shot, 20 items. It
+scores **83.0% evidence-hit against plain cosine's 80.5%** (n = 200) and **29.1% token-F1 against cosine's
+42.4%** (n = 1,540). Retrieval says it wins by 2.5; the reader says it loses by 13.3.
+
+**The mechanism, measured.** A recall returns headlines (**D100**), and `MemoryHeadline.Derive` cuts at
+`GraphMemoryOptions.HeadlineChars` = 120 on a word boundary with a `…` marker. Every retrieval-ladder arm is
+ONE SHOT — only the two three-shot arms are in `MultiShotArms`, so every other walk breaks at step 1 — so
+**100% of its items are truncated**; the cosine arms never truncate.
+<br>The four rows below are computed over all 5,882 LoCoMo turns by replaying `MemoryHeadline.Derive`'s own
+rule against the dataset (the gitignored `devtools/_part135-truncation.mjs` <!-- link-ok: gitignored scratch, named as provenance; re-creatable from the rule it replays -->), not sampled:
+
+| | |
+|---|---|
+| turns longer than 120 chars | **72.5%** (4,265 of 5,882) |
+| answer text surviving truncation, over those turns | mean **56.2%**, p50 54.6%, p10 30.6% |
+| turns keeping under half their text | 30.4% of the corpus |
+| **`dia_id` marker surviving truncation** | **5,882 of 5,882 — 100.00%** |
+
+**That last row is the whole finding.** The harness scores a hit with `Contains("(" + dia_id + ")")`, and the
+marker sits in the 44-character HEADER every turn carries — `[date] (dia_id) speaker: ` — so it is never the
+part that gets cut. Evidence-hit is therefore **structurally incapable** of distinguishing a slot holding a
+whole turn from one holding half of it, and the arms it compares differ in exactly that way.
+
+**What this does NOT do is invalidate the retrieval ladder.** Finding the evidence turn is finding it, and
+evidence-hit answers that question correctly — **D103**'s per-source fusion really did move retrieval, and
+that result stands. What the metric cannot support is the INFERENCE that usually rides on it: *better
+retrieval should mean better answers.* Between a graph arm and a cosine arm it does not follow, because the
+two deliver different amounts of the turn they both found.
+
+**It is a CANDIDATE mechanism for a gap this record has carried without one, and the candidacy is weaker than
+it first looks.** `TASKS.md` Part 128's pre-registration guessed it in words — *"the engine returns HEADLINES
+and the reader cannot answer from a pointer"* — and nothing quantified it. The quantity is 56.2%, and the
+reason nobody caught it is that the one metric watching that stage is blind to it by construction.
+
+**But the published table already holds a fixed-slot content experiment, and it says content buys little.**
+At `--seeds 16` shot 3 discovers nothing new (`new 0.0`, measured), so **`lyntai-2shot` and `lyntai-3shot`
+hold the IDENTICAL 40 items** and differ only in content share — 40% against 80%. The composition model
+predicts both rows to within one character (135.5 against a measured 135.6; 157.2 against 156.2), which is
+what licenses reading the pair as a content contrast at all. **token-F1 moves +1.1**, 32.3% to 33.4%.
+<br>So doubling the content of a fixed item set is worth about a point, and truncation cannot be assumed to
+explain 13.3 of them. **The one thing that contrast does not settle is WHICH items get upgraded**: shot 3
+seeds shot 2's newly-discovered neighbours, so +1.1 prices the low-value half of the upgrade, while a
+rehydration arm would upgrade the top-ranked items evidence-hit says carry the evidence. That is the
+experiment, and it is Part 136.
+
+**Exposure is per-arm and worth stating separately**, because it is not uniform: the retrieval ladder's arms
+are 100% headlines, `lyntai-fused-3shot` is 20% (finding 9's 8 of 40), and every `vector*` and `full` arm is
+0%. So the truncation penalty is largest exactly where the retrieval win was measured.
+
+**The blast radius stops at the two FIELD benchmarks, and that is checked rather than assumed.** LoCoMo and
+LongMemEval score by matching a marker inside the returned TEXT, which is what exposes them. Every sweep over
+this repository's own synthetic corpus scores on returned IDS instead (`RecallQuality` intersects id sets),
+so miss-rate and pollution-rate are structurally immune — no figure from `memory-sweep`, `memory-salience`,
+`memory-support` or their siblings is touched by this.
+
+**LongMemEval carries the same blind spot and carries it HARDER**, which is the cross-workload check. Its
+turns are built `$"{t.Tag} {t.Text}"`, so the marker `clean` / `current@k` / `stale@k` all match on sits at
+**position 0** — it cannot be truncated away at any cap. And its turns are far longer: on knowledge-update
+haystack, `shot-1` spends 1,169 chars over 10.0 items (**116.9**/item, the headline cap) where `vector`
+spends 10,387 over the same 10.0 items (**1,038.7**/item). **A LongMemEval headline delivers 11.3% of its
+turn**, against LoCoMo's ~56%.
+
+**The composition model predicts that curve independently, which is what makes it a model rather than a
+description.** At `chars/item = u × full + (1 − u) × 120`, shot-3's 416 chars/item implies **u = 32%
+upgraded** — and a `--seeds 3` budget over ~20 held items gives 3 + 3 = 6 of 19.9 = **30%**. Two corpora,
+two seed budgets, one arithmetic.
+
+**What survives untouched is the finding that matters there.** `clean` asks whether the returned set holds
+the current fact and NOT the superseded one — a question about WHICH turns came back, which truncation does
+not change. **The 31.4%-against-10.0% discrimination result stands.** What does not follow is the efficiency
+reading the char column invites: 1,169 characters against 10,387 is not the same information nine times
+cheaper, it is ten pointers against ten documents.
+
+**Not settled.** This is a MECHANISM, not a decomposition — it does not say how much of the 13.3-point QA gap
+truncation accounts for, and the two figures come from different samples (n = 200 retrieval, n = 1,540 QA).
+The clean test is an arm that retrieves identically and returns full content: `TASKS.md` **Part 136** builds
+it as a REHYDRATION arm and pre-registers the prediction. Note that ingesting the corpus as
+`MemoryGrade.Authoritative` would also return full content — a recall projects `Content` only for that grade
+— but it engages the grade carve-out and re-admission at the same time, so it moves ranking too and cannot
+isolate this.
 
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 

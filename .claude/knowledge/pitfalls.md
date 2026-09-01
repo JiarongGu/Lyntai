@@ -1486,6 +1486,47 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   ladder — which is a far stronger claim than "the tests pass", and it is what turned a plausible refactor
   into a verified one.
 
+- **A metric whose MATCH TARGET survives the transformation it ought to detect is blind to that
+  transformation, and it reports a clean comparison between arms that differ by exactly it.** Measured
+  2026-09-02 (`docs/memory.md` §5). LoCoMo evidence-hit asks whether a returned turn contains
+  `"(" + dia_id + ")"`. The graph arms return HEADLINES — `MemoryHeadline.Derive` cuts content at 120
+  characters — while the cosine arms return whole turns. But the `dia_id` rides in the 44-character HEADER
+  every turn carries, so it is never the part that gets cut: it survived truncation in **5,882 of 5,882**
+  turns, **100.00%**, while the answer text behind it survived at a mean of **56.2%**. The metric scored a
+  half-turn and a whole turn identically, and the arms it was comparing differed in precisely that way.
+  <br>**The cost is a wrong INFERENCE rather than a wrong number.** Evidence-hit was right about what it
+  measures — the turn was found — so the ladder's results stand. What silently failed is the step everyone
+  takes next: the same configuration scores **+2.5 against cosine on retrieval and −13.3 on QA**, and for a
+  year the obvious reading would have been "the reader is the bottleneck" rather than "the arms deliver
+  different amounts of the same turn".
+  <br>**The tell is that the metric's key and its payload can be damaged independently**, and only the
+  payload matters downstream. Ask of any matching metric: *what part of the item does the match actually
+  touch, and can the rest be destroyed without moving the score?* If yes, it cannot compare two arms that
+  transform the rest differently — and it will not say so. The defence is a second column pricing what was
+  DELIVERED (here `chars/q`, which was present and never read against the hit rate), or an arm that differs
+  only in the transformation.
+
+- **A diagnostic built to EXPLAIN a published number runs on its own defaults, not on the flags that
+  produced that number — and it explains a different arm while looking entirely reasonable.** Measured
+  2026-09-02 building `memory-locomo --composition` (`docs/task-archive.md` Part 135), which decomposes the
+  `lyntai-fused-3shot` row's `chars/q` into headline versus content. The published row was measured at
+  `--seeds 16`; the harness field defaults to `3`, and `--composition` inherited the default. Its first run
+  reported **4,950 chars/q and 123.2 chars/item** for a row published at **6,536 / 162.4** — no error, no
+  warning, and a composition table that is internally consistent and perfectly plausible. Re-run at the
+  published flag it reproduces **6,556 / 162.9 on 20 questions, 0.3%**.
+  <br>**The tell is that there is none**, which is the whole entry. Every other trap here leaves something
+  that looks wrong; a diagnostic pointed at the wrong parameter point produces a well-formed answer to a
+  question nobody asked, and the reader has no way to tell it apart from the right one — the derived
+  conclusion ("only 15% of the context is upgraded") would have been published as a property of the design
+  when it was a property of a flag.
+  <br>**So a mode that explains a published figure must ASSERT it reproduces that figure**, printing the
+  comparison rather than leaving it to a reader who would have to go and find the other table. That is the
+  same reasoning `check-links` rests on one tier up — a claim about another record is checkable, so check
+  it — and it is cheap here because the reproducing column (`chars/q`, `items/q`) is already being computed.
+  <br>**The general shape: a derived instrument inherits its subject's CONFIGURATION, not just its code.**
+  Copying the arm's config object is necessary and not sufficient; the flags that were passed on the day are
+  part of the arm, and the defaults are a different arm wearing the same name.
+
 - **A benchmark whose store MUTATES on read has non-independent trials, and the contamination presents as a
   RESULT rather than as a bug.** Measured 2026-08-29 (`docs/task-archive.md` Part 118). LoCoMo questions
   within a conversation shared one store, and this engine writes on every read — a recall reinforces what it

@@ -1960,3 +1960,44 @@ not a capability one. No follow-up item is opened for it here; it is recorded as
 `docs/memory.md` §5, not as a startable task.
 
 - Separate volume from form in the walk's residual gap against `vector-40`.
+
+## Part 135 — the context-efficiency gap: the walk's cost is in SLOTS, not characters
+
+✅ done 2026-09-02 — Built `node devtools/dev.mjs memory-locomo --composition` (`MemoryLocomoBench.cs`), a
+model-free two-arm mode that decomposes a returned context into headline versus content and counts
+duplication within it. Full sample, 1,540 questions, 1,269.7s. Findings and tables:
+`docs/memory.md` §5 finding 9. **Three of the four questions needed no run at all** — they fall out of the
+published QA table divided through by its own `items/q`, validated by a corpus reconstruction that
+reproduces the `full` row (601.4 items/q, 101209 chars/q) to the character.
+
+**The Part's own premise was half a comparison.** The ≈1.9× that opened it (6,536 against `vector`'s 3,460)
+compares 40 items to 20. At matched count the walk spends **6,536 against `vector-40`'s 6,780 — 3.6% LESS**,
+a row the same table already carried. The cost is in SLOTS, not characters: 40 slots to reach what cosine
+does in 20, at a cheaper price per slot.
+
+**And the Part named a dump that could not answer it.** `devtools/_locomo-dump-181506.jsonl` holds 12,320
+lines with exactly ONE key set — `arm, question, gold, answer, unknown, f1, exact, judge`. It records what
+the READER answered, for judge calibration; no context, no pieces, no chars. Censused, not inferred from the
+flag's name. The ~5-hour cost quoted for regenerating it was the QA run's and never applied here — the
+diagnostic needs no reader.
+
+**Measured:** upgraded share **80.0%** (32 of 40) and it is STRUCTURAL, not empirical —
+`SeedsPerStep × (shots − 1) / MaxItems`, since the seed budget bounds the raise rather than the corpus.
+Headline items average **112.5** chars, content items **174.9** (against `vector-40`'s 168.5, so expansion
+walks toward richer turns). Duplication is **0.00** pairs per question on both arms over 61,600 items each,
+under a positive control proven on the red path.
+
+**What it got wrong, for the next reader.** The pre-registered upgrade prediction (88–95%) was FALSIFIED at
+80%: it was reached by inverting mean lengths, which assumes both sub-populations sit at the corpus mean and
+neither does. A structural quantity was never the kind of thing an interval over corpus statistics could
+find. **And the mode measured the wrong arm on its first run** — it defaults to `--seeds 3` where the table
+it explains was taken at `--seeds 16`, and reported a plausible 4,950 chars/q with nothing erroring; the
+reusable rule is in `.claude/knowledge/pitfalls.md`. Its control now reproduces the published rows exactly
+(6,536 / 6,780, and shot-1's 2,275 against the `lyntai-fused` row).
+
+**It also turned up something bigger than itself**, which is now `TASKS.md` **Part 136**: `evidence-hit@k`
+matches a `(dia_id)` that survives headline truncation in **5,882 of 5,882** turns, so the metric scores a
+half-turn and a whole turn identically while the graph arms return the first and the cosine arms the second.
+
+- Diagnose what the 40 items behind `lyntai-fused-3shot` actually contain.
+- Measure the two things the derivation could not.

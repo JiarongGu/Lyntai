@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is NINE items, across Parts 105, 109, 116, 128, 129, 132, 133 and 135.** Each is a
+**The startable set is NINE items, across Parts 105, 109, 116, 128, 129, 132, 133 and 136.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -45,8 +45,13 @@ day at the full 1,540-question sample** (`docs/memory.md` §5, and a dated note 
 superadditivity interaction it reported (+6.7/+4.2/+6.8) reads +1.0 at full sample, not distinguishable from
 zero, and the category wins it implied do not survive either. The volume-vs-form reading survives, restated
 at full-sample resolution (a −0.6-point residual against `vector-40`, still "mostly volume"). **Part 135
-opened the same day** — the context-efficiency diagnostic the retraction leaves standing (what the walk's
-6,536 chars/q are actually made of) — taking it from eight to nine. Every number here is edited in
+opened the same day** — the context-efficiency diagnostic the retraction left standing — taking it from
+eight to nine, and **it CLOSED on 2026-09-02** as `docs/task-archive.md` **Part 135**, taking it back to
+eight: the ≈1.9× turned out to compare 40 items against 20, and at matched count the walk spends 3.6% LESS
+than `vector-40`. **Part 136 opened the same day** — eight to nine — because that diagnostic turned up
+something bigger than itself: `evidence-hit@k` matches a `(dia_id)` that survives headline truncation
+**5,882 times out of 5,882**, so it scores a half-turn and a whole turn identically while the graph arms
+return the first and the cosine arms the second (`docs/memory.md` §5). Every number here is edited in
 the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
 
 **START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
@@ -897,28 +902,57 @@ line misses every future illegitimate line of that shape, and nothing ever notic
 
 ---
 
-## Part 135 — the context-efficiency gap: what are the fused walk's 6,536 chars/q actually MADE of? (2026-09-01)
+## Part 136 — is TRUNCATION the retrieval-win/QA-loss gap? The rehydration arm settles it (2026-09-02)
 
-_Opened by the full-sample QA retraction (`docs/memory.md` §5's retraction subsection;
-`docs/task-archive.md` **Part 134**'s dated amendment). Retracting the superadditivity claim did not retract
-everything that run found: `lyntai-fused-3shot` matches `vector`'s accuracy at full sample (43.9% vs 42.4%,
-within the ≈0.065-point-per-question noise floor) while spending **≈1.9×** the context (6,536 vs 3,460
-chars/q) — an EFFICIENCY gap, not a capability one. Nobody has looked inside those 6,536 characters._
+_Opened by `docs/memory.md` §5's truncation subsection, which found the mechanism but did not size it.
+**`+sem+rel-only` and `lyntai-fused` are the SAME configuration under two names** — RRF with
+`RetrievabilityWeight = 0`, `HopWeight = 0`, semantic seeds at `RecallLimit`, one shot, 20 items — and it
+beats plain cosine by **+2.5 on evidence-hit** (83.0 vs 80.5, n = 200) while losing by **−13.3 on token-F1**
+(29.1 vs 42.4, n = 1,540). One arm, two metrics, opposite verdicts against one control._
 
-- [ ] **Diagnose what the 40 items behind `lyntai-fused-3shot` actually contain.** Break `chars/q` down by
-  what it is made of — headline text vs. expanded content vs. any metadata the harness serialises into the
-  prompt — and check for DUPLICATION across the walk's three shots: the same node's content re-included on a
-  later shot, or two of the 40 items carrying near-identical text. This is a startable DIAGNOSTIC, not a
-  design decision — the question is composition, not a target size — and it decides whether the 1.9× is
-  compressible (duplication, a verbose format) or inherent (three shots' worth of genuinely distinct evidence
-  the one-shot arm never surfaces). **The dump this needs ALREADY EXISTS** —
-  `devtools/_locomo-dump-181506.jsonl` <!-- link-ok: gitignored scratch, named because regenerating it costs a 5-hour run -->,
-  12,320 items (1,540 questions × 8 arms) from the 2026-09-01 full-sample run. It is gitignored scratch, so
-  `git clean -fdx` destroys it and a fresh clone never had it; regenerating it means
-  `node devtools/dev.mjs memory-locomo --n 1540 --seeds 16 --dump`, which took **18,116s (~5 hours)**. Check
-  for it before spending that. The harness's `--dump` flag
-  (`bench/Lyntai.Benchmarks/MemoryLocomoBench.cs`) already emits a per-item record for a run of this shape and
-  is the natural starting point rather than new instrumentation.
+_**Why the metric could never have flagged it**: evidence-hit matches `(dia_id)`, which rides in the
+44-character header every turn carries, so it survived truncation in **5,882 of 5,882** turns while the
+answer text behind it survived at a mean of **56.2%**. A recall projects `Content` only for
+`MemoryGrade.Authoritative` material (`GraphMemoryEngine`), and every LoCoMo turn ingests as `Associative`,
+so every retrieval-ladder arm is **100% headlines** and every `vector*` arm is 0%._
+
+- [ ] **Build the REHYDRATION arm and run it.** Take `lyntai-fused`'s returned set unchanged and substitute
+  each item's FULL turn text for its headline before the reader sees it — the harness can do this with no
+  library change and no second recall, because the `(dia_id)` marker survives truncation (that is the
+  finding) and `texts` already holds every turn. **Identical retrieval, identical ranking, identical 20
+  slots; only the truncation differs**, which is the isolation no existing arm provides.
+  <br>**Do NOT get there by ingesting the corpus as `Authoritative`.** It would return full content, and it
+  would also engage the grade carve-out and re-admission (`AuthoritativeReserve`, CLAUDE.md's memory
+  invariant 12), moving RANKING at the same time — two changes at once, which is the confound this whole
+  Part exists to remove.
+  <br>**PRE-REGISTERED 2026-09-02, then REVISED the same day — before the run, on evidence found while
+  looking for it.** The first prediction was **38–45%** (closing most of the 13.3 points), reasoned from
+  `lyntai-fused-3shot` reaching 43.9% at 80% content against this arm's 29.1% at 0%. **It is superseded and
+  left here on purpose**, because the thing that moved it is the interesting part.
+  <br>_**The published table already contains a fixed-slot content experiment, and it says content is worth
+  little.** At `--seeds 16` shot 3 discovers NOTHING new — the composition instrument measures `new 0.0` —
+  so `lyntai-2shot` and `lyntai-3shot` hold the **identical 40 items** and differ only in content share,
+  40% against 80%. The composition model predicts both rows to within one character (135.5 vs a measured
+  135.6; 157.2 vs 156.2), which is what licenses reading them as a content contrast at all. **token-F1 moves
+  +1.1** — 32.3% to 33.4%. Doubling the content of a fixed item set is worth about a point._
+  <br>**REVISED prediction: 32–40%**, i.e. +3 to +11 rather than +9 to +16. The band stays wide for a
+  reason that is itself testable: the +1.1 contrast upgrades the LOW-value half — shot 3 seeds shot 2's
+  newly-discovered neighbours — while rehydration upgrades all 20 of the TOP-ranked items, which are the
+  ones evidence-hit says hold the evidence. So +1.1 is a lower bound on the high-value half, not an estimate
+  of it.
+  <br>   · closes ≥ 9 points → truncation is the dominant mechanism AND the high-value/low-value split above
+  is real, since the fixed-slot contrast would have understated it eightfold. Whether a recall should be able
+  to return content then becomes a live design question rather than a settled one — **D100** made headlines
+  the point because they make the first load cheap, and this would price that choice for the first time.
+  <br>   · closes 3–8 → the predicted middle: truncation is real, ranking costs too, decompose further.
+  <br>   · closes < 3 → truncation is NOT the mechanism, and the fixed-slot contrast generalised after all.
+  That points the gap back at what the arm RETRIEVES — an arm scoring higher evidence-hit while answering
+  worse from the same full text would mean evidence-hit is crediting turns a reader cannot use, which is the
+  metric problem one level below the truncation one.
+  <br>   · overshoots `vector` → the arm's retrieval advantage was real all along and truncation masked it
+  entirely. Biggest result, and the one that would most change what this engine is for.
+  <br>**Needs a reader**, so it is the slow shape (the full-sample QA run is ~5 hours); `--n 200` against the
+  same seed is the cheap first pass and is enough to separate 38–45% from 29.1%.
 
 ---
 
