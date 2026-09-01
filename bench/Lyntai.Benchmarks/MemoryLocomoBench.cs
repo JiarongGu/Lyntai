@@ -120,7 +120,14 @@ internal static class MemoryLocomoBench
         // that class and has to be measured. Model-free, and scored offline from one ingestion for the reason
         // `RankLadder` gives.
         var ranksOnly = args.Contains("--ranks");
-        var needsReader = !args.Contains("--retrieval") && !shotsOnly && !ranksOnly;
+        // `--composition` is docs/task-archive.md Part 135: what the fused walk's context is MADE of, not how well it
+        // scores. It asks two questions the QA table's `chars/q` column averages away — how many of the 40
+        // items are still a headline rather than full content, and whether any two of them carry the same
+        // text — and it asks them of `lyntai-fused-3shot` and the size-matched `vector-40` together, because
+        // a corpus with near-duplicate turns reaches both arms and only a DIFFERENCE is walk-specific.
+        // Model-free and retrieval-side: no reader answers anything here, so neither can be credited.
+        var composition = args.Contains("--composition");
+        var needsReader = !args.Contains("--retrieval") && !shotsOnly && !ranksOnly && !composition;
         var chat = needsReader ? await SweepDoubles.TryRealChatAsync(http, "memory-locomo") : null;
         if (needsReader && chat is null) return 1;
 
@@ -158,6 +165,8 @@ internal static class MemoryLocomoBench
         // sizes. Reusing the ladder here would spend five reader passes measuring ranking knobs.
         string[] arms = ranksOnly
             ? ["ranks"]
+            : composition
+            ? [FusedThreeShot, $"vector-{ShotBudget}"]
             : shotsOnly
             ? ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}", "full"]
             : retrievalOnly
@@ -177,7 +186,8 @@ internal static class MemoryLocomoBench
         var sampled = Stratify(questions, take);
 
         PrintPreamble(chat?.Model ?? "(none - retrieval only)", embedder,
-            conversations.Count, questions.Count, sampled.Count, arms, retrievalOnly || shotsOnly || ranksOnly);
+            conversations.Count, questions.Count, sampled.Count, arms,
+            retrievalOnly || shotsOnly || ranksOnly, composition);
 
         // Printed even at 0, so a run says which arm it is rather than leaving the reader to infer it from
         // the absence of a flag — the same reason the LongMemEval preamble prints its variant unconditionally.
@@ -194,6 +204,57 @@ internal static class MemoryLocomoBench
         var exact = new Dictionary<(string Arm, int Category), int>();
         var chars = new Dictionary<string, long>();
         var millis = new Dictionary<string, double>();
+        // `--composition`'s tallies, keyed by arm and — for the walk — by `<arm> shot-N`, so a per-shot row
+        // and the final row come out of one pass.
+        var comp = new Dictionary<string, CompositionTally>();
+        CompositionTally Tally(string key) =>
+            comp.TryGetValue(key, out var t) ? t : comp[key] = new CompositionTally();
+
+        // One WALK STEP's composition. `UpgradedCount` is the number Part 135 exists to count: a headline
+        // raised to full content is what a shot buys beyond discovering a new entry, and it is invisible in
+        // an item count.
+        void Compose(string key, MemoryWalkStep step)
+        {
+            var t = Tally(key);
+            t.Questions++;
+            t.Items += step.Items.Count;
+            t.NewItems += step.NewItems.Count;
+            t.Upgraded += step.UpgradedCount;
+            foreach (var item in step.Items)
+                if (item.Content is null) { t.HeadlineItems++; t.HeadlineChars += item.Headline.Length; }
+                else { t.ContentItems++; t.ContentChars += item.Content.Length; }
+            // Priced the QA path's own way — joined, separators included — so a shot row and the arm row
+            // below are the same quantity, and shot 3 agreeing with the arm is a consistency check rather
+            // than a coincidence.
+            t.PromptChars += step.Items.Sum(i => (i.Content ?? i.Headline).Length)
+                + Math.Max(0, step.Items.Count - 1);
+        }
+
+        // One arm's FINAL set — what a reader would actually be handed. `items` is null for the cosine arm,
+        // whose pieces are whole turns by construction and so carry no headline half.
+        void Record(string key, IReadOnlyList<string> pieces, IReadOnlyList<MemoryItem>? items)
+        {
+            var t = Tally(key);
+            t.Questions++;
+            t.Items += pieces.Count;
+            // The QA table's own column, computed the QA path's own way, so the control below compares like
+            // with like rather than a reconstruction of it.
+            t.PromptChars += string.Join("\n", pieces).Length;
+            if (items is null)
+            {
+                t.ContentItems += pieces.Count;
+                t.ContentChars += pieces.Sum(p => p.Length);
+            }
+            else
+                foreach (var item in items)
+                    if (item.Content is null) { t.HeadlineItems++; t.HeadlineChars += item.Headline.Length; }
+                    else { t.ContentItems++; t.ContentChars += item.Content.Length; }
+
+            var (exact, contained, near) = Duplication(pieces);
+            t.ExactPairs += exact;
+            t.ContainedPairs += contained;
+            t.NearPairs += near;
+        }
         // `--dump`'s per-item record. Collected in memory rather than streamed: 100 questions x 8 arms is
         // 800 lines, and a writer held open across the run is one more thing to get wrong on a throw.
         var dumped = new List<string>();
@@ -241,6 +302,17 @@ internal static class MemoryLocomoBench
             (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking,
                 IMemoryVerificationPolicy? Verification, int? SemanticK)[] configs = ranksOnly
                 ? [("lyntai", null, rankProbe, null, null)]
+                : composition
+                // The SAME config the QA table's `lyntai-fused-3shot` row was measured with, copied rather
+                // than re-derived: this mode explains that row's chars/q, so an arm differing from it in any
+                // way would be explaining a different number. The control at the foot of the table asserts
+                // the agreement instead of assuming it.
+                ? [(FusedThreeShot, null,
+                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+                    {
+                        RetrievabilityWeight = 0,
+                        HopWeight = 0,
+                    }), null, RecallLimit)]
                 : retrievalOnly
                 ? Ladder()
                 : shotsOnly
@@ -559,11 +631,14 @@ internal static class MemoryLocomoBench
 
                     List<string> context = [];
                     var reached = 0;
+                    MemoryWalkStep? last = null;
 
                     await foreach (var step in engine.WalkAsync(
                         new MemoryQuery(convId, "session", q.Text, Limit: RecallLimit), walkOptions))
                     {
                         context = [.. step.Items.Select(i => i.Content ?? i.Headline)];
+                        last = step;
+                        if (composition) Compose($"{arm} shot-{step.Number}", step);
 
                         // single-shot arms take step 1 and stop; MultiShotArms walks on
                         if (!MultiShotArms.Contains(arm))
@@ -589,11 +664,21 @@ internal static class MemoryLocomoBench
                         for (var shot = reached + 1; shot <= 3; shot++)
                         {
                             Snapshot(shot, context);
+                            // Same reason as the row above, applied to composition: a shot that did not
+                            // happen still holds what the last one left, and it moved nothing — so the held
+                            // set repeats with the DELTAS zeroed rather than the row being dropped.
+                            if (composition && last is not null)
+                                Compose($"{arm} shot-{shot}",
+                                    new MemoryWalkStep(shot, last.Items, [], 0, last.Ran));
                             if (!shotsOnly && shot == 2 && arm == ThreeShot)
                                 recalled[(TwoShot, q.Text)] = context;
                             if (!shotsOnly && shot == 3)
                                 recalled[(arm, q.Text)] = context;
                         }
+
+                    // The FINAL set is what the reader was handed, so its duplication is the number Part 135
+                    // asks for. Recorded under the arm's own name, beside the per-shot rows above.
+                    if (composition) Record(arm, context, last?.Items);
 
                     // Each shot is priced where it happens: cumulative items, characters and elapsed time,
                     // plus whether the evidence has arrived YET. That last one is the model-free form of
@@ -643,6 +728,21 @@ internal static class MemoryLocomoBench
                 }
                 Console.WriteLine($"  {convId}: {turns.Count} turns ingested, "
                     + $"{mine.Count(q => q.Evidence.Count > 0)} question(s) walked");
+                continue;
+            }
+
+            if (composition)
+            {
+                // The SIZE-MATCHED control, composed the same way. Its pieces are whole turns, so its
+                // headline column is 0 by construction and its duplication is the CORPUS's own — which is
+                // the entire reason it is measured rather than assumed: a LoCoMo conversation that repeats
+                // itself would give the walk near-duplicate items through no fault of the walk.
+                foreach (var q in mine)
+                    Record($"vector-{ShotBudget}",
+                        (await TopKAsync(embedder, vectorIndex, q.Text, ShotBudget)).ToList(), null);
+
+                Console.WriteLine($"  {convId}: {turns.Count} turns ingested, "
+                    + $"{mine.Count} question(s) composed");
                 continue;
             }
 
@@ -742,6 +842,7 @@ internal static class MemoryLocomoBench
         }
 
         if (ranksOnly) PrintRanks(rankProbe);
+        else if (composition) PrintComposition(comp);
         else if (shotsOnly) PrintShots(arms, correct, asked, returned, chars, millis);
         else PrintResults(arms, correct, asked, unknown, returned, retrievalOnly, f1, exact, chars, judged);
 
@@ -909,8 +1010,30 @@ internal static class MemoryLocomoBench
     }
 
     private static void PrintPreamble(string model, SweepDoubles.CachingEmbedder embedder,
-        int conversations, int total, int sampled, IReadOnlyList<string> arms, bool retrievalOnly)
+        int conversations, int total, int sampled, IReadOnlyList<string> arms, bool retrievalOnly,
+        bool composition)
     {
+        // Its own header rather than the model-free one below: this mode computes no evidence-hit at all,
+        // and a raw output whose banner names a metric it never measured is the provenance defect this
+        // repository files under precision-without-provenance.
+        if (composition)
+        {
+            Console.WriteLine("=== LoCoMo: what the returned CONTEXT is made of (task-archive Part 135) ===");
+            Console.WriteLine();
+            Console.WriteLine("NOT an accuracy measurement. No reader, no judge, and no evidence-hit column:");
+            Console.WriteLine("this decomposes a cost the QA table already reported - headline text against");
+            Console.WriteLine("expanded content, and whether any two returned items carry the same text.");
+            Console.WriteLine();
+            Console.WriteLine($"Conversations: {conversations}   Questions: {sampled} of {total}, seeded {Seed}");
+            Console.WriteLine($"Arms: {string.Join(", ", arms)}   recall limit {RecallLimit}   "
+                + $"seeds/step {expandSeeds}   embedder {SweepDoubles.Model}");
+            Console.WriteLine();
+            Console.WriteLine("`seeds/step` MUST match the run being explained - the QA table it decomposes was");
+            Console.WriteLine("taken at 16, and this mode defaults to 3. The control at the foot checks it.");
+            Console.WriteLine();
+            return;
+        }
+
         if (retrievalOnly)
         {
             Console.WriteLine("=== LoCoMo: evidence-hit@k, the MODEL-FREE half ===");
@@ -1022,6 +1145,152 @@ internal static class MemoryLocomoBench
         Console.WriteLine("  evidence in the candidate pool at all. Those stay in the DENOMINATOR on purpose:");
         Console.WriteLine("  they are a seeding failure rather than a fusion one, and dropping them would");
         Console.WriteLine($"  flatter every K equally. Pool size (median): {probe.MedianPool}.");
+    }
+
+    /// <summary>What one arm's returned set is MADE of, accumulated across questions. Every field is a
+    /// running total; the print divides by <see cref="Questions"/>.</summary>
+    private sealed class CompositionTally
+    {
+        public long Questions;
+        public long Items;
+        public long NewItems;
+        /// <summary>Headlines raised to full content — <see cref="MemoryWalkStep.UpgradedCount"/> summed.
+        /// It is what a shot buys beyond DISCOVERING an entry, and an item count cannot see it.</summary>
+        public long Upgraded;
+        public long HeadlineItems;
+        public long HeadlineChars;
+        public long ContentItems;
+        public long ContentChars;
+        /// <summary>The QA path's own <c>chars/q</c>: the joined prompt context, separators included.</summary>
+        public long PromptChars;
+        public long ExactPairs;
+        public long ContainedPairs;
+        public long NearPairs;
+    }
+
+    /// <summary>Pairwise overlap WITHIN one returned set. Three nested counts: identical texts, one text
+    /// contained in another (the shape a headline and a longer turn take), and near-duplicates by token
+    /// Jaccard. Counted as PAIRS, so a set holding three copies of one turn reports 3 rather than 1.</summary>
+    private static (int Exact, int Contained, int Near) Duplication(IReadOnlyList<string> pieces)
+    {
+        const double NearThreshold = 0.8;
+        var tokens = pieces.Select(Tokens).ToList();
+        int exact = 0, contained = 0, near = 0;
+        for (var i = 0; i < pieces.Count; i++)
+            for (var j = i + 1; j < pieces.Count; j++)
+            {
+                // Counted into all three so the columns NEST: an identical pair is also a contained one and
+                // also a near one, and a reader comparing the columns should not have to add them back up.
+                if (string.Equals(pieces[i], pieces[j], StringComparison.Ordinal))
+                {
+                    exact++; contained++; near++;
+                    continue;
+                }
+                if (pieces[i].Contains(pieces[j], StringComparison.Ordinal)
+                    || pieces[j].Contains(pieces[i], StringComparison.Ordinal)) contained++;
+                if (Jaccard(tokens[i], tokens[j]) >= NearThreshold) near++;
+            }
+        return (exact, contained, near);
+    }
+
+    /// <summary>POSITIVE CONTROL for <see cref="Duplication"/>, printed rather than trusted. Both arms
+    /// report ZERO duplication, and a counter that could only ever return zero would look exactly the same —
+    /// so the function is run against a set whose answer is known, and the table is withheld if it disagrees.
+    /// </summary>
+    private static (bool Ok, string Detail) DuplicationSelfCheck()
+    {
+        const string sentence = "the quick brown fox jumps over the lazy dog";
+        string[] probe =
+        [
+            sentence,
+            sentence,                                       // exact
+            "the quick brown fox jumps over the lazy",      // a prefix: contained, and Jaccard 7/8
+            "unrelated text about submarines",
+        ];
+        var (exact, contained, near) = Duplication(probe);
+        return (exact == 1 && contained == 3 && near == 3,
+            $"exact {exact}/1, contained {contained}/3, near {near}/3");
+    }
+
+    private static HashSet<string> Tokens(string text) =>
+        [.. text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .Select(w => w.ToLowerInvariant())];
+
+    private static double Jaccard(HashSet<string> a, HashSet<string> b)
+    {
+        if (a.Count == 0 || b.Count == 0) return 0;
+        var intersection = a.Count <= b.Count ? a.Count(b.Contains) : b.Count(a.Contains);
+        return (double)intersection / (a.Count + b.Count - intersection);
+    }
+
+    /// <summary>What the fused walk's context is MADE of (`docs/task-archive.md` Part 135). No accuracy column: this
+    /// mode explains a cost the QA table already reported and makes no claim about what that cost buys.
+    /// </summary>
+    private static void PrintComposition(Dictionary<string, CompositionTally> comp)
+    {
+        Console.WriteLine();
+        Console.WriteLine("=== What the returned context is MADE of (no model in the loop) ===");
+        Console.WriteLine();
+        Console.WriteLine("A recall returns HEADLINES and an expansion upgrades them to full content, so a");
+        Console.WriteLine("multi-shot arm's chars/q is a MIXTURE. The `upgraded` column counts that raise");
+        Console.WriteLine("directly rather than inferring it from mean lengths.");
+        Console.WriteLine();
+        Console.WriteLine($"{"",-24} {"",7} {"",5} {"",5} {"----- headline -----",22} "
+            + $"{"----- content -----",22} {"",8}");
+        Console.WriteLine($"{"Arm / shot",-24} {"items/q",7} {"new",5} {"upgr",5} "
+            + $"{"n",6} {"chars",8} {"avg",6} {"n",6} {"chars",8} {"avg",6} {"chars/q",8}");
+        Console.WriteLine(new string('-', 110));
+
+        foreach (var (key, t) in comp.OrderBy(e => e.Key, StringComparer.Ordinal))
+        {
+            if (t.Questions == 0) continue;
+            double Per(long v) => (double)v / t.Questions;
+            // The two AVERAGES are the point of this table: a headline is capped at HeadlineChars while a
+            // content item is a whole turn, so the arm's chars/item is a mixture of two populations and
+            // only their separate means say which one moved.
+            var headlineAvg = t.HeadlineItems > 0 ? (double)t.HeadlineChars / t.HeadlineItems : 0;
+            var contentAvg = t.ContentItems > 0 ? (double)t.ContentChars / t.ContentItems : 0;
+            Console.WriteLine($"{key,-24} {Per(t.Items),7:F1} {Per(t.NewItems),5:F1} {Per(t.Upgraded),5:F1} "
+                + $"{Per(t.HeadlineItems),6:F1} {Per(t.HeadlineChars),8:F0} {headlineAvg,6:F1} "
+                + $"{Per(t.ContentItems),6:F1} {Per(t.ContentChars),8:F0} {contentAvg,6:F1} "
+                + $"{Per(t.PromptChars),8:F0}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Duplication WITHIN one question's returned set, as pairs per question. The counts");
+        Console.WriteLine("nest: every exact pair is also contained and also near.");
+        Console.WriteLine();
+
+        var (controlOk, controlDetail) = DuplicationSelfCheck();
+        Console.WriteLine($"  POSITIVE CONTROL on a known-duplicate set: "
+            + $"{(controlOk ? "PASS" : "FAIL")} - {controlDetail}");
+        if (!controlOk)
+        {
+            // Refuses to print rather than printing zeroes, because a broken counter and a clean corpus
+            // produce the same table and only this line can tell them apart.
+            Console.WriteLine("  Table WITHHELD: the counter does not detect duplication it was handed, so");
+            Console.WriteLine("  a zero below would say nothing about the arms.");
+            return;
+        }
+        Console.WriteLine();
+
+        Console.WriteLine($"{"Arm",-26} {"exact",8} {"contained",11} {"near>=0.8",11} {"% items near-dup",17}");
+        Console.WriteLine(new string('-', 78));
+        foreach (var (key, t) in comp.Where(e => !e.Key.Contains(" shot-", StringComparison.Ordinal))
+            .OrderBy(e => e.Key, StringComparer.Ordinal))
+        {
+            if (t.Questions == 0) continue;
+            // A pair count over an item count is the share of slots that COULD be freed if one member of
+            // every near pair were dropped — an upper bound on what deduplication is worth, not a defect.
+            var share = t.Items > 0 ? 100.0 * t.NearPairs / t.Items : 0;
+            Console.WriteLine($"{key,-26} {(double)t.ExactPairs / t.Questions,8:F2} "
+                + $"{(double)t.ContainedPairs / t.Questions,11:F2} {(double)t.NearPairs / t.Questions,11:F2} "
+                + $"{share,16:F1}%");
+        }
+        Console.WriteLine();
+        Console.WriteLine("CONTROL: the `chars/q` and `items/q` on the two ARM rows above must reproduce the");
+        Console.WriteLine("QA table this mode explains. A mode that quietly measured a different arm would");
+        Console.WriteLine("still print a plausible composition, so compare them before reading anything else.");
     }
 
     /// <summary>What each shot BUYS against what it COSTS. The rate alone would say a bigger context is a
