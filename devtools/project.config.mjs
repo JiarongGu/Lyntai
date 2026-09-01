@@ -721,14 +721,22 @@ export default {
     // asserting the withdrawn rule (found only by grepping IDENTIFIERS, which a PHRASING claim has none of),
     // which is what this entry is for: the RULE, not a symbol.
     //
-    // Narrowed to REQUIRE an article ("is THE rank" / "as A/THE rank") after measuring the tree: without it,
-    // the pattern also caught `CompositeRankingPolicy.cs`'s "Treating list position AS RANK would silently
-    // re-introduce the exact bug ... exists to avoid" — a legitimate warning AGAINST the withdrawn rule, not
-    // an assertion of it. Both confirmed-bad sentences carry an article ("is THE rank", "as A rank of their
-    // own"); the one confirmed-legitimate one does not. Verified clean against the whole tracked tree with
-    // the article requirement in place, and verified to BITE by reintroducing one bad sentence (reverted).
+    // BROADENED 2026-09-02 (docs/task-archive.md Part 133). The narrowing it replaces REQUIRED an article ("is THE
+    // rank") purely to dodge one legitimate line — the second time on that branch a gate was shaped to miss
+    // a false positive rather than annotate it, and a pattern shaped that way misses every future line of
+    // that shape while nothing notices. Now the connectors are case-covered individually (the old rule spelt
+    // `is`/`as`/`a`/`the` lowercase-only with no `i` flag while case-covering Position and Rank, so
+    // `position IS the rank` walked straight through) and the article is OPTIONAL. The three legitimate
+    // lines this newly reaches carry a `drift-ok` each, which is visible and expires.
+    //
+    // The Part also asked for a `ranked BY position` branch and the MEASUREMENT REFUSED IT: 15 hits, most of
+    // them `ReciprocalRankFusionPolicy` describing what it legitimately DOES — reciprocal rank fusion ranks
+    // by position within each source's own list, which is the algorithm and not the withdrawn rule. Its
+    // false positives are therefore legitimate authorial choices, the shape `pitfalls.md` records as
+    // untightenable, so the paraphrase stays UNCOVERED and is named here rather than silently dropped.
     {
-      term: '(?:[Pp]osition|POSITION)(?:\\s+\\S+){0,6}?\\s+(?:is\\s+the|as\\s+(?:a|the))\\s+[Rr]ank\\b',
+      term: '(?:[Pp]osition|POSITION)(?:\\s+\\S+){0,6}?\\s+(?:[Ii][Ss]|[Aa][Ss])\\s+'
+        + '(?:(?:[Aa]|[Tt][Hh][Ee])\\s+)?(?:[Rr]ank|RANK)\\b',
       use: 'the source is UNORDERED, or ranked by ITS OWN Relevance gradient — never that list position IS '
         + 'or SERVES AS a rank',
       why: 'an earlier ReciprocalRankFusionPolicy cut ranked each seed source by return-list position, which '

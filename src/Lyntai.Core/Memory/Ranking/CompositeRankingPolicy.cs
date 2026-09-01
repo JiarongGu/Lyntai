@@ -198,7 +198,7 @@ public sealed class CompositeRankingPolicy(
     /// <para><b>Why this reads the member's own SCORE rather than trusting its output's list position.</b> A
     /// member's <c>Rank</c> already breaks ties by id internally to produce a deterministic list — so
     /// position 0, 1, 2, … in that list is always a distinct integer even when every candidate scored
-    /// IDENTICALLY. Treating list position as rank would silently re-introduce the exact bug
+    /// IDENTICALLY. Treating list position as rank would silently re-introduce the exact bug <!-- drift-ok: warns AGAINST the rule D103 withdrew; quoting it is the point -->
     /// <see cref="ReciprocalRankFusionPolicy.RankPositions"/> exists to avoid: a member that is fully
     /// uninformative for this candidate set (ties everyone) would still hand out 1..n in full, contributing a
     /// FULL, distorting share of the fused score as a pure proxy for node id. Reading the member's own SCORE

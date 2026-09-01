@@ -373,3 +373,36 @@ describe('check-docs — `drift-ok` must not silence the line ABOVE it', () => {
     assert.equal(code, 0, out);
   });
 });
+
+describe('check-docs — the withdrawn position rule, broadened (docs/task-archive.md Part 133)', () => {
+  // Driven against the REAL registry entry rather than a fixture rule: the subject under test IS that
+  // entry's pattern, and a fixture would only re-prove that the scanner works.
+  const positionRule = realConfig.retiredTerms.find(
+    (r) => r.term.includes('[Pp]osition') && r.term.includes('[Rr]ank'));
+  const only = { retiredTerms: [positionRule] };
+
+  it('the registry still HAS the rule these tests are about', () => {
+    // Without this the three below pass vacuously the moment the entry is renamed away — the "a filter
+    // matching nothing passes vacuously" trap this file already records from the other direction.
+    assert.ok(positionRule, 'no retiredTerms entry matched the position/rank shape');
+  });
+
+  it('bites a CAPITALISED connector, which the article-requiring version let straight through', () => {
+    // The exact form Part 133 measured as escaping. Replaying the known-bad lowercase sentence instead is
+    // what let the previous narrowing pass its own author's check.
+    assert.equal(run({ 'docs/x.md': 'so position IS the rank for that source\n' }, { rules: only }).code, 1);
+  });
+
+  it('bites with NO article, which the old pattern required only to dodge one legitimate line', () => {
+    assert.equal(run({ 'docs/x.md': 'treating list position as rank\n' }, { rules: only }).code, 1);
+  });
+
+  it('does NOT cover the `ranked by position` paraphrase, which was measured and REFUSED', () => {
+    // 15 hits across the tree, most of them ReciprocalRankFusionPolicy describing what it legitimately
+    // does — reciprocal rank fusion ranks by position within each source's own list, which is the
+    // algorithm and not the withdrawn rule. Its false positives are legitimate authorial choices, the
+    // shape pitfalls.md records as untightenable, so the branch was refused rather than shipped behind
+    // six annotations. Pinned so the gap is a decision somebody can find, not an oversight.
+    assert.equal(run({ 'docs/x.md': 'ranks by position within the candidate set\n' }, { rules: only }).code, 0);
+  });
+});
