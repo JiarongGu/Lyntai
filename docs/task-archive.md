@@ -1920,13 +1920,26 @@ seed as "nobody asked" — `MultiplicativeRankingPolicy` itself was never touche
 
 - Make `Relevance` comparable before it is ranked.
 
-## Part 134 — the QA half converts, superadditively, but leaves a VOLUME-vs-FORM question open (2026-09-01)
+## Part 134 — the QA half converts, ~~superadditively~~, but leaves a VOLUME-vs-FORM question open (2026-09-01)
 
 ✅ done 2026-09-01 — `TASKS.md` Part 134's one item, separating volume from form in the walk's residual gap
 against `vector-40`. A third `--seeds` measurement (16, after 3 and 8) answers it: **mostly volume**. The gap
 to `vector-40` narrowed **11.3 → 5.3 → 2.5** points as chars/q rose 5010 → 5727 → 6747 (`vector-40`'s own
 7090), and the pre-registered "at least ~4 points is FORM" floor is falsified — a 2.5-point total residual
 cannot contain a 4-point floor. Full tables and reading: `docs/memory.md` §5.
+
+**RETRACTED 2026-09-01, same day — the superadditivity claim, at the full 1,540-question sample.** Every
+reading below (+6.7 / +4.2 / +6.8) was taken at n = 100. A run over the COMPLETE published LoCoMo QA set —
+all 1,540 questions, `--seeds 16` — puts the interaction at **+1.0**, not distinguishable from zero at that
+sample: an interaction is a difference of differences, so its error runs roughly double any one component's,
+and +1.0 with that error is a reading with no sign anyone should trust. This is a retraction, not a fourth
+point for the series below. **The category wins this run's underlying data also implied are retracted with
+it**: `lyntai-fused-3shot` appeared to beat `vector-40` by +6.2 on multi-hop and +5.5 on open-domain at
+n = 100; at full sample the four category deltas are −0.6, −2.1, +0.1 and −0.3 — three sign flips and a
+collapse. **What survives is the volume-vs-form reading immediately below**, restated at full-sample
+resolution: the residual against `vector-40` reads **−0.6** points (≈9 of 1,540 questions) rather than this
+entry's 2.5-point trail, still readable as "mostly volume, not form" — that qualitative conclusion transfers
+because it was never a difference of differences. Full reading: `docs/memory.md` §5's retraction subsection.
 
 **A methodological correction rides along, and it matters more than the number.** The interaction between
 per-source ranking (**D103**) and the n-shot walk (**D100**), reported here as +6.7 and then corrected to

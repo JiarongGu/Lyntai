@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is EIGHT items, across Parts 105, 109, 116, 128, 129, 132 and 133.** Each is a
+**The startable set is NINE items, across Parts 105, 109, 116, 128, 129, 132, 133 and 135.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -40,7 +40,13 @@ taking it from six to seven, and **Part 133 opened the same day**, taking it fro
 opened the same day** — the QA-conversion follow-up, isolating whether the walk's residual gap against
 `vector-40` is context volume or content form — taking it from eight to nine, and **CLOSED the same day** as
 `docs/task-archive.md` **Part 134**, once a third `--seeds` measurement answered the question it opened
-(mostly volume) — taking it from nine back to eight. Every number here is edited in
+(mostly volume) — taking it from nine back to eight. **Part 134's own finding was then RETRACTED the same
+day at the full 1,540-question sample** (`docs/memory.md` §5, and a dated note on the archive entry): the
+superadditivity interaction it reported (+6.7/+4.2/+6.8) reads +1.0 at full sample, not distinguishable from
+zero, and the category wins it implied do not survive either. The volume-vs-form reading survives, restated
+at full-sample resolution (a −0.6-point residual against `vector-40`, still "mostly volume"). **Part 135
+opened the same day** — the context-efficiency diagnostic the retraction leaves standing (what the walk's
+6,536 chars/q are actually made of) — taking it from eight to nine. Every number here is edited in
 the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
 
 **START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
@@ -878,6 +884,26 @@ line misses every future illegitimate line of that shape, and nothing ever notic
   plain prose and `check-docs` passed them both, while flagging the retired IDENTIFIER two paragraphs up on
   the very same run — which is why that one carries a `drift-ok` and these do not need one. The gate can see
   the name it banned and cannot see the rule it banned._
+
+---
+
+## Part 135 — the context-efficiency gap: what are the fused walk's 6,536 chars/q actually MADE of? (2026-09-01)
+
+_Opened by the full-sample QA retraction (`docs/memory.md` §5's retraction subsection;
+`docs/task-archive.md` **Part 134**'s dated amendment). Retracting the superadditivity claim did not retract
+everything that run found: `lyntai-fused-3shot` matches `vector`'s accuracy at full sample (43.9% vs 42.4%,
+within the ≈0.065-point-per-question noise floor) while spending **≈1.9×** the context (6,536 vs 3,460
+chars/q) — an EFFICIENCY gap, not a capability one. Nobody has looked inside those 6,536 characters._
+
+- [ ] **Diagnose what the 40 items behind `lyntai-fused-3shot` actually contain.** Break `chars/q` down by
+  what it is made of — headline text vs. expanded content vs. any metadata the harness serialises into the
+  prompt — and check for DUPLICATION across the walk's three shots: the same node's content re-included on a
+  later shot, or two of the 40 items carrying near-identical text. This is a startable DIAGNOSTIC, not a
+  design decision — the question is composition, not a target size — and it decides whether the 1.9× is
+  compressible (duplication, a verbose format) or inherent (three shots' worth of genuinely distinct evidence
+  the one-shot arm never surfaces). The harness's `--dump` flag
+  (`bench/Lyntai.Benchmarks/MemoryLocomoBench.cs`) already emits a per-item record for a run of this shape and
+  is the natural starting point rather than new instrumentation.
 
 ---
 
