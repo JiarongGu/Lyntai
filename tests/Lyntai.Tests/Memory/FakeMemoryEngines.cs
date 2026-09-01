@@ -134,7 +134,7 @@ internal sealed class ExpandableEngine(string name) : IMemoryEngine, IExpandable
     }
 
     public Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
-        CancellationToken ct = default)
+        MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default)
     {
         var expanded = new MemoryItem(reference, $"expanded {reference.Id}", $"expanded {reference.Id}",
             MemoryGrade.Associative, 1, 1, 1);

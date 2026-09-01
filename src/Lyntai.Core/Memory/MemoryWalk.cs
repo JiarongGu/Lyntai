@@ -132,7 +132,8 @@ public static class MemoryWalk
                 // `yield return` may not sit inside a try/catch, so the fault is carried out as a flag
                 try
                 {
-                    near = await expandable.ExpandAsync(seed.Reference, opts.Hops, null, ct)
+                    // the query's own detail, so a caller states it ONCE and every step honours it
+                    near = await expandable.ExpandAsync(seed.Reference, opts.Hops, null, query.Detail, ct)
                         .ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) { throw; }

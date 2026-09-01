@@ -36,6 +36,11 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   deferred-SemVer-strictness rule at the top of this file, and an overload preserving the old signature was
   deliberately not added — `repo-mechanics.md` §"Everything before 3.0 is HISTORY" refuses to pay a real
   surface cost for a pre-compiled caller that does not exist.
+- **`IExpandableMemory.ExpandAsync` gained a `detail` parameter before its `CancellationToken`.** This is the
+  wider of the two breaks: a BYO implementation of that seam must add the parameter to COMPILE, not merely be
+  recompiled. It is deliberate — expansion is where the walk discovers, and a caller who asked for whole
+  entries on the query was silently getting headlines for everything discovered after the first step. A
+  positional caller passing `ct` fourth also breaks, loudly, at compile time.
 
 - **`RunPipelineAsync` — ordered generation stages, each feeding the next.** An extension over
   `IGenerationRouter` running `GenerationStage`s in order and chaining each one's artifact into the next

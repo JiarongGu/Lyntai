@@ -886,9 +886,28 @@ graph NEIGHBOURS of what it already held — a different population, and the who
 residual headlines dilute or the neighbours do. `lyntai-fused-3shot-full` removes the first and isolates the
 second._
 
-- [ ] **Run `lyntai-fused-3shot-full` and read it against `vector-40`.** The arm is built and its prediction
-  is registered in the source before the run (`MemoryLocomoBench.cs`). **PRE-REGISTERED: 40–45%**, gaining
-  on 38.0 but not reaching 44.5.
+_**RAN 2026-09-02 and the run is NOT ADJUDICATED, because the arm did not do what this Part claimed.** It
+scored **42.0%** — inside the predicted 40–45 band and inside the predicted 41–44 branch — and that is a
+coincidence worth distrusting, because the arm was **20 full items plus ~20 truncated ones**, not the 40 full
+it was described as. `chars/q` gave it away: 6,053 over 39.7 items where 40 whole turns cost ~7,000. Split by
+provenance, shot 1 ran at 179.2 chars/item and everything DISCOVERED afterwards at 125.4 — headline range._
+
+_**The cause was a real gap in D104, now fixed.** `MemoryQuery.Detail` covered the recall;
+`IExpandableMemory.ExpandAsync` projected a discovered NEIGHBOUR exactly as a recall does, so a walk asked
+for whole entries got them for step 1 only. `ExpandAsync` now takes the same parameter and the walk passes
+its query's value through. **The prediction stands un-adjudicated** — re-run the arm and read it then._
+
+_**The test for that fix passed for the wrong reason first, and only a mutation check said so.** The walk
+SELF-HEALS: an entry discovered as a headline is upgraded when a later step seeds it, so asserting on the
+last step's held items passes whether or not expansion honoured the request. The assertion had to move to
+`NewItems` at the step that discovered them. **This is the second instrument defect this Part produced**,
+which is the argument for re-reading a number against what the code actually did rather than against whether
+it landed where you expected._
+
+- [ ] **Re-run `lyntai-fused-3shot-full` now that expansion honours the request, and read it against
+  `vector-40`.** The arm is built and its prediction is registered in the source
+  (`MemoryLocomoBench.cs`). **PRE-REGISTERED: 40–45%**, gaining
+  on 38.0 but not reaching 44.5. The first run does not count against it.
   <br>   · **≥ 44.5** → expansion's neighbours are worth as much as deeper cosine, and the graph pays at
   SCALE rather than only drawing level at 20. That would be the strongest result this benchmark has produced
   for the design.

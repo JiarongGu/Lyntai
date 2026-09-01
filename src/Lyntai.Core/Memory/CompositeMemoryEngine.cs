@@ -246,13 +246,13 @@ public sealed class CompositeMemoryEngine
 
     /// <inheritdoc />
     public async Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
-        CancellationToken ct = default)
+        MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default)
     {
         var owner = Owner(reference);
         // fail OPEN: a member that cannot expand yields no neighbours rather than an error, because every
         // recall-shaped read in this library degrades rather than throwing
         return owner is IExpandableMemory expandable
-            ? await expandable.ExpandAsync(reference, hops, charBudget, ct).ConfigureAwait(false)
+            ? await expandable.ExpandAsync(reference, hops, charBudget, detail, ct).ConfigureAwait(false)
             : MemoryRecall.Empty;
     }
 

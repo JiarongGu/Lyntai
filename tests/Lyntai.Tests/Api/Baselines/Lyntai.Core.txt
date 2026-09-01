@@ -1688,7 +1688,7 @@ sealed class Lyntai.Memory.Annotation.MemoryAnnotationRequest
     Write : MemoryWrite
 sealed class Lyntai.Memory.CompositeMemoryEngine
     .ctor(String name, IReadOnlyList<IMemoryEngine> members, ILogger<CompositeMemoryEngine> logger = null, IMemoryRemovalPolicy removalPolicy = null)
-    ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
+    ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
     Members : IReadOnlyList<IMemoryEngine>
@@ -1713,7 +1713,7 @@ sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IMemoryRetrievabilityPolicy retrievability = null, IEnumerable<IMemoryAgePolicy> agePolicies = null, ILogger<GraphMemoryEngine> logger = null, IEmbedder embedder = null, IVectorStore vectors = null, IEnumerable<IMemorySaliencePolicy> saliencePolicies = null, IMemoryRankingPolicy ranking = null, IMemoryAgeCompositionPolicy ageComposition = null, IMemorySalienceCompositionPolicy salienceComposition = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, Func<DateTimeOffset> clock = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null, IEnumerable<IMemoryRetentionPolicy> retentionPolicies = null, IMemoryRetentionCompositionPolicy retentionComposition = null, IEnumerable<IMemorySeedSource> seedSources = null)
-    ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
+    ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
     Name : String
@@ -1912,7 +1912,7 @@ sealed class Lyntai.Memory.GraphWriteBack
     ToString() : String
     Touches : IReadOnlyCollection<GraphTouch>
 interface Lyntai.Memory.IExpandableMemory
-    ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
+    ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
 interface Lyntai.Memory.IForgettableMemory
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
 interface Lyntai.Memory.ILinkableMemory

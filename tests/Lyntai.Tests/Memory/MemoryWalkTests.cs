@@ -190,6 +190,41 @@ public class MemoryWalkExpansionTests
         return engine;
     }
 
+    /// <summary>A walk asked for <see cref="MemoryDetail.Full"/> returns whole entries at EVERY step, not
+    /// only at the recall.
+    /// <para>Found by a benchmark arm that did not do what it claimed. <c>lyntai-fused-3shot-full</c> spent
+    /// 6,053 chars over 39.7 items where 40 whole turns cost ~7,000: shot 1 honoured the query at 179.2
+    /// chars/item and everything DISCOVERED afterwards arrived at 125.4, which is headline range.
+    /// <c>ExpandAsync</c> gives full content to the entry it is NAMED and projects its neighbours exactly as
+    /// a recall does, so the caller's stated intent stopped at that seam.</para>
+    /// <para>Entries are longer than the headline cap deliberately — with a short one the two projections are
+    /// the same string and this cannot fail.</para></summary>
+    [Fact]
+    public async Task Full_detail_is_honoured_by_every_step_of_a_walk_not_only_the_recall()
+    {
+        // ChainAsync's shape with LONG entries and `Limit: 1`, which is what makes step 2 do the
+        // discovering — the same two devices the passing expansion tests above rely on.
+        const string tail = " requires two approvals before a build is promoted to production, and the "
+            + "second approver may never be the author of the change that is under review.";
+        var engine = New();
+        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline" + tail));
+        var b = await engine.RememberAsync(new MemoryWrite("t", "s", "the release owner grants sign-off and" + tail));
+        await engine.LinkAsync(a, b, symmetric: true);
+
+        var steps = await engine.WalkAsync(
+            new MemoryQuery("t", "s", "pipeline", Limit: 1, Detail: MemoryDetail.Full)).ToListAsync();
+
+        Assert.True(steps.Count >= 2, $"the walk must expand or this asserts nothing; took {steps.Count}");
+
+        // Asserted on NewItems AT THE STEP THAT DISCOVERED THEM, never on the last step's held set. The walk
+        // SELF-HEALS — an entry that arrives as a headline is upgraded once a later step seeds it — so a
+        // last-step assertion passes whether or not expansion honoured the request. That version of this
+        // test passed with the fix reverted, and only the mutation check said so.
+        var discoveries = steps.Skip(1).SelectMany(s => s.NewItems).ToList();
+        Assert.NotEmpty(discoveries);
+        Assert.All(discoveries, i => Assert.NotNull(i.Content));
+    }
+
     private static async Task<GraphMemoryEngine> StarAsync()
     {
         // Three entries matching "pipeline", each linked to one leaf that does not. So the number of leaves

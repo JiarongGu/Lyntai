@@ -795,7 +795,7 @@ public sealed class GraphMemoryEngine(
 
     /// <inheritdoc />
     public async Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
-        CancellationToken ct = default)
+        MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         if (!long.TryParse(reference.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
@@ -850,7 +850,11 @@ public sealed class GraphMemoryEngine(
         foreach (var neighbour in walked)
         {
             var n = neighbour.Node;
-            var content = n.Grade == MemoryGrade.Authoritative ? n.Content : null;
+            // the recall projection's rule, one seam out: the caller's stated detail decides, and an
+            // authoritative neighbour comes back whole either way
+            var content = n.Grade == MemoryGrade.Authoritative || detail == MemoryDetail.Full
+                ? n.Content
+                : null;
             var cost = content?.Length ?? n.Headline.Length;
             if (budget is { } cap && spent + cost > cap) break;
             spent += cost;

@@ -11,9 +11,15 @@ public interface IExpandableMemory
     /// <param name="reference">The entry to expand.</param>
     /// <param name="hops">How far to walk from it.</param>
     /// <param name="charBudget">Maximum characters to return; null takes the engine's configured budget.</param>
+    /// <param name="detail">How much of each NEIGHBOUR to return. The named entry always comes back whole —
+    /// that is what expansion means — while its neighbours default to headlines for the same reason a recall
+    /// does: they are the next things you might expand, not the thing you asked for.
+    /// <para><see cref="MemoryDetail.Full"/> returns them whole too, which is what a caller walking to
+    /// ANSWER wants (<c>docs/DECISIONS.md</c> D104). A walk passes its query's own value through, so asking
+    /// once on the query is enough.</para></param>
     /// <param name="ct">Cancellation, which is never swallowed.</param>
     Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
-        CancellationToken ct = default);
+        MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default);
 }
 
 /// <summary>An engine whose entries can be linked explicitly, so an application can assert structure the

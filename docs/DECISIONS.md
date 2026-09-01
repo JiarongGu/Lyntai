@@ -3008,10 +3008,9 @@ headlines, and a reader that must ANSWER from the excerpts wants the whole entry
 different call sites, which is why this is a per-CALL parameter rather than a deployment option or a seam —
 there is no policy to inject, only a size the caller already knows.
 
-**It is not a preference; it was priced.** Returning full content for the same twenty items is worth
-**+11.7 token-F1** on LoCoMo and closes essentially the whole gap to plain cosine (41.0 against 41.3, at the
-same slots and within 1.2% of the same context — `docs/task-archive.md` Part 136). The reader's refusals fall
-from 29 to 13 on the identical turns. Before this, reaching that required N calls of
+**It is not a preference; it was priced.** Full content for the same twenty items is worth **+11.7
+token-F1** on LoCoMo, closing essentially the whole gap to plain cosine and cutting the reader's refusals
+from 29 to 13 (`docs/task-archive.md` Part 136). Before this it took N calls of
 `ExpandAsync(reference, hops: 0)`, one per returned item.
 
 **D100 is unchanged and is the reason for the DEFAULT.** A recall returning headlines is what makes the first
@@ -3023,6 +3022,12 @@ site within one application, so a single default cannot serve it. A seam: there 
 the caller is stating a size, not supplying behaviour, and `library-api-design.md` reserves seams for
 disagreements about BEHAVIOUR. Ingesting as `MemoryGrade.Authoritative` to get full content: that grade also
 engages the carve-out and re-admission, so it moves ranking at the same time.
+
+**It takes TWO seams, and the second was found by a benchmark arm that lied.** `MemoryQuery.Detail` alone
+covers the recall; `IExpandableMemory.ExpandAsync` projects a discovered NEIGHBOUR exactly as a recall does,
+so a walk asked for whole entries got them for step 1 and headlines for everything found afterwards.
+`ExpandAsync` therefore takes the same parameter and a walk passes its query's value through — a caller
+states it once. The named entry was always whole; only its neighbours moved.
 
 **It does NOT follow that the model-facing tool should change.** `MemoryTools.Recall` returns headlines and
 tells the model to call `expand` on what it wants — the right economics for an agent that pays per turn and
