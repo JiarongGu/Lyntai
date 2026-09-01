@@ -919,6 +919,22 @@ returns)._
   expanding MORE of the same 40 items rather than by returning more of them. **If chars/q does not move,
   the run measured nothing and the lever is the wrong one** — read that before reading any accuracy column._
 
+  _**AMENDED after the `--seeds 8` run: the prediction above was FALSIFIED, and how it failed matters.** The
+  arm gained **+6.0** token-F1 (38.5 → 44.5) while recovering only **3** of its 8 unknowns, not 7. The bound
+  rested on "`unknown` is the only channel through which more context converts a wrong answer into a right
+  one", and that premise is false: token-F1 is PARTIAL-CREDIT overlap, so extra context also improves
+  answers on questions that were already being answered. The arithmetic was sound on a premise that was not.
+  The instrument check passed — chars/q moved 5010 → 5727 — so the run measured what it claimed to._
+
+  _**PRE-REGISTERED before `--seeds 16` (2026-09-01), and deliberately weaker than the last one.** At seeds 8
+  the curve is still CLIMBING, so 44.5 is not a ceiling and must not be quoted as one. Prediction: it climbs
+  again but by LESS than +6.0, landing roughly 46–49, and still short of `vector-40`'s 49.8 at a comparable
+  ~7000 chars/q. **Confidence is low and the grounds are thin** — the only model I had for where the gain
+  comes from was just refuted, and I have not replaced it with one I trust. Naming the range anyway is the
+  point: a prediction that cannot be wrong is not worth registering. **If it lands ABOVE `vector-40`, the
+  engine beats plain cosine on answers at matched context and that is the headline of this whole line of
+  work; if it is FLAT, the curve plateaued between 8 and 16 and the residual is FORM after all.**_
+
 ---
 
 ## How to work a task (evergreen)
