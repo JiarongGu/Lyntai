@@ -2001,3 +2001,68 @@ half-turn and a whole turn identically while the graph arms return the first and
 
 - Diagnose what the 40 items behind `lyntai-fused-3shot` actually contain.
 - Measure the two things the derivation could not.
+
+## Part 133 — the gate for the withdrawn position rule is narrower than the rule
+
+✅ done 2026-09-02 — Broadened the `retiredTerms` entry that fences D103's withdrawn "position IS the rank":
+connectors `is`/`as`/`a`/`the` are now case-covered individually (they were spelt lowercase-only with no `i`
+flag while `Position` and `Rank` WERE case-covered, so capitalising one connector defeated the rule) and the
+article is OPTIONAL. The article requirement had existed solely to dodge one legitimate line; that line, and
+two more this newly reaches, carry a visible `drift-ok` instead. Four regression tests in
+`devtools/scripts/__tests__/check-docs.test.mjs`, driven against the REAL registry entry rather than a
+fixture rule, with one asserting the entry still exists so the others cannot pass vacuously.
+**Mutation-checked**: reverting to the narrow pattern fails exactly the two "bites" tests and nothing else.
+
+**The Part's other half was MEASURED AND REFUSED, which is the finding.** It asked for a
+`ranks`/`ranked BY position` branch to catch paraphrases. Compiled and run over the tracked tree — by the
+gitignored `devtools/_part133-probe.mjs` <!-- link-ok: gitignored scratch, named as provenance; re-creatable from this paragraph -->, which imports `check-docs`' own scope predicates and two-line
+window rather than restating them — that branch
+produces **15 hits**, most of them `ReciprocalRankFusionPolicy` and its contract test describing what the
+policy legitimately DOES — reciprocal rank fusion ranks by position within each source's own list, which is
+the algorithm rather than the withdrawn rule. The two are not separable by pattern, so its false positives
+are legitimate authorial choices: the shape `.claude/knowledge/pitfalls.md` records as untightenable, fixable
+only by an exclusion list nobody can see rot. The paraphrase stays UNCOVERED, named in the registry comment
+and pinned by a test, so the gap is a decision a reader can find rather than an oversight.
+
+**What the Part got wrong, for the next reader.** It said "annotate the ONE legitimate quote"; broadening
+reaches **three** — `CompositeRankingPolicy.cs`'s warning plus two lines of the Part's own prose, which quote
+the withdrawn rule as their subject. It also asked to "prove it bites on a PARAPHRASE", which the refusal
+above makes unsatisfiable; the capitalised-connector and article-less proofs stand.
+
+- Broaden the pattern, and annotate the one legitimate quote instead of dodging it.
+
+## Part 136 — is TRUNCATION the retrieval-win/QA-loss gap? The rehydration arm settles it
+
+✅ done 2026-09-02 — **Yes, almost entirely: +11.7 of a 12.0-point gap.** Built `lyntai-fused-full`
+(`MemoryLocomoBench.cs`), which reuses `lyntai-fused`'s OWN returned set and swaps each item's headline for
+the whole turn behind it — identical retrieval, ranking and 20 slots, so the arms differ in truncation and
+nothing else. It builds no engine and issues no second recall. CONTROL: 4,000 of 4,000 items rehydrated, no
+misses. `memory-locomo --n 200 --no-judge`, seed 12345, 2,712.4s. Tables: `docs/memory.md` §5.
+
+**token-F1 goes 29.3% → 41.0%, landing on plain cosine's 41.3%** at the same 20 slots and within 1.2% of the
+same context (3,583 against 3,541 chars). At n = 200 one question is ≈0.5 points, so +11.7 is ~23 questions
+and −0.3 is under one. **The engine's ranking is not worse than cosine — the entire measured QA deficit was
+headline truncation**, and the retrieval ladder was right about the ordering all along. `unknown` corroborates
+it: the reader refused 29 times truncated and 13 rehydrated, against cosine's 12, on the SAME 20 turns.
+
+**A design fact that falls out, and it is the durable half.** One shot with full content beats three shots
+with mixed content for less context — 41.0% on 3,583 chars against `lyntai-fused-3shot`'s 38.0% on 4,968.
+Expansion is an expensive way to obtain content already in hand. That does not touch **D100**, whose claim is
+about DISCOVERING material a first load did not hold.
+
+**What the Part got wrong, for the next reader.** Its prediction was pre-registered at 38–45%, then REVISED
+DOWN to 32–40% before the run on a fixed-slot contrast (`lyntai-2shot` → `lyntai-3shot`: identical 40 items,
+content 40% → 80%, +1.1 token-F1). The outcome is 41.0%, so **the original was right and the revision was
+wrong by an order of magnitude**. The pre-registration had already named the reason — that contrast upgrades
+shot 2's newly-discovered NEIGHBOURS, so it prices the low-value half — and the revision was made anyway.
+The lesson is about extrapolating a natural experiment past the population it measured, not about the
+arithmetic, which was correct.
+
+**Not settled, and deliberately not opened as a new Part.** This measures a HARNESS arm, not a shipped path:
+a consumer reaches the same place with N calls of `ExpandAsync(reference, hops: 0)`, which is supported and
+is N store round-trips. Whether a recall should be able to return content directly is a DECISION nobody has
+taken, so it belongs in the decision record rather than the backlog (`repo-mechanics.md` §"A conditional item
+is not a task"). Also open: one reader tier, one embedder, n = 200, and category splits that do not all point
+one way (temporal and open-domain still trail cosine).
+
+- Build the REHYDRATION arm and run it.

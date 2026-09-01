@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is NINE items, across Parts 105, 109, 116, 128, 129, 132, 133 and 136.** Each is a
+**The startable set is SEVEN items, across Parts 105, 109, 116, 128, 129 and 132.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -51,7 +51,15 @@ eight: the ≈1.9× turned out to compare 40 items against 20, and at matched co
 than `vector-40`. **Part 136 opened the same day** — eight to nine — because that diagnostic turned up
 something bigger than itself: `evidence-hit@k` matches a `(dia_id)` that survives headline truncation
 **5,882 times out of 5,882**, so it scores a half-turn and a whole turn identically while the graph arms
-return the first and the cosine arms the second (`docs/memory.md` §5). Every number here is edited in
+return the first and the cosine arms the second (`docs/memory.md` §5). **Part 133 then CLOSED the same day**
+as `docs/task-archive.md` **Part 133** — nine to eight — and it too overturned half its own premise: the
+broadening shipped, and the `ranked BY position` branch it also asked for was measured at 15 hits and
+REFUSED, because reciprocal rank fusion legitimately ranks by position within each source's own list and no
+pattern separates that from the withdrawn rule. **Part 136 CLOSED the same day too** — eight to seven, as
+`docs/task-archive.md` **Part 136** — and it is the one whose ANSWER matters most: rehydrating the same 20
+items to whole turns is worth **+11.7 of a 12.0-point gap**, landing this engine level with plain cosine at
+matched slots and matched context. **The ranking was never the deficit; headline truncation was.**
+Every number here is edited in
 the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
 
 **START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
@@ -860,99 +868,6 @@ exactly that failure mode, latent until a BYO channel meets `StrictWiring`._
   interface shipping this same branch, so it did not belong in the fix wave that found it: widening
   `IMemorySeedSource` deserves its own measurement of what a BYO implementer should be expected to declare,
   not a same-session patch.
-
----
-
-## Part 133 — the gate for the withdrawn position rule is narrower than the rule (2026-09-01)
-
-_Opened by the seed-source-fusion branch's final re-review, and filed here rather than left in an untracked
-ledger because the ledger is deleted when the branch merges._
-
-_**D103** withdrew "position IS the rank" in favour of ranking by a source's own `Relevance` gradient. Six
-prose instances of the withdrawn rule existed; a grep for the retired IDENTIFIERS found four, and the two
-that survived a green `check-docs` did so because the withdrawn RULE was never registered as vocabulary. A
-`retiredTerms` entry was then added for the phrasing — and it is too narrow to do its job._
-
-_**Measured, by compiling the shipped pattern and running strings through it** (not by reading it):
-`position IS the rank` **escapes**, because the connector words are spelled lowercase-only with no `i` flag
-while `Position`/`POSITION` and `Rank`/`rank` ARE case-handled — so capitalising one connector defeats the
-rule, in a repository whose house style leans on ALL-CAPS emphasis constantly. `ranks by position within the
-candidate set` **escapes** too, because the pattern requires an exact `is the` / `as a|the` template and a
-paraphrase of the identical claim walks straight through._
-
-_The article requirement exists solely to avoid firing on `CompositeRankingPolicy.cs`, which legitimately
-QUOTES the withdrawn rule. **That is the second time on one branch a gate was narrowed to dodge a false
-positive rather than annotating the false positive** — the first was a `retiredTerms` lookahead that <!-- drift-ok: names the retired identifier as the DATA the reverted lookahead excluded -->
-silently excluded `SemanticSeedK = 30`, reverted the day it shipped and recorded in <!-- drift-ok: same quotation, wrapped onto this line -->
-
-`.claude/knowledge/pitfalls.md`. Both narrowings were invisible, permanent, and aimed exactly where the gate
-was needed. **A `drift-ok` is line-local, visible and reviewable; a pattern shaped to miss one legitimate
-line misses every future illegitimate line of that shape, and nothing ever notices.**_
-
-- [ ] **Broaden the pattern, and annotate the one legitimate quote instead of dodging it.** Case-cover
-  `is` / `as` / `a` / `the` individually rather than relying on a missing `i` flag, make the article
-  OPTIONAL rather than required, and cover the `ranks`/`ranked BY position` construction. Then put a
-  `drift-ok` on `CompositeRankingPolicy.cs`'s legitimate quote, with its reason in the same edit.
-  **Prove it bites on a PARAPHRASE and on a capitalised connector, not on the original sentence replayed
-  verbatim** — replaying the known-bad string is what let the current narrowing pass its own author's check.
-  <br>_**Confirmed in the tree, not just in a probe**: writing this Part quoted both escaping forms above in
-  plain prose and `check-docs` passed them both, while flagging the retired IDENTIFIER two paragraphs up on
-  the very same run — which is why that one carries a `drift-ok` and these do not need one. The gate can see
-  the name it banned and cannot see the rule it banned._
-
----
-
-## Part 136 — is TRUNCATION the retrieval-win/QA-loss gap? The rehydration arm settles it (2026-09-02)
-
-_Opened by `docs/memory.md` §5's truncation subsection, which found the mechanism but did not size it.
-**`+sem+rel-only` and `lyntai-fused` are the SAME configuration under two names** — RRF with
-`RetrievabilityWeight = 0`, `HopWeight = 0`, semantic seeds at `RecallLimit`, one shot, 20 items — and it
-beats plain cosine by **+2.5 on evidence-hit** (83.0 vs 80.5, n = 200) while losing by **−13.3 on token-F1**
-(29.1 vs 42.4, n = 1,540). One arm, two metrics, opposite verdicts against one control._
-
-_**Why the metric could never have flagged it**: evidence-hit matches `(dia_id)`, which rides in the
-44-character header every turn carries, so it survived truncation in **5,882 of 5,882** turns while the
-answer text behind it survived at a mean of **56.2%**. A recall projects `Content` only for
-`MemoryGrade.Authoritative` material (`GraphMemoryEngine`), and every LoCoMo turn ingests as `Associative`,
-so every retrieval-ladder arm is **100% headlines** and every `vector*` arm is 0%._
-
-- [ ] **Build the REHYDRATION arm and run it.** Take `lyntai-fused`'s returned set unchanged and substitute
-  each item's FULL turn text for its headline before the reader sees it — the harness can do this with no
-  library change and no second recall, because the `(dia_id)` marker survives truncation (that is the
-  finding) and `texts` already holds every turn. **Identical retrieval, identical ranking, identical 20
-  slots; only the truncation differs**, which is the isolation no existing arm provides.
-  <br>**Do NOT get there by ingesting the corpus as `Authoritative`.** It would return full content, and it
-  would also engage the grade carve-out and re-admission (`AuthoritativeReserve`, CLAUDE.md's memory
-  invariant 12), moving RANKING at the same time — two changes at once, which is the confound this whole
-  Part exists to remove.
-  <br>**PRE-REGISTERED 2026-09-02, then REVISED the same day — before the run, on evidence found while
-  looking for it.** The first prediction was **38–45%** (closing most of the 13.3 points), reasoned from
-  `lyntai-fused-3shot` reaching 43.9% at 80% content against this arm's 29.1% at 0%. **It is superseded and
-  left here on purpose**, because the thing that moved it is the interesting part.
-  <br>_**The published table already contains a fixed-slot content experiment, and it says content is worth
-  little.** At `--seeds 16` shot 3 discovers NOTHING new — the composition instrument measures `new 0.0` —
-  so `lyntai-2shot` and `lyntai-3shot` hold the **identical 40 items** and differ only in content share,
-  40% against 80%. The composition model predicts both rows to within one character (135.5 vs a measured
-  135.6; 157.2 vs 156.2), which is what licenses reading them as a content contrast at all. **token-F1 moves
-  +1.1** — 32.3% to 33.4%. Doubling the content of a fixed item set is worth about a point._
-  <br>**REVISED prediction: 32–40%**, i.e. +3 to +11 rather than +9 to +16. The band stays wide for a
-  reason that is itself testable: the +1.1 contrast upgrades the LOW-value half — shot 3 seeds shot 2's
-  newly-discovered neighbours — while rehydration upgrades all 20 of the TOP-ranked items, which are the
-  ones evidence-hit says hold the evidence. So +1.1 is a lower bound on the high-value half, not an estimate
-  of it.
-  <br>   · closes ≥ 9 points → truncation is the dominant mechanism AND the high-value/low-value split above
-  is real, since the fixed-slot contrast would have understated it eightfold. Whether a recall should be able
-  to return content then becomes a live design question rather than a settled one — **D100** made headlines
-  the point because they make the first load cheap, and this would price that choice for the first time.
-  <br>   · closes 3–8 → the predicted middle: truncation is real, ranking costs too, decompose further.
-  <br>   · closes < 3 → truncation is NOT the mechanism, and the fixed-slot contrast generalised after all.
-  That points the gap back at what the arm RETRIEVES — an arm scoring higher evidence-hit while answering
-  worse from the same full text would mean evidence-hit is crediting turns a reader cannot use, which is the
-  metric problem one level below the truncation one.
-  <br>   · overshoots `vector` → the arm's retrieval advantage was real all along and truncation masked it
-  entirely. Biggest result, and the one that would most change what this engine is for.
-  <br>**Needs a reader**, so it is the slow shape (the full-sample QA run is ~5 hours); `--n 200` against the
-  same seed is the cheap first pass and is enough to separate 38–45% from 29.1%.
 
 ---
 
