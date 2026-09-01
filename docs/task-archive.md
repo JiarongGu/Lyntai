@@ -1919,3 +1919,31 @@ disagree. And the Multiplicative arms moved as a side effect nobody targeted: `+
 seed as "nobody asked" — `MultiplicativeRankingPolicy` itself was never touched.
 
 - Make `Relevance` comparable before it is ranked.
+
+## Part 134 — the QA half converts, superadditively, but leaves a VOLUME-vs-FORM question open (2026-09-01)
+
+✅ done 2026-09-01 — `TASKS.md` Part 134's one item, separating volume from form in the walk's residual gap
+against `vector-40`. A third `--seeds` measurement (16, after 3 and 8) answers it: **mostly volume**. The gap
+to `vector-40` narrowed **11.3 → 5.3 → 2.5** points as chars/q rose 5010 → 5727 → 6747 (`vector-40`'s own
+7090), and the pre-registered "at least ~4 points is FORM" floor is falsified — a 2.5-point total residual
+cannot contain a 4-point floor. Full tables and reading: `docs/memory.md` §5.
+
+**A methodological correction rides along, and it matters more than the number.** The interaction between
+per-source ranking (**D103**) and the n-shot walk (**D100**), reported here as +6.7 and then corrected to
++4.2, is **non-monotonic**: the third point reads +6.8, back near the original. The "seed starvation explains
+the shrink" direction drawn from two points did not survive a third — the second time in this line of work
+that one extra measurement overturned a published conclusion. What replaces the point estimate is a
+size-free claim: fused ranking raises the CEILING on what the walk can use (the shipped-ranking three-shot
+arm plateaus at 33.4–33.6%; the fused one keeps climbing, 38.5 → 44.5 → 47.3%, decelerating but not flat).
+
+**The pre-registered `--seeds 16` prediction held, on a stated LOW confidence.** It called a gain under +6.0,
+landing in 46–49%, still short of `vector-40`'s 49.8 at ~7000 chars/q; the run read +2.8, landed at 47.3%,
+short by 2.5, at 6747 chars. A correct call on a self-described "thin" prior does not vindicate the reasoning
+behind it — that model was already known wrong from the `--seeds 8` round.
+
+**What is left is a different question than the one this Part opened.** At 47.3%/6747 chars the engine
+roughly matches `vector`'s 45.7%/3634 chars — an EFFICIENCY gap (~1.9× the context for matching accuracy),
+not a capability one. No follow-up item is opened for it here; it is recorded as a finding in
+`docs/memory.md` §5, not as a startable task.
+
+- Separate volume from form in the walk's residual gap against `vector-40`.

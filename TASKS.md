@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is NINE items, across Parts 105, 109, 116, 128, 129, 132, 133 and 134.** Each is a
+**The startable set is EIGHT items, across Parts 105, 109, 116, 128, 129, 132 and 133.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -38,7 +38,9 @@ it from eight to seven, and Part 128's first item CLOSED the same day as **Part 
 to six. **Part 132 opened 2026-09-01** — a wiring-diagnostic limitation found in the branch's final review —
 taking it from six to seven, and **Part 133 opened the same day**, taking it from seven to eight. **Part 134
 opened the same day** — the QA-conversion follow-up, isolating whether the walk's residual gap against
-`vector-40` is context volume or content form — taking it from eight to nine. Every number here is edited in
+`vector-40` is context volume or content form — taking it from eight to nine, and **CLOSED the same day** as
+`docs/task-archive.md` **Part 134**, once a third `--seeds` measurement answered the question it opened
+(mostly volume) — taking it from nine back to eight. Every number here is edited in
 the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
 
 **START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
@@ -876,64 +878,6 @@ line misses every future illegitimate line of that shape, and nothing ever notic
   plain prose and `check-docs` passed them both, while flagging the retired IDENTIFIER two paragraphs up on
   the very same run — which is why that one carries a `drift-ok` and these do not need one. The gate can see
   the name it banned and cannot see the rule it banned._
-
----
-
-## Part 134 — the QA half converts, superadditively, but leaves a VOLUME-vs-FORM question open (2026-09-01)
-
-_Opened by two QA runs (`node devtools/dev.mjs memory-locomo --n 100`) answering whether Part 131's retrieval
-gain (**D103**, per-source fusion: 54.5% → 83.0% evidence-hit@20) converts into ANSWER accuracy. It does, and
-the walk (**D100**) turns out to be SUPERADDITIVE with it rather than merely additive — `docs/memory.md` §5
-carries the table and the five findings; this Part carries only what is still open. Reader and judge both
-`gemma3:4b` (local), embedder `nomic-embed-text`, n = 100 — the same limits Part 109's QA half already
-carries, and only the ARM DIFFERENCES transfer (`TASKS.md` Part 109 above)._
-
-_**What is now known.** The retrieval gain converts at equal context (+6.9 token-F1, `lyntai` → `lyntai-fused`).
-Ranking and the three-shot walk interact rather than merely add: +6.9 from ranking, +2.7 from the walk,
-+16.3 joint — a +6.7 interaction neither part predicts alone. The headline hypothesis (D100) holds:
-`unknown` more than halves (18 → 8) once the fused walk expands. **What is NOT known:** with `unknown` down
-to 8, most of what remains is answer quality on evidence already present — `lyntai-fused-3shot` still trails
-`vector` by 7.2 token-F1 and `vector-40` (the item-matched control, 40.0 vs 39.7 items/q) by 11.3, and
-nothing has separated whether that residual is context VOLUME (fewer characters — 5010 vs `vector-40`'s
-7090 chars/q) or content FORM (a headline plus expanded fragments, never the contiguous full turn `vector`
-returns)._
-
-- [ ] **Separate volume from form: sweep `--seeds` until `lyntai-fused-3shot`'s chars/q matches
-  `vector-40`'s ~7090, and compare token-F1 at that point.** It is already ITEM-matched to `vector-40` (39.7
-  vs 40.0 items/q) but not character-matched (5010 vs 7090) — headlines and expanded fragments are more
-  compact than a full turn, so equal item counts do not mean equal context. `node devtools/dev.mjs
-  memory-locomo --n 100 --seeds N` for `N` above the shipped 3 is the existing lever
-  (`MemoryLocomoBench.expandSeeds`, whose own doc comment already says to "sweep it with `--seeds` before
-  reading a multi-shot arm as the design's ceiling"). If token-F1 closes most of the gap once characters are
-  matched, the residual was volume; if it does not, the headline-plus-fragment SHAPE is the limit and more
-  expansion will not fix it.
-
-  _**PRE-REGISTERED before the first `--seeds` run (2026-09-01): the gap CANNOT close, and the arithmetic
-  says so in advance.** `unknown` is the only channel through which more context can convert a wrong answer
-  into a right one, and `lyntai-fused-3shot` has **8** against `vector-40`'s **1** — a deficit of **7
-  questions out of 100**. Even recovering EVERY one of them perfectly moves token-F1 by roughly 7 points, to
-  about 45.5, against `vector-40`'s **49.8**. So **at least ~4 points of the 11.3 gap is answer quality on
-  evidence that is already present**, which is FORM and not volume, and no amount of extra expansion
-  reaches it. What the sweep can still settle is how much of the remaining ~7 is volume — and whether
-  chars/q even rises, since items/q is already at the walk's `MaxItems = 40` cap, so `--seeds` must work by
-  expanding MORE of the same 40 items rather than by returning more of them. **If chars/q does not move,
-  the run measured nothing and the lever is the wrong one** — read that before reading any accuracy column._
-
-  _**AMENDED after the `--seeds 8` run: the prediction above was FALSIFIED, and how it failed matters.** The
-  arm gained **+6.0** token-F1 (38.5 → 44.5) while recovering only **3** of its 8 unknowns, not 7. The bound
-  rested on "`unknown` is the only channel through which more context converts a wrong answer into a right
-  one", and that premise is false: token-F1 is PARTIAL-CREDIT overlap, so extra context also improves
-  answers on questions that were already being answered. The arithmetic was sound on a premise that was not.
-  The instrument check passed — chars/q moved 5010 → 5727 — so the run measured what it claimed to._
-
-  _**PRE-REGISTERED before `--seeds 16` (2026-09-01), and deliberately weaker than the last one.** At seeds 8
-  the curve is still CLIMBING, so 44.5 is not a ceiling and must not be quoted as one. Prediction: it climbs
-  again but by LESS than +6.0, landing roughly 46–49, and still short of `vector-40`'s 49.8 at a comparable
-  ~7000 chars/q. **Confidence is low and the grounds are thin** — the only model I had for where the gain
-  comes from was just refuted, and I have not replaced it with one I trust. Naming the range anyway is the
-  point: a prediction that cannot be wrong is not worth registering. **If it lands ABOVE `vector-40`, the
-  engine beats plain cosine on answers at matched context and that is the headline of this whole line of
-  work; if it is FLAT, the curve plateaued between 8 and 16 and the residual is FORM after all.**_
 
 ---
 

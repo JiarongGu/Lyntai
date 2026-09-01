@@ -892,8 +892,9 @@ better-ranked evidence.
 QA half (`docs/task-archive.md` Part 115), reader and judge both `gemma3:4b` (local, 3.3 GB) via Ollama,
 `nomic-embed-text` embedder, `SqliteMemoryGraphStore`. Run 1 (7 arms, 1423.0s wall clock) and run 2 (8 arms,
 2403.3s) — the added arm is `lyntai-fused-3shot`, fused ranking's own three-shot walk — both at the shipped
-`--seeds 3`. A third run (1815.2s) reruns the two three-shot arms at `--seeds 8`; finding 2 below carries it.
-Raw output: the gitignored `devtools/_locomo-qa-fusion.txt`, `devtools/_locomo-qa-fused3.txt` and `devtools/_locomo-qa-seeds8.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+`--seeds 3`. A third run (1815.2s) reruns the two three-shot arms at `--seeds 8`; a fourth (1945.9s) reruns
+them again at `--seeds 16` — finding 2 below carries both.
+Raw output: the gitignored `devtools/_locomo-qa-fusion.txt`, `devtools/_locomo-qa-fused3.txt`, `devtools/_locomo-qa-seeds8.txt` and `devtools/_locomo-qa-seeds16.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
 **`token-F1` is the
 PRIMARY column and is model-free** — overlap against the gold string; `judge` is the SAME small model that
 wrote the answer grading it, reported beside F1 rather than instead of it, so a `judge` figure is not an
@@ -940,40 +941,87 @@ control that makes the comparison below legitimate.
 At `--seeds 8`, ranking alone still buys +6.9, the walk alone now +11.2, the sum predicts +18.1 against a
 measured joint gain of +22.3 (22.2 → 44.5) — a **+4.2 interaction**, a little under two-thirds the
 first-measured size.
+<br>**AMENDED again, at `--seeds 16`: the shrink reversed.** A fourth run reruns the same two three-shot
+arms with 16 expansion seeds. The single-shot arms are again unaffected by construction and read
+byte-identical to all three earlier runs — `lyntai` 22.2%, `lyntai-fused` 29.1%, to the point.
 
-**3. Why the first figure was too large.** At the shipped `--seeds 3`, the walk on the shipped ranking was
-DOUBLY starved — the seeds it walked from were poorly ranked (the shipped ranking's own deficit, finding 1)
-AND there were only three of them to walk from. The +6.7 interaction therefore credited ranking quality with
-part of what was really just seed COUNT: the shipped-ranking arm had less runway to show what a walk can do,
-which flattered fused ranking's own walk by comparison. Give both arms the same larger seed budget and the
-gap between "walk on bad seeds" and "walk on good seeds" narrows to +4.2. **The interaction is real —
-fused ranking's own walk still gains more than the shipped ranking's does, at both seed counts — but its
-size was a property of `--seeds`, which the first run held fixed at one value and so could not see move.**
+| | walk's value (1-shot → 3-shot) |
+|---|---|
+| on shipped ranking | +2.7 at `--seeds 3` → +11.2 at `--seeds 8` → **+11.4** at `--seeds 16` (22.2 → 33.4 → 33.6) |
+| on fused ranking | +9.4 at `--seeds 3` → +15.4 at `--seeds 8` → **+18.2** at `--seeds 16` (29.1 → 44.5 → 47.3) |
+| interaction | +6.7 at `--seeds 3` → +4.2 at `--seeds 8` → **+6.8** at `--seeds 16` |
 
-**4. `44.5%` is not a ceiling.** The three-shot walk on fused ranking climbed from 38.5% (`--seeds 3`) to
-44.5% (`--seeds 8`) and the curve has not flattened. A `--seeds 16` run is in flight (`TASKS.md` Part 134) to
-see where it does; nothing here licenses quoting 44.5 as this design's limit.
+At `--seeds 16`, ranking alone still buys +6.9, the walk alone now +11.4, the sum predicts +18.3 against a
+measured joint gain of +25.1 (22.2 → 47.3) — **+6.8**, back within 0.1 of the first-measured size, not
+settled between it and the `--seeds 8` reading.
+
+**The interaction is NON-MONOTONIC in `--seeds`, and that is the finding — not any one of the three
+numbers.** `+6.7 → +4.2 → +6.8` rules out both a converging read (shrinking toward some smaller true value)
+and a diverging one; three points on this axis describe a quantity that moves for a reason `--seeds` alone
+does not explain, not a trend. Treat every future reading of it as a snapshot, not a limit.
+
+**A size-free claim survives the trip, and it is the one worth keeping: fused ranking raises the CEILING on
+what the walk can use.** `lyntai-3shot` on shipped ranking plateaus — 33.4% (`--seeds 8`), **33.6%**
+(`--seeds 16`), flat — while `lyntai-fused-3shot` keeps climbing, 38.5% → 44.5% → **47.3%**. More expansion
+seeds pay off only when the ranking beneath them puts good material within reach: on shipped ranking there is
+nothing left for extra seeds to surface, and on fused ranking there still is. A single "+N interaction"
+number was never the right shape for that claim, which is why two corrections in a row landed on the wrong
+quantity instead.
+
+**3. Why the first figure was too large — RETRACTED at `--seeds 16`, and how it failed is a methodological
+lesson, not a footnote.** This finding first argued that the walk on shipped ranking was DOUBLY starved at
+`--seeds 3` — poorly ranked seeds and only three of them — so giving both arms the same larger seed budget
+should keep narrowing the +6.7 interaction toward some smaller true value; the `--seeds 8` reading of +4.2
+was read as confirming exactly that direction. A third measurement does not confirm a direction here, it
+refutes one: +6.8 at `--seeds 16` sits closer to the ORIGINAL +6.7 than to the +4.2 it was supposed to
+extend. **A direction was inferred from two points, and this is the second time in this subsection that one
+extra measurement has overturned a published conclusion** — the first was `--seeds 8` itself overturning the
+plain +6.7 headline. Two measurements describe a line; they cannot say whether the line continues, and
+`+6.7 → +4.2 → +6.8` is not a line. The seed-starvation mechanism is not shown to be false — the
+shipped-ranking walk plausibly still has less to work with at `--seeds 3` than fused ranking's does — but it
+cannot be the whole explanation for a number that goes back up, and nothing here currently explains that
+number. Read the three readings as three snapshots of an unstable quantity, not as a trend with a limit.
+
+**4. `47.3%` is not a ceiling either, and the curve is DECELERATING rather than flat.** The three-shot walk
+on fused ranking climbed 38.5% (`--seeds 3`) → 44.5% (`--seeds 8`) → **47.3%** (`--seeds 16`): +6.0 over the
+first doubling of seeds, +2.8 over the second. It is still climbing and still slowing at the same time, so
+neither "44.5 is the ceiling" (as this finding first read) nor "47.3 is the ceiling" is licensed by this
+data — say both that it has not flattened and that each further doubling appears to buy less.
 
 **5. The headline hypothesis (D100) is confirmed harder at `--seeds 8`.** `unknown` on `lyntai-fused-3shot`
 fell 18 → 8 at `--seeds 3` (finding 3 of the original measurement) and 18 → 5 at `--seeds 8` — landing
 exactly on `vector`'s own floor of 5. More seeds let expansion recover more of what the headline only
 pointed at.
+<br>**At `--seeds 16` it falls again, past that floor: to 3**, against `vector`'s 5 and `vector-40`'s 1. The
+walk on fused ranking now leaves fewer questions unanswered than the perfect archive it is compared against.
 
-**6. The gap to `vector` closes to noise; the gap to the size-matched control does not.** At `--seeds 8`,
-`lyntai-fused-3shot` (44.5%, 5727 chars/q) sits 1.2 points under `vector` (45.7%, 3634 chars/q) — with
-n = 100 giving roughly one point of resolution per question, that is a tie inside the noise floor, reached at
-2093 more chars/q, so it matches `vector` on accuracy and loses to it on efficiency. Against `vector-40`
-(49.8%, 7090 chars/q) — now item-matched exactly (40.0 items/q on both, where the `--seeds 3` run read 39.7
-vs 40.0) but still not character-matched (5727 vs 7090) — it trails by **5.3** points.
+**6. Mostly volume: the gap to `vector` and to the size-matched control both narrow, and the volume-vs-form
+question `docs/task-archive.md` Part 134 opened is answered by it.** At `--seeds 16`, `lyntai-fused-3shot` reaches
+**47.3%** at 6747 chars/q against `vector`'s 45.7% at 3634 chars/q — with n = 100 giving roughly one point of
+resolution per question, +1.6 is barely outside a single question and not a result to lean on, but it is no
+longer a deficit: **we roughly match plain cosine's accuracy while needing ~1.9× the context to do it**
+(6747 / 3634 ≈ 1.9), which is an EFFICIENCY gap, not a capability one. Against `vector-40` (49.8%, 7090
+chars/q) — item-matched (40.0 items/q on both) and now close to character-matched (6747 vs 7090) — the trail
+has narrowed **11.3 → 5.3 → 2.5** points as `--seeds` went 3 → 8 → 16, tracking chars/q rising
+5010 → 5727 → 6747. At n = 100 that residual is about 2.5 questions against a ~1-question noise floor —
+small, and it says the residual against the size-matched control is **mostly volume**, not form.
 
 **7. A pre-registered prediction was falsified, and the reason it failed is the transferable part.** Before
-running `--seeds 8`, `TASKS.md` Part 134 predicted the gain would be bounded near +7 token-F1, reasoning that
+running `--seeds 8`, `docs/task-archive.md` Part 134 predicted the gain would be bounded near +7 token-F1, reasoning that
 `unknown` — the 8 questions where the reader admitted the excerpts held nothing — was "the only channel
 through which more context converts a wrong answer into a right one." The arm gained **+6.0** token-F1
 (38.5 → 44.5) while recovering only **3** of its 8 unknowns, not all 8. The premise was false: token-F1 is
 PARTIAL-CREDIT overlap against the gold string, so more context also raises the score on questions the reader
 was already answering, not only on ones it was refusing. The arithmetic was sound; the model of where the
 gain comes from was not.
+<br>**The same premise was used a second time, to bound FORM rather than the total gain, and it failed the
+same way.** Before the `--seeds 8` run, `docs/task-archive.md` Part 134 also argued from "`unknown` is the only channel"
+that recovering every one of the then-8 unknowns perfectly could move token-F1 to about 45.5 at best, so "at
+least ~4 points of the [then] 11.3-point gap is FORM, and no amount of expansion reaches it." Finding 6
+above now puts the WHOLE residual at 2.5 points — below the claimed 4-point floor — so form can account for
+**at most 2.5 points**, not "at least 4". **Falsified for the second time in the same direction**: both
+times, a bound built on "the `unknown` count is the only channel that matters" under-predicted how much a
+wider walk actually recovers.
 
 **8. A reproducibility control, extended.** All six arms present in both the first two runs are
 byte-identical across them, on both tables — this harness ingests each conversation once and caches
@@ -981,17 +1029,19 @@ embeddings, so a repeat can only find non-determinism, and found none. It also c
 change needed to add `lyntai-fused-3shot` (`arm != ThreeShot` → `!MultiShotArms.Contains(arm)`, plus guarding
 the step-2 `TwoShot` write with `&& arm == ThreeShot`) left every existing arm's numbers untouched. The
 single-shot arms (`lyntai`, `lyntai-fused`, `vector`, `vector-40`, `full`) are unaffected by `--seeds` by
-construction and read byte-identical in the third run too — the control finding 2 leans on.
+construction and read byte-identical in the third run too — the control finding 2 leans on. **They read
+byte-identical in the fourth run as well**, extending the same control to `--seeds 16`.
 
 **What this does not settle.** Absolute values are a property of a 4B local reader and are NOT comparable to
 any published figure from any other system — `TASKS.md` Part 109 says the same of its own QA numbers, and
 only the ARM DIFFERENCES here transfer. **n = 100**, so resolution is about one point per question. One
 workload (LoCoMo), one embedder (`nomic-embed-text`), one reader tier (`gemma3:4b`) — the same three limits
-Part 109's QA half already carries. Whether the residual against `vector-40` is context VOLUME or content
-FORM (a headline plus expanded fragments, never a contiguous turn) is still open: finding 7 shows partial
-credit muddies a clean read of it rather than settling it, since some of the seeds-8 gain came from questions
-that were never in `unknown` at all. A `--seeds 16` run is in flight to press on it further; `TASKS.md`
-Part 134 carries it.
+Part 109's QA half already carries. **The volume-vs-form question IS answered, at `--seeds 16`: mostly
+volume** (finding 6). What remains open is the interaction itself: `+6.7 → +4.2 → +6.8` is three
+measurements of an unstable quantity, not a trend, and nothing here says what a fourth would read. The
+residual against `vector` and `vector-40` now reads as an EFFICIENCY gap — matching accuracy at roughly
+1.9× the context — rather than a capability gap, and closing it is a different question than the one this
+subsection opened.
 
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 
