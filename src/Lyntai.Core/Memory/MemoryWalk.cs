@@ -37,8 +37,12 @@ public sealed record MemoryWalkOptions
 /// <param name="Items">Everything held so far, merged and capped, in arrival order.</param>
 /// <param name="NewItems">What THIS step newly held — the default seed set for the next one.</param>
 /// <param name="UpgradedCount">How many already-held entries this step raised from a headline to full content.
-/// A recall returns headlines, so upgrading is half of what a step buys and a count of new entries alone
-/// cannot see it.</param>
+/// A recall returns headlines by default, so upgrading is half of what a step buys and a count of new entries
+/// alone cannot see it.
+/// <para>A walk whose query asked for <see cref="MemoryDetail.Full"/> has nothing to upgrade — every entry
+/// arrives whole — so this is 0 throughout and a step's whole value is what it DISCOVERS. The walk is
+/// otherwise unaffected: it still expands, still discovers, and still ends when a step moves nothing.</para>
+/// </param>
 /// <param name="Ran">Which tiers produced this step, so an empty tier stays distinguishable from an absent
 /// one.</param>
 public sealed record MemoryWalkStep(
@@ -49,7 +53,10 @@ public sealed record MemoryWalkStep(
     MemorySources Ran);
 
 /// <summary>Walks an engine: a recall, then expansions outward from what it turned up — the mode a graph
-/// engine is built for, since a recall returns headlines and detail is bought per entry.
+/// engine is built for, since a recall returns headlines by default and detail is bought per entry.
+/// <para>A caller that wants the entries WHOLE up front asks for <see cref="MemoryDetail.Full"/> on the
+/// query instead (<b>D104</b>); expansion then buys discovery alone, which is a different question from
+/// detail and the one a walk is actually for.</para>
 /// <para>This composes <see cref="IMemoryEngine.RecallAsync"/> and
 /// <see cref="IExpandableMemory.ExpandAsync"/> and adds nothing to either, the same way
 /// <see cref="MemoryComposition"/> composes a recall and a rendering.</para></summary>

@@ -173,8 +173,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D101](#d101--a-recalls-write-back-is-one-store-call-and-the-review-log-goes-last-2026-08-29) | 2026-08-29 | a recall's write-back is ONE store call, and the review log goes LAST |
 | [D102](#d102--the-n-shot-walk-is-an-extension-over-the-existing-seams-not-a-new-engine-member-2026-08-30) | 2026-08-30 | the n-shot walk is an EXTENSION over the existing seams, not a new engine member |
 | [D103](#d103--seed-retrieval-is-a-plural-producer-seam-and-rrf-fuses-the-ranked-lists-it-was-named-for-2026-08-31) | 2026-08-31 | seed retrieval is a plural PRODUCER seam, and RRF fuses the ranked lists it was named for |
+| [D104](#d104--how-much-of-an-entry-a-recall-returns-is-the-callers-choice-per-call-2026-09-02) | 2026-09-02 | how much of an entry a recall returns is the CALLER's choice, per call |
 
-_All 103 entries are live decisions._
+_All 104 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2848,6 +2849,8 @@ that is what makes the first load cheap"*, and `ExpandAsync` reinforces what it 
 one direction is exactly what should make that direction more retrievable next time"*. A one-shot metric is
 structurally blind to both halves. The design intent is a small first load that says what is RELATED,
 with detail bought per-entry by expanding — not a big context assembled up front.
+<br>**Amended 2026-09-02: this is now the DEFAULT, not the only behaviour.** **D104**'s `MemoryQuery.Detail`
+lets a caller whose workload is ANSWERING ask for whole entries; the reason for the default is unchanged.
 
 **What measurement settled** (`docs/memory.md` §5). On LongMemEval knowledge-update, shot 1 returns a clean
 context — the current fact and not the superseded one — **31.4%** of the time on 1,169 characters, against
@@ -2992,3 +2995,38 @@ shipped default registration (lexical + subject, no semantic) no candidate carri
 runs the pre-branch pooled fallback — one of three shipped backends is unaffected by this decision.
 `MultiplicativeRankingPolicy` still ranks on the pooled `GraphNode.Relevance` field, so the mixed-scale
 defect this decision removes survives unchanged in the second shipped ranking policy.
+
+## D104 — how much of an entry a recall returns is the CALLER's choice, per call (2026-09-02)
+
+`MemoryQuery.Detail` (`MemoryDetail.Headline` / `.Full`) lets a caller ask for whole entries instead of
+headlines. It defaults to `Headline`, which is what every engine did before it existed, so nothing moves for
+anyone who does not pass it.
+
+**Why the library must not answer this.** `generic-library.md`'s rule 7 asks whether two honest applications
+could answer differently, and here they plainly do: an agent building a cheap index of what is RELATED wants
+headlines, and a reader that must ANSWER from the excerpts wants the whole entry. The same host does both at
+different call sites, which is why this is a per-CALL parameter rather than a deployment option or a seam —
+there is no policy to inject, only a size the caller already knows.
+
+**It is not a preference; it was priced.** Returning full content for the same twenty items is worth
+**+11.7 token-F1** on LoCoMo and closes essentially the whole gap to plain cosine (41.0 against 41.3, at the
+same slots and within 1.2% of the same context — `docs/task-archive.md` Part 136). The reader's refusals fall
+from 29 to 13 on the identical turns. Before this, reaching that required N calls of
+`ExpandAsync(reference, hops: 0)`, one per returned item.
+
+**D100 is unchanged and is the reason for the DEFAULT.** A recall returning headlines is what makes the first
+load cheap, and the n-shot walk is built on it. This decision does not retract that — it stops the cheapness
+being compulsory for callers whose workload is answering rather than indexing.
+
+**Alternatives rejected.** A deployment-level option only (`GraphMemoryOptions`): the choice varies per call
+site within one application, so a single default cannot serve it. A seam: there is no policy to implement —
+the caller is stating a size, not supplying behaviour, and `library-api-design.md` reserves seams for
+disagreements about BEHAVIOUR. Ingesting as `MemoryGrade.Authoritative` to get full content: that grade also
+engages the carve-out and re-admission, so it moves ranking at the same time.
+
+**Scope.** Only `GraphMemoryEngine` changes: the lexical, semantic and curated engines have no separate short
+form and already returned content under either value. The promise is stated as a cross-engine contract fact
+(`MemoryEngineContract.Full_detail_returns_content_on_every_item`) so a future engine inherits it, and the
+graph engine additionally pins that the DEFAULT still withholds — without that control, a change that simply
+stopped withholding would satisfy the contract while deleting D100's cheap first load and failing nothing.
+`MemoryQuery.CharBudget` prices the extra text, so the same budget admits fewer items; that is pinned too.

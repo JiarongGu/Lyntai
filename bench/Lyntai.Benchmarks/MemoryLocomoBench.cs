@@ -64,6 +64,17 @@ internal static class MemoryLocomoBench
     /// watching this stage cannot see the thing this arm varies.</para></summary>
     private const string FusedOneShot = "lyntai-fused";
     private const string FusedRehydrated = "lyntai-fused-full";
+
+    /// <summary>The same thing as <see cref="FusedRehydrated"/> through the SHIPPED surface —
+    /// <c>MemoryQuery.Detail = MemoryDetail.Full</c> (<b>D104</b>) instead of the harness swapping text in
+    /// afterwards. Both arms run because their AGREEMENT is the check: the harness arm proved the effect and
+    /// this one proves a consumer can actually reach it, and a gap between them would mean the library does
+    /// not deliver what the isolation measured.</summary>
+    private const string FusedApiDetail = "lyntai-fused-api";
+
+    /// <summary>Arms whose recall asks for whole entries. Kept as a set rather than a seventh field on the
+    /// config tuple, which every one of ~20 config literals would have had to restate.</summary>
+    private static readonly HashSet<string> FullDetailArms = [FusedApiDetail];
     // Arms whose walk continues past step 1. Only `ThreeShot` also publishes its step-2 snapshot as
     // `TwoShot` — nothing in `arms` names a fused two-shot form, so a member added here need not.
     private static readonly HashSet<string> MultiShotArms = [ThreeShot, FusedThreeShot];
@@ -189,8 +200,8 @@ internal static class MemoryLocomoBench
                         .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
                         "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "+sem+fuse", "+fuse",
                         "vector"]
-                : ["lyntai", FusedOneShot, FusedRehydrated, FusedThreeShot, TwoShot, ThreeShot, "vector",
-                    $"vector-{ShotBudget}", "full"];
+                : ["lyntai", FusedOneShot, FusedRehydrated, FusedApiDetail, FusedThreeShot, TwoShot,
+                    ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
 
         var (conversations, questions) = Load(path);
         var sampled = Stratify(questions, take);
@@ -404,6 +415,14 @@ internal static class MemoryLocomoBench
                     // control, not against `vector` alone.
                     : [("lyntai", null, null, null, null),
                         ("lyntai-fused", null,
+                            new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+                            {
+                                RetrievabilityWeight = 0,
+                                HopWeight = 0,
+                            }), null, RecallLimit),
+                        // Same policy as `lyntai-fused`; the ONLY difference is that its recall asks for
+                        // MemoryDetail.Full, so any gap against the rehydration arm is the library's.
+                        (FusedApiDetail, null,
                             new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
                             {
                                 RetrievabilityWeight = 0,
@@ -675,7 +694,9 @@ internal static class MemoryLocomoBench
                     MemoryWalkStep? last = null;
 
                     await foreach (var step in engine.WalkAsync(
-                        new MemoryQuery(convId, "session", q.Text, Limit: RecallLimit), walkOptions))
+                        new MemoryQuery(convId, "session", q.Text, Limit: RecallLimit,
+                            Detail: FullDetailArms.Contains(arm) ? MemoryDetail.Full : MemoryDetail.Headline),
+                        walkOptions))
                     {
                         context = [.. step.Items.Select(i => i.Content ?? i.Headline)];
                         last = step;

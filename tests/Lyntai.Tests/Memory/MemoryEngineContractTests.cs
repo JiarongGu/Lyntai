@@ -13,6 +13,7 @@ public class LexicalEngineContractTests
     [Fact] public Task Refuses_grade() => MemoryEngineContract.An_unsupported_grade_throws_rather_than_downgrading(New(), "k4");
     [Fact] public Task Resolves_grade() => MemoryEngineContract.An_inherited_grade_resolves_and_is_never_returned_as_Inherit(New(), "k5");
     [Fact] public Task Authoritative_full() => MemoryEngineContract.Authoritative_items_always_carry_full_content(New(), "k6");
+    [Fact] public Task Full_detail() => MemoryEngineContract.Full_detail_returns_content_on_every_item(New(), "k14");
     [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
     [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
@@ -34,6 +35,7 @@ public class SemanticEngineContractTests
     [Fact] public Task Refuses_grade() => MemoryEngineContract.An_unsupported_grade_throws_rather_than_downgrading(New(), "k4");
     [Fact] public Task Resolves_grade() => MemoryEngineContract.An_inherited_grade_resolves_and_is_never_returned_as_Inherit(New(), "k5");
     [Fact] public Task Authoritative_full() => MemoryEngineContract.Authoritative_items_always_carry_full_content(New(), "k6");
+    [Fact] public Task Full_detail() => MemoryEngineContract.Full_detail_returns_content_on_every_item(New(), "k14");
     [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
     [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
@@ -56,6 +58,7 @@ public class GraphEngineContractTests
     [Fact] public Task Refuses_grade() => MemoryEngineContract.An_unsupported_grade_throws_rather_than_downgrading(New(), "k4");
     [Fact] public Task Resolves_grade() => MemoryEngineContract.An_inherited_grade_resolves_and_is_never_returned_as_Inherit(New(), "k5");
     [Fact] public Task Authoritative_full() => MemoryEngineContract.Authoritative_items_always_carry_full_content(New(), "k6");
+    [Fact] public Task Full_detail() => MemoryEngineContract.Full_detail_returns_content_on_every_item(New(), "k14");
     [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
     [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
@@ -83,6 +86,7 @@ public class CompositeEngineContractTests
     [Fact] public Task Refuses_grade() => MemoryEngineContract.An_unsupported_grade_throws_rather_than_downgrading(New(), "k4");
     [Fact] public Task Resolves_grade() => MemoryEngineContract.An_inherited_grade_resolves_and_is_never_returned_as_Inherit(New(), "k5");
     [Fact] public Task Authoritative_full() => MemoryEngineContract.Authoritative_items_always_carry_full_content(New(), "k6");
+    [Fact] public Task Full_detail() => MemoryEngineContract.Full_detail_returns_content_on_every_item(New(), "k14");
     [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
     [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
@@ -122,6 +126,7 @@ public class CuratedEngineContractTests
     [Fact] public Task Refuses_grade() => MemoryEngineContract.An_unsupported_grade_throws_rather_than_downgrading(New(), "k4");
     [Fact] public Task Resolves_grade() => MemoryEngineContract.An_inherited_grade_resolves_and_is_never_returned_as_Inherit(New(), "k5");
     [Fact] public Task Authoritative_full() => MemoryEngineContract.Authoritative_items_always_carry_full_content(New(), "k6");
+    [Fact] public Task Full_detail() => MemoryEngineContract.Full_detail_returns_content_on_every_item(New(), "k14");
     [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
     [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");

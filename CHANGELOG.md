@@ -14,6 +14,29 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`MemoryQuery.Detail` — ask a recall for whole entries instead of headlines** (`MemoryDetail.Headline`,
+  the default and today's behaviour, or `.Full`). `docs/DECISIONS.md` **D104**.
+  <br>**Priced rather than offered.** A recall withholds associative content until an expansion asks for it,
+  which is what makes a first load cheap (**D100**) — and on LoCoMo that costs **11.7 token-F1** for the SAME
+  twenty items, essentially the whole gap to plain cosine (41.0 against 41.3, at matched slots and within
+  1.2% of the same context). The reader's "the excerpts contained none" refusals fall from 29 to 13 on
+  identical turns. `docs/task-archive.md` Part 136.
+  <br>**Per CALL, not per deployment**, because one application wants both: an index of what is RELATED wants
+  headlines, a reader that must ANSWER wants the entry. Reaching this previously took N calls of
+  `ExpandAsync(reference, hops: 0)`, one per returned item.
+  <br>Only `GraphMemoryEngine` changes — the lexical, semantic and curated engines have no separate short
+  form and already returned content either way. Stated as a cross-engine contract fact so a future engine
+  inherits it, with the graph engine additionally pinning that the DEFAULT still withholds.
+  `MemoryQuery.CharBudget` prices the extra text, so the same budget admits fewer items.
+
+### Breaking
+
+- **`MemoryQuery`'s primary constructor gained an optional parameter**, so a caller compiled against the old
+  signature must be RECOMPILED (source-compatible; binary-incompatible). Shipping this in a minor is the
+  deferred-SemVer-strictness rule at the top of this file, and an overload preserving the old signature was
+  deliberately not added — `repo-mechanics.md` §"Everything before 3.0 is HISTORY" refuses to pay a real
+  surface cost for a pre-compiled caller that does not exist.
+
 - **`RunPipelineAsync` — ordered generation stages, each feeding the next.** An extension over
   `IGenerationRouter` running `GenerationStage`s in order and chaining each one's artifact into the next
   through `GenerationArtifact.ToInput(role)`. Every stage carries its OWN candidates and routes

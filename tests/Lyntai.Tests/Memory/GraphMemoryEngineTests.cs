@@ -42,6 +42,48 @@ public class GraphMemoryEngineTests
         Assert.Contains("seven checks", expanded.Items[0].Content!, StringComparison.Ordinal);
     }
 
+    /// <summary><see cref="MemoryDetail.Full"/> returns the whole entry from the RECALL, with no expansion —
+    /// and the pair is the point, so both halves live in one fact.
+    /// <para>The default half is the POSITIVE CONTROL. Without it, a change that simply stopped withholding
+    /// would satisfy the cross-engine contract fact while silently deleting the cheap first load
+    /// (<b>D100</b>), which is the promise this engine is built around — and no other test would notice,
+    /// because "returns more" fails nothing.</para></summary>
+    [Fact]
+    public async Task Full_detail_returns_the_whole_entry_from_a_recall_and_the_default_still_withholds()
+    {
+        const string content = "The build gate runs seven checks and stops at the first failure.";
+        var engine = Engine(new GraphMemoryOptions { HeadlineChars = 40 });
+        await engine.RememberAsync(new MemoryWrite("t", "s", content));
+
+        var full = await engine.RecallAsync(new MemoryQuery("t", "s", "build", Detail: MemoryDetail.Full));
+        Assert.Equal(content, Assert.Single(full.Items).Content);
+        // the headline is still there — Full ADDS content, it does not replace the short form
+        Assert.True(full.Items[0].Headline.Length <= 41, full.Items[0].Headline);
+
+        var headline = await engine.RecallAsync(new MemoryQuery("t", "s", "build"));
+        Assert.Null(Assert.Single(headline.Items).Content);
+    }
+
+    /// <summary>Reading the SAME entry at both detail levels costs what the extra text costs, so a budget
+    /// admits fewer items — the interaction a caller has to know about before turning this on.</summary>
+    [Fact]
+    public async Task Full_detail_is_priced_by_CharBudget_so_the_same_budget_admits_fewer_items()
+    {
+        var engine = Engine(new GraphMemoryOptions { HeadlineChars = 40 });
+        for (var i = 0; i < 6; i++)
+            await engine.RememberAsync(new MemoryWrite("t", "s",
+                $"Entry {i}: the build gate runs seven checks and stops at the very first failure it finds."));
+
+        var budget = 200;
+        var headlines = await engine.RecallAsync(new MemoryQuery("t", "s", "build", CharBudget: budget));
+        var full = await engine.RecallAsync(
+            new MemoryQuery("t", "s", "build", CharBudget: budget, Detail: MemoryDetail.Full));
+
+        Assert.True(full.Items.Count < headlines.Items.Count,
+            $"full={full.Items.Count} headlines={headlines.Items.Count} — Full must cost more per item");
+        Assert.NotEmpty(full.Items);
+    }
+
     [Fact]
     public async Task A_derived_headline_cuts_on_a_word_boundary_not_a_sentence()
     {

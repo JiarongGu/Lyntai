@@ -213,6 +213,28 @@ public static class MemoryEngineContract
             i => Assert.Equal("the build gate is dev.mjs verify", i.Content));
     }
 
+    /// <summary><see cref="MemoryDetail.Full"/> populates <see cref="MemoryItem.Content"/> on EVERY returned
+    /// item, on every engine.
+    /// <para>Written as a contract fact because three of the four engines satisfy it already — their entries
+    /// have no separate short form — so a graph-only test would pin the one implementation while leaving the
+    /// PROMISE unstated. The entry is deliberately longer than <c>GraphMemoryOptions.HeadlineChars</c>, since
+    /// a short one is its own headline and would pass on an engine that ignores the parameter entirely.</para>
+    /// </summary>
+    public static async Task Full_detail_returns_content_on_every_item(IMemoryEngine engine, string key)
+    {
+        var content = "the deployment pipeline requires two approvals before it will promote a build to "
+            + "production, and the second approver may not be the author of the change being promoted";
+        Assert.True(content.Length > 120, "the fixture must exceed the headline cap or it cannot discriminate");
+        await engine.RememberAsync(new MemoryWrite(key, "s", content));
+
+        var recall = await engine.RecallAsync(
+            new MemoryQuery(key, "s", "approvals", Detail: MemoryDetail.Full));
+
+        Assert.NotEmpty(recall.Items);
+        Assert.All(recall.Items, i => Assert.NotNull(i.Content));
+        Assert.Contains(recall.Items, i => i.Content == content);
+    }
+
     public static async Task An_empty_query_does_not_throw(IMemoryEngine engine, string key)
     {
         var recall = await engine.RecallAsync(new MemoryQuery(key, "s", "   "));

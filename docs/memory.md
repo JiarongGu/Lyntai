@@ -1210,6 +1210,13 @@ the retraction subsection above (`lyntai-2shot` → `lyntai-3shot`, identical 40
 shot 2's newly-discovered neighbours, so +1.1 prices the LOW-value half of an upgrade while rehydration
 upgrades the top-ranked items. The caveat was right and the revision it accompanied was wrong.
 
+**5. The SHIPPED surface reproduces it exactly.** `MemoryQuery.Detail = MemoryDetail.Full` (**D104**) landed
+after this run, and `lyntai-fused-api` asks the engine for whole entries instead of having the harness swap
+text in afterwards. On the smoke sample the two arms agree in **every column** — token-F1 55.0/55.0, exact
+40.0/40.0, unknown 0/0, items 20.0/20.0, chars/q 3,814/3,814, and every category cell — from two
+independently-ingested stores by two different mechanisms. So the +11.7 is not a property of a harness
+trick: a consumer passing one parameter gets it.
+
 **Not settled.** One reader tier, one embedder, n = 200 rather than the full 1,540. The category splits are
 not resolved at this sample and do not all point one way — against `vector`, `lyntai-fused-full` reads
 multi-hop 38.0 vs 37.8 and single-hop 50.8 vs 48.9, but temporal 25.1 vs 29.2 and open-domain 16.7 vs 25.0.

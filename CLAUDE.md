@@ -27,7 +27,7 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D103**. The two groups worth knowing before you touch anything:
+The reasoning is `docs/DECISIONS.md`, **D1–D104**. The two groups worth knowing before you touch anything:
 **D83–D103 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
@@ -51,7 +51,7 @@ as a heartbeated slot table (**D73**), the guard-parity split — forced in FORC
 (**D75**), the two relational memory-graph stores sharing their materialization (**D77**, **D80**, **D81**),
 and RRF ranking by COMPETITION so an uninformative signal contributes nothing (**D82**). The memory subsystem
 overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86**, **D88**, **D89**, **D90**, **D91**,
-**D92**, **D93**, **D94**, **D97**, **D98**, **D99**, **D100**, **D101**, **D102** and **D103**.
+**D92**, **D93**, **D94**, **D97**, **D98**, **D99**, **D100**, **D101**, **D102**, **D103** and **D104**.
 
 **The memory engine is evaluated as an n-shot WALK, not a single top-k** (**D100**, 2026-08-29). A recall
 returns HEADLINES — associative content is withheld until an expansion asks for it, which is what makes the
@@ -151,7 +151,7 @@ using vocabulary a decision retired fails the build — the prose counterpart to
 plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3544 passed / 3565 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+Tests/e2e green: **3551 passed / 3572 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 470/470, doc samples 80/80.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,

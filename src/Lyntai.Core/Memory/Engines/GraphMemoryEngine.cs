@@ -753,8 +753,12 @@ public sealed class GraphMemoryEngine(
                 new MemoryRef(Name, x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)),
                 x.Candidate.Node.Headline,
                 // associative content is withheld until expansion — that is what makes the first load
-                // cheap; authoritative content is always present, because it is never returned truncated
-                x.Candidate.Node.Grade == MemoryGrade.Authoritative ? x.Candidate.Node.Content : null,
+                // cheap; authoritative content is always present, because it is never returned truncated.
+                // MemoryDetail.Full opts out of the withholding for callers that must ANSWER from a recall
+                // rather than index it: worth +11.7 token-F1 on LoCoMo for the same items (Part 136).
+                x.Candidate.Node.Grade == MemoryGrade.Authoritative || query.Detail == MemoryDetail.Full
+                    ? x.Candidate.Node.Content
+                    : null,
                 x.Candidate.Node.Grade, x.Candidate.Node.Relevance, x.Candidate.Retrievability,
                 x.Candidate.Node.Degree, x.Candidate.Node.Metadata))
             .ToList();

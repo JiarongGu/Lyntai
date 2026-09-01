@@ -2050,6 +2050,10 @@ struct Lyntai.Memory.MemoryDecayState
     Strength : Double
     StrengthAge : Double
     ToString() : String
+enum Lyntai.Memory.MemoryDetail
+    Full : MemoryDetail const
+    Headline : MemoryDetail const
+    value__ : Int32
 sealed class Lyntai.Memory.MemoryEngineBuilder
     Budget(Int32 characters) : MemoryEngineBuilder
     FanOutWrites() : MemoryEngineBuilder
@@ -2098,9 +2102,10 @@ static class Lyntai.Memory.MemoryProvenance
     static Unpack(Int64 stored) : Int64
     static ValidateProvenanceBits(IReadOnlyList<Int64> bits, Func<Int32,String> describe) : Void
 sealed class Lyntai.Memory.MemoryQuery
-    .ctor(String TaskKey, String Scope = null, String Query = null, Nullable<Int32> Limit = null, Nullable<Int32> CharBudget = null, String RankingPolicyName = null)
+    .ctor(String TaskKey, String Scope = null, String Query = null, Nullable<Int32> Limit = null, Nullable<Int32> CharBudget = null, String RankingPolicyName = null, MemoryDetail Detail = MemoryDetail.Headline)
     CharBudget : Nullable<Int32>
-    Deconstruct(String& TaskKey, String& Scope, String& Query, Nullable`1& Limit, Nullable`1& CharBudget, String& RankingPolicyName) : Void
+    Deconstruct(String& TaskKey, String& Scope, String& Query, Nullable`1& Limit, Nullable`1& CharBudget, String& RankingPolicyName, MemoryDetail& Detail) : Void
+    Detail : MemoryDetail
     Equals(MemoryQuery other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32

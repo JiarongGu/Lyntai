@@ -20,6 +20,24 @@ public sealed record MemoryWrite(
     MemoryGrade Grade = MemoryGrade.Inherit,
     IReadOnlyDictionary<string, string>? Metadata = null);
 
+/// <summary>How much of each matched entry a recall returns.
+/// <para>The default withholds associative content until an expansion asks for it, which is what makes a
+/// first load cheap (<c>docs/DECISIONS.md</c> D100). Authoritative material is never truncated under either
+/// value, because a truncated exact fact is confidently wrong.</para></summary>
+public enum MemoryDetail
+{
+    /// <summary>Content MAY be withheld: <see cref="MemoryItem.Headline"/> is always populated, and
+    /// <see cref="MemoryItem.Content"/> is whatever the engine chooses to carry. An engine whose entries have
+    /// no separate short form (lexical, semantic, curated) populates both; <c>GraphMemoryEngine</c> returns a
+    /// headline alone for associative material.</summary>
+    Headline = 0,
+
+    /// <summary>Content is populated wherever the engine holds it, so an item comes back whole rather than
+    /// as a pointer to itself. Costs what the extra text costs — <see cref="MemoryQuery.CharBudget"/> prices
+    /// it and will therefore admit fewer items for the same budget.</summary>
+    Full = 1,
+}
+
 /// <summary>What to recall.</summary>
 /// <param name="TaskKey">The consumer/purpose to recall within.</param>
 /// <param name="Scope">Optional variant filter; null recalls across the task's scopes.</param>
@@ -37,13 +55,24 @@ public sealed record MemoryWrite(
 /// default would surface, if at all, as "ranking seems off" months later rather than as a call that fails
 /// where it was made. An engine with no ranking concept (lexical, semantic, curated) simply ignores this
 /// field — only <c>GraphMemoryEngine</c> consults it today.</para></param>
+/// <param name="Detail">How much of each matched entry to return. Defaults to
+/// <see cref="MemoryDetail.Headline"/>, which is what every engine did before this parameter existed.
+/// <para><b>Per CALL rather than per deployment, because one application wants both.</b> A cheap index of
+/// what is related wants headlines; a reader that must answer from the excerpts wants the whole entry, and
+/// the same host does both at different call sites. Measured on LoCoMo: returning full content for the SAME
+/// twenty items is worth <b>+11.7 token-F1</b> and closes essentially the whole gap to plain cosine
+/// (<c>docs/task-archive.md</c> Part 136) — so this is not a preference, it is the difference between a
+/// reader answering and refusing.</para>
+/// <para>The engines whose entries have no separate short form (lexical, semantic, curated) already return
+/// content under either value; only <c>GraphMemoryEngine</c> changes behaviour here.</para></param>
 public sealed record MemoryQuery(
     string TaskKey,
     string? Scope = null,
     string? Query = null,
     int? Limit = null,
     int? CharBudget = null,
-    string? RankingPolicyName = null);
+    string? RankingPolicyName = null,
+    MemoryDetail Detail = MemoryDetail.Headline);
 
 /// <summary>One recalled entry.</summary>
 /// <param name="Reference">Its address, carrying the owning engine.</param>
