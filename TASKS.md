@@ -908,6 +908,17 @@ returns)._
   matched, the residual was volume; if it does not, the headline-plus-fragment SHAPE is the limit and more
   expansion will not fix it.
 
+  _**PRE-REGISTERED before the first `--seeds` run (2026-09-01): the gap CANNOT close, and the arithmetic
+  says so in advance.** `unknown` is the only channel through which more context can convert a wrong answer
+  into a right one, and `lyntai-fused-3shot` has **8** against `vector-40`'s **1** — a deficit of **7
+  questions out of 100**. Even recovering EVERY one of them perfectly moves token-F1 by roughly 7 points, to
+  about 45.5, against `vector-40`'s **49.8**. So **at least ~4 points of the 11.3 gap is answer quality on
+  evidence that is already present**, which is FORM and not volume, and no amount of extra expansion
+  reaches it. What the sweep can still settle is how much of the remaining ~7 is volume — and whether
+  chars/q even rises, since items/q is already at the walk's `MaxItems = 40` cap, so `--seeds` must work by
+  expanding MORE of the same 40 items rather than by returning more of them. **If chars/q does not move,
+  the run measured nothing and the lever is the wrong one** — read that before reading any accuracy column._
+
 ---
 
 ## How to work a task (evergreen)
