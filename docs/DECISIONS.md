@@ -3024,6 +3024,11 @@ the caller is stating a size, not supplying behaviour, and `library-api-design.m
 disagreements about BEHAVIOUR. Ingesting as `MemoryGrade.Authoritative` to get full content: that grade also
 engages the carve-out and re-admission, so it moves ranking at the same time.
 
+**It does NOT follow that the model-facing tool should change.** `MemoryTools.Recall` returns headlines and
+tells the model to call `expand` on what it wants — the right economics for an agent that pays per turn and
+can choose. The 11.7 points were measured on a ONE-SHOT reader with no second call available, which is a
+different consumer; do not carry the number across to one that can ask again.
+
 **Scope.** Only `GraphMemoryEngine` changes: the lexical, semantic and curated engines have no separate short
 form and already returned content under either value. The promise is stated as a cross-engine contract fact
 (`MemoryEngineContract.Full_detail_returns_content_on_every_item`) so a future engine inherits it, and the
