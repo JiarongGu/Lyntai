@@ -1116,21 +1116,22 @@ that result stands. What the metric cannot support is the INFERENCE that usually
 retrieval should mean better answers.* Between a graph arm and a cosine arm it does not follow, because the
 two deliver different amounts of the turn they both found.
 
-**It is a CANDIDATE mechanism for a gap this record has carried without one, and the candidacy is weaker than
-it first looks.** `TASKS.md` Part 128's pre-registration guessed it in words — *"the engine returns HEADLINES
-and the reader cannot answer from a pointer"* — and nothing quantified it. The quantity is 56.2%, and the
-reason nobody caught it is that the one metric watching that stage is blind to it by construction.
+**It is the mechanism, and the subsection below MEASURES it at +11.7 of a 12.0-point gap.** `TASKS.md`
+Part 128's pre-registration guessed it in words — *"the engine returns HEADLINES and the reader cannot answer
+from a pointer"* — and nothing quantified it. The quantity is 56.2% of the text, and the reason nobody caught
+it is that the one metric watching that stage is blind to it by construction.
 
-**But the published table already holds a fixed-slot content experiment, and it says content buys little.**
+**A fixed-slot content experiment in the published table said the opposite, and it did NOT generalise.**
 At `--seeds 16` shot 3 discovers nothing new (`new 0.0`, measured), so **`lyntai-2shot` and `lyntai-3shot`
 hold the IDENTICAL 40 items** and differ only in content share — 40% against 80%. The composition model
 predicts both rows to within one character (135.5 against a measured 135.6; 157.2 against 156.2), which is
 what licenses reading the pair as a content contrast at all. **token-F1 moves +1.1**, 32.3% to 33.4%.
-<br>So doubling the content of a fixed item set is worth about a point, and truncation cannot be assumed to
-explain 13.3 of them. **The one thing that contrast does not settle is WHICH items get upgraded**: shot 3
-seeds shot 2's newly-discovered neighbours, so +1.1 prices the low-value half of the upgrade, while a
-rehydration arm would upgrade the top-ranked items evidence-hit says carry the evidence. That is the
-experiment, and it is Part 136.
+<br>**That reading was wrong, and the caveat beside it is why.** The contrast does not settle WHICH items get
+upgraded: shot 3 seeds shot 2's newly-discovered neighbours, so +1.1 prices the LOW-value half, while
+rehydration upgrades the top-ranked items evidence-hit says carry the evidence. The rehydration arm measured
+**+11.7**, ten times the fixed-slot figure. **Read this pair as a warning about extrapolating a
+natural experiment**: the contrast was real, correctly computed and correctly caveated, and generalising it
+past the population it measured would still have been wrong by an order of magnitude.
 
 **Exposure is per-arm and worth stating separately**, because it is not uniform: the retrieval ladder's arms
 are 100% headlines, `lyntai-fused-3shot` is 20% (finding 9's 8 of 40), and every `vector*` and `full` arm is
@@ -1160,13 +1161,62 @@ not change. **The 31.4%-against-10.0% discrimination result stands.** What does 
 reading the char column invites: 1,169 characters against 10,387 is not the same information nine times
 cheaper, it is ten pointers against ten documents.
 
-**Not settled.** This is a MECHANISM, not a decomposition — it does not say how much of the 13.3-point QA gap
-truncation accounts for, and the two figures come from different samples (n = 200 retrieval, n = 1,540 QA).
-The clean test is an arm that retrieves identically and returns full content: `TASKS.md` **Part 136** builds
-it as a REHYDRATION arm and pre-registers the prediction. Note that ingesting the corpus as
+**Sized in the subsection below** by an arm that retrieves identically and returns full content
+(`docs/task-archive.md` **Part 136**): **+11.7 of a 12.0-point gap**. Note that ingesting the corpus as
 `MemoryGrade.Authoritative` would also return full content — a recall projects `Content` only for that grade
-— but it engages the grade carve-out and re-admission at the same time, so it moves ranking too and cannot
-isolate this.
+— but it engages the grade carve-out and re-admission at the same time, so it moves ranking too and could
+not have isolated this.
+
+### TRUNCATION was the gap: rehydrating the same 20 items closes 11.7 of 12.0 points (`memory-locomo`, rehydration arm, 2026-09-02)
+
+The subsection above found the mechanism and could not size it. This sizes it, and the answer is that
+headline truncation accounted for essentially the whole QA deficit against plain cosine.
+
+**Instrument.** `node devtools/dev.mjs memory-locomo --n 200 --no-judge`, 200 questions stratified over
+categories 1–4, seed 12345, reader `gemma3:4b` local, embedder `nomic-embed-text`, 2,712.4s. Raw output:
+the gitignored `devtools/_locomo-rehydrate.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+`lyntai-fused-full` reuses `lyntai-fused`'s OWN returned set and swaps each item's headline for the whole
+turn behind it — identical retrieval, identical ranking, identical 20 slots. **Control: 4,000 of 4,000 items
+rehydrated, no misses**, so the two arms differ in truncation and nothing else.
+
+| arm | token-F1 | exact | unknown | items/q | chars/q |
+|---|---|---|---|---|---|
+| `lyntai-fused` | 29.3% | 13.5% | 29 | 20.0 | 2,289 |
+| **`lyntai-fused-full`** | **41.0%** | 21.0% | 13 | 20.0 | 3,583 |
+| `vector` | 41.3% | 19.0% | 12 | 20.0 | 3,541 |
+| `lyntai-fused-3shot` | 38.0% | 17.0% | 10 | 39.7 | 4,968 |
+| `vector-40` | 44.5% | 19.0% | 5 | 40.0 | 6,924 |
+
+**1. Rehydration is worth +11.7 points, and the gap it closes was 12.0.** At n = 200 one question is worth
+≈0.5 points, so +11.7 is about 23 questions and far outside noise. `lyntai-fused-full` lands at **41.0%
+against `vector`'s 41.3%** — a −0.3 difference, under one question — at the same 20 slots and within 1.2% of
+the same context. **The engine's ranking is not worse than cosine. The entire measured QA deficit was
+headline truncation**, and the retrieval ladder was right about the ordering all along.
+
+**2. `unknown` is the corroborating column.** The reader said "the excerpts contained none" 29 times on the
+truncated arm and 13 on the rehydrated one, against `vector`'s 12. That is the same 20 turns in both graph
+arms, so nothing was newly FOUND — the reader simply stopped being handed half a sentence.
+
+**3. One shot with full content beats three shots with mixed content, for less context.**
+`lyntai-fused-full` scores 41.0% on 3,583 chars where `lyntai-fused-3shot` scores 38.0% on 4,968 — **+3.0
+points for 28% less**. Expansion is a more expensive way to obtain content than returning it, when the
+material is already in hand. That does not touch **D100**'s claim, which is about DISCOVERING material a
+first load did not hold; it does say the walk is the wrong tool for filling in what a recall already found.
+
+**4. The pre-registered prediction, and the revision that made it worse.** The original call was **38–45%**
+and the outcome is 41.0%. It was then revised DOWN to 32–40% before the run, on the fixed-slot contrast in
+the retraction subsection above (`lyntai-2shot` → `lyntai-3shot`, identical 40 items, content 40% → 80%, for
++1.1). **That contrast did not generalise**, and the pre-registration said why in advance: shot 3 seeds
+shot 2's newly-discovered neighbours, so +1.1 prices the LOW-value half of an upgrade while rehydration
+upgrades the top-ranked items. The caveat was right and the revision it accompanied was wrong.
+
+**Not settled.** One reader tier, one embedder, n = 200 rather than the full 1,540. The category splits are
+not resolved at this sample and do not all point one way — against `vector`, `lyntai-fused-full` reads
+multi-hop 38.0 vs 37.8 and single-hop 50.8 vs 48.9, but temporal 25.1 vs 29.2 and open-domain 16.7 vs 25.0.
+**And this measures a HARNESS arm, not a shipped path**: a consumer reaches the same place with N calls of
+`ExpandAsync(reference, hops: 0)`, one per returned item, which is supported but is N store round-trips.
+Whether a recall should be able to return content directly is a design question this measurement raises and
+does not answer.
 
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 
