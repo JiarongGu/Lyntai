@@ -207,6 +207,25 @@ internal static class MemoryLocomoBench
                 : ["lyntai", FusedOneShot, FusedRehydrated, FusedApiDetail, FusedThreeShot,
                     FusedThreeShotFull, TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
 
+        // `--arms a,b,c` runs a SUBSET. The full QA set is eleven arms and a full-sample pass is hours of
+        // reader time, so confirming ONE comparison at n = 1540 was unaffordable until this existed.
+        // Unknown names are an ERROR rather than a silent no-op: a typo would otherwise quietly measure
+        // fewer arms than asked for and still print a table.
+        var armsFiltered = false;
+        if (ArgValue(args, "--arms") is { } wanted)
+        {
+            var requested = wanted.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var unrecognised = requested.Where(a => !arms.Contains(a, StringComparer.Ordinal)).ToList();
+            if (unrecognised.Count > 0)
+            {
+                Console.Error.WriteLine($"--arms: unknown arm(s) {string.Join(", ", unrecognised)}. "
+                    + $"This mode runs: {string.Join(", ", arms)}");
+                return 1;
+            }
+            arms = [.. arms.Where(a => requested.Contains(a, StringComparer.Ordinal))];
+            armsFiltered = true;
+        }
+
         var (conversations, questions) = Load(path);
         var sampled = Stratify(questions, take);
 
@@ -454,6 +473,25 @@ internal static class MemoryLocomoBench
                                 HopWeight = 0,
                             }), null, RecallLimit),
                         (ThreeShot, null, null, null, null)];
+
+            // Drop the CONFIGS no selected arm needs — that is where the cost is, since each one ingests its
+            // own pristine store per conversation. QA path only: the other modes' arm names are not config
+            // names (`--shots` scores `shot-1..3` off ONE config), so the mapping below does not hold there.
+            //
+            // TWO arms do not own a config. `lyntai-fused-full` rehydrates `lyntai-fused`'s returned set, and
+            // `lyntai-2shot` IS `lyntai-3shot`'s step-2 snapshot. Getting this wrong throws on a dictionary
+            // lookup rather than quietly measuring less, but it is named because the next arm that borrows
+            // another's recall will not be so lucky.
+            if (armsFiltered && !retrievalOnly && !shotsOnly && !ranksOnly && !composition)
+            {
+                static string ConfigFor(string arm) => arm switch
+                {
+                    FusedRehydrated => FusedOneShot,
+                    TwoShot => ThreeShot,
+                    _ => arm,
+                };
+                configs = [.. configs.Where(c => arms.Any(a => ConfigFor(a) == c.Arm))];
+            }
 
             (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking,
                 IMemoryVerificationPolicy? Verification, int? SemanticK)[] Ladder() =>
