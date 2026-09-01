@@ -54,6 +54,16 @@ internal static class MemoryLocomoBench
     // Fused ranking's own three-shot walker (D103) — same walk shape as `ThreeShot`, joined to it in
     // `MultiShotArms` rather than given a parallel doc block, since that walk is what this one inherits.
     private const string FusedThreeShot = "lyntai-fused-3shot";
+
+    /// <summary>The one-shot fused arm, and the REHYDRATED copy of it that isolates truncation.
+    /// <para><c>lyntai-fused-full</c> reuses that arm's returned set UNCHANGED and swaps each item's
+    /// headline for the whole turn behind it, so retrieval, ranking and slot count are identical and the
+    /// only difference is how much of each found turn the reader sees. It therefore builds no engine and
+    /// issues no second recall — see <c>docs/task-archive.md</c> Part 135 for why that isolation is the
+    /// experiment: <c>evidence-hit@k</c> matches a <c>dia_id</c> that survives truncation, so the metric
+    /// watching this stage cannot see the thing this arm varies.</para></summary>
+    private const string FusedOneShot = "lyntai-fused";
+    private const string FusedRehydrated = "lyntai-fused-full";
     // Arms whose walk continues past step 1. Only `ThreeShot` also publishes its step-2 snapshot as
     // `TwoShot` — nothing in `arms` names a fused two-shot form, so a member added here need not.
     private static readonly HashSet<string> MultiShotArms = [ThreeShot, FusedThreeShot];
@@ -179,7 +189,7 @@ internal static class MemoryLocomoBench
                         .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
                         "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "+sem+fuse", "+fuse",
                         "vector"]
-                : ["lyntai", "lyntai-fused", FusedThreeShot, TwoShot, ThreeShot, "vector",
+                : ["lyntai", FusedOneShot, FusedRehydrated, FusedThreeShot, TwoShot, ThreeShot, "vector",
                     $"vector-{ShotBudget}", "full"];
 
         var (conversations, questions) = Load(path);
@@ -206,9 +216,35 @@ internal static class MemoryLocomoBench
         var millis = new Dictionary<string, double>();
         // `--composition`'s tallies, keyed by arm and — for the walk — by `<arm> shot-N`, so a per-shot row
         // and the final row come out of one pass.
+        // The rehydration arm's own CONTROL. An item whose `(dia_id)` did not resolve silently falls back to
+        // its headline, which would make the arm quietly partial — and a partial rehydration reads as a weak
+        // RESULT rather than as a broken arm, the direction that gets published.
+        var rehydrated = 0;
+        var rehydrateMisses = 0;
+
         var comp = new Dictionary<string, CompositionTally>();
         CompositionTally Tally(string key) =>
             comp.TryGetValue(key, out var t) ? t : comp[key] = new CompositionTally();
+
+        // Swap each returned item's (possibly truncated) text for the WHOLE turn behind it, keyed on the
+        // `(dia_id)` the harness embeds. That marker surviving truncation is the finding this arm tests
+        // (`docs/task-archive.md` Part 135) and is also what makes the swap possible at all.
+        List<string> Rehydrate(IReadOnlyList<string> pieces, IReadOnlyDictionary<string, string> whole)
+        {
+            var full = new List<string>(pieces.Count);
+            foreach (var piece in pieces)
+            {
+                rehydrated++;
+                // The turn is `[{date}] ({dia_id}) {speaker}: {text}` and no date here carries a paren, so
+                // the FIRST parenthesised run is the id.
+                var open = piece.IndexOf('(', StringComparison.Ordinal);
+                var close = open >= 0 ? piece.IndexOf(')', open + 1) : -1;
+                var id = close > open ? piece[(open + 1)..close] : null;
+                if (id is not null && whole.TryGetValue(id, out var turn)) full.Add(turn);
+                else { rehydrateMisses++; full.Add(piece); }
+            }
+            return full;
+        }
 
         // One WALK STEP's composition. `UpgradedCount` is the number Part 135 exists to count: a headline
         // raised to full content is what a shot buys beyond discovering a new entry, and it is invisible in
@@ -506,6 +542,11 @@ internal static class MemoryLocomoBench
             var vectorIndex = new List<(string Text, float[] Vector)>();
             foreach (var text in texts) vectorIndex.Add((text, await embedder.EmbedAsync(text)));
 
+            // dia_id -> the WHOLE turn, for the rehydration arm. Built by INDEX against `texts` rather than
+            // by projecting `turns` again, so the two can never disagree about what a turn's text is.
+            var byDiaId = new Dictionary<string, string>(StringComparer.Ordinal);
+            for (var i = 0; i < turns.Count; i++) byDiaId[turns[i].DiaId] = texts[i];
+
             // Warm the QUERY embeddings before anything is timed. The embedder cache is shared across arms,
             // so whichever arm ran first would otherwise pay for every embed and the ms column would be
             // measuring arm ORDER rather than retrieval work.
@@ -790,6 +831,10 @@ internal static class MemoryLocomoBench
                         _ when arm == $"vector-{ShotBudget}" =>
                             [.. await TopKAsync(embedder, vectorIndex, q.Text, ShotBudget)],
                         "full" => texts,
+                        // Reuses the one-shot fused arm's OWN returned set — not a second recall — so
+                        // retrieval, ranking and slot count are held exactly and only the text differs.
+                        _ when arm == FusedRehydrated =>
+                            Rehydrate(recalled[(FusedOneShot, q.Text)], byDiaId),
                         _ => recalled[(arm, q.Text)],
                     };
                     var context = string.Join("\n", pieces);
@@ -866,6 +911,15 @@ internal static class MemoryLocomoBench
                 Console.WriteLine($"\n  --dump: {dumped.Count} item(s) → {dumpPath}");
             }
         }
+        // Reported whenever the arm ran, and reported even at zero: a rehydration that silently fell back
+        // to headlines would present as "full content did not help", which is the opposite conclusion.
+        if (rehydrated > 0)
+            Console.WriteLine($"\n  CONTROL {FusedRehydrated}: {rehydrated - rehydrateMisses} of {rehydrated} "
+                + $"item(s) rehydrated to the whole turn"
+                + (rehydrateMisses > 0
+                    ? $" - {rehydrateMisses} MISS(ES); the arm is partial and its result is not readable."
+                    : " - no misses, so the arm differs from its source ONLY in truncation."));
+
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
