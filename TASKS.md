@@ -846,6 +846,25 @@ history** — anything below that must outlive it is here._
   far; **prose claims with no extractable shape are invisible to it**, and that is probably where the
   remaining defects are.
 
+  _**Swept 2026-09-02 and NOTHING was found**, which is worth recording precisely because it is weak
+  evidence. The probe was re-created (`devtools/_decisions-audit.mjs` <!-- link-ok: gitignored scratch, re-creatable from this note --> — split on
+  `## D<n> —`, extract shapes) and the two remaining populations enumerated: **26 uniqueness claims across
+  20 entries** and **23 placement claims**, both wider than the 21/12 the item quotes, because the original
+  probe's pattern is gone and mine is not it. Checked by hand: **D88** (only `Grade == Authoritative` reaches
+  the reserve — true), **D67** (generation contracts in `Core/Generation`, backends in `src/Lyntai.Generation`
+  — true), **D46** (already scoped precisely to a policy DOMAIN's types, so the ~40 contract types at the
+  root are not violations), **D15** (`release.yml` is the only workflow — true). Together with the five
+  placement and ten default/on-off claims the 2026-08-31 pass verified, the EXTRACTABLE population is now
+  largely clean._
+  <br>_**D46 was checked because this session might have broken it.** `MemoryDetail` (**D104**) is a new type
+  at the root of `Lyntai.Memory`, and D46's claim names `MemoryDecayState` as the only DOMAIN-shaped type
+  there. It holds: the entry already scopes "domain-shaped" to a policy domain's seam, implementations or
+  options, and lists `MemoryQuery`/`MemoryGrade` as correctly at the root — which is the category
+  `MemoryDetail` joins. **A decision worth auditing is one your own change could invalidate**, and that is a
+  cheaper trigger than a periodic sweep._
+  <br>_What is left is the item's own honest limit: claims with no extractable shape. A regex population is
+  not the population._
+
 _**The gate this Part argued for is BUILT** — `docs/task-archive.md` **Part 130**, 2026-08-31:
 `check-decision-claims` is wired into `verify` (now seventeen gates) with six predicates, each verified by
 hand before registering and each driven RED by a synthesized tree in its own test. What is left of this Part
