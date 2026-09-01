@@ -669,6 +669,16 @@ it._
   store, so a widened run no longer inherits it. **The QA half itself has NOT been re-run** — it needs a
   reader — so its numbers (`docs/task-archive.md` Part 115) were taken under contamination, and widening now
   means re-measuring rather than adding to them._
+  <br>_**The FULL QUESTION SET half of this item is DONE (2026-09-01).** All 1,540 questions ran on eight
+  arms — `docs/memory.md` §5's full-sample subsection. It was not bookkeeping: at n = 100 the same instrument
+  reported a ranking × walk interaction of +6.7 and category wins of +6.2 / +5.5, and every one of those
+  collapsed at full sample (+1.0, −0.6, +0.1). **What is left of this item is the SECOND EMBEDDER and the
+  SECOND READER**, which is now the whole of it — restate it that way rather than leaving "the full question
+  set" advertised as outstanding._
+  <br>_**And a reason the second reader matters more than it did.** The judge column was calibrated against
+  that run's `--dump` and is generous by ≈12 points (`docs/memory.md` §5, finding 7) — same 4B model reading
+  and grading. A second reader is no longer only about confidence in the differences; it is the only way to
+  separate the reader's ceiling from the memory layer's._
   <br>_**`ExpansionRetrievabilityFloor` is no longer part of this item.** It was swept across both workloads
   on 2026-08-30 (`docs/task-archive.md` **Part 123**), and the owner settled it the same day: the default
   stays at `0`. This line said it "needs more than one workload" and quoted a cost of 4 points — the

@@ -968,6 +968,30 @@ weakest category for the engine AND for plain cosine, which argues the ceiling h
 class (open-domain LoCoMo questions ask about world knowledge outside any single conversation) rather than
 by which retrieval mechanism answers it.
 
+**7. The `judge` column is MEASURABLY generous, by about 12 points — and this is why token-F1 is primary.**
+Calibrated 2026-09-01 against the `--dump` record of that same run: 40 `lyntai-fused-3shot` items, 20 the
+judge called correct and 20 it called wrong, re-graded by a stronger reader. **Roughly 5 of 20 (~25%) of its
+CORRECT verdicts do not survive** — gold *"Restoring cars"* against the answer *"Fixing up things"*, gold
+*"to remind you of the good vibes"* against *"like having joy in your pocket"* — and about 3 of 20 (~15%) of
+its INCORRECT verdicts are defensible answers. Applied to its 1042 yes / 439 no, the corrected count is
+≈848, i.e. **≈55% against the reported 67.7%**.
+<br>**The bias is COMMON-MODE**: the same 4B model grades every arm, so it distorts absolutes far more than
+differences — which is the measured justification for `TASKS.md` Part 109's "only the arm difference
+transfers" rule, previously held on principle alone.
+<br>**Stated as a lower bound, because the calibration has a flaw of its own**: the re-grade was NOT blinded
+— the grader could see each verdict while judging it, which anchors in the direction that flatters the
+judge. 25%/15% are therefore floors on disagreement, not point estimates. A blinded re-grade is the honest
+version and has not been run.
+
+**8. LoCoMo's temporal golds are written in RELATIVE phrasing, and that penalises a correct answer.** Found
+in the same 40-item sample, and it is a caution about the INSTRUMENT rather than about any arm. Gold *"the
+week before 21 January, 2022"* against the answer *"21 January, 2022"*; gold *"The week before March 27,
+2023"* against *"27 March, 2023"*; gold *"The sunday before 25 May 2023"* against *"Saturday"*. A reader
+that retrieves the right turn and answers with the absolute date scores zero on both token-F1 and the judge.
+**That plausibly explains why `temporal` sits at 32–34% for EVERY arm including plain cosine** — the
+category may be measuring answer formatting as much as memory. Anyone reading a temporal figure here, ours
+or a published one, needs this. Not quantified: what share of the temporal deficit it accounts for.
+
 **What this does not settle.** Absolute values are a property of a 4B local reader and are NOT comparable to
 any published figure from any other system — only ARM DIFFERENCES transfer. One workload (LoCoMo), one
 embedder (`nomic-embed-text`), one reader tier (`gemma3:4b`). **n = 1,540 now** — the complete published QA
