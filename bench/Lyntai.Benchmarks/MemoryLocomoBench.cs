@@ -194,6 +194,9 @@ internal static class MemoryLocomoBench
         var exact = new Dictionary<(string Arm, int Category), int>();
         var chars = new Dictionary<string, long>();
         var millis = new Dictionary<string, double>();
+        // `--dump`'s per-item record. Collected in memory rather than streamed: 100 questions x 8 arms is
+        // 800 lines, and a writer held open across the run is one more thing to get wrong on a throw.
+        var dumped = new List<string>();
 
         // ONE probe across every conversation, because the ladder's rates are over the whole sample. It is
         // installed as the shipped arm's ranking policy and delegates untouched, so it describes the run that
@@ -702,6 +705,14 @@ internal static class MemoryLocomoBench
                     if (hypothesis.Length == 0 || hypothesis.StartsWith("unknown", StringComparison.OrdinalIgnoreCase))
                     {
                         unknown[arm] = unknown.GetValueOrDefault(arm) + 1;
+                        // Dumped too: an "unknown" is the reader refusing, which is the case a calibration
+                        // most wants to see, and omitting it would make the dump disagree with the table.
+                        if (dump)
+                            dumped.Add(JsonSerializer.Serialize(new
+                            {
+                                arm, question = q.Text, gold = q.Gold, answer = hypothesis,
+                                unknown = true, f1 = 0.0, exact = false, judge = (bool?)null,
+                            }));
                         continue;
                     }
 
@@ -709,11 +720,21 @@ internal static class MemoryLocomoBench
                     // not better at exact comparison (`model-decoupling.md`), and this judge is the same 4B
                     // model that wrote the answer — so token-F1 against the gold string is the number to
                     // trust, and the judge's job is to catch a right answer worded differently.
-                    f1[key] = f1.GetValueOrDefault(key) + TokenF1(hypothesis, q.Gold);
-                    if (Normalize(hypothesis).SequenceEqual(Normalize(q.Gold)))
-                        exact[key] = exact.GetValueOrDefault(key) + 1;
-                    if (judged && await JudgeAsync(chat, q, hypothesis))
-                        correct[key] = correct.GetValueOrDefault(key) + 1;
+                    var itemF1 = TokenF1(hypothesis, q.Gold);
+                    var itemExact = Normalize(hypothesis).SequenceEqual(Normalize(q.Gold));
+                    // The verdict is captured rather than tested inline, because `--dump` needs to record
+                    // WHAT the judge said, not only that it agreed. Null means the judge never ran.
+                    bool? verdict = judged ? await JudgeAsync(chat, q, hypothesis) : null;
+
+                    f1[key] = f1.GetValueOrDefault(key) + itemF1;
+                    if (itemExact) exact[key] = exact.GetValueOrDefault(key) + 1;
+                    if (verdict is true) correct[key] = correct.GetValueOrDefault(key) + 1;
+                    if (dump)
+                        dumped.Add(JsonSerializer.Serialize(new
+                        {
+                            arm, question = q.Text, gold = q.Gold, answer = hypothesis,
+                            unknown = false, f1 = itemF1, exact = itemExact, judge = verdict,
+                        }));
                 }
             }
 
@@ -723,6 +744,27 @@ internal static class MemoryLocomoBench
         if (ranksOnly) PrintRanks(rankProbe);
         else if (shotsOnly) PrintShots(arms, correct, asked, returned, chars, millis);
         else PrintResults(arms, correct, asked, unknown, returned, retrievalOnly, f1, exact, chars, judged);
+
+        // `--dump` was parsed and read by NOTHING until 2026-09-01 — a flag the usage advertised and the
+        // run silently ignored. It survived because `var dump = args.Contains(...)` assigns a method
+        // result, and C# only warns on an unused CONSTANT. It writes the per-item record the aggregate
+        // table cannot carry: the answer, the gold, and what the judge said about them. The judge here is
+        // the same model that wrote the answer, so calibrating it against a stronger one needs the items.
+        if (dump)
+        {
+            // Says so rather than writing an empty file: the QA path is the only one that produces an
+            // answer to dump, so `--retrieval --dump` has nothing to record. Reporting that is the whole
+            // lesson of the flag having been dead — a silent no-op reads exactly like a working one.
+            if (dumped.Count == 0)
+                Console.WriteLine("\n  --dump: nothing to write. Only the QA path produces answers; "
+                    + "`--retrieval`, `--shots` and `--ranks` have no reader.");
+            else
+            {
+                var dumpPath = Path.Combine("devtools", $"_locomo-dump-{DateTime.Now:HHmmss}.jsonl");
+                await File.WriteAllLinesAsync(dumpPath, dumped);
+                Console.WriteLine($"\n  --dump: {dumped.Count} item(s) → {dumpPath}");
+            }
+        }
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
