@@ -2165,6 +2165,32 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 143 — the REAL judge on that arm, and the capability floor it found
+
+✅ done 2026-09-03 — **A 4B judge costs 10.5 points where the perfect one gains 9.5.**
+`+sem+rel-only+judge` reads **72.5%** against the same arm's unjudged **83.0%** and the oracle's 92.5% —
+the third branch of the prediction registered in the ladder before the run, and the one meaning the seam has
+a capability FLOOR rather than a capability curve. Table, audit and caveats: `docs/memory.md` §5.
+
+**The mechanism was measured, not inferred.** A `JudgeAudit` decorator (added this Part, mirroring the
+existing `EvidenceRankProbe`) scores the model's endorsements against LoCoMo's own labels: **29.1
+endorsements per recall out of 80 shown, at 2.6% precision and 63.4% recall, with 0 of 200 calls declined.**
+The endorsement set is larger than the 20-slot page, so promotion REPLACES the ranking rather than refining
+it, and unendorsed evidence leaves the page however well it was ranked. The judge beats chance by 1.74× and
+that is far worse than what it displaces.
+
+**Two controls make it a finding rather than a wiring report.** Fail-open scores the base exactly, so 72.5%
+is only reachable by a judge that answered and was wrong — and the audit's zero declines confirms it. The
+run was repeated cell-for-cell; the bench judge is temperature 0, so that bounds HARNESS variance and not
+sampling variance, which the write-up says rather than implies.
+
+Consequence for consumers: `LlmVerificationOptions.ClientName`'s XML doc now carries the floor, since the
+sizing advice above it read as a pure cost/quality trade. One header defect fixed on the way past — the
+`--retrieval` preamble claimed "no reader and no judge" for a ladder that has had verdict arms since
+2026-08-31, in the raw output that gets cited as provenance.
+
+- Finish the REAL judge arm — and BUILD IT ON THE RIGHT BASE, which is the part that changed.
+
 ## Part 142 — the judge on the arm that is actually good, and the headline it corrects
 
 ✅ done 2026-09-03 — **Worth +9.5 points, so the real-judge run IS worth spending.**

@@ -24,8 +24,8 @@ internal sealed record FieldArm(
 /// sharing one scoring replica so <c>K = 60</c> cannot mean two things.</para>
 ///
 /// <para><b>What does NOT belong here: an arm that cannot be written down as constants.</b>
-/// <c>+forget0+oracle</c>'s verifier is built from a conversation's own questions and <c>+forget0+judge</c>
-/// needs a chat client, so both stay local to the bench that owns them. So do <c>+fuse</c> and
+/// <c>+forget0+oracle</c>'s verifier is built from a conversation's own questions and
+/// <c>+sem+rel-only+judge</c> needs a chat client, so both stay local to the bench that owns them. So do <c>+fuse</c> and
 /// <c>+sem+fuse</c>: they are a matched pair from one fusion experiment, and <c>+fuse</c> additionally needs
 /// bench-side seed wiring (the lexical channel ALONE) that no field here expresses.</para>
 ///

@@ -326,6 +326,13 @@ internal static class MemoryLocomoBench
         // produced the published `lyntai` row rather than a reconstruction of it.
         var rankProbe = new EvidenceRankProbe(new ReciprocalRankFusionPolicy());
 
+        // ONE audit across every conversation, for the same reason `rankProbe` is one. It wraps the SHIPPED
+        // judge, so the arm below is still the seam a deployment switches on, and it exists because the
+        // evidence-hit column alone cannot say WHY a judge arm moved — see JudgeAudit.
+        var judgeAudit = judgeChat is null
+            ? null
+            : new JudgeAudit(new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat)));
+
         foreach (var (convId, turns) in conversations)
         {
             var mine = sampled.Where(q => q.ConvId == convId).ToList();
@@ -533,18 +540,6 @@ internal static class MemoryLocomoBench
                     Verification = new EvidenceOracleVerifier(EvidenceByQuery(mine, convId)),
                 },
 
-                // The REAL judge, beside its own ceiling. `+oracle` says how much promotion could recover;
-                // this says how much a model actually does, and the gap between them is the model's error
-                // rather than the mechanism's limit. Skipped when no chat model answers — the arm measures
-                // what a MODEL is worth, so a scripted stand-in would measure the stand-in.
-                .. judgeChat is null
-                    ? Array.Empty<FieldArm>()
-                    : [FieldArms.Named("+forget0") with
-                    {
-                        Name = "+forget0+judge",
-                        Verification = new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat)),
-                    }],
-
                 // The FORMULA arms (2026-08-31): they test what makes the judge an add-on rather than a
                 // rescue. `vector` is PURE tier-2 — one embedder, cosine, no graph, no judge — and scores
                 // 80.5%, above this engine WITH a perfect judge at 77.5%. A plain formula beating
@@ -587,6 +582,30 @@ internal static class MemoryLocomoBench
                     Name = "+sem+rel-only+oracle",
                     Verification = new EvidenceOracleVerifier(EvidenceByQuery(mine, convId)),
                 },
+
+                // The REAL judge, on the base that earns it. `+oracle` above is the ceiling; this is what a
+                // model actually reaches, and the gap between them is the MODEL's error rather than the
+                // mechanism's limit. It sat on `+forget0` and never completed — re-aimed here because that
+                // base is dominated, which is the whole of what `TASKS.md` Part 128 asks for.
+                // Skipped when no chat model answers: a scripted stand-in would measure the stand-in.
+                //
+                // PRE-REGISTERED, 2026-09-03, before the first run. The judge sees `VerificationDepth`
+                // candidates — 4 × the recall's 20 — so this is a 4B model picking from 80 one-line
+                // headlines, harder than the short authored lists `memory-verification` priced (3B captured
+                // ~60-69% of the available improvement there, 7B 91.4%). Against this arm's own 83.0% and
+                // the oracle's 92.5%:
+                //   >= 87.0%  a real model survives promotion here; what is left is a model-TIER question.
+                //   83.0-87%  it works and is marginal — the next question is a bigger judge, not a new seam.
+                //   <  83.0%  BELOW the unjudged base: a weak judge promotes wrong candidates onto the page,
+                //             so the seam has a capability FLOOR and `LlmVerificationOptions.Model` owes
+                //             consumers that caveat.
+                .. judgeAudit is null
+                    ? Array.Empty<FieldArm>()
+                    : [FieldArms.Named("+sem+rel-only") with
+                    {
+                        Name = "+sem+rel-only+judge",
+                        Verification = judgeAudit,
+                    }],
 
                 FieldArms.Named("+sem+mult"),
                 FieldArms.Named("+sem80+mult"),
@@ -733,6 +752,10 @@ internal static class MemoryLocomoBench
                         Console.WriteLine($"  CONTROL clone/{convId}: {present.Count} of {texts.Count} "
                             + "ingested turns present in the per-question copy");
                     }
+
+                    // Handed to the audit the same way the K ladder hands it to the rank probe, so the judge's
+                    // endorsements are scored against the SAME labels the arm's own column is scored against.
+                    if (judgeAudit is not null) judgeAudit.Evidence = q.Evidence;
 
                     // The K ladder needs ONE recall per question and nothing else: the probe observes the pool
                     // that recall produced and scores every K over it offline. Evidence is handed to the
@@ -984,6 +1007,10 @@ internal static class MemoryLocomoBench
         else if (shotsOnly) PrintShots(arms, correct, asked, returned, chars, millis);
         else PrintResults(arms, correct, asked, unknown, returned, retrievalOnly, f1, exact, chars, judged);
 
+        // Printed here rather than through PrintResults, which already takes ten arguments and describes
+        // every arm — this describes ONE, and only when it ran.
+        if (judgeAudit is { Calls: > 0 }) PrintJudgeAudit(judgeAudit);
+
         // `--dump` was parsed and read by NOTHING until 2026-09-01 — a flag the usage advertised and the
         // run silently ignored. It survived because `var dump = args.Contains(...)` assigns a method
         // result, and C# only warns on an unused CONSTANT. It writes the per-item record the aggregate
@@ -1186,8 +1213,10 @@ internal static class MemoryLocomoBench
             Console.WriteLine("=== LoCoMo: evidence-hit@k, the MODEL-FREE half ===");
             Console.WriteLine();
             Console.WriteLine("Does the recalled set contain the evidence turn LoCoMo names for the question?");
-            Console.WriteLine("No reader and no judge, so a difference here is the MEMORY LAYER and nothing");
-            Console.WriteLine("else - which is what separates a retrieval failure from a reading failure.");
+            Console.WriteLine("SCORING is model-free - nothing reads or grades an answer - so a difference here");
+            Console.WriteLine("is the MEMORY LAYER, which separates a retrieval failure from a reading failure.");
+            Console.WriteLine("The `+oracle` and `+judge` arms are the exception and say so in their names: a");
+            Console.WriteLine("verifier reorders their candidates before the cut, so they price PROMOTION.");
             Console.WriteLine();
             Console.WriteLine($"Conversations: {conversations}   Questions: {sampled} of {total}, seeded {Seed}");
             Console.WriteLine($"Arms: {string.Join(", ", arms)}   k = {RecallLimit}   embedder {SweepDoubles.Model}");
@@ -1479,6 +1508,36 @@ internal static class MemoryLocomoBench
         Console.WriteLine("  any arm is timed, so this column is retrieval work rather than arm ORDER.");
     }
 
+    /// <summary>What the real judge DID, beside what its arm scored — see <see cref="JudgeAudit"/> for why
+    /// the score alone cannot say.</summary>
+    private static void PrintJudgeAudit(JudgeAudit audit)
+    {
+        var judged = audit.Calls - audit.Declined;
+        Console.WriteLine();
+        Console.WriteLine("=== what the `+judge` arm's model actually endorsed ===");
+        Console.WriteLine($"  calls {audit.Calls}   declined (fail-open, ranking untouched) {audit.Declined}"
+            + $"   judged 'none relevant' {audit.EmptyVerdicts}");
+
+        if (judged == 0)
+        {
+            Console.WriteLine("  Every call declined, so this arm IS its base and the column measures nothing.");
+            return;
+        }
+
+        Console.WriteLine($"  shown/call {(double)audit.Shown / audit.Calls:F1}"
+            + $"   endorsed/call {(double)audit.Endorsed / judged:F1}"
+            + $"   evidence shown/call {(double)audit.ShownEvidence / judged:F2}");
+        Console.WriteLine($"  precision {(audit.Endorsed == 0 ? "-" : $"{(double)audit.EndorsedEvidence / audit.Endorsed:P1}")}"
+            + $"   recall {(audit.ShownEvidence == 0 ? "-" : $"{(double)audit.EndorsedEvidence / audit.ShownEvidence:P1}")}"
+            + $"   ({audit.EndorsedEvidence} of {audit.Endorsed} endorsed were evidence, "
+            + $"of {audit.ShownEvidence} shown)");
+        Console.WriteLine();
+        Console.WriteLine("  Precision is what the arm's score is made of: an endorsed candidate is promoted");
+        Console.WriteLine("  ahead of the cut, so every non-evidence endorsement DISPLACES something the");
+        Console.WriteLine("  ranking had put on the page. Recall says how much of the reachable evidence the");
+        Console.WriteLine("  model found - the oracle's own column, scored on the same labels.");
+    }
+
     private static void PrintResults(IReadOnlyList<string> arms,
         Dictionary<(string, int), int> correct, Dictionary<(string, int), int> asked,
         Dictionary<string, int> unknown, Dictionary<string, int> returned, bool retrievalOnly,
@@ -1487,7 +1546,7 @@ internal static class MemoryLocomoBench
     {
         Console.WriteLine();
         Console.WriteLine(retrievalOnly
-            ? "=== evidence-hit@k by arm and category (no model in the loop) ==="
+            ? "=== evidence-hit@k by arm and category (model-free SCORING) ==="
             : "=== token-F1 by arm and category (MODEL-FREE grading of a model's answer) ===");
         Console.Write($"{"Arm",-14}");
         foreach (var c in ScoredCategories) Console.Write($"  {CategoryNames[c],-14}");
@@ -1580,8 +1639,9 @@ internal static class MemoryLocomoBench
     private static string[] RetrievalArms(bool judged) =>
     [
         "lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
-        .. judged ? ["+forget0+judge"] : Array.Empty<string>(),
-        "+sem+rel-only", "+sem+rel-only+oracle", "+sem+mult", "+sem80+mult", "+rel-only",
+        "+sem+rel-only", "+sem+rel-only+oracle",
+        .. judged ? ["+sem+rel-only+judge"] : Array.Empty<string>(),
+        "+sem+mult", "+sem80+mult", "+rel-only",
         "+sem5", "+sem+forget2", "+sem+fuse", "+fuse",
     ];
 
@@ -1663,6 +1723,66 @@ internal static class MemoryLocomoBench
             // NoOpinion — the engine treats those differently, and collapsing them is the defect
             // MemoryVerification's own docs warn about.
             return Task.FromResult(new MemoryVerification(ids));
+        }
+    }
+
+    /// <summary>Wraps a REAL judge and tallies what it endorsed, against LoCoMo's own evidence labels.
+    ///
+    /// <para><b>Why an evidence-hit column cannot explain a judge arm on its own.</b> Promotion moves
+    /// endorsed candidates ahead of the cut, so an arm scoring BELOW its own base has two incompatible
+    /// readings — the model endorsed the wrong turns, or it endorsed so many that the promoted block is a
+    /// reshuffle of the pool — and the score is identical either way. Set size and precision separate
+    /// them.</para>
+    ///
+    /// <para><b>The declined count is the CONTROL.</b> Fail-open returns
+    /// <c>MemoryVerification.NoOpinion</c>, which leaves the ranking alone — so a judge that mostly declines
+    /// scores its own base, and is indistinguishable from one that agreed with it in every other column.</para>
+    ///
+    /// <para>It delegates untouched, so the arm is still the seam a deployment switches on. One instance
+    /// spans every conversation, because the rates are over the whole sample.</para></summary>
+    /// <param name="inner">The judge being audited.</param>
+    private sealed class JudgeAudit(IMemoryVerificationPolicy inner) : IMemoryVerificationPolicy
+    {
+        /// <summary>The current question's evidence, set by the caller exactly as
+        /// <see cref="EvidenceRankProbe.Evidence"/> is.</summary>
+        internal IReadOnlyList<string> Evidence { get; set; } = [];
+
+        internal int Calls { get; private set; }
+
+        internal int Declined { get; private set; }
+
+        internal int EmptyVerdicts { get; private set; }
+
+        internal int Shown { get; private set; }
+
+        internal int ShownEvidence { get; private set; }
+
+        internal int Endorsed { get; private set; }
+
+        internal int EndorsedEvidence { get; private set; }
+
+        public async Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
+            CancellationToken ct = default)
+        {
+            var verdict = await inner.VerifyAsync(request, ct).ConfigureAwait(false);
+
+            Calls++;
+            Shown += request.Candidates.Count;
+
+            // A declined call contributes to NO other counter: it endorses nothing, so folding it into the
+            // recall denominator would report the model as having missed evidence it was never asked about.
+            if (!verdict.Judged) { Declined++; return verdict; }
+            if (verdict.RelevantIds.Count == 0) EmptyVerdicts++;
+
+            // The same rule EvidenceOracleVerifier applies, so "is evidence" means one thing in both arms.
+            bool IsEvidence(MemoryVerificationCandidate c) =>
+                Evidence.Any(e => c.Headline.Contains($"({e})", StringComparison.Ordinal));
+
+            var endorsed = verdict.RelevantIds.ToHashSet(StringComparer.Ordinal);
+            ShownEvidence += request.Candidates.Count(IsEvidence);
+            Endorsed += verdict.RelevantIds.Count;
+            EndorsedEvidence += request.Candidates.Count(c => endorsed.Contains(c.Id) && IsEvidence(c));
+            return verdict;
         }
     }
 

@@ -251,6 +251,24 @@ the tests) while being wrong. Skim before touching the relevant area.
   round-trips with one; that is a fact about the code, checkable by a test that counts calls, and it stays
   true on a machine whose milliseconds differ. A COUNT is gate-able where a millisecond is not — which is
   the same reasoning `check-counts` rests on, applied to a benchmark instead of to prose.
+- **A FAIL-OPEN seam is indistinguishable from one that agreed with you, so an arm measuring it must count
+  how often it actually FIRED.** `IMemoryVerificationPolicy` returns `NoOpinion` on every failure — refusal,
+  timeout, unparseable reply, an invented id — and `NoOpinion` leaves the ranking untouched. So a judge arm
+  that scores its own base has two readings that no score column can separate: *the judge endorsed what
+  already led* (a result about the corpus) and *the judge never answered once* (a broken arm), and the
+  second is the one that gets published as "the seam is not worth it". Measured 2026-09-03 on the LoCoMo
+  judge arm, where the counter was added BEFORE the number was believed: 0 of 200 calls declined, which is
+  what makes "the model answered and was wrong" a claim rather than a hope.
+  <br>**The rule generalises past this seam to every best-effort one this library ships** — an annotator, a
+  verifier, anything whose contract says *degrade to the model-free floor*. The floor is a correct
+  behaviour and a terrible observable: it is silent, it is the same shape as success, and the arm still
+  produces a full table. **Count the fires, not just the outcome**, and put the count in the output beside
+  the score.
+  <br>**The lucky direction here was that the arm moved.** It scored 10.5 points BELOW its base, which is
+  unreachable by a judge that declined — so the wiring was provable after the fact. Had the model been
+  mediocre instead of wrong, the arm would have landed on its base and the honest reading would have been
+  unavailable, permanently, from that run's data.
+
 - **NuGet never re-extracts a package version it already has in the global cache**, so packing under a FIXED
   throwaway version (`consumer-smoke`'s `9.9.9-smoke`) tests the packages only ONCE — every later run restores
   the first run's copies from `~/.nuget/packages/` and reports success about code it never compiled against.

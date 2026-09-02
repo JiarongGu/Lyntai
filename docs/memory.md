@@ -808,6 +808,12 @@ never completed). Whether multi-hop's residual — 64.9% even with a perfect jud
 evidence outside `VerificationDepth`, which no judge quality could reach. And every figure here is one
 embedder on one workload.
 
+> **Both open questions were answered later and neither survived as posed** (2026-09-02/03, subsections
+> below). The multi-hop residual reads **3.2** points at full sample rather than 16, on a pre-fusion premise
+> **D103** had already superseded. And `+forget0+judge` no longer exists: the real-judge arm was re-aimed
+> onto `+sem+rel-only`, whose oracle reaches 92.5% where `+forget0`'s reaches 74.6% — so "does a model
+> approach 77.5%" was a question about a dominated configuration.
+
 ### Per-source fusion clears cosine, and the 63.5% bar above is now STALE (`memory-locomo --retrieval`, seed-source fusion, 2026-08-31)
 
 Part 128's surviving direction — make `Relevance` comparable before it is ranked — shipped as
@@ -1602,6 +1608,74 @@ confirms the base was the right one.
 **A CEILING, not a score.** The oracle endorses exactly the evidence LoCoMo names, so +9.5 is what promotion
 could recover at best and no claim about any model's accuracy. n = 200, one embedder; the category cells are
 small and only the overall figure carries weight.
+
+### A real 4B judge SPENDS the +9.5 the oracle offers, and the audit says why (`memory-locomo --retrieval`, 2026-09-03)
+
+The subsection above prices what a PERFECT judge could recover on this base. This is the same arm with the
+shipped `LlmMemoryVerificationPolicy` behind it — the seam a deployment actually switches on, exercising the
+shipped prompt, parsing, depth handling and fail-open behaviour — reading this machine's local `gemma3:4b`.
+
+**Instrument.** `memory-locomo --retrieval --n 200 --arms
++sem+rel-only,+sem+rel-only+oracle,+sem+rel-only+judge,vector`, 2052.1s; then the arm and its base alone,
+1340.7s. Raw output, both gitignored:
+`devtools/_locomo-real-judge.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the tables below -->
+and `devtools/_locomo-real-judge-repeat.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the tables below -->.
+All three model-free controls reproduce (`+sem+rel-only` 83.0%, `+sem+rel-only+oracle` 92.5%, `vector`
+80.5%), and the repeat reproduces the judge arm **cell for cell**.
+
+| arm | multi-hop | temporal | open-domain | single-hop | **overall** |
+|---|---|---|---|---|---|
+| `+sem+rel-only` | 81.1% | 81.0% | 58.3% | 87.2% | **83.0%** |
+| `+sem+rel-only+oracle` | 86.5% | 95.2% | 75.0% | 95.4% | **92.5%** |
+| **`+sem+rel-only+judge`** (gemma3:4b) | 70.3% | 78.6% | 41.7% | 74.3% | **72.5%** |
+
+**1. It costs 10.5 points where a perfect judge gains 9.5**, and it loses in every category. This is the
+third branch of the prediction registered in the ladder before the run — *below the unjudged base* — and it
+is the branch that says the seam has a **capability floor** rather than a capability curve.
+
+**2. The arm cannot be silently inert, which is the first thing to rule out.** Fail-open returns
+`MemoryVerification.NoOpinion`, which leaves the ranking untouched — so a judge that failed, refused, timed
+out or emitted unparseable JSON on every call would score the base's **83.0% exactly**. 72.5% is only
+reachable by a judge that answered and was wrong. The audit confirms it directly: **0 of 200 calls
+declined**.
+
+**3. What the model actually did**, from the `JudgeAudit` decorator (the shipped policy, delegated untouched,
+scored against LoCoMo's own evidence labels — the same labels the oracle and the arm's own column use):
+
+| | per call |
+|---|---|
+| candidates shown | 80.0 — `VerificationDepth`, 4 × the recall's limit of 20 |
+| endorsed | **29.1** |
+| evidence among those shown | 1.19 |
+| **precision** | **2.6%** (151 of 5,829 endorsed were evidence) |
+| **recall** | **63.4%** (151 of 238 evidence shown) |
+| declined — fail-open | 0 of 200 |
+| judged "none relevant" | 0 of 200 |
+
+**4. The endorsement set is BIGGER than the page, so promotion cannot refine — it REPLACES.** 29.1
+endorsements against a limit of 20: promotion moves every endorsed candidate ahead of the cut keeping the
+policy's order within each group, so the returned page becomes *the 20 best-ranked of the 29 endorsed* and
+**everything unendorsed is pushed off entirely, however well the ranking placed it**. That is the whole
+mechanism: at 63.4% recall the judge fails to endorse a third of the evidence it was shown, and each of
+those is not merely un-promoted but demoted below 29 other candidates.
+
+**5. The judge beats chance, and it does not matter.** Evidence is 1.19 of 80 shown, so it is **1.49%** of
+the pool; the model endorses at **2.59%** precision — a **1.74×** lift. Read the other way it recalls 63.4%
+while endorsing 36.4% of the pool, which is the same 1.74×. So the endorsements carry real signal. They
+still destroy the result, because the ranking they overwrite is far better than 1.74× over chance: it puts
+evidence on the page for 83.0% of questions. **A verifier does not need to be good to be consulted; it needs
+to be better than what it displaces.**
+
+**What this does NOT say.**
+- **One model, one workload, one embedder, n = 200.** It is not a claim that 4B judges are useless, nor that
+  the seam is wrong — `+oracle`'s +9.5 on this same base says promotion has genuine work to do here.
+- **The judge is shown 120-character DERIVED headlines** (`GraphMemoryOptions.HeadlineChars`, what the
+  engine writes when a caller authors none), not full turns. A deployment authoring real headlines is giving
+  its judge a different and probably easier task, and that is untested.
+- **Temperature is 0** (`SweepDoubles.OpenAiCompatibleChat`), so the exact reproduction bounds HARNESS
+  variance and says nothing about sampling variance. A judge run at a real temperature is unmeasured.
+- **A `VerificationDepth` of 80 is a choice this run inherited**, not one it tested. A shallower depth
+  shows the model fewer chances to be wrong and is the obvious next arm if anyone wants to rescue this.
 
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 

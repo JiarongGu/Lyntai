@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SIX items, across Parts 105, 109, 116, 128 and 129.** Each is a
+**The startable set is FIVE items, across Parts 105, 109, 116, 128 and 129.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -49,6 +49,7 @@ claims published DURING that session were corrected by later runs in the same se
 |---|---|---|
 | LoCoMo search, best mechanical arm (`+sem+rel-only`) | 82.6% (n = 1,540) | **+1.5** |
 | LoCoMo search, same arm + a PERFECT judge | **92.5%** (n = 200) | **+12.0** |
+| LoCoMo search, same arm + a REAL 4B judge | **72.5%** (n = 200) | **−8.0** |
 | LongMemEval knowledge-update, SHIPPED default | 86.4% (all 70) | **+40.0** |
 
 **The session opened believing the shipped defaults were the problem. They are not.** The configuration that
@@ -71,8 +72,12 @@ commands. `--arms` saves ingestion on both (a LoCoMo ladder is 755s where it was
 touches the registry plus each bench's ladder — the two LoCoMo lists are asserted equal before a run starts,
 after that drift failed two runs ten minutes apart.
 
-**The startable set is unchanged at SIX, and the two most interesting are not measurements.** The real-judge
-run now has a base worth measuring against (Part 128, re-aimed). The frontier walk is priced and I would
+**The startable set is FIVE — the real-judge run was the sixth and it RAN on 2026-09-03**
+(`docs/task-archive.md` **Part 143**): a 4B judge costs 10.5 points where the perfect one gains 9.5, because
+it endorses 29 of 80 candidates at 2.6% precision and promotion of a set larger than the page replaces the
+ranking rather than refining it. **That is a floor, not a curve**, and it is the first measurement here
+where a model in the loop is worse than no model at all — which is exactly what `model-decoupling.md` says
+to build for, so nothing about the design moved. The frontier walk is priced and I would
 argue against it: two points already show a ~1:1 exchange and no cliff. **The genuinely open lever is
 encoding-time supersession** — Mem0's ADD/UPDATE/DELETE/NOOP, Zep/Graphiti's bi-temporal invalidation — which
 uses information only the WRITER has and is therefore the one thing none of these runs can reach. It is a
@@ -803,24 +808,13 @@ makes `+sem+rel-only`, not `+sem+fuse`, the current best mechanical arm. `docs/m
 current table; the 61.5%/63.5% figures above are the PRE-fusion measurement that opened this Part and stay
 for that reason._
 
-- [ ] **Finish the REAL judge arm — and BUILD IT ON THE RIGHT BASE, which is the part that changed.**
-  `+forget0+judge` is built and wired (the shipped `LlmMemoryVerificationPolicy` driven through an
-  `ILlmClientFactory` adapter, deliberately not a bench-local judge), but the run was stopped mid-flight to
-  pivot and has never completed. Needs a chat model, so it is slow — `--no-judge` skips it.
-  <br>_**Re-aimed 2026-09-02 by the full-sample ladder** (`docs/memory.md` §5, `docs/task-archive.md` **Part
-  139**). The oracle ceiling this item quoted as **77.5%** is an n = 200 figure and reads **74.6%** on all
-  1,540 questions — where `+sem+rel-only`, carrying NO judge, reads **82.6%**. So a perfect judge on
-  `+forget0` is 8.0 points BELOW the best mechanical arm, and measuring a real model against that ceiling
-  prices a configuration already known to be dominated._
-  <br>_**The oracle on the good arm RAN 2026-09-03 and the answer is yes, spend the model run**
-  (`docs/task-archive.md` **Part 142**, `docs/memory.md` §5). `+sem+rel-only+oracle` reads **92.5% against
-  the same arm's 83.0%** — promotion is worth **+9.5** on a well-seeded pool and improves every category,
-  where on `+forget0` the same ceiling only reached 74.6%. So the residual misses ARE
-  reachable-but-outranked and a real judge has genuine work to do._
-  <br>_**That also corrects this session's own headline.** "A pure formula beats formula-plus-oracle, so the
-  deficit was never the model tier" compared arms differing in SEEDING as well as in the judge. What
-  survives is narrower: a judge cannot rescue a badly-seeded pool. **Build the real-judge arm on
-  `+sem+rel-only`, not on `+forget0`** — that is the only change this item needs._
+_**The real-judge item CLOSED 2026-09-03** as `docs/task-archive.md` **Part 143**, and the answer is the
+branch nobody wanted: `+sem+rel-only+judge` reads **72.5%** against the arm's unjudged 83.0% and the oracle's
+92.5%, so a 4B judge SPENDS 10.5 points where a perfect one gains 9.5. The audit says why — 29.1
+endorsements per recall out of 80 shown, at 2.6% precision, which is an endorsement set larger than the
+20-slot page, so promotion replaces the ranking instead of refining it. **The seam has a capability FLOOR**,
+now stated in `LlmVerificationOptions.ClientName`'s shipped XML doc. `docs/memory.md` §5 carries the table
+and the four things it does not say._
 
 - [ ] **Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.** `docs/memory.md` §5
   (2026-09-03) has TWO points on it and two points are not a curve: `+sem` trades +22.0 search for −13.9

@@ -16,7 +16,16 @@ public sealed class LlmVerificationOptions
     /// rather than inherited from whichever model the application made default for chat. Which way to size
     /// it is the deployment's call: measured recall quality rises sharply with judge capability (3B captured
     /// ~60-69% of the available improvement, 7B captured 91.4%), so this is a genuine cost/quality trade and
-    /// not a case where the cheapest option is obviously right.</para></summary>
+    /// not a case where the cheapest option is obviously right.</para>
+    /// <para><b>And a judge below the floor is WORSE than no judge at all — this is not a curve that merely
+    /// flattens.</b> An endorsement PROMOTES ahead of the caller's limit, so a verdict endorsing more
+    /// candidates than that limit REPLACES the ranking's page instead of refining it, and everything
+    /// unendorsed leaves the page however well it was ranked. Measured on LoCoMo: a 4B judge shown 80 derived
+    /// headlines endorsed 29 per recall at 2.6% precision and cost <b>10.5 points</b> of evidence-hit against
+    /// no judge at all — on the same configuration where a perfect judge gained 9.5
+    /// (<c>docs/memory.md</c> §5). Size the judge against the candidate set it is actually shown
+    /// (<see cref="GraphMemoryOptions.VerificationDepth"/>), and read "endorses a large fraction of what it
+    /// sees" as the failure signal.</para></summary>
     public string? ClientName { get; set; }
 
     /// <summary>Model id, or null for the backend's own default. Deliberately not defaulted to any
