@@ -32,63 +32,59 @@ closed the same day as **Part 121**, so **what is left in the Part is measuremen
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
-<br>_It was three on 2026-08-30; **Parts 128 and 129 opened on 2026-08-31**, Part 65's last item closed
-(`docs/task-archive.md` **Part 127**) and Part 129's gate item was BUILT the same day (**Part 130**), taking
-it from eight to seven, and Part 128's first item CLOSED the same day as **Part 131**, taking it from seven
-to six. **Part 132 opened 2026-09-01** — a wiring-diagnostic limitation found in the branch's final review —
-taking it from six to seven, and **Part 133 opened the same day**, taking it from seven to eight. **Part 134
-opened the same day** — the QA-conversion follow-up, isolating whether the walk's residual gap against
-`vector-40` is context volume or content form — taking it from eight to nine, and **CLOSED the same day** as
-`docs/task-archive.md` **Part 134**, once a third `--seeds` measurement answered the question it opened
-(mostly volume) — taking it from nine back to eight. **Part 134's own finding was then RETRACTED the same
-day at the full 1,540-question sample** (`docs/memory.md` §5, and a dated note on the archive entry): the
-superadditivity interaction it reported (+6.7/+4.2/+6.8) reads +1.0 at full sample, not distinguishable from
-zero, and the category wins it implied do not survive either. The volume-vs-form reading survives, restated
-at full-sample resolution (a −0.6-point residual against `vector-40`, still "mostly volume"). **Part 135
-opened the same day** — the context-efficiency diagnostic the retraction left standing — taking it from
-eight to nine, and **it CLOSED on 2026-09-02** as `docs/task-archive.md` **Part 135**, taking it back to
-eight: the ≈1.9× turned out to compare 40 items against 20, and at matched count the walk spends 3.6% LESS
-than `vector-40`. **Part 136 opened the same day** — eight to nine — because that diagnostic turned up
-something bigger than itself: `evidence-hit@k` matches a `(dia_id)` that survives headline truncation
-**5,882 times out of 5,882**, so it scores a half-turn and a whole turn identically while the graph arms
-return the first and the cosine arms the second (`docs/memory.md` §5). **Part 133 then CLOSED the same day**
-as `docs/task-archive.md` **Part 133** — nine to eight — and it too overturned half its own premise: the
-broadening shipped, and the `ranked BY position` branch it also asked for was measured at 15 hits and
-REFUSED, because reciprocal rank fusion legitimately ranks by position within each source's own list and no
-pattern separates that from the withdrawn rule. **Part 136 CLOSED the same day too** — eight to seven, as
-`docs/task-archive.md` **Part 136** — and it is the one whose ANSWER matters most: rehydrating the same 20
-items to whole turns is worth **+11.7 of a 12.0-point gap**, landing this engine level with plain cosine at
-matched slots and matched context. **The ranking was never the deficit; headline truncation was.** That
-shipped as **D104** (`MemoryQuery.Detail`) and **Part 137 opened on it** — seven to eight — asking the one
-question 136 left: cosine gains +3.2 going from 20 slots to 40, and nobody had measured whether the WALK
-does. **It CLOSED the same day** — eight back to seven, `docs/task-archive.md` **Part 137** — and the answer
-is LEVEL: at 40 slots of whole entries the engine reads **44.0%** against `vector-40`'s **44.4%** on all
-1,540 questions. **An n = 200 pass read that as 44.8/43.9 and was retracted by the full sample** — the sign
-flipped, and a ±1-point difference was never resolvable at 200 (`docs/memory.md` §5). What survives is the
-distance travelled: 12 points behind cosine before truncation was found, within half a point now.
-**Part 132 CLOSED 2026-09-02** — seven to six, `docs/task-archive.md` **Part 132**: `IMemorySeedSource.Kind`
-lets a channel state its ROLE, so the two wiring diagnostics stopped accusing a correctly-wired BYO channel
-of not existing. Additive and defaulted, so nothing outside breaks. **Part 138 opened the same day** — six
-back to seven — against a RUN DESIGN rather than the code: the full-sample pass that retracted the 40-slot
-claim had dropped the 20-item cosine control, so Part 136's parity claim still rests on n = 200, the sample
-size that just produced a sign flip. **It CLOSED the same day** — seven back to six,
-`docs/task-archive.md` **Part 138** — and unlike the two Parts before it the claim SURVIVED its full sample:
-42.0% against `vector`'s 42.4% on all 1,540 questions, a −0.4 where n = 200 read −0.3. What did not survive
-is its category detail, where multi-hop's near-tie reads −4.0. **Part 128's multi-hop item then CLOSED the
-same day** as `docs/task-archive.md` **Part 139** — six to five — and **an ingestion-cost item opened in its
-place**, taking it back to six: it refuted its own premise twice (a pre-fusion figure **D103** had already
-superseded, and a 16-point gap that reads **3.2** at full sample), and the run that closed it needed a
-harness fix, because the oracle arm could not be CONSTRUCTED at n = 1,540 and so had never run on the whole
-benchmark. Every number here is edited in
-the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
+<br>_**This line used to be a 49-line running tally** — every Part that opened and closed since 2026-08-30,
+with the count after each. It was deleted on 2026-09-03 rather than extended, because `task-lifecycle.md`
+says outright that a backlog must not summarize its archive: the tally grew without bound, answered a
+question `docs/task-archive.md` already answers, and pushed the open items further down the file. **What
+closed and why is the archive's job** — Parts 117–142 are the memory-measurement sequence. What belongs here
+is the count above and the rule beside it, both edited in the same change as any item that moves._
 
-**START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
-per-source fusion (**D103**) took `+sem+rel-only` from **63.5%** to **83.0%**, above plain cosine's
-**80.5%** — the first mechanical arm to clear it, replacing the bar this line used to quote. What is left
-in the Part is the REAL judge arm and multi-hop, neither of which a ranking fix touches.
+**HANDOVER (2026-09-03, end of session). READ THIS FIRST — the picture of this engine changed, and three
+claims published DURING that session were corrected by later runs in the same session.**
 
-**HANDOVER (2026-08-31, end of session).** The direction was MEMORY OPTIMIZATION and it moved a long way, so
-read this before picking anything up.
+**Where the memory engine actually stands**, all model-free, controls reproduced in every run
+(`docs/memory.md` §5, archive Parts 138–142):
+
+| | measured | against plain cosine |
+|---|---|---|
+| LoCoMo search, best mechanical arm (`+sem+rel-only`) | 82.6% (n = 1,540) | **+1.5** |
+| LoCoMo search, same arm + a PERFECT judge | **92.5%** (n = 200) | **+12.0** |
+| LongMemEval knowledge-update, SHIPPED default | 86.4% (all 70) | **+40.0** |
+
+**The session opened believing the shipped defaults were the problem. They are not.** The configuration that
+wins LoCoMo (`RetrievabilityWeight = 0`) costs **−37.1** points of supersession for **+5.5** of search —
+about 7:1 against — because removing forgetting's vote leaves `current@k` IDENTICAL and destroys `stale@k`.
+**It changes what the engine BURIES, not what it FINDS, and LoCoMo only scores finding.** Any arm that wins
+on LoCoMo owes the knowledge-update table a visit before anyone proposes it as a default. No default moved,
+and none should on what is measured.
+
+**Three corrections, all self-inflicted and all caught by running the arm that isolates the variable** —
+the habit to keep: (1) "the 54.5 → 82.6 default gap is the biggest free win" was a 7:1 losing trade;
+(2) "multi-hop is 16 points behind even with a perfect judge" reads 3.2, on a premise **D103** had
+superseded the day it was filed; (3) "a pure formula beats formula-plus-oracle, so the deficit was never the
+model tier" compared arms differing in SEEDING as well as the judge — with seeding held fixed the judge is
+worth **+9.5**. Each was published, then corrected, and both records say so rather than quietly restating.
+
+**What the instrument can do now that it could not:** `FieldArms` defines an arm once for BOTH field
+benches, so a name means one configuration on each and a config can be priced across workloads in two
+commands. `--arms` saves ingestion on both (a LoCoMo ladder is 755s where it was 4,706s). Adding an arm
+touches the registry plus each bench's ladder — the two LoCoMo lists are asserted equal before a run starts,
+after that drift failed two runs ten minutes apart.
+
+**The startable set is unchanged at SIX, and the two most interesting are not measurements.** The real-judge
+run now has a base worth measuring against (Part 128, re-aimed). The frontier walk is priced and I would
+argue against it: two points already show a ~1:1 exchange and no cliff. **The genuinely open lever is
+encoding-time supersession** — Mem0's ADD/UPDATE/DELETE/NOOP, Zep/Graphiti's bi-temporal invalidation — which
+uses information only the WRITER has and is therefore the one thing none of these runs can reach. It is a
+design conversation, not a run, and it is not in the backlog because nobody has taken that decision
+(`repo-mechanics.md` § "A conditional item is not a task").
+
+**Part 128 is still where the open memory work lives.** Its first item shipped 2026-08-31 as
+`docs/task-archive.md` **Part 131**: per-source fusion (**D103**) took `+sem+rel-only` from 63.5% to 83.0%,
+the first mechanical arm to clear plain cosine.
+
+**HANDOVER (2026-08-31, superseded above, kept for the reasoning).** The direction was MEMORY OPTIMIZATION
+and it moved a long way, so read this before picking anything up.
 
 **The 2026-08-30 handover's three questions are all ANSWERED** — two by measurement at the owner's direction
 rather than by decision, the third outright — and each is struck through below with what settled it. Nothing
@@ -816,11 +812,15 @@ for that reason._
   1,540 questions — where `+sem+rel-only`, carrying NO judge, reads **82.6%**. So a perfect judge on
   `+forget0` is 8.0 points BELOW the best mechanical arm, and measuring a real model against that ceiling
   prices a configuration already known to be dominated._
-  <br>_**What no arm has measured** is the judge on top of the arm that is actually good: `+forget0+oracle`
-  carries no semantic seeds and `+sem+rel-only` carries no judge, so "a judge adds nothing" is **not**
-  established — only that the best JUDGED arm loses to the best MECHANICAL one. **Run the oracle on
-  `+sem+rel-only` first**; it is model-free, and it says whether a real judge is worth a model run at all.
-  A real judge measured against a dominated base answers a question nobody is asking._
+  <br>_**The oracle on the good arm RAN 2026-09-03 and the answer is yes, spend the model run**
+  (`docs/task-archive.md` **Part 142**, `docs/memory.md` §5). `+sem+rel-only+oracle` reads **92.5% against
+  the same arm's 83.0%** — promotion is worth **+9.5** on a well-seeded pool and improves every category,
+  where on `+forget0` the same ceiling only reached 74.6%. So the residual misses ARE
+  reachable-but-outranked and a real judge has genuine work to do._
+  <br>_**That also corrects this session's own headline.** "A pure formula beats formula-plus-oracle, so the
+  deficit was never the model tier" compared arms differing in SEEDING as well as in the judge. What
+  survives is narrower: a judge cannot rescue a badly-seeded pool. **Build the real-judge arm on
+  `+sem+rel-only`, not on `+forget0`** — that is the only change this item needs._
 
 - [ ] **Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.** `docs/memory.md` §5
   (2026-09-03) has TWO points on it and two points are not a curve: `+sem` trades +22.0 search for −13.9

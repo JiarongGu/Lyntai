@@ -2165,6 +2165,25 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 142 — the judge on the arm that is actually good, and the headline it corrects
+
+✅ done 2026-09-03 — **Worth +9.5 points, so the real-judge run IS worth spending.**
+`+sem+rel-only+oracle` reads **92.5% against the same arm's 83.0%** at n = 200, improving every category —
+the highest figure this benchmark has produced from this engine, against plain cosine's 80.5%. The
+pre-registration called 88–95% with a smaller absolute gain than the +17.5 the oracle bought on `+forget0`;
+both clauses held. `docs/memory.md` §5 has the table.
+
+**It corrects a claim published earlier the same day.** Every verdict arm was built on `+forget0`, which
+registers no semantic channel, so *"a pure formula beats formula-plus-oracle, the deficit was never the
+model tier"* compared two arms differing in SEEDING as well as in the judge. The limitation was written down
+when that claim was made, and measuring it turned the conclusion around. **What survives is narrower: a
+judge cannot rescue a badly-seeded pool** — which is what `+forget0+oracle`'s 74.6% measures — and it says
+nothing about a judge on a good one.
+
+Consequence for the backlog: Part 128's real-judge item builds on `+sem+rel-only`, not `+forget0`.
+
+- Run the oracle on the best mechanical arm before spending a model run on a dominated base.
+
 ## Part 141 — is there a configuration good at BOTH workloads? A frontier, and no free lunch
 
 ✅ done 2026-09-03 — **No, and the decision rule was missed by about a point on each clause, so no default

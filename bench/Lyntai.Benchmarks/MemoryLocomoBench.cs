@@ -572,6 +572,22 @@ internal static class MemoryLocomoBench
                 // COSINE, and no weighting of one field repairs two scales sharing it. `TASKS.md` Part 128.
                 FieldArms.Named("+sem+rel-only"),
 
+                // The judge on the arm that is actually GOOD, which no arm had paired (2026-09-03). Every
+                // verdict arm above is built on `+forget0`, and the 2026-09-02 full-sample ladder made that
+                // a comparison between two different things: the perfect judge scored 74.6% and
+                // `+sem+rel-only` scored 82.6% carrying no judge at all. So "a formula beats
+                // formula-plus-oracle" was measured across a seeding difference, not across the judge.
+                //
+                // This arm holds seeding fixed and adds the ceiling. What it decides is whether a REAL judge
+                // is worth a model run: a large gain means promotion still has work to do on a
+                // well-ranked pool, and no gain means the residual misses are not reachable-but-outranked at
+                // all, so no judge quality reaches them and `TASKS.md` Part 128's judge item should close.
+                FieldArms.Named("+sem+rel-only") with
+                {
+                    Name = "+sem+rel-only+oracle",
+                    Verification = new EvidenceOracleVerifier(EvidenceByQuery(mine, convId)),
+                },
+
                 FieldArms.Named("+sem+mult"),
                 FieldArms.Named("+sem80+mult"),
 
@@ -1565,8 +1581,8 @@ internal static class MemoryLocomoBench
     [
         "lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
         .. judged ? ["+forget0+judge"] : Array.Empty<string>(),
-        "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "+sem5", "+sem+forget2",
-        "+sem+fuse", "+fuse",
+        "+sem+rel-only", "+sem+rel-only+oracle", "+sem+mult", "+sem80+mult", "+rel-only",
+        "+sem5", "+sem+forget2", "+sem+fuse", "+fuse",
     ];
 
     /// <summary>Question text to the union of the evidence every question carrying that text declares.

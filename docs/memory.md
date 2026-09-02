@@ -1411,6 +1411,16 @@ the seeding that makes the mechanical arm good.** "A judge adds nothing" is unme
 that the best JUDGED arm loses to the best MECHANICAL one. The oracle is firing — 65.6% multi-hop against
 `+forget0`'s 51.4% at n = 200 — so this is not a silently inert verifier.
 
+**CORRECTED 2026-09-03, and point 3 does not survive the pairing it was missing.** `+sem+rel-only+oracle`
+— seeding held fixed, the ceiling added — reads **92.5% against the same arm's 83.0%** at n = 200, a
+**+9.5** gain that improves every category (temporal 81.0 → 95.2, single-hop 87.2 → 95.4, open-domain
+58.3 → 75.0, multi-hop 81.1 → 86.5). So *"a pure formula beats formula-plus-oracle"* was an artifact of
+comparing across a SEEDING difference rather than across the judge, exactly as the paragraph above warned it
+might be. **With the pool right, promotion is worth 9.5 points and takes this engine to 92.5% against plain
+cosine's 80.5%** — the highest figure this benchmark has produced here. What survives of point 3 is
+narrower and still true: a judge cannot rescue a badly-seeded pool, which is what `+forget0+oracle`'s 74.6%
+measures. The subsection below carries the run.
+
 **4. The pre-registration held on all three clauses**, registered in `TASKS.md` before the run: `vector`
 overall 78–83% (81.1 ✓), `+sem+rel-only` 78–85% with no prediction on whether it stays ahead (82.6 ✓, ahead),
 and **multi-hop within ±5 points, sign not predicted** (−3.2 ✓, where >10 would have restored the struck
@@ -1556,6 +1566,42 @@ moving it would be a mistake anyway.
 **Not settled.** Two points on a curve is not a curve: this prices a mechanism, it does not locate an
 optimum, and proposing a default from two points is the error `docs/task-archive.md` Part 137 records. A
 `RetrievabilityWeight` ladder is what would find the knee, if the frontier is judged worth walking.
+
+### The judge on the arm that is actually GOOD is worth +9.5, and it corrects this morning's headline (`memory-locomo --retrieval`, 2026-09-03)
+
+**Every verdict arm on record is built on `+forget0`**, which registers no semantic channel. So the
+full-sample reading *"a pure formula beats formula-plus-oracle"* — 74.6% against `+sem+rel-only`'s 82.6% —
+compared two arms differing in SEEDING as well as in the judge. This holds seeding fixed and adds the
+ceiling.
+
+**Instrument.** `memory-locomo --retrieval --n 200 --no-judge --arms
++sem+rel-only,+sem+rel-only+oracle,vector`, 788.0s. Raw output: the gitignored
+`devtools/_locomo-judge-on-good-arm.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+Both controls reproduce (`+sem+rel-only` 83.0%, `vector` 80.5%).
+
+| arm | multi-hop | temporal | open-domain | single-hop | **overall** |
+|---|---|---|---|---|---|
+| `+sem+rel-only` | 81.1% | 81.0% | 58.3% | 87.2% | **83.0%** |
+| **`+sem+rel-only+oracle`** | 86.5% | **95.2%** | **75.0%** | **95.4%** | **92.5%** |
+| `vector` | 81.1% | 81.0% | 58.3% | 82.6% | 80.5% |
+
+**1. Promotion is worth +9.5 on a well-seeded pool, and it improves every category.** 92.5% is the highest
+figure this benchmark has produced from this engine, against plain cosine's 80.5%. The pre-registration
+called 88–95% with a smaller absolute gain than the +17.5 the oracle bought on `+forget0`; both clauses hold
+(92.5%, +9.5).
+
+**2. It corrects the morning's headline rather than adding to it.** *"A pure formula beats
+formula-plus-oracle, so the deficit was never the model tier"* is an artifact of the seeding difference.
+The claim that survives is narrower: **a judge cannot rescue a badly-seeded pool** — which is what
+`+forget0+oracle`'s 74.6% measures — and it says nothing about a judge on a good one.
+
+**3. So the residual misses ARE reachable-but-outranked**, which is the branch that makes a real model run
+worth spending. `TASKS.md` Part 128's judge item was re-aimed onto this base before this ran; the run
+confirms the base was the right one.
+
+**A CEILING, not a score.** The oracle endorses exactly the evidence LoCoMo names, so +9.5 is what promotion
+could recover at best and no claim about any model's accuracy. n = 200, one embedder; the category cells are
+small and only the overall figure carries weight.
 
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 
