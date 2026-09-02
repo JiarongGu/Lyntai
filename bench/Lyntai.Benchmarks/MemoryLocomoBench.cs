@@ -195,15 +195,7 @@ internal static class MemoryLocomoBench
             : shotsOnly
             ? ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}", "full"]
             : retrievalOnly
-                ? wantFull
-                    ? ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
-                        .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
-                        "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "+sem+fuse", "+fuse",
-                        "vector", "full"]
-                    : ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
-                        .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
-                        "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "+sem+fuse", "+fuse",
-                        "vector"]
+                ? [.. RetrievalArms(judgeChat is not null), "vector", .. wantFull ? ["full"] : Array.Empty<string>()]
                 : ["lyntai", FusedOneShot, FusedRehydrated, FusedApiDetail, FusedThreeShot,
                     FusedThreeShotFull, TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
 
@@ -456,15 +448,38 @@ internal static class MemoryLocomoBench
                         Fused(FusedThreeShotFull),
                         FieldArms.Shipped() with { Name = ThreeShot }];
 
+            // The ladder and the report list must name the same arms in the same order. They are kept as two
+            // lists on purpose — each ladder entry carries the design argument for its own arm, and deriving
+            // one from the other would strand those comments — so the agreement is ASSERTED instead. It is
+            // checked before the `--arms` filter narrows anything, and it is what turns "added the arm in
+            // one place" from a run that fails at the table into one that fails in the first second.
+            if (retrievalOnly)
+            {
+                string[] built = [.. configs.Select(c => c.Name)];
+                var expected = RetrievalArms(judgeChat is not null);
+                if (!built.SequenceEqual(expected, StringComparer.Ordinal))
+                    throw new InvalidOperationException(
+                        $"retrieval ladder and arm list disagree.{Environment.NewLine}"
+                        + $"  ladder: {string.Join(", ", built)}{Environment.NewLine}"
+                        + $"  arms:   {string.Join(", ", expected)}");
+            }
+
             // Drop the CONFIGS no selected arm needs — that is where the cost is, since each one ingests its
-            // own pristine store per conversation. QA path only: the other modes' arm names are not config
-            // names (`--shots` scores `shot-1..3` off ONE config), so the mapping below does not hold there.
+            // own pristine store per conversation. It applies to the QA and RETRIEVAL paths, whose arm names
+            // ARE config names; `--shots` and `--ranks` name steps and K values off ONE config, so the
+            // mapping below does not hold there and they keep every config they build.
+            //
+            // The retrieval path was excluded until 2026-09-03, which cost the whole saving where it is
+            // largest: a three-arm ladder still ingested all thirteen configs — `681 turns x 13 arm(s)` to
+            // score three — and that ingestion, not the probing, is what a full-sample ladder spends its
+            // hours on. `vector` and `full` are computed from a per-conversation index built before this
+            // filter runs, so selecting them ALONE correctly leaves nothing to ingest.
             //
             // TWO arms do not own a config. `lyntai-fused-full` rehydrates `lyntai-fused`'s returned set, and
             // `lyntai-2shot` IS `lyntai-3shot`'s step-2 snapshot. Getting this wrong throws on a dictionary
             // lookup rather than quietly measuring less, but it is named because the next arm that borrows
             // another's recall will not be so lucky.
-            if (armsFiltered && !retrievalOnly && !shotsOnly && !ranksOnly && !composition)
+            if (armsFiltered && !shotsOnly && !ranksOnly && !composition)
             {
                 static string ConfigFor(string arm) => arm switch
                 {
@@ -568,6 +583,12 @@ internal static class MemoryLocomoBench
                 // Part 113 established the pool CONTAINS the evidence; it did not establish at what depth,
                 // and those two readings need different work.
                 FieldArms.Named("+rel-only"),
+
+                // The both-workloads pair. They are only interesting ACROSS the two benches — see
+                // `FieldArms` for what they separate — so this is the half of their measurement that prices
+                // what each costs in search.
+                FieldArms.Named("+sem5"),
+                FieldArms.Named("+sem+forget2"),
 
                 // PRE-REGISTERED, 2026-08-31, before the first run. Spec §2.5.
                 //
@@ -1531,6 +1552,22 @@ internal static class MemoryLocomoBench
         Console.WriteLine("    The head of the prompt is dropped, so that row is a FLOOR and not a ceiling.");
         Console.WriteLine("    Do NOT read it as 'even full context does badly'.");
     }
+
+    /// <summary>The retrieval ladder's arm names, in table order, defined ONCE.
+    ///
+    /// <para><b>Three lists used to carry these names</b> — this one, the <c>--arms</c> validation set, and
+    /// the config ladder — and adding an arm to two of them fails a run before it starts while adding it to
+    /// one measures fewer arms than asked for. Both happened on 2026-09-03, ten minutes apart, which is why
+    /// the report list and the ladder now derive from this. <c>vector</c> and <c>full</c> are deliberately
+    /// absent: they own no config and are computed from a per-conversation index.</para></summary>
+    /// <param name="judged">Whether a chat model answered, which is the only thing that varies the set.</param>
+    private static string[] RetrievalArms(bool judged) =>
+    [
+        "lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
+        .. judged ? ["+forget0+judge"] : Array.Empty<string>(),
+        "+sem+rel-only", "+sem+mult", "+sem80+mult", "+rel-only", "+sem5", "+sem+forget2",
+        "+sem+fuse", "+fuse",
+    ];
 
     /// <summary>Question text to the union of the evidence every question carrying that text declares.
     ///

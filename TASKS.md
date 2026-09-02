@@ -822,15 +822,19 @@ for that reason._
   `+sem+rel-only` first**; it is model-free, and it says whether a real judge is worth a model run at all.
   A real judge measured against a dominated base answers a question nobody is asking._
 
-- [ ] **`--arms` does not save INGESTION in retrieval mode, only scoring.** The config-drop at
-  `bench/Lyntai.Benchmarks/MemoryLocomoBench.cs` is gated on `armsFiltered && !retrievalOnly && …`, so a
-  three-arm retrieval run still ingests all 13 ladder configs per conversation — the 2026-09-02 run reports
-  `681 turns x 13 arm(s) ingested` while scoring three. In retrieval mode the arm names ARE config names
-  (the QA path needs its `ConfigFor` mapping precisely because they are not), so the same filter applies
-  directly. Worth ~6× on the dominant cost of a full-sample ladder, which ran 9,611.4s.
-  _Filed rather than folded into that run's harness fix on purpose: bundling an optimization into a bug fix
-  is what `superpowers:systematic-debugging` forbids, and a wrong config filter silently changes which arms
-  exist. It needs its own before/after check that the arm table is unchanged._
+- [ ] **Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.** `docs/memory.md` §5
+  (2026-09-03) has TWO points on it and two points are not a curve: `+sem` trades +22.0 search for −13.9
+  suppression and `+sem+forget2` trades +15.0 for −7.6, so the exchange rate is roughly 1:1 and neither
+  dominates. A ladder over the weight is what would locate the knee. **Proposing a default from two points
+  is the error `docs/task-archive.md` Part 137 records**, so this is the work that would have to come first
+  if any of it is to move a default — and it may simply not be worth it, since the shipped default already
+  wins the workload this design claims.
+
+_**The ingestion-cost item CLOSED 2026-09-03** (`docs/task-archive.md` **Part 141**): the retrieval path
+honours `--arms` when dropping configs, so a three-arm ladder ingests 2 rather than 13 and n = 200 runs in
+755s rather than 4,706s, on byte-identical cells. Its follow-on was a defect the fix exposed rather than
+caused: the ladder's arm names lived in THREE lists, adding an arm to two of them failed two runs ten
+minutes apart, and the report list and the ladder are now asserted equal before a run starts._
 
 _**The multi-hop item CLOSED 2026-09-02** as `docs/task-archive.md` **Part 139**, and it closed by REFUTING
 its own premise twice over. It read *"64.9% even with a PERFECT judge against cosine's 81.1%, so multi-hop

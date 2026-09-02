@@ -2165,6 +2165,27 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 141 — is there a configuration good at BOTH workloads? A frontier, and no free lunch
+
+✅ done 2026-09-03 — **No, and the decision rule was missed by about a point on each clause, so no default
+moves.** `+sem+forget2` (semantic seeds at shipped K, `RetrievabilityWeight = 2`) reads **69.5% LoCoMo /
+78.8% knowledge-update** against the pre-registered ≥70% / ≥80%. It buys search at the best exchange rate
+measured — 2.0 points per point of suppression — but the trade is smooth and irreducible rather than free.
+Table and the mechanism: `docs/memory.md` §5.
+
+**The clause that could have killed the idea did not fire**: `+sem+forget2` beats `+sem` on suppression
+(78.8 vs 72.5), so pool and burial are separable and strengthening the burying vote works independently of
+seeding. **`+sem5` is the keeper and it is backwards from its prediction** — a narrower semantic channel
+retrieves identically (76.5% both) and suppresses far worse (59.1%), because per-source fusion ranks by
+position WITHIN a source, so narrowing one concentrates its rank weight on its top hits and a near-identical
+superseded fact is one of them.
+
+Also closed here: the LoCoMo retrieval path now honours `--arms` when dropping configs (13 ingested to score
+3 became 2; 4,706s → 755s for identical cells), and the ladder's arm names, which lived in three lists that
+drifted twice in ten minutes, are asserted equal before a run starts.
+
+- Find whether any configuration is good at both workloads.
+
 ## Part 140 — the two field workloads disagree by 7×, and the shipped defaults are the right side of it
 
 ✅ done 2026-09-02 — **`RetrievabilityWeight` stays at 1.** The LoCoMo-winning config ran on LongMemEval

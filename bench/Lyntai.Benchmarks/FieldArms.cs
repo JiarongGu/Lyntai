@@ -62,6 +62,8 @@ internal static class FieldArms
         Named("+sem+mult"),
         Named("+sem80+mult"),
         Named("+rel-only"),
+        Named("+sem5"),
+        Named("+sem+forget2"),
     ];
 
     /// <summary>The SHIPPED defaults — no options, no ranking policy, no semantic channel. The control both
@@ -95,6 +97,18 @@ internal static class FieldArms
         // `GraphNode.Relevance`, so the mixed-scale defect per-source fusion removed survives here (D103).
         "+sem+mult" => new(name, null, new MultiplicativeRankingPolicy(), null, ShippedSemanticK),
         "+sem80+mult" => new(name, null, new MultiplicativeRankingPolicy(), null, WideSemanticK),
+
+        // The BOTH-WORKLOADS pair (2026-09-03), and they separate two mechanisms the 2026-09-02 ladder
+        // showed are distinct: seeding decides what is IN THE POOL, `RetrievabilityWeight` decides what gets
+        // BURIED. `+sem` buys +22.0 points of LoCoMo search for -13.9 of supersession because it puts the
+        // superseded fact in the pool while leaving forgetting's vote at its shipped strength.
+        //   `+sem5`         narrows the pool — does a smaller semantic channel surface the stale fact less?
+        //   `+sem+forget2`  leaves the pool wide and DOUBLES the vote that buries.
+        // If the mechanisms are as separable as that table implies, the second recovers suppression while
+        // keeping the search gain and the first does not, because a near-identical superseded fact is a TOP
+        // semantic match at any K.
+        "+sem5" => new(name, null, null, null, 5),
+        "+sem+forget2" => new(name, null, Fusion(retrievability: 2), null, ShippedSemanticK),
 
         _ => throw new KeyNotFoundException($"'{name}' is not a shared field-benchmark arm. "
             + $"Shared arms: {string.Join(", ", All().Select(a => a.Name))}."),

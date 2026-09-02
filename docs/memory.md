@@ -1504,6 +1504,59 @@ family. And this prices CONFIGURATIONS, not mechanisms: it shows the suppression
 mixes two metrics and two sample sizes by construction**, so it ranks trades and cannot be read as one
 score.
 
+### There is a FRONTIER, not a free configuration — and narrowing a seed source makes its worst candidate louder (both benches, 2026-09-03)
+
+**The question this asked.** The 2026-09-02 ladder showed seeding and burial are separable mechanisms —
+seeding decides what is in the POOL, `RetrievabilityWeight` decides what gets BURIED — which implies a
+combination nobody had run: a wide pool with a STRONGER burying vote. Two arms were added to separate them,
+and both were pre-registered before either ran.
+
+**Instrument.** `memory-locomo --retrieval --n 200 --no-judge` (1,476.6s) and `memory-longmemeval --haystack`
+(6,918.2s), both `--arms lyntai,+sem,+sem5,+sem+forget2,vector`, embedder `nomic-embed-text`, model-free.
+Raw output: the gitignored `devtools/_locomo-both-workloads.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->
+and `devtools/_lme-both-workloads.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+Three controls reproduce (`lyntai` 54.5/86.4, `+sem` 76.5/72.5, `vector` 80.5/46.4).
+
+| arm | LoCoMo | Δ | knowledge-update | Δ | search per point of suppression |
+|---|---|---|---|---|---|
+| `lyntai` (shipped) | 54.5% | — | **86.4%** | — | — |
+| **`+sem+forget2`** | 69.5% | +15.0 | 78.8% | −7.6 | **2.0** |
+| `+sem` | 76.5% | +22.0 | 72.5% | −13.9 | 1.6 |
+| `+sem5` | 76.5% | +22.0 | 59.1% | −27.3 | 0.8 |
+| `+sem+rel-only` | **83.0%** | +28.5 | 49.3% | −37.1 | 0.8 |
+| `+forget0` | 60.0% | +5.5 | 49.3% | −37.1 | 0.1 |
+| `vector` | 80.5% | +26.0 | 46.4% | −40.0 | — |
+
+**1. Separability HELD, and it was the clause that could have killed the idea.** The pre-registration said
+that if `+sem+forget2` were no better than `+sem` on knowledge-update, the pool itself carries the
+suppression cost and the trade is irreducible. It is better — **78.8% against 72.5%** — so doubling the
+burying vote does buy suppression back independently of what seeding admits.
+
+**2. But there is no free configuration.** `+sem+forget2` gives up 7.0 points of search to recover 6.3 of
+suppression against `+sem`: roughly 1:1, a smooth frontier rather than a cliff. It buys search at the best
+exchange rate measured (2.0 points per point of suppression against `+sem`'s 1.6), and it is still a trade.
+**The pre-registered decision rule — ≥80% knowledge-update AND ≥70% LoCoMo — was missed on both clauses,
+by 1.2 and 0.5 points. No default moves.**
+
+**3. `+sem5` is the result worth keeping, and it is backwards from the prediction.** A narrower semantic
+channel retrieves IDENTICALLY to the wide one on LoCoMo (76.5% both) and suppresses far worse (59.1% against
+72.5%) — while returning the superseded fact LESS often (`stale@k` 77.1 against 90.0). It holds the stale
+fact less and ranks it first more.
+<br>**The mechanism is per-source fusion doing exactly what it says.** RRF ranks by position WITHIN each
+source's own list (**D82**, **D103**), so cutting the semantic channel from 20 to 5 does not dilute a bad
+candidate — it concentrates the source's rank weight onto five, and a near-identical superseded fact is one
+of them. **Narrowing a seed source makes its worst candidate LOUDER, not quieter.** Anyone reaching for a
+smaller `SemanticSeedOptions.K` to reduce noise should read that sentence first.
+
+**4. What the search column says about `K`.** `+sem5` matches `+sem` overall at a quarter of the width, so
+the semantic channel's entire search value on this workload sits in its top ~5 hits. That is a statement
+about this corpus and this embedder, not a recommendation to move the default — and point 3 is the reason
+moving it would be a mistake anyway.
+
+**Not settled.** Two points on a curve is not a curve: this prices a mechanism, it does not locate an
+optimum, and proposing a default from two points is the error `docs/task-archive.md` Part 137 records. A
+`RetrievabilityWeight` ladder is what would find the knee, if the frontier is judged worth walking.
+
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 
 LoCoMo rewards a perfect archive and penalises decay by construction. This is the opposite shape and the
