@@ -1486,6 +1486,30 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   ladder — which is a far stronger claim than "the tests pass", and it is what turned a plausible refactor
   into a verified one.
 
+- **A PRE-REGISTERED prediction is only adjudicated by a run powered to adjudicate it, and pre-registration
+  gives no protection against judging it on one that is not.** Measured 2026-09-02 (`docs/task-archive.md`
+  Part 137). The prediction was "40–45%, gaining but NOT reaching 44.5". An n = 200 run read 44.8 against a
+  control's 43.9, so the second clause was declared REFUTED and written up as *"the run refuted my
+  scepticism, not the design"* — a headline claim that the engine had beaten its baseline for the first time.
+  The full 1,540-question run read **44.0 against 44.4**: sign flipped, both clauses of the original
+  prediction correct, the write-up retracted.
+  <br>**The instrument said so at the time and was not consulted.** Two arms sending BYTE-IDENTICAL prompts
+  scored 40.7 and 41.1 at n = 200 — a 0.4-point reader-nondeterminism floor, measured for free, in the same
+  table. A ±1-point difference was therefore never resolvable there. At n = 1,540 those same two arms read
+  42.2 and 42.2.
+  <br>**This is the SECOND instance and the first was already written down.** `docs/task-archive.md` Part 134
+  adjudicated an interaction at n = 100 and had to retract it at full sample; that lesson sits in
+  `docs/memory.md` §5, was quoted during the session that repeated it, and was repeated anyway. Knowing the
+  rule is not applying it.
+  <br>**The habit that would have caught it, and it is cheap:** before reading a delta as a result, compare
+  it to a floor measured IN THE SAME RUN — a pair of arms that must agree, a repeat of one arm, anything that
+  structurally cannot differ. If the delta is not several times that floor, the run has not adjudicated
+  anything and the honest verdict is "unresolved at this sample", not a direction.
+  <br>**And a filtered confirmation run must keep the controls of every claim it touches.** That full-sample
+  pass selected four arms for the question it was re-testing and dropped the 20-item cosine control, leaving
+  a NEIGHBOURING claim (Part 136's 20-slot parity) with no full-sample comparison at all — a second,
+  quieter cost of the same run.
+
 - **A metric whose MATCH TARGET survives the transformation it ought to detect is blind to that
   transformation, and it reports a clean comparison between arms that differ by exactly it.** Measured
   2026-09-02 (`docs/memory.md` §5). LoCoMo evidence-hit asks whether a returned turn contains

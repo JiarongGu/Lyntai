@@ -2069,21 +2069,31 @@ one way (temporal and open-domain still trail cosine).
 
 ## Part 137 — does the WALK gain from its extra 20 slots the way deeper cosine does?
 
-✅ done 2026-09-02 — **Yes, and slightly more.** `lyntai-fused-3shot-full` — the three-shot walk asking for
-`MemoryDetail.Full` — scores **44.8%** token-F1 against `vector-40`'s **43.9%** at 39.7 slots and 7,084 chars
-against 6,924. `memory-locomo --n 200 --no-judge`, seed 12345. Tables: `docs/memory.md` §5. **The first time
-this benchmark has put the engine ahead of plain cosine on a size-matched comparison.** The full ladder from
-shipped defaults: 19.9% → 28.9% (ranking) → 41.1% (detail) → 44.8% (the walk), with reader refusals falling
-from 53 to 6 against cosine's 5.
+✅ done 2026-09-02 — **Yes: LEVEL with plain cosine at 40 slots.** `lyntai-fused-3shot-full` — the three-shot
+walk asking for `MemoryDetail.Full` — scores **44.0%** token-F1 against `vector-40`'s **44.4%** at 39.7 slots
+and 6,941 chars against 6,780, on all 1,540 questions. Tables: `docs/memory.md` §5. The engine was measured
+12 points behind cosine before headline truncation was found; it is now within half a point.
 
-**Read +0.9 as level-or-slightly-ahead.** The run measures its own noise floor — two arms sending
-byte-identical prompts score 40.7 and 41.1, a 0.4-point spread from reader nondeterminism, replicating
-across runs. +0.9 is about twice that. The claim that survives is that the engine is no longer behind.
+**An n = 200 pass read this as +0.9 and AHEAD, and that was retracted by the full sample.** Same arms, same
+seed: 44.8/43.9 at 200 questions, 44.0/44.4 at 1,540 — the sign flipped. The retraction is in
+`docs/memory.md` §5 rather than only here, because the "first time the engine is ahead" claim had already
+been written into the record.
 
-**The pre-registration was half right, and the wrong half is the finding.** It called 40–45% (44.8 ✓) and
-said explicitly "NOT reaching `vector-40`'s 44.5" (✗), reasoning that the walk's items 21–40 are graph
-NEIGHBOURS while cosine's are the next-most-similar turns, so the populations should not be worth the same.
-At this reader tier they are.
+**The noise floor is why one reading was believable and the other was not.** Two arms sending byte-identical
+prompts (`lyntai-fused-full`, `lyntai-fused-api`) scored 40.7/41.1 at n = 200 and **42.2/42.2** at n = 1,540:
+reader nondeterminism collapsed from 0.4 points to 0.0. A ±1-point difference was never resolvable at 200.
+
+**The pre-registration was RIGHT and its n = 200 adjudication was WRONG — the more useful of the two
+findings.** It called "40–45%, gaining on 38.8 but NOT reaching 44.5". Full sample: 44.0%, in band, not
+reaching 44.4 — both clauses correct. At n = 200 the second was declared refuted and written up as "the run
+refuted my scepticism, not the design". **Adjudicating a ±1-point prediction on a sample that cannot resolve
+±1 point is exactly what Part 134 did with its interaction at n = 100**, a lesson already recorded in
+`docs/memory.md`, quoted during this session, and repeated anyway. Pre-registration protects nothing if the
+run that judges it is underpowered.
+
+**Not confirmed, by a flaw in the confirming run's own design:** its arm set was chosen for the 40-slot
+question and dropped `vector` (20 items), so **Part 136's 20-slot parity has no full-sample control** —
+`lyntai-fused-full` reads 42.2% there against nothing.
 
 **The FIRST run of this arm was void and is recorded because of how it was caught.** It scored 42.0% —
 inside the predicted band AND branch — while measuring 20 whole items plus ~20 truncated ones, because

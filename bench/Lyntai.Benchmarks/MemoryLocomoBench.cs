@@ -459,13 +459,13 @@ internal static class MemoryLocomoBench
                             }), null, RecallLimit),
 
                         // The ONLY arm size-matched to `vector-40` on BOTH axes -- 40 slots and ~7k chars --
-                        // now that D104 lets a walk return whole entries. RAN 2026-09-02:
-                        // 44.8% against `vector-40`'s 43.9% (docs/task-archive.md Part 137).
+                        // now that D104 lets a walk return whole entries. RAN 2026-09-02 at n=1540:
+                        // 44.0% against `vector-40`'s 44.4% -- LEVEL (docs/task-archive.md Part 137).
                         //
-                        // Its pre-registration was HALF right and is kept where it can be checked: 40-45%
-                        // (44.8, correct) but "NOT reaching 44.5" (wrong). The reasoning behind the wrong
-                        // half -- that graph NEIGHBOURS should be worth less to an answer than the
-                        // next-most-similar turns -- is what the run refuted.
+                        // Its pre-registration held on both clauses: 40-45% and "NOT reaching 44.5". An
+                        // n=200 pass read 44.8/43.9 and declared the second clause refuted; the full sample
+                        // flipped the sign and retracted that. A +-1 point difference was never resolvable
+                        // at 200 -- the two byte-identical-prompt arms differ by 0.4 there and 0.0 here.
                         (FusedThreeShotFull, null,
                             new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
                             {

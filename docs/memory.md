@@ -1225,7 +1225,42 @@ multi-hop 38.0 vs 37.8 and single-hop 50.8 vs 48.9, but temporal 25.1 vs 29.2 an
 Whether a recall should be able to return content directly is a design question this measurement raises and
 does not answer.
 
-### At 40 slots of whole entries the walk reaches cosine — the first time this benchmark has put the engine ahead (`memory-locomo`, 2026-09-02)
+### RETRACTED in part — at 40 slots the walk is LEVEL with cosine, not ahead: +0.9 at n = 200 reads −0.4 at n = 1,540 (`memory-locomo`, 2026-09-02)
+
+**The subsection below was written at n = 200 and its headline did not survive the full sample.** Same four
+arms, same seed, everything else unchanged, 1,540 questions
+(`node devtools/dev.mjs memory-locomo --n 1540 --no-judge --arms …`, 5,707.6s; raw output the gitignored
+`devtools/_locomo-40slot-full.txt` <!-- link-ok: gitignored raw sweep output, named as provenance -->):
+
+| arm | token-F1 | unknown | items/q | chars/q |
+|---|---|---|---|---|
+| `lyntai-fused-full` | 42.2% | 105 | 20.0 | 3,503 |
+| `lyntai-fused-api` | 42.2% | 107 | 20.0 | 3,503 |
+| `lyntai-fused-3shot-full` | **44.0%** | 58 | 39.7 | 6,941 |
+| `vector-40` | **44.4%** | 50 | 40.0 | 6,780 |
+
+**The claim that survives is LEVEL.** 44.0 against 44.4 at 2.4% more context — the sign flipped from +0.9
+to −0.4, so "the first time this benchmark has put the engine ahead" is **retracted**. What is not retracted
+is the larger movement: this engine was measured 12 points behind plain cosine before headline truncation was
+found and fixed, and it is now within half a point of it.
+
+**The noise floor did what was forecast, which is why −0.4 is readable where +0.9 was not.** The two
+byte-identical-prompt arms scored 40.7/41.1 at n = 200 and **42.2/42.2** here — reader nondeterminism
+collapsed from 0.4 points to 0.0 on token-F1. A difference of ±1 point was never resolvable at n = 200.
+
+**The pre-registration was RIGHT, and the n = 200 adjudication of it was wrong.** It called *"40–45%,
+gaining on 38.8 but NOT reaching `vector-40`'s 44.5"*. Full sample: 44.0%, in band, not reaching 44.4 —
+**both clauses correct.** At n = 200 the second clause was declared refuted and written up as "the run
+refuted my scepticism, not the design". **Adjudicating a ±1-point prediction on a sample that cannot resolve
+±1 point is the same error `docs/task-archive.md` Part 134 made with its interaction at n = 100**, recorded
+in this very file, and repeated anyway. A prediction is only adjudicated by a run powered to adjudicate it.
+
+**Not confirmed, through a flaw in the run's own design:** the arm set was chosen for the 40-slot question
+and dropped `vector` (20 items), so the 20-slot parity of `docs/task-archive.md` **Part 136** — 41.0 against
+41.3 at n = 200 — has no full-sample control. `lyntai-fused-full` reads 42.2% here with nothing to compare
+it against.
+
+### (n = 200, superseded above) At 40 slots of whole entries the walk reaches cosine (`memory-locomo`, 2026-09-02)
 
 **Instrument.** `node devtools/dev.mjs memory-locomo --n 200 --no-judge`, seed 12345, reader `gemma3:4b`,
 embedder `nomic-embed-text`, 3,487s. Raw output: the gitignored

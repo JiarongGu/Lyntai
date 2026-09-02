@@ -62,9 +62,11 @@ matched slots and matched context. **The ranking was never the deficit; headline
 shipped as **D104** (`MemoryQuery.Detail`) and **Part 137 opened on it** — seven to eight — asking the one
 question 136 left: cosine gains +3.2 going from 20 slots to 40, and nobody had measured whether the WALK
 does. **It CLOSED the same day** — eight back to seven, `docs/task-archive.md` **Part 137** — and the answer
-is yes: at 40 slots of whole entries the engine reads **44.8%** against `vector-40`'s 43.9%, the first
-size-matched comparison this benchmark has put it ahead on. Read +0.9 as level-or-slightly-ahead; the run
-measures its own 0.4-point reader noise floor. Every number here is edited in
+is LEVEL: at 40 slots of whole entries the engine reads **44.0%** against `vector-40`'s **44.4%** on all
+1,540 questions. **An n = 200 pass read that as 44.8/43.9 and was retracted by the full sample** — the sign
+flipped, and a ±1-point difference was never resolvable at 200 (`docs/memory.md` §5). What survives is the
+distance travelled: 12 points behind cosine before truncation was found, within half a point now.
+Every number here is edited in
 the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
 
 **START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
