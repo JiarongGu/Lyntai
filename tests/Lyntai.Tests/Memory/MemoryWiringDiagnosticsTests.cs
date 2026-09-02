@@ -279,4 +279,70 @@ public class MemoryWiringDiagnosticsTests
 
         Assert.NotNull(sp.GetRequiredService<IMemoryEngineFactory>().Get("chat"));
     }
+
+    /// <summary>A BYO semantic channel under its OWN name must not be accused of not existing.
+    /// <para>The diagnostic used to ask whether a source was NAMED "semantic", so a consumer's own vector
+    /// channel produced a finding recommending <c>AddMemorySemanticSeeds()</c> on wiring that was already
+    /// correct — and under <c>StrictWiring</c> that false finding THROWS at startup. `MemoryWiring`'s own
+    /// class doc says a finding that is usually wrong is worse than no check; this was that failure mode.
+    /// </para>
+    /// <para>It now asks the channel what ROLE it plays. A source declaring
+    /// <see cref="MemorySeedKind.Semantic"/> answers the question whatever it is called.</para></summary>
+    [Fact]
+    public void A_BYO_semantic_channel_under_its_own_name_is_not_reported_as_missing()
+    {
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
+            embedder: new FakeEmbedder(), vectors: new InMemoryVectorStore(),
+            seedSources: [new LexicalSeedSource(), new AcmeVectorChannel()]);
+
+        Assert.Empty(MemoryWiring.Inspect([engine], verification: false, annotation: false));
+    }
+
+    /// <summary>The finding must still FIRE when the channel really is absent — the positive control without
+    /// which the test above passes on a diagnostic that was simply switched off.</summary>
+    [Fact]
+    public void An_embedder_with_no_semantic_channel_at_all_is_still_reported()
+    {
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
+            embedder: new FakeEmbedder(), vectors: new InMemoryVectorStore(),
+            seedSources: [new LexicalSeedSource()]);
+
+        var found = Assert.Single(MemoryWiring.Inspect([engine], verification: false, annotation: false));
+        Assert.Contains("AddMemorySemanticSeeds()", found, StringComparison.Ordinal);
+    }
+
+    /// <summary>A consumer's channel that declines to say what it is (the defaulted
+    /// <see cref="MemorySeedKind.Custom"/>) makes the diagnostic ABSTAIN rather than accuse. It may BE the
+    /// semantic channel and the engine cannot tell, so the safe direction is silence — the same reasoning
+    /// that keeps the policy findings quiet under BYO ambiguity.</summary>
+    [Fact]
+    public void An_undeclared_channel_silences_the_finding_rather_than_triggering_a_false_one()
+    {
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
+            embedder: new FakeEmbedder(), vectors: new InMemoryVectorStore(),
+            seedSources: [new LexicalSeedSource(), new UndeclaredChannel()]);
+
+        Assert.Empty(MemoryWiring.Inspect([engine], verification: false, annotation: false));
+    }
+
+    /// <summary>A consumer's own vector channel: named for their product, declaring its ROLE.</summary>
+    private sealed class AcmeVectorChannel : IMemorySeedSource
+    {
+        public string Name => "acme-vectors";
+
+        public MemorySeedKind Kind => MemorySeedKind.Semantic;
+
+        public Task<IReadOnlyList<GraphNode>> SeedAsync(MemorySeedRequest request, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<GraphNode>>([]);
+    }
+
+    /// <summary>A channel that does not override <c>Kind</c> at all — what every BYO source written before
+    /// the property existed still compiles as.</summary>
+    private sealed class UndeclaredChannel : IMemorySeedSource
+    {
+        public string Name => "mystery";
+
+        public Task<IReadOnlyList<GraphNode>> SeedAsync(MemorySeedRequest request, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<GraphNode>>([]);
+    }
 }

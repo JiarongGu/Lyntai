@@ -2109,3 +2109,30 @@ or not expansion honoured anything; it passed with the fix reverted, and only a 
 assertion belongs on `NewItems` at the step that discovered them.
 
 - Run `lyntai-fused-3shot-full` and read it against `vector-40`.
+
+## Part 132 — the two seam-name diagnostics key on a hardcoded string, and a BYO channel can trip them
+
+✅ done 2026-09-02 — `IMemorySeedSource.Kind` (`MemorySeedKind`: `Lexical` / `Semantic` / `Subject` /
+`Custom`), and `GraphMemoryEngine.EmbedsWithoutSeeding` / `.RecordsSubjectsWithoutSeeding` now ask a
+channel's ROLE instead of comparing `Name` by ordinal string. A BYO vector channel called anything at all
+answers the question; renaming a shipped source can no longer mute the finding.
+
+**Additive and DEFAULTED, so nothing outside breaks.** `Kind` has an interface default of `Custom`, so a
+source written before the property existed compiles unchanged — the API diff is purely new members, with no
+signature changed and therefore no binary break (unlike **D104**'s two).
+
+**A `Custom` channel makes the diagnostics ABSTAIN rather than accuse**, which is the design decision inside
+this fix. An undeclared source may BE the channel a diagnostic would report missing and the engine cannot
+tell, so silence is the safe direction — `MemoryWiring`'s own class doc says a finding that is usually wrong
+is worse than no check, and the false-positive case was the one that THREW under `StrictWiring()`.
+
+**Three tests, one of which is the control that matters:** a BYO semantic channel under its own name is not
+reported; an undeclared channel silences rather than trips; **and an embedder with no semantic channel at all
+is STILL reported** — without that last one the first two pass on a diagnostic that was simply switched off.
+Mutation-checked: reverting to name-matching fails exactly the two "must not accuse" tests and leaves the
+positive control passing.
+
+The consumer-facing finding text moved with it — it named `IMemorySeedSource named 'semantic'` and now names
+the kind, and tells a consumer with their own channel to declare it.
+
+- Give a seed source a way to say WHAT it is, not just its `Name`.

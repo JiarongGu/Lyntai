@@ -38,6 +38,9 @@ public sealed class SubjectSeedSource(
     public string Name => "subject";
 
     /// <inheritdoc />
+    public MemorySeedKind Kind => MemorySeedKind.Subject;
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<GraphNode>> SeedAsync(MemorySeedRequest request, CancellationToken ct)
     {
         if (_options.K <= 0 || _options.Scan <= 0 || request.Limit <= 0 ||

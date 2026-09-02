@@ -17,6 +17,9 @@ public sealed class LexicalSeedSource : IMemorySeedSource
     public string Name => "lexical";
 
     /// <inheritdoc />
+    public MemorySeedKind Kind => MemorySeedKind.Lexical;
+
+    /// <inheritdoc />
     public Task<IReadOnlyList<GraphNode>> SeedAsync(MemorySeedRequest request, CancellationToken ct) =>
         request.Store.SeedAsync(request.Engine, request.Query.TaskKey, request.Query.Scope,
             request.Query.Query, request.Limit, ct);

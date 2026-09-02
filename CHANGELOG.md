@@ -14,6 +14,20 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`IMemorySeedSource.Kind` — a retrieval channel can say what it IS, not just what it is called**
+  (`MemorySeedKind`: `Lexical` / `Semantic` / `Subject` / `Custom`). The two wiring diagnostics ask the role
+  instead of matching a name.
+  <br>**It fixes a check that accused correct wiring.** They asked whether a source was NAMED `"semantic"` or
+  `"subject"`, so a consumer's own vector channel under any other name produced a finding recommending
+  `AddMemorySemanticSeeds()` on wiring that was already right — and under `StrictWiring()` that false finding
+  THREW at startup. A rename of a shipped source silently muted the finding instead, the permissive
+  direction. Both are gone.
+  <br>**Additive and defaulted, so no BYO source breaks**: `Kind` has an interface default of `Custom`, and a
+  `Custom` channel makes the diagnostics **abstain** rather than accuse — it may BE the channel they would
+  report missing, and the engine cannot tell. Declare a kind to be counted; the cost of not declaring is
+  silence, never a false finding. Pinned by a positive control so the diagnostic cannot be switched off
+  unnoticed.
+
 - **`MemoryQuery.Detail` — ask a recall for whole entries instead of headlines** (`MemoryDetail.Headline`,
   the default and today's behaviour, or `.Full`). `docs/DECISIONS.md` **D104**.
   <br>**Priced rather than offered.** A recall withholds associative content until an expansion asks for it,

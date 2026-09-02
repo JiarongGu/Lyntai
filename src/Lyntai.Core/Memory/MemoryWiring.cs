@@ -55,19 +55,22 @@ internal static class MemoryWiring
             if (member.EmbedsWithoutSeeding)
                 findings.Add(
                     $"graph member '{member.Name}' is wired with an embedder and a vector store but no " +
-                    "IMemorySeedSource named 'semantic' — every write is embedded, for novelty and " +
-                    "similarity linking, and no recall considers those neighbours. Call " +
+                    "IMemorySeedSource declaring MemorySeedKind.Semantic — every write is embedded, for " +
+                    "novelty and similarity linking, and no recall considers those neighbours. Call " +
                     "AddMemorySemanticSeeds(), or drop the embedder registration; as wired you pay an " +
-                    "embedding per write for nothing a recall reads.");
+                    "embedding per write for nothing a recall reads. If you HAVE your own vector channel, " +
+                    "declare its Kind — this asks a channel's role, not its name.");
 
             // The same defect on the other index, and it was live for the whole life of the annotation seam:
             // handles were recorded, paid for per write, and readable by nothing but the writer.
             if (member.RecordsSubjectsWithoutSeeding)
                 findings.Add(
                     $"graph member '{member.Name}' is wired with an annotator but no IMemorySeedSource " +
-                    "named 'subject' — every write pays a model call to record what the fact is about, and " +
-                    "no recall can reach an entry through a subject. Call AddMemorySubjectSeeds(), or drop " +
-                    "the annotator; as wired the handles are readable only by the write path's own linking.");
+                    "declaring MemorySeedKind.Subject — every write pays a model call to record what the " +
+                    "fact is about, and no recall can reach an entry through a subject. Call " +
+                    "AddMemorySubjectSeeds(), or drop the annotator; as wired the handles are readable only " +
+                    "by the write path's own linking. If you HAVE your own subject channel, declare its " +
+                    "Kind — this asks a channel's role, not its name.");
         }
 
         if (verification && CertainlyUnconsulted(engines))

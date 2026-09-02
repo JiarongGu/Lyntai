@@ -1,5 +1,28 @@
 namespace Lyntai.Memory.Seeding;
 
+/// <summary>What a retrieval channel IS, as opposed to what it is called. The wiring diagnostics ask this
+/// rather than matching <see cref="IMemorySeedSource.Name"/>, so a consumer's own channel can be named for
+/// their product and still answer "yes, the semantic index is reachable".
+/// <para><see cref="Custom"/> is the default and means "not stated". It is not a fourth role — it is the
+/// absence of one, and it makes a diagnostic abstain rather than report a channel missing that may be
+/// present under a name nobody here can predict.</para></summary>
+public enum MemorySeedKind
+{
+    /// <summary>Undeclared. A channel that has not said what it is; diagnostics treat it as possibly
+    /// anything and stay quiet.</summary>
+    Custom = 0,
+
+    /// <summary>Matches the query's TEXT against stored text.</summary>
+    Lexical = 1,
+
+    /// <summary>Matches by embedding similarity, reading the vector store every write pays into.</summary>
+    Semantic = 2,
+
+    /// <summary>Fetches by a recorded SUBJECT handle rather than by scoring the query against content.
+    /// </summary>
+    Subject = 3,
+}
+
 /// <summary>What one seed source is asked for. The STORE rides here rather than being injected because it
 /// is per-engine (a constructor parameter of <c>GraphMemoryEngine</c>) while a registered source is a
 /// singleton — a DI-resolved source cannot otherwise know which store it is reading.</summary>
@@ -38,6 +61,16 @@ public interface IMemorySeedSource
     /// <summary>This channel's stable name, used as the key in
     /// <see cref="MemorySeedRanks"/>. Ordinal comparison, so it is case-sensitive.</summary>
     string Name { get; }
+
+    /// <summary>What ROLE this channel plays, for the wiring diagnostics that need to know whether an index
+    /// a deployment is PAYING for can be reached by a recall.
+    /// <para><b>Defaulted to <see cref="MemorySeedKind.Custom"/>, so an existing source compiles
+    /// unchanged</b> — and a `Custom` channel makes those diagnostics ABSTAIN rather than accuse, because
+    /// it may be the very channel they would report missing. Declare a kind to be counted; the cost of not
+    /// declaring is silence, never a false finding.</para>
+    /// <para>It is a ROLE, not an identity: several sources may share a kind, and the kind is not a key —
+    /// <see cref="Name"/> stays the one thing that must be unique.</para></summary>
+    MemorySeedKind Kind => MemorySeedKind.Custom;
 
     /// <summary>This channel's candidates, each carrying its own <see cref="GraphNode.Relevance"/> — see the
     /// type's remarks for what the engine does with that value and what a flat one means.</summary>

@@ -43,6 +43,9 @@ public sealed class SemanticSeedSource(
     public string Name => "semantic";
 
     /// <inheritdoc />
+    public MemorySeedKind Kind => MemorySeedKind.Semantic;
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<GraphNode>> SeedAsync(MemorySeedRequest request, CancellationToken ct)
     {
         if (request.Limit <= 0 || string.IsNullOrWhiteSpace(request.Query.Query)) return [];

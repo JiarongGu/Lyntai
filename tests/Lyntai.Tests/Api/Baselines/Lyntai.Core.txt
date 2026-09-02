@@ -2407,12 +2407,20 @@ sealed class Lyntai.Memory.Salience.StructuralSaliencePolicy
     Provenance : MemorySalienceProvenance
     Signals(MemoryWrite write, SalienceContext& context) : MemorySignals
 interface Lyntai.Memory.Seeding.IMemorySeedSource
+    Kind : MemorySeedKind
     Name : String
     SeedAsync(MemorySeedRequest request, CancellationToken ct) : Task<IReadOnlyList<GraphNode>>
 sealed class Lyntai.Memory.Seeding.LexicalSeedSource
     .ctor()
+    Kind : MemorySeedKind
     Name : String
     SeedAsync(MemorySeedRequest request, CancellationToken ct) : Task<IReadOnlyList<GraphNode>>
+enum Lyntai.Memory.Seeding.MemorySeedKind
+    Custom : MemorySeedKind const
+    Lexical : MemorySeedKind const
+    Semantic : MemorySeedKind const
+    Subject : MemorySeedKind const
+    value__ : Int32
 struct Lyntai.Memory.Seeding.MemorySeedRank
     .ctor(String Source, Int32 Rank)
     Deconstruct(String& Source, Int32& Rank) : Void
@@ -2452,6 +2460,7 @@ sealed class Lyntai.Memory.Seeding.SemanticSeedOptions
     ToString() : String
 sealed class Lyntai.Memory.Seeding.SemanticSeedSource
     .ctor(IEmbedder embedder, IVectorStore vectors, SemanticSeedOptions options = null, ILogger<SemanticSeedSource> logger = null)
+    Kind : MemorySeedKind
     Name : String
     SeedAsync(MemorySeedRequest request, CancellationToken ct) : Task<IReadOnlyList<GraphNode>>
 sealed class Lyntai.Memory.Seeding.SubjectSeedOptions
@@ -2464,6 +2473,7 @@ sealed class Lyntai.Memory.Seeding.SubjectSeedOptions
     ToString() : String
 sealed class Lyntai.Memory.Seeding.SubjectSeedSource
     .ctor(SubjectSeedOptions options = null, ILogger<SubjectSeedSource> logger = null)
+    Kind : MemorySeedKind
     Name : String
     SeedAsync(MemorySeedRequest request, CancellationToken ct) : Task<IReadOnlyList<GraphNode>>
 sealed class Lyntai.Memory.SemanticHit

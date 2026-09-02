@@ -274,19 +274,20 @@ public sealed class GraphMemoryEngine(
         return list;
     }
 
-    /// <summary>Whether a channel of this name is registered — how the two wiring diagnostics below ask
-    /// their question now that the seed options are gone. Ordinal, matching
-    /// <see cref="MemorySeedRanks.TryGet"/>'s own comparison.
-    /// <para><b>Known limitation: this asks about a NAME, and <see cref="IMemorySeedSource"/> exposes
-    /// nothing else to ask.</b> Renaming <see cref="SemanticSeedSource.Name"/> silently MUTES the finding
-    /// below (the permissive direction); a consumer's BYO semantic channel under any other name produces a
-    /// FALSE finding recommending <c>AddMemorySemanticSeeds()</c> on a wiring that is already correct; and
-    /// under <see cref="MemoryEngineBuilder.StrictWiring"/> that false finding THROWS at startup on that
-    /// same correct wiring. <see cref="MemoryWiring"/>'s own class doc says a finding that is usually wrong
-    /// is worse than no check — this is exactly that failure mode, tracked as <c>TASKS.md</c> Part
-    /// 132.</para></summary>
-    private bool Seeds(string source) =>
-        _seedSources.Any(s => string.Equals(s.Name, source, StringComparison.Ordinal));
+    /// <summary>Whether a channel of this ROLE might be registered — how the two wiring diagnostics below
+    /// ask their question.
+    /// <para><b>It asks <see cref="IMemorySeedSource.Kind"/>, never the NAME.</b> Matching a name meant a
+    /// consumer's BYO semantic channel called anything else produced a FALSE finding on wiring that was
+    /// already correct — and under <see cref="MemoryEngineBuilder.StrictWiring"/> that threw at startup.
+    /// A rename of a shipped source silently MUTED the finding instead. Both are gone: a channel states its
+    /// role and is counted whatever it is called.</para>
+    /// <para><b>An UNDECLARED channel makes this abstain</b> — <see cref="MemorySeedKind.Custom"/> is the
+    /// interface default, so a source written before the property existed may BE the channel a diagnostic
+    /// would report missing, and this engine cannot tell. Returning true keeps the caller quiet, which is
+    /// the direction <see cref="MemoryWiring"/>'s own class doc demands: a finding that is usually wrong is
+    /// worse than no finding.</para></summary>
+    private bool MightSeed(MemorySeedKind kind) =>
+        _seedSources.Any(s => s.Kind == kind || s.Kind == MemorySeedKind.Custom);
 
     /// <summary>Validates a single retrievability policy's own declared provenance bit — real (never
     /// <c>None</c>) and single, the same two facts <see cref="NormalizeSaliencePolicies"/> checks across several
@@ -307,9 +308,10 @@ public sealed class GraphMemoryEngine(
     /// <para>Internal, and read only by <see cref="MemoryWiring"/>: it is a wiring diagnostic, not something
     /// a consumer branches on. Exposed as a property rather than reflected over, so a rename is a compile
     /// error instead of a sweep that throws the next time somebody runs it.</para>
-    /// <para>See <see cref="Seeds"/>'s own remarks for this diagnostic's known limitation — it asks about a
-    /// registered NAME, not a channel's role.</para></summary>
-    internal bool EmbedsWithoutSeeding => Enriches && !Seeds("semantic");
+    /// <para>It asks a channel's ROLE (<see cref="IMemorySeedSource.Kind"/>), never its name, so a BYO
+    /// vector channel called anything at all answers it — see <see cref="MightSeed"/> for why an
+    /// UNDECLARED channel silences this rather than tripping it.</para></summary>
+    internal bool EmbedsWithoutSeeding => Enriches && !MightSeed(MemorySeedKind.Semantic);
 
     /// <summary>This engine records subject handles and no recall can reach one — an annotator is wired, so
     /// every write pays a model call to say what the fact is ABOUT, while no <see cref="SubjectSeedSource"/>
@@ -317,11 +319,11 @@ public sealed class GraphMemoryEngine(
     /// list.
     /// <para><b>It asks about REGISTRATION, not about the source's own knob.</b>
     /// <see cref="SubjectSeedOptions.K"/> of 0 is a documented off-switch a deployment chose deliberately on
-    /// the source it registered, and the seam exposes only <see cref="IMemorySeedSource.Name"/> — so this
-    /// reports the channel being absent, which is the gap an adopter actually hit.</para>
+    /// the source it registered, so this reports the channel being ABSENT — the gap an adopter actually hit
+    /// — and says nothing about one that is present and turned down.</para>
     /// <para>Internal and read only by <see cref="MemoryWiring"/>, exactly like
     /// <see cref="EmbedsWithoutSeeding"/> — the same defect on the other index.</para></summary>
-    internal bool RecordsSubjectsWithoutSeeding => annotation is not null && !Seeds("subject");
+    internal bool RecordsSubjectsWithoutSeeding => annotation is not null && !MightSeed(MemorySeedKind.Subject);
 
     /// <inheritdoc />
     public string Name { get; } = name;
