@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SIX items, across Parts 105, 109, 116, 128 and 129.** Each is a
+**The startable set is SEVEN items, across Parts 105, 109, 116, 128, 129 and 138.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -68,7 +68,10 @@ flipped, and a ±1-point difference was never resolvable at 200 (`docs/memory.md
 distance travelled: 12 points behind cosine before truncation was found, within half a point now.
 **Part 132 CLOSED 2026-09-02** — seven to six, `docs/task-archive.md` **Part 132**: `IMemorySeedSource.Kind`
 lets a channel state its ROLE, so the two wiring diagnostics stopped accusing a correctly-wired BYO channel
-of not existing. Additive and defaulted, so nothing outside breaks. Every number here is edited in
+of not existing. Additive and defaulted, so nothing outside breaks. **Part 138 opened the same day** — six
+back to seven — against a RUN DESIGN rather than the code: the full-sample pass that retracted the 40-slot
+claim had dropped the 20-item cosine control, so Part 136's parity claim still rests on n = 200, the sample
+size that just produced a sign flip. Every number here is edited in
 the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
 
 **START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
@@ -873,6 +876,31 @@ _**The gate this Part argued for is BUILT** — `docs/task-archive.md` **Part 13
 `check-decision-claims` is wired into `verify` (now seventeen gates) with six predicates, each verified by
 hand before registering and each driven RED by a synthesized tree in its own test. What is left of this Part
 is the sweep above._
+
+---
+
+## Part 138 — the 20-slot parity claim has no full-sample control (2026-09-02)
+
+_Opened against my own run design rather than against the code. `docs/task-archive.md` **Part 136** claims
+the engine draws LEVEL with plain cosine at 20 slots once truncation is removed — 41.0 against 41.3 — and
+that is an **n = 200** reading. The full-sample confirmation that followed selected its arms for the 40-slot
+question and dropped `vector` (20 items), so `lyntai-fused-full` reads **42.2%** at n = 1,540 against
+nothing._
+
+_**Why it needs redoing rather than reasoning about.** The same session's 40-slot claim moved from +0.9 to
+−0.4 between n = 200 and n = 1,540 — the sign flipped. A ±1-point difference is not resolvable at 200, and
+41.0 vs 41.3 is a 0.3-point difference. **The parity claim is currently supported by a sample that cannot
+support it**, exactly like the claim that was retracted beside it._
+
+- [ ] **Run the 20-slot pair at full sample.**
+  `node devtools/dev.mjs memory-locomo --n 1540 --no-judge --arms vector,lyntai-fused-api` — two arms, one
+  ingestion, ~80 minutes now that `--arms` exists. `lyntai-fused-api` repeating its **42.2%** is also a
+  cross-run reproducibility check, so the run carries its own control.
+  <br>**Read it against a floor measured IN THE SAME RUN**, not against this note: the reader's
+  nondeterminism was 0.4 points at n = 200 and 0.0 at n = 1,540, and a delta smaller than a few times that
+  floor has adjudicated nothing (`.claude/knowledge/pitfalls.md`).
+  <br>**Whatever it says, Part 136's write-up needs editing** — either its n = 200 figures gain a
+  full-sample confirmation, or the parity claim is retracted the way the 40-slot one was.
 
 ---
 
