@@ -7,6 +7,43 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-02 — the LoCoMo oracle arm could not run at full sample, and a 200-question ceiling hid it
+
+**Symptom.** `node devtools/dev.mjs memory-locomo --retrieval --n 1540` dies partway through the eighth
+conversation with `System.ArgumentException: An item with the same key has already been added. Key: What are
+the names of Jolene's snakes?`, thrown from `Ladder()` while building the `+forget0+oracle` arm. Nothing was
+wrong with the engine; the harness could not construct one of its own arms. The wrapper reported `EXIT=0`
+because the shell line ended in an `echo` — the lying-exit-code shape `.claude/rules/windows-machine.md`
+records — so the crash had to be read out of the output file rather than the status.
+
+**Root cause.** `EvidenceOracleVerifier` was constructed as
+`mine.ToDictionary(q => q.Text, q => q.Evidence.ToHashSet())` (introduced with the verdict arms in
+`47de408`), which assumes question text is unique within a conversation. It is not: **LoCoMo repeats 11 QA
+rows verbatim inside `conv-48`** — measured, not inferred — every one category 4, and every pair
+byte-identical in both evidence and gold. Text is nevertheless the only key available, because
+`MemoryVerificationRequest` carries the query and nothing else.
+
+**The reason it survived four months of use is the interesting half.** Every retrieval ladder on record ran
+`--n 200`, and the stratified sample never drew both copies of any duplicate. So the arm whose 77.5% ceiling
+is quoted in `TASKS.md`, `docs/memory.md` §5 and Part 128's framing had **never been run at full sample and
+could not be** — a defect reachable only at a size nobody had used. The QA path carries the same assumption
+and is silent about it: `recalled[(arm, q.Text)] = …` OVERWRITES where `ToDictionary` throws, which is why
+the n = 1,540 QA run earlier the same day completed normally. That silence is benign only because the
+duplicates are exact.
+
+**Fix.** `EvidenceByQuery(questions, convId)` groups by text and unions the evidence. The union is the
+honest resolution rather than first-wins: two questions sharing one text are indistinguishable to a judge
+shown only that text, so their combined evidence is the ceiling a perfect one could reach. Because the
+duplicates are exact here it changes no score — and rather than leave that as a measured assumption that can
+rot, the helper WARNS when duplicated texts declare different evidence, naming the conversation and calling
+the oracle generous to those questions.
+
+**Verify.** The full run completes: 1,540 of 1,540 questions, all ten conversations, `conv-48`'s 191
+questions probed, 9,611.4s, and **the divergence warning did not fire**, which is the fix's own control
+reporting that the duplicates are identical. The oracle is demonstrably firing rather than silently
+inert — 65.6% multi-hop against `+forget0`'s 51.4% — so the arm was not repaired into a no-op. Table:
+`docs/memory.md` §5.
+
 ## 2026-08-30 — `memory-salience`'s OFF arm was never off, so its whole table measured one consumer
 
 **Symptom.** `node devtools/dev.mjs memory-salience` (and both its ladders) reports a paired difference

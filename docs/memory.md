@@ -1220,6 +1220,10 @@ trick: a consumer passing one parameter gets it.
 **Not settled.** One reader tier, one embedder, n = 200 rather than the full 1,540. The category splits are
 not resolved at this sample and do not all point one way — against `vector`, `lyntai-fused-full` reads
 multi-hop 38.0 vs 37.8 and single-hop 50.8 vs 48.9, but temporal 25.1 vs 29.2 and open-domain 16.7 vs 25.0.
+<br>**CONFIRMED at n = 1,540 on 2026-09-02** (the last LoCoMo subsection below): 42.0 against `vector`'s
+42.4, a −0.4 where this read −0.3, so **the parity result holds and the sample size is no longer a caveat on
+it**. Two of the category readings above did not survive — multi-hop's near-tie is −4.0 at full sample —
+which is what "not resolved at this sample" meant. The remaining caveats in this paragraph stand.
 **And this measures a HARNESS arm, not a shipped path**: a consumer reaches the same place with N calls of
 `ExpandAsync(reference, hops: 0)`, one per returned item, which is supported but is N store round-trips.
 Whether a recall should be able to return content directly is a design question this measurement raises and
@@ -1259,6 +1263,10 @@ in this very file, and repeated anyway. A prediction is only adjudicated by a ru
 and dropped `vector` (20 items), so the 20-slot parity of `docs/task-archive.md` **Part 136** — 41.0 against
 41.3 at n = 200 — has no full-sample control. `lyntai-fused-full` reads 42.2% here with nothing to compare
 it against.
+<br>**That gap CLOSED the same day** — the subsection below ran the missing pair at full sample, and the
+parity claim survived where this one's did not (−0.4 at n = 1,540 against −0.3 at n = 200). It also gives
+this run a cross-run reproducibility check it could not give itself: `lyntai-fused-api` repeats **42.2 → 42.0
+at an identical 3,503 `chars/q`**, so the table above reproduces.
 
 ### (n = 200, superseded above) At 40 slots of whole entries the walk reaches cosine (`memory-locomo`, 2026-09-02)
 
@@ -1302,6 +1310,199 @@ for the design and the one it was built to test.
 1,540 to become a claim rather than a direction, and the category splits are not resolved at this sample.
 Nothing here licenses a default moving: `MemoryDetail.Full` is opt-in precisely because the cheap first load
 is what a different consumer wants (**D100**).
+
+### CONFIRMED at full sample — at 20 slots the walk is LEVEL with cosine: −0.3 at n = 200 reads −0.4 at n = 1,540 (`memory-locomo`, 2026-09-02)
+
+**This is the control the subsection above says it lacked.** The 40-slot confirmation dropped `vector`
+(20 items), leaving the 20-slot parity of `docs/task-archive.md` **Part 136** resting on n = 200 — the
+sample size that had just flipped the sign of the claim beside it.
+
+**Instrument.** `node devtools/dev.mjs memory-locomo --n 1540 --no-judge --arms vector,lyntai-fused-api`,
+all 1,540 questions in categories 1–4, seed 12345, reader `gemma3:4b` local, embedder `nomic-embed-text`,
+3,544.9s. Raw output: the gitignored
+`devtools/_locomo-20slot-full.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+Two arms, one ingestion. Control: all ten conversations' per-question store copies verified turn-for-turn
+(419 of 419, 369 of 369, …), and the semantic seed returned its full 20 with ids parsing as node keys.
+
+| arm | token-F1 | exact | unknown | items/q | chars/q |
+|---|---|---|---|---|---|
+| `lyntai-fused-api` | 42.0% | 19.2% | 101 | 20.0 | 3,503 |
+| `vector` | 42.4% | 19.4% | 107 | 20.0 | 3,460 |
+
+**1. The parity claim SURVIVES, unlike the 40-slot claim measured beside it.** −0.3 at n = 200 reads −0.4 at
+n = 1,540: same sign, same magnitude, at identical slots and 1.2% more context. Both arms gained about a
+point going to full sample (41.0 → 42.0 and 41.3 → 42.4), which is the sample movement this instrument has
+now shown three times.
+
+**2. The reproducibility control is what licenses reading the difference at all.** `lyntai-fused-api` scored
+**42.2%** in the 40-slot pass and **42.0%** here, at `chars/q` **3,503 in both** — a byte-identical arm
+drifting 0.2 points across two independent runs. So −0.4 is about twice the floor, which adjudicates *"no
+difference this instrument can resolve"* and **not** *"cosine is ahead"*. The identical char column is the
+stronger half of that control: retrieval, ranking and slot count reproduced exactly, so only the reader
+moved.
+
+**3. What this run could NOT measure, and it is a flaw in my own run design.** The floor in point 2 is
+CROSS-run. `docs/task-archive.md` **Part 138** asked for one measured IN the same run, which needed a second
+byte-identical arm (`lyntai-fused-full`) at roughly 30 more minutes. The cross-run figure is stricter on one
+axis — it carries ingestion and store-rebuild variation, not only reader sampling — but it is not the
+control that was specified, and substituting a stricter-looking measurement for the one asked for is how a
+run talks itself out of a gap. Reading it as a floor is a judgement, not a measurement.
+
+**4. The category splits moved, and multi-hop is the one worth keeping.** It read 38.0 against 37.8 at
+n = 200 — a tie — and reads **35.8 against 39.8** here, so the engine is 4.0 points behind cosine on the
+category `TASKS.md` **Part 128** already carries as the one no judge fixes. single-hop replicates as a win
+(**52.1 against 50.5**, +1.6 against +1.9), while temporal (−2.3) and open-domain (−1.9) stay behind and
+both narrow by more than half. **None of the n = 200 category cells was resolvable** — a category holds a
+few dozen questions at that sample — so what changed is the resolution, not the engine.
+
+**5. The pre-registration held on all three clauses**, registered in `TASKS.md` before the run started:
+`lyntai-fused-api` reproduces 42.2% ± 0.3 (42.0 ✓), `vector` lands in 41.0–43.0% (42.4 ✓), and the
+difference falls within ±1.0 point with the **sign not predicted** (−0.4 ✓). Declining to predict the sign
+is the part that made it a usable prediction: at a 0.2-point floor, a sign call on a 0.3-point gap would
+have been adjudicating what the instrument cannot see, which is the error `docs/task-archive.md` **Part
+137** made and recorded.
+
+**Not settled.** One reader tier, one embedder, one workload — and the in-run floor above. This says the
+engine's ranking is not measurably worse than cosine at 20 slots once entries are whole; it does not say the
+walk is better, and no default moves on it (`MemoryDetail.Full` stays opt-in, **D100**/**D104**).
+
+### The retrieval ladder at FULL sample: the best mechanical arm clears cosine, and multi-hop's "16-point" gap is 3.2 (`memory-locomo --retrieval`, 2026-09-02)
+
+**Every retrieval figure above this line is n = 200.** This is the first full-sample run of the ladder, and
+it exists because `TASKS.md` Part 128's multi-hop item was reasoning from a 37-question category cell.
+
+**Instrument.** `node devtools/dev.mjs memory-locomo --retrieval --n 1540 --no-judge --arms
+vector,+sem+rel-only,+forget0+oracle`, all 1,540 questions, seed 12345, embedder `nomic-embed-text`, no
+reader and no judge model, 9,611.4s. Raw output: the gitignored
+`devtools/_locomo-multihop-full.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+It required a harness fix to run at all — `docs/FIXES.md`, 2026-09-02.
+
+| arm | multi-hop | temporal | open-domain | single-hop | **overall** |
+|---|---|---|---|---|---|
+| `+forget0+oracle` (PERFECT judge) | 65.6% (185/282) | 78.8% (253/321) | 47.8% (44/92) | 79.0% (664/841) | **74.6%** |
+| `+sem+rel-only` (best mechanical) | 79.8% (225/282) | 83.5% (268/321) | 57.6% (53/92) | 85.9% (722/841) | **82.6%** |
+| `vector` (plain cosine) | **83.0%** (234/282) | 82.2% (264/321) | **58.7%** (54/92) | 82.4% (693/841) | **81.1%** |
+
+**These are not estimates.** The model-free arms are deterministic by construction (one ingestion per
+conversation, cloned per question, embeddings cached — the reproducibility subsection above establishes it),
+and this is the COMPLETE question set rather than a draw from it. So no noise-floor argument applies: a
+3.2-point multi-hop difference is exactly 9 questions of 282, on all of LoCoMo.
+
+**1. `+sem+rel-only` clears plain cosine at full sample — 82.6% against 81.1%.** The n = 200 reading was
+83.0 against 80.5; the win survives and is smaller (+1.5 rather than +2.5). This is the first POWERED
+confirmation that this engine's best mechanical configuration beats the formula it was 26 points behind in
+August. It wins single-hop (+3.5) and temporal (+1.3), and loses multi-hop (−3.2) and open-domain (−1.1).
+
+**2. Multi-hop's gap is 3.2 points, not the 16.2 the backlog was carrying.** `TASKS.md` Part 128 recorded
+*"64.9% even with a PERFECT judge, against cosine's 81.1%"* and inferred that multi-hop evidence sits
+outside `VerificationDepth`. That figure is a PRE-FUSION arm; per-source fusion (**D103**) had already
+superseded it the same day. At full sample the best mechanical arm reads 79.8 against 83.0 — a real but
+ordinary category deficit, and **no depth question follows from it.**
+
+**3. The PERFECT-JUDGE arm is the worst of the three, and that is the sharpest result here.**
+`+forget0+oracle` scores **74.6%** — 8.0 below the mechanical arm and 6.5 below cosine — with a judge that
+endorses exactly the evidence the dataset names. A pure formula beating formula-plus-oracle was the reading
+Part 128 opened with at n = 200; it now holds on the whole benchmark. **The deficit was never the model
+tier**, which is what `model-decoupling.md` asks a design to demonstrate rather than assume.
+
+**What point 3 does NOT establish, stated because the arms invite the stronger claim.** `+forget0+oracle`
+carries no semantic seeds and `+sem+rel-only` carries no judge, so **no measured arm pairs the judge with
+the seeding that makes the mechanical arm good.** "A judge adds nothing" is unmeasured; what is measured is
+that the best JUDGED arm loses to the best MECHANICAL one. The oracle is firing — 65.6% multi-hop against
+`+forget0`'s 51.4% at n = 200 — so this is not a silently inert verifier.
+
+**4. The pre-registration held on all three clauses**, registered in `TASKS.md` before the run: `vector`
+overall 78–83% (81.1 ✓), `+sem+rel-only` 78–85% with no prediction on whether it stays ahead (82.6 ✓, ahead),
+and **multi-hop within ±5 points, sign not predicted** (−3.2 ✓, where >10 would have restored the struck
+premise).
+
+**Not settled.** One embedder, one workload — and LoCoMo rewards a perfect archive and penalises forgetting
+by construction, which is why `RetrievabilityWeight = 0` is in two of these three arms and why no default
+moves on this table. `open-domain` is 92 questions, the thinnest cell here by a factor of three. `items/q` is
+20.0 on every arm, so nothing is filtered before ranking.
+
+### The two workloads disagree by 7×: LoCoMo's winning config costs 37 points where the design makes its claim (`memory-longmemeval --haystack --arms`, 2026-09-02)
+
+**The question this answers had an empty cell.** Every LongMemEval figure published before this was the
+SHIPPED DEFAULT, because that bench had no arm ladder — its arms were hardcoded `["lyntai", "vector"]`. So
+the configuration that wins LoCoMo had never been run on the workload this design actually claims, and the
+two could not be compared. `FieldArms` now defines an arm once for both benches, so a name means one
+configuration on each.
+
+**Instrument.** `node devtools/dev.mjs memory-longmemeval --haystack --arms
+lyntai,+sem,+forget0,+sem+rel-only,vector`, all 70 knowledge-update questions among ~490 turns of
+distractors (34,242 turns ingested per arm), seed 20260829, embedder `nomic-embed-text`, model-free,
+7,245.6s. Raw output: the gitignored
+`devtools/_lme-ladder-haystack.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+
+| arm | prefers current | current@k | stale@k | decidable |
+|---|---|---|---|---|
+| **`lyntai`** (shipped default) | **86.4%** (57/66) | 87.1% | **62.9%** | 66 |
+| `+sem` | 72.5% (50/69) | 90.0% | 90.0% | 69 |
+| `+forget0` | 49.3% (33/67) | 87.1% | 87.1% | 67 |
+| `+sem+rel-only` (wins LoCoMo) | 49.3% (34/69) | **90.0%** | 92.9% | 69 |
+| `vector` (plain cosine) | 46.4% (32/69) | 81.4% | 88.6% | 69 |
+
+**Both in-run controls reproduce their published values exactly** — `lyntai` 86.4% (57/66) and `vector`
+46.4% (32/69) — so the arm machinery did not move the bench underneath the new rows.
+
+**1. The configuration that wins LoCoMo lands on plain cosine here.** `+sem+rel-only` scores 82.6% against
+cosine's 81.1% on LoCoMo and **49.3% against cosine's 46.4%** on this class — it discards essentially the
+whole 40-point advantage the shipped default holds. Stated as the trade it is: adopting the LoCoMo winner
+globally buys **+5.5 points of search** and costs **−37.1 points of supersession**, a ratio of about 7 to 1
+against.
+
+**2. The mechanism is in the columns, and it is not a recall failure.** `+forget0`'s `current@k` is
+**87.1%, identical to `lyntai`'s 87.1%**, while its `stale@k` rises from 62.9% to 87.1%. Removing
+forgetting's vote does not change what the engine FINDS — it destroys what the engine BURIES.
+`+sem+rel-only` shows the same shape one step further: it finds MORE than the default (90.0%) and suppresses
+nothing (92.9%). **Retrieval and suppression are separate capabilities, and only one of them is what LoCoMo
+scores.**
+
+**3. Semantic seeding costs suppression too, but not catastrophically.** `+sem` alone runs 86.4 → 72.5 on
+preference while raising `current@k` to 90.0 and `stale@k` to 90.0. So registering the vector channel is a
+real trade rather than a free win — it surfaces the superseded fact as readily as the current one, which is
+what a similarity channel does when the two are near-identical text by construction.
+
+**4. Both pre-registered predictions held**, registered in the design record before the run: `+forget0`
+worse than `lyntai` here (predicted; −37.1), and `+sem` raising both `current@k` and `stale@k` with
+preference flat or down (predicted; +2.9 / +27.1 / −13.9). The decision rule was also fixed in advance —
+within ~1 point makes LoCoMo's gain adoptable, ≥5 points makes the default workload-dependent. It lost 37.
+
+**What follows for defaults.** **The shipped defaults are right, and the LoCoMo ladder was optimising
+against that benchmark's own construction** — it asks about months of history uniformly, so it rewards a
+perfect archive and penalises decay by design, and its best arm is the one with the engine's distinctive
+mechanism switched off. No default moves on this table. A deployment whose workload really is uniform-history
+search can set `RetrievabilityWeight = 0` and register semantic seeds; that is a documented profile, not a
+new global default.
+
+**5. The same arms on both workloads, which is what the shared registry was built to make sayable.** LoCoMo
+column is `evidence-hit@20` at n = 200 (today's control run, reproducing the published table exactly);
+knowledge-update is `prefers current` on all 70 haystack questions. Read the two DELTAS against `lyntai`,
+not the absolutes — the benchmarks score different things on different scales.
+
+| arm | LoCoMo | Δ vs default | knowledge-update | Δ vs default | verdict |
+|---|---|---|---|---|---|
+| `lyntai` (shipped) | 54.5% | — | **86.4%** | — | the default |
+| `+sem` | 76.5% | **+22.0** | 72.5% | **−13.9** | the only arm that trades FAVOURABLY |
+| `+forget0` | 60.0% | +5.5 | 49.3% | **−37.1** | 7:1 against |
+| `+sem+rel-only` | **83.0%** | **+28.5** | 49.3% | **−37.1** | buys search, discards the claim |
+| `vector` | 80.5% | +26.0 | 46.4% | −40.0 | no mechanism, both ways |
+
+**`+sem` is the finding this table adds**, and it was invisible from either bench alone: registering the
+semantic channel buys **+22.0 points of search for −13.9 of supersession**, where the ranking changes buy
++5.5 to +28.5 for a flat −37.1. **The suppression cost is not proportional to the search gain** — it is
+carried almost entirely by `RetrievabilityWeight`, and semantic seeding is nearly free of it. That makes
+"should `AddMemorySemanticSeeds()` ship ON" a genuine decision with a priced trade, where "should
+`RetrievabilityWeight` move" is now simply answered.
+
+**Not settled.** 70 questions — the entire class, model-free and deterministic, so these are exact rather
+than estimated, but 70 items is still a thin basis and the gaps that carry the argument (37.1 and 13.9
+points, ~25 and ~10 questions) are the ones far outside any plausible noise. One embedder, one benchmark
+family. And this prices CONFIGURATIONS, not mechanisms: it shows the suppression advantage travels with
+`RetrievabilityWeight`, not that decay is the only thing that could produce it. **The cross-workload table
+mixes two metrics and two sample sizes by construction**, so it ranks trades and cannot be read as one
+score.
 
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 

@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SEVEN items, across Parts 105, 109, 116, 128, 129 and 138.** Each is a
+**The startable set is SIX items, across Parts 105, 109, 116, 128 and 129.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -71,7 +71,15 @@ lets a channel state its ROLE, so the two wiring diagnostics stopped accusing a 
 of not existing. Additive and defaulted, so nothing outside breaks. **Part 138 opened the same day** — six
 back to seven — against a RUN DESIGN rather than the code: the full-sample pass that retracted the 40-slot
 claim had dropped the 20-item cosine control, so Part 136's parity claim still rests on n = 200, the sample
-size that just produced a sign flip. Every number here is edited in
+size that just produced a sign flip. **It CLOSED the same day** — seven back to six,
+`docs/task-archive.md` **Part 138** — and unlike the two Parts before it the claim SURVIVED its full sample:
+42.0% against `vector`'s 42.4% on all 1,540 questions, a −0.4 where n = 200 read −0.3. What did not survive
+is its category detail, where multi-hop's near-tie reads −4.0. **Part 128's multi-hop item then CLOSED the
+same day** as `docs/task-archive.md` **Part 139** — six to five — and **an ingestion-cost item opened in its
+place**, taking it back to six: it refuted its own premise twice (a pre-fusion figure **D103** had already
+superseded, and a 16-point gap that reads **3.2** at full sample), and the run that closed it needed a
+harness fix, because the oracle arm could not be CONSTRUCTED at n = 1,540 and so had never run on the whole
+benchmark. Every number here is edited in
 the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
 
 **START WITH `## Part 128`.** Its first item shipped 2026-08-31 as `docs/task-archive.md` **Part 131**:
@@ -799,21 +807,48 @@ makes `+sem+rel-only`, not `+sem+fuse`, the current best mechanical arm. `docs/m
 current table; the 61.5%/63.5% figures above are the PRE-fusion measurement that opened this Part and stay
 for that reason._
 
-- [ ] **Finish the REAL judge arm.** `+forget0+judge` is built and wired (the shipped
-  `LlmMemoryVerificationPolicy` driven through an `ILlmClientFactory` adapter, deliberately not a
-  bench-local judge), but the run was stopped mid-flight to pivot and has never completed. The oracle
-  ceiling is 77.5%; what a real model achieves against it is unmeasured, and that gap is the model's error
-  rather than the mechanism's limit. Needs a chat model, so it is slow — `--no-judge` skips it.
+- [ ] **Finish the REAL judge arm — and BUILD IT ON THE RIGHT BASE, which is the part that changed.**
+  `+forget0+judge` is built and wired (the shipped `LlmMemoryVerificationPolicy` driven through an
+  `ILlmClientFactory` adapter, deliberately not a bench-local judge), but the run was stopped mid-flight to
+  pivot and has never completed. Needs a chat model, so it is slow — `--no-judge` skips it.
+  <br>_**Re-aimed 2026-09-02 by the full-sample ladder** (`docs/memory.md` §5, `docs/task-archive.md` **Part
+  139**). The oracle ceiling this item quoted as **77.5%** is an n = 200 figure and reads **74.6%** on all
+  1,540 questions — where `+sem+rel-only`, carrying NO judge, reads **82.6%**. So a perfect judge on
+  `+forget0` is 8.0 points BELOW the best mechanical arm, and measuring a real model against that ceiling
+  prices a configuration already known to be dominated._
+  <br>_**What no arm has measured** is the judge on top of the arm that is actually good: `+forget0+oracle`
+  carries no semantic seeds and `+sem+rel-only` carries no judge, so "a judge adds nothing" is **not**
+  established — only that the best JUDGED arm loses to the best MECHANICAL one. **Run the oracle on
+  `+sem+rel-only` first**; it is model-free, and it says whether a real judge is worth a model run at all.
+  A real judge measured against a dominated base answers a question nobody is asking._
 
-- [ ] **Multi-hop is the one category no judge fixes.** 64.9% even with a PERFECT judge, against cosine's
-  81.1%. Every other category closes to within 3 points or beats cosine. That says multi-hop evidence sits
-  outside `VerificationDepth`, so no judge quality reaches it — a depth or seeding question, not a ranking
-  one. Probe what raising the depth costs before assuming it is affordable.
+- [ ] **`--arms` does not save INGESTION in retrieval mode, only scoring.** The config-drop at
+  `bench/Lyntai.Benchmarks/MemoryLocomoBench.cs` is gated on `armsFiltered && !retrievalOnly && …`, so a
+  three-arm retrieval run still ingests all 13 ladder configs per conversation — the 2026-09-02 run reports
+  `681 turns x 13 arm(s) ingested` while scoring three. In retrieval mode the arm names ARE config names
+  (the QA path needs its `ConfigFor` mapping precisely because they are not), so the same filter applies
+  directly. Worth ~6× on the dominant cost of a full-sample ladder, which ran 9,611.4s.
+  _Filed rather than folded into that run's harness fix on purpose: bundling an optimization into a bug fix
+  is what `superpowers:systematic-debugging` forbids, and a wrong config filter silently changes which arms
+  exist. It needs its own before/after check that the arm table is unchanged._
 
-_**Not startable and deliberately not listed above:** whether `RetrievabilityWeight` should move off 1. It is
-worth 5.5 points on LoCoMo and forgetting HELPS on LongMemEval knowledge-update, so moving it on one
-benchmark optimises for the one that flatters the change. It needs both workloads measured, which is the
-`+forget0` arm re-run on LongMemEval._
+_**The multi-hop item CLOSED 2026-09-02** as `docs/task-archive.md` **Part 139**, and it closed by REFUTING
+its own premise twice over. It read *"64.9% even with a PERFECT judge against cosine's 81.1%, so multi-hop
+evidence sits outside `VerificationDepth` — a depth or seeding question"*. That 64.9% is a PRE-FUSION arm
+which **D103** had already superseded the same day, and at full sample the best mechanical arm reads
+**79.8% against cosine's 83.0%** — a 3.2-point category deficit, not a 16-point one, and no depth question
+follows from it. Nobody should sweep `VerificationDepth` on the struck premise._
+
+_~~**Not startable and deliberately not listed above:** whether `RetrievabilityWeight` should move off 1…
+it needs both workloads measured, which is the `+forget0` arm re-run on LongMemEval.~~_
+<br>_**MEASURED AND SETTLED 2026-09-02** (`docs/task-archive.md` **Part 140**, `docs/memory.md` §5). The
+`+forget0` arm ran on LongMemEval knowledge-update and the answer is emphatic: **49.3% against the shipped
+default's 86.4%**, a −37.1 collapse, against the +5.5 it is worth on LoCoMo — **about 7 to 1 against
+moving it.** `RetrievabilityWeight` stays at 1, and this is no longer an open question.
+<br>The columns say WHY, which is the durable half: `+forget0`'s `current@k` is **identical** to the
+default's (87.1%) while its `stale@k` rises 62.9 → 87.1. Removing forgetting's vote does not change what
+the engine FINDS, it destroys what it BURIES — so LoCoMo, which only scores finding, cannot see the cost.
+**Any future arm that wins on LoCoMo owes this table a visit before it is proposed as a default.**_
 
 ---
 
@@ -876,31 +911,6 @@ _**The gate this Part argued for is BUILT** — `docs/task-archive.md` **Part 13
 `check-decision-claims` is wired into `verify` (now seventeen gates) with six predicates, each verified by
 hand before registering and each driven RED by a synthesized tree in its own test. What is left of this Part
 is the sweep above._
-
----
-
-## Part 138 — the 20-slot parity claim has no full-sample control (2026-09-02)
-
-_Opened against my own run design rather than against the code. `docs/task-archive.md` **Part 136** claims
-the engine draws LEVEL with plain cosine at 20 slots once truncation is removed — 41.0 against 41.3 — and
-that is an **n = 200** reading. The full-sample confirmation that followed selected its arms for the 40-slot
-question and dropped `vector` (20 items), so `lyntai-fused-full` reads **42.2%** at n = 1,540 against
-nothing._
-
-_**Why it needs redoing rather than reasoning about.** The same session's 40-slot claim moved from +0.9 to
-−0.4 between n = 200 and n = 1,540 — the sign flipped. A ±1-point difference is not resolvable at 200, and
-41.0 vs 41.3 is a 0.3-point difference. **The parity claim is currently supported by a sample that cannot
-support it**, exactly like the claim that was retracted beside it._
-
-- [ ] **Run the 20-slot pair at full sample.**
-  `node devtools/dev.mjs memory-locomo --n 1540 --no-judge --arms vector,lyntai-fused-api` — two arms, one
-  ingestion, ~80 minutes now that `--arms` exists. `lyntai-fused-api` repeating its **42.2%** is also a
-  cross-run reproducibility check, so the run carries its own control.
-  <br>**Read it against a floor measured IN THE SAME RUN**, not against this note: the reader's
-  nondeterminism was 0.4 points at n = 200 and 0.0 at n = 1,540, and a delta smaller than a few times that
-  floor has adjudicated nothing (`.claude/knowledge/pitfalls.md`).
-  <br>**Whatever it says, Part 136's write-up needs editing** — either its n = 200 figures gain a
-  full-sample confirmation, or the parity claim is retracted the way the 40-slot one was.
 
 ---
 

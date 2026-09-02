@@ -881,6 +881,35 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   looking like a null result. The general rule: **wherever a catch converts an exception into a plausible
   empty value, a test must be able to tell the two apart** — and that test is the one to write FIRST when a
   new code path in that method appears to do nothing.
+- **The controls a run checks must be read out of the MODE it runs, not recalled from the most-quoted
+  sentence about the benchmark.** Measured 2026-09-02: a design record named **31.4% / 10.0%** as the
+  knowledge-update controls for `memory-longmemeval`, confidently and in a table headed "nothing else is
+  readable if these move". Those are the `--shots` mode's `clean` column at shot 1 — a different metric in a
+  different mode. They are also the pair `CLAUDE.md` quotes, which is exactly how they got there: the most
+  memorable number about a benchmark is rarely the one your run produces. The default mode's controls are
+  `prefers current` 96.9%/47.1% (oracle) and 86.4%/46.4% (haystack).
+  <br>**The tell is that a control you cannot point at a printed table for is not a control**, it is a
+  memory. Open the mode's own published table and copy the row. This was caught by reading before the run
+  rather than by the run — a wrong control does not fail, it silently certifies.
+
+- **A sample size can hide a CRASH, not only a wrong number — so run the instrument once at the size you
+  intend to draw conclusions at.** Measured 2026-09-02 (`docs/FIXES.md`): `memory-locomo --retrieval` had
+  only ever been run at `--n 200`, and its `+forget0+oracle` arm could not be CONSTRUCTED at `--n 1540` —
+  the oracle keys evidence by question text and LoCoMo repeats 11 QA rows verbatim inside `conv-48`, so
+  `ToDictionary` throws the moment the sample draws both copies. The arm whose 77.5% ceiling was quoted in
+  three maintained records had therefore never run on the whole benchmark. **The failure was in the
+  INSTRUMENT and reachable only at a size nobody had used**, which is why "it has always worked" says
+  nothing about a size you have not tried.
+  <br>**Its silent twin is the part to remember**: the QA path makes the same uniqueness assumption and
+  says nothing, because `dict[key] = value` OVERWRITES where `ToDictionary` throws. One shape fails loudly
+  at n = 1,540 and the other quietly returns a plausible table. **When a key turns out not to be unique,
+  audit every OTHER use of that key** — the throwing one is the lucky case.
+  <br>**And two facts about the LoCoMo instrument itself, so nobody re-derives them:** question text is not
+  unique within a conversation (11 exact duplicate rows, category 4, identical evidence and gold), and
+  **`dia_id` is conversation-scoped rather than global — 871 of 1,033 belong to more than one conversation**
+  (`D1:1` exists in all ten). An evidence index keyed globally on `dia_id` would silently endorse another
+  conversation's turn, and every arm would still look plausible.
+
 - **A measurement that cannot observe a change reports "nothing moved", which reads exactly like "no
   regression".** Measured 2026-08-12 reconciling `GraphNode.Relevance` across the three backends: both
   `MemoryDefaultRecallQualityTests`'s fixed-corpus pin and the 28-minute `memory-sweep` came back

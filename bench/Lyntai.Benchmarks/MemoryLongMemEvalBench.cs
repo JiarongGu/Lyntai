@@ -7,6 +7,7 @@ using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Ranking;
+using Lyntai.Memory.Seeding;
 using Lyntai.Storage.Sqlite;
 
 namespace Lyntai.Benchmarks;
@@ -48,6 +49,82 @@ internal static class MemoryLongMemEvalBench
     private const int DefaultSeed = 20260829;
     private const string Task = "lme";
     private const string Scope = "session";
+
+    /// <summary>The plain-cosine control. Not a <see cref="FieldArm"/> — it never touches the graph store,
+    /// which is exactly what makes it the arm that cannot move when the engine changes.</summary>
+    private const string VectorArm = "vector";
+
+    /// <summary>Which engine arms a run scores, from <c>--arms</c>.
+    ///
+    /// <para><b>The default is the PUBLISHED pair</b> — <c>lyntai</c> and <c>vector</c> — so every figure on
+    /// record reproduces from the command that produced it, and the ladder is opt-in. That is not timidity
+    /// about defaults: an arm costs a full ingestion per question, and under <c>--haystack</c> that is ~490
+    /// turns each, so a silently-widened default would multiply the cost of every existing invocation.</para>
+    ///
+    /// <para>Arms come from <see cref="FieldArms"/>, so a name means the same configuration here as it does
+    /// on the LoCoMo bench — which is the whole point of running this ladder at all.</para></summary>
+    /// <returns>The selected arms, or <c>null</c> when a name is not an arm — after saying so. A typo must
+    /// not quietly measure fewer arms and still print a table that looks complete.</returns>
+    private static FieldArm[]? SelectConfigs(string[] args, out bool cosine)
+    {
+        cosine = true;
+        if (ArgValue(args, "--arms") is not { } wanted) return [FieldArms.Shipped()];
+
+        var requested = wanted.Split(',',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var unknown = requested.Where(a => a != VectorArm && !FieldArms.Has(a)).ToList();
+        if (unknown.Count > 0)
+        {
+            Console.Error.WriteLine($"--arms: unknown arm(s) {string.Join(", ", unknown)}. This mode runs: "
+                + $"{string.Join(", ", FieldArms.All().Select(a => a.Name).Append(VectorArm))}");
+            return null;
+        }
+
+        cosine = requested.Contains(VectorArm, StringComparer.Ordinal);
+        return [.. FieldArms.All().Where(a => requested.Contains(a.Name, StringComparer.Ordinal))];
+    }
+
+    /// <summary>Narrows a SNAPSHOT mode's own arm names by <c>--arms</c>.
+    ///
+    /// <para><c>--shots</c> names steps of one walk rather than configurations, so this changes what is
+    /// REPORTED and cannot change what is computed — unlike <see cref="SelectConfigs"/>, which also decides
+    /// what is ingested. The asymmetry is the LoCoMo bench's and is kept deliberately; what is NOT kept is
+    /// letting the flag be accepted and ignored, which is the silent no-op every other path here
+    /// refuses.</para></summary>
+    /// <returns>The names to report, or <c>null</c> after saying which name is not one of them.</returns>
+    private static string[]? FilterArms(string[] args, string[] arms)
+    {
+        if (ArgValue(args, "--arms") is not { } wanted) return arms;
+
+        var requested = wanted.Split(',',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var unknown = requested.Where(a => !arms.Contains(a, StringComparer.Ordinal)).ToList();
+        if (unknown.Count > 0)
+        {
+            Console.Error.WriteLine($"--arms: unknown arm(s) {string.Join(", ", unknown)}. "
+                + $"This mode runs: {string.Join(", ", arms)}");
+            return null;
+        }
+
+        return [.. arms.Where(a => requested.Contains(a, StringComparer.Ordinal))];
+    }
+
+    /// <summary>One arm's engine over its own store, with the semantic channel registered when the arm asks
+    /// for one. <b>Every arm gets its own store and its own vector store</b> — a recall reinforces what it
+    /// returns, so arms sharing one would each mutate the decay state the next reads.</summary>
+    private static GraphMemoryEngine EngineFor(FieldArm arm, MemoryPolicySweep.SweepDb db,
+        SweepDoubles.CachingEmbedder embedder)
+    {
+        var vectors = new InMemoryVectorStore();
+        IMemorySeedSource[]? seeds = arm.SemanticK is { } k
+            ? [new LexicalSeedSource(), new SubjectSeedSource(),
+                new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = k })]
+            : null;
+
+        return new GraphMemoryEngine(Task, new SqliteMemoryGraphStore(db.Factory), options: arm.Options,
+            embedder: embedder, vectors: vectors, ranking: arm.Ranking, verification: arm.Verification,
+            seedSources: seeds);
+    }
 
     private sealed record Turn(int Session, int Index, string Role, string Content, bool HasAnswer)
     {
@@ -129,9 +206,9 @@ internal static class MemoryLongMemEvalBench
                 Console.WriteLine();
             }
             Preamble(sampled, questions.Count, turns, haystack, seed, "temporal-reasoning");
-            if (args.Contains("--shots")) await RunTemporalShotsAsync(sampled, embedder, expandFloor);
-            else await RunTemporalAsync(sampled, embedder);
-            return 0;
+            return args.Contains("--shots")
+                ? await RunTemporalShotsAsync(sampled, embedder, expandFloor, args)
+                : await RunTemporalAsync(sampled, embedder, args);
         }
 
         if (args.Contains("--shots"))
@@ -144,8 +221,17 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine("what 'clean' scores, and it is the metric a smaller context is supposed to buy.");
             Console.WriteLine();
             Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
-            await RunShotsAsync(sampled, embedder, expandFloor);
-            return 0;
+            return await RunShotsAsync(sampled, embedder, expandFloor, args);
+        }
+
+        // `--ranks` scores ONE probe-wrapped engine over a K ladder, so it has no arms to select. Rejected
+        // rather than ignored: a flag that is accepted and does nothing is the silent no-op every other
+        // path here refuses.
+        if (ranks && ArgValue(args, "--arms") is not null)
+        {
+            Console.Error.WriteLine("--arms: not applicable with --ranks, which sweeps K over a single "
+                + "configuration rather than comparing arms.");
+            return 1;
         }
 
         if (ranks)
@@ -172,8 +258,11 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine();
         Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
 
+        var configs = SelectConfigs(args, out var wantsCosine);
+        if (configs is null) return 1;
+
         var stopwatch = Stopwatch.StartNew();
-        string[] arms = ["lyntai", "vector"];
+        string[] arms = [.. configs.Select(c => c.Name), .. wantsCosine ? new[] { VectorArm } : []];
         var currentHit = new Dictionary<string, int>();
         var staleHit = new Dictionary<string, int>();
         var prefers = new Dictionary<string, int>();
@@ -183,24 +272,37 @@ internal static class MemoryLongMemEvalBench
         foreach (var q in sampled)
         {
             Progress(++done, sampled.Count);
-            using var db = new MemoryPolicySweep.SweepDb();
-            var store = new SqliteMemoryGraphStore(db.Factory);
-            var engine = new GraphMemoryEngine("lme", store, embedder: embedder,
-                vectors: new InMemoryVectorStore());
+            var results = new List<(string Arm, List<string> Got)>();
 
-            var index = new List<(string Text, float[] Vector)>();
-            foreach (var t in q.Turns)
+            // ONE PRISTINE STORE PER ARM. Only the configs a selected arm needs are ingested, which is the
+            // whole cost of the run: under `--haystack` a question carries ~490 turns, so ingesting an arm
+            // nobody scores is the most expensive way to measure nothing.
+            foreach (var arm in configs)
             {
-                var content = $"{t.Tag} {t.Text}";
-                await engine.RememberAsync(new MemoryWrite(Task, Scope, content));
-                index.Add((content, await embedder.EmbedAsync(content)));
+                using var db = new MemoryPolicySweep.SweepDb();
+                var engine = EngineFor(arm, db, embedder);
+                foreach (var t in q.Turns)
+                    await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
+
+                results.Add((arm.Name,
+                    (await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: RecallLimit)))
+                        .Items.Select(i => i.Content ?? i.Headline).ToList()));
             }
 
-            var lyntai = (await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: RecallLimit)))
-                .Items.Select(i => i.Content ?? i.Headline).ToList();
-            var vector = (await TopKAsync(embedder, index, q.Text, RecallLimit)).ToList();
+            if (wantsCosine)
+            {
+                // The cosine index is built from the same turn text every arm ingested, so the control reads
+                // the same corpus rather than a parallel one.
+                var index = new List<(string Text, float[] Vector)>();
+                foreach (var t in q.Turns)
+                {
+                    var content = $"{t.Tag} {t.Text}";
+                    index.Add((content, await embedder.EmbedAsync(content)));
+                }
+                results.Add((VectorArm, (await TopKAsync(embedder, index, q.Text, RecallLimit)).ToList()));
+            }
 
-            foreach (var (arm, got) in new[] { ("lyntai", lyntai), ("vector", vector) })
+            foreach (var (arm, got) in results)
             {
                 var cur = FirstIndexOf(got, q.Current);
                 var sta = FirstIndexOf(got, q.Stale);
@@ -244,11 +346,12 @@ internal static class MemoryLongMemEvalBench
     /// <para>Every question gets a pristine store, so unlike the LoCoMo harness there is no cross-question
     /// reinforcement to confound the shots.</para>
     /// </summary>
-    private static async Task RunShotsAsync(List<Question> sampled, SweepDoubles.CachingEmbedder embedder,
-        double expandFloor)
+    private static async Task<int> RunShotsAsync(List<Question> sampled,
+        SweepDoubles.CachingEmbedder embedder, double expandFloor, string[] args)
     {
         var stopwatch = Stopwatch.StartNew();
-        string[] arms = ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}"];
+        var arms = FilterArms(args, ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}"]);
+        if (arms is null) return 1;
         var cur = new Dictionary<string, int>();
         var sta = new Dictionary<string, int>();
         var clean = new Dictionary<string, int>();
@@ -317,6 +420,7 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+        return 0;
     }
 
     /// <summary>Scores the library's walk: <c>MemoryWalk.WalkAsync</c> is the loop, and this calls
@@ -351,11 +455,12 @@ internal static class MemoryLongMemEvalBench
     /// flagged turn, so the question a shot answers here is whether expanding RECOVERS evidence the first
     /// load missed. That is the one workload where more shots should help most, and it had no curve at
     /// all.</summary>
-    private static async Task RunTemporalShotsAsync(List<Question> sampled,
-        SweepDoubles.CachingEmbedder embedder, double expandFloor)
+    private static async Task<int> RunTemporalShotsAsync(List<Question> sampled,
+        SweepDoubles.CachingEmbedder embedder, double expandFloor, string[] args)
     {
         var stopwatch = Stopwatch.StartNew();
-        string[] arms = ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}"];
+        var arms = FilterArms(args, ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}"]);
+        if (arms is null) return 1;
         var all = new Dictionary<string, int>();
         var any = new Dictionary<string, int>();
         var found = new Dictionary<string, int>();
@@ -419,6 +524,7 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+        return 0;
     }
 
     /// <summary>Reports where the pair lands on each ranking signal, and what that position is WORTH under
@@ -506,10 +612,14 @@ internal static class MemoryLongMemEvalBench
     /// <summary>All-evidence recall. A temporal question usually needs EVERY flagged turn — "the first issue
     /// after the service" is unanswerable from the later fact alone — so partial recall is a miss, and the
     /// any-evidence column beside it shows how much of the gap is partial rather than total.</summary>
-    private static async Task RunTemporalAsync(List<Question> sampled, SweepDoubles.CachingEmbedder embedder)
+    private static async Task<int> RunTemporalAsync(List<Question> sampled,
+        SweepDoubles.CachingEmbedder embedder, string[] args)
     {
+        var configs = SelectConfigs(args, out var wantsCosine);
+        if (configs is null) return 1;
+
         var stopwatch = Stopwatch.StartNew();
-        string[] arms = ["lyntai", "vector"];
+        string[] arms = [.. configs.Select(c => c.Name), .. wantsCosine ? new[] { VectorArm } : []];
         var all = new Dictionary<string, int>();
         var any = new Dictionary<string, int>();
         var evidenceTotal = 0;
@@ -519,25 +629,36 @@ internal static class MemoryLongMemEvalBench
         foreach (var q in sampled)
         {
             Progress(++done, sampled.Count);
-            using var db = new MemoryPolicySweep.SweepDb();
-            var store = new SqliteMemoryGraphStore(db.Factory);
-            var engine = new GraphMemoryEngine("lme", store, embedder: embedder,
-                vectors: new InMemoryVectorStore());
+            var results = new List<(string Arm, List<string> Got)>();
 
-            var index = new List<(string Text, float[] Vector)>();
-            foreach (var t in q.Turns)
+            // One pristine store per arm, and only for arms this run scores — the same reasoning the
+            // knowledge-update mode above states.
+            foreach (var arm in configs)
             {
-                var content = $"{t.Tag} {t.Text}";
-                await engine.RememberAsync(new MemoryWrite(Task, Scope, content));
-                index.Add((content, await embedder.EmbedAsync(content)));
+                using var db = new MemoryPolicySweep.SweepDb();
+                var engine = EngineFor(arm, db, embedder);
+                foreach (var t in q.Turns)
+                    await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
+
+                results.Add((arm.Name,
+                    (await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: RecallLimit)))
+                        .Items.Select(i => i.Content ?? i.Headline).ToList()));
             }
 
-            var lyntai = (await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: RecallLimit)))
-                .Items.Select(i => i.Content ?? i.Headline).ToList();
-            var vector = (await TopKAsync(embedder, index, q.Text, RecallLimit)).ToList();
+            if (wantsCosine)
+            {
+                var index = new List<(string Text, float[] Vector)>();
+                foreach (var t in q.Turns)
+                {
+                    var content = $"{t.Tag} {t.Text}";
+                    index.Add((content, await embedder.EmbedAsync(content)));
+                }
+                results.Add((VectorArm, (await TopKAsync(embedder, index, q.Text, RecallLimit)).ToList()));
+            }
+
             evidenceTotal += q.Evidence.Count;
 
-            foreach (var (arm, got) in new[] { ("lyntai", lyntai), ("vector", vector) })
+            foreach (var (arm, got) in results)
             {
                 var hits = q.Evidence.Count(t => got.Any(g => g.Contains(t.Tag, StringComparison.Ordinal)));
                 evidenceFound[arm] = evidenceFound.GetValueOrDefault(arm) + hits;
@@ -562,6 +683,7 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+        return 0;
     }
 
     private static int FirstIndexOf(List<string> got, IReadOnlyList<Turn> wanted)

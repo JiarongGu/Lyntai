@@ -42,6 +42,35 @@ item was closed — that a checked-off line never carried anyway.
   answers, and it pushes the open items further down the file. Keep only what a reader needs to judge what
   is LEFT.
 
+## An archive entry is an OUTCOME and a POINTER, not a write-up
+
+**What the task DID, what it decided, and where the detail lives. If the entry and another maintained
+document both carry the measurement, one of them is wrong as soon as anything is retracted.**
+
+Measured 2026-09-02, because the drift is the same one the decision log already grew a ratchet for. Mean
+non-blank lines per archive entry, across the file in thirds: **8.0 → 6.1 → 22.2** — a 2.8× growth, and
+every one of the ten longest entries is recent. The entry count is not the problem; 132 entries is what 132
+finished tasks look like.
+
+**The cost is duplication, not size, and it was paid the same day the growth was measured.** A retraction
+landed on a measurement whose narrative sat in BOTH the archive entry and `docs/memory.md` §5, so both had
+to be edited; had only one been, the record would now hold two disagreeing accounts of the same run. The
+archive is reached by `Part N` lookup and never read end to end, so its length is cheap — but a second copy
+of a number is not.
+
+**So route by kind, the same way `persist-working-state.md` already says:**
+
+| what you have | where it goes | what the ARCHIVE entry says |
+|---|---|---|
+| a measurement, its table, its caveats | the measurement record (`docs/memory.md` §5 here) | the headline figure and a pointer |
+| a reusable trap the task revealed | `.claude/knowledge/pitfalls.md` | one clause naming it |
+| a per-incident fix | `docs/FIXES.md` | that it happened, and the pointer |
+| a choice between real alternatives | `docs/DECISIONS.md` | the outcome |
+
+**The test: strike every sentence a reader could get from the document that owns it.** What survives is the
+entry — what the task did, what changed because of it, and what a future reader needs to find the rest.
+Roughly ten lines does that; the long entries in this file are not richer, they are copies.
+
 ## A blocked item names its blocker's KIND, and is re-checked against that kind
 
 **"Blocked" is a claim with an expiry date, and the check that refutes it is not always the one you ran

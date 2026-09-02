@@ -2058,6 +2058,12 @@ shot 2's newly-discovered NEIGHBOURS, so it prices the low-value half — and th
 The lesson is about extrapolating a natural experiment past the population it measured, not about the
 arithmetic, which was correct.
 
+**CONFIRMED at full sample 2026-09-02 (Part 138).** The parity claim was an n = 200 reading when this was
+written, and the same session's 40-slot claim flipped sign at full sample — so it was filed as a Part rather
+than believed. It held: **42.0% against `vector`'s 42.4%** on all 1,540 questions, a −0.4 where this read
+−0.3, at the same 20 slots. What did NOT survive is the category detail below — multi-hop's 38.0-vs-37.8
+near-tie reads −4.0 at full sample. `docs/memory.md` §5 carries the run.
+
 **Not settled, and deliberately not opened as a new Part.** This measures a HARNESS arm, not a shipped path:
 a consumer reaches the same place with N calls of `ExpandAsync(reference, hops: 0)`, which is supported and
 is N store round-trips. Whether a recall should be able to return content directly is a DECISION nobody has
@@ -2093,7 +2099,10 @@ run that judges it is underpowered.
 
 **Not confirmed, by a flaw in the confirming run's own design:** its arm set was chosen for the 40-slot
 question and dropped `vector` (20 items), so **Part 136's 20-slot parity has no full-sample control** —
-`lyntai-fused-full` reads 42.2% there against nothing.
+`lyntai-fused-full` reads 42.2% there against nothing. **Filed as Part 138 and CLOSED the same day**: the
+missing pair ran at full sample, Part 136's claim survived (−0.4 against its −0.3), and `lyntai-fused-api`
+repeating **42.2 → 42.0 at an identical 3,503 `chars/q`** gives this run the cross-run reproducibility check
+it could not give itself.
 
 **The FIRST run of this arm was void and is recorded because of how it was caught.** It scored 42.0% —
 inside the predicted band AND branch — while measuring 20 whole items plus ~20 truncated ones, because
@@ -2136,3 +2145,65 @@ The consumer-facing finding text moved with it — it named `IMemorySeedSource n
 the kind, and tells a consumer with their own channel to declare it.
 
 - Give a seed source a way to say WHAT it is, not just its `Name`.
+
+## Part 138 — the 20-slot parity claim had no full-sample control
+
+✅ done 2026-09-02 — **The claim SURVIVED**, unlike the 40-slot claim measured beside it:
+**`lyntai-fused-api` 42.0% token-F1 against `vector`'s 42.4%** on all 1,540 questions, a −0.4 where Part 136
+read −0.3 at n = 200. Same sign, same magnitude. `docs/memory.md` §5 has the table and the reading.
+
+**Why it was worth confirming something that did not change.** The claim was measured in the same session as
+a 40-slot claim that flipped sign at full sample, and the confirming run had dropped `vector` (20 items) —
+so parity rested on exactly the sample size just shown unable to support a difference of that size. The
+run's pre-registration declined to predict the sign, because confirming and retracting are the same job.
+
+**A flaw in this run's own design, recorded rather than argued away:** the item asked for a noise floor
+measured IN the run and this used a cross-run one, which is stricter on one axis and still not the control
+that was specified. That is the third consecutive Part here whose limitation was in the RUN DESIGN rather
+than the code. What did not survive is the category detail — multi-hop's n = 200 tie reads −4.0 at full
+sample.
+
+- Run the 20-slot pair at full sample.
+
+## Part 140 — the two field workloads disagree by 7×, and the shipped defaults are the right side of it
+
+✅ done 2026-09-02 — **`RetrievabilityWeight` stays at 1.** The LoCoMo-winning config ran on LongMemEval
+knowledge-update for the first time and collapsed: `+forget0` **49.3% against the shipped default's 86.4%**,
+a −37.1 where the same change is worth +5.5 on LoCoMo. Roughly 7:1 against moving it, so the question
+`TASKS.md` Part 128 filed as "not startable until both workloads are measured" is settled. Table, mechanism
+and the cross-workload trade: `docs/memory.md` §5.
+
+**Why the cell was empty**: the LongMemEval bench had no arm ladder — arms hardcoded `["lyntai", "vector"]`,
+engine taking no ranking policy — so every LongMemEval figure ever published here was the shipped default.
+Built `FieldArms`, a registry both field benches read so an arm name denotes one config on each, and gave
+LongMemEval `--arms` with per-arm stores and an ingestion filter.
+
+**The durable half is the mechanism**: removing forgetting's vote leaves `current@k` unchanged and destroys
+`stale@k`. It changes what the engine BURIES, not what it FINDS — and LoCoMo only scores finding, so its own
+winner's cost is invisible there. **Any future arm that wins on LoCoMo owes this table a visit.**
+
+Controls: the LoCoMo retrieval table reproduced all thirteen arms cell for cell at n = 200, and
+LongMemEval's oracle variant reproduced its published pair. A third control was WRONG in the spec and caught
+by reading — `.claude/knowledge/pitfalls.md` carries the rule.
+
+- Take the arm ladder to LongMemEval, and price the LoCoMo winner where the design makes its claim.
+
+## Part 139 — multi-hop: the item's premise was refuted twice, and the ladder had never run at full sample
+
+✅ done 2026-09-02 — **The gap is 3.2 points, not 16.2, and the "depth or seeding" framing is dead.** The
+item's premise fell twice. **By reading**: its "64.9% even with a PERFECT judge" is a PRE-FUSION arm that
+**D103** superseded the day the item was written, and `docs/memory.md` §5 had recorded the post-fusion cell
+as level ever since — the doc was updated and the item beneath it was not. **By measurement**: both readings
+were n = 200 cells of ~37 questions, and at full sample `+sem+rel-only` reads 79.8% multi-hop against
+`vector`'s 83.0%. Ordinary category deficit, no depth question follows. Tables: `docs/memory.md` §5.
+
+**Two results outrank the one it was filed for.** `+sem+rel-only` clears plain cosine on the whole benchmark
+(**82.6 against 81.1**) — the first powered confirmation of that — and the PERFECT-JUDGE arm is the worst of
+the three at **74.6%**. A pure formula beats formula-plus-oracle. That does NOT establish that a judge adds
+nothing: no arm pairs the judge with semantic seeding, which is what re-aims Part 128's judge item.
+
+**The run needed a harness fix**, and it exposed a class of defect: `+forget0+oracle` could not be
+CONSTRUCTED at n = 1,540, so the arm whose ceiling three maintained records quote had never run on the whole
+benchmark. `docs/FIXES.md` has the incident; `pitfalls.md` has the rule and the two instrument facts.
+
+- Multi-hop is the one category no judge fixes.

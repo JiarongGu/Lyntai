@@ -367,29 +367,31 @@ internal static class MemoryLocomoBench
             // extra force here: ExpandAsync reinforces what it walks, so a three-shot arm sharing a store
             // would hand the one-shot arm a graph it had already dug through.
 
-            // SemanticK is the vector CHANNEL's width, null for "leave it unregistered" — it cannot be a
-            // prebuilt IMemorySeedSource, because the vector store one reads is created per arm below.
-            (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking,
-                IMemoryVerificationPolicy? Verification, int? SemanticK)[] configs = ranksOnly
-                ? [("lyntai", null, rankProbe, null, null)]
+            // An arm is a `FieldArm` — pure configuration, shared with the LongMemEval bench through
+            // `FieldArms` so a name denotes one config on both. Arms that cannot be written down as
+            // constants (the verdict arms below) are built here instead.
+            //
+            // EVERY fused arm is `+sem+rel-only` under another name, and saying so once is the point: the
+            // QA arms exist to carry the best mechanical retrieval arm to a reader, and `--composition`
+            // explains one of those QA rows. Three copies of one literal is how those silently stop
+            // matching, and then the composition table explains a number the QA table did not report.
+            FieldArm Fused(string name) => FieldArms.Named("+sem+rel-only") with { Name = name };
+
+            FieldArm[] configs = ranksOnly
+                ? [FieldArms.Shipped() with { Ranking = rankProbe }]
                 : composition
-                // The SAME config the QA table's `lyntai-fused-3shot` row was measured with, copied rather
-                // than re-derived: this mode explains that row's chars/q, so an arm differing from it in any
-                // way would be explaining a different number. The control at the foot of the table asserts
-                // the agreement instead of assuming it.
-                ? [(FusedThreeShot, null,
-                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
-                    {
-                        RetrievabilityWeight = 0,
-                        HopWeight = 0,
-                    }), null, RecallLimit)]
+                ? [Fused(FusedThreeShot)]
                 : retrievalOnly
                 ? Ladder()
                 : shotsOnly
                     // The explicit options object is INERT at floor 0 — the engine's own fallback is
                     // `options ?? new GraphMemoryOptions()` — so an unswept run is byte-identical to one
                     // that never passed one, which archive Part 119 measured rather than assumed.
-                    ? [(ThreeShot, new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor }, null, null, null)]
+                    ? [FieldArms.Shipped() with
+                        {
+                            Name = ThreeShot,
+                            Options = new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor },
+                        }]
                     // PRE-REGISTERED, 2026-09-01, before the first QA run of the fused arm.
                     //
                     // The retrieval half moved the best mechanical arm 63.5% -> 83.0% (D103,
@@ -436,27 +438,12 @@ internal static class MemoryLocomoBench
                     // Absolute values are a property of a 4B local reader. Only the arm DIFFERENCE
                     // transfers (TASKS.md Part 109). Compare against `vector-40`, the size-matched
                     // control, not against `vector` alone.
-                    : [("lyntai", null, null, null, null),
-                        ("lyntai-fused", null,
-                            new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
-                            {
-                                RetrievabilityWeight = 0,
-                                HopWeight = 0,
-                            }), null, RecallLimit),
+                    : [FieldArms.Shipped(),
+                        Fused(FusedOneShot),
                         // Same policy as `lyntai-fused`; the ONLY difference is that its recall asks for
                         // MemoryDetail.Full, so any gap against the rehydration arm is the library's.
-                        (FusedApiDetail, null,
-                            new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
-                            {
-                                RetrievabilityWeight = 0,
-                                HopWeight = 0,
-                            }), null, RecallLimit),
-                        (FusedThreeShot, null,
-                            new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
-                            {
-                                RetrievabilityWeight = 0,
-                                HopWeight = 0,
-                            }), null, RecallLimit),
+                        Fused(FusedApiDetail),
+                        Fused(FusedThreeShot),
 
                         // The ONLY arm size-matched to `vector-40` on BOTH axes -- 40 slots and ~7k chars --
                         // now that D104 lets a walk return whole entries. RAN 2026-09-02 at n=1540:
@@ -466,13 +453,8 @@ internal static class MemoryLocomoBench
                         // n=200 pass read 44.8/43.9 and declared the second clause refuted; the full sample
                         // flipped the sign and retracted that. A +-1 point difference was never resolvable
                         // at 200 -- the two byte-identical-prompt arms differ by 0.4 there and 0.0 here.
-                        (FusedThreeShotFull, null,
-                            new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
-                            {
-                                RetrievabilityWeight = 0,
-                                HopWeight = 0,
-                            }), null, RecallLimit),
-                        (ThreeShot, null, null, null, null)];
+                        Fused(FusedThreeShotFull),
+                        FieldArms.Shipped() with { Name = ThreeShot }];
 
             // Drop the CONFIGS no selected arm needs — that is where the cost is, since each one ingests its
             // own pristine store per conversation. QA path only: the other modes' arm names are not config
@@ -490,20 +472,20 @@ internal static class MemoryLocomoBench
                     TwoShot => ThreeShot,
                     _ => arm,
                 };
-                configs = [.. configs.Where(c => arms.Any(a => ConfigFor(a) == c.Arm))];
+                configs = [.. configs.Where(c => arms.Any(a => ConfigFor(a) == c.Name))];
             }
 
-            (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking,
-                IMemoryVerificationPolicy? Verification, int? SemanticK)[] Ladder() =>
+            // The ladder's model-free arms are `FieldArms` — see that type for why they are shared with the
+            // LongMemEval bench rather than spelled out here. What stays local is what cannot be a constant
+            // (the verdict arms, which need this run's own questions or a chat client) and the fusion pair
+            // at the foot, whose `+fuse` needs seed wiring no field expresses.
+            FieldArm[] Ladder() =>
             [
-                ("lyntai", null, null, null, null),
-                ("+sem", null, null, null, RecallLimit),
-                ("+sem+hop0", null,
-                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 }), null,
-                    RecallLimit),
-                ("+sem80", null, null, null, 80),
-                ("+sem80+hop0", null,
-                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 }), null, 80),
+                FieldArms.Named("lyntai"),
+                FieldArms.Named("+sem"),
+                FieldArms.Named("+sem+hop0"),
+                FieldArms.Named("+sem80"),
+                FieldArms.Named("+sem80+hop0"),
 
                 // Added 2026-08-31 to SPLIT the -26 gap against `vector`, which the ladder above could not:
                 // every arm in it keeps RetrievabilityWeight at its shipped 1, so forgetting votes on the
@@ -512,9 +494,7 @@ internal static class MemoryLocomoBench
                 // `+forget0` removes exactly that vote. LoCoMo asks about months of history UNIFORMLY, so it
                 // rewards a perfect archive and penalises forgetting BY CONSTRUCTION — this arm prices how
                 // much of the gap is that construction rather than a ranking defect.
-                ("+forget0", null,
-                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 }),
-                    null, null),
+                FieldArms.Named("+forget0"),
 
                 // The VERDICT arms, added 2026-08-31. D59 decomposed this subsystem's misses and found 100%
                 // reachable-but-outranked and 0% unreachable, naming `IMemoryVerificationPolicy` — a judge
@@ -532,22 +512,23 @@ internal static class MemoryLocomoBench
                 // Built on `+forget0` rather than the defaults because that is the measured best engine
                 // configuration (60.0% against 54.5%), so the judge is priced on top of what already works
                 // rather than against a baseline we know is beaten.
-                ("+forget0+oracle", null,
-                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 }),
-                    new EvidenceOracleVerifier(mine.ToDictionary(q => q.Text, q => q.Evidence.ToHashSet())),
-                    null),
+                FieldArms.Named("+forget0") with
+                {
+                    Name = "+forget0+oracle",
+                    Verification = new EvidenceOracleVerifier(EvidenceByQuery(mine, convId)),
+                },
 
                 // The REAL judge, beside its own ceiling. `+oracle` says how much promotion could recover;
                 // this says how much a model actually does, and the gap between them is the model's error
                 // rather than the mechanism's limit. Skipped when no chat model answers — the arm measures
                 // what a MODEL is worth, so a scripted stand-in would measure the stand-in.
                 .. judgeChat is null
-                    ? Array.Empty<(string, GraphMemoryOptions?, IMemoryRankingPolicy?, IMemoryVerificationPolicy?,
-                        int?)>()
-                    : [("+forget0+judge", null,
-                        new ReciprocalRankFusionPolicy(
-                            new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 }),
-                        new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat)), null)],
+                    ? Array.Empty<FieldArm>()
+                    : [FieldArms.Named("+forget0") with
+                    {
+                        Name = "+forget0+judge",
+                        Verification = new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat)),
+                    }],
 
                 // The FORMULA arms (2026-08-31): they test what makes the judge an add-on rather than a
                 // rescue. `vector` is PURE tier-2 — one embedder, cosine, no graph, no judge — and scores
@@ -574,15 +555,10 @@ internal static class MemoryLocomoBench
                 // Reaching ~80% means the other WEIGHTS diluted a good ordering. Staying near 60% means the
                 // defect is RELEVANCE ITSELF — a lexical hit carries a rank POSITION and a semantic seed a
                 // COSINE, and no weighting of one field repairs two scales sharing it. `TASKS.md` Part 128.
-                ("+sem+rel-only", null,
-                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
-                    {
-                        RetrievabilityWeight = 0,
-                        HopWeight = 0,
-                    }), null, RecallLimit),
+                FieldArms.Named("+sem+rel-only"),
 
-                ("+sem+mult", null, new MultiplicativeRankingPolicy(), null, RecallLimit),
-                ("+sem80+mult", null, new MultiplicativeRankingPolicy(), null, 80),
+                FieldArms.Named("+sem+mult"),
+                FieldArms.Named("+sem80+mult"),
 
                 // The BRIDGE arm, and the one that decides where to look next. Relevance alone through the
                 // engine's own pipeline (salience already ships at 0, D89), so it scores the same quantity
@@ -591,8 +567,7 @@ internal static class MemoryLocomoBench
                 //   - stays far below      => the pool/seeding is the deficit and no weight can fix it.
                 // Part 113 established the pool CONTAINS the evidence; it did not establish at what depth,
                 // and those two readings need different work.
-                ("+rel-only", null, new ReciprocalRankFusionPolicy(
-                    new ReciprocalRankFusionOptions { RetrievabilityWeight = 0, HopWeight = 0 }), null, null),
+                FieldArms.Named("+rel-only"),
 
                 // PRE-REGISTERED, 2026-08-31, before the first run. Spec §2.5.
                 //
@@ -608,8 +583,10 @@ internal static class MemoryLocomoBench
                 //   Neither moves
                 //       => mixed scale was real (63.5% proved that) but repairing it is not
                 //          sufficient, and the deficit is the POOL rather than the ordering.
-                ("+sem+fuse", null, null, null, RecallLimit),
-                ("+fuse", null, null, null, null),
+                // LOCAL, not shared: a matched pair from one fusion experiment, and `+fuse` needs seed
+                // wiring below (the lexical channel ALONE) that no `FieldArm` field expresses.
+                new FieldArm("+sem+fuse", null, null, null, FieldArms.ShippedSemanticK),
+                new FieldArm("+fuse", null, null, null, null),
             ];
 
             // The dia_id rides along in the CONTENT so an evidence hit is checkable without a model. It is
@@ -879,8 +856,9 @@ internal static class MemoryLocomoBench
             {
                 foreach (var q in mine.Where(q => q.Evidence.Count > 0))
                 {
-                    var sets = configs.Select(c => (c.Arm, Got: recalled[(c.Arm, q.Text)]))
-                        .Append(("vector", (await TopKAsync(embedder, vectorIndex, q.Text, RecallLimit)).ToList()));
+                    var sets = configs.Select(c => (Arm: c.Name, Got: recalled[(c.Name, q.Text)]))
+                        .Append((Arm: "vector",
+                            Got: (await TopKAsync(embedder, vectorIndex, q.Text, RecallLimit)).ToList()));
 
                     foreach (var (arm, got) in sets)
                     {
@@ -1552,6 +1530,48 @@ internal static class MemoryLocomoBench
             + $"({ReaderWindowChars} chars, measured by needle probe - see ReaderWindowChars).");
         Console.WriteLine("    The head of the prompt is dropped, so that row is a FLOOR and not a ceiling.");
         Console.WriteLine("    Do NOT read it as 'even full context does badly'.");
+    }
+
+    /// <summary>Question text to the union of the evidence every question carrying that text declares.
+    ///
+    /// <para><b>Grouping is forced, not stylistic.</b> Text is the only key a verifier can join on —
+    /// <c>MemoryVerificationRequest</c> carries the query and nothing else — and LoCoMo repeats 11 QA rows
+    /// verbatim inside <c>conv-48</c>, so keying a dictionary directly THROWS on any sample large enough to
+    /// draw both copies. It did at n = 1540; n = 200 never drew one, which is why every retrieval ladder on
+    /// record is a 200-question run.</para>
+    ///
+    /// <para>The union is the honest resolution rather than first-wins: two questions sharing one text are
+    /// indistinguishable to a judge shown only that text, so their combined evidence is what a perfect one
+    /// could endorse. In this dataset the duplicates are EXACT — same evidence, same gold — so the union
+    /// changes no score today, and the warning below is what says so if that ever stops being true.</para>
+    /// </summary>
+    private static Dictionary<string, HashSet<string>> EvidenceByQuery(
+        IReadOnlyList<Question> questions, string convId)
+    {
+        var map = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var divergent = 0;
+
+        foreach (var group in questions.GroupBy(q => q.Text, StringComparer.Ordinal))
+        {
+            var union = new HashSet<string>(StringComparer.Ordinal);
+            var declared = 0;
+            foreach (var q in group)
+            {
+                union.UnionWith(q.Evidence);
+                declared++;
+            }
+
+            // A duplicate whose evidence is NOT identical makes the oracle generous to that question, which
+            // is a real bias rather than a tidy-up — so it is reported instead of absorbed.
+            if (declared > 1 && group.Any(q => !union.SetEquals(q.Evidence))) divergent++;
+            map[group.Key] = union;
+        }
+
+        if (divergent > 0)
+            Console.WriteLine($"  ! oracle/{convId}: {divergent} repeated question text(s) declare DIFFERENT "
+                + "evidence; the oracle endorses the union, which is generous to those questions.");
+
+        return map;
     }
 
     /// <summary>

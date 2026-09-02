@@ -32,9 +32,11 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   the default and today's behaviour, or `.Full`). `docs/DECISIONS.md` **D104**.
   <br>**Priced rather than offered.** A recall withholds associative content until an expansion asks for it,
   which is what makes a first load cheap (**D100**) — and on LoCoMo that costs **11.7 token-F1** for the SAME
-  twenty items, essentially the whole gap to plain cosine (41.0 against 41.3, at matched slots and within
-  1.2% of the same context). The reader's "the excerpts contained none" refusals fall from 29 to 13 on
-  identical turns. `docs/task-archive.md` Part 136.
+  twenty items (200 questions), essentially the whole gap to plain cosine. The reader's "the excerpts
+  contained none" refusals fall from 29 to 13 on identical turns. `docs/task-archive.md` Part 136.
+  <br>**At the full 1,540 questions that leaves the engine LEVEL with plain cosine** — 42.0 against 42.4 at
+  the same twenty slots and within 1.2% of the same context, a −0.4 where the 200-question sample read −0.3.
+  `docs/task-archive.md` Part 138.
   <br>**Per CALL, not per deployment**, because one application wants both: an index of what is RELATED wants
   headlines, a reader that must ANSWER wants the entry. Reaching this previously took N calls of
   `ExpandAsync(reference, hops: 0)`, one per returned item.
