@@ -2165,6 +2165,29 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 147 — the acceptance test, on one knob and two workloads
+
+✅ done 2026-09-03 — **Decay off is a flat retriever; decay on is the entire supersession win.**
+`+sem` and `+sem+forget0` differ in exactly one vote, which no earlier pair did — `+forget0` also drops the
+semantic channel and `+sem+rel-only` also drops traversal. On the supersession class decay-off is
+**statistically indistinguishable from plain cosine** (49.3% against 46.4%, McNemar p = 0.791 over 68 paired
+questions) while decay-on reads 72.5% at p < 0.001; on LoCoMo decay-off reaches **83.0% against cosine's
+80.5%**, so the base claims nothing extra. `docs/memory.md` §5 has both tables.
+
+**`current@k` is IDENTICAL at 90.0% with the knob either way**, so decay changes what is buried and never
+what is found — Part 140's mechanism, now on a one-knob pair instead of across differently-seeded arms. The
+price is 6.5 points of LoCoMo, which a decay improvement is SUPPOSED to cost.
+
+**A refinement the pair exposed:** here `stale@k` barely moves (90.0% vs 92.9%) while preference moves 23
+points, so the win is ORDERING rather than exclusion — the semantic channel pulls the superseded fact back
+onto the page and decay ranks it below. At the shipped default, which registers no semantic channel,
+`stale@k` is 62.9% and the same headline comes from genuine suppression. Two mechanisms, one number.
+
+**Not a statement about the default's level:** `+sem` reads 72.5% where the shipped engine reads 86.4%,
+because the semantic channel costs supersession. The pair is internally valid, not a benchmark of the ship.
+
+- Prove decay off reaches flat-retriever parity, and that decay is what adds the rest.
+
 ## Part 146 — D41's invariant measured at last: decay buries, and the weight at which it starts deleting
 
 ✅ done 2026-09-03 — **26 of 26 buried entries recover at the shipped default, mean rank 5.0.** A focused

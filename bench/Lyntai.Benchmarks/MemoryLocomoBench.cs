@@ -644,6 +644,13 @@ internal static class MemoryLocomoBench
                 FieldArms.Named("+sem5"),
                 FieldArms.Named("+sem+forget2"),
 
+                // The PARITY arm. `+sem` and this differ in exactly one vote — forgetting's — so the pair
+                // is the design's own acceptance test run on both workloads: with decay silent the engine
+                // should reach a strong flat retriever (`vector`) here, and should lose the supersession
+                // class on LongMemEval. Every other "decay off" arm confounds it: `+forget0` also drops the
+                // semantic channel, `+sem+rel-only` also drops traversal.
+                FieldArms.Named("+sem+forget0"),
+
                 // PRE-REGISTERED, 2026-08-31, before the first run. Spec §2.5.
                 //
                 // The relevance term's magnitude now scales with how many sources matched a
@@ -1729,7 +1736,7 @@ internal static class MemoryLocomoBench
         "+sem+rel-only", "+sem+rel-only+oracle",
         .. judged ? JudgeArms.Select(JudgeArmName) : Enumerable.Empty<string>(),
         "+sem+mult", "+sem80+mult", "+rel-only",
-        "+sem5", "+sem+forget2", "+sem+fuse", "+fuse",
+        "+sem5", "+sem+forget2", "+sem+forget0", "+sem+fuse", "+fuse",
     ];
 
     /// <summary>Question text to the union of the evidence every question carrying that text declares.

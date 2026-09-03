@@ -73,6 +73,15 @@ commands. `--arms` saves ingestion on both (a LoCoMo ladder is 755s where it was
 touches the registry plus each bench's ladder — the two LoCoMo lists are asserted equal before a run starts,
 after that drift failed two runs ten minutes apart.
 
+**THE ACCEPTANCE TEST PASSES, on one knob across both workloads** (`docs/task-archive.md` **Part 147**).
+`+sem` and `+sem+forget0` differ only in whether forgetting votes. **Decay OFF is a flat retriever** —
+indistinguishable from plain cosine on supersession (49.3% vs 46.4%, McNemar **p = 0.791**) and 83.0% vs
+cosine's 80.5% on LoCoMo search, so the base claims nothing extra. **Decay ON is the whole supersession
+win** — 72.5%, **p < 0.001** — while `current@k` stays IDENTICAL at 90.0%, so the knob changes what is
+BURIED and never what is FOUND. It costs 6.5 points of LoCoMo, which is the trade working rather than a
+regression. **An arm that wins BOTH workloads is evidence that decay stopped working, not that the engine
+improved.**
+
 **D41's invariant is MEASURED as of 2026-09-03** (`docs/task-archive.md` **Part 146**), and it is the
 strongest evidence this repository has that the design does what it claims: **26 of 26 entries decay buried
 are recovered by a focused query, at mean rank 5.0** — 76.9% inside an ordinary ten-slot page, 100% within a

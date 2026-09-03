@@ -1785,6 +1785,49 @@ the 53% and the 0% are small counts and only their contrast is safe to lean on. 
 through a bench-local verifier that emits the fused page AS its verdict — sound for a metric that reads the
 returned SET, and not a substitute for implementing it, since the engine still orders the page its own way.
 
+### ONE KNOB, TWO WORKLOADS: decay off is a flat retriever, decay on is what adds supersession (2026-09-03)
+
+The design's own acceptance test, and the arm that makes it possible is new: **`+sem` and `+sem+forget0`
+differ in exactly one vote — forgetting's.** Every earlier "decay off" arm confounded it (`+forget0` also
+drops the semantic channel, `+sem+rel-only` also drops traversal), so the pair below is the first clean
+statement of what decay is worth.
+
+**Instrument.** `memory-locomo --retrieval --n 200 --no-judge` and `memory-longmemeval --haystack`, both
+with `--arms +sem,+sem+forget0,vector`; 785.6s and 3564.6s. Raw output, gitignored:
+`devtools/_parity-locomo.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the tables below -->
+and `devtools/_parity-lme.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the tables below -->.
+
+| | LoCoMo evidence-hit@20 | knowledge-update prefers-current | paired vs cosine |
+|---|---|---|---|
+| `+sem` — decay ON | 76.5% | **72.5%** [61.0, 81.6] | +21 −3, **p<0.001** |
+| `+sem+forget0` — decay OFF | **83.0%** | 49.3% [37.8, 60.8] | +8 −6, **p = 0.791** |
+| `vector` — plain cosine | 80.5% | 46.4% [35.1, 58.0] | — |
+
+**1. Decay OFF is a flat retriever, and the significance test is the statement.** On the supersession class
+it is **indistinguishable from plain cosine** (p = 0.791 over 68 paired questions); on the search workload
+it reaches 83.0% against cosine's 80.5%. So with forgetting silent this engine performs like a competent
+embedding index and claims nothing extra — which is what "the base logic is correct" should look like.
+
+**2. Decay ON is the entire supersession win, and it is significant.** 49.3% → 72.5%, p < 0.001 against
+cosine where decay-off cannot be told apart from it. **`current@k` is IDENTICAL at 90.0% either way**, so
+the knob changes what is BURIED and never what is FOUND — Part 140's mechanism, now shown on a one-knob
+pair rather than across two differently-seeded arms.
+
+**3. The price is 6.5 points of LoCoMo, and paying it is the design.** 83.0% → 76.5% on the workload that
+rewards a perfect archive and penalises forgetting by construction. A decay improvement is SUPPOSED to cost
+here; an arm that wins both is not evidence of a better engine, it is evidence that decay stopped working.
+
+**4. The win here is ORDERING, not exclusion — and that differs from the shipped default.** `stale@k` barely
+moves between the two arms (90.0% against 92.9%) while preference moves 23 points: the semantic channel
+pulls the superseded fact back onto the page, so decay wins by ranking it BELOW the current one. At the
+shipped default, which registers no semantic channel, `stale@k` is 62.9% and the same headline is produced
+by genuine suppression. **Two mechanisms, one number**, and only this pair separates them.
+
+**What it does NOT say.** `+sem` is not the shipped configuration — the shipped engine reads 86.4% on this
+class against this arm's 72.5%, because the semantic channel costs supersession. This pair is internally
+valid (one knob) and is not a statement about the default's absolute level. One embedder, 70 questions, and
+the CIs overlap between `+sem+forget0` and `vector` precisely because they are the same thing.
+
 ### BURIAL, NOT DELETION: D41's invariant, measured for the first time — and the weight at which it stops holding (`memory-longmemeval --recover`, 2026-09-03)
 
 **D41 says a decayed entry is buried rather than deleted, and until now that rested on a store contract
