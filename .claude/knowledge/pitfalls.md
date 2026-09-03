@@ -269,6 +269,34 @@ the tests) while being wrong. Skim before touching the relevant area.
   mediocre instead of wrong, the arm would have landed on its base and the honest reading would have been
   unavailable, permanently, from that run's data.
 
+- **An arm that is SUPPOSED to move needs a control proving it CAN — the mirror of the arm that cannot.**
+  This repository already requires a structural null control before believing a delta. The other half went
+  unwritten until 2026-09-03, and cost two runs. A bench arm replacing the engine's endorsed-first PARTITION
+  with a rank FUSION returned scores identical to the partition in every cell, which reads as *"fusing does
+  not help"* — and was arithmetically the partition: at the shipped `K = 60` with weight 1, the worst
+  endorsed candidate still outscored the best unendorsed one, so the two orderings could never differ. A
+  second arm (truncating the verdict to its top 5) was inert for a different reason and looked the same.
+  <br>**Both were caught by ONE cheap control: compare the arm's output against the output of the thing it
+  replaces, and say so in the report** — here, same-page rate and mean overlap, with an explicit
+  `! DEGENERATE` line when they never differ. A score is not evidence that an arm did anything.
+  <br>**The modelling error underneath is worth its own sentence, because the fix was in a doc already
+  written:** unendorsed candidates were given a judge term of ZERO — treated as *unranked* — when
+  `MemoryVerification.RelevantIds` says an unlisted id "is judged NOT to have answered, which is the half
+  that carries new information". A "no" is a low RANK, not an absence, and modelling it as absence is what
+  made the fusion degenerate.
+
+- **Measure a component against the calls it could POSSIBLY change, not against every call.** Same day, and
+  it reframed three runs at once. Every judge column here was scored over all 200 questions — but a verifier
+  promotes, and promotion cannot invent a candidate, so it can only change a call whose returned page held
+  no evidence while something deeper did. That was **19 of 200**. On the other 181 the best possible
+  behaviour is to leave a correct page alone, so *"the judge scored its base"* was never evidence that it
+  judged badly, and the denominator had been hiding the actual question.
+  <br>Once conditioned, the answer was sharp and the opposite of the aggregate: the judge's cumulative
+  precision by its OWN best-first order ran 34.5% at rank 1 against a 1.49% pool density (a 23× lift), yet
+  on the rescuable calls it put the deep evidence in its top five **zero** times. **Its confidence tracked
+  what the ranking had already found.** An aggregate lift can be large and land entirely on the calls where
+  it is worth nothing — so before optimizing a re-ranker, count the calls it could improve at all.
+
 - **A constant tuned against a PERFECT component inherits that component's assumptions, and can be actively
   harmful for the real one.** This repository prices model-in-the-loop seams against an ideal first — a
   perfect annotator, a perfect judge — which is a good habit for deciding whether to spend a model run, and

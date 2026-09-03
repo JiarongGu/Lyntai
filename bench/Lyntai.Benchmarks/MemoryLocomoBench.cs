@@ -330,11 +330,24 @@ internal static class MemoryLocomoBench
         // Deliberately NOT one shared instance: that would pool the depths' counters and report the mixture
         // as though it were a measurement, which is the "a name means two configurations" defect one level
         // down. Each wraps the SHIPPED judge, so every arm is still the seam a deployment switches on.
-        var judgeArms = judgeChat is null
-            ? new Dictionary<string, JudgeAudit>(StringComparer.Ordinal)
-            : JudgeDepths.ToDictionary(JudgeArmName,
-                _ => new JudgeAudit(new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat))),
-                StringComparer.Ordinal);
+        var judgeAudits = new Dictionary<string, JudgeAudit>(StringComparer.Ordinal);
+        var judgePolicies = new Dictionary<string, IMemoryVerificationPolicy>(StringComparer.Ordinal);
+        var judgeFusions = new Dictionary<string, FusedVerdictVerifier>(StringComparer.Ordinal);
+        if (judgeChat is not null)
+            foreach (var spec in JudgeArms)
+            {
+                // The audit sits INSIDE the fusion, so it records what the MODEL said rather than what the
+                // fusion made of it — which also makes a fused arm's audit a cross-check against its
+                // unfused twin at the same depth: same model, same prompts, so they must agree.
+                var audit = new JudgeAudit(new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat)));
+                var name = JudgeArmName(spec);
+                judgeAudits[name] = audit;
+                if (!spec.Fuse) { judgePolicies[name] = audit; continue; }
+
+                var fused = new FusedVerdictVerifier(audit, RecallLimit, JudgeFusionWeight, spec.Top);
+                judgePolicies[name] = fused;
+                judgeFusions[name] = fused;
+            }
 
         foreach (var (convId, turns) in conversations)
         {
@@ -600,14 +613,17 @@ internal static class MemoryLocomoBench
                 //        arm; the ladder had no arm that could fail loudly until it existed.
                 //   @40  under the 20-slot page, which is where promotion refines a ranking instead of
                 //        replacing it wholesale.
-                .. judgeArms.Count == 0
+                //   +fuse  the verdict COMPETES on rank instead of partitioning, which is how every other
+                //        signal here is combined. If it recovers the depth-80 loss, the partition is the
+                //        defect and depth was only what exposed it. See `FusedVerdictVerifier`.
+                .. judgePolicies.Count == 0
                     ? Array.Empty<FieldArm>()
-                    : [.. JudgeDepths.Select(d => FieldArms.Named("+sem+rel-only") with
+                    : [.. JudgeArms.Select(spec => FieldArms.Named("+sem+rel-only") with
                     {
-                        Name = JudgeArmName(d),
+                        Name = JudgeArmName(spec),
                         // Null keeps the shipped default; an explicit options object is otherwise inert.
-                        Options = d is null ? null : new GraphMemoryOptions { VerificationDepth = d },
-                        Verification = judgeArms[JudgeArmName(d)],
+                        Options = spec.Depth is { } d ? new GraphMemoryOptions { VerificationDepth = d } : null,
+                        Verification = judgePolicies[JudgeArmName(spec)],
                     })],
 
                 FieldArms.Named("+sem+mult"),
@@ -758,7 +774,7 @@ internal static class MemoryLocomoBench
 
                     // Handed to the audits the same way the K ladder hands it to the rank probe, so the
                     // judges' endorsements are scored against the SAME labels their own columns are.
-                    foreach (var audit in judgeArms.Values) audit.Evidence = q.Evidence;
+                    foreach (var audit in judgeAudits.Values) audit.Evidence = q.Evidence;
 
                     // The K ladder needs ONE recall per question and nothing else: the probe observes the pool
                     // that recall produced and scores every K over it offline. Evidence is handed to the
@@ -1012,8 +1028,8 @@ internal static class MemoryLocomoBench
 
         // Printed here rather than through PrintResults, which already takes ten arguments and describes
         // every arm — this describes only the judge arms, and only those that ran.
-        foreach (var (name, audit) in judgeArms.OrderBy(a => a.Key, StringComparer.Ordinal))
-            if (audit.Calls > 0) PrintJudgeAudit(name, audit);
+        foreach (var (name, audit) in judgeAudits.OrderBy(a => a.Key, StringComparer.Ordinal))
+            if (audit.Calls > 0) PrintJudgeAudit(name, audit, judgeFusions.GetValueOrDefault(name));
 
         // `--dump` was parsed and read by NOTHING until 2026-09-01 — a flag the usage advertised and the
         // run silently ignored. It survived because `var dump = args.Contains(...)` assigns a method
@@ -1514,7 +1530,7 @@ internal static class MemoryLocomoBench
 
     /// <summary>What a real judge DID, beside what its arm scored — see <see cref="JudgeAudit"/> for why
     /// the score alone cannot say.</summary>
-    private static void PrintJudgeAudit(string arm, JudgeAudit audit)
+    private static void PrintJudgeAudit(string arm, JudgeAudit audit, FusedVerdictVerifier? fusion)
     {
         var judged = audit.Calls - audit.Declined;
         Console.WriteLine();
@@ -1540,6 +1556,52 @@ internal static class MemoryLocomoBench
         Console.WriteLine("  ahead of the cut, so every non-evidence endorsement DISPLACES something the");
         Console.WriteLine("  ranking had put on the page. Recall says how much of the reachable evidence the");
         Console.WriteLine("  model found - the oracle's own column, scored on the same labels.");
+
+        // DOES THE MODEL'S OWN ORDERING CARRY SIGNAL? It is asked for its picks best-first, and until this
+        // profile existed nothing checked. Cumulative, because what a truncation would keep is a PREFIX.
+        if (audit.Endorsed > 0)
+        {
+            Console.WriteLine();
+            Console.Write("  precision by the model's own rank (cumulative):");
+            int kept = 0, hit = 0;
+            for (var i = 0; i < JudgeAudit.RankProfile; i++)
+            {
+                kept += audit.EndorsedAtRank[i];
+                hit += audit.EvidenceAtRank[i];
+                if (kept == 0) continue;
+                var label = i == JudgeAudit.RankProfile - 1 ? "all" : $"top{i + 1}";
+                Console.Write($"  {label} {(double)hit / kept:P1}");
+            }
+            Console.WriteLine();
+            Console.WriteLine("    A flat row means the order is noise and no truncation of it can help.");
+        }
+
+        // THE HEADROOM, which every other column here is silent about: a verifier can only change a call
+        // whose page held no evidence while something deeper did. On any other call the best it can do is
+        // leave a correct page alone, so a judge scoring its base is not evidence that it judged badly.
+        if (audit.Rescuable > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"  rescuable calls (page missed, evidence deeper): {audit.Rescuable} of "
+                + $"{judged}   endorsed it anywhere {audit.RescuedAnywhere} "
+                + $"({(double)audit.RescuedAnywhere / audit.Rescuable:P0})"
+                + $"   in its own top 5 {audit.RescuedTop5} "
+                + $"({(double)audit.RescuedTop5 / audit.Rescuable:P0})");
+            Console.WriteLine("    This bounds what ANY promotion rule built on this judge could win.");
+        }
+
+        // THE CONTROL a fused arm needs, because it is compared against the partition and a fusion can be
+        // arithmetically EQUAL to one. When it is, the arm is a duplicate of its unfused twin whatever it
+        // scores - which is how the first attempt at this measured the partition and read as a result.
+        if (fusion is not { Judged: > 0 }) return;
+
+        var same = (double)fusion.SamePage / fusion.Judged;
+        Console.WriteLine();
+        Console.WriteLine($"  fusion vs the partition it replaces: same page on {fusion.SamePage}/{fusion.Judged}"
+            + $" call(s) ({same:P0}), mean overlap {(double)fusion.Overlap / fusion.Judged:F1} of {RecallLimit}");
+        if (fusion.SamePage == fusion.Judged)
+            Console.WriteLine("    ! DEGENERATE - this arm returned the partition's page every time. Whatever it"
+                + " scored is the partition's score, not a measurement of fusing.");
     }
 
     private static void PrintResults(IReadOnlyList<string> arms,
@@ -1632,16 +1694,26 @@ internal static class MemoryLocomoBench
         Console.WriteLine("    Do NOT read it as 'even full context does badly'.");
     }
 
-    /// <summary>The <c>GraphMemoryOptions.VerificationDepth</c> values the judge ladder walks, in table
-    /// order. <c>null</c> is the SHIPPED default — 4 × the recall's limit — and it keeps the unadorned arm
-    /// name, so the 72.5% already on record still denotes the configuration that produced it.</summary>
-    private static readonly int?[] JudgeDepths = [null, 40, 20];
+    /// <summary>The judge ladder, as (depth, fuse) pairs. <c>Depth</c> <c>null</c> is the SHIPPED default —
+    /// 4 × the recall's limit — and keeps the unadorned arm name, so the 72.5% already on record still
+    /// denotes the configuration that produced it. <c>Fuse</c> replaces the engine's partition with rank
+    /// competition; see <see cref="FusedVerdictVerifier"/>.</summary>
+    private static readonly (int? Depth, bool Fuse, int? Top)[] JudgeArms =
+    [
+        (null, false, null), (40, false, null), (20, false, null),
+        (null, true, null), (40, true, null), (null, true, 5),
+    ];
+
+    /// <summary>The verdict's weight against the ranking's own rank term when fusing. 1 puts them on equal
+    /// footing, which is where a first measurement belongs — it is not a tuned value.</summary>
+    private const double JudgeFusionWeight = 1.0;
 
     /// <summary>One judge arm's name. The ladder and the report list below both derive from this, so unlike
-    /// the rest of those lists they cannot disagree about a depth arm in the first place.</summary>
-    /// <param name="depth">The arm's verification depth; <c>null</c> is the shipped default.</param>
-    private static string JudgeArmName(int? depth) =>
-        depth is null ? "+sem+rel-only+judge" : $"+sem+rel-only+judge@{depth}";
+    /// the rest of those lists they cannot disagree about a judge arm in the first place.</summary>
+    /// <param name="arm">The arm's depth and whether it fuses.</param>
+    private static string JudgeArmName((int? Depth, bool Fuse, int? Top) arm) =>
+        $"+sem+rel-only+judge{(arm.Depth is { } d ? $"@{d}" : "")}{(arm.Fuse ? "+fuse" : "")}"
+        + $"{(arm.Top is { } t ? $"+top{t}" : "")}";
 
     /// <summary>The retrieval ladder's arm names, in table order, defined ONCE.
     ///
@@ -1655,7 +1727,7 @@ internal static class MemoryLocomoBench
     [
         "lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
         "+sem+rel-only", "+sem+rel-only+oracle",
-        .. judged ? JudgeDepths.Select(JudgeArmName) : Enumerable.Empty<string>(),
+        .. judged ? JudgeArms.Select(JudgeArmName) : Enumerable.Empty<string>(),
         "+sem+mult", "+sem80+mult", "+rel-only",
         "+sem5", "+sem+forget2", "+sem+fuse", "+fuse",
     ];
@@ -1741,6 +1813,86 @@ internal static class MemoryLocomoBench
         }
     }
 
+    /// <summary>Fuses a judge's verdict with the RANKING instead of letting it partition the page.
+    ///
+    /// <para><b>What it tests.</b> The engine promotes every endorsed candidate ahead of every unendorsed
+    /// one, so an unendorsed candidate ranked 1st falls below an endorsed one ranked 80th, and a verdict
+    /// bigger than the caller's limit replaces the page outright. Every OTHER signal in this engine is
+    /// combined by rank COMPETITION instead (<b>D82</b>, <b>D103</b>) — this asks whether the verdict should
+    /// be too.</para>
+    ///
+    /// <para><b>Why it needs no library change.</b> Evidence-hit@k reads the returned SET, and the engine's
+    /// partition returns exactly the endorsed set once that set fills the limit. So emitting the fused
+    /// top-<paramref name="limit"/> AS the verdict produces the page a fused engine would return. That holds
+    /// for this metric only: the engine still orders the page its own way, so a reader-facing measurement
+    /// would need the real thing.</para>
+    ///
+    /// <para>It also uses what the shipped path discards — <c>RelevantIds</c> is documented best-first and
+    /// the prompt asks for it, but the engine reads membership alone.</para>
+    ///
+    /// <para><b>An unendorsed candidate is ranked LAST, never unranked</b>, and the first attempt at this
+    /// got it wrong in a way worth keeping: giving them a zero judge term made the worst endorsed candidate
+    /// outscore the best unendorsed one at every rank, so the fusion was arithmetically identical to the
+    /// partition and re-measured it. <c>MemoryVerification.RelevantIds</c> says why — an unlisted id is
+    /// judged NOT to have answered, which is a low rank rather than an absence. <see cref="SamePage"/> is
+    /// the control that makes a repeat of that visible instead of publishable.</para></summary>
+    /// <param name="inner">The judge whose verdict is being fused.</param>
+    /// <param name="limit">The recall's limit — the page the fused ordering is cut to.</param>
+    /// <param name="weight">The verdict's weight against the ranking's own position term.</param>
+    /// <param name="top">Keep only the model's first <c>top</c> picks, dropping the tail of its own ordering;
+    /// <c>null</c> keeps every endorsement. It is the cheapest way to spend a judge's ordering, and it is
+    /// worth trying only where the per-rank profile shows that ordering carries signal.</param>
+    private sealed class FusedVerdictVerifier(
+        IMemoryVerificationPolicy inner, int limit, double weight, int? top = null)
+        : IMemoryVerificationPolicy
+    {
+        /// <summary>The SHIPPED fusion constant, read rather than restated so the two cannot drift.</summary>
+        private static readonly double K = new ReciprocalRankFusionOptions().K;
+
+        /// <summary>Judged calls whose fused page is the SAME SET the engine's partition would have
+        /// returned. All of them means this arm is a duplicate of its unfused twin, whatever it scores.
+        /// </summary>
+        internal int SamePage { get; private set; }
+
+        internal int Judged { get; private set; }
+
+        internal int Overlap { get; private set; }
+
+        public async Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
+            CancellationToken ct = default)
+        {
+            var verdict = await inner.VerifyAsync(request, ct).ConfigureAwait(false);
+            if (!verdict.Judged || verdict.RelevantIds.Count == 0) return verdict;
+
+            var kept = top is { } n ? verdict.RelevantIds.Take(n).ToList() : verdict.RelevantIds;
+            var endorsed = kept.ToHashSet(StringComparer.Ordinal);
+
+            // The verdict's implied FULL ordering — endorsed best-first, then the rest in the policy's
+            // order. That is exactly the page the engine's partition builds, so fusing against it blends
+            // the two rankings rather than letting either win outright.
+            var partition = request.Candidates
+                .Where(c => endorsed.Contains(c.Id))
+                .Concat(request.Candidates.Where(c => !endorsed.Contains(c.Id)))
+                .Select((c, i) => (c.Id, Rank: i + 1))
+                .ToDictionary(x => x.Id, x => x.Rank, StringComparer.Ordinal);
+
+            // Candidates arrive in the ranking's own order, so the index IS the policy's rank position.
+            var fused = request.Candidates
+                .Select((c, i) => (c.Id, Score: 1 / (K + i + 1) + weight / (K + partition[c.Id])))
+                .OrderByDescending(x => x.Score)
+                .Take(limit)
+                .Select(x => x.Id)
+                .ToList();
+
+            var partitionPage = partition.Where(p => p.Value <= limit).Select(p => p.Key).ToHashSet(StringComparer.Ordinal);
+            Judged++;
+            Overlap += fused.Count(partitionPage.Contains);
+            if (partitionPage.SetEquals(fused)) SamePage++;
+
+            return new MemoryVerification(fused);
+        }
+    }
+
     /// <summary>Wraps a REAL judge and tallies what it endorsed, against LoCoMo's own evidence labels.
     ///
     /// <para><b>Why an evidence-hit column cannot explain a judge arm on its own.</b> Promotion moves
@@ -1758,6 +1910,9 @@ internal static class MemoryLocomoBench
     /// <param name="inner">The judge being audited.</param>
     private sealed class JudgeAudit(IMemoryVerificationPolicy inner) : IMemoryVerificationPolicy
     {
+        /// <summary>Judge-rank buckets in the per-rank profile; the last is "and beyond".</summary>
+        internal const int RankProfile = 11;
+
         /// <summary>The current question's evidence, set by the caller exactly as
         /// <see cref="EvidenceRankProbe.Evidence"/> is.</summary>
         internal IReadOnlyList<string> Evidence { get; set; } = [];
@@ -1775,6 +1930,26 @@ internal static class MemoryLocomoBench
         internal int Endorsed { get; private set; }
 
         internal int EndorsedEvidence { get; private set; }
+
+        /// <summary>Endorsements at each 1-based judge rank, last bucket being "and beyond" — the profile
+        /// that says whether the model's own <b>best-first</b> ordering carries signal. If precision at its
+        /// top pick is no better than at its tail, the ordering is noise and no truncation of it can help;
+        /// if it is far better, the model knows more than its endorsement SET reports.</summary>
+        internal int[] EndorsedAtRank { get; } = new int[RankProfile];
+
+        internal int[] EvidenceAtRank { get; } = new int[RankProfile];
+
+        /// <summary>Calls where the ranking's own page holds NO evidence but a deeper candidate does — the
+        /// only calls a verifier can improve at all, since promotion cannot invent a candidate. Everything
+        /// else it does is redundant with a page that already succeeded.</summary>
+        internal int Rescuable { get; private set; }
+
+        /// <summary>Of those, the ones whose deep evidence the model endorsed ANYWHERE...</summary>
+        internal int RescuedAnywhere { get; private set; }
+
+        /// <summary>...and the ones where it sits in the model's own first five picks, which is what a
+        /// truncation could actually keep.</summary>
+        internal int RescuedTop5 { get; private set; }
 
         public async Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
             CancellationToken ct = default)
@@ -1797,6 +1972,30 @@ internal static class MemoryLocomoBench
             ShownEvidence += request.Candidates.Count(IsEvidence);
             Endorsed += verdict.RelevantIds.Count;
             EndorsedEvidence += request.Candidates.Count(c => endorsed.Contains(c.Id) && IsEvidence(c));
+
+            // CAN this call be improved at all? Only if the page the ranking would return holds no
+            // evidence while something deeper does. Measured here rather than inferred, because it is the
+            // denominator every "the judge adds nothing" claim actually needs.
+            var pageHit = request.Candidates.Take(RecallLimit).Any(IsEvidence);
+            var deep = request.Candidates.Skip(RecallLimit).Where(IsEvidence)
+                .Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
+            if (!pageHit && deep.Count > 0)
+            {
+                Rescuable++;
+                if (verdict.RelevantIds.Any(deep.Contains)) RescuedAnywhere++;
+                if (verdict.RelevantIds.Take(5).Any(deep.Contains)) RescuedTop5++;
+            }
+
+            // The per-rank profile, keyed by the model's OWN order rather than the ranking's.
+            var byId = request.Candidates.ToDictionary(c => c.Id, c => c, StringComparer.Ordinal);
+            for (var i = 0; i < verdict.RelevantIds.Count; i++)
+            {
+                var bucket = Math.Min(i, RankProfile - 1);
+                EndorsedAtRank[bucket]++;
+                if (byId.TryGetValue(verdict.RelevantIds[i], out var c) && IsEvidence(c))
+                    EvidenceAtRank[bucket]++;
+            }
+
             return verdict;
         }
     }

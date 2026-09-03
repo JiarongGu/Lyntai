@@ -2165,6 +2165,33 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 145 — the PARTITION was the harm, and the judge's confidence is anti-correlated with its usefulness
+
+✅ done 2026-09-03 — **Fusing the verdict instead of partitioning it removes the entire 10.5-point loss**
+(72.5% → 83.0%, same model, same depth, same 29.1 endorsements — only the combination rule changes). The
+verdict is the one signal this engine combines by a hard partition while every other is fused by rank
+competition (**D82**, **D103**), so an unendorsed candidate ranked 1st loses to an endorsed one ranked 80th.
+Depth mattered only because it grew the endorsed set until the partition ate the page. `docs/memory.md` §5.
+
+**It removes the harm and adds nothing**, and the diagnostic that explains why is the one this Part exists
+for. A verifier can only change a call whose page held no evidence while something deeper did — **19 of
+200**, matching the oracle's headroom exactly. On those the judge endorsed the deep evidence **10 times
+(53%)** and put it in its own top five **0 times (0%)**, while its cumulative precision by its own rank runs
+34.5% at rank 1 against a pool density of 1.49%. **Its confident picks are the ones the ranking already
+had; the useful ones sit in a 2.6%-precision tail.** So no truncation or reweighting of this judge's order
+can win, and the ceiling for this model is +5.0 points.
+
+**Two instrument lessons, both paid for in this session.** A `+top5` arm scored its base and the run said
+why — `! DEGENERATE, 99% same page` — because a fused arm is compared against the partition and a fusion
+can be arithmetically EQUAL to one. The first fusion attempt was exactly that, silently, by giving
+unendorsed candidates a zero judge term rather than a low RANK; `MemoryVerification.RelevantIds`' own doc
+says a "no" is a judgement, not an absence. Both controls are now in the harness.
+
+**Nothing shipped.** The fusion is measured through a bench-local verifier, which is sound for a metric that
+reads the returned SET and is not a substitute for implementing it.
+
+- Make the judge stop making results worse.
+
 ## Part 144 — it was the DEPTH: the same judge is level at 2× and catastrophic at 4×
 
 ✅ done 2026-09-03 — **Part 143's "capability floor" is a depth×capability interaction, and this corrects

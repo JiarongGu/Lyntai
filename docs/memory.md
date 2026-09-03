@@ -1731,6 +1731,60 @@ metric* by construction, since reordering a returned page cannot change what is 
 measurement could still see it, and none has been run. Nor does this locate a knee: three points, one of
 them a structural constant, do not make a curve.
 
+### The PARTITION was the harm, and the judge's confidence is anti-correlated with its usefulness (`memory-locomo --retrieval`, 2026-09-03)
+
+The two subsections above priced a judge that hurts. This asks WHY the engine lets it, and the answer is
+the combination rule rather than the model: **the verdict is the only signal this engine combines by a hard
+partition** — endorsed ahead of unendorsed, then cut — while every other signal is fused by rank
+competition (**D82**, **D103**). So an unendorsed candidate ranked 1st loses to an endorsed one ranked 80th,
+and once the endorsed set reaches the limit the ranking is gone.
+
+**Instrument.** `memory-locomo --retrieval --n 200`, four runs over the same base arm. Raw output,
+gitignored: `devtools/_locomo-judge-fuse2.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->,
+`devtools/_locomo-judge-top.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->
+and `devtools/_locomo-judge-headroom.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+`+sem+rel-only` reproduces at 83.0% in every one.
+
+| arm | overall | note |
+|---|---|---|
+| `+sem+rel-only` | **83.0%** | the base, in all four runs |
+| `+sem+rel-only+judge` | 72.5% | partition, shipped depth |
+| **`+sem+rel-only+judge+fuse`** | **83.0%** | same judge, same depth, FUSED |
+| `+sem+rel-only+judge@40` | 84.0% | partition, depth 40 |
+| `+sem+rel-only+judge@40+fuse` | 84.0% | fusion barely differs there — 64% same page |
+| `+sem+rel-only+judge+fuse+top5` | 83.0% | **DEGENERATE — 99% same page, no measurement** |
+| `+sem+rel-only+oracle` | 92.5% | the ceiling |
+
+**1. Fusing removes the whole 10.5-point loss.** Same model, same prompt, same depth, same 29.1
+endorsements — only the combination rule changes, and the catastrophe disappears. That is 21 questions, far
+outside the near-tie band. **The partition is the mechanism of harm**, and depth mattered only because it
+grew the endorsed set until the partition ate the page.
+
+**2. It removes the harm and adds nothing.** Fused, the arm lands exactly on its base while the oracle shows
++9.5 available. Its categories move (temporal 81.0 → 85.7, open-domain 58.3 → 50.0) and net to zero.
+
+**3. The model's own ordering carries a 23× lift — and the engine discards it.** Asked for its picks
+best-first, cumulative precision runs **top1 34.5%, top2 20.7%, top5 12.6%, all 2.6%** against a pool
+evidence density of 1.49%. `GraphMemoryEngine` reads `RelevantIds` through `ToHashSet()`, so the order is
+dropped: the model is asked a ranked question and one bit per candidate is kept.
+
+**4. And the lift is on the WRONG calls, which is the finding that closes the direction.** A verifier can
+only change a call whose page held no evidence while something deeper did — 19 of 200 here, matching the
+oracle's headroom exactly. On those the judge endorsed the deep evidence **10 times (53%)** and put it in
+its own top five **0 times (0%)**. **Its confident picks are the ones the ranking already found; the useful
+ones sit in a tail whose precision is 2.6%** — the same tail that made the partition destructive. So no
+truncation, threshold or reweighting of THIS judge's order can win, and `+top5` failing was not a
+measurement error but the prediction.
+
+**The ceiling this puts on the seam for this model:** 10 of 19 rescuable calls, so **+5.0 points at most**,
+and only for a rule that could pull those tail endorsements out without their neighbours. Everything above
+that needs a better judge, which is a deployment choice (`model-decoupling.md`) rather than a library one.
+
+**What it does NOT say.** One model, one workload, one embedder, n = 200; the rescuable cell is 19 calls, so
+the 53% and the 0% are small counts and only their contrast is safe to lean on. The fusion is measured
+through a bench-local verifier that emits the fused page AS its verdict — sound for a metric that reads the
+returned SET, and not a substitute for implementing it, since the engine still orders the page its own way.
+
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 
 LoCoMo rewards a perfect archive and penalises decay by construction. This is the opposite shape and the

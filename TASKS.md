@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is FIVE items, across Parts 105, 109, 116, 128 and 129.** Each is a
+**The startable set is SIX items, across Parts 105, 109, 116, 128 and 129.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -49,8 +49,8 @@ claims published DURING that session were corrected by later runs in the same se
 |---|---|---|
 | LoCoMo search, best mechanical arm (`+sem+rel-only`) | 82.6% (n = 1,540) | **+1.5** |
 | LoCoMo search, same arm + a PERFECT judge | **92.5%** (n = 200) | **+12.0** |
-| LoCoMo search, same arm + a REAL 4B judge, depth 4× (shipped) | 72.5% (n = 200) | −8.0 |
-| LoCoMo search, same arm + the SAME judge at depth 2× | **84.0%** (n = 200) | **+3.5** |
+| LoCoMo search, same arm + a REAL 4B judge, PARTITIONED (shipped rule) | 72.5% (n = 200) | −8.0 |
+| LoCoMo search, same arm + the SAME judge, FUSED | **83.0%** (n = 200) | **+2.5** |
 | LongMemEval knowledge-update, SHIPPED default | 86.4% (all 70) | **+40.0** |
 
 **The session opened believing the shipped defaults were the problem. They are not.** The configuration that
@@ -73,7 +73,15 @@ commands. `--arms` saves ingestion on both (a LoCoMo ladder is 755s where it was
 touches the registry plus each bench's ladder — the two LoCoMo lists are asserted equal before a run starts,
 after that drift failed two runs ten minutes apart.
 
-**The startable set is FIVE — the real-judge run was the sixth and it RAN on 2026-09-03**
+**The judge sequence closed on 2026-09-03 with a mechanism, not just a number** (`docs/task-archive.md`
+**Parts 143–145**). A real 4B judge costs 10.5 points because the engine PARTITIONS on its verdict —
+endorsed ahead of unendorsed, then cut — which is the only signal here not fused by rank competition.
+**Fusing removes the loss entirely and adds nothing**, and the reason nothing more is available is measured:
+of the 19 calls in 200 a verifier could possibly improve, this judge endorsed the deep evidence on 10 and
+ranked it in its own top five on **none**. Its confidence tracks what the ranking already found. **One
+library change is now filed under Part 128 and no default moved.**
+
+**The startable set is SIX — the real-judge run closed and the fusion item opened**
 (`docs/task-archive.md` **Part 143**, corrected by **Part 144** the same day). A 4B judge costs 10.5 points
 where the perfect one gains 9.5 — but **the cause is the DEPTH it inherits, not the model tier**: at half
 the shipped `VerificationDepth` the same model on the same arm is level with no judge, because selectivity
@@ -817,6 +825,21 @@ endorsements per recall out of 80 shown, at 2.6% precision, which is an endorsem
 20-slot page, so promotion replaces the ranking instead of refining it. **The seam has a capability FLOOR**,
 now stated in `LlmVerificationOptions.ClientName`'s shipped XML doc. `docs/memory.md` §5 carries the table
 and the four things it does not say._
+
+- [ ] **Ship the verdict as a FUSION rather than a partition — the one library change today's runs earned.**
+  `GraphMemoryEngine` promotes every endorsed candidate ahead of every unendorsed one
+  (`src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs`, the block after `VerifyAsync`), which is the only
+  place this engine combines a signal by partition instead of rank competition (**D82**, **D103**). Measured:
+  fusing removes the whole 10.5-point loss a real 4B judge costs, on an otherwise identical arm
+  (`docs/task-archive.md` **Part 145**, `docs/memory.md` §5).
+  <br>**What it needs beyond the measurement**, none of which today's bench-local proof supplies: a decision
+  on the SURFACE (a new `GraphMemoryOptions` member defaulting to today's behaviour, versus changing the
+  default outright — the second is a behaviour change no consumer can detect at compile time, D18's
+  major-bump shape), the ENGINE implementation rather than a verifier that emits a fused page, and a
+  reader-facing check, since evidence-hit@k reads the returned SET while a fused engine also reorders it.
+  <br>**Do not expect it to raise the score** — fused, the arm lands exactly on its base. It buys SAFETY: a
+  weak judge stops being able to destroy a good ranking. That is the whole claim, and Part 145's headroom
+  numbers say why more is not available from this model tier.
 
 - [ ] **Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.** `docs/memory.md` §5
   (2026-09-03) has TWO points on it and two points are not a curve: `+sem` trades +22.0 search for −13.9
