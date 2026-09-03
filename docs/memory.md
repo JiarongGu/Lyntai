@@ -1630,8 +1630,15 @@ All three model-free controls reproduce (`+sem+rel-only` 83.0%, `+sem+rel-only+o
 | **`+sem+rel-only+judge`** (gemma3:4b) | 70.3% | 78.6% | 41.7% | 74.3% | **72.5%** |
 
 **1. It costs 10.5 points where a perfect judge gains 9.5**, and it loses in every category. This is the
-third branch of the prediction registered in the ladder before the run — *below the unjudged base* — and it
-is the branch that says the seam has a **capability floor** rather than a capability curve.
+third branch of the prediction registered in the ladder before the run — *below the unjudged base*.
+
+> **CORRECTED the same day by the depth ladder below, and the correction is the more useful half.** This
+> subsection read the result as a **capability floor**. It is a **depth×capability interaction**: at half
+> this run's `VerificationDepth` the SAME model on the SAME arm is level with no judge, so the 10.5-point
+> loss belongs to the shipped depth default at least as much as to the model tier. The caveat this run put
+> into `LlmVerificationOptions.ClientName` was corrected with it. The mechanism below — a candidate list so
+> long the model stops discriminating — is what the "capability floor" reading was missing, and this
+> subsection's own limits section is what named it.
 
 **2. The arm cannot be silently inert, which is the first thing to rule out.** Fail-open returns
 `MemoryVerification.NoOpinion`, which leaves the ranking untouched — so a judge that failed, refused, timed
@@ -1676,6 +1683,53 @@ to be better than what it displaces.**
   variance and says nothing about sampling variance. A judge run at a real temperature is unmeasured.
 - **A `VerificationDepth` of 80 is a choice this run inherited**, not one it tested. A shallower depth
   shows the model fewer chances to be wrong and is the obvious next arm if anyone wants to rescue this.
+
+### It was the DEPTH, not the model: the same judge is level at 2× and catastrophic at 4× (`memory-locomo --retrieval`, 2026-09-03)
+
+The subsection above called the 10.5-point loss a **capability floor**. Its own limits section named the
+untested alternative — *"a `VerificationDepth` of 80 is a choice this run inherited, not one it tested"* —
+and this ladder ran it. **The floor is a depth×capability interaction, and the capability half is the
+smaller one.** The `DefaultVerificationDepthFactor = 4` those runs inherited was fitted against a PERFECT
+judge (**D59**), where depth is free because an oracle never endorses junk.
+
+**Instrument.** `memory-locomo --retrieval --n 200 --arms
++sem+rel-only,+sem+rel-only+judge@40,+sem+rel-only+judge@20`, 1633.7s. Raw output, gitignored:
+`devtools/_locomo-judge-depth.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+Same model, same prompt, same base arm; **`GraphMemoryOptions.VerificationDepth` is the only thing that
+varies**, and the depth-80 row is the shipped default carried over from the run above.
+
+| depth | shown/call | endorsed/call | precision | recall | **evidence-hit@20** |
+|---|---|---|---|---|---|
+| 20 — the recall's own limit | 20.0 | 3.4 | 16.2% | 55.3% | **83.0%** |
+| 40 — 2× | 40.0 | 7.7 | 8.4% | 59.2% | **84.0%** |
+| 80 — the shipped 4× | 80.0 | 29.1 | 2.6% | 63.4% | **72.5%** |
+
+**1. The null control held EXACTLY, which is what licenses reading the rest.** At depth 20 the verifier sees
+precisely the page being returned, so promotion can only reorder within it and evidence-hit@20 *cannot*
+move. It reads 83.0% — the base, **cell for cell in all four categories** — while its audit shows the judge
+really did answer and really did promote (3.4 endorsements per call, 0 declines). This is the arm that
+structurally cannot move, which the judge ladder had never had.
+
+**2. Selectivity COLLAPSES with list length, and that is the mechanism.** The model endorses ~17% of a
+20-item list and ~19% of a 40-item one, then **36% of an 80-item one**. Its discriminative lift over chance
+holds at ~3.2× for the two short lists (3.27× and 3.08×) and falls to **1.74×** at 80. So the long list does
+not merely dilute a constant judgement — it makes the judgement itself worse, and then promotes the result
+over a 20-slot page it now overflows.
+
+**3. Read the +1.0 at depth 40 as LEVEL, not as a win.** It is two questions out of 200, which is inside the
+near-tie band `docs/task-archive.md` Part 119 measured; the arms are deterministic (temperature 0), so the
+uncertainty is over the QUESTION SAMPLE, not the instrument, and a different 200 could flip its sign. **The
+robust result is the −10.5 → +1.0 swing across depth**, which is 21 questions and far outside that band.
+
+**4. No default moved, and none should on this.** One model, one workload, one embedder. What the run
+changes is the ADVICE, which now lives on both shipped options: the depth default is right for a strong
+judge and can be actively harmful for a weak one, and *"endorses a large fraction of what it sees"* is the
+failure signal to watch.
+
+**What it does NOT say.** Depth 20 is not evidence that a judge is useless there — it is invisible to *this
+metric* by construction, since reordering a returned page cannot change what is in it. A reader-facing
+measurement could still see it, and none has been run. Nor does this locate a knee: three points, one of
+them a structural constant, do not make a curve.
 
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 

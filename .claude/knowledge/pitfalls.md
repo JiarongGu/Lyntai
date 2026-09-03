@@ -269,6 +269,20 @@ the tests) while being wrong. Skim before touching the relevant area.
   mediocre instead of wrong, the arm would have landed on its base and the honest reading would have been
   unavailable, permanently, from that run's data.
 
+- **A constant tuned against a PERFECT component inherits that component's assumptions, and can be actively
+  harmful for the real one.** This repository prices model-in-the-loop seams against an ideal first — a
+  perfect annotator, a perfect judge — which is a good habit for deciding whether to spend a model run, and
+  a trap for anything you tune while you are there. Measured 2026-09-03:
+  `GraphMemoryOptions.DefaultVerificationDepthFactor` sits at 4 because rescue depth SATURATES, which is
+  true and was measured with an ORACLE — and an oracle never endorses junk, so for it depth is free and the
+  only question is how far down an answer can be rescued from. For a real judge depth is a PRECISION trade,
+  and the same 4B model that was level with no judge at 2× cost **10.5 points** at the shipped 4×.
+  <br>**The tell is a doc sentence naming the measurement without naming the instrument** — *"the MEASURED
+  saturation point, not a round number"* was accurate and omitted the one word (*oracle*) that bounds it.
+  So: **when a default is justified by a measurement, record what stood in for the missing component**, and
+  treat every constant fitted beside an ideal as unmeasured for the real one. The ideal run is a ceiling on
+  the MECHANISM; it is not a fit for the KNOB.
+
 - **NuGet never re-extracts a package version it already has in the global cache**, so packing under a FIXED
   throwaway version (`consumer-smoke`'s `9.9.9-smoke`) tests the packages only ONCE — every later run restores
   the first run's copies from `~/.nuget/packages/` and reports success about code it never compiled against.

@@ -2165,6 +2165,31 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 144 — it was the DEPTH: the same judge is level at 2× and catastrophic at 4×
+
+✅ done 2026-09-03 — **Part 143's "capability floor" is a depth×capability interaction, and this corrects
+it.** Varying only `GraphMemoryOptions.VerificationDepth` on one 4B judge: **83.0% at depth 20, 84.0% at 40,
+72.5% at the shipped 80.** Same model, same prompt, same base arm. `docs/memory.md` §5 has the table.
+
+**The mechanism is that selectivity collapses with list length.** The model endorses ~17% of a 20-item list
+and ~19% of a 40-item one, then **36% of an 80-item one**, and its lift over chance holds at ~3.2× for the
+short lists before falling to 1.74×. So a long candidate list does not merely dilute a fixed judgement — it
+degrades the judgement, which then overflows a 20-slot page and displaces a ranking that was better.
+
+**The null control is the half that licenses the rest.** At depth 20 the verifier sees exactly the page
+being returned, so promotion can only reorder within it and the metric CANNOT move — it read the base cell
+for cell in all four categories while its audit showed 3.4 endorsements per call and zero declines. The
+judge ladder had never carried an arm that structurally cannot move.
+
+**+1.0 at depth 40 is reported as LEVEL, not as a win** — two questions out of 200, inside the near-tie band
+Part 119 measured. The robust result is the −10.5 → +1.0 swing, which is 21 questions.
+
+**No default moved.** What changed is the ADVICE, on the two shipped options a consumer reads:
+`GraphMemoryOptions.VerificationDepth`'s doc had cited D59's saturation sweep as locating the knee without
+saying that sweep used a PERFECT judge, for whom depth is free.
+
+- Test the depth the judge inherits before concluding anything about the judge.
+
 ## Part 143 — the REAL judge on that arm, and the capability floor it found
 
 ✅ done 2026-09-03 — **A 4B judge costs 10.5 points where the perfect one gains 9.5.**

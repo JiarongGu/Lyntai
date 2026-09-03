@@ -326,12 +326,15 @@ internal static class MemoryLocomoBench
         // produced the published `lyntai` row rather than a reconstruction of it.
         var rankProbe = new EvidenceRankProbe(new ReciprocalRankFusionPolicy());
 
-        // ONE audit across every conversation, for the same reason `rankProbe` is one. It wraps the SHIPPED
-        // judge, so the arm below is still the seam a deployment switches on, and it exists because the
-        // evidence-hit column alone cannot say WHY a judge arm moved — see JudgeAudit.
-        var judgeAudit = judgeChat is null
-            ? null
-            : new JudgeAudit(new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat)));
+        // One audit per judge arm, each spanning every conversation for the same reason `rankProbe` does.
+        // Deliberately NOT one shared instance: that would pool the depths' counters and report the mixture
+        // as though it were a measurement, which is the "a name means two configurations" defect one level
+        // down. Each wraps the SHIPPED judge, so every arm is still the seam a deployment switches on.
+        var judgeArms = judgeChat is null
+            ? new Dictionary<string, JudgeAudit>(StringComparer.Ordinal)
+            : JudgeDepths.ToDictionary(JudgeArmName,
+                _ => new JudgeAudit(new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat))),
+                StringComparer.Ordinal);
 
         foreach (var (convId, turns) in conversations)
         {
@@ -583,29 +586,29 @@ internal static class MemoryLocomoBench
                     Verification = new EvidenceOracleVerifier(EvidenceByQuery(mine, convId)),
                 },
 
-                // The REAL judge, on the base that earns it. `+oracle` above is the ceiling; this is what a
-                // model actually reaches, and the gap between them is the MODEL's error rather than the
-                // mechanism's limit. It sat on `+forget0` and never completed — re-aimed here because that
-                // base is dominated, which is the whole of what `TASKS.md` Part 128 asks for.
-                // Skipped when no chat model answers: a scripted stand-in would measure the stand-in.
+                // The REAL judge, on the base that earns it, at three DEPTHS. `+oracle` above is the
+                // ceiling; these are what a model reaches. Skipped when no chat model answers — a scripted
+                // stand-in would measure the stand-in. Results and their limits: `docs/memory.md` §5.
                 //
-                // PRE-REGISTERED, 2026-09-03, before the first run. The judge sees `VerificationDepth`
-                // candidates — 4 × the recall's 20 — so this is a 4B model picking from 80 one-line
-                // headlines, harder than the short authored lists `memory-verification` priced (3B captured
-                // ~60-69% of the available improvement there, 7B 91.4%). Against this arm's own 83.0% and
-                // the oracle's 92.5%:
-                //   >= 87.0%  a real model survives promotion here; what is left is a model-TIER question.
-                //   83.0-87%  it works and is marginal — the next question is a bigger judge, not a new seam.
-                //   <  83.0%  BELOW the unjudged base: a weak judge promotes wrong candidates onto the page,
-                //             so the seam has a capability FLOOR and `LlmVerificationOptions.Model` owes
-                //             consumers that caveat.
-                .. judgeAudit is null
+                // Depth is the axis because `DefaultVerificationDepthFactor = 4` was fitted under a PERFECT
+                // judge (D59), for whom depth is free since an oracle never endorses junk. For a real judge
+                // it is a precision trade, and the same model swings from level to −10.5 across it.
+                //
+                //   @20  a STRUCTURAL null control: depth is raised to the recall's own limit, so the
+                //        verifier sees exactly the page being returned and can only reorder it. The metric
+                //        CANNOT move — anything but the base is a harness defect, not a finding. Keep this
+                //        arm; the ladder had no arm that could fail loudly until it existed.
+                //   @40  under the 20-slot page, which is where promotion refines a ranking instead of
+                //        replacing it wholesale.
+                .. judgeArms.Count == 0
                     ? Array.Empty<FieldArm>()
-                    : [FieldArms.Named("+sem+rel-only") with
+                    : [.. JudgeDepths.Select(d => FieldArms.Named("+sem+rel-only") with
                     {
-                        Name = "+sem+rel-only+judge",
-                        Verification = judgeAudit,
-                    }],
+                        Name = JudgeArmName(d),
+                        // Null keeps the shipped default; an explicit options object is otherwise inert.
+                        Options = d is null ? null : new GraphMemoryOptions { VerificationDepth = d },
+                        Verification = judgeArms[JudgeArmName(d)],
+                    })],
 
                 FieldArms.Named("+sem+mult"),
                 FieldArms.Named("+sem80+mult"),
@@ -753,9 +756,9 @@ internal static class MemoryLocomoBench
                             + "ingested turns present in the per-question copy");
                     }
 
-                    // Handed to the audit the same way the K ladder hands it to the rank probe, so the judge's
-                    // endorsements are scored against the SAME labels the arm's own column is scored against.
-                    if (judgeAudit is not null) judgeAudit.Evidence = q.Evidence;
+                    // Handed to the audits the same way the K ladder hands it to the rank probe, so the
+                    // judges' endorsements are scored against the SAME labels their own columns are.
+                    foreach (var audit in judgeArms.Values) audit.Evidence = q.Evidence;
 
                     // The K ladder needs ONE recall per question and nothing else: the probe observes the pool
                     // that recall produced and scores every K over it offline. Evidence is handed to the
@@ -1008,8 +1011,9 @@ internal static class MemoryLocomoBench
         else PrintResults(arms, correct, asked, unknown, returned, retrievalOnly, f1, exact, chars, judged);
 
         // Printed here rather than through PrintResults, which already takes ten arguments and describes
-        // every arm — this describes ONE, and only when it ran.
-        if (judgeAudit is { Calls: > 0 }) PrintJudgeAudit(judgeAudit);
+        // every arm — this describes only the judge arms, and only those that ran.
+        foreach (var (name, audit) in judgeArms.OrderBy(a => a.Key, StringComparer.Ordinal))
+            if (audit.Calls > 0) PrintJudgeAudit(name, audit);
 
         // `--dump` was parsed and read by NOTHING until 2026-09-01 — a flag the usage advertised and the
         // run silently ignored. It survived because `var dump = args.Contains(...)` assigns a method
@@ -1508,13 +1512,13 @@ internal static class MemoryLocomoBench
         Console.WriteLine("  any arm is timed, so this column is retrieval work rather than arm ORDER.");
     }
 
-    /// <summary>What the real judge DID, beside what its arm scored — see <see cref="JudgeAudit"/> for why
+    /// <summary>What a real judge DID, beside what its arm scored — see <see cref="JudgeAudit"/> for why
     /// the score alone cannot say.</summary>
-    private static void PrintJudgeAudit(JudgeAudit audit)
+    private static void PrintJudgeAudit(string arm, JudgeAudit audit)
     {
         var judged = audit.Calls - audit.Declined;
         Console.WriteLine();
-        Console.WriteLine("=== what the `+judge` arm's model actually endorsed ===");
+        Console.WriteLine($"=== what `{arm}`'s model actually endorsed ===");
         Console.WriteLine($"  calls {audit.Calls}   declined (fail-open, ranking untouched) {audit.Declined}"
             + $"   judged 'none relevant' {audit.EmptyVerdicts}");
 
@@ -1628,6 +1632,17 @@ internal static class MemoryLocomoBench
         Console.WriteLine("    Do NOT read it as 'even full context does badly'.");
     }
 
+    /// <summary>The <c>GraphMemoryOptions.VerificationDepth</c> values the judge ladder walks, in table
+    /// order. <c>null</c> is the SHIPPED default — 4 × the recall's limit — and it keeps the unadorned arm
+    /// name, so the 72.5% already on record still denotes the configuration that produced it.</summary>
+    private static readonly int?[] JudgeDepths = [null, 40, 20];
+
+    /// <summary>One judge arm's name. The ladder and the report list below both derive from this, so unlike
+    /// the rest of those lists they cannot disagree about a depth arm in the first place.</summary>
+    /// <param name="depth">The arm's verification depth; <c>null</c> is the shipped default.</param>
+    private static string JudgeArmName(int? depth) =>
+        depth is null ? "+sem+rel-only+judge" : $"+sem+rel-only+judge@{depth}";
+
     /// <summary>The retrieval ladder's arm names, in table order, defined ONCE.
     ///
     /// <para><b>Three lists used to carry these names</b> — this one, the <c>--arms</c> validation set, and
@@ -1640,7 +1655,7 @@ internal static class MemoryLocomoBench
     [
         "lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
         "+sem+rel-only", "+sem+rel-only+oracle",
-        .. judged ? ["+sem+rel-only+judge"] : Array.Empty<string>(),
+        .. judged ? JudgeDepths.Select(JudgeArmName) : Enumerable.Empty<string>(),
         "+sem+mult", "+sem80+mult", "+rel-only",
         "+sem5", "+sem+forget2", "+sem+fuse", "+fuse",
     ];

@@ -282,6 +282,14 @@ public sealed record GraphMemoryOptions
     /// down can promote an answer that was there all along. Rescue depth SATURATES, and the default sits at
     /// the knee (<c>docs/DECISIONS.md</c> D59 has the sweep).</para>
     ///
+    /// <para><b>That saturation was measured with a PERFECT judge, where depth is free because an oracle
+    /// never endorses junk — and for a real one depth is a PRECISION trade, so the knee moves.</b> Measured
+    /// on LoCoMo with one 4B judge (<c>docs/memory.md</c> §5): at 2× the limit it was level with no judge,
+    /// and at this default's 4× it cost 10.5 points of evidence-hit, because its selectivity collapsed on
+    /// the longer list and it endorsed more candidates than the page could hold. <b>The default is right for
+    /// a strong judge and can be actively harmful for a weak one</b>; it did not move, because one model on
+    /// one workload does not set a default.</para>
+    ///
     /// <para>Bounded because judgement is not free: showing a model every candidate would cost more per
     /// recall than the recall itself. Depth trades that cost against how far down an answer may be rescued
     /// from. Values below the recall's limit are raised to it — a verifier that saw fewer candidates than

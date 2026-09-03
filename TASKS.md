@@ -49,7 +49,8 @@ claims published DURING that session were corrected by later runs in the same se
 |---|---|---|
 | LoCoMo search, best mechanical arm (`+sem+rel-only`) | 82.6% (n = 1,540) | **+1.5** |
 | LoCoMo search, same arm + a PERFECT judge | **92.5%** (n = 200) | **+12.0** |
-| LoCoMo search, same arm + a REAL 4B judge | **72.5%** (n = 200) | **−8.0** |
+| LoCoMo search, same arm + a REAL 4B judge, depth 4× (shipped) | 72.5% (n = 200) | −8.0 |
+| LoCoMo search, same arm + the SAME judge at depth 2× | **84.0%** (n = 200) | **+3.5** |
 | LongMemEval knowledge-update, SHIPPED default | 86.4% (all 70) | **+40.0** |
 
 **The session opened believing the shipped defaults were the problem. They are not.** The configuration that
@@ -73,11 +74,12 @@ touches the registry plus each bench's ladder — the two LoCoMo lists are asser
 after that drift failed two runs ten minutes apart.
 
 **The startable set is FIVE — the real-judge run was the sixth and it RAN on 2026-09-03**
-(`docs/task-archive.md` **Part 143**): a 4B judge costs 10.5 points where the perfect one gains 9.5, because
-it endorses 29 of 80 candidates at 2.6% precision and promotion of a set larger than the page replaces the
-ranking rather than refining it. **That is a floor, not a curve**, and it is the first measurement here
-where a model in the loop is worse than no model at all — which is exactly what `model-decoupling.md` says
-to build for, so nothing about the design moved. The frontier walk is priced and I would
+(`docs/task-archive.md` **Part 143**, corrected by **Part 144** the same day). A 4B judge costs 10.5 points
+where the perfect one gains 9.5 — but **the cause is the DEPTH it inherits, not the model tier**: at half
+the shipped `VerificationDepth` the same model on the same arm is level with no judge, because selectivity
+collapses on a long candidate list (36% of an 80-item list endorsed against ~17% of a 20-item one) and a
+promoted set larger than the page replaces the ranking instead of refining it. **No default moved on one
+model and one workload; what moved is the advice on two shipped options.** The frontier walk is priced and I would
 argue against it: two points already show a ~1:1 exchange and no cliff. **The genuinely open lever is
 encoding-time supersession** — Mem0's ADD/UPDATE/DELETE/NOOP, Zep/Graphiti's bi-temporal invalidation — which
 uses information only the WRITER has and is therefore the one thing none of these runs can reach. It is a
