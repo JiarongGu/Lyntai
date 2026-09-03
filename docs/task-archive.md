@@ -2165,6 +2165,35 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 146 — D41's invariant measured at last: decay buries, and the weight at which it starts deleting
+
+✅ done 2026-09-03 — **26 of 26 buried entries recover at the shipped default, mean rank 5.0.** A focused
+query in the entry's own words returns every entry decay suppressed — 76.9% inside an ordinary ten-slot
+page, 100% within a hundred — so decay costs an entry its position and never its existence. **The invariant
+the whole design rests on had never been measured**, because every metric on record scores what a recall
+RETURNED and D41 is a claim about what it did not. `docs/memory.md` §5 has both tables.
+
+**The boundary is real and the shipped weight is inside it.** Recovery is 100% at weights 1 AND 2 and
+collapses to 18.8% at 4, while the entry sinks continuously under its own query (mean rank 5.0 → 41.7 →
+76.8) — so recoverability degrades gradually and then falls off a cliff between 2 and 4. Weight 4 is the arm
+whose `stale@k` of 1.4% is the best suppression figure the benchmark has produced, and it was bought by
+deletion. Walking the weight UP also showed the vote is
+a volume knob rather than a discriminator: `stale@k` 62.9 → 41.4 → 1.4 and `current@k` 87.1 → 77.1 → 32.9
+move together, because the vote ranks by AGE and the current fact survives only by being newer.
+
+**Two controls did real work.** `decidable` caught `+forget4`'s "100% prefers current" for what it is — 23
+of 70 questions answered at all. And a first recovery run measured only a ten-slot page, which cannot tell
+"the ranking put it below the cut" from "gone"; it read as *"decay deletes one in five"* and was re-run with
+a `deep@100` probe before anything was published.
+
+**Two findings this opens.** An exact-content query never returns a buried entry FIRST (0% at rank 1), and
+mechanically so: RRF weights retrievability equal to relevance, so recency outranks an exact match. And the
+WALK recovers 76.9% using the original question — expansion does not consult retrievability, since
+`ExpansionRetrievabilityFloor` ships at 0, so an n-shot walk partly undoes what one-shot decay buried. That
+is the first figure **D98** has ever had.
+
+- Prove decay buries rather than deletes, and find where that stops being true.
+
 ## Part 145 — the PARTITION was the harm, and the judge's confidence is anti-correlated with its usefulness
 
 ✅ done 2026-09-03 — **Fusing the verdict instead of partitioning it removes the entire 10.5-point loss**

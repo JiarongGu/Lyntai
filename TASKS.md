@@ -73,6 +73,18 @@ commands. `--arms` saves ingestion on both (a LoCoMo ladder is 755s where it was
 touches the registry plus each bench's ladder — the two LoCoMo lists are asserted equal before a run starts,
 after that drift failed two runs ten minutes apart.
 
+**D41's invariant is MEASURED as of 2026-09-03** (`docs/task-archive.md` **Part 146**), and it is the
+strongest evidence this repository has that the design does what it claims: **26 of 26 entries decay buried
+are recovered by a focused query, at mean rank 5.0** — 76.9% inside an ordinary ten-slot page, 100% within a
+hundred. Decay costs an entry its position, never its existence. **The boundary is measured too**: recovery
+holds at 100% through weight 2 and collapses to 18.8% at 4, while the entry sinks continuously under its own
+query (mean rank 5.0 → 41.7 → 76.8) — so it degrades gradually and then falls off a cliff, and that last
+arm's best-in-class `stale@k` of 1.4% was bought by deletion. So the shipped weight of 1 is bounded on BOTH
+sides — 0 costs −37.1 points of
+supersession, 4 deletes — and walking it up showed the vote is a volume knob rather than a discriminator
+(`current@k` falls with `stale@k`, because it ranks by AGE). **Any further gain in focus has to come from
+the decay SIGNAL, not from how loudly it votes.**
+
 **The judge sequence closed on 2026-09-03 with a mechanism, not just a number** (`docs/task-archive.md`
 **Parts 143–145**). A real 4B judge costs 10.5 points because the engine PARTITIONS on its verdict —
 endorsed ahead of unendorsed, then cut — which is the only signal here not fused by rank competition.
@@ -825,6 +837,21 @@ endorsements per recall out of 80 shown, at 2.6% precision, which is an endorsem
 20-slot page, so promotion replaces the ranking instead of refining it. **The seam has a capability FLOOR**,
 now stated in `LlmVerificationOptions.ClientName`'s shipped XML doc. `docs/memory.md` §5 carries the table
 and the four things it does not say._
+
+- [ ] **Decide whether a memory seam's `Model` should beat a candidate's — today it silently loses.**
+  `LlmVerificationOptions.Model` and `LlmAnnotationOptions.Model` set `LlmRequest.Model`, and the router
+  resolves `candidate.Model ?? req.Model` (`src/Lyntai.Core/Llm/Routing/LlmRouter.cs`), so a candidate that
+  pins a model wins. **D87** derives a named client's candidates from `LyntaiOptions.DefaultCandidates` and
+  keeps a model pinned there — so on any deployment that pins models globally, setting a seam's `Model` does
+  NOTHING. Both seams are fail-open, so the judge or annotator simply runs on another model and nothing
+  reports it: D87's own symptom shape, one subsystem over.
+  <br>**The XML docs on both properties now state the precedence** (2026-09-03), which is the honest
+  minimum and ships to consumers. What is NOT decided is whether the precedence is RIGHT. Three options,
+  and each is a different promise: leave it and treat `ClientName` as the only reliable pin; make
+  `req.Model` win, which is a routing behaviour change no consumer can detect at compile time (**D18**'s
+  major-bump shape); or refuse the ambiguity outright and throw at composition when a seam names a model its
+  client's candidates contradict, which is the loudest and the least convenient.
+  <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit._
 
 - [ ] **Ship the verdict as a FUSION rather than a partition — the one library change today's runs earned.**
   `GraphMemoryEngine` promotes every endorsed candidate ahead of every unendorsed one

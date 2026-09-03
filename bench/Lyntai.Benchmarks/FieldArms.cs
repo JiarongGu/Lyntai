@@ -64,6 +64,9 @@ internal static class FieldArms
         Named("+rel-only"),
         Named("+sem5"),
         Named("+sem+forget2"),
+        Named("+sem+forget0"),
+        Named("+forget2"),
+        Named("+forget4"),
     ];
 
     /// <summary>The SHIPPED defaults — no options, no ranking policy, no semantic channel. The control both
@@ -109,6 +112,23 @@ internal static class FieldArms
         // semantic match at any K.
         "+sem5" => new(name, null, null, null, 5),
         "+sem+forget2" => new(name, null, Fusion(retrievability: 2), null, ShippedSemanticK),
+
+        // DECAY OFF, EVERYTHING ELSE ON — the arm the design's own acceptance test needs and the ladder
+        // never had. `+forget0` also drops the semantic channel and `+sem+rel-only` also drops traversal, so
+        // neither isolates decay: this one changes exactly the one vote, over the shipped engine.
+        //
+        // It is the PARITY half of the claim — with forgetting silent this should land near a strong flat
+        // retriever (`vector` here, which is what a Mem0-class embedding store reduces to in this harness) —
+        // while the shipped arm is the FOCUS half, and the two are supposed to differ on LongMemEval's
+        // knowledge-update class rather than on LoCoMo.
+        "+sem+forget0" => new(name, null, Fusion(retrievability: 0), null, ShippedSemanticK),
+
+        // Forgetting's vote, LOUDER — the other direction from `+forget0`, and the one this design's own
+        // objective points at. LoCoMo cannot see the difference these make, because raising the vote changes
+        // what is BURIED and LoCoMo scores only what is FOUND (Part 140). They exist to be run on
+        // LongMemEval's knowledge-update class, where `stale@k` is the column that moves.
+        "+forget2" => new(name, null, Fusion(retrievability: 2), null, null),
+        "+forget4" => new(name, null, Fusion(retrievability: 4), null, null),
 
         _ => throw new KeyNotFoundException($"'{name}' is not a shared field-benchmark arm. "
             + $"Shared arms: {string.Join(", ", All().Select(a => a.Name))}."),

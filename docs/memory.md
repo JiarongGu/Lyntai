@@ -1785,6 +1785,80 @@ the 53% and the 0% are small counts and only their contrast is safe to lean on. 
 through a bench-local verifier that emits the fused page AS its verdict — sound for a metric that reads the
 returned SET, and not a substitute for implementing it, since the engine still orders the page its own way.
 
+### BURIAL, NOT DELETION: D41's invariant, measured for the first time — and the weight at which it stops holding (`memory-longmemeval --recover`, 2026-09-03)
+
+**D41 says a decayed entry is buried rather than deleted, and until now that rested on a store contract
+(`IMemoryGraphStore.SeedAsync`'s *faintness never excludes*) rather than on evidence.** No metric on record
+could see it: every table here scores what a recall RETURNED, and the invariant is a claim about what it did
+not. "Ranked below the cut" and "gone" produce identical rows in all of them.
+
+**Instrument.** `memory-longmemeval --haystack --recover`, 70 knowledge-update questions, model-free. Raw
+output, gitignored: `devtools/_lme-recover2.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+Scored ONLY over entries the arm actually suppressed — anything else inflates every row toward 100% by
+construction. The focused query is the buried entry's own words with its `(sNtM)` marker stripped, so
+recovery cannot come from matching a token no real caller would type.
+
+| `RetrievabilityWeight` | buried | page@10 | walk | **deep@100** | mean rank |
+|---|---|---|---|---|---|
+| **1 — shipped** | 26 | 76.9% | 76.9% | **100.0%** [87%, 100%] | **5.0** |
+| 2 | 41 | 26.8% | 87.8% | **100.0%** [91%, 100%] | 41.7 |
+| 4 | 69 | 0.0% | 37.7% | 18.8% [11%, 30%] | 76.8 |
+
+**1. The invariant HOLDS at the shipped default: 26 of 26, at mean rank 5.** A more focused query returns
+every buried entry, usually near the top of an ordinary page (76.9% inside ten slots) and always within a
+hundred. Decay costs an entry its default position, never its existence.
+
+**2. Recoverability is not binary — it DEGRADES continuously and then falls off a cliff between 2 and 4.**
+The entry sinks steadily under its own query (mean rank 5.0 → 41.7 → 76.8) while staying fully recoverable
+at weights 1 and 2; only past 2 does it become unreachable, at which point 81% of buried entries are gone.
+So "ask more precisely" keeps working across the usable range and gets measurably more expensive: at weight
+2 a caller needs a page of roughly fifty to see what a page of ten showed at weight 1.
+
+**3. The cliff is where the best-looking suppression figure lives.** `+forget4`'s `stale@k` of 1.4% is the
+strongest suppression this benchmark has produced and it was **bought by deletion**. The shipped weight sits
+on the safe side of a measured boundary, which is a stronger statement than any ladder alone could make.
+
+**3. `deep@100` is the column that decides this, and `page@10` is the one that misleads.** A first run
+reported only the page and read as *"decay deletes one entry in five"*; absence from a ten-slot page is what
+decay is FOR. The two columns are kept side by side so the distinction cannot be lost again.
+
+**4. An exact-content query never returns a buried entry FIRST — 0% at rank 1, mechanically.** RRF gives
+retrievability the same weight as relevance, so a buried entry at relevance-rank 1 scores
+`1/61 + 1/460` while a fresh entry at relevance-rank 5 scores `1/65 + 1/61` and wins. "Ask more precisely"
+recovers the entry; it cannot restore it to the top.
+
+**5. The WALK is an independent route back, and at the shipped default it partly UNDOES suppression.** It
+recovers 76.9% at weight 1, **87.8% at weight 2** — rising as suppression deepens, since a more buried set
+is still a well-connected one — and 37.7% at weight 4 where a focused query manages 18.8%, so the graph
+reaches what a query cannot. The cost side is the same number: expansion does not consult
+retrievability, because `GraphMemoryOptions.ExpansionRetrievabilityFloor` ships at `0`. **This is the first
+figure D98 has ever had**, and it means an n-shot walk re-surfaces what one-shot decay buried.
+
+**What it does NOT say.** One embedder, one class, 70 questions; the buried counts (26 and 69) are the real
+denominators and they are small. The focused query is the entry's own text — deliberately the easiest honest
+probe, so this is a floor test for reachability and not a test of how hard recovery is from a paraphrase.
+
+### Louder forgetting is a VOLUME knob, not a discriminator (`memory-longmemeval`, 2026-09-03)
+
+Every arm on record moved `RetrievabilityWeight` DOWN. This walks it up, on the class the design claims.
+
+| arm | prefers current | current@k | stale@k | decidable |
+|---|---|---|---|---|
+| `lyntai` (weight 1) | 86.4% | **87.1%** | 62.9% | 66 |
+| `+forget2` | 85.0% | 77.1% | 41.4% | 60 |
+| `+forget4` | **100.0%** | 32.9% | 1.4% | **23** |
+
+**`+forget4`'s 100% is the vacuous score the `decidable` control exists to catch**: it returns either fact on
+23 of 70 questions, and finds the CURRENT one only 32.9% of the time against the shipped 87.1%. Read the
+preference column without that denominator and louder forgetting looks perfect.
+
+**Forgetting's vote suppresses BOTH facts.** `stale@k` falls 62.9 → 41.4 → 1.4 and `current@k` falls
+87.1 → 77.1 → 32.9 with it. The vote ranks by AGE, and both facts are old relative to the query — the
+current one survives only by being newer. **So the volume knob is not the lever**; a real gain in focus has
+to come from the decay SIGNAL (what age means, and the curve's shape), not from how loudly it votes.
+Together with the recovery table above, `RetrievabilityWeight = 1` is now a measured choice bounded on both
+sides: 0 costs −37.1 points of supersession, 4 deletes.
+
 ### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
 
 LoCoMo rewards a perfect archive and penalises decay by construction. This is the opposite shape and the

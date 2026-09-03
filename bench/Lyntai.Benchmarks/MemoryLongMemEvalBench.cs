@@ -109,6 +109,164 @@ internal static class MemoryLongMemEvalBench
         return [.. arms.Where(a => requested.Contains(a, StringComparer.Ordinal))];
     }
 
+    /// <summary>The deep page a recovery probe asks for, well past any caller's limit. It is not a second
+    /// opinion on ranking — it is how "the ranking put it below the cut" is told from "the entry is gone",
+    /// which is the only distinction <c>docs/DECISIONS.md</c> D41 makes.</summary>
+    private const int DeepLimit = 100;
+
+    /// <summary>Does suppression DELETE? The measurement <c>docs/DECISIONS.md</c> D41 has never had.
+    ///
+    /// <para>Scored only over the questions where the arm actually suppressed the superseded fact, because
+    /// those are the only ones where the question arises — an entry the recall returned was never buried,
+    /// and counting it as "recovered" would inflate every row toward 100% by construction.</para>
+    ///
+    /// <para><b>The focused query is the entry's OWN WORDS with its marker stripped</b>, so recovery cannot
+    /// come from matching the harness's <c>(sNtM)</c> tag, which is a token no real caller would type. It is
+    /// deliberately the easiest honest query — this is a floor test for reachability, not a difficulty
+    /// test.</para></summary>
+    private static async Task<int> RunRecoveryAsync(IReadOnlyList<Question> sampled,
+        SweepDoubles.CachingEmbedder embedder, string[] args)
+    {
+        var configs = SelectConfigs(args, out _);
+        if (configs is null) return 1;
+
+        var buried = new Dictionary<string, int>(StringComparer.Ordinal);
+        var byQuery = new Dictionary<string, int>(StringComparer.Ordinal);
+        var byWalk = new Dictionary<string, int>(StringComparer.Ordinal);
+        var byEither = new Dictionary<string, int>(StringComparer.Ordinal);
+        var atTop = new Dictionary<string, int>(StringComparer.Ordinal);
+        var byDeep = new Dictionary<string, int>(StringComparer.Ordinal);
+        var deepRankSum = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        var done = 0;
+        foreach (var q in sampled)
+        {
+            Progress(++done, sampled.Count);
+            if (q.Stale.Count == 0) continue;
+
+            foreach (var arm in configs)
+            {
+                using var db = new MemoryPolicySweep.SweepDb();
+                var engine = EngineFor(arm, db, embedder);
+                foreach (var t in q.Turns)
+                    await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
+
+                var page = (await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: RecallLimit)))
+                    .Items.Select(i => i.Content ?? i.Headline).ToList();
+                if (FirstIndexOf(page, q.Stale) >= 0) continue;   // never buried; nothing to recover
+
+                buried[arm.Name] = buried.GetValueOrDefault(arm.Name) + 1;
+
+                // (a) A MORE FOCUSED QUERY — the buried entry's own content, marker removed.
+                var stale = q.Stale[0];
+                var focused = (await engine.RecallAsync(
+                        new MemoryQuery(Task, Scope, stale.Content, Limit: RecallLimit)))
+                    .Items.Select(i => i.Content ?? i.Headline).ToList();
+                var rank = FirstIndexOf(focused, q.Stale);
+                if (rank >= 0)
+                {
+                    byQuery[arm.Name] = byQuery.GetValueOrDefault(arm.Name) + 1;
+                    if (rank == 0) atTop[arm.Name] = atTop.GetValueOrDefault(arm.Name) + 1;
+                }
+
+                // (a2) THE SAME QUERY, A DEEPER PAGE — and this is the one that separates the two things
+                // D41 is about. Missing from a page of ten says the RANKING put it there; missing from a
+                // page of a hundred says the entry is gone. Without this column the table cannot tell
+                // "buried" from "deleted", which is the only distinction it exists to make.
+                var deep = (await engine.RecallAsync(
+                        new MemoryQuery(Task, Scope, stale.Content, Limit: DeepLimit)))
+                    .Items.Select(i => i.Content ?? i.Headline).ToList();
+                var deepRank = FirstIndexOf(deep, q.Stale);
+                if (deepRank >= 0)
+                {
+                    byDeep[arm.Name] = byDeep.GetValueOrDefault(arm.Name) + 1;
+                    deepRankSum[arm.Name] = deepRankSum.GetValueOrDefault(arm.Name) + deepRank + 1;
+                }
+
+                // (b) A RELATED CUE — the walk, reaching it as a neighbour of what the question did return.
+                var walked = false;
+                await WalkAsync(engine, q.Text, (_, body, _) =>
+                    walked |= q.Stale.Any(t => body.Any(b => b.Contains(t.Tag, StringComparison.Ordinal))));
+                if (walked) byWalk[arm.Name] = byWalk.GetValueOrDefault(arm.Name) + 1;
+
+                if (rank >= 0 || walked) byEither[arm.Name] = byEither.GetValueOrDefault(arm.Name) + 1;
+            }
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"{"Arm",-16} {"buried",7} {$"page@{RecallLimit}",9} {"walk",7} "
+            + $"{$"deep@{DeepLimit}",26} {"mean rank",10}");
+        Console.WriteLine(new string('-', 82));
+        foreach (var arm in configs.Select(c => c.Name))
+        {
+            var b = buried.GetValueOrDefault(arm);
+            if (b == 0) { Console.WriteLine($"{arm,-16} {0,7}   (nothing was suppressed)"); continue; }
+
+            var d = byDeep.GetValueOrDefault(arm);
+            var (low, high) = BenchStats.Wilson(d, b);
+            Console.WriteLine($"{arm,-16} {b,7} {$"{(double)byQuery.GetValueOrDefault(arm) / b:P1}",9} "
+                + $"{$"{(double)byWalk.GetValueOrDefault(arm) / b:P1}",7} "
+                + $"{$"{(double)d / b:P1} [{low:P0}, {high:P0}]",26} "
+                + $"{(d == 0 ? "-" : $"{(double)deepRankSum.GetValueOrDefault(arm) / d:F1}"),10}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("  'buried' is the denominator and it is the point: only a suppressed entry can");
+        Console.WriteLine("  test the invariant, so an arm that suppresses nothing reports nothing here.");
+        Console.WriteLine();
+        Console.WriteLine($"  THE COLUMN THAT DECIDES D41 IS `deep@{DeepLimit}`, not `page@{RecallLimit}`.");
+        Console.WriteLine("  Absent from a ten-slot page means the RANKING put it there - which is what decay");
+        Console.WriteLine("  is FOR. Absent from a hundred means the entry is unreachable, which is deletion");
+        Console.WriteLine("  and which `IMemoryGraphStore.SeedAsync`'s 'faintness never excludes' forbids.");
+        Console.WriteLine("  'mean rank' is where the focused query actually put it, so 'reachable' does not");
+        Console.WriteLine("  quietly mean 'at position 99'.");
+        return 0;
+    }
+
+    /// <summary>Each arm against the REFERENCE arm, paired question by question.
+    ///
+    /// <para><b>The reference is <c>vector</c> when it ran</b> — plain cosine is the "no mechanism at all"
+    /// baseline, so a comparison against it is the one that answers whether this design does anything —
+    /// otherwise the first arm, which makes an ablation ladder read against its own control.</para>
+    ///
+    /// <para><b>Only questions BOTH arms could decide are paired.</b> An arm that returned neither fact has
+    /// no preference to compare, and counting it as a failure would score a retrieval miss as a preference
+    /// error — the same conflation the <c>decidable</c> column exists to prevent.</para></summary>
+    private static void PrintPairedComparison(
+        IReadOnlyList<string> arms, Dictionary<string, Dictionary<int, bool>> perQuestion)
+    {
+        var reference = arms.Contains(VectorArm, StringComparer.Ordinal) ? VectorArm : arms.FirstOrDefault();
+        if (reference is null || !perQuestion.TryGetValue(reference, out var baseline)) return;
+
+        var others = arms.Where(a => !string.Equals(a, reference, StringComparison.Ordinal)).ToList();
+        if (others.Count == 0) return;
+
+        Console.WriteLine();
+        Console.WriteLine($"Paired against `{reference}`, McNemar exact over the questions both decided:");
+        foreach (var arm in others)
+        {
+            if (!perQuestion.TryGetValue(arm, out var mine)) continue;
+
+            int wins = 0, losses = 0, both = 0;
+            foreach (var (question, preferred) in mine)
+            {
+                if (!baseline.TryGetValue(question, out var theirs)) continue;
+                both++;
+                if (preferred && !theirs) wins++;
+                else if (!preferred && theirs) losses++;
+            }
+
+            var p = BenchStats.McNemarExact(wins, losses);
+            Console.WriteLine($"  {arm,-24} {both,3} paired   +{wins,-3} -{losses,-3} "
+                + $"net {wins - losses,+4}   {BenchStats.Format(p)}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("  '+' is questions this arm preferred the current fact on and the reference did");
+        Console.WriteLine("  not; '-' the reverse. Only those DISAGREEMENTS carry information, so a small");
+        Console.WriteLine("  net over few discordant pairs is not a result however large the percentage gap.");
+    }
+
     /// <summary>One arm's engine over its own store, with the semantic channel registered when the arm asks
     /// for one. <b>Every arm gets its own store and its own vector store</b> — a recall reinforces what it
     /// returns, so arms sharing one would each mutate the decay state the next reads.</summary>
@@ -211,6 +369,24 @@ internal static class MemoryLongMemEvalBench
                 : await RunTemporalAsync(sampled, embedder, args);
         }
 
+        if (args.Contains("--recover"))
+        {
+            Console.WriteLine("=== BURIAL, NOT DELETION: is a decayed entry still reachable? ===");
+            Console.WriteLine();
+            Console.WriteLine("Every other table here scores what decay SUPPRESSES, and none of them can tell");
+            Console.WriteLine("'ranked below the cut' from 'gone'. `docs/DECISIONS.md` D41 says the difference is");
+            Console.WriteLine("the whole design - an entry is BURIED, never deleted - and that is a claim about");
+            Console.WriteLine("the entries a recall did NOT return, which no ranking metric observes.");
+            Console.WriteLine();
+            Console.WriteLine("So: take the questions where the superseded fact was suppressed, and ask for it");
+            Console.WriteLine("two ways - a FOCUSED query in the entry's own words, and a WALK that reaches it as");
+            Console.WriteLine("a related neighbour. Recovery near 100% is the invariant holding; anything well");
+            Console.WriteLine("below it means decay is deleting, and no gain elsewhere would justify that.");
+            Console.WriteLine();
+            Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
+            return await RunRecoveryAsync(sampled, embedder, args);
+        }
+
         if (args.Contains("--shots"))
         {
             Console.WriteLine("=== What each SHOT buys on the workload this design is FOR ===");
@@ -268,6 +444,11 @@ internal static class MemoryLongMemEvalBench
         var prefers = new Dictionary<string, int>();
         var decidable = new Dictionary<string, int>();
 
+        // PER-QUESTION outcomes, because the arms answer the same questions and the comparison that follows
+        // is therefore paired. Counts alone cannot support one: they lose which questions the arms disagreed
+        // on, which is the whole of what a paired test reads.
+        var perQuestion = new Dictionary<string, Dictionary<int, bool>>(StringComparer.Ordinal);
+
         var done = 0;
         foreach (var q in sampled)
         {
@@ -313,7 +494,15 @@ internal static class MemoryLongMemEvalBench
                 // Without this an arm that retrieves NEITHER would score a vacuous 100%.
                 if (cur < 0 && sta < 0) continue;
                 decidable[arm] = decidable.GetValueOrDefault(arm) + 1;
-                if (cur >= 0 && (sta < 0 || cur < sta)) prefers[arm] = prefers.GetValueOrDefault(arm) + 1;
+                var preferred = cur >= 0 && (sta < 0 || cur < sta);
+                if (preferred) prefers[arm] = prefers.GetValueOrDefault(arm) + 1;
+
+                // Keyed by the question's position in the sample, which is what makes two arms' outcomes
+                // line up. An UNDECIDABLE question is absent rather than false — it is not a failure to
+                // prefer the current fact, and folding it in would score a retrieval miss as a preference.
+                if (!perQuestion.TryGetValue(arm, out var byQuestion))
+                    perQuestion[arm] = byQuestion = [];
+                byQuestion[done] = preferred;
             }
         }
 
@@ -323,10 +512,14 @@ internal static class MemoryLongMemEvalBench
         {
             var d = decidable.GetValueOrDefault(arm);
             var p = prefers.GetValueOrDefault(arm);
+            var (low, high) = BenchStats.Wilson(p, d);
             Console.WriteLine($"{arm,-10} {(d == 0 ? "-" : $"{(double)p / d:P1} ({p}/{d})"),18} "
                 + $"{$"{(double)currentHit.GetValueOrDefault(arm) / sampled.Count:P1}",12} "
-                + $"{$"{(double)staleHit.GetValueOrDefault(arm) / sampled.Count:P1}",12} {d,11}");
+                + $"{$"{(double)staleHit.GetValueOrDefault(arm) / sampled.Count:P1}",12} {d,11}"
+                + (d == 0 ? "" : $"   95% CI [{low:P1}, {high:P1}]"));
         }
+
+        PrintPairedComparison(arms, perQuestion);
 
         Console.WriteLine();
         Console.WriteLine("  'prefers current' is scored only over questions where the arm returned at least");

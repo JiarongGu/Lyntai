@@ -19,7 +19,13 @@ public sealed class LlmAnnotationOptions
     /// particular model — which model runs is a DEPLOYMENT choice, never part of a feature's definition.
     /// <para><b>Whatever is chosen must be MULTILINGUAL if the application stores non-Latin text.</b> This
     /// library detects no language and passes content through verbatim, so an English-only model silently
-    /// becomes the thing that decides whether Chinese facts get linked.</para></summary>
+    /// becomes the thing that decides whether Chinese facts get linked.</para>
+    /// <para><b>A CANDIDATE that pins a model OUTRANKS this, so setting it is not a guarantee.</b> The
+    /// router resolves <c>candidate.Model ?? request.Model</c>, and <c>docs/DECISIONS.md</c> <b>D87</b>
+    /// derives a named client's candidates from <c>LyntaiOptions.DefaultCandidates</c>, keeping any model
+    /// pinned there — so on a deployment that pins models globally this is inert, silently, because
+    /// annotation is fail-open. <b>To pin the annotator's model with certainty, name a client whose
+    /// candidates pin it</b> (<see cref="ClientName"/>) rather than setting this.</para></summary>
     public string? Model { get; set; }
 
     /// <summary>The most subjects to accept from one reply. Bounds how many edges one write can create when
