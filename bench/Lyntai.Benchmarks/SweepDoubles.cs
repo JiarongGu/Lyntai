@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Lyntai.Embeddings;
@@ -261,8 +262,76 @@ internal static class SweepDoubles
         return null;
     }
 
+    /// <summary>What a bench arm needs of a chat model, so a strong CLI-driven one can stand in for the
+    /// local HTTP one. It exists for the field-baseline arms: a write-time consolidation baseline is only
+    /// worth comparing against if it was built to a good standard, and the 4B local model is not that.
+    /// </summary>
+    internal interface IBenchChat
+    {
+        /// <summary>What this instance asks, for a table to label its row with.</summary>
+        string Model { get; }
+
+        Task<string?> AskAsync(string prompt, CancellationToken ct = default, int maxTokens = 4);
+    }
+
+    /// <summary>A strong model reached through the `claude` CLI, one question per process.
+    ///
+    /// <para><b>It ignores <c>maxTokens</c></b>, and says so rather than accepting it silently: the CLI
+    /// exposes no output cap, so an arm that depends on a tight cap must not use this chat. Every caller
+    /// here wants a phrase or a list, which is why it is safe for them.</para>
+    ///
+    /// <para>Resolved from PATH by NAME, never by an absolute path — a machine path in a tracked file is
+    /// what `.claude/rules/sensitive-info.md` forbids. <c>LYNTAI_BENCH_CLI</c> overrides for an install that
+    /// is not on PATH.</para></summary>
+    internal sealed class ClaudeCliChat(string exe) : IBenchChat
+    {
+        public string Model => $"{exe} (CLI)";
+
+        public async Task<bool> ReachableAsync()
+        {
+            try { return await AskAsync("Reply with exactly: 1") is { Length: > 0 }; }
+            catch (System.ComponentModel.Win32Exception) { return false; }
+            catch (InvalidOperationException) { return false; }
+        }
+
+        public async Task<string?> AskAsync(string prompt, CancellationToken ct = default, int maxTokens = 4)
+        {
+            var psi = new ProcessStartInfo(exe)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            psi.ArgumentList.Add("-p");
+            psi.ArgumentList.Add(prompt);
+
+            using var p = Process.Start(psi);
+            if (p is null) return null;
+            var stdout = await p.StandardOutput.ReadToEndAsync(ct).ConfigureAwait(false);
+            await p.WaitForExitAsync(ct).ConfigureAwait(false);
+            // A non-zero exit with output is still an answer worth reading; an empty one never is.
+            return string.IsNullOrWhiteSpace(stdout) ? null : stdout.Trim();
+        }
+    }
+
+    /// <summary>The CLI chat if it answers, else null with a reason — the same refuse-rather-than-substitute
+    /// posture <see cref="TryRealChatAsync"/> takes, because a baseline that silently fell back to the 4B
+    /// model would be measured as the strong one.</summary>
+    internal static async Task<ClaudeCliChat?> TryCliChatAsync(string why)
+    {
+        var exe = Environment.GetEnvironmentVariable("LYNTAI_BENCH_CLI") ?? "claude";
+        var chat = new ClaudeCliChat(exe);
+        if (await chat.ReachableAsync().ConfigureAwait(false)) return chat;
+
+        Console.Error.WriteLine($"{why}: the `{exe}` CLI did not answer, and this arm will not substitute a");
+        Console.Error.WriteLine("  weaker model for it — the whole point is a baseline built to a good");
+        Console.Error.WriteLine("  standard. Install it, or point LYNTAI_BENCH_CLI at it.");
+        return null;
+    }
+
     /// <summary>A real chat model over the OpenAI-compatible route, asked one question at a time.</summary>
-    internal sealed class OpenAiCompatibleChat(HttpClient http, string baseUrl, string model)
+    internal sealed class OpenAiCompatibleChat(HttpClient http, string baseUrl, string model) : IBenchChat
     {
         /// <summary>The model this instance asks, for a table to label its row with.</summary>
         public string Model => model;

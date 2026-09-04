@@ -125,7 +125,7 @@ internal static class MemoryLongMemEvalBench
     /// instruction is byte-identical to the unbounded run this is compared against.</para></summary>
     /// <param name="chat">The extracting model.</param>
     /// <param name="budget">Facts per turn the prompt asks for; <c>0</c> or less asks for no bound.</param>
-    private sealed class FactExtractor(SweepDoubles.OpenAiCompatibleChat chat, int budget)
+    private sealed class FactExtractor(SweepDoubles.IBenchChat chat, int budget)
     {
         private const string Instruction = """
             You extract durable facts from one message in a conversation.
@@ -186,6 +186,85 @@ internal static class MemoryLongMemEvalBench
         }
     }
 
+    /// <summary>Extraction done to a GOOD STANDARD: one call per SESSION, with the model citing the turn
+    /// each fact came from — the field baseline the turn-by-turn extractor was a weak proxy for.
+    ///
+    /// <para><b>Why per session rather than per turn.</b> A competent write-time consolidator reads a
+    /// conversation, not a turn in isolation: only with the session in view can it tell a durable fact from
+    /// a passing remark, or merge two turns into one fact. The turn-by-turn version could do neither, which
+    /// is part of why it inflated the corpus 7.1× before it was budgeted.</para>
+    ///
+    /// <para><b>The citation is what keeps it SCORABLE, and it is also the field's own named mitigation</b>
+    /// — the survey calls it "reflection grounding: requiring the agent to cite specific episodic evidence".
+    /// The model tags each fact with its turn, the tag becomes the same <c>(sNtM)</c> marker the model-free
+    /// metric matches on, and a fact citing a turn that does not exist is DROPPED rather than trusted.</para>
+    ///
+    /// <para><b>Read <see cref="Miscited"/> before any score.</b> A model that cites badly moves evidence
+    /// onto the wrong turn, which the survival control cannot see — it would show a fact surviving while the
+    /// metric scores it against the wrong marker.</para></summary>
+    /// <param name="chat">The extracting model — a strong one, or this arm measures the wrong thing.</param>
+    private sealed class SessionFactExtractor(SweepDoubles.IBenchChat chat)
+    {
+        private const string Instruction = """
+            You are building a long-term memory from one session of a conversation.
+
+            Write the durable facts it states. Reply with one fact per line, each line starting with the
+            turn number it came from in square brackets, like:
+            [3] the user's cat is named Mila
+            [7] the user moved to Berlin in May 2026
+
+            Rules:
+            - Cite the turn the fact actually came from. Never invent a turn number.
+            - State only what the session says. Never infer or add.
+            - Keep names, numbers and dates exactly as written.
+            - Merge repetitions of the same fact into one line, citing the turn that states it best.
+            - Skip greetings, filler, questions and opinions about the conversation itself.
+            - If the session states no durable fact, reply with exactly: NONE
+            - No commentary, no numbering other than the turn citation.
+            """;
+
+        internal int Calls { get; private set; }
+
+        internal int Facts { get; private set; }
+
+        /// <summary>Facts whose cited turn is not in the session — dropped, and counted because a high rate
+        /// means the citations are noise and every downstream number is scored against the wrong turn.
+        /// </summary>
+        internal int Miscited { get; private set; }
+
+        internal int Empty { get; private set; }
+
+        /// <summary>One session's facts, already tagged with the marker the metric matches on.</summary>
+        internal async Task<IReadOnlyList<string>> ExtractAsync(IReadOnlyList<Turn> session)
+        {
+            if (session.Count == 0) return [];
+
+            var transcript = string.Join("\n", session.Select((t, i) => $"[{i}] {t.Text}"));
+            Calls++;
+            var reply = await chat.AskAsync($"{Instruction}\n\nSession:\n{transcript}", maxTokens: 1200)
+                .ConfigureAwait(false);
+            if (reply is null) { Empty++; return []; }
+
+            var facts = new List<string>();
+            foreach (var line in reply.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (line.Equals("NONE", StringComparison.OrdinalIgnoreCase)) continue;
+                var close = line.IndexOf(']');
+                if (!line.StartsWith('[') || close < 2
+                    || !int.TryParse(line[1..close], out var turn)) { Miscited++; continue; }
+                if (turn < 0 || turn >= session.Count) { Miscited++; continue; }
+
+                var body = line[(close + 1)..].Trim();
+                if (body.Length <= 2) continue;
+                facts.Add($"{session[turn].Tag} {body}");
+            }
+
+            if (facts.Count == 0) Empty++;
+            Facts += facts.Count;
+            return facts;
+        }
+    }
+
     /// <summary>The RECONCILING half of write-time consolidation: a new fact that supersedes a stored one
     /// REPLACES it, rather than landing beside it.
     ///
@@ -204,7 +283,7 @@ internal static class MemoryLongMemEvalBench
     /// <param name="store">The store, for the delete a supersession performs.</param>
     /// <param name="embedder">Gates the model call — see <see cref="Similar"/>.</param>
     private sealed class Reconciler(
-        SweepDoubles.OpenAiCompatibleChat chat, GraphMemoryEngine engine, SqliteMemoryGraphStore store,
+        SweepDoubles.IBenchChat chat, GraphMemoryEngine engine, SqliteMemoryGraphStore store,
         SweepDoubles.CachingEmbedder embedder)
     {
         /// <summary>How alike a stored fact must be before the model is asked whether it was superseded.
@@ -301,10 +380,13 @@ internal static class MemoryLongMemEvalBench
     /// any gain was bought rather than earned. <c>extract+forget0</c> is predicted to stay indistinguishable
     /// from cosine either way, since a budget shapes the store and not forgetting's vote.</para></summary>
     private static async Task<int> RunExtractionAsync(IReadOnlyList<Question> sampled,
-        SweepDoubles.CachingEmbedder embedder, SweepDoubles.OpenAiCompatibleChat chat, string[] args)
+        SweepDoubles.CachingEmbedder embedder, SweepDoubles.IBenchChat chat, string[] args)
     {
         var budget = ArgValue(args, "--facts") is { } b && int.TryParse(b, out var cap) ? cap : 0;
         var extractor = new FactExtractor(chat, budget);
+        // `--sessions` is the GOOD-STANDARD extractor: one call per session with the model citing its turns,
+        // rather than one call per turn in isolation. Off by default, so the turn-by-turn runs reproduce.
+        var bySession = args.Contains("--sessions") ? new SessionFactExtractor(chat) : null;
         FieldArm[] engines = [FieldArms.Shipped(), FieldArms.Named("+forget0")];
         var reconcile = args.Contains("--reconcile");
         string[] arms = reconcile
@@ -328,9 +410,13 @@ internal static class MemoryLongMemEvalBench
             // differing only in a ranking weight must see byte-identical stores or the comparison is not
             // about the weight.
             var extracted = new List<string>();
-            foreach (var t in q.Turns)
-                foreach (var fact in await extractor.ExtractAsync(t.Text).ConfigureAwait(false))
-                    extracted.Add($"{t.Tag} {fact}");
+            if (bySession is not null)
+                foreach (var session in q.Turns.GroupBy(t => t.Session).OrderBy(g => g.Key))
+                    extracted.AddRange(await bySession.ExtractAsync([.. session]).ConfigureAwait(false));
+            else
+                foreach (var t in q.Turns)
+                    foreach (var fact in await extractor.ExtractAsync(t.Text).ConfigureAwait(false))
+                        extracted.Add($"{t.Tag} {fact}");
 
             // THE CONTROL EXTRACTION NEEDS: did the evidence survive being rewritten? A fact dropped here
             // is unreachable by any ranking, so without this column a retrieval score would blame the
@@ -396,10 +482,23 @@ internal static class MemoryLongMemEvalBench
         }
 
         Console.WriteLine();
-        Console.WriteLine($"Extraction: {extractor.Calls} turn(s) read, {extractor.Facts} fact(s) written, "
-            + $"{extractor.Empty} turn(s) yielded NOTHING");
-        Console.WriteLine($"  INFLATION: {(extractor.Calls == 0 ? 0 : (double)extractor.Facts / extractor.Calls):F1}"
-            + " fact(s) per turn - the corpus this arm ranks against, relative to `lyntai`'s raw turns.");
+        var calls = bySession?.Calls ?? extractor.Calls;
+        var factCount = bySession?.Facts ?? extractor.Facts;
+        var emptied = bySession?.Empty ?? extractor.Empty;
+        var unit = bySession is null ? "turn" : "session";
+
+        Console.WriteLine($"Extraction: {calls} {unit}(s) read, {factCount} fact(s) written, "
+            + $"{emptied} {unit}(s) yielded NOTHING");
+        Console.WriteLine($"  INFLATION: {(calls == 0 ? 0 : (double)factCount / calls):F1}"
+            + $" fact(s) per {unit} - the corpus this arm ranks against, relative to `lyntai`'s raw turns.");
+        if (bySession is not null)
+        {
+            // A miscited fact is scored against the WRONG turn, which evidence survival cannot see: the fact
+            // exists, so survival counts it, while the metric matches it on a marker it never came from.
+            Console.WriteLine($"  CITATIONS: {bySession.Miscited} fact(s) cited a turn outside their session "
+                + "and were DROPPED. A high count means the markers are noise and every arm below is scored");
+            Console.WriteLine("  against the wrong turns - read this before the table, not after it.");
+        }
         if (budget > 0)
         {
             // The budget is a PROMPT, so an arm that scores its base has two readings a score cannot
@@ -656,13 +755,24 @@ internal static class MemoryLongMemEvalBench
         // because the haystack table shows stale@k RISING (54.3 → 62.9) while twenty times more candidates
         // compete for the same ten slots. More competition should crowd the superseded fact out. It needs
         // the knowledge-update pair, so it overrides `--temporal` rather than combining with it.
+        // `--multi` is the multi-session class on the SAME metric as temporal, and that sharing is measured
+        // rather than assumed (`TASKS.md` Part 116, 2026-09-04): its evidence spans several sessions in 91%
+        // of questions and it carries no current/stale split, so knowledge-update's preference metric is
+        // structurally inapplicable and all-evidence recall is what the class asks for.
         var ranks = args.Contains("--ranks");
         var temporal = args.Contains("--temporal") && !ranks;
-        var questions = Load(path, temporal ? "temporal-reasoning" : "knowledge-update", temporal);
+        var multi = args.Contains("--multi") && !ranks && !temporal;
+
+        // The two classes scored by all-evidence recall load the same way: every flagged turn counts and no
+        // current/stale split is required. Knowledge-update is the one that needs the pair.
+        var allEvidence = temporal || multi;
+        var wantClass = temporal ? "temporal-reasoning" : multi ? "multi-session" : "knowledge-update";
+        var questions = Load(path, wantClass, allEvidence);
         if (questions.Count == 0)
         {
-            Console.Error.WriteLine("memory-longmemeval: no question survived loading — a knowledge-update "
-                + "needs two dated sessions with flagged answer turns; a temporal one needs any.");
+            Console.Error.WriteLine($"memory-longmemeval: no {wantClass} question survived loading — a "
+                + "knowledge-update needs two dated sessions with flagged answer turns; the all-evidence "
+                + "classes need any. A class whose questions all carry ZERO flagged turns loads empty.");
             return 1;
         }
 
@@ -673,14 +783,27 @@ internal static class MemoryLongMemEvalBench
 
         var expandFloor = ArgValue(args, "--expand-floor") is { } f && double.TryParse(f, out var ef) ? ef : 0;
 
-        if (temporal)
+        if (allEvidence)
         {
-            Console.WriteLine("=== LongMemEval temporal-reasoning: the COST side of the same bet ===");
-            Console.WriteLine();
-            Console.WriteLine("Knowledge-update rewards suppressing a superseded fact. This class does not:");
-            Console.WriteLine("'what was the FIRST issue after the service' wants the EARLIER fact, and most");
-            Console.WriteLine("questions need BOTH. So the metric is all-evidence recall, and the suppression");
-            Console.WriteLine("that won the other class is expected to COST here. That is the trade, measured.");
+            if (temporal)
+            {
+                Console.WriteLine("=== LongMemEval temporal-reasoning: the COST side of the same bet ===");
+                Console.WriteLine();
+                Console.WriteLine("Knowledge-update rewards suppressing a superseded fact. This class does not:");
+                Console.WriteLine("'what was the FIRST issue after the service' wants the EARLIER fact, and most");
+                Console.WriteLine("questions need BOTH. So the metric is all-evidence recall, and the suppression");
+                Console.WriteLine("that won the other class is expected to COST here. That is the trade, measured.");
+            }
+            else
+            {
+                Console.WriteLine("=== LongMemEval multi-session: evidence spread across SEVERAL sessions ===");
+                Console.WriteLine();
+                Console.WriteLine("2.5 flagged turns per question and 91% of them spanning more than one session,");
+                Console.WriteLine("so a question is answered only by gathering evidence the conversation never put");
+                Console.WriteLine("side by side. Same metric as temporal - all-evidence recall - because the class");
+                Console.WriteLine("has no current/stale split for a preference metric to read (Part 116).");
+            }
+
             Console.WriteLine();
             if (args.Contains("--shots"))
             {
@@ -689,7 +812,7 @@ internal static class MemoryLongMemEvalBench
                 Console.WriteLine("holding one flagged turn of two, which is exactly what a second shot is for.");
                 Console.WriteLine();
             }
-            Preamble(sampled, questions.Count, turns, haystack, seed, "temporal-reasoning");
+            Preamble(sampled, questions.Count, turns, haystack, seed, wantClass);
             return args.Contains("--shots")
                 ? await RunTemporalShotsAsync(sampled, embedder, expandFloor, args)
                 : await RunTemporalAsync(sampled, embedder, args);
@@ -697,7 +820,14 @@ internal static class MemoryLongMemEvalBench
 
         if (args.Contains("--extract"))
         {
-            var writer = await SweepDoubles.TryRealChatAsync(http, "memory-longmemeval extract");
+            // `--writer cli` reaches a STRONG model through the `claude` CLI. It exists because the first
+            // extraction run's verdict was weakened by its own baseline: a 4B model on an unbounded prompt
+            // is not the field's design done well, so "write-time consolidation did not substitute for
+            // decay" was partly a statement about the extractor. A baseline has to be good before a result
+            // measured against it is about anything else.
+            SweepDoubles.IBenchChat? writer = ArgValue(args, "--writer") is "cli"
+                ? await SweepDoubles.TryCliChatAsync("memory-longmemeval extract")
+                : await SweepDoubles.TryRealChatAsync(http, "memory-longmemeval extract");
             if (writer is null) return 1;
 
             Console.WriteLine("=== WRITE-time extraction against READ-time decay ===");
@@ -1066,7 +1196,7 @@ internal static class MemoryLongMemEvalBench
                 + $"{(double)chars.GetValueOrDefault(arm) / n,9:F0}");
 
         Console.WriteLine();
-        Console.WriteLine("  'all evidence@k' is the one that matters: a temporal question usually needs every");
+        Console.WriteLine("  'all evidence@k' is the one that matters: a question in this class usually needs every");
         Console.WriteLine("  flagged turn, so retrieving one of two answers nothing. If expansion is worth");
         Console.WriteLine("  anything on any workload it should be worth it HERE, where the first load missing");
         Console.WriteLine("  one turn of two is the whole failure mode.");
@@ -1225,7 +1355,7 @@ internal static class MemoryLongMemEvalBench
                 + $"{$"{(double)evidenceFound.GetValueOrDefault(arm) / evidenceTotal:P1}",16}");
 
         Console.WriteLine();
-        Console.WriteLine("  'all evidence@k' is the one that matters: a temporal question usually needs every");
+        Console.WriteLine("  'all evidence@k' is the one that matters: a question in this class usually needs every");
         Console.WriteLine("  flagged turn, so retrieving one of two answers nothing. 'evidence turns' is the");
         Console.WriteLine("  per-turn rate, which separates 'missed one question badly' from 'missed a little");
         Console.WriteLine("  everywhere'.");

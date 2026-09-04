@@ -1966,6 +1966,52 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 156 — the write-time baseline, rebuilt to a standard worth losing to
+
+✅ done 2026-09-04, at the owner's direction: *"we're not reproducing mem0, but we need close logic done to a
+good standard — then what's left is our own invention."* The earlier extraction verdict rested on a 4B model
+with an unbounded turn-by-turn prompt, so *"write-time consolidation does not substitute for decay"* was
+partly a statement about the extractor. `docs/memory.md` §5.
+
+**The new baseline is better by its own numbers** — a strong model through the `claude` CLI, reading a whole
+SESSION and citing each fact's turn (the survey's own unadopted "reflection grounding"). It compresses to
+**0.56×** where the old one inflated to 7.1×, and mis-cited 1 fact in 921.
+
+**It changed nothing about the verdict, which is the point.** `extract+forget0` reads 52.9% at **p = 0.636**
+against cosine — the fifth arm in a row to land indistinguishable from a flat index once forgetting is
+silent. **The two extract arms share an identical store**, so 52.9% → 91.4% isolates decay with no seeding,
+corpus or model confound: a **38.5-point swing** on one vote.
+
+**And the columns name the division of labour**: extraction improves FINDING (`current@k` 90.0 → 95.7, above
+raw turns) and destroys BURYING (`stale@k` 54.3 → 87.1). Extraction finds, decay buries, and they compose.
+
+**New caveat**: evidence survival is 93.7%, not 100% — a compressing extractor drops evidence where a
+hoarding one cannot. It bounds `extract` against `lyntai`, not the decay contrast.
+
+- Build a field-standard write-time baseline with a strong model, so decay and the walk are measured against
+  something worth losing to.
+
+## Part 155 — the multi-session shot curve, and a finding that lasted one hour
+
+✅ done 2026-09-04 — `TASKS.md` Part 116's runnable third: `--multi --shots` on both variants, with the class
+switch reusing temporal's all-evidence path because Part 116 measured the metric to be shared rather than
+assuming it. `docs/memory.md` §5.
+
+**The oracle overstated the second shot's gain by 4×** — +19.2 against the haystack's **+4.8** — the fifth
+question on which that variant has proved biased unpredictably, and worse than the 2.7× Part 112 measured.
+**Shot 3 is worth exactly nothing on the haystack**, so *expand once* holds, four classes in a row.
+
+**A retraction, recorded because the wrong number was the exciting one.** The oracle's +6.4 for shot 3 was
+read as refuting *expand once* — "a property of the two classes measured, not a rule" — and published for
+about an hour before the haystack said otherwise. The pre-registered prediction had called both halves
+right; the oracle is what moved me off it. **The lesson is the one already in `CLAUDE.md` — run it with
+`--haystack` — and it now has a fifth instance and a retraction attached.**
+
+**Plain cosine wins this class outright on BOTH axes**, which no earlier class showed: better recall AND
+better recall per character. All-evidence recall is an archive metric and burying is what this engine does.
+
+- Give LongMemEval's four remaining classes a shot curve (the multi-session third of it).
+
 ## Part 154 — the fusion result replicates on a second embedder, and CORRECTS its own shipped doc
 
 ✅ done 2026-09-04 — `+sem+rel-only,+judge,+judge+enginefuse,vector` re-run under `embeddinggemma:300m`,

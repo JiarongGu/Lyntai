@@ -870,7 +870,12 @@ figures that have since moved._
   curve is flat by construction. Those three need `--haystack`, at ~40× the ingestion cost.
   <br>**So the item splits.** `multi-session` is runnable TODAY on the existing loader and temporal's metric
   — it needs a class switch and nothing else. The three single-session classes need the haystack, and
-  `single-session-assistant` may be unmeasurable even there. **Watch the zero-evidence questions**: 8 in
+  `single-session-assistant` may be unmeasurable even there.
+  <br>_**`multi-session` RAN on 2026-09-04** (`docs/task-archive.md` **Part 155**, `--multi --shots`, both
+  variants). Shot 2 is worth **+4.8** on the haystack and shot 3 exactly nothing, so *expand once* holds on a
+  fourth class — and the ORACLE said +19.2 and +6.4, a 4× overstatement that was briefly published as
+  refuting that rule. **What is left of this item is the three single-session classes**, which need the
+  haystack by construction and where `single-session-assistant` is likely unmeasurable at any k._ **Watch the zero-evidence questions**: 8 in
   multi-session and 6 in single-session-user carry no flagged turn, and `Load`'s existing guard drops them
   for the two classes that run today — a new class inherits that only if it takes the same branch.
   Instrument facts: `.claude/knowledge/pitfalls.md`.

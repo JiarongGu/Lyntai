@@ -1880,6 +1880,91 @@ curve, and 5 was not searched for. The structural fact under all of it is unchan
 is low: on the 19 rescuable calls the judge put the deep evidence in its own top five **0 times under every
 budget**. Its confidence still tracks what the ranking already found, which no prompt bound addresses.
 
+### A write-time baseline built to a GOOD STANDARD still needs decay (`--extract --sessions --writer cli`, 2026-09-04)
+
+The earlier extraction verdict had a weak premise: a 4B model on an unbounded turn-by-turn prompt is not the
+field's design done well, so *"write-time consolidation does not substitute for decay"* was partly a
+statement about the extractor. **This rebuilds the baseline to a standard worth losing to** — a strong model
+through the `claude` CLI, reading a whole SESSION at a time and citing the turn each fact came from, which
+is the survey's own named-but-unadopted *"reflection grounding"*.
+
+**Instrument.** `memory-longmemeval --extract --sessions --writer cli`, all 70 knowledge-update questions,
+oracle variant, 140 session calls. Raw output, gitignored:
+`devtools/_lme-cli-baseline.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+
+**The baseline is genuinely better, by its own numbers.** It compresses to **0.56×** — 921 facts from 1,640
+turns, where the 4B turn-by-turn extractor INFLATED to 7.1× — and mis-cited **1 fact in 921**.
+
+| arm | prefers current | current@k | stale@k | paired vs cosine |
+|---|---|---|---|---|
+| `lyntai` — raw turns + decay | **96.9%** | 90.0% | 54.3% | +32 −1, **p<0.0001** |
+| `extract` — strong facts + decay | 91.4% | **95.7%** | 87.1% | +33 −3, **p<0.0001** |
+| `extract+forget0` — same facts, decay OFF | 52.9% | 95.7% | 91.4% | +22 −18, **p = 0.636** |
+| `vector` | 47.1% | 84.3% | 95.7% | — |
+
+**1. The two middle rows share an IDENTICAL store**, so this is the cleanest isolation of decay in this
+document: same facts, same extractor, same model, and only forgetting's vote differs. **52.9% → 91.4%, a
+38.5-point swing**, with no seeding, corpus or model confound to argue about.
+
+**2. A good write-time baseline WITHOUT decay is still indistinguishable from plain cosine** — p = 0.636,
+the fifth arm in a row to land there. Strengthening the extractor moved this not at all, which is what makes
+the earlier verdict safe to keep: it was not an artefact of a weak model.
+
+**3. The columns say what each mechanism does.** Extraction IMPROVES FINDING — `current@k` 90.0 → 95.7,
+better than raw turns — and DESTROYS BURYING, `stale@k` 54.3 → 87.1. **Extraction finds; decay buries.**
+They are complementary rather than alternatives, which is the useful form of this result.
+
+**The caveat that bounds it, and it is new:** evidence survival is **133/142 (93.7%)**, not 100%. A
+compressing extractor drops evidence — 9 flagged turns lost their fact — where the hoarding one kept
+everything. That caps the `extract` arms against `lyntai` and means part of the 96.9 → 91.4 gap is data loss
+rather than mechanism. **It does not touch the decay-on/decay-off contrast**, which shares a store and
+carries the claim.
+
+**Also not shown.** One extractor, one class, oracle variant, no reconciliation pass — this is the
+extraction half of the field's design, not ADD/UPDATE/DELETE. And nothing here ranks against Mem0 or Zep in
+either direction; §5's comparability gap applies unchanged. What it licenses is a claim about MECHANISMS —
+write-time consolidation against read-time decay — measured on a baseline that was built to be good.
+
+### The multi-session shot curve, and the ORACLE overstated its headline by 4× (`memory-longmemeval --multi --shots`, 2026-09-04)
+
+The third LongMemEval class to get a shot curve, and the first whose metric was settled by measuring the
+class rather than reasoning about it: `multi-session` carries 2.5 flagged turns with **91% spanning more than
+one session**, and no current/stale split, so knowledge-update's preference metric is structurally
+inapplicable and temporal's all-evidence recall is what it asks for (`TASKS.md` Part 116). 125 of 133
+questions load — the other 8 carry no flagged turn at all.
+
+**Instrument.** `--multi --shots`, oracle then `--haystack` (61,182 turns per arm, 489 per question), 338.2s
+and 4,615.3s. Raw output, gitignored:
+`devtools/_lme-multi-oracle.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->
+and `devtools/_lme-multi-haystack.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+
+| arm | oracle | haystack |
+|---|---|---|
+| shot-1 | 22.4% | 24.0% |
+| shot-2 | 41.6% (**+19.2**) | 28.8% (**+4.8**) |
+| shot-3 | 48.0% (+6.4) | 28.8% (**+0.0**) |
+| `vector` | 47.2% | 38.4% |
+| `vector-20` | 80.0% | 63.2% |
+
+**1. The oracle overstated the second shot's gain by 4×**, and it is the fifth question on which that
+variant has proved biased in a direction nobody predicted. Part 112 measured 2.7× on the class where it was
+first checked; this is worse. **Read the haystack column and treat the oracle one as a cheap upper bound.**
+
+**2. Shot 3 is worth EXACTLY nothing on the haystack** — identical on every column — so *expand once* holds,
+now four classes in a row. **The oracle's +6.4 briefly refuted that and was published here for an hour
+before the haystack arrived**; the retraction is recorded rather than quietly dropped, because the oracle
+number was the one that felt like a discovery.
+
+**3. Plain cosine wins this class outright, on BOTH axes.** `vector` at k = 10 reads 38.4% on 10,382
+characters against the walk's 28.8% on 9,053 — better recall AND better recall per character, which no
+earlier class showed. All-evidence recall is an ARCHIVE metric that rewards keeping everything, and burying
+is what this engine is for; the same shape appears on LoCoMo and in the temporal class, where size-matched
+cosine also won the column.
+
+**What it does not say.** One embedder, model-free scoring, no reader. The class is the one where a walk
+should look best — evidence spread across sessions the conversation never put side by side — so a +4.8
+second shot is the honest size of that effect under distractors, not a floor.
+
 ### WRITE-time extraction cannot stand in for READ-time decay, and the half that hurts is the half without reconciliation (`memory-longmemeval --extract`, 2026-09-04)
 
 The other design in this field consolidates at WRITE time — a model extracts facts as turns arrive — where
