@@ -856,6 +856,24 @@ figures that have since moved._
   <br>**Read the reproducibility caveat in `docs/memory.md` §5 before adding a fifth curve**: a haystack
   figure is reproducible to about ONE question, not to a tenth of a point, and the oracle overstates the
   multi-shot gain by 2.7× on the class where that was checked.
+  <br>_**The DECIDING half is done (2026-09-04) and the answer is not what this item assumed** — the classes
+  were measured rather than reasoned about from their names, which is what the item was really blocked on._
+  <br>**The metric IS shared, and it is temporal's all-evidence recall.** Knowledge-update's preference
+  metric needs a current/stale split, which needs evidence spanning two dated sessions — and the three
+  single-session classes span more than one session **0%** of the time, so that metric is structurally
+  inapplicable and all-evidence recall is what is left. `multi-session` (2.5 flagged turns, 91% spanning
+  several sessions) is the same shape as `temporal-reasoning` (1.9, 69%). **So "neither defined nor obviously
+  shared" was wrong on both halves.**
+  <br>**What actually blocks three of the four is the VARIANT, not the metric.** On the oracle the store is
+  comparable to or smaller than the page: `single-session-assistant` has a median of 8 turns and **63% of its
+  questions fit entirely inside `k = 10`**, so the first recall returns the whole conversation and a shot
+  curve is flat by construction. Those three need `--haystack`, at ~40× the ingestion cost.
+  <br>**So the item splits.** `multi-session` is runnable TODAY on the existing loader and temporal's metric
+  — it needs a class switch and nothing else. The three single-session classes need the haystack, and
+  `single-session-assistant` may be unmeasurable even there. **Watch the zero-evidence questions**: 8 in
+  multi-session and 6 in single-session-user carry no flagged turn, and `Load`'s existing guard drops them
+  for the two classes that run today — a new class inherits that only if it takes the same branch.
+  Instrument facts: `.claude/knowledge/pitfalls.md`.
 
 ---
 

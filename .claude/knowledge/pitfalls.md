@@ -1027,6 +1027,21 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   memory. Open the mode's own published table and copy the row. This was caught by reading before the run
   rather than by the run — a wrong control does not fail, it silently certifies.
 
+- **A benchmark class whose STORE is smaller than the PAGE cannot measure retrieval at all, and it looks
+  like a perfect score rather than a broken instrument.** Measured 2026-09-04 over LongMemEval's oracle
+  variant, per class: `single-session-assistant` has a median of **8 turns**, and **63% of its questions have
+  a store that fits entirely inside `k = 10`** — the first recall returns the whole conversation, so any
+  shot curve over it is flat by construction and any recall metric reads ~100%. `single-session-user` is 11%
+  and `single-session-preference` 0%, against 0% for the multi-session classes.
+  <br>**This is Part 112's finding in its sharpest form** — there the oracle returned 40% of its store and
+  "barely tests retrieval"; here it returns ALL of it. **Before scoring a new class, divide its store size
+  by `k`.** If the answer is near or below 1, the class needs the haystack variant or a smaller `k`, and a
+  high score on it is a statement about the fixture.
+  <br>**And check for ZERO-EVIDENCE questions in the same pass**: 6 knowledge-update, 8 multi-session, 6
+  single-session-user and 1 temporal-reasoning question carry no flagged turn at all. They are unscorable by
+  any evidence metric, so a loader must drop them or the denominator silently lies — `Load` already does for
+  the two classes that run, and a new class needs the same guard rather than inheriting it by luck.
+
 - **A sample size can hide a CRASH, not only a wrong number — so run the instrument once at the size you
   intend to draw conclusions at.** Measured 2026-09-02 (`docs/FIXES.md`): `memory-locomo --retrieval` had
   only ever been run at `--n 200`, and its `+forget0+oracle` arm could not be CONSTRUCTED at `--n 1540` —
