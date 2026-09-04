@@ -282,9 +282,11 @@ internal static class MemoryLongMemEvalBench
     /// <param name="engine">The engine whose store is being consolidated.</param>
     /// <param name="store">The store, for the delete a supersession performs.</param>
     /// <param name="embedder">Gates the model call — see <see cref="Similar"/>.</param>
+    /// <param name="decisions">Verdicts shared across arms, keyed on the fact PAIR — see
+    /// <see cref="WriteAsync"/>.</param>
     private sealed class Reconciler(
         SweepDoubles.IBenchChat chat, GraphMemoryEngine engine, SqliteMemoryGraphStore store,
-        SweepDoubles.CachingEmbedder embedder)
+        SweepDoubles.CachingEmbedder embedder, Dictionary<string, bool> decisions)
     {
         /// <summary>How alike a stored fact must be before the model is asked whether it was superseded.
         /// <para>Cost control with a rationale rather than a cap: a supersession is a CHANGED VALUE for the
@@ -306,6 +308,10 @@ internal static class MemoryLongMemEvalBench
 
         internal int Asked { get; private set; }
 
+        /// <summary>Pairs answered from the shared cache rather than by asking again. Reported so the ask
+        /// count is readable as a COST rather than mistaken for how often reconciliation engaged.</summary>
+        internal int Reused { get; private set; }
+
         internal int Replaced { get; private set; }
 
         internal int Considered { get; private set; }
@@ -325,13 +331,27 @@ internal static class MemoryLongMemEvalBench
                 if (!string.Equals(old, fact, StringComparison.Ordinal)
                     && await CosineOf(Strip(old), Strip(fact)).ConfigureAwait(false) >= Similar)
                 {
-                    Asked++;
-                    var verdict = await chat.AskAsync(
-                        $"{Instruction}\n\nOLD: {Strip(old)}\n\nNEW: {Strip(fact)}", maxTokens: 4)
-                        .ConfigureAwait(false);
+                    // The verdict is CACHED across arms, keyed on the pair. Whether one fact supersedes
+                    // another is a property of the two facts, so the two reconcile arms asking it separately
+                    // buys nothing and doubles a per-call cost that is a whole process on the CLI. It also
+                    // removes model nondeterminism as a difference BETWEEN the arms, which they should not
+                    // have: they differ in forgetting's vote, not in what the writer believed.
+                    var key = $"{Strip(old)}␟{Strip(fact)}";
+                    if (!decisions.TryGetValue(key, out var replaces))
+                    {
+                        Asked++;
+                        var verdict = await chat.AskAsync(
+                            $"{Instruction}\n\nOLD: {Strip(old)}\n\nNEW: {Strip(fact)}", maxTokens: 4)
+                            .ConfigureAwait(false);
+                        replaces = verdict?.Contains("REPLACES", StringComparison.OrdinalIgnoreCase) == true;
+                        decisions[key] = replaces;
+                    }
+                    else
+                    {
+                        Reused++;
+                    }
 
-                    if (verdict?.Contains("REPLACES", StringComparison.OrdinalIgnoreCase) == true
-                        && long.TryParse(candidate.Reference.Id, out var id))
+                    if (replaces && long.TryParse(candidate.Reference.Id, out var id))
                     {
                         await store.DeleteAsync(engine.Name, [id]).ConfigureAwait(false);
                         Replaced++;
@@ -392,7 +412,9 @@ internal static class MemoryLongMemEvalBench
         string[] arms = reconcile
             ? ["lyntai", "extract", "extract+reconcile", "extract+reconcile+forget0", VectorArm]
             : ["lyntai", "extract", "extract+forget0", VectorArm];
-        int asked = 0, replaced = 0;
+        int asked = 0, reused = 0, replaced = 0;
+        // Shared across arms and across questions: a supersession verdict is about the fact PAIR.
+        var decisions = new Dictionary<string, bool>(StringComparer.Ordinal);
 
         var currentHit = new Dictionary<string, int>(StringComparer.Ordinal);
         var staleHit = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -441,9 +463,10 @@ internal static class MemoryLongMemEvalBench
                     // The RECONCILING pass writes through the consolidator, so a superseded fact is deleted
                     // as the replacement arrives rather than left for decay to bury.
                     var consolidator = new Reconciler(
-                        chat, engine, new SqliteMemoryGraphStore(db.Factory), embedder);
+                        chat, engine, new SqliteMemoryGraphStore(db.Factory), embedder, decisions);
                     foreach (var text in texts) await consolidator.WriteAsync(text);
                     asked += consolidator.Asked;
+                    reused += consolidator.Reused;
                     replaced += consolidator.Replaced;
                 }
                 else
@@ -516,7 +539,8 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("  recover - so read the arms below against this number, not against each other alone.");
         if (reconcile)
         {
-            Console.WriteLine($"  RECONCILIATION: asked {asked} time(s), replaced {replaced}. Zero replacements");
+            Console.WriteLine($"  RECONCILIATION: asked {asked} time(s), reused {reused} cached verdict(s), "
+                + $"replaced {replaced}. Zero replacements");
             Console.WriteLine("  means the arm IS `extract` whatever it scores - the control that arm needs.");
         }
 

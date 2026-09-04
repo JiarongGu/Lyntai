@@ -1920,10 +1920,46 @@ everything. That caps the `extract` arms against `lyntai` and means part of the 
 rather than mechanism. **It does not touch the decay-on/decay-off contrast**, which shares a store and
 carries the claim.
 
-**Also not shown.** One extractor, one class, oracle variant, no reconciliation pass — this is the
-extraction half of the field's design, not ADD/UPDATE/DELETE. And nothing here ranks against Mem0 or Zep in
-either direction; §5's comparability gap applies unchanged. What it licenses is a claim about MECHANISMS —
-write-time consolidation against read-time decay — measured on a baseline that was built to be good.
+**THE RECONCILING HALF RAN TOO, on the same strong model, and it HURTS** (`--reconcile`, all 70; 140
+sessions, 898 facts, 0 mis-cited; asked 222 pairs, 83 answered from a shared cache, **replaced 27** — so the
+arm is not a duplicate of `extract`). Raw output, gitignored:
+`devtools/_lme-cli-reconcile.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+
+| arm | prefers current | current@k | stale@k | paired vs cosine |
+|---|---|---|---|---|
+| `lyntai` — raw turns + decay | **96.9%** | 90.0% | 54.3% | +32 −1, **p<0.0001** |
+| `extract` — facts + decay | **87.0%** | 91.4% | 87.1% | +28 −2, **p<0.0001** |
+| `extract+reconcile` — facts + ADD/UPDATE/DELETE + decay | 68.1% | 91.4% | 87.1% | +18 −4, p = 0.0043 |
+| `extract+reconcile+forget0` — the full write-time design, NO decay | 65.2% | 91.4% | 75.7% | +22 −10, **p = 0.050** |
+| `vector` | 47.1% | 84.3% | 95.7% | — |
+
+**1. Reconciliation COSTS 18.9 points on top of decay** (87.0 → 68.1), and a strong model rules out the
+explanation the first run left open. The 4B pass was read as "it deleted the wrong 122"; this one deletes 27
+with a capable model and still hurts, so **the harm is in the mechanism as implemented here, not the model
+tier.**
+
+**2. The columns say HOW it hurts, and it is not by losing the answer.** `current@k` and `stale@k` are
+IDENTICAL between `extract` and `extract+reconcile` (91.4 / 87.1) — the same facts are found. Only the
+ORDER moved. **Deleting 27 entries thinned the corpus and re-ranked what was left against the current
+fact**, which is the same mechanism the 4B run reported and is now measured with the sets held fixed.
+
+**3. Decay alone beats the full write-time design without it, by 21.8 points** — 87.0% against 65.2%, on
+the same extracted facts. That is the comparison the whole exercise was built for, and it is now against a
+baseline with both halves of the mechanism, a strong model, accurate citations and 0.55× compression.
+
+**4. The one row that moved, stated carefully.** `extract+reconcile+forget0` reads **p = 0.050** — exactly
+at the conventional line, and the first decay-off arm to approach it. That is expected rather than
+surprising: reconciliation IS a supersession mechanism, so an arm carrying one should beat a flat index. It
+is borderline, it is one of several arms tested, and it lands 21.8 points below decay. **Read it as "the
+field's design buys a little supersession at write time", not as a rival to decay.**
+
+**Also not shown, and the caveats grew.** Evidence survival fell to **128/142 (90.1%)** because
+reconciliation DELETES — 5 more flagged turns lost their fact than under extraction alone — so the extract
+arms are bounded further against `lyntai`. The reconciler is OURS: top-1 candidate, a 0.80 cosine gate,
+one pair per write. A differently-shaped one might not hurt, and that is the live limit rather than the
+model. One class, oracle variant. And nothing here ranks against Mem0 or Zep in either direction; §5's
+comparability gap applies unchanged. What it licenses is a claim about MECHANISMS — write-time
+consolidation against read-time decay — measured on a baseline built to be good.
 
 ### The multi-session shot curve, and the ORACLE overstated its headline by 4× (`memory-longmemeval --multi --shots`, 2026-09-04)
 

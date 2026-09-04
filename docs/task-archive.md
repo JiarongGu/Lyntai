@@ -1973,20 +1973,20 @@ good standard — then what's left is our own invention."* The earlier extractio
 with an unbounded turn-by-turn prompt, so *"write-time consolidation does not substitute for decay"* was
 partly a statement about the extractor. `docs/memory.md` §5.
 
-**The new baseline is better by its own numbers** — a strong model through the `claude` CLI, reading a whole
-SESSION and citing each fact's turn (the survey's own unadopted "reflection grounding"). It compresses to
-**0.56×** where the old one inflated to 7.1×, and mis-cited 1 fact in 921.
+**The baseline is better by its own numbers** — a strong model reading a whole SESSION and citing each
+fact's turn, compressing to 0.56× where the old one inflated to 7.1×, mis-citing 1 fact in 921 — **and it
+changed nothing about the verdict, which is the point.** Both halves ran.
 
-**It changed nothing about the verdict, which is the point.** `extract+forget0` reads 52.9% at **p = 0.636**
-against cosine — the fifth arm in a row to land indistinguishable from a flat index once forgetting is
-silent. **The two extract arms share an identical store**, so 52.9% → 91.4% isolates decay with no seeding,
-corpus or model confound: a **38.5-point swing** on one vote.
+**Decay alone beats the FULL write-time design without it by 21.8 points** (87.0% against 65.2%) on the same
+extracted facts, and the two extract arms share an identical store, so the decay contrast has no seeding,
+corpus or model confound. **Reconciliation COSTS 18.9 points on top of decay** and does so without losing
+the answer — the found sets are identical and only the ORDER moves — which settles what the 4B run left
+open: a capable model deleting 27 entries still hurts, so the harm is the mechanism as implemented rather
+than the model tier.
 
-**And the columns name the division of labour**: extraction improves FINDING (`current@k` 90.0 → 95.7, above
-raw turns) and destroys BURYING (`stale@k` 54.3 → 87.1). Extraction finds, decay buries, and they compose.
-
-**New caveat**: evidence survival is 93.7%, not 100% — a compressing extractor drops evidence where a
-hoarding one cannot. It bounds `extract` against `lyntai`, not the decay contrast.
+**Two caveats grew.** Evidence survival fell to 90.1% because reconciliation deletes, bounding the extract
+arms against `lyntai`; and the reconciler is OURS (top-1 candidate, 0.80 cosine gate), which is now the live
+limit rather than the model.
 
 - Build a field-standard write-time baseline with a strong model, so decay and the walk are measured against
   something worth losing to.
