@@ -14,6 +14,21 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`GraphMemoryOptions.VerdictCombination` — a verifier's verdict can COMPETE on rank instead of
+  partitioning** (`MemoryVerdictCombination.Partition` / `.Fuse`). The partition is the default and is what
+  every release has done, so nothing moves for anyone who does not set it.
+  <br>**What it is for.** Promotion ahead of the cut is absolute today, so a verdict endorsing more
+  candidates than the caller's limit REPLACES the page instead of refining it — everything unendorsed is
+  pushed off however well it was ranked. That was the only signal in this engine combined by partition rather
+  than by rank competition. Measured on LoCoMo with a real 4B judge at the shipped depth, the partition cost
+  **10.5 points** of evidence-hit while fusing the same verdict from the same model landed exactly on its
+  unjudged base.
+  <br>**It removes a loss and adds nothing** — insurance, not an improvement. The rescue a verdict exists for
+  survives: an endorsed candidate below the limit still reaches the page, it just no longer displaces a
+  better-ranked one. Reach for it when the judge is weak or `VerificationDepth` is deep.
+  <br>**The default did not move** because that would be a silent reordering no consumer can detect at
+  compile time, bought on one model and one workload. `docs/DECISIONS.md` **D105**.
+
 - **`IMemorySeedSource.Kind` — a retrieval channel can say what it IS, not just what it is called**
   (`MemorySeedKind`: `Lexical` / `Semantic` / `Subject` / `Custom`). The two wiring diagnostics ask the role
   instead of matching a name.

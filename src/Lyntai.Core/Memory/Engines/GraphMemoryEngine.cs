@@ -701,12 +701,27 @@ public sealed class GraphMemoryEngine(
         // A judged-relevant candidate is PROMOTED to the front, keeping the policy's relative order among
         // promoted and among demoted alike — the verifier is asked which entries answered, never to invent
         // a total ordering, so its verdict reorders in one bit rather than replacing the ranking wholesale.
+        //
+        // `VerdictCombination` decides whether that promotion is absolute (Partition, the default) or has to
+        // COMPETE with the ranking's own order (Fuse). The partition's cost scales with how many candidates
+        // the judge endorses, and the option's own doc carries the measurement.
         if (verdict.Judged && verdict.RelevantIds.Count > 0)
         {
             var relevant = verdict.RelevantIds.ToHashSet(StringComparer.Ordinal);
             bool IsRelevant(RankedMemory r) =>
                 relevant.Contains(r.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture));
-            ordinary = [.. ordinary.Where(IsRelevant), .. ordinary.Where(r => !IsRelevant(r))];
+
+            // Both arms start from the SAME promoted ordering, which is what makes `Fuse` a blend of the two
+            // rankings rather than a third one: it is the partition's own result, competing on rank against
+            // the order the policy produced.
+            var promoted = new List<RankedMemory>(ordinary.Count);
+            promoted.AddRange(ordinary.Where(IsRelevant));
+            promoted.AddRange(ordinary.Where(r => !IsRelevant(r)));
+
+            ordinary = _options.VerdictCombination
+                    == Lyntai.Memory.Verification.MemoryVerdictCombination.Fuse
+                ? FuseVerdict(ordinary, promoted)
+                : promoted;
         }
 
         // Ordinary material leads, in the policy's order, then the reserved exact facts — the same
@@ -1359,6 +1374,42 @@ public sealed class GraphMemoryEngine(
 
         return [.. found.Select(f => new GatheredCandidate(f.Node, f.Hop,
             ranks.TryGetValue(f.Node.Id, out var r) ? new MemorySeedRanks(r) : MemorySeedRanks.Empty))];
+    }
+
+    /// <summary>Blends the ranking's order with the verdict's by reciprocal rank, so an endorsement moves a
+    /// candidate up without entitling it to the page.
+    ///
+    /// <para><b>Every candidate carries a verdict rank — an unendorsed one is ranked LAST, never unranked.</b>
+    /// <c>MemoryVerification.RelevantIds</c> says why: an unlisted id is judged NOT to have answered, which is
+    /// a low rank rather than an absence. Scoring absence as zero makes the worst endorsement outscore the
+    /// best non-endorsement at every rank, which silently reproduces the partition this is an alternative
+    /// to.</para>
+    ///
+    /// <para>Ranks are positions, so this is independent of which ranking policy produced the order — the same
+    /// property that lets <c>ReciprocalRankFusionPolicy</c> combine sources that are not commensurable.</para>
+    /// </summary>
+    /// <param name="byPolicy">The ranking's own order.</param>
+    /// <param name="byVerdict">The same items, endorsed-first — the page the partition would have built.</param>
+    /// <remarks>The fusion constant is READ from <see cref="ReciprocalRankFusionOptions"/> rather than
+    /// restated, so the engine and the shipped ranking default cannot drift apart.</remarks>
+    private static List<RankedMemory> FuseVerdict(
+        IReadOnlyList<RankedMemory> byPolicy, IReadOnlyList<RankedMemory> byVerdict)
+    {
+        var verdictRank = new Dictionary<long, int>(byVerdict.Count);
+        for (var i = 0; i < byVerdict.Count; i++) verdictRank[byVerdict[i].Candidate.Node.Id] = i + 1;
+
+        // The verdict's weight against the ranking's own term. 1 puts them on equal footing, which is where
+        // the measurement was taken; it is deliberately not a knob, because no run has priced any other value.
+        const double weight = 1.0;
+        var k = new ReciprocalRankFusionOptions().K;
+
+        return [.. byPolicy
+            .Select((r, i) => (Item: r, Index: i, Score: (1 / (k + i + 1))
+                + (weight / (k + verdictRank[r.Candidate.Node.Id]))))
+            // A stable tiebreak on the policy's own position: two equal scores must not reorder run to run.
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Index)
+            .Select(x => x.Item)];
     }
 
     /// <summary>Asks the verifier which of these actually answered the query, fail-open in every direction.

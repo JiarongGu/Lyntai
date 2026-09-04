@@ -271,6 +271,28 @@ public sealed record GraphMemoryOptions
     /// does not defer to a judge (<c>docs/DECISIONS.md</c> <b>D56</b>).</para></summary>
     public bool VerificationFilters { get; init; }
 
+    /// <summary>How an endorsed candidate reaches the page — promoted ahead of everything unendorsed
+    /// (<see cref="Lyntai.Memory.Verification.MemoryVerdictCombination.Partition"/>, the default and the
+    /// long-standing behaviour), or competing on rank with the ranking's own order
+    /// (<see cref="Lyntai.Memory.Verification.MemoryVerdictCombination.Fuse"/>).
+    ///
+    /// <para><b>The partition is the only place this engine combines a signal by partition rather than by
+    /// rank competition</b>, which is what makes it worth a knob: every other signal fuses
+    /// (<c>docs/DECISIONS.md</c> <b>D82</b>, <b>D103</b>). Its cost is bounded by how MANY candidates a judge
+    /// endorses — a set larger than the caller's limit replaces the page instead of refining it.</para>
+    ///
+    /// <para><b>Reach for <c>Fuse</c> when the judge is weak or <see cref="VerificationDepth"/> is deep.</b>
+    /// Measured on LoCoMo with a real 4B judge at the shipped depth, the partition cost <b>10.5 points</b> of
+    /// evidence-hit while fusing the same verdict from the same model landed exactly on the unjudged base
+    /// (<c>docs/memory.md</c> §5). <b>It removes a loss and adds nothing</b>, so it is insurance rather than
+    /// an improvement — and it is not the default because that was one model on one workload, and because a
+    /// silent reordering is a change no consumer could detect at compile time.</para>
+    ///
+    /// <para>Inert without a registered
+    /// <see cref="Lyntai.Memory.Verification.IMemoryVerificationPolicy"/>, and orthogonal to
+    /// <see cref="VerificationFilters"/> — this decides ORDER, that decides removal.</para></summary>
+    public Lyntai.Memory.Verification.MemoryVerdictCombination VerdictCombination { get; init; }
+
     /// <summary>How many top-ranked candidates a
     /// <see cref="Lyntai.Memory.Verification.IMemoryVerificationPolicy"/> is shown. <c>null</c> takes
     /// <see cref="DefaultVerificationDepthFactor"/> times the recall's own limit — the MEASURED saturation

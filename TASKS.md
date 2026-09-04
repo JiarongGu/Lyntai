@@ -934,20 +934,19 @@ and the four things it does not say._
   client's candidates contradict, which is the loudest and the least convenient.
   <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit._
 
-- [ ] **Ship the verdict as a FUSION rather than a partition — the one library change today's runs earned.**
-  `GraphMemoryEngine` promotes every endorsed candidate ahead of every unendorsed one
-  (`src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs`, the block after `VerifyAsync`), which is the only
-  place this engine combines a signal by partition instead of rank competition (**D82**, **D103**). Measured:
-  fusing removes the whole 10.5-point loss a real 4B judge costs, on an otherwise identical arm
-  (`docs/task-archive.md` **Part 145**, `docs/memory.md` §5).
-  <br>**What it needs beyond the measurement**, none of which today's bench-local proof supplies: a decision
-  on the SURFACE (a new `GraphMemoryOptions` member defaulting to today's behaviour, versus changing the
-  default outright — the second is a behaviour change no consumer can detect at compile time, D18's
-  major-bump shape), the ENGINE implementation rather than a verifier that emits a fused page, and a
-  reader-facing check, since evidence-hit@k reads the returned SET while a fused engine also reorders it.
-  <br>**Do not expect it to raise the score** — fused, the arm lands exactly on its base. It buys SAFETY: a
-  weak judge stops being able to destroy a good ranking. That is the whole claim, and Part 145's headroom
-  numbers say why more is not available from this model tier.
+_**The fusion item CLOSED 2026-09-04** as `docs/task-archive.md` **Part 151** / **D105**:
+`GraphMemoryOptions.VerdictCombination` ships the choice with `Partition` — today's behaviour — as the
+default, so nothing moves for anyone who does not set it. The surface question it was blocked on was decided
+additively: changing the default would be a silent reordering no consumer can detect at compile time (D18's
+shape), bought on one model and one workload. **A reader-facing check is what it did NOT get** — see below._
+
+- [ ] **Give the fused verdict a READER-facing measurement.** `evidence-hit@k` reads the returned SET, and
+  fusion also REORDERS it, so the metric that priced the option is structurally blind to half of what it
+  does. Part 151 shipped on set-level evidence plus engine-level facts; what is missing is a QA arm
+  (token-F1 with a reader) over `VerdictCombination = Fuse` against the partition on the same judge.
+  <br>**Do not expect it to move the score** — fused, the arm lands on its base — so this is a check that
+  reordering costs nothing a reader notices, not a hunt for a gain. It belongs with Part 109's QA half,
+  which needs a second reader anyway.
 
 - [ ] **Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.** `docs/memory.md` §5
   (2026-09-03) has TWO points on it and two points are not a curve: `+sem` trades +22.0 search for −13.9

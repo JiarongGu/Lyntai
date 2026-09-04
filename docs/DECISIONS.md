@@ -174,8 +174,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D102](#d102--the-n-shot-walk-is-an-extension-over-the-existing-seams-not-a-new-engine-member-2026-08-30) | 2026-08-30 | the n-shot walk is an EXTENSION over the existing seams, not a new engine member |
 | [D103](#d103--seed-retrieval-is-a-plural-producer-seam-and-rrf-fuses-the-ranked-lists-it-was-named-for-2026-08-31) | 2026-08-31 | seed retrieval is a plural PRODUCER seam, and RRF fuses the ranked lists it was named for |
 | [D104](#d104--how-much-of-an-entry-a-recall-returns-is-the-callers-choice-per-call-2026-09-02) | 2026-09-02 | how much of an entry a recall returns is the CALLER's choice, per call |
+| [D105](#d105--a-verdict-may-compete-instead-of-partitioning-and-the-partition-stays-the-default-2026-09-04) | 2026-09-04 | a verdict may COMPETE instead of partitioning, and the partition stays the default |
 
-_All 104 entries are live decisions._
+_All 105 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3040,3 +3041,39 @@ form and already returned content under either value. The promise is stated as a
 graph engine additionally pins that the DEFAULT still withholds — without that control, a change that simply
 stopped withholding would satisfy the contract while deleting D100's cheap first load and failing nothing.
 `MemoryQuery.CharBudget` prices the extra text, so the same budget admits fewer items; that is pinned too.
+
+## D105 — a verdict may COMPETE instead of partitioning, and the partition stays the default (2026-09-04)
+
+`GraphMemoryOptions.VerdictCombination` (`MemoryVerdictCombination.Partition` / `.Fuse`). Partition is the
+default and is what every release has done: every endorsed candidate promoted ahead of every unendorsed one.
+`Fuse` makes the verdict compete on rank with the ranking's own order, the way every other signal here is
+combined (**D82**, **D103**).
+
+**The partition was the only signal in this engine combined by partition rather than by competition**, and
+that asymmetry is the harm. Its cost scales with how MANY candidates a judge endorses: a set larger than the
+caller's limit replaces the page instead of refining it, since everything unendorsed is pushed off however
+well it was ranked. Measured on LoCoMo with a real 4B judge at the shipped depth, the partition cost **10.5
+points** of evidence-hit while fusing the same verdict from the same model landed exactly on its unjudged
+base (`docs/memory.md` §5).
+
+**Fuse removes a loss and adds nothing, so it is insurance rather than an improvement.** The rescue a verdict
+exists for survives it — an endorsed candidate below the limit still reaches the page — but an endorsement no
+longer entitles a candidate to lead.
+
+**Why the default did NOT move**, which is the decision rather than the code. Changing it would be a silent
+reordering no consumer can detect at compile time (**D18**'s major-bump shape), bought on ONE model and ONE
+workload — and every other default this subsystem measured this season stayed put on exactly that reasoning.
+An additive option costs a bump nobody needs and lets a deployment with a weak judge or a deep
+`VerificationDepth` opt in.
+
+**Alternatives rejected.** Fusion outright with no option: smallest surface, but it removes a behaviour with
+no way back on one workload. Fusion as the default with the option: same evidence problem, and it changes
+results for existing consumers silently. A configurable verdict WEIGHT: the measurement used equal footing
+and no run has priced any other value, so it would ship an unmeasured knob — the pattern **D89** exists to
+discourage.
+
+**An unendorsed candidate is ranked LAST, never unranked**, and that is contract rather than detail: scoring
+absence as zero makes the worst endorsement outscore the best non-endorsement at every rank, silently
+reproducing the partition. The bench made exactly that error first, and
+`MemoryVerdictFusionTests.Fused_a_poorly_ranked_endorsement_does_not_displace_the_leader` is the control that
+fails if it recurs.

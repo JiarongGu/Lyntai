@@ -34,6 +34,31 @@ public interface IMemoryVerificationPolicy
     Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request, CancellationToken ct = default);
 }
 
+/// <summary>How a verdict reaches the page — see <see cref="GraphMemoryOptions.VerdictCombination"/>.
+/// <para>It sits here rather than beside the option because it describes what a VERDICT means, which is this
+/// domain's concern; placement is by ownership (<c>docs/DECISIONS.md</c> D46).</para></summary>
+public enum MemoryVerdictCombination
+{
+    /// <summary>Every endorsed candidate is promoted ahead of every unendorsed one, each group keeping the
+    /// ranking policy's own order. The shipped default, and unchanged since verification was introduced.
+    /// <para><b>Its failure mode is bounded by the size of the endorsement set.</b> A verdict endorsing more
+    /// candidates than the caller's limit REPLACES the page rather than refining it, because everything
+    /// unendorsed is pushed off however well it was ranked.</para></summary>
+    Partition = 0,
+
+    /// <summary>The verdict COMPETES with the ranking on rank, the way every other signal in this engine is
+    /// combined (<c>docs/DECISIONS.md</c> D82, D103) — so an endorsement moves a candidate up without
+    /// entitling it to the page, and a well-ranked unendorsed candidate can still lead.
+    /// <para><b>An unendorsed candidate is ranked LAST, never unranked</b>, which is the whole arithmetic:
+    /// treating it as absent makes the worst endorsement outscore the best non-endorsement at every rank and
+    /// silently reproduces <see cref="Partition"/>.</para>
+    /// <para><b>Expect SAFETY, not a higher score.</b> Measured on LoCoMo against a real 4B judge it lands on
+    /// its unjudged base, removing a 10.5-point loss and adding nothing (<c>docs/memory.md</c> §5). What it
+    /// buys is that a weak judge can no longer destroy a good ranking; the rescue a verdict exists for is
+    /// kept.</para></summary>
+    Fuse = 1,
+}
+
 /// <summary>What a verifier is shown.</summary>
 /// <param name="Query">The query text, verbatim and in its own language.</param>
 /// <param name="Candidates">What the recall is about to return, in rank order — id and headline only.

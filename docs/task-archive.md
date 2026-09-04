@@ -2123,6 +2123,25 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 151 — the verdict can COMPETE instead of partitioning, and the partition stays the default
+
+✅ done 2026-09-04 — `GraphMemoryOptions.VerdictCombination` (`MemoryVerdictCombination.Partition` /
+`.Fuse`), the one library change the judge measurements earned. Partition remains the default, so nothing
+moves for anyone who does not set it. Reasoning and the rejected alternatives: `docs/DECISIONS.md` **D105**;
+the measurement it rests on is `docs/memory.md` §5.
+
+**The surface was the decision, not the code** — the item had been blocked on it. Additive won: changing the
+default would be a silent reordering no consumer can detect at compile time (D18's major-bump shape), bought
+on one model and one workload, which is the same reasoning that kept every other default in this subsystem
+still this season.
+
+**One contract fact carries the whole arithmetic: an unendorsed candidate is ranked LAST, never unranked.**
+Scoring absence as zero makes the worst endorsement outscore the best non-endorsement at every rank, which
+silently reproduces the partition — the error the bench made first. `MemoryVerdictFusionTests` pins it, and
+the assertion was mutation-checked against that exact mutant rather than trusted for passing.
+
+- Ship the verdict as a FUSION rather than a partition — the one library change today's runs earned.
+
 ## Part 150 — a budget in the JUDGE's prompt, and the API change it argues AGAINST
 
 ✅ done 2026-09-04 — **The judge does not obey a budget, and the number the library was going to supply is
