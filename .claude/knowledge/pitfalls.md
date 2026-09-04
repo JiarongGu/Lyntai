@@ -296,6 +296,19 @@ the tests) while being wrong. Skim before touching the relevant area.
   same run's `stale@k` ROSE 40.0% → 57.1% — a smaller corpus lets both the current and the superseded fact
   compete — so input shaping bought back the DILUTION and moved the underlying judgement not at all. **Fix
   the input before buying a bigger model; do not expect it to buy a capability the seam never had.**
+  <br>**Then the SAME budget was put to the JUDGE and did not bind at all, so this is two cases and not one
+  rule** (2026-09-04, `docs/memory.md` §5). Asked for at most 20 of 80 the model endorsed **34.9 — MORE than
+  the 29.1 it endorsed unbudgeted**; asked for at most 5 it endorsed 27.4. **A GENERATIVE task takes a count
+  naturally; a SELECTIVE task over a list the model can SEE does not**, because every candidate looks locally
+  defensible and a stated number reads as an expectation rather than a cap. **A budget that RAISES the output
+  is the tell**, and it is only visible if the counter is there — which is the rule two bullets up, earning
+  itself a second time.
+  <br>**The expensive half of that is a design consequence, not a curiosity.** The plan was to add the
+  caller's limit to `MemoryVerificationRequest` so a policy could say "at most 20" for a page of 20.
+  Measured, that exact number is worth **+0.5 points**, while 5 — a number the recall limit would never
+  supply — is worth +4.0. **The API change would have shipped the useless arm.** Price the number BEFORE
+  building the surface that carries it; "the library cannot even express this" is an argument for measuring
+  it bench-side first, never for assuming the expressible value is the valuable one.
 
 - **An arm that is SUPPOSED to move needs a control proving it CAN — the mirror of the arm that cannot.**
   This repository already requires a structural null control before believing a delta. The other half went
@@ -324,6 +337,16 @@ the tests) while being wrong. Skim before touching the relevant area.
   on the rescuable calls it put the deep evidence in its top five **zero** times. **Its confidence tracked
   what the ranking had already found.** An aggregate lift can be large and land entirely on the calls where
   it is worth nothing — so before optimizing a re-ranker, count the calls it could improve at all.
+
+- **A prediction landing where you expected is when you are least inclined to ask what produced it.**
+  Measured 2026-09-02 (`docs/task-archive.md` Part 137): a walk arm scored 42.0%, inside its pre-registered
+  band AND branch, while silently measuring 20 whole items plus ~20 TRUNCATED ones — a projection defect that
+  the accuracy column could not show and the `chars/q` column did (6,053 where 40 whole turns cost ~7,000).
+  **Pre-registration protects against motivated reading of the RESULT and not at all against a broken
+  instrument**, and a confirmed prediction is precisely where nobody looks.
+  <br>**So state the INSTRUMENT check in advance beside the outcome check** — the re-run declared that
+  `chars/q` had to rise to ~6,600–6,900 or the fix had not reached the arm, and it read 7,084. A cheap
+  non-outcome column that must move is what tells a real run from a plausible one.
 
 - **A constant tuned against a PERFECT component inherits that component's assumptions, and can be actively
   harmful for the real one.** This repository prices model-in-the-loop seams against an ideal first — a
@@ -1472,6 +1495,19 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `Its_declared_deliveries_are_backed_by_the_interfaces_it_implements` was already doing this for delivery
   modes and its existence did not suggest the inputs axis to anyone.
 
+- **"Pick the first `image/*` artifact" chains a texture ATLAS, which renders perfectly and is completely
+  wrong — and the media type cannot save you.** From the 2026-08-30 3D-backend survey (`docs/task-archive.md`
+  Part 124), a DESK survey, so these are shapes read from published API pages rather than measured calls.
+  A mesh backend's only `image/*` outputs are **UV texture atlases** (Rodin's `textures[]`,
+  `content_type: image/png`) — a flattened skin, not a view of anything — so a pipeline stage selecting by
+  media type feeds the next stage a plausible image of nothing. Same silent-plausible class as the
+  capability flag above.
+  <br>**And branching on `MediaType` instead does not work either**, which is what makes this a trap rather
+  than an oversight: Hunyuan3D reports its GLB as `application/octet-stream`, so the type is opaque exactly
+  where the decision matters. **A stage that cannot positively identify a chainable artifact must REFUSE
+  rather than fall back** — the fallback is the bug, and it is invisible from the contract, which is why
+  `GenerationArtifact.ToInput(role)` takes an explicit role.
+
 ## Refactoring & namespace moves
 
 - **A compiler error list is not the authoritative site-list for a rename or move — it misses silently in
@@ -1571,6 +1607,28 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   has declared one.
 
 ## Testing
+
+- **Asserting a specific FAILURE MODE when the claim is only "it tried" makes a test race the clock.**
+  Measured 2026-09-04: `ByoHttpClientTests.Default_path_still_creates_a_lyntai_client` points at a closed
+  local port and pinned `LlmVerdict.Failed`, whose own comment says it is proving *the client existed and
+  tried*. Under load — a session that had been driving a local model server for an hour — the connect
+  outlasted the 5 s `ProviderTimeout` and the verdict was `Timeout`: **a different correct answer, and a red
+  `verify`.** It passed standalone immediately afterwards, which is what makes this class expensive to
+  diagnose.
+  <br>**Assert the CLAIM, not one way of satisfying it.** Here both `Failed` and `Timeout` prove DI wired a
+  real client; only `Ok` would refute it. Wherever a test provokes a failure to prove a path exists, accept
+  every failure that proves it — a narrower assertion is not a stronger test, it is a timing dependency.
+
+- **A SELF-HEALING mechanism absorbs the bug you are asserting against, so the test passes with the fix
+  reverted.** Measured 2026-09-02 (`docs/task-archive.md` Part 137). `MemoryWalk` upgrades an entry
+  discovered as a headline once a later step seeds it, so an assertion on the LAST step's held set is true
+  whether or not expansion honoured the projection it was supposed to — it passed against the unfixed tree,
+  and only a mutation check said so. **Assert at the step that DISCOVERED the thing** (`NewItems`), not on
+  the accumulated state, wherever a later step can repair what an earlier one got wrong.
+  <br>**The general shape: any convergent or retrying mechanism hides a defect in the step you are testing.**
+  If reverting the fix leaves the test green, the assertion is on the wrong observable — and the only way to
+  learn that is to actually revert it, which is cheap and is the check people skip when a test passes first
+  time.
 
 - **A rule only the NON-DEFAULT path can break has no test, and the mutation check run through the default
   reports it as dead code.** Measured 2026-08-30 building `MemoryWalk` (`docs/task-archive.md` Part 120).

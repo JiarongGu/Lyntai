@@ -793,6 +793,54 @@ export default {
   },
 
   /**
+   * ARCHIVE-ENTRY DEBT — one entry per `docs/task-archive.md` Part still over `check-archive`'s MAX_ENTRY,
+   * recorded at its CURRENT length so the number can only come down.
+   *
+   * WHY A RATCHET AND NOT A THRESHOLD, and why the gate exists at all. The rule
+   * (`.claude/rules/task-lifecycle.md` §"An archive entry is an OUTCOME and a POINTER") was written on
+   * 2026-09-02 from a measurement — mean non-blank lines per entry in thirds, 8.0 → 6.1 → 22.2 — and
+   * answered with prose. It KEPT GROWING: re-measured 2026-09-04 at 7.5 → 6.7 → 23.2 over 142 entries. A
+   * written-down rule that is still violated is a missing gate, the same reasoning behind `check-encoding`
+   * and `check-links`.
+   *
+   * TO PAY ONE DOWN: strike every sentence a reader could get from the record that OWNS it — the
+   * measurement record (`docs/memory.md` §5 for the memory Parts, which is where most of this debt sits),
+   * `docs/DECISIONS.md` for a choice, `docs/FIXES.md` for an incident, `.claude/knowledge/pitfalls.md` for
+   * a reusable trap. RELOCATE BEFORE DELETING: several of these entries are the only maintained home for a
+   * trap, and cutting one without moving it first loses it. Then lower or delete the entry here.
+   *
+   * There is deliberately NO escape token — see `check-archive.mjs`.
+   */
+  archiveEntryLengthAllowances: {
+    'Part 106': 22,
+    'Part 108': 24,
+    'Part 110': 26,
+    'Part 111': 24,
+    'Part 112': 36,
+    'Part 113': 28,
+    'Part 114': 28,
+    'Part 115': 25,
+    'Part 117': 29,
+    'Part 118': 32,
+    'Part 119': 33,
+    'Part 120': 38,
+    'Part 121': 27,
+    'Part 122': 29,
+    'Part 123': 26,
+    'Part 125': 33,
+    'Part 126': 32,
+    'Part 127': 26,
+    'Part 130': 26,
+    'Part 131': 22,
+    'Part 133': 23,
+    'Part 134': 33,
+    'Part 135': 32,
+    'Part 136': 33,
+    'Part 146': 22,
+    'Part 148': 24,
+  },
+
+  /**
    * COMMENT-BLOCK DEBT — one entry per file whose worst contiguous comment block still exceeds
    * `check-comments`' own MAX_BLOCK, recorded at its CURRENT worst so the number can only come down.
    *

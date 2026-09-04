@@ -1697,51 +1697,30 @@ its +2.8 is a shape, not a decimal.
 
 ## Part 124 — the 3D survey: neither option was on the menu (2026-08-30)
 
-✅ done 2026-08-30 — `TASKS.md` Part 33 / GEN7's survey item, the one the banner had carried as a startable
-critical path. It asked **mesh vs turntable stills, since only the latter chains into today's video
-backends**. **Both options turned out not to exist as posed**, which is the second time in two days a
-backlog item's own premise is what the work overturned (Part 122 was the first). Working record:
+✅ done 2026-08-30 — GEN7's survey item asked **mesh vs turntable stills**, and **both options turned out not
+to exist as posed** — the second time in two days a backlog item's own premise is what the work overturned
+(Part 122 was the first). Working record:
 `local/superpowers/specs/2026-08-30-3d-backend-survey.md`.
 
-**A DESK survey, and the caveat is load-bearing.** Every vendor fact was read from a published API page,
-never called — the tier GEN-VERIFY exists to distrust. The item was scoped that way deliberately ("no key,
-no install, no download"), so the SHAPES transfer and no individual field name is confirmed. Nothing here
-licenses deleting an unverified marker.
+**The answer.** The dominant 3D family returns a mesh and nothing renderable; a minority adds one fixed
+preview thumbnail, not a turntable; and turntable output belongs to a different model family altogether
+(SV3D-class orbital synthesis), which is **image→views** and so does not occupy a 3D stage's place in a
+chain. **So `3d → image → video` corresponds to no buildable chain, and the chain that IS buildable contains
+no 3D stage** — the 3d→image edge is a RASTERIZATION, which no vendor here performs and which belongs to an
+application with a renderer rather than to a library promising a small dependency footprint.
 
-**The answer.** The dominant 3D family returns a mesh and nothing renderable (Hunyuan3D v2: `model_mesh`
-alone; Hyper3D Rodin: `model_mesh.url` plus `textures[]`). A minority adds a **single preview `thumbnail`**
-(Meshy v6) — one fixed view, not a turntable. Turntable output belongs to a **different model family**
-(SV3D-class orbital synthesis), which is **image→views** and therefore does not occupy a 3D stage's place in
-a chain. So `3d → image → video` corresponds to no buildable chain, and the chain that IS buildable
-(`image → orbital views → video`) contains no 3D stage. **The 3d→image edge is not a generation at all — it
-is a RASTERIZATION**, which no vendor on this platform performs, and a rasterizer belongs to an application
-with a renderer rather than to a library whose core promise is a small dependency footprint.
+**A DESK survey, and the caveat is load-bearing:** every vendor fact was read from a published API page and
+never called, so the shapes transfer, no field name is confirmed, and no unverified marker may be deleted.
 
-**Two traps a runner would have walked into, and neither is visible from the contract.** A mesh backend's
-only `image/*` artifacts are **UV texture atlases** (Rodin's `textures[]`, `content_type: image/png`) — a
-flattened skin, not a view — so "pick the first `image/*` artifact" chains something that renders fine and
-is completely wrong, the same silent-plausible class `FalQueueProvider` carries a comment about having
-shipped once. And **MediaType cannot be branched on**: Hunyuan3D reports its GLB as
-`application/octet-stream`, so the type is opaque exactly where the decision matters. A stage that cannot
-identify a chainable artifact must REFUSE rather than fall back.
+**What it left elsewhere.** Two chaining traps (a texture atlas is the only `image/*` a mesh backend emits;
+`MediaType` is opaque exactly where it would be branched on) went to `.claude/knowledge/pitfalls.md`. Two
+OUTPUT-stage defects it found — `ComfyUiProvider` declaring a capability it never implemented, and a false
+shipped XML doc on `GenerationKinds.Model3d` — were fixed the same day as **Part 125**, and the capability
+one is in `pitfalls.md` and `docs/FIXES.md`.
 
-**Two defects found on the OUTPUT stage, recorded here and FIXED the same day as Part 125.**
-
-- **`ComfyUiProvider` declares `SupportsInputs = true` and never reads `request.Inputs`** — the identifier
-  occurs once in the file, in the declaration. `GenerationCapabilities.Supports` uses the flag as an
-  ADMISSION filter (`request.Inputs.Count > 0 && !SupportsInputs`), so it is a promise to the router that
-  the backend consumes inputs: the router will select ComfyUI for an image→video request carrying a first
-  frame, and the frame is dropped in silence. fal fixed this exact bug on its own side and left the
-  reasoning in a comment. The flag buys ComfyUI nothing even charitably — a caller who bakes the image into
-  the workflow graph sends no `Inputs`, and `Supports` only filters when there are some.
-- **`GenerationKinds.Model3d`'s XML doc is false and it SHIPS** — *"Chains into `Image` and then `Video`"*
-  is untrue for the entire mesh family. Same tier as `MaxSalience` keeping *"Unmeasured"* after the ladder
-  that measured it (Part 123, the same day).
-
-**What it opened.** **GEN7a**, the pipeline runner at `image → video` — GEN7's whole design minus the stage
-that has no backend, startable with no key or download. The survey replaced itself in the startable set
-rather than shrinking it, and GEN7's own blocker was restated: what stays blocked is the 3D STAGE, on a
-rasterizer, not the runner.
+**What it opened.** **GEN7a**, the pipeline runner at `image → video` — GEN7's design minus the stage with no
+backend — built and closed the same day as **Part 126**. So the survey replaced itself in the startable set
+rather than shrinking it, and what stays blocked is the 3D STAGE alone, on a rasterizer.
 
 ## Part 125 — the capability nothing implemented, and the contract fact that now catches it (2026-08-30)
 
@@ -2080,42 +2059,21 @@ walk asking for `MemoryDetail.Full` — scores **44.0%** token-F1 against `vecto
 and 6,941 chars against 6,780, on all 1,540 questions. Tables: `docs/memory.md` §5. The engine was measured
 12 points behind cosine before headline truncation was found; it is now within half a point.
 
-**An n = 200 pass read this as +0.9 and AHEAD, and that was retracted by the full sample.** Same arms, same
-seed: 44.8/43.9 at 200 questions, 44.0/44.4 at 1,540 — the sign flipped. The retraction is in
-`docs/memory.md` §5 rather than only here, because the "first time the engine is ahead" claim had already
-been written into the record.
+**An n = 200 pass read this as +0.9 and AHEAD, and the full sample RETRACTED it** — the sign flipped, and
+the retraction is in `docs/memory.md` §5 rather than only here because the "first time the engine is ahead"
+claim had already been written into the record. The noise floor is why: two arms sending byte-identical
+prompts scored 40.7/41.1 at n = 200 and 42.2/42.2 at full sample, so ±1 point was never resolvable at 200.
+**Pre-registration protects nothing if the run that judges it is underpowered** — the pre-registration here
+was right and its n = 200 adjudication wrong.
 
-**The noise floor is why one reading was believable and the other was not.** Two arms sending byte-identical
-prompts (`lyntai-fused-full`, `lyntai-fused-api`) scored 40.7/41.1 at n = 200 and **42.2/42.2** at n = 1,540:
-reader nondeterminism collapsed from 0.4 points to 0.0. A ±1-point difference was never resolvable at 200.
+**A flaw in the confirming run's own design** — its arm set dropped `vector`, leaving Part 136's 20-slot
+parity without a full-sample control — was filed and CLOSED the same day as **Part 138**, which also gave
+this run the cross-run reproducibility check it could not give itself.
 
-**The pre-registration was RIGHT and its n = 200 adjudication was WRONG — the more useful of the two
-findings.** It called "40–45%, gaining on 38.8 but NOT reaching 44.5". Full sample: 44.0%, in band, not
-reaching 44.4 — both clauses correct. At n = 200 the second was declared refuted and written up as "the run
-refuted my scepticism, not the design". **Adjudicating a ±1-point prediction on a sample that cannot resolve
-±1 point is exactly what Part 134 did with its interaction at n = 100**, a lesson already recorded in
-`docs/memory.md`, quoted during this session, and repeated anyway. Pre-registration protects nothing if the
-run that judges it is underpowered.
-
-**Not confirmed, by a flaw in the confirming run's own design:** its arm set was chosen for the 40-slot
-question and dropped `vector` (20 items), so **Part 136's 20-slot parity has no full-sample control** —
-`lyntai-fused-full` reads 42.2% there against nothing. **Filed as Part 138 and CLOSED the same day**: the
-missing pair ran at full sample, Part 136's claim survived (−0.4 against its −0.3), and `lyntai-fused-api`
-repeating **42.2 → 42.0 at an identical 3,503 `chars/q`** gives this run the cross-run reproducibility check
-it could not give itself.
-
-**The FIRST run of this arm was void and is recorded because of how it was caught.** It scored 42.0% —
-inside the predicted band AND branch — while measuring 20 whole items plus ~20 truncated ones, because
-`ExpandAsync` projected discovered neighbours exactly as a recall does and D104 had only covered the recall.
-`chars/q` gave it away (6,053 where 40 whole turns cost ~7,000), not the accuracy column. **A prediction
-landing where you expected is when you are least inclined to ask what produced it**, so the re-run stated
-its instrument check in advance: chars/q must rise to ~6,600–6,900 or the fix had not reached the arm. It
-read 7,084.
-
-**And the test for that fix passed for the wrong reason first.** The walk SELF-HEALS — an entry discovered as
-a headline is upgraded once a later step seeds it — so asserting on the last step's held set passes whether
-or not expansion honoured anything; it passed with the fix reverted, and only a mutation check said so. The
-assertion belongs on `NewItems` at the step that discovered them.
+**Two reusable traps went to `.claude/knowledge/pitfalls.md`**, both from the first, VOID run of this arm: a
+prediction landing where you expected is when you are least inclined to ask what produced it (the accuracy
+column could not show the defect and a `chars/q` column did), and a SELF-HEALING mechanism absorbs the bug
+you are asserting against, so that fix's test passed with the fix reverted.
 
 - Run `lyntai-fused-3shot-full` and read it against `vector-40`.
 
@@ -2164,6 +2122,33 @@ than the code. What did not survive is the category detail — multi-hop's n = 2
 sample.
 
 - Run the 20-slot pair at full sample.
+
+## Part 150 — a budget in the JUDGE's prompt, and the API change it argues AGAINST
+
+✅ done 2026-09-04 — **The judge does not obey a budget, and the number the library was going to supply is
+the worthless one.** The shipped prompt says "Be selective" and names no count, so both budget arms were run
+at the SHIPPED depth, injected into the system message at the `ILlmClient` seam so the shipped policy still
+composes, parses and fails open. All three controls reproduced CELL FOR CELL, including the unbudgeted judge
+at 72.5%/29.1 endorsed — the structural null control for the change itself. `docs/memory.md` §5 has the
+table.
+
+**It did not bind: asked for at most 20 of 80 the model endorsed 34.9, MORE than the 29.1 it endorsed
+unbudgeted**; at most 5 gave 27.4. So input shaping is **two cases, not one rule** — the extractor obeyed the
+same instruction at 8.3% over, because a generative task takes a count and a selective task over a visible
+list does not. That correction went to `pitfalls.md`, amending the entry written the same day.
+
+**The decision is negative and it is the useful part.** `budget20` — the caller's own limit, the number
+`MemoryVerificationRequest` cannot carry — is worth **+0.5 points**, while `budget5` is worth **+4.0**. The
+proposed API change would have shipped the useless arm. Budgeting is also the weakest lever measured: depth
+40 reads 84.0% and fusion 83.0%, both removing the whole loss, where the best budget still lands 6.5 below
+the unjudged base. **No default moved and the fusion item already filed stays the right one.**
+
+**A pre-registered prediction was half wrong**, recorded rather than quietly restated: both arms were
+predicted to land near the unbudgeted judge because 27–28 endorsements still exceed the 20-slot page. The
+size claim held and `budget5` gained 4.0 anyway, so endorsement-set > page is necessary but not sufficient.
+
+- Give the judge a budget in its prompt, and consider carrying the recall limit on
+  `MemoryVerificationRequest`.
 
 ## Part 149 — the extractor's inflation was the PROMPT, and bounding it does not change the verdict
 

@@ -143,7 +143,7 @@ silently break; the reasoning is in the decision named beside it.
     working.** Guarded by `MemoryAuthoritativeSurvivalTests` plus a control requiring the same facts to be
     LOST without the grade.
 
-**The packaging rules are gated, not remembered** — `verify` runs seventeen checks. `check-warnings` (a warning
+**The packaging rules are gated, not remembered** — `verify` runs eighteen checks. `check-warnings` (a warning
 in a published project fails the build, because an unfailed IL2026 is a FALSE trim promise), `check-packages`
 (a package must be registered in all nine registries — a missing `ApiSurfaceTests` entry means no API gate at
 all), `check-bundle` (the bundle's dependency closure cannot grow without a decision), `check-docs` (a doc
@@ -152,7 +152,7 @@ plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3555 passed / 3576 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 470/470, doc samples 80/80.
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 483/483, doc samples 80/80.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -278,9 +278,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
 
 ## Dev loop
 
-- **`node devtools/dev.mjs verify`** — the "am I done?" gate, seventeen checks stopping at the first failure:
+- **`node devtools/dev.mjs verify`** — the "am I done?" gate, eighteen checks stopping at the first failure:
   **guard tests** → build → warnings → packages → bundle → **encoding** → **docs** → **links** →
-  **counts** → **comments** → **decisions** → **decision claims** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
+  **counts** → **comments** → **decisions** → **archive** → **decision claims** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
   the step list, so a gate added without updating prose still names itself. Run before
   claiming a change is complete. The guard tests run FIRST on purpose: nothing below that gate can be
   trusted if the gates themselves are broken.
@@ -470,6 +470,21 @@ owned outside the deployment; `DECISIONS.md` D30) /
   16, p75 35); 21 entries were already over it, so it is a ratchet like `check-comments` —
   `decisionLengthAllowances`, where an allowance looser than the entry needs FAILS. **No escape token**,
   deliberately: an allowance is a visible ratcheted number and is the only way out.
+- `node devtools/dev.mjs check-archive` — **fail if a `docs/task-archive.md` entry outgrows the OUTCOME it
+  records** (part of `verify`). The THIRD length ratchet, and it shares its whole body with
+  `check-decisions` (`scripts/_entry-length.mjs`) — the ledger semantics are the subtle half and a second
+  hand-written copy would drift silently in the permissive direction.
+  **What it gates is different from its sibling's**, which is the point: a decision's reasoning IS its
+  payload, while an archive entry's detail belongs to whichever record owns it, so what this removes is
+  **DUPLICATION**. The measured cost: a retraction landed on a run whose narrative sat in BOTH the archive
+  entry and `docs/memory.md` §5, and only one of the two got edited.
+  Limit **20** non-blank lines against the rule's own "roughly ten lines does that" — the median entry is
+  already 10 and p75 is 16, so the median complies and the whole weight is in the tail.
+  **The argument for building it is that the rule already existed and lost**: `task-lifecycle.md` was
+  written on 2026-09-02 from a measurement (thirds 8.0 → 6.1 → 22.2) and the file grew anyway, reading
+  7.5 → 6.7 → 23.2 two days later. A written-down rule that is still violated is a missing gate — the same
+  reasoning behind `check-encoding` and `check-links`. Registry `archiveEntryLengthAllowances`, no escape
+  token, and **RELOCATE BEFORE DELETING**: several entries are the only maintained home for a trap.
 - `node devtools/dev.mjs check-decision-claims` — **fail if a DECISION stops describing the code it
   governs** (part of `verify`). Its sibling above gates an entry's LENGTH; this gates its TRUTH, and it is
   the FIFTH member of the prose family — `check-docs` asks whether a document still SAYS what a decision

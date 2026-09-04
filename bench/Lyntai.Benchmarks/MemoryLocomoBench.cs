@@ -339,7 +339,8 @@ internal static class MemoryLocomoBench
                 // The audit sits INSIDE the fusion, so it records what the MODEL said rather than what the
                 // fusion made of it — which also makes a fused arm's audit a cross-check against its
                 // unfused twin at the same depth: same model, same prompts, so they must agree.
-                var audit = new JudgeAudit(new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat)));
+                var audit = new JudgeAudit(
+                    new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat, spec.Budget)));
                 var name = JudgeArmName(spec);
                 judgeAudits[name] = audit;
                 if (!spec.Fuse) { judgePolicies[name] = audit; continue; }
@@ -1701,14 +1702,23 @@ internal static class MemoryLocomoBench
         Console.WriteLine("    Do NOT read it as 'even full context does badly'.");
     }
 
-    /// <summary>The judge ladder, as (depth, fuse) pairs. <c>Depth</c> <c>null</c> is the SHIPPED default —
-    /// 4 × the recall's limit — and keeps the unadorned arm name, so the 72.5% already on record still
-    /// denotes the configuration that produced it. <c>Fuse</c> replaces the engine's partition with rank
-    /// competition; see <see cref="FusedVerdictVerifier"/>.</summary>
-    private static readonly (int? Depth, bool Fuse, int? Top)[] JudgeArms =
+    /// <summary>The judge ladder, as (depth, fuse, top, budget) tuples. <c>Depth</c> <c>null</c> is the
+    /// SHIPPED default — 4 × the recall's limit — and keeps the unadorned arm name, so the 72.5% already on
+    /// record still denotes the configuration that produced it. <c>Fuse</c> replaces the engine's partition
+    /// with rank competition; see <see cref="FusedVerdictVerifier"/>.
+    ///
+    /// <para><b><c>Budget</c> states a NUMBER in the judge's prompt</b>, which today's shipped prompt does
+    /// not: it says "Be selective" and names no count, and a model will not invent one. Both budget arms sit
+    /// at the SHIPPED depth on purpose — depth 20 already fixes selectivity STRUCTURALLY by showing less, so
+    /// the open question is whether shaping the INSTRUCTION fixes it at the depth a deployment actually
+    /// gets. <c>budget20</c> is the caller's own limit, the number
+    /// <c>MemoryVerificationRequest</c> cannot currently carry; <c>budget5</c> is a quarter of the page,
+    /// where promotion must refine rather than replace.</para></summary>
+    private static readonly (int? Depth, bool Fuse, int? Top, int? Budget)[] JudgeArms =
     [
-        (null, false, null), (40, false, null), (20, false, null),
-        (null, true, null), (40, true, null), (null, true, 5),
+        (null, false, null, null), (40, false, null, null), (20, false, null, null),
+        (null, true, null, null), (40, true, null, null), (null, true, 5, null),
+        (null, false, null, RecallLimit), (null, false, null, 5),
     ];
 
     /// <summary>The verdict's weight against the ranking's own rank term when fusing. 1 puts them on equal
@@ -1717,10 +1727,10 @@ internal static class MemoryLocomoBench
 
     /// <summary>One judge arm's name. The ladder and the report list below both derive from this, so unlike
     /// the rest of those lists they cannot disagree about a judge arm in the first place.</summary>
-    /// <param name="arm">The arm's depth and whether it fuses.</param>
-    private static string JudgeArmName((int? Depth, bool Fuse, int? Top) arm) =>
+    /// <param name="arm">The arm's depth, whether it fuses, any truncation and any prompt budget.</param>
+    private static string JudgeArmName((int? Depth, bool Fuse, int? Top, int? Budget) arm) =>
         $"+sem+rel-only+judge{(arm.Depth is { } d ? $"@{d}" : "")}{(arm.Fuse ? "+fuse" : "")}"
-        + $"{(arm.Top is { } t ? $"+top{t}" : "")}";
+        + $"{(arm.Top is { } t ? $"+top{t}" : "")}{(arm.Budget is { } b ? $"+budget{b}" : "")}";
 
     /// <summary>The retrieval ladder's arm names, in table order, defined ONCE.
     ///
@@ -2018,10 +2028,18 @@ internal static class MemoryLocomoBench
     /// <para>Both members return the same client because the bench registers exactly one; a policy asking for
     /// a NAMED client gets it rather than a <c>KeyNotFoundException</c>, which would fail the arm open and
     /// look like a judge that endorsed nothing.</para>
+    ///
+    /// <para><b>A <paramref name="budget"/> augments the SYSTEM message and changes nothing else</b> — the
+    /// shipped policy still composes, sends, parses and fails open. That is what keeps a budget arm an
+    /// experiment on the seam a deployment switches on rather than on a judge written here, and it is why
+    /// the budget is injected at the client rather than by copying the policy.</para>
     /// </summary>
-    private sealed class BenchClientFactory(SweepDoubles.OpenAiCompatibleChat chat) : ILlmClientFactory
+    /// <param name="chat">The local chat model.</param>
+    /// <param name="budget">Endorsements the prompt asks for at most; null leaves the shipped prompt.</param>
+    private sealed class BenchClientFactory(SweepDoubles.OpenAiCompatibleChat chat, int? budget = null)
+        : ILlmClientFactory
     {
-        private readonly BenchClient _client = new(chat);
+        private readonly BenchClient _client = new(chat, budget);
 
         public ILlmClient Get(string name) => _client;
 
@@ -2035,13 +2053,23 @@ internal static class MemoryLocomoBench
 
         public IReadOnlyList<string> Names => ["bench"];
 
-        private sealed class BenchClient(SweepDoubles.OpenAiCompatibleChat chat) : ILlmClient
+        private sealed class BenchClient(SweepDoubles.OpenAiCompatibleChat chat, int? budget) : ILlmClient
         {
             public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
             {
+                // Into the SYSTEM message, so the budget sits with the other rules and AHEAD of the notes —
+                // where the library's own const would put it. Appending it after 80 notes would be a
+                // different prompt, and the arm would price the position rather than the budget.
+                var messages = budget is { } b
+                    ? req.Messages.Select(m => m.Role == "system"
+                        ? m with { Content = $"{m.Content}\n- Choose AT MOST {b} notes. If more than {b} seem "
+                            + $"relevant, keep only the {b} best." }
+                        : m)
+                    : req.Messages;
+
                 // The judge's whole prompt is one user turn; join defensively in case that changes, rather
                 // than indexing [0] and silently dropping a system message the policy started sending.
-                var prompt = string.Join("\n", req.Messages.Select(m => m.Content));
+                var prompt = string.Join("\n", messages.Select(m => m.Content));
 
                 // Room for a list of ids. The policy's own parser decides what a valid answer is; a cap so
                 // tight that a correct answer is truncated would be measured as the judge being wrong.

@@ -1785,6 +1785,61 @@ the 53% and the 0% are small counts and only their contrast is safe to lean on. 
 through a bench-local verifier that emits the fused page AS its verdict — sound for a metric that reads the
 returned SET, and not a substitute for implementing it, since the engine still orders the page its own way.
 
+### A BUDGET in the judge's prompt: the number that helps is not the one the library was going to supply (`--arms …+judge+budget20,…+judge+budget5`, 2026-09-04)
+
+The shipped judge prompt says **"Be selective"** and names no count, which is the tell
+`.claude/knowledge/pitfalls.md` records for a model that stops discriminating. The extractor's budget worked
+(§5, `--facts`), so the same question was put to this seam. **The budget is injected into the SYSTEM message
+at the `ILlmClient` boundary**, so the shipped policy still composes, sends, parses and fails open — a
+bench-local judge would have measured a prompt invented for the bench.
+
+**Instrument.** `memory-locomo --retrieval --n 200 --arms +sem+rel-only,+sem+rel-only+judge,+sem+rel-only+judge+budget20,+sem+rel-only+judge+budget5,vector`,
+3128.6s. Raw output, gitignored:
+`devtools/_locomo-judge-budget.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+**All three controls reproduce CELL FOR CELL** — `+sem+rel-only` 83.0%, `vector` 80.5%, and
+`+sem+rel-only+judge` 72.5% at 29.1 endorsed/call, 2.6% precision, 0/200 declined, every figure identical to
+the table above. That last one is the structural null control for the change itself: an unbudgeted arm
+passes `null` and must see a byte-identical prompt.
+
+| arm | overall | endorsed/call | precision | recall | rescued in own top 5 |
+|---|---|---|---|---|---|
+| `+sem+rel-only` | **83.0%** | — | — | — | — |
+| `+sem+rel-only+judge` | 72.5% | 29.1 | 2.6% | 63.4% | 0 of 19 |
+| `+sem+rel-only+judge+budget20` | 73.0% | **34.9** | 2.3% | 68.5% | 0 of 19 |
+| `+sem+rel-only+judge+budget5` | **76.5%** | 27.4 | 2.8% | 65.5% | 0 of 19 |
+| `vector` | 80.5% | — | — | — | — |
+
+**1. The budget does not BIND, and "at most 20" made it endorse MORE.** Asked for at most 20 of 80 the model
+returned **34.9**, up from 29.1 unbudgeted; asked for at most 5 it returned **27.4**, 5.5× its budget. The
+extractor obeyed the same style of instruction at 8.3% over. **So "shape the input rather than buy a bigger
+model" is not one rule but two cases**: a GENERATIVE task takes a count naturally, while a SELECTIVE task
+over a list the model can see does not — every one of the 80 looks locally defensible, and a stated number
+reads as an expectation rather than a cap. A cap that raises the output is the sharpest form of that.
+
+**2. It moved the score anyway, and `budget5` is worth +4.0 points** — 72.5% → 76.5%, on single-hop
+(74.3 → 80.7) and temporal (78.6 → 81.0), with multi-hop and open-domain unmoved. **The pre-registered
+prediction was half wrong**: it said both budget arms would land near the unbudgeted judge because 27–28
+endorsements still exceed the 20-slot page. The size claim held and the conclusion did not — so **endorsement
+set > page is necessary but not sufficient** to explain the loss, and the COMPOSITION of the endorsed set
+matters as well as its size. That refines the mechanism recorded above rather than replacing it.
+
+**3. The decision-relevant finding is about the API, and it is negative.** The gap named in the handover was
+that `MemoryVerificationRequest` cannot carry the caller's limit, so a policy cannot say "at most 20" for a
+page of 20. **Measured, that exact number is worth +0.5 points — nothing.** The number that helps is 5, a
+quarter of the page, which the recall limit would never supply. **So the proposed API shape would have
+delivered the useless arm**, and anything shipped here would be an endorsement budget in the judge's own
+options, defaulting to off — not a `Limit` on the request.
+
+**4. And budgeting is the WEAKEST of the three levers already measured.** Depth 40 reads 84.0% and fusion
+reads 83.0%, both removing the whole loss; the best budget recovers 4.0 of the 10.5 points and still lands
+**6.5 below the unjudged base**. A judge under every budget tested remains net-negative at the shipped depth,
+so nothing here argues for a default moving, and the fusion change already filed stays the right one.
+
+**What it does NOT say.** One model, one workload, n = 200, two budget values — a pair of points is not a
+curve, and 5 was not searched for. The structural fact under all of it is unchanged and is why the ceiling
+is low: on the 19 rescuable calls the judge put the deep evidence in its own top five **0 times under every
+budget**. Its confidence still tracks what the ranking already found, which no prompt bound addresses.
+
 ### WRITE-time extraction cannot stand in for READ-time decay, and the half that hurts is the half without reconciliation (`memory-longmemeval --extract`, 2026-09-04)
 
 The other design in this field consolidates at WRITE time — a model extracts facts as turns arrive — where

@@ -46,7 +46,7 @@ public class ByoHttpClientTests
     public async Task Default_path_still_creates_a_lyntai_client()
     {
         // no httpClient passed → Lyntai wires its own named client. Point at a closed local port so the
-        // call fails fast with a connection error (proving the client existed and tried) — no network.
+        // call fails on a connection error (proving the client existed and tried) — no network.
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddOpenAiCompatibleProvider("local", c => c.BaseUrl = "http://127.0.0.1:1")
@@ -56,6 +56,10 @@ public class ByoHttpClientTests
 
         var reply = await sp.GetRequiredService<ILlmClient>()
             .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
-        Assert.Equal(LlmVerdict.Failed, reply.Verdict); // connection refused — but DI resolved a real client
+        // EITHER verdict proves the claim: DI resolved a real client and it TRIED. Pinning `Failed` alone
+        // races the timeout — on a loaded machine the connect to a closed port can outlast the 5s budget,
+        // and `Timeout` is then the correct answer. Only `Ok` would refute this test.
+        Assert.True(reply.Verdict is LlmVerdict.Failed or LlmVerdict.Timeout,
+            $"expected a connection failure of some kind, got {reply.Verdict}");
     }
 }

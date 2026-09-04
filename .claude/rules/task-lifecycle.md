@@ -71,6 +71,16 @@ of a number is not.
 entry — what the task did, what changed because of it, and what a future reader needs to find the rest.
 Roughly ten lines does that; the long entries in this file are not richer, they are copies.
 
+**This is GATED as of 2026-09-04 — `node devtools/dev.mjs check-archive`, part of `verify`** — because the
+paragraph above did not hold. It was written from a measurement and the file kept growing: **7.5 → 6.7 →
+23.2** two days later, against the 8.0 → 6.1 → 22.2 recorded here. A written-down rule that is still
+violated is a missing gate, the same reasoning that produced `check-encoding` and `check-links`. The limit
+is **20** non-blank lines — deliberately loose against the "roughly ten" above, since the median entry
+already complies and the whole weight is in the tail — and it is a RATCHET: over-limit entries record their
+current length in `archiveEntryLengthAllowances`, an allowance looser than the entry needs FAILS, and there
+is no escape token. **Relocate before deleting**: several long entries are the only maintained home for a
+trap, and cutting one without moving it first loses it.
+
 ## A blocked item names its blocker's KIND, and is re-checked against that kind
 
 **"Blocked" is a claim with an expiry date, and the check that refutes it is not always the one you ran

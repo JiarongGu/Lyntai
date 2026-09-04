@@ -90,6 +90,11 @@ where to stop. **Neither prompt states a budget, and for the judge the library c
 `MemoryVerificationRequest` carries the query and the candidates but NOT the caller's limit, so a policy
 cannot say "pick at most 20" for a page that holds 20. That is an additive API gap and the cheapest
 experiment in the backlog.
+<br>**BOTH were measured on 2026-09-04 and the paragraph above is half refuted** (`docs/task-archive.md`
+Parts 149 and 150). The extractor obeyed its budget and the judge did not — it endorsed MORE when given
+one — so "the model is handed an unbounded task" describes both failures while the FIX generalises to only
+the generative one. And "the library cannot supply one" turned out to be the wrong thing to regret: the
+number it could not supply (20) is worth +0.5, and the one that helps (5) is not the caller's limit at all.
 
 **Three things a fresh session can start on, cheapest first.** ~~(1) Give the extractor a budget — "at most
 two facts" — and re-run `--extract`~~ — **DONE 2026-09-04, `docs/task-archive.md` Part 149.** The hypothesis
@@ -98,11 +103,18 @@ of the 14.3 points of `current@k` the unbounded prompt had lost. **It did not ch
 extraction still cannot bury (`stale@k` ROSE 40.0 → 57.1) and `extract+forget0` is still indistinguishable
 from cosine (p = 0.327). So input shaping bought back the DILUTION and moved the underlying judgement not at
 all, which is the caveat to carry into (2) rather than a reason to skip it.
-(2) Give the judge a budget in its prompt, and consider carrying the recall limit on
-`MemoryVerificationRequest`. **It is NOT blocked on that API gap**, which was checked while (1) ran: the
-bench routes the SHIPPED `LlmMemoryVerificationPolicy` and its prompt is a `const`, so the experiment needs
-a bench-local copy of the policy and no library change at all — the gap is what SHIPPING the fix needs, not
-what measuring it needs. Measure first, then decide the surface. (3) A SMALLER chat model, which has to be
+~~(2) Give the judge a budget in its prompt, and consider carrying the recall limit on
+`MemoryVerificationRequest`.~~ — **DONE 2026-09-04, `docs/task-archive.md` Part 150, and it argues AGAINST
+that API change.** The judge does not obey a budget: asked for at most 20 of 80 it endorsed **34.9, MORE than
+the 29.1 it endorsed unbudgeted**. **So input shaping is two cases, not one** — the extractor obeyed at 8.3%
+over because a GENERATIVE task takes a count, while a SELECTIVE task over a visible list does not.
+<br>**And the number the library was going to supply is the worthless one**: `budget20` — the caller's own
+limit, exactly what `MemoryVerificationRequest` cannot carry — is worth **+0.5**, while `budget5` is worth
+**+4.0**. Anything shipped here would be an endorsement budget on the judge's OWN options, defaulting to off,
+never a `Limit` on the request. It is also the weakest lever measured (depth 40 reads 84.0%, fusion 83.0%,
+both removing the whole loss; the best budget still lands 6.5 below the unjudged base), so **no default moved
+and the fusion item below stays the right one.**
+(3) A SMALLER chat model, which has to be
 SERVED before it can be measured — "does a smaller model with tighter input beat a bigger one with loose
 input" is ENVIRONMENT-blocked, not open.
 <br>**What the runs above actually talked to, because this machine runs BOTH and it is not inferable from

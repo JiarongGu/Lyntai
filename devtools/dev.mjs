@@ -8,9 +8,9 @@
 //   node devtools/dev.mjs check-counts     - FAIL if a COUNT written in prose disagrees with the tree
 //   node devtools/dev.mjs check-comments   - FAIL if a comment block outgrows what it explains
 //   node devtools/dev.mjs check-decisions  - FAIL if a DECISIONS.md entry outgrows the decision
+//   node devtools/dev.mjs check-archive    - FAIL if a task-archive.md entry outgrows its outcome
 //   node devtools/dev.mjs check-decision-claims - FAIL if a DECISION stops describing the code
-//   node devtools/dev.mjs check-api-vocabulary
-//                                          - FAIL if a committed API baseline still spells a retired name
+//   node devtools/dev.mjs check-api-vocabulary - FAIL if an API baseline still spells a retired name
 //   node devtools/dev.mjs check-samples [--list]
 //                                          - FAIL if a fenced C# block in our own docs does not COMPILE
 //   node devtools/dev.mjs new-package <Id> - scaffold an adapter package + register it in all nine registries
@@ -602,6 +602,17 @@ switch (cmd) {
     break;
   }
 
+  // check-archive — FAIL when an ARCHIVE entry outgrows the outcome it records. Same ratchet as
+  // check-decisions (they share `_entry-length.mjs`) over a different record, and paying one down means
+  // something different: a decision's reasoning IS its payload, while an archive entry's detail belongs to
+  // whichever record owns it — so what is being removed here is DUPLICATION. The rule is
+  // task-lifecycle.md; it was written from a measurement, answered with prose, and the file kept growing,
+  // which is this repository's own definition of a missing gate.
+  case 'check-archive': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-archive.mjs'), ...args]);
+    break;
+  }
+
   // check-decision-claims — FAIL when a DECISION stops describing the code it governs. Its sibling above
   // gates an entry's LENGTH; this gates its TRUTH. No other gate can: check-docs gates retired vocabulary,
   // check-links gates whether a reference resolves, check-counts gates counts written in prose - and a
@@ -691,7 +702,7 @@ switch (cmd) {
     // file and while the edit that caused it is still the last thing that happened.
     const steps = [['test-devtools', []], ['build', []], ['check-warnings', []], ['check-packages', []],
       ['check-bundle', []], ['check-encoding', []], ['check-docs', []], ['check-links', []],
-      ['check-counts', []], ['check-comments', []], ['check-decisions', []],
+      ['check-counts', []], ['check-comments', []], ['check-decisions', []], ['check-archive', []],
       ['check-decision-claims', []],
       ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
