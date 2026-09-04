@@ -2187,6 +2187,14 @@ extracted, never merged or superseded. The failure mode measured is precisely wh
 removes, so this isolates the halves rather than judging write-time consolidation, and says the value would
 have to be in the reconciling half. `IMemoryGraphStore.DeleteAsync` makes it reachable.
 
+**The RECONCILING half ran the same day and does not change the verdict.** A superseding fact now deletes
+what it replaces, and it fired — **asked 1,427 times, replaced 122** — so the arm is not a duplicate of
+`extract`. But `stale@k` moved the WRONG WAY (28.0% → 44.0%): removing 122 entries thinned the corpus and
+let stale facts surface, so **it deleted the wrong 122**. And `extract+reconcile+forget0` reads p = 0.508
+against cosine, the third arm in a row to land indistinguishable from a flat index once forgetting is
+silent. **At n = 25 only `lyntai` clears significance**, so the ordering among the extract arms is not a
+result — what the run supports is that neither half substitutes for decay.
+
 - Try adding LLM extraction, and find out whether it replaces decay.
 
 ## Part 147 — the acceptance test, on one knob and two workloads

@@ -108,8 +108,17 @@ role rather than for one vendor, with the old `LYNTAI_OLLAMA_EMBED_MODEL` still 
 Extracted facts with forgetting silent score 53.0% and are indistinguishable from plain cosine
 (**p = 0.572**); alongside decay they COST — 96.9% → 86.0%, `current@k` 90.0% → 75.7% — because 1,589 turns
 became 11,271 near-duplicate facts. All 142 flagged turns survived extraction, so it is dilution rather than
-data loss. **Reconciliation was not built, and the measured failure mode is exactly what it removes** — so
-the open question is the ADD/UPDATE/DELETE half, not extraction.
+data loss. **The RECONCILING half then ran too** (`--reconcile`, n = 25) and did not rescue it: it fired
+(asked 1,427, replaced 122) but `stale@k` moved the WRONG WAY, 28.0% → 44.0%, so it deleted the wrong 122 —
+and `extract+reconcile+forget0` reads **p = 0.508** against cosine, the third arm in a row to land
+indistinguishable from a flat index once forgetting is silent. **At n = 25 only `lyntai` clears
+significance**, so the ordering among extract arms is not a result; what holds is that neither half
+substitutes for decay.
+<br>**What would move this on, and it is the input-shaping thread above, not a bigger idea**: the extractor
+emits 7.1 facts/turn because nothing bounds it, and reconciliation is then patching a mess rather than
+preventing one. Budget the extractor FIRST. A powered re-run also needs the full 70 questions, and judging
+whether the 122 deletions were wrong needs ground truth on which pairs SHOULD supersede — which does not
+exist here.
 
 **THE ACCEPTANCE TEST PASSES, on one knob across both workloads** (`docs/task-archive.md` **Part 147**).
 `+sem` and `+sem+forget0` differ only in whether forgetting votes. **Decay OFF is a flat retriever** —

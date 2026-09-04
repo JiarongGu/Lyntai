@@ -1826,6 +1826,34 @@ half. `IMemoryGraphStore.DeleteAsync` makes that reachable.
 **Also not shown.** One extractor at 4B, one class, oracle variant. 7.1 facts per turn is a property of this
 model and this prompt as much as of the design; a stronger extractor compresses harder and would dilute less.
 
+**THE RECONCILING HALF RAN (`--reconcile`, n = 25, 2026-09-04) and does not change the verdict.** A new fact
+that supersedes a stored one now DELETES it through the store instead of leaving it to decay — the mechanism
+the field's write-time designs actually claim. It fired: **asked 1,427 times, replaced 122**, so the arm is
+not a duplicate of `extract`.
+
+| arm | prefers current | current@k | stale@k | paired vs cosine |
+|---|---|---|---|---|
+| `lyntai` | **95.8%** [79.8, 99.3] | 92.0% | 44.0% | +11 −0, **p<0.001** |
+| `extract` | 80.0% [58.4, 91.9] | 72.0% | 28.0% | +8 −2, p = 0.109 |
+| `extract+reconcile` | 75.0% [53.1, 88.8] | 72.0% | **44.0%** | +6 −1, p = 0.125 |
+| `extract+reconcile+forget0` | 60.9% [40.8, 77.8] | 84.0% | 80.0% | +6 −3, **p = 0.508** |
+| `vector` | 48.0% [30.0, 66.5] | 84.0% | 100.0% | — |
+
+**1. `stale@k` moved the WRONG WAY** — 28.0% → 44.0%. Reconciliation exists to delete superseded facts, so
+that column should fall. Removing 122 entries thinned the corpus generally and let stale facts surface more
+easily: **it deleted the wrong 122.** Whether that is the 4B model misjudging supersession or the cosine
+gate hiding the pairs that mattered is unmeasured — there is no ground truth here for which pairs SHOULD
+have been replaced, and building one is the next step if this direction is pursued.
+
+**2. Decay-off still does not reach the decay arm with BOTH halves present.**
+`extract+reconcile+forget0` reads p = 0.508 against cosine — the third arm in a row to land
+indistinguishable from a flat index once forgetting is silent.
+
+**3. What n = 25 cannot support, stated because the percentages invite it.** Only `lyntai` clears
+significance. `extract` (p = 0.109) and `extract+reconcile` (p = 0.125) are not distinguishable from cosine
+NOR from each other, so **"reconciliation is worse than extraction" is not a result** — the run supports
+only that neither substitutes for decay. A powered comparison needs the full 70 and a stronger model.
+
 ### ONE KNOB, TWO WORKLOADS: decay off is a flat retriever, decay on is what adds supersession (2026-09-03)
 
 The design's own acceptance test, and the arm that makes it possible is new: **`+sem` and `+sem+forget0`
