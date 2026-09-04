@@ -1966,6 +1966,26 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 154 — the fusion result replicates on a second embedder, and CORRECTS its own shipped doc
+
+✅ done 2026-09-04 — `+sem+rel-only,+judge,+judge+enginefuse,vector` re-run under `embeddinggemma:300m`,
+because every figure behind **D105** was one embedder and this repository's standing trap is that a
+recall-quality number is a property of the INSTRUMENT until shown otherwise. Prediction registered before
+the run: levels move, `+judge` sits below the base, `+enginefuse` lands on it. `docs/memory.md` §5.
+
+**The harm replicates and is slightly larger — the partition costs 12.0 points against 10.5** — which is
+D105's load-bearing half and is not an artefact of one embedder. **The CURE does not fully replicate**:
+fusion recovers 9.5 of the 12.0 and lands 2.5 short of the base, where on the first embedder it landed
+exactly on it. About five questions at n = 200, above this instrument's ~1-point near-tie floor.
+
+**So "removes a loss and adds nothing" was one embedder's phrasing of "removes MOST of the loss"**, and the
+correction went to all four live copies — the shipped XML docs on `VerdictCombination` and
+`MemoryVerdictCombination.Fuse`, D105, and the changelog entry. The archive keeps its original wording,
+being a record of what that run measured. **The advice a consumer reads did not survive contact with a
+second embedder, and that is the whole reason to run one.**
+
+- Check whether the fusion result is a property of the embedder.
+
 ## Part 153 — the gist tier is REFUTED AS SCOPED, and closed rather than built
 
 ✅ done 2026-09-04 — `TASKS.md` Part 105, closed at the owner's direction after a research pass rather than

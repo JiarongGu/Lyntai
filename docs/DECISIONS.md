@@ -348,6 +348,13 @@ Asked directly ("why can't we use a proper JSON converter?"). Reflection-based `
 single largest trim/AOT hazard a library can carry, and vendor wire formats drift field by field — a
 hand-walked reader degrades on an unknown field instead of throwing.
 
+**Scope, and it is GATED** (`check-decision-claims`, 2026-09-04): this governs a VENDOR's reply — the LLM,
+provider and generation paths — where the format drifts field by field. Two call sites use `JsonSerializer`
+legitimately and are outside it: `SqliteJson`/`PostgresJson` serialize this library's OWN persisted payloads,
+which come off no wire, and MCP hosting hands the MCP SDK its own `JsonTypeInfo` rather than reflecting.
+Stating the boundary is what stops an auditor reading those two as violations, which is exactly what happened
+the first time anyone checked.
+
 **Source-generated envelopes (`JsonSerializerContext`) remain a legitimate option, deliberately not taken.**
 They are AOT-safe, so the trim argument does not rule them out — what rules them out for now is that there
 is no failing envelope to shape them against. **A real failing envelope is a better starting point than a
@@ -3054,12 +3061,14 @@ combined (**D82**, **D103**).
 that asymmetry is the harm. Its cost scales with how MANY candidates a judge endorses: a set larger than the
 caller's limit replaces the page instead of refining it, since everything unendorsed is pushed off however
 well it was ranked. Measured on LoCoMo with a real 4B judge at the shipped depth, the partition cost **10.5
-points** of evidence-hit while fusing the same verdict from the same model landed exactly on its unjudged
-base (`docs/memory.md` §5).
+points** of evidence-hit on one embedder and **12.0** on a second, and it is that harm — not the size of the
+cure — that replicated (`docs/memory.md` §5).
 
-**Fuse removes a loss and adds nothing, so it is insurance rather than an improvement.** The rescue a verdict
-exists for survives it — an endorsed candidate below the limit still reaches the page — but an endorsement no
-longer entitles a candidate to lead.
+**Fuse removes MOST of that loss and never beats the base, so it is insurance rather than an improvement.**
+It recovered all of the loss on the first embedder and 9.5 of 12.0 on the second, landing 2.5 short — so
+"removes a loss and adds nothing" was one embedder's phrasing, corrected on 2026-09-04 when the replication
+ran, here and in the shipped XML doc. The rescue a verdict exists for survives either way: an endorsed
+candidate below the limit still reaches the page, but an endorsement no longer entitles a candidate to lead.
 
 **Why the default did NOT move**, which is the decision rather than the code. Changing it would be a silent
 reordering no consumer can detect at compile time (**D18**'s major-bump shape), bought on ONE model and ONE

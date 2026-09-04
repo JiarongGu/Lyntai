@@ -21,11 +21,12 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   candidates than the caller's limit REPLACES the page instead of refining it — everything unendorsed is
   pushed off however well it was ranked. That was the only signal in this engine combined by partition rather
   than by rank competition. Measured on LoCoMo with a real 4B judge at the shipped depth, the partition cost
-  **10.5 points** of evidence-hit while fusing the same verdict from the same model landed exactly on its
-  unjudged base.
-  <br>**It removes a loss and adds nothing** — insurance, not an improvement. The rescue a verdict exists for
-  survives: an endorsed candidate below the limit still reaches the page, it just no longer displaces a
-  better-ranked one. Reach for it when the judge is weak or `VerificationDepth` is deep.
+  **10.5 points** of evidence-hit on one embedder and **12.0** on a second — the harm replicates.
+  <br>**It removes MOST of that loss and never beats the base** — insurance, not an improvement. Fusing the
+  same verdict recovered all of the loss on the first embedder and 9.5 of 12.0 on the second, so how much it
+  recovers is embedder-dependent. The rescue a verdict exists for survives either way: an endorsed candidate
+  below the limit still reaches the page, it just no longer displaces a better-ranked one. Reach for it when
+  the judge is weak or `VerificationDepth` is deep.
   <br>**The default did not move** because that would be a silent reordering no consumer can detect at
   compile time, bought on one model and one workload. `docs/DECISIONS.md` **D105**.
 

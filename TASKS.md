@@ -1022,11 +1022,27 @@ history** — anything below that must outlive it is here._
   cheaper trigger than a periodic sweep._
   <br>_What is left is the item's own honest limit: claims with no extractable shape. A regex population is
   not the population._
+  <br>_**The PRE-MEMORY entries were opened for the first time on 2026-09-04, and both claims checked came
+  back TRUE in substance and got GATED rather than re-audited** — `check-decision-claims` is now eight
+  predicates. **D14** (wire JSON is hand-walked) holds: zero `JsonSerializer` uses in the LLM, provider and
+  generation paths. **D6** (every SQLite object carries `lyntai_`) holds, version table included.
+  <br>**Two process findings came out of gating them, and both are the audit's own subject turned on the
+  auditor.** The hand-check of D14 covered THREE of the six wire paths and called it clean; the predicate
+  immediately found a fourth. Then the predicate's first run flagged the two files whose comments say
+  "JsonDocument.Parse (not JsonSerializer) so the package stays trim/AOT-clean" — the sites most explicitly
+  HONOURING D14 — so it now strips comments, the mirror of the trap `check-links` records. **A predicate is
+  worth more than an audit precisely because the audit is what missed a path.**
+  <br>**Why these two were picked, so the rest can be prioritised the same way:** both are claims whose
+  violation would be a shipped DEFECT rather than stale prose — D14 is a trim promise no `check-warnings`
+  run can see (a source-generated context is AOT-safe and would still falsify it), and an unprefixed SQLite
+  object collides in a consumer's own database. Entries whose claims are merely descriptive can wait._
 
 _**The gate this Part argued for is BUILT** — `docs/task-archive.md` **Part 130**, 2026-08-31:
-`check-decision-claims` is wired into `verify` (now seventeen gates) with six predicates, each verified by
-hand before registering and each driven RED by a synthesized tree in its own test. What is left of this Part
-is the sweep above._
+`check-decision-claims` is wired into `verify`, and shipped with six predicates, each verified by hand
+before registering and each driven RED by a synthesized tree in its own test. **The count is deliberately
+not restated here** — it grows whenever the sweep gates another claim (two more on 2026-09-04), so a number
+in this sentence would go stale exactly when the Part is making progress. `verify`'s own summary line is
+derived and always right. What is left of this Part is the sweep above._
 
 ---
 

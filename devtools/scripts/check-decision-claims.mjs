@@ -23,6 +23,70 @@ const repo = path.resolve(path.dirname(here), '..', '..');
 
 const read = (r, ...p) => fs.readFileSync(path.join(r, ...p), 'utf8');
 
+/**
+ * Every `.cs` under the WIRE-JSON paths that names `JsonSerializer` (D14), repo-relative.
+ *
+ * Scoped to the paths D14 is actually about — a provider or generation backend parsing a VENDOR's reply.
+ * Storage deliberately does not count: `SqliteJson`/`PostgresJson` serialize this library's OWN persisted
+ * payloads, which neither drift field by field nor come off a wire. MCP hosting does not count either — it
+ * hands the MCP SDK's own `JsonTypeInfo` to `JsonSerializer`, so the reflection D14 rules out is not in
+ * play. Both were audited by hand on 2026-09-04 before this predicate was written; without the scope the
+ * claim reads as violated by two call sites that are fine.
+ *
+ * COMMENTS ARE STRIPPED, and this predicate's own first run is why: two files say *"JsonDocument.Parse (not
+ * JsonSerializer) so the package stays trim/AOT-clean"*, so a plain text match flagged the two call sites
+ * that most explicitly HONOUR D14. It is the mirror of the trap `check-links` records — an index built from
+ * prose lets prose speak for the code — and the fix is the same: read the code, not what it says about
+ * itself. A USE is `JsonSerializer.`; the bare word is prose.
+ */
+export function wireJsonSerializerUses(r) {
+  const roots = ['src/Lyntai.Core/Llm', 'src/Lyntai.Core/Generation', 'src/Lyntai.Generation',
+    'src/Lyntai.Providers.Default', 'src/Lyntai.Providers.ExtensionsAi', 'src/Lyntai.Providers.Local'];
+  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const hits = [];
+  const walk = (rel) => {
+    const abs = path.join(r, rel);
+    if (!fs.existsSync(abs)) return;
+    for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
+      // `bin`/`obj` hold copies of the sources' own XML docs, which would match the text and are not code.
+      if (e.isDirectory()) { if (e.name !== 'bin' && e.name !== 'obj') walk(`${rel}/${e.name}`); continue; }
+      if (e.name.endsWith('.cs') && /JsonSerializer\s*\./.test(strip(read(r, rel, e.name))))
+        hits.push(`${rel}/${e.name}`);
+    }
+  };
+  roots.forEach(walk);
+  return hits;
+}
+
+/**
+ * Every SQLite object a migration CREATEs whose name does not carry `lyntai_` (D6), worst case first.
+ *
+ * The test is CONTAINS, not starts-with, and that is D6's own wording: indexes follow `ix_`/`ux_` +
+ * `lyntai_`, so `ix_lyntai_job_claim` carries the prefix without leading with it. What D6 actually buys is
+ * that a consuming application can point `UseSqliteStorage` at its own database — so the property that
+ * matters is that no name Lyntai creates can collide with one the application chose.
+ */
+export function sqliteObjectsMissingPrefix(r) {
+  const dir = path.join(r, 'src', 'Lyntai.Storage.Sqlite');
+  if (!fs.existsSync(dir)) return ['<no SQLite package>'];
+  const names = [];
+  const walk = (abs) => {
+    for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
+      const full = path.join(abs, e.name);
+      if (e.isDirectory()) { if (e.name !== 'bin' && e.name !== 'obj') walk(full); continue; }
+      if (!e.name.endsWith('.cs')) continue;
+      const sql = fs.readFileSync(full, 'utf8');
+      for (const m of sql.matchAll(
+        /CREATE\s+(?:UNIQUE\s+|VIRTUAL\s+)?(?:TABLE|INDEX|TRIGGER)\s+(?:IF\s+NOT\s+EXISTS\s+)?["`[]?([A-Za-z_][A-Za-z0-9_]*)/gi))
+        names.push(m[1]);
+    }
+  };
+  walk(dir);
+  // A parse that finds NOTHING is a broken predicate, not a clean tree — the shape check-sensitive paid for.
+  if (names.length === 0) return ['<no CREATE statements found — broken predicate>'];
+  return [...new Set(names.filter((n) => !n.toLowerCase().includes('lyntai_')))];
+}
+
 /** The seven graph-memory policy domains: a sub-directory holding one seam (D46/D47). */
 export function policyDomainFolders(r) {
   const dir = path.join(r, 'src', 'Lyntai.Core', 'Memory');
@@ -64,6 +128,32 @@ export const DECISION_CLAIMS = [
     holds: (r) => defaultOf(r, 'src/Lyntai.Core/Memory/Forgetting/DsrRetrievability.cs', 'reinforceGain') === 0,
     detail: (r) => `ReinforceGain = ${defaultOf(r, 'src/Lyntai.Core/Memory/Forgetting/DsrRetrievability.cs', 'reinforceGain')}`,
     why: 'D54 is the measured default a whole study rests on; a silent change would invalidate it without moving a word of prose',
+  },
+  {
+    id: 'D6',
+    claim: 'every SQLite object a migration creates carries `lyntai_`, so it cannot collide with a consumer',
+    holds: (r) => sqliteObjectsMissingPrefix(r).length === 0,
+    detail: (r) => {
+      const bad = sqliteObjectsMissingPrefix(r);
+      return bad.length === 0 ? 'every created object carries `lyntai_`' : `unprefixed: ${bad.join(', ')}`;
+    },
+    why: 'D6 exists because `UseSqliteStorage` may target a database the APPLICATION also uses, so an '
+      + 'unprefixed name is a collision in someone else\'s schema rather than a style slip — and it would '
+      + 'be introduced by a new migration, which is exactly when nobody re-reads a 2026-07 decision',
+  },
+  {
+    id: 'D14',
+    claim: 'wire JSON is hand-walked: no reflection JsonSerializer on a provider or generation reply',
+    holds: (r) => wireJsonSerializerUses(r).length === 0,
+    detail: (r) => {
+      const hits = wireJsonSerializerUses(r);
+      return hits.length === 0 ? 'no JsonSerializer in the wire paths' : `JsonSerializer in ${hits.join(', ')}`;
+    },
+    why: 'D14 is a TRIM promise as much as a parsing one — reflection `System.Text.Json` is the largest '
+      + 'AOT hazard a library can carry, and `IsAotCompatible` stamps `IsTrimmable` into these assemblies. '
+      + 'A source-generated context would be AOT-safe and would still falsify the entry, which says such '
+      + 'envelopes are "deliberately not taken" — and it would raise NO warning, so `check-warnings` '
+      + 'cannot see it',
   },
   {
     id: 'D89',

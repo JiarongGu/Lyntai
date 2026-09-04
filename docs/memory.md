@@ -1798,6 +1798,33 @@ not one code path measured twice. Both declined 0 of 200, so neither was silentl
 72.5% would have meant the shipped option never reached that path**, which is the branch the ladder
 pre-registered.
 
+**REPLICATED ON A SECOND EMBEDDER, and it QUALIFIES the claim above** (`embeddinggemma:300m`, 2026-09-04,
+`--n 200`, 2286.1s; raw output gitignored:
+`devtools/_locomo-embed2.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->).
+Every figure here is one model and one workload, so the point of the run was the DIRECTION, and the
+prediction was registered before it: levels would move, `+judge` must sit below the base and `+enginefuse`
+must land on it.
+
+| arm | `nomic-embed-text` | `embeddinggemma:300m` |
+|---|---|---|
+| `+sem+rel-only` — the base | 83.0% | **85.0%** |
+| `+sem+rel-only+judge` — partition | 72.5% | 73.0% |
+| `+sem+rel-only+judge+enginefuse` | **83.0%** | 82.5% |
+| `vector` | 80.5% | 83.5% |
+
+**1. The partition's harm replicates, and is slightly larger: −12.0 against −10.5.** That is the load-bearing
+half of **D105** and it is not an artefact of one embedder.
+
+**2. Fusion's recovery is INCOMPLETE here, which the first run could not have shown.** It takes back 9.5 of
+the 12.0 points and lands **2.5 below** the base, where under `nomic-embed-text` it landed exactly on it.
+About five questions at n = 200 — above this instrument's ~1-point near-tie floor, so not noise, and small
+enough that it is a qualification rather than a reversal. **"Fuse removes the loss and adds nothing" was one
+embedder's phrasing of "Fuse removes MOST of the loss"**, and `GraphMemoryOptions.VerdictCombination`'s
+shipped XML doc was corrected with this run.
+
+**3. The controls hold on both arms**: 0 of 200 declined, 30.4 and 30.9 endorsements per call — again
+different sequences reaching the same reading — and identical evidence recall at 62.4%.
+
 ### A BUDGET in the judge's prompt: the number that helps is not the one the library was going to supply (`--arms …+judge+budget20,…+judge+budget5`, 2026-09-04)
 
 The shipped judge prompt says **"Be selective"** and names no count, which is the tell
