@@ -269,6 +269,22 @@ the tests) while being wrong. Skim before touching the relevant area.
   mediocre instead of wrong, the arm would have landed on its base and the honest reading would have been
   unavailable, permanently, from that run's data.
 
+- **A model given an UNBOUNDED task stops discriminating, and it reads as the model being too small.**
+  Measured twice in one session (2026-09-03/04), on two different seams, with the same 4B model:
+  · the verification judge endorsed **17% of a 20-item list, 19% of a 40-item one, and 36% of an 80-item
+    one**, its lift over chance falling from ~3.2× to 1.74× — so the SHIPPED depth of 4× the recall limit
+    is where it stopped judging and started waving things through, costing 10.5 points of evidence-hit;
+  · the fact extractor, asked for "the facts" in a turn with no budget, produced **7.1 facts per turn** and
+    inflated the corpus 7.1×, which cost 14 points of `current@k` through near-duplicate dilution.
+  <br>**Neither is a capability failure.** The judge RANKS well — 34.5% precision at its own top pick
+  against a 1.49% base rate — it simply cannot tell where to stop. **The tell is a prompt that asks for a
+  SELECTION and states no budget**: "be selective" is not a number, and a model will not invent one.
+  <br>**Before concluding a seam needs a bigger model, check what the seam HANDS it** — how many items, how
+  long, and whether the instruction bounds the answer. Here the library could not even supply the bound:
+  `MemoryVerificationRequest` carries the query and the candidates and NOT the caller's limit, so the policy
+  cannot say "at most 20" for a page of 20. **A knob that shapes the input is usually cheaper than a bigger
+  model, and it is testable on the model you already have.**
+
 - **An arm that is SUPPOSED to move needs a control proving it CAN — the mirror of the arm that cannot.**
   This repository already requires a structural null control before believing a delta. The other half went
   unwritten until 2026-09-03, and cost two runs. A bench arm replacing the engine's endorsed-first PARTITION

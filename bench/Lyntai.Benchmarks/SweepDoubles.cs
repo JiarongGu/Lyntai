@@ -23,9 +23,12 @@ namespace Lyntai.Benchmarks;
 /// </summary>
 internal static class SweepDoubles
 {
-    /// <summary>Environment variable naming the embedding model, so a machine with a different one pulled
-    /// does not need a code change.</summary>
-    internal const string ModelVariable = "LYNTAI_OLLAMA_EMBED_MODEL";
+    /// <summary>Environment variable naming the embedding model, so a machine serving a different one does
+    /// not need a code change. The legacy <c>LYNTAI_OLLAMA_EMBED_MODEL</c> still works.
+    /// <para><b>Named for the ROLE rather than for one server</b>, which the URL variable already was: these
+    /// sweeps talk OpenAI-compatible HTTP and this machine runs both Ollama and <c>llama-server</c>, so a
+    /// vendor in the name is a claim about the host that the code never makes.</para></summary>
+    internal const string ModelVariable = "LYNTAI_LIVE_EMBED_MODEL";
 
     /// <summary>Environment variable naming the endpoint. The legacy <c>LYNTAI_OLLAMA_URL</c> still works, so
     /// a machine already set up does not start failing because a name changed.</summary>
@@ -33,7 +36,9 @@ internal static class SweepDoubles
 
     /// <summary>The model this resolves to, for a preamble to print.</summary>
     internal static string Model =>
-        Environment.GetEnvironmentVariable(ModelVariable) ?? "nomic-embed-text";
+        Environment.GetEnvironmentVariable(ModelVariable)
+        ?? Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL")
+        ?? "nomic-embed-text";
 
     /// <summary>The endpoint this resolves to.</summary>
     internal static string BaseUrl =>

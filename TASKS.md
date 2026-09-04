@@ -73,6 +73,44 @@ commands. `--arms` saves ingestion on both (a LoCoMo ladder is 755s where it was
 touches the registry plus each bench's ladder — the two LoCoMo lists are asserted equal before a run starts,
 after that drift failed two runs ten minutes apart.
 
+**HANDOVER (2026-09-04). The model failures this session were INPUT-SHAPING failures, and that is the
+thread to pull next.** Every one of them has the same shape — the model is handed an unbounded task and
+stops discriminating — and none is explained by model size:
+
+| seam | input given | what the model did |
+|---|---|---|
+| judge, depth 20 | 20 candidates | endorsed 17%, ~3.2× lift over chance |
+| judge, depth 40 | 40 candidates | endorsed 19%, ~3.1× |
+| **judge, depth 80 (shipped)** | 80 candidates | **endorsed 36%, 1.74×** — and cost 10.5 points |
+| extractor | one turn, **no budget** | **7.1 facts/turn**, a 7.1× corpus inflation |
+
+The judge RANKS well — 34.5% precision at its own top pick against a 1.49% base rate — it just cannot tell
+where to stop. **Neither prompt states a budget, and for the judge the library cannot supply one**:
+`MemoryVerificationRequest` carries the query and the candidates but NOT the caller's limit, so a policy
+cannot say "pick at most 20" for a page that holds 20. That is an additive API gap and the cheapest
+experiment in the backlog.
+
+**Three things a fresh session can start on, cheapest first.** (1) Give the extractor a budget — "at most
+two facts" — and re-run `--extract`; the measured failure was inflation, so this is the direct test.
+(2) Give the judge a budget in its prompt, and consider carrying the recall limit on
+`MemoryVerificationRequest`. (3) A SMALLER chat model, which has to be SERVED before it can be measured —
+"does a smaller model with tighter input beat a bigger one with loose input" is ENVIRONMENT-blocked, not
+open.
+<br>**What the runs above actually talked to, because this machine runs BOTH and it is not inferable from
+the tables.** No `LYNTAI_*` variable was set, so the benches took their default — `http://localhost:11434`,
+which is Ollama — while three `llama-server` processes were up and unused. Every figure on record from
+2026-09-03/04 is therefore Ollama-served (`nomic-embed-text`, `gemma3:4b`). **To measure against
+llama.cpp instead, set `LYNTAI_LIVE_MODEL_URL`** to its port; the sweeps speak OpenAI-compatible HTTP and
+do not care which server answers. The embed-model variable is now `LYNTAI_LIVE_EMBED_MODEL`, named for the
+role rather than for one vendor, with the old `LYNTAI_OLLAMA_EMBED_MODEL` still honoured.
+
+**WRITE-TIME EXTRACTION IS NOT A SUBSTITUTE FOR DECAY** (2026-09-04, `docs/task-archive.md` **Part 148**).
+Extracted facts with forgetting silent score 53.0% and are indistinguishable from plain cosine
+(**p = 0.572**); alongside decay they COST — 96.9% → 86.0%, `current@k` 90.0% → 75.7% — because 1,589 turns
+became 11,271 near-duplicate facts. All 142 flagged turns survived extraction, so it is dilution rather than
+data loss. **Reconciliation was not built, and the measured failure mode is exactly what it removes** — so
+the open question is the ADD/UPDATE/DELETE half, not extraction.
+
 **THE ACCEPTANCE TEST PASSES, on one knob across both workloads** (`docs/task-archive.md` **Part 147**).
 `+sem` and `+sem+forget0` differ only in whether forgetting votes. **Decay OFF is a flat retriever** —
 indistinguishable from plain cosine on supersession (49.3% vs 46.4%, McNemar **p = 0.791**) and 83.0% vs

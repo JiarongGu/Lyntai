@@ -1785,6 +1785,47 @@ the 53% and the 0% are small counts and only their contrast is safe to lean on. 
 through a bench-local verifier that emits the fused page AS its verdict — sound for a metric that reads the
 returned SET, and not a substitute for implementing it, since the engine still orders the page its own way.
 
+### WRITE-time extraction cannot stand in for READ-time decay, and the half that hurts is the half without reconciliation (`memory-longmemeval --extract`, 2026-09-04)
+
+The other design in this field consolidates at WRITE time — a model extracts facts as turns arrive — where
+this engine stores raw turns and resolves at READ time with decay. This runs both over the same questions.
+**It is measurable at all because the extractor carries each fact's source marker**, so a synthesized fact
+keeps the provenance the model-free metric matches on; a real third-party system returns facts that cannot
+be scored this way, which is why the comparison is internal.
+
+**Instrument.** `memory-longmemeval --extract`, 70 knowledge-update questions, ORACLE variant (extraction is
+1,589 model calls here against ~34,000 on the haystack). Extractor `gemma3:4b`, write-side only — nothing
+reads. Raw output, gitignored: `devtools/_lme-extract.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+**Both controls reproduce their published oracle figures** (`lyntai` 96.9%, `vector` 47.1%).
+
+| arm | prefers current | current@k | stale@k | paired vs cosine |
+|---|---|---|---|---|
+| `lyntai` — raw turns + decay | **96.9%** [89.5, 99.2] | **90.0%** | 54.3% | +32 −1, **p<0.0001** |
+| `extract` — facts + decay | 86.0% [74.7, 92.7] | 75.7% | 40.0% | +24 −3, p<0.0001 |
+| `extract+forget0` — facts, decay OFF | 53.0% [41.2, 64.6] | 85.7% | 87.1% | +16 −12, **p = 0.572** |
+| `vector` | 47.1% [35.7, 58.8] | 84.3% | 95.7% | — |
+
+**1. Extraction does NOT substitute for decay.** With forgetting silent, extracted facts score 53.0% and are
+**statistically indistinguishable from plain cosine** (p = 0.572) — the same verdict `+sem+forget0` earned on
+raw turns. Removing decay lands at flat-retriever behaviour whatever the store holds.
+
+**2. Extraction HURT alongside decay**: 96.9% → 86.0%, and `current@k` fell 90.0% → 75.7%. On 13 of 70
+questions it returned neither fact (`decidable` 57 against 65).
+
+**3. The mechanism is DILUTION, not data loss, and the control is what proves it.** Every one of the 142
+flagged turns kept a fact (**142/142**), so nothing was deleted — but 1,589 turns became **11,271 facts**, a
+7.1× inflation of near-duplicate one-liners, so the evidence competes against far more lookalikes. Without
+that column the drop would have been read as a ranking failure.
+
+**4. What this does NOT show, and it is the load-bearing caveat: reconciliation was not built.** Facts are
+extracted, never merged or superseded, so a fact and its replacement both land. **The failure mode measured
+here — near-duplicate inflation — is exactly what an ADD/UPDATE/DELETE pass removes.** So this is not a
+verdict on write-time consolidation; it isolates its halves and says the value, if any, is in the RECONCILING
+half. `IMemoryGraphStore.DeleteAsync` makes that reachable.
+
+**Also not shown.** One extractor at 4B, one class, oracle variant. 7.1 facts per turn is a property of this
+model and this prompt as much as of the design; a stronger extractor compresses harder and would dilute less.
+
 ### ONE KNOB, TWO WORKLOADS: decay off is a flat retriever, decay on is what adds supersession (2026-09-03)
 
 The design's own acceptance test, and the arm that makes it possible is new: **`+sem` and `+sem+forget0`

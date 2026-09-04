@@ -2165,6 +2165,30 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 148 — write-time extraction against read-time decay: extraction is not a substitute
+
+✅ done 2026-09-04 — **Extraction cannot stand in for decay, and without reconciliation it costs.** With
+forgetting silent, extracted facts score 53.0% and are **statistically indistinguishable from plain cosine**
+(McNemar p = 0.572) — the same verdict `+sem+forget0` earned on raw turns, so removing decay lands at
+flat-retriever behaviour whatever the store holds. Alongside decay it *hurt*: 96.9% → 86.0%, `current@k`
+90.0% → 75.7%. `docs/memory.md` §5 has the table; both controls reproduced their published oracle figures.
+
+**The mechanism is dilution, not data loss, and the control is what settled it.** All 142 flagged turns kept
+a fact (142/142), so nothing was deleted — but 1,589 turns became **11,271 facts**, a 7.1× inflation of
+near-duplicate one-liners. Without that column the loss reads as a ranking failure and the wrong thing gets
+fixed.
+
+**It is measurable at all because the extractor carries each fact's source marker**, so a synthesized fact
+keeps the provenance the model-free metric matches on. A third-party system's facts cannot be scored this
+way, which is why this comparison is internal rather than a head-to-head.
+
+**The load-bearing caveat, and it points at the next build:** reconciliation was NOT implemented — facts are
+extracted, never merged or superseded. The failure mode measured is precisely what an ADD/UPDATE/DELETE pass
+removes, so this isolates the halves rather than judging write-time consolidation, and says the value would
+have to be in the reconciling half. `IMemoryGraphStore.DeleteAsync` makes it reachable.
+
+- Try adding LLM extraction, and find out whether it replaces decay.
+
 ## Part 147 — the acceptance test, on one knob and two workloads
 
 ✅ done 2026-09-03 — **Decay off is a flat retriever; decay on is the entire supersession win.**

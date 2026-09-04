@@ -109,10 +109,294 @@ internal static class MemoryLongMemEvalBench
         return [.. arms.Where(a => requested.Contains(a, StringComparer.Ordinal))];
     }
 
+    /// <summary>Turns a conversation turn into the durable facts it states, Mem0-style — the WRITE-time
+    /// half this engine does not do, since it stores raw turns and resolves at read time with decay.
+    ///
+    /// <para><b>The source marker rides onto every extracted fact</b>, which is what makes this measurable
+    /// at all: the model-free metric matches on <c>(sNtM)</c>, so a synthesized fact that kept its
+    /// provenance is scorable where a real Mem0 result is not.</para>
+    ///
+    /// <para><b>Cached by turn text</b>, so arms that differ only in engine configuration share one
+    /// extraction pass rather than paying for the model again.</para></summary>
+    /// <param name="chat">The extracting model.</param>
+    private sealed class FactExtractor(SweepDoubles.OpenAiCompatibleChat chat)
+    {
+        private const string Instruction = """
+            You extract durable facts from one message in a conversation.
+
+            Reply with one fact per line. Each line must stand alone and still make sense months later.
+
+            Rules:
+            - State only what the message actually says. Never infer or add.
+            - Keep names, numbers and dates exactly as written.
+            - Skip greetings, filler, questions and opinions about the conversation itself.
+            - If the message states no durable fact, reply with exactly: NONE
+            - No numbering, no bullets, no commentary.
+            """;
+
+        private readonly Dictionary<string, IReadOnlyList<string>> _cache = new(StringComparer.Ordinal);
+
+        /// <summary>Turns whose extraction returned nothing — the information write-time extraction DROPS,
+        /// which no retrieval can recover and which a score alone would blame on the ranker.</summary>
+        internal int Empty { get; private set; }
+
+        internal int Calls { get; private set; }
+
+        internal int Facts { get; private set; }
+
+        internal async Task<IReadOnlyList<string>> ExtractAsync(string turn)
+        {
+            if (_cache.TryGetValue(turn, out var hit)) return hit;
+
+            Calls++;
+            var reply = await chat.AskAsync($"{Instruction}\n\nMessage:\n{turn}", maxTokens: 200)
+                .ConfigureAwait(false);
+
+            var facts = reply is null
+                ? []
+                : reply.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(l => !l.Equals("NONE", StringComparison.OrdinalIgnoreCase))
+                    .Where(l => l.Length > 2)
+                    .ToList();
+
+            if (facts.Count == 0) Empty++;
+            Facts += facts.Count;
+            _cache[turn] = facts;
+            return facts;
+        }
+    }
+
+    /// <summary>The RECONCILING half of write-time consolidation: a new fact that supersedes a stored one
+    /// REPLACES it, rather than landing beside it.
+    ///
+    /// <para><b>Why it is the half worth measuring.</b> Extraction alone inflated the corpus 7.1× with
+    /// near-duplicates and cost 14 points of <c>current@k</c> (`docs/memory.md` §5). That is the failure
+    /// mode this removes — and it is also the mechanism the field's write-time designs actually claim, since
+    /// extracting a fact resolves nothing on its own.</para>
+    ///
+    /// <para><b>It asks the model one question per candidate pair, not per fact</b>: only facts the store
+    /// already holds something similar to can supersede anything, so similarity gates the model call and the
+    /// cost stays near extraction's. A superseded entry is DELETED through the store rather than left to
+    /// decay, which is the point — write-time consolidation is a claim that read-time burial is
+    /// unnecessary.</para></summary>
+    /// <param name="chat">The deciding model.</param>
+    /// <param name="engine">The engine whose store is being consolidated.</param>
+    /// <param name="store">The store, for the delete a supersession performs.</param>
+    /// <param name="embedder">Gates the model call — see <see cref="Similar"/>.</param>
+    private sealed class Reconciler(
+        SweepDoubles.OpenAiCompatibleChat chat, GraphMemoryEngine engine, SqliteMemoryGraphStore store,
+        SweepDoubles.CachingEmbedder embedder)
+    {
+        /// <summary>How alike a stored fact must be before the model is asked whether it was superseded.
+        /// <para>Cost control with a rationale rather than a cap: a supersession is a CHANGED VALUE for the
+        /// same thing, so the pair is near-duplicate by construction and a distant pair cannot be one. It
+        /// also bounds the run — asking about every candidate would be one model call per stored fact per
+        /// write, which is hours at this corpus size.</para></summary>
+        private const double Similar = 0.80;
+
+        private const string Instruction = """
+            You decide whether a NEW fact makes an OLD one obsolete.
+
+            Reply with exactly one word:
+            REPLACES  - the new fact states a changed value for the same thing, so the old one is now wrong.
+            KEEP      - both can be true at once, or they are about different things.
+
+            Be strict. Two facts about different subjects are always KEEP. A fact that merely repeats the
+            old one is KEEP. Only a genuine CHANGE to the same attribute is REPLACES.
+            """;
+
+        internal int Asked { get; private set; }
+
+        internal int Replaced { get; private set; }
+
+        internal int Considered { get; private set; }
+
+        /// <summary>Write one fact, superseding whatever it makes obsolete.</summary>
+        internal async Task WriteAsync(string fact)
+        {
+            var candidate = (await engine.RecallAsync(new MemoryQuery(Task, Scope, fact, Limit: 1))
+                .ConfigureAwait(false)).Items.FirstOrDefault();
+
+            // The marker is stripped before comparing: every fact carries one, and leaving it in makes two
+            // facts from the SAME turn look alike for a reason that has nothing to do with their content.
+            if (candidate is not null)
+            {
+                Considered++;
+                var old = candidate.Content ?? candidate.Headline;
+                if (!string.Equals(old, fact, StringComparison.Ordinal)
+                    && await CosineOf(Strip(old), Strip(fact)).ConfigureAwait(false) >= Similar)
+                {
+                    Asked++;
+                    var verdict = await chat.AskAsync(
+                        $"{Instruction}\n\nOLD: {Strip(old)}\n\nNEW: {Strip(fact)}", maxTokens: 4)
+                        .ConfigureAwait(false);
+
+                    if (verdict?.Contains("REPLACES", StringComparison.OrdinalIgnoreCase) == true
+                        && long.TryParse(candidate.Reference.Id, out var id))
+                    {
+                        await store.DeleteAsync(engine.Name, [id]).ConfigureAwait(false);
+                        Replaced++;
+                    }
+                }
+            }
+
+            await engine.RememberAsync(new MemoryWrite(Task, Scope, fact)).ConfigureAwait(false);
+        }
+
+        private async Task<double> CosineOf(string a, string b) =>
+            Cosine(await embedder.EmbedAsync(a).ConfigureAwait(false),
+                await embedder.EmbedAsync(b).ConfigureAwait(false));
+
+        /// <summary>Drops a leading <c>(sNtM)</c> marker so similarity is about the FACT.</summary>
+        private static string Strip(string text)
+        {
+            var close = text.IndexOf(')');
+            return close > 0 && text.StartsWith('(') ? text[(close + 1)..].Trim() : text;
+        }
+    }
+
     /// <summary>The deep page a recovery probe asks for, well past any caller's limit. It is not a second
     /// opinion on ranking — it is how "the ranking put it below the cut" is told from "the entry is gone",
     /// which is the only distinction <c>docs/DECISIONS.md</c> D41 makes.</summary>
     private const int DeepLimit = 100;
+
+    /// <summary>Write-time extraction against read-time decay — the two ways to resolve a superseded fact.
+    ///
+    /// <para><b>The question it answers</b> is whether consolidating at WRITE time can stand in for decay:
+    /// <c>extract+forget0</c> stores extracted facts with forgetting silent, so if it reaches the decay
+    /// arm then extraction replaces the mechanism rather than complementing it. <c>extract</c> keeps both,
+    /// which says whether they compose.</para>
+    ///
+    /// <para><b>Extraction is only half of Mem0's mechanism</b> and this is deliberately the cheaper half:
+    /// facts are extracted, never RECONCILED, so a superseded fact and its replacement both land as
+    /// entries. The store's <c>DeleteAsync</c> makes the ADD/UPDATE/DELETE half reachable next, and this run
+    /// decides whether it is worth building.</para></summary>
+    private static async Task<int> RunExtractionAsync(IReadOnlyList<Question> sampled,
+        SweepDoubles.CachingEmbedder embedder, SweepDoubles.OpenAiCompatibleChat chat, string[] args)
+    {
+        var extractor = new FactExtractor(chat);
+        FieldArm[] engines = [FieldArms.Shipped(), FieldArms.Named("+forget0")];
+        var reconcile = args.Contains("--reconcile");
+        string[] arms = reconcile
+            ? ["lyntai", "extract", "extract+reconcile", "extract+reconcile+forget0", VectorArm]
+            : ["lyntai", "extract", "extract+forget0", VectorArm];
+        int asked = 0, replaced = 0;
+
+        var currentHit = new Dictionary<string, int>(StringComparer.Ordinal);
+        var staleHit = new Dictionary<string, int>(StringComparer.Ordinal);
+        var prefers = new Dictionary<string, int>(StringComparer.Ordinal);
+        var decidable = new Dictionary<string, int>(StringComparer.Ordinal);
+        var perQuestion = new Dictionary<string, Dictionary<int, bool>>(StringComparer.Ordinal);
+        int survived = 0, evidenceTurns = 0;
+
+        var done = 0;
+        foreach (var q in sampled)
+        {
+            Progress(++done, sampled.Count);
+
+            // Extract ONCE per question and reuse across arms — the model is the cost here, and two arms
+            // differing only in a ranking weight must see byte-identical stores or the comparison is not
+            // about the weight.
+            var extracted = new List<string>();
+            foreach (var t in q.Turns)
+                foreach (var fact in await extractor.ExtractAsync(t.Text).ConfigureAwait(false))
+                    extracted.Add($"{t.Tag} {fact}");
+
+            // THE CONTROL EXTRACTION NEEDS: did the evidence survive being rewritten? A fact dropped here
+            // is unreachable by any ranking, so without this column a retrieval score would blame the
+            // ranker for what the extractor deleted.
+            foreach (var t in q.Current.Concat(q.Stale))
+            {
+                evidenceTurns++;
+                if (extracted.Any(e => e.StartsWith(t.Tag, StringComparison.Ordinal))) survived++;
+            }
+
+            var results = new List<(string Arm, List<string> Got)>();
+            foreach (var arm in arms.Where(a => a != VectorArm))
+            {
+                var config = arm.EndsWith("forget0", StringComparison.Ordinal) ? engines[1] : engines[0];
+                var texts = arm == "lyntai" ? [.. q.Turns.Select(t => $"{t.Tag} {t.Text}")] : extracted;
+
+                using var db = new MemoryPolicySweep.SweepDb();
+                var engine = EngineFor(config, db, embedder);
+
+                if (arm.Contains("reconcile", StringComparison.Ordinal))
+                {
+                    // The RECONCILING pass writes through the consolidator, so a superseded fact is deleted
+                    // as the replacement arrives rather than left for decay to bury.
+                    var consolidator = new Reconciler(
+                        chat, engine, new SqliteMemoryGraphStore(db.Factory), embedder);
+                    foreach (var text in texts) await consolidator.WriteAsync(text);
+                    asked += consolidator.Asked;
+                    replaced += consolidator.Replaced;
+                }
+                else
+                {
+                    foreach (var text in texts)
+                        await engine.RememberAsync(new MemoryWrite(Task, Scope, text));
+                }
+
+                results.Add((arm,
+                    (await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: RecallLimit)))
+                        .Items.Select(i => i.Content ?? i.Headline).ToList()));
+            }
+
+            var index = new List<(string Text, float[] Vector)>();
+            foreach (var t in q.Turns)
+            {
+                var content = $"{t.Tag} {t.Text}";
+                index.Add((content, await embedder.EmbedAsync(content)));
+            }
+            results.Add((VectorArm, (await TopKAsync(embedder, index, q.Text, RecallLimit)).ToList()));
+
+            foreach (var (arm, got) in results)
+            {
+                var cur = FirstIndexOf(got, q.Current);
+                var sta = FirstIndexOf(got, q.Stale);
+                if (cur >= 0) currentHit[arm] = currentHit.GetValueOrDefault(arm) + 1;
+                if (sta >= 0) staleHit[arm] = staleHit.GetValueOrDefault(arm) + 1;
+                if (cur < 0 && sta < 0) continue;
+
+                decidable[arm] = decidable.GetValueOrDefault(arm) + 1;
+                var preferred = cur >= 0 && (sta < 0 || cur < sta);
+                if (preferred) prefers[arm] = prefers.GetValueOrDefault(arm) + 1;
+                if (!perQuestion.TryGetValue(arm, out var byQuestion)) perQuestion[arm] = byQuestion = [];
+                byQuestion[done] = preferred;
+            }
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"Extraction: {extractor.Calls} turn(s) read, {extractor.Facts} fact(s) written, "
+            + $"{extractor.Empty} turn(s) yielded NOTHING");
+        Console.WriteLine($"  EVIDENCE SURVIVAL: {survived}/{evidenceTurns} "
+            + $"({(evidenceTurns == 0 ? 0 : (double)survived / evidenceTurns):P1}) flagged turns still have a "
+            + "fact after extraction.");
+        Console.WriteLine("  Anything below 100% is information the EXTRACTOR dropped, which no ranking can");
+        Console.WriteLine("  recover - so read the arms below against this number, not against each other alone.");
+        if (reconcile)
+        {
+            Console.WriteLine($"  RECONCILIATION: asked {asked} time(s), replaced {replaced}. Zero replacements");
+            Console.WriteLine("  means the arm IS `extract` whatever it scores - the control that arm needs.");
+        }
+
+        Console.WriteLine();
+
+        Console.WriteLine($"{"Arm",-18} {"prefers current",18} {"current@k",12} {"stale@k",12} {"decidable",11}");
+        Console.WriteLine(new string('-', 74));
+        foreach (var arm in arms)
+        {
+            var d = decidable.GetValueOrDefault(arm);
+            var p = prefers.GetValueOrDefault(arm);
+            var (low, high) = BenchStats.Wilson(p, d);
+            Console.WriteLine($"{arm,-18} {(d == 0 ? "-" : $"{(double)p / d:P1} ({p}/{d})"),18} "
+                + $"{$"{(double)currentHit.GetValueOrDefault(arm) / sampled.Count:P1}",12} "
+                + $"{$"{(double)staleHit.GetValueOrDefault(arm) / sampled.Count:P1}",12} {d,11}"
+                + (d == 0 ? "" : $"   95% CI [{low:P1}, {high:P1}]"));
+        }
+
+        PrintPairedComparison(arms, perQuestion);
+        return 0;
+    }
 
     /// <summary>Does suppression DELETE? The measurement <c>docs/DECISIONS.md</c> D41 has never had.
     ///
@@ -367,6 +651,29 @@ internal static class MemoryLongMemEvalBench
             return args.Contains("--shots")
                 ? await RunTemporalShotsAsync(sampled, embedder, expandFloor, args)
                 : await RunTemporalAsync(sampled, embedder, args);
+        }
+
+        if (args.Contains("--extract"))
+        {
+            var writer = await SweepDoubles.TryRealChatAsync(http, "memory-longmemeval extract");
+            if (writer is null) return 1;
+
+            Console.WriteLine("=== WRITE-time extraction against READ-time decay ===");
+            Console.WriteLine();
+            Console.WriteLine("This engine stores raw turns and resolves a superseded fact at READ time, with");
+            Console.WriteLine("decay. The other design in the field consolidates at WRITE time: a model extracts");
+            Console.WriteLine("facts as they arrive. This runs both over the same questions, and the arm that");
+            Console.WriteLine("decides it is `extract+forget0` - extraction with forgetting SILENT. If that");
+            Console.WriteLine("reaches the decay arm, extraction REPLACES the mechanism rather than adding to it.");
+            Console.WriteLine();
+            Console.WriteLine("Only half of the write-time design: facts are extracted, never RECONCILED, so a");
+            Console.WriteLine("superseded fact and its replacement both land. The reconciling half is reachable");
+            Console.WriteLine("(the store has DeleteAsync) and this run decides whether it is worth building.");
+            Console.WriteLine();
+            Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
+            Console.WriteLine($"Extractor: {writer.Model}   (a WRITE-side model, not the reader - nothing here reads)");
+            Console.WriteLine();
+            return await RunExtractionAsync(sampled, embedder, writer, args);
         }
 
         if (args.Contains("--recover"))
