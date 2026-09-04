@@ -42,6 +42,7 @@ true about that day, not about the library._
 
 | Date | Topic | Shipped in | Spec | Plan | Conclusions live in |
 |---|---|---|---|---|---|
+| 2026-08-27 | The gist tier — design, then the support RULE, then a field-research pass. **Nothing shipped: refuted as scoped** | not shipped | 3 records | — | **D94** · **D106** · `docs/memory.md` §5 (three sweeps + the field survey) · archive Parts 104, 108, 153 |
 | 2026-08-26 | The "superhuman memory" proposal — assessment, then Phase 1 and Phase 2 | unreleased | ✓ | ✓ | **D90** · design §5.7.0 · `docs/memory.md` §7 · `docs/FIXES.md` (two entries) · `pitfalls.md` (§Second doors, §Environment, CLI) · `windows-machine.md` · archive Parts 97, 98, 100 · `TASKS.md` Part 99 |
 | 2026-08-26 | Graph-engine COST at 1k / 10k / 100k (`memory-scale`, the §7 blind spot) — plus a `--repeat 5` run that settled the read-vs-write-back split the single-cell run could not | unreleased | — | 2 records | `docs/memory.md` §7 · archive Part 97 |
 | 2026-08-09 | Ranking × forgetting policy measurement (the D49 falsification pass) | 3.0.0 | — | record | **D49** · `docs/memory.md` §5 · archive Parts 54–55 (Part 56 is still OPEN) |

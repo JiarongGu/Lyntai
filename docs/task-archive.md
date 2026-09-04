@@ -1966,6 +1966,25 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 153 — the gist tier is REFUTED AS SCOPED, and closed rather than built
+
+✅ done 2026-09-04 — `TASKS.md` Part 105, closed at the owner's direction after a research pass rather than
+by building it. **A read-time tier cannot assert what its name promises**: three sweeps refuted every
+combining form over member retrievability, and the field puts the abstraction at ENCODING — Zep/Graphiti
+invalidate a superseded edge bi-temporally, Mem0 has a model decide ADD/UPDATE/DELETE/NOOP as the fact
+arrives, both using information only the writer has. The read-time rules inverted because what distinguishes
+the regimes was never recorded. Reasoning, the rejected alternatives and what would unblock it: **D106**.
+
+**The name was borrowed and meant the opposite of the design** — fuzzy-trace theory encodes verbatim and
+gist in PARALLEL and calls "gist is extracted from verbatim" a misconception, while its opponent-processes
+principle warns that gist supports false memory where verbatim suppresses it. An abstraction outliving its
+members is confabulation by construction, which is what **D41** already guards.
+
+**The three untracked design records now have INDEX rows**, because their conclusions were live on one disk
+and in no history — the column that file exists for.
+
+- Build the gist tier.
+
 ## Part 152 — the SHIPPED fusion reproduces the bench-local proof, cell for cell
 
 ✅ done 2026-09-04 — the loop Part 151 left open. Its 83.0% came from a bench-local verifier emitting a

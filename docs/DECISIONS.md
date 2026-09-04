@@ -175,8 +175,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D103](#d103--seed-retrieval-is-a-plural-producer-seam-and-rrf-fuses-the-ranked-lists-it-was-named-for-2026-08-31) | 2026-08-31 | seed retrieval is a plural PRODUCER seam, and RRF fuses the ranked lists it was named for |
 | [D104](#d104--how-much-of-an-entry-a-recall-returns-is-the-callers-choice-per-call-2026-09-02) | 2026-09-02 | how much of an entry a recall returns is the CALLER's choice, per call |
 | [D105](#d105--a-verdict-may-compete-instead-of-partitioning-and-the-partition-stays-the-default-2026-09-04) | 2026-09-04 | a verdict may COMPETE instead of partitioning, and the partition stays the default |
+| [D106](#d106--the-gist-tier-is-refuted-as-scoped-abstraction-belongs-at-encoding-not-at-retrieval-2026-09-04) | 2026-09-04 | the gist tier is REFUTED AS SCOPED: abstraction belongs at encoding, not at retrieval |
 
-_All 105 entries are live decisions._
+_All 106 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2665,7 +2666,7 @@ ceiling, making `mean(B) ≥ mean(A)` a theorem about the fixture rather than a 
 `CorpusShape.RoutineSettleWrites` aged it off.
 
 **So no combining form is adopted and no default is set** — a measured negative, not an open question. The
-tier has no seam to build and no constant to adopt; what that leaves it able to report is `TASKS.md` Part 105.
+tier has no seam to build and no constant to adopt; what that leaves it able to report was `docs/task-archive.md` Part 153 — which closed it unbuilt (**D106**).
 
 ## D95 — the repository is LF, declared in a tracked `.gitattributes` (2026-08-28)
 
@@ -3077,3 +3078,41 @@ absence as zero makes the worst endorsement outscore the best non-endorsement at
 reproducing the partition. The bench made exactly that error first, and
 `MemoryVerdictFusionTests.Fused_a_poorly_ranked_endorsement_does_not_displace_the_leader` is the control that
 fails if it recurs.
+
+## D106 — the gist tier is REFUTED AS SCOPED: abstraction belongs at encoding, not at retrieval (2026-09-04)
+
+**No gist tier ships, and the backlog item is closed rather than built** (`docs/task-archive.md` Part 153). A read-time tier that
+generalises over recurring entries cannot assert what its name promises, and three measurement campaigns
+plus a literature pass agree on why.
+
+**The measurement refuted every combining form.** `sum` and every discriminating `count@theta` invert with
+write pacing, `count@0.8`/`count@0.9` with cardinality, and `mean` with how long ago the newer regime was
+written. The only rule invariant on both axes is the raw count, which the corpus declares wrong for the
+assistant host (`docs/memory.md` §5).
+
+**The literature says where the information went.** Every working system in the field records supersession at
+WRITE time: Zep/Graphiti invalidate a superseded edge through bi-temporal `valid_at`/`invalid_at` windows
+rather than deleting it, and Mem0 has a model decide ADD/UPDATE/DELETE/NOOP as the fact arrives. Both use
+information only the writer has. **So the read-time rules inverted because what distinguishes the regimes
+was never recorded** — which design §5.7.0 invariant 4 already stated in this repository's own words, calling
+itself *vacuous for the base engine* because a `MemoryWrite` carries no valid-time.
+
+**And the borrowed name means the opposite of the design.** Fuzzy-trace theory encodes verbatim and gist in
+PARALLEL and names *"gist is extracted from verbatim memory"* a popular misconception; a tier deriving a
+generalisation from stored entries at read time is that misconception as architecture. Its opponent-processes
+principle is the sharper warning: **gist supports false memory while verbatim suppresses it**, and gist is
+the more durable trace — so an abstraction that outlives its members, which a naive implementation gives for
+free, is confabulation by construction. **D41** keeping members reachable is the countermeasure.
+
+**What would unblock it, stated so nobody re-derives it: valid-time on the write.** That is a new axis on
+`MemoryWrite` and on all three store backends, not a tier — a much larger change than Part 105, and the one
+every working system in the field actually made.
+
+**Alternatives rejected.** A SUPPORT surface that groups, counts, cites and flags the conflict without
+asserting: it is the mitigation the survey names as theoretical-but-unadopted, and it is buildable — but
+grouping is itself a rule and this subsystem has just measured its sibling rules inverting on axes nobody
+controls, and no deployment has asked. Shipping it would speculate on both counts, which `repo-mechanics.md`
+§"A conditional item is not a task" refuses. Building bi-temporal write support now: same objection, at ten
+times the cost.
+
+**This re-opens when a consumer asks**, and the ask will name which reading it wants.

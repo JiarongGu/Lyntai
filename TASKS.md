@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SIX items, across Parts 105, 109, 116, 128 and 129.** Each is a
+**The startable set is FIVE items, across Parts 109, 116, 128 and 129.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -248,6 +248,10 @@ done. **Run `verify`, not a filtered suite.**
    the gap** — from "always B" to "always A", through a cardinality-dependent band, under both curves. Every
    combining form is now refuted on some axis a deployment does not control, which leaves the item's THIRD
    candidate: a tier that reports N and declines to select.
+   <br>**And that candidate did not survive either — the whole tier is CLOSED as of 2026-09-04**
+   (`docs/task-archive.md` **Part 153**, **D106**). A field pass found the abstraction belongs at ENCODING:
+   every working system records supersession when the fact arrives, so the read-time rules inverted because
+   what distinguishes the regimes was never recorded. What would unblock it is valid-time on the write.
 3. ~~**Does `ExpansionRetrievabilityFloor` move off `0`?**~~ **ANSWERED 2026-08-30 by the owner: it stays at
    `0`.** Recorded here rather than deleted because the question's own framing was stale when it was asked —
    it said "it needs more than one workload before anything moves" and quoted a cost of 4 points, both of
@@ -283,7 +287,8 @@ also found two OUTPUT-stage defects, both FIXED that day as **Part 125** — a
 capability ComfyUI declared and never implemented, and a false XML doc that shipped.
 <br>**Part 65 was in this list for an hour and is not any more**, which is the second half of the same test:
 its remaining half turned out to be a DECISION (`MaxSalience`'s default), and a decision nobody has taken is
-not work somebody can start — the same reason Part 105 sits under Blocked. Everything measurable in it has
+not work somebody can start — the same reason Part 105 sat under Blocked before it closed outright.
+Everything measurable in it has
 been measured. The rest of this file needs something this repository does not have (a key, a model download,
 a CLI install, a vendor pick, or a deployment's own data). **Part 99 is a WATCH item and not startable work** — its fix is already
 pinned by a test with a positive control, so nothing in it is codeable and only RECURRENCE can close it.
@@ -352,12 +357,12 @@ Blocked, and on what:
   owner's call, and they said yes), **and the codex CLI is not installed on this machine at all** — not on
   PATH, not in the npm global root, not in any usual location. The 2026-08-04 capture (0.146.0) came from an
   install that is gone. So this needs a REINSTALL plus a turn, not just a go-ahead.
-- ~~**Part 105 / build the gist tier**~~ — **UNBLOCKED 2026-08-30.** It waited on a DECISION (which support
-  rule the tier computes) that nobody could take because the candidate list held an untested arm. The owner's
-  answer was to fix the corpus and measure, `CorpusShape.RoutineSettleWrites` did that, and `mean` — the
-  untested one — inverts with the gap. With every combining form now refuted on some axis a deployment does
-  not control, the item's own third candidate (report N, decline to select) is what is left standing, so
-  there is a design to build rather than a fork to choose. The Part is startable; see it for what remains.
+- ~~**Part 105 / build the gist tier**~~ — **CLOSED 2026-09-04 as refuted-as-scoped**
+  (`docs/task-archive.md` **Part 153**, **D106**), having been briefly unblocked on 2026-08-30 when the
+  measurement left one candidate standing. That candidate fell to a field pass: two independent literatures
+  put the abstraction at ENCODING, so a read-time tier cannot assert what its name promises, and what would
+  unblock it is valid-time on the write — a new axis on `MemoryWrite` and all three stores, not a tier.
+  **It re-opens when a consumer asks**, and the ask will name which reading it wants.
 - **Part 65 / subject drift** — **a model DOWNLOAD, not a budget.** It needs a RATE across models rather than
   an anecdote, and this machine holds exactly one chat model (`gemma3:4b`), so "across models" is unreachable
   without pulling more. This line said "a measurement budget" until 2026-08-28, which reads as startable.
@@ -754,33 +759,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   reproduced on demand, so the fix is unconfirmed as the CURE. **If the nine recur, this was not it** — and
   that is the only evidence that can close this. Watch for it; do not close it by observing green runs,
   which is what the line above already says and is now doubly true.
-
-## Part 105 — gist support: the CARDINALITY axis the sweep held constant (2026-08-28)
-
-_What Part 104 left open. The support seam itself is settled — `docs/DECISIONS.md` **D94**, no
-`IMemorySupportPolicy` — and the sweep is built (`node devtools/dev.mjs memory-support`, tables in
-`docs/memory.md` §5). **The cardinality axis closed 2026-08-28 — `docs/task-archive.md` Part 108.** What is
-left is one item, and its blocker is a DECISION rather than the data it used to wait on._
-
-- [ ] **Build the gist tier.** **D94** settled the tier's SHAPE (no seam); what it computes was the open
-  question, and `docs/memory.md` §5 now carries three sweeps rather than two.
-  <br>**The measurement came back negative, and the 2026-08-30 run completed the negative.**
-  `sum` inverts with pacing. Every DISCRIMINATING `count@θ` inverts with it. Of the two thresholds that
-  looked pacing-independent, **θ = 0.9 turned out to be an artefact of `RoutineCount = 12`** — it walks
-  tie → A → B → B across |A|/|B| — leaving **θ = 0.1 as the only rule invariant on both axes, and it is the
-  raw count**, which this corpus declares wrong for the assistant host.
-  <br>**`mean` is now tested and is not a candidate either.** It was untestable because phase B is judged at
-  the retrievability ceiling, so `mean(B) >= mean(A)` held by domination rather than by any rule;
-  `CorpusShape.RoutineSettleWrites` ages it off that ceiling. Where the gap bites (`bulk` from 60 writes;
-  `spaced` never does, at any value swept) `mean` walks from "always B" to "always A" as the gap grows,
-  through a cardinality-dependent band, under both curves. **At settle 120 under `bulk` every rule in the
-  table answers phase A** — all of them wrong on the declared answer.
-  <br>**So of the three candidates this item listed, the measurement leaves the third.** Testing `mean` was
-  the second and it killed it; "a rule with no constant threshold" was the first, and `sum` and `mean` are
-  both exactly that and both invert. What survives is **a tier that reports N and declines to select** — no
-  combining form over member retrievability is invariant to axes a deployment does not control. That is a
-  design somebody can now build rather than a fork nobody could choose between, so this is **no longer
-  blocked**; what remains is the tier's own surface.
 
 ## Part 109 — LoCoMo says the shipped ranking defaults lose to plain cosine on a uniform-history workload (2026-08-29)
 

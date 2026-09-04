@@ -2695,7 +2695,7 @@ pair of them means for the seam.
 <br>**The two degeneracies are not the same KIND of degenerate**, and the difference is what the next sweep
 turns on: θ = 0.1 is cardinality-INVARIANT — every member clears it, so `count@0.1` is exactly (|A|, |B|) at
 any size — while θ = 0.9 is an ORDER STATISTIC, (≤ 3, 4) here, that flips the moment |A| grows enough for a
-4th member to clear it. Cardinality is the axis `TASKS.md` Part 105 holds open, so the invariance at 0.1 must
+4th member to clear it. Cardinality is the axis the gist tier turned on (`docs/task-archive.md` Part 153), so the invariance at 0.1 must
 not be read into 0.9.
 
 **`mean` is not tested by this table, and reading its two `phase B` cells as a result would be wrong.** At the
@@ -2844,7 +2844,7 @@ reproduces the published cardinality table cell for cell.
 never tested — inverts with recency-of-the-newer-regime. Every combining form over member retrievability is
 a readout of the corpus's own timing rather than of support, which is what normalizing by size predicts:
 mean retrievability is monotone in recency and discards the support count entirely.
-<br>**Of `TASKS.md` Part 105's three candidates this leaves the third.** Testing `mean` was the second, and
+<br>**Of the gist tier's three candidates this leaves the third** (`docs/task-archive.md` Part 153). Testing `mean` was the second, and
 it killed it; a rule with no constant threshold was the first, and `sum` and `mean` are both exactly that and
 both invert. What survives is **a tier that reports N and declines to select a regime** — no combining form
 here is invariant to axes a deployment does not control.
