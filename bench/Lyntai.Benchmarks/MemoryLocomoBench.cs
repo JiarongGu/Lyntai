@@ -622,8 +622,18 @@ internal static class MemoryLocomoBench
                     : [.. JudgeArms.Select(spec => FieldArms.Named("+sem+rel-only") with
                     {
                         Name = JudgeArmName(spec),
-                        // Null keeps the shipped default; an explicit options object is otherwise inert.
-                        Options = spec.Depth is { } d ? new GraphMemoryOptions { VerificationDepth = d } : null,
+                        // Null keeps the shipped default; an explicit options object is otherwise inert, and
+                        // a null VerificationDepth inside one is equally inert - so an arm that sets only
+                        // VerdictCombination still inherits the shipped depth.
+                        Options = spec.Depth is null && !spec.EngineFuse
+                            ? null
+                            : new GraphMemoryOptions
+                            {
+                                VerificationDepth = spec.Depth,
+                                VerdictCombination = spec.EngineFuse
+                                    ? MemoryVerdictCombination.Fuse
+                                    : MemoryVerdictCombination.Partition,
+                            },
                         Verification = judgePolicies[JudgeArmName(spec)],
                     })],
 
@@ -1713,12 +1723,21 @@ internal static class MemoryLocomoBench
     /// the open question is whether shaping the INSTRUCTION fixes it at the depth a deployment actually
     /// gets. <c>budget20</c> is the caller's own limit, the number
     /// <c>MemoryVerificationRequest</c> cannot currently carry; <c>budget5</c> is a quarter of the page,
-    /// where promotion must refine rather than replace.</para></summary>
-    private static readonly (int? Depth, bool Fuse, int? Top, int? Budget)[] JudgeArms =
+    /// where promotion must refine rather than replace.</para>
+    ///
+    /// <para><b><c>EngineFuse</c> drives the SHIPPED option</b>
+    /// (<c>GraphMemoryOptions.VerdictCombination</c>, <b>D105</b>) instead of this file's
+    /// <see cref="FusedVerdictVerifier"/>. The two must agree: <c>Fuse</c> proved the IDEA through a verifier
+    /// that emits a fused page as its verdict, which is sound for a metric reading the returned SET but is
+    /// not the engine's own path — the engine reorders and then applies its own cut. So this arm is the
+    /// control that says the shipped code reproduces the proof, and an arm landing on the PARTITION's number
+    /// means the option never reached this path.</para></summary>
+    private static readonly (int? Depth, bool Fuse, int? Top, int? Budget, bool EngineFuse)[] JudgeArms =
     [
-        (null, false, null, null), (40, false, null, null), (20, false, null, null),
-        (null, true, null, null), (40, true, null, null), (null, true, 5, null),
-        (null, false, null, RecallLimit), (null, false, null, 5),
+        (null, false, null, null, false), (40, false, null, null, false), (20, false, null, null, false),
+        (null, true, null, null, false), (40, true, null, null, false), (null, true, 5, null, false),
+        (null, false, null, RecallLimit, false), (null, false, null, 5, false),
+        (null, false, null, null, true),
     ];
 
     /// <summary>The verdict's weight against the ranking's own rank term when fusing. 1 puts them on equal
@@ -1727,10 +1746,11 @@ internal static class MemoryLocomoBench
 
     /// <summary>One judge arm's name. The ladder and the report list below both derive from this, so unlike
     /// the rest of those lists they cannot disagree about a judge arm in the first place.</summary>
-    /// <param name="arm">The arm's depth, whether it fuses, any truncation and any prompt budget.</param>
-    private static string JudgeArmName((int? Depth, bool Fuse, int? Top, int? Budget) arm) =>
+    /// <param name="arm">The arm's depth, how it fuses, any truncation and any prompt budget.</param>
+    private static string JudgeArmName((int? Depth, bool Fuse, int? Top, int? Budget, bool EngineFuse) arm) =>
         $"+sem+rel-only+judge{(arm.Depth is { } d ? $"@{d}" : "")}{(arm.Fuse ? "+fuse" : "")}"
-        + $"{(arm.Top is { } t ? $"+top{t}" : "")}{(arm.Budget is { } b ? $"+budget{b}" : "")}";
+        + $"{(arm.Top is { } t ? $"+top{t}" : "")}{(arm.Budget is { } b ? $"+budget{b}" : "")}"
+        + $"{(arm.EngineFuse ? "+enginefuse" : "")}";
 
     /// <summary>The retrieval ladder's arm names, in table order, defined ONCE.
     ///

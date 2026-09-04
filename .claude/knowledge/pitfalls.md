@@ -326,6 +326,16 @@ the tests) while being wrong. Skim before touching the relevant area.
   that carries new information". A "no" is a low RANK, not an absence, and modelling it as absence is what
   made the fusion degenerate.
 
+- **An offline REPLICA of a shipped algorithm must be proven to reproduce it, and the difference that breaks
+  it is never the interesting part of the algorithm.** Measured 2026-08-29 (`docs/task-archive.md` Part 114):
+  a ladder scoring RRF outside the engine got the ranking right and the TIE-BREAK wrong —
+  `MemoryRankingContract.Finish` breaks score ties by DESCENDING id, so the newer entry wins, and a replica
+  breaking them ascending **moved the shipped row by 4 points while looking entirely plausible.**
+  <br>**So the control is "reproduce the shipped policy's own output", not "look right"**: agreement on the
+  real top-k, per sample, printed. A replica exists precisely where instrumenting the real path is
+  inconvenient, which is also where nobody notices it has drifted — and a wrong replica does not fail, it
+  publishes a table.
+
 - **Measure a component against the calls it could POSSIBLY change, not against every call.** Same day, and
   it reframed three runs at once. Every judge column here was scored over all 200 questions — but a verifier
   promotes, and promotion cannot invent a candidate, so it can only change a call whose returned page held
@@ -1076,6 +1086,16 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   that guards against a silent skip). Keep a backend-specific assertion only where it genuinely cannot be
   portable — reading a raw column, for instance.
 
+- **An id that is unique WITHIN one engine is not unique across a composite, and keying on it alone works
+  right up until there are two members.** Measured 2026-08-30 merging the two field harnesses onto
+  `MemoryWalk` (`docs/task-archive.md` Part 120): both keyed accumulated results on `MemoryRef.Id`, and both
+  got away with it only because each ran a single engine — on a composite, two members may each own id
+  `"1"`, so one silently overwrites the other. **Identity is the whole `MemoryRef`.**
+  <br>**The tell is that the code is correct for the configuration you test and wrong for one you ship**, so
+  no test fails and no review catches it; `CompositeMemoryEngine` is what makes it reachable. Wherever
+  results from more than one member are pooled — a dictionary, a `HashSet`, a dedup — check what the key
+  actually identifies.
+
 ## DI / config
 
 - **Calling `AddLyntai` twice** — registers a second `LyntaiOptions` (shadows the first) while both
@@ -1454,6 +1474,16 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   prune left behind before. The tell: **the doc comment already argued the asymmetry** ("the cheap failure
   is an orphan rather than a residue") and the `try`/`catch` did not implement it. When you write down why
   two paths differ, check every mechanism that expresses the difference, not just the one you were editing.
+
+- **When a decision falsifies a claim, grep the CLAIM — not the file you happened to be reading.** Measured
+  2026-08-30 (`docs/task-archive.md` Part 126). The 3D survey established that `3d → image → video` chains
+  nothing, and the false sentence was corrected in `GenerationKinds.Model3d`'s shipped XML doc — while the
+  IDENTICAL claim in `README.md` survived two consecutive passes, because each fix was made where the defect
+  was FOUND rather than everywhere the claim lived.
+  <br>**No gate can catch this shape**: `check-docs` only knows vocabulary a decision RETIRED, and a claim
+  going false retires no word, so the sentence stays grammatical, plausible and wrong. The cost is one
+  `grep` for the claim's distinctive phrase at the moment you correct it, against a reader implementing the
+  wrong thing later.
 
 - **A grep with context shows you a method's BODY, and inferring its NAME from the lines around it is how a
   member that does not exist gets into prose.** Measured 2026-08-30: a `-C 4` hit displayed

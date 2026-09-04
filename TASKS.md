@@ -174,8 +174,10 @@ of the 19 calls in 200 a verifier could possibly improve, this judge endorsed th
 ranked it in its own top five on **none**. Its confidence tracks what the ranking already found. **One
 library change is now filed under Part 128 and no default moved.**
 
-**The startable set is SIX — the real-judge run closed and the fusion item opened**
-(`docs/task-archive.md` **Part 143**, corrected by **Part 144** the same day). A 4B judge costs 10.5 points
+**The real-judge run closed and opened the fusion item** (`docs/task-archive.md` **Part 143**, corrected by
+**Part 144** the same day). **That fusion item has since SHIPPED** as **Part 151** / **D105** —
+`GraphMemoryOptions.VerdictCombination`, with the partition still the default — and it left one item behind
+it, so the startable count did not move. A 4B judge costs 10.5 points
 where the perfect one gains 9.5 — but **the cause is the DEPTH it inherits, not the model tier**: at half
 the shipped `VerificationDepth` the same model on the same arm is level with no judge, because selectivity
 collapses on a long candidate list (36% of an 80-item list endorsed against ~17% of a 20-item one) and a
@@ -183,9 +185,15 @@ promoted set larger than the page replaces the ranking instead of refining it. *
 model and one workload; what moved is the advice on two shipped options.** The frontier walk is priced and I would
 argue against it: two points already show a ~1:1 exchange and no cliff. **The genuinely open lever is
 encoding-time supersession** — Mem0's ADD/UPDATE/DELETE/NOOP, Zep/Graphiti's bi-temporal invalidation — which
-uses information only the WRITER has and is therefore the one thing none of these runs can reach. It is a
-design conversation, not a run, and it is not in the backlog because nobody has taken that decision
+uses information only the WRITER has. It is not in the backlog because nobody has taken that decision
 (`repo-mechanics.md` § "A conditional item is not a task").
+<br>**This said "not a run, a design conversation" until 2026-09-04, and a run had already happened.**
+`--reconcile` (`docs/task-archive.md` **Part 148**) built exactly that mechanism bench-side — a superseding
+fact DELETES what it replaces — and it was NEGATIVE: it fired (asked 1,427, replaced 122) and `stale@k` moved
+the WRONG WAY, so it deleted the wrong 122. **So the lever is still open but it is no longer unmeasured**,
+and what a design conversation now owes is an answer to why that pass chose wrongly. At n = 25 the ordering
+among extract arms is not a result, and judging the deletions needs ground truth on which pairs SHOULD
+supersede, which does not exist here.
 
 **Part 128 is still where the open memory work lives.** Its first item shipped 2026-08-31 as
 `docs/task-archive.md` **Part 131**: per-source fusion (**D103**) took `+sem+rel-only` from 63.5% to 83.0%,

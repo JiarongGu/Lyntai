@@ -75,8 +75,9 @@ Roughly ten lines does that; the long entries in this file are not richer, they 
 paragraph above did not hold. It was written from a measurement and the file kept growing: **7.5 → 6.7 →
 23.2** two days later, against the 8.0 → 6.1 → 22.2 recorded here. A written-down rule that is still
 violated is a missing gate, the same reasoning that produced `check-encoding` and `check-links`. The limit
-is **20** non-blank lines — deliberately loose against the "roughly ten" above, since the median entry
-already complies and the whole weight is in the tail — and it is a RATCHET: over-limit entries record their
+is **20** non-blank lines — deliberately loose against the "roughly ten" above, since at the time it was set
+the median entry already complied and the whole weight sat in the tail — and it is a RATCHET: over-limit
+entries record their
 current length in `archiveEntryLengthAllowances`, an allowance looser than the entry needs FAILS, and there
 is no escape token. **Relocate before deleting**: several long entries are the only maintained home for a
 trap, and cutting one without moving it first loses it.

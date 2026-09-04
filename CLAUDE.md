@@ -478,8 +478,11 @@ owned outside the deployment; `DECISIONS.md` D30) /
   payload, while an archive entry's detail belongs to whichever record owns it, so what this removes is
   **DUPLICATION**. The measured cost: a retraction landed on a run whose narrative sat in BOTH the archive
   entry and `docs/memory.md` §5, and only one of the two got edited.
-  Limit **20** non-blank lines against the rule's own "roughly ten lines does that" — the median entry is
-  already 10 and p75 is 16, so the median complies and the whole weight is in the tail.
+  Limit **20** non-blank lines against the rule's own "roughly ten lines does that" — chosen 2026-09-04,
+  when the median entry was 10 and p75 was 16, so the median already complied and the whole weight sat in
+  the tail. **Those figures are DATED on purpose**: paying debt down moves them (the same day's paydown took
+  the median to 9 and the worst entry from 40 to 27), so an undated distribution here would go stale exactly
+  when the gate is working.
   **The argument for building it is that the rule already existed and lost**: `task-lifecycle.md` was
   written on 2026-09-02 from a measurement (thirds 8.0 → 6.1 → 22.2) and the file grew anyway, reading
   7.5 → 6.7 → 23.2 two days later. A written-down rule that is still violated is a missing gate — the same

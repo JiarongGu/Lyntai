@@ -1781,9 +1781,22 @@ and only for a rule that could pull those tail endorsements out without their ne
 that needs a better judge, which is a deployment choice (`model-decoupling.md`) rather than a library one.
 
 **What it does NOT say.** One model, one workload, one embedder, n = 200; the rescuable cell is 19 calls, so
-the 53% and the 0% are small counts and only their contrast is safe to lean on. The fusion is measured
-through a bench-local verifier that emits the fused page AS its verdict — sound for a metric that reads the
-returned SET, and not a substitute for implementing it, since the engine still orders the page its own way.
+the 53% and the 0% are small counts and only their contrast is safe to lean on.
+
+**CONFIRMED THROUGH THE SHIPPED ENGINE, 2026-09-04.** The figures above were taken through a bench-local
+verifier that emits the fused page AS its verdict — sound for a metric reading the returned SET, and not the
+engine's own path, which reorders and then applies its own cut. `GraphMemoryOptions.VerdictCombination`
+(**D105**) made the real path measurable, and `+sem+rel-only+judge+enginefuse` reads **83.0% — cell for cell
+identical to `+fuse` in all four categories** (81.1 / 85.7 / 50.0 / 86.2). All three controls reproduce:
+`+sem+rel-only` 83.0%, `+sem+rel-only+judge` 72.5%, `vector` 80.5%. Raw output, gitignored:
+`devtools/_locomo-enginefuse.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the claim above -->.
+
+**The two arms are provably INDEPENDENT, which is what makes the agreement evidence.** They ran separate
+model call sequences and the audits differ — 29.2 endorsements per call against 29.1, and 152 evidence
+endorsements against 154 — so identical category cells are two implementations of the same rule agreeing,
+not one code path measured twice. Both declined 0 of 200, so neither was silently inert. **An arm landing on
+72.5% would have meant the shipped option never reached that path**, which is the branch the ladder
+pre-registered.
 
 ### A BUDGET in the judge's prompt: the number that helps is not the one the library was going to supply (`--arms …+judge+budget20,…+judge+budget5`, 2026-09-04)
 

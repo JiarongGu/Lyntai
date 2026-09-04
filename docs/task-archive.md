@@ -1278,78 +1278,46 @@ the oracle file, putting the same questions among ~490 turns of distractors. Bot
 knowledge-update (34,242 turns per arm) and 132 temporal-reasoning (64,911) — so nothing is sampled and the
 `--n`/`--seed` sampling built for it went unused. Tables in `docs/memory.md` §5.
 
-**The knowledge-update win survives, at +40.0 against the oracle's +49.8.** What moved is suppression rather
-than retrieval: `current@k` fell 2.9 points for this engine and 2.9 for cosine — identically — while
-`stale@k` rose 8.6. The distractors cost it the ability to *bury* the superseded fact, not to find the
-current one.
+**The knowledge-update win survives at +40.0**, and what moved is suppression rather than retrieval.
+**The temporal result REVERSED** — −4.6 on the oracle becomes +3.8 on the haystack — which is the finding:
+where there is finally something to suppress, suppressing it stops being a cost even in the class built to
+penalise it. Read it as "the cost is gone" rather than "this engine wins temporal"; +3.8 on 132 questions is
+five questions, and what carries it is that all three columns agree.
 
-**The temporal result REVERSED, and that is the finding.** −4.6 on the oracle becomes **+3.8** on the
-haystack. Distractors cost cosine 20.5 points of all-evidence recall and cost this engine 12.1: where there
-is finally something to suppress, suppressing it stops being a cost even in the class built to penalise it.
-Read as "the cost is gone" rather than "this engine wins temporal" — +3.8 on 132 questions is five questions.
-What carries it is that all three columns agree and the other two move further (any-evidence +7.6, per-turn
-+4.3).
+**So the oracle is not a cheap unbiased proxy — it is biased PER CLASS and the sign is not predictable.**
+The caveat that filed this item guessed it flattered both; it flattered one by 9.8 points and penalised the
+other by 8.4, enough to invert a sign. The mechanism is one number nobody had looked at: at `k = 10` the
+oracle returns 40% of its store, so it barely tests retrieval at all. **This is why `--haystack` is the
+variant to run**, at ~40× the ingestion cost.
 
-**So the oracle is not a cheap unbiased proxy — it is biased per class, and the sign is not predictable.**
-The caveat that filed this item guessed the bias flattered both classes. It flattered knowledge-update by 9.8
-points of arm gap and **penalised** temporal by 8.4, enough to invert the sign. The mechanism is one number
-nobody had looked at: at `k = 10` over ~25 turns the oracle returns **40% of the store**, so it barely tests
-retrieval at all, where the haystack's ~490 turns make the same `k` a 2% slice.
-
-**A latent harness defect the haystack exposed, and it would have been silent.** The loader took the current
-value from the latest-DATED session. Every oracle session is an evidence session, so that was right by
-accident; in the haystack the last-dated session is a distractor nearly every time, so the rule found no
-current turn and would have dropped the whole class — an empty run rather than a wrong number, which is the
-cheap direction only because nothing else read it. It now takes the latest dated session that *carries* a
-flagged turn.
-
-**Two controls, because either half could have been the harness.** Re-running both oracle classes under the
-new loader reproduces **byte-identically on all fourteen cells**, so the fix moved no published number. And
-the variants provably ask the same questions: each preamble prints a fingerprint of its sampled ids, and they
-match across variants (`D860F77A3D9E` knowledge-update, `773FB41E0E5A` temporal), which is what lets an
-oracle row be read against a haystack row line by line.
-
-**Two documents were stale before this pass and are fixed in it**, both in `docs/memory.md`: §5's preamble
-said "everything below is on this repository's own deterministic corpus" while three sections below it are
-the field's data, and the literature survey still said running a shared suite was "a piece of work nobody
-here has done" after two of them had run. The surviving half of that claim — that a model-free retrieval
-metric is not comparable to published QA accuracy — is now stated on its own.
+**A latent loader defect the haystack exposed** — a rule that was right BY ACCIDENT on oracle data and found
+nothing on the haystack — is written up in `docs/memory.md` §5 with its two controls, including the
+byte-identical fourteen-cell re-run that proves the fix moved no published number.
 
 - **Extend `memory-longmemeval` past the knowledge-update class.**
 
 ## Part 113 — the twenty slots are spent on the right candidates; the gap is the DESIGN (2026-08-29)
 
-✅ done 2026-08-29 — closed by the second LoCoMo ladder, which shipped in the same commit that reframed the
-item and was then left open in `TASKS.md` for a day. Tables in `docs/memory.md` §5. Every arm holds
+✅ done 2026-08-29 — closed by the second LoCoMo ladder. Tables in `docs/memory.md` §5; every arm holds
 `RetrievabilityWeight` at its shipped default, so nothing here measures the engine with forgetting switched
-off:
-
-| arm | evidence-hit@20 |
-|---|---|
-| `lyntai` | 31.0% |
-| `+sem` (`SemanticSeedK = 20`) | **36.0%** |
-| `+sem+hop0` (`HopWeight = 0`) | 11.5% |
-| `+sem80` (`SemanticSeedK = 80`) | 30.0% |
-| `+sem80+hop0` | 17.5% |
-| `vector` | 80.5% |
+off. **The absolute levels this ran on were superseded by Part 118's contamination fix** — read the ladder
+there, not from any figure quoted in this entry's original form.
 
 **Both misallocation hypotheses are refuted, in the opposite direction to the guess.** Graph traversal is
-CARRYING the arm rather than stealing slots — `HopWeight = 0` costs 24.5 points. And more semantic seeds make
-it WORSE (36.0 → 30.0), which is **D82** behaving as documented: RRF ranks by competition, so widening one
-signal re-ranks every candidate within it.
+CARRYING the arm rather than stealing slots (`HopWeight = 0` costs 24.5 points), and MORE semantic seeds make
+it worse — **D82** behaving as documented, since RRF ranks by competition and widening one signal re-ranks
+every candidate within it.
 
-**The pre-committed fallback is refuted too, and by construction rather than by another run.** The item said a
-plateau would mean the evidence never enters the candidate pool. It does: `+sem80` seeds the top-80 by
-cosine, which CONTAINS cosine's top-20 by construction, and that top-20 holds the evidence 80.5% of the time.
-So the pool holds it at least 80.5% of the time while the arm returns it 30.0% — about fifty points lost
-ranking candidates that were present. Worth naming precisely: pool membership was settled by a containment
-argument over the same embedder and index, not by instrumenting the pool.
+**The pre-committed fallback is refuted by CONSTRUCTION rather than by another run.** The item said a plateau
+would mean the evidence never enters the pool; `+sem80` seeds the top-80 by cosine, which contains cosine's
+top-20 by construction, and that top-20 holds the evidence 80.5% of the time. So the pool holds it while the
+arm loses about fifty points ranking candidates that were present — settled by a containment argument over
+the same embedder and index, not by instrumenting the pool.
 
-**So the boundary is located, and that is the deliverable.** D97 was the defect — philosophy-independent,
-worth about twenty points, and fixed. What remains is the DESIGN: the signal demoting those candidates is
-retrievability (old, mentioned once, never reinforced), every knob that closes the gap turns forgetting down,
-and the two that leave forgetting alone both made things worse. LoCoMo's role here is a **differential
-instrument, not a scoreboard**.
+**So the boundary is located, and that is the deliverable.** What remains is the DESIGN: the signal demoting
+those candidates is retrievability, every knob that closes the gap turns forgetting down, and the two that
+leave forgetting alone both made things worse. LoCoMo's role here is a **differential instrument, not a
+scoreboard**.
 
 - **Spend the twenty slots better, WITHOUT turning off forgetting.**
 
@@ -1367,23 +1335,20 @@ actually sums fell **29%** (0.00179 → 0.00127). `1/(K + rank)` is convex, so t
 at ranks 74/102 than at 10/20, and distractors written after the current fact push both there. **The loss is
 in the fusion, not the forgetting**, which is the opposite of what a decay-model regression would look like.
 
-**`K` selects a REGIME, and the intuitive fix is backwards.** A lower K — a steeper curve — makes suppression
-monotonically WORSE in both variants, because at low K being top-few on ONE signal beats being mediocre on
-the rest, and the stale fact is relevance rank 4. At high K the order tends to the SUM of ranks (Borda), which
-rewards being good on all of them. K = 120 costs nothing measurable on `current@k` in either variant and cuts
-`stale@k` ~12 points.
+**`K` selects a REGIME, and the intuitive fix is backwards.** A LOWER K makes suppression monotonically
+worse in both variants, because at low K being top-few on ONE signal beats being mediocre on the rest, and
+the stale fact is relevance rank 4; at high K the order tends to the SUM of ranks (Borda), rewarding being
+good on all of them.
 
 **The haystack is what BOUNDS the lever, and the oracle would have hidden it.** Past 120 the variants
-disagree: the oracle saturates harmlessly at 32% through K = 1000, while the haystack pays **−16.7 points of
-`current@k` at K = 300**. Read on the cheap variant alone, K = 1000 looks free. Part 112's finding, recurring
-on a second question.
+disagree — the oracle saturates harmlessly through K = 1000 while the haystack pays −16.7 points of
+`current@k` at K = 300. Read on the cheap variant alone, K = 1000 looks free. Part 112's finding recurring on
+a second question.
 
-**Two controls, and the first caught a defect that would have shipped a wrong table.** The offline replica
-must reproduce the SHIPPED policy's own top-10 — it agrees 25/25 (oracle) and 24/24 (haystack). It did not at
-first: `MemoryRankingContract.Finish` breaks score ties by DESCENDING id, so the newer entry wins, and a
-replica breaking them ascending moved the shipped row by 4 points while looking entirely plausible. Second,
-the ladder's K = 60 row reproduces the arm's own numbers on the same sample exactly (92.0% / 44.0%), which is
-what makes it comparable to the published table.
+**Two controls, and the first caught a defect that would have shipped a wrong table** — the offline replica
+must reproduce the SHIPPED policy's own top-10, and did not at first because it broke score ties the wrong
+way round. That is now a rule in `pitfalls.md`. The second control is that the ladder's K = 60 row reproduces
+the arm's own published numbers on the same sample exactly.
 
 **Left open as `TASKS.md` Part 109**: `K` is global, every LoCoMo figure was measured at 60, and one class of
 one benchmark is not a mandate to move a published constant.
@@ -1432,33 +1397,24 @@ opened its own connection: `IMemoryGraphStore.WriteBackAsync` takes all three as
 running the existing members so a BYO store loses nothing. `docs/DECISIONS.md` **D101**.
 
 **Reported as a COUNT, which is the point.** Connection opens went **3 → 1**, measured by a counting
-`IDbConnectionFactory` decorator wrapped around the real one — the "before" is not an estimate, it is the
-same test failing at exactly 3 before the override existed. The position-totals read went 2 → 1 as well,
-but nothing observes that, so it is recorded as a code fact rather than a measured one; conflating the two
-is the provenance mistake `pitfalls.md` files under Kind 1. No millisecond is quoted at all: that same
-document records this repository publishing a 19% "improvement" from `memory-scale` that was noise, on this
-very write-back.
+`IDbConnectionFactory` decorator — the "before" is the same test failing at exactly 3, not an estimate. **No
+millisecond is quoted at all**, because this repository has already published a 19% "improvement" from
+`memory-scale` that was noise, on this very write-back; the position-totals read also halved but nothing
+observes it, so that is a code fact rather than a measured one.
 
-**The ordering turned out to be the real finding, and an existing test is what proved it.** The engine
-carried a second `try/catch` around the review-log write, and
-`A_broken_review_log_costs_neither_the_hits_the_learning_nor_co_activation` documents — from its own live
-mutation check — exactly why: the log sat BETWEEN the touch and the co-activation loop, so a log failure
-skipped the edges. Moving the log LAST makes that isolation structural instead of conditional, and the
-catch is gone. That test passed unchanged, which is what a positive control is for.
+**The ORDERING turned out to be the real finding, and an existing test proved it.** The review log sat
+BETWEEN the touch and the co-activation loop, so a log failure skipped the edges — which its own test
+already documented from a live mutation check. Moving the log LAST makes that isolation structural rather
+than conditional, and the `try/catch` is gone. **That test passed unchanged**, which is what a positive
+control is for, and the ORDER is now contract on `WriteBackAsync`.
 
-**One behaviour change, deliberate.** The surviving warning said a failed write-back returned hits "without
-learning". That was false whenever a later part failed — the earlier parts had already committed — and is
-now "partly or wholly unrecorded". Nothing asserted on either string.
+**Two contract facts hold all three backends to it**, discovered by reflection rather than registered: the
+combined path writes what the three separate calls would, and an empty part is SKIPPED rather than written
+as a no-op — because the engine turns its own switches off by handing an empty part, and a store that
+stamped an age on an empty touch list would reset an age the caller asked to hold still.
 
-**Two contract facts, so all three backends are held to it**, discovered by reflection rather than
-registered: the combined path writes what the three separate calls would, and an empty part is skipped
-rather than written as a no-op — the second because the engine turns each of its own switches off by
-handing an EMPTY part, and a store that stamped an age on an empty touch list would reset an age the caller
-asked to hold still.
-
-**What it does NOT do:** no transaction. "One unit of work" here means one connection and one totals
-snapshot, exactly as `LinkManyAsync` already meant it — the parts still commit independently, which is
-precisely what the review log going last relies on.
+**What it does NOT do:** no transaction. "One unit of work" means one connection and one totals snapshot, so
+the parts still commit independently — which is precisely what the review log going last relies on.
 
 - **Collapse the recall write-back into ONE store call.**
 
@@ -1471,78 +1427,53 @@ Each question now runs against a private byte-copy of the ingested store — `Sw
 into a template nothing reads. **No library change**; `MemoryLongMemEvalBench` already built one store per
 question, which is how this was recognisable as a defect rather than as a property of the data.
 
-**The positive control is the finding, not the fix.** Two runs differing ONLY in `--seeds` — how much a
-LATER shot expands — must leave `shot-1` untouched, because shot 1 is the same query against the same corpus
-either way. Pre-fix it read **65.4% at `--seeds 3` and 53.8% at `--seeds 20`**; post-fix, 65.4% both times.
-The old code had to fail that check or it would only be evidence the number was stable, so the fix was
-stashed and the pair re-run against it.
+**The positive control is the finding, not the fix.** Two runs differing ONLY in how much a LATER shot
+expands must leave `shot-1` untouched. Pre-fix it read 65.4% and 53.8%; post-fix, 65.4% both times — and the
+fix was stashed so the old code had to FAIL that check, or it would only be evidence the number was stable.
 
-**Every LoCoMo figure moved 20-25 points, and `vector` did not move at all.** The retrieval ladder went
-`lyntai` 31.0 → **54.5**, `+sem` 36.0 → 57.5, `+sem+hop0` 11.5 → 31.5, `+sem80` 30.0 → 55.0,
-`+sem80+hop0` 17.5 → 41.0 — while `vector`, which never touches the graph store, was byte-identical at
-80.5% across a 22-minute re-run. An arm that structurally could not gain did not gain, which is what makes
-the other five readable as isolation rather than drift. The gap to cosine is **−26.0**, not −49.5.
+**Every LoCoMo figure moved 20-25 points and `vector` did not move at all** — byte-identical at 80.5%,
+because it never touches the graph store. An arm that structurally could not gain did not gain, which is
+what makes the other five readable as isolation rather than drift. The gap to cosine is −26.0, not −49.5.
+Tables: `docs/memory.md` §5.
 
-**It cost a published claim, and that is the honest headline.** **D100** argued the useful shot count is a
-property of the question, citing LoCoMo shot 2 at +6.0 against shot 3's +0.5. Isolated, the curve is
-**+1.5 and +1.0** on a shot 1 that was 24.5 points too low: a shared store DEPRESSED shot 1, and later
-shots recovered ground that was never lost. *"Search wants two shots"* is withdrawn; D100 stands on its
-other leg (a one-shot metric cannot see a mode that withholds content until asked), amended in place.
+**It cost a published claim, and that is the honest headline.** *"Search wants two shots"* is WITHDRAWN:
+**D100** cited shot 2 at +6.0, and isolated the curve is +1.5 on a shot 1 that was 24.5 points too low — a
+shared store depressed shot 1 and later shots recovered ground never lost. D100 stands on its other leg,
+amended in place.
 
-**Two cross-checks that the re-measurement is sound.** `shot-1` reads 54.5% and the retrieval ladder's
-`lyntai` arm reads 54.5% from a wholly separate run — they are the same operation. And the clone control
-counts rows in the copy per conversation (`419 of 419`), because a lossy clone presents as a recall-quality
-regression rather than as a broken harness. The WAL is the trap there: a byte copy taken while the
-write-ahead log still holds committed rows is a silently partial database, so `Clone()` checkpoints first
-and copies a surviving `-wal` too. `.claude/knowledge/pitfalls.md` §Testing carries the general form.
-
-**What is NOT re-measured, stated rather than implied.** The D97 before/after tables in `docs/memory.md` and
-`DECISIONS.md` D97 need a `RetrievabilityWeight` ladder the shipped harness no longer has; both columns
-share the contaminated regime, so their DELTA stands and both now say so. The QA half was not re-run at all
-— it needs a reader, and widening it is `TASKS.md` Part 109.
+**The clone control counts rows per conversation** because a lossy copy presents as a recall-quality
+regression rather than a broken harness; the WAL trap that makes that possible is in `pitfalls.md` §Testing.
+**Not re-measured**, stated rather than implied: D97's before/after tables share the contaminated regime so
+their DELTA stands, and the QA half needs a reader (`TASKS.md` Part 109).
 
 - **Fix LoCoMo's cross-question contamination before widening any LoCoMo number.**
 
 ## Part 119 — the shot curve, extended: the class where expanding pays, and the one where it never did (2026-08-29)
 
-✅ done 2026-08-29 — two thirds of `TASKS.md` Part 116's shot-curve item. **Knowledge-update went from a
-25-question sample to all 70**, and **the temporal class got the first shot curve it has ever had**, on both
-variants. Tables in `docs/memory.md` §5. The remaining third — LongMemEval's four other classes — is
-re-scoped rather than closed: each needs a metric matching what that class ASKS, which is design work and
-not a run.
+✅ done 2026-08-29 — two thirds of `TASKS.md` Part 116's shot-curve item: knowledge-update went from a
+25-question sample to all 70, and the temporal class got its first shot curve, on both variants. Tables in
+`docs/memory.md` §5. The remaining third — LongMemEval's four other classes — is re-scoped rather than
+closed: each needs a metric matching what that class ASKS, which is design work and not a run.
 
-**The full knowledge-update sample moved the LEVEL down and the RATIO up.** Every `clean` figure fell 6–9
-points against the 25-question sample, so that sample was optimistic and any absolute from it was too high;
-but cosine fell further (16.0 → 10.0), so the multiple **D100** actually argues went **2.5× → 3.1×** —
-31.4% clean on 1,169 characters against cosine's 10.0% on 10,387. The shape is unchanged.
+**The full knowledge-update sample moved the LEVEL down and the RATIO up** — every `clean` figure fell 6–9
+points against the 25-question sample, but cosine fell further, so the multiple **D100** argues went
+2.5× → 3.1×. The shape is unchanged and the absolutes from that sample were all too high.
 
-**The temporal class is the only workload measured where walking clearly pays: shot 2 is worth +4.5 points**
-of all-evidence recall, against +1.5 on LoCoMo and −2.8 on knowledge-update. The mechanism is the one the
-class is built on — a temporal question usually needs EVERY flagged turn, so the failure mode of a small
-first load is holding one of two. **The honest counterweight is in the table beside it**: size-matched
-cosine wins that column outright (65.2% against 53.0%) at 2.7× the characters, because all-evidence recall
-is an ARCHIVE metric and rewards keeping everything — LoCoMo's axis reached from a second direction.
+**The temporal class is the only workload measured where walking clearly pays** (shot 2 worth +4.5 points of
+all-evidence recall, against +1.5 on LoCoMo and −2.8 on knowledge-update), because a temporal question needs
+EVERY flagged turn. The counterweight is in the table beside it: size-matched cosine wins that column
+outright, since all-evidence recall is an ARCHIVE metric. **Shot 3 is worth nothing — three classes in a
+row**, so the lesson is *expand once*, not *expand until the budget runs out*. And the ORACLE overstates the
+multi-shot gain by 2.7×, Part 112's bias recurring on a third question.
 
-**Shot 3 is worth nothing, and that is now three classes in a row.** Identical to shot 2 on every column
-while adding 2,731 characters. *"Expand until the budget runs out"* is not the lesson; *"expand once"* is.
-**And the ORACLE overstates the multi-shot gain by 2.7×** (+12.2 against +4.5) — Part 112's finding that the
-cheap variant is biased in unpredictable directions, recurring on a third question.
+**A one-question disagreement was chased rather than published and became a measurement**: the haystack has
+a reproducibility floor of ONE QUESTION on the graph arms while both vector arms stayed byte-identical, so
+deltas are stable and levels are good to about a point. `docs/memory.md` §5 has it, and `pitfalls.md`
+§Testing the general form.
 
-**A one-question disagreement was chased rather than published, and became a measurement.** The new
-`shot-1` read 48.5% where the existing `lyntai` arm read 47.7% on the same sample. The code diff said
-equivalent (the one difference, an explicit options object, is inert under `options ?? new
-GraphMemoryOptions()`), the ORACLE agreed to the decimal, and repeating the identical haystack run moved
-every graph arm exactly 0.8 points onto the other arm's own 47.7% — while **both vector arms stayed
-byte-identical throughout**. So the haystack carries a reproducibility floor of ONE QUESTION on the graph
-arms, the deltas are stable across runs (+4.5 / +4.6), and the levels are good to about a point.
-`.claude/knowledge/pitfalls.md` §Testing carries the general form.
-
-**One refactor, proven neutral before it was trusted.** Both curves score the SAME walk by opposite metrics,
-so `WalkAsync` was extracted rather than written a third time — Part 116 cites that duplication as the tell
-for the library having no n-shot surface. Equivalence was shown the way the LoCoMo control was: stash, run,
-restore, re-run — byte-identical on every quality and size column across all five arms. Reading the
-extracted code back also caught a compile error before any build, `ShotBudget`/`ExpandSeeds` having been
-method-locals invisible to the shared walk.
+**One refactor, proven neutral before it was trusted.** `WalkAsync` was extracted rather than written a
+third time, and equivalence was shown by stash/run/restore/re-run — byte-identical on every column across
+all five arms.
 
 ## Part 120 — the n-shot walk is a SURFACE now, and both harnesses drive it (2026-08-30)
 
@@ -1553,42 +1484,25 @@ opened. `MemoryWalk.WalkAsync` is a static extension on `IMemoryEngine` yielding
 **D102**.
 
 **The verification was the point, and it is stronger than "the tests pass".** Both harnesses were moved onto
-the surface and every published table re-run. **Every cell reproduced exactly** — LongMemEval haystack
-knowledge-update (31.4 / 28.6 / 28.6 `clean`, 1,169 / 5,236 / 8,286 chars), LoCoMo `--shots` (54.5 / 56.0 /
-57.0, and every `hit / 1k chars` ratio), and all six arms of the LoCoMo retrieval ladder (54.5 / 57.5 / 31.5
-/ 55.0 / 41.0 / 80.5) including every per-category fraction. The oracle class was additionally run as a true
-before/after by stashing only the bench file — identical down to the same 1,662 embedder calls and 1,828
-cache hits — and the after arm was run twice, so the instrument is known deterministic here rather than
-merely agreeing once.
+the surface and **every published cell reproduced exactly** — both LongMemEval variants, LoCoMo `--shots`,
+and all six arms of the LoCoMo retrieval ladder including every per-category fraction. The oracle class was
+additionally run as a true before/after by stashing only the bench file, identical down to the same embedder
+call and cache-hit counts, and the after arm was run twice, so the instrument is known deterministic here
+rather than merely agreeing once.
 
-**Two rules in the merge are corrections rather than ports.** Identity is the whole `MemoryRef`, where both
-harnesses keyed on `Reference.Id` alone and got away with it only by running one engine — on a composite,
-two members may each own id `"1"`. And the headline→content upgrade is SEMANTIC (`Content` arrived where
-none was held) rather than the harnesses' `body.Length >` proxy, which differs wherever an authored headline
-outruns its content. Both are pinned by facts that were **mutation-checked**: keying on the id alone, and
-restoring the length proxy, each fail exactly one fact and nothing else.
+**Two rules in the merge are corrections rather than ports**, both mutation-checked: identity is the whole
+`MemoryRef` rather than its id (now in `pitfalls.md`, since a composite is what makes it reachable), and the
+headline→content upgrade is SEMANTIC rather than the harnesses' `body.Length >` proxy.
 
-**Three defects found that the plan did not predict, and the middle one is the instructive one.**
-<br>**(1) The planned termination mutation check was untestable as written.** Deleting the "a step that
-moved nothing ends the walk" guard failed NO test — the `seeds.Count == 0` guard carries termination for the
-DEFAULT selector, so the rule that actually makes the sequence finite had no coverage at all. A caller-
-supplied selector can hand back seeds forever, which is now `A_selector_that_never_returns_empty_still_
-terminates`, bounded inside the TEST so a regression fails instead of hanging.
-<br>**(2) The LoCoMo refactor changed a DENOMINATOR, not a retrieval.** The old loop ran shots 2 and 3
-unconditionally and re-snapshotted an unchanged context; a walk that ends early would have silently dropped
-those rows, moving every rate for a harness reason wearing a result's clothes. Filled explicitly. This is
-the one that would have published a wrong number.
-<br>**(3) `check-samples` caught its own baseline going stale** (`CLAUDE.md` 78 → 79 doc samples), and the
-first README annotation was redundant: `check-samples.mjs` already pre-declares `IMemoryEngine engine`.
+**Three defects the plan did not predict**, two of which became reusable traps in `pitfalls.md`: a rule only
+the NON-DEFAULT path can break had no coverage at all and its mutation check reported it as dead code; and
+the LoCoMo refactor changed a DENOMINATOR rather than a retrieval, which is the one that would have
+published a wrong number. The third was `check-samples` catching its own baseline going stale.
 
 **What is deliberately NOT done.** The merge accumulator stays internal (D102 says what would change that).
-The public NAMES were provisional when this landed and were settled the same day — Part 121.
-
-**The working records** are `local/superpowers/specs/2026-08-30-memory-walk-design.md` and
-`local/superpowers/plans/2026-08-30-memory-walk.md` — untracked by design (**D43**), so they exist on one
-machine and in no history. Everything in them that had to outlive this version is already in D102, design
-§5.7, `pitfalls.md` and these two Parts; they get their `docs/superpowers/INDEX.md` row when the work
-SHIPS, which is that file's own rule.
+The public NAMES were provisional when this landed and were settled the same day — Part 121. The working
+records are untracked by design (**D43**); everything in them that had to outlive this version is in D102,
+design §5.7, `pitfalls.md` and these two Parts.
 
 ## Part 121 — the walk's names, passed before the surface shipped (2026-08-30)
 
@@ -1631,30 +1545,22 @@ the LoCoMo-side ladder that item asked for, and ran it beside a re-run of the Lo
 full sample. Tables in `docs/memory.md` §5. **No default moved, and the item's own premise is what the
 measurement overturned.**
 
-**The premise was that K = 120 is free, and BOTH halves of it failed.** LoCoMo is a search workload — it
-wants old material found rather than suppressed — and 60 → 120 costs it **4.5 points** of evidence-hit,
-monotonically, with no threshold effect. Separately, re-running the knowledge-update ladder on all 70
-questions rather than the 25 it was first measured on shows 60 → 120 also costing **6.0 points** of
-`current@k`, where the small sample reported 0.0. So *"free"* was one workload wide AND one sample thin, and
-`docs/memory.md`'s claim to that effect is amended in place rather than deleted, because the amendment is
-the finding.
-
-**What replaces it: 60 is a priced compromise.** Every step in either direction helps one metric and hurts
-another — up buys suppression and pays in recall on both benchmarks, down buys recall and gives the
-suppression back. There is no K that is free on both, which is exactly what "K selects a REGIME" predicts
-and nobody had measured on more than one regime.
+**The premise was that K = 120 is free, and BOTH halves of it failed.** LoCoMo is a SEARCH workload, and
+60 → 120 costs it 4.5 points of evidence-hit monotonically; separately, re-running knowledge-update on all
+70 questions rather than 25 shows the same step costing 6.0 points of `current@k` where the small sample
+reported 0.0. So *"free"* was one workload wide AND one sample thin. **What replaces it: 60 is a priced
+compromise** — every step in either direction helps one metric and hurts another, which is exactly what
+"K selects a REGIME" predicts and nobody had measured on more than one regime.
 
 **The sharper result is that `K` is not where the LoCoMo gap is.** 32 of 200 questions had no evidence in
-the candidate pool at all, so the pool's ceiling is 84.0% against a shipped 54.5% — the fusion loses **29.5
-points of material it already held**, and the best K recovers **4.5** of them. Part 109's residual gap is
-therefore not a fusion constant; it is seeding for a sixth of it and ranking SHAPE for the rest.
+the candidate pool at all, so the fusion loses 29.5 points of material it already HELD and the best K
+recovers 4.5 of them. Part 109's residual gap is therefore not a fusion constant — it is seeding for a
+sixth of it and ranking SHAPE for the rest.
 
-**One replica, not two, and proven neutral before it was trusted.** The RRF scoring the two ladders share is
-now `bench/Lyntai.Benchmarks/RankLadder.cs` — the same argument Part 119 made for `WalkAsync`, and a
-sharper one here, because a second copy could get the descending-id tiebreak or the competition-rank
-definition wrong in only one ladder and still look right. Equivalence was shown the way every refactor in
-this sequence has been: stash, run, restore, re-run — the LongMemEval ladder reproduced **byte-identically
-on all eight rows**, both controls included.
+**One replica, not two, proven neutral before it was trusted.** The two ladders share
+`bench/Lyntai.Benchmarks/RankLadder.cs`, and the argument is sharper than for `WalkAsync`: a second copy
+could get the tiebreak or the competition-rank definition wrong in ONE ladder and still look right.
+Equivalence was shown by stash/run/restore/re-run, byte-identical on all eight rows.
 
 **Controls.** LoCoMo's replica reproduces the shipped policy's top-20 on **200/200** recalls and its K = 60
 row reads the `lyntai` arm's own published 54.5% to the decimal; the haystack ladder's control is 66/66.
@@ -1727,41 +1633,22 @@ rather than shrinking it, and what stays blocked is the 3D STAGE alone, on a ras
 ✅ done 2026-08-30 — the two output-stage defects Part 124 found, both fixed. `docs/FIXES.md` carries the
 incident and `.claude/knowledge/pitfalls.md` §Second doors the reusable rule.
 
-**`ComfyUiProvider` declared `SupportsInputs = true` and never read `request.Inputs`** — one occurrence of
-the identifier in the file, the declaration. The flag is an ADMISSION filter
-(`GenerationCapabilities.Supports`), so declaring it does not describe the backend, it makes the router
-SELECT it for input-carrying work it cannot do: the input was dropped, the graph ran as authored, and the
-render came back plausible and billed. Wrong since `a0efbe6` (2026-08-04), the commit that added the
-backend — never a regression. **It survived 26 days after the identical bug was found and fixed in
-`FalQueueProvider`**, whose comment records the same billed-and-plausible outcome, because that cure was
-written as one provider's comment rather than as a shared fact.
+**`ComfyUiProvider` declared `SupportsInputs = true` and never read `request.Inputs`.** The flag is an
+ADMISSION filter, so declaring it made the router SELECT the backend for input-carrying work it could not
+do — the input dropped, the render plausible and billed. Wrong since the commit that added the backend, and
+it survived 26 days after the identical bug was fixed in `FalQueueProvider`, because that cure was written
+as one provider's comment rather than as a shared fact.
 
-**The fix is the honest capability plus a refusal, and the flag bought nothing even charitably.**
-`SupportsInputs` is no longer declared, so `Supports` filters the backend out and the router goes
-elsewhere; `SubmitCoreAsync` refuses an input that arrives anyway, which is reachable by a caller holding
-the provider directly, and posts nothing so bills nothing. A caller who references the image from the graph
-— every correct ComfyUI caller — sends no `Inputs` at all, and the filter only applies when there are some,
-so `true` was unnecessary for the path that works and harmful on the path that did not.
+**The guard went into the CONTRACT rather than the provider, which is the transferable part.**
+`GenerationProviderContract.A_handed_input_is_consumed_or_refused` hands every HTTP backend an input and
+asserts it was consumed or refused, never quietly discarded. **Written against the unfixed tree it failed
+for ComfyUI alone and passed for the other three**, which is what makes it a fact rather than a restatement
+of the bug. `GenerationKinds.Model3d`'s false XML doc was corrected in the same pass.
 
-**The guard went into the CONTRACT rather than the provider, which is the transferable part.** Four
-backends honoured this and one did not: precisely the shape a shared contract fact catches and a
-per-backend test never will. `GenerationProviderContract.A_handed_input_is_consumed_or_refused` hands every
-HTTP backend an input carrying a marker and asserts it was either consumed or refused before the call,
-never quietly discarded — sending nothing is honest, sending a request without the input is the defect.
-**Written against the unfixed tree it failed for ComfyUI alone and passed for the other three**, which is
-what makes it a fact rather than a restatement of the bug. It sits beside
-`Its_declared_deliveries_are_backed_by_the_interfaces_it_implements`, which was already doing this for
-delivery modes — and whose existence suggested the inputs axis to nobody for 26 days.
-
-**`GenerationKinds.Model3d`'s XML doc claimed a chain that does not exist** and shipped. Corrected to state
-what Part 124 established, including the texture-atlas trap. No code depended on it.
-
-**One correction worth recording, because it reached two committed records before it was caught.** The
-admission filter is `GenerationCapabilities.Supports`; this session wrote it as `CanServe` throughout —
-inferred from a grep that showed the method BODY without its signature — and that name reached Part 124 and
-`TASKS.md` before the compiler rejected it in a test. `check-links` cannot see it: a C# member named in
-prose is not a path, a Part or a `§`. **A member name quoted in prose has no gate at all**, so read the
-declaration rather than the body before citing one.
+**One correction reached two committed records before it was caught**: the filter is
+`GenerationCapabilities.Supports`, written throughout as `CanServe` from a grep showing the method BODY
+without its signature. A member name quoted in prose had no gate at all — it has one now (`check-links`'
+fourth half), and `pitfalls.md` carries the rule.
 
 ## Part 126 — GEN7a: the pipeline runner, at the half of GEN7 that is buildable (2026-08-30)
 
@@ -1771,36 +1658,22 @@ declaration rather than the body before citing one.
 (`GenerationStage`, `GenerationPipelineResult`, `GenerationPipeline`), 18 facts, nothing added to
 `IGenerationRouter`. Opened by Part 124, which replaced GEN7 in the startable set with this.
 
-**It composes the router rather than the providers, and that is the load-bearing choice.** Every stage is an
+**It composes the ROUTER rather than the providers, and that is the load-bearing choice** — every stage is an
 ordinary `GenerateAsync`, so spend caps, throttling and dead-host cooldown govern a pipeline exactly as they
-govern one render — `pitfalls.md` §Second doors is the reason it is a FACT and not a sentence:
-`A_spend_cap_binds_BETWEEN_stages_because_the_runner_drives_the_ROUTER_not_a_backend` drives a real
-`BudgetedGenerationRouter` and fails the day anyone moves the runner below the seam. Mutation-checked by
-removing the decorator; it failed, and alone.
+govern one render. Pinned as a fact that drives a real `BudgetedGenerationRouter` and fails the day anyone
+moves the runner below the seam, mutation-checked by removing the decorator.
 
 **Chaining is one-or-refuse, and the refusal is the design.** Exactly one artifact chains automatically;
-zero or several REFUSE with `Unsupported` **without calling a backend**, naming the count and the fix.
-Part 124 ruled out both cleverer rules — a media type cannot be branched on (a GLB reports
-`application/octet-stream`) and "the first `image/*`" picks a UV texture atlas — and the failure costs are
-asymmetric: a refusal is a message, a wrong pick is a plausible billed render of the wrong thing, which is
-the Part 125 shape. `GenerationStage.SelectInput` is where a caller states their own rule, and a delegate
-that throws PROPAGATES rather than being reported as a capability gap. `InputRole` is the caller's too — the
-same PNG is a first frame to one backend and an init image to another.
+zero or several REFUSE without calling a backend. Part 124 ruled out both cleverer rules, and the failure
+costs are asymmetric — a refusal is a message, a wrong pick is a plausible billed render of the wrong thing.
+`GenerationStage.SelectInput` and `InputRole` are where a caller states their own rule, since the same PNG
+is a first frame to one backend and an init image to another. **Nothing is ever re-run**, so a later
+stage's failure keeps what earlier stages paid for, and two settings that nothing would read THROW rather
+than being ignored — the Part 125 defect in miniature.
 
-**Nothing is ever re-run**, so a later stage's failure keeps what earlier stages paid for:
-`GenerationPipelineResult.Stages` holds every stage that ran including the failed one, and the fact asserts
-a CALL COUNT rather than describing the intent. Chained inputs are APPENDED, so a caller's own style
-reference survives, and `with` leaves their `GenerationRequest` unmutated.
-
-**Two settings throw rather than being ignored** — `InputRole`/`SelectInput` on the first stage, which
-chains from nothing, and an empty stage list. A setting nothing reads is the Part 125 defect in miniature.
-
-**It also found the README asserting a chain that does not exist.** *"`artifact.ToInput(role)` feeds one
-stage's output into the next (3d → image → video)"* survived Part 124 and Part 125 — which had corrected the
-identical claim in `GenerationKinds.Model3d`'s shipped XML doc — because the fix was made where the defect
-was FOUND rather than everywhere the claim lived. `check-docs` cannot see it: no decision retired a word
-here, so the sentence stays grammatical, plausible and wrong. **When a decision falsifies a claim, grep the
-claim, not the file you were reading.**
+**It also found the README asserting the chain Part 124 had just disproved**, surviving two passes that each
+fixed the claim only where it was found. That became a rule in `pitfalls.md`: when a decision falsifies a
+claim, grep the CLAIM.
 
 - GEN7a — the pipeline runner at `image → video`, the half the survey unblocked
 
@@ -1907,36 +1780,25 @@ to `vector-40` narrowed **11.3 → 5.3 → 2.5** points as chars/q rose 5010 →
 7090), and the pre-registered "at least ~4 points is FORM" floor is falsified — a 2.5-point total residual
 cannot contain a 4-point floor. Full tables and reading: `docs/memory.md` §5.
 
-**RETRACTED 2026-09-01, same day — the superadditivity claim, at the full 1,540-question sample.** Every
-reading below (+6.7 / +4.2 / +6.8) was taken at n = 100. A run over the COMPLETE published LoCoMo QA set —
-all 1,540 questions, `--seeds 16` — puts the interaction at **+1.0**, not distinguishable from zero at that
-sample: an interaction is a difference of differences, so its error runs roughly double any one component's,
-and +1.0 with that error is a reading with no sign anyone should trust. This is a retraction, not a fourth
-point for the series below. **The category wins this run's underlying data also implied are retracted with
-it**: `lyntai-fused-3shot` appeared to beat `vector-40` by +6.2 on multi-hop and +5.5 on open-domain at
-n = 100; at full sample the four category deltas are −0.6, −2.1, +0.1 and −0.3 — three sign flips and a
-collapse. **What survives is the volume-vs-form reading immediately below**, restated at full-sample
-resolution: the residual against `vector-40` reads **−0.6** points (≈9 of 1,540 questions) rather than this
-entry's 2.5-point trail, still readable as "mostly volume, not form" — that qualitative conclusion transfers
-because it was never a difference of differences. Full reading: `docs/memory.md` §5's retraction subsection.
+**RETRACTED 2026-09-01, same day — the superadditivity claim.** Every reading here was taken at n = 100; at
+the full 1,540 questions the interaction reads **+1.0**, not distinguishable from zero. An interaction is a
+difference of differences, so its error runs roughly double any one component's. **The category wins are
+retracted with it** — +6.2 and +5.5 became four deltas of −0.6, −2.1, +0.1, −0.3. What survives is the
+volume-vs-form reading, which was never a difference of differences: the residual reads −0.6 points at full
+sample, still "mostly volume, not form". `docs/memory.md` §5's retraction subsection.
 
-**A methodological correction rides along, and it matters more than the number.** The interaction between
-per-source ranking (**D103**) and the n-shot walk (**D100**), reported here as +6.7 and then corrected to
-+4.2, is **non-monotonic**: the third point reads +6.8, back near the original. The "seed starvation explains
-the shrink" direction drawn from two points did not survive a third — the second time in this line of work
-that one extra measurement overturned a published conclusion. What replaces the point estimate is a
-size-free claim: fused ranking raises the CEILING on what the walk can use (the shipped-ranking three-shot
-arm plateaus at 33.4–33.6%; the fused one keeps climbing, 38.5 → 44.5 → 47.3%, decelerating but not flat).
+**A methodological correction rides along and matters more than the number.** The interaction was reported
++6.7, corrected to +4.2, and the third point read +6.8 — **non-monotonic**, so the direction drawn from two
+points did not survive a third. That is the second time in this line of work one extra measurement
+overturned a published conclusion. What replaces the point estimate is size-free: fused ranking raises the
+CEILING on what the walk can use, where the shipped-ranking arm plateaus.
 
-**The pre-registered `--seeds 16` prediction held, on a stated LOW confidence.** It called a gain under +6.0,
-landing in 46–49%, still short of `vector-40`'s 49.8 at ~7000 chars/q; the run read +2.8, landed at 47.3%,
-short by 2.5, at 6747 chars. A correct call on a self-described "thin" prior does not vindicate the reasoning
-behind it — that model was already known wrong from the `--seeds 8` round.
+**A pre-registered prediction held on a stated LOW confidence**, which does not vindicate the reasoning
+behind it — that model was already known wrong from the previous round.
 
-**What is left is a different question than the one this Part opened.** At 47.3%/6747 chars the engine
-roughly matches `vector`'s 45.7%/3634 chars — an EFFICIENCY gap (~1.9× the context for matching accuracy),
-not a capability one. No follow-up item is opened for it here; it is recorded as a finding in
-`docs/memory.md` §5, not as a startable task.
+**What is left is a different question than the one this Part opened**: an EFFICIENCY gap (~1.9× the context
+for matching accuracy), not a capability one. Recorded as a finding in `docs/memory.md` §5, deliberately not
+opened as a task.
 
 - Separate volume from form in the walk's residual gap against `vector-40`.
 
@@ -1949,34 +1811,24 @@ duplication within it. Full sample, 1,540 questions, 1,269.7s. Findings and tabl
 published QA table divided through by its own `items/q`, validated by a corpus reconstruction that
 reproduces the `full` row (601.4 items/q, 101209 chars/q) to the character.
 
-**The Part's own premise was half a comparison.** The ≈1.9× that opened it (6,536 against `vector`'s 3,460)
-compares 40 items to 20. At matched count the walk spends **6,536 against `vector-40`'s 6,780 — 3.6% LESS**,
-a row the same table already carried. The cost is in SLOTS, not characters: 40 slots to reach what cosine
-does in 20, at a cheaper price per slot.
+**The Part's own premise was half a comparison.** The ≈1.9× that opened it compares 40 items to 20. At
+matched count the walk spends **3.6% LESS** than `vector-40`, a row the same table already carried. **The
+cost is in SLOTS, not characters** — 40 slots to reach what cosine does in 20, at a cheaper price per slot.
 
-**And the Part named a dump that could not answer it.** `devtools/_locomo-dump-181506.jsonl` holds 12,320
-lines with exactly ONE key set — `arm, question, gold, answer, unknown, f1, exact, judge`. It records what
-the READER answered, for judge calibration; no context, no pieces, no chars. Censused, not inferred from the
-flag's name. The ~5-hour cost quoted for regenerating it was the QA run's and never applied here — the
-diagnostic needs no reader.
+**And the Part named a dump that could not answer it**: it records what the READER answered, for judge
+calibration — no context, no pieces, no chars. Censused rather than inferred from the flag's name, and the
+~5-hour regeneration cost quoted for it was the QA run's, never this diagnostic's.
 
-**Measured:** upgraded share **80.0%** (32 of 40) and it is STRUCTURAL, not empirical —
-`SeedsPerStep × (shots − 1) / MaxItems`, since the seed budget bounds the raise rather than the corpus.
-Headline items average **112.5** chars, content items **174.9** (against `vector-40`'s 168.5, so expansion
-walks toward richer turns). Duplication is **0.00** pairs per question on both arms over 61,600 items each,
-under a positive control proven on the red path.
+**The upgraded share is STRUCTURAL rather than empirical** — `SeedsPerStep × (shots − 1) / MaxItems`, since
+the seed budget bounds the raise rather than the corpus. That is why the pre-registered 88–95% was falsified
+at 80%: it was reached by inverting mean lengths, which assumes both sub-populations sit at the corpus mean
+and neither does. **A structural quantity was never the kind of thing an interval over corpus statistics
+could find.** The mode also measured the WRONG ARM on its first run, defaulting to a different `--seeds`
+than the table it explains and reporting a plausible number with nothing erroring; `pitfalls.md` has the rule.
 
-**What it got wrong, for the next reader.** The pre-registered upgrade prediction (88–95%) was FALSIFIED at
-80%: it was reached by inverting mean lengths, which assumes both sub-populations sit at the corpus mean and
-neither does. A structural quantity was never the kind of thing an interval over corpus statistics could
-find. **And the mode measured the wrong arm on its first run** — it defaults to `--seeds 3` where the table
-it explains was taken at `--seeds 16`, and reported a plausible 4,950 chars/q with nothing erroring; the
-reusable rule is in `.claude/knowledge/pitfalls.md`. Its control now reproduces the published rows exactly
-(6,536 / 6,780, and shot-1's 2,275 against the `lyntai-fused` row).
-
-**It also turned up something bigger than itself**, which is now `TASKS.md` **Part 136**: `evidence-hit@k`
-matches a `(dia_id)` that survives headline truncation in **5,882 of 5,882** turns, so the metric scores a
-half-turn and a whole turn identically while the graph arms return the first and the cosine arms the second.
+**It turned up something bigger than itself** — `evidence-hit@k` matches an id that survives headline
+truncation in 5,882 of 5,882 turns, so the metric scores a half-turn and a whole turn identically while the
+graph arms return the first and the cosine arms the second. That became Part 136.
 
 - Diagnose what the 40 items behind `lyntai-fused-3shot` actually contain.
 - Measure the two things the derivation could not.
@@ -2019,36 +1871,27 @@ nothing else. It builds no engine and issues no second recall. CONTROL: 4,000 of
 misses. `memory-locomo --n 200 --no-judge`, seed 12345, 2,712.4s. Tables: `docs/memory.md` §5.
 
 **token-F1 goes 29.3% → 41.0%, landing on plain cosine's 41.3%** at the same 20 slots and within 1.2% of the
-same context (3,583 against 3,541 chars). At n = 200 one question is ≈0.5 points, so +11.7 is ~23 questions
-and −0.3 is under one. **The engine's ranking is not worse than cosine — the entire measured QA deficit was
-headline truncation**, and the retrieval ladder was right about the ordering all along. `unknown` corroborates
-it: the reader refused 29 times truncated and 13 rehydrated, against cosine's 12, on the SAME 20 turns.
+same context. **The engine's ranking is not worse than cosine — the entire measured QA deficit was headline
+truncation**, and the retrieval ladder was right about the ordering all along. The reader's refusals
+corroborate it: 29 truncated against 13 rehydrated, on the SAME 20 turns.
 
-**A design fact that falls out, and it is the durable half.** One shot with full content beats three shots
-with mixed content for less context — 41.0% on 3,583 chars against `lyntai-fused-3shot`'s 38.0% on 4,968.
-Expansion is an expensive way to obtain content already in hand. That does not touch **D100**, whose claim is
-about DISCOVERING material a first load did not hold.
+**A design fact falls out, and it is the durable half.** One shot with full content beats three shots with
+mixed content for LESS context, so expansion is an expensive way to obtain content already in hand. That
+does not touch **D100**, whose claim is about DISCOVERING material a first load did not hold.
 
-**What the Part got wrong, for the next reader.** Its prediction was pre-registered at 38–45%, then REVISED
-DOWN to 32–40% before the run on a fixed-slot contrast (`lyntai-2shot` → `lyntai-3shot`: identical 40 items,
-content 40% → 80%, +1.1 token-F1). The outcome is 41.0%, so **the original was right and the revision was
-wrong by an order of magnitude**. The pre-registration had already named the reason — that contrast upgrades
-shot 2's newly-discovered NEIGHBOURS, so it prices the low-value half — and the revision was made anyway.
-The lesson is about extrapolating a natural experiment past the population it measured, not about the
-arithmetic, which was correct.
+**What the Part got wrong, for the next reader.** A pre-registered 38–45% was REVISED DOWN to 32–40% before
+the run, on a fixed-slot contrast that prices the low-value half — the pre-registration had already named
+that reason. The outcome was 41.0%, so the original was right and the revision wrong by an order of
+magnitude. **The lesson is about extrapolating a natural experiment past the population it measured**, not
+about the arithmetic, which was correct.
 
-**CONFIRMED at full sample 2026-09-02 (Part 138).** The parity claim was an n = 200 reading when this was
-written, and the same session's 40-slot claim flipped sign at full sample — so it was filed as a Part rather
-than believed. It held: **42.0% against `vector`'s 42.4%** on all 1,540 questions, a −0.4 where this read
-−0.3, at the same 20 slots. What did NOT survive is the category detail below — multi-hop's 38.0-vs-37.8
-near-tie reads −4.0 at full sample. `docs/memory.md` §5 carries the run.
+**CONFIRMED at full sample (Part 138)** — 42.0% against `vector`'s 42.4%, a −0.4 where this read −0.3. It
+was filed as a Part rather than believed, because the same session's 40-slot claim flipped sign at full
+sample. What did NOT survive is the category detail: multi-hop's near-tie reads −4.0.
 
-**Not settled, and deliberately not opened as a new Part.** This measures a HARNESS arm, not a shipped path:
-a consumer reaches the same place with N calls of `ExpandAsync(reference, hops: 0)`, which is supported and
-is N store round-trips. Whether a recall should be able to return content directly is a DECISION nobody has
-taken, so it belongs in the decision record rather than the backlog (`repo-mechanics.md` §"A conditional item
-is not a task"). Also open: one reader tier, one embedder, n = 200, and category splits that do not all point
-one way (temporal and open-domain still trail cosine).
+**What it measured was a HARNESS arm, not a shipped path** — and the decision it left open was taken the
+same day as **D104**, so a caller now asks for whole entries with `MemoryQuery.Detail`. Still open: one
+reader tier, one embedder, and category splits that do not all point one way.
 
 - Build the REHYDRATION arm and run it.
 
@@ -2122,6 +1965,25 @@ than the code. What did not survive is the category detail — multi-hop's n = 2
 sample.
 
 - Run the 20-slot pair at full sample.
+
+## Part 152 — the SHIPPED fusion reproduces the bench-local proof, cell for cell
+
+✅ done 2026-09-04 — the loop Part 151 left open. Its 83.0% came from a bench-local verifier emitting a
+fused page as its verdict, which is not the engine's path: the engine reorders and then applies its own cut.
+`+sem+rel-only+judge+enginefuse` drives the shipped `GraphMemoryOptions.VerdictCombination` and reads
+**83.0%, identical to `+fuse` in all four categories**, with all three controls reproducing.
+`docs/memory.md` §5.
+
+**The two arms are provably INDEPENDENT, which is what makes the agreement evidence rather than a
+tautology** — separate model call sequences, audits differing at 29.2 endorsements per call against 29.1 —
+so identical cells are two implementations of one rule agreeing, not one path measured twice. Both declined
+0 of 200, so neither was inert, and an arm landing on the partition's 72.5% was the pre-registered branch
+meaning the option never reached that path.
+
+**What it still does not measure is the REORDERING**, and that item stays open: evidence-hit@k reads the
+returned set, so a fused page that contains the same 20 entries in a different order scores identically.
+
+- Confirm the shipped option reproduces the fusion measurement.
 
 ## Part 151 — the verdict can COMPETE instead of partitioning, and the partition stays the default
 

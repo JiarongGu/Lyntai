@@ -1,27 +1,13 @@
 // check-archive — FAIL when an archive entry outgrows the OUTCOME it records.
 //
-// The rule is `.claude/rules/task-lifecycle.md` §"An archive entry is an OUTCOME and a POINTER": what the
-// task DID, what it decided, and where the detail lives. That rule was written from a measurement on
-// 2026-09-02 — mean non-blank lines per entry across the file in thirds, 8.0 → 6.1 → 22.2 — and answered
-// with prose alone.
+// The rule, and the measurements that argued for gating it rather than writing it down again, are
+// `.claude/rules/task-lifecycle.md` §"An archive entry is an OUTCOME and a POINTER". In short: an entry says
+// what the task DID, what it decided and where the detail lives, so what a paydown removes is DUPLICATION —
+// unlike `check-decisions`, where the reasoning IS the payload.
 //
-// IT KEPT GROWING. Re-measured 2026-09-04: 7.5 → 6.7 → 23.2 over 142 entries, a 3.1× spread where the rule
-// had recorded 2.8×. A written-down rule that is still violated is a MISSING GATE, not a knowledge problem
-// — the same reasoning that produced `check-encoding` and `check-links`.
-//
-// THE LIMIT IS 20 non-blank body lines, deliberately loose against the rule's own "roughly ten lines does
-// that". The median entry is already 10 and the third quartile 16, so the median complies and the whole
-// weight is in the tail: this catches outliers rather than re-litigating typical entries.
-//
-// A RATCHET, NOT A THRESHOLD, for the reason `check-decisions` and `check-comments` both record — entries
-// were already over when it landed, so a plain threshold would be switched off on day one. Allowances live
-// in `archiveEntryLengthAllowances` and can only come down.
-//
-// WHAT PAYING ONE DOWN MEANS, and it differs from `check-decisions`: a decision's reasoning IS its payload,
-// while an archive entry's detail belongs to whichever record owns it. The cost being removed here is
-// DUPLICATION — a measurement narrative living in both the entry and `docs/memory.md` §5 means a retraction
-// has to edit two places, and the day that was measured only one of them got edited. Strike every sentence
-// a reader could get from the document that owns it; what survives is the entry.
+// THE LIMIT IS 20 non-blank body lines, deliberately loose against that rule's own "roughly ten". A RATCHET
+// rather than a threshold, for the reason `check-decisions` and `check-comments` both record; allowances
+// live in `archiveEntryLengthAllowances` and can only come down. No escape token.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
