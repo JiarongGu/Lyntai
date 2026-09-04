@@ -802,6 +802,11 @@ it._
   that run's `--dump` and is generous by ≈12 points (`docs/memory.md` §5, finding 7) — same 4B model reading
   and grading. A second reader is no longer only about confidence in the differences; it is the only way to
   separate the reader's ceiling from the memory layer's._
+  <br>_**A second embedder ran on 2026-09-04, on the RETRIEVAL half rather than this one**
+  (`docs/task-archive.md` **Part 154**): `embeddinggemma:300m` over the judge/fusion ladder, which corrected
+  a shipped XML doc. **That does not close the embedder half of THIS item** — token-F1 with a reader is a
+  different measurement — but it does answer the cheaper question the item was partly asking, and it is
+  evidence the axis is worth the run: the arm ordering held while the size of one effect did not._
   <br>_**`ExpansionRetrievabilityFloor` is no longer part of this item.** It was swept across both workloads
   on 2026-08-30 (`docs/task-archive.md` **Part 123**), and the owner settled it the same day: the default
   stays at `0`. This line said it "needs more than one workload" and quoted a cost of 4 points — the

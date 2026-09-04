@@ -326,6 +326,20 @@ the tests) while being wrong. Skim before touching the relevant area.
   that carries new information". A "no" is a low RANK, not an absence, and modelling it as absence is what
   made the fusion degenerate.
 
+- **A gate that scans SOURCE must blank comments first, and the false positive is always the code that most
+  explicitly obeys the rule.** Measured twice in one session (2026-09-04), on two unrelated predicates:
+  · a check for reflection `JsonSerializer` in the wire paths (**D14**) flagged the two files whose comments
+    read *"JsonDocument.Parse (not JsonSerializer) so the package stays trim/AOT-clean"*;
+  · a check for a silent `IsAotCompatible=false` (**D7**) flagged `Lyntai.Generation.csproj`, which does not
+    opt out at all — it carries a commented-out TEMPLATE showing what to write if it ever needed to.
+  <br>**The mechanism is that prose about a rule quotes the rule's own vocabulary**, so a text scan hits the
+  documentation of compliance and the example of violation before it hits any real one. `check-links`
+  records the mirror image — an index built from prose lets a citation AUTHORIZE ITSELF — and the fix is the
+  same in both directions: **read the code, not what it says about itself.**
+  <br>**Blank comment BODIES rather than dropping the lines**, so reported line numbers still point at the
+  real file. And the tell that you have this bug is not a red gate — it is a red gate naming a file you
+  believe is correct; check whether the hit is inside a comment before you doubt the file.
+
 - **An offline REPLICA of a shipped algorithm must be proven to reproduce it, and the difference that breaks
   it is never the interesting part of the algorithm.** Measured 2026-08-29 (`docs/task-archive.md` Part 114):
   a ladder scoring RRF outside the engine got the ranking right and the TIE-BREAK wrong —

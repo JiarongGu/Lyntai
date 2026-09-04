@@ -14,7 +14,8 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import {
-  DECISION_CLAIMS, checkDecisionClaims, defaultOf, policyDomainFolders, sqliteObjectsMissingPrefix,
+  DECISION_CLAIMS, checkDecisionClaims, defaultOf, policyDomainFolders, silentAotOptOuts,
+  sqliteObjectsMissingPrefix,
   wireJsonSerializerUses,
 } from '../check-decision-claims.mjs';
 
@@ -61,6 +62,36 @@ describe('policyDomainFolders', () => {
       'src/Lyntai.Core/Memory/Storage/SomeRow.cs': '',             // no seam
     });
     assert.equal(policyDomainFolders(r), 2);
+  });
+});
+
+describe('silentAotOptOuts (D7)', () => {
+  const proj = (body) => ({ 'src/Lyntai.X/Lyntai.X.csproj': body });
+
+  it('names a BARE opt-out — the RED case, and the one that quietens check-warnings', () => {
+    const r = fixture(proj('<Project>\n<PropertyGroup>\n<IsAotCompatible>false</IsAotCompatible>\n'));
+    assert.deepEqual(silentAotOptOuts(r), ['src/Lyntai.X/Lyntai.X.csproj:3']);
+  });
+
+  it('accepts an opt-out whose reason sits in the comment above it', () => {
+    const r = fixture(proj('<Project>\n<PropertyGroup>\n'
+      + '<!-- Dapper materializes via reflection: an honest opt-out. -->\n'
+      + '<IsAotCompatible>false</IsAotCompatible>\n'));
+    assert.deepEqual(silentAotOptOuts(r), []);
+  });
+
+  it('IGNORES a commented-out TEMPLATE, which is what the first run got wrong', () => {
+    // Lyntai.Generation.csproj carries exactly this: an example inside <!-- --> showing what to write IF
+    // the package ever needs to opt out. A naive scan reports a package that does not opt out as silent.
+    const r = fixture(proj('<Project>\n<!--\n  If this package drags a reflection-heavy dependency it must\n'
+      + '  opt out rather than inherit the claim:\n'
+      + '    <IsAotCompatible>false</IsAotCompatible>\n-->\n<PropertyGroup>\n'));
+    assert.deepEqual(silentAotOptOuts(r), []);
+  });
+
+  it('is silent about a project that keeps the inherited claim', () => {
+    const r = fixture(proj('<Project>\n<PropertyGroup>\n<IsPackable>true</IsPackable>\n'));
+    assert.deepEqual(silentAotOptOuts(r), []);
   });
 });
 

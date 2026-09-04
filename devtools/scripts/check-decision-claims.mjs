@@ -87,6 +87,46 @@ export function sqliteObjectsMissingPrefix(r) {
   return [...new Set(names.filter((n) => !n.toLowerCase().includes('lyntai_')))];
 }
 
+/**
+ * Every packable project that turns `IsAotCompatible` OFF without saying why (D7), repo-relative.
+ *
+ * Opting out is SANCTIONED — seven projects do, for dynamic JSON or a native backend. What D7 forbids is
+ * doing it SILENTLY, and the reason that matters more than it looks: `IsAotCompatible=true` is what turns
+ * the trim/AOT analyzers on, so a project that opts out stops producing IL2026/IL3050 entirely. A silent
+ * opt-out therefore makes `check-warnings` QUIETER — the failure direction where a gate reports success
+ * because it has been switched off, which is the shape `check-encoding` and `check-sensitive` both paid for.
+ *
+ * "Says why" is an XML comment in the four lines above the property; every shipped opt-out has one.
+ *
+ * COMMENT BODIES ARE BLANKED FIRST, and this predicate's own first run is why — the SECOND time in one
+ * session that reading text without stripping comments produced a false positive (the other was D14's).
+ * `Lyntai.Generation.csproj` carries a TEMPLATE inside `<!-- -->` showing what to write if the package ever
+ * needs to opt out, so a naive scan reports a package that opts out as silent when it does not opt out at
+ * all. Blanking preserves line numbers so the report still points at a real line.
+ */
+export function silentAotOptOuts(r) {
+  const dir = path.join(r, 'src');
+  if (!fs.existsSync(dir)) return ['<no src>'];
+  // Replace each comment body with the same number of newlines, so indexes stay true to the file.
+  const blank = (s) => s.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '));
+  const bad = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!e.isDirectory()) continue;
+    const proj = path.join(dir, e.name, `${e.name}.csproj`);
+    if (!fs.existsSync(proj)) continue;
+    const raw = fs.readFileSync(proj, 'utf8').split(/\r?\n/);
+    const code = blank(fs.readFileSync(proj, 'utf8')).split(/\r?\n/);
+    code.forEach((line, i) => {
+      if (!/<IsAotCompatible>\s*false\s*<\/IsAotCompatible>/i.test(line)) return;
+      // A reason may sit on the property's own line or in the comment block just above it; four lines is
+      // enough for the longest shipped rationale and short enough that an unrelated comment cannot pass.
+      const window = raw.slice(Math.max(0, i - 4), i + 1).join('\n');
+      if (!window.includes('<!--')) bad.push(`src/${e.name}/${e.name}.csproj:${i + 1}`);
+    });
+  }
+  return bad;
+}
+
 /** The seven graph-memory policy domains: a sub-directory holding one seam (D46/D47). */
 export function policyDomainFolders(r) {
   const dir = path.join(r, 'src', 'Lyntai.Core', 'Memory');
@@ -140,6 +180,19 @@ export const DECISION_CLAIMS = [
     why: 'D6 exists because `UseSqliteStorage` may target a database the APPLICATION also uses, so an '
       + 'unprefixed name is a collision in someone else\'s schema rather than a style slip — and it would '
       + 'be introduced by a new migration, which is exactly when nobody re-reads a 2026-07 decision',
+  },
+  {
+    id: 'D7',
+    claim: 'a packable project that opts OUT of the trim/AOT claim says why — it never stays silent',
+    holds: (r) => silentAotOptOuts(r).length === 0,
+    detail: (r) => {
+      const bad = silentAotOptOuts(r);
+      return bad.length === 0 ? 'every IsAotCompatible=false carries its reason' : `silent at ${bad.join(', ')}`;
+    },
+    why: 'opting out is sanctioned; doing it SILENTLY is not. `IsAotCompatible=true` is what enables the '
+      + 'trim/AOT analyzers, so an opt-out stops IL2026/IL3050 being raised at all — a silent one makes '
+      + '`check-warnings` quieter rather than louder, which is the failure direction where a gate passes '
+      + 'because it was switched off',
   },
   {
     id: 'D14',
