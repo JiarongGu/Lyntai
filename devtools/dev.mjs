@@ -240,6 +240,9 @@ switch (cmd) {
   // `--shots` measures the n-shot WALK rather than one top-k, and combines with `--temporal`: the two
   // classes score the SAME walk by opposite metrics — preference for the current fact, against
   // all-evidence recall — which is why the walk itself is one shared function rather than one per class.
+  // `--extract` runs the field's WRITE-time design (a model extracts facts as turns arrive) against this
+  // engine's read-time decay; `--facts N` bounds what that extractor may return, which is the direct test
+  // of whether its measured 7.1× corpus inflation was the design or the unbounded prompt. Off by default.
   case 'memory-longmemeval':
     if (!config.benchProject) { console.log('no bench project configured'); break; }
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--longmemeval', ...args]);

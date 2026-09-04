@@ -2165,6 +2165,28 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 149 — the extractor's inflation was the PROMPT, and bounding it does not change the verdict
+
+✅ done 2026-09-04 — **Part 148 filed its own load-bearing caveat and this closes it.** That run's 7.1
+facts/turn was *"a property of this model and this prompt as much as of the design"*, so the extractor was
+given a budget: `memory-longmemeval --extract --facts 2`, stated in the prompt and never truncated in code.
+Inflation fell to **2.1 facts/turn** (11,271 → 3,308) with **evidence survival still 142/142**, and both
+controls reproduced CELL FOR CELL including their McNemar counts, which is what licensed reading the two
+runs against each other. Table, findings and limits: `docs/memory.md` §5.
+
+**The verdict survives the strongest version of its own counter-arm.** Dilution is confirmed — `current@k`
+recovered 75.7% → 87.1%, and on the fixed 70-question denominator the arm goes 49 → 59, so bounding recovers
+10 of the 14 questions the unbounded extractor lost. But `stale@k` ROSE 40.0% → 57.1%: compression lets both
+facts compete and resolves nothing between them, so extraction reshapes what is FOUND and still cannot BURY.
+**`extract+forget0` remains indistinguishable from cosine (p = 0.327)** — the pre-registered prediction, and
+the fourth arm in a row to land flat once forgetting is silent.
+
+Two reusable rules went to `.claude/knowledge/pitfalls.md`: bound a model in the PROMPT and never truncate
+its reply in code (a code truncation measures truncation), and COUNT how often it exceeds the bound, because
+"the bound did not help" and "the model ignored it" are the same score. Here 8.3%.
+
+- Give the extractor a budget and re-run `--extract`.
+
 ## Part 148 — write-time extraction against read-time decay: extraction is not a substitute
 
 ✅ done 2026-09-04 — **Extraction cannot stand in for decay, and without reconciliation it costs.** With

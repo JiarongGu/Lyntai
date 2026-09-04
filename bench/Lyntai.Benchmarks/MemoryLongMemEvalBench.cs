@@ -117,9 +117,15 @@ internal static class MemoryLongMemEvalBench
     /// provenance is scorable where a real Mem0 result is not.</para>
     ///
     /// <para><b>Cached by turn text</b>, so arms that differ only in engine configuration share one
-    /// extraction pass rather than paying for the model again.</para></summary>
+    /// extraction pass rather than paying for the model again.</para>
+    ///
+    /// <para><b>A positive <paramref name="budget"/> bounds the ANSWER in the prompt</b> and nowhere else —
+    /// the reply is never truncated in code, because a code truncation would measure truncation rather than
+    /// the model choosing. <see cref="OverBudget"/> is what says which of the two happened. Unset, the
+    /// instruction is byte-identical to the unbounded run this is compared against.</para></summary>
     /// <param name="chat">The extracting model.</param>
-    private sealed class FactExtractor(SweepDoubles.OpenAiCompatibleChat chat)
+    /// <param name="budget">Facts per turn the prompt asks for; <c>0</c> or less asks for no bound.</param>
+    private sealed class FactExtractor(SweepDoubles.OpenAiCompatibleChat chat, int budget)
     {
         private const string Instruction = """
             You extract durable facts from one message in a conversation.
@@ -136,9 +142,22 @@ internal static class MemoryLongMemEvalBench
 
         private readonly Dictionary<string, IReadOnlyList<string>> _cache = new(StringComparer.Ordinal);
 
+        /// <summary>The budget is stated as a NUMBER and paired with a rule for choosing which facts to
+        /// keep — "be selective" is not a budget, and a model will not invent one
+        /// (<c>.claude/knowledge/pitfalls.md</c>, the unbounded-task entry).</summary>
+        private readonly string _instruction = budget > 0
+            ? $"{Instruction}\n- Reply with AT MOST {budget} fact{(budget == 1 ? "" : "s")}. If the message "
+                + $"states more, keep only the {budget} that will still matter months later."
+            : Instruction;
+
         /// <summary>Turns whose extraction returned nothing — the information write-time extraction DROPS,
         /// which no retrieval can recover and which a score alone would blame on the ranker.</summary>
         internal int Empty { get; private set; }
+
+        /// <summary>Turns where the model returned MORE than the budget asked for — the fire counter this
+        /// arm needs. A budget nothing obeys leaves the corpus its unbounded size, which reads in the score
+        /// exactly like a budget that did not help.</summary>
+        internal int OverBudget { get; private set; }
 
         internal int Calls { get; private set; }
 
@@ -149,7 +168,7 @@ internal static class MemoryLongMemEvalBench
             if (_cache.TryGetValue(turn, out var hit)) return hit;
 
             Calls++;
-            var reply = await chat.AskAsync($"{Instruction}\n\nMessage:\n{turn}", maxTokens: 200)
+            var reply = await chat.AskAsync($"{_instruction}\n\nMessage:\n{turn}", maxTokens: 200)
                 .ConfigureAwait(false);
 
             var facts = reply is null
@@ -160,6 +179,7 @@ internal static class MemoryLongMemEvalBench
                     .ToList();
 
             if (facts.Count == 0) Empty++;
+            if (budget > 0 && facts.Count > budget) OverBudget++;
             Facts += facts.Count;
             _cache[turn] = facts;
             return facts;
@@ -270,11 +290,21 @@ internal static class MemoryLongMemEvalBench
     /// <para><b>Extraction is only half of Mem0's mechanism</b> and this is deliberately the cheaper half:
     /// facts are extracted, never RECONCILED, so a superseded fact and its replacement both land as
     /// entries. The store's <c>DeleteAsync</c> makes the ADD/UPDATE/DELETE half reachable next, and this run
-    /// decides whether it is worth building.</para></summary>
+    /// decides whether it is worth building.</para>
+    ///
+    /// <para><b><c>--facts N</c> bounds the extractor</b>, which is the direct test of whether the measured
+    /// inflation was the design or the PROMPT. Off by default, so the unbounded run reproduces.</para>
+    ///
+    /// <para><b>The prediction, registered before the run.</b> If dilution is the mechanism, bounding lifts
+    /// <c>extract</c> toward <c>lyntai</c> and raises <c>current@k</c>; if it is the store's shape, it does
+    /// not. Evidence survival is the branch that decides which: below 100% the budget DELETED evidence, and
+    /// any gain was bought rather than earned. <c>extract+forget0</c> is predicted to stay indistinguishable
+    /// from cosine either way, since a budget shapes the store and not forgetting's vote.</para></summary>
     private static async Task<int> RunExtractionAsync(IReadOnlyList<Question> sampled,
         SweepDoubles.CachingEmbedder embedder, SweepDoubles.OpenAiCompatibleChat chat, string[] args)
     {
-        var extractor = new FactExtractor(chat);
+        var budget = ArgValue(args, "--facts") is { } b && int.TryParse(b, out var cap) ? cap : 0;
+        var extractor = new FactExtractor(chat, budget);
         FieldArm[] engines = [FieldArms.Shipped(), FieldArms.Named("+forget0")];
         var reconcile = args.Contains("--reconcile");
         string[] arms = reconcile
@@ -368,6 +398,18 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine();
         Console.WriteLine($"Extraction: {extractor.Calls} turn(s) read, {extractor.Facts} fact(s) written, "
             + $"{extractor.Empty} turn(s) yielded NOTHING");
+        Console.WriteLine($"  INFLATION: {(extractor.Calls == 0 ? 0 : (double)extractor.Facts / extractor.Calls):F1}"
+            + " fact(s) per turn - the corpus this arm ranks against, relative to `lyntai`'s raw turns.");
+        if (budget > 0)
+        {
+            // The budget is a PROMPT, so an arm that scores its base has two readings a score cannot
+            // separate: the bound did not help, or the model ignored it. This is which.
+            Console.WriteLine($"  BUDGET: asked for at most {budget}; {extractor.OverBudget}/{extractor.Calls} "
+                + $"turn(s) came back OVER ({(extractor.Calls == 0 ? 0 : (double)extractor.OverBudget / extractor.Calls):P1}).");
+            Console.WriteLine("  A high rate here means the arm measures a budget the model DECLINED, not a");
+            Console.WriteLine("  bounded corpus - read the inflation line above before reading any score below.");
+        }
+
         Console.WriteLine($"  EVIDENCE SURVIVAL: {survived}/{evidenceTurns} "
             + $"({(evidenceTurns == 0 ? 0 : (double)survived / evidenceTurns):P1}) flagged turns still have a "
             + "fact after extraction.");
@@ -672,6 +714,13 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine();
             Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
             Console.WriteLine($"Extractor: {writer.Model}   (a WRITE-side model, not the reader - nothing here reads)");
+            if (ArgValue(args, "--facts") is { } cap)
+            {
+                Console.WriteLine($"Budget:    at most {cap} fact(s) per turn, stated in the PROMPT and never");
+                Console.WriteLine("           truncated in code - so an over-budget count is the model declining,");
+                Console.WriteLine("           not the harness enforcing. Unset, the prompt is the unbounded one.");
+            }
+
             Console.WriteLine();
             return await RunExtractionAsync(sampled, embedder, writer, args);
         }

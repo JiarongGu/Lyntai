@@ -284,6 +284,18 @@ the tests) while being wrong. Skim before touching the relevant area.
   `MemoryVerificationRequest` carries the query and the candidates and NOT the caller's limit, so the policy
   cannot say "at most 20" for a page of 20. **A knob that shapes the input is usually cheaper than a bigger
   model, and it is testable on the model you already have.**
+  <br>**TESTED on the extractor 2026-09-04 (`docs/memory.md` §5), and the prediction held: the inflation was
+  the PROMPT.** Adding one line — *at most 2 facts* — took 7.1 facts/turn to 2.1 on the same 4B model, cost
+  no evidence (survival stayed 142/142) and recovered 11.4 of the 14.3 points of `current@k` the unbounded
+  prompt had lost. **Two rules came out of doing it**, and both generalise to any prompt-level bound:
+  **state the budget in the PROMPT and never truncate the reply in code** — a code truncation measures
+  truncation, not the model discriminating — and **count how often the model EXCEEDS it**, because "the
+  bound did not help" and "the model ignored the bound" are the same score. Here it was 8.3%, which is what
+  made "a bounded corpus" a claim rather than an assumption.
+  <br>**And the honest other half: a better-shaped input fixed what it was aimed at and nothing else.** The
+  same run's `stale@k` ROSE 40.0% → 57.1% — a smaller corpus lets both the current and the superseded fact
+  compete — so input shaping bought back the DILUTION and moved the underlying judgement not at all. **Fix
+  the input before buying a bigger model; do not expect it to buy a capability the seam never had.**
 
 - **An arm that is SUPPOSED to move needs a control proving it CAN — the mirror of the arm that cannot.**
   This repository already requires a structural null control before believing a delta. The other half went

@@ -83,6 +83,7 @@ stops discriminating — and none is explained by model size:
 | judge, depth 40 | 40 candidates | endorsed 19%, ~3.1× |
 | **judge, depth 80 (shipped)** | 80 candidates | **endorsed 36%, 1.74×** — and cost 10.5 points |
 | extractor | one turn, **no budget** | **7.1 facts/turn**, a 7.1× corpus inflation |
+| extractor | one turn, **"at most 2"** | **2.1 facts/turn** — the row above was the PROMPT (Part 149) |
 
 The judge RANKS well — 34.5% precision at its own top pick against a 1.49% base rate — it just cannot tell
 where to stop. **Neither prompt states a budget, and for the judge the library cannot supply one**:
@@ -90,12 +91,20 @@ where to stop. **Neither prompt states a budget, and for the judge the library c
 cannot say "pick at most 20" for a page that holds 20. That is an additive API gap and the cheapest
 experiment in the backlog.
 
-**Three things a fresh session can start on, cheapest first.** (1) Give the extractor a budget — "at most
-two facts" — and re-run `--extract`; the measured failure was inflation, so this is the direct test.
+**Three things a fresh session can start on, cheapest first.** ~~(1) Give the extractor a budget — "at most
+two facts" — and re-run `--extract`~~ — **DONE 2026-09-04, `docs/task-archive.md` Part 149.** The hypothesis
+held: one prompt line took 7.1 facts/turn to **2.1**, cost no evidence (survival 142/142) and recovered 11.4
+of the 14.3 points of `current@k` the unbounded prompt had lost. **It did not change the verdict** — bounded
+extraction still cannot bury (`stale@k` ROSE 40.0 → 57.1) and `extract+forget0` is still indistinguishable
+from cosine (p = 0.327). So input shaping bought back the DILUTION and moved the underlying judgement not at
+all, which is the caveat to carry into (2) rather than a reason to skip it.
 (2) Give the judge a budget in its prompt, and consider carrying the recall limit on
-`MemoryVerificationRequest`. (3) A SMALLER chat model, which has to be SERVED before it can be measured —
-"does a smaller model with tighter input beat a bigger one with loose input" is ENVIRONMENT-blocked, not
-open.
+`MemoryVerificationRequest`. **It is NOT blocked on that API gap**, which was checked while (1) ran: the
+bench routes the SHIPPED `LlmMemoryVerificationPolicy` and its prompt is a `const`, so the experiment needs
+a bench-local copy of the policy and no library change at all — the gap is what SHIPPING the fix needs, not
+what measuring it needs. Measure first, then decide the surface. (3) A SMALLER chat model, which has to be
+SERVED before it can be measured — "does a smaller model with tighter input beat a bigger one with loose
+input" is ENVIRONMENT-blocked, not open.
 <br>**What the runs above actually talked to, because this machine runs BOTH and it is not inferable from
 the tables.** No `LYNTAI_*` variable was set, so the benches took their default — `http://localhost:11434`,
 which is Ollama — while three `llama-server` processes were up and unused. Every figure on record from
@@ -114,11 +123,15 @@ and `extract+reconcile+forget0` reads **p = 0.508** against cosine, the third ar
 indistinguishable from a flat index once forgetting is silent. **At n = 25 only `lyntai` clears
 significance**, so the ordering among extract arms is not a result; what holds is that neither half
 substitutes for decay.
-<br>**What would move this on, and it is the input-shaping thread above, not a bigger idea**: the extractor
-emits 7.1 facts/turn because nothing bounds it, and reconciliation is then patching a mess rather than
-preventing one. Budget the extractor FIRST. A powered re-run also needs the full 70 questions, and judging
-whether the 122 deletions were wrong needs ground truth on which pairs SHOULD supersede — which does not
-exist here.
+<br>**The budget RAN on 2026-09-04 (`docs/task-archive.md` Part 149) and settled the "not a substitute" half
+outright.** Bounded to 2 facts/turn the extractor loses no evidence and takes back 10 of the 14 questions the
+unbounded one lost — and `extract+forget0` still reads p = 0.327 against cosine, so **the verdict now stands
+on the strongest version of its own counter-arm** rather than on a prompt nobody had tuned. What it did NOT
+do is help the engine choose between a fact and its replacement: `stale@k` rose 40.0 → 57.1, because a
+smaller corpus lets both compete.
+<br>**What is left of the reconciling question is unchanged and still needs what it always did**: a powered
+re-run at the full 70, and ground truth on which pairs SHOULD supersede before "it deleted the wrong 122"
+can be judged. Neither exists here.
 
 **THE ACCEPTANCE TEST PASSES, on one knob across both workloads** (`docs/task-archive.md` **Part 147**).
 `+sem` and `+sem+forget0` differ only in whether forgetting votes. **Decay OFF is a flat retriever** —

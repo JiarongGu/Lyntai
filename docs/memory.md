@@ -1854,6 +1854,53 @@ significance. `extract` (p = 0.109) and `extract+reconcile` (p = 0.125) are not 
 NOR from each other, so **"reconciliation is worse than extraction" is not a result** — the run supports
 only that neither substitutes for decay. A powered comparison needs the full 70 and a stronger model.
 
+**THE INFLATION WAS THE PROMPT, AND FIXING IT DOES NOT CHANGE THE VERDICT** (`--extract --facts 2`,
+2026-09-04). The run above closed by naming its own load-bearing caveat — *"7.1 facts per turn is a property
+of this model and this prompt as much as of the design"* — so the extractor was given a budget: **at most 2
+facts, stated in the prompt and never truncated in code**, because truncating the reply would measure
+truncation rather than the model choosing. Same 70 questions, same seed, same oracle variant. Raw output,
+gitignored: `devtools/_lme-facts2.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
+
+**The controls reproduce CELL FOR CELL** — `lyntai` 96.9%/90.0%/54.3% at +32 −1, `vector`
+47.1%/84.3%/95.7%, every figure identical to the unbounded run including its McNemar counts. That is what
+licenses reading the two runs against each other.
+
+| arm | prefers current | current@k | stale@k | decidable | paired vs cosine |
+|---|---|---|---|---|---|
+| `lyntai` — raw turns + decay | **96.9%** [89.5, 99.2] | **90.0%** | 54.3% | 65 | +32 −1, **p<0.0001** |
+| `extract` — bounded facts + decay | 88.1% [78.2, 93.8] | **87.1%** | 57.1% | 67 | +28 −1, **p<0.0001** |
+| `extract+forget0` — bounded, decay OFF | 55.1% [43.4, 66.2] | 85.7% | 92.9% | 69 | +16 −10, **p = 0.327** |
+| `vector` | 47.1% [35.7, 58.8] | 84.3% | 95.7% | 68 | — |
+
+**1. The budget bound, and it cost no evidence.** 7.1 → **2.1 facts per turn**, 11,271 → **3,308**, with the
+model exceeding the budget on 132 of 1,589 turns (8.3%) — so this arm measures a bounded corpus rather than a
+budget the model declined, which is the reading a score column cannot separate on its own. **Evidence
+survival stayed 142/142**: the compression dropped nothing, so nothing below was bought with data loss.
+
+**2. Dilution is CONFIRMED as the mechanism, and read the count rather than the rate.** `current@k` recovered
+**75.7% → 87.1%**, taking back 11.4 of the 14.3 points the unbounded extractor had lost against `lyntai`'s
+90.0%. `prefers current` moved only 86.0% → 88.1%, and that understates it: **the rate is conditioned on
+`decidable`, which grew 57 → 67**. On the fixed 70-question denominator the arm goes **49 → 59**, so
+bounding the extractor recovers **10 of the 14 questions** the unbounded one lost. A denominator that grows
+when an arm improves flatters the arm it replaces.
+
+**3. What it did NOT fix is the whole point: `stale@k` ROSE, 40.0% → 57.1%.** A smaller corpus surfaces the
+current fact more often *and* the superseded one more often — compression helps both facts compete, and
+resolves nothing between them. Extraction reshapes what is FOUND and cannot BURY, which is the same split
+the acceptance test states for decay (§5, one knob two workloads). The residual gap to `lyntai` is exactly
+the part decay does and extraction does not.
+
+**4. The pre-registered prediction held on the arm that decides it.** `extract+forget0` reads 55.1% against
+cosine's 47.1% at **p = 0.327** — the fourth arm in a row to land indistinguishable from a flat index once
+forgetting is silent. **So the verdict survives the strongest version of its own counter-arm**: write-time
+extraction, properly bounded and losing no evidence, still does not substitute for read-time decay. That is
+the caveat the previous run filed, now closed rather than restated.
+
+**What this does not settle.** ONE budget value on ONE model, one class, oracle variant — a value is not a
+curve, and nothing here says 2 is the right bound. **And the instrument pairs every arm against `vector`
+only**, so the 88.1% against `lyntai`'s 96.9% is a difference in LEVEL and not a tested one; pairing the arms
+against `lyntai` as well is a cheap change the next run on this harness should carry.
+
 ### ONE KNOB, TWO WORKLOADS: decay off is a flat retriever, decay on is what adds supersession (2026-09-03)
 
 The design's own acceptance test, and the arm that makes it possible is new: **`+sem` and `+sem+forget0`
