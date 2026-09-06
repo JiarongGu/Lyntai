@@ -2719,6 +2719,44 @@ characters"*. Also: one embedder, two budget values, and `ms/q` is absent for `f
 this table — it billed the harness's re-ingestion to the arm and read 14.7 seconds in a column of
 milliseconds. Fixed after the fact, so no latency claim is made for that arm here.
 
+### It was the POOL, and `CandidateMultiplier = 4` costs 27 points of `clean` (`--pool 4,8,16,32`, 2026-09-07)
+
+The section above could not tell a wider POOL from a wider OUTPUT: `fill` raised `Limit` to 80, and the
+engine gathers `Limit × CandidateMultiplier`, so it moved both. `GraphMemoryOptions.CandidateMultiplier`
+separates them — it widens the pool at a FIXED output. Knowledge-update, haystack, all 70, budget 1,200.
+
+| arm | `clean` | `current@k` | `stale@k` | items/q | ms/q |
+|---|---|---|---|---|---|
+| `shot-1` / `pool-4` (**shipped**) | 31.4% | 87.1% | 62.9% | 10.0 | 115.8 |
+| `pool-8` | 42.9% | 77.1% | 42.9% | 10.0 | 123.8 |
+| `pool-16` | **58.6%** | 67.1% | 12.9% | 10.0 | 129.1 |
+| `pool-32` | 57.1% | 65.7% | 11.4% | 10.0 | 142.5 |
+| `fill` (`k = 80`, mult 4) | 57.1% | 65.7% | 11.4% | 10.1 | 488.1 |
+
+**1. The lever is POOL DEPTH, and the answer is exact rather than approximate.** `pool-32` reproduces `fill`
+on every quality column while returning ten items from a `Limit: 10` recall — the two see the same 320
+candidates, and the shipped RRF policy never reads `MemoryRankingContext.Limit`, so they rank identically.
+Output size contributed nothing.
+
+**2. The curve SATURATES at 16 and the shipped 4 is far below the knee**: +11.5 points to 8, +15.7 more to
+16, then nothing (58.6 → 57.1 is one question, inside this instrument's documented floor). Cost is
+23% of `ms/q`, not a new round trip.
+
+**3. It is a SUPPRESSION dial, not a quality dial** — which is the whole of how to read it. `stale@k`
+collapses 62.9% → 12.9% while `current@k` falls 87.1% → 67.1%: a deeper pool buries BOTH facts and the
+superseded one much harder. `clean` rewards exactly that. **A deployment that needs the current fact FOUND
+loses 20 points by moving this knob.**
+
+**So NO DEFAULT MOVES on this, and the reason is a rule this repository already paid for.** `clean` is a
+suppression metric; a coverage metric should punish the same knob. The 2026-09-07 budget run says so
+directly — at a 1,200 budget the same depth reads **18.2%** on temporal all-evidence against `shot-1`'s
+47.7% — so this is the `RetrievabilityWeight` shape again (**§5**, +5.5 search for −37.1 supersession), and
+an arm that wins one workload owes the other a visit before anyone proposes it. **What is measured is a
+TRADE with a knee at 16, not an improvement.** One class, one variant, one embedder, n = 70.
+
+**Control.** `pool-4` is the shipped configuration reached by a different route and reproduces `shot-1` to
+the decimal on every column — so the arm is measuring the multiplier and nothing else about how it is built.
+
 ### The expansion floor, swept across workloads (2026-08-30)
 
 `GraphMemoryOptions.ExpansionRetrievabilityFloor` (**D98**) ships at `0`. It was adopted on one class of one

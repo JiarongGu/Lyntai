@@ -37,7 +37,8 @@ added a seventh. **Counted rather than adjusted**: every `- [ ]` in those four P
 for a blocker, which is the only way to move this number without inheriting whatever was wrong with the last
 one. It stayed at seven on 2026-09-07, when the `k`-raised arm CLOSED (`docs/task-archive.md` **Part 158**)
 and its own caveat opened the successor below it — a one-for-one swap, which is the ordinary way this list
-moves and the reason the count is worth stating rather than the items._
+moves and the reason the count is worth stating rather than the items. It swapped again the same day when
+that successor closed as **Part 159** and left the coverage ladder behind it._
 <br>_**This line used to be a 49-line running tally** — every Part that opened and closed since 2026-08-30,
 with the count after each. It was deleted on 2026-09-03 rather than extended, because `task-lifecycle.md`
 says outright that a backlog must not summarize its archive: the tally grew without bound, answered a
@@ -886,22 +887,24 @@ figures that have since moved._
   for the two classes that run today — a new class inherits that only if it takes the same branch.
   Instrument facts: `.claude/knowledge/pitfalls.md`.
 
-- [ ] **Separate the POOL from the OUTPUT: `CandidateMultiplier` at a fixed `k`.** `docs/memory.md` §5
-  (2026-09-07) found the biggest recall-quality move this repository has measured — `clean` 31.4% → **57.1%**
-  at the same characters — from a recall at `k = 80` trimmed by `CharBudget`. **But that arm moves two things
-  at once**: the engine gathers `k × CandidateMultiplier`, so `k = 80` widens the POOL to 320 *and* the
-  OUTPUT to 80. Which one bought the 25.7 points is unmeasured.
-  <br>**The arm that separates them already ships**: `GraphMemoryOptions.CandidateMultiplier` (default 4)
-  widens the pool at a fixed output. Run `Limit: 10, CandidateMultiplier: 32` against `fill@1200` — if it
-  reproduces 57.1%, the lever is POOL DEPTH and the shipped `CandidateMultiplier` is the default to
-  re-examine; if it reproduces `shot-1`'s 31.4%, the lever is the OUTPUT SIZE and what matters is trimming by
-  characters rather than by slots.
-  <br>**Why it matters beyond the number**: `Limit` doing two jobs is a SURFACE observation, not just a
-  measurement one. A caller wanting "80 candidates, 10 results" has to say `Limit: 80` plus a `CharBudget`,
-  which is indirect and undocumented as the way to do it. Price it before proposing anything.
-  <br>_Cheap and model-free, and now cheap to RUN: `--budget A,B` shares one ingestion, so the second rung
-  costs SQLite writes and no model call (the embedder cache is in-memory but per-process). A haystack
-  temporal ladder is ~100 min, a knowledge-update one ~50._
+- [ ] **Price `CandidateMultiplier` on a COVERAGE workload before anyone proposes moving it.**
+  `docs/memory.md` §5 (2026-09-07) measured the multiplier ladder on knowledge-update and found the shipped
+  **4** sitting **27.2 points of `clean` below a knee at 16**, for 23% of `ms/q`. That is the largest
+  recall-quality move this repository has measured on its flagship metric — and it is a **SUPPRESSION** dial,
+  so it is exactly the shape that must not be adopted on one workload.
+  <br>**What the same run already says against it**: `stale@k` collapses 62.9% → 12.9% while `current@k`
+  falls 87.1% → 67.1%, so a deeper pool buries BOTH facts. At a 1,200-character budget the same depth reads
+  **18.2%** on temporal all-evidence against `shot-1`'s 47.7%. **This is the `RetrievabilityWeight` shape**
+  (+5.5 search for −37.1 supersession, about 7:1 against), and the standing rule is that an arm winning one
+  workload owes the other a visit.
+  <br>**So the work is two ladders, not a decision**: `--pool 4,8,16,32` on `--temporal` (all-evidence, the
+  coverage side) and on `memory-locomo` (search, where a bigger pool has to be priced against the metric the
+  engine already loses on). Then the exchange rate is known on all three, and the knee at 16 either survives
+  or is one class's artifact. **Do not move the default off a single class**, which is the mistake the
+  `RetrievabilityWeight` entry exists to prevent.
+  <br>_Model-free, and the arm already ships (`--pool`). ~210 min for the temporal ladder at four rungs,
+  since each multiplier needs its own store — a recall reinforces what it returns, so they cannot share one
+  (Part 118's defect). Embeds are cache hits, so the cost is SQLite rather than the model._
 
 ---
 

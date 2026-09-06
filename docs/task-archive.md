@@ -1966,6 +1966,29 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 159 — it was the POOL, and the shipped `CandidateMultiplier` sits far below the knee
+
+✅ done 2026-09-07 — Part 158's own load-bearing caveat, closed the next hour. `docs/memory.md` §5.
+`fill` raised `Limit` and the engine gathers `Limit × CandidateMultiplier`, so it moved POOL and OUTPUT
+together; `--pool M` varies the multiplier at a fixed output and separates them.
+
+**The lever is pool depth, exactly**: `pool-32` reproduces `fill` on every quality column while returning
+ten items from a `Limit: 10` recall. The two see the same 320 candidates and the shipped RRF policy never
+reads `MemoryRankingContext.Limit`, so output size contributed nothing.
+
+**`clean` runs 31.4 → 42.9 → 58.6 → 57.1** across multipliers 4/8/16/32: the shipped **4** is 27.2 points
+below a knee at **16**, for 23% of `ms/q`.
+
+**No default moves, and that is the finding rather than a hedge.** It is a SUPPRESSION dial — `stale@k`
+62.9% → 12.9% while `current@k` falls 87.1% → 67.1% — so it buries both facts and the superseded one harder.
+The same depth reads 18.2% on temporal all-evidence against `shot-1`'s 47.7%, which is the
+`RetrievabilityWeight` shape again. A coverage ladder is the successor item.
+
+**Control**: `pool-4` is the shipped configuration by a different route and reproduces `shot-1` to the
+decimal, so the arm measures the multiplier and nothing about its own construction.
+
+- Separate the POOL from the OUTPUT: `CandidateMultiplier` at a fixed `k`.
+
 ## Part 158 — the lever is RECALL DEPTH, and it corrects Part 157's closing claim
 
 ✅ done 2026-09-07 — the `k`-raised arm Part 157 filed as its own load-bearing caveat, plus a `--budget A,B`

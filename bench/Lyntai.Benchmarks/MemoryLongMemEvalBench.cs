@@ -873,6 +873,36 @@ internal static class MemoryLongMemEvalBench
             fillK = DefaultFillLimit;
         }
 
+        // `--pool M,...` separates a wider POOL from a wider OUTPUT, which `fill` moves together: the engine
+        // gathers `Limit x CandidateMultiplier`, so `fill` at k = 80 widens the pool to 320 AND returns 80,
+        // while `Limit = 10, CandidateMultiplier = 32` sees the same 320 and returns 10. The shipped
+        // multiplier is 4 and has never been measured; including it is the arm's own control, since
+        // `pool-4` is shot 1's configuration reached by a different route and must land on it.
+        int[] pools = [];
+        if (ArgValue(args, "--pool") is { } ps)
+        {
+            var wanted = new List<int>();
+            foreach (var part in ps.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!int.TryParse(part, out var pv) || pv <= 0)
+                {
+                    Console.Error.WriteLine($"--pool: '{part}' is not a positive candidate multiplier.");
+                    return 1;
+                }
+
+                wanted.Add(pv);
+            }
+
+            if (budgets.All(b => !b.Binds))
+            {
+                Console.Error.WriteLine("--pool: only applies with --budget, which is what holds the arms to "
+                    + "one context spend. Add --budget, or drop --pool.");
+                return 1;
+            }
+
+            pools = [.. wanted.Distinct().Order()];
+        }
+
         if (allEvidence)
         {
             if (temporal)
@@ -903,9 +933,9 @@ internal static class MemoryLongMemEvalBench
                 Console.WriteLine();
             }
             Preamble(sampled, questions.Count, turns, haystack, seed, wantClass);
-            BudgetPreamble(budgets, fillK);
+            BudgetPreamble(budgets, fillK, pools);
             return shots
-                ? await RunTemporalShotsAsync(sampled, embedder, expandFloor, budgets, fillK, args)
+                ? await RunTemporalShotsAsync(sampled, embedder, expandFloor, budgets, fillK, pools, args)
                 : await RunTemporalAsync(sampled, embedder, args);
         }
 
@@ -974,8 +1004,8 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine("what 'clean' scores, and it is the metric a smaller context is supposed to buy.");
             Console.WriteLine();
             Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
-            BudgetPreamble(budgets, fillK);
-            return await RunShotsAsync(sampled, embedder, expandFloor, budgets, fillK, args);
+            BudgetPreamble(budgets, fillK, pools);
+            return await RunShotsAsync(sampled, embedder, expandFloor, budgets, fillK, pools, args);
         }
 
         // `--ranks` scores ONE probe-wrapped engine over a K ladder, so it has no arms to select. Rejected
@@ -1192,8 +1222,8 @@ internal static class MemoryLongMemEvalBench
     /// <c>vector-{ShotBudget}</c> goes — <c>k</c> no longer decides what cosine spends, and an arm whose name
     /// promises a slot count that is not what bounds it is worse than no arm — and <c>fill</c> arrives, being
     /// the only arm that tries to SPEND the allowance rather than stopping at the shipped limit.</summary>
-    private static string[] ShotArmNames(ContextBudget budget) => budget.Binds
-        ? ["shot-1", "shot-2", "shot-3", FillArm, "vector"]
+    private static string[] ShotArmNames(ContextBudget budget, int[] pools) => budget.Binds
+        ? ["shot-1", "shot-2", "shot-3", FillArm, .. pools.Select(p => $"pool-{p}"), "vector"]
         : ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}"];
 
     /// <summary>One label per (arm, budget). <b>With a single budget the suffix is dropped</b>, so a
@@ -1203,11 +1233,11 @@ internal static class MemoryLongMemEvalBench
         ladder && budget.Binds ? $"{arm}@{budget.Chars}" : arm;
 
     /// <summary>Every label a ladder reports, narrowed by <c>--arms</c>.</summary>
-    private static string[]? ShotArms(string[] args, ContextBudget[] budgets)
+    private static string[]? ShotArms(string[] args, ContextBudget[] budgets, int[] pools)
     {
         var ladder = budgets.Length > 1;
         return FilterArms(args,
-            [.. budgets.SelectMany(b => ShotArmNames(b).Select(a => Label(a, b, ladder)))]);
+            [.. budgets.SelectMany(b => ShotArmNames(b, pools).Select(a => Label(a, b, ladder)))]);
     }
 
     /// <summary>Cosine's body under a budget: drawn best-first from the WHOLE ranked corpus and then capped,
@@ -1233,23 +1263,28 @@ internal static class MemoryLongMemEvalBench
     /// (<c>Content?.Length ?? Headline.Length</c>), with no authoritative material in this corpus for the
     /// engine's one carve-out to bind on. Recalling per budget would pay a full ingestion each to compute
     /// the same rows.</para></summary>
-    /// <returns>The UNCUT body at <paramref name="fillK"/> and the RECALL's own elapsed milliseconds — the
+    /// <returns>The UNCUT body at <paramref name="limit"/> and the RECALL's own elapsed milliseconds — the
     /// re-ingestion above is the harness's cost for sharing one recall across the ladder, and billing it to
     /// the arm would report seconds in a column of milliseconds. The caller applies each budget's own
     /// trim.</returns>
-    private static async Task<(IReadOnlyList<string> Body, double Ms)> FillAsync(Question q,
-        SweepDoubles.CachingEmbedder embedder, double expandFloor, int fillK)
+    /// <param name="multiplier">Candidates gathered PER returned item. Null takes the shipped
+    /// <c>GraphMemoryOptions.CandidateMultiplier</c>, which is what <c>fill</c> uses; a value is what
+    /// separates a wider POOL from a wider OUTPUT, since the engine gathers <c>limit × multiplier</c> and
+    /// the two arms can therefore be made to see the same candidates and return different counts.</param>
+    private static async Task<(IReadOnlyList<string> Body, double Ms)> RecallArmAsync(Question q,
+        SweepDoubles.CachingEmbedder embedder, double expandFloor, int limit, int? multiplier = null)
     {
         using var db = new MemoryPolicySweep.SweepDb();
+        var options = new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor };
+        if (multiplier is { } m) options = options with { CandidateMultiplier = m };
         var engine = new GraphMemoryEngine("lme", new SqliteMemoryGraphStore(db.Factory),
-            options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor },
-            embedder: embedder, vectors: new InMemoryVectorStore());
+            options: options, embedder: embedder, vectors: new InMemoryVectorStore());
 
         foreach (var t in q.Turns)
             await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
 
         var clock = Stopwatch.StartNew();
-        var recall = await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: fillK));
+        var recall = await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: limit));
         return ([.. recall.Items.Select(i => i.Content ?? i.Headline)], clock.Elapsed.TotalMilliseconds);
     }
 
@@ -1257,7 +1292,7 @@ internal static class MemoryLongMemEvalBench
     /// the unbudgeted one — <c>vector</c> changes meaning (best-first over the whole corpus, not a top-k)
     /// and one arm is gone. A reader handed the numbers alone would compare them with published rows they
     /// do not belong beside.</summary>
-    private static void BudgetPreamble(ContextBudget[] budgets, int fillK)
+    private static void BudgetPreamble(ContextBudget[] budgets, int fillK, int[] pools)
     {
         var binding = budgets.Where(b => b.Binds).ToList();
         if (binding.Count == 0) return;
@@ -1271,6 +1306,15 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("           CharBudget doing the cut - the arm that SPENDS the allowance instead of");
         Console.WriteLine($"           stopping at k = {RecallLimit}. It is not shot 1 with a longer tail: the");
         Console.WriteLine("           engine gathers k x CandidateMultiplier, so the pool widens with k.");
+        if (pools.Length > 0)
+        {
+            Console.WriteLine($"Pool:      `pool-M` is k = {RecallLimit} at CandidateMultiplier M, which sees");
+            Console.WriteLine($"           {RecallLimit} x M candidates and returns {RecallLimit} - so it holds the");
+            Console.WriteLine("           OUTPUT fixed and varies only the POOL, which `fill` moves together.");
+            Console.WriteLine("           `pool-4` is the shipped multiplier and must land on shot-1: same");
+            Console.WriteLine("           configuration by a different route, so it is this arm's own control.");
+        }
+
         if (binding.Count > 1)
             Console.WriteLine("           Arms are suffixed @<budget>; one ingestion serves the whole ladder.");
         Console.WriteLine();
@@ -1321,10 +1365,10 @@ internal static class MemoryLongMemEvalBench
     /// </summary>
     private static async Task<int> RunShotsAsync(List<Question> sampled,
         SweepDoubles.CachingEmbedder embedder, double expandFloor, ContextBudget[] budgets, int fillK,
-        string[] args)
+        int[] pools, string[] args)
     {
         var stopwatch = Stopwatch.StartNew();
-        var arms = ShotArms(args, budgets);
+        var arms = ShotArms(args, budgets, pools);
         if (arms is null) return 1;
         var ladder = budgets.Length > 1;
         var cur = new Dictionary<string, int>();
@@ -1384,8 +1428,18 @@ internal static class MemoryLongMemEvalBench
             var deep = binding.Count > 0 ? (await TopKAsync(embedder, index, q.Text, index.Count)).ToList() : [];
             var deepMs = deepClock.Elapsed.TotalMilliseconds;
             var (filled, fillMs) = binding.Count > 0
-                ? await FillAsync(q, embedder, expandFloor, fillK)
+                ? await RecallArmAsync(q, embedder, expandFloor, fillK)
                 : ((IReadOnlyList<string>)[], 0d);
+
+            // Each multiplier needs its OWN store: a recall reinforces what it returns, so scoring two
+            // multipliers against one store would let the first change the second's ranking - the shared-store
+            // defect Part 118 corrected. The embeds are cache hits, so the cost is SQLite and not the model.
+            var pooled = new List<(int M, IReadOnlyList<string> Body, double Ms)>();
+            foreach (var m in binding.Count > 0 ? pools : [])
+            {
+                var (body, ms) = await RecallArmAsync(q, embedder, expandFloor, RecallLimit, m);
+                pooled.Add((m, body, ms));
+            }
 
             foreach (var b in budgets)
             {
@@ -1408,6 +1462,9 @@ internal static class MemoryLongMemEvalBench
                 var fit = b.Fit(filled);
                 b.NoteFill(fit.Count == filled.Count, filled.Count < fillK);
                 Score(Label(FillArm, b, ladder), fit, fillMs);
+
+                foreach (var (m, body, ms) in pooled)
+                    Score(Label($"pool-{m}", b, ladder), b.Fit(body), ms);
             }
         }
 
@@ -1469,10 +1526,10 @@ internal static class MemoryLongMemEvalBench
     /// all.</summary>
     private static async Task<int> RunTemporalShotsAsync(List<Question> sampled,
         SweepDoubles.CachingEmbedder embedder, double expandFloor, ContextBudget[] budgets, int fillK,
-        string[] args)
+        int[] pools, string[] args)
     {
         var stopwatch = Stopwatch.StartNew();
-        var arms = ShotArms(args, budgets);
+        var arms = ShotArms(args, budgets, pools);
         if (arms is null) return 1;
         var ladder = budgets.Length > 1;
         var all = new Dictionary<string, int>();
@@ -1521,8 +1578,14 @@ internal static class MemoryLongMemEvalBench
             var binding = budgets.Where(b => b.Binds).ToList();
             var deep = binding.Count > 0 ? (await TopKAsync(embedder, index, q.Text, index.Count)).ToList() : [];
             var filled = binding.Count > 0
-                ? (await FillAsync(q, embedder, expandFloor, fillK)).Body
+                ? (await RecallArmAsync(q, embedder, expandFloor, fillK)).Body
                 : [];
+
+            // One store per multiplier - see the knowledge-update runner for why sharing one would let the
+            // first recall's reinforcement change the second's ranking.
+            var pooled = new List<(int M, IReadOnlyList<string> Body)>();
+            foreach (var m in binding.Count > 0 ? pools : [])
+                pooled.Add((m, (await RecallArmAsync(q, embedder, expandFloor, RecallLimit, m)).Body));
 
             foreach (var b in budgets)
             {
@@ -1537,6 +1600,9 @@ internal static class MemoryLongMemEvalBench
                 var fit = b.Fit(filled);
                 b.NoteFill(fit.Count == filled.Count, filled.Count < fillK);
                 Score(Label(FillArm, b, ladder), fit);
+
+                foreach (var (m, body) in pooled)
+                    Score(Label($"pool-{m}", b, ladder), b.Fit(body));
             }
         }
 
