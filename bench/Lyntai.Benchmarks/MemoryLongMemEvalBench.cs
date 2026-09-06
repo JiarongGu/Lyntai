@@ -47,6 +47,14 @@ internal static class MemoryLongMemEvalBench
     private const int ShotBudget = 2 * RecallLimit;
     private const int ExpandSeeds = 3;
     private const int DefaultSeed = 20260829;
+
+    /// <summary>Recall limit for the <c>fill</c> arm — big enough that a 5,400-character budget binds before
+    /// <c>k</c> does (~46 headlines at the measured ~117 characters each), and reported per run so a reader
+    /// can see which of the two actually bound. <b>It is not "shot 1 with a longer tail"</b>: the engine
+    /// gathers <c>limit × CandidateMultiplier</c> candidates, so raising the limit widens the POOL in
+    /// proportion. The arm is the shipped recall asked for more, and that is the thing worth pricing.</summary>
+    private const int DefaultFillLimit = 60;
+    private const string FillArm = "fill";
     private const string Task = "lme";
     private const string Scope = "session";
 
@@ -812,13 +820,24 @@ internal static class MemoryLongMemEvalBench
         // there would price the limit rather than the arm. Rejected rather than ignored, like `--arms` under
         // `--ranks` below - a flag that is accepted and does nothing is the silent no-op every path refuses.
         var shots = args.Contains("--shots");
-        var budget = new ContextBudget(0);
+        ContextBudget[] budgets = [new ContextBudget(0)];
         if (ArgValue(args, "--budget") is { } bs)
         {
-            if (!int.TryParse(bs, out var bv) || bv <= 0)
+            // A LADDER, because the corpus is what a run pays for. Two budget values as two processes
+            // re-embed the same 64,911 turns twice (~70 minutes each on 2026-09-06); in one process the
+            // second value's ingestions are all embedder cache hits, so it costs SQLite writes and nothing
+            // else. Same reasoning as `--arms` on both field benches.
+            var parts = bs.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var caps = new List<int>();
+            foreach (var part in parts)
             {
-                Console.Error.WriteLine($"--budget: '{bs}' is not a positive character count.");
-                return 1;
+                if (!int.TryParse(part, out var bv) || bv <= 0)
+                {
+                    Console.Error.WriteLine($"--budget: '{part}' is not a positive character count.");
+                    return 1;
+                }
+
+                caps.Add(bv);
             }
 
             if (!shots)
@@ -828,7 +847,30 @@ internal static class MemoryLongMemEvalBench
                 return 1;
             }
 
-            budget = new ContextBudget(bv);
+            budgets = [.. caps.Distinct().Order().Select(b => new ContextBudget(b))];
+        }
+
+        // `--fill-k` sizes the arm that SPENDS the budget instead of leaving it on the table. Validated here
+        // rather than where it is used, so a typo cannot survive an hour of ingestion.
+        var fillK = RecallLimit;
+        if (ArgValue(args, "--fill-k") is { } fk)
+        {
+            if (!int.TryParse(fk, out fillK) || fillK <= 0)
+            {
+                Console.Error.WriteLine($"--fill-k: '{fk}' is not a positive recall limit.");
+                return 1;
+            }
+
+            if (budgets.All(b => !b.Binds))
+            {
+                Console.Error.WriteLine("--fill-k: only applies with --budget, whose cap is what the arm "
+                    + "fills. Add --budget, or drop --fill-k.");
+                return 1;
+            }
+        }
+        else if (budgets.Any(b => b.Binds))
+        {
+            fillK = DefaultFillLimit;
         }
 
         if (allEvidence)
@@ -861,9 +903,9 @@ internal static class MemoryLongMemEvalBench
                 Console.WriteLine();
             }
             Preamble(sampled, questions.Count, turns, haystack, seed, wantClass);
-            BudgetPreamble(budget);
+            BudgetPreamble(budgets, fillK);
             return shots
-                ? await RunTemporalShotsAsync(sampled, embedder, expandFloor, budget, args)
+                ? await RunTemporalShotsAsync(sampled, embedder, expandFloor, budgets, fillK, args)
                 : await RunTemporalAsync(sampled, embedder, args);
         }
 
@@ -932,8 +974,8 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine("what 'clean' scores, and it is the metric a smaller context is supposed to buy.");
             Console.WriteLine();
             Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
-            BudgetPreamble(budget);
-            return await RunShotsAsync(sampled, embedder, expandFloor, budget, args);
+            BudgetPreamble(budgets, fillK);
+            return await RunShotsAsync(sampled, embedder, expandFloor, budgets, fillK, args);
         }
 
         // `--ranks` scores ONE probe-wrapped engine over a K ladder, so it has no arms to select. Rejected
@@ -1108,6 +1150,24 @@ internal static class MemoryLongMemEvalBench
         /// cap, and an unexplained overrun reads as the cap leaking.</summary>
         internal int Overran { get; private set; }
 
+        /// <summary>Fill-arm recalls that did NOT spend the budget, and how many of those ran out of CORPUS
+        /// rather than of <c>k</c>. Both understate what the allowance is worth and they are not the same
+        /// finding: <see cref="FillShortOfK"/> means the store held less than <c>k</c> and the arm degenerates
+        /// into "return everything" — which scores near-perfectly on a small store and measures the FIXTURE.
+        /// Raising <c>k</c> fixes the first and nothing fixes the second.</summary>
+        internal int FillUnspent { get; private set; }
+
+        internal int FillShortOfK { get; private set; }
+
+        internal int FillCalls { get; private set; }
+
+        internal void NoteFill(bool unspent, bool shortOfK)
+        {
+            FillCalls++;
+            if (unspent) FillUnspent++;
+            if (shortOfK) FillShortOfK++;
+        }
+
         internal IReadOnlyList<string> Fit(IReadOnlyList<string> body)
         {
             if (chars <= 0) return body;
@@ -1129,11 +1189,26 @@ internal static class MemoryLongMemEvalBench
     }
 
     /// <summary>The arm names a shot table reports. Under a budget the character cap is the control, so
-    /// <c>vector-{ShotBudget}</c> goes: <c>k</c> no longer decides what cosine spends, and an arm whose name
-    /// promises a slot count that is not what bounds it is worse than no arm.</summary>
-    private static string[]? ShotArms(string[] args, ContextBudget budget) => FilterArms(args, budget.Binds
-        ? ["shot-1", "shot-2", "shot-3", "vector"]
-        : ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}"]);
+    /// <c>vector-{ShotBudget}</c> goes — <c>k</c> no longer decides what cosine spends, and an arm whose name
+    /// promises a slot count that is not what bounds it is worse than no arm — and <c>fill</c> arrives, being
+    /// the only arm that tries to SPEND the allowance rather than stopping at the shipped limit.</summary>
+    private static string[] ShotArmNames(ContextBudget budget) => budget.Binds
+        ? ["shot-1", "shot-2", "shot-3", FillArm, "vector"]
+        : ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}"];
+
+    /// <summary>One label per (arm, budget). <b>With a single budget the suffix is dropped</b>, so a
+    /// one-value run prints exactly the table it printed before a ladder existed and stays comparable with
+    /// what is already published — which is also the regression check on the ladder itself.</summary>
+    private static string Label(string arm, ContextBudget budget, bool ladder) =>
+        ladder && budget.Binds ? $"{arm}@{budget.Chars}" : arm;
+
+    /// <summary>Every label a ladder reports, narrowed by <c>--arms</c>.</summary>
+    private static string[]? ShotArms(string[] args, ContextBudget[] budgets)
+    {
+        var ladder = budgets.Length > 1;
+        return FilterArms(args,
+            [.. budgets.SelectMany(b => ShotArmNames(b).Select(a => Label(a, b, ladder)))]);
+    }
 
     /// <summary>Cosine's body under a budget: drawn best-first from the WHOLE ranked corpus and then capped,
     /// so it spends the entire allowance on its own best material. That is the strongest form of the arm the
@@ -1143,18 +1218,61 @@ internal static class MemoryLongMemEvalBench
         List<(string Text, float[] Vector)> index, string query, ContextBudget budget) =>
         budget.Fit((await TopKAsync(embedder, index, query, index.Count)).ToList());
 
+    /// <summary>The arm that SPENDS the budget: one recall at <paramref name="fillK"/> with the engine's own
+    /// <c>MemoryQuery.CharBudget</c> doing the cut.
+    ///
+    /// <para><b>A fresh store, because a recall REINFORCES what it returns</b> and the caller's walk has
+    /// already run on its own. The re-ingestion costs no model call: every embed is a cache hit by the time
+    /// this is reached, which is what makes a second store affordable at all.</para>
+    ///
+    /// <para><b>ONE recall serves the whole ladder, and that is an equivalence rather than a shortcut.</b>
+    /// The engine reinforces BEFORE it applies <c>CharBudget</c> (<c>ReinforceAsync</c> precedes the cut in
+    /// <c>GraphMemoryEngine.RecallAsync</c>), so a budgeted recall and an unbudgeted one at the same
+    /// <c>k</c> differ in nothing but the trailing trim — and that trim is the loop
+    /// <see cref="ContextBudget.Fit"/> reproduces, over the same per-item cost
+    /// (<c>Content?.Length ?? Headline.Length</c>), with no authoritative material in this corpus for the
+    /// engine's one carve-out to bind on. Recalling per budget would pay a full ingestion each to compute
+    /// the same rows.</para></summary>
+    /// <returns>The UNCUT body at <paramref name="fillK"/> and the RECALL's own elapsed milliseconds — the
+    /// re-ingestion above is the harness's cost for sharing one recall across the ladder, and billing it to
+    /// the arm would report seconds in a column of milliseconds. The caller applies each budget's own
+    /// trim.</returns>
+    private static async Task<(IReadOnlyList<string> Body, double Ms)> FillAsync(Question q,
+        SweepDoubles.CachingEmbedder embedder, double expandFloor, int fillK)
+    {
+        using var db = new MemoryPolicySweep.SweepDb();
+        var engine = new GraphMemoryEngine("lme", new SqliteMemoryGraphStore(db.Factory),
+            options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor },
+            embedder: embedder, vectors: new InMemoryVectorStore());
+
+        foreach (var t in q.Turns)
+            await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
+
+        var clock = Stopwatch.StartNew();
+        var recall = await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: fillK));
+        return ([.. recall.Items.Select(i => i.Content ?? i.Headline)], clock.Elapsed.TotalMilliseconds);
+    }
+
     /// <summary>Says the cap is on BEFORE the table, because a budgeted table is not a narrower version of
     /// the unbudgeted one — <c>vector</c> changes meaning (best-first over the whole corpus, not a top-k)
     /// and one arm is gone. A reader handed the numbers alone would compare them with published rows they
     /// do not belong beside.</summary>
-    private static void BudgetPreamble(ContextBudget budget)
+    private static void BudgetPreamble(ContextBudget[] budgets, int fillK)
     {
-        if (!budget.Binds) return;
+        var binding = budgets.Where(b => b.Binds).ToList();
+        if (binding.Count == 0) return;
 
-        Console.WriteLine($"Budget:    {budget.Chars} characters per arm, enforced in CODE - so this measures");
-        Console.WriteLine("           each arm CHOOSING within the same context spend, by the engine's own");
-        Console.WriteLine("           CharBudget rule. `vector` is now cosine best-first over the whole corpus");
-        Console.WriteLine("           until the budget fills, so the k-named arm is dropped.");
+        Console.WriteLine($"Budget:    {string.Join(", ", binding.Select(b => b.Chars))} characters per arm, "
+            + "enforced in CODE - so this");
+        Console.WriteLine("           measures each arm CHOOSING within the same context spend, by the");
+        Console.WriteLine("           engine's own CharBudget rule. `vector` is now cosine best-first over the");
+        Console.WriteLine("           whole corpus until the budget fills, so the k-named arm is dropped.");
+        Console.WriteLine($"Fill:      `fill` is the shipped recall at k = {fillK} with the engine's OWN");
+        Console.WriteLine("           CharBudget doing the cut - the arm that SPENDS the allowance instead of");
+        Console.WriteLine($"           stopping at k = {RecallLimit}. It is not shot 1 with a longer tail: the");
+        Console.WriteLine("           engine gathers k x CandidateMultiplier, so the pool widens with k.");
+        if (binding.Count > 1)
+            Console.WriteLine("           Arms are suffixed @<budget>; one ingestion serves the whole ladder.");
         Console.WriteLine();
     }
 
@@ -1164,21 +1282,34 @@ internal static class MemoryLongMemEvalBench
     /// CAN"). The <c>chars/q</c> column above is the second half of the check: an arm may exceed the cap
     /// only where <see cref="ContextBudget.Overran"/> accounts for it, and an arm well under it was bounded
     /// by its own <c>k</c> rather than by the budget.</summary>
-    private static void PrintBudget(ContextBudget budget)
+    private static void PrintBudget(ContextBudget[] budgets)
     {
-        if (!budget.Binds) return;
+        var binding = budgets.Where(b => b.Binds).ToList();
+        if (binding.Count == 0) return;
 
         Console.WriteLine();
-        Console.WriteLine($"  BUDGET: {budget.Chars} characters per arm, enforced HERE and not asked of any");
-        Console.WriteLine("  model - the engine's own CharBudget rule: whole items, an item that does not fit");
-        Console.WriteLine($"  skipped rather than ending the fill, never empty. It cut {budget.Bound} of "
-            + $"{budget.Offered} bodies.");
-        Console.WriteLine($"  'chars/q' must be <= the cap except on the {budget.Overran} body/bodies whose FIRST");
-        Console.WriteLine("  item alone exceeded it - the never-empty rule, which the engine has too.");
-        Console.WriteLine("  An arm well UNDER the cap was bounded by its own k and not by the budget, so its");
+        Console.WriteLine("  BUDGET: the cap is the engine's own CharBudget rule - whole items, an item that");
+        Console.WriteLine("  does not fit skipped rather than ending the fill, never empty. `chars/q` must be");
+        Console.WriteLine("  <= the cap except where a body's FIRST item alone exceeded it (never-empty).");
+        foreach (var b in binding)
+        {
+            Console.WriteLine($"    {b.Chars,7}: cut {b.Bound} of {b.Offered} bodies, {b.Overran} over on the "
+                + "first item;");
+            // Two independent facts, not a subset: a recall can come up short of k and still be trimmed by
+            // the budget, so reporting one "of" the other would be arithmetic nonsense on real data.
+            Console.WriteLine($"             `fill` left the budget unspent on {b.FillUnspent}/{b.FillCalls}"
+                + $" recalls; {b.FillShortOfK}/{b.FillCalls} returned fewer than k items at all.");
+            if (b.Bound == 0)
+                Console.WriteLine("             ! DEGENERATE: the cap bound nothing - this is the uncapped table.");
+            if (b.FillCalls > 0 && b.FillShortOfK * 2 > b.FillCalls)
+                Console.WriteLine("             ! `fill` is returning most of the STORE, so it scores the fixture"
+                    + " rather than retrieval - use --haystack.");
+            else if (b.FillCalls > 0 && b.FillUnspent * 2 > b.FillCalls)
+                Console.WriteLine("             ! `fill` mostly under-spends: raise --fill-k or it is shot 1 widened.");
+        }
+
+        Console.WriteLine("  An arm well UNDER its cap was bounded by its own k and not by the budget, so that");
         Console.WriteLine("  row is what that k costs rather than the best it could do with the room.");
-        if (budget.Bound == 0)
-            Console.WriteLine("  ! DEGENERATE: the cap bound nothing, so this is the uncapped table. Lower it.");
     }
 
     /// <summary>
@@ -1189,11 +1320,13 @@ internal static class MemoryLongMemEvalBench
     /// reinforcement to confound the shots.</para>
     /// </summary>
     private static async Task<int> RunShotsAsync(List<Question> sampled,
-        SweepDoubles.CachingEmbedder embedder, double expandFloor, ContextBudget budget, string[] args)
+        SweepDoubles.CachingEmbedder embedder, double expandFloor, ContextBudget[] budgets, int fillK,
+        string[] args)
     {
         var stopwatch = Stopwatch.StartNew();
-        var arms = ShotArms(args, budget);
+        var arms = ShotArms(args, budgets);
         if (arms is null) return 1;
+        var ladder = budgets.Length > 1;
         var cur = new Dictionary<string, int>();
         var sta = new Dictionary<string, int>();
         var clean = new Dictionary<string, int>();
@@ -1232,22 +1365,49 @@ internal static class MemoryLongMemEvalBench
                 millis[arm] = millis.GetValueOrDefault(arm) + ms;
             }
 
-            await WalkAsync(engine, q.Text, (shot, body, ms) => Score($"shot-{shot}", budget.Fit(body), ms));
+            // ONE walk serves every budget: the cap is applied to the body AFTER the walk, so re-walking per
+            // budget would buy nothing and cost a reinforcement pass that changes the store underneath.
+            await WalkAsync(engine, q.Text, (shot, body, ms) =>
+            {
+                foreach (var b in budgets) Score(Label($"shot-{shot}", b, ladder), b.Fit(body), ms);
+            });
 
-            if (budget.Binds)
+            var binding = budgets.Where(b => b.Binds).ToList();
+
+            // Both deep bodies are computed ONCE and trimmed per budget - see FillAsync for why that is an
+            // equivalence and not a shortcut, and why the fill store has to be a separate one.
+            // `ms/q` must time the RETRIEVAL and nothing around it. The fill store's re-ingestion is a cost
+            // of the harness sharing one recall across the ladder, not of the arm, and billing it here put
+            // 14.7 SECONDS in a column whose other rows are milliseconds - a number no reader could take at
+            // face value and none should have been asked to.
+            var deepClock = Stopwatch.StartNew();
+            var deep = binding.Count > 0 ? (await TopKAsync(embedder, index, q.Text, index.Count)).ToList() : [];
+            var deepMs = deepClock.Elapsed.TotalMilliseconds;
+            var (filled, fillMs) = binding.Count > 0
+                ? await FillAsync(q, embedder, expandFloor, fillK)
+                : ((IReadOnlyList<string>)[], 0d);
+
+            foreach (var b in budgets)
             {
-                var vclock = Stopwatch.StartNew();
-                var got = await BudgetedVectorAsync(embedder, index, q.Text, budget);
-                Score("vector", got, vclock.Elapsed.TotalMilliseconds);
-            }
-            else
-            {
-                foreach (var (arm, k) in new[] { ("vector", RecallLimit), ($"vector-{ShotBudget}", ShotBudget) })
+                if (!b.Binds)
                 {
-                    var vclock = Stopwatch.StartNew();
-                    var got = (await TopKAsync(embedder, index, q.Text, k)).ToList();
-                    Score(arm, got, vclock.Elapsed.TotalMilliseconds);
+                    foreach (var (arm, k) in new[] { ("vector", RecallLimit), ($"vector-{ShotBudget}", ShotBudget) })
+                    {
+                        var vclock = Stopwatch.StartNew();
+                        var got = (await TopKAsync(embedder, index, q.Text, k)).ToList();
+                        Score(arm, got, vclock.Elapsed.TotalMilliseconds);
+                    }
+
+                    continue;
                 }
+
+                Score(Label("vector", b, ladder), b.Fit(deep), deepMs);
+
+                // Uncut means the WHOLE recall fitted, so k ran out before the budget did and this row
+                // understates what the allowance is worth - the one reading the arm's name would hide.
+                var fit = b.Fit(filled);
+                b.NoteFill(fit.Count == filled.Count, filled.Count < fillK);
+                Score(Label(FillArm, b, ladder), fit, fillMs);
             }
         }
 
@@ -1268,7 +1428,7 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("  'ms/q' is memory-layer time only, and the vector arms are an in-memory brute force");
         Console.WriteLine("  with no persistence and no write-back - so that column compares a database against");
         Console.WriteLine("  an array, not two retrieval strategies.");
-        PrintBudget(budget);
+        PrintBudget(budgets);
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
@@ -1308,11 +1468,13 @@ internal static class MemoryLongMemEvalBench
     /// load missed. That is the one workload where more shots should help most, and it had no curve at
     /// all.</summary>
     private static async Task<int> RunTemporalShotsAsync(List<Question> sampled,
-        SweepDoubles.CachingEmbedder embedder, double expandFloor, ContextBudget budget, string[] args)
+        SweepDoubles.CachingEmbedder embedder, double expandFloor, ContextBudget[] budgets, int fillK,
+        string[] args)
     {
         var stopwatch = Stopwatch.StartNew();
-        var arms = ShotArms(args, budget);
+        var arms = ShotArms(args, budgets);
         if (arms is null) return 1;
+        var ladder = budgets.Length > 1;
         var all = new Dictionary<string, int>();
         var any = new Dictionary<string, int>();
         var found = new Dictionary<string, int>();
@@ -1350,13 +1512,32 @@ internal static class MemoryLongMemEvalBench
                 chars[arm] = chars.GetValueOrDefault(arm) + body.Sum(b => b.Length);
             }
 
-            await WalkAsync(engine, q.Text, (shot, body, _) => Score($"shot-{shot}", budget.Fit(body)));
+            // ONE walk serves every budget - see the knowledge-update runner for why re-walking is wrong.
+            await WalkAsync(engine, q.Text, (shot, body, _) =>
+            {
+                foreach (var b in budgets) Score(Label($"shot-{shot}", b, ladder), b.Fit(body));
+            });
 
-            if (budget.Binds)
-                Score("vector", await BudgetedVectorAsync(embedder, index, q.Text, budget));
-            else
-                foreach (var (arm, k) in new[] { ("vector", RecallLimit), ($"vector-{ShotBudget}", ShotBudget) })
-                    Score(arm, (await TopKAsync(embedder, index, q.Text, k)).ToList());
+            var binding = budgets.Where(b => b.Binds).ToList();
+            var deep = binding.Count > 0 ? (await TopKAsync(embedder, index, q.Text, index.Count)).ToList() : [];
+            var filled = binding.Count > 0
+                ? (await FillAsync(q, embedder, expandFloor, fillK)).Body
+                : [];
+
+            foreach (var b in budgets)
+            {
+                if (!b.Binds)
+                {
+                    foreach (var (arm, k) in new[] { ("vector", RecallLimit), ($"vector-{ShotBudget}", ShotBudget) })
+                        Score(arm, (await TopKAsync(embedder, index, q.Text, k)).ToList());
+                    continue;
+                }
+
+                Score(Label("vector", b, ladder), b.Fit(deep));
+                var fit = b.Fit(filled);
+                b.NoteFill(fit.Count == filled.Count, filled.Count < fillK);
+                Score(Label(FillArm, b, ladder), fit);
+            }
         }
 
         var n = sampled.Count;
@@ -1376,7 +1557,7 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("  flagged turn, so retrieving one of two answers nothing. If expansion is worth");
         Console.WriteLine("  anything on any workload it should be worth it HERE, where the first load missing");
         Console.WriteLine("  one turn of two is the whole failure mode.");
-        PrintBudget(budget);
+        PrintBudget(budgets);
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");

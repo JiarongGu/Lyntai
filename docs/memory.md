@@ -2660,12 +2660,64 @@ with the room** — a `k`-raised arm that actually fills the budget is unmeasure
 Beyond that: one embedder (`nomic-embed-text`, Ollama-served), two budget values on one class and one on the
 other, and `clean` is a metric that rewards small contexts by construction, which is visible in capped
 cosine scoring *better* than uncapped (10.0% → 14.3%) while its `stale@k` falls 88.6% → 55.7%.
+<br>**That run happened the next day and the caveat was the whole story** — see the section below. A recall
+at `k = 80` trimmed to the SAME characters beats `shot-1` by 25.7 points of `clean` and by 20.5 points of
+all-evidence recall. **Read every "the walk wins" sentence above as "the walk beats cosine", never as "the
+walk is the best body"**, which is what the next section measures and refutes.
 
 **One library gap, priced rather than assumed.** `MemoryWalkOptions` bounds items and not characters, and
 `MemoryWalk.WalkAsync` passes `null` for each expansion's own `charBudget`, so a caller wanting an n-shot
 walk inside a context budget cannot express it and must cut the body afterwards — which is what this arm
-does. Whether that surface is worth adding is now answerable and the answer is *probably not as scoped*:
-under every budget measured the best body is shot 1, which needs no walk-level budget at all.
+does. Whether that surface is worth adding is now answerable and the answer is *probably not*, though **not
+for the reason given here on 2026-09-06**: this paragraph closed with *"the best body is shot 1, which needs
+no walk-level budget at all"*, and the best body is not shot 1. The surface still earns nothing, because the
+arm that wins does not walk — it is a deeper first recall, which `MemoryQuery` already expresses.
+
+### The lever is RECALL DEPTH, not the walk — and it moves the two classes in opposite directions (`--shots --budget 1200,5400 --fill-k 80`, 2026-09-07)
+
+The section above held every arm to the same characters and concluded the walk beats cosine. It could not
+see the arm that was missing: **`shot-1` never spent its allowance** — 1,173 characters of 5,400, because
+`k = 10` bound it and not the budget. `fill` is the shipped recall at `k = 80` with the engine's own
+`CharBudget` doing the cut, so it spends the whole allowance on a first load. Both classes, haystack, full
+samples, one ingestion per ladder.
+
+| | temporal, all-evidence | | knowledge-update, `clean` | |
+|---|---|---|---|---|
+| **arm** | **@1,200** | **@5,400** | **@1,200** | **@5,400** |
+| `shot-1` | 47.7% | 47.7% | 31.4% | 31.4% |
+| `shot-2` | 18.9% | 47.7% | 27.1% | 28.6% |
+| `fill` (`k = 80`) | 18.2% | **68.2%** | **57.1%** | 5.7% |
+| `vector` | 18.2% | 37.1% | 14.3% | 17.1% |
+
+**1. The same configuration is the BEST arm on one class and the WORST on the other, and the budget is what
+flips it.** Depth with a wide output wins coverage (68.2%, +20.5 over the best walk arm); depth with a narrow
+output wins suppression (57.1%, +25.7); each is catastrophic in the other corner (18.2% and 5.7%). **`Limit`
+is doing two jobs** — it sets the candidate POOL and the output SIZE — and the two metrics want them split.
+
+**2. On its flagship metric this is the best figure this repository has measured**: `clean` 31.4% → **57.1%**
+at the same 1,175 characters, from a configuration that needs no new surface (`Limit: 80, CharBudget: 1200`).
+The mechanism is in the other columns and is not a free lunch: a deeper pool crowds out BOTH facts, just the
+superseded one much harder — `stale@k` 62.9% → **11.4%** against `current@k` 87.1% → 65.7%. **So a deployment
+that needs the current fact FOUND may still prefer `shot-1`**, which retrieves it 21 points more often; the
+one that needs a context it can trust wants the deep recall.
+
+**3. It beats the archive arm on the archive's own metric.** `fill@5400` reaches 68.2% where the UNCAPPED
+`vector-20` reaches 65.2% — at 5,358 characters against 21,759. The two sections above both concede that
+size-matched cosine wins this class outright; it does not.
+
+**Instrument.** `fill` spent its budget on every recall — `0/132` and `0/70` left unspent, `0` short of `k` —
+so no row here is the oracle's degenerate "return the whole store". `shot-1@1200` and `shot-1@5400` are
+identical to the decimal on both classes, which is the control on the ladder: they are one walk trimmed
+twice. Every pre-existing arm reproduces the 2026-09-06 standalone runs cell for cell.
+
+**What this does NOT settle, and it is the load-bearing caveat.** **`fill` moves two things at once** — at
+`k = 80` the engine gathers `k × CandidateMultiplier` = 320 candidates AND returns up to 80, so "depth is the
+lever" is a hypothesis, not the measurement. `GraphMemoryOptions.CandidateMultiplier` is the knob that widens
+the pool at a FIXED output and it is unmeasured; running `Limit: 10, CandidateMultiplier: 32` against
+`fill@1200` is what would separate them, and until it does, what is measured is *"recall at 80 then trim by
+characters"*. Also: one embedder, two budget values, and `ms/q` is absent for `fill` in the run that produced
+this table — it billed the harness's re-ingestion to the arm and read 14.7 seconds in a column of
+milliseconds. Fixed after the fact, so no latency claim is made for that arm here.
 
 ### The expansion floor, swept across workloads (2026-08-30)
 

@@ -1966,6 +1966,31 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 158 — the lever is RECALL DEPTH, and it corrects Part 157's closing claim
+
+✅ done 2026-09-07 — the `k`-raised arm Part 157 filed as its own load-bearing caveat, plus a `--budget A,B`
+ladder that shares one ingestion. `docs/memory.md` §5. Part 157 held every arm to the same characters and
+concluded the walk beats cosine; it could not see that **`shot-1` never spent its allowance** (1,173 of
+5,400, bound by `k = 10`).
+
+**The same configuration is the best arm on one class and the worst on the other**, and the budget flips it:
+depth with a WIDE output wins coverage (temporal 68.2%, +20.5 over the best walk arm), depth with a NARROW
+output wins suppression (`clean` **57.1%** against the flagship 31.4%, +25.7), and each is catastrophic in
+the other corner. `Limit` sets both the candidate POOL and the output SIZE, and the two metrics want them
+split.
+
+**57.1% is the best figure this repository has measured on the metric this design is for**, and it needs no
+new surface — `Limit: 80, CharBudget: 1200`. Not a free lunch: a deeper pool buries both facts, the
+superseded one harder (`stale@k` 62.9% → 11.4%, `current@k` 87.1% → 65.7%).
+
+**Part 157's closing claim is retracted**: *"the best body is shot 1"* is false. Its conclusion survives on
+different grounds — the winning arm does not walk, so a walk-level budget still earns nothing.
+
+**The caveat is load-bearing and named rather than buried**: `fill` moves POOL and OUTPUT together, so
+"depth is the lever" is a hypothesis. `CandidateMultiplier` isolates the pool and is the successor item.
+
+- Let one shot FILL the budget: a `k`-raised arm under `--budget`.
+
 ## Part 157 — the walk wins at an EQUAL CHARACTER BUDGET, and expansion stops paying
 
 ✅ done 2026-09-06 — `memory-longmemeval --shots --budget N`, three haystack runs at full sample.
