@@ -27,11 +27,15 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is FIVE items, across Parts 109, 116, 128 and 129.** Each is a
+**The startable set is SEVEN items, across Parts 109, 116, 128 and 129.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
+<br>_It read FIVE until 2026-09-06 and the tree held SIX — so the count was stale by one before this
+session added the seventh (the `k`-raised budget arm, Part 116). **Counted rather than adjusted**: every
+`- [ ]` in those four Parts was opened and checked for a blocker, which is the only way to move this number
+without inheriting whatever was wrong with the last one._
 <br>_**This line used to be a 49-line running tally** — every Part that opened and closed since 2026-08-30,
 with the count after each. It was deleted on 2026-09-03 rather than extended, because `task-lifecycle.md`
 says outright that a backlog must not summarize its archive: the tally grew without bound, answered a
@@ -879,6 +883,23 @@ figures that have since moved._
   multi-session and 6 in single-session-user carry no flagged turn, and `Load`'s existing guard drops them
   for the two classes that run today — a new class inherits that only if it takes the same branch.
   Instrument facts: `.claude/knowledge/pitfalls.md`.
+
+- [ ] **Let one shot FILL the budget: a `k`-raised arm under `--budget`.** `docs/memory.md` §5 (2026-09-06)
+  measured every arm at an equal character cap and the walk won all three cells — but **`shot-1` spends
+  1,173 of the 5,400 it is allowed**, because it is bounded by `k = 10` and not by the budget. So that row is
+  what the shipped recall limit costs, NOT the best a single shot could do with the room, and the arm that
+  would answer it does not exist: raise `MemoryQuery.Limit` until the body fills the cap, and report the `k`
+  each budget bought.
+  <br>**Why it could change the reading rather than decorate it.** The finding is that expansion never pays
+  under a budget — shot 1 wins every cell — and the natural next claim is *"so spend the budget on a wider
+  first shot"*. That is untested. It also gives cosine a fair rematch: `vector` DOES fill the cap (5,390 of
+  5,400), so the current 47.7 vs 37.1 compares a walk that under-spends against a cosine that does not, and
+  the honest version of the comparison lets both fill it.
+  <br>_Cheap and model-free — one arm on an existing harness. **Not cheap to RUN**: nothing is cached between
+  runs (`SweepDoubles.CachingEmbedder` is in-memory), so a haystack temporal pass re-embeds 64,911 turns and
+  costs ~70 minutes. Two budget values ran back to back on 2026-09-06 and paid that twice for a corpus that
+  never changed, which is the other half of this item: **a `--budget A,B` ladder that shares one ingestion**,
+  the way `--arms` already does on both field benches._
 
 ---
 

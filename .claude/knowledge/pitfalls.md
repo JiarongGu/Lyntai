@@ -349,6 +349,15 @@ the tests) while being wrong. Skim before touching the relevant area.
   real top-k, per sample, printed. A replica exists precisely where instrumenting the real path is
   inconvenient, which is also where nobody notices it has drifted — and a wrong replica does not fail, it
   publishes a table.
+  <br>**Second instance, 2026-09-06 (`docs/task-archive.md` Part 157), and it cost 30 points on a smoke
+  sample.** A bench-side character budget cut the body by stopping at the first item that did not fit;
+  `GraphMemoryEngine`'s own `MemoryQuery.CharBudget` **skips** that item and keeps filling, and never returns
+  empty. On the walk's second step the head of the list is the same entries upgraded from headline to full
+  content, so a prefix rule threw away every cheap headline behind them and the arm read **0.0%** where the
+  shipped rule reads 30.0%. **Both rules are one loop over a list with a running total** — which is exactly
+  why nobody re-reads the shipped one. The tell was an arm scoring zero, and it could as easily have been a
+  plausible number. **Open the shipped implementation and diff the loop, even when the rule fits in a
+  sentence**; "whole items until the budget runs out" describes both.
 
 - **Measure a component against the calls it could POSSIBLY change, not against every call.** Same day, and
   it reframed three runs at once. Every judge column here was scored over all 200 questions — but a verifier

@@ -1966,6 +1966,29 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 157 — the walk wins at an EQUAL CHARACTER BUDGET, and expansion stops paying
+
+✅ done 2026-09-06 — `memory-longmemeval --shots --budget N`, three haystack runs at full sample.
+`docs/memory.md` §5. Every shot table until now let each arm spend whatever its slot count cost, so
+all-evidence recall rewarded whoever returned MORE — the axis **D100**/**D102** say this design does not
+optimise. The cap reproduces the engine's own `MemoryQuery.CharBudget` rule rather than inventing one.
+
+**The claim survives its first equal-spend test on both classes** (+17.1, +28.8 and +10.6 points over
+cosine), with the knowledge-update ratio narrowing 3.1× → **2.2×** — the part that was bought with a 9×
+character advantage, now priced.
+
+**Expansion never pays under a budget**, on either class at either value: shot 1 wins every table. The
+published +4.5 for shot 2 on temporal reads **0.0** at 5,400 and **−28.1** at 1,200, because `Hold` upgrades
+in place and the budget then drops the tail. *"Expand once"* becomes *"under a budget, do not expand"*.
+**And the section's own "size-matched cosine wins" counterweight flips** — it matched ITEMS, and matching
+CHARACTERS reverses the sign. Both readings are kept, because the disagreement is the finding.
+
+**The instrument fix was worth 30 points on the smoke sample and is the reusable half**: the first cap
+stopped at the first item that did not fit, where the engine SKIPS it and keeps filling
+(`.claude/knowledge/pitfalls.md`, the replica bullet's second instance).
+
+- Price the walk against cosine at equal context spend, which no published table had done.
+
 ## Part 156 — the write-time baseline, rebuilt to a standard worth losing to
 
 ✅ done 2026-09-04, at the owner's direction: *"we're not reproducing mem0, but we need close logic done to a

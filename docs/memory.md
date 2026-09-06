@@ -2532,11 +2532,18 @@ workload measured where walking clearly buys something, and the mechanism is the
 **Shot 3 is worth exactly nothing**: identical on every column while adding 2,731 characters. That is the
 third class in a row where the third shot is inert, so *"expand until the budget runs out"* is not the
 lesson — *"expand once"* is.
+<br>**Both figures in this paragraph are UNCAPPED, and the +4.5 does not survive an equal character budget**
+— it reads 0.0 at 5,400 and −28.1 at 1,200 (the budget section below). Every row in this table lets each arm
+spend what its slot count costs, so read them for that regime.
 
 **The honest counterweight, and it is the same shape as LoCoMo's.** Size-matched cosine wins this column
 outright: `vector-20` reaches 65.2% where three shots reach 53.0%, at 2.7× the characters. All-evidence
 recall is an ARCHIVE metric, so a workload that wants every turn rewards keeping everything — exactly what
 §5's LoCoMo discussion says about the archival axis, arriving here from a second direction.
+<br>**"Size-matched" here means ITEM-matched, and matching CHARACTERS reverses it** (2026-09-06): at an
+equal 5,400-character budget cosine reaches 37.1% where one shot reaches 47.7%. Which axis is the fair one
+is the disagreement, not an error in either row — but item-matching is the weaker choice for a design whose
+claim is that a headline costs less than a turn.
 
 **The oracle variant overstates the gain by 2.7×**, which is Part 112's finding recurring on a third
 question: on the oracle, shot 2 is worth **+12.2** (59.8% → 72.0%) rather than +4.5. Quote the haystack.
@@ -2555,6 +2562,12 @@ should be read as "no measurable gain", not as "exactly none". The ORACLE has no
 the plain `--temporal` arm agree there to the decimal (59.8% / 84.1% / 66.0%), which is what pinned this to
 near-ties rather than to a code difference — the same two paths differed by one question on the haystack,
 and the repeat then landed on the plain arm's own 47.7%.
+<br>**That +4.5 is an UNCAPPED delta**, and it is 0.0 once every arm is held to the same characters (the
+budget section below) — so "the finding" is that a second shot buys evidence, not that it buys evidence
+worth its cost. **A third and fourth run on 2026-09-06 re-confirmed the floor from the other side**: both
+read `shot-1` at 82.6% `any evidence@k` and 1,173 chars against this table's own figures, on the same digest
+`773FB41E0E5A` and the same 64,905 embedder misses, while `all evidence@k` read 47.0% and 47.7% — one
+question apart, in a pair of runs that differed only in a post-ranking cap that cannot touch `shot-1`.
 
 **On a SEARCH workload the curve runs the other way, which is why the shot count is a question and not a
 constant.** LoCoMo, 200 questions, evidence-hit. **Re-measured 2026-08-29 under per-question isolation**
@@ -2594,6 +2607,65 @@ byte-identical across the change, which is what says the re-measurement moved th
 harness. **The effect was five times what filing it had suggested**: `shot-1` was reported moving 30.0% →
 28.0%, and the isolated control puts it at 65.4% against 53.8% on the same pair of runs. Every LoCoMo
 figure in this document is either re-measured or marked with the regime it was taken in.
+
+### At an EQUAL CHARACTER BUDGET the walk wins both classes — and expansion stops paying entirely (`memory-longmemeval --shots --budget`, 2026-09-06)
+
+Every table above lets each arm spend whatever its slot count costs, so `chars/q` varies ~9× down a single
+column. That is the wrong control for this design: all-evidence recall rewards whoever returned MORE, while
+the claim being tested is that a recall returns **headlines** and pays for content only when asked (**D100**,
+**D102**). `--budget N` caps every arm at the same characters by the engine's own `MemoryQuery.CharBudget`
+rule — whole items, an item that does not fit skipped rather than ending the fill, never empty.
+
+| workload / budget | best walk arm | cosine | walk − cosine |
+|---|---|---|---|
+| knowledge-update, haystack, 70q, 1,200 (`clean`) | **31.4%** (shot-1) | 14.3% | **+17.1** |
+| temporal, haystack, 132q, 1,200 (all-evidence) | **47.0%** (shot-1) | 18.2% | **+28.8** |
+| temporal, haystack, 132q, 5,400 (all-evidence) | **47.7%** (shot-1) | 37.1% | **+10.6** |
+
+**1. The design's central claim survives its first equal-spend test, on both classes.** Uncapped, the
+knowledge-update headline was 31.4% against cosine's 10.0% — a 3.1× ratio bought partly with a 9× character
+advantage. Held to 1,200 characters each, cosine improves to 14.3% and the ratio falls to **2.2×**. It
+narrows and it does not close, which is the honest version of the claim.
+
+**2. Expansion never pays under a budget — not once, on either class, at either value.**
+
+| arm | ku 1,200 | temporal 1,200 | temporal 5,400 |
+|---|---|---|---|
+| `shot-1` | **31.4%** | **47.0%** | **47.7%** |
+| `shot-2` | 27.1% | 18.9% | 47.7% |
+| `shot-3` | 27.1% | 18.9% | 45.5% |
+
+The section above reports shot 2 worth **+4.5** on temporal, *"the only workload measured where walking
+clearly buys something"*. At equal spend that is **0.0** at 5,400 and **−28.1** at 1,200. The mechanism is
+in `items/q`: `MemoryWalkState.Hold` upgrades a held item from headline to full content **in place**, so
+shot 2 swaps ~117-character headlines at the HEAD of the list for ~380–700-character bodies and the budget
+drops the tail — 10.0 items become 3.9. Uncapped, the walk gains by holding more; under a fixed context it
+is strictly a loss. *"Expand once"* becomes **"under a context budget, do not expand"**.
+
+**3. The "honest counterweight" above flips when the matching axis changes.** It reads *"size-matched cosine
+wins this column outright: `vector-20` reaches 65.2% where three shots reach 53.0%, at 2.7× the
+characters"* — size-matched by ITEMS. Matched by CHARACTERS, cosine reaches 37.1% where one shot reaches
+47.7%. Item-matching is the wrong axis for a design whose claim is that a headline is cheaper than a turn,
+and both readings are kept here because the disagreement is the finding.
+
+**Instrument.** `shot-1` on knowledge-update reproduced the published row byte-for-byte — 31.4% / 87.1% /
+62.9% / 10.0 items / 1,169 chars — as it must, since 1,169 is under the cap. On temporal it read 47.0% and
+47.7% across the two runs with `any evidence@k` identical at 82.6% in both, which is the one-question
+reproducibility floor and its documented signature, not a new defect. The cap fired on 210/280, 396/528 and
+307/528 bodies, so no table here is the uncapped one under a different heading.
+
+**What this does NOT settle, and the first item is the one that could move the result.** `shot-1` spends
+1,173 of the 5,400 it is allowed, so its row is what `k = 10` costs and **not the best one shot could do
+with the room** — a `k`-raised arm that actually fills the budget is unmeasured and is the obvious next run.
+Beyond that: one embedder (`nomic-embed-text`, Ollama-served), two budget values on one class and one on the
+other, and `clean` is a metric that rewards small contexts by construction, which is visible in capped
+cosine scoring *better* than uncapped (10.0% → 14.3%) while its `stale@k` falls 88.6% → 55.7%.
+
+**One library gap, priced rather than assumed.** `MemoryWalkOptions` bounds items and not characters, and
+`MemoryWalk.WalkAsync` passes `null` for each expansion's own `charBudget`, so a caller wanting an n-shot
+walk inside a context budget cannot express it and must cut the body afterwards — which is what this arm
+does. Whether that surface is worth adding is now answerable and the answer is *probably not as scoped*:
+under every budget measured the best body is shot 1, which needs no walk-level budget at all.
 
 ### The expansion floor, swept across workloads (2026-08-30)
 
