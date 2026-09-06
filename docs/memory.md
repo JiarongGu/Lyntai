@@ -2738,9 +2738,11 @@ on every quality column while returning ten items from a `Limit: 10` recall — 
 candidates, and the shipped RRF policy never reads `MemoryRankingContext.Limit`, so they rank identically.
 Output size contributed nothing.
 
-**2. The curve SATURATES at 16 and the shipped 4 is far below the knee**: +11.5 points to 8, +15.7 more to
-16, then nothing (58.6 → 57.1 is one question, inside this instrument's documented floor). Cost is
-23% of `ms/q`, not a new round trip.
+**2. The curve SATURATES at 16, and on THIS metric the shipped 4 is far below the knee**: +11.5 points to 8,
++15.7 more to 16, then nothing (58.6 → 57.1 is one question, inside this instrument's documented floor).
+Cost is 23% of `ms/q`, not a new round trip. **Read "below the knee" as a statement about suppression
+only** — the coverage ladder below inverts it, and the shipped 4 turns out to be that axis's other corner
+rather than a value nobody checked.
 
 **3. It is a SUPPRESSION dial, not a quality dial** — which is the whole of how to read it. `stale@k`
 collapses 62.9% → 12.9% while `current@k` falls 87.1% → 67.1%: a deeper pool buries BOTH facts and the
@@ -2756,6 +2758,37 @@ TRADE with a knee at 16, not an improvement.** One class, one variant, one embed
 
 **Control.** `pool-4` is the shipped configuration reached by a different route and reproduces `shot-1` to
 the decimal on every column — so the arm is measuring the multiplier and nothing else about how it is built.
+
+### …and the coverage ladder INVERTS it, at almost exactly 1:1 (`--pool` on `--temporal`, 2026-09-07)
+
+The same four rungs on the class that wants every flagged turn, same budget, same controls.
+
+| multiplier | knowledge-update `clean` | temporal all-evidence |
+|---|---|---|
+| **4 (shipped)** | 31.4% | **47.7%** |
+| 8 | 42.9% | 33.3% |
+| 16 | **58.6%** | 19.7% |
+| 32 | 57.1% | 18.2% |
+| **Δ 4 → 16** | **+27.2** | **−28.0** |
+
+**There is no free rung, and the exchange is close to 1:1 at every step** — 4 → 8 buys +11.5 of suppression
+for −14.4 of coverage, 4 → 16 buys +27.2 for −28.0. So **the shipped `4` is not an unexamined default; it is
+the COVERAGE END of a real axis**, and the section above's "far below the knee" is true of `clean` alone.
+A deployment picks a corner here; no value dominates.
+
+**It is a better-behaved trade than `RetrievabilityWeight`, and worth saying so.** That knob runs about 7:1
+against (+5.5 search for −37.1 supersession, §5); this one is ~1:1, which makes it the more honest dial to
+expose to a deployment that knows which way its own workload leans. Neither default moves on this.
+
+**Both controls held on this class too**: `pool-4` reproduces `shot-1` to the decimal (47.7 / 82.6 / 61.8)
+and `pool-32` reproduces `fill` exactly (18.2 / 62.1 / 35.9) — the same two identities as on
+knowledge-update, from a wholly separate run. The 18.2% was **pre-registered** from the earlier `fill@1200`
+figure and landed on it exactly.
+
+**Still unmeasured: SEARCH.** LoCoMo is the workload the engine already loses to plain cosine, and a deeper
+pool re-ranks exactly the candidates that contest it, so the third rung of this ladder belongs with the
+retrieval-gap work (`TASKS.md` **Part 128**) rather than beside the two classes above. `memory-locomo` has
+no `--pool` arm yet.
 
 ### The expansion floor, swept across workloads (2026-08-30)
 

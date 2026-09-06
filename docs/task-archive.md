@@ -1966,6 +1966,28 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 160 — the coverage ladder INVERTS the pool curve, at almost exactly 1:1
+
+✅ done 2026-09-07 — Part 159's successor, run the same day. `--pool 4,8,16,32` on `--temporal`, the class
+that wants every flagged turn. `docs/memory.md` §5.
+
+**All-evidence recall runs 47.7 → 33.3 → 19.7 → 18.2 as the multiplier rises**, exactly opposite to
+knowledge-update's 31.4 → 42.9 → 58.6 → 57.1. **Δ 4 → 16 is +27.2 suppression for −28.0 coverage**, and
+every intermediate rung is the same ~1:1 trade.
+
+**So the shipped `4` is not an unexamined default — it is the COVERAGE END of a real axis**, and Part 159's
+"27 points below the knee" is true of `clean` alone. Recorded because that framing was published first and
+is one-sided; it is corrected in place rather than left to age.
+
+**It is a better-behaved knob than `RetrievabilityWeight`** (~1:1 against that one's ~7:1), which makes it
+the more honest dial to expose — but no default moves on either.
+
+**Both controls held from a separate run**: `pool-4` reproduces `shot-1` to the decimal and `pool-32`
+reproduces `fill` exactly, the same two identities as on the other class. The 18.2% was pre-registered from
+the earlier `fill@1200` figure and landed on it exactly.
+
+- Price `CandidateMultiplier` on a COVERAGE workload before anyone proposes moving it.
+
 ## Part 159 — it was the POOL, and the shipped `CandidateMultiplier` sits far below the knee
 
 ✅ done 2026-09-07 — Part 158's own load-bearing caveat, closed the next hour. `docs/memory.md` §5.

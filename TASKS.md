@@ -37,8 +37,9 @@ added a seventh. **Counted rather than adjusted**: every `- [ ]` in those four P
 for a blocker, which is the only way to move this number without inheriting whatever was wrong with the last
 one. It stayed at seven on 2026-09-07, when the `k`-raised arm CLOSED (`docs/task-archive.md` **Part 158**)
 and its own caveat opened the successor below it — a one-for-one swap, which is the ordinary way this list
-moves and the reason the count is worth stating rather than the items. It swapped again the same day when
-that successor closed as **Part 159** and left the coverage ladder behind it._
+moves and the reason the count is worth stating rather than the items. It swapped twice more the same day —
+**Part 159** (the pool ladder) and **Part 160** (its coverage half) each closed and left one item behind,
+now the SEARCH rung, which has moved under Part 128 because that is the work it actually probes._
 <br>_**This line used to be a 49-line running tally** — every Part that opened and closed since 2026-08-30,
 with the count after each. It was deleted on 2026-09-03 rather than extended, because `task-lifecycle.md`
 says outright that a backlog must not summarize its archive: the tally grew without bound, answered a
@@ -887,25 +888,6 @@ figures that have since moved._
   for the two classes that run today — a new class inherits that only if it takes the same branch.
   Instrument facts: `.claude/knowledge/pitfalls.md`.
 
-- [ ] **Price `CandidateMultiplier` on a COVERAGE workload before anyone proposes moving it.**
-  `docs/memory.md` §5 (2026-09-07) measured the multiplier ladder on knowledge-update and found the shipped
-  **4** sitting **27.2 points of `clean` below a knee at 16**, for 23% of `ms/q`. That is the largest
-  recall-quality move this repository has measured on its flagship metric — and it is a **SUPPRESSION** dial,
-  so it is exactly the shape that must not be adopted on one workload.
-  <br>**What the same run already says against it**: `stale@k` collapses 62.9% → 12.9% while `current@k`
-  falls 87.1% → 67.1%, so a deeper pool buries BOTH facts. At a 1,200-character budget the same depth reads
-  **18.2%** on temporal all-evidence against `shot-1`'s 47.7%. **This is the `RetrievabilityWeight` shape**
-  (+5.5 search for −37.1 supersession, about 7:1 against), and the standing rule is that an arm winning one
-  workload owes the other a visit.
-  <br>**So the work is two ladders, not a decision**: `--pool 4,8,16,32` on `--temporal` (all-evidence, the
-  coverage side) and on `memory-locomo` (search, where a bigger pool has to be priced against the metric the
-  engine already loses on). Then the exchange rate is known on all three, and the knee at 16 either survives
-  or is one class's artifact. **Do not move the default off a single class**, which is the mistake the
-  `RetrievabilityWeight` entry exists to prevent.
-  <br>_Model-free, and the arm already ships (`--pool`). ~210 min for the temporal ladder at four rungs,
-  since each multiplier needs its own store — a recall reinforces what it returns, so they cannot share one
-  (Part 118's defect). Embeds are cache hits, so the cost is SQLite rather than the model._
-
 ---
 
 ## Part 128 — the retrieval gap is RANKING OUT candidates the engine already holds (2026-08-31)
@@ -958,6 +940,22 @@ endorsements per recall out of 80 shown, at 2.6% precision, which is an endorsem
 20-slot page, so promotion replaces the ranking instead of refining it. **The seam has a capability FLOOR**,
 now stated in `LlmVerificationOptions.ClientName`'s shipped XML doc. `docs/memory.md` §5 carries the table
 and the four things it does not say._
+
+- [ ] **Price `CandidateMultiplier` on SEARCH — the third rung, and the one that touches the retrieval gap.**
+  `docs/memory.md` §5 (2026-09-07) ran the ladder on both LongMemEval classes and found a clean ~1:1 trade:
+  `clean` +27.2 against all-evidence −28.0 going 4 → 16. **So the shipped 4 is the coverage corner of a real
+  axis rather than an unexamined default, and no default moves on what is measured.**
+  <br>**Why the search rung is not just a third data point.** LoCoMo is the workload the engine LOSES on
+  (plain cosine 80.5% against the best mechanical arm's 83.0% only after per-source fusion), and **D59**
+  decomposed that loss as *reachable-but-outranked* — 100% of misses. A deeper pool changes precisely which
+  candidates contest those slots, so this ladder is a direct probe of **this Part's** gap rather than a third
+  data point for the budget work that produced it, which is why it is filed here. It could plausibly move
+  that number in EITHER direction, and that is what makes it worth running.
+  <br>**`memory-locomo` has no `--pool` arm** — the flag lives in `MemoryLongMemEvalBench` only. Adding it
+  is the same shape: one engine per multiplier, one store per engine (a recall reinforces what it returns,
+  so they cannot share one — Part 118's defect).
+  <br>_Model-free. Budget the run from the LongMemEval ladders: ~150 min for four rungs at 70 questions,
+  ~230 at 132. Embeds are cache hits after the first ingestion, so the cost is SQLite rather than the model._
 
 - [ ] **Decide whether a memory seam's `Model` should beat a candidate's — today it silently loses.**
   `LlmVerificationOptions.Model` and `LlmAnnotationOptions.Model` set `LlmRequest.Model`, and the router
