@@ -70,6 +70,8 @@ internal static class FieldArms
         Named("+pool8"),
         Named("+pool16"),
         Named("+pool32"),
+        Named("+sem+rel-only+pool16"),
+        Named("+sem+rel-only+pool32"),
     ];
 
     /// <summary>The SHIPPED defaults — no options, no ranking policy, no semantic channel. The control both
@@ -148,6 +150,15 @@ internal static class FieldArms
         "+pool8" => new(name, Pool(8), null, null, null),
         "+pool16" => new(name, Pool(16), null, null, null),
         "+pool32" => new(name, Pool(32), null, null, null),
+
+        // The same knob on the BEST mechanical arm rather than the shipped one, because the first ladder
+        // priced it on `lyntai` (54.5% on LoCoMo) while a deployment that cares about search runs
+        // `+sem+rel-only` (83.0%). It is not assumed to transfer: that arm silences BOTH the retrievability
+        // and hop votes, so it ranks on relevance alone, and "a wider pool only adds competitors" was
+        // measured where three signals fuse over the pool. With two of them off, more candidates ranked
+        // purely by relevance could move the other way.
+        "+sem+rel-only+pool16" => new(name, Pool(16), Fusion(retrievability: 0, hop: 0), null, ShippedSemanticK),
+        "+sem+rel-only+pool32" => new(name, Pool(32), Fusion(retrievability: 0, hop: 0), null, ShippedSemanticK),
 
         _ => throw new KeyNotFoundException($"'{name}' is not a shared field-benchmark arm. "
             + $"Shared arms: {string.Join(", ", All().Select(a => a.Name))}."),

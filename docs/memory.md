@@ -2819,6 +2819,26 @@ smaller in magnitude than temporal's −28 because LoCoMo returns 20 slots rathe
 best mechanical arm on this workload (82.6%) and its pool is unmeasured, so this prices the knob on the
 default configuration and not on the best one.
 
+**That gap closed the same day, and it NARROWS the claim above** (n = 200, same controls):
+
+| arm | evidence-hit | vs its own base |
+|---|---|---|
+| `+sem+rel-only` | **83.0%** | — |
+| `+sem+rel-only+pool16` | 80.5% | **−2.5** |
+| `+sem+rel-only+pool32` | 81.5% | −1.5 |
+| `vector` | 80.5% | — |
+
+**"A wider pool only adds competitors" is a property of the FUSED ranking, not of the pool.** On the shipped
+arm — where relevance, retrievability and hop compete — widening costs **−10.0**. On `+sem+rel-only`, which
+silences two of those votes and ranks on relevance alone, it costs **−2.5**, and 16 → 32 moves +1.0, which is
+two questions and inside this workload's near-tie band. So on the arm a search deployment would actually run,
+the knob is close to free rather than expensive.
+
+**The mechanism is visible as an exact coincidence**: `+sem+rel-only+pool16` scores **80.5%**, which is
+`vector`'s score to the decimal. A relevance-only ranking over a widening candidate pool converges on what
+plain cosine already does — which is the same reading `+sem+rel-only`'s own definition invites, arriving from
+the pool axis instead of the weight axis.
+
 ### The expansion floor, swept across workloads (2026-08-30)
 
 `GraphMemoryOptions.ExpansionRetrievabilityFloor` (**D98**) ships at `0`. It was adopted on one class of one
@@ -3402,9 +3422,32 @@ library combined, which move recall by hundredths. The reason is §5's decomposi
 retrieval failures**; the answers are already in the candidate set and merely ranked below the cut. Nothing
 inside the library's own arithmetic fixes that, which is why the seam exists.
 
+> **READ THIS BEFORE TURNING IT ON. The table above is this repository's own SYNTHETIC corpus, and on the
+> FIELD benchmarks a small local judge at the shipped defaults is net NEGATIVE.** Measured on LoCoMo,
+> n = 200, `gemma3:4b` (§5, 2026-09-03):
+>
+> | configuration | evidence-hit | against no judge |
+> |---|---|---|
+> | no judge (`+sem+rel-only`) | **83.0%** | — |
+> | judge, **shipped** depth + combination | 72.5% | **−10.5** |
+> | judge, `VerdictCombination = Fuse` | 83.0% | 0.0 |
+> | judge, `VerificationDepth` halved (40) | **84.0%** | **+1.0** |
+> | a PERFECT judge (oracle ceiling) | 92.5% | +9.5 |
+>
+> **So the seam's VALUE is real and this model does not earn it.** The ceiling says +9.5 is there; the 4B
+> model recovers at best +1.0, and at the shipped defaults it destroys 10.5. **The mechanism is measured**:
+> on the 19 calls of 200 where a verifier could possibly help, it ranked the deep evidence in its own top
+> five **zero** times — its confidence tracks what the ranking already found (§5).
+>
+> **The actionable rule, if you register one anyway:** halve `VerificationDepth` or set
+> `VerdictCombination = Fuse`. The shipped depth factor of 4 was fitted against an ORACLE, for which depth is
+> free because it never endorses junk; for a real judge depth is a PRECISION trade and the same model is
+> level with no judge at 2×.
+
 So the honest framing is not "the judge is an optimisation" but: *this engine's ranking is its weakest part,
-and a judge is the only shipped mechanism that repairs it.* Whether ~1.5 s and 3.3 GB is worth 28 points is
-an application question — but it should be answered knowing the size of the number.
+and a judge is the only shipped mechanism aimed at repairing it* — with the field caveat above on whether a
+given model actually does. Whether ~1.5 s and 3.3 GB is worth it is an application question, and it should
+be answered knowing both numbers rather than the encouraging one.
 
 #### Choosing the model — three criteria, in this order
 
@@ -3668,15 +3711,27 @@ services.AddLyntai(cfg => cfg
         new GraphMemoryOptions { ReinforceOn = MemoryReinforcementActs.None })));
 ```
 
-### Turn the biggest quality lever on
+### Turn the judge on — and the two options to set with it
 
-See §6 for what this costs and what it buys — ~28 points of miss, ~1.5 s and 3.3 GB of VRAM.
+**See §6 before copying this.** On this repository's synthetic corpus a judge is worth ~28 points of miss;
+on the FIELD benchmarks a small local model at the SHIPPED defaults measured **−10.5 points**, and the two
+options below are what separates those outcomes. ~1.5 s and 3.3 GB of VRAM per recall either way.
 
 ```csharp
 services.AddLyntai(cfg => cfg
     .AddOllamaProvider(baseUrl: "http://localhost:11434", defaultModel: "gemma3:4b")
     .UseDefaultCandidates("ollama")
-    .AddMemoryEngine("project", e => e.UseGraph())
+    .AddMemoryEngine("project", e => e.UseGraph(new GraphMemoryOptions
+    {
+        // The shipped depth factor of 4 was fitted against a PERFECT judge, for which depth is free
+        // because it never endorses junk. A real small model loses precision on a long list: halving
+        // the depth took the same model from -10.5 points to +1.0 (§5).
+        VerificationDepth = 40,
+
+        // ...or leave the depth alone and stop the verdict PARTITIONING the page, which removes the
+        // same loss. Either one; both together is untested.
+        VerdictCombination = MemoryVerdictCombination.Fuse,
+    }))
     .AddMemoryVerification(o => o.Model = "gemma3:4b"));
 ```
 

@@ -691,6 +691,11 @@ internal static class MemoryLocomoBench
                 FieldArms.Named("+pool8"),
                 FieldArms.Named("+pool16"),
                 FieldArms.Named("+pool32"),
+
+                // The same knob on the arm a search deployment would actually run - see `FieldArms` for
+                // why it is not assumed to behave like the shipped one.
+                FieldArms.Named("+sem+rel-only+pool16"),
+                FieldArms.Named("+sem+rel-only+pool32"),
             ];
 
             // The dia_id rides along in the CONTENT so an evidence hit is checkable without a model. It is
@@ -1778,7 +1783,7 @@ internal static class MemoryLocomoBench
         .. judged ? JudgeArms.Select(JudgeArmName) : Enumerable.Empty<string>(),
         "+sem+mult", "+sem80+mult", "+rel-only",
         "+sem5", "+sem+forget2", "+sem+forget0", "+sem+fuse", "+fuse",
-        "+pool8", "+pool16", "+pool32",
+        "+pool8", "+pool16", "+pool32", "+sem+rel-only+pool16", "+sem+rel-only+pool32",
     ];
 
     /// <summary>Question text to the union of the evidence every question carrying that text declares.

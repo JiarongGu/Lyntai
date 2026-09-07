@@ -1966,6 +1966,29 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 162 — the pool knob is nearly FREE on the best arm, and the judge guidance was stale
+
+✅ done 2026-09-07, prompted by the owner asking why the tables read 54.5% when "we hit 93% before".
+`docs/memory.md` §5, §6, §9.
+
+**The 92.5% is `+sem+rel-only+oracle` — a PERFECT judge, a reachability ceiling, not a score.** Answering it
+exposed that Part 161 priced `CandidateMultiplier` on the SHIPPED arm (54.5%) rather than the one a search
+deployment runs (83.0%).
+
+**Run on the best arm, the knob is nearly free**: −2.5 at ×16 and −1.5 at ×32, against −10.0 on the shipped
+arm. So *"a wider pool only adds competitors"* is a property of the FUSED ranking, not of the pool.
+`+sem+rel-only+pool16` lands on **80.5%**, `vector`'s score to the decimal — a relevance-only ranking over a
+widening pool converges on plain cosine.
+
+**And the consumer-facing guidance was two weeks behind the measurements.** §6 said a judge is worth ~28
+points and is *"the only shipped mechanism that repairs"* ranking — true of the synthetic corpus, while the
+field runs put a small local judge at **−10.5** on LoCoMo at shipped defaults. §9's recipe handed a consumer
+exactly that configuration. Both now carry the field table and the rule: halve `VerificationDepth` or set
+`VerdictCombination = Fuse`. **No gate could see this** — no retired vocabulary, no registered count, nothing
+dangling.
+
+- Answer why the published tables read 54.5% against a remembered 93%.
+
 ## Part 161 — the SEARCH rung closes the pool ladder, and the shipped default is vindicated
 
 ✅ done 2026-09-07 — the third and last rung, on the workload the engine loses. `--pool` became shared
