@@ -25,10 +25,10 @@ namespace Lyntai.Benchmarks;
 /// one generates plain entries and reports latency, throughput and bytes. It says nothing about recall
 /// quality at scale, which is a separate and harder study.</para>
 ///
-/// <para><b>Everything runs SEQUENTIALLY, unlike every other sweep here.</b> The others fan the whole grid
-/// out through <c>Parallel.ForEachAsync</c> because each cell reports a RATE that contention cannot bias.
-/// This one reports wall-clock latency, which contention biases directly and silently — so parallelism would
-/// not speed the study up, it would make the numbers mean nothing.</para>
+/// <para><b>Everything runs SEQUENTIALLY, unlike every other sweep here</b> — the others fan out because
+/// each cell reports a RATE that contention cannot bias, while this one reports wall-clock latency, which
+/// contention biases directly and silently. <b>The one exception is <c>--concurrency</c></b>, where
+/// contention is the subject rather than the noise; see <c>RunConcurrencyAsync</c>.</para>
 /// </summary>
 internal static class MemoryScaleSweep
 {
@@ -55,9 +55,139 @@ internal static class MemoryScaleSweep
         double ExpandP50, double ExpandP95,
         double ColdStartMs, long DbBytes, double HitRate);
 
+    /// <summary>The concurrency ladder: how a store behaves when several recalls run AT ONCE, which every
+    /// number in the sequential sweep is silent about.
+    ///
+    /// <para><b>It is a deliberate exception to this file's own rule</b> that everything runs sequentially
+    /// because contention biases latency silently. Here contention IS the subject, so it is measured rather
+    /// than avoided — and the sequential cells stay the baseline it is read against.</para>
+    ///
+    /// <para><b>The prediction is structural, not a guess.</b> `SqliteConnectionFactory` opens WAL with a
+    /// 5 s <c>busy_timeout</c>, and under WAL readers do not block while writers SERIALISE. A recall on
+    /// shipped defaults ends in a write — reinforcement, co-activation edges, the review-log row — so
+    /// concurrent recalls all queue behind one writer, while <c>read-only</c> is pure reads and should scale
+    /// nearly flat. The gap between the two arms is the concurrency price of LEARNING.</para>
+    ///
+    /// <para><b>Contention here does not fail, it WAITS</b>, which is why throughput alone would hide it: a
+    /// 5 s <c>busy_timeout</c> under the driver's 30 s command timeout turns a lock into latency, so p99 and
+    /// the error count are the columns that carry the finding and "no errors" proves nothing on its
+    /// own.</para></summary>
+    private static async Task<int> RunConcurrencyAsync(string[] args, Stopwatch stopwatch)
+    {
+        var sizes = ParseSizes(args);
+        var levels = ParseLevels(args);
+        if (levels.Length == 0)
+        {
+            Console.Error.WriteLine("--concurrency: no positive worker counts parsed.");
+            return 1;
+        }
+
+        var shipped = new GraphMemoryOptions();
+        Arm[] arms =
+        [
+            new("shipped", shipped),
+            new("read-only", shipped with
+            {
+                ReinforceOn = MemoryReinforcementActs.None,
+                CoActivationCap = 0,
+                LogReviews = false,
+            }),
+        ];
+
+        Console.WriteLine("=== CONCURRENCY: what happens when recalls overlap ===");
+        Console.WriteLine();
+        Console.WriteLine("Every published scale number is single-threaded. Under WAL, readers do not block");
+        Console.WriteLine("and writers SERIALISE - and a default recall ends in a write-back, so `shipped`");
+        Console.WriteLine("recalls queue behind one writer where `read-only` does not. Contention shows up as");
+        Console.WriteLine("LATENCY rather than errors (5s busy_timeout under a 30s command timeout), so read");
+        Console.WriteLine("p99 and the error column, not throughput alone.");
+        Console.WriteLine();
+        Console.WriteLine($"{"size",-8} {"arm",-11} {"workers",8} {"p50 ms",9} {"p99 ms",9} "
+            + $"{"recalls/s",10} {"errors",7} {"hit",6}");
+        Console.WriteLine(new string('-', 78));
+
+        // REPEATS, for the reason the sequential sweep carries them and this mode needed more: a p99 under
+        // contention is the noisiest number in this file, and a single-repeat run of the write-back share
+        // reported a 4-5 point improvement on 2026-09-07 that vanished at five repeats. The MEDIAN cell
+        // survives; the spread is printed so a reader can see whether a difference outruns it.
+        var repeat = ParseRepeat(args);
+        foreach (var size in sizes)
+            foreach (var arm in arms)
+                foreach (var workers in levels)
+                {
+                    var runs = new List<ConcurrentRow>(repeat);
+                    for (var i = 0; i < repeat; i++) runs.Add(await RunConcurrentCellAsync(size, arm, workers));
+
+                    var row = runs.OrderBy(r => r.P99).ElementAt(runs.Count / 2);
+                    Console.WriteLine($"{size.Label,-8} {arm.Label,-11} {workers,8} {row.P50,9:F1} "
+                        + $"{row.P99,9:F1} {row.PerSecond,10:F0} {row.Errors,7} {row.HitRate,6:F3}");
+                    if (repeat > 1)
+                        Console.WriteLine($"{"",-30}({repeat} runs, p99 {runs.Min(r => r.P99):F0}"
+                            + $"-{runs.Max(r => r.P99):F0}ms, rate {runs.Min(r => r.PerSecond):F0}"
+                            + $"-{runs.Max(r => r.PerSecond):F0}/s)");
+                }
+
+        Console.WriteLine();
+        Console.WriteLine("  'errors' counts recalls that THREW - a lock that outlived both timeout layers.");
+        Console.WriteLine("  Zero errors with a rising p99 is contention working as designed: the wait is");
+        Console.WriteLine("  absorbed, not reported. A non-zero count is a deployment-visible failure.");
+        Console.WriteLine("  'hit' is the same control the sequential sweep carries: fast empty recalls read");
+        Console.WriteLine("  exactly like good news, so anything below 1.000 makes these latencies partly the");
+        Console.WriteLine("  cost of missing.");
+        Console.WriteLine($"\nWall clock: {stopwatch.Elapsed.TotalSeconds:F1}s");
+        return 0;
+    }
+
+    private sealed record ConcurrentRow(double P50, double P99, double PerSecond, int Errors, double HitRate);
+
+    private static async Task<ConcurrentRow> RunConcurrentCellAsync(Size size, Arm arm, int workers)
+    {
+        using var db = new MemoryPolicySweep.SweepDb();
+        var engine = new GraphMemoryEngine("scale", new SqliteMemoryGraphStore(db.Factory), arm.Options,
+            retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()]);
+
+        for (var i = 0; i < size.Entries; i++)
+            await engine.RememberAsync(new MemoryWrite("scale", Scope(i), Content(i)));
+
+        var latencies = new System.Collections.Concurrent.ConcurrentBag<double>();
+        var errors = 0;
+        var hits = 0;
+        var step = Math.Max(1, size.Entries / TimedQueries);
+
+        var wall = Stopwatch.GetTimestamp();
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, TimedQueries),
+            new ParallelOptions { MaxDegreeOfParallelism = workers },
+            async (i, ct) =>
+            {
+                var target = i * step;
+                var start = Stopwatch.GetTimestamp();
+                try
+                {
+                    var recall = await engine.RecallAsync(
+                        new MemoryQuery("scale", Scope(target), Query(target), QueryLimit), ct);
+                    if (recall.Items.Count > 0) Interlocked.Increment(ref hits);
+                }
+                catch (Exception) { Interlocked.Increment(ref errors); }
+
+                latencies.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+            });
+        var seconds = Stopwatch.GetElapsedTime(wall).TotalSeconds;
+
+        var sorted = latencies.ToList();
+        return new ConcurrentRow(Percentile(sorted, 0.50), Percentile(sorted, 0.99),
+            seconds > 0 ? TimedQueries / seconds : 0, errors,
+            TimedQueries > 0 ? hits / (double)TimedQueries : 0);
+    }
+
     public static async Task<int> RunAsync(string[] args)
     {
         var stopwatch = Stopwatch.StartNew();
+
+        // The concurrency ladder is its own MODE rather than a column: it fills a store per (size, arm,
+        // workers) cell and reports throughput beside latency, which the sequential row shape has nowhere
+        // to put.
+        if (args.Contains("--concurrency")) return await RunConcurrencyAsync(args, stopwatch);
 
         var sizes = ParseSizes(args);
 
@@ -172,6 +302,19 @@ internal static class MemoryScaleSweep
     {
         var i = Array.IndexOf(args, "--repeat");
         return i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out var n) && n > 0 ? n : 1;
+    }
+
+    /// <summary>The worker ladder, <c>--concurrency 1,4</c> overriding the default 1/2/4/8. Mirrors
+    /// <see cref="ParseSizes"/> deliberately: same flag shape, same reason — an instrument whose only run
+    /// takes an hour gets validated by reading rather than by running.</summary>
+    private static int[] ParseLevels(string[] args)
+    {
+        var i = Array.IndexOf(args, "--concurrency");
+        if (i < 0 || i + 1 >= args.Length || args[i + 1].StartsWith("--", StringComparison.Ordinal))
+            return [1, 2, 4, 8];
+
+        return [.. args[i + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(t => int.TryParse(t, out var v) ? v : 0).Where(v => v > 0).Distinct().Order()];
     }
 
     /// <summary>The size ladder, <c>--sizes 1000,10000</c> overriding the default 1k/10k/100k.

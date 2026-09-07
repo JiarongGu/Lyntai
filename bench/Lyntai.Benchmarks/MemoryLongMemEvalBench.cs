@@ -303,6 +303,27 @@ internal static class MemoryLongMemEvalBench
         /// write, which is hours at this corpus size.</para></summary>
         private const double Similar = 0.80;
 
+        /// <summary>How many neighbours the count gate looks at. It bounds <see cref="Density"/> the way
+        /// <c>SalienceOptions.SimilarityK</c> bounds the engine's own <c>SimilarCount</c>, and
+        /// <c>memory-density</c>'s own caveat applies here too: a saturating count measures the WINDOW, so
+        /// this must exceed the recurrence threshold or the gate cannot see one.</summary>
+        private const int DensityK = 10;
+
+        /// <summary>The count at or above which a write is treated as a RECURRENCE rather than a correction,
+        /// so no supersession is considered.
+        ///
+        /// <para><b>Why a count and not the top-1 similarity the original gate used.</b> A correction and a
+        /// recurrence are BOTH near-duplicates of something stored — that is what makes pairwise similarity
+        /// unable to separate them, measured in <c>memory-density</c>: `correction` scores a mean
+        /// <c>SimilarCount</c> of 1.00 and `recurrence` 6.00, pooled AUC 1.000. A top-1 gate therefore fires
+        /// on both, and every recurrence it passes to the model is a chance to delete a CONFIRMATION of a
+        /// still-true fact.</para>
+        ///
+        /// <para><b>Read the constant as a direction, not a fitted value.</b> That measurement is authored
+        /// fixtures at an effective n of 1, and its best threshold was the search window rather than a
+        /// learned boundary.</para></summary>
+        internal const int RecurrenceAt = 3;
+
         private const string Instruction = """
             You decide whether a NEW fact makes an OLD one obsolete.
 
@@ -324,11 +345,28 @@ internal static class MemoryLongMemEvalBench
 
         internal int Considered { get; private set; }
 
+        /// <summary>Writes the top-1 gate admitted whose neighbourhood is DENSE — the recurrences a
+        /// similarity gate cannot tell from corrections. This is the diagnostic: it is what the original gate
+        /// was passing to the model, and every one is a chance to delete a confirmation.</summary>
+        internal int Dense { get; private set; }
+
+        /// <summary>Supersessions applied by REINFORCING the replacement instead of deleting the superseded
+        /// entry. Counted separately because it is a different act, not a tuned version of the same one.
+        /// </summary>
+        internal int Boosted { get; private set; }
+
         /// <summary>Write one fact, superseding whatever it makes obsolete.</summary>
-        internal async Task WriteAsync(string fact)
+        /// <param name="countGate">Skip a write whose neighbourhood is dense — a RECURRENCE — instead of
+        /// asking the model about it.</param>
+        /// <param name="boost">Reinforce the replacement rather than deleting what it supersedes. The
+        /// retrievability contract forbids SHORTENING a memory (`Stability` may never decrease), so raising
+        /// the winner is the only way to widen the gap without deleting — and deletion is what
+        /// <c>docs/DECISIONS.md</c> <b>D41</b> exists to refuse.</param>
+        internal async Task WriteAsync(string fact, bool countGate = false, bool boost = false)
         {
-            var candidate = (await engine.RecallAsync(new MemoryQuery(Task, Scope, fact, Limit: 1))
-                .ConfigureAwait(false)).Items.FirstOrDefault();
+            var near = (await engine.RecallAsync(new MemoryQuery(Task, Scope, fact, Limit: DensityK))
+                .ConfigureAwait(false)).Items;
+            var candidate = near.FirstOrDefault();
 
             // The marker is stripped before comparing: every fact carries one, and leaving it in makes two
             // facts from the SAME turn look alike for a reason that has nothing to do with their content.
@@ -339,6 +377,22 @@ internal static class MemoryLongMemEvalBench
                 if (!string.Equals(old, fact, StringComparison.Ordinal)
                     && await CosineOf(Strip(old), Strip(fact)).ConfigureAwait(false) >= Similar)
                 {
+                    // THE DIAGNOSTIC, counted whether or not the gate acts on it: how many of the pairs the
+                    // top-1 gate admits are actually recurrences. Reported even in the arms that ignore it,
+                    // because "the old gate was firing on recurrences" is the claim being tested and it must
+                    // be readable from the arm that does NOT change behaviour.
+                    var density = await DensityOf(fact, near).ConfigureAwait(false);
+                    if (density >= RecurrenceAt)
+                    {
+                        Dense++;
+                        if (countGate)
+                        {
+                            await engine.RememberAsync(new MemoryWrite(Task, Scope, fact))
+                                .ConfigureAwait(false);
+                            return;
+                        }
+                    }
+
                     // The verdict is CACHED across arms, keyed on the pair. Whether one fact supersedes
                     // another is a property of the two facts, so the two reconcile arms asking it separately
                     // buys nothing and doubles a per-call cost that is a whole process on the CLI. It also
@@ -361,6 +415,19 @@ internal static class MemoryLongMemEvalBench
 
                     if (replaces && long.TryParse(candidate.Reference.Id, out var id))
                     {
+                        if (boost)
+                        {
+                            // BURIAL, NOT DELETION. The superseded entry is left alone and the replacement is
+                            // written and then recalled, which is what reinforces it — so decay buries the
+                            // loser by the winner climbing past it, and D41's recoverability is untouched.
+                            await engine.RememberAsync(new MemoryWrite(Task, Scope, fact))
+                                .ConfigureAwait(false);
+                            await engine.RecallAsync(new MemoryQuery(Task, Scope, fact, Limit: 1))
+                                .ConfigureAwait(false);
+                            Boosted++;
+                            return;
+                        }
+
                         await store.DeleteAsync(engine.Name, [id]).ConfigureAwait(false);
                         Replaced++;
                     }
@@ -368,6 +435,22 @@ internal static class MemoryLongMemEvalBench
             }
 
             await engine.RememberAsync(new MemoryWrite(Task, Scope, fact)).ConfigureAwait(false);
+        }
+
+        /// <summary>How many stored entries actually RESEMBLE this write — the engine's own
+        /// <c>SalienceContext.SimilarCount</c> computed bench-side, over the page already recalled so the
+        /// gate costs no extra round trip.</summary>
+        private async Task<int> DensityOf(string fact, IReadOnlyList<MemoryItem> near)
+        {
+            var count = 0;
+            foreach (var item in near)
+            {
+                var text = item.Content ?? item.Headline;
+                if (string.Equals(text, fact, StringComparison.Ordinal)) continue;
+                if (await CosineOf(Strip(text), Strip(fact)).ConfigureAwait(false) >= Similar) count++;
+            }
+
+            return count;
         }
 
         private async Task<double> CosineOf(string a, string b) =>
@@ -417,10 +500,21 @@ internal static class MemoryLongMemEvalBench
         var bySession = args.Contains("--sessions") ? new SessionFactExtractor(chat) : null;
         FieldArm[] engines = [FieldArms.Shipped(), FieldArms.Named("+forget0")];
         var reconcile = args.Contains("--reconcile");
+        // `extract+reconcile-fixed` changes the reconciler on BOTH axes the diagnosis names — it gates on
+        // NEIGHBOURHOOD DENSITY instead of top-1 similarity, and it reinforces the replacement instead of
+        // deleting what it supersedes. The two travel together because each is useless alone: a better gate
+        // still deletes (which D41 refuses), and a non-destructive act applied to recurrences still promotes
+        // the wrong facts. `extract+reconcile` stays as the control and reports the same diagnostic.
         string[] arms = reconcile
-            ? ["lyntai", "extract", "extract+reconcile", "extract+reconcile+forget0", VectorArm]
+            ? ["lyntai", "extract", "extract+reconcile", "extract+reconcile-fixed",
+                "extract+reconcile+forget0", VectorArm]
             : ["lyntai", "extract", "extract+forget0", VectorArm];
         int asked = 0, reused = 0, replaced = 0;
+
+        // `dense` counts pairs the TOP-1 gate admitted whose neighbourhood is dense - recurrences it cannot
+        // tell from corrections. Accumulated for BOTH arms: the control reports what the shipped gate was
+        // passing to the model, which is the claim under test, and the fixed arm reports what it skipped.
+        int dense = 0, denseControl = 0, boosted = 0;
         // Shared across arms and across questions: a supersession verdict is about the fact PAIR.
         var decisions = new Dictionary<string, bool>(StringComparer.Ordinal);
 
@@ -470,12 +564,16 @@ internal static class MemoryLongMemEvalBench
                 {
                     // The RECONCILING pass writes through the consolidator, so a superseded fact is deleted
                     // as the replacement arrives rather than left for decay to bury.
+                    var fixedGate = arm.Contains("-fixed", StringComparison.Ordinal);
                     var consolidator = new Reconciler(
                         chat, engine, new SqliteMemoryGraphStore(db.Factory), embedder, decisions);
-                    foreach (var text in texts) await consolidator.WriteAsync(text);
+                    foreach (var text in texts)
+                        await consolidator.WriteAsync(text, countGate: fixedGate, boost: fixedGate);
                     asked += consolidator.Asked;
                     reused += consolidator.Reused;
                     replaced += consolidator.Replaced;
+                    if (fixedGate) { dense += consolidator.Dense; boosted += consolidator.Boosted; }
+                    else denseControl += consolidator.Dense;
                 }
                 else
                 {
@@ -550,6 +648,19 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine($"  RECONCILIATION: asked {asked} time(s), reused {reused} cached verdict(s), "
                 + $"replaced {replaced}. Zero replacements");
             Console.WriteLine("  means the arm IS `extract` whatever it scores - the control that arm needs.");
+            Console.WriteLine();
+            Console.WriteLine($"  THE DIAGNOSIS: of the pairs the TOP-1 gate admitted, {denseControl} sat in a"
+                + $" DENSE neighbourhood");
+            Console.WriteLine($"  (>= {Reconciler.RecurrenceAt} stored entries above the same similarity) - recurrences a"
+                + " pairwise gate cannot");
+            Console.WriteLine("  tell from corrections (`memory-density`). A high count is the claim that the");
+            Console.WriteLine("  shipped gate was deleting CONFIRMATIONS of still-true facts; a low one refutes");
+            Console.WriteLine($"  it and the fixed arm's score means something else. The fixed arm skipped"
+                + $" {dense} and");
+            Console.WriteLine($"  boosted {boosted} replacement(s) instead of deleting them.");
+            if (denseControl == 0)
+                Console.WriteLine("  ! DIAGNOSIS REFUTED: the old gate fired on no recurrence, so density is not"
+                    + " what it got wrong.");
         }
 
         Console.WriteLine();

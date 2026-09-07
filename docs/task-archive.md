@@ -1966,6 +1966,31 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 165 — the performance pass: the write-back share did NOT fall, and concurrency is measured
+
+✅ done 2026-09-07, at the owner's direction to focus on performance. `docs/memory.md` §7.
+
+**The write-back share is unchanged by D99 and D101.** §7 said it was *"expected to have fallen"* after ten
+round-trips became one and three write-back calls became one. Re-run at the baseline's own 5 repeats it
+reads **76% at 1k and 49% at 10k** against the recorded 75% and 50%. **The COUNT fell and the latency share
+did not**, which is consistent with D101 — its claim is a count — and says the write-back's cost is not
+dominated by store-call count.
+
+**A single-repeat run said otherwise and was noise** (71% / 45%), which is the `pitfalls.md` trap about a p50
+moving less than its own spread, met by the person who had just quoted the warning. The 100k cell is sharper:
+35% at one repeat, **7%** at five, with the arms' spreads overlapping outright.
+
+**CONCURRENCY is no longer a blank.** A default recall is **writer-bound**: throughput pinned near 160/s at
+every worker count while p99 climbs **23× past a second**, at **zero errors** — the wait is absorbed by a 5s
+`busy_timeout` under a 30s command timeout and never reaches a log. `ReinforceOn = None` is a concurrency
+knob, not only a latency one.
+
+**Pure reads do not scale either**, peaking at two workers on 22 cores. One explanation — `PRAGMA
+journal_mode=WAL` on every connection open taking a lock — was implemented, measured, **refuted** (every cell
+inside its spread) and reverted. What serialises a read-only open is still open.
+
+- Re-measure the write-back share after D99/D101, and measure concurrency.
+
 ## Part 164 — what `Fuse` costs a GOOD judge, and the shipped default is a bet on judge quality
 
 ✅ done 2026-09-07, from "ranking is the lever — what can we do about it". `docs/memory.md` §5, **D105**

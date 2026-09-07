@@ -321,6 +321,41 @@ store. The honest statement is that the seam's SHAPE — score pairs, reorder, n
 rerankers exist for, and the LLM judge is a general tool doing a specialised job. See
 `local/superpowers/records/2026-08-15-memory-research-review.md`.
 
+#### The engine can say "used" and "gone", but not "contradicted" — and RIF is the shape of the gap
+
+A second design lead, filed the same way and for the same reason: it is research, not a measurement.
+
+**The structural hole, which is contract rather than oversight.** `IMemoryRetrievabilityPolicy` offers
+`Reinforce`, and its contract states that `MemoryDecayState.Stability` **may never be smaller than the
+current one, unconditionally** — pinned by
+`RetrievabilityPolicyContract.Reinforcement_never_shortens_a_memory`. So an entry can be strengthened or
+deleted, and nothing in between. That is why the write-time reconciliation experiments could only DELETE
+(§5), which is precisely what **D41** exists to refuse — and they lost 18.9 points doing it.
+
+**Retrieval-induced forgetting is the mechanism that fills it.** Retrieving a memory impairs its
+competitors, and the computational account is a rule that strengthens the target while WEAKENING competing
+traces; the forgetting is adaptive because it reduces future interference. Three things make it fit here
+rather than merely sound apt:
+
+- this engine's age is **interference, not elapsed time** (**D40**), so interference is already its currency;
+- it is the exact **inverse of co-activation**, which the engine already performs — a recall strengthens what
+  it returned together, and nothing weakens what competed and lost;
+- **the signal is already computed and discarded.** `MemoryVerification.RelevantIds`' own contract says an
+  unlisted id *"is judged NOT to have answered — which is the half that carries new information"*, and the
+  engine's only use of that half is to withhold reinforcement.
+
+**The warning that comes with it is D62's, and it is the reason to measure before believing any of this.**
+The fan effect was implemented, measured and switched OFF — not because the mechanism was wrong but because
+the PROXY was, in a graph built by co-activation: `GraphNode.Degree` also counts how often an entry was
+useful. RIF has the same hazard. *"Was in the candidate pool and not returned"* is a confounded competitor
+set — an entry that loses is second-best, not wrong, and suppressing second-best material is the coverage
+cost this document measures everywhere else. **The verdict's unendorsed half is the sharper proxy**, because
+"this did not answer" is a different claim from "this ranked lower".
+
+**And the first control it needs is whether it does anything at all.** Not being reinforced ALREADY decays an
+entry relatively, since position advances as other entries are written. Suppression may be redundant with the
+mechanism already shipped, and an arm that cannot distinguish the two would measure nothing.
+
 ### Salience's RANKING voice is a net cost — measured 2026-08-23
 
 `node devtools/dev.mjs memory-salience-weight`, 10 seeds × 5 shapes × 4 arms of
@@ -3678,19 +3713,50 @@ Each of these cost a real measurement to find.
   was `1.000` throughout — the latencies are real recalls, not fast misses.
   <br>**What is still NOT measured, stated separately because the numbers above make it easy to assume
   otherwise:** recall QUALITY at scale (that corpus has no ground truth and none of this speaks to miss or
-  pollution), concurrency (single-threaded throughout), Postgres, and any model in the loop — an embedder,
-  annotator or verifier would dominate every number here and none is wired.
+  pollution), Postgres, and any model in the loop — an embedder, annotator or verifier would dominate every
+  number here and none is wired.
+  <br>**CONCURRENCY was on that list until 2026-09-07** and is now measured — `memory-scale --concurrency`,
+  1k, five repeats per cell:
+
+  | arm | workers | p50 | p99 | recalls/s |
+  |---|---|---|---|---|
+  | `shipped` | 1 | 4.7ms | 45.9ms | 155 |
+  | `shipped` | 8 | 4.4ms | **1061.6ms** | 160 |
+  | `read-only` | 2 | 1.8ms | 3.5ms | **1024** |
+  | `read-only` | 8 | 19.9ms | 33.1ms | 368 |
+
+  **A default recall is WRITER-BOUND, and concurrency buys nothing while costing the tail everything.**
+  Throughput is pinned near 160/s at every worker count — SQLite is single-writer under WAL and a default
+  recall ends in a write-back — while p99 climbs **23× past a full second**. **Zero errors at every level**,
+  which is the part a deployment feels: a 5s `busy_timeout` under a 30s command timeout turns the lock into
+  latency, so nothing reaches an error log. **Read `ReinforceOn = None` as a concurrency knob**, not only a
+  latency one.
+  <br>**And pure reads do not scale either, which WAL says they should**: `read-only` peaks at TWO workers
+  and falls to 368/s by eight, on a 22-core machine. **One explanation was tested and REFUTED**: every
+  connection open issues `PRAGMA journal_mode=WAL` (`SqliteConnectionFactory`), and setting the journal mode
+  takes a database lock even when it is a no-op — but making it run once per factory moved every cell inside
+  its own spread (`shipped` 8-worker p99 1061.6 → 1115.1; `read-only` 2-worker rate 1024 → 1080). The
+  experiment was reverted. **What serialises a pure-read open is still open.**
   <br>**What a recall spends on LEARNING, settled with repeats.** The sweep splits a default recall's
   latency into the read and the write-back (reinforcement + co-activation edges + the review-log row) it
   performs afterwards. At 5 runs per cell that write-back is **75% of the p50 at 1k and 50% at 10k** — so
   the read path grows faster than the learning does, and learning's *share* falls as the store grows even
   though its absolute cost barely moves. A deployment that does not need it can turn it off
   (`ReinforceOn = None`, `CoActivationCap = 0`, `LogReviews = false`) and recall roughly halves.
-  <br>**Those two percentages PREDATE `docs/DECISIONS.md` D101** and are left as measured rather than
-  restated. D101 collapsed the write-back's three store calls into one — 3 connection opens and 2
-  position-totals reads became 1 and 1 — so the share is expected to have fallen, and *expected* is as far
-  as this document goes: nothing re-ran the sweep, and this instrument's own noise (below) is why a
-  before/after pair taken once would not have settled it either. The claim D101 does make is a COUNT.
+  <br>**RE-RUN 2026-09-07, and the share did NOT fall.** Those percentages predated **D99** and **D101**,
+  and this document said the share was *"expected to have fallen"* while conceding a once-taken before/after
+  could not settle it. At the baseline's own 5 repeats it reads **76% at 1k and 49% at 10k** — the recorded
+  75% and 50%, reproduced. **So the round-trip COUNT fell and the latency share did not**, which is
+  consistent with D101 rather than against it: the claim D101 makes is a count, and this says the write-back's
+  cost is not dominated by how many store calls it takes.
+  <br>**A single-repeat run of the same sweep said otherwise, and it was noise** — 71% / 45%, an apparent
+  4–5 point improvement that vanished under repeats. That is the trap `pitfalls.md` records for a p50 moving
+  less than its own run-to-run spread, met again by the person who had just quoted the warning. **The 100k
+  cell is the sharper case**: 35% at one repeat against **7%** at five, with the two arms' p50 spreads
+  (32.9–36.3ms and 29.4–32.8ms) overlapping outright.
+  <br>**At 100k the write-back is no longer the story.** It costs 2.5ms of a 33.8ms recall, because the READ
+  path is what grows — `read-only` recall p95 runs ×11.02 from 1k→100k against `shipped`'s ×4.58, so the
+  share falls by the denominator rising rather than the numerator dropping (4.2 → 4.0 → 2.5ms).
   <br>**The first run could not support that claim and said so**, which is the half worth keeping: at one
   cell per arm the 100k comparison came out NEGATIVE — `read-only` measured slower, which it cannot be —
   so the sweep printed "not readable" rather than an impossible percentage. Repeats fixed it. **The same
