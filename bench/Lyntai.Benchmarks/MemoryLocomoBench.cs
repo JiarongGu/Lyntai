@@ -600,6 +600,33 @@ internal static class MemoryLocomoBench
                     Verification = new EvidenceOracleVerifier(EvidenceByQuery(mine, convId)),
                 },
 
+                // CAN THE CEILING GO HIGHER? At the shipped defaults it cannot be asked, because the two
+                // bounds coincide: `VerificationDepth` is `limit x 4` = 80 and the gathered pool is
+                // `limit x CandidateMultiplier` = 80, so the oracle already sees EVERY candidate and 92.5%
+                // is exactly "how much evidence reached the pool". Raising the depth alone finds nothing;
+                // there is nothing below 80 to look at.
+                //
+                // So this widens BOTH. For an oracle the extra candidates are free - it never endorses junk,
+                // which is why depth saturated for it (D59) while a real judge lost 10.5 points to the same
+                // depth. A RISE means the residual evidence is reachable and the POOL is the binding
+                // constraint; a FLAT line means it is not retrievable by these seed queries at all, which is
+                // a different defect and one no judge can repair.
+                //
+                // It stays a CEILING either way: the same pool costs a real arm points, and the real judge
+                // gets less selective as depth grows. Nothing here is a configuration to ship.
+                FieldArms.Named("+sem+rel-only") with
+                {
+                    Name = "+sem+rel-only+oracle+pool8",
+                    Options = new GraphMemoryOptions { CandidateMultiplier = 8, VerificationDepth = 160 },
+                    Verification = new EvidenceOracleVerifier(EvidenceByQuery(mine, convId)),
+                },
+                FieldArms.Named("+sem+rel-only") with
+                {
+                    Name = "+sem+rel-only+oracle+pool16",
+                    Options = new GraphMemoryOptions { CandidateMultiplier = 16, VerificationDepth = 320 },
+                    Verification = new EvidenceOracleVerifier(EvidenceByQuery(mine, convId)),
+                },
+
                 // The REAL judge, on the base that earns it, at three DEPTHS. `+oracle` above is the
                 // ceiling; these are what a model reaches. Skipped when no chat model answers — a scripted
                 // stand-in would measure the stand-in. Results and their limits: `docs/memory.md` §5.
@@ -984,6 +1011,7 @@ internal static class MemoryLocomoBench
                 }
                 Console.WriteLine($"  {convId}: {turns.Count} turns x {configs.Length} arm(s) ingested, "
                     + $"{mine.Count(q => q.Evidence.Count > 0)} question(s) probed");
+                WarnIfPoolSwallowsStore(configs, turns.Count, convId);
                 continue;
             }
 
@@ -1779,7 +1807,7 @@ internal static class MemoryLocomoBench
     private static string[] RetrievalArms(bool judged) =>
     [
         "lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
-        "+sem+rel-only", "+sem+rel-only+oracle",
+        "+sem+rel-only", "+sem+rel-only+oracle", "+sem+rel-only+oracle+pool8", "+sem+rel-only+oracle+pool16",
         .. judged ? JudgeArms.Select(JudgeArmName) : Enumerable.Empty<string>(),
         "+sem+mult", "+sem80+mult", "+rel-only",
         "+sem5", "+sem+forget2", "+sem+forget0", "+sem+fuse", "+fuse",
@@ -1826,6 +1854,32 @@ internal static class MemoryLocomoBench
                 + "evidence; the oracle endorses the union, which is generous to those questions.");
 
         return map;
+    }
+
+    /// <summary>Warns when an arm's candidate POOL is as large as the store it draws from, because such an
+    /// arm has stopped measuring retrieval.
+    ///
+    /// <para><b>Measured the expensive way, 2026-09-07.</b> An oracle arm at <c>CandidateMultiplier = 32</c>
+    /// gathers <c>20 × 32 = 640</c> candidates from conversations of 369–689 turns — larger than the whole
+    /// store for six of the ten — and scored a flawless <b>100.0% in every category</b>. A perfect judge
+    /// handed the entire conversation cannot do anything else, so the number is a property of the FIXTURE
+    /// and says nothing about how deep the evidence sits.</para>
+    ///
+    /// <para><b>The same defect, caught twice.</b> The LongMemEval bench grew a counter for it after a
+    /// <c>fill</c> arm scored 90% on the oracle variant by returning most of a 25-turn store; that counter
+    /// worked, and this bench simply did not have one. A degenerate arm does not fail — it publishes a
+    /// table, and a perfect score is the least suspicious-looking output there is.</para></summary>
+    private static void WarnIfPoolSwallowsStore(FieldArm[] configs, int turns, string convId)
+    {
+        foreach (var arm in configs)
+        {
+            var pool = RecallLimit * (arm.Options?.CandidateMultiplier
+                ?? new GraphMemoryOptions().CandidateMultiplier);
+            if (pool < turns) continue;
+
+            Console.WriteLine($"    ! {convId}/{arm.Name}: pool {pool} >= store {turns} — this arm gathers "
+                + "the WHOLE conversation, so it scores the fixture rather than retrieval.");
+        }
     }
 
     /// <summary>

@@ -1966,6 +1966,27 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 163 — the ceiling rises with the pool, and the gap to it widens faster
+
+✅ done 2026-09-07, from the owner's question "can we make the ceiling higher". `docs/memory.md` §5.
+At shipped defaults the question cannot be asked: `VerificationDepth` (`limit × 4` = 80) and the gathered
+pool (`limit × CandidateMultiplier` = 80) are the SAME 80, so the oracle already sees every candidate.
+
+**Yes, it is raisable — 92.5% → 94.0% → 96.0% as the pool doubles, no knee.** So the residual misses are
+material that was never GATHERED, not material the seed queries cannot reach.
+
+**And it is not a fix, because ceiling and floor move OPPOSITE ways**: ×16 raises the ceiling 3.5 and costs
+the real arm 2.5, widening the reachable-vs-retrieved gap from **9.5 to 15.5**. The lever is RANKING, and
+9.5 points of headroom already sit inside the pool the engine gathers today — of which a real 4B judge takes
+at most +1.0. **D59 quantified at every pool size rather than asserted at one.**
+
+**A degenerate result was caught rather than published**: `+oracle+pool32` gathers 640 candidates from
+369–689-turn conversations and scored 100.0% in every category — the fixture, not retrieval. This is the
+SAME defect the LongMemEval bench already had a counter for, recurring here because the counter lived in the
+other bench. `WarnIfPoolSwallowsStore` now guards it and reports zero for the rungs above.
+
+- Answer whether the oracle ceiling can be raised.
+
 ## Part 162 — the pool knob is nearly FREE on the best arm, and the judge guidance was stale
 
 ✅ done 2026-09-07, prompted by the owner asking why the tables read 54.5% when "we hit 93% before".

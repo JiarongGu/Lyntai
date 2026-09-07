@@ -340,6 +340,22 @@ the tests) while being wrong. Skim before touching the relevant area.
   real file. And the tell that you have this bug is not a red gate — it is a red gate naming a file you
   believe is correct; check whether the hit is inside a comment before you doubt the file.
 
+- **A benchmark arm whose CANDIDATE POOL reaches the size of its store has stopped measuring retrieval, and
+  the tell is a score too good to distrust.** Measured twice, in two benches, and the second time is the
+  point: the LongMemEval bench grew a counter after a `fill` arm scored 90% by returning most of a 25-turn
+  store — that counter fired and saved the run. The LoCoMo bench had none, so an oracle arm at
+  `CandidateMultiplier = 32` (640 candidates against conversations of 369–689 turns, larger than the whole
+  store for six of ten) printed **100.0% in every one of four categories** and looked like a breakthrough.
+  A perfect judge handed an entire conversation cannot score anything else.
+  <br>**A counter that lives in one bench does not protect the other.** Both benches build arms from the same
+  `FieldArms` registry and share the same failure mode, and the fix had to be written twice because it was
+  filed as one bench's instrument rather than as a property of pooled retrieval. **When a guard catches
+  something structural, ask which other harness has the same structure.**
+  <br>**The tell is not implausibility, it is UNIFORMITY** — four independent categories reading exactly
+  100.0% is not what retrieval does, and a refuted prediction landing on *too good* deserves more suspicion
+  than one landing on *too bad*. Compare the pool against the store and print it; `pool >= store` is a
+  one-line check that no score column can express.
+
 - **An offline REPLICA of a shipped algorithm must be proven to reproduce it, and the difference that breaks
   it is never the interesting part of the algorithm.** Measured 2026-08-29 (`docs/task-archive.md` Part 114):
   a ladder scoring RRF outside the engine got the ranking right and the TIE-BREAK wrong —

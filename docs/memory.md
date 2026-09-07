@@ -2839,6 +2839,45 @@ the knob is close to free rather than expensive.
 plain cosine already does — which is the same reading `+sem+rel-only`'s own definition invites, arriving from
 the pool axis instead of the weight axis.
 
+### The CEILING rises with the pool — and the gap to it widens faster (`+oracle+pool8/16`, 2026-09-07)
+
+`+sem+rel-only+oracle` is 92.5%, and at the shipped defaults that number cannot be interrogated: the judge's
+`VerificationDepth` is `limit × 4` = 80 and the gathered pool is `limit × CandidateMultiplier` = 80, the
+SAME 80, so the oracle already sees every candidate and 92.5% is exactly *"how much evidence reached the
+pool"*. Raising the depth alone finds nothing. These arms widen both.
+
+| pool | candidates | oracle ceiling | the real arm at that pool | gap |
+|---|---|---|---|---|
+| **×4 (shipped)** | 80 | **92.5%** | **83.0%** | 9.5 |
+| ×8 | 160 | 94.0% | — | — |
+| ×16 | 320 | **96.0%** | 80.5% | **15.5** |
+
+**1. The ceiling IS raisable, and the constraint is pool size rather than retrievability.** It rises +1.5
+then +2.0 as the pool doubles, with no knee over the measurable range. So the residual misses are reachable
+material that was never gathered — not evidence the seed queries cannot find.
+
+**2. And that is not a fix, because the two move in OPPOSITE directions.** Widening to ×16 raises the
+ceiling 3.5 points and costs the real arm 2.5, so the gap between reachable and retrieved grows from **9.5
+to 15.5**. Gathering more makes more answers *available* and the ranking *worse* at finding them.
+
+**3. So the lever is RANKING, and the headroom is already there at the shipped pool.** 92.5% reachable
+against 83.0% retrieved is 9.5 points sitting inside the candidate set the engine ALREADY gathers, and the
+real 4B judge captures at most +1.0 of it (§5). That is **D59**'s conclusion — the defect is ranking, not
+retrieval — quantified at every pool size instead of asserted at one.
+
+**The instrument, and a degenerate result caught rather than published.** `+oracle+pool32` gathers 640
+candidates from conversations of 369–689 turns — larger than the whole store for six of the ten — and scored
+a flawless **100.0% in every category**, which a perfect judge handed an entire conversation cannot avoid.
+It measures the FIXTURE. `WarnIfPoolSwallowsStore` now prints whenever an arm's pool reaches its store, and
+reports zero for the ×8 and ×16 rungs above, which is what makes them legitimate. **This was the same defect
+the LongMemEval bench had already grown a counter for** — a `fill` arm scoring 90% by returning most of a
+25-turn store — and it recurred here because that counter lived in the other bench.
+
+**What it does not say.** One workload, one embedder, and the oracle endorses by matching the same `dia_id`
+token the metric scores on, so it is a reachability probe rather than a model of any judge's task. None of
+these pools is shippable: the real judge gets LESS selective as depth grows (§5), so a wider pool hands a
+weaker verdict a longer list.
+
 ### The expansion floor, swept across workloads (2026-08-30)
 
 `GraphMemoryOptions.ExpansionRetrievabilityFloor` (**D98**) ships at `0`. It was adopted on one class of one
