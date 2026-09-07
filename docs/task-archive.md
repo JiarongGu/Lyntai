@@ -1966,6 +1966,29 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 166 — the reconciler fix: built, run, INCONCLUSIVE, and the reason is the finding
+
+✅ done 2026-09-07. `extract+reconcile-fixed` is in the tree and this is its record, so nobody re-derives
+why it exists. `docs/memory.md` §5 carries the diagnosis it tests.
+
+**The hypothesis**: the shipped reconciler gates on top-1 similarity ≥ 0.80, but `memory-density` measured
+that a CORRECTION resembles ~1 stored entry and a RECURRENCE ~6 — so a pairwise gate fires on both, and
+every wrong deletion removes a CONFIRMATION of a still-true fact. The arm changes both axes: gate on
+neighbourhood DENSITY, and REINFORCE the replacement rather than deleting what it supersedes (the
+retrievability contract forbids weakening, so raising the winner is the only non-destructive direction).
+
+**It could not be answered.** Against the good-standard session extractor the mechanism barely fires: **4
+replacements** in the run and **10 dense pairs of 244 asked** (4%), against a pre-registered "substantially
+> 0". `prefers current` and `stale@k` are IDENTICAL across control and fix; `current@k` moved 2 questions on
+10 decidable, at p = 1.000.
+
+**The reason is the result worth keeping**: good extraction (0.55× compression) leaves almost no
+near-duplicate pairs to supersede — 4 replacements where the unbounded 4B extractor produced 122. **Write-time
+reconciliation has little to do when extraction is good**, which weakens it as a lever rather than supporting
+the fix. A powered re-run needs a corpus where supersession is dense, and none exists here.
+
+- Test whether the reconciler's gate is what made it delete the wrong entries.
+
 ## Part 165 — the performance pass: the write-back share did NOT fall, and concurrency is measured
 
 ✅ done 2026-09-07, at the owner's direction to focus on performance. `docs/memory.md` §7.

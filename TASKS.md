@@ -82,6 +82,32 @@ commands. `--arms` saves ingestion on both (a LoCoMo ladder is 755s where it was
 touches the registry plus each bench's ladder — the two LoCoMo lists are asserted equal before a run starts,
 after that drift failed two runs ten minutes apart.
 
+**HANDOVER (2026-09-07). A measurement session; NO default moved and none should on what it found.**
+`docs/task-archive.md` **Parts 157–166**, tables in `docs/memory.md` §5 and §7.
+
+**What is settled.** The walk beats cosine at an EQUAL character budget on both LongMemEval classes, but the
+best body is a deeper FIRST recall rather than a walk — and the lever there is the candidate POOL, not the
+output size. `CandidateMultiplier` is a ~1:1 suppression-for-coverage trade across all three workloads
+(`clean` +27.2 against all-evidence −28.0 and search −10.0, going 4 → 16), so **the shipped 4 is the coverage
+corner of a real axis, not an unexamined default.** The oracle ceiling rises with the pool (92.5 → 96.0) while
+the real arm falls, so the reachable-vs-retrieved gap WIDENS — the lever is ranking, and 9.5 points of it sit
+inside the pool already gathered.
+
+**Three things are open and each is recorded where it belongs, not here.**
+- **RANKING is the lever and the supported fix is a cross-encoder** (`docs/memory.md` §5) — blocked on a
+  model download and an ONNX adapter package, not on a design question.
+- **The engine can say "used" and "gone" but not "contradicted"**: `Stability` may never decrease by
+  contract, which is why every reconciliation experiment could only DELETE. **RIF** is the shape of the fix,
+  filed as a design lead with **D62**'s warning attached (the fan effect died on a bad PROXY, not a bad
+  mechanism) and a redundancy control named before anyone builds it.
+- **`read-only` recalls peak at TWO workers on 22 cores** (§7) and nothing explains it. The
+  `PRAGMA journal_mode=WAL`-per-open hypothesis was implemented, measured, refuted and reverted.
+
+**The habit that earned its keep, twice in one day**: a prediction refuted in the FLATTERING direction is the
+one to distrust. A 100.0%-in-every-category oracle result was a pool larger than its store, and a 4–5 point
+write-back improvement was single-run noise that vanished at five repeats. Both instruments now carry a
+counter (`WarnIfPoolSwallowsStore`, `--concurrency … --repeat`).
+
 **HANDOVER (2026-09-04). The model failures this session were INPUT-SHAPING failures, and that is the
 thread to pull next.** Every one of them has the same shape — the model is handed an unbounded task and
 stops discriminating — and none is explained by model size:
