@@ -3094,6 +3094,11 @@ reproducing the partition. The bench made exactly that error first, and
 `MemoryVerdictFusionTests.Fused_a_poorly_ranked_endorsement_does_not_displace_the_leader` is the control that
 fails if it recurs.
 
+**What `Fuse` costs a GOOD judge — measured 2026-09-07, and missing when this was decided.** 2.0 points at
+perfect judgement (92.5% → 90.5%, LoCoMo n = 200), so the partition has a real justification and the default
+is a **bet on judge quality**: +2.0 when it is right against −10.5 when the judge is a 4B model, ~5:1 against.
+It stays until that pair is measured on a second workload (`docs/memory.md` §5).
+
 ## D106 — the gist tier is REFUTED AS SCOPED: abstraction belongs at encoding, not at retrieval (2026-09-04)
 
 **No gist tier ships, and the backlog item is closed rather than built** (`docs/task-archive.md` Part 153). A read-time tier that

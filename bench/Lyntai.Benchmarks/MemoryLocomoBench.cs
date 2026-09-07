@@ -614,6 +614,22 @@ internal static class MemoryLocomoBench
                 //
                 // It stays a CEILING either way: the same pool costs a real arm points, and the real judge
                 // gets less selective as depth grows. Nothing here is a configuration to ship.
+                // THE MISSING CELL IN D105. That decision kept `Partition` as the default while measuring
+                // its cost only against a WEAK judge, where it loses 10.5 points and `Fuse` recovers them.
+                // What `Fuse` costs a GOOD judge was never run — and it is the whole justification: the
+                // partition promotes every endorsement ahead of the page, so for a judge that is always
+                // right that is the maximal rescue, while fusion only lets an endorsement COMPETE.
+                //   same score  => the partition buys nothing even at perfect judgement, and the default
+                //                  rests on compatibility alone.
+                //   oracle DROPS => the partition is genuinely right for a good judge, and the shipped
+                //                  default is a bet on judge quality that a deployment should make knowingly.
+                FieldArms.Named("+sem+rel-only") with
+                {
+                    Name = "+sem+rel-only+oracle+fuse",
+                    Options = new GraphMemoryOptions { VerdictCombination = MemoryVerdictCombination.Fuse },
+                    Verification = new EvidenceOracleVerifier(EvidenceByQuery(mine, convId)),
+                },
+
                 FieldArms.Named("+sem+rel-only") with
                 {
                     Name = "+sem+rel-only+oracle+pool8",
@@ -1807,7 +1823,7 @@ internal static class MemoryLocomoBench
     private static string[] RetrievalArms(bool judged) =>
     [
         "lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
-        "+sem+rel-only", "+sem+rel-only+oracle", "+sem+rel-only+oracle+pool8", "+sem+rel-only+oracle+pool16",
+        "+sem+rel-only", "+sem+rel-only+oracle", "+sem+rel-only+oracle+fuse", "+sem+rel-only+oracle+pool8", "+sem+rel-only+oracle+pool16",
         .. judged ? JudgeArms.Select(JudgeArmName) : Enumerable.Empty<string>(),
         "+sem+mult", "+sem80+mult", "+rel-only",
         "+sem5", "+sem+forget2", "+sem+forget0", "+sem+fuse", "+fuse",

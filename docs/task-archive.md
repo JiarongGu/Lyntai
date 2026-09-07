@@ -1966,6 +1966,28 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 164 — what `Fuse` costs a GOOD judge, and the shipped default is a bet on judge quality
+
+✅ done 2026-09-07, from "ranking is the lever — what can we do about it". `docs/memory.md` §5, **D105**
+amended. That decision kept `Partition` as the default having measured its cost only against a WEAK judge;
+what fusion costs at PERFECT judgement was never run, and it is the whole justification.
+
+**The partition is right for a good judge, and only just: +2.0** (92.5% → 90.5%). So the default is not
+merely inherited — but it is a **bet on judge quality**, paying +2.0 when right and costing **−10.5** with a
+4B model (−12.0 on a second embedder). About 5:1 against, in a library whose own §6 spends three criteria on
+choosing a small local model.
+
+**No default moves**: the weak-judge side replicates on two embedders, the oracle side is one run on one
+workload, and D105's objection stands — flipping it is a silent reordering no consumer detects at compile
+time. What would justify it is the same pair on LongMemEval, where a verdict's effect on supersession is
+unmeasured.
+
+**The ranking lever itself is otherwise exhausted cheaply**, and the answer was already in the repo: a
+cross-encoder reranker (`docs/memory.md` §5, 2026-08-15), blocked on a model download and an ONNX adapter
+package rather than on a design question.
+
+- Answer what can be done about ranking, given it is the lever.
+
 ## Part 163 — the ceiling rises with the pool, and the gap to it widens faster
 
 ✅ done 2026-09-07, from the owner's question "can we make the ceiling higher". `docs/memory.md` §5.

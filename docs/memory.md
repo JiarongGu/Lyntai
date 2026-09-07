@@ -2878,6 +2878,32 @@ token the metric scores on, so it is a reachability probe rather than a model of
 these pools is shippable: the real judge gets LESS selective as depth grows (§5), so a wider pool hands a
 weaker verdict a longer list.
 
+### What `Fuse` costs a GOOD judge — the cell D105 decided without (`+oracle+fuse`, 2026-09-07)
+
+**D105** kept `Partition` as the default having measured its cost only against a WEAK judge. The partition
+promotes every endorsement ahead of the page, so for a judge that is always right it is the maximal rescue,
+while `Fuse` only lets an endorsement COMPETE — so the question the decision needed and did not have is what
+fusion costs at perfect judgement. LoCoMo, n = 200, same controls.
+
+| judge | `Partition` (shipped) | `Fuse` | Partition − Fuse |
+|---|---|---|---|
+| **perfect (oracle)** | **92.5%** | 90.5% | **+2.0** |
+| **real `gemma3:4b`** | 72.5% | **83.0%** | **−10.5** |
+
+**1. The partition IS right for a good judge, and only just.** It buys 2.0 points at perfect judgement — so
+the default is not merely inherited, it has a real (small) justification. Fusion loses them in
+`temporal` and `open-domain`, the two categories where the oracle's rescue was largest.
+
+**2. But the shipped default is a BET ON JUDGE QUALITY, and the odds are about 5:1 against it.** +2.0 when
+the judge is perfect against −10.5 when it is a 4B local model — and −12.0 on a second embedder (§5). A
+library whose own §6 spends three criteria on choosing a small local model is defaulting to the branch that
+punishes exactly that choice.
+
+**3. What it does not settle, which is why no default moves here.** The weak-judge side replicates on two
+embedders; **the oracle side is one run on one workload**, and D105's own objection stands — flipping it is
+a silent reordering no consumer detects at compile time. What would justify the change is the same pair
+measured on LongMemEval, where a verdict's effect on supersession is unmeasured entirely.
+
 ### The expansion floor, swept across workloads (2026-08-30)
 
 `GraphMemoryOptions.ExpansionRetrievabilityFloor` (**D98**) ships at `0`. It was adopted on one class of one
@@ -3482,6 +3508,10 @@ inside the library's own arithmetic fixes that, which is why the seam exists.
 > `VerdictCombination = Fuse`. The shipped depth factor of 4 was fitted against an ORACLE, for which depth is
 > free because it never endorses junk; for a real judge depth is a PRECISION trade and the same model is
 > level with no judge at 2×.
+>
+> **`Fuse` is insurance and it is priced at both ends** (§5): it costs a PERFECT judge 2.0 points and saves a
+> 4B one 10.5. So the shipped `Partition` is a bet that your judge is good — take it knowingly, and if you
+> are running a small local model the odds are about 5:1 against you.
 
 So the honest framing is not "the judge is an optimisation" but: *this engine's ranking is its weakest part,
 and a judge is the only shipped mechanism aimed at repairing it* — with the field caveat above on whether a
