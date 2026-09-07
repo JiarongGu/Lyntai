@@ -1966,6 +1966,28 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 161 — the SEARCH rung closes the pool ladder, and the shipped default is vindicated
+
+✅ done 2026-09-07 — the third and last rung, on the workload the engine loses. `--pool` became shared
+`FieldArms` entries (`+pool8/16/32`) rather than a second bench flag, so an arm name means one configuration
+on both benches. `docs/memory.md` §5.
+
+**LoCoMo evidence-hit falls 54.5 → 50.0 → 44.5 → 43.5** across multipliers 4/8/16/32. With
+knowledge-update's +27.2 and temporal's −28.0, the three-workload sum at 4 → 16 is **−10.8**: the knob buys
+suppression and costs both coverage workloads, so **the shipped `4` is vindicated rather than merely
+unmoved.**
+
+**It SHARPENS D59** (amended there). That entry established every miss as *reachable-but-outranked* by
+replaying "wide open", which lifted `Limit` and so widened pool AND output together. This ladder holds
+output fixed and gains nothing, so the evidence is already inside the shipped 80-candidate pool —
+the tighter of the claim's two readings, and the one that makes its "a better formula is not the fix"
+argument bite.
+
+**Three exact controls**: `lyntai` reproduces its published 54.5%, `vector` its 80.5%, and `items/q` is 20.0
+on every arm. Pre-registered as monotone-decreasing and smaller than temporal's −28; both held.
+
+- Price `CandidateMultiplier` on SEARCH — the third rung, and the one that touches the retrieval gap.
+
 ## Part 160 — the coverage ladder INVERTS the pool curve, at almost exactly 1:1
 
 ✅ done 2026-09-07 — Part 159's successor, run the same day. `--pool 4,8,16,32` on `--temporal`, the class

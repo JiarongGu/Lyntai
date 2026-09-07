@@ -67,6 +67,9 @@ internal static class FieldArms
         Named("+sem+forget0"),
         Named("+forget2"),
         Named("+forget4"),
+        Named("+pool8"),
+        Named("+pool16"),
+        Named("+pool32"),
     ];
 
     /// <summary>The SHIPPED defaults — no options, no ranking policy, no semantic channel. The control both
@@ -130,12 +133,34 @@ internal static class FieldArms
         "+forget2" => new(name, null, Fusion(retrievability: 2), null, null),
         "+forget4" => new(name, null, Fusion(retrievability: 4), null, null),
 
+        // The CANDIDATE POOL, widened at a fixed output. The engine gathers `Limit x CandidateMultiplier`,
+        // so raising the LIMIT moves the pool and the returned count together — which is what made the
+        // 2026-09-07 `fill` arm ambiguous until `--pool` separated them. These change only the pool.
+        //
+        // Measured on both LongMemEval classes (`docs/memory.md` §5): a ~1:1 exchange, +27.2 points of
+        // `clean` for -28.0 of all-evidence recall going 4 -> 16, so the shipped 4 is the COVERAGE end of a
+        // real axis rather than an unexamined default. What is unmeasured is SEARCH, and it is not a third
+        // data point: **D59** decomposed LoCoMo's loss as 100% reachable-but-outranked by replaying each
+        // query "wide open" — which lifted the LIMIT, and so widened the pool and the output together. So
+        // whether the missed evidence sits INSIDE the shipped 80-candidate pool (widening only adds
+        // competitors, and these arms should lose) or outside it (widening surfaces it) is open, and these
+        // arms are what answer it.
+        "+pool8" => new(name, Pool(8), null, null, null),
+        "+pool16" => new(name, Pool(16), null, null, null),
+        "+pool32" => new(name, Pool(32), null, null, null),
+
         _ => throw new KeyNotFoundException($"'{name}' is not a shared field-benchmark arm. "
             + $"Shared arms: {string.Join(", ", All().Select(a => a.Name))}."),
     };
 
     /// <summary>Whether a name is a shared arm, for a bench merging these with arms of its own.</summary>
     internal static bool Has(string name) => All().Any(a => a.Name == name);
+
+    /// <summary>Shipped options with only the candidate pool widened. <c>4</c> is the shipped multiplier, so
+    /// an arm naming it would be <c>lyntai</c> under another name — the ladders use the shipped arm itself as
+    /// that control, which is what makes <c>pool-4 == shot-1</c> a check rather than a tautology.</summary>
+    private static GraphMemoryOptions Pool(int multiplier) =>
+        new() { CandidateMultiplier = multiplier };
 
     private static ReciprocalRankFusionPolicy Fusion(double? retrievability = null, double? hop = null)
     {

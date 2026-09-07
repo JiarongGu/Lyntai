@@ -1145,6 +1145,12 @@ model (`gemma3:4b`) beat the ground-truth judge reproducibly on BOTH, at a third
 to run is a deployment choice, and the measurement says a small one can be the right one rather than a
 compromise.
 
+**"Reachable" means reachable at the SHIPPED pool** (2026-09-07). The decomposition above replayed each
+query *wide open*, which lifted `Limit` — and the engine gathers `Limit × CandidateMultiplier`, so that
+widened the pool and the returned count together. A ladder over the multiplier ALONE, at a fixed output,
+gains nothing on LoCoMo at any rung (54.5% → 44.5% going 4 → 16; `docs/memory.md` §5), so the missed
+evidence already sits in the shipped pool and the claim is the tighter of its two readings.
+
 ## D60 — a cross-backend rule is a FUNCTION, not a sentence; and the archiving step became a gate (2026-08-14)
 Four rules every `IMemoryGraphStore` must agree on had been reimplemented per backend — subject
 normalization, the relevance gradient, the content dedup key, and the ranking contract's three obligations.

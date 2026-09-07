@@ -2785,10 +2785,39 @@ and `pool-32` reproduces `fill` exactly (18.2 / 62.1 / 35.9) — the same two id
 knowledge-update, from a wholly separate run. The 18.2% was **pre-registered** from the earlier `fill@1200`
 figure and landed on it exactly.
 
-**Still unmeasured: SEARCH.** LoCoMo is the workload the engine already loses to plain cosine, and a deeper
-pool re-ranks exactly the candidates that contest it, so the third rung of this ladder belongs with the
-retrieval-gap work (`TASKS.md` **Part 128**) rather than beside the two classes above. `memory-locomo` has
-no `--pool` arm yet.
+### The SEARCH rung closes it: the shipped `4` wins two of three workloads (`memory-locomo --retrieval --arms +pool8,…`, 2026-09-07)
+
+The third rung, on the workload the engine already loses. n = 200, evidence-hit@20, the sample every
+retrieval ladder here uses.
+
+| multiplier | knowledge-update `clean` | temporal all-evidence | **LoCoMo evidence-hit** |
+|---|---|---|---|
+| **4 (shipped)** | 31.4% | **47.7%** | **54.5%** |
+| 8 | 42.9% | 33.3% | 50.0% |
+| 16 | **58.6%** | 19.7% | 44.5% |
+| 32 | 57.1% | 18.2% | 43.5% |
+| **Δ 4 → 16** | **+27.2** | **−28.0** | **−10.0** |
+
+**1. The shipped default is VINDICATED, which is a stronger result than "no default moves".** Raising the
+multiplier buys suppression and costs BOTH coverage workloads; summed over the three at 4 → 16 it is
+**−10.8**. Only the metric that rewards burying improves. A deployment whose workload is supersession-shaped
+can still take 16 and know what it pays.
+
+**2. It SHARPENS D59 rather than merely agreeing with it.** That entry established every LoCoMo miss as
+*reachable-but-outranked* by replaying each query "wide open" — which lifted the **`Limit`**, and the engine
+gathers `Limit × CandidateMultiplier`, so the replay widened the pool AND the output together. This ladder
+holds the output fixed at 20 and still finds no gain at any rung, so the missed evidence is already **inside
+the shipped 80-candidate pool** and widening it only adds competitors. **"Reachable" means reachable at the
+SHIPPED pool**, which is the reading that makes D59's "a better formula is not the fix" argument bite.
+
+**3. Three controls, all exact.** `lyntai` reproduces its published 54.5% and `vector` its 80.5% — the arm
+that never touches the graph store did not move — and `items/q` is 20.0 on every arm, so no arm was filtered
+before ranking rather than losing on it. **Pre-registered and both halves held**: monotone decreasing, and
+smaller in magnitude than temporal's −28 because LoCoMo returns 20 slots rather than 10.
+
+**What it does not settle.** One embedder, and the ladder is over the SHIPPED arm — `+sem+rel-only` is the
+best mechanical arm on this workload (82.6%) and its pool is unmeasured, so this prices the knob on the
+default configuration and not on the best one.
 
 ### The expansion floor, swept across workloads (2026-08-30)
 

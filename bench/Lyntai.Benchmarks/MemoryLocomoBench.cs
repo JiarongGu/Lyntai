@@ -680,6 +680,17 @@ internal static class MemoryLocomoBench
                 // wiring below (the lexical channel ALONE) that no `FieldArm` field expresses.
                 new FieldArm("+sem+fuse", null, null, null, FieldArms.ShippedSemanticK),
                 new FieldArm("+fuse", null, null, null, null),
+
+                // THE POOL, widened at a fixed output — the SEARCH rung of a ladder already run on both
+                // LongMemEval classes, where it is a ~1:1 suppression-for-coverage exchange (`docs/memory.md`
+                // §5). Here it is not a third data point but a probe of THIS bench's own gap: **D59**
+                // decomposed LoCoMo's misses as 100% reachable-but-outranked by replaying each query "wide
+                // open", which lifted the LIMIT and so moved pool and output together. If the missed evidence
+                // already sits inside the shipped 80-candidate pool these arms only add competitors and must
+                // LOSE; if it sits outside, they surface it. `lyntai` above is the multiplier-4 control.
+                FieldArms.Named("+pool8"),
+                FieldArms.Named("+pool16"),
+                FieldArms.Named("+pool32"),
             ];
 
             // The dia_id rides along in the CONTENT so an evidence hit is checkable without a model. It is
@@ -1767,6 +1778,7 @@ internal static class MemoryLocomoBench
         .. judged ? JudgeArms.Select(JudgeArmName) : Enumerable.Empty<string>(),
         "+sem+mult", "+sem80+mult", "+rel-only",
         "+sem5", "+sem+forget2", "+sem+forget0", "+sem+fuse", "+fuse",
+        "+pool8", "+pool16", "+pool32",
     ];
 
     /// <summary>Question text to the union of the evidence every question carrying that text declares.

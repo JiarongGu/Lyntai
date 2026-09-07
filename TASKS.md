@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SEVEN items, across Parts 109, 116, 128 and 129.** Each is a
+**The startable set is SIX items, across Parts 109, 116, 128 and 129.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -37,9 +37,10 @@ added a seventh. **Counted rather than adjusted**: every `- [ ]` in those four P
 for a blocker, which is the only way to move this number without inheriting whatever was wrong with the last
 one. It stayed at seven on 2026-09-07, when the `k`-raised arm CLOSED (`docs/task-archive.md` **Part 158**)
 and its own caveat opened the successor below it — a one-for-one swap, which is the ordinary way this list
-moves and the reason the count is worth stating rather than the items. It swapped twice more the same day —
-**Part 159** (the pool ladder) and **Part 160** (its coverage half) each closed and left one item behind,
-now the SEARCH rung, which has moved under Part 128 because that is the work it actually probes._
+moves and the reason the count is worth stating rather than the items. **Then it fell to SIX**: Parts
+**159**, **160** and **161** closed the pool ladder across all three workloads, and the last of them left
+nothing behind — the shipped `CandidateMultiplier` is vindicated on two of three, so there is no successor
+question, which is the rarer way an item leaves this list._
 <br>_**This line used to be a 49-line running tally** — every Part that opened and closed since 2026-08-30,
 with the count after each. It was deleted on 2026-09-03 rather than extended, because `task-lifecycle.md`
 says outright that a backlog must not summarize its archive: the tally grew without bound, answered a
@@ -940,22 +941,6 @@ endorsements per recall out of 80 shown, at 2.6% precision, which is an endorsem
 20-slot page, so promotion replaces the ranking instead of refining it. **The seam has a capability FLOOR**,
 now stated in `LlmVerificationOptions.ClientName`'s shipped XML doc. `docs/memory.md` §5 carries the table
 and the four things it does not say._
-
-- [ ] **Price `CandidateMultiplier` on SEARCH — the third rung, and the one that touches the retrieval gap.**
-  `docs/memory.md` §5 (2026-09-07) ran the ladder on both LongMemEval classes and found a clean ~1:1 trade:
-  `clean` +27.2 against all-evidence −28.0 going 4 → 16. **So the shipped 4 is the coverage corner of a real
-  axis rather than an unexamined default, and no default moves on what is measured.**
-  <br>**Why the search rung is not just a third data point.** LoCoMo is the workload the engine LOSES on
-  (plain cosine 80.5% against the best mechanical arm's 83.0% only after per-source fusion), and **D59**
-  decomposed that loss as *reachable-but-outranked* — 100% of misses. A deeper pool changes precisely which
-  candidates contest those slots, so this ladder is a direct probe of **this Part's** gap rather than a third
-  data point for the budget work that produced it, which is why it is filed here. It could plausibly move
-  that number in EITHER direction, and that is what makes it worth running.
-  <br>**`memory-locomo` has no `--pool` arm** — the flag lives in `MemoryLongMemEvalBench` only. Adding it
-  is the same shape: one engine per multiplier, one store per engine (a recall reinforces what it returns,
-  so they cannot share one — Part 118's defect).
-  <br>_Model-free. Budget the run from the LongMemEval ladders: ~150 min for four rungs at 70 questions,
-  ~230 at 132. Embeds are cache hits after the first ingestion, so the cost is SQLite rather than the model._
 
 - [ ] **Decide whether a memory seam's `Model` should beat a candidate's — today it silently loses.**
   `LlmVerificationOptions.Model` and `LlmAnnotationOptions.Model` set `LlmRequest.Model`, and the router
