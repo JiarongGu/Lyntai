@@ -415,40 +415,65 @@ reranked against shipped: 56 → 59 is three questions and the confidence interv
 ([80.5, 95.5] against [76.7, 92.9]). The honest claim is that the cross-encoder is **not** the LoCoMo-shaped
 trap `RetrievabilityWeight = 0` was — it does not buy finding with burying — and no more than that.
 
-#### The engine can say "used" and "gone", but not "contradicted" — and RIF is the shape of the gap
+#### "used", "gone", but not "contradicted" — and RIF is NOT the shape of that gap (analysed 2026-09-08)
 
-A second design lead, filed the same way and for the same reason: it is research, not a measurement.
+Filed as a design lead on 2026-08-15 and **analysed rather than built**. The conclusion is not to build it,
+and three of the premises it rested on are refuted by the tree.
 
-**The structural hole, which is contract rather than oversight.** `IMemoryRetrievabilityPolicy` offers
-`Reinforce`, and its contract states that `MemoryDecayState.Stability` **may never be smaller than the
-current one, unconditionally** — pinned by
-`RetrievabilityPolicyContract.Reinforcement_never_shortens_a_memory`. So an entry can be strengthened or
-deleted, and nothing in between. That is why the write-time reconciliation experiments could only DELETE
-(§5), which is precisely what **D41** exists to refuse — and they lost 18.9 points doing it.
+**There are TWO gaps here and the lead fills the one it is not named after.** The name claims a SEMANTIC
+hole — the engine cannot represent *this fact supersedes that one*. The argument beneath it establishes a
+MECHANICAL one — an entry can be strengthened or deleted and nothing in between. Retrieval-induced
+forgetting supplies a weakening ACT, so it is a candidate for the second; it supplies no supersession
+SIGNAL, so it cannot address the first, which is the whole reason it was filed. **D106** already names what
+fills the semantic gap and it is not this: **valid-time on the write**, which is where every field system
+puts it (Mem0's ADD/UPDATE/DELETE over a similar set, Zep/Graphiti's invalidate-don't-delete). None derives
+supersession from retrieval competition.
 
-**Retrieval-induced forgetting is the mechanism that fills it.** Retrieving a memory impairs its
-competitors, and the computational account is a rule that strengthens the target while WEAKENING competing
-traces; the forgetting is adaptive because it reduces future interference. Three things make it fit here
-rather than merely sound apt:
+**The contract does not block a decrement, so "impossible" was never the reason.** The monotonicity clause
+is scoped to `Reinforce` — *the state after a successful recall* — and `ModulatedRetrievability` already
+does the exact shape a penalty needs: it builds an effective state for the CURVE
+(`state with { Stability = state.Stability * factor }`) and forwards `Reinforce` on the RAW state, so it
+lowers retrievability while persisting nothing. What actually blocks a factor below 1 is
+`IMemoryRetentionPolicy`'s clamp to `[1, declared]`, and that clamp exists because the composed factor
+widens `CandidateCutoff`, whose only consumer is `PruneAsync` — a narrowing factor would DELETE, which is
+**D41**'s refusal. A penalty computed per call and never persisted sidesteps all of it.
 
-- this engine's age is **interference, not elapsed time** (**D40**), so interference is already its currency;
-- it is the exact **inverse of co-activation**, which the engine already performs — a recall strengthens what
-  it returned together, and nothing weakens what competed and lost;
-- **the signal is already computed and discarded.** `MemoryVerification.RelevantIds`' own contract says an
-  unlisted id *"is judged NOT to have answered — which is the half that carries new information"*, and the
-  engine's only use of that half is to withhold reinforcement.
+**Three premise errors, each refuted by the tree.**
 
-**The warning that comes with it is D62's, and it is the reason to measure before believing any of this.**
-The fan effect was implemented, measured and switched OFF — not because the mechanism was wrong but because
-the PROXY was, in a graph built by co-activation: `GraphNode.Degree` also counts how often an entry was
-useful. RIF has the same hazard. *"Was in the candidate pool and not returned"* is a confounded competitor
-set — an entry that loses is second-best, not wrong, and suppressing second-best material is the coverage
-cost this document measures everywhere else. **The verdict's unendorsed half is the sharper proxy**, because
-"this did not answer" is a different claim from "this ranked lower".
+- *"The signal is already computed and discarded."* It is neither. Under the shipped
+  `MemoryVerdictCombination.Partition` the measured judge endorses 29.1 against a limit of 20, so every
+  RETURNED node is endorsed and every review row logs `Verified = true`; the unendorsed half is not
+  persisted at all on the configuration that ships. And no verifier is registered by default, so the
+  trigger does not exist for any deployment that has not paid for a model — invisible to every model-free
+  instrument in the roster.
+- *"Not being reinforced ALREADY decays an entry relatively"*, offered as the null control. A recall leaves
+  an untouched entry bit-identical; only a WRITE advances position, and it advances it as a common addend
+  on every untouched entry, which preserves the order and the tie structure exactly. `ReciprocalRankFusionPolicy`
+  reads rank POSITIONS, so that decay contributes exactly nothing to ranking. The stated control is the
+  wrong control — which cuts in the proposal's favour on separability and against it on the mechanism.
+- *"The verdict's unendorsed half is the sharper proxy."* On this workload it is measurably blind to
+  supersession: a cross-encoder run through that seam took `stale@k` 44.3% → 95.7%, because a superseded
+  fact and its replacement are the two most query-similar entries in the store. A relevance verdict cannot
+  separate them, and that is the pair the mechanism exists to separate.
 
-**And the first control it needs is whether it does anything at all.** Not being reinforced ALREADY decays an
-entry relatively, since position advances as other entries are written. Suppression may be redundant with the
-mechanism already shipped, and an arm that cannot distinguish the two would measure nothing.
+**And the literature predicts the effect is weakest exactly where it is wanted.** RIF is reduced or
+eliminated when the competitor is INTEGRATED with the target (Anderson & McCulloch 1999) — and a fact and
+its supersessor are maximally integrated. No published work shows that penalising competitors improves
+retrieval quality in a machine memory system, as opposed to describing human memory.
+
+**Why not build it anyway.** A competitor penalty writes a QUERY-RELATIVE observation into query-independent
+state — the same category error the write-time reconciliation runs paid for by another route (**Part 148**:
+`current@k` and `stale@k` identical between `extract` and `extract+reconcile`; only the order moved). And an
+arm is under-powered before it is written: **Part 166** measured that no corpus here has dense supersession
+(4 replacements, 10 dense pairs of 244 asked, p = 1.000).
+
+**What would revive it, and it is one cheap measurement.** `lyntai_memory_review.verified` is already
+persisted per (node, batch) as a tri-state, so the trigger's PRECISION is computable from data on disk:
+P(entry is the superseded member of the pair | returned AND unendorsed) on the knowledge-update haystack,
+against the base rate. Near the base rate, the entry it fires on is second-best rather than wrong and every
+objection above follows for free. Well above it, the finding is *a judge can identify superseded material*
+— which is a supersession DETECTOR, and belongs on D106's write-time axis as a relation, not as a
+competitor penalty. **D109.**
 
 ### Salience's RANKING voice is a net cost — measured 2026-08-23
 

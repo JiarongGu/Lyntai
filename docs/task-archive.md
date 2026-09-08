@@ -1966,6 +1966,29 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 171 — RIF analysed and REFUSED, and three of its premises were wrong
+
+✅ done 2026-09-08, closing the last of the 2026-09-07 handover's three threads. Nothing built. **D109**;
+the corrected reading is `docs/memory.md` §5.
+
+**It addresses the wrong half of the gap it was filed against**: the name claims a semantic relation
+(supersession) and RIF supplies a weakening ACT over competitors. **D106** already put the semantic half at
+ENCODING and named valid-time on the write as what fills it.
+
+**"The contract blocks it" was never true.** `Reinforce`'s monotonicity is scoped to a successful recall,
+and `ModulatedRetrievability` already lowers retrievability while persisting nothing. The real constraint is
+`IMemoryRetentionPolicy`'s `[1, declared]` clamp, which exists because a narrowing factor would make
+`PruneAsync` delete — D41's refusal.
+
+**Three premise errors, each refuted by the tree**: the unendorsed signal is not persisted on the shipped
+`Partition` (the judge endorses more than the limit) and does not exist by default; the stated null control
+contributes exactly zero, because a write advances age as a common addend and RRF reads rank POSITIONS; and
+the proxy is measurably blind to supersession (`stale@k` 44.3% → 95.7%).
+
+**One measurement would reopen it** — trigger precision from the review log, which is already persisted.
+
+- Thread 3 of the 2026-09-07 handover: RIF as the shape of the "contradicted" gap.
+
 ## Part 170 — a verifier is shown the CONTENT, and the reranker gets its 13 points back for free
 
 ✅ done 2026-09-08, taking the decision Part 168 filed. `MemoryVerificationCandidate.Content` (**D108**),

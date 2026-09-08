@@ -178,8 +178,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D106](#d106--the-gist-tier-is-refuted-as-scoped-abstraction-belongs-at-encoding-not-at-retrieval-2026-09-04) | 2026-09-04 | the gist tier is REFUTED AS SCOPED: abstraction belongs at encoding, not at retrieval |
 | [D107](#d107--sqlites-memory-statistics-are-the-read-concurrency-ceiling-and-turning-them-off-is-the-hosts-call-2026-09-08) | 2026-09-08 | SQLite's memory statistics are the read-concurrency ceiling, and turning them off is the HOST's call |
 | [D108](#d108--a-verifier-is-shown-the-entrys-content-and-choosing-which-text-to-read-stays-the-policys-2026-09-08) | 2026-09-08 | a verifier is shown the entry's CONTENT, and choosing which text to read stays the policy's |
+| [D109](#d109--no-competitor-penalty-rif-is-refused-and-the-contradicted-gap-is-a-write-time-one-2026-09-08) | 2026-09-08 | no competitor penalty: RIF is refused, and the "contradicted" gap is a WRITE-time one |
 
-_All 108 entries are live decisions._
+_All 109 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3194,3 +3195,33 @@ opinion and an empty endorsement.
 discriminates no better between a fact and its replacement (`stale@k` +51.4 on knowledge-update, **D107**'s
 neighbour in `docs/task-archive.md` Part 169). This decision gives a policy the text; it recommends no
 policy.
+
+## D109 — no competitor penalty: RIF is refused, and the "contradicted" gap is a WRITE-time one (2026-09-08)
+
+`docs/memory.md` §5 filed retrieval-induced forgetting on 2026-08-15 as the shape of the gap between "used"
+and "gone". Analysed 2026-09-08 and refused. Nothing is built.
+
+**It addresses the wrong half.** The gap NAMES a semantic relation — this fact supersedes that one — and
+RIF supplies a weakening ACT over a competitor set. Those are different holes. **D106** already located the
+semantic one at ENCODING and named what fills it: valid-time on the write, which is what every field system
+does. Supersession is not derivable from retrieval competition.
+
+**"The contract blocks it" was never true**, so the decision cannot rest on it. `Reinforce`'s monotonicity
+is scoped to the state after a successful recall, and `ModulatedRetrievability` already lowers
+retrievability without persisting anything. The real constraint is `IMemoryRetentionPolicy`'s `[1, declared]`
+clamp, which exists because the composed factor widens `CandidateCutoff` and a narrowing one would make
+`PruneAsync` DELETE — D41's refusal. A per-call, non-persisted penalty avoids all of it.
+
+**It is refused on the trigger, not the mechanism.** A penalty writes a QUERY-RELATIVE observation into
+query-independent state — the category error the reconciliation runs already paid for. The proposed trigger
+does not exist on the shipped configuration (the measured judge endorses more than the limit, so every
+returned node is endorsed and no unendorsed row is persisted) nor by default (no verifier is registered),
+and it is measurably blind to supersession — a cross-encoder through that same seam took `stale@k` 44.3% →
+95.7%. The literature agrees against it: RIF is reduced or eliminated when the competitor is INTEGRATED
+with the target, and a fact and its supersessor are maximally integrated.
+
+**What would reopen it: one measurement, not an argument.** `lyntai_memory_review.verified` already
+persists the tri-state, so compute P(superseded member | returned AND unendorsed) against the base rate. Well
+above it, the result is a supersession DETECTOR and belongs on D106's write-time axis as a relation. Near
+it, this entry stands. **D62's re-proposal bar applies verbatim** with "a dense-supersession corpus"
+substituted for its own: a mechanism that sounds apt is exactly the kind that gets built and switched off.

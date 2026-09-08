@@ -109,10 +109,16 @@ inside the pool already gathered.
   PRECISION — `stale@k` 44.3% → **95.7%**, since a superseded fact reads as relevant as its replacement.
   **No default moved**, and no paired test of reranked against shipped exists, so three questions with
   overlapping intervals is not a result. What it left behind is the item below.
-- **The engine can say "used" and "gone" but not "contradicted"**: `Stability` may never decrease by
-  contract, which is why every reconciliation experiment could only DELETE. **RIF** is the shape of the fix,
-  filed as a design lead with **D62**'s warning attached (the fan effect died on a bad PROXY, not a bad
-  mechanism) and a redundancy control named before anyone builds it.
+- ~~**The engine can say "used" and "gone" but not "contradicted"**: `Stability` may never decrease by
+  contract, which is why every reconciliation experiment could only DELETE. **RIF** is the shape of the
+  fix.~~ **ANALYSED AND REFUSED 2026-09-08** (`docs/task-archive.md` **Part 171**, **D109**). Nothing built.
+  **The premise was wrong on three counts**: the contract never blocked a decrement (the monotonicity is
+  scoped to `Reinforce`, and `ModulatedRetrievability` already lowers retrievability while persisting
+  nothing); the unendorsed signal is neither discarded nor persisted on the shipped `Partition`, and does
+  not exist by default; and the stated null control contributes exactly zero, because a write advances age
+  as a COMMON ADDEND and RRF reads rank positions. RIF also addresses the wrong half — it supplies a
+  weakening ACT, not a supersession SIGNAL, which **D106** already located at ENCODING. One cheap
+  measurement would reopen it, named in D109.
 - ~~**`read-only` recalls peak at TWO workers on 22 cores** (§7) and nothing explains it.~~ **CLOSED
   2026-09-08** (`docs/task-archive.md` **Part 167**, **D107**): it is SQLite's global memory-allocation
   STATISTICS, whose mutex every allocation and free takes, and eight concurrent recalls go 340/s → 4,665/s
