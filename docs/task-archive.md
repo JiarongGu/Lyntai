@@ -1966,6 +1966,30 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 169 — the cross-encoder's knowledge-update visit: not the trade LoCoMo winners usually make
+
+✅ done 2026-09-08. The check `docs/memory.md` §5's standing rule demands of any arm that wins LoCoMo, run
+because a reranker reorders by RELEVANCE and a superseded fact reads as relevant as its replacement. Table
+is `docs/memory.md` §5. All 70 knowledge-update questions, haystack, 34,242 turns per arm.
+
+**Predicted badly and it came out mixed.** `prefers current` falls 90.3% → 86.8% while the absolute count
+RISES **56 → 59 of 70**, because the metric is scored only over decidable questions and the reranker makes
+six more decidable. `current@k` +8.5. **`stale@k` 44.3% → 95.7%**: it returns both facts, which is what a
+relevance scorer must do when they are near-identical text.
+
+**So it is not the `RetrievabilityWeight = 0` shape** — it does not buy finding with burying. Decay still
+orders the current fact first inside the promoted set, which is why preference holds where plain cosine at
+the same breadth collapses to 40.0%.
+
+**No paired test of reranked against shipped exists** — the bench pairs everything against `vector` — so
+three questions with overlapping intervals is not a result, and no default moved.
+
+**Two instrument defects fixed to get here**, both silent: an over-long embedding input crashes
+`llama-server` where Ollama truncated quietly, and a character budget cannot bound a token limit. The
+embedder now shrinks and retries on the server's own complaint and REPORTS the count.
+
+- Take the cross-encoder to the workload this design makes its claim on.
+
 ## Part 168 — the cross-encoder is worth +5.0, and the seam was starving it
 
 ✅ done 2026-09-08. Closes the ranking lever the 2026-09-07 handover filed as blocked on "a model download

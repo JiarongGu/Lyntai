@@ -276,6 +276,15 @@ this is a convention about what to REACH FOR, not a constraint the code enforces
 - **The library supports both and prefers neither**: `AddLlamaProvider` (default `:8080`, plain OpenAI
   schema off the root) beside `AddOllamaProvider` (default `:11434`, pinned to Ollama's native surface).
   Which one a deployment uses is its own choice — `.claude/knowledge/model-decoupling.md`.
+- **Run your OWN server; do not borrow one that happens to be up.** A `llama-server` is started with a
+  context and a batch size, and those decide what it will accept — a sibling tool's embedder on this machine
+  runs `-ub 1536` and 500s on anything longer, which crashed two knowledge-update runs before the cause was
+  read. Start one for the measurement, on its own port, and leave the other alone.
+- **The two servers disagree about an over-long input, and the disagreement is silent on one side.** Ollama
+  truncates and answers; `llama-server` returns `500 … input is too large`. So a run that "worked" on Ollama
+  can crash on llama.cpp, and what that proves is that the truncation was always happening and nothing
+  reported it. The benches now truncate explicitly and COUNT it in the footer —
+  `.claude/knowledge/pitfalls.md` carries why a character budget cannot bound a token limit.
 - **Never kill a model server by image name.** `windows-machine.md` §Processes and files records this being
   violated anyway: a run finished with a by-image kill and took down a sibling tool's embedding server on
   another port. More than one `llama-server` can be up, and only one of them is yours.

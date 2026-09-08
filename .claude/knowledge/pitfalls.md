@@ -847,6 +847,21 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   <br>**And a flattering refutation still needs repeats.** A 29× improvement is exactly the shape this
   repository has twice published and retracted; it was re-run interleaved with its control three times
   (on 330/320/317, off 3,154/4,056/4,060) before being believed.
+- **Two embedding servers disagree about an OVER-LONG input, and the quiet one is the dangerous one.**
+  Ollama truncates silently and answers; `llama-server` returns `500 … input (N tokens) is too large`. So
+  moving a bench from one to the other turns an invisible behaviour into a crashed run — and the crash is
+  what revealed that the behaviour was there all along. Measured 2026-09-08: LongMemEval's texts reach
+  **76,560 characters against a median of 429**, so every figure on record was taken with that tail quietly
+  cut by whichever server happened to answer, at whatever limit it happened to be started with.
+  <br>**A CHARACTER budget cannot bound a TOKEN limit** — density varies by an order of magnitude across
+  scripts, and a constant picked against prose fails on dense text. The first attempt at 6,000 characters
+  cleared the corpus's LONGEST text at 1,290 tokens and still 500'd on a denser one. The fix is to shrink
+  and retry on the server's own complaint, with a floor so a pathological input fails loudly rather than
+  being cut to nothing and embedded as a meaningless vector.
+  <br>**And COUNT it.** A run that truncates and does not say so is claiming to have embedded text it did
+  not; the footer now reports `N input(s) truncated`. That is the same defect as a table naming the model
+  it REQUESTED rather than the one that answered — a silent difference between what was measured and what
+  was reported.
 - **A seam that hands a model a TRUNCATION measures the truncation, and the model takes the blame.**
   `IMemoryVerificationPolicy` receives `MemoryVerificationCandidate.Headline` and never `Content`, and
   `GraphMemoryOptions.HeadlineChars` ships at 120. Measured 2026-09-08 on LoCoMo, whose turns have a median

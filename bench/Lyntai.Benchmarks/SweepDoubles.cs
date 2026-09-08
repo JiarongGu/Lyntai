@@ -238,17 +238,70 @@ internal static class SweepDoubles
         /// count down, so there is nothing to win by being clever — and one text per call keeps the response
         /// shape identical on every backend.
         /// </remarks>
+        /// <summary>Characters a single input is cut to before being sent.
+        ///
+        /// <para><b>It is a cut this study was ALREADY making, invisibly.</b> An embedding model has a fixed
+        /// context and LongMemEval's texts run to 76,560 characters against a median of 429. Ollama silently
+        /// truncates an over-long input and answers; <c>llama-server</c> returns 500 — so switching servers
+        /// turned a silent truncation into a crashed run, and the crash is what revealed that every figure
+        /// on record was taken with the long tail quietly cut. Doing it here makes it COUNTED
+        /// (<see cref="Truncated"/>) rather than a property of whichever server happened to answer.</para>
+        ///
+        /// <para>6,000 characters is ~1,200-1,500 tokens on this corpus, which clears both a 1536-token
+        /// batch and a 2048-token context, so a run does not depend on how a server was started.</para>
+        /// </summary>
+        internal const int MaxInputChars = 6000;
+
+        /// <summary>The floor the halving stops at, so a pathological input fails loudly rather than being
+        /// cut to nothing and embedded as a meaningless vector.</summary>
+        internal const int MinInputChars = 500;
+
+        private static int _truncated;
+
+        /// <summary>Inputs cut by <see cref="MaxInputChars"/>, process-wide. Non-zero is not a defect — it is
+        /// the tail this corpus has — but a run that does not REPORT it is claiming to have embedded text it
+        /// did not.</summary>
+        internal static int Truncated => Volatile.Read(ref _truncated);
+
         public async Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default)
         {
             var result = new float[texts.Count][];
             for (var i = 0; i < texts.Count; i++)
             {
-                using var response = await http.PostAsJsonAsync($"{baseUrl}/v1/embeddings",
-                    new { model, input = texts[i] }, ct);
-                response.EnsureSuccessStatusCode();
+                var input = texts[i];
+                if (input.Length > MaxInputChars)
+                {
+                    input = input[..MaxInputChars];
+                    Interlocked.Increment(ref _truncated);
+                }
 
-                using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+                // A CHARACTER budget cannot bound a TOKEN limit: density varies by an order of magnitude
+                // across scripts, so one constant is either wasteful on prose or short on dense text - and
+                // this corpus contains both. Rather than guess it, shrink and retry when the server says
+                // the input is too large. Deterministic, bounded, and it keeps the full text on the
+                // ordinary case instead of cutting everything to the worst case's budget.
+                HttpResponseMessage response;
+                var body = string.Empty;
+                while (true)
+                {
+                    response = await http.PostAsJsonAsync($"{baseUrl}/v1/embeddings",
+                        new { model, input }, ct);
+                    body = await response.Content.ReadAsStringAsync(ct);
+                    if (response.IsSuccessStatusCode || input.Length <= MinInputChars ||
+                        !body.Contains("too large", StringComparison.OrdinalIgnoreCase)) break;
+
+                    response.Dispose();
+                    input = input[..Math.Max(MinInputChars, input.Length / 2)];
+                    Interlocked.Increment(ref _truncated);
+                }
+
+                using (response)
+                {
+                    response.EnsureSuccessStatusCode();
+                }
+
+                using var json = JsonDocument.Parse(body);
                 var vector = json.RootElement.GetProperty("data")[0].GetProperty("embedding");
                 var one = new float[vector.GetArrayLength()];
                 var j = 0;

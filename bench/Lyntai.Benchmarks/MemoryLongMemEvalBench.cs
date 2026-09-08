@@ -62,6 +62,37 @@ internal static class MemoryLongMemEvalBench
     /// which is exactly what makes it the arm that cannot move when the engine changes.</summary>
     private const string VectorArm = "vector";
 
+    /// <summary>Adds the cross-encoder twin of every selected arm, plus the matched control it has to be
+    /// read against.
+    ///
+    /// <para><b>The control is not optional.</b> A reranker only works here when the seam stops truncating
+    /// (`docs/memory.md` §5: 78.0% at the shipped 120 characters, 91.0% at 512), so the arm must raise
+    /// <c>HeadlineChars</c> — and then a bare <c>arm</c> vs <c>arm+rerank</c> comparison would confound the
+    /// reranker with the headline change. Hence the pair: <c>+hl512</c> alone, and <c>+hl512+rerank</c>.</para>
+    ///
+    /// <para><b>What this run is FOR.</b> LoCoMo rewards a perfect archive and this workload rewards burying
+    /// a superseded fact, so a reranker that reorders by query-relevance is exactly the shape that could win
+    /// there and lose here — the trade <c>RetrievabilityWeight = 0</c> made at about 7:1. No default moves
+    /// until this table has been read.</para></summary>
+    private static FieldArm[] WithRerank(FieldArm[] arms, CrossEncoderReranker? reranker, int limit)
+    {
+        if (reranker is null) return arms;
+        var widened = new List<FieldArm>(arms.Length * 3);
+        foreach (var arm in arms)
+        {
+            var options = (arm.Options ?? new GraphMemoryOptions()) with { HeadlineChars = 512 };
+            widened.Add(arm);
+            widened.Add(arm with { Name = $"{arm.Name}+hl512", Options = options });
+            widened.Add(arm with
+            {
+                Name = $"{arm.Name}+hl512+rerank",
+                Options = options,
+                Verification = new CrossEncoderVerifier(reranker, limit),
+            });
+        }
+        return [.. widened];
+    }
+
     /// <summary>Which engine arms a run scores, from <c>--arms</c>.
     ///
     /// <para><b>The default is the PUBLISHED pair</b> — <c>lyntai</c> and <c>vector</c> — so every figure on
@@ -1156,6 +1187,25 @@ internal static class MemoryLongMemEvalBench
         var configs = SelectConfigs(args, out var wantsCosine);
         if (configs is null) return 1;
 
+        // `--rerank` prices the cross-encoder on the workload this design makes its claim on. It is opt-in
+        // and TRIPLES the arms it is given, so it stays off by default: an arm costs a full ingestion per
+        // question, ~490 turns each under --haystack.
+        CrossEncoderReranker? reranker = null;
+        if (args.Contains("--rerank"))
+        {
+            reranker = new CrossEncoderReranker(http, CrossEncoderReranker.BaseUrl, CrossEncoderReranker.Model);
+            if (!await reranker.ReachableAsync())
+            {
+                Console.Error.WriteLine($"--rerank: nothing answered at {CrossEncoderReranker.BaseUrl}. "
+                    + "llama-server -m <bge-reranker*.gguf> --reranking --port 8081, then set "
+                    + $"{CrossEncoderReranker.UrlVariable}.");
+                return 1;   // asked for and unavailable is an ERROR, never a quietly narrower run
+            }
+            Console.WriteLine($"memory-longmemeval rerank: {CrossEncoderReranker.Model} "
+                + $"at {CrossEncoderReranker.BaseUrl}");
+            configs = WithRerank(configs, reranker, RecallLimit);
+        }
+
         var stopwatch = Stopwatch.StartNew();
         string[] arms = [.. configs.Select(c => c.Name), .. wantsCosine ? new[] { VectorArm } : []];
         var currentHit = new Dictionary<string, int>();
@@ -1243,11 +1293,18 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine();
         Console.WriteLine("  'prefers current' is scored only over questions where the arm returned at least");
         Console.WriteLine("  one of the two facts — otherwise retrieving NEITHER would score a vacuous 100%.");
+        if (reranker is not null)
+        {
+            var (calls, scored, distinct) = reranker.Audit;
+            Console.WriteLine($"  cross-encoder: calls {calls}, pairs scored {scored}, distinct scores {distinct}"
+                + (calls > 0 && distinct <= 1 ? "  ! ONE distinct score - it reordered nothing" : ""));
+        }
         Console.WriteLine("  'stale@k' is not a failure on its own: returning both is fine if the current one");
         Console.WriteLine("  ranks first. It is here so a preference win cannot hide a recall collapse.");
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"{TruncationNote()}.");
         return 0;
     }
 
@@ -1599,7 +1656,8 @@ internal static class MemoryLongMemEvalBench
         PrintBudget(budgets);
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"{TruncationNote()}.");
         return 0;
     }
 
@@ -1737,7 +1795,8 @@ internal static class MemoryLongMemEvalBench
         PrintBudget(budgets);
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"{TruncationNote()}.");
         return 0;
     }
 
@@ -1812,7 +1871,8 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("  are the ones that decide the order.");
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"{TruncationNote()}.");
     }
 
     private static double Med<T>(List<T> rows, Func<T, double> of)
@@ -1896,7 +1956,8 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("  everywhere'.");
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"{TruncationNote()}.");
         return 0;
     }
 
@@ -2085,6 +2146,13 @@ internal static class MemoryLongMemEvalBench
         }
         return ordered.Take(take).OrderBy(q => q.Id, StringComparer.Ordinal).ToList();
     }
+
+    /// <summary>The truncation footer, empty when nothing was cut. A run that truncated and did not say so
+    /// would be claiming to have embedded text it did not.</summary>
+    private static string TruncationNote() =>
+        SweepDoubles.OpenAiCompatibleEmbedder.Truncated is var cut and > 0
+            ? $", {cut} input(s) truncated to {SweepDoubles.OpenAiCompatibleEmbedder.MaxInputChars} chars"
+            : "";
 
     private static string? ArgValue(string[] args, string name)
     {

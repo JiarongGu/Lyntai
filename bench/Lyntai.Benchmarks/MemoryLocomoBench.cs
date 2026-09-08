@@ -1239,7 +1239,8 @@ internal static class MemoryLocomoBench
 
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"{TruncationNote()}.");
         return 0;
     }
 
@@ -1373,6 +1374,13 @@ internal static class MemoryLocomoBench
         }
         return picked;
     }
+
+    /// <summary>The truncation footer, empty when nothing was cut. A run that truncated and did not say so
+    /// would be claiming to have embedded text it did not.</summary>
+    private static string TruncationNote() =>
+        SweepDoubles.OpenAiCompatibleEmbedder.Truncated is var cut and > 0
+            ? $", {cut} input(s) truncated to {SweepDoubles.OpenAiCompatibleEmbedder.MaxInputChars} chars"
+            : "";
 
     private static string? ArgValue(string[] args, string name)
     {

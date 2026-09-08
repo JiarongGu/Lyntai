@@ -282,6 +282,13 @@ endpoint**, so a table taken from here on carries its own provenance. `repo-mech
 serves one model and answers to its `--alias`, so re-running an Ollama-era figure against llama-server with
 the same `LYNTAI_LIVE_EMBED_MODEL` string does NOT reproduce the embedder — it silently uses whatever was
 loaded.
+<br>**And the two servers disagree about an OVER-LONG input, which is how a second silent difference came
+out.** Ollama truncates and answers; `llama-server` returns 500. LongMemEval's texts reach **76,560
+characters against a median of 429**, so every figure taken here before 2026-09-08 embedded a quietly cut
+tail — at whatever limit the answering server happened to be started with, which nothing recorded. The
+benches now cut explicitly, shrink and retry on the server's own complaint, and **report the count in the
+footer**. The affected tail is small (279 texts of 246,750 exceed 6,000 characters) so no published figure
+is withdrawn, but a figure and its truncation regime are one fact, not two.
 
 **The 12 GB ceiling is the load-bearing number.** Every model that fits it (`gemma3:4b` 3.3 GB, `qwen3:4b`
 2.5 GB, `qwen2.5-vl:7b` 6.0 GB) was measured on GPU; the 20 GB MoE was not. A cost or latency figure here
@@ -368,6 +375,38 @@ measured for the 4B judge. **So the partition is not what to fix here; the TEXT 
 **No default moves on this.** LoCoMo rewards a perfect archive by construction, and this document's own
 standing rule is that an arm winning it owes the knowledge-update table a visit first (§5, `+forget0`'s
 7:1 collapse). What is settled is the mechanism and its size, not a default.
+
+#### …and the knowledge-update visit it owed (`memory-longmemeval --haystack --rerank`, 2026-09-08)
+
+All 70 knowledge-update questions, haystack variant (34,242 turns per arm, 489 per question), k = 10,
+model-free. The same reranker, the same `HeadlineChars = 512`, and the matched control beside it.
+
+| arm | prefers current | `current@k` | `stale@k` | decidable |
+|---|---|---|---|---|
+| `lyntai` (shipped) | 90.3% (**56**/62) | 82.9% | 44.3% | 62 |
+| `lyntai+hl512` | 88.9% (56/63) | 84.3% | 48.6% | 63 |
+| `lyntai+hl512+rerank` | 86.8% (**59**/68) | **91.4%** | **95.7%** | **68** |
+| `vector` | 40.0% (28/70) | 92.9% | 94.3% | 70 |
+
+**The RATE falls and the COUNT rises, and the denominator is why.** `prefers current` is scored only over
+questions where the arm returned at least one of the two facts, and the reranker makes six more of them
+decidable — so 90.3% → 86.8% is 56 of 70 becoming **59 of 70**, which is 80.0% → 84.3% of the whole set.
+A reader taking the percentage alone would record a regression where the arm answered three more questions
+correctly. **This is the metric's own guard working as designed** (retrieving NEITHER would otherwise score
+a vacuous 100%), and it is the trap to carry into any future arm that changes recall breadth.
+
+**It did not cost supersession; it cost PRECISION.** `stale@k` goes 44.3% → **95.7%**, of which the headline
+change accounts for 4.3 and the reranker for the rest — the page now almost always contains the superseded
+fact as well as the current one. That is the mechanically predicted result: a superseded fact and its
+replacement are near-identical text and both score high on query relevance, so a cross-encoder cannot tell
+them apart and returns both. The engine's decay ordering still ranks the current one first inside the
+promoted set, which is why preference holds at 86.8% where plain cosine — same breadth, no decay vote —
+collapses to 40.0%.
+
+**What this does NOT establish.** The bench pairs every arm against `vector`, so there is no paired test of
+reranked against shipped: 56 → 59 is three questions and the confidence intervals overlap heavily
+([80.5, 95.5] against [76.7, 92.9]). The honest claim is that the cross-encoder is **not** the LoCoMo-shaped
+trap `RetrievabilityWeight = 0` was — it does not buy finding with burying — and no more than that.
 
 #### The engine can say "used" and "gone", but not "contradicted" — and RIF is the shape of the gap
 

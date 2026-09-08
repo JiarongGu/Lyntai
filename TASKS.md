@@ -101,8 +101,13 @@ inside the pool already gathered.
   `docs/memory.md` §5). **The ONNX package was never needed**: `llama-server --reranking` serves
   `bge-reranker-v2-m3` over HTTP and the arm reaches the engine through the verification seam that already
   ships. The lever is real — **+5.0** on LoCoMo, 1.5 short of a perfect judge — but only once the seam stops
-  handing the model a 120-character truncation of a 133-character turn. **No default moved**; an arm that
-  wins LoCoMo owes the knowledge-update table a visit first. What it left behind is the item below.
+  handing the model a 120-character truncation of a 133-character turn.
+  <br>**The knowledge-update visit RAN the same day** (`docs/task-archive.md` **Part 169**) and it is not
+  the trade a LoCoMo winner usually makes: `prefers current` falls 90.3% → 86.8% while the absolute count
+  RISES **56 → 59 of 70**, because the reranker makes six more questions decidable. What it costs is
+  PRECISION — `stale@k` 44.3% → **95.7%**, since a superseded fact reads as relevant as its replacement.
+  **No default moved**, and no paired test of reranked against shipped exists, so three questions with
+  overlapping intervals is not a result. What it left behind is the item below.
 - **The engine can say "used" and "gone" but not "contradicted"**: `Stability` may never decrease by
   contract, which is why every reconciliation experiment could only DELETE. **RIF** is the shape of the fix,
   filed as a design lead with **D62**'s warning attached (the fan effect died on a bad PROXY, not a bad
