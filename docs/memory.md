@@ -325,11 +325,49 @@ that matters here. Three findings line up exactly with what was measured above:
 `gemma3:4b`'s single judgement, for the whole candidate set rather than one verdict, deterministically and
 free. At this engine's default `VerificationDepth` of 4× the limit that is one pass over ~40 candidates.
 
-**This is a design lead, not a shipped claim.** Nothing here has been measured on this corpus, ONNX Runtime
-needs a C#-side tokenizer, and the literature's numbers come from IR benchmarks rather than from a memory
-store. The honest statement is that the seam's SHAPE — score pairs, reorder, never generate — is the shape
-rerankers exist for, and the LLM judge is a general tool doing a specialised job. See
-`local/superpowers/records/2026-08-15-memory-research-review.md`.
+**This was a design lead rather than a shipped claim, and it is now MEASURED — see the next subsection.**
+The lead's reasoning held: the seam's SHAPE — score pairs, reorder, never generate — is the shape rerankers
+exist for, and the LLM judge is a general tool doing a specialised job. What the lead did not anticipate is
+that the seam hands a policy a TRUNCATION, which is most of what a first run measured. ONNX turned out not
+to be needed at all: `llama-server --reranking` serves the same model over HTTP.
+See `local/superpowers/records/2026-08-15-memory-research-review.md`.
+
+#### A cross-encoder is worth +5.0 — and the seam was starving it (`memory-locomo --retrieval`, 2026-09-08)
+
+`bge-reranker-v2-m3` (568M, Q8_0) served by `llama-server --reranking`, endorsing its own top-20 of the 80
+candidates the engine shows a verifier. n = 200, k = 20, seed 12345, embedder `embeddinggemma-300M-Q8_0`
+via llama.cpp. Model-free scoring throughout.
+
+| arm | overall | |
+|---|---|---|
+| `+sem+rel-only` (base) | 85.5% | |
+| `+sem+rel-only+rerank` | **78.0%** | −7.5 |
+| `+sem+rel-only+rerank+fuse` | 85.5% | the loss removed, nothing gained |
+| `+sem+rel-only+hl512` (base, full turn) | 86.0% | the matched control |
+| **`+sem+rel-only+hl512+rerank`** | **91.0%** | **+5.0** |
+| `+sem+rel-only+oracle` | 92.5% | the ceiling |
+| `vector` | 83.5% | the arm that cannot move |
+
+**The first run refuted a PRE-REGISTERED prediction of 86–90% and the second explains why.** A verifier
+receives `MemoryVerificationCandidate.Headline` and never `Content`, and `GraphMemoryOptions.HeadlineChars`
+ships at **120** while LoCoMo's turns have a median of **133** characters and **55.8% exceed 120** — so the
+reranker was scoring the first 120 characters of most candidates. Raising headlines to 512 is worth
+**+13.0** points to the reranked arm (78.0 → 91.0) and only **+0.5** to the base, which is what makes it the
+reranker's handicap rather than a general gain. At full text the cross-encoder captures **5.0 of the 6.5
+points** the perfect judge offers, deterministically, locally and free.
+
+**It is not a flat-signal artifact**: 48,002 pairs scored, 31,340 distinct. And the instrument is intact
+across the embedder change — `lyntai` reproduced 54.5% and `+oracle` 92.5% exactly, while the two
+embedder-sensitive arms moved together (+2.5 base, +3.0 `vector`).
+
+**Fusing generalises D105 from judges to rerankers, and generalises the disappointment with it.**
+`+rerank+fuse` scores exactly the base in every category: letting the reranker COMPETE on rank removes the
+partition's whole 7.5-point loss and adds nothing. Insurance, not an improvement — the same shape D105
+measured for the 4B judge. **So the partition is not what to fix here; the TEXT is.**
+
+**No default moves on this.** LoCoMo rewards a perfect archive by construction, and this document's own
+standing rule is that an arm winning it owes the knowledge-update table a visit first (§5, `+forget0`'s
+7:1 collapse). What is settled is the mechanism and its size, not a default.
 
 #### The engine can say "used" and "gone", but not "contradicted" — and RIF is the shape of the gap
 

@@ -47,6 +47,14 @@ internal static class SweepDoubles
         ?? Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL")
         ?? "nomic-embed-text";
 
+    /// <summary>What actually ANSWERED, once <see cref="TryRealEmbedderAsync"/> has resolved an embedder —
+    /// falling back to the requested name before that, or when the server names many models and so routes
+    /// by the requested one. For a table HEADER, which is the one place the requested name reads as a
+    /// finding rather than as a setting.</summary>
+    internal static string ServedOrRequestedModel => _served ?? Model;
+
+    private static string? _served;
+
     /// <summary>The endpoint this resolves to.</summary>
     internal static string BaseUrl =>
         Environment.GetEnvironmentVariable(UrlVariable)
@@ -75,7 +83,7 @@ internal static class SweepDoubles
             // appear nowhere — only the model NAME did — so a table said "embedder nomic-embed-text" and
             // could not say which of two servers answered it, and a whole session's figures had to be
             // attributed after the fact by asking which processes were up (`TASKS.md`, 2026-09-04).
-            var served = await real.ServedModelAsync();
+            var served = _served = await real.ServedModelAsync();
             Console.WriteLine(served is null || served == model
                 ? $"{sweep}: embedder {model} at {baseUrl}"
                 : $"{sweep}: embedder {served} at {baseUrl} (requested {model}; the server serves what it loaded)");

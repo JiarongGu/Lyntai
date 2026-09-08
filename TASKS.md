@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SIX items, across Parts 109, 116, 128 and 129.** Each is a
+**The startable set is SEVEN items, across Parts 109, 116, 128 and 129.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -40,7 +40,9 @@ and its own caveat opened the successor below it — a one-for-one swap, which i
 moves and the reason the count is worth stating rather than the items. **Then it fell to SIX**: Parts
 **159**, **160** and **161** closed the pool ladder across all three workloads, and the last of them left
 nothing behind — the shipped `CandidateMultiplier` is vindicated on two of three, so there is no successor
-question, which is the rarer way an item leaves this list._
+question, which is the rarer way an item leaves this list.
+<br>**Back to SEVEN on 2026-09-08**: Part 168 measured the cross-encoder and left a DECISION behind it —
+what text a verifier may read — which is the ordinary way this list grows. Counted, not adjusted._
 <br>_**This line used to be a 49-line running tally** — every Part that opened and closed since 2026-08-30,
 with the count after each. It was deleted on 2026-09-03 rather than extended, because `task-lifecycle.md`
 says outright that a backlog must not summarize its archive: the tally grew without bound, answered a
@@ -94,8 +96,13 @@ the real arm falls, so the reachable-vs-retrieved gap WIDENS — the lever is ra
 inside the pool already gathered.
 
 **Three things are open and each is recorded where it belongs, not here.**
-- **RANKING is the lever and the supported fix is a cross-encoder** (`docs/memory.md` §5) — blocked on a
-  model download and an ONNX adapter package, not on a design question.
+- ~~**RANKING is the lever and the supported fix is a cross-encoder** — blocked on a model download and an
+  ONNX adapter package.~~ **MEASURED AND CLOSED 2026-09-08** (`docs/task-archive.md` **Part 168**,
+  `docs/memory.md` §5). **The ONNX package was never needed**: `llama-server --reranking` serves
+  `bge-reranker-v2-m3` over HTTP and the arm reaches the engine through the verification seam that already
+  ships. The lever is real — **+5.0** on LoCoMo, 1.5 short of a perfect judge — but only once the seam stops
+  handing the model a 120-character truncation of a 133-character turn. **No default moved**; an arm that
+  wins LoCoMo owes the knowledge-update table a visit first. What it left behind is the item below.
 - **The engine can say "used" and "gone" but not "contradicted"**: `Stability` may never decrease by
   contract, which is why every reconciliation experiment could only DELETE. **RIF** is the shape of the fix,
   filed as a design lead with **D62**'s warning attached (the fan effect died on a bad PROXY, not a bad
@@ -977,6 +984,19 @@ endorsements per recall out of 80 shown, at 2.6% precision, which is an endorsem
 20-slot page, so promotion replaces the ranking instead of refining it. **The seam has a capability FLOOR**,
 now stated in `LlmVerificationOptions.ClientName`'s shipped XML doc. `docs/memory.md` §5 carries the table
 and the four things it does not say._
+
+- [ ] **Decide what TEXT a verifier may read — today it is a 120-character truncation, and that costs a
+  cross-encoder 13 points.** `MemoryVerificationCandidate` carries `Headline` and never `Content`, and
+  `GraphMemoryOptions.HeadlineChars` ships at 120. Measured 2026-09-08 (`docs/task-archive.md` **Part
+  168**): the same reranker on the same arm reads **78.0%** on truncated headlines and **91.0%** on whole
+  turns. The headline-only contract is not an oversight — it keeps an LLM judge cheap, and it is what a
+  caller would see without paying to expand — so this is a real trade rather than a defect.
+  <br>**Three options, each a different promise.** Leave it and document that a reranking deployment raises
+  `HeadlineChars`, which works today but pays storage for a duplicated column and changes what every recall
+  returns to callers. Add `Content` to the candidate record, which is additive and lets a verifier read
+  full text without touching storage — but hands an LLM judge a far bigger prompt unless it is opt-in. Or
+  an option selecting which text the seam passes, which is the explicit form of the same choice.
+  <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit._
 
 - [ ] **Decide whether a memory seam's `Model` should beat a candidate's — today it silently loses.**
   `LlmVerificationOptions.Model` and `LlmAnnotationOptions.Model` set `LlmRequest.Model`, and the router

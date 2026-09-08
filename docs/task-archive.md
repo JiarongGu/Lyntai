@@ -1966,6 +1966,30 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 168 — the cross-encoder is worth +5.0, and the seam was starving it
+
+✅ done 2026-09-08. Closes the ranking lever the 2026-09-07 handover filed as blocked on "a model download
+and an ONNX adapter package". Neither was needed: `llama-server --reranking` serves `bge-reranker-v2-m3`
+over HTTP, and the arm reaches the engine through the verification seam that already ships. Tables are
+`docs/memory.md` §5.
+
+**The result, on LoCoMo n = 200**: at the shipped `HeadlineChars = 120` a cross-encoder SPENDS 7.5 points
+(85.5% → 78.0%), refuting a pre-registered 86–90%. With headlines long enough to hold the turn it reads
+**91.0% against a matched base of 86.0%** — **+5.0**, and 1.5 short of a perfect judge's 92.5%.
+
+**The finding is the seam, not the model.** A verifier sees `Headline` and never `Content`, and 55.8% of
+LoCoMo turns exceed 120 characters, so the reranker scored a truncation. Its audit was clean throughout
+(48,002 pairs, 31,340 distinct scores), which is what makes "the model cannot do this" the wrong reading —
+`pitfalls.md` carries that as the reusable half.
+
+**Fusion generalises D105 and disappoints the same way**: `+rerank+fuse` scores exactly the base in every
+category, so competing on rank removes the partition's whole loss and adds nothing.
+
+**No default moved**, and none should on one workload — an arm winning LoCoMo owes the knowledge-update
+table a visit first. What is open is a library decision, filed in `TASKS.md`.
+
+- Measure the cross-encoder reranker filed as the supported fix for the ranking gap.
+
 ## Part 167 — what serialises a pure-read recall: SQLite's memory STATISTICS, not any lock
 
 ✅ done 2026-09-08. Closes the open question `docs/memory.md` §7 carried since 2026-09-07. Tables and the

@@ -847,6 +847,18 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   <br>**And a flattering refutation still needs repeats.** A 29× improvement is exactly the shape this
   repository has twice published and retracted; it was re-run interleaved with its control three times
   (on 330/320/317, off 3,154/4,056/4,060) before being believed.
+- **A seam that hands a model a TRUNCATION measures the truncation, and the model takes the blame.**
+  `IMemoryVerificationPolicy` receives `MemoryVerificationCandidate.Headline` and never `Content`, and
+  `GraphMemoryOptions.HeadlineChars` ships at 120. Measured 2026-09-08 on LoCoMo, whose turns have a median
+  of 133 characters: a purpose-built cross-encoder scored **78.0%** against its base's 85.5% and read as a
+  refutation of the whole design lead — until the same model on the same arm with headlines long enough to
+  hold the turn read **91.0%**. Headline length alone was worth **+13.0** to the reranked arm and +0.5 to
+  the base (`docs/memory.md` §5, **D107**'s neighbour).
+  <br>**The tell was that the audit was CLEAN.** 16,002 pairs scored, 15,958 distinct — the model
+  discriminated almost perfectly and still lost, which is the signature of a model being fed the wrong
+  input rather than of a model that cannot do the job. **Before concluding a model class does not transfer,
+  check what the seam actually passed it** — and prefer a control that varies the INPUT (a longer headline)
+  over one that varies the model.
 - **An admission guarantee must survive the LIMIT, not just the WHERE.** "Admitted unconditionally" that
   is implemented only as a predicate is still excluded by `ORDER BY … LIMIT` whenever the ordering key is
   the axis the protected row is weakest on. All three `IMemoryGraphStore` backends filtered authoritative

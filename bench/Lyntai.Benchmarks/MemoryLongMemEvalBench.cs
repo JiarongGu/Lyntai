@@ -2048,7 +2048,7 @@ internal static class MemoryLongMemEvalBench
             : "oracle — evidence sessions only, nothing to bury")}");
         Console.WriteLine($"Questions: {sampled.Count} of {pool} {cls}   seed {seed}   sample {Digest(sampled)}");
         Console.WriteLine($"Ingested:  {turns} turns per arm, {(double)turns / sampled.Count:F0} per question   "
-            + $"k = {RecallLimit}   embedder {SweepDoubles.Model}   model-free");
+            + $"k = {RecallLimit}   embedder {SweepDoubles.ServedOrRequestedModel}   model-free");
         Console.WriteLine();
     }
 

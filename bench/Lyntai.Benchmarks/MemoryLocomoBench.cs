@@ -167,6 +167,27 @@ internal static class MemoryLocomoBench
             ? await SweepDoubles.TryRealChatAsync(http, "memory-locomo judge")
             : null;
 
+        // The CROSS-ENCODER arm. `docs/memory.md` §5 files a purpose-built reranker as the supported fix for
+        // a gap the oracle says is ranking (+9.5 reachable) and a 4B LLM judge SPENDS (-10.5). It is a
+        // separate process from the judge and the reader — one llama-server serves one model — so it gets
+        // its own endpoint variable and its own reachability probe, and its absence prints a SKIPPED line
+        // rather than quietly leaving the unjudged base in the table looking like a reranked result.
+        var reranker = args.Contains("--retrieval") && !args.Contains("--no-rerank")
+            ? new CrossEncoderReranker(http, CrossEncoderReranker.BaseUrl, CrossEncoderReranker.Model)
+            : null;
+        if (reranker is not null && !await reranker.ReachableAsync())
+        {
+            Console.WriteLine($"  SKIPPED: no reranker answered at {CrossEncoderReranker.BaseUrl} "
+                + $"({CrossEncoderReranker.Model}); the +rerank arm is absent from this run.");
+            Console.WriteLine($"    llama-server -m <bge-reranker*.gguf> --reranking --port 8081, then set "
+                + $"{CrossEncoderReranker.UrlVariable}.");
+            reranker = null;
+        }
+        else if (reranker is not null)
+        {
+            Console.WriteLine($"memory-locomo rerank: {CrossEncoderReranker.Model} at {CrossEncoderReranker.BaseUrl}");
+        }
+
         var take = ArgValue(args, "--n") is { } n && int.TryParse(n, out var parsed) ? parsed : 200;
         var wantFull = args.Contains("--full");
         // `--retrieval` is the MODEL-FREE diagnostic: does the recalled set contain the evidence turn
@@ -195,7 +216,7 @@ internal static class MemoryLocomoBench
             : shotsOnly
             ? ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}", "full"]
             : retrievalOnly
-                ? [.. RetrievalArms(judgeChat is not null), "vector", .. wantFull ? ["full"] : Array.Empty<string>()]
+                ? [.. RetrievalArms(judgeChat is not null, reranker is not null), "vector", .. wantFull ? ["full"] : Array.Empty<string>()]
                 : ["lyntai", FusedOneShot, FusedRehydrated, FusedApiDetail, FusedThreeShot,
                     FusedThreeShotFull, TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
 
@@ -480,7 +501,7 @@ internal static class MemoryLocomoBench
             if (retrievalOnly)
             {
                 string[] built = [.. configs.Select(c => c.Name)];
-                var expected = RetrievalArms(judgeChat is not null);
+                var expected = RetrievalArms(judgeChat is not null, reranker is not null);
                 if (!built.SequenceEqual(expected, StringComparer.Ordinal))
                     throw new InvalidOperationException(
                         $"retrieval ladder and arm list disagree.{Environment.NewLine}"
@@ -599,6 +620,69 @@ internal static class MemoryLocomoBench
                     Name = "+sem+rel-only+oracle",
                     Verification = new EvidenceOracleVerifier(EvidenceByQuery(mine, convId)),
                 },
+
+                // THE CROSS-ENCODER, on the same arm as the oracle above so the three numbers are directly
+                // comparable: unjudged, reranked, and the ceiling. A reranker endorses a FIXED top-`limit`,
+                // so unlike the LLM judge it cannot promote a set larger than the page - the failure mode
+                // that cost that judge 10.5 points is unreachable here by construction, and what is left is
+                // purely the ORDER it puts the pool in.
+                //
+                // PRE-REGISTERED PREDICTION, written before the first run because this repository has
+                // measured that doing so is what stops a plausible story replacing a result: the arm lands
+                // between its own unjudged 83.0% and the oracle's 92.5%, and I expect 86-90% - most of the
+                // reachable gap, since the evidence is provably in the pool and scoring pairs is exactly
+                // what this model class is trained for. BELOW 83.0 refutes the design lead outright: it
+                // would mean pairwise relevance scoring cannot recover reachable-but-outranked evidence
+                // here, and that the lead read out of the IR literature does not transfer to a memory
+                // store. Between 83.0 and 86.0 is a real but weak effect that no ONNX package would earn.
+                .. reranker is null ? Array.Empty<FieldArm>() :
+                [
+                    FieldArms.Named("+sem+rel-only") with
+                    {
+                        Name = "+sem+rel-only+rerank",
+                        Verification = new CrossEncoderVerifier(reranker, RecallLimit),
+                    },
+
+                    // THE PREDICTION ABOVE WAS REFUTED: the arm reads 78.0% against its own base of 85.5%,
+                    // so a purpose-built cross-encoder SPENDS 7.5 points where the oracle offers +7.0. Its
+                    // audit rules out a flat signal (16,002 pairs scored, 15,958 distinct), so it really did
+                    // reorder and reordering lost. These two arms isolate the two candidate causes, because
+                    // "cross-encoders do not work on a memory store" is not yet supported by that run.
+                    //
+                    // REPLACEMENT, not scoring. Endorsement PARTITIONS: the promoted set becomes the page,
+                    // so the cross-encoder's order does not refine RRF's, it replaces it outright. D105
+                    // measured exactly this for the LLM judge and found the partition was the whole harm -
+                    // fusing removed all 10.5 points. This arm lets the reranker COMPETE on rank instead,
+                    // which is what every other signal in this engine already does (D82, D103).
+                    FieldArms.Named("+sem+rel-only") with
+                    {
+                        Name = "+sem+rel-only+rerank+fuse",
+                        Verification = new FusedVerdictVerifier(
+                            new CrossEncoderVerifier(reranker, RecallLimit),
+                            RecallLimit, JudgeFusionWeight),
+                    },
+
+                    // TRUNCATION. `MemoryVerificationCandidate` carries the HEADLINE and never the content,
+                    // and the shipped `HeadlineChars` is 120 - while LoCoMo's turns have a median of 133
+                    // characters and 55.8% exceed 120. So the reranker was scoring a truncated turn on most
+                    // candidates, which is a fair test of the SEAM and not of a cross-encoder. The pair
+                    // below re-runs base and reranker with headlines long enough to hold the whole turn;
+                    // the base is repeated at the same setting because raising it moves what recall returns
+                    // and a reranked arm compared against a 120-char base would confound the two changes.
+                    FieldArms.Named("+sem+rel-only") with
+                    {
+                        Name = "+sem+rel-only+hl512",
+                        Options = (FieldArms.Named("+sem+rel-only").Options ?? new GraphMemoryOptions())
+                            with { HeadlineChars = 512 },
+                    },
+                    FieldArms.Named("+sem+rel-only") with
+                    {
+                        Name = "+sem+rel-only+hl512+rerank",
+                        Options = (FieldArms.Named("+sem+rel-only").Options ?? new GraphMemoryOptions())
+                            with { HeadlineChars = 512 },
+                        Verification = new CrossEncoderVerifier(reranker, RecallLimit),
+                    },
+                ],
 
                 // CAN THE CEILING GO HIGHER? At the shipped defaults it cannot be asked, because the two
                 // bounds coincide: `VerificationDepth` is `limit x 4` = 80 and the gathered pool is
@@ -1109,6 +1193,21 @@ internal static class MemoryLocomoBench
         foreach (var (name, audit) in judgeAudits.OrderBy(a => a.Key, StringComparer.Ordinal))
             if (audit.Calls > 0) PrintJudgeAudit(name, audit, judgeFusions.GetValueOrDefault(name));
 
+        // The reranker's own control. It endorses a fixed count, so "how many it endorsed" says nothing -
+        // what can go wrong is that it returns the SAME score for everything, which reorders nothing and
+        // reads as a clean null result rather than as a broken instrument. Distinct scores is the column
+        // that tells those apart, the same reason `memory-salience-weight` reports distinct salience values.
+        if (reranker is not null)
+        {
+            var (calls, scored, distinct) = reranker.Audit;
+            Console.WriteLine();
+            Console.WriteLine("=== what the cross-encoder actually did ===");
+            Console.WriteLine($"  calls {calls}   pairs scored {scored}   distinct scores {distinct}");
+            if (calls > 0 && distinct <= 1)
+                Console.WriteLine("  ! ONE distinct score across every pair - it discriminated nothing, so "
+                    + "this arm's row is the instrument, not a result.");
+        }
+
         // `--dump` was parsed and read by NOTHING until 2026-09-01 — a flag the usage advertised and the
         // run silently ignored. It survived because `var dump = args.Contains(...)` assigns a method
         // result, and C# only warns on an unused CONSTANT. It writes the per-item record the aggregate
@@ -1298,7 +1397,7 @@ internal static class MemoryLocomoBench
             Console.WriteLine();
             Console.WriteLine($"Conversations: {conversations}   Questions: {sampled} of {total}, seeded {Seed}");
             Console.WriteLine($"Arms: {string.Join(", ", arms)}   recall limit {RecallLimit}   "
-                + $"seeds/step {expandSeeds}   embedder {SweepDoubles.Model}");
+                + $"seeds/step {expandSeeds}   embedder {SweepDoubles.ServedOrRequestedModel}");
             Console.WriteLine();
             Console.WriteLine("`seeds/step` MUST match the run being explained - the QA table it decomposes was");
             Console.WriteLine("taken at 16, and this mode defaults to 3. The control at the foot checks it.");
@@ -1317,7 +1416,7 @@ internal static class MemoryLocomoBench
             Console.WriteLine("verifier reorders their candidates before the cut, so they price PROMOTION.");
             Console.WriteLine();
             Console.WriteLine($"Conversations: {conversations}   Questions: {sampled} of {total}, seeded {Seed}");
-            Console.WriteLine($"Arms: {string.Join(", ", arms)}   k = {RecallLimit}   embedder {SweepDoubles.Model}");
+            Console.WriteLine($"Arms: {string.Join(", ", arms)}   k = {RecallLimit}   embedder {SweepDoubles.ServedOrRequestedModel}");
             Console.WriteLine();
             return;
         }
@@ -1331,7 +1430,7 @@ internal static class MemoryLocomoBench
         Console.WriteLine();
         Console.WriteLine($"Conversations: {conversations}   Scored categories: 1-4 (the published protocol)");
         Console.WriteLine($"Questions: {sampled} sampled from {total}, seeded {Seed}, stratified by category");
-        Console.WriteLine($"Arms: {string.Join(", ", arms)}   recall limit {RecallLimit}   embedder {SweepDoubles.Model}");
+        Console.WriteLine($"Arms: {string.Join(", ", arms)}   recall limit {RecallLimit}   embedder {SweepDoubles.ServedOrRequestedModel}");
         Console.WriteLine();
         Console.WriteLine("The grader is the SAME model that answered, which can be generous to its own");
         Console.WriteLine("phrasing. Stated rather than hidden; a second grader is the obvious next control.");
@@ -1820,10 +1919,17 @@ internal static class MemoryLocomoBench
     /// the report list and the ladder now derive from this. <c>vector</c> and <c>full</c> are deliberately
     /// absent: they own no config and are computed from a per-conversation index.</para></summary>
     /// <param name="judged">Whether a chat model answered, which is the only thing that varies the set.</param>
-    private static string[] RetrievalArms(bool judged) =>
+    private static string[] RetrievalArms(bool judged, bool reranked = false) =>
     [
         "lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
-        "+sem+rel-only", "+sem+rel-only+oracle", "+sem+rel-only+oracle+fuse", "+sem+rel-only+oracle+pool8", "+sem+rel-only+oracle+pool16",
+        "+sem+rel-only", "+sem+rel-only+oracle",
+        // ORDER matters as much as membership: the ladder and this list are asserted equal element by
+        // element, and the arm is built directly after `+sem+rel-only+oracle` above.
+        .. reranked
+            ? ["+sem+rel-only+rerank", "+sem+rel-only+rerank+fuse",
+               "+sem+rel-only+hl512", "+sem+rel-only+hl512+rerank"]
+            : Enumerable.Empty<string>(),
+        "+sem+rel-only+oracle+fuse", "+sem+rel-only+oracle+pool8", "+sem+rel-only+oracle+pool16",
         .. judged ? JudgeArms.Select(JudgeArmName) : Enumerable.Empty<string>(),
         "+sem+mult", "+sem80+mult", "+rel-only",
         "+sem5", "+sem+forget2", "+sem+forget0", "+sem+fuse", "+fuse",
