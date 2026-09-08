@@ -6,6 +6,7 @@ static class Lyntai.CodexCliBuilderExtensions
     static AddCodexCliProvider(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, CodexCliDialect dialect = null) : LyntaiBuilder
 static class Lyntai.OpenAiCompatibleBuilderExtensions
     static AddAzureOpenAiProvider(LyntaiBuilder builder, String endpoint, String apiKey, String defaultModel = null, String id = "azure-openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddLlamaProvider(LyntaiBuilder builder, String baseUrl = null, String defaultModel = null, String id = "llama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOllamaProvider(LyntaiBuilder builder, String baseUrl = null, String defaultModel = null, String id = "ollama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOpenAiCompatibleEmbedder(LyntaiBuilder builder, String id, Action<OpenAiCompatibleEmbedderOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOpenAiCompatibleProvider(LyntaiBuilder builder, String id, Action<OpenAiCompatibleOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder

@@ -14,6 +14,28 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`AddLlamaProvider` — a preset for llama.cpp's `llama-server`**, beside the existing `AddOllamaProvider`.
+  Default base `http://localhost:8080` (llama-server's own port), id `"llama"`, keyless, plain OpenAI schema
+  off the server ROOT — llama-server has no native surface to pin, so unlike Ollama it can take an
+  attachment carrying only a remote `Uri`.
+  <br>**`defaultModel` is a LABEL there, not a selector.** A `llama-server` started with `--model` serves
+  exactly one model and answers to whatever `--alias` names it, so a wrong model name is not an error — you
+  get the loaded model either way. It selects only on a router server (`--models-dir`). Nothing about
+  existing wiring changes; `AddOpenAiCompatibleProvider` already reached llama-server and still does.
+
+- **`SqliteRuntime.DisableMemoryStatistics()` — the read-concurrency ceiling, and the one line that lifts
+  it.** SQLite collects memory-allocation statistics by default, and maintaining them takes a
+  process-global mutex on every allocation and free. Since SQLite allocates heavily inside an FTS5 query,
+  concurrent readers serialise on that counter rather than on anything in the database: read-only graph
+  recalls PEAKED AT TWO WORKERS on a 22-core machine and fell to 216/s by sixteen. With the statistics off
+  the same ladder rises monotonically — **340/s → 4,665/s at eight workers and 216/s → 6,275/s at
+  sixteen** — while single-threaded throughput is unchanged, so this buys concurrency rather than speed.
+  <br>**Lyntai never calls it and no default moved.** `sqlite3_config` configures the native library the
+  whole process shares, and it disables `sqlite3_memory_used`, `sqlite3_status` and the soft and hard heap
+  limits for the host's own SQLite too. Call it at startup, before the first connection is opened; it
+  returns `false` rather than forcing anything if SQLite has already initialised, because the way to force
+  it is undefined behaviour while a connection is live. `docs/memory.md` §7, `docs/DECISIONS.md` **D107**.
+
 - **`GraphMemoryOptions.VerdictCombination` — a verifier's verdict can COMPETE on rank instead of
   partitioning** (`MemoryVerdictCombination.Partition` / `.Fuse`). The partition is the default and is what
   every release has done, so nothing moves for anyone who does not set it.

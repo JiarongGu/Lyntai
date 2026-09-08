@@ -255,6 +255,31 @@ the next change. Say "the row type", "the request record", "the wire type". Entr
   provider-stub (`devtools/scripts/provider-stub.mjs`, selected by `LYNTAI_PROVIDER_CMD`) so no test
   needs a real token.
 
+## Local models — llama.cpp is the standard, Ollama is merely supported
+
+**`llama-server` (llama.cpp) is this repository's standard local model server**, for sweeps, benches and the
+dev loop alike. Everything here speaks OpenAI-compatible HTTP and does not care which server answers, so
+this is a convention about what to REACH FOR, not a constraint the code enforces.
+
+- **The benches default to `http://localhost:8080`** — llama-server's own port. Override with
+  `LYNTAI_LIVE_MODEL_URL`; name the models with `LYNTAI_LIVE_EMBED_MODEL` and `LYNTAI_LIVE_CHAT_MODEL`. The
+  legacy `LYNTAI_OLLAMA_*` names are still honoured, and are legacy for a reason: a variable named after one
+  vendor is a claim about the host that the code never makes.
+- **Every sweep prints the endpoint it used.** It did not until 2026-09-08, and the cost was exactly what
+  you would expect: the default was Ollama's `11434`, no output named it, and a whole session's figures had
+  to be attributed AFTERWARDS by asking which processes happened to be running. **Read a figure taken before
+  that date as Ollama-served** — `docs/memory.md` §5 and §7 say so where it matters.
+- **A model name means different things on the two servers.** Ollama routes by it; a `llama-server` started
+  with `--model` serves ONE model and answers to its `--alias`, so the name is a label and a wrong one is
+  not an error — you get the loaded model either way. It selects only on a router server (`--models-dir`).
+  Never infer from a green run that the model you named is the model that answered.
+- **The library supports both and prefers neither**: `AddLlamaProvider` (default `:8080`, plain OpenAI
+  schema off the root) beside `AddOllamaProvider` (default `:11434`, pinned to Ollama's native surface).
+  Which one a deployment uses is its own choice — `.claude/knowledge/model-decoupling.md`.
+- **Never kill a model server by image name.** `windows-machine.md` §Processes and files records this being
+  violated anyway: a run finished with a by-image kill and took down a sibling tool's embedding server on
+  another port. More than one `llama-server` can be up, and only one of them is yours.
+
 ## Scratch and working files
 
 - Scratch, probes, and dumps go under the gitignored `devtools/_*` (for example the e2e harness's

@@ -32,7 +32,13 @@ internal static class SweepDoubles
     internal const string ModelVariable = "LYNTAI_LIVE_EMBED_MODEL";
 
     /// <summary>Environment variable naming the endpoint. The legacy <c>LYNTAI_OLLAMA_URL</c> still works, so
-    /// a machine already set up does not start failing because a name changed.</summary>
+    /// a machine already set up does not start failing because a name changed.
+    /// <para><b>The default is llama.cpp's own port, because llama.cpp is this repository's standard local
+    /// server</b> (<c>repo-mechanics.md</c> §Local models). It used to be Ollama's <c>11434</c>, and that
+    /// default is why every figure taken before 2026-09-08 is Ollama-served without any run having chosen
+    /// it — nothing printed the endpoint, so the provenance had to be reconstructed afterwards from which
+    /// processes happened to be up. Hence <see cref="TryRealEmbedderAsync"/> now prints what answered.</para>
+    /// </summary>
     internal const string UrlVariable = "LYNTAI_LIVE_MODEL_URL";
 
     /// <summary>The model this resolves to, for a preamble to print.</summary>
@@ -45,7 +51,7 @@ internal static class SweepDoubles
     internal static string BaseUrl =>
         Environment.GetEnvironmentVariable(UrlVariable)
         ?? Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL")
-        ?? "http://localhost:11434";
+        ?? "http://localhost:8080";
 
     /// <summary>
     /// A cached real embedder, or <c>null</c> when no model is reachable — in which case the refusal has
@@ -63,7 +69,18 @@ internal static class SweepDoubles
         var model = Model;
         var baseUrl = BaseUrl;
         var real = new OpenAiCompatibleEmbedder(http, baseUrl, model);
-        if (await real.ReachableAsync()) return new CachingEmbedder(real);
+        if (await real.ReachableAsync())
+        {
+            // PROVENANCE, printed on every run rather than reconstructed afterwards. The endpoint used to
+            // appear nowhere — only the model NAME did — so a table said "embedder nomic-embed-text" and
+            // could not say which of two servers answered it, and a whole session's figures had to be
+            // attributed after the fact by asking which processes were up (`TASKS.md`, 2026-09-04).
+            var served = await real.ServedModelAsync();
+            Console.WriteLine(served is null || served == model
+                ? $"{sweep}: embedder {model} at {baseUrl}"
+                : $"{sweep}: embedder {served} at {baseUrl} (requested {model}; the server serves what it loaded)");
+            return new CachingEmbedder(real);
+        }
 
         Console.Error.WriteLine($"{sweep}: ✗ no embedding model at {baseUrl} ({model}).");
         Console.Error.WriteLine();
@@ -72,8 +89,8 @@ internal static class SweepDoubles
         Console.Error.WriteLine("  would reproduce that defect silently, so this refuses to run instead.");
         Console.Error.WriteLine();
         Console.Error.WriteLine($"  Any OpenAI-compatible /v1/embeddings endpoint serves this:");
-        Console.Error.WriteLine($"    - Ollama:      ollama pull {model}");
-        Console.Error.WriteLine($"    - llama.cpp:   llama-server -m <model.gguf> --embedding");
+        Console.Error.WriteLine($"    - llama.cpp:   llama-server -m <model.gguf> --embedding   (the standard here)");
+        Console.Error.WriteLine($"    - Ollama:      ollama pull {model}   (then set {UrlVariable})");
         Console.Error.WriteLine($"  Point it with {UrlVariable}, and name the model with {ModelVariable}.");
         return null;
     }
@@ -174,6 +191,38 @@ internal static class SweepDoubles
             catch (TaskCanceledException) { return false; }
             catch (JsonException) { return false; }        // answered, but not with an embedding
             catch (KeyNotFoundException) { return false; }
+        }
+
+        /// <summary>What the SERVER reports it has loaded, or null when it reports anything other than
+        /// exactly one model.
+        /// <para><b>The requested name is not evidence of what answered.</b> A single-model
+        /// <c>llama-server</c> ECHOES whatever model string it is sent and serves the file it was started
+        /// with — measured: a request naming <c>whatever-name-is-ignored</c> comes back with that name and a
+        /// real vector. So printing the requested name as provenance would restate the defect this print
+        /// exists to fix. A catalogue server lists many models and routes by name, where the requested name
+        /// IS the truth; that case returns null and the caller falls back to it.</para></summary>
+        public async Task<string?> ServedModelAsync()
+        {
+            try
+            {
+                using var response = await http.GetAsync($"{baseUrl}/v1/models");
+                if (!response.IsSuccessStatusCode) return null;
+                using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                // "data" is the OpenAI shape; llama-server answers with "models"
+                if (!json.RootElement.TryGetProperty("data", out var list) &&
+                    !json.RootElement.TryGetProperty("models", out list)) return null;
+                if (list.ValueKind != JsonValueKind.Array || list.GetArrayLength() != 1) return null;
+
+                var one = list[0];
+                var name = one.TryGetProperty("id", out var id) ? id.GetString()
+                    : one.TryGetProperty("name", out var n) ? n.GetString() : null;
+                // a loaded GGUF is reported as a full path; the file name is the identifying half and the
+                // only half that belongs in output someone may paste into a document
+                return string.IsNullOrWhiteSpace(name) ? null : Path.GetFileName(name);
+            }
+            catch (HttpRequestException) { return null; }
+            catch (TaskCanceledException) { return null; }
+            catch (JsonException) { return null; }
         }
 
         /// <remarks>

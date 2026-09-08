@@ -79,6 +79,28 @@ public static class OpenAiCompatibleBuilderExtensions
             o.Flavor = OpenAiFlavor.Ollama;
         }, httpClient);
 
+    /// <summary>A local (or remote) llama.cpp <c>llama-server</c>, which speaks the plain OpenAI schema off
+    /// its ROOT (<see cref="OpenAiFlavor.OpenAi"/>). Default base "http://localhost:8080", id "llama",
+    /// keyless.
+    /// <para><b>What <paramref name="defaultModel"/> means here is not what it means on a catalogue
+    /// endpoint.</b> A <c>llama-server</c> started with <c>--model</c> serves exactly ONE model and answers
+    /// to whatever <c>--alias</c> names it, so the model on a request is a LABEL and a wrong one is not an
+    /// error — you get the loaded model either way. It selects only on a router server
+    /// (<c>--models-dir</c>), where the name must match an entry. Pass <see langword="null"/> unless you run
+    /// a router or want the label recorded on traces.</para>
+    /// <para>Pass the server ROOT, not its <c>/v1</c>: requests compose to <c>…/v1/chat/completions</c>.
+    /// Unlike <see cref="AddOllamaProvider"/> there is no native surface to pin — <c>llama-server</c> has
+    /// only the OpenAI-shaped one — so an attachment travels as an <c>image_url</c> part and a remote
+    /// <c>Uri</c> attachment is deliverable, which Ollama's own schema cannot express.</para></summary>
+    public static LyntaiBuilder AddLlamaProvider(this LyntaiBuilder builder, string? baseUrl = null,
+        string? defaultModel = null, string id = "llama", Func<IServiceProvider, HttpClient>? httpClient = null) =>
+        builder.AddOpenAiCompatibleProvider(id, o =>
+        {
+            o.BaseUrl = baseUrl ?? "http://localhost:8080";
+            o.DefaultModel = defaultModel;
+            o.Flavor = OpenAiFlavor.OpenAi;
+        }, httpClient);
+
     /// <summary>OpenRouter (openrouter.ai). Default id "openrouter".</summary>
     public static LyntaiBuilder AddOpenRouterProvider(this LyntaiBuilder builder, string apiKey,
         string? defaultModel = null, string id = "openrouter", Func<IServiceProvider, HttpClient>? httpClient = null) =>

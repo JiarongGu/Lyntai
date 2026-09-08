@@ -271,7 +271,17 @@ its result more than its architecture does.
 | RAM | 63.7 GB |
 | GPU | NVIDIA RTX 4080 Laptop — **12 GB VRAM** (driver 596.49) |
 | OS | Windows 11 Pro 10.0.26200 |
-| Runtime | Ollama 0.32.7, .NET 10 |
+| Runtime | .NET 10; `llama-server` (llama.cpp) is the standard server, Ollama 0.32.7 also present |
+
+**Which server answered is part of the figure, and for everything published before 2026-09-08 the answer is
+OLLAMA.** The benches defaulted to `11434` and printed only the model NAME, so no table said which of the
+two running servers served it — the attribution was reconstructed afterwards from which processes were up
+(`TASKS.md`, 2026-09-04). The default is now llama-server's own `8080` and **every sweep prints its
+endpoint**, so a table taken from here on carries its own provenance. `repo-mechanics.md` §Local models.
+<br>**It matters most for the MODEL name.** Ollama routes by it; a `llama-server` started with `--model`
+serves one model and answers to its `--alias`, so re-running an Ollama-era figure against llama-server with
+the same `LYNTAI_LIVE_EMBED_MODEL` string does NOT reproduce the embedder — it silently uses whatever was
+loaded.
 
 **The 12 GB ceiling is the load-bearing number.** Every model that fits it (`gemma3:4b` 3.3 GB, `qwen3:4b`
 2.5 GB, `qwen2.5-vl:7b` 6.0 GB) was measured on GPU; the 20 GB MoE was not. A cost or latency figure here
@@ -3731,12 +3741,47 @@ Each of these cost a real measurement to find.
   which is the part a deployment feels: a 5s `busy_timeout` under a 30s command timeout turns the lock into
   latency, so nothing reaches an error log. **Read `ReinforceOn = None` as a concurrency knob**, not only a
   latency one.
+  <br>**The waiting is now MEASURED rather than inferred, and it holds for only one of the two arms.** The
+  sweep reports CPU over wall time, and `shipped` keeps **0.2 cores** busy at every worker count — threads
+  genuinely blocked on the writer, which is what the paragraph above claims. `read-only` keeps **1.0 / 1.9 /
+  4.1 / 7.7**, so those threads are running flat out while throughput falls. A single "contention here
+  waits" reading covers the write-back arm and is wrong about the read one.
   <br>**And pure reads do not scale either, which WAL says they should**: `read-only` peaks at TWO workers
   and falls to 368/s by eight, on a 22-core machine. **One explanation was tested and REFUTED**: every
   connection open issues `PRAGMA journal_mode=WAL` (`SqliteConnectionFactory`), and setting the journal mode
   takes a database lock even when it is a no-op — but making it run once per factory moved every cell inside
   its own spread (`shipped` 8-worker p99 1061.6 → 1115.1; `read-only` 2-worker rate 1024 → 1080). The
-  experiment was reverted. **What serialises a pure-read open is still open.**
+  experiment was reverted.
+
+  <br>**ANSWERED 2026-09-08, and it is not a lock at all: it is SQLite's global memory-allocation
+  STATISTICS.** Maintaining them takes a process-global mutex on every allocation and free, and SQLite
+  allocates heavily inside an FTS5 query, so concurrent readers serialise on the counter. Turning them off
+  (`SqliteRuntime.DisableMemoryStatistics`, **D107**) changes nothing else about the run:
+
+  | workers | 1 | 2 | 4 | 8 | 16 |
+  |---|---|---|---|---|---|
+  | recalls/s, shipped | 744 | 1,060 | 754 | 340 | 216 |
+  | recalls/s, statistics off | 858 | 1,712 | 2,842 | 4,665 | **6,275** |
+  | scale, statistics off | 1.00× | 1.99× | 3.31× | 5.43× | **7.31×** |
+
+  **The peak at TWO WORKERS disappears** and the curve becomes monotonic; one thread is unaffected, so this
+  buys concurrency rather than speed. Reproduced across three interleaved rounds at eight workers with
+  non-overlapping spreads (on 330/320/317, off 3,154/4,056/4,060).
+
+  <br>**The chain that got there, because every step was a refutation and each one is worth not repeating.**
+  It is NOT the connection open (one connection per worker, zero opens in the timed loop, same collapse),
+  not GC (0% pause, allocation flat at 81 KB/op, and Server GC changes nothing), not exceptions (zero
+  first-chance), not the WAL (checkpointing 4 MB to 0 changes nothing), not journal mode, not the
+  measurement window (a 10× window with a warmup reproduces it at `hit` 1.000), not the engine (raw
+  `SeedAsync` with no engine code collapses identically), and **not any shared state** — one engine, one
+  store and one database file per worker collapse exactly as the shared ones do. What located it was that
+  eight separate PROCESSES deliver 4,422 recalls/s where one process with eight workers delivers 431:
+  process-global, which is what a per-database isolation ladder can never reach and what a second process
+  gets for free.
+
+  <br>**Lyntai does not turn it off for you**, because `sqlite3_config` is the whole process's and it
+  disables `sqlite3_memory_used`, `sqlite3_status` and the heap limits for the host's own SQLite too
+  (**D107**). Nothing in this library reads them.
   <br>**What a recall spends on LEARNING, settled with repeats.** The sweep splits a default recall's
   latency into the read and the write-back (reinforcement + co-activation edges + the review-log row) it
   performs afterwards. At 5 runs per cell that write-back is **75% of the p50 at 1k and 50% at 10k** — so

@@ -842,6 +842,7 @@ services.AddLyntai(cfg =>
 {
     // Provider presets (or the generic AddOpenAiCompatibleProvider, or your own ILlmProvider):
     cfg.AddOpenAiProvider(apiKey, defaultModel: "gpt-4o-mini");
+    cfg.AddLlamaProvider(defaultModel: "gemma-3-4b");      // llama.cpp llama-server, :8080
     cfg.AddOllamaProvider(defaultModel: "llama3.2:3b");
     cfg.AddProvider(_ => new MyCustomProvider());          // BYO ILlmProvider
 

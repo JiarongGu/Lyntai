@@ -100,8 +100,13 @@ inside the pool already gathered.
   contract, which is why every reconciliation experiment could only DELETE. **RIF** is the shape of the fix,
   filed as a design lead with **D62**'s warning attached (the fan effect died on a bad PROXY, not a bad
   mechanism) and a redundancy control named before anyone builds it.
-- **`read-only` recalls peak at TWO workers on 22 cores** (§7) and nothing explains it. The
-  `PRAGMA journal_mode=WAL`-per-open hypothesis was implemented, measured, refuted and reverted.
+- ~~**`read-only` recalls peak at TWO workers on 22 cores** (§7) and nothing explains it.~~ **CLOSED
+  2026-09-08** (`docs/task-archive.md` **Part 167**, **D107**): it is SQLite's global memory-allocation
+  STATISTICS, whose mutex every allocation and free takes, and eight concurrent recalls go 340/s → 4,665/s
+  with them off. `SqliteRuntime.DisableMemoryStatistics()` ships it opt-in; Lyntai never calls it, because
+  `sqlite3_config` is the whole process's. **The reusable half is in `pitfalls.md`**: per-object and
+  per-file isolation changed nothing while separate PROCESSES scaled, which is the signature of a global
+  no grep of your own code can find.
 
 **The habit that earned its keep, twice in one day**: a prediction refuted in the FLATTERING direction is the
 one to distrust. A 100.0%-in-every-category oracle result was a pool larger than its store, and a 4–5 point
@@ -155,10 +160,15 @@ input" is ENVIRONMENT-blocked, not open.
 <br>**What the runs above actually talked to, because this machine runs BOTH and it is not inferable from
 the tables.** No `LYNTAI_*` variable was set, so the benches took their default — `http://localhost:11434`,
 which is Ollama — while three `llama-server` processes were up and unused. Every figure on record from
-2026-09-03/04 is therefore Ollama-served (`nomic-embed-text`, `gemma3:4b`). **To measure against
-llama.cpp instead, set `LYNTAI_LIVE_MODEL_URL`** to its port; the sweeps speak OpenAI-compatible HTTP and
-do not care which server answers. The embed-model variable is now `LYNTAI_LIVE_EMBED_MODEL`, named for the
-role rather than for one vendor, with the old `LYNTAI_OLLAMA_EMBED_MODEL` still honoured.
+2026-09-03/04 is therefore Ollama-served (`nomic-embed-text`, `gemma3:4b`). The embed-model variable is now
+`LYNTAI_LIVE_EMBED_MODEL`, named for the role rather than for one vendor, with the old
+`LYNTAI_OLLAMA_EMBED_MODEL` still honoured.
+<br>**FIXED at the source on 2026-09-08, at the owner's direction: llama.cpp is the standard local server**
+(`repo-mechanics.md` §Local models). The bench default moved from Ollama's `11434` to llama-server's own
+`8080`, **every sweep now prints the endpoint it used** so no future table needs attributing after the
+fact, and the library gained `AddLlamaProvider` beside `AddOllamaProvider`. Figures above stay
+Ollama-served and are labelled as such; re-running one against llama-server does not reproduce it, because
+a single-model `llama-server` ignores the model name and serves whatever it loaded.
 
 **WRITE-TIME EXTRACTION IS NOT A SUBSTITUTE FOR DECAY** (2026-09-04, `docs/task-archive.md` **Part 148**).
 Extracted facts with forgetting silent score 53.0% and are indistinguishable from plain cosine

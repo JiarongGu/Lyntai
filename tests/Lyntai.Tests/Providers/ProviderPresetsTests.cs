@@ -53,6 +53,41 @@ public class ProviderPresetsTests
     }
 
     [Fact]
+    public async Task Llama_preset_defaults_to_llama_servers_own_port_and_no_key()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddLlamaProvider(defaultModel: "gemma-3-4b", httpClient: _ => new HttpClient(handler))
+            .UseDefaultCandidates("llama"));
+        using var sp = services.BuildServiceProvider();
+
+        var reply = await sp.GetRequiredService<ILlmClient>()
+            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+
+        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        // llama-server speaks the OpenAI schema off its ROOT — never Ollama's native /api/chat, which is
+        // the mistake a "local model server" preset invites
+        Assert.Equal("http://localhost:8080/v1/chat/completions", handler.Requests[0].Uri!.ToString());
+        Assert.Null(handler.Requests[0].Auth); // keyless
+    }
+
+    [Fact]
+    public async Task Llama_preset_reaches_a_remote_server_on_the_base_url_it_is_given()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddLlamaProvider(baseUrl: "http://gpu-box:9001", httpClient: _ => new HttpClient(handler))
+            .UseDefaultCandidates("llama"));
+        using var sp = services.BuildServiceProvider();
+
+        await sp.GetRequiredService<ILlmClient>().CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+
+        Assert.Equal("http://gpu-box:9001/v1/chat/completions", handler.Requests[0].Uri!.ToString());
+    }
+
+    [Fact]
     public async Task OpenRouter_preset_targets_openrouter()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
