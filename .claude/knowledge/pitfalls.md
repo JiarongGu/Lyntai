@@ -862,6 +862,19 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   not; the footer now reports `N input(s) truncated`. That is the same defect as a table naming the model
   it REQUESTED rather than the one that answered — a silent difference between what was measured and what
   was reported.
+- **`catch (OperationCanceledException) { throw; }` makes a fail-open seam fail CLOSED the moment the work
+  it wraps is an HTTP call.** An `HttpClient` timeout surfaces as `TaskCanceledException`, which IS an
+  `OperationCanceledException`, so a bare rethrow cannot tell "the caller cancelled" from "my own request
+  timed out" — and rethrowing the second one propagates out of a method whose whole contract is to degrade.
+  Measured 2026-09-09: a judge call exceeding its timeout took down a recall, and with it 40 minutes of
+  ingestion (`docs/FIXES.md`).
+  <br>**The fix is a filter, not a broader catch**: `when (ct.IsCancellationRequested)`. Swallowing every
+  cancellation is the wrong repair — it makes a cancelled operation look like a successful one — so pin BOTH
+  halves, which is what `MemoryVerificationTimeoutTests` does.
+  <br>**Why it survived**: the seam is opt-in and defaults to none, so the shipped path never exercises it.
+  **Whenever a fail-open catch wraps work that can be a network call, ask which exception the timeout
+  actually throws** — `Lyntai.Core/Memory` has 20 more sites with this idiom and only the ones wrapping a
+  model call are known to be affected.
 - **A seam that hands a model a TRUNCATION measures the truncation, and the model takes the blame.**
   `IMemoryVerificationPolicy` receives `MemoryVerificationCandidate.Headline` and never `Content`, and
   `GraphMemoryOptions.HeadlineChars` ships at 120. Measured 2026-09-08 on LoCoMo, whose turns have a median

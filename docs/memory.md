@@ -467,6 +467,30 @@ state — the same category error the write-time reconciliation runs paid for by
 arm is under-powered before it is written: **Part 166** measured that no corpus here has dense supersession
 (4 replacements, 10 dense pairs of 244 asked, p = 1.000).
 
+**IT WAS MEASURED (2026-09-09) AND THE TRIGGER IS INVERTED — a third answer neither branch anticipated.**
+All 70 knowledge-update questions, haystack, the shipped `LlmMemoryVerificationPolicy` over `gemma3:4b`
+(Q4_K_M), 40 candidates per call, zero judge failures. **Judge served by OLLAMA, not llama.cpp** — this
+machine holds no chat GGUF, and the finding is a property of the MODEL's judgement rather than of the
+server, so it is recorded rather than re-run. Embedder on llama.cpp (`repo-mechanics.md` §Local models).
+
+| population | shown | endorsed | UNendorsed |
+|---|---|---|---|
+| every candidate (base rate) | 2,800 | 9.0% | 91.0% |
+| the CURRENT fact | 65 | 10.8% | 89.2% |
+| the SUPERSEDED fact | 69 | **36.2%** | 63.8% |
+
+**The judge endorses the SUPERSEDED fact 3.4× more often than the current one**, and at 4× the base rate.
+So the unendorsed half is enriched for the CURRENT fact, and a penalty on it fires backwards. Of the 65
+calls that showed both, it would demote the superseded fact alone **5** times and the current fact alone
+**23** — a 4.6:1 ratio the wrong way, with 35 no-discrimination cases besides.
+
+**The mechanism is the one this document already measured from the other side.** A superseded statement is
+often the more canonical answer to the question, while its replacement is phrased as a revision — so a
+RELEVANCE judgement prefers the stale one. That is the same effect behind the cross-encoder taking
+`stale@k` from 44.3% to 95.7%: query relevance is not merely blind to recency here, it is mildly
+ANTI-correlated with it. **D109 predicted "at base rate" as the killing result; the measurement is worse
+than that, and the direction is closed rather than merely unsupported.**
+
 **What would revive it, and it is one cheap measurement.** `lyntai_memory_review.verified` is already
 persisted per (node, batch) as a tri-state, so the trigger's PRECISION is computable from data on disk:
 P(entry is the superseded member of the pair | returned AND unendorsed) on the knowledge-update haystack,

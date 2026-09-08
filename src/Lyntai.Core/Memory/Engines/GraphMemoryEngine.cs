@@ -1444,7 +1444,11 @@ public sealed class GraphMemoryEngine(
             return await verification.VerifyAsync(request, ct).ConfigureAwait(false)
                    ?? Lyntai.Memory.Verification.MemoryVerification.NoOpinion;
         }
-        catch (OperationCanceledException) { throw; }
+        // Only the CALLER's cancellation propagates. A policy's own timeout arrives as a
+        // TaskCanceledException — which IS an OperationCanceledException — so a bare rethrow made this
+        // fail-open seam fail CLOSED on the likeliest failure a model-backed policy has, taking the whole
+        // recall down with it (found 2026-09-09, `docs/FIXES.md`).
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,

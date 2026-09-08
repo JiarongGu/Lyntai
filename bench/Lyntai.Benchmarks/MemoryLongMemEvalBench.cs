@@ -10,6 +10,7 @@ using Lyntai.Memory.Ranking;
 using Lyntai.Memory.Seeding;
 using Lyntai.Storage.Sqlite;
 
+using Lyntai.Memory.Verification;
 namespace Lyntai.Benchmarks;
 
 /// <summary>
@@ -1187,6 +1188,18 @@ internal static class MemoryLongMemEvalBench
         var configs = SelectConfigs(args, out var wantsCosine);
         if (configs is null) return 1;
 
+        // `--trigger` measures the RIF trigger's PRECISION (D109) rather than building it: does a judge
+        // leave the SUPERSEDED fact unendorsed more often than the current one? One arm, one ingestion.
+        TriggerAudit? trigger = null;
+        if (args.Contains("--trigger"))
+        {
+            var judge = await SweepDoubles.TryRealChatAsync(http, "memory-longmemeval trigger");
+            if (judge is null) return 1;
+            trigger = new TriggerAudit(new LlmMemoryVerificationPolicy(new SweepDoubles.BenchClientFactory(judge)));
+            configs = [.. configs.Select(a => a with { Verification = trigger })];
+            Console.WriteLine($"memory-longmemeval trigger: judge {judge.Model} at {SweepDoubles.ChatBaseUrl}");
+        }
+
         // `--rerank` prices the cross-encoder on the workload this design makes its claim on. It is opt-in
         // and TRIPLES the arms it is given, so it stays off by default: an arm costs a full ingestion per
         // question, ~490 turns each under --haystack.
@@ -1222,6 +1235,7 @@ internal static class MemoryLongMemEvalBench
         foreach (var q in sampled)
         {
             Progress(++done, sampled.Count);
+            if (trigger is not null) { trigger.Current = q.Current; trigger.Stale = q.Stale; }
             var results = new List<(string Arm, List<string> Got)>();
 
             // ONE PRISTINE STORE PER ARM. Only the configs a selected arm needs are ingested, which is the
@@ -1293,6 +1307,7 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine();
         Console.WriteLine("  'prefers current' is scored only over questions where the arm returned at least");
         Console.WriteLine("  one of the two facts — otherwise retrieving NEITHER would score a vacuous 100%.");
+        if (trigger is not null) PrintTrigger(trigger);
         if (reranker is not null)
         {
             var (calls, scored, distinct) = reranker.Audit;
@@ -1959,6 +1974,105 @@ internal static class MemoryLongMemEvalBench
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
             + $"{TruncationNote()}.");
         return 0;
+    }
+
+    /// <summary>The RIF TRIGGER measurement (**D109**). Wraps a real judge and records, per candidate the
+    /// verifier was shown, whether it was the CURRENT fact, the SUPERSEDED one, or neither — against
+    /// whether the judge endorsed it.
+    ///
+    /// <para><b>What decides the question.</b> A competitor penalty fires on the unendorsed half, so it can
+    /// only help supersession if the judge leaves the SUPERSEDED fact unendorsed more often than the
+    /// current one. Enrichment for evidence in general says nothing: both facts answer the query, so a
+    /// trigger that under-endorses both is measuring relevance, not recency. The paired cell is the
+    /// decisive one — of the calls where BOTH facts were shown, how often the penalty would fire on the
+    /// stale fact alone (correct) against the current fact alone (backwards).</para></summary>
+    private sealed class TriggerAudit(IMemoryVerificationPolicy inner) : IMemoryVerificationPolicy
+    {
+        internal IReadOnlyList<Turn> Current { get; set; } = [];
+        internal IReadOnlyList<Turn> Stale { get; set; } = [];
+
+        internal int Calls, Shown, Endorsed;
+        internal int CurShown, CurEndorsed, StaShown, StaEndorsed;
+        internal int BothShown, FiresOnStaleOnly, FiresOnCurrentOnly, FiresOnNeither, FiresOnBoth;
+
+        private static bool Is(MemoryVerificationCandidate c, IReadOnlyList<Turn> turns)
+        {
+            var text = c.Content ?? c.Headline;
+            return turns.Any(t => text.Contains(t.Tag, StringComparison.Ordinal));
+        }
+
+        internal int Failed;
+
+        public async Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
+            CancellationToken ct = default)
+        {
+            MemoryVerification verdict;
+            try
+            {
+                verdict = await inner.VerifyAsync(request, ct).ConfigureAwait(false);
+            }
+            catch (Exception) when (!ct.IsCancellationRequested)
+            {
+                // Counted, not swallowed: the engine fails open above, so a judge that times out would
+                // otherwise shrink this measurement's denominator invisibly.
+                Failed++;
+                return MemoryVerification.NoOpinion;
+            }
+            if (!verdict.Judged) return verdict;
+
+            var endorsed = verdict.RelevantIds.ToHashSet(StringComparer.Ordinal);
+            Calls++;
+            Shown += request.Candidates.Count;
+            Endorsed += request.Candidates.Count(c => endorsed.Contains(c.Id));
+
+            bool curShown = false, curEnd = false, staShown = false, staEnd = false;
+            foreach (var c in request.Candidates)
+            {
+                var isEndorsed = endorsed.Contains(c.Id);
+                if (Is(c, Current)) { curShown = true; CurShown++; if (isEndorsed) { curEnd = true; CurEndorsed++; } }
+                if (Is(c, Stale)) { staShown = true; StaShown++; if (isEndorsed) { staEnd = true; StaEndorsed++; } }
+            }
+
+            if (curShown && staShown)
+            {
+                BothShown++;
+                if (!staEnd && curEnd) FiresOnStaleOnly++;
+                else if (staEnd && !curEnd) FiresOnCurrentOnly++;
+                else if (staEnd && curEnd) FiresOnNeither++;
+                else FiresOnBoth++;
+            }
+            return verdict;
+        }
+    }
+
+    /// <summary>The trigger table. Reports the base rate BESIDE the conditional rates, because a
+    /// conditional that merely matches the base rate is the null result this run exists to be able to
+    /// report.</summary>
+    private static void PrintTrigger(TriggerAudit t)
+    {
+        static string Pct(int n, int d) => d == 0 ? "n/a" : $"{(double)n / d:P1}";
+        Console.WriteLine();
+        Console.WriteLine("=== RIF TRIGGER PRECISION (D109) — does the unendorsed half know about supersession? ===");
+        Console.WriteLine($"  judged calls {t.Calls}   candidates shown {t.Shown}   "
+            + $"endorsed {t.Endorsed} ({Pct(t.Endorsed, t.Shown)})   judge failures {t.Failed}");
+        Console.WriteLine();
+        Console.WriteLine($"  {"population",-28} {"shown",8} {"endorsed",10} {"UNendorsed",12}");
+        Console.WriteLine($"  {"every candidate (base rate)",-28} {t.Shown,8} {Pct(t.Endorsed, t.Shown),10} "
+            + $"{Pct(t.Shown - t.Endorsed, t.Shown),12}");
+        Console.WriteLine($"  {"the CURRENT fact",-28} {t.CurShown,8} {Pct(t.CurEndorsed, t.CurShown),10} "
+            + $"{Pct(t.CurShown - t.CurEndorsed, t.CurShown),12}");
+        Console.WriteLine($"  {"the SUPERSEDED fact",-28} {t.StaShown,8} {Pct(t.StaEndorsed, t.StaShown),10} "
+            + $"{Pct(t.StaShown - t.StaEndorsed, t.StaShown),12}");
+        Console.WriteLine();
+        Console.WriteLine($"  Of the {t.BothShown} call(s) that showed BOTH facts — where a penalty could discriminate:");
+        Console.WriteLine($"    fires on the SUPERSEDED one alone (correct)  {t.FiresOnStaleOnly,5}  {Pct(t.FiresOnStaleOnly, t.BothShown)}");
+        Console.WriteLine($"    fires on the CURRENT one alone (backwards)   {t.FiresOnCurrentOnly,5}  {Pct(t.FiresOnCurrentOnly, t.BothShown)}");
+        Console.WriteLine($"    fires on BOTH (no discrimination)            {t.FiresOnBoth,5}  {Pct(t.FiresOnBoth, t.BothShown)}");
+        Console.WriteLine($"    fires on NEITHER (no discrimination)         {t.FiresOnNeither,5}  {Pct(t.FiresOnNeither, t.BothShown)}");
+        Console.WriteLine();
+        Console.WriteLine("  READ THE LAST BLOCK, not the first. Enrichment of the unendorsed half for evidence in");
+        Console.WriteLine("  GENERAL says nothing about supersession: both facts answer the query. Only the paired");
+        Console.WriteLine("  cells separate a penalty that would bury the stale fact from one that fires either way.");
     }
 
     private static int FirstIndexOf(List<string> got, IReadOnlyList<Turn> wanted)

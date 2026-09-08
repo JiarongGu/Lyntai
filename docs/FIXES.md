@@ -7,6 +7,35 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-09 — a fail-open seam failed CLOSED on the one failure a model-backed policy actually has
+
+**Symptom.** A `memory-longmemeval --haystack --trigger` run died ~40 minutes in, after ingesting 34,242
+turns, with `TaskCanceledException: The request was canceled due to the configured HttpClient.Timeout of 300
+seconds elapsing`, thrown from a judge call and propagating all the way out of
+`GraphMemoryEngine.RecallAsync`. The recall did not degrade — it failed, and took the run with it.
+
+**Root cause.** `GraphMemoryEngine.VerifyAsync` is documented fail-open and catches everything, returning
+`MemoryVerification.NoOpinion` and logging: *"memory verification failed; reinforcing what was returned"*.
+But it rethrows `OperationCanceledException` FIRST, which is correct for a caller's cancellation — and an
+`HttpClient` timeout surfaces as `TaskCanceledException`, **which is an `OperationCanceledException`**. So
+the two are indistinguishable at the catch site, and the seam failed closed on precisely the failure a
+model-backed policy is most likely to have: a slow model. A verifier is opt-in and defaults to none, which
+is why this survived — the shipped path never registers one.
+
+**Fix.** `catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }` — rethrow only
+when the CALLER actually cancelled; anything else falls through to the fail-open handler. Both halves are
+pinned, because the wrong fix here is to swallow every cancellation, which would make a cancelled recall
+look like a successful one: `MemoryVerificationTimeoutTests` asserts that a timing-out verifier still
+returns items AND that a cancelled caller still gets an `OperationCanceledException`.
+
+**Verify.** Both tests fail on the old catch and pass on the new one; `verify` green. **The same idiom
+appears at 20 other sites in `Lyntai.Core/Memory`** and was deliberately NOT changed in this fix: the
+evidence is for the verification seam, and the store-facing sites wrap work whose cancellation semantics
+are different. Whether the annotation seam — the other opt-in model-in-the-loop policy, and the other one
+documented fail-open — has the same defect is an open question, filed rather than assumed.
+
+---
+
 ## 2026-09-02 — the LoCoMo oracle arm could not run at full sample, and a 200-question ceiling hid it
 
 **Symptom.** `node devtools/dev.mjs memory-locomo --retrieval --n 1540` dies partway through the eighth

@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SIX items, across Parts 109, 116, 128 and 129.** Each is a
+**The startable set is SEVEN items, across Parts 109, 116, 128 and 129.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -41,9 +41,9 @@ moves and the reason the count is worth stating rather than the items. **Then it
 **159**, **160** and **161** closed the pool ladder across all three workloads, and the last of them left
 nothing behind — the shipped `CandidateMultiplier` is vindicated on two of three, so there is no successor
 question, which is the rarer way an item leaves this list.
-<br>**To SEVEN and back to SIX on 2026-09-08**: Part 168 measured the cross-encoder and left a DECISION
-behind it, then Part 170 took that decision the same day and shipped it. Counted, not adjusted — the
-remaining six are Parts 109, 116, 128 (three) and 129._
+<br>**To SEVEN, back to SIX, and to SEVEN again across 2026-09-08/09**: Part 168 left a DECISION behind it,
+Part 170 took it the same day, and the D109 trigger run then found a fail-open seam failing CLOSED
+(`docs/FIXES.md`) whose ANNOTATION twin is unchecked. Counted, not adjusted._
 <br>_**This line used to be a 49-line running tally** — every Part that opened and closed since 2026-08-30,
 with the count after each. It was deleted on 2026-09-03 rather than extended, because `task-lifecycle.md`
 says outright that a backlog must not summarize its archive: the tally grew without bound, answered a
@@ -117,8 +117,10 @@ inside the pool already gathered.
   nothing); the unendorsed signal is neither discarded nor persisted on the shipped `Partition`, and does
   not exist by default; and the stated null control contributes exactly zero, because a write advances age
   as a COMMON ADDEND and RRF reads rank positions. RIF also addresses the wrong half — it supplies a
-  weakening ACT, not a supersession SIGNAL, which **D106** already located at ENCODING. One cheap
-  measurement would reopen it, named in D109.
+  weakening ACT, not a supersession SIGNAL, which **D106** already located at ENCODING. **The measurement RAN 2026-09-09**
+  (`docs/task-archive.md` **Part 172**) and closed it rather than reopening it: the judge endorses the
+  SUPERSEDED fact 3.4× more often than the current one, so the trigger is INVERTED and a penalty would
+  demote the current fact 4.6:1.
 - ~~**`read-only` recalls peak at TWO workers on 22 cores** (§7) and nothing explains it.~~ **CLOSED
   2026-09-08** (`docs/task-archive.md` **Part 167**, **D107**): it is SQLite's global memory-allocation
   STATISTICS, whose mutex every allocation and free takes, and eight concurrent recalls go 340/s → 4,665/s
@@ -1020,6 +1022,14 @@ and the four things it does not say._
   fuller text once it has it: finds more (`current@k` +8.5) and discriminates no better between a fact and
   its replacement (`stale@k` +51.4). So this decision buys RECALL, and whoever takes it should want that._
   <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit._
+
+- [ ] **Does the ANNOTATION seam fail closed on its own timeout too?** The verification seam did, and was
+  fixed 2026-09-09 (`docs/FIXES.md`): `catch (OperationCanceledException) { throw; }` cannot distinguish a
+  caller's cancellation from an `HttpClient` timeout, so a fail-open seam failed closed on the likeliest
+  failure a model-backed policy has. `LlmMemoryAnnotationPolicy` and the engine's call into it use the same
+  idiom, and annotation is the other opt-in model-in-the-loop seam. **Not assumed** — the fix was scoped to
+  where there was evidence. The other 20 sites in `Lyntai.Core/Memory` wrap store work, whose cancellation
+  semantics differ; each needs its own answer rather than a sweeping edit.
 
 - [ ] **Decide whether a memory seam's `Model` should beat a candidate's — today it silently loses.**
   `LlmVerificationOptions.Model` and `LlmAnnotationOptions.Model` set `LlmRequest.Model`, and the router

@@ -6,6 +6,7 @@ using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Salience;
 
+using Lyntai.Llm;
 namespace Lyntai.Benchmarks;
 
 /// <summary>
@@ -350,6 +351,16 @@ internal static class SweepDoubles
     internal static string ChatModel =>
         Environment.GetEnvironmentVariable(ChatModelVariable) ?? "gemma3:4b";
 
+    /// <summary>Endpoint of the CHAT model, falling back to <see cref="UrlVariable"/>.
+    /// <para><b>Its own variable because a <c>llama-server</c> serves ONE model.</b> Under Ollama the chat
+    /// model and the embedder answer on one port, so one URL sufficed; under this repository's standard
+    /// they are two processes, and a shared variable forces a run to choose which role gets the right
+    /// endpoint. Defaulted, so an Ollama-shaped setup keeps working unchanged.</para></summary>
+    internal const string ChatUrlVariable = "LYNTAI_LIVE_CHAT_URL";
+
+    internal static string ChatBaseUrl =>
+        Environment.GetEnvironmentVariable(ChatUrlVariable) ?? BaseUrl;
+
     /// <summary>
     /// A real chat model over the OpenAI-compatible <c>/v1/chat/completions</c> route, or <c>null</c> when
     /// none is reachable — in which case the refusal is already on stderr and the caller exits non-zero.
@@ -357,10 +368,15 @@ internal static class SweepDoubles
     internal static async Task<OpenAiCompatibleChat?> TryRealChatAsync(HttpClient http, string sweep)
     {
         var model = ChatModel;
-        var chat = new OpenAiCompatibleChat(http, BaseUrl, model);
-        if (await chat.ReachableAsync()) return chat;
+        var url = ChatBaseUrl;
+        var chat = new OpenAiCompatibleChat(http, url, model);
+        if (await chat.ReachableAsync())
+        {
+            Console.WriteLine($"{sweep}: chat {model} at {url}");
+            return chat;
+        }
 
-        Console.Error.WriteLine($"{sweep}: ✗ no chat model at {BaseUrl} ({model}).");
+        Console.Error.WriteLine($"{sweep}: ✗ no chat model at {url} ({model}).");
         Console.Error.WriteLine();
         Console.Error.WriteLine("  This arm measures what a MODEL is worth, so a scripted stand-in would");
         Console.Error.WriteLine("  measure the stand-in. It refuses to run instead.");
@@ -368,7 +384,7 @@ internal static class SweepDoubles
         Console.Error.WriteLine("  Any OpenAI-compatible /v1/chat/completions endpoint serves this:");
         Console.Error.WriteLine("    - llama.cpp:   llama-server -hf <user>/<model>[:quant]   (preferred)");
         Console.Error.WriteLine($"    - Ollama:      ollama pull {model}                        (convenience only)");
-        Console.Error.WriteLine($"  Point it with {UrlVariable}, and name the model with {ChatModelVariable}.");
+        Console.Error.WriteLine($"  Point it with {ChatUrlVariable} (or {UrlVariable}), and name it with {ChatModelVariable}.");
         return null;
     }
 
@@ -476,6 +492,83 @@ internal static class SweepDoubles
             using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
             return json.RootElement.GetProperty("choices")[0]
                 .GetProperty("message").GetProperty("content").GetString();
+        }
+    }
+
+    /// <summary><b>Hoisted here 2026-09-09</b>, when a second field bench needed the same judge client. A
+    /// private second copy is the duplication this class exists to prevent: two clients that drift produce
+    /// two believable tables, which is the reasoning the class doc already gives for the salience counter.
+    /// </summary>
+
+    /// <summary>
+    /// Routes the SHIPPED <c>LlmMemoryVerificationPolicy</c> at this machine's local chat model.
+    ///
+    /// <para><b>Deliberately not a judge written here.</b> The question is what the seam a deployment would
+    /// actually switch on is worth — so the arm has to exercise the shipped prompt, the shipped parsing, the
+    /// shipped depth handling and the shipped fail-open behaviour. A bench-local judge would measure a prompt
+    /// invented for the bench, and would flatter or damn the feature for reasons no consumer inherits.</para>
+    ///
+    /// <para>Both members return the same client because the bench registers exactly one; a policy asking for
+    /// a NAMED client gets it rather than a <c>KeyNotFoundException</c>, which would fail the arm open and
+    /// look like a judge that endorsed nothing.</para>
+    ///
+    /// <para><b>A <paramref name="budget"/> augments the SYSTEM message and changes nothing else</b> — the
+    /// shipped policy still composes, sends, parses and fails open. That is what keeps a budget arm an
+    /// experiment on the seam a deployment switches on rather than on a judge written here, and it is why
+    /// the budget is injected at the client rather than by copying the policy.</para>
+    /// </summary>
+    /// <param name="chat">The local chat model.</param>
+    /// <param name="budget">Endorsements the prompt asks for at most; null leaves the shipped prompt.</param>
+    internal sealed class BenchClientFactory(OpenAiCompatibleChat chat, int? budget = null)
+        : ILlmClientFactory
+    {
+        private readonly BenchClient _client = new(chat, budget);
+
+        public ILlmClient Get(string name) => _client;
+
+        public ILlmClient Get() => _client;
+
+        public bool TryGet(string name, out ILlmClient client)
+        {
+            client = _client;
+            return true;
+        }
+
+        public IReadOnlyList<string> Names => ["bench"];
+
+        private sealed class BenchClient(OpenAiCompatibleChat chat, int? budget) : ILlmClient
+        {
+            public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+            {
+                // Into the SYSTEM message, so the budget sits with the other rules and AHEAD of the notes —
+                // where the library's own const would put it. Appending it after 80 notes would be a
+                // different prompt, and the arm would price the position rather than the budget.
+                var messages = budget is { } b
+                    ? req.Messages.Select(m => m.Role == "system"
+                        ? m with { Content = $"{m.Content}\n- Choose AT MOST {b} notes. If more than {b} seem "
+                            + $"relevant, keep only the {b} best." }
+                        : m)
+                    : req.Messages;
+
+                // The judge's whole prompt is one user turn; join defensively in case that changes, rather
+                // than indexing [0] and silently dropping a system message the policy started sending.
+                var prompt = string.Join("\n", messages.Select(m => m.Content));
+
+                // Room for a list of ids. The policy's own parser decides what a valid answer is; a cap so
+                // tight that a correct answer is truncated would be measured as the judge being wrong.
+                var text = await chat.AskAsync(prompt, ct, maxTokens: 256).ConfigureAwait(false);
+
+                return text is null
+                    ? new LlmReply("", LlmVerdict.Failed, Detail: "bench chat returned nothing")
+                    : new LlmReply(text, LlmVerdict.Ok);
+            }
+
+            /// <summary>The verification policy never streams — it asks one bounded question and parses the
+            /// whole answer. Throwing rather than returning an empty sequence is deliberate: a silent empty
+            /// stream would let a future caller believe it had read something.</summary>
+            public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+                throw new NotSupportedException(
+                    "the bench client backs a verification judge, which does not stream");
         }
     }
 }

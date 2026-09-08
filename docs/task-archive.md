@@ -1966,6 +1966,25 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 172 — the RIF trigger measured: INVERTED, not merely uninformative
+
+✅ done 2026-09-09. The one measurement **D109** named as able to reopen the direction. It closed it
+instead. All 70 knowledge-update questions, haystack, shipped judge over `gemma3:4b`, 40 candidates per
+call, zero judge failures. Table in `docs/memory.md` §5.
+
+**The judge endorses the SUPERSEDED fact 3.4× more often than the current one** — 36.2% against 10.8%,
+against a 9.0% base rate. So the unendorsed half is enriched for the CURRENT fact. Of the 65 calls showing
+both, a penalty would demote the superseded fact alone 5 times and the current fact alone **23**.
+
+**D109 predicted "at base rate" as the killing result and the truth is worse**, which is the rarer and more
+useful outcome: query relevance is mildly ANTI-correlated with recency here, the same effect behind the
+cross-encoder taking `stale@k` 44.3% → 95.7%.
+
+**It also found a shipped defect** — a fail-open seam failing CLOSED on its own timeout (`docs/FIXES.md`),
+which cost 40 minutes of ingestion before it was read.
+
+- Run the trigger-precision measurement D109 named.
+
 ## Part 171 — RIF analysed and REFUSED, and three of its premises were wrong
 
 ✅ done 2026-09-08, closing the last of the 2026-09-07 handover's three threads. Nothing built. **D109**;

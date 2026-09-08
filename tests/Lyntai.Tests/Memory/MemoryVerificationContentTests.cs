@@ -83,3 +83,52 @@ public class MemoryVerificationContentTests
         Assert.Null(candidate.Content);
     }
 }
+
+/// <summary>
+/// A verifier's own TIMEOUT must not fail the recall. The seam is documented fail-open — the engine logs and
+/// returns <c>NoOpinion</c> — but it rethrows <see cref="OperationCanceledException"/> first, correctly, so a
+/// caller's cancellation propagates. An <see cref="HttpClient"/> timeout surfaces as
+/// <see cref="TaskCanceledException"/>, which IS an <see cref="OperationCanceledException"/>, so the single
+/// most likely failure of a model-backed policy — a slow model — took the whole recall down with it.
+///
+/// <para>Found 2026-09-09 by a bench run losing 40 minutes of ingestion to one judge call exceeding its HTTP
+/// timeout. The distinction the engine now draws is the standard one: rethrow only when the CALLER's token is
+/// actually cancelled.</para>
+/// </summary>
+public class MemoryVerificationTimeoutTests
+{
+    private sealed class TimesOut : IMemoryVerificationPolicy
+    {
+        public Task<MemoryVerification> VerifyAsync(
+            MemoryVerificationRequest request, CancellationToken ct = default) =>
+            // exactly what HttpClient throws on its own timeout: a cancellation nobody asked for
+            throw new TaskCanceledException("the request was canceled due to the configured HttpClient.Timeout");
+    }
+
+    private static async Task<MemoryRecall> RecallWithTimingOutJudge(CancellationToken ct = default)
+    {
+        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(),
+            verification: new TimesOut());
+        await engine.RememberAsync(new MemoryWrite("t", "s", "marker9 the deployment checklist"), ct);
+        return await engine.RecallAsync(new MemoryQuery("t", "s", "marker9", 10), ct);
+    }
+
+    [Fact]
+    public async Task A_verifier_timing_out_degrades_to_no_opinion_rather_than_failing_the_recall()
+    {
+        var recall = await RecallWithTimingOutJudge();
+
+        Assert.NotEmpty(recall.Items);
+    }
+
+    [Fact]
+    public async Task A_CALLER_cancelling_still_propagates()
+    {
+        // The other half, or the fix would be "swallow every cancellation" — which would make a cancelled
+        // recall look like a successful one.
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => RecallWithTimingOutJudge(cts.Token));
+    }
+}
