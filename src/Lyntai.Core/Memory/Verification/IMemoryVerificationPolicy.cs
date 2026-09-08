@@ -88,7 +88,26 @@ public sealed record MemoryVerificationRequest(
 /// relevance. Those rows are indistinguishable HERE from a recall that matched nothing — on the SQLite LIKE
 /// fallback a no-match page IS the grade-admitted rows — so a policy must not read a page of zeros as a
 /// judgement that the recall failed.</para></param>
-public sealed record MemoryVerificationCandidate(string Id, string Headline, double Relevance = 0);
+public sealed record MemoryVerificationCandidate(string Id, string Headline, double Relevance = 0)
+{
+    /// <summary>The entry's full stored text, or <see langword="null"/> when whoever built this candidate
+    /// supplied none — which a policy must be able to tell from a genuinely empty entry, the same
+    /// distinction <see cref="MemoryVerification"/> draws between no opinion and an empty endorsement. The
+    /// engine always supplies it: the store already reads the column, so it costs no extra query.
+    ///
+    /// <para><b>Read it when your policy needs the TEXT, and prefer <see cref="Headline"/> when it does
+    /// not.</b> The headline is a truncation — <see cref="Lyntai.Memory.GraphMemoryOptions.HeadlineChars"/>
+    /// characters of the content — so a policy that scores WORDING is scoring a fragment. Measured: a
+    /// cross-encoder reranker reading headlines LOST 7.5 points against the arm it was meant to improve,
+    /// and reading whole entries GAINED 5.0. A judge paying by the token has the opposite trade and should
+    /// keep reading the headline, which is why this carries the text rather than replacing what is already
+    /// there (<c>docs/DECISIONS.md</c> <b>D108</b>).</para>
+    ///
+    /// <para><b>An init property rather than a positional parameter</b>, so the record's
+    /// <c>Deconstruct</c> keeps its arity and a consumer already destructuring one still compiles.</para>
+    /// </summary>
+    public string? Content { get; init; }
+}
 
 /// <summary>Which candidates answered the query.</summary>
 /// <param name="RelevantIds">The ids that did. An id not listed is judged NOT to have answered — which is

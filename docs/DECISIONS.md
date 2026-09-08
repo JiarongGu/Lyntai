@@ -177,8 +177,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D105](#d105--a-verdict-may-compete-instead-of-partitioning-and-the-partition-stays-the-default-2026-09-04) | 2026-09-04 | a verdict may COMPETE instead of partitioning, and the partition stays the default |
 | [D106](#d106--the-gist-tier-is-refuted-as-scoped-abstraction-belongs-at-encoding-not-at-retrieval-2026-09-04) | 2026-09-04 | the gist tier is REFUTED AS SCOPED: abstraction belongs at encoding, not at retrieval |
 | [D107](#d107--sqlites-memory-statistics-are-the-read-concurrency-ceiling-and-turning-them-off-is-the-hosts-call-2026-09-08) | 2026-09-08 | SQLite's memory statistics are the read-concurrency ceiling, and turning them off is the HOST's call |
+| [D108](#d108--a-verifier-is-shown-the-entrys-content-and-choosing-which-text-to-read-stays-the-policys-2026-09-08) | 2026-09-08 | a verifier is shown the entry's CONTENT, and choosing which text to read stays the policy's |
 
-_All 107 entries are live decisions._
+_All 108 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3164,3 +3165,32 @@ which sets the provider without initialising the library.
 on, for a benefit only a concurrent deployment sees. A per-connection or per-factory option: the setting is
 not per-connection and an option shaped that way would lie about when it can take effect. Documentation
 alone: the dance is four lines with a genuine hazard, and at 12–29× it is worth a supported one-liner.
+
+## D108 — a verifier is shown the entry's CONTENT, and choosing which text to read stays the policy's (2026-09-08)
+
+`MemoryVerificationCandidate` carried an id, a headline and a relevance. The headline is a TRUNCATION —
+`GraphMemoryOptions.HeadlineChars` characters of the content, 120 by default — so a policy that scores
+wording was scoring a fragment. Measured on LoCoMo (`docs/memory.md` §5): a cross-encoder reranker given
+headlines SPENT 7.5 points against the arm it was meant to improve, and given whole entries gained **5.0**,
+landing 1.5 short of a perfect judge. The record now carries `Content`.
+
+**It costs nothing to supply.** `SeedAsync` already selects the content column on every backend and
+`GraphNode.Content` carries it, so the engine had the text in hand and was withholding data it had paid
+for. Nothing about the shipped `LlmMemoryVerificationPolicy` changes: it still reads the headline, because
+a judge pays by the token and only the policy knows whether it is paying.
+
+**Alternatives rejected.** Telling a reranking deployment to raise `HeadlineChars`: it works today and it
+was the cheapest thing to write down, but it costs **+24% of the corpus's content bytes** (measured on both
+field corpora independently, taking the headline column from 11.5% of content to 35%) and — the objection
+that actually decides it — the headline is what a recall RETURNS, so tuning an internal verifier concern
+would change what every caller sees. An option selecting which text the seam passes: redundant once a
+policy holds both and can choose, and it would move a policy's decision into the engine's configuration.
+
+**`null` means "nobody supplied one", not "empty".** A hand-built candidate omits it, and a policy must be
+able to tell that from a genuinely empty entry — the same distinction `MemoryVerification` draws between no
+opinion and an empty endorsement.
+
+**What this does NOT settle.** Whether a cross-encoder should be a shipped default: it buys RECALL and
+discriminates no better between a fact and its replacement (`stale@k` +51.4 on knowledge-update, **D107**'s
+neighbour in `docs/task-archive.md` Part 169). This decision gives a policy the text; it recommends no
+policy.

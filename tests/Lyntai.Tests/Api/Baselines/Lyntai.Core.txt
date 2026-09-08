@@ -2530,6 +2530,7 @@ sealed class Lyntai.Memory.Verification.MemoryVerification
     static NothingRelevant : MemoryVerification
 sealed class Lyntai.Memory.Verification.MemoryVerificationCandidate
     .ctor(String Id, String Headline, Double Relevance = 0)
+    Content : String
     Deconstruct(String& Id, String& Headline, Double& Relevance) : Void
     Equals(MemoryVerificationCandidate other) : Boolean
     Equals(Object obj) : Boolean

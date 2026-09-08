@@ -1966,6 +1966,25 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 170 — a verifier is shown the CONTENT, and the reranker gets its 13 points back for free
+
+✅ done 2026-09-08, taking the decision Part 168 filed. `MemoryVerificationCandidate.Content` (**D108**),
+additive, engine-supplied, `null` when nobody built one. `docs/memory.md` §5.
+
+**Validated rather than argued**: with the field read, `+sem+rel-only+rerank` goes **78.0% → 91.0%** at the
+SHIPPED `HeadlineChars = 120` and lands exactly on the `+hl512` arm that bought the same text with **+24%
+of content bytes**. Zero storage, zero extra query — `SeedAsync` already selected the column, so the seam
+was withholding data it had paid for.
+
+**Why not the other two options.** Raising `HeadlineChars` costs the storage AND changes what every recall
+RETURNS to callers, so an internal verifier concern would leak into user-visible output. An option
+selecting the text is redundant once a policy holds both and can choose.
+
+**Nothing changes for an existing consumer**: the shipped `LlmMemoryVerificationPolicy` still reads the
+headline, because a judge pays by the token and only the policy knows whether it is paying.
+
+- Decide what TEXT a verifier may read.
+
 ## Part 169 — the cross-encoder's knowledge-update visit: not the trade LoCoMo winners usually make
 
 ✅ done 2026-09-08. The check `docs/memory.md` §5's standing rule demands of any arm that wins LoCoMo, run

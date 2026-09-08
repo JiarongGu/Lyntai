@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SEVEN items, across Parts 109, 116, 128 and 129.** Each is a
+**The startable set is SIX items, across Parts 109, 116, 128 and 129.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -41,8 +41,9 @@ moves and the reason the count is worth stating rather than the items. **Then it
 **159**, **160** and **161** closed the pool ladder across all three workloads, and the last of them left
 nothing behind — the shipped `CandidateMultiplier` is vindicated on two of three, so there is no successor
 question, which is the rarer way an item leaves this list.
-<br>**Back to SEVEN on 2026-09-08**: Part 168 measured the cross-encoder and left a DECISION behind it —
-what text a verifier may read — which is the ordinary way this list grows. Counted, not adjusted._
+<br>**To SEVEN and back to SIX on 2026-09-08**: Part 168 measured the cross-encoder and left a DECISION
+behind it, then Part 170 took that decision the same day and shipped it. Counted, not adjusted — the
+remaining six are Parts 109, 116, 128 (three) and 129._
 <br>_**This line used to be a 49-line running tally** — every Part that opened and closed since 2026-08-30,
 with the count after each. It was deleted on 2026-09-03 rather than extended, because `task-lifecycle.md`
 says outright that a backlog must not summarize its archive: the tally grew without bound, answered a
@@ -990,8 +991,13 @@ endorsements per recall out of 80 shown, at 2.6% precision, which is an endorsem
 now stated in `LlmVerificationOptions.ClientName`'s shipped XML doc. `docs/memory.md` §5 carries the table
 and the four things it does not say._
 
-- [ ] **Decide what TEXT a verifier may read — today it is a 120-character truncation, and that costs a
-  cross-encoder 13 points.** `MemoryVerificationCandidate` carries `Headline` and never `Content`, and
+- ~~**Decide what TEXT a verifier may read — today it is a 120-character truncation, and that costs a
+  cross-encoder 13 points.**~~ **DECIDED AND SHIPPED 2026-09-08** (`docs/task-archive.md` **Part 170**,
+  **D108**): the candidate carries `Content`. Additive, engine-supplied, no extra query — `SeedAsync`
+  already read the column. Validated rather than argued: the reranked arm goes **78.0% → 91.0%** at the
+  SHIPPED `HeadlineChars`, landing exactly on the arm that bought the same text with +24% of storage.
+  The shipped judge still reads the headline, so nothing changes for an existing consumer. _Kept here with
+  its three options rather than deleted, because the two that lost are the reasons the winner is right._ `MemoryVerificationCandidate` carries `Headline` and never `Content`, and
   `GraphMemoryOptions.HeadlineChars` ships at 120. Measured 2026-09-08 (`docs/task-archive.md` **Part
   168**): the same reranker on the same arm reads **78.0%** on truncated headlines and **91.0%** on whole
   turns. The headline-only contract is not an oversight — it keeps an LLM judge cheap, and it is what a

@@ -14,6 +14,16 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`MemoryVerificationCandidate.Content` — a verifier can read the entry, not a truncation of it.** The
+  candidate carried a headline, which is `GraphMemoryOptions.HeadlineChars` characters of the content (120
+  by default), so a policy that scores WORDING was scoring a fragment. Measured on LoCoMo: a cross-encoder
+  reranker given headlines **spent 7.5 points** against the arm it was meant to improve, and given whole
+  entries **gained 5.0**, landing 1.5 short of a perfect judge.
+  <br>**Nothing changes unless your policy reads it.** The field is additive and costs no extra query — the
+  store already selects the column — and the shipped `LlmMemoryVerificationPolicy` still reads the
+  headline, because a judge pays by the token and only the policy knows whether it is paying. `null` means
+  nobody supplied one, which is distinct from a genuinely empty entry. `docs/DECISIONS.md` **D108**.
+
 - **`AddLlamaProvider` — a preset for llama.cpp's `llama-server`**, beside the existing `AddOllamaProvider`.
   Default base `http://localhost:8080` (llama-server's own port), id `"llama"`, keyless, plain OpenAI schema
   off the server ROOT — llama-server has no native surface to pin, so unlike Ollama it can take an

@@ -118,8 +118,11 @@ internal sealed class CrossEncoderVerifier(CrossEncoderReranker reranker, int to
     {
         if (request.Candidates.Count == 0) return MemoryVerification.NoOpinion;
 
+        // CONTENT, falling back to the headline only when nobody supplied one. The headline is a truncation
+        // and scoring a fragment cost this arm 13 points; the engine now passes the whole entry, so the
+        // `+hl512` arms exist as the historical control rather than as the way to get the text.
         var scored = await reranker.RankAsync(
-            request.Query, [.. request.Candidates.Select(c => c.Headline)], ct);
+            request.Query, [.. request.Candidates.Select(c => c.Content ?? c.Headline)], ct);
         if (scored is null) return MemoryVerification.NoOpinion;
 
         var ids = scored

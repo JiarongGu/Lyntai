@@ -363,6 +363,13 @@ reranker was scoring the first 120 characters of most candidates. Raising headli
 reranker's handicap rather than a general gain. At full text the cross-encoder captures **5.0 of the 6.5
 points** the perfect judge offers, deterministically, locally and free.
 
+**The library fix reproduces it at the SHIPPED headline length** (2026-09-08, **D108**). Once
+`MemoryVerificationCandidate` carries `Content`, `+sem+rel-only+rerank` reads **91.0%** at
+`HeadlineChars = 120` — up from 78.0% reading the headline, and exactly equal to the `+hl512` arm that
+bought the same text with +24% of storage. So the mechanism was the TEXT and nothing else, and the storage
+workaround is now only the historical control. Every anchor reproduced across the two runs (base 85.5%,
+oracle 92.5%, `vector` 83.5%).
+
 **It is not a flat-signal artifact**: 48,002 pairs scored, 31,340 distinct. And the instrument is intact
 across the embedder change — `lyntai` reproduced 54.5% and `+oracle` 92.5% exactly, while the two
 embedder-sensitive arms moved together (+2.5 base, +3.0 `vector`).

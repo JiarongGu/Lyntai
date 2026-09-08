@@ -1429,10 +1429,17 @@ public sealed class GraphMemoryEngine(
                 queryText,
                 // the same Relevance the caller will see on MemoryItem, so a policy can judge from the score
                 // distribution instead of reading the text
+                // Content rides along because the store already read it — the headline is a truncation of
+                // it, so a policy that scores WORDING was scoring a fragment. Which of the two to read
+                // stays the policy's choice: the cost of the text is a prompt, and only it knows whether
+                // it pays one.
                 [.. scored.Select(x => new Lyntai.Memory.Verification.MemoryVerificationCandidate(
                     x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture),
                     x.Candidate.Node.Headline,
-                    x.Candidate.Node.Relevance))]);
+                    x.Candidate.Node.Relevance)
+                {
+                    Content = x.Candidate.Node.Content,
+                })]);
 
             return await verification.VerifyAsync(request, ct).ConfigureAwait(false)
                    ?? Lyntai.Memory.Verification.MemoryVerification.NoOpinion;
