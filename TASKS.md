@@ -996,11 +996,17 @@ and the four things it does not say._
   168**): the same reranker on the same arm reads **78.0%** on truncated headlines and **91.0%** on whole
   turns. The headline-only contract is not an oversight — it keeps an LLM judge cheap, and it is what a
   caller would see without paying to expand — so this is a real trade rather than a defect.
-  <br>**Three options, each a different promise.** Leave it and document that a reranking deployment raises
-  `HeadlineChars`, which works today but pays storage for a duplicated column and changes what every recall
-  returns to callers. Add `Content` to the candidate record, which is additive and lets a verifier read
-  full text without touching storage — but hands an LLM judge a far bigger prompt unless it is opt-in. Or
-  an option selecting which text the seam passes, which is the explicit form of the same choice.
+  <br>**Three options, each a different promise, and the storage one is now PRICED.** Leave it and document
+  that a reranking deployment raises `HeadlineChars`: it works today, but 120 → 512 costs **+24% of the
+  corpus's content bytes** — measured on both field corpora independently (LoCoMo +24.2%, LongMemEval
+  +23.8%), taking the headline column from 11.5% of content to 35% — and it changes what every recall
+  returns to callers, not just what the verifier sees. Add `Content` to the candidate record, which is
+  additive, costs no storage and leaves recall untouched — but hands an LLM judge a far bigger prompt
+  unless it is opt-in, which is the cost that made the seam headline-only in the first place. Or an option
+  selecting which text the seam passes, the explicit form of the same choice.
+  <br>_The knowledge-update run (`docs/task-archive.md` **Part 169**) says what the reranker does with the
+  fuller text once it has it: finds more (`current@k` +8.5) and discriminates no better between a fact and
+  its replacement (`stale@k` +51.4). So this decision buys RECALL, and whoever takes it should want that._
   <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit._
 
 - [ ] **Decide whether a memory seam's `Model` should beat a candidate's — today it silently loses.**
