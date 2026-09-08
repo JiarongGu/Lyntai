@@ -469,9 +469,12 @@ arm is under-powered before it is written: **Part 166** measured that no corpus 
 
 **IT WAS MEASURED (2026-09-09) AND THE TRIGGER IS INVERTED — a third answer neither branch anticipated.**
 All 70 knowledge-update questions, haystack, the shipped `LlmMemoryVerificationPolicy` over `gemma3:4b`
-(Q4_K_M), 40 candidates per call, zero judge failures. **Judge served by OLLAMA, not llama.cpp** — this
-machine holds no chat GGUF, and the finding is a property of the MODEL's judgement rather than of the
-server, so it is recorded rather than re-run. Embedder on llama.cpp (`repo-mechanics.md` §Local models).
+(Q4_K_M), 40 candidates per call, zero judge failures. **Judge served by OLLAMA, not llama.cpp**, which is a
+deviation from `repo-mechanics.md` §Local models and is recorded rather than hidden. The reason is
+specific: the only chat model on this machine is Ollama's `gemma3:4b`, whose blob is a GGUF that stock
+`llama-server` REFUSES (`key not found in model: gemma3.attention.layer_norm_rms_epsilon`), and the
+equivalent GGUF from HuggingFace would not download. The finding is a property of the MODEL's judgement
+rather than of the server — the weights and quant are the same either way — so it is not re-run. Embedder on llama.cpp (`repo-mechanics.md` §Local models).
 
 | population | shown | endorsed | UNendorsed |
 |---|---|---|---|

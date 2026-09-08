@@ -285,6 +285,15 @@ this is a convention about what to REACH FOR, not a constraint the code enforces
   can crash on llama.cpp, and what that proves is that the truncation was always happening and nothing
   reported it. The benches now truncate explicitly and COUNT it in the footer —
   `.claude/knowledge/pitfalls.md` carries why a character budget cannot bound a token limit.
+- **An Ollama model IS a GGUF on disk, and stock `llama-server` still may not load it.** The blobs under
+  `~/.ollama/models/blobs/sha256-*` carry the `GGUF` magic and Ollama runs them through its own bundled
+  llama.cpp, so pointing your own `llama-server --model <blob>` at one looks like a free way to serve an
+  already-downloaded model. Measured 2026-09-09 on `gemma3:4b` against build 10603:
+  `error loading model hyperparameters: key not found in model: gemma3.attention.layer_norm_rms_epsilon`.
+  Ollama's conversion omits a key upstream requires and its own runner supplies. **Read the manifest to
+  find the blob** (`manifests/registry.ollama.ai/library/<model>/<tag>`, the
+  `application/vnd.ollama.image.model` layer) — but expect to need the model's own GGUF from its source for
+  anything upstream must load, and check before planning a run around it.
 - **Never kill a model server by image name.** `windows-machine.md` §Processes and files records this being
   violated anyway: a run finished with a by-image kill and took down a sibling tool's embedding server on
   another port. More than one `llama-server` can be up, and only one of them is yours.
