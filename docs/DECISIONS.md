@@ -176,8 +176,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D104](#d104--how-much-of-an-entry-a-recall-returns-is-the-callers-choice-per-call-2026-09-02) | 2026-09-02 | how much of an entry a recall returns is the CALLER's choice, per call |
 | [D105](#d105--a-verdict-may-compete-instead-of-partitioning-and-the-partition-stays-the-default-2026-09-04) | 2026-09-04 | a verdict may COMPETE instead of partitioning, and the partition stays the default |
 | [D106](#d106--the-gist-tier-is-refuted-as-scoped-abstraction-belongs-at-encoding-not-at-retrieval-2026-09-04) | 2026-09-04 | the gist tier is REFUTED AS SCOPED: abstraction belongs at encoding, not at retrieval |
+| [D107](#d107--sqlites-memory-statistics-are-the-read-concurrency-ceiling-and-turning-them-off-is-the-hosts-call-2026-09-08) | 2026-09-08 | SQLite's memory statistics are the read-concurrency ceiling, and turning them off is the HOST's call |
 
-_All 106 entries are live decisions._
+_All 107 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3136,3 +3137,30 @@ controls, and no deployment has asked. Shipping it would speculate on both count
 times the cost.
 
 **This re-opens when a consumer asks**, and the ask will name which reading it wants.
+
+## D107 — SQLite's memory statistics are the read-concurrency ceiling, and turning them off is the HOST's call (2026-09-08)
+
+Concurrent read-only recalls over SQLite peak at TWO workers on a 22-core machine and fall thereafter
+(`docs/memory.md` §7). The cause is not a lock: it is SQLite's collection of memory-allocation
+**statistics**, which takes a process-global mutex on every allocation and free. SQLite allocates heavily
+inside an FTS5 query, so concurrent readers serialise on the counter. Disabling it takes eight concurrent
+recalls from 340/s to 4,665/s and sixteen from 216/s to 6,275/s, and leaves single-threaded throughput
+alone — it buys concurrency, not speed.
+
+**`SqliteRuntime.DisableMemoryStatistics()` ships it as an opt-in startup call, and Lyntai never calls it.**
+`sqlite3_config` configures the native library the whole PROCESS shares, and it disables
+`sqlite3_memory_used`, `sqlite3_status` and the soft and hard heap limits for the host's own SQLite as much
+as for this library's. A library that quietly reconfigured a shared native dependency — and removed a
+memory bound the host might be relying on — would be reaching outside what it was asked to do. Lyntai reads
+none of those interfaces, so the trade is the host's to price, and the default is unchanged.
+
+**It reports rather than forces.** SQLite accepts the setting only while uninitialised, and the first
+connection initialises it, so the call returns `false` when it arrives too late. The obvious way to win
+anyway — `sqlite3_shutdown`, config, `sqlite3_initialize` — is undefined behaviour while any connection is
+live, and it is measurably unnecessary: `sqlite3_config` is accepted directly after `Batteries_V2.Init()`,
+which sets the provider without initialising the library.
+
+**Alternatives rejected.** Applying it by default: silently changes a process-global the host may depend
+on, for a benefit only a concurrent deployment sees. A per-connection or per-factory option: the setting is
+not per-connection and an option shaped that way would lie about when it can take effect. Documentation
+alone: the dance is four lines with a genuine hazard, and at 12–29× it is worth a supported one-liner.

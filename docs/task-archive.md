@@ -1966,6 +1966,27 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 167 — what serialises a pure-read recall: SQLite's memory STATISTICS, not any lock
+
+✅ done 2026-09-08. Closes the open question `docs/memory.md` §7 carried since 2026-09-07. Tables and the
+full refutation chain are there; the decision is **D107**.
+
+**The answer**: SQLite collects memory-allocation statistics by default and maintaining them takes a
+process-global mutex on every allocation and free, so concurrent readers serialise on a counter rather than
+on the database. Eight concurrent read-only recalls go 340/s → **4,665/s** and sixteen 216/s → **6,275/s**,
+and the peak at TWO WORKERS becomes monotonic scaling. One thread is unchanged.
+
+**Shipped**: `SqliteRuntime.DisableMemoryStatistics()`, opt-in and never called by Lyntai (D107). The bench
+gained the two controls that found it — a CPU-over-wall `cores` column and `--queries`/`--warmup` — plus a
+wrap fix its own `hit` control caught, where a widened cell addressed rows that did not exist.
+
+**What the chain cost, and the reusable half is in `pitfalls.md`**: six hypotheses refuted first (the
+connection open, GC, exceptions, the WAL, journal mode, the measurement window), then the engine and all
+shared state. What located it was scope, not SQLite knowledge — `cores` showed 7.7 busy cores, killing every
+lock hypothesis at once, and an isolation ladder ending in separate PROCESSES separated global from shared.
+
+- Explain why `read-only` recalls peak at TWO workers on 22 cores.
+
 ## Part 166 — the reconciler fix: built, run, INCONCLUSIVE, and the reason is the finding
 
 ✅ done 2026-09-07. `extract+reconcile-fixed` is in the tree and this is its record, so nobody re-derives

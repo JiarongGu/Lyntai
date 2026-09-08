@@ -828,6 +828,25 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Storage (details in `storage.md`)
 
+- **A single-threaded benchmark cannot see a PROCESS-GLOBAL ceiling, and SQLite ships one that is ON by
+  default.** SQLite collects memory-allocation statistics unless told not to, and maintaining them takes a
+  process-global mutex on every allocation and free — so concurrent readers serialise on a counter that has
+  nothing to do with the database. It cost **12–29×** here: read-only recalls peaked at TWO workers on a
+  22-core machine and fell to 216/s by sixteen, against 6,275/s with the statistics off (`docs/memory.md`
+  §7, **D107**). Every test in this repository passed throughout, because every one of them is
+  single-threaded.
+  <br>**The diagnostic lesson is worth more than the setting.** Six plausible causes were refuted before
+  the real one — the connection open, GC, exceptions, the WAL, journal mode, the measurement window — and
+  the two measurements that actually located it were both about SCOPE rather than about SQLite: a CPU-over-
+  wall column (the threads were burning 7.7 cores, so they were NOT waiting on a lock, which killed every
+  lock hypothesis at once), and an isolation ladder ending in **separate PROCESSES**. One engine, one store
+  and one database file per worker collapsed identically, while eight separate processes scaled fine.
+  **When per-object and per-file isolation change nothing and a second process fixes it, stop looking for
+  shared state in your own code** — something in the process is global, and a native dependency's
+  configuration is invisible to every grep you would think to run.
+  <br>**And a flattering refutation still needs repeats.** A 29× improvement is exactly the shape this
+  repository has twice published and retracted; it was re-run interleaved with its control three times
+  (on 330/320/317, off 3,154/4,056/4,060) before being believed.
 - **An admission guarantee must survive the LIMIT, not just the WHERE.** "Admitted unconditionally" that
   is implemented only as a predicate is still excluded by `ORDER BY … LIMIT` whenever the ordering key is
   the axis the protected row is weakest on. All three `IMemoryGraphStore` backends filtered authoritative

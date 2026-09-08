@@ -115,6 +115,8 @@ sealed class Lyntai.Storage.Sqlite.SqliteResponseCache
     GetAsync(String key, CancellationToken ct = default) : Task<LlmReply>
     RemoveAsync(String key, CancellationToken ct = default) : Task
     SetAsync(String key, LlmReply reply, Nullable<TimeSpan> ttl = null, CancellationToken ct = default) : Task
+static class Lyntai.Storage.Sqlite.SqliteRuntime
+    static DisableMemoryStatistics() : Boolean
 sealed class Lyntai.Storage.Sqlite.SqliteScoreStore
     .ctor(IDbConnectionFactory factory)
     AggregateAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScorerAggregate>>

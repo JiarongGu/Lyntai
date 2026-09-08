@@ -62,16 +62,17 @@ internal static class MemoryScaleSweep
     /// because contention biases latency silently. Here contention IS the subject, so it is measured rather
     /// than avoided — and the sequential cells stay the baseline it is read against.</para>
     ///
-    /// <para><b>The prediction is structural, not a guess.</b> `SqliteConnectionFactory` opens WAL with a
-    /// 5 s <c>busy_timeout</c>, and under WAL readers do not block while writers SERIALISE. A recall on
-    /// shipped defaults ends in a write — reinforcement, co-activation edges, the review-log row — so
-    /// concurrent recalls all queue behind one writer, while <c>read-only</c> is pure reads and should scale
-    /// nearly flat. The gap between the two arms is the concurrency price of LEARNING.</para>
+    /// <para><b>The prediction was structural and it was HALF WRONG</b>, which is why this reports CPU.
+    /// A recall on shipped defaults ends in a write, so concurrent recalls queue behind SQLite's one
+    /// writer — that arm behaves as predicted and waits, at 0.2 cores whatever the worker count.
+    /// <c>read-only</c> was predicted to scale nearly flat and instead PEAKS AT TWO WORKERS, while keeping
+    /// 7.7 cores busy: those threads are running, not waiting, and the cause is SQLite's global
+    /// memory-allocation statistics rather than any lock (<c>docs/memory.md</c> §7, <b>D107</b>).</para>
     ///
-    /// <para><b>Contention here does not fail, it WAITS</b>, which is why throughput alone would hide it: a
-    /// 5 s <c>busy_timeout</c> under the driver's 30 s command timeout turns a lock into latency, so p99 and
-    /// the error count are the columns that carry the finding and "no errors" proves nothing on its
-    /// own.</para></summary>
+    /// <para><b>So "contention here does not fail, it WAITS" is an arm-level claim, not a mode-level
+    /// one</b>, and the <c>cores</c> column is what tells the two apart. On the writing arm a 5 s
+    /// <c>busy_timeout</c> under the driver's 30 s command timeout turns a lock into latency, so p99
+    /// carries the finding and "no errors" proves nothing on its own.</para></summary>
     private static async Task<int> RunConcurrencyAsync(string[] args, Stopwatch stopwatch)
     {
         var sizes = ParseSizes(args);
@@ -98,29 +99,34 @@ internal static class MemoryScaleSweep
         Console.WriteLine();
         Console.WriteLine("Every published scale number is single-threaded. Under WAL, readers do not block");
         Console.WriteLine("and writers SERIALISE - and a default recall ends in a write-back, so `shipped`");
-        Console.WriteLine("recalls queue behind one writer where `read-only` does not. Contention shows up as");
-        Console.WriteLine("LATENCY rather than errors (5s busy_timeout under a 30s command timeout), so read");
-        Console.WriteLine("p99 and the error column, not throughput alone.");
+        Console.WriteLine("recalls queue behind one writer where `read-only` does not. On THAT arm contention");
+        Console.WriteLine("shows up as LATENCY rather than errors (5s busy_timeout under a 30s command timeout),");
+        Console.WriteLine("so read p99 and the error column, not throughput alone. `read-only` does not wait at");
+        Console.WriteLine("all - read the `cores` column before assuming it does (docs/memory.md section 7, D107).");
         Console.WriteLine();
         Console.WriteLine($"{"size",-8} {"arm",-11} {"workers",8} {"p50 ms",9} {"p99 ms",9} "
-            + $"{"recalls/s",10} {"errors",7} {"hit",6}");
-        Console.WriteLine(new string('-', 78));
+            + $"{"recalls/s",10} {"cores",6} {"errors",7} {"hit",6}");
+        Console.WriteLine(new string('-', 85));
 
         // REPEATS, for the reason the sequential sweep carries them and this mode needed more: a p99 under
         // contention is the noisiest number in this file, and a single-repeat run of the write-back share
         // reported a 4-5 point improvement on 2026-09-07 that vanished at five repeats. The MEDIAN cell
         // survives; the spread is printed so a reader can see whether a difference outruns it.
         var repeat = ParseRepeat(args);
+        var queries = ParseQueries(args);
+        var warmup = ParseWarmup(args);
         foreach (var size in sizes)
             foreach (var arm in arms)
                 foreach (var workers in levels)
                 {
                     var runs = new List<ConcurrentRow>(repeat);
-                    for (var i = 0; i < repeat; i++) runs.Add(await RunConcurrentCellAsync(size, arm, workers));
+                    for (var i = 0; i < repeat; i++)
+                        runs.Add(await RunConcurrentCellAsync(size, arm, workers, queries, warmup));
 
                     var row = runs.OrderBy(r => r.P99).ElementAt(runs.Count / 2);
                     Console.WriteLine($"{size.Label,-8} {arm.Label,-11} {workers,8} {row.P50,9:F1} "
-                        + $"{row.P99,9:F1} {row.PerSecond,10:F0} {row.Errors,7} {row.HitRate,6:F3}");
+                        + $"{row.P99,9:F1} {row.PerSecond,10:F0} {row.Cores,6:F1} {row.Errors,7} "
+                        + $"{row.HitRate,6:F3}");
                     if (repeat > 1)
                         Console.WriteLine($"{"",-30}({repeat} runs, p99 {runs.Min(r => r.P99):F0}"
                             + $"-{runs.Max(r => r.P99):F0}ms, rate {runs.Min(r => r.PerSecond):F0}"
@@ -128,6 +134,10 @@ internal static class MemoryScaleSweep
                 }
 
         Console.WriteLine();
+        Console.WriteLine("  'cores' is CPU time over wall time: how many cores the process actually kept busy.");
+        Console.WriteLine("  Read it against the worker count. Far below means the workers are WAITING, which is");
+        Console.WriteLine("  what `shipped` does at 0.2 cores; near it means they are running, which is what");
+        Console.WriteLine("  `read-only` does - and a falling rate at full CPU is not a lock at all.");
         Console.WriteLine("  'errors' counts recalls that THREW - a lock that outlived both timeout layers.");
         Console.WriteLine("  Zero errors with a rising p99 is contention working as designed: the wait is");
         Console.WriteLine("  absorbed, not reported. A non-zero count is a deployment-visible failure.");
@@ -138,9 +148,11 @@ internal static class MemoryScaleSweep
         return 0;
     }
 
-    private sealed record ConcurrentRow(double P50, double P99, double PerSecond, int Errors, double HitRate);
+    private sealed record ConcurrentRow(
+        double P50, double P99, double PerSecond, double Cores, int Errors, double HitRate);
 
-    private static async Task<ConcurrentRow> RunConcurrentCellAsync(Size size, Arm arm, int workers)
+    private static async Task<ConcurrentRow> RunConcurrentCellAsync(
+        Size size, Arm arm, int workers, int queries, int warmup)
     {
         using var db = new MemoryPolicySweep.SweepDb();
         var engine = new GraphMemoryEngine("scale", new SqliteMemoryGraphStore(db.Factory), arm.Options,
@@ -152,32 +164,53 @@ internal static class MemoryScaleSweep
         var latencies = new System.Collections.Concurrent.ConcurrentBag<double>();
         var errors = 0;
         var hits = 0;
-        var step = Math.Max(1, size.Entries / TimedQueries);
+        var step = Math.Max(1, size.Entries / queries);
 
+        async ValueTask RecallAsync(int i, bool timed, CancellationToken ct)
+        {
+            // WRAP, because --queries can exceed the entry count and `step` floors at 1: without this the
+            // back half of a widened cell addresses rows that do not exist, and a fast empty recall reads
+            // exactly like good news. Inert at the defaults, where step * (queries - 1) < entries always.
+            var target = i * step % Math.Max(1, size.Entries);
+            var start = Stopwatch.GetTimestamp();
+            try
+            {
+                var recall = await engine.RecallAsync(
+                    new MemoryQuery("scale", Scope(target), Query(target), QueryLimit), ct);
+                if (timed && recall.Items.Count > 0) Interlocked.Increment(ref hits);
+            }
+            catch (Exception) { if (timed) Interlocked.Increment(ref errors); }
+
+            if (timed) latencies.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+        }
+
+        // Warmup is OPT-IN and 0 by default, so every published cell stays byte-identical to the run that
+        // produced it. It exists because the timed region is the ONLY region: at the measured read-only
+        // rates a 200-recall cell is a fraction of a second, so first-recall costs that are paid once — JIT,
+        // Dapper's per-shape materializer, an empty connection pool, a cold page cache — sit inside a p50
+        // taken over 200 samples rather than beside it.
+        if (warmup > 0)
+            await Parallel.ForEachAsync(Enumerable.Range(0, warmup),
+                new ParallelOptions { MaxDegreeOfParallelism = workers },
+                (i, ct) => RecallAsync(i, timed: false, ct));
+
+        // CPU against wall clock, which is the column that makes this mode's central claim CHECKABLE rather
+        // than asserted. The preamble says contention here does not fail but WAITS; a thread that waits burns
+        // no CPU, so `cores` well below the worker count is that claim confirmed, and `cores` near it means
+        // the time is going somewhere else entirely and the wait explanation is wrong.
+        var cpu = Process.GetCurrentProcess().TotalProcessorTime;
         var wall = Stopwatch.GetTimestamp();
         await Parallel.ForEachAsync(
-            Enumerable.Range(0, TimedQueries),
+            Enumerable.Range(0, queries),
             new ParallelOptions { MaxDegreeOfParallelism = workers },
-            async (i, ct) =>
-            {
-                var target = i * step;
-                var start = Stopwatch.GetTimestamp();
-                try
-                {
-                    var recall = await engine.RecallAsync(
-                        new MemoryQuery("scale", Scope(target), Query(target), QueryLimit), ct);
-                    if (recall.Items.Count > 0) Interlocked.Increment(ref hits);
-                }
-                catch (Exception) { Interlocked.Increment(ref errors); }
-
-                latencies.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
-            });
+            (i, ct) => RecallAsync(i, timed: true, ct));
         var seconds = Stopwatch.GetElapsedTime(wall).TotalSeconds;
+        var cores = (Process.GetCurrentProcess().TotalProcessorTime - cpu).TotalSeconds;
 
         var sorted = latencies.ToList();
         return new ConcurrentRow(Percentile(sorted, 0.50), Percentile(sorted, 0.99),
-            seconds > 0 ? TimedQueries / seconds : 0, errors,
-            TimedQueries > 0 ? hits / (double)TimedQueries : 0);
+            seconds > 0 ? queries / seconds : 0, seconds > 0 ? cores / seconds : 0, errors,
+            queries > 0 ? hits / (double)queries : 0);
     }
 
     public static async Task<int> RunAsync(string[] args)
@@ -291,6 +324,25 @@ internal static class MemoryScaleSweep
             Percentile(recalls, 0.50), Percentile(recalls, 0.95), Percentile(recalls, 0.99),
             Percentile(expansions, 0.50), Percentile(expansions, 0.95),
             coldMs, DbBytes(db.DbPath), TimedQueries > 0 ? hits / (double)TimedQueries : 0);
+    }
+
+    /// <summary>How many recalls one concurrency cell performs, <c>--queries 2000</c> overriding the
+    /// <see cref="TimedQueries"/> default. Raise it when the question is whether a cell's SHAPE survives a
+    /// longer window: at the measured read-only rates the default is a fraction of a second per cell, and a
+    /// rate taken over a fixed COUNT has a window that shrinks as the thing under test gets faster.</summary>
+    private static int ParseQueries(string[] args)
+    {
+        var i = Array.IndexOf(args, "--queries");
+        return i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out var n) && n > 0
+            ? n : TimedQueries;
+    }
+
+    /// <summary>Untimed recalls run before the clock starts, <c>--warmup 200</c> overriding the default 0.
+    /// Zero by default so a cell is byte-identical to the run that published it.</summary>
+    private static int ParseWarmup(string[] args)
+    {
+        var i = Array.IndexOf(args, "--warmup");
+        return i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out var n) && n > 0 ? n : 0;
     }
 
     /// <summary>How many times to run each cell, <c>--repeat 3</c> overriding the default 1.
