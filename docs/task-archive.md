@@ -1966,6 +1966,30 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 181 — the traps record is findable by SHAPE, not only by heading
+
+✅ done 2026-09-10. **D112**; the gate is `node devtools/dev.mjs check-pitfalls [--write]`, and the
+vocabularies are `pitfallFacets` in `devtools/project.config.mjs`.
+
+A cold-start probe's nine relevant traps spanned five of nine headings, two of which nobody would have
+opened. Retitling was REFUSED — any single hierarchy files a trap in one place and these belong in two —
+so every trap now carries `<!-- trap: sub=… shape=… -->` and the index at the head of the file is generated
+from them. Closed vocabularies, where an unknown value AND a value no trap uses both fail.
+
+**The subtle half is now shared** (`devtools/scripts/_markers.mjs`, with `check-backlog`): the attribute
+RESIDUE check, the line-number fixed point, escape carrying, and anchor uniqueness. `check-backlog`'s tests
+staying green is what makes that refactor a claim rather than a hope.
+
+**Four defects, and only two were caught by its own tests** — the generated index's rows start with `- `,
+so the parser read them back as unfiled traps; and a `- ` inside a fenced block would have been demanded a
+marker, a gate whose only remedy is corrupting what it guards. **The other two came from an adversarial
+review after every gate was green, and both made the gate WRITE a truncated read**: an unclosed fence took
+158 traps to 131 with `--write` publishing it at exit 0, and the parser located the generated block by its
+own scan while the splicer used `blockRange`, so a duplicate anchor moved the block and a write deleted
+prose. The general trap is in `.claude/knowledge/pitfalls.md`; the fix deleted the second derivation.
+
+- Give `.claude/knowledge/pitfalls.md` a generated facet index.
+
 ## Part 180 — the backlog's roster is GENERATED from a state authored on each item
 
 ✅ done 2026-09-10. **D111**; the gate is `node devtools/dev.mjs check-backlog [--write]`, and the rule it

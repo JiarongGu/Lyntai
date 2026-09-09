@@ -10,6 +10,7 @@
 //   node devtools/dev.mjs check-decisions  - FAIL if a DECISIONS.md entry outgrows the decision
 //   node devtools/dev.mjs check-archive    - FAIL if a task-archive.md entry outgrows its outcome
 //   node devtools/dev.mjs check-backlog [--write] - FAIL if the OPEN backlog drifts from its roster
+//   node devtools/dev.mjs check-pitfalls [--write] - FAIL if a trap is unfiled or its facet index is stale
 //   node devtools/dev.mjs check-decision-claims - FAIL if a DECISION stops describing the code
 //   node devtools/dev.mjs check-api-vocabulary - FAIL if an API baseline still spells a retired name
 //   node devtools/dev.mjs check-samples [--list]
@@ -631,6 +632,17 @@ switch (cmd) {
     break;
   }
 
+  // check-pitfalls — FAIL when the traps record cannot be searched by anything but its headings. Same
+  // authored-marker/generated-index shape as check-backlog above (they share `_markers.mjs`), aimed at the
+  // other measured cold-start cost: a probe's nine relevant traps spanned FIVE of nine headings, two of
+  // which nobody would have opened. Retitling was refused — any single hierarchy files a trap in one place
+  // and these belong in two — so `sub=` (where it breaks) and `shape=` (how it hides) are ORTHOGONAL to the
+  // headings, from closed vocabularies in project.config.mjs where an unknown AND an unused value both fail.
+  case 'check-pitfalls': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-pitfalls.mjs'), ...args]);
+    break;
+  }
+
   // check-decision-claims — FAIL when a DECISION stops describing the code it governs. Its sibling above
   // gates an entry's LENGTH; this gates its TRUTH. No other gate can: check-docs gates retired vocabulary,
   // check-links gates whether a reference resolves, check-counts gates counts written in prose - and a
@@ -721,7 +733,7 @@ switch (cmd) {
     const steps = [['test-devtools', []], ['build', []], ['check-warnings', []], ['check-packages', []],
       ['check-bundle', []], ['check-encoding', []], ['check-docs', []], ['check-links', []],
       ['check-counts', []], ['check-comments', []], ['check-decisions', []], ['check-archive', []], ['check-backlog', []],
-      ['check-decision-claims', []],
+      ['check-pitfalls', []], ['check-decision-claims', []],
       ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
     // Fingerprinted before and after: every line below describes the tree as it was HERE, so a file edited

@@ -181,8 +181,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D109](#d109--no-competitor-penalty-rif-is-refused-and-the-contradicted-gap-is-a-write-time-one-2026-09-08) | 2026-09-08 | no competitor penalty: RIF is refused, and the "contradicted" gap is a WRITE-time one |
 | [D110](#d110--no-endorsement-cap-on-the-verification-seam-the-count-rule-explains-none-of-the-judges-loss-2026-09-10) | 2026-09-10 | no endorsement CAP on the verification seam: the count rule explains none of the judge's loss |
 | [D111](#d111--an-open-items-state-is-authored-on-the-item-the-backlogs-roster-is-generated-from-it-2026-09-10) | 2026-09-10 | an open item's STATE is authored on the item; the backlog's roster is generated from it |
+| [D112](#d112--the-traps-record-is-filed-by-facets-orthogonal-to-its-headings-not-by-better-headings-2026-09-10) | 2026-09-10 | the traps record is filed by FACETS orthogonal to its headings, not by better headings |
 
-_All 111 entries are live decisions._
+_All 112 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3295,3 +3296,39 @@ and blocker, so a path annotated `link-ok` on the checkbox arrived unannotated o
 `check-links` fired on the copy — the row now carries the item's own escapes, which expire when the item's
 do. And every row publishes the line number of a checkbox BELOW it, so writing the table moves what it just
 published; the writer iterates to a fixed point instead of emitting positions that were true beforehand.
+
+## D112 — the traps record is filed by FACETS orthogonal to its headings, not by better headings (2026-09-10)
+
+`.claude/knowledge/pitfalls.md` held **158 traps in 2,305 lines on 2026-09-10**, every one written because
+it cost something. A cold-start probe measured that day needed the traps bearing on its task, and the nine
+relevant ones spanned **five of the file's nine headings** — two of them headings nobody looking for that
+task would have opened. A trap nobody can find is one that gets paid for twice. (Sizes here are DATED, not
+gated: they move whenever a trap lands, and `check-pitfalls` prints today's count on every run.)
+
+**Retitling the headings is the obvious fix and is REFUSED.** Any single hierarchy files a trap in exactly
+one place, and these genuinely belong in two: the same wrongness recurs in a subsystem that has never met
+it, which is most of why the record is worth keeping at all. Better titles move the boundary rather than
+removing it, and the next probe lands on the other side of the new one.
+
+**So each trap carries `<!-- trap: sub=… shape=… -->`** — `sub=` is which area of the repository breaks,
+`shape=` is how the wrongness stays invisible — and `check-pitfalls` generates the index at the head of the
+file from those markers, in `verify`. The authored-marker/generated-index shape is **D111**'s, and the two
+gates share `devtools/scripts/_markers.mjs` for the reason `_entry-length.mjs` is shared: a second
+hand-written copy of the subtle half drifts silently in the permissive direction.
+
+**Both vocabularies are CLOSED and an unknown value FAILS.** An open one is a folksonomy, and the
+fourteenth synonym for "the check never ran" makes the index worse than no index — a reader who searches
+one of them believes they have seen them all. **A value no trap uses fails too**, which is
+`retiredApiNames`' "an allowance that matches nothing FAILS" applied to a vocabulary: a category invented
+for a trap that never arrived is one more wrong choice to make, protecting nothing.
+
+**Line numbers only, and that is a measurement rather than a taste.** `decisions-index` was measured the
+same day and barely helped LOCATING cost — ~66 lines read against ~117 — its wins being precision and a
+free currency scan. An index sized for READING is therefore over-building; this one is sized for JUMPING.
+
+**Two honest limits.** The gate checks that a value is IN the vocabulary and never that it is the RIGHT
+one, so a mis-filed trap is invisible to every check and worse than an unfiled one — the index asserts
+completeness. And ONE facet is a weak filter: on 2026-09-10 the largest held about a quarter of the file
+each (`silent-loss` and `wrong-subject` 39, `memory` and `measurement` 36), so one facet narrows 158 traps
+to roughly 40. The INTERSECTION is what filters — an area and a shape together lands near ten — and a
+reader using a single facet should expect a reading list rather than an answer.

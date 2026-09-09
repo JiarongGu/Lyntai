@@ -7,11 +7,54 @@ enforces: don't reintroduce the measured traps — each one passed the build (an
 # Pitfalls — don't reintroduce these
 
 Concrete traps, most surfaced by a real bug or an independent audit. Each passed the build (and usually
-the tests) while being wrong. Skim before touching the relevant area.
+the tests) while being wrong. Skim before touching the relevant area — **or jump by facet**, below, which
+is what to do when you know the SHAPE of what you are worried about but not where it lives.
+
+<!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
+
+## Facets — 158 traps, indexed two ways
+
+_Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
+_Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
+_looking for that task would have opened._
+
+**By AREA** — which part of the repository breaks.
+
+- **`gates`** (29) — 57 · 82 · 91 · 111 · 124 · 130 · 153 · 163 · 170 · 180 · 226 · 246 · 292 · 310 · 425 · 510 · 519 · 529 · 583 · 597 · 667 · 681 · 879 · 1835 · 1846 · 1883 · 2254 · 2284 · 2293
+- **`encoding`** (6) — 75 · 80 · 536 · 544 · 714 · 1883
+- **`git`** (6) — 170 · 195 · 226 · 251 · 544 · 566
+- **`build`** (7) — 80 · 510 · 519 · 529 · 583 · 879 · 1818
+- **`router`** (6) — 722 · 727 · 736 · 738 · 741 · 871
+- **`cli`** (18) — 696 · 714 · 722 · 743 · 751 · 760 · 764 · 776 · 780 · 787 · 791 · 798 · 802 · 835 · 854 · 858 · 863 · 1688
+- **`lifetime`** (6) — 901 · 910 · 915 · 920 · 933 · 941
+- **`storage`** (17) — 814 · 950 · 1052 · 1080 · 1082 · 1083 · 1085 · 1087 · 1105 · 1116 · 1345 · 1357 · 1601 · 1718 · 1865 · 2047 · 2231
+- **`memory`** (36) — 350 · 368 · 496 · 814 · 984 · 1003 · 1014 · 1040 · 1052 · 1067 · 1088 · 1105 · 1116 · 1155 · 1170 · 1177 · 1196 · 1207 · 1225 · 1238 · 1251 · 1309 · 1364 · 1384 · 1420 · 1456 · 1500 · 1522 · 1550 · 1622 · 1697 · 1718 · 1940 · 2099 · 2127 · 2210
+- **`generation`** (8) — 727 · 933 · 1456 · 1635 · 1647 · 1671 · 1778 · 1803
+- **`di`** (11) — 920 · 1170 · 1196 · 1376 · 1378 · 1381 · 1384 · 1402 · 1500 · 1647 · 1697
+- **`measurement`** (36) — 335 · 350 · 368 · 409 · 439 · 455 · 474 · 486 · 496 · 617 · 696 · 703 · 708 · 751 · 950 · 969 · 1040 · 1207 · 1238 · 1265 · 1276 · 1291 · 1309 · 1364 · 1420 · 1835 · 1916 · 1967 · 1982 · 2006 · 2026 · 2047 · 2077 · 2114 · 2178 · 2210
+- **`docs`** (15) — 130 · 153 · 259 · 566 · 597 · 617 · 667 · 1014 · 1522 · 1589 · 1753 · 1763 · 1846 · 1865 · 2136
+- **`tests`** (21) — 835 · 1026 · 1067 · 1088 · 1155 · 1177 · 1345 · 1357 · 1601 · 1929 · 1940 · 1951 · 2127 · 2149 · 2231 · 2239 · 2247 · 2251 · 2254 · 2266 · 2279
+
+**By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
+of the two: most of these traps recur in a subsystem that had never met them.
+
+- **`fail-open`** (19) — 170 · 350 · 368 · 597 · 708 · 736 · 741 · 760 · 835 · 915 · 1003 · 1251 · 1384 · 1420 · 1635 · 1647 · 1697 · 1803 · 2099
+- **`cancellation`** (5) — 722 · 727 · 984 · 1003 · 1026
+- **`vacuous`** (31) — 163 · 335 · 409 · 439 · 519 · 791 · 854 · 871 · 1026 · 1067 · 1088 · 1155 · 1177 · 1265 · 1276 · 1309 · 1420 · 1522 · 1865 · 1940 · 1951 · 1982 · 2114 · 2127 · 2149 · 2178 · 2231 · 2254 · 2266 · 2284 · 2293
+- **`scope-blind`** (33) — 82 · 111 · 124 · 130 · 153 · 163 · 170 · 180 · 226 · 292 · 310 · 544 · 667 · 681 · 879 · 1170 · 1238 · 1345 · 1357 · 1522 · 1550 · 1601 · 1718 · 1818 · 1835 · 1846 · 1865 · 1951 · 2114 · 2127 · 2251 · 2284 · 2293
+- **`second-door`** (20) — 738 · 776 · 780 · 791 · 798 · 858 · 863 · 941 · 1083 · 1105 · 1384 · 1500 · 1601 · 1622 · 1635 · 1647 · 1671 · 1718 · 1753 · 1778
+- **`stale-claim`** (13) — 57 · 130 · 195 · 259 · 617 · 1014 · 1381 · 1589 · 1622 · 1671 · 1753 · 1846 · 2136
+- **`silent-loss`** (39) — 75 · 80 · 246 · 251 · 292 · 310 · 486 · 536 · 583 · 597 · 696 · 714 · 764 · 780 · 814 · 901 · 933 · 969 · 1040 · 1080 · 1082 · 1083 · 1085 · 1105 · 1116 · 1155 · 1291 · 1364 · 1376 · 1381 · 1402 · 1500 · 1550 · 1688 · 1778 · 1883 · 1967 · 2047 · 2178
+- **`wrong-subject`** (39) — 57 · 91 · 251 · 335 · 368 · 425 · 439 · 455 · 474 · 486 · 496 · 510 · 529 · 738 · 787 · 879 · 910 · 920 · 950 · 1040 · 1088 · 1196 · 1207 · 1225 · 1238 · 1265 · 1276 · 1309 · 1456 · 1803 · 1916 · 1967 · 1982 · 2006 · 2026 · 2047 · 2149 · 2210 · 2254
+- **`unmeasured`** (15) — 455 · 496 · 566 · 617 · 667 · 703 · 743 · 751 · 760 · 802 · 854 · 1225 · 1456 · 1763 · 2136
+- **`ordering`** (10) — 529 · 764 · 863 · 1052 · 1087 · 1402 · 1688 · 1697 · 1929 · 2077
+- **`resource`** (11) — 510 · 544 · 583 · 743 · 835 · 941 · 950 · 1378 · 2239 · 2247 · 2279
+
+<!-- facets:end -->
 
 ## Environment / tooling
 
-- **`verify` answers a question about the bytes it READ, so editing anything while it runs makes its whole
+- **`verify` answers a question about the bytes it READ, so editing anything while it runs makes its whole <!-- trap: sub=gates shape=wrong-subject,stale-claim -->
   report — the green summary included — describe a tree that no longer exists.** Measured 2026-08-30, twice
   in one session: docs were edited during two separate runs, so the prose gates' verdicts covered an
   indeterminate mix of before and after, and one of those runs also predated six new tests it therefore
@@ -29,14 +72,14 @@ the tests) while being wrong. Skim before touching the relevant area.
   status, so a failing verify looks like a clean one — the notification for the very run that proved this
   gate said `exit code 0` while the output said `✗`. Redirect to a file and echo `$?`, or check `PIPESTATUS`.
 
-- **This machine's console is GBK/CP936.** Writing UTF-8 through it (PowerShell `Set-Content`/`Out-File`
+- **This machine's console is GBK/CP936.** Writing UTF-8 through it (PowerShell `Set-Content`/`Out-File` <!-- trap: sub=encoding shape=silent-loss -->
   without `-Encoding utf8`, `echo >`, a shell heredoc) **double-encodes and lossily corrupts** non-ASCII
   content — it once mangled every `灵台`/`—`/`§` in `TASKS.md` irreversibly. **Always write files with
   the Write/Edit tools** (they emit UTF-8 directly) or, in scripts, `fs.writeFileSync`/`-Encoding utf8`.
   Verify with an ASCII-safe check (codepoints), not by eyeballing console output (which re-mangles it).
-- Sources are BOM-less UTF-8 + `<CodePage>65001</CodePage>` (in `Directory.Build.props`) — without it
+- Sources are BOM-less UTF-8 + `<CodePage>65001</CodePage>` (in `Directory.Build.props`) — without it <!-- trap: sub=encoding,build shape=silent-loss -->
   csc reads CJK string literals as ANSI mojibake on a CJK-locale machine.
-- **A prose gate that matches line-by-line is blind to any claim that WRAPS**, and it reports the file
+- **A prose gate that matches line-by-line is blind to any claim that WRAPS**, and it reports the file <!-- trap: sub=gates shape=scope-blind -->
   clean while doing it. `check-docs` tested each `retiredTerms` pattern against one line at a time, so
   `CLAUDE.md`'s "`ReciprocalRankFusionPolicy`, available\nbut not the default" — a stale claim in the one
   file auto-loaded into every session — matched nothing for the entire window in which it was false. These
@@ -45,7 +88,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   each line AND that line soft-joined to the next; `drift-ok` on either line silences the pair. The general
   shape is worth carrying to any future text gate: **the unit you match must be the unit the claim is
   written in.** Line-oriented matching is a property of the scanner, never of the prose.
-- **A doc gate built on "does this identifier EXIST in the tree?" is the wrong shape, and the reason is
+- **A doc gate built on "does this identifier EXIST in the tree?" is the wrong shape, and the reason is <!-- trap: sub=gates shape=wrong-subject -->
   worth knowing before someone builds it.** Tried 2026-08-14 as the prose counterpart to `check-samples`
   (which compiles fenced C# but says nothing about a type named in a SENTENCE): scan maintained docs for
   backticked PascalCase names absent from the whole tree's vocabulary. It produced **~45 hits and zero
@@ -65,7 +108,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   rather than an existence check: the registry only ever contains claims someone deliberately settled, so a
   hit is a defect by construction. Reach for a registry, not a corpus scan, whenever "wrong" depends on
   intent rather than on the text.
-- **A gate weakened by a regex LOOKAHEAD has no expiry — worse than the `drift-ok` it was built to
+- **A gate weakened by a regex LOOKAHEAD has no expiry — worse than the `drift-ok` it was built to <!-- trap: sub=gates shape=scope-blind -->
   avoid.** Found 2026-08-31 narrowing `retiredTerms` to silence seven accurate past-tense code comments
   (`` `SubjectSeedK`'s default of 5 ``, `` `SemanticSeedK` defaulted to 0 ``): <!-- drift-ok: names the two retired identifiers the withdrawn lookahead actually excluded --> a trailing negative lookahead
   excluded any hit followed by a VALUE-STATEMENT shape (`default of N`, `defaulted to N`, `= N`) within 20
@@ -78,13 +121,13 @@ the tests) while being wrong. Skim before touching the relevant area.
   gate's false positives all share one CONCRETE textual pattern, exclude those exact LINES (an allowance,
   self-expiring) rather than the pattern that makes them false positives (a lookahead, permanent)** — the
   choice `check-api-vocabulary`'s allowance list already made correctly.
-- **Scope a doc gate by "is this maintained state?", not by directory.** The same gate omitted the two
+- **Scope a doc gate by "is this maintained state?", not by directory.** The same gate omitted the two <!-- trap: sub=gates shape=scope-blind -->
   repo-root files, `CLAUDE.md` and `TASKS.md`, purely because the scope test was three `startsWith` calls.
   Both are maintained state and `CLAUDE.md` is the highest-leverage document in the repo — a stale claim
   there is read by the next session *before it reads anything else*. Adding them found real drift on the
   first run. `docs/task-archive.md` stays excluded on purpose: it is accurate BY using the vocabulary of its
   day. **`CHANGELOG.md` is only HALF that**, and the split cost real drift — see the next entry.
-- **Two pieces of prose SHIP to consumers and no gate reads either: the packaged `README.md` and every
+- **Two pieces of prose SHIP to consumers and no gate reads either: the packaged `README.md` and every <!-- trap: sub=docs,gates shape=scope-blind,stale-claim -->
   csproj `<Description>`.** Found 2026-08-17, auditing 3.0 before the stamp. `PackageReadmeFile` in
   `src/Directory.Build.props` packs the repo README into **every** package, so it is what nuget.org renders
   on every package's page — and it named an untracked `local/superpowers/records/…` path three times,
@@ -107,7 +150,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   The rule is `repo-mechanics.md` §"never NAME a version that has not shipped"; what belongs *here* is that
   the correction repeated the mistake in a different costume an hour later, in the ROADMAP row recording the
   release — so treat "is this number a record or a prediction?" as a review question, not a thing you fix once.
-- **"Historical record" can be true of part of a file and false of the rest. `## Unreleased` is not
+- **"Historical record" can be true of part of a file and false of the rest. `## Unreleased` is not <!-- trap: sub=gates,docs shape=scope-blind -->
   history.** `check-docs` exempted `CHANGELOG.md` wholesale on the rationale that a record is accurate by
   using the vocabulary of its day — true of a RELEASED section, false of `## Unreleased`, which describes
   behaviour that has not shipped and can still change under the words describing it. Measured 2026-08-09: an
@@ -117,14 +160,14 @@ the tests) while being wrong. Skim before touching the relevant area.
   the boundary with `check-samples` so the two gates cannot answer it differently. Two hits on the first real
   run, both genuine. **The general shape: an exemption's rationale has a scope, and it is worth checking
   whether the FILE is that scope.**
-- **Narrowing an exemption does nothing if an EARLIER filter already excluded the subject — and the gate
+- **Narrowing an exemption does nothing if an EARLIER filter already excluded the subject — and the gate <!-- trap: sub=gates shape=vacuous,scope-blind -->
   reports the same green line either way.** The first version of that CHANGELOG fix rewrote the historical
   filter, ran clean, and had changed nothing at all: `IN_SCOPE` runs first and had never listed
   `CHANGELOG.md`, so the file was gone one step before the filter being narrowed. It was caught by PROBING
   the gate — asking it whether the file was in its list and how many lines it would scan — rather than by
   reading its exit code. **For any filter chain, a clean run proves nothing about the stage you edited;
   assert on the intermediate (the file list, the line count), or write the positive control that must fail.**
-- **`git ls-files` (and `diff --name-only`) C-QUOTE any path containing a non-ASCII byte** — `docs/灵台.md` <!-- link-ok: a guard FIXTURE's name, never a file here -->
+- **`git ls-files` (and `diff --name-only`) C-QUOTE any path containing a non-ASCII byte** — `docs/灵台.md` <!-- link-ok: a guard FIXTURE's name, never a file here --> <!-- trap: sub=gates,git shape=fail-open,scope-blind -->
   comes back as the literal 8-character-escaped string `"docs/\347\201\265\345\217\260.md"`, which matches no
   file on disk. **Always pass `-z` and split on NUL.** Measured 2026-08-11 in `check-sensitive`, where the
   failure was silent AND permissive: the quoted name failed `readFileSync` with `ENOENT`, the ENOENT branch
@@ -134,7 +177,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   a CJK-named document is not a hypothetical. The general shape: **a scanner that gets its file list from one
   tool and its bytes from another must agree with both about how a name is spelled**, and the disagreement
   shows up first in the paths nobody tests with.
-- **A doc gate scoped by FILE TYPE leaves the identical defect alive in every other tier, and its own
+- **A doc gate scoped by FILE TYPE leaves the identical defect alive in every other tier, and its own <!-- trap: sub=gates shape=scope-blind -->
   exclusion rationale is where to look for the hole.** `check-links` was added 2026-08-14 because six
   references to an archived document survived in maintained markdown. It scans `.md` and nothing else — so on
   the day it went green, **seven more of the same dead references were alive in `src/` and `tests/`**, two of
@@ -149,7 +192,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   **(2) An exclusion justified by "another mechanism already covers it" is a claim about that other mechanism,
   and it should name exactly what it covers.** "The compiler gates crefs" was true and load-bearing in the
   half nobody checked.
-- **`.gitignore` does not untrack an ALREADY-TRACKED file, so `git mv`-ing a document into an ignored
+- **`.gitignore` does not untrack an ALREADY-TRACKED file, so `git mv`-ing a document into an ignored <!-- trap: sub=git shape=stale-claim -->
   directory leaves it tracked — and every downstream claim that it is untracked silently becomes false.**
   Measured 2026-08-14 while squashing: of **29** files under `local/`, exactly **one** is tracked —
   `local/superpowers/records/2026-08-09-memory-policy-measurement.md`, the record D43 archived out of `docs/`.
@@ -180,7 +223,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   <br>The general shape, and it applies to any "move it out of the way" procedure: **untracking is an
   explicit `git rm --cached`, never a side effect of a path change.** Assert it (`git ls-files <dir>` should
   be empty) rather than inferring it from the ignore rule, because the ignore rule is not what decides.
-- **A gate scoped by `git ls-files` is blind to the code most likely to need it — the file you just wrote —
+- **A gate scoped by `git ls-files` is blind to the code most likely to need it — the file you just wrote — <!-- trap: sub=gates,git shape=scope-blind -->
   and it reports clean while doing so.** `git ls-files` lists the INDEX, so a file that is neither committed
   nor `git add`ed does not appear. The ordinary workflow is *write → `verify` → commit*, which means `verify`
   scans everything EXCEPT the new work. Measured 2026-08-23: a 36-line comment block in a brand-new bench file
@@ -200,12 +243,12 @@ the tests) while being wrong. Skim before touching the relevant area.
   <br>**When you write a gate, ask what its file list EXCLUDES and whether that set contains the thing it
   exists to catch.** Then prove it with an untracked probe rather than by reading the glob — this one was
   confirmed by dropping a 30-line comment block into an unstaged file and watching the gate fail.
-- **A gate that enumerates a directory must tolerate the directory being absent.** `check-packages` threw a
+- **A gate that enumerates a directory must tolerate the directory being absent.** `check-packages` threw a <!-- trap: sub=gates shape=silent-loss -->
   raw `ENOENT` stack trace from `readdirSync(Baselines/)` when the last baseline was deleted, instead of
   reporting the per-package "no API baseline" problems it had already collected. It failed CLOSED, so nothing
   shipped wrongly — but the operator is shown a stack trace naming no package, which is the report they
   needed. Found 2026-08-11 by the test that deletes the last baseline.
-- **The release workflow builds from the REMOTE, so "finished" and "shipped" are different states and only
+- **The release workflow builds from the REMOTE, so "finished" and "shipped" are different states and only <!-- trap: sub=git shape=wrong-subject,silent-loss -->
   one of them is pushed.** Measured 2026-08-05: **v2.2.0 was cut without the whole-library review that had
   been finished for it** — three commits were sitting locally, the workflow built what the remote had, and
   the release reported complete success. Nothing failed, nothing warned, and the missing work was invisible
@@ -213,7 +256,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   "the work is done" and "the work is on the remote" as two separate claims — the second is the only one a
   release can act on. (Recorded as a decision until 2026-08-14, which was the wrong home: nobody CHOSE this
   behaviour, it was discovered — so it lives here rather than in the decision record.)
-- **A backlog item amended IN PLACE does not amend the summary that points at it, and the amendment is
+- **A backlog item amended IN PLACE does not amend the summary that points at it, and the amendment is <!-- trap: sub=docs shape=stale-claim -->
   exactly when the summary goes stale.** `TASKS.md`'s startable-set banner has now advertised finished work
   **four** times (2026-08-26, 2026-08-28, and twice on 2026-08-29). The mechanism is the same every time and
   it is not carelessness: a session runs a sweep, writes the result into the item's own prose, and the item
@@ -246,7 +289,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   the source is neither. The cost is that the field is another thing to get right — which is why the gate
   rejects an unknown state, a blocker with no kind, and a startable item that names one anyway.
 
-- **A parser that SCRAPES validates what it matched and is structurally blind to what it skipped, so the
+- **A parser that SCRAPES validates what it matched and is structurally blind to what it skipped, so the <!-- trap: sub=gates shape=silent-loss,scope-blind -->
   half it dropped is unreportable.** Measured 2026-09-10 by an adversarial review of the item markers in
   the entry above, hours after that gate went green. It collected `matchAll` of a `key=value` pattern into
   a map and then validated the MAP — unknown key, unknown value, a blocker missing its kind, a startable
@@ -263,7 +306,33 @@ the tests) while being wrong. Skim before touching the relevant area.
   A truncation to `codex-cli` looks like a terse complete answer, not like loss, so nothing downstream —
   human or gate — has a reason to doubt it. Compare the noisier failures this file usually records, which
   announce themselves as soon as anybody looks.
-- **Before optimizing against a latency number, measure the INSTRUMENT's noise — a p50 that moves less than
+
+- **A TOGGLE is not a boundary until something asserts it balanced, and a scanner that skips to the end of <!-- trap: sub=gates shape=scope-blind,silent-loss -->
+  the file reports a clean run over the part it stopped reading.** Measured 2026-09-10 on this very
+  document, by an adversarial review of the gate that indexes it. `check-pitfalls` flipped a `fenced` flag
+  on each ```` ``` ```` line so a captured block would not be mistaken for prose, and never checked the
+  flag at EOF. **One forgotten closing fence took 157 traps to 131**; the gate's only complaint was that
+  the index was "STALE", the remedy its own help text prescribes is `--write`, and that published
+  `131 traps` and exited 0. Every run after it was green — **including one with an unfiled trap sitting in
+  the suppressed tail**. Three of the gate's four checks were voided by a one-line prose edit to the file
+  it guards.
+  <br>**The same review found the twin defect, and it is the more general one: TWO derivations of one
+  boundary drift, and they drift permissively.** The parser decided where the generated block was by its
+  own scan while the splicer used `blockRange`, so they disagreed about what counted as an anchor — the
+  scan armed on ANY line carrying the begin prefix, the splicer took the FIRST. An anchor quoted lower in
+  the file therefore suppressed everything below it, and a duplicate ABOVE the real one made `--write`
+  delete the document's intro paragraph and exit 0. Fixed by deleting the second derivation: the parser
+  now calls the same `blockRange` the splicer does, so they cannot disagree.
+  <br>**Two rules, and the first is the cheap one.** *Assert the toggle balanced where the scan ends* — a
+  four-line check that turns a silent truncation into a named line number. And *never let a delimiter be
+  computed twice*: this repository already records that shape for gate SCOPE (six copies of one rule, every
+  copy reporting the same green line), and it is the same defect one layer down.
+  <br>**What makes this class nastier than an ordinary scanner bug: the gate WRITES.** A read-only check
+  that under-scans merely fails to catch something. One that regenerates an index publishes the truncated
+  read as the authoritative answer, so the next reader is told there are 131 traps by the mechanism whose
+  entire job is to know there are 157. **A generator must fail closed on anything that could have narrowed
+  its input**, which is a stronger bar than a checker needs.
+- **Before optimizing against a latency number, measure the INSTRUMENT's noise — a p50 that moves less than <!-- trap: sub=measurement shape=vacuous,wrong-subject -->
   its own run-to-run spread has told you nothing.** Measured 2026-08-29 on `memory-scale`: a recall's
   co-activation write went from ten store round-trips to one (**D99**), the 10k p50 read `11.0ms` before and
   `8.9ms` after, and a second run of the *identical post-change code* read `11.2ms`. The "19% improvement"
@@ -278,7 +347,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   round-trips with one; that is a fact about the code, checkable by a test that counts calls, and it stays
   true on a machine whose milliseconds differ. A COUNT is gate-able where a millisecond is not — which is
   the same reasoning `check-counts` rests on, applied to a benchmark instead of to prose.
-- **A FAIL-OPEN seam is indistinguishable from one that agreed with you, so an arm measuring it must count
+- **A FAIL-OPEN seam is indistinguishable from one that agreed with you, so an arm measuring it must count <!-- trap: sub=measurement,memory shape=fail-open -->
   how often it actually FIRED.** `IMemoryVerificationPolicy` returns `NoOpinion` on every failure — refusal,
   timeout, unparseable reply, an invented id — and `NoOpinion` leaves the ranking untouched. So a judge arm
   that scores its own base has two readings that no score column can separate: *the judge endorsed what
@@ -296,7 +365,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   mediocre instead of wrong, the arm would have landed on its base and the honest reading would have been
   unavailable, permanently, from that run's data.
 
-- **A model given an UNBOUNDED task stops discriminating, and it reads as the model being too small.**
+- **A model given an UNBOUNDED task stops discriminating, and it reads as the model being too small.** <!-- trap: sub=memory,measurement shape=wrong-subject,fail-open -->
   Measured twice in one session (2026-09-03/04), on two different seams, with the same 4B model:
   · the verification judge endorsed **17% of a 20-item list, 19% of a 40-item one, and 36% of an 80-item
     one**, its lift over chance falling from ~3.2× to 1.74× — so the SHIPPED depth of 4× the recall limit
@@ -337,7 +406,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   building the surface that carries it; "the library cannot even express this" is an argument for measuring
   it bench-side first, never for assuming the expressible value is the valuable one.
 
-- **An arm that is SUPPOSED to move needs a control proving it CAN — the mirror of the arm that cannot.**
+- **An arm that is SUPPOSED to move needs a control proving it CAN — the mirror of the arm that cannot.** <!-- trap: sub=measurement shape=vacuous -->
   This repository already requires a structural null control before believing a delta. The other half went
   unwritten until 2026-09-03, and cost two runs. A bench arm replacing the engine's endorsed-first PARTITION
   with a rank FUSION returned scores identical to the partition in every cell, which reads as *"fusing does
@@ -353,7 +422,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   that carries new information". A "no" is a low RANK, not an absence, and modelling it as absence is what
   made the fusion degenerate.
 
-- **A gate that scans SOURCE must blank comments first, and the false positive is always the code that most
+- **A gate that scans SOURCE must blank comments first, and the false positive is always the code that most <!-- trap: sub=gates shape=wrong-subject -->
   explicitly obeys the rule.** Measured twice in one session (2026-09-04), on two unrelated predicates:
   · a check for reflection `JsonSerializer` in the wire paths (**D14**) flagged the two files whose comments
     read *"JsonDocument.Parse (not JsonSerializer) so the package stays trim/AOT-clean"*;
@@ -367,7 +436,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   real file. And the tell that you have this bug is not a red gate — it is a red gate naming a file you
   believe is correct; check whether the hit is inside a comment before you doubt the file.
 
-- **A benchmark arm whose CANDIDATE POOL reaches the size of its store has stopped measuring retrieval, and
+- **A benchmark arm whose CANDIDATE POOL reaches the size of its store has stopped measuring retrieval, and <!-- trap: sub=measurement shape=wrong-subject,vacuous -->
   the tell is a score too good to distrust.** Measured twice, in two benches, and the second time is the
   point: the LongMemEval bench grew a counter after a `fill` arm scored 90% by returning most of a 25-turn
   store — that counter fired and saved the run. The LoCoMo bench had none, so an oracle arm at
@@ -383,7 +452,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   than one landing on *too bad*. Compare the pool against the store and print it; `pool >= store` is a
   one-line check that no score column can express.
 
-- **An offline REPLICA of a shipped algorithm must be proven to reproduce it, and the difference that breaks
+- **An offline REPLICA of a shipped algorithm must be proven to reproduce it, and the difference that breaks <!-- trap: sub=measurement shape=wrong-subject,unmeasured -->
   it is never the interesting part of the algorithm.** Measured 2026-08-29 (`docs/task-archive.md` Part 114):
   a ladder scoring RRF outside the engine got the ranking right and the TIE-BREAK wrong —
   `MemoryRankingContract.Finish` breaks score ties by DESCENDING id, so the newer entry wins, and a replica
@@ -402,7 +471,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   plausible number. **Open the shipped implementation and diff the loop, even when the rule fits in a
   sentence**; "whole items until the budget runs out" describes both.
 
-- **Measure a component against the calls it could POSSIBLY change, not against every call.** Same day, and
+- **Measure a component against the calls it could POSSIBLY change, not against every call.** Same day, and <!-- trap: sub=measurement shape=wrong-subject -->
   it reframed three runs at once. Every judge column here was scored over all 200 questions — but a verifier
   promotes, and promotion cannot invent a candidate, so it can only change a call whose returned page held
   no evidence while something deeper did. That was **19 of 200**. On the other 181 the best possible
@@ -414,7 +483,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   what the ranking had already found.** An aggregate lift can be large and land entirely on the calls where
   it is worth nothing — so before optimizing a re-ranker, count the calls it could improve at all.
 
-- **A prediction landing where you expected is when you are least inclined to ask what produced it.**
+- **A prediction landing where you expected is when you are least inclined to ask what produced it.** <!-- trap: sub=measurement shape=silent-loss,wrong-subject -->
   Measured 2026-09-02 (`docs/task-archive.md` Part 137): a walk arm scored 42.0%, inside its pre-registered
   band AND branch, while silently measuring 20 whole items plus ~20 TRUNCATED ones — a projection defect that
   the accuracy column could not show and the `chars/q` column did (6,053 where 40 whole turns cost ~7,000).
@@ -424,7 +493,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   `chars/q` had to rise to ~6,600–6,900 or the fix had not reached the arm, and it read 7,084. A cheap
   non-outcome column that must move is what tells a real run from a plausible one.
 
-- **A constant tuned against a PERFECT component inherits that component's assumptions, and can be actively
+- **A constant tuned against a PERFECT component inherits that component's assumptions, and can be actively <!-- trap: sub=measurement,memory shape=unmeasured,wrong-subject -->
   harmful for the real one.** This repository prices model-in-the-loop seams against an ideal first — a
   perfect annotator, a perfect judge — which is a good habit for deciding whether to spend a model run, and
   a trap for anything you tune while you are there. Measured 2026-09-03:
@@ -438,7 +507,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   treat every constant fitted beside an ideal as unmeasured for the real one. The ideal run is a ceiling on
   the MECHANISM; it is not a fit for the KNOB.
 
-- **NuGet never re-extracts a package version it already has in the global cache**, so packing under a FIXED
+- **NuGet never re-extracts a package version it already has in the global cache**, so packing under a FIXED <!-- trap: sub=build,gates shape=resource,wrong-subject -->
   throwaway version (`consumer-smoke`'s `9.9.9-smoke`) tests the packages only ONCE — every later run restores
   the first run's copies from `~/.nuget/packages/` and reports success about code it never compiled against.
   Found 2026-08-04: a newly-added public method was "missing" from a package that demonstrably contained it,
@@ -447,7 +516,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   general shape — *a distinct version is not enough on its own if the version is a constant.* Evicting by
   id+version beats isolating `NUGET_PACKAGES`, which would re-download every third-party dependency per run.
 
-- **Roslyn BINDS NOTHING in a compilation that carries a syntax error, so a per-file verdict taken from a
+- **Roslyn BINDS NOTHING in a compilation that carries a syntax error, so a per-file verdict taken from a <!-- trap: sub=build,gates shape=vacuous -->
   failed batch certifies unbound code.** Parse errors in ONE file suppress semantic analysis for EVERY file
   in the compilation. Measured 2026-08-11 on `check-samples`' first run: the batch reported **132 errors,
   every one syntactic, and zero `CS0246`** — so eleven documented samples naming types that do not exist in
@@ -457,14 +526,14 @@ the tests) while being wrong. Skim before touching the relevant area.
   from the clean run. "No error was attributed to my file" is not evidence in a failed compilation, and
   this generalises past csc to any batch tool with a fail-fast phase (a linter that stops at a parse error,
   a migration runner that aborts the transaction).
-- **A type declared in SOURCE outranks the same type from a referenced assembly for the whole compilation,
+- **A type declared in SOURCE outranks the same type from a referenced assembly for the whole compilation, <!-- trap: sub=build,gates shape=ordering,wrong-subject -->
   and the diagnostic is only a warning (`CS0436`).** So one documented sample opening
   `namespace Lyntai.Generation;` silently redefines the real `GenerationRequest` for every other sample
   compiled alongside it, which then typecheck against the doc's copy instead of the shipped one — green,
   and meaningless. `check-samples` compiles any block declaring a namespace under the library root in its
   OWN compilation for this reason. The shape to remember: **whenever you compile untrusted-ish source
   beside real references, ask what that source is allowed to SHADOW.**
-- **Splicing lines into a CRLF file with `lines.join('\n')` leaves the inserted lines lone-LF**, because
+- **Splicing lines into a CRLF file with `lines.join('\n')` leaves the inserted lines lone-LF**, because <!-- trap: sub=encoding shape=silent-loss -->
   splitting on `'\n'` leaves each original line's `\r` attached to its own end. `git` says only
   *"LF will be replaced by CRLF the next time Git touches it"* — a warning that reads like routine
   autocrlf noise — and the content diff looks perfect. Measured 2026-08-11 inserting 28 `compile-skip`
@@ -472,7 +541,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   <br>**Unreachable on a tracked file here since 2026-08-28**: the working tree is LF (`docs/DECISIONS.md`
   D95), so there is no `\r` left to strand. It still applies to an untracked file, to one a tool has written
   as CRLF since the last checkout, and in any repository that has not declared a convention.
-- **A working tree that is CRLF against an LF index inflates every diff, and git's stat cache hides it until
+- **A working tree that is CRLF against an LF index inflates every diff, and git's stat cache hides it until <!-- trap: sub=encoding,git shape=scope-blind,resource -->
   a file is touched.** **CLOSED here on 2026-08-28** by a tracked `.gitattributes` (`* text=auto eol=lf`,
   `docs/DECISIONS.md` D95): checkin normalization means a CRLF or mixed working file can no longer reach the
   index, and `git ls-files --eol` now reads `i/lf w/lf` on every tracked file. The entry stays because the
@@ -494,7 +563,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   (`windows-machine.md` §Text and encoding). A TOOL can flip a file you did not hand-edit — `dev.mjs
   decisions-index` rewrote `docs/DECISIONS.md` as CRLF in one session — which under a declared convention
   costs a locally-mixed file rather than a bad commit.
-- **A claim about what a COMMAND does is testable in seconds, and guessing it is how four wrong sentences
+- **A claim about what a COMMAND does is testable in seconds, and guessing it is how four wrong sentences <!-- trap: sub=docs,git shape=unmeasured -->
   reached a decision record in one sitting.** Measured 2026-08-28 while declaring the line-ending convention
   (`docs/task-archive.md` Part 106, `docs/DECISIONS.md` D95). All four were plausible, all four were about
   git's own behaviour, and each fell to a single command: `checkout-index -a -f` does **not** rewrite an
@@ -511,7 +580,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   have. This is the mechanism-shaped sibling of the numeric-provenance entry below, and it is filed
   separately because the remedy differs: that one says *name where the number came from*, this one says
   *the claim is an experiment, so run it*.
-- **`check-warnings` reports "build FAILED" for a build that SUCCEEDED once the build log outgrows Node's
+- **`check-warnings` reports "build FAILED" for a build that SUCCEEDED once the build log outgrows Node's <!-- trap: sub=gates,build shape=resource,silent-loss -->
   1 MiB `spawnSync` buffer.** Measured 2026-08-09 adding the memory policy sweep: a single
   `ProjectReference` from `bench/Lyntai.Benchmarks` to `Lyntai.Tests` dragged Postgres, Testcontainers, MCP,
   ExtensionsAi, Generation and xunit into the bench build, and the full-solution `-v normal` log hit
@@ -525,7 +594,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   whatever references it — prefer `<Compile Include>` links for the handful of files you actually need; and
   when a gate reports a failure whose detail is empty or truncated, **suspect the harness before the build**.
   A `--verbosity` reduction or an explicit `maxBuffer` on the spawn would close it at the root.
-- **A classifier written from a vocabulary list is blind to MODIFIERS on that vocabulary, and it fails
+- **A classifier written from a vocabulary list is blind to MODIFIERS on that vocabulary, and it fails <!-- trap: sub=gates,docs shape=fail-open,silent-loss -->
   silently because every item still lands somewhere.** Measured 2026-08-16, in the release workflow's
   notes generator. It matched `^feat(scope)?:` and `^fix(scope)?:` and dropped
   `^(chore|docs|refactor|…)(scope)?:` — a complete-looking vocabulary that omits conventional commits'
@@ -545,7 +614,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   `devtools/scripts/release-notes.mjs`, tested by `test-devtools`, with the workflow a thin caller — and
   the rule pinned by a test over the REAL commit log, as a property ("no breaking commit lands in Other")
   rather than a count, since a count there fails on the next commit.
-- **The defects in a measurement write-up are almost never in the MEASUREMENT — they are in the prose about
+- **The defects in a measurement write-up are almost never in the MEASUREMENT — they are in the prose about <!-- trap: sub=docs,measurement shape=unmeasured,stale-claim -->
   it, and every text gate is structurally blind to them.** Measured 2026-08-28 over one sweep's report, which
   took **five review rounds**. The code was correct throughout: all 44 result rows byte-identical across four
   independent executions, including captures taken BEFORE the first fix round. What kept failing was the
@@ -595,7 +664,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   not source them, **and was right**; that refusal is the behaviour to copy. If you are about to write a
   number you did not just produce, the correct move is to say you cannot source it.
 
-- **A defect filed from a PARTIAL SCAN under-scopes its own fix, and the filing reads as authoritative.**
+- **A defect filed from a PARTIAL SCAN under-scopes its own fix, and the filing reads as authoritative.** <!-- trap: sub=docs,gates shape=scope-blind,unmeasured -->
   Measured 2026-08-28 (archive Part 107). A backlog entry recorded that `docs/memory.md` §8 had been folded  link-ok
   away and that **four** places still cited it, naming all four with `file:line` precision. The real number
   was **seven across six files**: the entry's `§8` scan missed the RANGE form (`§7–8` — the token is there,
@@ -609,7 +678,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   finding is not a verified one. Here the finding was true and its SCOPE was wrong, which is worse, because
   a wrong scope survives the fix that was supposed to close it.
 
-- **Verify a guarantee by IMPORTING the authoritative function, never by reimplementing it in the checker.**
+- **Verify a guarantee by IMPORTING the authoritative function, never by reimplementing it in the checker.** <!-- trap: sub=gates shape=scope-blind -->
   Same day, while compressing `docs/task-archive.md`. The compression had to preserve every Part number the
   rest of the repository cites, because `check-links` resolves each inbound `` `docs/task-archive.md` Part N ``
   against that file and eliding one turns the reference into "in NEITHER record" — silently, for every
@@ -624,25 +693,25 @@ the tests) while being wrong. Skim before touching the relevant area.
   ("imported rather than restated… two copies of that question drift the moment a document is archived").
   <br>**Both mistakes above are the same shape** — a scan that answers a narrower question than the one
   being asked, while reading as though it answered the whole one.
-- **`curl -sSL` exits 0 on a TRUNCATED download, so verify the byte count or you are measuring a partial
+- **`curl -sSL` exits 0 on a TRUNCATED download, so verify the byte count or you are measuring a partial <!-- trap: sub=measurement,cli shape=silent-loss -->
   file.** Measured 2026-09-10 pulling two GGUFs: one arrived at 203 MB of 468, the other at 95 MB of 636,
   and `curl` reported success for both. A truncated model either fails to load — the lucky direction — or
   loads and scores garbage. **Compare `stat -c %s` against the size the registry states, and retry with
   `--fail --retry N --retry-all-errors -C -` until it matches**; resume is what makes the retry cheap. This
   is the lying-exit-code family `windows-machine.md` records, in a form that costs a whole measurement
   rather than a build.
-- **A model file's size is quoted in two units that straddle a round threshold, and the answer flips.**
+- **A model file's size is quoted in two units that straddle a round threshold, and the answer flips.** <!-- trap: sub=measurement shape=unmeasured -->
   `bge-reranker-v2-m3` Q8_0 is 635,676,416 bytes = **606 MiB** by `ls` arithmetic and **636 MB** as
   HuggingFace displays it. At a "under 500 MB" requirement, `Q6_K` at 500,283,808 bytes PASSES in MiB
   (477.1) and FAILS in MB (500.3). **State the byte count** whenever a size decides anything; a sweep that
   ranked candidates by the wrong unit mis-sorted them by 27%.
-- **A community GGUF quant of a RERANKER can be missing its classification head and fail silently.**
+- **A community GGUF quant of a RERANKER can be missing its classification head and fail silently.** <!-- trap: sub=measurement shape=fail-open -->
   llama.cpp issue #16407: a conversion that drops `cls.output.weight` still loads and still returns
   scores — they are just wrong. One quant of the same model measured 310 tensors where the working ones
   have 311. **Smoke-test a reranker before trusting a run**: score a known-answer document against known
   distractors and assert the ordering AND that the scores are distinct. A flat or shuffled scorer reads as
   a clean null result, which is the shape `CrossEncoderRerank`'s own `DistinctScores` audit exists to catch.
-- **CJK passed to a command-line argument goes through the console encoding and arrives mangled.** A
+- **CJK passed to a command-line argument goes through the console encoding and arrives mangled.** A <!-- trap: sub=encoding,cli shape=silent-loss -->
   `curl -d '{"documents":["评审会…"]}'` on this machine produced
   `parse error … ill-formed UTF-8 byte` from the server, because the GBK console rewrote the payload before
   `curl` ever saw it. **Write the payload to a UTF-8 file and pass `-d @file`** — the same rule
@@ -650,12 +719,12 @@ the tests) while being wrong. Skim before touching the relevant area.
 
 ## LLM / router (details in `llm-and-router.md`)
 
-- **A timeout as a single `CancelAfter` over a whole call** — a wall clock that kills a slow-but-alive
+- **A timeout as a single `CancelAfter` over a whole call** — a wall clock that kills a slow-but-alive <!-- trap: sub=router,cli shape=cancellation -->
   child (a long tool loop, a big prompt) exactly like a dead one. Both the STREAMING path and the BUFFERED
   `ProcessRunner.RunAsync` must use a per-chunk inactivity clock (re-armed on each read); the buffered path
   adds an absolute `maxDuration` backstop and reports `ProcessResult.TimeoutKind`. (Streaming shipped the
   bug in two providers; the buffered path shipped it too — both fixed.)
-- **A non-positive resolved budget means the OPPOSITE thing in the two domains — don't "unify" the idiom
+- **A non-positive resolved budget means the OPPOSITE thing in the two domains — don't "unify" the idiom <!-- trap: sub=router,generation shape=cancellation -->
   casually.** The LLM sites arm the clock unconditionally (`OpenAiCompatibleProvider.CompleteAsync`,
   `HttpEmbedder.EmbedBatchAsync`, `ExtensionsAiProvider` all `CancelAfter(timeout)`), and app-configured
   values are trusted rather than clamped (`LyntaiOptions.ResolveTimeout`), so a `TimeoutByConsumer` entry of
@@ -664,14 +733,14 @@ the tests) while being wrong. Skim before touching the relevant area.
   deliberate; flipping either is a behaviour change no consumer can detect at compile time (major-bump
   material, `docs/DECISIONS.md` D18), and a shared helper that keeps both behaviours behind a flag has
   consolidated nothing but the line count.
-- **Committing a stream on an empty content chunk** — disables fallback for a zero-content first chunk.
+- **Committing a stream on an empty content chunk** — disables fallback for a zero-content first chunk. <!-- trap: sub=router shape=fail-open -->
   Gate the commit on `Text.Length > 0`.
-- **Hand-rolled verdict heuristics** in a provider — they drift. Always route through
+- **Hand-rolled verdict heuristics** in a provider — they drift. Always route through <!-- trap: sub=router shape=wrong-subject,second-door -->
   `LlmVerdictClassifier`. And keep it conservative: a bare word like "unauthorized" or a "429" in a
   stack frame must not trip a verdict that benches a healthy host.
-- **Empty provider output as `Ok`** — must be `Failed` (and a terminal `Error` chunk when streaming) so
+- **Empty provider output as `Ok`** — must be `Failed` (and a terminal `Error` chunk when streaming) so <!-- trap: sub=router shape=fail-open -->
   the router can fall over.
-- **Asking the `claude` CLI a question it doesn't recognize SPENDS A TURN.** An unrecognized token is
+- **Asking the `claude` CLI a question it doesn't recognize SPENDS A TURN.** An unrecognized token is <!-- trap: sub=cli shape=unmeasured,resource -->
   treated as a PROMPT, not an error (`claude zzznotacommand` answers in prose), and `config`/`models` hang
   waiting on a session. So a turn-free question must be a **flag** or a **verified** subcommand — `--version`
   (`ProbeAsync`), and `update`/`install`/`auth {status,login,logout}`, each checked against the installed CLI's
@@ -679,7 +748,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   stays green while every call quietly costs tokens.
   Corollary: the CLI has no turn-free model readout — `ProviderProbeResult.Model` is null there by design,
   and the resolved model comes from `AgentStreamEvent.UsageFinal.Model` after a turn.
-- **…and the flip side, because "it costs a turn" was used to defer measurable work twice: a CLI's own
+- **…and the flip side, because "it costs a turn" was used to defer measurable work twice: a CLI's own <!-- trap: sub=cli,measurement shape=unmeasured -->
   READ-ONLY subcommands are a free measuring instrument.** `--help` is the obvious one, but a CLI that
   manages configuration usually has a command that PRINTS what it would use, and printing config spends no
   tokens. Measured 2026-08-05 while closing CLI14: `codex mcp list -c 'mcp_servers.x.command="node"' …` and
@@ -688,11 +757,11 @@ the tests) while being wrong. Skim before touching the relevant area.
   document in as a project `.mcp.json` and reading back `claude mcp list`. **Before writing "unverified" into
   an XML doc, look for the read-only subcommand** — CLI13 waited on "an unmeasured CLI" when
   `codex exec resume --help` had been free all along.
-- **A subcommand you rely on may not exist on an OLDER install — pin a FLAG so it fails loudly.**
+- **A subcommand you rely on may not exist on an OLDER install — pin a FLAG so it fails loudly.** <!-- trap: sub=cli shape=fail-open,unmeasured -->
   `auth status --json` sends `--json` explicitly even though it is the CLI's default (measured on v2.1.220),
   precisely because a build predating `auth` rejects the unknown *flag* (exit non-zero, no turn) instead of
   billing a turn to answer the sentence "auth status". Same reasoning as above, one step further out.
-- **Trusting the exit code over the machine-readable answer.** A signed-out `auth status` may report its
+- **Trusting the exit code over the machine-readable answer.** A signed-out `auth status` may report its <!-- trap: sub=cli shape=ordering,silent-loss -->
   state AND exit non-zero — that's an ANSWER, not a broken backend. Parse first, then fall back to the exit
   code (`CliProviderEngine.StatusAsync`). And parse the WHOLE body: the `Tail()` helper keeps the LAST 500
   chars, which would decapitate a JSON document.
@@ -704,33 +773,33 @@ the tests) while being wrong. Skim before touching the relevant area.
   next one shipping it: whenever a backend can answer in TWO channels, decide the precedence explicitly and
   pin it with a test.** The backend's own words outrank the exit code every time; the exit code is context
   for the detail, not the reason.
-- **Re-implementing the CLI rules for a new CLI backend.** Everything above lives in
+- **Re-implementing the CLI rules for a new CLI backend.** Everything above lives in <!-- trap: sub=cli shape=second-door -->
   `CliProviderEngine` (Core, `Lyntai.Llm.Cli`); a new CLI is an `ICliProviderDialect`, never a fresh
   `ILlmProvider` (`docs/DECISIONS.md` D21). The reason these traps were fixable at all is that there is now
   ONE copy.
-- **Assuming a non-zero exit means failure — a CLI can report failure IN BAND and exit 0.** Measured on
+- **Assuming a non-zero exit means failure — a CLI can report failure IN BAND and exit 0.** Measured on <!-- trap: sub=cli shape=second-door,silent-loss -->
   codex-cli 0.146.0: a 401 turn prints `{"type":"turn.failed","error":{"message":"… 401 Unauthorized …"}}`
   and the process still exits cleanly. Map it to `CliOutputEvent.Failure` so the message is classified
   (`AuthFailed` cools the host; a bare `Failed` just advances). Ignoring it yields "no output produced" —
   right verdict class, no reason, wrong routing. **And it can do BOTH:** measured 2026-08-05, an expired
   login prints `turn.failed` AND exits non-zero, so "in band" and "non-zero exit" are not two disjoint
   cases to branch on — see the exit-code-precedence entry below.
-- **…and the mirror image: treating every error-ish line as terminal.** Also measured on codex: a bare
+- **…and the mirror image: treating every error-ish line as terminal.** Also measured on codex: a bare <!-- trap: sub=cli shape=wrong-subject -->
   `{"type":"error","message":"Reconnecting... 2/5"}` and an `item.completed` whose item type is `error`
   ("Model metadata not found") both appeared in a run that went on to **succeed**. Only the terminal event
   (`turn.failed`) may fail a call, or healthy calls die on a retry they recovered from.
-- **A neutral working directory can break a CLI that expects a repo.** The engine spawns from a temp dir on
+- **A neutral working directory can break a CLI that expects a repo.** The engine spawns from a temp dir on <!-- trap: sub=cli shape=second-door,vacuous -->
   purpose (§6 hygiene). codex refuses to run outside a git repository, so its dialect MUST pass
   `--skip-git-repo-check` — every completion would fail on a perfectly good install otherwise. Check what
   your CLI assumes about its cwd. **And the flag is needed on the AGENT path too, where the cwd is the
   caller's project**: that reads as "obviously a repo" on a developer's machine and is very often not one in
   a shipped bundle — a passing test that hides a shipped failure. Both codex paths build argv from
   `CodexExecArgs` for exactly this reason; a second copy is a second chance to lose the flag.
-- **Adding a SECOND seam over the same CLI without sharing the wire knowledge.** `CodexAgentSession` reads
+- **Adding a SECOND seam over the same CLI without sharing the wire knowledge.** `CodexAgentSession` reads <!-- trap: sub=cli shape=second-door -->
   the same JSONL as `CodexCliProvider`, so the vocabulary and the non-terminal-`error` rule live once in
   `CodexEnvelope`. Two readers of one wire format drift, and the drift is invisible until the halves disagree
   about whether a turn failed.
-- **Mapping a wire format you have not measured, name by name.** The codex agent session's tool-step half is
+- **Mapping a wire format you have not measured, name by name.** The codex agent session's tool-step half is <!-- trap: sub=cli shape=unmeasured -->
   INFERRED (the measured capture ran no tools). It is written **shape-driven**: any unknown item type becomes
   a tool step under the BACKEND's own name carrying the BACKEND's own payload, nothing renamed or normalised.
   **Be precise about what that buys, because the first draft of this entry was not:** it guarantees *no
@@ -742,7 +811,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   XML docs — and where a guess would COST something (codex reads an unrecognized subcommand as a prompt and
   spends a turn), refuse instead of guessing, and refuse instead of silently ignoring. A safety claim that
   overreaches is itself a documented-not-measured surface (`docs/DECISIONS.md` D35).
-- **When one layer RESOLVES a caller's "not stated" into a concrete value, the next layer cannot tell it
+- **When one layer RESOLVES a caller's "not stated" into a concrete value, the next layer cannot tell it <!-- trap: sub=memory,storage shape=silent-loss -->
   from a value the caller chose — and writing it back destroys their data silently.** Measured 2026-08-26,
   **three times in one subsystem** (`docs/DECISIONS.md` **D91**, `docs/FIXES.md`).
   `GraphMemoryEngine` turned `MemoryGrade.Inherit` into `Associative`, a null `Headline` into a truncation
@@ -763,7 +832,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   against the session that had just fixed the first. A rule articulated and not applied to its own author's
   work is a rule that catches one instance.
 
-- **A NEGATIVE result cached in a process-lifetime cache is permanent, and it is the one answer that had no
+- **A NEGATIVE result cached in a process-lifetime cache is permanent, and it is the one answer that had no <!-- trap: sub=cli,tests shape=resource,fail-open -->
   business being remembered.** Measured 2026-08-26 (`docs/FIXES.md`).
   `ProcessRunner.ResolveCommandPath` memoized `Locate(cmd) ?? cmd` into a static `ConcurrentDictionary` —
   fallback included — so ONE transient `where.exe` failure pinned the unresolved bare name forever, and
@@ -782,16 +851,16 @@ the tests) while being wrong. Skim before touching the relevant area.
   <br>And when you fix a cache, **write the positive control**: a fact asserting the failure is not cached
   passes on an implementation that caches nothing at all, which fixes the bug by deleting the optimization.
 
-- **Trusting an explicit command without checking it exists.** For a PORTABLE install (an app's own bundled
+- **Trusting an explicit command without checking it exists.** For a PORTABLE install (an app's own bundled <!-- trap: sub=cli shape=unmeasured,vacuous -->
   CLI copy) `IsAvailable` must verify presence — `ProcessRunner.CommandExists`, which also accepts an
   extensionless launcher with a spawnable sibling. Returning true for a path that isn't there turns a
   skippable candidate into a failed turn.
-- **Forwarding a free-form option value straight into argv.** `ProviderLoginRequest.Mode` /
+- **Forwarding a free-form option value straight into argv.** `ProviderLoginRequest.Mode` / <!-- trap: sub=cli shape=second-door -->
   `ProviderInstallRequest.Version` are free-form so other backends fit the contract — but an adapter must
   REFUSE a value it doesn't recognize instead of synthesizing `--<whatever>`, and must refuse a flag-shaped
   value in a data slot (`Email: "--dangerously-x"`, `Version: "--force"`). `ArgumentList` prevents *shell*
   injection, not the backend's own argument parser reading your value as an option.
-- **Spawning a Windows CLI by its EXTENSIONLESS npm/nvm shim** — a global npm install writes three
+- **Spawning a Windows CLI by its EXTENSIONLESS npm/nvm shim** — a global npm install writes three <!-- trap: sub=cli shape=ordering,second-door -->
   launchers side by side (`claude`, `claude.cmd`, `claude.ps1`); the extensionless one is a POSIX `sh`
   script, and CreateProcess rejects it with *"The specified executable is not a valid application for this
   OS platform"*. Green on every dev box whose `where.exe` happens to list the `.cmd` first, broken on the
@@ -799,7 +868,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   (`CLAUDE_CMD`, a BYO command). `ProcessRunner.ResolveLauncher` swaps in the spawnable sibling; keep shim
   handling THERE, never at a call site, or the paths that don't go through it (the turn-free probe/update
   seams did) silently regress on shimmed installs.
-- The retry in `CompleteJsonAsync` must **differ** from the first attempt (feed back the bad reply + a
+- The retry in `CompleteJsonAsync` must **differ** from the first attempt (feed back the bad reply + a <!-- trap: sub=router shape=vacuous -->
   corrective instruction) — re-sending the identical request to a temperature-0 model just repeats it.
 
 ## Provider lifetime, cooldown & admission (`Lyntai.Lifecycle`; details in `docs/DECISIONS.md` D30)
@@ -807,7 +876,7 @@ the tests) while being wrong. Skim before touching the relevant area.
 Every one of these is a *silent* failure: the build is green, the tests are green, and the damage is a
 benched tenant, an unbounded engine or a render nobody cancelled.
 
-- **Hoisting a member into a new BASE interface, and deleting it from the derived one, breaks every
+- **Hoisting a member into a new BASE interface, and deleting it from the derived one, breaks every <!-- trap: sub=build,gates shape=scope-blind,wrong-subject -->
   pre-compiled caller.** Adding a base interface is binary-safe; removing the member from the interface that
   used to declare it is not, and the refactor that does both in one step reads as pure cleanup. A consumer
   compiled against the old surface emits `callvirt ILlmProvider::get_Id`, and member resolution **does not
@@ -829,7 +898,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   declaration* — that is the same `MissingMethodException` for every pre-compiled caller of `scorer.Id` or
   `dialect.Id`. If either ever gains the base interface, it keeps its own `new string Id { get; }` too, and
   gets a line in `ProviderIdentityTests` alongside the two provider seams.
-- **Disposing a replaced instance aborts in-flight work.** Retiring an entry looks like it should clean up
+- **Disposing a replaced instance aborts in-flight work.** Retiring an entry looks like it should clean up <!-- trap: sub=lifetime shape=silent-loss -->
   after itself, and "clean up" reads as `Dispose`. It isn't: retirement removes the entry and drops the
   pool's reference, and the runtime reclaims the instance once the last caller finishes. **Without leases a
   pool cannot know when that is**, so disposing on retirement means disposing while callers may still be
@@ -838,17 +907,17 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   the lookup so new callers get the fresh one, while existing users keep the old one until they're done.
   **Expiry is not disposal.** Pinned by a disposable fake whose flag must stay false through `Retire`,
   `RetireSlot`, LRU eviction and idle eviction.
-- **Cooldown keyed on the provider id benches other tenants.** The key was `generation::{providerId}`. With
+- **Cooldown keyed on the provider id benches other tenants.** The key was `generation::{providerId}`. With <!-- trap: sub=lifetime shape=wrong-subject -->
   two configurations of one backend live under different credentials, the one that exhausts its quota benches
   the other, whose key was fine — while two consumers of the same downed self-hosted host *should* share a
   bench and don't. Key on the `ProviderKey` (`configuration` delegate → `pool.TryGetKey`) and both are right;
   key on the id and exactly one is wrong, only in production, and only under multi-tenancy no test simulates.
-- **A per-instance concurrency semaphore admits everyone under a no-reuse strategy.** A `SemaphoreSlim` field
+- **A per-instance concurrency semaphore admits everyone under a no-reuse strategy.** A `SemaphoreSlim` field <!-- trap: sub=lifetime shape=fail-open -->
   on a provider (or on a decorator over one) bounds anything only while the instance is shared. Register
   `TransientProviderPool` and every call builds its own limiter with its own fresh permits, so the local
   engine the limit exists to protect thrashes exactly as it would with no limit configured. Keyed and shared
   (`ProviderAdmission`) is the only shape that survives both strategies.
-- **A key derived from the options object is right for some backends and silently wrong for others.** Four of
+- **A key derived from the options object is right for some backends and silently wrong for others.** Four of <!-- trap: sub=lifetime,di shape=wrong-subject -->
   the five generation options types are records with `init` members and compare structurally; but
   `LocalDiffusionOptions` is a plain class and compares by **reference**, and `ComfyUiOptions.Kinds` /
   `FalQueueOptions.Kinds` are `IReadOnlyList<string>` members that record equality also compares by reference
@@ -861,7 +930,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   review — and include values the backend resolves at **runtime** (a downloaded engine's binary/model paths
   appear when the download completes; the saved configuration has not changed, yet a pooled instance holding
   empty paths keeps failing forever).
-- **Decorating a provider erases its optional capability interfaces.** The generation seam expresses
+- **Decorating a provider erases its optional capability interfaces.** The generation seam expresses <!-- trap: sub=lifetime,generation shape=silent-loss -->
   long-running and streaming delivery as *additional* interfaces the router type-tests:
   `if (provider is not IGenerationJobProvider job) continue;` (`GenerationRouter.SubmitAsync`). Any wrapper
   implementing only `IGenerationProvider` makes a queue backend invisible, so **every video render stops
@@ -869,7 +938,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   admission is applied by the router rather than by a decorator — and the trap applies to *any* future
   wrapper (telemetry, retries, redaction), not just this one. If you must wrap, forward every optional
   interface the wrapped instance implements, and prove it with a test that submits a job.
-- **A `using` that is one frame shallower than you think.** `GenerationRouter.GenerateAsync`'s `Surface` arm
+- **A `using` that is one frame shallower than you think.** `GenerationRouter.GenerateAsync`'s `Surface` arm <!-- trap: sub=lifetime shape=resource,second-door -->
   `return`s from inside the fallback switch, which is safe **only** because the admission permit is held in
   `AttemptAsync`, one frame deeper. Inlining `AttemptAsync` in the name of simplification turns that return
   into a permanent gate leak. More generally: every `ProviderAdmission.EnterAsync` result must reach a
@@ -878,7 +947,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Storage (details in `storage.md`)
 
-- **A single-threaded benchmark cannot see a PROCESS-GLOBAL ceiling, and SQLite ships one that is ON by
+- **A single-threaded benchmark cannot see a PROCESS-GLOBAL ceiling, and SQLite ships one that is ON by <!-- trap: sub=storage,measurement shape=resource,wrong-subject -->
   default.** SQLite collects memory-allocation statistics unless told not to, and maintaining them takes a
   process-global mutex on every allocation and free — so concurrent readers serialise on a counter that has
   nothing to do with the database. It cost **12–29×** here: read-only recalls peaked at TWO workers on a
@@ -897,7 +966,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   <br>**And a flattering refutation still needs repeats.** A 29× improvement is exactly the shape this
   repository has twice published and retracted; it was re-run interleaved with its control three times
   (on 330/320/317, off 3,154/4,056/4,060) before being believed.
-- **Two embedding servers disagree about an OVER-LONG input, and the quiet one is the dangerous one.**
+- **Two embedding servers disagree about an OVER-LONG input, and the quiet one is the dangerous one.** <!-- trap: sub=measurement shape=silent-loss -->
   Ollama truncates silently and answers; `llama-server` returns `500 … input (N tokens) is too large`. So
   moving a bench from one to the other turns an invisible behaviour into a crashed run — and the crash is
   what revealed that the behaviour was there all along. Measured 2026-09-08: LongMemEval's texts reach
@@ -912,7 +981,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   not; the footer now reports `N input(s) truncated`. That is the same defect as a table naming the model
   it REQUESTED rather than the one that answered — a silent difference between what was measured and what
   was reported.
-- **`catch (OperationCanceledException) { throw; }` makes a fail-open seam fail CLOSED the moment the work
+- **`catch (OperationCanceledException) { throw; }` makes a fail-open seam fail CLOSED the moment the work <!-- trap: sub=memory shape=cancellation -->
   it wraps is an HTTP call.** An `HttpClient` timeout surfaces as `TaskCanceledException`, which IS an
   `OperationCanceledException`, so a bare rethrow cannot tell "the caller cancelled" from "my own request
   timed out" — and rethrowing the second one propagates out of a method whose whole contract is to degrade.
@@ -931,7 +1000,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   already solved something in one place will solve it inconsistently unless something checks** — look for
   your own prior art before concluding a defect is novel, because finding it changes the fix from "add a
   guard" to "make the rule uniform".
-- **Fail-open handlers nest, so the promise is only as good as the WEAKEST link in the chain — and testing
+- **Fail-open handlers nest, so the promise is only as good as the WEAKEST link in the chain — and testing <!-- trap: sub=memory shape=fail-open,cancellation -->
   a link in isolation cannot see that.** One timeout from a BYO embedder passes through the seed source,
   the engine's gather, the composite, and then the walk or the composition: four nested handlers, each
   documented fail-open, each individually looking correct. A bare rethrow at ANY of them breaks the promise
@@ -942,7 +1011,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   suspicion when every site carries the same promise. Here they did: "must not sink the blend", "returning
   nothing", "stored unlinked", "must not sink the caller's prompt". The per-site framing was what made a
   one-line-per-site fix look like an unjustified sweep.
-- **When a CONTRACT states the false premise, fixing the code alone ships a doc that contradicts it — and
+- **When a CONTRACT states the false premise, fixing the code alone ships a doc that contradicts it — and <!-- trap: sub=docs,memory shape=stale-claim -->
   no gate can see that.** The cancellation defect above was not only in the catches: `IMemoryEngine`'s own
   recall doc said *"Only `OperationCanceledException` propagates, because cancellation belongs to the
   caller"*, and `IMemorySeedSource`'s said *"Cancellation is the exception and is always propagated"* in
@@ -954,7 +1023,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   code for the idiom — and prefer a promise phrased as a TEST the reader can apply
   (`ct.IsCancellationRequested`) over one phrased as a type (`OperationCanceledException`), because the
   type is what was ambiguous.
-- **A caller-cancel test written as `ThrowsAnyAsync` on a PRE-cancelled token usually cannot fail, so the
+- **A caller-cancel test written as `ThrowsAnyAsync` on a PRE-cancelled token usually cannot fail, so the <!-- trap: sub=tests shape=vacuous,cancellation -->
   control that was supposed to stop a bad fix certifies it instead.** The pair above is the standard shape:
   one test says the seam's own timeout degrades, its twin says a real cancel still propagates. The twin is
   what stops the lazy repair (`catch (OperationCanceledException) { return None; }`) — and on a pre-cancelled
@@ -968,7 +1037,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   a token that is cancelled — which on a path with an entry check means cancelling MID-CALL, from inside the
   policy, rather than before. **Then mutation-test it**: apply the wrong fix and watch the twin go red. A
   control nobody has seen fail is not a control.
-- **A seam that hands a model a TRUNCATION measures the truncation, and the model takes the blame.**
+- **A seam that hands a model a TRUNCATION measures the truncation, and the model takes the blame.** <!-- trap: sub=memory,measurement shape=wrong-subject,silent-loss -->
   `IMemoryVerificationPolicy` receives `MemoryVerificationCandidate.Headline` and never `Content`, and
   `GraphMemoryOptions.HeadlineChars` ships at 120. Measured 2026-09-08 on LoCoMo, whose turns have a median
   of 133 characters: a purpose-built cross-encoder scored **78.0%** against its base's 85.5% and read as a
@@ -980,7 +1049,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   input rather than of a model that cannot do the job. **Before concluding a model class does not transfer,
   check what the seam actually passed it** — and prefer a control that varies the INPUT (a longer headline)
   over one that varies the model.
-- **An admission guarantee must survive the LIMIT, not just the WHERE.** "Admitted unconditionally" that
+- **An admission guarantee must survive the LIMIT, not just the WHERE.** "Admitted unconditionally" that <!-- trap: sub=storage,memory shape=ordering -->
   is implemented only as a predicate is still excluded by `ORDER BY … LIMIT` whenever the ordering key is
   the axis the protected row is weakest on. All three `IMemoryGraphStore` backends filtered authoritative
   material into every seed candidate set correctly, then ordered by recency alone and took a capped
@@ -995,7 +1064,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   authoritative fact is instead fetched by a SEPARATE query and merged in afterwards. **A fixture written
   against SQLite's FTS path alone passes a rule it never exercises.** Read the backend's actual query, never
   generalise the ordering from one branch or from a sibling backend.
-- **A bound configured on one SCOPE and enforced on another is not a bound — and the tests will only ever
+- **A bound configured on one SCOPE and enforced on another is not a bound — and the tests will only ever <!-- trap: sub=memory,tests shape=vacuous -->
   exercise the regime where the gap is invisible.** The sequel to the entry above, and it shipped inside the
   fix for it. `GraphMemoryOptions.AuthoritativeReserve` is a per-ENGINE option that reserves recall slots;
   `MemoryQuery.Limit` arrives per QUERY. Only the `null` DEFAULT was capped by the limit (`?? limit`), so an
@@ -1008,15 +1077,15 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   at most `Limit` items. **Whenever two limits come from different scopes, write the fact that the narrower
   one still binds**, and pick fixture values from the regime where they DISAGREE; a fixture in which the
   configured bound is always the smaller one tests the reconciliation you did not write.
-- **Missing FTS `'delete'` trigger row on delete/update** — silent index corruption. Three triggers,
+- **Missing FTS `'delete'` trigger row on delete/update** — silent index corruption. Three triggers, <!-- trap: sub=storage shape=silent-loss -->
   always.
-- **A double column read without `CAST(x AS REAL)`** — the SQLite integer-affinity trap.
-- **Opening a connection outside the factory** — loses per-connection `foreign_keys=ON`, so cascades
+- **A double column read without `CAST(x AS REAL)`** — the SQLite integer-affinity trap. <!-- trap: sub=storage shape=silent-loss -->
+- **Opening a connection outside the factory** — loses per-connection `foreign_keys=ON`, so cascades <!-- trap: sub=storage shape=second-door,silent-loss -->
   silently stop.
-- **Reusing a migration number** — silently skipped, so the migration never runs. Use
+- **Reusing a migration number** — silently skipped, so the migration never runs. Use <!-- trap: sub=storage shape=silent-loss -->
   `dev.mjs new-migration`.
-- **`ORDER BY` on a non-unique column with no tiebreaker** — nondeterministic on ties.
-- **A `Relevance` normalized by RANK POSITION, not by score margin, makes a bounded rank boost's effect
+- **`ORDER BY` on a non-unique column with no tiebreaker** — nondeterministic on ties. <!-- trap: sub=storage shape=ordering -->
+- **A `Relevance` normalized by RANK POSITION, not by score margin, makes a bounded rank boost's effect <!-- trap: sub=memory,tests shape=wrong-subject,vacuous -->
   CANDIDATE-COUNT DEPENDENT.** `SqliteMemoryGraphStore.SeedAsync` (and the other two backends' own
   orderings) reports `Relevance = 1 - i / rows.Count` — with only two candidates that is *exactly* 1.0 and
   0.5, a fixed 2× gap no matter how close the underlying `bm25` scores actually are; with ten candidates the
@@ -1033,7 +1102,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   the WORST case, not a representative one. `docs/task-archive.md` Part 53 item 1 (the ranking-policy seam
   itself, shipped 2026-08-09) is where this was found; the salience-measurement residue is `TASKS.md`
   Part 65.
-- **One stored value read at N sites grows N coercion rules, and the divergence is silent.** Found
+- **One stored value read at N sites grows N coercion rules, and the divergence is silent.** Found <!-- trap: sub=memory,storage shape=second-door,silent-loss -->
   2026-08-09 in the same work: `salience` was read at FOUR sites with THREE rules — both SQL stores coerced
   `IsFinite ? Math.Max(1, x) : 1` into their promoted column, the in-process store ordered the raw bag value,
   and the engine's rank boost used a bare `Math.Max(1, x)`. So `{salience: 0.5}` admitted level with
@@ -1044,7 +1113,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   reader call it** (`MemorySignals.Salience`), the same discipline
   `ModulatedRetrievability.Declared` already applies within one file — and remember `Math.Max` PROPAGATES
   `NaN` per IEEE 754, so a clamp is not a finiteness guard.
-- **A clamp is not a finiteness guard — `Math.Max`/`Math.Min`/`Math.Clamp` PROPAGATE `NaN` (IEEE 754).**
+- **A clamp is not a finiteness guard — `Math.Max`/`Math.Min`/`Math.Clamp` PROPAGATE `NaN` (IEEE 754).** <!-- trap: sub=memory,storage shape=silent-loss -->
   Promoted to its own entry because it landed **twice in four days in the same subsystem**, the second time
   *in a file whose neighbour documents the identical fact*: `ModulatedRetrievability` already warns about
   `Math.Max(1, NaN)`, and `DsrRetrievability.Reinforce` still shipped `Math.Max(0, increase)` as its safety
@@ -1083,7 +1152,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   added `NaN` into the engine's running position permanently (every LATER entry reports a non-finite age, so
   nothing ranks and nothing prunes), while SQLite refused the bind and threw. Fixed by coercing to `1` —
   taken from `MemoryTick.One`'s existing definition of an ordinary write, rather than inventing a neutral.
-- **A ceiling written as a bare `Math.Min(grown, max)` is a CUT, not a cap, for anything already above it —
+- **A ceiling written as a bare `Math.Min(grown, max)` is a CUT, not a cap, for anything already above it — <!-- trap: sub=memory,tests shape=silent-loss,vacuous -->
   and the value it cuts is usually persisted.** `DsrRetrievability.Reinforce` shipped that shape through
   2.5.x, so recalling an entry whose STORED stability already exceeded `MaxStability` wrote the ceiling back:
   a stored `100000` returned `2000`, a **50× shortening**, violating `IMemoryRetrievabilityPolicy.Reinforce`'s
@@ -1098,14 +1167,14 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   violate it** — the contract fact that should have caught this (`Reinforcement_never_shortens_a_memory`) only
   ever ran on a state at `InitialStability`, structurally far below any ceiling, so it passed for two years
   while the guarantee was false. Fixed 2026-08-11 (`docs/task-archive.md` Part 54, DSR2).
-- **A record where ONE field is domain-guarded and its neighbours are not is more dangerous than one with no
+- **A record where ONE field is domain-guarded and its neighbours are not is more dangerous than one with no <!-- trap: sub=di,memory shape=scope-blind -->
   guards at all** — the guard reads as evidence the record was audited. `DsrOptions.Decay` got a validating
   `init` in 2026-08-09's Task 1 (after a review found `Decay = 0` made everything permanently unforgettable
   while pruning still deleted); `InitialStability`, declared three lines away and equally load-bearing, kept
   none, and `InitialStability = 0` then reached `Math.Pow(0, -0.4)` = `+∞` → `0 × (1+∞)` = `NaN`. When a
   review forces a guard onto one option, **audit every other field of that record in the same fix**, and
   prefer a test that walks the whole options surface over one that pins the field just fixed.
-- **A test whose recall silently returns nothing exercises only the write path — and stays green.** Hit
+- **A test whose recall silently returns nothing exercises only the write path — and stays green.** Hit <!-- trap: sub=tests,memory shape=vacuous -->
   twice, four days apart, both times while reaching for `InMemoryMemoryGraphStore` "for speed": 2026-08-09 a
   recall-quality guard measured a **~93% miss rate** and switched to `SqliteMemoryGraphStore`; 2026-08-10 an
   age-primitive identity test instrumented at **writes 25, queries 69, `TouchAsync` calls 0** — every recall
@@ -1124,7 +1193,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   worse than none: it reads as coverage.** And the wider one, which is why this entry keeps its history:
   a cross-backend difference filed as *by design* had been quietly failing recall on two of three backends
   for a year, defended by a test that asserted the divergence rather than questioning it.
-- **`EdgeHalfLife` exists on TWO options records, with the same name and the same default `100`, governing
+- **`EdgeHalfLife` exists on TWO options records, with the same name and the same default `100`, governing <!-- trap: sub=di,memory shape=wrong-subject -->
   DIFFERENT things.** `GraphMemoryOptions.EdgeHalfLife` decays an **edge's weight** during traversal — it is
   what stops the graph saturating, and it is read by the engine for every arm regardless of which
   retrievability policy is installed. `DsrOptions.EdgeHalfLife` decays **connection strength** inside the
@@ -1135,7 +1204,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   **Both default to 100, so they agree by coincidence and nothing surfaces the confusion until someone tunes
   one and expects the other's behaviour.** When you touch either, name which one in the same sentence;
   "the edge half-life" is ambiguous in this subsystem and always has been.
-- **A PERMANENT change driven by the system's own retrieval decisions is the dangerous shape — not merely an
+- **A PERMANENT change driven by the system's own retrieval decisions is the dangerous shape — not merely an <!-- trap: sub=memory,measurement shape=wrong-subject -->
   unbounded one.** Five studies on 2026-08-12 across `GraphMemoryEngine`'s three retrievability-raising
   mechanisms, including two that refuted the investigator's own earlier framings, which is why the
   qualifications below are part of the entry rather than trimmed out of it.
@@ -1153,7 +1222,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   effect expire, and if not, is it driven by something other than the system's own output?** Offered as the
   hypothesis that survives, not as a proven law — it is the third framing in one day and has not been tested
   on its own terms.
-- **A feedback loop conditioned on the system's OWN output is not learning, and it reads like learning at
+- **A feedback loop conditioned on the system's OWN output is not learning, and it reads like learning at <!-- trap: sub=memory shape=wrong-subject,unmeasured -->
   every call site.** Measured 2026-08-12 across three studies (`docs/task-archive.md` Part 64,
   `docs/DECISIONS.md` D53):
   `GraphMemoryEngine` reinforces every node `RecallAsync` returned, which sounds like the documented promise
@@ -1166,7 +1235,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   The fix is not to weaken the loop but to condition it on an act that carries evidence — here `ExpandAsync`,
   a caller choosing to pay for full content, which this engine already produces and then weights identically
   to a guess.
-- **An English, space-separated test corpus measures the FRIENDLIEST tokenization a trigram-FTS store
+- **An English, space-separated test corpus measures the FRIENDLIEST tokenization a trigram-FTS store <!-- trap: sub=measurement,memory shape=wrong-subject,scope-blind -->
   supports, and every number it produces is a best case.** Measured 2026-08-12: the same cluster-recall
   question scores ~**0.47** miss with a cue whose only live token reaches the target, and ~**0.82** with a cue
   carrying ordinary words that also appear elsewhere — a gap far larger than any policy effect measured that
@@ -1179,7 +1248,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   <br>**Before calling incidental match contamination, ask which tokenizer the store actually uses and which
   languages it claims to support.** A repository named 灵台 with CJK storage tests does not get to measure
   only English.
-- **A best-effort catch turns a BUG into "nothing matched", and you will debug the wrong layer for hours.**
+- **A best-effort catch turns a BUG into "nothing matched", and you will debug the wrong layer for hours.** <!-- trap: sub=memory shape=fail-open -->
   Measured 2026-08-13 adding query-time semantic seeding: `GraphMemoryEngine.RecallAsync` wraps
   `GatherAsync` in `catch (Exception ex) { _logger.LogWarning(...); return MemoryRecall.Empty; }` — a
   deliberate best-effort promise, so a storage outage degrades to "no memory" rather than a throw. The cost
@@ -1193,7 +1262,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   looking like a null result. The general rule: **wherever a catch converts an exception into a plausible
   empty value, a test must be able to tell the two apart** — and that test is the one to write FIRST when a
   new code path in that method appears to do nothing.
-- **The controls a run checks must be read out of the MODE it runs, not recalled from the most-quoted
+- **The controls a run checks must be read out of the MODE it runs, not recalled from the most-quoted <!-- trap: sub=measurement shape=wrong-subject,vacuous -->
   sentence about the benchmark.** Measured 2026-09-02: a design record named **31.4% / 10.0%** as the
   knowledge-update controls for `memory-longmemeval`, confidently and in a table headed "nothing else is
   readable if these move". Those are the `--shots` mode's `clean` column at shot 1 — a different metric in a
@@ -1204,7 +1273,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   memory. Open the mode's own published table and copy the row. This was caught by reading before the run
   rather than by the run — a wrong control does not fail, it silently certifies.
 
-- **A benchmark class whose STORE is smaller than the PAGE cannot measure retrieval at all, and it looks
+- **A benchmark class whose STORE is smaller than the PAGE cannot measure retrieval at all, and it looks <!-- trap: sub=measurement shape=vacuous,wrong-subject -->
   like a perfect score rather than a broken instrument.** Measured 2026-09-04 over LongMemEval's oracle
   variant, per class: `single-session-assistant` has a median of **8 turns**, and **63% of its questions have
   a store that fits entirely inside `k = 10`** — the first recall returns the whole conversation, so any
@@ -1219,7 +1288,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   any evidence metric, so a loader must drop them or the denominator silently lies — `Load` already does for
   the two classes that run, and a new class needs the same guard rather than inheriting it by luck.
 
-- **A sample size can hide a CRASH, not only a wrong number — so run the instrument once at the size you
+- **A sample size can hide a CRASH, not only a wrong number — so run the instrument once at the size you <!-- trap: sub=measurement shape=silent-loss -->
   intend to draw conclusions at.** Measured 2026-09-02 (`docs/FIXES.md`): `memory-locomo --retrieval` had
   only ever been run at `--n 200`, and its `+forget0+oracle` arm could not be CONSTRUCTED at `--n 1540` —
   the oracle keys evidence by question text and LoCoMo repeats 11 QA rows verbatim inside `conv-48`, so
@@ -1237,7 +1306,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   (`D1:1` exists in all ten). An evidence index keyed globally on `dia_id` would silently endorse another
   conversation's turn, and every arm would still look plausible.
 
-- **A measurement that cannot observe a change reports "nothing moved", which reads exactly like "no
+- **A measurement that cannot observe a change reports "nothing moved", which reads exactly like "no <!-- trap: sub=measurement,memory shape=vacuous,wrong-subject -->
   regression".** Measured 2026-08-12 reconciling `GraphNode.Relevance` across the three backends: both
   `MemoryDefaultRecallQualityTests`'s fixed-corpus pin and the 28-minute `memory-sweep` came back
   bit-identical, which looks like strong evidence the change is safe. It is not evidence at all — `MemoryCorpus`
@@ -1273,7 +1342,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   corpus?"** — and assert the second one in the study, as a distinct-value count, the same way
   `MemoryCorpusGoldenTests` pins that a language arm genuinely differs. A knob that scales a constant is
   unmeasurable, and nothing about the shape of the experiment says so.
-- **The guard that stops a contract fact being wired to one backend only counts the CONTRACT's declarations,
+- **The guard that stops a contract fact being wired to one backend only counts the CONTRACT's declarations, <!-- trap: sub=tests,storage shape=scope-blind -->
   not what each backend CALLS — so it is blind in exactly one direction.** Measured 2026-08-14: all 68
   `MemoryGraphStoreContract` facts are wired on all three backends today (68/68/68), so this is latent, not
   live. But `PostgresStorageTests`' `Assert.Equal(declared, covered)` compares a reflected count of the
@@ -1285,14 +1354,14 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   before a freeze, because it restructures ~200 tests to close a gap with no live instance. **Re-measure with
   a per-backend call census (parse each test file for `MemoryGraphStoreContract.<name>`) rather than trusting
   the count**, which is how the 68/68/68 above was established.
-- **A cross-backend invariant enforced on ONE backend's test class is not enforced.** The non-finite-salience
+- **A cross-backend invariant enforced on ONE backend's test class is not enforced.** The non-finite-salience <!-- trap: sub=tests,storage shape=scope-blind -->
   guard above was pinned only in `SqliteMemoryGraphStoreTests`, so the in-process store's own divergence
   survived a full review. If a fact is about the CONTRACT, it belongs in `MemoryGraphStoreContract` and must
   be wired to all three backends (`InMemory`, `Sqlite`, `Postgres` — the last also bumps the `covered` count
   that guards against a silent skip). Keep a backend-specific assertion only where it genuinely cannot be
   portable — reading a raw column, for instance.
 
-- **An id that is unique WITHIN one engine is not unique across a composite, and keying on it alone works
+- **An id that is unique WITHIN one engine is not unique across a composite, and keying on it alone works <!-- trap: sub=memory,measurement shape=silent-loss -->
   right up until there are two members.** Measured 2026-08-30 merging the two field harnesses onto
   `MemoryWalk` (`docs/task-archive.md` Part 120): both keyed accumulated results on `MemoryRef.Id`, and both
   got away with it only because each ran a single engine — on a composite, two members may each own id
@@ -1304,15 +1373,15 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## DI / config
 
-- **Calling `AddLyntai` twice** — registers a second `LyntaiOptions` (shadows the first) while both
+- **Calling `AddLyntai` twice** — registers a second `LyntaiOptions` (shadows the first) while both <!-- trap: sub=di shape=silent-loss -->
   calls' providers pile into the collections. It now throws; compose everything in one callback.
-- **A singleton capturing a scoped/transient dependency** (captive dependency). Providers/stores are
+- **A singleton capturing a scoped/transient dependency** (captive dependency). Providers/stores are <!-- trap: sub=di shape=resource -->
   singletons; resolve per-call transients (like an `HttpClient` from `IHttpClientFactory`) inside the
   method, not the constructor.
-- **A documented option/env-var that isn't wired** — the `LYNTAI_MODEL_<CONSUMER>` override and the OTel
+- **A documented option/env-var that isn't wired** — the `LYNTAI_MODEL_<CONSUMER>` override and the OTel <!-- trap: sub=di shape=stale-claim,silent-loss -->
   cost attribute were both documented but silently dropped, and no test caught it. When you add a
   documented knob, add the test that exercises the documented path.
-- **TWO construction sites for one type, each with its own copy of a long optional-argument list, is how a
+- **TWO construction sites for one type, each with its own copy of a long optional-argument list, is how a <!-- trap: sub=di,memory shape=second-door,fail-open -->
   documented knob stops being wired — and the compiler is structurally unable to notice.** Measured
   2026-08-14 (`docs/FIXES.md`): `MemoryEngineBuilder` built `GraphMemoryEngine` in both `UseGraph` (the
   configured path) and `UseBestAvailable` (what the one-line `AddMemory()` resolves to). `annotation:` and
@@ -1330,7 +1399,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   still worked: a recording fake whose `Seen` list must be non-empty. This is the same family as the
   documented-but-unwired entry below, arrived at from a different direction — there the knob was never read,
   here it was read on one path of two.
-- **A `TryAddSingleton` reached during `configure(builder)` BEATS `AddLyntai`'s own options-built
+- **A `TryAddSingleton` reached during `configure(builder)` BEATS `AddLyntai`'s own options-built <!-- trap: sub=di shape=ordering,silent-loss -->
   registration.** All of this is in `src/Lyntai.Core/DependencyInjection/ServiceCollectionExtensions.cs`:
   `AddLyntai` invokes `configure(builder)` well before it calls `RegisterLlmFrontDoor`, and that method is
   where the `DeadHostTracker` built from `LyntaiOptions` is registered. **Names first, lines second** — these
@@ -1348,7 +1417,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   Register* block that owns it. `RegisterProviderLifetime` is all `TryAdd` deliberately for the mirror-image
   reason: everything it seeds is meant to lose to a host or a `Use*` call.
 
-- **A seam whose EMPTY registration means "take the default" has no off switch, and the arm you build to
+- **A seam whose EMPTY registration means "take the default" has no off switch, and the arm you build to <!-- trap: sub=measurement,memory shape=vacuous,fail-open -->
   turn it off is the shipped behaviour wearing an OFF label.** Measured 2026-08-30 (`docs/FIXES.md`).
   `GraphMemoryEngine.NormalizeSaliencePolicies` substitutes a fresh `StructuralSaliencePolicy` for a null or
   empty collection — deliberate, documented, and the reason `NeutralSaliencePolicy` exists at all.
@@ -1384,7 +1453,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Copying a rule copies its assumptions
 
-- **A rule moved from where it was true to where it is not — the shape behind three of the four regressions
+- **A rule moved from where it was true to where it is not — the shape behind three of the four regressions <!-- trap: sub=generation,memory shape=unmeasured,wrong-subject -->
   a single review round introduced (2026-08-15, `docs/FIXES.md`).** Each looked like careful reuse of an
   existing, correct decision, and each carried an unstated premise that held only where it came from:
   · `ComfyUiProvider`'s poll rule — *"a 4xx is terminal, a 5xx is transport"* — copied onto
@@ -1428,7 +1497,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   articulates a rule is the round most likely to violate it elsewhere, because attention is on the sentence
   rather than on the code.
 
-- **ADDING a second way to configure something that already has one is where double-application comes from —
+- **ADDING a second way to configure something that already has one is where double-application comes from — <!-- trap: sub=di,memory shape=second-door,silent-loss -->
   not from decorators being decorators.** Measured 2026-08-31. `GraphMemoryEngine` gained
   `retentionPolicies` so retention could arrive as its own registered collection (D48's shape); retention had
   always arrived pre-wrapped in a hand-built `ModulatedRetrievability` passed as `retrievability:`. Supplying
@@ -1450,7 +1519,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   route was, and whether both can be supplied at once.** Report the collision at wiring time (**D85**) rather
   than picking one silently; either silent choice is a value the caller never asked for.
 
-- **A doc that enumerates what a feature does NOT do, without ever stating what it DOES, is read as
+- **A doc that enumerates what a feature does NOT do, without ever stating what it DOES, is read as <!-- trap: sub=docs,memory shape=scope-blind,vacuous -->
   "nothing" — and the reader who reaches that conclusion turns the feature off.** Measured 2026-08-22/23,
   twice over the same sentence. `IMemoryVerificationPolicy`'s summary said a verifier *"only narrows what a
   recall already found; it cannot add an entry, and by default removes none from the caller's answer
@@ -1478,7 +1547,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Second doors
 
-- **A field accepted on WRITE and absent from the READ record is a write-only field, and every gate on earth
+- **A field accepted on WRITE and absent from the READ record is a write-only field, and every gate on earth <!-- trap: sub=memory shape=silent-loss,scope-blind -->
   says it is fine.** Measured 2026-08-27 (**D93**). `MemoryWrite.Metadata` was accepted, persisted into
   `GraphNode.Metadata`, returned by all three stores — and then dropped at the **three** lines in
   `GraphMemoryEngine` that project a node onto `MemoryItem`. It compiled, every test passed, the data really
@@ -1517,7 +1586,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   stayed broken through the very fix that named it. When a fact asserts a property of "what a read returns",
   enumerate the READS as deliberately as you enumerate the implementations.
 
-- **Inserting a member ABOVE an existing one strands that one's doc onto your new member.** Measured FOUR
+- **Inserting a member ABOVE an existing one strands that one's doc onto your new member.** Measured FOUR <!-- trap: sub=docs shape=stale-claim -->
   times on 2026-08-16/17, by the same hand, in one session — adding a private helper before its neighbour
   left the neighbour's `<summary>` (or, twice, only its `<param>` tags) attached to the newcomer, so the
   newcomer carried two docs and the member below carried none or half. It is a JSDoc problem too: the same
@@ -1529,7 +1598,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   — duplicate `<summary>` is not a warning, the XML stays well-formed, and it SHIPS. The two `<param>`-only
   cases did warn (CS1571 duplicate param tag), which is why they were found in seconds and the summary cases
   were not found for a release.
-- **An invariant DOCUMENTED in one implementation is not a contract, and the backend that wrote it down is
+- **An invariant DOCUMENTED in one implementation is not a contract, and the backend that wrote it down is <!-- trap: sub=storage,tests shape=second-door,scope-blind -->
   usually the only one that keeps it.** Measured 2026-08-16, three times in one pass, all in storage:
   `InMemoryVectorStore` carried a top-k tiebreak and a doc calling it *"load-bearing, not tidiness"* while
   neither persistent backend had one; `MemoryGraphSql.MinimumStability` was hoisted with a doc saying *"two
@@ -1550,7 +1619,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   plan happens to walk in `vec_id` order — an accident that a rewrite, an `ANALYZE`, or a different plan
   changes silently. When a contract fact passes on a backend you expected to fail, find out WHY before
   believing it.
-- **A shared helper whose doc says "EVERY read site calls this" is making a claim nothing checks — and the
+- **A shared helper whose doc says "EVERY read site calls this" is making a claim nothing checks — and the <!-- trap: sub=memory shape=second-door,stale-claim -->
   site that does not call it is usually the newest one.** `MemorySignals.Salience` was extracted for exactly
   this reason and says so, naming the three readers that once "normalized the same value three different
   ways, which made identical data admit differently on different backends". Measured 2026-08-17:
@@ -1563,7 +1632,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   which means it was true when written and nothing has held it true since. Prefer routing the new caller
   through the helper over adding a second correct copy of the guard: two correct copies is how the three
   incorrect ones started.
-- **A SPEND cap is a capability too, and its second door is the one that moves the money.** Measured
+- **A SPEND cap is a capability too, and its second door is the one that moves the money.** Measured <!-- trap: sub=generation shape=second-door,fail-open -->
   2026-08-16. `GenerationFetchTool` and `GenerationRenderJobHandler` both fetch a finished render; only the
   handler recorded its cost. Because a queue backend prices at FETCH — the only point the total is known —
   the unbilled door was the one carrying the entire cost, and `GenerationSubmitTool` then re-checked its cap
@@ -1575,7 +1644,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   generous limit.
   <br>Coverage was no help: a test already drove submit → status → fetch end to end and asserted nothing
   about usage. **Exercising a path is not testing its accounting.**
-- **A capability enforced at one entry point is not enforced if a second entry point reaches the same
+- **A capability enforced at one entry point is not enforced if a second entry point reaches the same <!-- trap: sub=di,generation shape=second-door,fail-open -->
   objects.** Measured 2026-08-15. `ToolLoop.GatedInvokeAsync` runs every model-driven tool call through
   `IGuardRail` — that gap was found and closed for the tool loop in 2026-07 and recorded as a security item.
   The hosted MCP endpoint, added later and in a different package, executes **the same `ITool` instances**
@@ -1599,7 +1668,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   implementers a compile error in a major, which is exactly when that is affordable. Note the limit, though:
   the compiler forces a decorator to HAVE the member and cannot tell a governed implementation from a
   pass-through, so the behaviour still needs a test per door (`GenerationGovernanceTests`).
-- **A constant does not live in one place just because it was written once — and the copy nothing ENFORCES
+- **A constant does not live in one place just because it was written once — and the copy nothing ENFORCES <!-- trap: sub=generation shape=stale-claim,second-door -->
   is the one that rots silently.** Measured 2026-08-16 making the local-diffusion size ceiling configurable
   (`docs/DECISIONS.md` **D68**). The hard-coded 768 lived in **three** places, and each was found a different
   way. The **scale** was obvious. The **rounding** re-clamped through a second copy, so raising the cap would
@@ -1616,7 +1685,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   <br>Related: with no ceiling the keys are now OMITTED rather than set to something large. An absent key
   already reads as "not enumerated"; a number would have been a limit nobody measured, which is the same
   defect wearing a bigger value.
-- **A rule that is right for the only implementation exercising it is a coincidence, and the second
+- **A rule that is right for the only implementation exercising it is a coincidence, and the second <!-- trap: sub=cli shape=ordering,silent-loss -->
   implementation is where that shows.** `CliProviderEngine` appended an `ICliToolProvisioner`'s args after
   the dialect's argv. Correct for `claude`, whose argv ends in options; wrong for `codex`, whose argv ends
   in the `-` stdin positional, where everything after it is read as PROMPT text and **a swallowed flag is a
@@ -1625,7 +1694,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   (`docs/DECISIONS.md` **D65**). **When a shared engine composes something whose correctness depends on a
   backend's own grammar, the backend places it** — the engine may supply the pieces, not choose the order.
 
-- **A member of a variation-point collection that the ROUTING RULE can never select is inert, and the
+- **A member of a variation-point collection that the ROUTING RULE can never select is inert, and the <!-- trap: sub=memory,di shape=ordering,fail-open -->
   registration is what makes it look wired.** Measured 2026-08-21, reported by two adopters on 3.0.0
   (`docs/task-archive.md` Parts 89 and 90; the answers are `docs/DECISIONS.md` **D85**).
   `CompositeMemoryEngine.RememberAsync` routed a write to the FIRST member supporting its grade, which is
@@ -1646,7 +1715,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `UseCurated("glossary").UseGraph()` blend silent; the naive "shares a grade with an earlier member" version
   fires on it, and a warning people learn to skip is the `check-warnings` ENOBUFS failure in a different hat.
 
-- **A projection the OWNING STORE does not hold is a second door onto every removal verb, and the shared
+- **A projection the OWNING STORE does not hold is a second door onto every removal verb, and the shared <!-- trap: sub=memory,storage shape=second-door,scope-blind -->
   contract that would catch it structurally cannot see it.** Measured 2026-08-26 (`docs/FIXES.md`).
   `GraphMemoryEngine` indexes each write into an `IVectorStore` collection it addresses itself, with the
   entry's **full content as the payload** — and neither `ForgetAsync` nor `PruneAsync` touched it, so the
@@ -1681,7 +1750,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   is an orphan rather than a residue") and the `try`/`catch` did not implement it. When you write down why
   two paths differ, check every mechanism that expresses the difference, not just the one you were editing.
 
-- **When a decision falsifies a claim, grep the CLAIM — not the file you happened to be reading.** Measured
+- **When a decision falsifies a claim, grep the CLAIM — not the file you happened to be reading.** Measured <!-- trap: sub=docs shape=stale-claim,second-door -->
   2026-08-30 (`docs/task-archive.md` Part 126). The 3D survey established that `3d → image → video` chains
   nothing, and the false sentence was corrected in `GenerationKinds.Model3d`'s shipped XML doc — while the
   IDENTICAL claim in `README.md` survived two consecutive passes, because each fix was made where the defect
@@ -1691,7 +1760,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `grep` for the claim's distinctive phrase at the moment you correct it, against a reader implementing the
   wrong thing later.
 
-- **A grep with context shows you a method's BODY, and inferring its NAME from the lines around it is how a
+- **A grep with context shows you a method's BODY, and inferring its NAME from the lines around it is how a <!-- trap: sub=docs shape=unmeasured -->
   member that does not exist gets into prose.** Measured 2026-08-30: a `-C 4` hit displayed
   `if (request.Inputs.Count > 0 && !SupportsInputs) return false;` with the signature just above the window,
   and the method was cited as `GenerationCapabilities.CanServe` <!-- link-ok: the WRONG name, quoted --> in an archive Part and in `TASKS.md` — two
@@ -1706,7 +1775,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   half), and the general lesson survives it: when you write an identifier into prose, you are making a
   checkable claim in a place nothing was checking.
 
-- **A capability FLAG is a promise, and a flag nothing implements is a silent wrong answer rather than a
+- **A capability FLAG is a promise, and a flag nothing implements is a silent wrong answer rather than a <!-- trap: sub=generation shape=silent-loss,second-door -->
   missing feature.** Measured 2026-08-30 (`docs/FIXES.md`, `docs/task-archive.md` Part 124).
   `ComfyUiProvider` declared `SupportsInputs = true` and never read `request.Inputs` — the identifier
   occurred once in the whole file, in the declaration. **What makes this expensive is that the flag is an
@@ -1731,7 +1800,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `Its_declared_deliveries_are_backed_by_the_interfaces_it_implements` was already doing this for delivery
   modes and its existence did not suggest the inputs axis to anyone.
 
-- **"Pick the first `image/*` artifact" chains a texture ATLAS, which renders perfectly and is completely
+- **"Pick the first `image/*` artifact" chains a texture ATLAS, which renders perfectly and is completely <!-- trap: sub=generation shape=wrong-subject,fail-open -->
   wrong — and the media type cannot save you.** From the 2026-08-30 3D-backend survey (`docs/task-archive.md`
   Part 124), a DESK survey, so these are shapes read from published API pages rather than measured calls.
   A mesh backend's only `image/*` outputs are **UV texture atlases** (Rodin's `textures[]`,
@@ -1746,7 +1815,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Refactoring & namespace moves
 
-- **A compiler error list is not the authoritative site-list for a rename or move — it misses silently in
+- **A compiler error list is not the authoritative site-list for a rename or move — it misses silently in <!-- trap: sub=build shape=scope-blind -->
   three distinct ways.** Found closing the memory-domain restructure (moving the graph-retention types into
   `.Interference`/`.Forgetting`/`.Modulation`/`.Salience` sub-namespaces): **(1) it cannot see warnings.**
   `CS1574` (an unresolved doc `<see cref>`) is a *warning*, so a file that references a moved type only
@@ -1763,7 +1832,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   directory believed to be covered by some other step) is a bet that the excluded area really is covered
   elsewhere. On this branch that bet was three-quarters right — the worst outcome, because a mostly-correct
   exclusion looks exactly as safe as a fully-correct one and hides precisely the quarter that wasn't.
-- **A member name reached by REFLECTION is a rename site the compiler cannot see** — and here the one gate
+- **A member name reached by REFLECTION is a rename site the compiler cannot see** — and here the one gate <!-- trap: sub=gates,measurement shape=scope-blind -->
   that would catch it is deliberately outside `verify`. `bench/Lyntai.Benchmarks/MemoryPolicySweep.cs` reads
   engine internals with `GetField("_agePolicies", …)!`: rename that field and the code still compiles, `verify`
   still goes green over every one of its gates, and the sweep throws `NullReferenceException` on the `!` the next
@@ -1774,7 +1843,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   safe, serializer attribute names, SQL column names, reflection in tests) and treat each hit as a site. The
   general shape: **a green build proves nothing about names the build never resolved**, and "the compiler
   will find the call sites" is exactly the reasoning that misses them.
-- **A rename that stops at the types leaves the retired word alive in PARAMETER NAMES and PROSE, and the
+- **A rename that stops at the types leaves the retired word alive in PARAMETER NAMES and PROSE, and the <!-- trap: sub=docs,gates shape=stale-claim,scope-blind -->
   prose is what puts it back.** D47 renamed four memory seams (`IMemoryClock` → `IMemoryAgePolicy`,
   `ISalienceAppraiser` → `IMemorySaliencePolicy`, `IRetentionModulator` → `IMemoryRetentionPolicy`) and
   explicitly deferred the parameter names as "purely cosmetic". Three of them survived into 3.0's frozen
@@ -1793,7 +1862,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   name is SURFACE, which is why `check-api-vocabulary` is a separate gate with a separate registry rather
   than a wider glob on this one.
 
-- **A doc comment asserting "this is NOT duplication waiting to be extracted" is unfalsifiable, and it is
+- **A doc comment asserting "this is NOT duplication waiting to be extracted" is unfalsifiable, and it is <!-- trap: sub=docs,storage shape=vacuous,scope-blind -->
   the one claim nobody re-reads.** Measured 2026-08-16 (`docs/DECISIONS.md` **D77**).
   `PostgresMemoryGraphStore`'s class doc said exactly that, and justified it with three real dialect
   differences — `GREATEST` versus `MAX`, an `ILIKE` over a GIN index versus an FTS5 virtual table, the table
@@ -1811,7 +1880,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   reads, forever after, as a defence of everything beside it. When you write one, name the part it does NOT
   cover — the same rule `check-links`' own header states for a gate whose scope is narrower than its defect.
 
-- **A "tidy up the formatting" regex in a scripted sweep is a rewrite of every line it can match, and the
+- **A "tidy up the formatting" regex in a scripted sweep is a rewrite of every line it can match, and the <!-- trap: sub=gates,encoding shape=silent-loss -->
   build stays green while it happens.** Measured 2026-08-16 stripping work-log citations out of `src/`
   comments. The substitutions were narrow and correct; three cleanup rules appended to "fix the punctuation
   a removed parenthetical strands" were not. `'  +([a-z(<])' → ' \1'` collapsed the INDENTATION of **all
@@ -1844,7 +1913,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Testing
 
-- **Every recall-quality number is a property of the INSTRUMENT until proven otherwise, and this has cost
+- **Every recall-quality number is a property of the INSTRUMENT until proven otherwise, and this has cost <!-- trap: sub=measurement shape=wrong-subject -->
   four published figure sets.** `docs/task-archive.md` Part 118 (questions sharing a store), Part 119 (a
   near-tie noise floor of ~1 point read as a result), **D100**'s own withdrawn *"search wants two shots"*,
   and `memory-salience`'s OFF arm that was never off (`docs/FIXES.md`, 2026-08-30). Every one looked like a
@@ -1857,7 +1926,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   <br>_Relocated from `TASKS.md` on 2026-09-10, where it had been carried in the banner. A standing trap is
   knowledge, not backlog — the backlog holds what is left to do._
 
-- **Asserting a specific FAILURE MODE when the claim is only "it tried" makes a test race the clock.**
+- **Asserting a specific FAILURE MODE when the claim is only "it tried" makes a test race the clock.** <!-- trap: sub=tests shape=ordering -->
   Measured 2026-09-04: `ByoHttpClientTests.Default_path_still_creates_a_lyntai_client` points at a closed
   local port and pinned `LlmVerdict.Failed`, whose own comment says it is proving *the client existed and
   tried*. Under load — a session that had been driving a local model server for an hour — the connect
@@ -1868,7 +1937,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   real client; only `Ok` would refute it. Wherever a test provokes a failure to prove a path exists, accept
   every failure that proves it — a narrower assertion is not a stronger test, it is a timing dependency.
 
-- **A SELF-HEALING mechanism absorbs the bug you are asserting against, so the test passes with the fix
+- **A SELF-HEALING mechanism absorbs the bug you are asserting against, so the test passes with the fix <!-- trap: sub=tests,memory shape=vacuous -->
   reverted.** Measured 2026-09-02 (`docs/task-archive.md` Part 137). `MemoryWalk` upgrades an entry
   discovered as a headline once a later step seeds it, so an assertion on the LAST step's held set is true
   whether or not expansion honoured the projection it was supposed to — it passed against the unfixed tree,
@@ -1879,7 +1948,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   learn that is to actually revert it, which is cheap and is the check people skip when a test passes first
   time.
 
-- **A rule only the NON-DEFAULT path can break has no test, and the mutation check run through the default
+- **A rule only the NON-DEFAULT path can break has no test, and the mutation check run through the default <!-- trap: sub=tests shape=scope-blind,vacuous -->
   reports it as dead code.** Measured 2026-08-30 building `MemoryWalk` (`docs/task-archive.md` Part 120).
   The walk is finite for two independent reasons: the default seed selector eventually returns nothing, AND
   a step that discovers and upgrades nothing ends it. Deleting the second guard failed **no test** — every
@@ -1895,7 +1964,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   environment problem and it blocks the suite. Collect into a list, `break` past a generous ceiling, and
   assert the count came in under it; the regression then fails in milliseconds.
 
-- **Refactoring a measurement harness can change a DENOMINATOR rather than a result, and every rate moves
+- **Refactoring a measurement harness can change a DENOMINATOR rather than a result, and every rate moves <!-- trap: sub=measurement shape=silent-loss,wrong-subject -->
   while retrieval is untouched.** Same day, in the same work. The pre-refactor LoCoMo loop ran shots 2 and 3
   **unconditionally**, re-snapshotting an unchanged context when the frontier was empty; the library's walk
   ENDS instead when a step moves nothing. Behaviourally better, and it would have silently dropped those
@@ -1910,7 +1979,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   ladder — which is a far stronger claim than "the tests pass", and it is what turned a plausible refactor
   into a verified one.
 
-- **A PRE-REGISTERED prediction is only adjudicated by a run powered to adjudicate it, and pre-registration
+- **A PRE-REGISTERED prediction is only adjudicated by a run powered to adjudicate it, and pre-registration <!-- trap: sub=measurement shape=vacuous,wrong-subject -->
   gives no protection against judging it on one that is not.** Measured 2026-09-02 (`docs/task-archive.md`
   Part 137). The prediction was "40–45%, gaining but NOT reaching 44.5". An n = 200 run read 44.8 against a
   control's 43.9, so the second clause was declared REFUTED and written up as *"the run refuted my
@@ -1934,7 +2003,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   a NEIGHBOURING claim (Part 136's 20-slot parity) with no full-sample comparison at all — a second,
   quieter cost of the same run.
 
-- **A metric whose MATCH TARGET survives the transformation it ought to detect is blind to that
+- **A metric whose MATCH TARGET survives the transformation it ought to detect is blind to that <!-- trap: sub=measurement shape=wrong-subject -->
   transformation, and it reports a clean comparison between arms that differ by exactly it.** Measured
   2026-09-02 (`docs/memory.md` §5). LoCoMo evidence-hit asks whether a returned turn contains
   `"(" + dia_id + ")"`. The graph arms return HEADLINES — `MemoryHeadline.Derive` cuts content at 120
@@ -1954,7 +2023,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   DELIVERED (here `chars/q`, which was present and never read against the hit rate), or an arm that differs
   only in the transformation.
 
-- **A diagnostic built to EXPLAIN a published number runs on its own defaults, not on the flags that
+- **A diagnostic built to EXPLAIN a published number runs on its own defaults, not on the flags that <!-- trap: sub=measurement shape=wrong-subject -->
   produced that number — and it explains a different arm while looking entirely reasonable.** Measured
   2026-09-02 building `memory-locomo --composition` (`docs/task-archive.md` Part 135), which decomposes the
   `lyntai-fused-3shot` row's `chars/q` into headline versus content. The published row was measured at
@@ -1975,7 +2044,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   Copying the arm's config object is necessary and not sufficient; the flags that were passed on the day are
   part of the arm, and the defaults are a different arm wearing the same name.
 
-- **A benchmark whose store MUTATES on read has non-independent trials, and the contamination presents as a
+- **A benchmark whose store MUTATES on read has non-independent trials, and the contamination presents as a <!-- trap: sub=measurement,storage shape=wrong-subject,silent-loss -->
   RESULT rather than as a bug.** Measured 2026-08-29 (`docs/task-archive.md` Part 118). LoCoMo questions
   within a conversation shared one store, and this engine writes on every read — a recall reinforces what it
   returned, `ExpandAsync` reinforces what it walks — so question N read a graph that questions 1..N−1 had
@@ -2005,7 +2074,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   Stash the fix, run, restore — the same positive-control discipline `pitfalls.md` already demands of a cache
   fix, applied to a measurement harness.
 
-- **When two arms that are the SAME OPERATION disagree, you have found either a code difference or your
+- **When two arms that are the SAME OPERATION disagree, you have found either a code difference or your <!-- trap: sub=measurement shape=ordering -->
   noise floor — and the two are told apart by cheap experiments, not by reading the diff.** Measured
   2026-08-29 (`docs/task-archive.md` Part 119). A new `shot-1` arm read 48.5% where the existing `lyntai`
   arm read 47.7% on LongMemEval temporal-haystack: same sample digest, same embedder miss count, same 132
@@ -2027,7 +2096,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   the DELTAS are stable across runs (+4.5 and +4.6), which is why a difference six times the floor is a
   finding and a 0.0 inside it is "no measurable gain" rather than "exactly none".
 
-- **A candidate scored on a DIFFERENT SCALE than the pool it joins cannot win, however relevant it is — and
+- **A candidate scored on a DIFFERENT SCALE than the pool it joins cannot win, however relevant it is — and <!-- trap: sub=memory shape=fail-open -->
   the feature that added it then reads as inert rather than as broken.** Measured 2026-08-29
   (`docs/task-archive.md` Part 110). `GraphMemoryOptions.SemanticSeedK` adds semantically-similar entries to <!-- drift-ok link-ok: names the property under measurement on the dated run; since removed and replaced by `SemanticSeedOptions.K`, whose per-source rank fusion is what closed this trap -->
   a recall's candidate pool carrying their raw COSINE as `Relevance`; the pool they join is saturated with
@@ -2042,7 +2111,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   <br>`docs/DECISIONS.md` **D93** already recorded that these values are not commensurable within one recall
   and drew the conclusion that no ANSWER may be computed from them. This is the same defect reaching a
   second victim: it also defeats any feature that ADDS candidates scored on its own scale.
-- **A control that compares POOLED verdicts cannot see a split that cancels in the pool, and it reports
+- **A control that compares POOLED verdicts cannot see a split that cancels in the pool, and it reports <!-- trap: sub=measurement shape=scope-blind,vacuous -->
   "no change" while doing it.** Measured 2026-08-28 (`docs/task-archive.md` Part 108). The gist sweep's
   `ConnectionBoost = 0` control printed *"verdict did NOT move — every rule selects the same regime under
   both curves"* on both clocks. True of the ARGMAX, and false of everything underneath: with the boost on,
@@ -2055,7 +2124,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   of 2400 cells and refused to publish the table. That is the failure you want; it is a function now
   (**D60**). The pair is worth remembering together, because the same edit produced both and only one of
   them announced itself.
-- **A read path a contract fact does not CALL is a read path that contract does not cover, however
+- **A read path a contract fact does not CALL is a read path that contract does not cover, however <!-- trap: sub=tests,memory shape=scope-blind,vacuous -->
   completely it enumerates implementations.** Measured 2026-08-27 (`docs/DECISIONS.md` D93): a metadata
   round-trip fact ran on all five memory engines and still missed a third broken projection, because it
   called `RecallAsync` and nothing else — `ExpandAsync` projects the entry the caller NAMED separately from
@@ -2064,7 +2133,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   one that was missing.** The fix is a second fact per read path, each asserting positively — including the
   negative branches, since a single "null is acceptable" assertion passes vacuously for every implementation
   that cannot carry the value at all.
-- **A finding that is WRITTEN DOWN is not a finding that was VERIFIED, and this repository keeps treating
+- **A finding that is WRITTEN DOWN is not a finding that was VERIFIED, and this repository keeps treating <!-- trap: sub=docs shape=unmeasured,stale-claim -->
   the two as the same.** Twice in two days (2026-08-17): `TASKS.md`'s then-`Startable` section (closed as
   `docs/task-archive.md` Part 87) recorded a divergence as
   "ComfyUI hardcodes `Failed` while `FalQueueProvider` routes the same class through
@@ -2077,7 +2146,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   half that gets recorded is the half that was READ; the half that was RUN is what a claim needs.** When a
   record names two implementations and says one of them is fine, the fine one is the claim to check first —
   it is the only one nobody is planning to touch.
-- **A contract fact can pass or fail for reasons that have nothing to do with its subject, and the failing
+- **A contract fact can pass or fail for reasons that have nothing to do with its subject, and the failing <!-- trap: sub=tests shape=wrong-subject,vacuous -->
   direction is the dangerous one because it looks like evidence.** Both shapes hit within one hour writing
   the 3.0 seam contracts:
   - **Testing the FAKE.** A cancellation fact asserted that a pre-cancelled token propagates — against a
@@ -2106,7 +2175,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   <br>**When a new fact fails, confirm it failed where you think.** Read the failure message against the
   code path, not against the expectation.
 
-- **Adding a VARIANT to a measurement instrument moves the templates and the READERS, and forgetting the
+- **Adding a VARIANT to a measurement instrument moves the templates and the READERS, and forgetting the <!-- trap: sub=measurement shape=silent-loss,vacuous -->
   readers produces flattering numbers rather than a failure.** Measured 2026-08-12 adding a Chinese arm to
   `MemoryCorpus` (D55). The generator had ten template sites and they were easy; what nearly broke the
   measurement was everything that parses generated text back — the corpus's own invariants read the attribute
@@ -2138,7 +2207,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   a variant with (a) goldens on the ORIGINAL captured before the axis exists, (b) an assertion that the
   variant genuinely DIFFERS, and (c) an assertion that the property the instrument depends on still holds in
   the variant — all three, because each catches a different way of quietly measuring nothing.
-- **A wall-clock burst-detection policy replayed IN-PROCESS measures the fixture's replay SPEED, not a
+- **A wall-clock burst-detection policy replayed IN-PROCESS measures the fixture's replay SPEED, not a <!-- trap: sub=measurement,memory shape=wrong-subject -->
   deployment regime — so its arm is not "the shipped default", however faithfully the default is
   registered.** Found 2026-08-27 by `tests/Lyntai.Tests/Memory/MemoryGistSupportRuleTests.cs`.
   `BurstDampenedAgePolicy` is `GraphMemoryEngine`'s default age policy and it reads a REAL clock: writes
@@ -2159,7 +2228,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   And never report a finding about the LIBRARY from an arm whose distinguishing input is the test host's
   speed: say what the number is a fact about. Same family as the instrument rule above — an instrument is
   code that nothing else validates, and a policy that reads a clock quietly makes the host one of its inputs.
-- **Microsoft.Data.Sqlite completes its "async" methods SYNCHRONOUSLY, so two awaited store calls issued
+- **Microsoft.Data.Sqlite completes its "async" methods SYNCHRONOUSLY, so two awaited store calls issued <!-- trap: sub=tests,storage shape=vacuous -->
   from one thread are sequential by construction — and a concurrency test over them measures nothing.**
   Measured 2026-08-17: an overlap test called `Task.WhenAll(store.ReportStepAsync(a…), store.ReportStepAsync(b…))`
   and failed even AFTER the per-job locking it was written for landed, because the first call ran to
@@ -2167,7 +2236,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   even evaluated — the store's gate never entered into it. Wrap each call in `Task.Run` when the subject is
   concurrency and the backend is SQLite (or anything whose async is sync), and treat "still red after the
   fix" as a cue to ask WHERE the serialization actually is before touching the fix.
-- **An orphaned child process inherits the test host's console handles, so a test that STRANDS one wedges
+- **An orphaned child process inherits the test host's console handles, so a test that STRANDS one wedges <!-- trap: sub=tests shape=resource -->
   the whole runner — past its own failure, past every later test.** Measured 2026-08-17 by the RED run of
   the hanging-locator test: the test itself failed correctly at its 30s bound, and `dotnet test` then hung
   indefinitely anyway, because the stranded node child held the inherited stdout the harness reads to EOF;
@@ -2175,14 +2244,14 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   failure mode leaves a child alive — give the fixture child a self-exit (`setTimeout(() => process.exit(0), …)`)
   so a regression costs one slow red run rather than a wedged pipeline. Same family as `windows-machine.md`
   §Processes (kill your own tree), from the harness's side.
-- Provider/e2e tests must not hit a live endpoint or spend real tokens — HTTP providers get a stubbed
+- Provider/e2e tests must not hit a live endpoint or spend real tokens — HTTP providers get a stubbed <!-- trap: sub=tests shape=resource -->
   `HttpMessageHandler`; CLI providers and the Playground get `provider-stub.mjs` via
   `LYNTAI_PROVIDER_CMD`. Extend the stub's prompt-marker behavior when a test needs a new deterministic
   output.
-- 221 passing tests didn't catch any of the LLM/contract bugs above — **tests passing ≠ correct.** For
+- 221 passing tests didn't catch any of the LLM/contract bugs above — **tests passing ≠ correct.** For <!-- trap: sub=tests shape=scope-blind -->
   load-bearing semantics (fallback, streaming, verdicts, FTS sync) reason about the code, then add the
   test that would have caught the bug.
-- **This repo has TWO independent ways for a targeted test run to verify nothing.** (1) `dotnet test
+- **This repo has TWO independent ways for a targeted test run to verify nothing.** (1) `dotnet test <!-- trap: sub=tests,gates shape=vacuous,wrong-subject -->
   --filter` **reports success when it matches zero tests** — a filter naming `LlmRouterTests`, a class that
   does not exist (the real ones are `LlmRouterCompleteTests` / `LlmRouterStreamTests`), passed vacuously and
   looked like a clean regression run. (2) Through the wrapper it depends on `--`, which is not obvious.
@@ -2194,7 +2263,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   direction from (1). **Always read the matched/total count**, and prefer a broad filter over an
   exact class name (`~Router|~Routing|~DeadHost`) so a renamed class degrades to running too much rather than
   to running nothing.
-- **A test that is already RED for an unrelated reason cannot be mutation-killed, and a mutation check
+- **A test that is already RED for an unrelated reason cannot be mutation-killed, and a mutation check <!-- trap: sub=tests shape=vacuous -->
   against it proves nothing.** Found 2026-08-09 running the two required mutation checks for the salience
   rank boost's FIRST round (`docs/DECISIONS.md` D45, before the owner's same-day correction that ranking
   defaults off): deleting the boost factor entirely and hard-coding the weight both left the "salient entry outranks a
@@ -2207,12 +2276,12 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   the opt-in fact (`An_explicitly_configured_rank_weight_can_outrank_a_better_textual_match`, weight 1.0)
   chosen to clear the measured gap, both mutations DO now kill the opt-in fact — the fix was not to accept a
   test with no discriminating power, but to pick a scenario the mechanism could actually win.
-- **A test that HANGS on the failure it detects is worse than no test.** A permit-leak test that blocks a
+- **A test that HANGS on the failure it detects is worse than no test.** A permit-leak test that blocks a <!-- trap: sub=tests shape=resource -->
   second caller on a gate proves the leak by never completing — which turns `verify` into an opaque hang
   instead of a red test, and the next person bisects the harness rather than reading the failure. Bound every
   await that can block on a permit (a timeout on the wait, asserting the timeout is what fails), so the
   regression the test exists for arrives as an assertion.
-- **A counter can return the RIGHT number from two errors that cancel, and only comparing the ITEMS finds
+- **A counter can return the RIGHT number from two errors that cancel, and only comparing the ITEMS finds <!-- trap: sub=gates shape=scope-blind,vacuous -->
   it.** Measured 2026-08-15 writing `check-counts`' `verify`-gate counter. It parsed `dev.mjs`'s `steps`
   array with `\['[a-z-]+'`, which cannot match `e2e` (the class excludes digits) and DOES match the inner
   argument array in `['check-sensitive', ['--tree']]`. Twelve real steps plus one phantom is thirteen — the
@@ -2221,7 +2290,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `e2e` is present, `--tree` is not. **When a counter's output is a number, pin the SET it derived the number
   from** — the number alone cannot distinguish a correct parse from a wrong one that happens to tie, and the
   tie is likelier than it sounds because both errors are off-by-one in opposite directions.
-- **A fail-closed guard belongs on the SOURCE list, not on the post-filter count — the filtered count has a
+- **A fail-closed guard belongs on the SOURCE list, not on the post-filter count — the filtered count has a <!-- trap: sub=gates shape=vacuous,scope-blind -->
   legitimate zero.** Measured 2026-08-15 giving `check-docs` / `check-encoding` / `check-links` /
   `check-samples` the fail-closed rule `check-api-vocabulary` already carried (a gate that scanned nothing
   must never print a tick). Written the obvious way — `if (candidates.length === 0) return 1` — it

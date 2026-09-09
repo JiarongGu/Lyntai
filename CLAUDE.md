@@ -27,7 +27,7 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D111**. The two groups worth knowing before you touch anything:
+The reasoning is `docs/DECISIONS.md`, **D1–D112**. The two groups worth knowing before you touch anything:
 **D83–D103 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
@@ -143,7 +143,7 @@ silently break; the reasoning is in the decision named beside it.
     working.** Guarded by `MemoryAuthoritativeSurvivalTests` plus a control requiring the same facts to be
     LOST without the grade.
 
-**The packaging rules are gated, not remembered** — `verify` runs nineteen checks. `check-warnings` (a warning
+**The packaging rules are gated, not remembered** — `verify` runs twenty checks. `check-warnings` (a warning
 in a published project fails the build, because an unfailed IL2026 is a FALSE trim promise), `check-packages`
 (a package must be registered in all nine registries — a missing `ApiSurfaceTests` entry means no API gate at
 all), `check-bundle` (the bundle's dependency closure cannot grow without a decision), `check-docs` (a doc
@@ -152,7 +152,7 @@ plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3592 passed / 3613 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 531/531, doc samples 80/80.
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 573/573, doc samples 80/80.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -278,9 +278,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
 
 ## Dev loop
 
-- **`node devtools/dev.mjs verify`** — the "am I done?" gate, nineteen checks stopping at the first failure:
+- **`node devtools/dev.mjs verify`** — the "am I done?" gate, twenty checks stopping at the first failure:
   **guard tests** → build → warnings → packages → bundle → **encoding** → **docs** → **links** →
-  **counts** → **comments** → **decisions** → **archive** → **backlog** → **decision claims** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
+  **counts** → **comments** → **decisions** → **archive** → **backlog** → **pitfalls** → **decision claims** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
   the step list, so a gate added without updating prose still names itself. Run before
   claiming a change is complete. The guard tests run FIRST on purpose: nothing below that gate can be
   trusted if the gates themselves are broken.
@@ -508,6 +508,21 @@ owned outside the deployment; `DECISIONS.md` D30) /
   and never inferred**, which is the whole design: `pitfalls.md` refuted deriving that banner from the
   checkboxes, because "Part 99 is a WATCH item" is not computable from a `- [ ]`. The startable COUNT is
   registered in `COUNTED_CLAIMS`; the banner it replaced advertised finished work four times.
+- `node devtools/dev.mjs check-pitfalls [--write]` — **fail if a trap in `.claude/knowledge/pitfalls.md` is
+  unfiled, or its facet index is stale** (part of `verify`). The same authored-marker/generated-index shape
+  as `check-backlog` — they share `scripts/_markers.mjs` — pointed at the other measured cold-start cost.
+  <br>**Retitling the headings was REFUSED, and that is the whole design.** A cold-start probe needed the
+  traps bearing on its task and the nine relevant ones spanned **five of nine headings**, two of which
+  nobody looking for that task would have opened. Any single hierarchy files a trap in one place and these
+  belong in two, so each carries `<!-- trap: sub=… shape=… -->` — **`sub=`** is which area of the repository
+  breaks, **`shape=`** is how the wrongness stays invisible, and the two are ORTHOGONAL to the headings.
+  `shape` is the half that transfers: most of these traps recur in a subsystem that had never met them.
+  <br>Both vocabularies are CLOSED (`pitfallFacets` in `devtools/project.config.mjs`) and an unknown value
+  fails — an open one is a folksonomy, where the fourteenth synonym for "the check never ran" makes the
+  index worse than none because a reader who searches one believes they have seen them all. **A value NO
+  TRAP USES also fails**, the rule `retiredApiNames` carries applied to a vocabulary. The index is **line
+  numbers only**, deliberately: `decisions-index` was measured the same day and barely helped LOCATING cost
+  (~66 lines read against ~117), so an index sized for READING is over-building.
 - `node devtools/dev.mjs check-decision-claims` — **fail if a DECISION stops describing the code it
   governs** (part of `verify`). Its sibling above gates an entry's LENGTH; this gates its TRUTH, and it is
   the FIFTH member of the prose family — `check-docs` asks whether a document still SAYS what a decision

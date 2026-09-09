@@ -24,6 +24,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  anchorProblems, carriedEscapes, cell, escapeComments, fixedPoint, markerPattern, parseAttributes,
+} from './_markers.mjs';
+
 const here = fileURLToPath(import.meta.url);
 const repoDefault = path.resolve(path.dirname(here), '..', '..');
 
@@ -64,26 +68,13 @@ const OPEN_ITEM = /^- \[ \]/;
 const PART_HEADING = /^#{2,3} Part (\d+)\b/;
 const TITLE = /^- \[ \]\s+\*\*(.+?)\*\*/;
 
-// The marker cannot contain `>`, which is what keeps this from running past its own terminator. A `needs`
+// The marker cannot contain `>`, which is what keeps it from running past its own terminator. A `needs`
 // that wants one is a `needs` that has stopped being a short testable phrase.
-const MARKER = /<!--\s*item:\s*([^>]*?)\s*-->/;
-const ATTR = /([A-Za-z_][\w-]*)=(?:"([^"]*)"|([^\s"]+))/g;
-
-// A row REPRODUCES its item's title and blocker, so a path or a retired term annotated on the checkbox
-// arrives unannotated one line-number away and the sibling gate fires on the generated copy. Carrying the
-// item's OWN escapes onto its row is the precise form: it expires when the item's does, where blanket
-// annotation on every row would be an exclusion nobody could see rot.
-const ESCAPES = ['link-ok', 'count-ok', 'drift-ok'];
+const MARKER = markerPattern('item');
 
 /** The anchors between which the manifest is generated. Placed by hand ONCE; content is never hand-written. */
 export const BLOCK_BEGIN = '<!-- open-items:begin';
 export const BLOCK_END = '<!-- open-items:end -->';
-
-/** A table cell: pipes escaped, and long text cut so the roster stays scannable. The line number is the pointer. */
-function cell(text, max = 76) {
-  const flat = String(text ?? '').replace(/\s+/g, ' ').trim().replace(/\|/g, '\\|');
-  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
-}
 
 /**
  * Every open item, as the FILE declares it — `{ items, unmarked, problems }`.
@@ -112,20 +103,9 @@ export function parseItems(lines) {
     const title = TITLE.exec(raw);
     if (!title) at('no bolded title — an item reads `- [ ] **What this is.** …`');
 
-    // The RESIDUE is checked, not just the matches. `matchAll` reports what it recognised and says nothing
-    // about what it skipped, so `needs=a real key` — quotes omitted, an easy slip in a hand-written comment
-    // — parses as `needs="a"`, satisfies every rule below, and publishes a one-word blocker that reads as a
-    // complete one. Validating `attrs.keys()` alone cannot see it: the residue contains no `=`, so it is
-    // not an unknown attribute either. Found by an adversarial review and reproduced before it was gated.
-    const attrs = new Map();
-    let cursor = 0;
-    let residue = '';
-    for (const m of marker[1].matchAll(ATTR)) {
-      attrs.set(m[1], m[2] ?? m[3]);
-      residue += marker[1].slice(cursor, m.index);
-      cursor = m.index + m[0].length;
-    }
-    residue = `${residue}${marker[1].slice(cursor)}`.trim();
+    // The RESIDUE is what catches a value whose quotes were omitted — see `_markers.mjs` for why matching
+    // alone cannot: the leftover holds no `=`, so it is not an unknown attribute either.
+    const { attrs, residue } = parseAttributes(marker[1]);
     if (residue)
       at(`stray text \`${residue.slice(0, 40)}\` in the marker — a value containing spaces must be QUOTED `
         + '(`needs="…"`), or everything after the first word is silently dropped');
@@ -155,7 +135,7 @@ export function parseItems(lines) {
     items.push({
       line, part, state, kinds, needs,
       title: title ? title[1].replace(/[.:]\s*$/, '') : '',
-      escapes: ESCAPES.filter((e) => raw.includes(e)),
+      escapes: carriedEscapes(raw),
     });
   });
 
@@ -182,42 +162,14 @@ export function renderManifest(items) {
     '| ---: | ---: | --- | --- | --- |',
     ...items.map((i) => `| ${i.line} | ${i.part ?? '?'} | ${cell(i.title)} | `
       + `${i.state}${i.kinds.length ? ` · ${i.kinds.join('+')}` : ''} | ${cell(i.needs)}`
-      + `${i.escapes.map((e) => ` <!-- ${e}: carried from this item's own line -->`).join('')} |`),
+      + `${escapeComments(i.escapes, 'item')} |`),
   ];
 }
 
-/** The anchors' positions, or `null` when either is missing — which is a structure problem, never a stale table. */
-export function blockRange(lines) {
-  const start = lines.findIndex((l) => l.trimStart().startsWith(BLOCK_BEGIN));
-  if (start < 0) return null;
-  const end = lines.findIndex((l, i) => i > start && l.trim() === BLOCK_END);
-  return end < 0 ? null : { start, end };
-}
-
-function spliceBlock(text, body) {
-  const lines = text.split(/\r?\n/);
-  const range = blockRange(lines);
-  if (!range) return null;
-  return [...lines.slice(0, range.start + 1), '', ...body, '', ...lines.slice(range.end)].join('\n');
-}
-
-/**
- * The file with its manifest regenerated until it stops moving, or `null` if the anchors are missing.
- *
- * ITERATION IS THE POINT, not caution. Every row carries the line number of a checkbox BELOW the block, so
- * writing a block of a different height moves every number it just published — a one-pass generator emits
- * positions that were true of the file before it existed. Row COUNT does not depend on line numbers, so the
- * block's height is constant after the first pass and this converges in three.
- */
-export function manifestFixedPoint(text, maxRounds = 6) {
-  let cur = text.split(/\r?\n/).join('\n');
-  for (let i = 0; i < maxRounds; i++) {
-    const next = spliceBlock(cur, renderManifest(parseItems(cur.split('\n')).items));
-    if (next === null || next === cur) return next;
-    cur = next;
-  }
-  return null;
-}
+/** The file with its manifest regenerated until it stops moving, or `null` if the anchors are missing. */
+export const manifestFixedPoint = (text) => fixedPoint(
+  text, (t) => renderManifest(parseItems(t.split('\n')).items), BLOCK_BEGIN, BLOCK_END,
+);
 
 /**
  * The preamble's non-blank line count, every handover line, and the open-item roster.
@@ -265,6 +217,10 @@ export function checkBacklog(repo, config = {}, log = console.log, opts = {}) {
   }
 
   const failures = [];
+  // The anchor pair is checked BEFORE anything writes through it — `blockRange` takes the FIRST begin, so
+  // a duplicate above the real one silently moves the block and a write splices over the prose between
+  // them. Measured on this gate's sibling, where it deleted a document's intro paragraph at exit 0.
+  failures.push(...anchorProblems(lines, BLOCK_BEGIN, BLOCK_END));
   if (preamble > allowance)
     failures.push(`the preamble is ${preamble} non-blank lines, over its ${allowance}`);
   if (handovers.length > 0) failures.push(`${handovers.length} HANDOVER block(s) remain`);

@@ -768,6 +768,62 @@ export default {
   ],
 
   /**
+   * TRAP FACETS — the two CLOSED vocabularies every trap in `.claude/knowledge/pitfalls.md` is filed under,
+   * enforced by `dev.mjs check-pitfalls` (part of `verify`), which also GENERATES the index at the head of
+   * that file from them.
+   *
+   * WHY FACETS AND NOT BETTER HEADINGS. Measured 2026-09-10: a cold-start probe needed the traps bearing on
+   * its task, and the nine relevant ones spanned FIVE of the file's nine headings — two of them headings
+   * nobody looking for that task would have opened. Retitling was refused for the reason any single
+   * hierarchy fails: it puts each trap in exactly one place, and these genuinely belong in two. So the
+   * facets are ORTHOGONAL to the headings, and a trap is filed by both WHERE it breaks and HOW it hides.
+   *
+   * BOTH ARE CLOSED, and an unknown value FAILS. An open vocabulary is a folksonomy: the fourteenth
+   * synonym for "the check never ran" makes the index worse than no index, because a reader who searches
+   * one of them believes they have seen them all. A value NO TRAP USES fails too — the same rule
+   * `retiredApiNames` and `check-counts` carry, applied to a vocabulary: a category invented for a trap
+   * that never arrived is one more wrong choice to make, protecting nothing.
+   *
+   * ADDING A VALUE is therefore deliberate and cheap to review: it must be a distinction a reader would
+   * SEARCH by, and it must have at least one trap the day it lands.
+   */
+  pitfallFacets: {
+    // WHERE it breaks. Deliberately the repository's own areas, not .NET's or the file's headings.
+    sub: [
+      'gates',        // the guard scripts (check-*), verify, dev.mjs, the dev loop
+      'encoding',     // text encoding, BOM, mojibake, console codepage, line endings
+      'git',          // git's own behaviour: ls-files, gitignore, the stat cache, releasing from a remote
+      'build',        // building, packing, NuGet, Roslyn, the compiler, the build log
+      'router',       // routing, verdict classification, streaming, fallback, timeouts, budgets
+      'cli',          // spawned CLI backends: argv, exit codes, wire formats, shims, working directories
+      'lifetime',     // the provider pool, cooldown, admission, decorators, disposal
+      'storage',      // SQL, SQLite, FTS, migrations, connections, the store contracts
+      'memory',       // the memory engine: recall, ranking, salience, seeds, forgetting, the graph
+      'generation',   // the generation platform: image/video/3d, artifacts, pipelines
+      'di',           // registration, options records, configuration
+      'measurement',  // benchmarks, sweeps, corpora, metrics, instruments, published figures
+      'docs',         // maintained prose and records: decisions, the archive, the backlog, XML docs
+      'tests',        // test DESIGN — what a test does or does not actually assert
+    ],
+    // HOW it stays invisible. This is the half that transfers: most of these traps recur in a subsystem
+    // that had never met them, so a reader who knows the SHAPE finds them and a reader who knows the area
+    // does not.
+    shape: [
+      'fail-open',     // degrades silently to a floor; the failure is indistinguishable from agreement
+      'cancellation',  // a caller's cancel confused with a component's own deadline
+      'vacuous',       // a test, gate, control or assertion that cannot fail, or that examined nothing
+      'scope-blind',   // the scan/filter/list excludes the very thing the check exists to catch
+      'second-door',   // another path reaches the same effect and the guarantee does not cover it
+      'stale-claim',   // prose, a doc, a constant, a count or a summary that stopped being true
+      'silent-loss',   // data dropped, truncated, coerced or overwritten with no signal
+      'wrong-subject', // the measurement or check answers a different question than the one asked
+      'unmeasured',    // a mapping, format, name or value INFERRED rather than observed
+      'ordering',      // precedence, ordering or nondeterminism decides the answer
+      'resource',      // a leak, hang, orphan process, cache, or a process-global ceiling
+    ],
+  },
+
+  /**
    * DECISION-ENTRY DEBT — one entry per `docs/DECISIONS.md` decision whose NON-BLANK body still exceeds
    * `check-decisions`' own MAX_ENTRY, recorded at its CURRENT length so the number can only come down.
    *
@@ -902,11 +958,11 @@ export default {
     "bench/Lyntai.Benchmarks/MemorySalienceSweep.cs": [33],
     "bench/Lyntai.Benchmarks/MemorySpacingSweep.cs": [38],
     "bench/Lyntai.Benchmarks/MemoryVerificationSweep.cs": [27],
-    // 31 → 32 on 2026-08-28, → 33 on 2026-09-10: this block is the USAGE BANNER, a one-line-per-command
-    // table, so registering a gate (`check-decisions`, then `check-backlog`) grows it by exactly one. The
-    // ratchet permits raising a number deliberately; what it forbids is a number drifting up unnoticed,
-    // which is why this note exists rather than a silent bump.
-    "devtools/dev.mjs": [33],
+    // 31 → 32 on 2026-08-28, → 33 then → 34 on 2026-09-10: this block is the USAGE BANNER, a
+    // one-line-per-command table, so registering a gate (`check-decisions`, then `check-backlog`, then
+    // `check-pitfalls`) grows it by exactly one. The ratchet permits raising a number deliberately; what it
+    // forbids is a number drifting up unnoticed, which is why this note exists rather than a silent bump.
+    "devtools/dev.mjs": [34],
     "devtools/nuget-unlist.mjs": [28],
     "devtools/scripts/check-api-vocabulary.mjs": [34],
     "devtools/scripts/check-comments.mjs": [41],

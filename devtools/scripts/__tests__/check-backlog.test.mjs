@@ -341,6 +341,19 @@ describe('check-backlog — the generated manifest', () => {
     }
   });
 
+  it('FAILS on a DUPLICATE anchor rather than splicing over the prose between them', () => {
+    // Found on this gate's sibling by an adversarial review: `blockRange` takes the FIRST begin, so a
+    // second one above the real block made a write DELETE the document's intro paragraph and exit 0.
+    const raw = backlog({ current: false }).replace('# Backlog', '# Backlog\n<!-- open-items:begin -->');
+    const dir = makeTree({ 'TASKS.md': raw });
+    const log = recorder();
+    try {
+      assert.equal(checkBacklog(dir, {}, log, { write: true }), 1);
+      assert.match(log.text(), /anchors — the block is delimited by the FIRST/);
+      assert.equal(fs.readFileSync(path.join(dir, 'TASKS.md'), 'utf8'), raw, 'the file must be untouched');
+    } finally { removeTree(dir); }
+  });
+
   it("carries the item's own escape annotation onto its generated row", () => {
     // Found by `check-links` on this gate's first real run, not by review: a row REPRODUCES the item's
     // title, so a path annotated on the checkbox arrives unannotated one line-number away and the sibling
