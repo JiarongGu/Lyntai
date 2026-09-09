@@ -69,8 +69,8 @@ public static class MemoryWalk
     /// an <c>await foreach</c> with no break terminates on its own.</para>
     /// <para><b>Fails open</b>, like every recall-shaped read here. The first step is ALWAYS yielded, empty
     /// and reporting <see cref="MemorySources.None"/> when the recall faults. A later step that faults is
-    /// not yielded and the walk ends with the last good one. Only
-    /// <see cref="OperationCanceledException"/> propagates.</para>
+    /// not yielded and the walk ends with the last good one. Only the CALLER's cancellation propagates — a
+    /// BYO engine's own deadline is a fault, and the walk ends rather than throwing.</para>
     /// <para><b>A walk MUTATES, once per step</b> — recall reinforces what it returns and expansion
     /// reinforces what it walks, so <see cref="IMemoryEngine.RecallAsync"/>'s warning to anyone MEASURING
     /// applies per step rather than per call.</para>
@@ -78,7 +78,8 @@ public static class MemoryWalk
     /// <param name="engine">The engine to walk.</param>
     /// <param name="query">The first step's recall.</param>
     /// <param name="options">Depth, seeds and bound; null takes the defaults.</param>
-    /// <param name="ct">Cancellation, which is never swallowed.</param>
+    /// <param name="ct">Cancellation. The caller's is never swallowed; tested as
+    /// <c>IsCancellationRequested</c>, so a component's own timeout is a fault rather than a cancel.</param>
     public static IAsyncEnumerable<MemoryWalkStep> WalkAsync(this IMemoryEngine engine, MemoryQuery query,
         MemoryWalkOptions? options = null, CancellationToken ct = default)
     {
@@ -98,7 +99,7 @@ public static class MemoryWalk
         {
             recall = await engine.RecallAsync(query, ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch
         {
             recall = MemoryRecall.Empty;
@@ -136,7 +137,7 @@ public static class MemoryWalk
                     near = await expandable.ExpandAsync(seed.Reference, opts.Hops, null, query.Detail, ct)
                         .ConfigureAwait(false);
                 }
-                catch (OperationCanceledException) { throw; }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch
                 {
                     faulted = true;

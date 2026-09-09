@@ -12,8 +12,8 @@ namespace Lyntai.Memory.Seeding;
 ///
 /// <para><b>Best-effort, per the seam's own contract</b> (<see cref="IMemorySeedSource"/>): a failing embedder
 /// or vector store logs a warning and returns empty rather than throwing, so this channel's outage degrades
-/// QUALITY and never CORRECTNESS. <see cref="OperationCanceledException"/> is the one exception never
-/// swallowed — that is the caller leaving, not an enrichment fault.</para>
+/// QUALITY and never CORRECTNESS. The CALLER's cancellation is the one thing never swallowed; an embedder's
+/// own timeout is an enrichment fault like any other, however it is spelled.</para>
 ///
 /// <para><b>A null <see cref="MemoryQuery.Scope"/> spans every collection the store holds under the task</b>,
 /// agreeing with what an unscoped LEXICAL seed means: a write always names a scope, so the single literal
@@ -64,7 +64,7 @@ public sealed class SemanticSeedSource(
                     Collection(request.Engine, request.Query.TaskKey, request.Query.Scope), vector, _options.K, ct)
                     .ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "semantic seeding failed for {Engine}; returning no semantic candidates",

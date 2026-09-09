@@ -120,7 +120,7 @@ public sealed class CuratedMemoryEngine(
 
             return new MemoryRecall(items, MemorySources.Curated);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "curated recall failed for {Engine}/{Task}; returning nothing",

@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SEVEN items, across Parts 109, 116, 128 and 129.** Each is a
+**The startable set is SIX items, across Parts 109, 116, 128 and 129.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -43,9 +43,10 @@ nothing behind — the shipped `CandidateMultiplier` is vindicated on two of thr
 question, which is the rarer way an item leaves this list.
 <br>**To SEVEN, back to SIX, and to SEVEN again across 2026-09-08/09**: Part 168 left a DECISION behind it,
 Part 170 took it the same day, and the D109 trigger run then found a fail-open seam failing CLOSED
-(`docs/FIXES.md`) whose ANNOTATION twin was unchecked. **It STAYS at seven**: that twin was checked on
-2026-09-09 and the answer was yes in three places, and its own census left the 16 remaining sites behind it
-— the one-for-one swap this list moves by. Counted, not adjusted._
+(`docs/FIXES.md`) whose ANNOTATION twin was unchecked. **Then back to SIX the same day**: that twin was
+checked and the answer was yes in three places (**Part 173**), its own census left the 16 remaining sites
+behind it, and those closed too (**Part 174**) — a one-for-one swap followed by an item that left nothing
+behind, which is the rarer way one leaves this list. Counted, not adjusted._
 <br>_**This line used to be a 49-line running tally** — every Part that opened and closed since 2026-08-30,
 with the count after each. It was deleted on 2026-09-03 rather than extended, because `task-lifecycle.md`
 says outright that a backlog must not summarize its archive: the tally grew without bound, answered a
@@ -1066,38 +1067,12 @@ and the four things it does not say._
   its replacement (`stale@k` +51.4). So this decision buys RECALL, and whoever takes it should want that._
   <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit._
 
-_~~**Does the ANNOTATION seam fail closed on its own timeout too?**~~ **YES, and in two more places —
-ANSWERED AND FIXED 2026-09-09** (`docs/FIXES.md`). `LlmMemoryAnnotationPolicy.AnnotateAsync` and
-`GraphMemoryEngine.AnnotateAsync` both carried it, and so did **`LlmMemoryVerificationPolicy.VerifyAsync`**,
-which the original fix did not touch because the engine's outer catch masks it on the shipped path. The
-write path is the worse half: annotation runs before `store.UpsertAsync`, so a slow annotator lost the FACT
-rather than its subject edges. The promise now lives on both seam CONTRACTS, so every implementation is held
-to it.
-<br>**The reusable finding is that the first fix's own control could not fail** — both caller-cancel twins
-passed under the wrong repair, one because `RecallAsync` checks the token before the verifier is reached.
-Both were rewritten to assert on a MARKED exception and mutation-tested. `pitfalls.md` carries it; that is
-the half worth keeping._
-
-- [ ] **Answer the 16 remaining bare `catch (OperationCanceledException)` sites in `Lyntai.Core/Memory`, or
-  decide they need no answer.** Census 2026-09-09: 21 sites, **5** guarded and **16** bare — the filing this
-  replaces said 20, which counted `SemanticMemory.cs:50` as bare when it has carried the filter since
-  2026-07-18. **Not a sweeping edit**, which is what the original warned against and still the right warning:
-  the 16 split into store work (cancellation semantics differ, and the drivers' own timeout behaviour was
-  ASSUMED rather than read in the pass that classified them), a whole recall, and one — `GraphMemoryEngine.cs`
-  `CollectSignals` — guarding a SYNCHRONOUS policy call where `ct` is not even in scope, so it should be
-  deleted rather than filtered.
-  <br>**The two with the strongest case, both over an embedder and both documented best-effort**:
-  `GraphMemoryEngine.SearchAsync` ("a failing embedder must not fail the write", and it runs BEFORE the
-  upsert, so it loses the write exactly as annotation did) and `SemanticSeedSource.SeedAsync`. Weaker
-  evidence than the model seams had, and that is the point of listing it rather than doing it: the shipped
-  `HttpEmbedder` converts its own timeout to a `TimeoutException`, so **neither is reachable on a shipped
-  configuration** — only through a BYO `IEmbedder` or `IVectorStore`. `SemanticSeedSource`'s XML doc also
-  commits to the current semantics in writing ("`OperationCanceledException` is the one exception never
-  swallowed"), so fixing it is a doc change too, and `check-docs` cannot see that.
-  <br>**Anchor any fix on the SEAM's promise, never on `RememberAsync`'s**, which says the opposite —
-  "Surfaces failures — a silently lost write is worse than a throw the caller can see" — and is correct as
-  written. The next reader who conflates the two will make `RememberAsync` fail-open and break the promise
-  that actually holds there.
+_**The cancellation thread is CLOSED** — `docs/task-archive.md` **Parts 173–174**, `docs/FIXES.md`. Every
+fail-open handler in `Lyntai.Core/Memory` now distinguishes the caller's cancel from a component's own
+timeout, and four seam contracts that stated the false premise were corrected with the code. **One shape
+survives OUTSIDE memory and is deliberately not swept**: `JobRunner`'s heartbeat loop
+(`catch (OperationCanceledException) { return; }` over `_store.HeartbeatSlotsAsync`), where per **D73** a
+lost heartbeat is a lost cross-process job slot. Different subsystem, different promise, its own answer._
 
 - [ ] **Decide whether a memory seam's `Model` should beat a candidate's — today it silently loses.**
   `LlmVerificationOptions.Model` and `LlmAnnotationOptions.Model` set `LlmRequest.Model`, and the router

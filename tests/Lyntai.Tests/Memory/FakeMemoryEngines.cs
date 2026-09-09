@@ -80,6 +80,40 @@ internal sealed class FaultingEngine(string name) : IMemoryEngine
         throw new InvalidOperationException("boom");
 }
 
+/// <summary>An engine whose OWN deadline fires — the sibling of <see cref="FaultingEngine"/>, and the case a
+/// bare <c>catch (OperationCanceledException)</c> could not tell from a caller's cancel, because an
+/// <c>HttpClient</c> timeout arrives as a <see cref="TaskCanceledException"/> and that IS one.
+/// <para>Times out on recall, on expansion, or on either, so a walk can be driven to fault at either
+/// step. The caller's token is never observed: that is what makes it a FAULT rather than a cancel.</para></summary>
+internal sealed class TimingOutEngine(string name, bool onRecall = true, bool onExpand = true)
+    : IMemoryEngine, IExpandableMemory
+{
+    /// <summary>The real message .NET produces, so a test asserting on it is asserting on the real shape.</summary>
+    public const string Marker =
+        "The request was canceled due to the configured HttpClient.Timeout of 300 seconds elapsing.";
+
+    public string Name { get; } = name;
+
+    public MemoryGrades Supported => MemoryGrades.Associative;
+
+    private MemoryItem Hit(string id) =>
+        new(new MemoryRef(Name, id), $"hit {id}", $"hit {id}", MemoryGrade.Associative, 1, 1, 1);
+
+    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+        Task.FromResult(new MemoryRef(Name, write.Content));
+
+    public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default) =>
+        onRecall
+            ? throw new TaskCanceledException(Marker)
+            : Task.FromResult(new MemoryRecall([Hit("recalled")], MemorySources.Lexical));
+
+    public Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
+        MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) =>
+        onExpand
+            ? throw new TaskCanceledException(Marker)
+            : Task.FromResult(new MemoryRecall([Hit($"expanded {reference.Id}")], MemorySources.Graph));
+}
+
 /// <summary>An engine that records what it was asked to store, and declares which grades it accepts.</summary>
 internal sealed class RecordingEngine(string name, MemoryGrades grades) : IMemoryEngine
 {
@@ -207,6 +241,156 @@ internal sealed class ForgettableEngine(string name, int pruneCount = 0)
         Forgets.Add((taskKey, scope));
         return Task.CompletedTask;
     }
+}
+
+/// <summary>A graph store whose OWN deadline fires on the members named in <paramref name="timesOutOn"/>,
+/// spelled the way a network-backed BYO store really spells it: <see cref="TaskCanceledException"/>, which
+/// IS an <see cref="OperationCanceledException"/> and says nothing about the caller.
+/// <para>Per-member rather than whole-store, because the engine's fail-open promises are per-PATH — a
+/// seed that times out must yield an empty recall, while a write-back that times out must still return the
+/// hits the recall already found. Everything not named delegates to a real in-process store, so a test can
+/// assert what still worked.</para></summary>
+internal sealed class TimingOutGraphStore(params string[] timesOutOn) : IMemoryGraphStore
+{
+    private readonly Lyntai.Storage.InMemory.InMemoryMemoryGraphStore _inner = new();
+    private readonly HashSet<string> _members = new(timesOutOn, StringComparer.Ordinal);
+
+    private void Gate(string member)
+    {
+        if (_members.Contains(member)) throw new TaskCanceledException(TimingOutEngine.Marker);
+    }
+
+    public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default)
+    { Gate(nameof(UpsertAsync)); return _inner.UpsertAsync(write, ct); }
+
+    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
+        string? query, int limit, CancellationToken ct = default)
+    { Gate(nameof(SeedAsync)); return _inner.SeedAsync(engine, taskKey, scope, query, limit, ct); }
+
+    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
+        IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default)
+    { Gate(nameof(NeighboursAsync)); return _inner.NeighboursAsync(engine, taskKey, ids, limit, ct); }
+
+    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default)
+    { Gate(nameof(GetAsync)); return _inner.GetAsync(engine, id, ct); }
+
+    public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
+        CancellationToken ct = default)
+    { Gate(nameof(TouchAsync)); return _inner.TouchAsync(engine, touches, ct); }
+
+    public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
+        CancellationToken ct = default)
+    { Gate(nameof(LinkAsync)); return _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct); }
+
+    public Task<int> PruneAsync(string engine, string taskKey, string? scope,
+        double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default)
+    { Gate(nameof(PruneAsync)); return _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct); }
+
+    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default)
+    { Gate(nameof(DeleteAsync)); return _inner.DeleteAsync(engine, ids, ct); }
+
+    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default)
+    { Gate(nameof(ForgetAsync)); return _inner.ForgetAsync(engine, taskKey, scope, ct); }
+
+    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
+        CancellationToken ct = default)
+    { Gate(nameof(RecordReviewsAsync)); return _inner.RecordReviewsAsync(engine, reviews, cap, ct); }
+
+    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default)
+    { Gate(nameof(ReviewsAsync)); return _inner.ReviewsAsync(engine, ct); }
+
+    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
+        CancellationToken ct = default)
+    { Gate(nameof(RecordSubjectsAsync)); return _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct); }
+
+    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
+        string subject, int limit, CancellationToken ct = default)
+    { Gate(nameof(NodesBySubjectAsync)); return _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct); }
+
+    // The three members carrying a DEFAULT BODY are overridden so they can be gated too: the default
+    // would route WriteBackAsync through TouchAsync/LinkAsync and never observe this double's own name.
+    public Task<IReadOnlyList<string>> KnownSubjectsAsync(string engine, string taskKey, string? scope,
+        int limit, CancellationToken ct = default)
+    { Gate(nameof(KnownSubjectsAsync)); return _inner.KnownSubjectsAsync(engine, taskKey, scope, limit, ct); }
+
+    // Through the INTERFACE: the in-process store takes these two from the default bodies rather than
+    // declaring them, so a call on the concrete type does not compile.
+    public Task LinkManyAsync(string engine, IReadOnlyList<GraphEdgeWrite> edges, CancellationToken ct = default)
+    { Gate(nameof(LinkManyAsync)); return ((IMemoryGraphStore)_inner).LinkManyAsync(engine, edges, ct); }
+
+    public Task WriteBackAsync(string engine, GraphWriteBack work, CancellationToken ct = default)
+    { Gate(nameof(WriteBackAsync)); return ((IMemoryGraphStore)_inner).WriteBackAsync(engine, work, ct); }
+}
+
+/// <summary>An <see cref="IMemoryStore"/> whose own deadline fires on RECALL — the lexical engine's
+/// fail-open case, spelled the way a network-backed BYO store spells it. Everything else delegates, so a
+/// test can still write before reading.</summary>
+internal sealed class TimingOutMemoryStore : IMemoryStore
+{
+    private readonly FakeMemoryStore _inner = new();
+
+    public Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null,
+        CancellationToken ct = default) => _inner.RememberAsync(taskKey, scope, content, ttl, ct);
+
+    public Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null,
+        string? query = null, int? limit = null, CancellationToken ct = default) =>
+        throw new TaskCanceledException(TimingOutEngine.Marker);
+
+    public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default) =>
+        _inner.ForgetAsync(taskKey, scope, ct);
+
+    public Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null,
+        CancellationToken ct = default) => _inner.PruneAsync(taskKey, olderThan, ct);
+}
+
+/// <summary>An <see cref="ICuratedMemoryStore"/> whose own deadline fires on both READ paths.</summary>
+internal sealed class TimingOutCuratedStore : ICuratedMemoryStore
+{
+    private readonly FakeCuratedStore _inner = new();
+
+    public Task<long> AddAsync(string kind, string content, bool enabled = true, string? taskKey = null,
+        string? scope = null, bool pinned = false,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default) =>
+        _inner.AddAsync(kind, content, enabled, taskKey, scope, pinned, metadata, ct);
+
+    public Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? kind = null,
+        string? taskKey = null, string? scope = null,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default) =>
+        _inner.UpdateAsync(id, content, enabled, kind, taskKey, scope, metadata, ct);
+
+    public Task<bool> RemoveAsync(long id, CancellationToken ct = default) => _inner.RemoveAsync(id, ct);
+
+    public Task<CuratedMemory?> GetAsync(long id, CancellationToken ct = default) => _inner.GetAsync(id, ct);
+
+    public Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
+        string? taskKey = null, string? scope = null, int? limit = null,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default) =>
+        _inner.ListAsync(kind, enabledOnly, taskKey, scope, limit, metadata, ct);
+
+    public Task<IReadOnlyList<CuratedMemory>> SearchAsync(string query, string? kind = null,
+        string? taskKey = null, string? scope = null, bool enabledOnly = false, int? limit = null,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default) =>
+        throw new TaskCanceledException(TimingOutEngine.Marker);
+
+    public Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string taskKey,
+        IEnumerable<string> scopes, bool enabledOnly = true, CancellationToken ct = default) =>
+        throw new TaskCanceledException(TimingOutEngine.Marker);
+}
+
+/// <summary>An <see cref="ISemanticMemory"/> whose own deadline fires on recall.</summary>
+internal sealed class TimingOutSemanticMemory : ISemanticMemory
+{
+    private readonly FakeSemanticMemory _inner = new();
+
+    public Task RememberAsync(string taskKey, string scope, string content, CancellationToken ct = default) =>
+        _inner.RememberAsync(taskKey, scope, content, ct);
+
+    public Task<IReadOnlyList<SemanticHit>> RecallAsync(string taskKey, string? scope, string query,
+        int k = 10, double minScore = 0, CancellationToken ct = default) =>
+        throw new TaskCanceledException(TimingOutEngine.Marker);
+
+    public Task ForgetAsync(string taskKey, string scope, CancellationToken ct = default) =>
+        _inner.ForgetAsync(taskKey, scope, ct);
 }
 
 /// <summary>A graph store that refuses to LEARN but still remembers — for the read-only-database case,

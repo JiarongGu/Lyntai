@@ -70,7 +70,7 @@ public sealed class SemanticMemoryEngine(
 
             return new MemoryRecall(items, MemorySources.Semantic);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "semantic recall failed for {Engine}/{Task}; returning nothing",

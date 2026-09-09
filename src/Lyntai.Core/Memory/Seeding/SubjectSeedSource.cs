@@ -13,8 +13,9 @@ namespace Lyntai.Memory.Seeding;
 ///
 /// <para><b>Best-effort, per the seam's own contract</b> (<see cref="IMemorySeedSource"/>): a faulting
 /// <see cref="IMemoryGraphStore.KnownSubjectsAsync"/> or <see cref="IMemoryGraphStore.NodesBySubjectAsync"/>
-/// logs a warning and returns empty rather than throwing; <see cref="OperationCanceledException"/> is never
-/// swallowed. De-duplicated across subjects, so two handles naming one node yield it once.</para>
+/// logs a warning and returns empty rather than throwing; the CALLER's cancellation is never swallowed, and
+/// a BYO store's own deadline is one of those faults rather than a cancellation, however it is spelled.
+/// De-duplicated across subjects, so two handles naming one node yield it once.</para>
 ///
 /// <para><b>UNORDERED, deliberately — and it says so through <see cref="GraphNode.Matched"/>.</b> Nodes
 /// arrive from <see cref="IMemoryGraphStore.GetAsync"/> at <c>Matched null</c>, "nobody asked a relevance
@@ -70,7 +71,7 @@ public sealed class SubjectSeedSource(
 
             ids = found;
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "subject seeding failed for {Engine}; returning no subject candidates",

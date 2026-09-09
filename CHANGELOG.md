@@ -287,6 +287,25 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   <br>**Nothing changes for a deployment with no annotator or verifier registered**, which is the default:
   both seams are opt-in. The promise now lives on both seam CONTRACTS, so a BYO policy is held to it too.
 
+- **…and the same repair across every other fail-open handler in memory, which is what makes the promise
+  actually hold.** These handlers NEST: one timeout from a BYO embedder crossed `SemanticSeedSource`, the
+  graph engine's gather, the composite, and then the walk or the composition — four handlers, each
+  documented fail-open, and a bare rethrow at any of them broke the promise of all of them. Every recall
+  path, seed source, write-enrichment path and composing surface now degrades on a component's own deadline:
+  `GraphMemoryEngine`, `LexicalMemoryEngine`, `SemanticMemoryEngine`, `CuratedMemoryEngine`,
+  `CompositeMemoryEngine`, `MemoryComposition`, `MemoryWalk`, `SemanticSeedSource`, `SubjectSeedSource`.
+  <br>**A behaviour change only for a BYO component that times out**, and only in the direction the docs
+  already promised — a store, engine, embedder or vector store whose own deadline fires now degrades instead
+  of throwing. A caller's cancellation propagates exactly as before, and a deployment on the shipped
+  SQLite/Postgres/InMemory stores and the shipped `HttpEmbedder` sees nothing change at all, because none of
+  those raise a cancellation they were not asked for.
+  <br>**Four seam contracts said otherwise and were corrected**, since a fixed behaviour with a doc still
+  asserting the old one is the worse half: `IMemoryEngine.RecallAsync` said *"Only
+  `OperationCanceledException` propagates, because cancellation belongs to the caller"*, and
+  `IMemorySeedSource` said *"Cancellation … is always propagated"* one sentence after *"it must not throw
+  for a transient fault"* — which an `HttpClient` timeout is both of. Each now states the test
+  (`ct.IsCancellationRequested`) rather than the exception type.
+
 - **ComfyUI told the router it accepted input media and then discarded it.** `ComfyUiProvider` declared
   `GenerationCapabilities.SupportsInputs` while never reading `GenerationRequest.Inputs`. That flag is an
   admission filter — `GenerationCapabilities.Supports` excludes a backend from input-carrying requests when

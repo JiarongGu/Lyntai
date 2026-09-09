@@ -31,8 +31,12 @@ public interface IMemoryEngine
 
     /// <summary>Recall relevant facts.
     /// <para><b>Fails open</b> — a storage outage yields an empty result carrying
-    /// <see cref="MemorySources.None"/>, never a throw. Only <see cref="OperationCanceledException"/>
-    /// propagates, because cancellation belongs to the caller.</para>
+    /// <see cref="MemorySources.None"/>, never a throw. Only the CALLER's cancellation propagates, and the
+    /// test is <c>ct.IsCancellationRequested</c> rather than the exception's type: a component's OWN deadline
+    /// arrives as a <see cref="TaskCanceledException"/>, which IS an
+    /// <see cref="OperationCanceledException"/> and says nothing about the caller, so it is a storage outage
+    /// like any other. This read "cancellation belongs to the caller" until 2026-09-09, and that premise was
+    /// the defect (<c>docs/FIXES.md</c>).</para>
     /// <para><b>A recall MUTATES.</b> An engine may reinforce what it returned and link those entries to one
     /// another, so asking the same question twice is not asking it twice under the same conditions. The
     /// consequence for anyone MEASURING: an A/B over this method has to be paired and counterbalanced — each

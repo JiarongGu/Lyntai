@@ -1966,6 +1966,45 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 174 — the fail-open CHAIN: the remaining 16 sites answered, and four contracts corrected
+
+✅ done 2026-09-09, closing the item Part 173 opened the same day. Detail: `docs/FIXES.md`; the two reusable
+traps are in `.claude/knowledge/pitfalls.md`.
+
+**The filing's premise was wrong.** It said the 16 needed individual answers because "cancellation semantics
+differ"; they do not. All 16 sit above the same promise and all wrap a **BYO interface** a consumer may
+implement over HTTP. The driver question that framing invited is irrelevant — `Lyntai.Core` references
+neither Npgsql nor Microsoft.Data.Sqlite.
+
+**The handlers NEST, which is why a subset fix was worthless**: one embedder timeout crosses four of them
+before reaching the caller, and a bare rethrow at any link breaks every link above it.
+
+**Fixed 15, DELETED 1** — `CollectSignals` guards a synchronous policy with no token in scope — and
+corrected **four seam contracts** that stated the false premise in shipped XML docs (`IMemoryEngine`:
+"because cancellation belongs to the caller"). Each now states the TEST, not the type.
+
+**Mutation-tested twice**, which caught a vacuous test of its own: 12 of 17 facts fail against the unfixed
+tree and only the 5 caller-cancel controls pass.
+
+- Answer the 16 remaining bare cancellation sites, or decide they need no answer.
+
+## Part 173 — the annotation seam had the defect too, and so did two more places
+
+✅ done 2026-09-09. Detail: `docs/FIXES.md`; the trap is in `.claude/knowledge/pitfalls.md`.
+
+**Yes, and in two more places than filed** — `LlmMemoryAnnotationPolicy`, `GraphMemoryEngine.AnnotateAsync`,
+and `LlmMemoryVerificationPolicy`, which the original fix left because the engine's outer catch masks it on
+the shipped path. The write path is the worse half: annotation runs before the upsert, so a slow annotator
+lost the FACT. The promise moved onto both seam contracts.
+
+**The reusable finding is that the first fix's own control could not fail.** Both caller-cancel twins passed
+under the wrong repair; both now assert on a MARKED exception.
+
+**A count wrong in three documents at once** ("20 other sites", derived by subtracting one fixed site from a
+grep total) was corrected and GATED — `check-counts` grew a counter.
+
+- Does the ANNOTATION seam fail closed on its own timeout too?
+
 ## Part 172 — the RIF trigger measured: INVERTED, not merely uninformative
 
 ✅ done 2026-09-09. The one measurement **D109** named as able to reopen the direction. It closed it

@@ -7,6 +7,48 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-09 — the fail-open chain: 16 more sites, and the contracts that stated the false premise
+
+**Symptom.** None observed, and that is the entry's own point. This closes the item the entry below opened:
+16 bare `catch (OperationCanceledException) { throw; }` sites remained in `Lyntai.Core/Memory`, filed as
+needing individual answers because "cancellation semantics differ" between them.
+
+**Root cause.** They did not differ. Every one of the 16 sits above a handler making the SAME promise —
+"must not sink the blend", "returning nothing", "the entry is stored unlinked", "a broken custom store must
+not sink the caller's prompt" — and every one wraps a **BYO interface** (`IMemoryGraphStore`, `IMemoryStore`,
+`ICuratedMemoryStore`, `ISemanticMemory`, `IEmbedder`, `IVectorStore`, `IMemoryEngine`), any of which a
+consumer may implement over HTTP. The driver question that framing invited — what Npgsql and
+Microsoft.Data.Sqlite throw on a command timeout — turned out to be **irrelevant here**: `Lyntai.Core`
+references neither, and both are reachable only from the adapter packages.
+
+**And the handlers NEST, which is why a per-site answer was the wrong shape.** One timeout from a BYO
+embedder passes through `SemanticSeedSource` → `GraphMemoryEngine.GatherAsync` (no catch of its own) →
+`GraphMemoryEngine.RecallAsync` → `CompositeMemoryEngine` → `MemoryWalk`/`MemoryComposition`. A bare rethrow
+at any link breaks the promise of every link above it, so fixing a subset buys nothing.
+
+**Fix.** The filter at 15 sites. The sixteenth — `CollectSignals` — has its catch **deleted** instead:
+`IMemorySaliencePolicy.Signals` is synchronous and takes no token, the method has no `ct` to test, and
+nothing there can be relaying a caller's cancel.
+<br>**Four seam CONTRACTS said the false premise and were corrected with the code**, because fixing one
+without the other ships a doc that contradicts the behaviour and no gate can see it. `IMemoryEngine` said
+*"Only `OperationCanceledException` propagates, because cancellation belongs to the caller"*;
+`IMemorySeedSource` said *"Cancellation … is always propagated"* one sentence after *"it must not throw for
+a transient fault"* — which an `HttpClient` timeout is both of. Each now states the TEST
+(`ct.IsCancellationRequested`) rather than the type.
+
+**Verify.** `MemoryFailOpenCancellationTests` — 17 facts, one per fixed path plus an end-to-end chain test
+and five caller-cancel controls. **Mutation-tested twice**: against the unfixed tree 12 of 17 fail and only
+the 5 controls pass. The first probe caught a **vacuous** test of its own — the subject-index fact passed
+either way, because with no annotator registered the engine has no subjects and never calls
+`RecordSubjectsAsync`. `verify` green. `Lyntai.Core/Memory` now holds 21 of these catches, 20 guarded and
+**0** bare.
+
+**Out of scope and filed, not swept:** `JobRunner`'s heartbeat loop has the same shape
+(`catch (OperationCanceledException) { return; }` over `_store.HeartbeatSlotsAsync`), where per **D73** a
+lost heartbeat is a lost cross-process job slot. Different subsystem, different promise, its own answer.
+
+---
+
 ## 2026-09-09 — the same defect in three more places, and a control that could not fail
 
 **Symptom.** None observed. This is the entry below's own open question, answered by asking rather than
@@ -38,7 +80,7 @@ pre-cancelled token cannot reach it at all.
 **Verify.** Four new tests fail on the old catches and pass on the new ones; both rewritten caller-cancel
 twins were **mutation-tested** — with the guard deleted they go red, which the versions they replace did
 not. Census, run rather than assumed: `Lyntai.Core/Memory` holds 21 of these catches, **5** guarded
-and **16** bare, the bare ones wrapping store work, an embedder, or a whole recall. Two remaining
+and **16** bare, <!-- count-ok: the census AS OF THIS FIX; the entry above closed the 16 --> the bare ones wrapping store work, an embedder, or a whole recall. Two remaining
 candidates are recorded in `TASKS.md` rather than swept, because a sweeping edit is what the filing warned
 against. **The guarded idiom was not new**: `SemanticMemory.cs:50` has carried it over an embedder since
 2026-07-18 (`8a2cde6`), so what this fixed was unevenness, not a missing technique.

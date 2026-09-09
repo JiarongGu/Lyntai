@@ -59,10 +59,11 @@ public sealed class LexicalMemoryEngine(
 
             return new MemoryRecall(items, MemorySources.Lexical);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
-            // recall is contractually fail-open — a broken custom store must not sink the caller's prompt
+            // recall is contractually fail-open — a broken custom store must not sink the caller's prompt,
+            // and a store whose own deadline fires is one of those, however it spells the exception
             _logger.LogWarning(ex, "lexical recall failed for {Engine}/{Task}; returning nothing",
                 Name, query.TaskKey);
             return MemoryRecall.Empty;

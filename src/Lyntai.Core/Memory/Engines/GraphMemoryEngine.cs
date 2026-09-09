@@ -463,7 +463,7 @@ public sealed class GraphMemoryEngine(
                 }
             }
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "subject linking failed for {Engine}; the entry is stored unlinked", Name);
@@ -500,7 +500,7 @@ public sealed class GraphMemoryEngine(
                 .ConfigureAwait(false);
             return (vector, near);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
@@ -556,7 +556,9 @@ public sealed class GraphMemoryEngine(
             {
                 signals = policy.Signals(write, context);
             }
-            catch (OperationCanceledException) { throw; }
+            // No cancellation clause: `Signals` is SYNCHRONOUS and takes no token, so nothing here can be
+            // relaying a caller's cancel — and this method has no `ct` to test one against. A policy that
+            // throws one anyway is a broken policy, which is exactly what the handler below is for.
             catch (Exception ex)
             {
                 _logger.LogWarning(ex,
@@ -607,7 +609,7 @@ public sealed class GraphMemoryEngine(
                 .UpsertAsync(collection, id.ToString(CultureInfo.InvariantCulture), vector, write.Content, ct)
                 .ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
@@ -634,7 +636,10 @@ public sealed class GraphMemoryEngine(
         {
             found = await GatherAsync(query, limit, ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
+        // The CHOKE POINT of the fail-open chain: `GatherAsync` runs every registered IMemorySeedSource, so
+        // a BYO embedder or store timing out anywhere below surfaces here. Nothing between this and the
+        // seed source catches, so a bare rethrow here broke RecallAsync's own promise whatever the sources did.
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "graph recall failed for {Engine}/{Task}; returning nothing",
@@ -1083,7 +1088,7 @@ public sealed class GraphMemoryEngine(
                     .ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
@@ -1584,7 +1589,7 @@ public sealed class GraphMemoryEngine(
             if (writeBack.Touches.Count > 0 || writeBack.Edges.Count > 0 || writeBack.Reviews.Count > 0)
                 await store.WriteBackAsync(Name, writeBack, ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             // "partly or wholly" is the honest wording: the write-back's parts commit in order, so a failure

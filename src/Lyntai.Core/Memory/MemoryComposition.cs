@@ -41,14 +41,16 @@ public static class MemoryComposition
     /// <summary>Append this engine's relevant material to <paramref name="basePrompt"/> as two labelled
     /// sections, authoritative first — so the model is told which material is exact rather than left to
     /// infer it.
-    /// <para>Never throws except on cancellation: a faulting engine yields the base prompt unchanged.</para>
+    /// <para>Never throws except on the CALLER's cancellation: a faulting engine yields the base prompt
+    /// unchanged, and an engine whose own deadline fires is one of those.</para>
     /// <para>Recall your own way instead? <see cref="Render"/> is this method's second half with the engine
     /// taken out.</para></summary>
     /// <param name="engine">The engine to recall from.</param>
     /// <param name="basePrompt">The prompt to append to.</param>
     /// <param name="query">What to recall.</param>
     /// <param name="options">Budget and headings; null takes the defaults.</param>
-    /// <param name="ct">Cancellation, which is never swallowed.</param>
+    /// <param name="ct">Cancellation. The caller's is never swallowed; tested as
+    /// <c>IsCancellationRequested</c>, so a component's own timeout is a fault rather than a cancel.</param>
     public static async Task<string> ComposeAsync(this IMemoryEngine engine, string basePrompt,
         MemoryQuery query, MemoryCompositionOptions? options = null, CancellationToken ct = default)
     {
@@ -60,7 +62,7 @@ public static class MemoryComposition
         {
             recall = await engine.RecallAsync(query, ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch
         {
             // recall is contractually fail-open, but a BYO engine that ignores that must not sink the prompt

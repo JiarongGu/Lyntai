@@ -873,15 +873,37 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   halves, which is what `MemoryVerificationTimeoutTests` does.
   <br>**Why it survived**: the seam is opt-in and defaults to none, so the shipped path never exercises it.
   **Whenever a fail-open catch wraps work that can be a network call, ask which exception the timeout
-  actually throws.** Census on 2026-09-09: `Lyntai.Core/Memory` holds 21 such sites, **5** guarded and
-  **16** bare. The bare ones wrap store work, an embedder, or a whole recall, and each needs its own
-  answer — the count is a map, not a to-do list.
+  actually throws.** Census on 2026-09-09: `Lyntai.Core/Memory` held 21 such sites; every one is now
+  guarded and **0** bare.
   <br>**The idiom was ALREADY drawn here, and that is the durable half.** `SemanticMemory.cs:50` has
   carried `when (ct.IsCancellationRequested)` over an embedder since 2026-07-18 (`8a2cde6`), so this was
   never a technique nobody had; it was one applied unevenly two directories away. **A repository that
   already solved something in one place will solve it inconsistently unless something checks** — look for
   your own prior art before concluding a defect is novel, because finding it changes the fix from "add a
   guard" to "make the rule uniform".
+- **Fail-open handlers nest, so the promise is only as good as the WEAKEST link in the chain — and testing
+  a link in isolation cannot see that.** One timeout from a BYO embedder passes through the seed source,
+  the engine's gather, the composite, and then the walk or the composition: four nested handlers, each
+  documented fail-open, each individually looking correct. A bare rethrow at ANY of them breaks the promise
+  of ALL of them, and a per-layer test stays green while the chain leaks end to end. Measured 2026-09-09 in
+  `Lyntai.Core/Memory`, where the same defect sat at 16 sites at once.
+  <br>**So when a fail-open promise is made at more than one level, test it END TO END from the deepest
+  fault to the outermost caller**, not once per layer — and treat "each site needs its own answer" with
+  suspicion when every site carries the same promise. Here they did: "must not sink the blend", "returning
+  nothing", "stored unlinked", "must not sink the caller's prompt". The per-site framing was what made a
+  one-line-per-site fix look like an unjustified sweep.
+- **When a CONTRACT states the false premise, fixing the code alone ships a doc that contradicts it — and
+  no gate can see that.** The cancellation defect above was not only in the catches: `IMemoryEngine`'s own
+  recall doc said *"Only `OperationCanceledException` propagates, because cancellation belongs to the
+  caller"*, and `IMemorySeedSource`'s said *"Cancellation is the exception and is always propagated"* in
+  the same paragraph as *"it must not throw for a transient fault"* — which an `HttpClient` timeout is
+  BOTH of. The seed sources' own docs went further and asserted the wrong behaviour as a feature
+  (*"that is the caller leaving, not an enrichment fault"*).
+  <br>**A contract that justifies itself is where a wrong premise hides best**, because the justifying
+  clause reads as reasoning rather than as a claim to check. Grep the seam docs for the RULE, not just the
+  code for the idiom — and prefer a promise phrased as a TEST the reader can apply
+  (`ct.IsCancellationRequested`) over one phrased as a type (`OperationCanceledException`), because the
+  type is what was ambiguous.
 - **A caller-cancel test written as `ThrowsAnyAsync` on a PRE-cancelled token usually cannot fail, so the
   control that was supposed to stop a bad fix certifies it instead.** The pair above is the standard shape:
   one test says the seam's own timeout degrades, its twin says a real cancel still propagates. The twin is

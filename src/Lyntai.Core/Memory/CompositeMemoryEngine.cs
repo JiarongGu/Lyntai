@@ -178,7 +178,7 @@ public sealed class CompositeMemoryEngine
                 ran |= recall.Ran;
                 if (recall.Answered is { } judged) answered = (answered ?? false) || judged;
             }
-            catch (OperationCanceledException) { throw; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 // one broken member must not sink the blend — the others' material is still good

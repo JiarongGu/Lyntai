@@ -54,7 +54,9 @@ public readonly record struct MemorySeedRequest(
 ///
 /// <para><b>Best-effort.</b> A source that cannot answer returns empty; it must not throw for a transient
 /// fault, because the engine gathers sources in sequence and a throw would discard the candidates the
-/// others already produced. Cancellation is the exception and is always propagated.</para>
+/// others already produced. The CALLER's cancellation is the exception and is always propagated — tested as
+/// <c>ct.IsCancellationRequested</c>, never as the exception's type, because a source's OWN deadline is a
+/// transient fault that happens to be spelled <see cref="OperationCanceledException"/>.</para>
 /// </summary>
 public interface IMemorySeedSource
 {
