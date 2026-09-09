@@ -115,6 +115,37 @@ export function countOptionGuards(repo) {
 }
 
 /**
+ * BARE `catch (OperationCanceledException)` sites in `Lyntai.Core/Memory` — those WITHOUT the
+ * `when (ct.IsCancellationRequested)` filter that tells a caller's cancel from the seam's own timeout.
+ *
+ * Registered 2026-09-09, the day its predecessor was found wrong in THREE maintained places at once
+ * (`TASKS.md`, `pitfalls.md` and `docs/FIXES.md` all said "20 other sites"), which is the same shape as the
+ * option-guard claim above. The count was wrong for the most ordinary reason: it was derived by subtracting
+ * one fixed site from a grep total, and one of the remainder already carried the filter.
+ *
+ * Counts BARE rather than guarded because that is the number work MOVES: each site answered turns one bare
+ * into one guarded, so a stale figure here is a backlog item that has silently already been done.
+ */
+export function countBareCancellationCatches(repo) {
+  const root = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
+  if (!fs.existsSync(root)) return -1;
+  let n = 0;
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.cs'))
+        for (const line of fs.readFileSync(p, 'utf8').split(/\r?\n/))
+          // The filter is what makes a site answered; anything else catching an OCE is still bare.
+          if (/catch\s*\(\s*OperationCanceledException/.test(line)
+              && !/when\s*\(\s*ct\.IsCancellationRequested\s*\)/.test(line)) n++;
+    }
+  };
+  walk(root);
+  return n;
+}
+
+/**
  * Guard-script tests.
  *
  * Counted STATICALLY from the declarations, which is exact here and was verified to be: on 2026-08-15 the
@@ -297,6 +328,16 @@ export const COUNTED_CLAIMS = [
     pattern: /at all\s+\*{0,2}(\d+)\*{0,2}\s+sites across/gi,
     count: countOptionGuards,
     why: 'D78 shipped with this number wrong in five places at once; nothing but a person was looking at it',
+  },
+  {
+    what: 'bare cancellation catches in Lyntai.Core/Memory',
+    // Anchored on "guarded and N bare", the one form all three documents were normalised to when this was
+    // registered. Deliberately NOT on the bare "21 sites" beside it: the total moves whenever any catch is
+    // added or removed, including ones nobody is claiming anything about, and a counter that fails for a
+    // reason the sentence is not making a claim about is the kind people learn to escape rather than fix.
+    pattern: /\bguarded\s+and\s+\*{0,2}(\d+)\*{0,2}\s+bare/gi,
+    count: countBareCancellationCatches,
+    why: 'its predecessor shipped wrong in THREE maintained documents at once, derived by subtraction from a grep',
   },
   {
     what: 'guard-script tests',

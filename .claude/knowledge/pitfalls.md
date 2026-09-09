@@ -873,8 +873,29 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   halves, which is what `MemoryVerificationTimeoutTests` does.
   <br>**Why it survived**: the seam is opt-in and defaults to none, so the shipped path never exercises it.
   **Whenever a fail-open catch wraps work that can be a network call, ask which exception the timeout
-  actually throws** — `Lyntai.Core/Memory` has 20 more sites with this idiom and only the ones wrapping a
-  model call are known to be affected.
+  actually throws.** Census on 2026-09-09: `Lyntai.Core/Memory` holds 21 such sites, **5** guarded and
+  **16** bare. The bare ones wrap store work, an embedder, or a whole recall, and each needs its own
+  answer — the count is a map, not a to-do list.
+  <br>**The idiom was ALREADY drawn here, and that is the durable half.** `SemanticMemory.cs:50` has
+  carried `when (ct.IsCancellationRequested)` over an embedder since 2026-07-18 (`8a2cde6`), so this was
+  never a technique nobody had; it was one applied unevenly two directories away. **A repository that
+  already solved something in one place will solve it inconsistently unless something checks** — look for
+  your own prior art before concluding a defect is novel, because finding it changes the fix from "add a
+  guard" to "make the rule uniform".
+- **A caller-cancel test written as `ThrowsAnyAsync` on a PRE-cancelled token usually cannot fail, so the
+  control that was supposed to stop a bad fix certifies it instead.** The pair above is the standard shape:
+  one test says the seam's own timeout degrades, its twin says a real cancel still propagates. The twin is
+  what stops the lazy repair (`catch (OperationCanceledException) { return None; }`) — and on a pre-cancelled
+  token it is usually satisfied by something else entirely. Measured 2026-09-09 on both twins in this
+  repository: `RecallAsync` checks the token before anything else, so the verifier is **never reached**; and
+  on the write path the annotator's exception was swallowed by the wrong fix, the write continued, and
+  `store.UpsertAsync` — outside every `try` — threw an `OperationCanceledException` of its own. Both twins
+  passed under the wrong fix, and `docs/FIXES.md` claimed both halves were pinned.
+  <br>**Two fixes, and they are different because the two paths are.** MARK the exception the seam throws
+  and assert on the marker, so another component's cancellation cannot satisfy it; and reach the seam with
+  a token that is cancelled — which on a path with an entry check means cancelling MID-CALL, from inside the
+  policy, rather than before. **Then mutation-test it**: apply the wrong fix and watch the twin go red. A
+  control nobody has seen fail is not a control.
 - **A seam that hands a model a TRUNCATION measures the truncation, and the model takes the blame.**
   `IMemoryVerificationPolicy` receives `MemoryVerificationCandidate.Headline` and never `Content`, and
   `GraphMemoryOptions.HeadlineChars` ships at 120. Measured 2026-09-08 on LoCoMo, whose turns have a median

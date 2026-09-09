@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  COUNTED_CLAIMS, checkCounts, countDecisions, countGoldenShapes, countGuardTests, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countVerifyGates,
+  COUNTED_CLAIMS, checkCounts, countBareCancellationCatches, countDecisions, countGoldenShapes, countGuardTests, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countVerifyGates,
   parseCount,
 } from '../check-counts.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
@@ -214,6 +214,32 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     const matches = (s) => [...s.matchAll(new RegExp(pattern.source, pattern.flags))].map((m) => m[1]);
     assert.deepEqual(matches('the sole guard at all 32 sites across six files'), ['32']);
     assert.deepEqual(matches('It replaced 31 hand-rolled copies across five when it landed'), []);
+  });
+
+  it('the bare-cancellation counter excludes the FILTERED sites, which is the whole distinction', () => {
+    const n = countBareCancellationCatches(repo);
+    assert.ok(n > 0, 'must find bare catch (OperationCanceledException) sites');
+
+    // Independent walk, same reason the option-guard counter carries: a counter and a hard-coded number
+    // agree right up until the counter is wrong, and then they agree anyway.
+    const tracked = execFileSync('git', ['ls-files', '-z', 'src/Lyntai.Core/Memory'], { cwd: repo, encoding: 'utf8' })
+      .split('\0').filter((f) => f.endsWith('.cs'));
+    const lines = tracked.flatMap((f) => fs.readFileSync(path.join(repo, f), 'utf8').split(/\r?\n/))
+      .filter((l) => /catch\s*\(\s*OperationCanceledException/.test(l));
+    const guarded = lines.filter((l) => /when\s*\(\s*ct\.IsCancellationRequested\s*\)/.test(l));
+    assert.equal(n, lines.length - guarded.length, 'the counter must agree with an independent walk');
+
+    // The load-bearing half: the counter must actually SEE the filtered sites and reject them. Without
+    // this, a counter that simply counted every catch would agree with the walk above only while the two
+    // populations happened to match, and would silently stop describing the claim the moment one was fixed.
+    assert.ok(guarded.length > 0, 'the guarded population must be non-empty, or this proves nothing');
+    assert.ok(lines.length > n, 'a filtered site must not be counted as bare');
+
+    const { pattern } = COUNTED_CLAIMS.find((c) => c.what === 'bare cancellation catches in Lyntai.Core/Memory');
+    const matches = (s) => [...s.matchAll(new RegExp(pattern.source, pattern.flags))].map((m) => m[1]);
+    assert.deepEqual(matches('holds 21 such sites, **5** guarded and **16** bare'), ['16']);
+    // The total is deliberately NOT a claim: it moves when any catch is added anywhere.
+    assert.deepEqual(matches('`Lyntai.Core/Memory` holds 21 of these catches'), []);
   });
 
   it('the decision log range is the log MAXIMUM, and the log has no gaps', () => {

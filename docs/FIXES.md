@@ -7,6 +7,44 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-09 — the same defect in three more places, and a control that could not fail
+
+**Symptom.** None observed. This is the entry below's own open question, answered by asking rather than
+waiting: it closed by fixing `GraphMemoryEngine.VerifyAsync` and filing whether the ANNOTATION seam — the
+other opt-in model-in-the-loop policy, and the other one documented fail-open — had the same defect.
+
+**Root cause.** It did, and so did two more. Three sites carried `catch (OperationCanceledException)
+{ throw; }` ahead of a fail-open handler: `LlmMemoryAnnotationPolicy.AnnotateAsync`
+("**Fail-open, always**" in its own type doc), `GraphMemoryEngine.AnnotateAsync` (BEST-EFFORT: "the write
+proceeds exactly as it would have"), and — not named in the filing — **`LlmMemoryVerificationPolicy.VerifyAsync`
+itself**, which the entry below did not touch because the engine's outer catch masks it on the shipped
+path. It is reachable for a BYO engine or a direct caller, and it is a written promise the type does not
+keep. The write path is the worse half: annotation runs BEFORE `store.UpsertAsync`, so a slow annotator
+lost the FACT, not merely its subject edges.
+
+**Fix.** `catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }` at all three,
+and the promise moved to where every implementation is held to it: `MemoryAnnotationPolicyContract` and
+`MemoryVerificationPolicyContract` each gained "a policy timing out on its own yields no opinion", driven
+by a `TimingOutClient` that throws what `HttpClient` throws while the caller's token stays uncancelled.
+
+**The second defect was in the first fix's own test, and it is the reusable half.** Both seams' caller-cancel
+twins — the controls that stop the wrong repair, "swallow every cancellation" — **passed under the wrong
+repair**. `RecallAsync` checks the token before anything else, so a pre-cancelled token never reaches the
+verifier; on the write path the annotator's exception was swallowed, the write continued, and
+`store.UpsertAsync` (outside every `try`) threw its own `OperationCanceledException`. Both now MARK the
+exception the seam throws and assert on the marker, and the verification twin cancels MID-CALL because a
+pre-cancelled token cannot reach it at all.
+
+**Verify.** Four new tests fail on the old catches and pass on the new ones; both rewritten caller-cancel
+twins were **mutation-tested** — with the guard deleted they go red, which the versions they replace did
+not. Census, run rather than assumed: `Lyntai.Core/Memory` holds 21 of these catches, **5** guarded
+and **16** bare, the bare ones wrapping store work, an embedder, or a whole recall. Two remaining
+candidates are recorded in `TASKS.md` rather than swept, because a sweeping edit is what the filing warned
+against. **The guarded idiom was not new**: `SemanticMemory.cs:50` has carried it over an embedder since
+2026-07-18 (`8a2cde6`), so what this fixed was unevenness, not a missing technique.
+
+---
+
 ## 2026-09-09 — a fail-open seam failed CLOSED on the one failure a model-backed policy actually has
 
 **Symptom.** A `memory-longmemeval --haystack --trigger` run died ~40 minutes in, after ingesting 34,242
@@ -33,6 +71,13 @@ appears at 20 other sites in `Lyntai.Core/Memory`** and was deliberately NOT cha
 evidence is for the verification seam, and the store-facing sites wrap work whose cancellation semantics
 are different. Whether the annotation seam — the other opt-in model-in-the-loop policy, and the other one
 documented fail-open — has the same defect is an open question, filed rather than assumed.
+
+_**Two corrections from the entry above, made the same day rather than left to be inherited.** "Both tests
+fail on the old catch" is FALSE of the second one: `A_CALLER_cancelling_still_propagates` passed under the
+old catch and under the wrong fix alike, because `RecallAsync` checks the token before the verifier is ever
+reached — it has been rewritten to discriminate and mutation-tested. And "20 other sites" is **19**: the
+census counts 21 in all, and one of the 20 (`SemanticMemory.cs:50`) already carried the filter, having done
+so since 2026-07-18. The annotation question is answered above: yes, and in two more places._
 
 ---
 

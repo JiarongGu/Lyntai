@@ -408,7 +408,11 @@ public sealed class GraphMemoryEngine(
             return await annotation.AnnotateAsync(new MemoryAnnotationRequest(write, recent, known), ct)
                 .ConfigureAwait(false) ?? MemoryAnnotation.None;
         }
-        catch (OperationCanceledException) { throw; }
+        // Only the CALLER's cancellation propagates, as on VerifyAsync and for the same reason: an
+        // annotator's own timeout arrives as a TaskCanceledException — which IS an
+        // OperationCanceledException — so a bare rethrow made this BEST-EFFORT seam fail the WRITE on the
+        // likeliest failure a model-backed policy has, losing the fact rather than its subjects.
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "memory annotation failed for {Engine}; storing without it", Name);

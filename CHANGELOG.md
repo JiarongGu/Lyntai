@@ -273,6 +273,20 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Fixed
 
+- **A slow annotator or judge no longer fails the write or the recall it was only meant to advise.** Both
+  model-in-the-loop memory seams are documented fail-open — a failing model degrades to "no subjects" or
+  "no opinion" and the operation proceeds — but each rethrew `OperationCanceledException` ahead of that
+  handler. An `HttpClient` timeout arrives as `TaskCanceledException`, **which is an
+  `OperationCanceledException`**, so the seams failed CLOSED on the single likeliest failure a model-backed
+  policy has. Affects `LlmMemoryAnnotationPolicy`, `LlmMemoryVerificationPolicy` and `GraphMemoryEngine`'s
+  calls into both.
+  <br>**The write path was the worse half**: annotation runs before the entry is stored, so a slow
+  annotator lost the FACT rather than its subject edges. A caller's own cancellation still propagates
+  unchanged — the two are now told apart by whether the caller's token is actually cancelled, the same
+  distinction `HttpEmbedder` and the OpenAI-compatible provider already drew.
+  <br>**Nothing changes for a deployment with no annotator or verifier registered**, which is the default:
+  both seams are opt-in. The promise now lives on both seam CONTRACTS, so a BYO policy is held to it too.
+
 - **ComfyUI told the router it accepted input media and then discarded it.** `ComfyUiProvider` declared
   `GenerationCapabilities.SupportsInputs` while never reading `GenerationRequest.Inputs`. That flag is an
   admission filter — `GenerationCapabilities.Supports` excludes a backend from input-carrying requests when

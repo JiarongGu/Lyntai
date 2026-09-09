@@ -105,6 +105,24 @@ public class MemoryVerificationTimeoutTests
             throw new TaskCanceledException("the request was canceled due to the configured HttpClient.Timeout");
     }
 
+    /// <summary>The caller stops MID-RECALL, and the exception is MARKED. Both halves are what make the
+    /// caller-cancel test able to discriminate: <c>RecallAsync</c> checks the token before anything else, so
+    /// a PRE-cancelled one never reaches this seam at all and the store throws on its own — a bare
+    /// <c>ThrowsAnyAsync</c> therefore passes whatever the seam does, including under the wrong fix.
+    /// <para>Found 2026-09-09 by the annotation twin: this file's original version of the test could not
+    /// fail, while <c>docs/FIXES.md</c> claimed both halves pinned the fix.</para></summary>
+    private sealed class CancelsWithMarker(CancellationTokenSource cts) : IMemoryVerificationPolicy
+    {
+        public const string Marker = "the verifier saw the caller's cancellation";
+
+        public Task<MemoryVerification> VerifyAsync(
+            MemoryVerificationRequest request, CancellationToken ct = default)
+        {
+            cts.Cancel();
+            throw new OperationCanceledException(Marker, cts.Token);
+        }
+    }
+
     private static async Task<MemoryRecall> RecallWithTimingOutJudge(CancellationToken ct = default)
     {
         var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(),
@@ -122,13 +140,18 @@ public class MemoryVerificationTimeoutTests
     }
 
     [Fact]
-    public async Task A_CALLER_cancelling_still_propagates()
+    public async Task A_CALLER_cancelling_still_propagates_FROM_THE_VERIFIER()
     {
         // The other half, or the fix would be "swallow every cancellation" — which would make a cancelled
         // recall look like a successful one.
         using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
+        var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(),
+            verification: new CancelsWithMarker(cts));
+        await engine.RememberAsync(new MemoryWrite("t", "s", "marker9 the deployment checklist"));
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => RecallWithTimingOutJudge(cts.Token));
+        var thrown = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => engine.RecallAsync(new MemoryQuery("t", "s", "marker9", 10), cts.Token));
+
+        Assert.Equal(CancelsWithMarker.Marker, thrown.Message);
     }
 }

@@ -59,6 +59,20 @@ public class LlmMemoryVerificationPolicyTests
             throw new NotSupportedException();
     }
 
+    /// <summary>Throws exactly what <c>HttpClient</c> throws when its own timeout elapses — a cancellation
+    /// nobody asked for — while the caller's token stays uncancelled. That is what makes it a MODEL failure
+    /// rather than a cancel, and the pair with <see cref="CancellingClient"/> is what stops the fix for one
+    /// being "swallow every cancellation".</summary>
+    private sealed class TimingOutClient : ILlmClient
+    {
+        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+            throw new TaskCanceledException(
+                "The request was canceled due to the configured HttpClient.Timeout of 300 seconds elapsing.");
+
+        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+    }
+
     private sealed class SingleClientFactory(ILlmClient client) : ILlmClientFactory
     {
         public ILlmClient Get(string name) => client;
@@ -100,6 +114,10 @@ public class LlmMemoryVerificationPolicyTests
     [Fact] public Task Fails_open() =>
         MemoryVerificationPolicyContract.A_failing_policy_yields_NoOpinion_and_not_NothingRelevant(
             Policy(new ThrowingClient()));
+
+    [Fact] public Task Its_own_timeout_fails_open() =>
+        MemoryVerificationPolicyContract.A_policy_timing_out_on_its_own_yields_NoOpinion(
+            Policy(new TimingOutClient()));
 
     [Fact] public Task Cancellation_propagates() =>
         MemoryVerificationPolicyContract.Cancellation_propagates_rather_than_becoming_no_opinion(

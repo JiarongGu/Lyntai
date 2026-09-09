@@ -64,9 +64,30 @@ public static class MemoryAnnotationPolicyContract
         Assert.Null(annotation.Grade);
     }
 
+    /// <summary><b>A policy's OWN timeout is a MODEL failure, not a cancellation.</b> The case that falls
+    /// between the two facts above and is caught by neither: an <see cref="HttpClient"/> timeout surfaces as
+    /// <see cref="TaskCanceledException"/>, which IS an <see cref="OperationCanceledException"/>, so a
+    /// <c>catch (OperationCanceledException) { throw; }</c> placed ahead of the fail-open handler turns the
+    /// likeliest failure a model-backed policy has — a slow model — into a failed write.
+    /// <para>The driver supplies a policy whose dependency times out while NOBODY cancelled, so the only
+    /// available reading is the model's. Found on the verification seam 2026-09-09
+    /// (<c>docs/FIXES.md</c>) and asked of this one because it uses the same idiom.</para></summary>
+    public static async Task A_policy_timing_out_on_its_own_yields_no_opinion(
+        IMemoryAnnotationPolicy timingOut)
+    {
+        var annotation = await timingOut.AnnotateAsync(Request());
+
+        Assert.NotNull(annotation);
+        Assert.Empty(annotation.Subjects);
+        Assert.Null(annotation.Grade);
+    }
+
     /// <summary>Cancellation is never swallowed. A remember runs inside the caller's own token, and an
     /// annotator that turned a cancel into "no opinion" would let a cancelled write complete — the caller
-    /// asked to stop, and a fail-open rule for MODEL failures must not quietly extend to that.</summary>
+    /// asked to stop, and a fail-open rule for MODEL failures must not quietly extend to that.
+    /// <para>The other half of the fact above: the fix for one is "swallow every cancellation", which breaks
+    /// this. Every SHIPPED implementation runs both, for that reason — <see cref="PolicyContractCoverageTests"/>
+    /// is what keeps that true.</para></summary>
     public static async Task Cancellation_propagates_rather_than_becoming_no_opinion(
         IMemoryAnnotationPolicy policy)
     {

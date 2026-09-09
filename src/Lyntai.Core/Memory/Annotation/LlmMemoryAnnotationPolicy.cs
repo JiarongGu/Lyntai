@@ -151,7 +151,10 @@ public sealed class LlmMemoryAnnotationPolicy(
 
             return Parse(reply.Text);
         }
-        catch (OperationCanceledException) { throw; }
+        // Only the CALLER's cancellation propagates. This client's own timeout arrives as a
+        // TaskCanceledException — which IS an OperationCanceledException — so a bare rethrow made the
+        // fail-open promise below unreachable on the likeliest failure a model-backed policy has.
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             // FAIL-OPEN: the engine treats this exactly as having no annotator

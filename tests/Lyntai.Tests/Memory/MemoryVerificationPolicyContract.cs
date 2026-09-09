@@ -90,8 +90,29 @@ public static class MemoryVerificationPolicyContract
         Assert.Empty(verdict.RelevantIds);
     }
 
+    /// <summary><b>A policy's OWN timeout is a MODEL failure, not a cancellation</b> — so it lands on
+    /// <see cref="MemoryVerification.NoOpinion"/> like any other outage. An <see cref="HttpClient"/> timeout
+    /// surfaces as <see cref="TaskCanceledException"/>, which IS an <see cref="OperationCanceledException"/>,
+    /// so a <c>catch (OperationCanceledException) { throw; }</c> ahead of the fail-open handler fails CLOSED
+    /// on a slow model — which is the failure this seam has most often.
+    /// <para>Measured 2026-09-09: one judge call exceeding its HTTP timeout took down a bench run 40 minutes
+    /// and 34,242 ingested turns in (<c>docs/FIXES.md</c>). The engine was fixed then; the promise belongs
+    /// here, where every implementation of the seam is held to it.</para></summary>
+    public static async Task A_policy_timing_out_on_its_own_yields_NoOpinion(
+        IMemoryVerificationPolicy timingOut)
+    {
+        var verdict = await timingOut.VerifyAsync(Request());
+
+        Assert.NotNull(verdict);
+        Assert.False(verdict.Judged);
+        Assert.Empty(verdict.RelevantIds);
+    }
+
     /// <summary>Cancellation is never swallowed — the same rule the annotation seam carries, and for the same
-    /// reason: fail-open covers the MODEL failing, not the caller asking to stop.</summary>
+    /// reason: fail-open covers the MODEL failing, not the caller asking to stop.
+    /// <para>The other half of the fact above: the fix for one is "swallow every cancellation", which breaks
+    /// this. Every SHIPPED implementation runs both, for that reason — <see cref="PolicyContractCoverageTests"/>
+    /// is what keeps that true.</para></summary>
     public static async Task Cancellation_propagates_rather_than_becoming_no_opinion(
         IMemoryVerificationPolicy policy)
     {

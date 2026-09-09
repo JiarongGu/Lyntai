@@ -140,7 +140,11 @@ public sealed class LlmMemoryVerificationPolicy(
 
             return Parse(reply.Text, request);
         }
-        catch (OperationCanceledException) { throw; }
+        // Only the CALLER's cancellation propagates — the same rule the engine's own VerifyAsync now draws.
+        // This client's timeout arrives as a TaskCanceledException, which IS an OperationCanceledException,
+        // so a bare rethrow left the promise below unreachable for any caller without an outer fail-open
+        // catch of its own (found 2026-09-09, `docs/FIXES.md`; the engine was fixed then, this was not).
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             // FAIL-OPEN, to NoOpinion and never to NothingRelevant — see the type's own remarks.
