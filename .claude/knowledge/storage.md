@@ -245,4 +245,8 @@ pgvector is not forced on consumers who never use semantic memory.
 - Deterministic ordering: any `ORDER BY` on a non-unique column needs a unique tiebreaker (e.g.
   `ORDER BY created_at DESC, id DESC`) or results wobble on ties.
 - Stores are **fail-open** where the interface says so (memory recall degrades FTS→LIKE→recent→empty,
-  never throws on a short/unmatchable query; re-throw only `OperationCanceledException`).
+  never throws on a short/unmatchable query). **Re-throw only the CALLER's cancellation, tested as
+  `ct.IsCancellationRequested` — never by the exception's TYPE.** A bare
+  `catch (OperationCanceledException) { throw; }` makes a fail-open seam fail CLOSED, because a network
+  deadline arrives as `TaskCanceledException` and that IS an `OperationCanceledException`. Fixed at 21
+  sites on 2026-09-09/10 (`docs/FIXES.md`); this line taught the defect until 2026-09-10.

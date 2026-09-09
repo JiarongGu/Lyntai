@@ -1,6 +1,6 @@
 ---
 name: add-storage-backend
-description: Use when adding a new storage backend to Lyntai (a new Lyntai.Storage.* package implementing one or more of the TWELVE domain interfaces — IKeyValueStore, IConversationStore, IMemoryStore, IScoreStore, ITraceStore, IPromptVersionStore, IJobStore, ICuratedMemoryStore, IVectorStore, IResponseCache, IUsageTracker, IModelRoutingStore — for Postgres, etc.). Covers the repository pattern, FTS, migrations, and the load-bearing SQLite/SQL traps.
+description: Use when adding a new storage backend to Lyntai (a new Lyntai.Storage.* package implementing one or more of the THIRTEEN domain interfaces — IKeyValueStore, IConversationStore, IMemoryStore, IScoreStore, ITraceStore, IPromptVersionStore, IJobStore, ICuratedMemoryStore, IVectorStore, IResponseCache, IUsageTracker, IModelRoutingStore, IMemoryGraphStore — for Postgres, etc.). Covers the repository pattern, FTS, migrations, and the load-bearing SQLite/SQL traps.
 ---
 
 # Add a storage backend to Lyntai
@@ -19,12 +19,18 @@ that canonical set; read both, they are not duplicates.
       them by hand, because the misses are silent (a package absent from `ApiSurfaceTests.Assemblies()`
       has no API gate at all).
 - [ ] Implement only the domain interfaces the consumer needs — they're independent, and there are
-      **twelve**, not five: `IKeyValueStore`, `IConversationStore`, `IMemoryStore`, `IScoreStore`,
+      **thirteen**, not five: `IKeyValueStore`, `IConversationStore`, `IMemoryStore`, `IScoreStore`,
       `ITraceStore`, `IPromptVersionStore`, `IJobStore`, `ICuratedMemoryStore`, `IVectorStore`,
-      `IResponseCache`, `IUsageTracker`, `IModelRoutingStore` (`src/Lyntai.Core/Storage/` plus `Memory/`,
+      `IResponseCache`, `IUsageTracker`, `IModelRoutingStore`, **`IMemoryGraphStore`**
+      (`src/Lyntai.Core/Storage/` plus `Memory/`,
       `Llm/Caching/`, `Llm/Budgeting/`, `Llm/Routing/`; mirror `src/Lyntai.Storage.Postgres/`, which
-      implements eleven of them). Each one you DO implement owes a `<Domain>StoreContract` fact. No
+      implements twelve of them). Each one you DO implement owes a `<Domain>StoreContract` fact. No
       cross-domain coupling (a future composite store routes domains to different backends).
+      <br>**`IMemoryGraphStore` is the big one and this list omitted it until 2026-09-10** — 643 lines of
+      contract with THIRTEEN required members, against 775/688 lines of relational implementation, a
+      per-backend migration asymmetry (12 SQLite / 13 Postgres) and an ORDER pinned by **D101**. A cold-start
+      probe followed this checklist and planned a backend without it. Skip it deliberately, never by
+      omission.
 - [ ] `IDbConnectionFactory` (or equivalent) applies the backend's concurrency/integrity settings on
       **every** connection. For SQLite that's `WAL; busy_timeout; foreign_keys=ON` — miss `foreign_keys`
       and cascades silently stop.

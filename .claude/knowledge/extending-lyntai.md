@@ -204,11 +204,21 @@ new-package Lyntai.Storage.<Backend>`, which registers it in all NINE registries
 Never hand-roll the csproj; the misses are silent.
 
 Implement the domain interfaces the consumer needs — they're independent, you don't have to do all of them,
-and there are **twelve**, not five: the eight in `src/Lyntai.Core/Storage/` (`IKeyValueStore`,
+and there are **thirteen**, not five: the eight in `src/Lyntai.Core/Storage/` (`IKeyValueStore`,
 `IConversationStore`, `IMemoryStore`, `IScoreStore`, `ITraceStore`, `IPromptVersionStore`, `IJobStore`,
 `ICuratedMemoryStore`) plus `IVectorStore` (`Memory/`), `IResponseCache` (`Llm/Caching/`), `IUsageTracker`
-(`Llm/Budgeting/`) and `IModelRoutingStore` (`Llm/Routing/`). Mirror `src/Lyntai.Storage.Postgres/`, the
-reference backend, which implements eleven of the twelve (all but `IModelRoutingStore`). Provide
+(`Llm/Budgeting/`), `IModelRoutingStore` (`Llm/Routing/`) — and **`IMemoryGraphStore` (`Memory/`), which
+this list omitted entirely until 2026-09-10**.
+
+**Read that omission as the warning it is.** `IMemoryGraphStore` is the LARGEST thing in the storage layer
+— a 643-line contract with **thirteen required members**, against 775 and 688 lines of relational
+implementation — and a measured cold-start probe followed these documents and produced a backend plan
+without it. It is also the only one with a per-backend migration asymmetry (12 on SQLite, 13 on Postgres;
+`CLAUDE.md`) and the only one whose contract pins an ORDER (`WriteBackAsync`, **D101**). If you are backing
+the memory engine, it is most of your work; if you are not, you can skip it like any other.
+
+Mirror `src/Lyntai.Storage.Postgres/`, the
+reference backend, which implements twelve of the thirteen (all but `IModelRoutingStore`). Provide
 `builder.Use<Backend>Storage(...)` that registers an `IDbConnectionFactory` (or the backend's equivalent) +
 the stores + runs migrations.
 

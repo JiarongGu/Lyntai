@@ -365,6 +365,27 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    // 2026-09-10, from `docs/FIXES.md`. "Re-throw only OperationCanceledException" was the fail-open rule
+    // this repository taught for its own storage seams — and it is the DEFECT, not a shorthand for it: an
+    // `HttpClient` deadline arrives as `TaskCanceledException`, which IS an `OperationCanceledException`,
+    // so a bare rethrow makes a fail-open seam fail CLOSED on the one failure a network-backed store
+    // actually has. Fixed at 21 sites across two commits; `.claude/knowledge/storage.md` was still teaching
+    // it afterwards, where a BYO backend author would have reimplemented it.
+    //
+    // Narrow on purpose. It bans the RULE ("rethrow only ..."), never the type name, which every correct
+    // fix must still write — including the correct form, `catch (OperationCanceledException) when
+    // (ct.IsCancellationRequested)`. The lookahead is what keeps the two apart.
+    {
+      term: '\\bre-?throw(s|ing)?\\s+only\\s+`?\\\\?OperationCanceledException'
+        + '|\\bonly\\s+`?\\\\?OperationCanceledException`?\\s+(?:is|are)\\s+re-?thrown',
+      use: 'that the CALLER\'s cancellation is re-thrown, tested as `ct.IsCancellationRequested` — never by '
+        + 'the exception\'s TYPE. The correct catch is '
+        + '`catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }`',
+      why: 'a bare rethrow makes a fail-open seam fail CLOSED: an HttpClient timeout surfaces as '
+        + 'TaskCanceledException, which IS an OperationCanceledException, so the type cannot tell a '
+        + "caller's cancel from a component's own deadline. Cost 40 minutes of ingestion before it was "
+        + 'read, then 21 sites to repair (`docs/FIXES.md`, 2026-09-09/10)',
+    },
     // D76 (2026-08-16). "Reap" was the memory subsystem's umbrella verb for forget-or-prune, and it MISLEADS
     // rather than merely differing: in ordinary English to reap is to HARVEST — "reap what you sow", "reap
     // the rewards" — which is close to the opposite of removing data. A reader meeting `IMemoryReapPolicy`

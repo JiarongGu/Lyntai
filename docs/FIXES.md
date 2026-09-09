@@ -374,7 +374,7 @@ the asymmetry in as many words; the `try`/`catch` simply did not implement it.
 
 **Fix.** `RemoveVectorsAsync` (the prune-side cleanup, and its only two callers are prune paths) is now
 best-effort: it logs a warning naming how many entries were removed and left as orphans, and rethrows only
-`OperationCanceledException`. `ForgetVectorsAsync` is unchanged and still fails loudly, which is the whole
+`OperationCanceledException`. <!-- drift-ok: what this fix DID on its own day; that rule was itself retired 2026-09-10, and this very site is one of the 21 the entries above repaired --> `ForgetVectorsAsync` is unchanged and still fails loudly, which is the whole
 point of the split.
 
 **Verification.** `MemoryRemovalCompletenessTests`, two facts written RED-first against a vector store whose
