@@ -19,7 +19,7 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**The startable set is NINE items, across Parts 109, 116, 128, 129 and 177.** Each is a `- [ ]` you could
+**The startable set is FIFTEEN items, across Parts 109, 116, 128, 129, 177 and 178.** Each is a `- [ ]` you could
 open today. **If this line names something that is not an open checkbox below, this line is wrong** — it has
 been, four times, always because an item was amended in place and the banner was not amended with it. So
 **count, never adjust**: open every `- [ ]` in those Parts and check it for a blocker, rather than
@@ -878,6 +878,72 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   <500 MB and which need a structural constraint rather than a prompt, and put it where a consumer reads it
   (`docs/memory.md` §7 or a new section, plus `model-decoupling.md`'s neighbourhood). **Not a decision and
   not new surface**: the seams exist, so this is the advice on top of them.
+
+---
+
+## Part 178 — cut the cold-start cost: generated indexes, and a 36k always-on budget (2026-09-10)
+
+_Opened from a MEASUREMENT, not an opinion. Five instrumented cold-start probes read the repository the way
+a fresh session would: **3,459 lines pulled, 1,838 wasted (53%), and two of five answers were not
+current**. Fixed cost before a session does anything is **~36,000 tokens** (`CLAUDE.md` 67,686 chars +
+`.claude/rules/*` 76,106), of which `CLAUDE.md`'s `## Dev loop` is 63%._
+
+| probe | read | wasted | current? |
+|---|---|---|---|
+| best memory config | ~595 | 55% | **no — unverifiable by construction** |
+| why `SalienceWeight = 0` | ~730 | 27% | direction only |
+| add a storage backend | ~970 | **61%** | **no — docs were wrong (fixed, `5206a74`)** |
+| what is open | ~625 | **74%** | yes, ungated |
+| find a trap | ~539 | 47% | yes |
+
+_**Three findings govern every item below.** (1) **Generated and gated, or do not build it** — four
+hand-written indexes had drifted (`memory.md`'s "D39–D62" range, this banner's four wrong counts,
+`extending-lyntai`'s "twelve", a stale amendment roster) against ZERO from `decisions-index`.
+(2) **Heading-level indexing is the fix that looks sufficient and is not** — `memory.md` retracts INLINE,
+mid-section, so heading-grep is blind by construction; the index must be at RESULT-ROW granularity.
+(3) `decisions-index` barely helped LOCATING cost (~66 vs ~117 lines); its wins were precision and a free
+currency scan, so sizing a new index for READING is over-building._
+
+- [ ] **Move `.claude/rules/TEMPLATE.md` out of the always-on tier.** It auto-loads (~410 tokens) while
+  `RULES_INDEX.md` calls it *"deliberately absent — the template for writing a new rule, not a rule to
+  follow"* and its own frontmatter agrees. `git mv` to `.claude/templates/rule-template.md`; update <!-- link-ok: the DESTINATION this item creates; it does not exist until the item is done -->
+  `RULES_INDEX.md`'s note and the template's own steps 2–3. **Five minutes, and it is the whole item.**
+- [ ] **Generate the open-item manifest at the head of `TASKS.md`**, and gate the startable count.
+  Extends `check-backlog.mjs` (113 lines, already in `verify`). Derivable today: line, Part, checkbox
+  title. **Not derivable and the column that pays: `state`** — a probe burned 64 lines discovering Part 99
+  is a *watch* item, because the blocked roster cannot express a third state. Add a per-item marker
+  `<!-- item: state=startable|blocked|watch|decision-only kind=tree|env|decision|data needs="…" -->` on the
+  checkbox, generate the roster FROM it so the two cannot disagree, and register the count in
+  `COUNTED_CLAIMS` — the banner has been wrong four times and nothing derives it.
+  <br>_`decision-only` exists because Part 128's `Model`-precedence item says outright it is "not startable
+  as a code change" while the banner counts it among the nine._
+- [ ] **Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a generated results index.** <!-- link-ok: the file this item creates by splitting memory.md §5 -->
+  §5 is **3,442 of 4,222 lines (81.5%)**; the rest becomes readable end to end. **Do not renumber** — keep
+  the heading `## 5.` in the new file, because `CLAUDE.md`'s own §-citation rule says renumbering makes
+  existing citations resolve silently to the wrong section. `check-links`' section half will name every
+  inbound citation to repoint. The index needs a per-result marker carrying `arm`/`metric`/`n`/`value`/
+  `ships`/`status`; **`SUPERSEDED` is never hand-written** — the generator derives it from another row's
+  `supersedes=`, since two-sided bookkeeping is where this rots.
+  <br>_The check that would have caught the defect a probe could not reach: a section whose body matches
+  `CORRECT(ED|ION)|RETRACT|STALE|SUPERSED` while its own marker says `status=CURRENT` FAILS._
+- [ ] **Pay `CLAUDE.md` and the rules tier down to ~13k tokens** (from ~36k). The cut rule, applied
+  sentence by sentence: **a line stays always-on only if it carries no number/date/figure, no gate can
+  catch its violation, and violating it costs something you cannot cheaply undo.** `## Dev loop` becomes a
+  generated command table; the "measured cost of not having it" paragraphs move to a new `docs/GATES.md`. <!-- link-ok: the file this item creates for the relocated gate narratives -->
+  <br>**The trap that makes this dangerous:** `check-counts` FAILS a registered claim whose pattern matches
+  nothing, and several are anchored in the exact prose being cut (`verify` runs nineteen checks, twelve
+  packages, 12/13 migrations, guard-script tests, `DOMAINS are SEVEN`). The destination must be tracked,
+  `IN_SCOPE` and `IS_SCANNED`, and the sentences must move verbatim enough to keep matching. Run
+  `check-counts` and `check-links` after EACH move, not at the end.
+- [ ] **Give `.claude/knowledge/pitfalls.md` a generated facet index.** 2,209 lines, **152 bold-lead
+  bullets**, nine headings. **Retitling the headings is REFUTED** — one probe's nine relevant traps spanned
+  five headings, two of which nobody would search, so the file needs facets ORTHOGONAL to its headings:
+  `sub=` (memory/recall, storage/sql, router, …) and `shape=` (fail-open, cancellation, second-door,
+  vacuous-test, …), closed vocabularies in `project.config.mjs`, unknown value fails.
+- [ ] **Add a `keeps=` header to superseded `docs/FIXES.md` entries** — a table is the wrong fix, because a
+  reader arrives INSIDE an entry from a grep and never sees the top of the file. Three same-day entries
+  each partly retract the one below, and a probe could not skip the superseded one because its reusable
+  half lived only there. Render the retraction at the entry's HEAD; today it sits at the bottom.
 
 ---
 
