@@ -469,12 +469,11 @@ arm is under-powered before it is written: **Part 166** measured that no corpus 
 
 **IT WAS MEASURED (2026-09-09) AND THE TRIGGER IS INVERTED — a third answer neither branch anticipated.**
 All 70 knowledge-update questions, haystack, the shipped `LlmMemoryVerificationPolicy` over `gemma3:4b`
-(Q4_K_M), 40 candidates per call, zero judge failures. **Judge served by OLLAMA, not llama.cpp**, which is a
-deviation from `repo-mechanics.md` §Local models and is recorded rather than hidden. The reason is
-specific: the only chat model on this machine is Ollama's `gemma3:4b`, whose blob is a GGUF that stock
-`llama-server` REFUSES (`key not found in model: gemma3.attention.layer_norm_rms_epsilon`), and the
-equivalent GGUF from HuggingFace would not download. The finding is a property of the MODEL's judgement
-rather than of the server — the weights and quant are the same either way — so it is not re-run. Embedder on llama.cpp (`repo-mechanics.md` §Local models).
+(Q4_K_M), 40 candidates per call, zero judge failures. **First run judge-served by Ollama, second by llama.cpp**, and both are reported below
+rather than one being quietly preferred. The first was a deviation from `repo-mechanics.md` §Local models,
+taken because the only chat model here was Ollama's `gemma3:4b`, whose blob is a GGUF that stock
+`llama-server` REFUSES (`key not found in model: gemma3.attention.layer_norm_rms_epsilon`). Pulling the
+model's own GGUF removed the deviation and the numbers did not move. Embedder on llama.cpp (`repo-mechanics.md` §Local models).
 
 | population | shown | endorsed | UNendorsed |
 |---|---|---|---|
@@ -486,6 +485,13 @@ rather than of the server — the weights and quant are the same either way — 
 So the unendorsed half is enriched for the CURRENT fact, and a penalty on it fires backwards. Of the 65
 calls that showed both, it would demote the superseded fact alone **5** times and the current fact alone
 **23** — a 4.6:1 ratio the wrong way, with 35 no-discrimination cases besides.
+
+**REPRODUCED on llama.cpp, and the decisive cells are IDENTICAL** (2026-09-09, second run): base rate
+8.9%, current fact 12.3%, superseded fact **37.7%**, and the paired cells **5 correct against 23
+backwards** — the same integers, across a different server AND a different embedder (`embeddinggemma` here
+against `nomic-embed-text` there, since the judge model is what the measurement is about). Two runs, two
+stacks, one answer. **The standard is also 2.6× faster** — 1,183s against 3,094s — most plausibly because
+two dedicated resident servers never swap, which is what one model per port buys.
 
 **The mechanism is the one this document already measured from the other side.** A superseded statement is
 often the more canonical answer to the question, while its replacement is phrased as a revision — so a

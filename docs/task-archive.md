@@ -1980,6 +1980,9 @@ both, a penalty would demote the superseded fact alone 5 times and the current f
 useful outcome: query relevance is mildly ANTI-correlated with recency here, the same effect behind the
 cross-encoder taking `stale@k` 44.3% → 95.7%.
 
+**REPRODUCED on llama.cpp the same day** with the paired cells identical (5 against 23) across a different
+server and embedder, once the model's own GGUF was pulled — the Ollama blob will not load upstream.
+
 **It also found a shipped defect** — a fail-open seam failing CLOSED on its own timeout (`docs/FIXES.md`),
 which cost 40 minutes of ingestion before it was read.
 

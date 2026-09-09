@@ -3225,6 +3225,7 @@ SUPERSEDED fact 3.4× more often than the current one (36.2% against 10.8%, base
 the unendorsed half would demote the CURRENT fact 4.6× more often than the stale one (23 calls against 5,
 of 65 showing both). A relevance judgement prefers the more canonical statement, and the replacement reads
 as a revision. This entry no longer rests on "unsupported"; the direction is closed.
+**Reproduced on a second stack** — different server, different embedder, the paired cells identical.
 
 **What would reopen it: one measurement, not an argument.** `lyntai_memory_review.verified` already
 persists the tri-state, so compute P(superseded member | returned AND unendorsed) against the base rate. Well
