@@ -826,6 +826,12 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   that is the only evidence that can close this. Watch for it; do not close it by observing green runs,
   which is what the line above already says and is now doubly true.
 
+  <br>**A ONE-test flake was seen 2026-09-09** under `verify`, green on the standalone run immediately after
+  and green on the next `verify`. It is recorded here rather than as a new item because it is the same
+  SHAPE — intermittent, only under `verify`, unreproducible on demand — but it is NOT the nine, so it does
+  not confirm or refute the `ProcessRunner` fix this item watches. The name was not captured; capture it if
+  it recurs, which is the only thing that would make it actionable.
+
 ## Part 109 — LoCoMo says the shipped ranking defaults lose to plain cosine on a uniform-history workload (2026-08-29)
 
 _Opened by `docs/task-archive.md` Part 110; the first item CLOSED as **D97** (`docs/task-archive.md`
