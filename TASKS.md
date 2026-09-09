@@ -39,9 +39,9 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 844 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
 | 870 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
 | 880 | 177 | Write the task-shape taxonomy down as guidance | startable |  |
-| 916 | 178 | Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a genera… | startable |  <!-- link-ok: carried from this item's own line --> |
-| 925 | 178 | Pay `CLAUDE.md` and the rules tier down to ~13k tokens | startable |  |
-| 934 | 178 | Add a `keeps=` header to superseded `docs/FIXES.md` entries | startable |  |
+| 923 | 178 | Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a genera… | startable |  <!-- link-ok: carried from this item's own line --> |
+| 932 | 178 | Pay `CLAUDE.md` and the rules tier down to ~13k tokens | startable |  |
+| 942 | 178 | Add a `keeps=` header to superseded `docs/FIXES.md` entries | startable |  |
 
 <!-- open-items:end -->
 
@@ -889,8 +889,15 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
 
 _Opened from a MEASUREMENT, not an opinion. Five instrumented cold-start probes read the repository the way
 a fresh session would: **3,459 lines pulled, 1,838 wasted (53%), and two of five answers were not
-current**. Fixed cost before a session does anything is **~36,000 tokens** (`CLAUDE.md` 67,686 chars +
-`.claude/rules/*` 76,106), of which `CLAUDE.md`'s `## Dev loop` is 63%._
+current**. Fixed cost before a session does anything was **~36,000 tokens** when this Part opened
+(`CLAUDE.md` 67,686 chars + `.claude/rules/*` 76,106), of which `CLAUDE.md`'s `## Dev loop` was 63%._
+
+_**Closing three of these items made the always-on tier BIGGER, and that is worth knowing before the next
+one starts.** After Parts 179–181 it reads `CLAUDE.md` **69,296** + rules **75,362** = **144,658 chars**,
+with `## Dev loop` now **65%** of `CLAUDE.md`: moving the rule template out saved ~1.6k, and documenting
+two new gates spent more than that back. **Every gate this Part adds pays rent in the one file every
+session reads first** — which is the argument for item 4 below, and the reason it should come before any
+further gate rather than after._
 
 | probe | read | wasted | current? |
 |---|---|---|---|
@@ -922,7 +929,8 @@ below, and the cheap ones are gone — each remaining item moves or rewrites a l
   `supersedes=`, since two-sided bookkeeping is where this rots.
   <br>_The check that would have caught the defect a probe could not reach: a section whose body matches
   `CORRECT(ED|ION)|RETRACT|STALE|SUPERSED` while its own marker says `status=CURRENT` FAILS._
-- [ ] **Pay `CLAUDE.md` and the rules tier down to ~13k tokens** (from ~36k). The cut rule, applied <!-- item: state=startable -->
+- [ ] **Pay `CLAUDE.md` and the rules tier down to ~13k tokens** (from ~36k, and now the largest of the <!-- item: state=startable -->
+  four remaining — do it FIRST, since every other item's gate documents itself here). The cut rule, applied
   sentence by sentence: **a line stays always-on only if it carries no number/date/figure, no gate can
   catch its violation, and violating it costs something you cannot cheaply undo.** `## Dev loop` becomes a
   generated command table; the "measured cost of not having it" paragraphs move to a new `docs/GATES.md`. <!-- link-ok: the file this item creates for the relocated gate narratives -->
