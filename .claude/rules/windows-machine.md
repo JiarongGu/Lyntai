@@ -107,6 +107,13 @@ hours spent looking somewhere else.
   restarted and verified healthy, and the cost was only minutes; the point is that the reach of `//IM` is the
   IMAGE, so it is never scoped to your work. **A local model server is exactly the shared runtime this rule
   is about**, even though it does not look like a browser: one binary, many tenants, one port each.
+  <br>**Following the PID rule is not enough — VERIFY the neighbour afterwards.** On 2026-09-10 a cleanup
+  killed five servers strictly by PID, none of them the sibling's, and the sibling was down at the end of it
+  anyway. Whether the kills caused it was never established, and that is the point: *"I only killed my own
+  PIDs"* is an argument, not evidence. **Query the neighbour's health after you clean up**, and restart it if
+  it is gone — the check costs one `curl` and the alternative is leaving somebody else's service dead without
+  knowing. Note also that `taskkill //F //PID` reported SUCCESS for a process still listening seconds later,
+  so its exit code does not prove the port is free either; re-read `netstat` rather than trusting it.
 - **Copy and move preserve the modification time.** A file restored that way can be *older* than the
   artifact built from the version you were replacing, so an incremental build silently keeps using the
   old artifact — a stale PASS, which is the dangerous direction. Undo a change with the same tool that

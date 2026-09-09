@@ -597,6 +597,29 @@ the tests) while being wrong. Skim before touching the relevant area.
   ("imported rather than restated… two copies of that question drift the moment a document is archived").
   <br>**Both mistakes above are the same shape** — a scan that answers a narrower question than the one
   being asked, while reading as though it answered the whole one.
+- **`curl -sSL` exits 0 on a TRUNCATED download, so verify the byte count or you are measuring a partial
+  file.** Measured 2026-09-10 pulling two GGUFs: one arrived at 203 MB of 468, the other at 95 MB of 636,
+  and `curl` reported success for both. A truncated model either fails to load — the lucky direction — or
+  loads and scores garbage. **Compare `stat -c %s` against the size the registry states, and retry with
+  `--fail --retry N --retry-all-errors -C -` until it matches**; resume is what makes the retry cheap. This
+  is the lying-exit-code family `windows-machine.md` records, in a form that costs a whole measurement
+  rather than a build.
+- **A model file's size is quoted in two units that straddle a round threshold, and the answer flips.**
+  `bge-reranker-v2-m3` Q8_0 is 635,676,416 bytes = **606 MiB** by `ls` arithmetic and **636 MB** as
+  HuggingFace displays it. At a "under 500 MB" requirement, `Q6_K` at 500,283,808 bytes PASSES in MiB
+  (477.1) and FAILS in MB (500.3). **State the byte count** whenever a size decides anything; a sweep that
+  ranked candidates by the wrong unit mis-sorted them by 27%.
+- **A community GGUF quant of a RERANKER can be missing its classification head and fail silently.**
+  llama.cpp issue #16407: a conversion that drops `cls.output.weight` still loads and still returns
+  scores — they are just wrong. One quant of the same model measured 310 tensors where the working ones
+  have 311. **Smoke-test a reranker before trusting a run**: score a known-answer document against known
+  distractors and assert the ordering AND that the scores are distinct. A flat or shuffled scorer reads as
+  a clean null result, which is the shape `CrossEncoderRerank`'s own `DistinctScores` audit exists to catch.
+- **CJK passed to a command-line argument goes through the console encoding and arrives mangled.** A
+  `curl -d '{"documents":["评审会…"]}'` on this machine produced
+  `parse error … ill-formed UTF-8 byte` from the server, because the GBK console rewrote the payload before
+  `curl` ever saw it. **Write the payload to a UTF-8 file and pass `-d @file`** — the same rule
+  `windows-machine.md` states for building file content, applied to arguments.
 
 ## LLM / router (details in `llm-and-router.md`)
 

@@ -1966,6 +1966,41 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 176 — three rerankers, one score: a 468 MB model matches a 636 MB one, and recency buys nothing
+
+✅ done 2026-09-10, at the owner's direction ("try to improve with a smaller judge < 500mb"). Table:
+`docs/memory.md` §5. Four traps went to `.claude/knowledge/pitfalls.md`.
+
+**`LAMAR-600m` is a near-perfect control for MODEL AGE** — same `XLMRobertaForSequenceClassification`, same
+567,755,777 parameters as `bge-reranker-v2-m3`, released 28 months later. **At matched quantisation it is
+IDENTICAL**: 91.0% against 91.0%, cell for cell. The one arm that differs is the SMALLER file by a single
+question of 200, inside the near-tie band.
+
+**The usable result is the size**: 468,393,760 bytes captures 6.0 of the 7.0 points a perfect judge offers,
+at 74% of the incumbent's bytes. Both anchors reproduced exactly across all three runs.
+
+**It is silent on the owner's actual hypothesis**, and says so: it tests recency in the RERANKER role, while
+the model measured as costing 10.5 points is an LLM JUDGE facing a different task shape.
+
+- Try to improve the memory result with a smaller judge (< 500 MB).
+
+## Part 175 — the endorsement CAP is not the lever, and the comparison that suggested it was confounded
+
+✅ done 2026-09-10. **D110**; table in `docs/memory.md` §5.
+
+**The repo's own source named the confound and nobody had read it**: the cross-encoder endorses a FIXED
+top-k, so the failure that cost the 4B judge its points is unreachable for it by construction. So
+"reranker beats judge" differed in the count rule as well as the model.
+
+**The control was built and refutes the count-rule explanation.** Capped at the page size the judge scores
+71.0% against its uncapped 71.0%, identical in every cell, while the cap BOUND on 138/200 calls and dropped
+16.1 endorsements per call. The `+top80` null control reported itself INERT.
+
+**The audit bounds every future promotion rule on this judge**: 14 of 200 calls are rescuable, and the judge
+put the evidence in its own top five on none of them.
+
+- Give the LLM judge the same fixed-count rule the reranker gets, and see what the model is worth.
+
 ## Part 174 — the fail-open CHAIN: the remaining 16 sites answered, and four contracts corrected
 
 ✅ done 2026-09-09, closing the item Part 173 opened the same day. Detail: `docs/FIXES.md`; the two reusable

@@ -355,6 +355,7 @@ internal static class MemoryLocomoBench
         var judgeAudits = new Dictionary<string, JudgeAudit>(StringComparer.Ordinal);
         var judgePolicies = new Dictionary<string, IMemoryVerificationPolicy>(StringComparer.Ordinal);
         var judgeFusions = new Dictionary<string, FusedVerdictVerifier>(StringComparer.Ordinal);
+        var judgeCaps = new Dictionary<string, CappedVerdictVerifier>(StringComparer.Ordinal);
         if (judgeChat is not null)
             foreach (var spec in JudgeArms)
             {
@@ -365,7 +366,20 @@ internal static class MemoryLocomoBench
                     new LlmMemoryVerificationPolicy(new SweepDoubles.BenchClientFactory(judgeChat, spec.Budget)));
                 var name = JudgeArmName(spec);
                 judgeAudits[name] = audit;
-                if (!spec.Fuse) { judgePolicies[name] = audit; continue; }
+                if (!spec.Fuse)
+                {
+                    // `Top` on an UNFUSED arm is the endorsement CAP — the control that gives the LLM judge
+                    // the same fixed-count rule the cross-encoder gets for free. Unset leaves the shipped
+                    // partition exactly as it was, so no existing arm moves.
+                    if (spec.Top is { } cap)
+                    {
+                        var capped = new CappedVerdictVerifier(audit, cap);
+                        judgeCaps[name] = capped;
+                        judgePolicies[name] = capped;
+                    }
+                    else judgePolicies[name] = audit;
+                    continue;
+                }
 
                 var fused = new FusedVerdictVerifier(audit, RecallLimit, JudgeFusionWeight, spec.Top);
                 judgePolicies[name] = fused;
@@ -1192,7 +1206,11 @@ internal static class MemoryLocomoBench
         // Printed here rather than through PrintResults, which already takes ten arguments and describes
         // every arm — this describes only the judge arms, and only those that ran.
         foreach (var (name, audit) in judgeAudits.OrderBy(a => a.Key, StringComparer.Ordinal))
-            if (audit.Calls > 0) PrintJudgeAudit(name, audit, judgeFusions.GetValueOrDefault(name));
+            if (audit.Calls > 0)
+            {
+                PrintJudgeAudit(name, audit, judgeFusions.GetValueOrDefault(name));
+                if (judgeCaps.TryGetValue(name, out var cap)) PrintJudgeCap(name, cap);
+            }
 
         // The reranker's own control. It endorses a fixed count, so "how many it endorsed" says nothing -
         // what can go wrong is that it returns the SAME score for everything, which reorders nothing and
@@ -1790,6 +1808,21 @@ internal static class MemoryLocomoBench
                 + " scored is the partition's score, not a measurement of fusing.");
     }
 
+    /// <summary>The cap's own control. A cap that never BOUND is the uncapped arm under another name, and a
+    /// table reporting the two as different configurations would be reporting the sample, not the rule.
+    /// </summary>
+    private static void PrintJudgeCap(string arm, CappedVerdictVerifier cap)
+    {
+        if (cap.Judged == 0) return;
+
+        Console.WriteLine($"  {arm} cap: bound on {cap.Capped}/{cap.Judged} judged call(s)"
+            + $" ({(double)cap.Capped / cap.Judged:P0}), dropping {(double)cap.Dropped / cap.Judged:F1}"
+            + " endorsement(s) per call");
+        if (cap.Capped == 0)
+            Console.WriteLine("    ! INERT - the judge never exceeded this cap, so this arm IS its uncapped"
+                + " twin. Any score difference is the instrument, not the rule.");
+    }
+
     private static void PrintResults(IReadOnlyList<string> arms,
         Dictionary<(string, int), int> correct, Dictionary<(string, int), int> asked,
         Dictionary<string, int> unknown, Dictionary<string, int> returned, bool retrievalOnly,
@@ -1906,6 +1939,11 @@ internal static class MemoryLocomoBench
         (null, true, null, null, false), (40, true, null, null, false), (null, true, 5, null, false),
         (null, false, null, RecallLimit, false), (null, false, null, 5, false),
         (null, false, null, null, true),
+        // THE COUNT-RULE CONTROL, at the shipped depth of 80 so it is the incumbent arm plus one rule.
+        // `+top20` caps the endorsement at the page size — the reranker's own rule — and `+top80` is its
+        // NULL control: a cap that cannot bind at depth 80, so it must reproduce the uncapped arm exactly,
+        // and any move there is the instrument rather than the rule.
+        (null, false, RecallLimit, null, false), (null, false, 80, null, false),
     ];
 
     /// <summary>The verdict's weight against the ranking's own rank term when fusing. 1 puts them on equal
@@ -2129,6 +2167,62 @@ internal static class MemoryLocomoBench
             if (partitionPage.SetEquals(fused)) SamePage++;
 
             return new MemoryVerification(fused);
+        }
+    }
+
+    /// <summary>Caps a judge's endorsement to <paramref name="cap"/> candidates and still PARTITIONS —
+    /// the control that separates the endorsement-COUNT rule from the model.
+    ///
+    /// <para><b>Why this arm exists.</b> The cross-encoder is worth +5.0 where the 4B judge SPENDS 10.5, and
+    /// that gap has been read as architecture. It is not a clean reading: <see cref="CrossEncoderVerifier"/>
+    /// endorses a FIXED count, so the failure that cost the judge its points — promoting a set larger than
+    /// the page, which replaces the ranking instead of refining it — is unreachable for the reranker BY
+    /// CONSTRUCTION. This file says so at the arm's own construction site. So the two arms differ in the
+    /// count rule as well as the model, and nothing has held the rule fixed.</para>
+    ///
+    /// <para><b>What it keeps is the highest-RANKED endorsements, not the judge's own first picks</b>
+    /// (which is what <see cref="FusedVerdictVerifier"/>'s <c>top</c> does). Candidates arrive in the
+    /// engine's ranking order and the engine already preserves that order among promoted entries, so
+    /// selecting by it changes the COUNT and nothing else. Taking the judge's own listing order instead
+    /// would confound the cap with "trust the judge's ordering", which is a different question and one
+    /// the fused arm already asks.</para>
+    ///
+    /// <para>A cap at or above the page size is a no-op, which is the null control: it reproduces the
+    /// unfused arm exactly.</para></summary>
+    /// <param name="inner">The judge whose endorsement is being capped.</param>
+    /// <param name="cap">The most candidates it may endorse.</param>
+    private sealed class CappedVerdictVerifier(IMemoryVerificationPolicy inner, int cap)
+        : IMemoryVerificationPolicy
+    {
+        /// <summary>How many judged calls the cap actually BOUND on. Zero means the judge never exceeded it
+        /// and this arm is its unfused twin wearing another name — the same "did the knob do anything"
+        /// control <see cref="FusedVerdictVerifier.SamePage"/> carries.</summary>
+        internal int Capped { get; private set; }
+
+        internal int Judged { get; private set; }
+
+        internal int Dropped { get; private set; }
+
+        public async Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
+            CancellationToken ct = default)
+        {
+            var verdict = await inner.VerifyAsync(request, ct).ConfigureAwait(false);
+            if (!verdict.Judged || verdict.RelevantIds.Count == 0) return verdict;
+
+            Judged++;
+            if (verdict.RelevantIds.Count <= cap) return verdict;
+
+            Capped++;
+            Dropped += verdict.RelevantIds.Count - cap;
+
+            var endorsed = verdict.RelevantIds.ToHashSet(StringComparer.Ordinal);
+            var kept = request.Candidates
+                .Where(c => endorsed.Contains(c.Id))
+                .Take(cap)
+                .Select(c => c.Id)
+                .ToList();
+
+            return new MemoryVerification(kept, Judged: true);
         }
     }
 

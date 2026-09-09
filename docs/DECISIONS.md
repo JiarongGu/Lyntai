@@ -179,8 +179,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D107](#d107--sqlites-memory-statistics-are-the-read-concurrency-ceiling-and-turning-them-off-is-the-hosts-call-2026-09-08) | 2026-09-08 | SQLite's memory statistics are the read-concurrency ceiling, and turning them off is the HOST's call |
 | [D108](#d108--a-verifier-is-shown-the-entrys-content-and-choosing-which-text-to-read-stays-the-policys-2026-09-08) | 2026-09-08 | a verifier is shown the entry's CONTENT, and choosing which text to read stays the policy's |
 | [D109](#d109--no-competitor-penalty-rif-is-refused-and-the-contradicted-gap-is-a-write-time-one-2026-09-08) | 2026-09-08 | no competitor penalty: RIF is refused, and the "contradicted" gap is a WRITE-time one |
+| [D110](#d110--no-endorsement-cap-on-the-verification-seam-the-count-rule-explains-none-of-the-judges-loss-2026-09-10) | 2026-09-10 | no endorsement CAP on the verification seam: the count rule explains none of the judge's loss |
 
-_All 109 entries are live decisions._
+_All 110 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3232,3 +3233,33 @@ persists the tri-state, so compute P(superseded member | returned AND unendorsed
 above it, the result is a supersession DETECTOR and belongs on D106's write-time axis as a relation. Near
 it, this entry stands. **D62's re-proposal bar applies verbatim** with "a dense-supersession corpus"
 substituted for its own: a mechanism that sounds apt is exactly the kind that gets built and switched off.
+
+## D110 — no endorsement CAP on the verification seam: the count rule explains none of the judge's loss (2026-09-10)
+
+A verifier's endorsement set may exceed the page it is promoted into, and `docs/memory.md` §5 records that
+as the mechanism costing a 4B judge 10.5 points — 29.1 endorsements per recall out of 80 shown, promoted
+ahead of a 20-slot cut. The obvious surface followed: bound it, as `GraphMemoryOptions`
+`VerificationEndorsementCap` or equivalent. **Measured 2026-09-10 and refused. Nothing is built.**
+
+**The comparison that motivated it was confounded, and this repository's own source said so.** The
+cross-encoder arm endorses a FIXED top-`limit`, so promoting more than a page is unreachable for it BY
+CONSTRUCTION — `CrossEncoderRerank`'s type doc and the arm's construction site both state this. So
+"reranker +5.0 against judge −10.5" differs in the count rule as well as the model, and no arm had held the
+rule fixed. `+judge+top20` does.
+
+**It changes nothing.** Capped at the page size the judge scores 71.0% against its uncapped 71.0%, cell for
+cell in all four categories, while the cap BOUND on 138 of 200 calls and dropped 16.1 endorsements per
+call. `+top80` is the null control and reports itself INERT, which is what licenses reading the rest.
+
+**The audit bounds every promotion rule built on this judge, not just this one.** Rescuable calls — the page
+missed the evidence and it sits deeper — are 14 of 200; the judge endorsed that evidence anywhere on 6 and
+in its own top five on **0**. A cap cannot rescue what the model never ranks, and its endorsements are
+97.7% noise.
+
+**What survives, and it is the reason not to reach for this again:** the judge's ordering is NOT noise —
+precision by its own rank is 39.0% at top-1 against 2.3% overall, a 17× lift. It ranks well and stops
+badly. So the lever is the model's calibration or the combination rule (**D105**), never the count.
+
+**What would reopen it:** a judge whose endorsements clear the noise floor. The cap is a bound on a good
+signal, and this one has none to bound — so re-propose it only alongside an audit showing precision at the
+model's own top-k well above base rate, on the workload being served.

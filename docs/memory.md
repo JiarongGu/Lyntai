@@ -415,6 +415,71 @@ reranked against shipped: 56 → 59 is three questions and the confidence interv
 ([80.5, 95.5] against [76.7, 92.9]). The honest claim is that the cross-encoder is **not** the LoCoMo-shaped
 trap `RetrievabilityWeight = 0` was — it does not buy finding with burying — and no more than that.
 
+#### The endorsement COUNT is not the lever: capping the judge changes nothing (`memory-locomo --retrieval`, 2026-09-10)
+
+The +5.0 cross-encoder against a judge that SPENDS 10.5 has been read as architecture. **It was never a
+clean reading, and this file said so at the arm's own construction site**: `CrossEncoderVerifier` endorses a
+FIXED top-`limit`, so the failure that cost the judge its points — promoting a set larger than the page —
+is unreachable for the reranker BY CONSTRUCTION. The two arms differ in the count rule as well as the
+model, and nothing had held the rule fixed. `+top20` does: the same 4B judge, the same depth 80, the same
+partition, with its endorsement capped at the page size. The cap keeps the highest-RANKED endorsements, so
+it changes the count and nothing else.
+
+| arm | overall | multi-hop | temporal | open-domain | single-hop |
+|---|---|---|---|---|---|
+| `+sem+rel-only` (base) | 85.5% | 78.4% | 85.7% | 66.7% | 89.9% |
+| `+sem+rel-only+oracle` | 92.5% | 86.5% | 95.2% | 66.7% | 96.3% |
+| `+sem+rel-only+rerank` | 91.0% | 86.5% | 92.9% | 66.7% | 94.5% |
+| `+sem+rel-only+judge` | 71.0% | 70.3% | 73.8% | 50.0% | 72.5% |
+| **`+sem+rel-only+judge+top20`** | **71.0%** | 70.3% | 73.8% | 50.0% | 72.5% |
+| `+sem+rel-only+judge+top80` | 71.0% | 70.3% | 73.8% | 50.0% | 72.5% |
+
+**The cap moved NOTHING — identical in every cell — and it was not a weak intervention.** It bound on
+**138 of 200** calls (69%), dropping **16.1** endorsements per call. `+top80` is the null control and
+reports `! INERT` (0/200), which is what licenses reading the rest. n = 200, seed 12345, embedder
+`embeddinggemma-300M-Q8_0`; 3382.5s. Raw output, gitignored:
+`devtools/_locomo-capcontrol.txt` <!-- link-ok: gitignored raw sweep output, named as provenance for the table above -->.
+
+**The audit says why, and it bounds every future promotion rule built on this judge.** Rescuable calls —
+the page missed it and the evidence sits deeper — are **14 of 200**. The judge endorsed that evidence
+anywhere on 6 of them, and in its own top five on **0**. Capping cannot rescue what the model never ranks:
+its endorsements are 34.3 per call at **2.3%** precision.
+
+**Its ordering is not noise, which is the surprise.** Precision by the model's own rank runs 39.0% at top-1
+against 2.3% overall — a 17× lift — so the model RANKS well and STOPS badly. That is a calibration
+property, not a knowledge one. **What is refuted is the count rule as the explanation**; what survives is
+that the endorsements themselves are 97.7% noise, so no rule over them helps.
+
+#### Three rerankers, one score: recency and 168 MB both buy nothing (`memory-locomo --retrieval`, 2026-09-10)
+
+`LAMAR-600m` is as close to a controlled test of MODEL AGE as this axis offers: the same
+`XLMRobertaForSequenceClassification` architecture as `bge-reranker-v2-m3`, the same **567,755,777**
+parameters, released **2026-07-21** against the incumbent's 2024-03-15 — 28 months apart, MIT-licensed,
+51 training languages. Both anchors reproduce EXACTLY across all three runs, which is what makes them
+comparable.
+
+| reranker | on disk | overall | vs base |
+|---|---|---|---|
+| none (`+sem+rel-only`) | — | 85.5% | — |
+| `bge-reranker-v2-m3` Q8_0 (2024-03) | 635,676,416 B | 91.0% | +5.5 |
+| `LAMAR-600m` Q8_0 (2026-07) | 635,677,824 B | **91.0%** | +5.5 |
+| `LAMAR-600m` Q5_K_M (2026-07) | **468,393,760 B** | **91.5%** | +6.0 |
+| `+oracle` (ceiling) | — | 92.5% | +7.0 |
+
+**At matched quantisation the newer model is IDENTICAL — 91.0% against 91.0%, cell for cell in all four
+categories.** So 28 months of model progress bought nothing measurable in this role. The one arm that
+differs is the SMALLER file, by a single question of 200, which is inside the ~1-point near-tie band and is
+better read as a demonstration of that band than as a result.
+
+**The useful half is the file size.** 468 MB captures 6.0 of the 7.0 points a perfect judge offers, at 74%
+of the incumbent's bytes, with 15,994 distinct scores over 16,002 pairs — discriminating, not flat. A
+deployment that wants the reranker's gain under a 500 MB ceiling can have it.
+
+**What this does NOT say.** It tests recency in the RERANKER role. The model this repository measured as
+costing 10.5 points is an LLM JUDGE, which faces a different task — decide IF each of 80 candidates
+answered, and stop — and a reranker never makes that choice. So this is silent on whether a newer small
+INSTRUCT model judges better, which is the open half.
+
 #### "used", "gone", but not "contradicted" — and RIF is NOT the shape of that gap (analysed 2026-09-08)
 
 Filed as a design lead on 2026-08-15 and **analysed rather than built**. The conclusion is not to build it,

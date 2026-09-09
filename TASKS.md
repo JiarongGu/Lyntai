@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is SIX items, across Parts 109, 116, 128 and 129.** Each is a
+**The startable set is NINE items, across Parts 109, 116, 128, 129 and 177.** Each is a
 `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -46,7 +46,11 @@ Part 170 took it the same day, and the D109 trigger run then found a fail-open s
 (`docs/FIXES.md`) whose ANNOTATION twin was unchecked. **Then back to SIX the same day**: that twin was
 checked and the answer was yes in three places (**Part 173**), its own census left the 16 remaining sites
 behind it, and those closed too (**Part 174**) — a one-for-one swap followed by an item that left nothing
-behind, which is the rarer way one leaves this list. Counted, not adjusted._
+behind, which is the rarer way one leaves this list.
+<br>**To NINE on 2026-09-10**, the largest single move this line has made, and it is a DIRECTION rather than
+a backlog: Parts 175–176 closed two measurements and the owner opened **Part 177** — one small model serving
+many seams in a heavy application — which arrived with three startable items at once. Counted, not
+adjusted._
 <br>_**This line used to be a 49-line running tally** — every Part that opened and closed since 2026-08-30,
 with the count after each. It was deleted on 2026-09-03 rather than extended, because `task-lifecycle.md`
 says outright that a backlog must not summarize its archive: the tally grew without bound, answered a
@@ -105,10 +109,15 @@ one by refusal. Three additive surfaces shipped and one fix; **no recall default
 
 **llama.cpp is the standard and is now reachable END TO END** (`repo-mechanics.md` §Local models). All three
 model roles run on it, each on its own port because a `llama-server` serves ONE model —
-`LYNTAI_LIVE_MODEL_URL` (embed), `LYNTAI_LIVE_CHAT_URL` (chat), `LYNTAI_LIVE_RERANK_URL`. **Three GGUFs are
-on this machine**: `embeddinggemma-300M-Q8_0`, `bge-reranker-v2-m3-Q8_0`, `gemma-3-4b-it-Q4_K_M` — check the
-machine before assuming a model needs pulling, which cost this session two false conclusions. It is also
-**2.6× faster** than the alternative on identical work, because dedicated resident servers never swap.
+`LYNTAI_LIVE_MODEL_URL` (embed), `LYNTAI_LIVE_CHAT_URL` (chat), `LYNTAI_LIVE_RERANK_URL`. **The GGUFs on this
+machine** live in `%LOCALAPPDATA%\llama.cpp\`: `embeddinggemma-300M-Q8_0`, `bge-reranker-v2-m3-Q8_0`,
+`gemma-3-4b-it-Q4_K_M`, and — added 2026-09-10 — `LAMAR-600m` at both `Q5_K_M` and `Q8_0`. Check the
+machine before assuming a model needs pulling, which cost one session two false conclusions. llama.cpp is
+also **2.6× faster** than the alternative on identical work, because dedicated resident servers never swap.
+<br>**Ports are per ROLE, and more than one reranker can be up at once** — 8080 embed, 8081/8083/8084
+rerank, 8082 chat — which is what let three reranker arms be compared without re-ingesting. Record the PID
+when you start one: `netstat -ano | grep LISTENING` maps port to PID, and **11434 is Ollama and is not
+yours** (`windows-machine.md` §Processes — never kill by image name).
 
 **Every bench now prints the endpoint that answered, and flags a non-standard one.** Before 2026-09-08
 nothing named the server, so a whole session's figures had to be attributed afterwards from which processes
@@ -1212,6 +1221,53 @@ before registering and each driven RED by a synthesized tree in its own test. **
 not restated here** — it grows whenever the sweep gates another claim (two more on 2026-09-04), so a number
 in this sentence would go stale exactly when the Part is making progress. `verify`'s own summary line is
 derived and always right. What is left of this Part is the sweep above._
+
+---
+
+## Part 177 — ONE small model doing MANY jobs: the shape a heavy application actually needs (2026-09-10)
+
+_Opened at the owner's direction: "there will be a heavy application using a small model to perform, and it
+might need to be multi tasking too". That is a different question from "which model is best at task X", and
+the library is already most of the way to answering it — **no new API is needed**. The seams exist:
+named `ILlmClient`s (**D87** — "reranking, salience judging … should not silently run on whatever backend
+happens to be default"), `LlmAnnotationOptions.ClientName` ("annotation runs on EVERY write, so it belongs
+on a small fast backend"), `LlmConsumers` for per-seam cost attribution, and `AddLlamaProvider`. What is
+missing is MEASUREMENT._
+
+_**Two findings already constrain this and should be read first.** A task-shape rule: a GENERATIVE task
+takes a budget (the extractor went 7.1 → 2.1 facts/turn when told "at most 2") while a SELECTIVE task over
+a visible list does not (the judge asked for ≤20 of 80 endorsed MORE, 34.9 against 29.1) — so the fix for a
+selective task is a structural constraint, never a prompt. And **D110**: on a judge whose endorsements are
+97.7% noise, no promotion rule over them helps, so model choice and calibration are the levers rather than
+the plumbing._
+
+_**What is already measured** (`docs/memory.md` §5, archive Parts 175–176): a 468 MB cross-encoder captures
+6.0 of the 7.0 points a perfect judge offers, and a model 28 months newer at the same architecture and size
+is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come down 26%._
+
+- [ ] **Does a newer small INSTRUCT model judge better?** The open half of the recency question. Part 176
+  tested recency in the RERANKER role, where the task is "score a pair"; the incumbent `gemma3:4b` fails in
+  the JUDGE role, where the task is "decide IF each of 80 answered, and stop" — and it fails at STOPPING,
+  not at ranking (39.0% precision at its own top-1 against 2.3% overall, a 17× lift). Instruction-following
+  and calibration on a long visible list is the axis; IFEval is the published proxy. Swapping the model is a
+  config change (`LYNTAI_LIVE_CHAT_URL` / `_MODEL`), so this costs a download and one ladder.
+  <br>**Read `+judge@40` before choosing a target**: the same model at half the shipped depth is already
+  level with no judge, so a newer model has to beat THAT, not the −14.5 the shipped depth produces.
+- [ ] **Price ONE model serving MANY seams, against one model per seam.** The deployment shape the owner
+  named. A `llama-server` serves ONE model per process, so "multi-tasking" is either several resident
+  servers (memory-hungry, never swaps — the 2.6× advantage `repo-mechanics.md` records) or one router
+  server (`--models-dir`, which swaps). Measure: throughput and latency when annotation, judging and
+  reranking contend for one backend, against dedicated ones. **`memory-scale` is the harness shape to
+  mirror** — its subject is COST, it reports latency/throughput/bytes and no recall quality, and it runs
+  SEQUENTIALLY because contention biases a latency silently.
+  <br>**D107 is the warning**: the last concurrency ceiling found here was a process-global mutex no grep of
+  our own code could have found. Expect the answer to be an artefact of the serving layer rather than of the
+  model.
+- [ ] **Write the task-shape taxonomy down as guidance.** Enumerate the decision shapes this library
+  actually performs — classify/route, extract, select-from-list, score-a-pair — say which survive at
+  <500 MB and which need a structural constraint rather than a prompt, and put it where a consumer reads it
+  (`docs/memory.md` §7 or a new section, plus `model-decoupling.md`'s neighbourhood). **Not a decision and
+  not new surface**: the seams exist, so this is the advice on top of them.
 
 ---
 
