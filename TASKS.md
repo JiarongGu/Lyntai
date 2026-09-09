@@ -85,6 +85,41 @@ commands. `--arms` saves ingestion on both (a LoCoMo ladder is 755s where it was
 touches the registry plus each bench's ladder — the two LoCoMo lists are asserted equal before a run starts,
 after that drift failed two runs ten minutes apart.
 
+**HANDOVER (2026-09-09). All THREE threads of the 2026-09-07 handover are closed** — two by measurement,
+one by refusal. Three additive surfaces shipped and one fix; **no recall default moved.** Parts 167–172,
+**D107–D109**, `docs/FIXES.md`.
+
+**What closed, and where it lives** (each is one line here because the archive holds the rest):
+- **The read-only concurrency ceiling** was SQLite's global memory-allocation STATISTICS, not a lock —
+  8 workers 340/s → 4,665/s with them off. `SqliteRuntime.DisableMemoryStatistics()` ships it opt-in and
+  Lyntai never calls it (**D107**, Part 167).
+- **The cross-encoder is worth +5.0** on LoCoMo and the ONNX blocker was never real: `llama-server
+  --reranking` serves it over HTTP. The first run said −7.5 because the seam handed it a 120-character
+  truncation; `MemoryVerificationCandidate.Content` fixed that at zero storage cost (**D108**, Parts 168–170).
+- **RIF is REFUSED** (**D109**, Parts 171–172). Three of its premises were wrong, and the trigger is not
+  merely uninformative but INVERTED: the judge endorses the superseded fact 3.4× more often than the
+  current one, so a penalty would demote the current fact 23:5. **Reproduced on two stacks.**
+
+**llama.cpp is the standard and is now reachable END TO END** (`repo-mechanics.md` §Local models). All three
+model roles run on it, each on its own port because a `llama-server` serves ONE model —
+`LYNTAI_LIVE_MODEL_URL` (embed), `LYNTAI_LIVE_CHAT_URL` (chat), `LYNTAI_LIVE_RERANK_URL`. **Three GGUFs are
+on this machine**: `embeddinggemma-300M-Q8_0`, `bge-reranker-v2-m3-Q8_0`, `gemma-3-4b-it-Q4_K_M` — check the
+machine before assuming a model needs pulling, which cost this session two false conclusions. It is also
+**2.6× faster** than the alternative on identical work, because dedicated resident servers never swap.
+
+**Every bench now prints the endpoint that answered, and flags a non-standard one.** Before 2026-09-08
+nothing named the server, so a whole session's figures had to be attributed afterwards from which processes
+were up. Read a figure taken before that as Ollama-served.
+
+**Four traps went to `pitfalls.md`**, each having cost something here: a seam that hands a model a
+TRUNCATION measures the truncation and the model takes the blame; a fail-open catch rethrowing
+`OperationCanceledException` fails CLOSED on an HTTP timeout; an Ollama blob is a GGUF that stock llama.cpp
+may still refuse; and a character budget cannot bound a token limit.
+
+**The habit that paid, again: pre-register the prediction.** The cross-encoder's was written into the source
+before the run and was REFUTED (86–90% predicted, 78.0% measured) — which is what stopped "cross-encoders do
+not transfer to a memory store" becoming the recorded conclusion instead of "our seam truncates".
+
 **HANDOVER (2026-09-07). A measurement session; NO default moved and none should on what it found.**
 `docs/task-archive.md` **Parts 157–166**, tables in `docs/memory.md` §5 and §7.
 
