@@ -13,17 +13,53 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 ---
 
+<!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
+
+## Open items — 21 across 12 Parts: 12 startable, 7 blocked, 1 watch, 1 decision-only
+
+_Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
+_Edit a marker, never this table — `verify` fails the moment the two disagree._
+
+| line | Part | item | state | waiting on |
+| ---: | ---: | --- | --- | --- |
+| 97 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 141 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 150 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 204 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 275 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 353 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 408 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 431 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 502 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 564 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
+| 683 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 704 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
+| 712 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
+| 766 | 129 | Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memo… | startable |  |
+| 845 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
+| 871 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
+| 881 | 177 | Write the task-shape taxonomy down as guidance | startable |  |
+| 916 | 178 | Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a genera… | startable |  <!-- link-ok: carried from this item's own line --> |
+| 925 | 178 | Pay `CLAUDE.md` and the rules tier down to ~13k tokens | startable |  |
+| 934 | 178 | Give `.claude/knowledge/pitfalls.md` a generated facet index | startable |  |
+| 939 | 178 | Add a `keeps=` header to superseded `docs/FIXES.md` entries | startable |  |
+
+<!-- open-items:end -->
+
+---
+
 ## Active backlog
 
 _**The archive is where closed work lives** — `docs/task-archive.md`, one Part per task, with why and how;
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**The startable set is FIFTEEN items, across Parts 109, 116, 128, 129, 177 and 178.** Each is a `- [ ]` you could
-open today. **If this line names something that is not an open checkbox below, this line is wrong** — it has
-been, four times, always because an item was amended in place and the banner was not amended with it. So
-**count, never adjust**: open every `- [ ]` in those Parts and check it for a blocker, rather than
-incrementing whatever the last number was.
+**What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
+`<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
+table from those markers and `verify` fails while the two disagree, so the roster and the items can no
+longer drift apart. Edit the marker, never the table. **The startable set is TWELVE items.** That sentence
+is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
+**four** times, and nothing derived it.
 
 **Where things stand is NOT summarized here, deliberately.** `docs/memory.md` §5 is the measurement record,
 `docs/task-archive.md` holds one Part per closed task, `docs/DECISIONS.md` holds what was decided and why,
@@ -38,50 +74,12 @@ then regrew a 19-line one in its place. **A rule that keeps being violated is a 
 `check-backlog` now bounds this section; see `dev.mjs`. The content was not lost: the handovers describe
 Parts 143–176, which is where they live._
 
-**One rule for reading a "blocked" label here**, earned by this file being wrong: **a Part is blocked when
-its DELIVERABLE is, and that does not make every sentence in it blocked.** Part 33 was marked blocked in
-full while two startable pieces sat inside it (closed as **D67** and **D68**). Name what the blocker
-actually gates. The rest of the blocked discipline — that a blocker has a KIND and is re-checked against
-that kind — is `task-lifecycle.md`'s.
-
-
-Blocked, and on what:
-- **Part 33 / GEN-VERIFY** — a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render.
-- **Part 33 / GEN6 (streaming TTS)** — a vendor pick and a key. Shipping it unmeasured is the exact mistake
-  GEN-VERIFY exists to correct.
-- **Part 33 / GEN7 (pipelines)** — the pipeline's FIRST stage has no backend at all: `GenerationKinds.Model3d`
-  is a bare constant no provider declares (re-checked 2026-08-28). **The survey that was the critical path
-  here RAN on 2026-08-30** (`docs/task-archive.md` Part 124): a mesh cannot chain and no 3D backend produces
-  a turntable, so `3d → image → video` is not buildable and the 3D STAGE is what stays blocked — on a
-  RASTERIZER, which is not a generation backend and does not belong in this library. **What that unblocked
-  was the runner at `image → video`, and that was built and closed the same day** (GEN7a,
-  `docs/task-archive.md` Part 126) — so what remains blocked here is the 3D STAGE alone, not the runner.
-  Listing this Part as blocked without saying which half is the Part 33 mistake repeating itself.
-- **Part 41 / CLI12** — codex's tool-step item names need a real turn **that runs tools**. Two blockers, and
-  the second was only discovered on 2026-08-11 when the owner authorized the first: it spends tokens (the
-  owner's call, and they said yes), **and the codex CLI is not installed on this machine at all** — not on
-  PATH, not in the npm global root, not in any usual location. The 2026-08-04 capture (0.146.0) came from an
-  install that is gone. So this needs a REINSTALL plus a turn, not just a go-ahead.
-- ~~**Part 105 / build the gist tier**~~ — **CLOSED 2026-09-04 as refuted-as-scoped**
-  (`docs/task-archive.md` **Part 153**, **D106**), having been briefly unblocked on 2026-08-30 when the
-  measurement left one candidate standing. That candidate fell to a field pass: two independent literatures
-  put the abstraction at ENCODING, so a read-time tier cannot assert what its name promises, and what would
-  unblock it is valid-time on the write — a new axis on `MemoryWrite` and all three stores, not a tier.
-  **It re-opens when a consumer asks**, and the ask will name which reading it wants.
-- **Part 65 / subject drift** — **a model DOWNLOAD, not a budget.** It needs a RATE across models rather than
-  an anecdote, and this machine holds exactly one chat model (`gemma3:4b`), so "across models" is unreachable
-  without pulling more. This line said "a measurement budget" until 2026-08-28, which reads as startable.
-  <br>_The Part held TWO items with different blockers until 2026-08-30, and listing it whole is how the
-  unblocked one read as blocked in turn (corrected 2026-08-21, and again 2026-08-28 in the banner). The other
-  — the `MaxSalience` defaults question — was blocked on a DECISION rather than an environment, and closed as
-  `docs/task-archive.md` **Part 127** when the owner asked for it to be measured instead of chosen. **So this
-  Part now holds one item and one blocker**, which is what the entry above states directly._
-- **Part 56 / FSRS-B** — a deployment's own logged reviews. The observable now exists; the data does not,
-  and this repository cannot invent it without repeating the mistake D49 refused.
-- **Part 75** — two or three real aggregators to measure an in-band `code` against. Reading it unmeasured is
-  the documented-not-measured trap GEN-VERIFY exists to correct. (The rest of Part 75 has closed; this line
-  exists because a Part whose blocker is unlisted reads as startable, which is how Part 33 hid two
-  startable items — see the caveat above.)
+**BLOCKED IS PER ITEM, never per Part** — which is why the state lives on the checkbox rather than in a
+roster of Parts. Part 33 was once marked blocked in full while two startable pieces sat inside it (they
+closed as **D67** and **D68**). A blocked item names its blocker's KIND as well — `tree`/`env`/`decision`/
+`data` — because each is refuted by looking somewhere different, and the rest of that discipline is
+`task-lifecycle.md`'s. `watch` and `decision-only` exist because a checkbox can express neither, and both
+were being counted as startable work.
 
 ## Part 33 — generation platform: remaining backends + composition
 
@@ -96,7 +94,7 @@ an **unmeasured-surface** caveat to close the first time they run for real: the 
 ported-not-measured, and fal's wire format is documented-not-measured. (`sd-cli`'s binary-directory working dir
 was the third such surface — a consuming app measured it 2026-08-04 and it is now confirmed.)_
 
-- [ ] **GEN-VERIFY — confirm the remaining unmeasured surfaces against reality.** For `sd-cli`: run one render
+- [ ] **GEN-VERIFY — confirm the remaining unmeasured surfaces against reality.** For `sd-cli`: run one render <!-- item: state=blocked kind=env needs="a real fal.ai key, and a ~1.7 GB model download for one sd-cli render" -->
   and check the argv and the multiple-of-64 clamp. For fal: one submit → poll → fetch with a real key, checking
   the status vocabulary, the result field names and what `cost` reports. Then delete the remaining "unverified"
   notes from the XML docs — or fix the mappings and keep them.
@@ -140,7 +138,7 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
   this never blocked a release — 3.0 ships the package under the full SemVer promise (**D70**)._
 
-- [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend against a real vendor. **The scope shrank on
+- [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend against a real vendor. **The scope shrank on <!-- item: state=blocked kind=decision,env needs="a TTS vendor pick, then a key — the wire format must be measured, not inferred" -->
   2026-08-16** (`docs/DECISIONS.md` **D67**): the PLATFORM half is done and shipped in 3.0 —
   `IGenerationRouter.StreamAsync` selects, falls over, governs and throttles a `Stream`-capable backend, and
   the router guarantees exactly one terminal chunk, so a backend no longer has to be careful about fallback or
@@ -149,7 +147,7 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   unexercised" — the handling is measured by `GenerationRouterStreamTests`; it is "the chunk SHAPE is still
   inferred". **TTS before music** (owner). Needs a vendor pick and a MEASURED wire format (the GEN-VERIFY
   lesson), so it waits on a key rather than shipping another documented-not-measured surface.
-- [ ] **GEN7 — pipelines (3d → image → video)**: ordered stages feeding `artifact.ToInput(role)` forward, with
+- [ ] **GEN7 — pipelines (3d → image → video)**: ordered stages feeding `artifact.ToInput(role)` forward, with <!-- item: state=blocked kind=tree needs="a 3D generation backend — the pipeline's first stage has none, and the 3d-to-image edge needs a rasterizer that does not belong in this library" -->
   per-stage candidates and per-stage failure semantics.
   **Blocker restated 2026-08-11 — the original "deferred until ≥2 real backends exist" now reads as SATISFIED
   and is the wrong test.** Counted by kind rather than by total: **image has 5** backends (`Automatic1111`,
@@ -203,10 +201,15 @@ uncertainty stays inside the tool-step half**. It does NOT bound the KIND of eve
 provisional and only its payload is reliable (the item below is the consequence). What is left is
 measurement, and measurement only — nothing here is codeable without a real codex run._
 
-- [ ] **CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping.**
+- [ ] **CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping.** <!-- item: state=blocked kind=env needs="a codex-cli reinstall on this machine, then one real turn that runs tools" -->
   `src/Lyntai.Providers.Default/CodexAgentReader.cs`. The capture behind this backend (codex-cli 0.146.0,
   2026-08-04) ran a trivial `--oss` turn with **no tools**, so the entire tool-step half is inferred and
   marked as such in the XML docs.
+
+  **Two blockers, and the second was only found on 2026-08-11 when the owner authorized the first:** it
+  spends tokens (the owner's call, and they said yes), **and the codex CLI is not installed on this machine
+  at all** — not on PATH, not in the npm global root, not in any usual location. The 2026-08-04 capture came
+  from an install that is gone, so this needs a REINSTALL plus a turn, not just a go-ahead.
 
   **Why this is not merely cosmetic.** The reader recognises exactly three item names (`agent_message`,
   `reasoning`, `error`) and routes everything else to the tool arm **by elimination**. So a wrong NAME is not
@@ -269,11 +272,13 @@ strengthening it was a trap and annotation replaced it._
 
 _What remains below is genuinely open._
 
-- [ ] **Subject drift is bounded but not eliminated, and nothing measures how often a MODEL drifts.** The
+- [ ] **Subject drift is bounded but not eliminated, and nothing measures how often a MODEL drifts.** The <!-- item: state=blocked kind=env needs="a second chat model on this machine — a drift RATE across models, not an anecdote" -->
   live test asserts only that SOME handle is shared by two of three facts, which is the threshold linking
   actually needs. It does not measure how often a model still invents past a perfectly good existing subject.
-  That needs many live annotations across models to be worth anything — a rate, not an anecdote — so it is
-  blocked on a measurement budget rather than on a design question.
+  That needs many live annotations across models to be worth anything — a rate, not an anecdote.
+  <br>**It is blocked on a model DOWNLOAD, not on a budget**, and this line said "a measurement budget"
+  until 2026-08-28, which reads as startable: this machine holds exactly one chat model (`gemma3:4b`), so
+  "across models" is unreachable without pulling more.
   _**The OVERFLOW half of this item is closed (2026-08-13).** What happens once `AnnotationKnownSubjects`
   is exceeded is now measured and pinned by
   `MemorySubjectLinkingTests.The_reuse_list_evicts_the_least_used_handle_first_so_a_hub_cluster_cannot_be_broken`:
@@ -345,7 +350,7 @@ external validation while disclosing a real, measured gap: this implementation c
 FORM with none of its calibration. **Completing it is prioritized work — the `topical` regression D49 ships
 knowingly is where the gap shows up measurably, not a reason to avoid shipping the default.**_
 
-- [ ] **FSRS-B — parameter FITTING, not published defaults.** Every constant in `DsrOptions` (`Decay =
+- [ ] **FSRS-B — parameter FITTING, not published defaults.** Every constant in `DsrOptions` (`Decay = <!-- item: state=blocked kind=data needs="a deployment's own logged reviews; this repository cannot invent them without repeating the mistake D49 refused" -->
   -0.5`, `StabilizationDecay = 0.4`, `SpacingWeight = 1.5`, `DifficultyWeight = 0.08`) is FSRS's own published
   default, fitted by its authors against a huge external review corpus — never fitted against anything this
   library's consumers actually do. Real FSRS fits on the order of 17 parameters per individual's own review
@@ -400,7 +405,7 @@ in that pass — and every one was startable, which is why the banner stopped cl
 were open. All have now closed (archive Parts 76, 78–81 and 84) except the one below, whose blocker is not
 a design question: it needs two or three real aggregators to measure against._
 
-- [ ] **Decide what an aggregator's in-band `code` means.** `OpenAiHttp.InBandError` deliberately reports
+- [ ] **Decide what an aggregator's in-band `code` means.** `OpenAiHttp.InBandError` deliberately reports <!-- item: state=blocked kind=env,data needs="two or three real aggregators to measure an in-band code against" -->
   only THAT an `error` member is present and what it says; it does not read a numeric `code` as an HTTP
   status, because that mapping is not measured across the gateways this provider serves. A 200 carrying
   `{"error":{"code":429}}` therefore classifies from the message text alone. Measuring two or three real
@@ -423,7 +428,7 @@ suspected cause is fixed AND pinned — `ProcessRunnerTests.A_FAILED_path_lookup
 which carries a positive control so it cannot pass on an implementation that simply caches nothing. So
 there is nothing here to code: what remains is evidence only recurrence can supply._
 
-- [ ] **`verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted mid-run.** Observed
+- [ ] **`verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted mid-run.** Observed <!-- item: state=watch kind=data needs="the same nine tests to recur — the fix is unconfirmed as the cure, and a green run is not evidence" -->
   twice in roughly ten `verify` runs on 2026-08-26, and **not once in any standalone `node devtools/dev.mjs
   test`**, which passed every time including immediately before and after a failing `verify`. A third run
   ABORTED at 2088/2108 — a crash rather than a failure — and took 6m20s against the usual ~3m.
@@ -494,7 +499,7 @@ judge beside it, plus a `--shots` diagnostic for the multi-shot mode the one-sho
 found **D98** and four harness defects. What is left of the item is below: more of it, not the first of
 it._
 
-- [ ] **Widen the QA half: the full question set, a second embedder, a second reader.** 100 of 1540 LoCoMo
+- [ ] **Widen the QA half: the full question set, a second embedder, a second reader.** 100 of 1540 LoCoMo <!-- item: state=startable -->
   questions ran, on one local reader whose window the `full` arm exceeds. The absolute values are not
   comparable to a published number and only the ARM DIFFERENCE transfers, so what widening buys is
   confidence in the differences rather than a rankable score.
@@ -556,7 +561,7 @@ knowledge-update's level down 6–9 points off a small sample. **None was a libr
 the instrument.** So treat the remaining measurement items as RE-measurements: they were scoped against
 figures that have since moved._
 
-- [ ] **Give LongMemEval's four remaining classes a shot curve.** `multi-session` (133 questions) and the
+- [ ] **Give LongMemEval's four remaining classes a shot curve.** `multi-session` (133 questions) and the <!-- item: state=startable -->
   three single-session classes have none. **This is no longer "cheap and model-free" work** — the two classes
   that have curves each needed a metric that matches what the class ASKS (preference for the current fact;
   all-evidence recall), and the remaining four have neither defined nor obviously shared. Deciding what a
@@ -675,7 +680,7 @@ survives OUTSIDE memory and is deliberately not swept**: `JobRunner`'s heartbeat
 (`catch (OperationCanceledException) { return; }` over `_store.HeartbeatSlotsAsync`), where per **D73** a
 lost heartbeat is a lost cross-process job slot. Different subsystem, different promise, its own answer._
 
-- [ ] **Decide whether a memory seam's `Model` should beat a candidate's — today it silently loses.**
+- [ ] **Decide whether a memory seam's `Model` should beat a candidate's — today it silently loses.** <!-- item: state=decision-only needs="a ruling between three promises — the fix is a decision, not an edit" -->
   `LlmVerificationOptions.Model` and `LlmAnnotationOptions.Model` set `LlmRequest.Model`, and the router
   resolves `candidate.Model ?? req.Model` (`src/Lyntai.Core/Llm/Routing/LlmRouter.cs`), so a candidate that
   pins a model wins. **D87** derives a named client's candidates from `LyntaiOptions.DefaultCandidates` and
@@ -696,7 +701,7 @@ default, so nothing moves for anyone who does not set it. The surface question i
 additively: changing the default would be a silent reordering no consumer can detect at compile time (D18's
 shape), bought on one model and one workload. **A reader-facing check is what it did NOT get** — see below._
 
-- [ ] **Give the fused verdict a READER-facing measurement.** `evidence-hit@k` reads the returned SET, and
+- [ ] **Give the fused verdict a READER-facing measurement.** `evidence-hit@k` reads the returned SET, and <!-- item: state=startable -->
   fusion also REORDERS it, so the metric that priced the option is structurally blind to half of what it
   does. Part 151 shipped on set-level evidence plus engine-level facts; what is missing is a QA arm
   (token-F1 with a reader) over `VerdictCombination = Fuse` against the partition on the same judge.
@@ -704,7 +709,7 @@ shape), bought on one model and one workload. **A reader-facing check is what it
   reordering costs nothing a reader notices, not a hunt for a gain. It belongs with Part 109's QA half,
   which needs a second reader anyway.
 
-- [ ] **Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.** `docs/memory.md` §5
+- [ ] **Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.** `docs/memory.md` §5 <!-- item: state=startable -->
   (2026-09-03) has TWO points on it and two points are not a curve: `+sem` trades +22.0 search for −13.9
   suppression and `+sem+forget2` trades +15.0 for −7.6, so the exchange rate is roughly 1:1 and neither
   dominates. A ladder over the weight is what would locate the knee. **Proposing a default from two points
@@ -758,7 +763,7 @@ _The full record, including the findings NOT yet acted on, is the untracked
 `local/superpowers/records/2026-08-31-decisions-vs-implementation-audit.md`. **It is on one machine and in no
 history** — anything below that must outlive it is here._
 
-- [ ] **Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memory entries** (everything
+- [ ] **Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memory entries** (everything <!-- item: state=startable -->
   below D39, essentially untouched — the pass concentrated where the churn is).
   The probe is the gitignored
   `devtools/_decisions-audit.mjs` <!-- link-ok: gitignored scratch, named as data; re-creatable from the record -->
@@ -837,7 +842,7 @@ _**What is already measured** (`docs/memory.md` §5, archive Parts 175–176): a
 6.0 of the 7.0 points a perfect judge offers, and a model 28 months newer at the same architecture and size
 is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come down 26%._
 
-- [ ] **Does a newer small INSTRUCT model judge better?** The open half of the recency question. Part 176
+- [ ] **Does a newer small INSTRUCT model judge better?** The open half of the recency question. Part 176 <!-- item: state=startable -->
   tested recency in the RERANKER role, where the task is "score a pair"; the incumbent `gemma3:4b` fails in
   the JUDGE role, where the task is "decide IF each of 80 answered, and stop" — and it fails at STOPPING,
   not at ranking (39.0% precision at its own top-1 against 2.3% overall, a 17× lift). Instruction-following
@@ -863,7 +868,7 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   (llama.cpp #16407). `Voodisss` and `zhiqian99` are byte-identical to each other and correct. Prefer an
   official conversion, and smoke-test whatever you pull._
 
-- [ ] **Price ONE model serving MANY seams, against one model per seam.** The deployment shape the owner
+- [ ] **Price ONE model serving MANY seams, against one model per seam.** The deployment shape the owner <!-- item: state=startable -->
   named. A `llama-server` serves ONE model per process, so "multi-tasking" is either several resident
   servers (memory-hungry, never swaps — the 2.6× advantage `repo-mechanics.md` records) or one router
   server (`--models-dir`, which swaps). Measure: throughput and latency when annotation, judging and
@@ -873,7 +878,7 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   <br>**D107 is the warning**: the last concurrency ceiling found here was a process-global mutex no grep of
   our own code could have found. Expect the answer to be an artefact of the serving layer rather than of the
   model.
-- [ ] **Write the task-shape taxonomy down as guidance.** Enumerate the decision shapes this library
+- [ ] **Write the task-shape taxonomy down as guidance.** Enumerate the decision shapes this library <!-- item: state=startable -->
   actually performs — classify/route, extract, select-from-list, score-a-pair — say which survive at
   <500 MB and which need a structural constraint rather than a prompt, and put it where a consumer reads it
   (`docs/memory.md` §7 or a new section, plus `model-decoupling.md`'s neighbourhood). **Not a decision and
@@ -904,20 +909,11 @@ mid-section, so heading-grep is blind by construction; the index must be at RESU
 (3) `decisions-index` barely helped LOCATING cost (~66 vs ~117 lines); its wins were precision and a free
 currency scan, so sizing a new index for READING is over-building._
 
-- [ ] **Move `.claude/rules/TEMPLATE.md` out of the always-on tier.** It auto-loads (~410 tokens) while
-  `RULES_INDEX.md` calls it *"deliberately absent — the template for writing a new rule, not a rule to
-  follow"* and its own frontmatter agrees. `git mv` to `.claude/templates/rule-template.md`; update <!-- link-ok: the DESTINATION this item creates; it does not exist until the item is done -->
-  `RULES_INDEX.md`'s note and the template's own steps 2–3. **Five minutes, and it is the whole item.**
-- [ ] **Generate the open-item manifest at the head of `TASKS.md`**, and gate the startable count.
-  Extends `check-backlog.mjs` (113 lines, already in `verify`). Derivable today: line, Part, checkbox
-  title. **Not derivable and the column that pays: `state`** — a probe burned 64 lines discovering Part 99
-  is a *watch* item, because the blocked roster cannot express a third state. Add a per-item marker
-  `<!-- item: state=startable|blocked|watch|decision-only kind=tree|env|decision|data needs="…" -->` on the
-  checkbox, generate the roster FROM it so the two cannot disagree, and register the count in
-  `COUNTED_CLAIMS` — the banner has been wrong four times and nothing derives it.
-  <br>_`decision-only` exists because Part 128's `Model`-precedence item says outright it is "not startable
-  as a code change" while the banner counts it among the nine._
-- [ ] **Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a generated results index.** <!-- link-ok: the file this item creates by splitting memory.md §5 -->
+_**The first two items closed 2026-09-10** — `docs/task-archive.md` **Parts 179 and 180**: the rule template
+left the always-on tier, and the roster at the head of this file is now generated from per-item markers
+(**D111**). What is left is the four below, and the cheap ones are gone._
+
+- [ ] **Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a generated results index.** <!-- item: state=startable --> <!-- link-ok: the file this item creates by splitting memory.md §5 -->
   §5 is **3,442 of 4,222 lines (81.5%)**; the rest becomes readable end to end. **Do not renumber** — keep
   the heading `## 5.` in the new file, because `CLAUDE.md`'s own §-citation rule says renumbering makes
   existing citations resolve silently to the wrong section. `check-links`' section half will name every
@@ -926,7 +922,7 @@ currency scan, so sizing a new index for READING is over-building._
   `supersedes=`, since two-sided bookkeeping is where this rots.
   <br>_The check that would have caught the defect a probe could not reach: a section whose body matches
   `CORRECT(ED|ION)|RETRACT|STALE|SUPERSED` while its own marker says `status=CURRENT` FAILS._
-- [ ] **Pay `CLAUDE.md` and the rules tier down to ~13k tokens** (from ~36k). The cut rule, applied
+- [ ] **Pay `CLAUDE.md` and the rules tier down to ~13k tokens** (from ~36k). The cut rule, applied <!-- item: state=startable -->
   sentence by sentence: **a line stays always-on only if it carries no number/date/figure, no gate can
   catch its violation, and violating it costs something you cannot cheaply undo.** `## Dev loop` becomes a
   generated command table; the "measured cost of not having it" paragraphs move to a new `docs/GATES.md`. <!-- link-ok: the file this item creates for the relocated gate narratives -->
@@ -935,12 +931,12 @@ currency scan, so sizing a new index for READING is over-building._
   packages, 12/13 migrations, guard-script tests, `DOMAINS are SEVEN`). The destination must be tracked,
   `IN_SCOPE` and `IS_SCANNED`, and the sentences must move verbatim enough to keep matching. Run
   `check-counts` and `check-links` after EACH move, not at the end.
-- [ ] **Give `.claude/knowledge/pitfalls.md` a generated facet index.** 2,209 lines, **152 bold-lead
+- [ ] **Give `.claude/knowledge/pitfalls.md` a generated facet index.** 2,209 lines, **152 bold-lead <!-- item: state=startable -->
   bullets**, nine headings. **Retitling the headings is REFUTED** — one probe's nine relevant traps spanned
   five headings, two of which nobody would search, so the file needs facets ORTHOGONAL to its headings:
   `sub=` (memory/recall, storage/sql, router, …) and `shape=` (fail-open, cancellation, second-door,
   vacuous-test, …), closed vocabularies in `project.config.mjs`, unknown value fails.
-- [ ] **Add a `keeps=` header to superseded `docs/FIXES.md` entries** — a table is the wrong fix, because a
+- [ ] **Add a `keeps=` header to superseded `docs/FIXES.md` entries** — a table is the wrong fix, because a <!-- item: state=startable -->
   reader arrives INSIDE an entry from a grep and never sees the top of the file. Three same-day entries
   each partly retract the one below, and a probe could not skip the superseded one because its reusable
   half lived only there. Render the retraction at the entry's HEAD; today it sits at the bottom.

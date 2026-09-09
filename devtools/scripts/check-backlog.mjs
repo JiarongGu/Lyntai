@@ -1,23 +1,25 @@
-// check-backlog — FAIL when the OPEN backlog starts summarizing the archive.
+// check-backlog — FAIL when the OPEN backlog stops being a list of open work.
 //
-// `.claude/rules/task-lifecycle.md` states the rule twice and in both directions: the backlog holds open
-// work only, and it must "never let the backlog SUMMARIZE the archive". `TASKS.md` violated it anyway.
+// TWO SUBJECTS, and they are the same defect from opposite ends: prose that has stopped answering "what is
+// left".
 //
-// MEASURED 2026-09-10, and the shape is the reason this is a gate rather than a fourth restatement of the
-// rule: the `## Active backlog` preamble had reached **478 lines carrying ZERO open checkboxes** — five
-// stacked `HANDOVER` blocks plus a running tally of what had closed — inside a 1308-line file holding 17
-// open items. The file had even RECORDED deleting a 49-line tally for this exact reason on 2026-09-03, and
-// then regrew a 19-line one in the same place. A rule that is written down, obeyed once, and violated again
-// is a missing gate — the same argument behind `check-encoding`, `check-links` and `check-archive`.
+// LENGTH, measured 2026-09-10: the `## Active backlog` preamble had reached 478 non-blank lines carrying
+// ZERO open checkboxes — five stacked HANDOVER blocks plus a running tally of what had closed — inside a
+// 1308-line file holding 17 open items. The file had RECORDED deleting a 49-line tally for this exact
+// reason on 2026-09-03 and then regrew a 19-line one in the same place.
 //
-// TWO CHECKS, both anchored on what was actually measured rather than on taste:
-//   1. the PREAMBLE — the narrative above the blocked roster — has a non-blank line budget, and
-//   2. no `HANDOVER` block survives in the file at all — a handover describes work that is DONE, so its
-//      home is `docs/task-archive.md`, one Part per task.
+// THE MANIFEST: the startable-set banner has advertised finished work FOUR times, always because a summary
+// and the items it summarizes were maintained separately. `.claude/knowledge/pitfalls.md` refuted deriving
+// that banner from the checkboxes — "Part 99 is a WATCH item" is not computable from a `- [ ]` — and
+// pointed at a registry instead. This is that registry: state is AUTHORED on each item in an
+// `<!-- item: … -->` marker, and the roster at the head of the file is GENERATED from it, so the two cannot
+// disagree. See `docs/DECISIONS.md` D111.
 //
-// The preamble budget is a RATCHET, like its three siblings: `backlogPreambleAllowance` can come down and
-// never up. There is no escape token, for the reason `check-decisions` carries — an allowance is a visible
-// number and is the only way out.
+// FOUR CHECKS, each anchored on something measured rather than on taste:
+//   1. the PREAMBLE has a non-blank line budget — a RATCHET (`backlogPreambleAllowance`), no escape token;
+//   2. no HANDOVER block survives anywhere — a handover describes DONE work, so its home is the archive;
+//   3. every open `- [ ]` carries one well-formed marker, a blocker naming its KIND and what would clear it;
+//   4. the generated manifest equals what those markers say. `--write` regenerates it.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +33,24 @@ export const RECORD = 'TASKS.md';
 /** Non-blank lines the preamble may occupy before it has stopped being a banner. */
 export const MAX_PREAMBLE = 40;
 
+/**
+ * The closed vocabulary of item states.
+ *
+ * `watch` and `decision-only` exist because a checkbox cannot express either, and both were being counted
+ * as startable: a probe burned 64 lines discovering Part 99 is something to watch for recurrence, and Part
+ * 128's `Model`-precedence item says in its own prose that it is "not startable as a code change".
+ */
+export const STATES = ['startable', 'blocked', 'watch', 'decision-only'];
+
+/**
+ * The closed vocabulary of blocker kinds, from `.claude/rules/task-lifecycle.md`.
+ *
+ * Each is refuted by looking somewhere DIFFERENT — the tree, the machine, a ruling, a deployment's data —
+ * which is the whole reason a blocker records one. A backlog item once sat blocked on "a real embedding
+ * model" while one was pulled on the machine the entire time, because the re-check read the tree.
+ */
+export const KINDS = ['tree', 'env', 'decision', 'data'];
+
 /** A handover block. Kept broad — the defect is the BLOCK, whatever it is dressed as. */
 const HANDOVER = /^\s*(?:_|\*)*\s*\*\*HANDOVER\b/i;
 
@@ -40,12 +60,171 @@ const HANDOVER = /^\s*(?:_|\*)*\s*\*\*HANDOVER\b/i;
 // to raise the allowance without looking. The subject here is the NARRATIVE above it.
 const PREAMBLE_END = /^## Part \d|^Blocked, and on what:/;
 
+const OPEN_ITEM = /^- \[ \]/;
+const PART_HEADING = /^#{2,3} Part (\d+)\b/;
+const TITLE = /^- \[ \]\s+\*\*(.+?)\*\*/;
+
+// The marker cannot contain `>`, which is what keeps this from running past its own terminator. A `needs`
+// that wants one is a `needs` that has stopped being a short testable phrase.
+const MARKER = /<!--\s*item:\s*([^>]*?)\s*-->/;
+const ATTR = /([A-Za-z_][\w-]*)=(?:"([^"]*)"|([^\s"]+))/g;
+
+// A row REPRODUCES its item's title and blocker, so a path or a retired term annotated on the checkbox
+// arrives unannotated one line-number away and the sibling gate fires on the generated copy. Carrying the
+// item's OWN escapes onto its row is the precise form: it expires when the item's does, where blanket
+// annotation on every row would be an exclusion nobody could see rot.
+const ESCAPES = ['link-ok', 'count-ok', 'drift-ok'];
+
+/** The anchors between which the manifest is generated. Placed by hand ONCE; content is never hand-written. */
+export const BLOCK_BEGIN = '<!-- open-items:begin';
+export const BLOCK_END = '<!-- open-items:end -->';
+
+/** A table cell: pipes escaped, and long text cut so the roster stays scannable. The line number is the pointer. */
+function cell(text, max = 76) {
+  const flat = String(text ?? '').replace(/\s+/g, ' ').trim().replace(/\|/g, '\\|');
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+}
+
 /**
- * The preamble's non-blank line count, and every handover line, as
- * `{ preamble, handovers: [{ line, text }], openItems }`.
+ * Every open item, as the FILE declares it — `{ items, unmarked, problems }`.
+ *
+ * State is read, never inferred. An item whose marker is missing or malformed lands in `unmarked` or
+ * `problems` rather than being given a default, because a default is exactly the guess this registry exists
+ * to replace.
+ */
+export function parseItems(lines) {
+  const items = [];
+  const unmarked = [];
+  const problems = [];
+  let part = null;
+
+  lines.forEach((raw, i) => {
+    const heading = PART_HEADING.exec(raw);
+    if (heading) { part = Number(heading[1]); return; }
+    if (!OPEN_ITEM.test(raw)) return;
+
+    const line = i + 1;
+    const at = (why) => problems.push({ line, why });
+    const marker = MARKER.exec(raw);
+    if (!marker) { unmarked.push({ line, text: raw.trim().slice(0, 78) }); return; }
+    if (part === null) at('this open item sits outside any `## Part` heading, so nothing can place it');
+
+    const title = TITLE.exec(raw);
+    if (!title) at('no bolded title — an item reads `- [ ] **What this is.** …`');
+
+    // The RESIDUE is checked, not just the matches. `matchAll` reports what it recognised and says nothing
+    // about what it skipped, so `needs=a real key` — quotes omitted, an easy slip in a hand-written comment
+    // — parses as `needs="a"`, satisfies every rule below, and publishes a one-word blocker that reads as a
+    // complete one. Validating `attrs.keys()` alone cannot see it: the residue contains no `=`, so it is
+    // not an unknown attribute either. Found by an adversarial review and reproduced before it was gated.
+    const attrs = new Map();
+    let cursor = 0;
+    let residue = '';
+    for (const m of marker[1].matchAll(ATTR)) {
+      attrs.set(m[1], m[2] ?? m[3]);
+      residue += marker[1].slice(cursor, m.index);
+      cursor = m.index + m[0].length;
+    }
+    residue = `${residue}${marker[1].slice(cursor)}`.trim();
+    if (residue)
+      at(`stray text \`${residue.slice(0, 40)}\` in the marker — a value containing spaces must be QUOTED `
+        + '(`needs="…"`), or everything after the first word is silently dropped');
+
+    for (const key of attrs.keys())
+      if (!['state', 'kind', 'needs'].includes(key))
+        at(`unknown attribute \`${key}\` — a marker carries state/kind/needs and nothing else`);
+
+    const state = attrs.get('state');
+    if (!state) at(`no \`state=\` — use one of: ${STATES.join('/')}`);
+    else if (!STATES.includes(state)) at(`unknown state \`${state}\` — use one of: ${STATES.join('/')}`);
+
+    const kinds = (attrs.get('kind') ?? '').split(',').map((k) => k.trim()).filter(Boolean);
+    for (const k of kinds)
+      if (!KINDS.includes(k)) at(`unknown kind \`${k}\` — use one or more of: ${KINDS.join('/')}`);
+
+    const needs = attrs.get('needs') ?? '';
+    if (state === 'startable' && (kinds.length || needs))
+      at('state=startable must not carry `kind=` or `needs=` — a startable item waits on nothing, and one '
+        + 'that names a blocker reads as blocked');
+    if (state === 'blocked' && !kinds.length)
+      at('state=blocked needs `kind=` — each kind is refuted by looking somewhere different, so a blocker '
+        + 'without one cannot be re-checked (task-lifecycle.md)');
+    if (state && state !== 'startable' && !needs)
+      at(`state=${state} needs \`needs="…"\` — say what would clear it, concretely enough to test`);
+
+    items.push({
+      line, part, state, kinds, needs,
+      title: title ? title[1].replace(/[.:]\s*$/, '') : '',
+      escapes: ESCAPES.filter((e) => raw.includes(e)),
+    });
+  });
+
+  return { items, unmarked, problems };
+}
+
+/** The manifest body — a heading, a provenance line, and one row per open item, in file order. */
+export function renderManifest(items) {
+  const parts = new Set(items.map((i) => i.part)).size;
+  const tally = STATES
+    .map((s) => [s, items.filter((i) => i.state === s).length])
+    .filter(([, n]) => n > 0)
+    .map(([s, n]) => `${n} ${s}`)
+    .join(', ');
+
+  return [
+    `## Open items — ${items.length} across ${parts} Part${parts === 1 ? '' : 's'}: ${tally}`,
+    '',
+    '_Generated from the per-item `<!-- item: … -->` markers by '
+      + '`node devtools/dev.mjs check-backlog --write`._',
+    '_Edit a marker, never this table — `verify` fails the moment the two disagree._',
+    '',
+    '| line | Part | item | state | waiting on |',
+    '| ---: | ---: | --- | --- | --- |',
+    ...items.map((i) => `| ${i.line} | ${i.part ?? '?'} | ${cell(i.title)} | `
+      + `${i.state}${i.kinds.length ? ` · ${i.kinds.join('+')}` : ''} | ${cell(i.needs)}`
+      + `${i.escapes.map((e) => ` <!-- ${e}: carried from this item's own line -->`).join('')} |`),
+  ];
+}
+
+/** The anchors' positions, or `null` when either is missing — which is a structure problem, never a stale table. */
+export function blockRange(lines) {
+  const start = lines.findIndex((l) => l.trimStart().startsWith(BLOCK_BEGIN));
+  if (start < 0) return null;
+  const end = lines.findIndex((l, i) => i > start && l.trim() === BLOCK_END);
+  return end < 0 ? null : { start, end };
+}
+
+function spliceBlock(text, body) {
+  const lines = text.split(/\r?\n/);
+  const range = blockRange(lines);
+  if (!range) return null;
+  return [...lines.slice(0, range.start + 1), '', ...body, '', ...lines.slice(range.end)].join('\n');
+}
+
+/**
+ * The file with its manifest regenerated until it stops moving, or `null` if the anchors are missing.
+ *
+ * ITERATION IS THE POINT, not caution. Every row carries the line number of a checkbox BELOW the block, so
+ * writing a block of a different height moves every number it just published — a one-pass generator emits
+ * positions that were true of the file before it existed. Row COUNT does not depend on line numbers, so the
+ * block's height is constant after the first pass and this converges in three.
+ */
+export function manifestFixedPoint(text, maxRounds = 6) {
+  let cur = text.split(/\r?\n/).join('\n');
+  for (let i = 0; i < maxRounds; i++) {
+    const next = spliceBlock(cur, renderManifest(parseItems(cur.split('\n')).items));
+    if (next === null || next === cur) return next;
+    cur = next;
+  }
+  return null;
+}
+
+/**
+ * The preamble's non-blank line count, every handover line, and the open-item roster.
  *
  * Counted from the `## Active backlog` heading rather than from the file's top, so the file's own purpose
- * statement and goal are not charged to the banner — those are stable and were never the thing that grew.
+ * statement, goal and generated manifest are not charged to the banner — those are stable or derived, and
+ * neither was ever the thing that grew.
  */
 export function readBacklog(repo) {
   const text = fs.readFileSync(path.join(repo, RECORD), 'utf8');
@@ -65,14 +244,18 @@ export function readBacklog(repo) {
     ? -1
     : lines.slice(start + 1, end).filter((l) => l.trim().length > 0).length;
 
-  return { preamble, handovers, openItems: lines.filter((l) => /^- \[ \]/.test(l)).length };
+  return {
+    preamble, handovers, text, lines,
+    openItems: lines.filter((l) => OPEN_ITEM.test(l)).length,
+    ...parseItems(lines),
+  };
 }
 
-export function checkBacklog(repo, config = {}, log = console.log) {
+export function checkBacklog(repo, config = {}, log = console.log, opts = {}) {
   const allowance = Number.isInteger(config.backlogPreambleAllowance)
     ? config.backlogPreambleAllowance
     : MAX_PREAMBLE;
-  const { preamble, handovers, openItems } = readBacklog(repo);
+  const { preamble, handovers, openItems, lines, items, unmarked, problems } = readBacklog(repo);
 
   if (preamble < 0) {
     log('check-backlog: ✗ could not locate the backlog preamble');
@@ -81,26 +264,48 @@ export function checkBacklog(repo, config = {}, log = console.log) {
     return 1;
   }
 
-  const problems = [];
+  const failures = [];
   if (preamble > allowance)
-    problems.push(`the preamble is ${preamble} non-blank lines, over its ${allowance}`);
-  if (handovers.length > 0)
-    problems.push(`${handovers.length} HANDOVER block(s) remain`);
+    failures.push(`the preamble is ${preamble} non-blank lines, over its ${allowance}`);
+  if (handovers.length > 0) failures.push(`${handovers.length} HANDOVER block(s) remain`);
+  if (unmarked.length > 0) failures.push(`${unmarked.length} open item(s) carry no \`item:\` marker`);
+  if (problems.length > 0) failures.push(`${problems.length} marker problem(s)`);
 
-  if (problems.length === 0) {
+  // The manifest is only asked about once the markers are sound: a roster generated from a broken marker is
+  // a confident wrong answer, which is worse than the missing one it replaces.
+  const normalized = lines.join('\n');
+  const fixed = failures.length === 0 ? manifestFixedPoint(normalized) : normalized;
+  const anchorsMissing = fixed === null;
+  const stale = !anchorsMissing && fixed !== normalized;
+
+  if (anchorsMissing)
+    failures.push(`the manifest anchors are missing — add \`${BLOCK_BEGIN} -->\` and \`${BLOCK_END}\``);
+  else if (stale && opts.write) {
+    fs.writeFileSync(path.join(repo, RECORD), fixed);
+    log(`check-backlog: regenerated the open-items manifest in ${RECORD} — wrote ${items.length} row(s)`);
+  } else if (stale) {
+    failures.push(`the open-items manifest at the head of ${RECORD} is STALE`);
+  }
+
+  if (failures.length === 0) {
     const slack = allowance > MAX_PREAMBLE ? ` (allowance ${allowance}, limit ${MAX_PREAMBLE})` : '';
+    const startable = items.filter((i) => i.state === 'startable').length;
     log(`check-backlog: ${RECORD} preamble ${preamble} line(s) for ${openItems} open item(s), `
-      + `no handover blocks ✓${slack}`);
+      + `no handover blocks, manifest current (${startable} startable) ✓${slack}`);
     return 0;
   }
 
-  log(`check-backlog: ✗ ${problems.join('; ')}`);
+  log(`check-backlog: ✗ ${failures.join('; ')}\n`);
   for (const h of handovers) log(`  ${RECORD}:${h.line}  ${h.text}`);
+  for (const u of unmarked) log(`  ${RECORD}:${u.line}  ${u.text}`);
+  for (const p of problems) log(`  ${RECORD}:${p.line}  ${p.why}`);
   log('');
   log('  The backlog holds OPEN work only and must not summarize the archive');
   log('  (`.claude/rules/task-lifecycle.md`). A handover describes work that is DONE — move it to');
-  log('  `docs/task-archive.md`, one Part per task, and leave a POINTER rather than a copy. State');
-  log('  where things stand by naming the record that owns it, never by restating it here.');
+  log('  `docs/task-archive.md`, one Part per task, and leave a POINTER rather than a copy.');
+  log('  Every open item carries `<!-- item: state=… -->` on its checkbox line; the roster at the head of');
+  log('  the file is generated from those markers by `node devtools/dev.mjs check-backlog --write`, so a');
+  log('  hand-edited table is a defect rather than an update.');
   log('  If a longer preamble is genuinely earned, record it in `backlogPreambleAllowance`');
   log('  (devtools/project.config.mjs) — it can come down and never up. There is no escape token.');
   return 1;
@@ -109,5 +314,5 @@ export function checkBacklog(repo, config = {}, log = console.log) {
 // CLI entry point — a thin wrapper, so importing this module for a test runs nothing.
 if (import.meta.main ?? (process.argv[1] && path.resolve(process.argv[1]) === here)) {
   const config = (await import('../project.config.mjs')).default;
-  process.exitCode = checkBacklog(repoDefault, config);
+  process.exitCode = checkBacklog(repoDefault, config, console.log, { write: process.argv.includes('--write') });
 }

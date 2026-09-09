@@ -96,6 +96,13 @@ on the machine the whole time. The previous re-check had been careful and thorou
 sweep was honest about what it checked and still wrong about the conclusion, which is why the fix is
 procedural rather than "look harder".
 
+**Blocked is a property of an ITEM, never of a Part**, so it is recorded on the item: every open `- [ ]` in
+`TASKS.md` carries `<!-- item: state=startable|blocked|watch|decision-only kind=… needs="…" -->`, and the
+roster at the head of that file is GENERATED from those markers (`check-backlog`, `docs/DECISIONS.md`
+**D111**). A heading is not a state — Part 33 was once listed blocked in full while two startable pieces sat
+inside it. `watch` and `decision-only` exist because neither is startable and neither is blocked on anything
+a re-check could clear: one waits on recurrence, the other on a ruling.
+
 - **Say what would unblock it, concretely enough to test.** "Needs a real embedding model" is testable;
   "needs more work" is not, and neither is a missing instrument this repository could simply build.
 - **Re-check against the blocker's own kind.** An environment blocker needs the environment queried, not a

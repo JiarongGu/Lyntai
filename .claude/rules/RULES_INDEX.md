@@ -4,7 +4,10 @@ Every rule, knowledge document and skill below is this repository's own. `doc-lo
 route off the **applies when** column, so a document missing from this table is a document nothing routes
 to — add a row when you add one, and keep the wording in step with the file's own frontmatter.
 
-`TEMPLATE.md` is deliberately absent: it is the template for writing a new rule, not a rule to follow.
+The rule template is deliberately absent from the tables — it is a thing to COPY, not a rule to follow —
+and as of 2026-09-10 it is absent from this directory too: it lives at `.claude/templates/rule-template.md`.
+This line had called it "deliberately absent" while it sat in the always-on tier, so every session paid
+~410 tokens for a document the index itself said did not apply.
 
 ## Core (always loaded)
 

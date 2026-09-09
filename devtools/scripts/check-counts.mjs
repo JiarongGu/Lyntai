@@ -22,6 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parseItems } from './check-backlog.mjs';
 import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLineCount } from './check-docs.mjs';
 import { packableProjects } from './check-packages.mjs';
 import { repoFiles, twoLineWindows } from './_repo-files.mjs';
@@ -289,6 +290,25 @@ export function countGoldenShapes(repo) {
 }
 
 /**
+ * Open backlog items an author has marked `state=startable`.
+ *
+ * Reuses `check-backlog`'s own parser rather than grepping for the marker, the same way `countPackages`
+ * reuses `check-packages`' reader: two definitions of "what counts as an open item" would drift, and this
+ * one already encodes that an unmarked or malformed item is not silently given a state.
+ *
+ * The claim it gates is the oldest recurring defect in this repository's prose — `TASKS.md`'s startable-set
+ * banner has advertised finished work FOUR times, always because an item was amended in place and the
+ * banner was not amended with it (`.claude/knowledge/pitfalls.md`). The generated manifest above the banner
+ * cannot disagree with the markers; this is what stops the SENTENCE from disagreeing with both.
+ */
+export function countStartableItems(repo) {
+  const file = path.join(repo, 'TASKS.md');
+  if (!fs.existsSync(file)) return -1;
+  const { items } = parseItems(fs.readFileSync(file, 'utf8').split(/\r?\n/));
+  return items.filter((i) => i.state === 'startable').length;
+}
+
+/**
  * The registry. One entry per counted claim: a pattern whose first capture group is the number, the
  * function that computes the truth, and why the claim is worth gating.
  *
@@ -310,7 +330,14 @@ export const COUNTED_CLAIMS = [
   },
   {
     what: '`verify` gates',
-    pattern: /`?verify`?\s+(?:runs|has)\s+([\w]+)\s+(?:checks|gates)/gi,
+    // The second alternative was added 2026-09-10 after this claim went stale in the one phrasing the
+    // first cannot see. `CLAUDE.md` states the number TWICE — "`verify` runs nineteen checks" in the
+    // packaging paragraph, and *the "am I done?" gate, eighteen checks stopping at the first failure* in
+    // the Dev loop — and only the first has a verb. So `check-backlog` was added to `verify`, one sentence
+    // was updated, the gate agreed with it, and the other sat wrong beside an arrow list that had also
+    // lost the new gate. The lesson is the one `check-links`' own registry already records: a rule must
+    // match the CLAIM in every order it is writable, not the one sentence someone had in mind.
+    pattern: /`?verify`?\s+(?:runs|has)\s+([\w]+)\s+(?:checks|gates)|gate,\s+([\w]+)\s+checks/gi,
     count: countVerifyGates,
     why: 'CLAUDE.md tells a reader what `verify` runs; a stale number there misdescribes the one command they run most',
   },
@@ -387,6 +414,15 @@ export const COUNTED_CLAIMS = [
     pattern: /\bD1\s*[–—-]\s*D(\d+)/g,
     count: countDecisions,
     why: 'CLAUDE.md routes a reader to the decision log by RANGE, so a short range reads as "nothing landed after this"',
+  },
+  {
+    what: 'startable backlog items',
+    // Anchored on `startable set is N items`, the banner's own shape. Deliberately not a bare `(\w+)
+    // items`: `TASKS.md` says "items" constantly about candidates, endorsed items and codex stream items,
+    // and a gate firing on those is one somebody switches off.
+    pattern: /startable set is \*{0,2}([\w]+)\*{0,2} items/gi,
+    count: countStartableItems,
+    why: 'this exact sentence has advertised finished work four times, and nothing derived it',
   },
   {
     what: 'golden corpus shapes',

@@ -27,7 +27,7 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D110**. The two groups worth knowing before you touch anything:
+The reasoning is `docs/DECISIONS.md`, **D1–D111**. The two groups worth knowing before you touch anything:
 **D83–D103 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
@@ -152,7 +152,7 @@ plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3592 passed / 3613 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 505/505, doc samples 80/80.
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 531/531, doc samples 80/80.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -278,9 +278,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
 
 ## Dev loop
 
-- **`node devtools/dev.mjs verify`** — the "am I done?" gate, eighteen checks stopping at the first failure:
+- **`node devtools/dev.mjs verify`** — the "am I done?" gate, nineteen checks stopping at the first failure:
   **guard tests** → build → warnings → packages → bundle → **encoding** → **docs** → **links** →
-  **counts** → **comments** → **decisions** → **archive** → **decision claims** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
+  **counts** → **comments** → **decisions** → **archive** → **backlog** → **decision claims** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
   the step list, so a gate added without updating prose still names itself. Run before
   claiming a change is complete. The guard tests run FIRST on purpose: nothing below that gate can be
   trusted if the gates themselves are broken.
@@ -496,12 +496,18 @@ owned outside the deployment; `DECISIONS.md` D30) /
   file holding 17 open items. **The file had RECORDED deleting a 49-line tally for that exact reason on
   2026-09-03 and then regrew a 19-line one in the same place**, which is this repository's own definition of
   a missing gate.
-  It checks TWO things: the preamble's non-blank line count against **40**
+  It checks FOUR things. Two are LENGTH: the preamble's non-blank line count against **40**
   (`backlogPreambleAllowance`, a ratchet, no escape token), and that **no `HANDOVER` block survives
   anywhere** — a handover describes work that is DONE, so its home is `docs/task-archive.md`, one Part per
-  task. The BLOCKED roster is deliberately excluded from the budget: it is open-backlog data, and charging
-  it would fire the day someone adds a blocked Part — a false alarm, and the fastest way to teach a reader
-  to raise an allowance without looking.
+  task. The generated roster is excluded from the budget by sitting above the `## Active backlog` heading,
+  which is placement rather than a carve-out.
+  <br>The other two are the **open-item MANIFEST** (**D111**): every open `- [ ]` carries
+  `<!-- item: state=startable|blocked|watch|decision-only kind=… needs="…" -->` on its own line, and the
+  table at the head of `TASKS.md` is GENERATED from those markers by `check-backlog --write` — so a
+  hand-edited table fails, and a blocker with no KIND or no testable `needs` fails too. **State is AUTHORED
+  and never inferred**, which is the whole design: `pitfalls.md` refuted deriving that banner from the
+  checkboxes, because "Part 99 is a WATCH item" is not computable from a `- [ ]`. The startable COUNT is
+  registered in `COUNTED_CLAIMS`; the banner it replaced advertised finished work four times.
 - `node devtools/dev.mjs check-decision-claims` — **fail if a DECISION stops describing the code it
   governs** (part of `verify`). Its sibling above gates an entry's LENGTH; this gates its TRUTH, and it is
   the FIFTH member of the prose family — `check-docs` asks whether a document still SAYS what a decision

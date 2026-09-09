@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  COUNTED_CLAIMS, checkCounts, countBareCancellationCatches, countDecisions, countGoldenShapes, countGuardTests, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countVerifyGates,
+  COUNTED_CLAIMS, checkCounts, countBareCancellationCatches, countDecisions, countGoldenShapes, countGuardTests, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countStartableItems, countVerifyGates,
   parseCount,
 } from '../check-counts.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
@@ -271,6 +271,29 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     assert.deepEqual(matches('the log runs D1-D76 today'), ['76']);
   });
 
+  it('the startable counter reads the MARKERS, so watch and decision-only are not startable', () => {
+    // The distinction IS the claim. A `- [ ]` cannot say "watch", which is why the banner counted a watch
+    // item and a self-declared non-startable one among its startable work for weeks.
+    const dir = makeTree({
+      'TASKS.md': ['# B', '', '<!-- open-items:begin -->', '<!-- open-items:end -->', '',
+        '## Active backlog', '', 'a line.', '', '## Part 1 — a thing', '',
+        '- [ ] **one.** x <!-- item: state=startable -->',
+        '- [ ] **two.** x <!-- item: state=watch needs="recurrence" -->',
+        '- [ ] **three.** x <!-- item: state=blocked kind=env needs="a key" -->',
+        '- [ ] **four.** x <!-- item: state=decision-only needs="a ruling" -->',
+        '- [ ] **five.** x <!-- item: state=startable -->', ''].join('\n'),
+    });
+    try { assert.equal(countStartableItems(dir), 2); } finally { removeTree(dir); }
+  });
+
+  it('and it agrees with an INDEPENDENT read of the real backlog', () => {
+    const text = fs.readFileSync(path.join(repo, 'TASKS.md'), 'utf8');
+    const independent = (text.match(/^- \[ \][^\n]*<!--\s*item:[^>]*state=startable/gm) ?? []).length;
+
+    assert.ok(independent > 0, 'TASKS.md must hold startable work for this counter to mean anything');
+    assert.equal(countStartableItems(repo), independent);
+  });
+
   it('every registered claim has a counter that computes SOMETHING on this tree', () => {
     // A counter returning -1 means it could not find what it reads — a broken gate reporting on the docs.
     for (const claim of COUNTED_CLAIMS)
@@ -318,6 +341,21 @@ describe('check-counts — matching', () => {
     assert.equal(code, 1, out);
     assert.match(out, /docs\/stale\.md/);
     assert.match(out, /says 7, tree has 6/);
+  });
+
+  it('sees the `verify` gate count in the phrasing that has NO verb (regression)', () => {
+    // Measured 2026-09-10: `check-backlog` was added to `verify`, CLAUDE.md's "`verify` runs N checks"
+    // sentence was updated and this gate agreed with it — while the Dev loop's *the "am I done?" gate,
+    // eighteen checks* sat wrong in the same file, invisible because it names no verb.
+    const claim = COUNTED_CLAIMS.find((c) => c.what === '`verify` gates');
+    const line = 'the "am I done?" gate, eighteen checks stopping at the first failure:';
+
+    claim.pattern.lastIndex = 0;
+    const [match] = [...line.matchAll(claim.pattern)];
+    claim.pattern.lastIndex = 0;
+
+    assert.ok(match, 'the verbless phrasing must be matched');
+    assert.equal(parseCount(match.slice(1).find((g) => g != null)), 18);
   });
 
   it('`count-ok` excuses a sentence quoting a historical count', () => {

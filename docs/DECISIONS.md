@@ -180,8 +180,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D108](#d108--a-verifier-is-shown-the-entrys-content-and-choosing-which-text-to-read-stays-the-policys-2026-09-08) | 2026-09-08 | a verifier is shown the entry's CONTENT, and choosing which text to read stays the policy's |
 | [D109](#d109--no-competitor-penalty-rif-is-refused-and-the-contradicted-gap-is-a-write-time-one-2026-09-08) | 2026-09-08 | no competitor penalty: RIF is refused, and the "contradicted" gap is a WRITE-time one |
 | [D110](#d110--no-endorsement-cap-on-the-verification-seam-the-count-rule-explains-none-of-the-judges-loss-2026-09-10) | 2026-09-10 | no endorsement CAP on the verification seam: the count rule explains none of the judge's loss |
+| [D111](#d111--an-open-items-state-is-authored-on-the-item-the-backlogs-roster-is-generated-from-it-2026-09-10) | 2026-09-10 | an open item's STATE is authored on the item; the backlog's roster is generated from it |
 
-_All 110 entries are live decisions._
+_All 111 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3263,3 +3264,34 @@ badly. So the lever is the model's calibration or the combination rule (**D105**
 **What would reopen it:** a judge whose endorsements clear the noise floor. The cap is a bound on a good
 signal, and this one has none to bound — so re-propose it only alongside an audit showing precision at the
 model's own top-k well above base rate, on the workload being served.
+
+## D111 — an open item's STATE is authored on the item; the backlog's roster is generated from it (2026-09-10)
+
+`TASKS.md`'s startable-set banner has advertised finished work **four** times, always the same way: a
+session amends an item in place, and the banner is where that item's claim came from, so re-reading the item
+is exactly the check that fails. `.claude/knowledge/pitfalls.md` records three candidate gates measured
+against those four instances, and refuses all three — each catches at most one of four, and all three
+INFER a state from a `- [ ]`, which cannot express *"Part 99 is something to watch for recurrence"* or
+*"this one is not startable as a code change"*. Its conclusion was to reach for a registry.
+
+**This is that registry, and the choice is where the judgement LIVES.** Each open checkbox carries
+`<!-- item: state=startable|blocked|watch|decision-only kind=tree|env|decision|data needs="…" -->`, and
+`check-backlog` generates the roster at the head of the file from those markers, in `verify`. State is
+AUTHORED and never inferred; an unmarked item FAILS rather than defaulting.
+
+**The alternatives, and why each loses.** Keep the banner hand-written plus a habit — that is what was in
+place for the four incidents. Derive it from the checkboxes — refuted above, and it would have deleted the
+judgement the banner exists to carry. Drop the banner entirely — it answers the file's one question, and a
+reader who has to open twenty-one items to learn what is startable is the cold-start cost this came from.
+
+**What it constrains.** A new backlog item is not done until it carries a marker. A blocker names its KIND,
+because `task-lifecycle.md`'s re-check rule is worthless without one, and names what would clear it
+concretely enough to test. A `startable` item may carry neither — an item naming a blocker reads as blocked.
+The hand-written count in the banner stays, gated by `check-counts`: the generated table cannot disagree
+with the markers, and that entry is what stops the SENTENCE disagreeing with both.
+
+**Two consequences found by building it rather than by review.** A generated row REPRODUCES its item's title
+and blocker, so a path annotated `link-ok` on the checkbox arrived unannotated one line-number away and
+`check-links` fired on the copy — the row now carries the item's own escapes, which expire when the item's
+do. And every row publishes the line number of a checkbox BELOW it, so writing the table moves what it just
+published; the writer iterates to a fixed point instead of emitting positions that were true beforehand.

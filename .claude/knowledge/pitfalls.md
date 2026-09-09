@@ -234,8 +234,35 @@ the tests) while being wrong. Skim before touching the relevant area.
   one of four. Deriving the banner mechanically loses the judgement it exists to carry (*"Part 99 is a WATCH
   item and not startable work"* is not computable from a checkbox). That is the *"false positives are
   legitimate authorial choices"* shape recorded above for the existence-check gate: **reach for a registry or
-  a habit, not a corpus scan, when "wrong" depends on intent.** The habit is the one sentence above — check
-  the instrument, and re-read the banner against every item you touch, in the same change.
+  a habit, not a corpus scan, when "wrong" depends on intent.**
+  <br>**The REGISTRY was built on 2026-09-10 (`docs/DECISIONS.md` D111), and all three refuted forms above
+  stay refuted** — they are the same mistake, which is INFERRING a state from a checkbox. What changed is
+  that the judgement is now supplied as data: each open `- [ ]` carries
+  `<!-- item: state=… kind=… needs="…" -->`, `check-backlog` generates the roster from those markers, and an
+  unmarked item FAILS rather than being given a default. So *"Part 99 is a WATCH item"* is still not
+  computable — it is now written down, once, on the item, where amending the item amends it.
+  <br>**The general shape, and it is the reusable half: when a summary keeps going stale, ask whether the
+  thing it summarizes can be made to CARRY the answer.** Deriving is impossible and habits lose; a field on
+  the source is neither. The cost is that the field is another thing to get right — which is why the gate
+  rejects an unknown state, a blocker with no kind, and a startable item that names one anyway.
+
+- **A parser that SCRAPES validates what it matched and is structurally blind to what it skipped, so the
+  half it dropped is unreportable.** Measured 2026-09-10 by an adversarial review of the item markers in
+  the entry above, hours after that gate went green. It collected `matchAll` of a `key=value` pattern into
+  a map and then validated the MAP — unknown key, unknown value, a blocker missing its kind, a startable
+  item carrying one. Omit the quotes on one value (`needs=a real key and a download`, an easy slip in a
+  hand-written HTML comment) and it parses as `needs="a"`, satisfies every one of those rules, and the
+  generator publishes a one-word blocker while printing a green line. **The check that looks like it should
+  have caught it cannot**: the residue contains no `=`, so it is not an unknown attribute either.
+  <br>**The general shape: when a parser scrapes rather than consumes, assert that the matches COVER the
+  input.** A tokenizer that must account for every byte fails on garbage; a `matchAll` that harvests the
+  interesting spans reports success over any input holding at least one of them. The fix is four lines —
+  accumulate the gaps between matches, fail on a non-blank residue — and it is worth reaching for before
+  the first time a value legitimately contains a space.
+  <br>**The tell that this class is dangerous rather than merely wrong is that the damage READS AS DATA.**
+  A truncation to `codex-cli` looks like a terse complete answer, not like loss, so nothing downstream —
+  human or gate — has a reason to doubt it. Compare the noisier failures this file usually records, which
+  announce themselves as soon as anybody looks.
 - **Before optimizing against a latency number, measure the INSTRUMENT's noise — a p50 that moves less than
   its own run-to-run spread has told you nothing.** Measured 2026-08-29 on `memory-scale`: a recall's
   co-activation write went from ten store round-trips to one (**D99**), the 10k p50 read `11.0ms` before and

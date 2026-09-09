@@ -1966,6 +1966,42 @@ sample.
 
 - Run the 20-slot pair at full sample.
 
+## Part 180 — the backlog's roster is GENERATED from a state authored on each item
+
+✅ done 2026-09-10. **D111**; the gate is `node devtools/dev.mjs check-backlog [--write]`, and the rule it
+enforces is `.claude/rules/task-lifecycle.md`.
+
+`TASKS.md`'s banner had advertised finished work four times and `.claude/knowledge/pitfalls.md` had refuted
+all three obvious gates — each INFERS a state from a `- [ ]`, which cannot say *watch* or *decision-only*.
+So the state moved onto the item as `<!-- item: state=… kind=… needs="…" -->` and the table at the head of
+the file is derived from those markers. An unmarked item, an unknown state, a blocker with no KIND and a
+hand-edited table all FAIL; the startable count is registered in `COUNTED_CLAIMS`.
+
+**Reclassifying was deliberately NOT part of it.** Every marker records what the file already asserted — 12
+startable, 7 blocked, 1 watch, 1 decision-only — the last being the one item whose own prose said it was
+not startable. The harm `task-lifecycle.md` measures runs the other way: an item left labelled blocked after
+its blocker cleared.
+
+**Two defects the build found and review would not have**, both recorded in D111: a generated row
+reproduced a `link-ok`-annotated path without the annotation, so `check-links` fired on the copy; and every
+row publishes the line number of a checkbox that writing the row moves. **A third came from an adversarial
+review after every gate was green** and is in `.claude/knowledge/pitfalls.md`: the marker parser validated
+what it matched and was blind to what it skipped, so an unquoted multi-word `needs=` was truncated to its
+first word and `--write` published it while reporting every marker sound.
+
+- Generate the open-item manifest at the head of `TASKS.md`, and gate the startable count.
+
+## Part 179 — the rule template left the always-on tier
+
+✅ done 2026-09-10. Moved to `.claude/templates/rule-template.md`.
+
+It auto-loaded into every session (~410 tokens) while `RULES_INDEX.md` called it *"deliberately absent —
+the template for writing a new rule, not a rule to follow"* and its own frontmatter agreed. The claim was
+true of the index TABLES and false of the directory, which is the only place it cost anything. Its steps
+2–3 now say to copy it out and spell the index's path, since it no longer sits beside one.
+
+- Move `.claude/rules/TEMPLATE.md` out of the always-on tier. <!-- link-ok: the original wording, preserved; the file is at .claude/templates/rule-template.md -->
+
 ## Part 176 — three rerankers, one score: a 468 MB model matches a 636 MB one, and recency buys nothing
 
 ✅ done 2026-09-10, at the owner's direction ("try to improve with a smaller judge < 500mb"). Table:

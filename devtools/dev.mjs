@@ -9,7 +9,7 @@
 //   node devtools/dev.mjs check-comments   - FAIL if a comment block outgrows what it explains
 //   node devtools/dev.mjs check-decisions  - FAIL if a DECISIONS.md entry outgrows the decision
 //   node devtools/dev.mjs check-archive    - FAIL if a task-archive.md entry outgrows its outcome
-//   node devtools/dev.mjs check-backlog    - FAIL if the OPEN backlog starts summarizing the archive
+//   node devtools/dev.mjs check-backlog [--write] - FAIL if the OPEN backlog drifts from its roster
 //   node devtools/dev.mjs check-decision-claims - FAIL if a DECISION stops describing the code
 //   node devtools/dev.mjs check-api-vocabulary - FAIL if an API baseline still spells a retired name
 //   node devtools/dev.mjs check-samples [--list]
@@ -617,11 +617,15 @@ switch (cmd) {
     break;
   }
 
-  // check-backlog — FAIL when the OPEN backlog starts summarizing the archive. The FOURTH length ratchet
+  // check-backlog — FAIL when the OPEN backlog stops being a list of open work. The FOURTH length ratchet
   // and the one aimed at `TASKS.md`, which task-lifecycle.md is most opinionated about and which had no
   // gate at all: its banner reached 478 lines carrying ZERO open checkboxes, having already recorded
   // deleting a 49-line tally for that exact reason and then regrown one. It also forbids a HANDOVER block
   // outright — a handover describes work that is DONE, so it belongs in the archive.
+  //
+  // It also owns the GENERATED open-item roster at the head of that file: state is authored on each
+  // checkbox in an `item:` marker and the table is derived from it, so `--write` is the only way to change
+  // the table and a hand-edited one FAILS (D111).
   case 'check-backlog': {
     run('node', [path.join(repo, 'devtools', 'scripts', 'check-backlog.mjs'), ...args]);
     break;
