@@ -143,7 +143,7 @@ silently break; the reasoning is in the decision named beside it.
     working.** Guarded by `MemoryAuthoritativeSurvivalTests` plus a control requiring the same facts to be
     LOST without the grade.
 
-**The packaging rules are gated, not remembered** — `verify` runs eighteen checks. `check-warnings` (a warning
+**The packaging rules are gated, not remembered** — `verify` runs nineteen checks. `check-warnings` (a warning
 in a published project fails the build, because an unfailed IL2026 is a FALSE trim promise), `check-packages`
 (a package must be registered in all nine registries — a missing `ApiSurfaceTests` entry means no API gate at
 all), `check-bundle` (the bundle's dependency closure cannot grow without a decision), `check-docs` (a doc
@@ -152,7 +152,7 @@ plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3592 passed / 3613 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 496/496, doc samples 80/80.
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 505/505, doc samples 80/80.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -488,6 +488,20 @@ owned outside the deployment; `DECISIONS.md` D30) /
   7.5 → 6.7 → 23.2 two days later. A written-down rule that is still violated is a missing gate — the same
   reasoning behind `check-encoding` and `check-links`. Registry `archiveEntryLengthAllowances`, no escape
   token, and **RELOCATE BEFORE DELETING**: several entries are the only maintained home for a trap.
+- `node devtools/dev.mjs check-backlog` — **fail if the OPEN backlog starts summarizing the ARCHIVE** (part
+  of `verify`). The FOURTH length ratchet and the one aimed at `TASKS.md` — the file `task-lifecycle.md` is
+  most opinionated about and the one that had no gate at all.
+  Measured 2026-09-10: the `## Active backlog` preamble had reached **478 lines carrying ZERO open
+  checkboxes** — five stacked `HANDOVER` blocks plus a running tally of what had closed — in a 1308-line
+  file holding 17 open items. **The file had RECORDED deleting a 49-line tally for that exact reason on
+  2026-09-03 and then regrew a 19-line one in the same place**, which is this repository's own definition of
+  a missing gate.
+  It checks TWO things: the preamble's non-blank line count against **40**
+  (`backlogPreambleAllowance`, a ratchet, no escape token), and that **no `HANDOVER` block survives
+  anywhere** — a handover describes work that is DONE, so its home is `docs/task-archive.md`, one Part per
+  task. The BLOCKED roster is deliberately excluded from the budget: it is open-backlog data, and charging
+  it would fire the day someone adds a blocked Part — a false alarm, and the fastest way to teach a reader
+  to raise an allowance without looking.
 - `node devtools/dev.mjs check-decision-claims` — **fail if a DECISION stops describing the code it
   governs** (part of `verify`). Its sibling above gates an entry's LENGTH; this gates its TRUTH, and it is
   the FIFTH member of the prose family — `check-docs` asks whether a document still SAYS what a decision

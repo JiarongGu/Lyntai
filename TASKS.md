@@ -19,439 +19,31 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**READ `## Part 116` FIRST — it is the handover.** `docs/DECISIONS.md` **D100** changed what this engine is
-evaluated as during the 2026-08-29 session: an n-shot WALK, not a single top-k. Every recall-quality number
-published before that day scores one shot, which measures a vector index wearing a graph engine's name. Part
-116 carries what that opens. **Its biggest item — the library having no n-shot surface — CLOSED on
-2026-08-30** as `docs/task-archive.md` **Part 120** / **D102**: `MemoryWalk.WalkAsync` ships the walk as an
-extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
-closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
+**The startable set is NINE items, across Parts 109, 116, 128, 129 and 177.** Each is a `- [ ]` you could
+open today. **If this line names something that is not an open checkbox below, this line is wrong** — it has
+been, four times, always because an item was amended in place and the banner was not amended with it. So
+**count, never adjust**: open every `- [ ]` in those Parts and check it for a blocker, rather than
+incrementing whatever the last number was.
 
-**The startable set is NINE items, across Parts 109, 116, 128, 129 and 177.** Each is a
-`- [ ]` you could open today — which is the test this
-banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
-open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
-with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
-<br>_It read FIVE until 2026-09-06 and the tree held SIX — so the count was stale by one before that day
-added a seventh. **Counted rather than adjusted**: every `- [ ]` in those four Parts was opened and checked
-for a blocker, which is the only way to move this number without inheriting whatever was wrong with the last
-one. It stayed at seven on 2026-09-07, when the `k`-raised arm CLOSED (`docs/task-archive.md` **Part 158**)
-and its own caveat opened the successor below it — a one-for-one swap, which is the ordinary way this list
-moves and the reason the count is worth stating rather than the items. **Then it fell to SIX**: Parts
-**159**, **160** and **161** closed the pool ladder across all three workloads, and the last of them left
-nothing behind — the shipped `CandidateMultiplier` is vindicated on two of three, so there is no successor
-question, which is the rarer way an item leaves this list.
-<br>**To SEVEN, back to SIX, and to SEVEN again across 2026-09-08/09**: Part 168 left a DECISION behind it,
-Part 170 took it the same day, and the D109 trigger run then found a fail-open seam failing CLOSED
-(`docs/FIXES.md`) whose ANNOTATION twin was unchecked. **Then back to SIX the same day**: that twin was
-checked and the answer was yes in three places (**Part 173**), its own census left the 16 remaining sites
-behind it, and those closed too (**Part 174**) — a one-for-one swap followed by an item that left nothing
-behind, which is the rarer way one leaves this list.
-<br>**To NINE on 2026-09-10**, the largest single move this line has made, and it is a DIRECTION rather than
-a backlog: Parts 175–176 closed two measurements and the owner opened **Part 177** — one small model serving
-many seams in a heavy application — which arrived with three startable items at once. Counted, not
-adjusted._
-<br>_**This line used to be a 49-line running tally** — every Part that opened and closed since 2026-08-30,
-with the count after each. It was deleted on 2026-09-03 rather than extended, because `task-lifecycle.md`
-says outright that a backlog must not summarize its archive: the tally grew without bound, answered a
-question `docs/task-archive.md` already answers, and pushed the open items further down the file. **What
-closed and why is the archive's job** — Parts 117–142 are the memory-measurement sequence. What belongs here
-is the count above and the rule beside it, both edited in the same change as any item that moves._
+**Where things stand is NOT summarized here, deliberately.** `docs/memory.md` §5 is the measurement record,
+`docs/task-archive.md` holds one Part per closed task, `docs/DECISIONS.md` holds what was decided and why,
+and `docs/FIXES.md` holds per-incident fixes. A copy of any of those goes stale the moment the original is
+amended, which is why this section stopped carrying one on 2026-09-10.
 
-**HANDOVER (2026-09-03, end of session). READ THIS FIRST — the picture of this engine changed, and three
-claims published DURING that session were corrected by later runs in the same session.**
+_**Why this section is short, and the discipline that keeps it short.** It reached 478 lines carrying ZERO
+open checkboxes — five stacked `HANDOVER` blocks and a running tally of what had closed, for 17 open items
+in a 1308-line file. `task-lifecycle.md` already forbade exactly that ("never let the backlog SUMMARIZE the
+archive"), and the section had even documented deleting a 49-line tally for that reason on 2026-09-03 —
+then regrew a 19-line one in its place. **A rule that keeps being violated is a missing gate**, so
+`check-backlog` now bounds this section; see `dev.mjs`. The content was not lost: the handovers describe
+Parts 143–176, which is where they live._
 
-**Where the memory engine actually stands**, all model-free, controls reproduced in every run
-(`docs/memory.md` §5, archive Parts 138–142):
+**One rule for reading a "blocked" label here**, earned by this file being wrong: **a Part is blocked when
+its DELIVERABLE is, and that does not make every sentence in it blocked.** Part 33 was marked blocked in
+full while two startable pieces sat inside it (closed as **D67** and **D68**). Name what the blocker
+actually gates. The rest of the blocked discipline — that a blocker has a KIND and is re-checked against
+that kind — is `task-lifecycle.md`'s.
 
-| | measured | against plain cosine |
-|---|---|---|
-| LoCoMo search, best mechanical arm (`+sem+rel-only`) | 82.6% (n = 1,540) | **+1.5** |
-| LoCoMo search, same arm + a PERFECT judge | **92.5%** (n = 200) | **+12.0** |
-| LoCoMo search, same arm + a REAL 4B judge, PARTITIONED (shipped rule) | 72.5% (n = 200) | −8.0 |
-| LoCoMo search, same arm + the SAME judge, FUSED | **83.0%** (n = 200) | **+2.5** |
-| LongMemEval knowledge-update, SHIPPED default | 86.4% (all 70) | **+40.0** |
-
-**The session opened believing the shipped defaults were the problem. They are not.** The configuration that
-wins LoCoMo (`RetrievabilityWeight = 0`) costs **−37.1** points of supersession for **+5.5** of search —
-about 7:1 against — because removing forgetting's vote leaves `current@k` IDENTICAL and destroys `stale@k`.
-**It changes what the engine BURIES, not what it FINDS, and LoCoMo only scores finding.** Any arm that wins
-on LoCoMo owes the knowledge-update table a visit before anyone proposes it as a default. No default moved,
-and none should on what is measured.
-
-**Three corrections, all self-inflicted and all caught by running the arm that isolates the variable** —
-the habit to keep: (1) "the 54.5 → 82.6 default gap is the biggest free win" was a 7:1 losing trade;
-(2) "multi-hop is 16 points behind even with a perfect judge" reads 3.2, on a premise **D103** had
-superseded the day it was filed; (3) "a pure formula beats formula-plus-oracle, so the deficit was never the
-model tier" compared arms differing in SEEDING as well as the judge — with seeding held fixed the judge is
-worth **+9.5**. Each was published, then corrected, and both records say so rather than quietly restating.
-
-**What the instrument can do now that it could not:** `FieldArms` defines an arm once for BOTH field
-benches, so a name means one configuration on each and a config can be priced across workloads in two
-commands. `--arms` saves ingestion on both (a LoCoMo ladder is 755s where it was 4,706s). Adding an arm
-touches the registry plus each bench's ladder — the two LoCoMo lists are asserted equal before a run starts,
-after that drift failed two runs ten minutes apart.
-
-**HANDOVER (2026-09-09). All THREE threads of the 2026-09-07 handover are closed** — two by measurement,
-one by refusal. Three additive surfaces shipped and one fix; **no recall default moved.** Parts 167–172,
-**D107–D109**, `docs/FIXES.md`.
-
-**What closed, and where it lives** (each is one line here because the archive holds the rest):
-- **The read-only concurrency ceiling** was SQLite's global memory-allocation STATISTICS, not a lock —
-  8 workers 340/s → 4,665/s with them off. `SqliteRuntime.DisableMemoryStatistics()` ships it opt-in and
-  Lyntai never calls it (**D107**, Part 167).
-- **The cross-encoder is worth +5.0** on LoCoMo and the ONNX blocker was never real: `llama-server
-  --reranking` serves it over HTTP. The first run said −7.5 because the seam handed it a 120-character
-  truncation; `MemoryVerificationCandidate.Content` fixed that at zero storage cost (**D108**, Parts 168–170).
-- **RIF is REFUSED** (**D109**, Parts 171–172). Three of its premises were wrong, and the trigger is not
-  merely uninformative but INVERTED: the judge endorses the superseded fact 3.4× more often than the
-  current one, so a penalty would demote the current fact 23:5. **Reproduced on two stacks.**
-
-**llama.cpp is the standard and is now reachable END TO END** (`repo-mechanics.md` §Local models). All three
-model roles run on it, each on its own port because a `llama-server` serves ONE model —
-`LYNTAI_LIVE_MODEL_URL` (embed), `LYNTAI_LIVE_CHAT_URL` (chat), `LYNTAI_LIVE_RERANK_URL`. **The GGUFs on this
-machine** live in `%LOCALAPPDATA%\llama.cpp\`: `embeddinggemma-300M-Q8_0`, `bge-reranker-v2-m3-Q8_0`,
-`gemma-3-4b-it-Q4_K_M`, and — added 2026-09-10 — `LAMAR-600m` at both `Q5_K_M` and `Q8_0`. Check the
-machine before assuming a model needs pulling, which cost one session two false conclusions. llama.cpp is
-also **2.6× faster** than the alternative on identical work, because dedicated resident servers never swap.
-<br>**Ports are per ROLE, and more than one reranker can be up at once** — 8080 embed, 8081/8083/8084
-rerank, 8082 chat — which is what let three reranker arms be compared without re-ingesting. Record the PID
-when you start one: `netstat -ano | grep LISTENING` maps port to PID, and **11434 is Ollama and is not
-yours** (`windows-machine.md` §Processes — never kill by image name).
-
-**Every bench now prints the endpoint that answered, and flags a non-standard one.** Before 2026-09-08
-nothing named the server, so a whole session's figures had to be attributed afterwards from which processes
-were up. Read a figure taken before that as Ollama-served.
-
-**Four traps went to `pitfalls.md`**, each having cost something here: a seam that hands a model a
-TRUNCATION measures the truncation and the model takes the blame; a fail-open catch rethrowing
-`OperationCanceledException` fails CLOSED on an HTTP timeout; an Ollama blob is a GGUF that stock llama.cpp
-may still refuse; and a character budget cannot bound a token limit.
-
-**The habit that paid, again: pre-register the prediction.** The cross-encoder's was written into the source
-before the run and was REFUTED (86–90% predicted, 78.0% measured) — which is what stopped "cross-encoders do
-not transfer to a memory store" becoming the recorded conclusion instead of "our seam truncates".
-
-**HANDOVER (2026-09-07). A measurement session; NO default moved and none should on what it found.**
-`docs/task-archive.md` **Parts 157–166**, tables in `docs/memory.md` §5 and §7.
-
-**What is settled.** The walk beats cosine at an EQUAL character budget on both LongMemEval classes, but the
-best body is a deeper FIRST recall rather than a walk — and the lever there is the candidate POOL, not the
-output size. `CandidateMultiplier` is a ~1:1 suppression-for-coverage trade across all three workloads
-(`clean` +27.2 against all-evidence −28.0 and search −10.0, going 4 → 16), so **the shipped 4 is the coverage
-corner of a real axis, not an unexamined default.** The oracle ceiling rises with the pool (92.5 → 96.0) while
-the real arm falls, so the reachable-vs-retrieved gap WIDENS — the lever is ranking, and 9.5 points of it sit
-inside the pool already gathered.
-
-**Three things are open and each is recorded where it belongs, not here.**
-- ~~**RANKING is the lever and the supported fix is a cross-encoder** — blocked on a model download and an
-  ONNX adapter package.~~ **MEASURED AND CLOSED 2026-09-08** (`docs/task-archive.md` **Part 168**,
-  `docs/memory.md` §5). **The ONNX package was never needed**: `llama-server --reranking` serves
-  `bge-reranker-v2-m3` over HTTP and the arm reaches the engine through the verification seam that already
-  ships. The lever is real — **+5.0** on LoCoMo, 1.5 short of a perfect judge — but only once the seam stops
-  handing the model a 120-character truncation of a 133-character turn.
-  <br>**The knowledge-update visit RAN the same day** (`docs/task-archive.md` **Part 169**) and it is not
-  the trade a LoCoMo winner usually makes: `prefers current` falls 90.3% → 86.8% while the absolute count
-  RISES **56 → 59 of 70**, because the reranker makes six more questions decidable. What it costs is
-  PRECISION — `stale@k` 44.3% → **95.7%**, since a superseded fact reads as relevant as its replacement.
-  **No default moved**, and no paired test of reranked against shipped exists, so three questions with
-  overlapping intervals is not a result. What it left behind is the item below.
-- ~~**The engine can say "used" and "gone" but not "contradicted"**: `Stability` may never decrease by
-  contract, which is why every reconciliation experiment could only DELETE. **RIF** is the shape of the
-  fix.~~ **ANALYSED AND REFUSED 2026-09-08** (`docs/task-archive.md` **Part 171**, **D109**). Nothing built.
-  **The premise was wrong on three counts**: the contract never blocked a decrement (the monotonicity is
-  scoped to `Reinforce`, and `ModulatedRetrievability` already lowers retrievability while persisting
-  nothing); the unendorsed signal is neither discarded nor persisted on the shipped `Partition`, and does
-  not exist by default; and the stated null control contributes exactly zero, because a write advances age
-  as a COMMON ADDEND and RRF reads rank positions. RIF also addresses the wrong half — it supplies a
-  weakening ACT, not a supersession SIGNAL, which **D106** already located at ENCODING. **The measurement RAN 2026-09-09**
-  (`docs/task-archive.md` **Part 172**) and closed it rather than reopening it: the judge endorses the
-  SUPERSEDED fact 3.4× more often than the current one, so the trigger is INVERTED and a penalty would
-  demote the current fact 4.6:1.
-- ~~**`read-only` recalls peak at TWO workers on 22 cores** (§7) and nothing explains it.~~ **CLOSED
-  2026-09-08** (`docs/task-archive.md` **Part 167**, **D107**): it is SQLite's global memory-allocation
-  STATISTICS, whose mutex every allocation and free takes, and eight concurrent recalls go 340/s → 4,665/s
-  with them off. `SqliteRuntime.DisableMemoryStatistics()` ships it opt-in; Lyntai never calls it, because
-  `sqlite3_config` is the whole process's. **The reusable half is in `pitfalls.md`**: per-object and
-  per-file isolation changed nothing while separate PROCESSES scaled, which is the signature of a global
-  no grep of your own code can find.
-
-**The habit that earned its keep, twice in one day**: a prediction refuted in the FLATTERING direction is the
-one to distrust. A 100.0%-in-every-category oracle result was a pool larger than its store, and a 4–5 point
-write-back improvement was single-run noise that vanished at five repeats. Both instruments now carry a
-counter (`WarnIfPoolSwallowsStore`, `--concurrency … --repeat`).
-
-**HANDOVER (2026-09-04). The model failures this session were INPUT-SHAPING failures, and that is the
-thread to pull next.** Every one of them has the same shape — the model is handed an unbounded task and
-stops discriminating — and none is explained by model size:
-
-| seam | input given | what the model did |
-|---|---|---|
-| judge, depth 20 | 20 candidates | endorsed 17%, ~3.2× lift over chance |
-| judge, depth 40 | 40 candidates | endorsed 19%, ~3.1× |
-| **judge, depth 80 (shipped)** | 80 candidates | **endorsed 36%, 1.74×** — and cost 10.5 points |
-| extractor | one turn, **no budget** | **7.1 facts/turn**, a 7.1× corpus inflation |
-| extractor | one turn, **"at most 2"** | **2.1 facts/turn** — the row above was the PROMPT (Part 149) |
-
-The judge RANKS well — 34.5% precision at its own top pick against a 1.49% base rate — it just cannot tell
-where to stop. **Neither prompt states a budget, and for the judge the library cannot supply one**:
-`MemoryVerificationRequest` carries the query and the candidates but NOT the caller's limit, so a policy
-cannot say "pick at most 20" for a page that holds 20. That is an additive API gap and the cheapest
-experiment in the backlog.
-<br>**BOTH were measured on 2026-09-04 and the paragraph above is half refuted** (`docs/task-archive.md`
-Parts 149 and 150). The extractor obeyed its budget and the judge did not — it endorsed MORE when given
-one — so "the model is handed an unbounded task" describes both failures while the FIX generalises to only
-the generative one. And "the library cannot supply one" turned out to be the wrong thing to regret: the
-number it could not supply (20) is worth +0.5, and the one that helps (5) is not the caller's limit at all.
-
-**Three things a fresh session can start on, cheapest first.** ~~(1) Give the extractor a budget — "at most
-two facts" — and re-run `--extract`~~ — **DONE 2026-09-04, `docs/task-archive.md` Part 149.** The hypothesis
-held: one prompt line took 7.1 facts/turn to **2.1**, cost no evidence (survival 142/142) and recovered 11.4
-of the 14.3 points of `current@k` the unbounded prompt had lost. **It did not change the verdict** — bounded
-extraction still cannot bury (`stale@k` ROSE 40.0 → 57.1) and `extract+forget0` is still indistinguishable
-from cosine (p = 0.327). So input shaping bought back the DILUTION and moved the underlying judgement not at
-all, which is the caveat to carry into (2) rather than a reason to skip it.
-~~(2) Give the judge a budget in its prompt, and consider carrying the recall limit on
-`MemoryVerificationRequest`.~~ — **DONE 2026-09-04, `docs/task-archive.md` Part 150, and it argues AGAINST
-that API change.** The judge does not obey a budget: asked for at most 20 of 80 it endorsed **34.9, MORE than
-the 29.1 it endorsed unbudgeted**. **So input shaping is two cases, not one** — the extractor obeyed at 8.3%
-over because a GENERATIVE task takes a count, while a SELECTIVE task over a visible list does not.
-<br>**And the number the library was going to supply is the worthless one**: `budget20` — the caller's own
-limit, exactly what `MemoryVerificationRequest` cannot carry — is worth **+0.5**, while `budget5` is worth
-**+4.0**. Anything shipped here would be an endorsement budget on the judge's OWN options, defaulting to off,
-never a `Limit` on the request. It is also the weakest lever measured (depth 40 reads 84.0%, fusion 83.0%,
-both removing the whole loss; the best budget still lands 6.5 below the unjudged base), so **no default moved
-and the fusion item below stays the right one.**
-(3) A SMALLER chat model, which has to be
-SERVED before it can be measured — "does a smaller model with tighter input beat a bigger one with loose
-input" is ENVIRONMENT-blocked, not open.
-<br>**What the runs above actually talked to, because this machine runs BOTH and it is not inferable from
-the tables.** No `LYNTAI_*` variable was set, so the benches took their default — `http://localhost:11434`,
-which is Ollama — while three `llama-server` processes were up and unused. Every figure on record from
-2026-09-03/04 is therefore Ollama-served (`nomic-embed-text`, `gemma3:4b`). The embed-model variable is now
-`LYNTAI_LIVE_EMBED_MODEL`, named for the role rather than for one vendor, with the old
-`LYNTAI_OLLAMA_EMBED_MODEL` still honoured.
-<br>**FIXED at the source on 2026-09-08, at the owner's direction: llama.cpp is the standard local server**
-(`repo-mechanics.md` §Local models). The bench default moved from Ollama's `11434` to llama-server's own
-`8080`, **every sweep now prints the endpoint it used** so no future table needs attributing after the
-fact, and the library gained `AddLlamaProvider` beside `AddOllamaProvider`. Figures above stay
-Ollama-served and are labelled as such; re-running one against llama-server does not reproduce it, because
-a single-model `llama-server` ignores the model name and serves whatever it loaded.
-
-**WRITE-TIME EXTRACTION IS NOT A SUBSTITUTE FOR DECAY** (2026-09-04, `docs/task-archive.md` **Part 148**).
-Extracted facts with forgetting silent score 53.0% and are indistinguishable from plain cosine
-(**p = 0.572**); alongside decay they COST — 96.9% → 86.0%, `current@k` 90.0% → 75.7% — because 1,589 turns
-became 11,271 near-duplicate facts. All 142 flagged turns survived extraction, so it is dilution rather than
-data loss. **The RECONCILING half then ran too** (`--reconcile`, n = 25) and did not rescue it: it fired
-(asked 1,427, replaced 122) but `stale@k` moved the WRONG WAY, 28.0% → 44.0%, so it deleted the wrong 122 —
-and `extract+reconcile+forget0` reads **p = 0.508** against cosine, the third arm in a row to land
-indistinguishable from a flat index once forgetting is silent. **At n = 25 only `lyntai` clears
-significance**, so the ordering among extract arms is not a result; what holds is that neither half
-substitutes for decay.
-<br>**The budget RAN on 2026-09-04 (`docs/task-archive.md` Part 149) and settled the "not a substitute" half
-outright.** Bounded to 2 facts/turn the extractor loses no evidence and takes back 10 of the 14 questions the
-unbounded one lost — and `extract+forget0` still reads p = 0.327 against cosine, so **the verdict now stands
-on the strongest version of its own counter-arm** rather than on a prompt nobody had tuned. What it did NOT
-do is help the engine choose between a fact and its replacement: `stale@k` rose 40.0 → 57.1, because a
-smaller corpus lets both compete.
-<br>**What is left of the reconciling question is unchanged and still needs what it always did**: a powered
-re-run at the full 70, and ground truth on which pairs SHOULD supersede before "it deleted the wrong 122"
-can be judged. Neither exists here.
-
-**THE ACCEPTANCE TEST PASSES, on one knob across both workloads** (`docs/task-archive.md` **Part 147**).
-`+sem` and `+sem+forget0` differ only in whether forgetting votes. **Decay OFF is a flat retriever** —
-indistinguishable from plain cosine on supersession (49.3% vs 46.4%, McNemar **p = 0.791**) and 83.0% vs
-cosine's 80.5% on LoCoMo search, so the base claims nothing extra. **Decay ON is the whole supersession
-win** — 72.5%, **p < 0.001** — while `current@k` stays IDENTICAL at 90.0%, so the knob changes what is
-BURIED and never what is FOUND. It costs 6.5 points of LoCoMo, which is the trade working rather than a
-regression. **An arm that wins BOTH workloads is evidence that decay stopped working, not that the engine
-improved.**
-
-**D41's invariant is MEASURED as of 2026-09-03** (`docs/task-archive.md` **Part 146**), and it is the
-strongest evidence this repository has that the design does what it claims: **26 of 26 entries decay buried
-are recovered by a focused query, at mean rank 5.0** — 76.9% inside an ordinary ten-slot page, 100% within a
-hundred. Decay costs an entry its position, never its existence. **The boundary is measured too**: recovery
-holds at 100% through weight 2 and collapses to 18.8% at 4, while the entry sinks continuously under its own
-query (mean rank 5.0 → 41.7 → 76.8) — so it degrades gradually and then falls off a cliff, and that last
-arm's best-in-class `stale@k` of 1.4% was bought by deletion. So the shipped weight of 1 is bounded on BOTH
-sides — 0 costs −37.1 points of
-supersession, 4 deletes — and walking it up showed the vote is a volume knob rather than a discriminator
-(`current@k` falls with `stale@k`, because it ranks by AGE). **Any further gain in focus has to come from
-the decay SIGNAL, not from how loudly it votes.**
-
-**The judge sequence closed on 2026-09-03 with a mechanism, not just a number** (`docs/task-archive.md`
-**Parts 143–145**). A real 4B judge costs 10.5 points because the engine PARTITIONS on its verdict —
-endorsed ahead of unendorsed, then cut — which is the only signal here not fused by rank competition.
-**Fusing removes the loss entirely and adds nothing**, and the reason nothing more is available is measured:
-of the 19 calls in 200 a verifier could possibly improve, this judge endorsed the deep evidence on 10 and
-ranked it in its own top five on **none**. Its confidence tracks what the ranking already found. **One
-library change is now filed under Part 128 and no default moved.**
-
-**The real-judge run closed and opened the fusion item** (`docs/task-archive.md` **Part 143**, corrected by
-**Part 144** the same day). **That fusion item has since SHIPPED** as **Part 151** / **D105** —
-`GraphMemoryOptions.VerdictCombination`, with the partition still the default — and it left one item behind
-it, so the startable count did not move. A 4B judge costs 10.5 points
-where the perfect one gains 9.5 — but **the cause is the DEPTH it inherits, not the model tier**: at half
-the shipped `VerificationDepth` the same model on the same arm is level with no judge, because selectivity
-collapses on a long candidate list (36% of an 80-item list endorsed against ~17% of a 20-item one) and a
-promoted set larger than the page replaces the ranking instead of refining it. **No default moved on one
-model and one workload; what moved is the advice on two shipped options.** The frontier walk is priced and I would
-argue against it: two points already show a ~1:1 exchange and no cliff. **The genuinely open lever is
-encoding-time supersession** — Mem0's ADD/UPDATE/DELETE/NOOP, Zep/Graphiti's bi-temporal invalidation — which
-uses information only the WRITER has. It is not in the backlog because nobody has taken that decision
-(`repo-mechanics.md` § "A conditional item is not a task").
-<br>**This said "not a run, a design conversation" until 2026-09-04, and a run had already happened.**
-`--reconcile` (`docs/task-archive.md` **Part 148**) built exactly that mechanism bench-side — a superseding
-fact DELETES what it replaces — and it was NEGATIVE: it fired (asked 1,427, replaced 122) and `stale@k` moved
-the WRONG WAY, so it deleted the wrong 122. **So the lever is still open but it is no longer unmeasured**,
-and what a design conversation now owes is an answer to why that pass chose wrongly. At n = 25 the ordering
-among extract arms is not a result, and judging the deletions needs ground truth on which pairs SHOULD
-supersede, which does not exist here.
-
-**Part 128 is still where the open memory work lives.** Its first item shipped 2026-08-31 as
-`docs/task-archive.md` **Part 131**: per-source fusion (**D103**) took `+sem+rel-only` from 63.5% to 83.0%,
-the first mechanical arm to clear plain cosine.
-
-**HANDOVER (2026-08-31, superseded above, kept for the reasoning).** The direction was MEMORY OPTIMIZATION
-and it moved a long way, so read this before picking anything up.
-
-**The 2026-08-30 handover's three questions are all ANSWERED** — two by measurement at the owner's direction
-rather than by decision, the third outright — and each is struck through below with what settled it. Nothing
-in that list is work any more.
-
-**What replaced them is one number.** Plain cosine scores **80.5%** on LoCoMo evidence-hit@20; this engine
-scores **54.5%** shipped, **83.0%** on its best mechanical arm (`+sem+rel-only`, per-source fusion,
-`docs/task-archive.md` **Part 131**), and **77.5%** with a PERFECT judge. A pure formula beats
-formula-plus-oracle, so **the deficit is not the model tier** — which matters, because the owner's stated
-design is that a model is an add-on that raises the ceiling and never holds the floor (`model-decoupling.md`
-says the same). Part 128 carries it.
-
-**The standing trap still applies and now has a fifth instance.** Every recall-quality number is a property
-of the INSTRUMENT until proven otherwise: `memory-salience`'s OFF arm was never off (`docs/FIXES.md`,
-2026-08-30), which is the same family as Parts 118, 119 and D100's withdrawn "search wants two shots".
-Before believing a delta, run the arm that structurally CANNOT move.
-
-**And a caution about this session's own reasoning, recorded because it is unusual to be able to measure it —
-with the one thing that worked.** FIVE hypotheses were proposed and FOUR were refuted by checking: the edges,
-magnitude preservation, a homeless removal domain, and retention being unreachable via DI. Two of those were
-inferred from a NAME or a SENTENCE rather than from what the code does, and one nearly shipped a breaking
-namespace change for nothing.
-<br>**The one that held is the only one whose prediction was written down BEFORE the run** — `+sem+rel-only`
-carried both branches in its own source comment, so 63.5% settled it instead of becoming another plausible
-story. The MEASUREMENTS were reliable throughout; the priors were not. **Pre-register the prediction; it is
-what made the difference.**
-<br>Three further defects were caught by GATES rather than by the author — a blind `sed` onto the wrong SQL
-select, two fused XML doc runs, and a dangling `paramref` plus two undocumented parameters that `verify`
-stopped from shipping into consumer-facing XML docs. All three came from verifying narrowly and declaring
-done. **Run `verify`, not a filtered suite.**
-
-1. ~~**`SalienceOptions.MaxSalience` and `NoveltyWeight` — do the two shipped defaults stay?**~~ **ANSWERED
-   2026-08-30 by measurement: YES, both stay.** `MaxSalience` is a switch rather than a dial and at
-   `NoveltyWeight = 1.5` it can never bind, so the shipped `4` is inert on this corpus; moving it is not a
-   no-op in general. **Owner's answer: measure it** — so the ladder was widened to all six shapes with rungs
-   across the decision region, and run on BOTH embedders. **They pick opposite ends** (`NW0.5` vs `NW3`), so
-   no best weight exists to adopt, and the shipped weight is not a net cost under either. Two instrument
-   defects were fixed to get there: the verdict reported Δ miss ALONE (the defect `pitfalls.md` records its
-   sibling paying for), and the `SalienceOff` arm was never off (`docs/FIXES.md`).
-2. ~~**What does the gist tier COMPUTE?**~~ **ANSWERED 2026-08-30 by measurement, and Part 105 is UNBLOCKED.**
-   The owner's answer was "fix the corpus and run it" — the second of the item's three candidates, since
-   `mean` had never been tested (phase B is judged at the retrievability ceiling, so its result was the
-   fixture's, not a rule's). `CorpusShape.RoutineSettleWrites` ages it off that ceiling (`--settle N`,
-   opt-in and byte-identical at `0`, which the goldens prove rather than assert), and **`mean` inverts with
-   the gap** — from "always B" to "always A", through a cardinality-dependent band, under both curves. Every
-   combining form is now refuted on some axis a deployment does not control, which leaves the item's THIRD
-   candidate: a tier that reports N and declines to select.
-   <br>**And that candidate did not survive either — the whole tier is CLOSED as of 2026-09-04**
-   (`docs/task-archive.md` **Part 153**, **D106**). A field pass found the abstraction belongs at ENCODING:
-   every working system records supersession when the fact arrives, so the read-time rules inverted because
-   what distinguishes the regimes was never recorded. What would unblock it is valid-time on the write.
-3. ~~**Does `ExpansionRetrievabilityFloor` move off `0`?**~~ **ANSWERED 2026-08-30 by the owner: it stays at
-   `0`.** Recorded here rather than deleted because the question's own framing was stale when it was asked —
-   it said "it needs more than one workload before anything moves" and quoted a cost of 4 points, both of
-   which Part 123 had already superseded THAT DAY (two workloads; +2.8 `clean` for −1.5 `current@k`, the doc
-   having overstated the cost by 2.7×). The decision is the one Part 123 itself reached on the measurement:
-   the value that BINDS is a property of how decayed a store is, not of the workload — 0.5 excludes nothing
-   on a freshly ingested one — so there is no constant to adopt and a knob that costs any recall is one a
-   deployment opts into. **This is the fourth instance of the banner-vs-item drift `pitfalls.md` records**,
-   in its rarer direction: the item did not change under the banner, the ARCHIVE did.
-
-**And the standing trap for whoever measures next, because it has now cost three published figure sets:**
-every recall-quality number is a property of the INSTRUMENT until proven otherwise. Part 118 (shared stores),
-Part 119 (a near-tie noise floor of ~1 point) and D100's own withdrawn *"search wants two shots"* were all
-harness, not library. Before believing a delta, run the arm that structurally CANNOT move — `vector` never
-touches the graph store — and repeat the after arm rather than reasoning about it.
-<br>_Part 116 held five until Parts 117–121 took three of them outright and two thirds of a fourth; the
-naming pass it gained on 2026-08-30 was filed BLOCKED and closed the same day, so it never counted toward
-the startable set. Both numbers are edited in the same change as the item, which is the habit `pitfalls.md`
-prescribes after four stale banners._
-<br>**Part 109's `K` sweep CLOSED 2026-08-30** as `docs/task-archive.md` **Part 122**, and it overturned its
-own premise: `K` does select a REGIME, but "the shipped 60 is on the wrong side of free" was one workload
-wide and one sample thin. LoCoMo pays 4.5 points of evidence-hit going to K = 120, and the full 70-question
-haystack pays 6.0 points of `current@k` where the 25-question sample said 0.0. **60 is a priced compromise,
-and no default moved** — what is left of that Part is its QA half alone. Its other three items closed
-earlier (**D97**, Part 112's haystack run, Part 113's ranking ladder).
-<br>**The 3D-backend survey CLOSED 2026-08-30** as `docs/task-archive.md` **Part 124**, and like Part 122 it
-overturned its own premise rather than picking one of its two options: a mesh cannot chain into any backend
-here, and no 3D backend produces a turntable — so `3d → image → video` is not buildable at all, and the 3D
-stage's real blocker is a RASTERIZER that does not belong in this library. **It replaced itself in the
-startable set with GEN7a**, the `image → video` runner, which is GEN7's whole design minus the stage that
-has no backend — **and GEN7a was built and CLOSED the same day** as `docs/task-archive.md` **Part 126**. It
-also found two OUTPUT-stage defects, both FIXED that day as **Part 125** — a
-capability ComfyUI declared and never implemented, and a false XML doc that shipped.
-<br>**Part 65 was in this list for an hour and is not any more**, which is the second half of the same test:
-its remaining half turned out to be a DECISION (`MaxSalience`'s default), and a decision nobody has taken is
-not work somebody can start — the same reason Part 105 sat under Blocked before it closed outright.
-Everything measurable in it has
-been measured. The rest of this file needs something this repository does not have (a key, a model download,
-a CLI install, a vendor pick, or a deployment's own data). **Part 99 is a WATCH item and not startable work** — its fix is already
-pinned by a test with a positive control, so nothing in it is codeable and only RECURRENCE can close it.
-That is stated first
-rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat
-two paragraphs down before trusting any "blocked" label here**: a banner that over-claims blockage hides
-startable work inside, and this one has now been wrong that way three times — most recently on 2026-08-28,
-when it named Part 99 (which is codeable by nobody) while omitting `many-candidates`, whose own sub-bullet
-had read **NO LONGER BLOCKED** for five days, and GEN7's survey.
-
-_This banner named `Part 65 / many-candidates` as the one startable item until 2026-08-26, and that item had
-said "CLOSED as **D89**" inside itself since 2026-08-23 — so the file's own summary was steering readers at
-work that was finished. It is `docs/task-archive.md` Part 98 now. **A stale banner is worse than a stale
-entry**: the entry is one item, the banner is the answer to the question the file exists for._
-
-_**Then twice more on 2026-08-29, and the second one is the instructive half.** The banner still named the
-`many-candidates` PAIRED SWEEP, which had run the day before and is written up inside that very item. That
-was corrected — to **`NoveltyWeight`**, which had ALSO already run, in the same commit as the sweep it
-replaced. So the correction repeated the defect it was fixing, and shipped: the fix was made by re-reading
-the item's own prose, and that prose named the next knob without saying it had already been turned._
-
-_**Four instances, one mechanism: an item amended IN PLACE does not amend the banner, and the amendment is
-exactly when the banner goes stale.** Re-reading the entry is not enough, because the entry is what went
-stale. **Check the instrument instead** — `docs/memory.md` §5 or the archive will say whether the thing you
-are about to advertise has already run — and re-read the banner against every item you touch, in the same
-change. `.claude/knowledge/pitfalls.md` carries the rest, including why the three obvious gates for this
-each catch one instance in four._
-
-**The pattern to expect: the next startable item arrives from a CONSUMER, not from this list.** Every
-same-day burst of work since 3.0 came in that way, and the archive has each one. This banner does not
-enumerate them — a running tally of closed Parts is the accumulation the lifecycle rule exists to prevent,
-and it was allowed to grow here twice.
-
-**Two rules for reading a "blocked" label here**, both earned by this file being wrong:
-
-- **A Part is blocked when its DELIVERABLE is; that does not make every sentence in it blocked.** Part 33 was
-  marked blocked in full while two startable pieces sat inside it (closed as **D67** and **D68**), neither
-  needing the key the Part waits on. When labelling something blocked, name what the blocker actually gates.
-- **An ENVIRONMENT blocker has to be re-checked against the environment, not against the tree.** The
-  2026-08-21 re-check read the tree and never asked the machine, so Part 65's `many-candidates` stayed
-  labelled blocked on "a real embedding model" while one sat pulled on this machine.
-
-**Every blocker below was re-checked on 2026-08-28, each against its own KIND** — the environment ones by
-querying the machine, the tree ones by reading the tree. All held. The ENVIRONMENT: `codex` is absent from
-PATH *and* from the npm global root, and **no vendor key is set** in the environment (so GEN-VERIFY, GEN6
-and Part 75 all stand). Ollama is up with `nomic-embed-text`, `embeddinggemma:300m` and `gemma3:4b`, which
-is what keeps `many-candidates` unblocked. The TREE: `GenerationKinds.Model3d` is still a bare constant in
-Core that no provider declares, and `OpenAiHttp.InBandError` is unchanged.
-<br>**The re-check changed no blocker and still moved the banner**, which is the point of doing it by kind:
-what was wrong was not a blocker but the file's own summary of which items they gate.
 
 Blocked, and on what:
 - **Part 33 / GEN-VERIFY** — a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render.
@@ -1253,6 +845,24 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   config change (`LYNTAI_LIVE_CHAT_URL` / `_MODEL`), so this costs a download and one ladder.
   <br>**Read `+judge@40` before choosing a target**: the same model at half the shipped depth is already
   level with no judge, so a newer model has to beat THAT, not the −14.5 the shipped depth produces.
+  _**The candidate shortlist, surveyed 2026-09-10 and adversarially re-checked against the model cards and
+  the HF API.** A DESK survey — sizes and capabilities read, not called — which is the tier GEN-VERIFY exists
+  to distrust, so the SHAPES transfer and nothing here licenses skipping a smoke test. Sizes are exact bytes
+  because MiB and MB straddle a 500 threshold (`pitfalls.md`)._
+  <br>_**Rerankers under 500 MB, multilingual:** `LAMAR-600m` Q5_K_M **468,393,760 B** — measured, see Part
+  176. `xVITA-300M` Q8_0 **332,894,432 B** (2026-08-23, modern-bert) is the untested one and is the smallest
+  credible candidate. `Qwen3-Reranker-0.6B` Q6_K **494,879,136 B** is **deprioritised for a Chinese-first
+  deployment**: it is 0.85 BEHIND bge on MTEB-zh (71.31 against 72.16) while +8.77 on English, and jina's
+  independent table scores it BEIR 56.94 against bge's 56.42 — so the English gain is protocol-dependent. It
+  is also `Qwen3ForCausalLM` scoring yes/no logits, not a `*ForSequenceClassification` cross-encoder._
+  <br>_**Two dead ends, recorded so they are not re-walked:** `bge-reranker-base`/`-large` are "Chinese and
+  English" per their own card — fine for the first phase, a dead end for the JP/KR one. And `gte`'s GGUF
+  declares architecture `new`, which llama.cpp does not register, so it cannot load at all._
+  <br>_**Provenance matters more than the quant here.** `mradermacher`'s Qwen3-Reranker Q6_K has **310**
+  tensors against the working **311** — it is missing `cls.output.weight` and scores silently wrong
+  (llama.cpp #16407). `Voodisss` and `zhiqian99` are byte-identical to each other and correct. Prefer an
+  official conversion, and smoke-test whatever you pull._
+
 - [ ] **Price ONE model serving MANY seams, against one model per seam.** The deployment shape the owner
   named. A `llama-server` serves ONE model per process, so "multi-tasking" is either several resident
   servers (memory-hungry, never swaps — the 2.6× advantage `repo-mechanics.md` records) or one router

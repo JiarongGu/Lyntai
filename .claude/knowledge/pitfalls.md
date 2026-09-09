@@ -1817,6 +1817,19 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Testing
 
+- **Every recall-quality number is a property of the INSTRUMENT until proven otherwise, and this has cost
+  four published figure sets.** `docs/task-archive.md` Part 118 (questions sharing a store), Part 119 (a
+  near-tie noise floor of ~1 point read as a result), **D100**'s own withdrawn *"search wants two shots"*,
+  and `memory-salience`'s OFF arm that was never off (`docs/FIXES.md`, 2026-08-30). Every one looked like a
+  finding about the library and was a finding about the harness.
+  <br>**Before believing a delta, run the arm that structurally CANNOT move** — `vector` never touches the
+  graph store, a verifier shown exactly the page being returned cannot change what is in it, a cap above the
+  depth cannot bind. An arm that moves when it provably cannot is the instrument, and one that reproduces
+  its anchors cell-for-cell is what licenses reading everything else in the table. **Then repeat the after
+  arm rather than reasoning about it.**
+  <br>_Relocated from `TASKS.md` on 2026-09-10, where it had been carried in the banner. A standing trap is
+  knowledge, not backlog — the backlog holds what is left to do._
+
 - **Asserting a specific FAILURE MODE when the claim is only "it tried" makes a test race the clock.**
   Measured 2026-09-04: `ByoHttpClientTests.Default_path_still_creates_a_lyntai_client` points at a closed
   local port and pinned `LlmVerdict.Failed`, whose own comment says it is proving *the client existed and

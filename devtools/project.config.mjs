@@ -881,10 +881,11 @@ export default {
     "bench/Lyntai.Benchmarks/MemorySalienceSweep.cs": [33],
     "bench/Lyntai.Benchmarks/MemorySpacingSweep.cs": [38],
     "bench/Lyntai.Benchmarks/MemoryVerificationSweep.cs": [27],
-    // 31 → 32 on 2026-08-28: this block is the USAGE BANNER, a one-line-per-command table, so registering
-    // `check-decisions` grows it by exactly one. The ratchet permits raising a number deliberately; what it
-    // forbids is a number drifting up unnoticed, which is why this note exists rather than a silent bump.
-    "devtools/dev.mjs": [32],
+    // 31 → 32 on 2026-08-28, → 33 on 2026-09-10: this block is the USAGE BANNER, a one-line-per-command
+    // table, so registering a gate (`check-decisions`, then `check-backlog`) grows it by exactly one. The
+    // ratchet permits raising a number deliberately; what it forbids is a number drifting up unnoticed,
+    // which is why this note exists rather than a silent bump.
+    "devtools/dev.mjs": [33],
     "devtools/nuget-unlist.mjs": [28],
     "devtools/scripts/check-api-vocabulary.mjs": [34],
     "devtools/scripts/check-comments.mjs": [41],

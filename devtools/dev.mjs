@@ -9,6 +9,7 @@
 //   node devtools/dev.mjs check-comments   - FAIL if a comment block outgrows what it explains
 //   node devtools/dev.mjs check-decisions  - FAIL if a DECISIONS.md entry outgrows the decision
 //   node devtools/dev.mjs check-archive    - FAIL if a task-archive.md entry outgrows its outcome
+//   node devtools/dev.mjs check-backlog    - FAIL if the OPEN backlog starts summarizing the archive
 //   node devtools/dev.mjs check-decision-claims - FAIL if a DECISION stops describing the code
 //   node devtools/dev.mjs check-api-vocabulary - FAIL if an API baseline still spells a retired name
 //   node devtools/dev.mjs check-samples [--list]
@@ -616,6 +617,16 @@ switch (cmd) {
     break;
   }
 
+  // check-backlog — FAIL when the OPEN backlog starts summarizing the archive. The FOURTH length ratchet
+  // and the one aimed at `TASKS.md`, which task-lifecycle.md is most opinionated about and which had no
+  // gate at all: its banner reached 478 lines carrying ZERO open checkboxes, having already recorded
+  // deleting a 49-line tally for that exact reason and then regrown one. It also forbids a HANDOVER block
+  // outright — a handover describes work that is DONE, so it belongs in the archive.
+  case 'check-backlog': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-backlog.mjs'), ...args]);
+    break;
+  }
+
   // check-decision-claims — FAIL when a DECISION stops describing the code it governs. Its sibling above
   // gates an entry's LENGTH; this gates its TRUTH. No other gate can: check-docs gates retired vocabulary,
   // check-links gates whether a reference resolves, check-counts gates counts written in prose - and a
@@ -705,7 +716,7 @@ switch (cmd) {
     // file and while the edit that caused it is still the last thing that happened.
     const steps = [['test-devtools', []], ['build', []], ['check-warnings', []], ['check-packages', []],
       ['check-bundle', []], ['check-encoding', []], ['check-docs', []], ['check-links', []],
-      ['check-counts', []], ['check-comments', []], ['check-decisions', []], ['check-archive', []],
+      ['check-counts', []], ['check-comments', []], ['check-decisions', []], ['check-archive', []], ['check-backlog', []],
       ['check-decision-claims', []],
       ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
