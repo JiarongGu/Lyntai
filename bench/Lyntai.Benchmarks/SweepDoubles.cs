@@ -62,6 +62,19 @@ internal static class SweepDoubles
         ?? Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL")
         ?? "http://localhost:8080";
 
+    /// <summary>Names a non-standard endpoint in a run's own output, so a figure carries the deviation
+    /// rather than a reader having to notice a port number.
+    /// <para><b>Written because the rule was broken the day it was made.</b> llama.cpp is this
+    /// repository's standard local server (<c>repo-mechanics.md</c> §Local models), and within hours a
+    /// judge run went to Ollama and the deviation was justified after the fact rather than declared. This
+    /// is the same answer this repository gives every time a written rule is violated anyway: make the
+    /// instrument say it. It is a NOTE, never a failure — Ollama is supported and a deployment may
+    /// legitimately prefer it.</para></summary>
+    internal static string StandardNote(string url) =>
+        url.Contains(":11434", StringComparison.Ordinal)
+            ? "  [Ollama — llama.cpp is the standard here, repo-mechanics.md §Local models]"
+            : "";
+
     /// <summary>
     /// A cached real embedder, or <c>null</c> when no model is reachable — in which case the refusal has
     /// already been written to stderr and the caller should return a non-zero exit.
@@ -86,8 +99,9 @@ internal static class SweepDoubles
             // attributed after the fact by asking which processes were up (`TASKS.md`, 2026-09-04).
             var served = _served = await real.ServedModelAsync();
             Console.WriteLine(served is null || served == model
-                ? $"{sweep}: embedder {model} at {baseUrl}"
-                : $"{sweep}: embedder {served} at {baseUrl} (requested {model}; the server serves what it loaded)");
+                ? $"{sweep}: embedder {model} at {baseUrl}{StandardNote(baseUrl)}"
+                : $"{sweep}: embedder {served} at {baseUrl} (requested {model}; the server serves what it "
+                  + $"loaded){StandardNote(baseUrl)}");
             return new CachingEmbedder(real);
         }
 
@@ -372,7 +386,7 @@ internal static class SweepDoubles
         var chat = new OpenAiCompatibleChat(http, url, model);
         if (await chat.ReachableAsync())
         {
-            Console.WriteLine($"{sweep}: chat {model} at {url}");
+            Console.WriteLine($"{sweep}: chat {model} at {url}{StandardNote(url)}");
             return chat;
         }
 

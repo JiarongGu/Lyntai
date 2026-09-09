@@ -1197,7 +1197,8 @@ internal static class MemoryLongMemEvalBench
             if (judge is null) return 1;
             trigger = new TriggerAudit(new LlmMemoryVerificationPolicy(new SweepDoubles.BenchClientFactory(judge)));
             configs = [.. configs.Select(a => a with { Verification = trigger })];
-            Console.WriteLine($"memory-longmemeval trigger: judge {judge.Model} at {SweepDoubles.ChatBaseUrl}");
+            Console.WriteLine($"memory-longmemeval trigger: judge {judge.Model} at {SweepDoubles.ChatBaseUrl}"
+                + SweepDoubles.StandardNote(SweepDoubles.ChatBaseUrl));
         }
 
         // `--rerank` prices the cross-encoder on the workload this design makes its claim on. It is opt-in

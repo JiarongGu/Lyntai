@@ -185,7 +185,8 @@ internal static class MemoryLocomoBench
         }
         else if (reranker is not null)
         {
-            Console.WriteLine($"memory-locomo rerank: {CrossEncoderReranker.Model} at {CrossEncoderReranker.BaseUrl}");
+            Console.WriteLine($"memory-locomo rerank: {CrossEncoderReranker.Model} at {CrossEncoderReranker.BaseUrl}"
+                + SweepDoubles.StandardNote(CrossEncoderReranker.BaseUrl));
         }
 
         var take = ArgValue(args, "--n") is { } n && int.TryParse(n, out var parsed) ? parsed : 200;
