@@ -99,6 +99,15 @@ first under a dated heading. **The entry shape is the FILE's, not the skill's: r
 entry and mirror it** — a skill is a general procedure, the file in front of you is this repository's
 actual convention. Route everything else by kind (`persist-working-state.md` §Route by KIND).
 
+**A later fix that corrects an earlier entry writes the correction at that entry's HEAD, never its foot**,
+as a blockquote plus a `<!-- keeps: … -->` on the heading saying what still holds — because a reader
+arrives INSIDE an entry from a grep, and a superseded entry is usually still the ONLY home of its reusable
+half, so it must be readable rather than skippable. **Deliberately not gated**, and the reason is worth
+keeping so nobody builds it and finds out: both candidate signals were measured on 2026-09-10 and both are
+noise. A vocabulary scan for `CORRECT(ED|ION)|RETRACT|STALE|SUPERSED` is what `check-measurements` refused
+at 63 hits and zero defects, and the structural signal — content after the `**Verify.**` paragraph — is
+present in **42 of 50** entries, because `**Introduced by.**` is part of the entry shape.
+
 ## Package layout — the binding for the general rule
 
 `dotnet-package-layout.md` states the boundaries; here they resolve to concrete names.

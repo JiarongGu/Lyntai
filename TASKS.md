@@ -15,31 +15,30 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 18 across 12 Parts: 9 startable, 7 blocked, 1 watch, 1 decision-only
+## Open items — 17 across 11 Parts: 8 startable, 7 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 94 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 138 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 147 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 201 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 272 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 350 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 405 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 428 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 499 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 561 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
-| 680 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 701 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
-| 709 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
-| 763 | 129 | Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memo… | startable |  |
-| 842 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
-| 868 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
-| 878 | 177 | Write the task-shape taxonomy down as guidance | startable |  |
-| 924 | 178 | Add a `keeps=` header to superseded `docs/FIXES.md` entries | startable |  |
+| 93 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 137 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 146 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 200 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 271 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 349 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 404 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 427 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 498 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 560 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
+| 679 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 700 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
+| 708 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
+| 762 | 129 | Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memo… | startable |  |
+| 841 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
+| 867 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
+| 877 | 177 | Write the task-shape taxonomy down as guidance | startable |  |
 
 <!-- open-items:end -->
 
@@ -54,7 +53,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is NINE items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is EIGHT items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -880,51 +879,6 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   <500 MB and which need a structural constraint rather than a prompt, and put it where a consumer reads it
   (`docs/memory.md` §7 or a new section, plus `model-decoupling.md`'s neighbourhood). **Not a decision and
   not new surface**: the seams exist, so this is the advice on top of them.
-
----
-
-## Part 178 — cut the cold-start cost: generated indexes, and a 36k always-on budget (2026-09-10)
-
-_Opened from a MEASUREMENT, not an opinion. Five instrumented cold-start probes read the repository the way
-a fresh session would: **3,459 lines pulled, 1,838 wasted (53%), and two of five answers were not
-current**. Fixed cost before a session does anything was **~36,000 tokens** when this Part opened
-(`CLAUDE.md` 67,686 chars + `.claude/rules/*` 76,106), of which `CLAUDE.md`'s `## Dev loop` was 63%._
-
-_**The budget question is SETTLED (2026-09-10, Part 182).** The always-on tier now reads `CLAUDE.md`
-**13,026** + rules body **42,802** = **55,828 chars** (~14k tokens), against **141,330** when the paydown
-started — and the measurement is of the BODY, because the harness strips the rules' frontmatter before
-injection, so deleting it buys nothing. **~14k was accepted rather than the ~13k asked for**: past that
-point the cut removes rules instead of prose, and the two candidates for closing the gap were deleting
-`no-global-memory.md` and merging two rule files. **Every gate this Part adds still pays rent in the one
-file every session reads first** — but the rent is now one row of a generated table (**D113**), not a
-paragraph._
-
-| probe | read | wasted | current? |
-|---|---|---|---|
-| best memory config | ~595 | 55% | **no — unverifiable by construction** |
-| why `SalienceWeight = 0` | ~730 | 27% | direction only |
-| add a storage backend | ~970 | **61%** | **no — docs were wrong (fixed, `5206a74`)** |
-| what is open | ~625 | **74%** | yes, ungated |
-| find a trap | ~539 | 47% | yes |
-
-_**Three findings govern every item below.** (1) **Generated and gated, or do not build it** — four
-hand-written indexes had drifted (`memory.md`'s "D39–D62" range, this banner's four wrong counts,
-`extending-lyntai`'s "twelve", a stale amendment roster) against ZERO from `decisions-index`.
-(2) **Heading-level indexing is the fix that looks sufficient and is not** — `memory.md` retracts INLINE,
-mid-section, so heading-grep is blind by construction; the index must be at RESULT-ROW granularity.
-(3) `decisions-index` barely helped LOCATING cost (~66 vs ~117 lines); its wins were precision and a free
-currency scan, so sizing a new index for READING is over-building._
-
-_**Five items closed 2026-09-10** — `docs/task-archive.md` **Parts 179–183**: the rule template left the
-always-on tier, the roster at the head of this file is generated from per-item markers (**D111**), the
-traps record is filed by facets orthogonal to its headings (**D112**), the always-on tier was paid down
-60% behind a generated command table (**D113**), and the measurement record was split out behind a
-generated results index (**D114**). **One item is left**, and the cheap ones are long gone._
-
-- [ ] **Add a `keeps=` header to superseded `docs/FIXES.md` entries** — a table is the wrong fix, because a <!-- item: state=startable -->
-  reader arrives INSIDE an entry from a grep and never sees the top of the file. Three same-day entries
-  each partly retract the one below, and a probe could not skip the superseded one because its reusable
-  half lived only there. Render the retraction at the entry's HEAD; today it sits at the bottom.
 
 ---
 

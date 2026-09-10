@@ -2924,3 +2924,31 @@ for.
 structurally cannot see**, its pattern needing a filename before the `§`.
 
 - Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a generated results index.
+
+## Part 184 — a superseded fix entry says what it KEEPS, at its head
+
+✅ done 2026-09-10. Closes Part 178. Two `docs/FIXES.md` entries gained a `<!-- keeps: … -->` marker and a
+head blockquote naming what still holds and what does not; the one correction block that sat at an entry's
+FOOT moved up, and the two false claims it corrects gained an inline pointer where a grep actually lands.
+
+**Not gated, and the refusal is the finding.** Both candidate signals were measured rather than assumed.
+The vocabulary scan is the one `check-measurements` had already refused the same day at 63 hits and zero
+defects. The structural one — content after the `**Verify.**` paragraph — is present in **42 of 50**
+entries, because `**Introduced by.**` is part of the entry shape; the genuine self-retraction population is
+**one**. A gate for a population of one, on a signal measured at 84% noise, is the mistake this Part spent
+the day recording. The convention lives in `.claude/rules/repo-mechanics.md` §Fix log with that reason
+attached.
+
+- Add a `keeps=` header to superseded `docs/FIXES.md` entries.
+
+## Part 178 — the cold-start measurement, closed in full
+
+✅ done 2026-09-10, six items, `docs/task-archive.md` Parts 179–184. Opened from five instrumented probes,
+not an opinion. It bought four gates — `check-backlog` (**D111**), `check-pitfalls` (**D112**),
+`check-dev-loop` (**D113**) and `check-measurements` (**D114**) — paid the always-on tier down from
+141,330 to 55,828 characters, and cut `docs/memory.md` from 4,248 lines to 800.
+
+**The measurement and the four findings it produced are `docs/GATES.md` §The cold-start measurement**,
+which is the record that owns them; this entry does not carry a second copy. The last of those findings —
+*measure a candidate signal before shipping a scan over it* — came out of building the gates rather than
+out of the probes, and refused two scans on its own terms.

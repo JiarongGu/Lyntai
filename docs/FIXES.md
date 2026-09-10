@@ -49,7 +49,16 @@ lost heartbeat is a lost cross-process job slot. Different subsystem, different 
 
 ---
 
-## 2026-09-09 — the same defect in three more places, and a control that could not fail
+## 2026-09-09 — the same defect in three more places, and a control that could not fail <!-- keeps: the three sites, the fix, and the caller-cancel control that PASSED under the wrong repair; NOT the census or the "two remaining candidates" filing -->
+
+> **PARTLY SUPERSEDED — the census and the filing below were closed by the entry above, the same day.**
+> <br>**KEEPS — and it is the reusable half:** both seams' caller-cancel twins, the controls that exist to
+> stop the wrong repair, **passed under the wrong repair**. A control that cannot fail is worth nothing,
+> and neither one could until it was made to MARK the exception the seam throws and assert on the marker.
+> <br>**DOES NOT KEEP — the census** (`5` guarded, `16` bare) and **"two remaining candidates are recorded
+> in `TASKS.md` rather than swept"**. The entry above swept all 16, having found the premise that filed
+> them — that their cancellation semantics differ — was false. The census is now 21 catches, 20 guarded,
+> **0** bare.
 
 **Symptom.** None observed. This is the entry below's own open question, answered by asking rather than
 waiting: it closed by fixing `GraphMemoryEngine.VerifyAsync` and filing whether the ANNOTATION seam — the
@@ -87,7 +96,22 @@ against. **The guarded idiom was not new**: `SemanticMemory.cs:50` has carried i
 
 ---
 
-## 2026-09-09 — a fail-open seam failed CLOSED on the one failure a model-backed policy actually has
+## 2026-09-09 — a fail-open seam failed CLOSED on the one failure a model-backed policy actually has <!-- keeps: the symptom, root cause and fix — the only statement of them anywhere; NOT the "both tests fail" claim, the "20 other sites" census, or the open question at the foot -->
+
+> **PARTLY SUPERSEDED — two claims below are wrong, and this entry is still not skippable.** Corrected the
+> same day by the two entries above rather than left to be inherited.
+> <br>**KEEPS — and it lives only here:** the symptom, the root cause and the fix. An `HttpClient` timeout
+> arrives as `TaskCanceledException`, which **is** an `OperationCanceledException`, so a fail-open seam
+> that rethrows the base type fails closed on exactly the failure a model-backed policy has.
+> <br>**DOES NOT KEEP — *"Both tests fail on the old catch"*, which is FALSE of the second.**
+> `A_CALLER_cancelling_still_propagates` passed under the old catch and under the wrong fix alike, because
+> `RecallAsync` checks the token before the verifier is ever reached. It has since been rewritten to
+> discriminate, and mutation-tested.
+> <br>**DOES NOT KEEP — *"20 other sites"*, which is 19.** The census counts 21 in all, and one of the 20
+> (`SemanticMemory.cs:50`) already carried the filter, having done so since 2026-07-18 (`8a2cde6`).
+> <br>**The open question at the foot is ANSWERED:** yes, the annotation seam had the same defect, in two
+> more places — and the remaining bare sites were swept by the newest entry, which found their "cancellation
+> semantics differ" premise was false.
 
 **Symptom.** A `memory-longmemeval --haystack --trigger` run died ~40 minutes in, after ingesting 34,242
 turns, with `TaskCanceledException: The request was canceled due to the configured HttpClient.Timeout of 300
@@ -108,18 +132,11 @@ pinned, because the wrong fix here is to swallow every cancellation, which would
 look like a successful one: `MemoryVerificationTimeoutTests` asserts that a timing-out verifier still
 returns items AND that a cancelled caller still gets an `OperationCanceledException`.
 
-**Verify.** Both tests fail on the old catch and pass on the new one; `verify` green. **The same idiom
-appears at 20 other sites in `Lyntai.Core/Memory`** and was deliberately NOT changed in this fix: the
+**Verify.** Both tests fail on the old catch and pass on the new one; <!-- both this sentence and the count below are corrected at this entry's HEAD --> `verify` green. **The same idiom
+appears at 20 other sites in `Lyntai.Core/Memory`** <!-- count-ok: the figure AS CLAIMED here; it is 19, corrected at this entry's HEAD --> and was deliberately NOT changed in this fix: the
 evidence is for the verification seam, and the store-facing sites wrap work whose cancellation semantics
 are different. Whether the annotation seam — the other opt-in model-in-the-loop policy, and the other one
 documented fail-open — has the same defect is an open question, filed rather than assumed.
-
-_**Two corrections from the entry above, made the same day rather than left to be inherited.** "Both tests
-fail on the old catch" is FALSE of the second one: `A_CALLER_cancelling_still_propagates` passed under the
-old catch and under the wrong fix alike, because `RecallAsync` checks the token before the verifier is ever
-reached — it has been rewritten to discriminate and mutation-tested. And "20 other sites" is **19**: the
-census counts 21 in all, and one of the 20 (`SemanticMemory.cs:50`) already carried the filter, having done
-so since 2026-07-18. The annotation question is answered above: yes, and in two more places._
 
 ---
 

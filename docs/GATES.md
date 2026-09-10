@@ -26,6 +26,34 @@ guard script has its own test (`test-devtools`, and it runs FIRST in `verify`), 
 counter is pinned against the real tree, and why every registered decision predicate is driven RED by a
 synthesized tree before it is trusted.
 
+### The cold-start measurement, and the four gates it bought (2026-09-10)
+
+Five instrumented probes read this repository the way a fresh session would — **3,459 lines pulled, 1,838
+wasted (53%), and two of five answers were not current.** It is the measurement `check-backlog`,
+`check-pitfalls`, `check-dev-loop` and `check-measurements` were all built from, so it lives here rather
+than in a backlog banner that closed with them.
+
+| probe | read | wasted | current? |
+|---|---|---|---|
+| best memory config | ~595 | 55% | **no — unverifiable by construction** |
+| why `SalienceWeight = 0` | ~730 | 27% | direction only |
+| add a storage backend | ~970 | **61%** | **no — the docs were wrong** |
+| what is open | ~625 | **74%** | yes, ungated |
+| find a trap | ~539 | 47% | yes |
+
+**Three findings, and each has since been paid for twice.** (1) **Generated and gated, or do not build
+it** — four hand-written indexes had drifted against ZERO from `decisions-index`. (2) **Heading-level
+indexing is the fix that looks sufficient and is not**, because the measurement record retracts INLINE, so
+a heading-grep is blind by construction and the index must be at RESULT-ROW granularity. (3) An index sized
+for READING is over-building: `decisions-index` barely helped LOCATING cost (~66 lines against ~117), its
+wins being precision and a free currency scan — so `check-pitfalls`' index is line numbers only.
+
+**A fourth arrived from building them, and it is the one that governs the next gate:** *measure a candidate
+signal before shipping a scan over it.* Two were refused that way — a retraction vocabulary over prose
+bodies (63 hits, **zero** defects, because the record's subject matter IS supersession) and "content after
+the `**Verify.**` paragraph" in the fix log (present in **42 of 50** entries). A scan nobody counted is
+indistinguishable from a strict one until it teaches a maintainer to reach for the escape token.
+
 ## `verify` — the roster, and what it does not hold
 
 The step list in `devtools/dev.mjs` IS the roster; `verify`'s own summary line is derived from it, so
