@@ -127,6 +127,20 @@ size does not — the same 4B model reads best-in-class on this repository's own
 catastrophic on a field benchmark at the shipped depth. One model, two corpora, opposite signs. Price it on
 the corpus at hand; `.claude/knowledge/model-decoupling.md` is the standing rule.
 
+### The shape decides how you SERVE it, too
+
+**An encode-only shape and a generative one want opposite serving configurations, and the gap is large
+enough to mistake for a hardware limit.** *Embed* and *score-a-pair* never generate a token — they are all
+prompt processing, so they take GPU offload well. The generative shapes spend most of their wall clock
+producing tokens, which is a different kernel entirely and can be dramatically worse on a *contended*
+device even when prompt processing on that same device is faster.
+
+Measured here on one contended laptop, so read the DIRECTION and re-measure the size yourself: an embedder
+ran **4.8× faster** fully offloaded, while a 4B instruct model ran an order of magnitude *slower* offloaded
+than on CPU. **Set the offload level per seam and per machine, and never infer one from the other** — the
+same box gave both results within the hour. The vectors were identical across devices, so for the
+encode-only shapes this is a free speed choice rather than a trade.
+
 **Where a shortlist of small models exists at all it is a DESK survey** — sizes and capabilities read from
 model cards, never called (`TASKS.md` Part 177). Two things make that tier worth distrusting here rather
 than merely unconfirmed: a community conversion of a reranker can be missing its classification head, in
