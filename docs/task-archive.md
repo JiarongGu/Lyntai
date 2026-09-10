@@ -1180,7 +1180,7 @@ prose that had already been written. D95 carries the measured versions; the reus
 ✅ done 2026-08-28 — `RoutineCount` is now a fourth axis on `MemoryGistSupportSweep`'s grid: **2400 replays**
 (60 shapes × 4 rungs × 5 seeds × 2 injected clocks), all seven controls holding 2400/2400. Rungs 3/5/8/12 give
 |A|/|B| of 2.00/4.00/3.00/2.00, with **two rungs at ratio 2.00 and different sizes** so a moving result is
-attributable to the ratio rather than to |A| growing. Tables in `docs/memory.md` §5; **D94**'s "honest limit"
+attributable to the ratio rather than to |A| growing. Tables in `docs/memory-measurements.md` §5; **D94**'s "honest limit"
 paragraph is now a measured result.
 
 **The finding is negative and it removes the last candidate.** D94 named θ = 0.1 and θ = 0.9 as the two
@@ -1213,7 +1213,7 @@ scores **evidence-hit@k, model-free**: the benchmark names the evidence turn by 
 checkable with no reader and no judge. Result on 200 stratified questions: shipped defaults **11.0%**,
 `SemanticSeedK = 20` **11.0%**, `+ RetrievabilityWeight = 0` **22.5%**, plain cosine at the same k
 **80.5%**. Every arm returned a full 20 items, so it is ranking the wrong 20, not filtering. Tables and
-scope in `docs/memory.md` §5; what is left open is `TASKS.md` Part 109.
+scope in `docs/memory-measurements.md` §5; what is left open is `TASKS.md` Part 109.
 
 **The finding is that this engine's ranking defaults are built for a workload LoCoMo deliberately is not.**
 `RelevanceWeight` and `RetrievabilityWeight` both ship at 1, so a recall weighs how-reachable equally with
@@ -1230,7 +1230,7 @@ independent. Each arm now ingests into a pristine store; `MemoryReinforcementEff
 cheaper and was refused because its own doc calls it the worst arm for recall quality, so it would have
 biased the comparison toward this library.
 
-**Also landed in the same pass:** a literature comparison against the 2026 field (`docs/memory.md` §5) —
+**Also landed in the same pass:** a literature comparison against the 2026 field (`docs/memory-measurements.md` §5) —
 only MemoryBank models decay with a curve at all and nobody surveyed uses FSRS or a power law; nothing
 surveyed measures age in interference rather than elapsed time; and the newest work reaches this session's
 own salience conclusion from the other direction, calling static single-signal importance "mis-specified"
@@ -1247,7 +1247,7 @@ seed fetched by id, outranked everything that had actually been scored. `GraphNo
 `bool? Matched` (default `true`); an unscored read reports `Relevance 0` with `Matched null`, and
 `MultiplicativeRankingPolicy` omits the relevance factor rather than multiplying by it.
 
-**Measured on LoCoMo** (`docs/memory.md` §5), evidence-hit@20: defaults **11.0% → 31.0%**, `SemanticSeedK`
+**Measured on LoCoMo** (`docs/memory-measurements.md` §5), evidence-hit@20: defaults **11.0% → 31.0%**, `SemanticSeedK`
 **11.0% → 36.0%**, `+ RetrievabilityWeight = 0` **22.5% → 63.5%**, with the cosine control unmoved at 80.5%.
 `SemanticSeedK` becomes worth **+5.0 points** where it was worth exactly 0.0 — a real 0.785 cosine could
 never beat a fabricated 1.000, so the option was unreachable rather than weak.
@@ -1276,7 +1276,7 @@ score moves a result by *exactly* zero, where a merely weak one moves it a littl
 ✅ done 2026-08-29 — `node devtools/dev.mjs memory-longmemeval --haystack` reads `longmemeval_s` instead of
 the oracle file, putting the same questions among ~490 turns of distractors. Both classes ran in FULL — 70
 knowledge-update (34,242 turns per arm) and 132 temporal-reasoning (64,911) — so nothing is sampled and the
-`--n`/`--seed` sampling built for it went unused. Tables in `docs/memory.md` §5.
+`--n`/`--seed` sampling built for it went unused. Tables in `docs/memory-measurements.md` §5.
 
 **The knowledge-update win survives at +40.0**, and what moved is suppression rather than retrieval.
 **The temporal result REVERSED** — −4.6 on the oracle becomes +3.8 on the haystack — which is the finding:
@@ -1291,14 +1291,14 @@ oracle returns 40% of its store, so it barely tests retrieval at all. **This is 
 variant to run**, at ~40× the ingestion cost.
 
 **A latent loader defect the haystack exposed** — a rule that was right BY ACCIDENT on oracle data and found
-nothing on the haystack — is written up in `docs/memory.md` §5 with its two controls, including the
+nothing on the haystack — is written up in `docs/memory-measurements.md` §5 with its two controls, including the
 byte-identical fourteen-cell re-run that proves the fix moved no published number.
 
 - **Extend `memory-longmemeval` past the knowledge-update class.**
 
 ## Part 113 — the twenty slots are spent on the right candidates; the gap is the DESIGN (2026-08-29)
 
-✅ done 2026-08-29 — closed by the second LoCoMo ladder. Tables in `docs/memory.md` §5; every arm holds
+✅ done 2026-08-29 — closed by the second LoCoMo ladder. Tables in `docs/memory-measurements.md` §5; every arm holds
 `RetrievabilityWeight` at its shipped default, so nothing here measures the engine with forgetting switched
 off. **The absolute levels this ran on were superseded by Part 118's contamination fix** — read the ladder
 there, not from any figure quoted in this entry's original form.
@@ -1327,7 +1327,7 @@ scoreboard**.
 while twenty times more candidates competed for the same ten slots. `memory-longmemeval --ranks` installs a
 probe `IMemoryRankingPolicy` that observes the candidate pool and delegates the real ranking untouched.
 **No library change** — `MemoryCandidate` already exposes `Retrievability`, `Hop` and the whole pool, which
-is the seam doing its job. Tables in `docs/memory.md` §5.
+is the seam doing its job. Tables in `docs/memory-measurements.md` §5.
 
 **The answer inverts the question.** Under distractors the decay model separates the pair **3.6× better** by
 value (0.0347 → 0.1235) and **2.6× better** by rank (10 → 26 positions) — and the score separation RRF
@@ -1358,7 +1358,7 @@ one benchmark is not a mandate to move a published constant.
 ## Part 115 — the QA half, the shot curve, and a defect where forgetting had no vote (2026-08-29)
 
 ✅ done 2026-08-29 — the QA half of `TASKS.md` Part 109 ran, and it grew a second half nobody had asked for
-because the first one measured the wrong mode. Tables in `docs/memory.md` §5.
+because the first one measured the wrong mode. Tables in `docs/memory-measurements.md` §5.
 
 **The QA half, on Mem0's own benchmark.** LoCoMo, 100 questions, local reader, token-F1 primary and the LLM
 judge beside it: `lyntai` 20.3%, `lyntai-2shot` 22.5%, `vector` 45.8%, `vector-40` 49.8%. Grading is now
@@ -1434,7 +1434,7 @@ fix was stashed so the old code had to FAIL that check, or it would only be evid
 **Every LoCoMo figure moved 20-25 points and `vector` did not move at all** — byte-identical at 80.5%,
 because it never touches the graph store. An arm that structurally could not gain did not gain, which is
 what makes the other five readable as isolation rather than drift. The gap to cosine is −26.0, not −49.5.
-Tables: `docs/memory.md` §5.
+Tables: `docs/memory-measurements.md` §5.
 
 **It cost a published claim, and that is the honest headline.** *"Search wants two shots"* is WITHDRAWN:
 **D100** cited shot 2 at +6.0, and isolated the curve is +1.5 on a shot 1 that was 24.5 points too low — a
@@ -1452,7 +1452,7 @@ their DELTA stands, and the QA half needs a reader (`TASKS.md` Part 109).
 
 ✅ done 2026-08-29 — two thirds of `TASKS.md` Part 116's shot-curve item: knowledge-update went from a
 25-question sample to all 70, and the temporal class got its first shot curve, on both variants. Tables in
-`docs/memory.md` §5. The remaining third — LongMemEval's four other classes — is re-scoped rather than
+`docs/memory-measurements.md` §5. The remaining third — LongMemEval's four other classes — is re-scoped rather than
 closed: each needs a metric matching what that class ASKS, which is design work and not a run.
 
 **The full knowledge-update sample moved the LEVEL down and the RATIO up** — every `clean` figure fell 6–9
@@ -1468,7 +1468,7 @@ multi-shot gain by 2.7×, Part 112's bias recurring on a third question.
 
 **A one-question disagreement was chased rather than published and became a measurement**: the haystack has
 a reproducibility floor of ONE QUESTION on the graph arms while both vector arms stayed byte-identical, so
-deltas are stable and levels are good to about a point. `docs/memory.md` §5 has it, and `pitfalls.md`
+deltas are stable and levels are good to about a point. `docs/memory-measurements.md` §5 has it, and `pitfalls.md`
 §Testing the general form.
 
 **One refactor, proven neutral before it was trusted.** `WalkAsync` was extracted rather than written a
@@ -1542,7 +1542,7 @@ identifiers, and the same grep correctly left the five pre-existing `MaxEntries`
 
 ✅ done 2026-08-30 — `TASKS.md` Part 109's `K` sweep. Built `node devtools/dev.mjs memory-locomo --ranks`,
 the LoCoMo-side ladder that item asked for, and ran it beside a re-run of the LongMemEval haystack ladder at
-full sample. Tables in `docs/memory.md` §5. **No default moved, and the item's own premise is what the
+full sample. Tables in `docs/memory-measurements.md` §5. **No default moved, and the item's own premise is what the
 measurement overturned.**
 
 **The premise was that K = 120 is free, and BOTH halves of it failed.** LoCoMo is a SEARCH workload, and
@@ -1571,7 +1571,7 @@ early `continue` skipped a dictionary a later scoring path read — which is the
 
 ✅ done 2026-08-30 — `TASKS.md` Part 116's `ExpansionRetrievabilityFloor` sweep. `--expand-floor` was added
 to the LoCoMo harness so both workloads can be priced, and the knowledge-update arm re-run at 70 questions.
-Tables in `docs/memory.md` §5. **The default did not move; the DOCUMENTATION did, and that is the finding.**
+Tables in `docs/memory-measurements.md` §5. **The default did not move; the DOCUMENTATION did, and that is the finding.**
 
 **It cannot be swept the cheap way, and saying why matters.** The `K` ladder one section earlier scores
 offline from a single ingestion because K only re-ranks a fixed pool. The floor changes which neighbours are
@@ -1681,7 +1681,7 @@ claim, grep the CLAIM.
 
 ✅ done 2026-08-30 — `TASKS.md` Part 65's "two option defaults, and one makes the other inert". The owner
 was asked whether `SalienceOptions.MaxSalience` (4) and `NoveltyWeight` (1.5) should stay and answered
-**measure it**, so the question stopped being a decision and became a ladder. Tables in `docs/memory.md` §5.
+**measure it**, so the question stopped being a decision and became a ladder. Tables in `docs/memory-measurements.md` §5.
 **Outcome: both defaults stay**, and the reason is that the two real embedders pick OPPOSITE ends of the
 ladder — `NW0.5` under `nomic-embed-text`, `NW3` under `embeddinggemma:300m` — so no best weight exists to
 adopt. That is `docs/DECISIONS.md` D89's own precedent holding a second time: it required a second embedder
@@ -1749,7 +1749,7 @@ the exact failure `test-devtools` exists for.
 ✅ done 2026-08-31 — `TASKS.md` Part 128's first item, "make `Relevance` comparable before it is ranked."
 Shipped as `IMemorySeedSource` (`docs/DECISIONS.md` **D103**): `ReciprocalRankFusionPolicy` now fuses each
 source's own ranked list instead of one pooled `Relevance` field. Tables and the full reading are
-`docs/memory.md` §5.
+`docs/memory-measurements.md` §5.
 
 **Outcome, controls beside the result.** Three controls reproduced exactly across two runs — `vector` 80.5%,
 `+rel-only` 60.0%, `lyntai` 54.5% — so the harness did not move. `+sem+fuse` clears the old 63.5% bar at
@@ -1778,14 +1778,14 @@ seed as "nobody asked" — `MultiplicativeRankingPolicy` itself was never touche
 against `vector-40`. A third `--seeds` measurement (16, after 3 and 8) answers it: **mostly volume**. The gap
 to `vector-40` narrowed **11.3 → 5.3 → 2.5** points as chars/q rose 5010 → 5727 → 6747 (`vector-40`'s own
 7090), and the pre-registered "at least ~4 points is FORM" floor is falsified — a 2.5-point total residual
-cannot contain a 4-point floor. Full tables and reading: `docs/memory.md` §5.
+cannot contain a 4-point floor. Full tables and reading: `docs/memory-measurements.md` §5.
 
 **RETRACTED 2026-09-01, same day — the superadditivity claim.** Every reading here was taken at n = 100; at
 the full 1,540 questions the interaction reads **+1.0**, not distinguishable from zero. An interaction is a
 difference of differences, so its error runs roughly double any one component's. **The category wins are
 retracted with it** — +6.2 and +5.5 became four deltas of −0.6, −2.1, +0.1, −0.3. What survives is the
 volume-vs-form reading, which was never a difference of differences: the residual reads −0.6 points at full
-sample, still "mostly volume, not form". `docs/memory.md` §5's retraction subsection.
+sample, still "mostly volume, not form". `docs/memory-measurements.md` §5's retraction subsection.
 
 **A methodological correction rides along and matters more than the number.** The interaction was reported
 +6.7, corrected to +4.2, and the third point read +6.8 — **non-monotonic**, so the direction drawn from two
@@ -1797,7 +1797,7 @@ CEILING on what the walk can use, where the shipped-ranking arm plateaus.
 behind it — that model was already known wrong from the previous round.
 
 **What is left is a different question than the one this Part opened**: an EFFICIENCY gap (~1.9× the context
-for matching accuracy), not a capability one. Recorded as a finding in `docs/memory.md` §5, deliberately not
+for matching accuracy), not a capability one. Recorded as a finding in `docs/memory-measurements.md` §5, deliberately not
 opened as a task.
 
 - Separate volume from form in the walk's residual gap against `vector-40`.
@@ -1807,7 +1807,7 @@ opened as a task.
 ✅ done 2026-09-02 — Built `node devtools/dev.mjs memory-locomo --composition` (`MemoryLocomoBench.cs`), a
 model-free two-arm mode that decomposes a returned context into headline versus content and counts
 duplication within it. Full sample, 1,540 questions, 1,269.7s. Findings and tables:
-`docs/memory.md` §5 finding 9. **Three of the four questions needed no run at all** — they fall out of the
+`docs/memory-measurements.md` §5 finding 9. **Three of the four questions needed no run at all** — they fall out of the
 published QA table divided through by its own `items/q`, validated by a corpus reconstruction that
 reproduces the `full` row (601.4 items/q, 101209 chars/q) to the character.
 
@@ -1868,7 +1868,7 @@ above makes unsatisfiable; the capitalised-connector and article-less proofs sta
 (`MemoryLocomoBench.cs`), which reuses `lyntai-fused`'s OWN returned set and swaps each item's headline for
 the whole turn behind it — identical retrieval, ranking and 20 slots, so the arms differ in truncation and
 nothing else. It builds no engine and issues no second recall. CONTROL: 4,000 of 4,000 items rehydrated, no
-misses. `memory-locomo --n 200 --no-judge`, seed 12345, 2,712.4s. Tables: `docs/memory.md` §5.
+misses. `memory-locomo --n 200 --no-judge`, seed 12345, 2,712.4s. Tables: `docs/memory-measurements.md` §5.
 
 **token-F1 goes 29.3% → 41.0%, landing on plain cosine's 41.3%** at the same 20 slots and within 1.2% of the
 same context. **The engine's ranking is not worse than cosine — the entire measured QA deficit was headline
@@ -1899,11 +1899,11 @@ reader tier, one embedder, and category splits that do not all point one way.
 
 ✅ done 2026-09-02 — **Yes: LEVEL with plain cosine at 40 slots.** `lyntai-fused-3shot-full` — the three-shot
 walk asking for `MemoryDetail.Full` — scores **44.0%** token-F1 against `vector-40`'s **44.4%** at 39.7 slots
-and 6,941 chars against 6,780, on all 1,540 questions. Tables: `docs/memory.md` §5. The engine was measured
+and 6,941 chars against 6,780, on all 1,540 questions. Tables: `docs/memory-measurements.md` §5. The engine was measured
 12 points behind cosine before headline truncation was found; it is now within half a point.
 
 **An n = 200 pass read this as +0.9 and AHEAD, and the full sample RETRACTED it** — the sign flipped, and
-the retraction is in `docs/memory.md` §5 rather than only here because the "first time the engine is ahead"
+the retraction is in `docs/memory-measurements.md` §5 rather than only here because the "first time the engine is ahead"
 claim had already been written into the record. The noise floor is why: two arms sending byte-identical
 prompts scored 40.7/41.1 at n = 200 and 42.2/42.2 at full sample, so ±1 point was never resolvable at 200.
 **Pre-registration protects nothing if the run that judges it is underpowered** — the pre-registration here
@@ -1951,7 +1951,7 @@ the kind, and tells a consumer with their own channel to declare it.
 
 ✅ done 2026-09-02 — **The claim SURVIVED**, unlike the 40-slot claim measured beside it:
 **`lyntai-fused-api` 42.0% token-F1 against `vector`'s 42.4%** on all 1,540 questions, a −0.4 where Part 136
-read −0.3 at n = 200. Same sign, same magnitude. `docs/memory.md` §5 has the table and the reading.
+read −0.3 at n = 200. Same sign, same magnitude. `docs/memory-measurements.md` §5 has the table and the reading.
 
 **Why it was worth confirming something that did not change.** The claim was measured in the same session as
 a 40-slot claim that flipped sign at full sample, and the confirming run had dropped `vector` (20 items) —
@@ -2029,7 +2029,7 @@ true of the index TABLES and false of the directory, which is the only place it 
 ## Part 176 — three rerankers, one score: a 468 MB model matches a 636 MB one, and recency buys nothing
 
 ✅ done 2026-09-10, at the owner's direction ("try to improve with a smaller judge < 500mb"). Table:
-`docs/memory.md` §5. Four traps went to `.claude/knowledge/pitfalls.md`.
+`docs/memory-measurements.md` §5. Four traps went to `.claude/knowledge/pitfalls.md`.
 
 **`LAMAR-600m` is a near-perfect control for MODEL AGE** — same `XLMRobertaForSequenceClassification`, same
 567,755,777 parameters as `bge-reranker-v2-m3`, released 28 months later. **At matched quantisation it is
@@ -2046,7 +2046,7 @@ the model measured as costing 10.5 points is an LLM JUDGE facing a different tas
 
 ## Part 175 — the endorsement CAP is not the lever, and the comparison that suggested it was confounded
 
-✅ done 2026-09-10. **D110**; table in `docs/memory.md` §5.
+✅ done 2026-09-10. **D110**; table in `docs/memory-measurements.md` §5.
 
 **The repo's own source named the confound and nobody had read it**: the cross-encoder endorses a FIXED
 top-k, so the failure that cost the 4B judge its points is unreachable for it by construction. So
@@ -2104,7 +2104,7 @@ grep total) was corrected and GATED — `check-counts` grew a counter.
 
 ✅ done 2026-09-09. The one measurement **D109** named as able to reopen the direction. It closed it
 instead. All 70 knowledge-update questions, haystack, shipped judge over `gemma3:4b`, 40 candidates per
-call, zero judge failures. Table in `docs/memory.md` §5.
+call, zero judge failures. Table in `docs/memory-measurements.md` §5.
 
 **The judge endorses the SUPERSEDED fact 3.4× more often than the current one** — 36.2% against 10.8%,
 against a 9.0% base rate. So the unendorsed half is enriched for the CURRENT fact. Of the 65 calls showing
@@ -2125,7 +2125,7 @@ which cost 40 minutes of ingestion before it was read.
 ## Part 171 — RIF analysed and REFUSED, and three of its premises were wrong
 
 ✅ done 2026-09-08, closing the last of the 2026-09-07 handover's three threads. Nothing built. **D109**;
-the corrected reading is `docs/memory.md` §5.
+the corrected reading is `docs/memory-measurements.md` §5.
 
 **It addresses the wrong half of the gap it was filed against**: the name claims a semantic relation
 (supersession) and RIF supplies a weakening ACT over competitors. **D106** already put the semantic half at
@@ -2148,7 +2148,7 @@ the proxy is measurably blind to supersession (`stale@k` 44.3% → 95.7%).
 ## Part 170 — a verifier is shown the CONTENT, and the reranker gets its 13 points back for free
 
 ✅ done 2026-09-08, taking the decision Part 168 filed. `MemoryVerificationCandidate.Content` (**D108**),
-additive, engine-supplied, `null` when nobody built one. `docs/memory.md` §5.
+additive, engine-supplied, `null` when nobody built one. `docs/memory-measurements.md` §5.
 
 **Validated rather than argued**: with the field read, `+sem+rel-only+rerank` goes **78.0% → 91.0%** at the
 SHIPPED `HeadlineChars = 120` and lands exactly on the `+hl512` arm that bought the same text with **+24%
@@ -2166,9 +2166,9 @@ headline, because a judge pays by the token and only the policy knows whether it
 
 ## Part 169 — the cross-encoder's knowledge-update visit: not the trade LoCoMo winners usually make
 
-✅ done 2026-09-08. The check `docs/memory.md` §5's standing rule demands of any arm that wins LoCoMo, run
+✅ done 2026-09-08. The check `docs/memory-measurements.md` §5's standing rule demands of any arm that wins LoCoMo, run
 because a reranker reorders by RELEVANCE and a superseded fact reads as relevant as its replacement. Table
-is `docs/memory.md` §5. All 70 knowledge-update questions, haystack, 34,242 turns per arm.
+is `docs/memory-measurements.md` §5. All 70 knowledge-update questions, haystack, 34,242 turns per arm.
 
 **Predicted badly and it came out mixed.** `prefers current` falls 90.3% → 86.8% while the absolute count
 RISES **56 → 59 of 70**, because the metric is scored only over decidable questions and the reranker makes
@@ -2193,7 +2193,7 @@ embedder now shrinks and retries on the server's own complaint and REPORTS the c
 ✅ done 2026-09-08. Closes the ranking lever the 2026-09-07 handover filed as blocked on "a model download
 and an ONNX adapter package". Neither was needed: `llama-server --reranking` serves `bge-reranker-v2-m3`
 over HTTP, and the arm reaches the engine through the verification seam that already ships. Tables are
-`docs/memory.md` §5.
+`docs/memory-measurements.md` §5.
 
 **The result, on LoCoMo n = 200**: at the shipped `HeadlineChars = 120` a cross-encoder SPENDS 7.5 points
 (85.5% → 78.0%), refuting a pre-registered 86–90%. With headlines long enough to hold the turn it reads
@@ -2236,7 +2236,7 @@ lock hypothesis at once, and an isolation ladder ending in separate PROCESSES se
 ## Part 166 — the reconciler fix: built, run, INCONCLUSIVE, and the reason is the finding
 
 ✅ done 2026-09-07. `extract+reconcile-fixed` is in the tree and this is its record, so nobody re-derives
-why it exists. `docs/memory.md` §5 carries the diagnosis it tests.
+why it exists. `docs/memory-measurements.md` §5 carries the diagnosis it tests.
 
 **The hypothesis**: the shipped reconciler gates on top-1 similarity ≥ 0.80, but `memory-density` measured
 that a CORRECTION resembles ~1 stored entry and a RECURRENCE ~6 — so a pairwise gate fires on both, and
@@ -2283,7 +2283,7 @@ inside its spread) and reverted. What serialises a read-only open is still open.
 
 ## Part 164 — what `Fuse` costs a GOOD judge, and the shipped default is a bet on judge quality
 
-✅ done 2026-09-07, from "ranking is the lever — what can we do about it". `docs/memory.md` §5, **D105**
+✅ done 2026-09-07, from "ranking is the lever — what can we do about it". `docs/memory-measurements.md` §5, **D105**
 amended. That decision kept `Partition` as the default having measured its cost only against a WEAK judge;
 what fusion costs at PERFECT judgement was never run, and it is the whole justification.
 
@@ -2298,14 +2298,14 @@ time. What would justify it is the same pair on LongMemEval, where a verdict's e
 unmeasured.
 
 **The ranking lever itself is otherwise exhausted cheaply**, and the answer was already in the repo: a
-cross-encoder reranker (`docs/memory.md` §5, 2026-08-15), blocked on a model download and an ONNX adapter
+cross-encoder reranker (`docs/memory-measurements.md` §5, 2026-08-15), blocked on a model download and an ONNX adapter
 package rather than on a design question.
 
 - Answer what can be done about ranking, given it is the lever.
 
 ## Part 163 — the ceiling rises with the pool, and the gap to it widens faster
 
-✅ done 2026-09-07, from the owner's question "can we make the ceiling higher". `docs/memory.md` §5.
+✅ done 2026-09-07, from the owner's question "can we make the ceiling higher". `docs/memory-measurements.md` §5.
 At shipped defaults the question cannot be asked: `VerificationDepth` (`limit × 4` = 80) and the gathered
 pool (`limit × CandidateMultiplier` = 80) are the SAME 80, so the oracle already sees every candidate.
 
@@ -2327,7 +2327,7 @@ other bench. `WarnIfPoolSwallowsStore` now guards it and reports zero for the ru
 ## Part 162 — the pool knob is nearly FREE on the best arm, and the judge guidance was stale
 
 ✅ done 2026-09-07, prompted by the owner asking why the tables read 54.5% when "we hit 93% before".
-`docs/memory.md` §5, §6, §9.
+`docs/memory-measurements.md` §5, §6, §9.
 
 **The 92.5% is `+sem+rel-only+oracle` — a PERFECT judge, a reachability ceiling, not a score.** Answering it
 exposed that Part 161 priced `CandidateMultiplier` on the SHIPPED arm (54.5%) rather than the one a search
@@ -2351,7 +2351,7 @@ dangling.
 
 ✅ done 2026-09-07 — the third and last rung, on the workload the engine loses. `--pool` became shared
 `FieldArms` entries (`+pool8/16/32`) rather than a second bench flag, so an arm name means one configuration
-on both benches. `docs/memory.md` §5.
+on both benches. `docs/memory-measurements.md` §5.
 
 **LoCoMo evidence-hit falls 54.5 → 50.0 → 44.5 → 43.5** across multipliers 4/8/16/32. With
 knowledge-update's +27.2 and temporal's −28.0, the three-workload sum at 4 → 16 is **−10.8**: the knob buys
@@ -2372,7 +2372,7 @@ on every arm. Pre-registered as monotone-decreasing and smaller than temporal's 
 ## Part 160 — the coverage ladder INVERTS the pool curve, at almost exactly 1:1
 
 ✅ done 2026-09-07 — Part 159's successor, run the same day. `--pool 4,8,16,32` on `--temporal`, the class
-that wants every flagged turn. `docs/memory.md` §5.
+that wants every flagged turn. `docs/memory-measurements.md` §5.
 
 **All-evidence recall runs 47.7 → 33.3 → 19.7 → 18.2 as the multiplier rises**, exactly opposite to
 knowledge-update's 31.4 → 42.9 → 58.6 → 57.1. **Δ 4 → 16 is +27.2 suppression for −28.0 coverage**, and
@@ -2393,7 +2393,7 @@ the earlier `fill@1200` figure and landed on it exactly.
 
 ## Part 159 — it was the POOL, and the shipped `CandidateMultiplier` sits far below the knee
 
-✅ done 2026-09-07 — Part 158's own load-bearing caveat, closed the next hour. `docs/memory.md` §5.
+✅ done 2026-09-07 — Part 158's own load-bearing caveat, closed the next hour. `docs/memory-measurements.md` §5.
 `fill` raised `Limit` and the engine gathers `Limit × CandidateMultiplier`, so it moved POOL and OUTPUT
 together; `--pool M` varies the multiplier at a fixed output and separates them.
 
@@ -2417,7 +2417,7 @@ decimal, so the arm measures the multiplier and nothing about its own constructi
 ## Part 158 — the lever is RECALL DEPTH, and it corrects Part 157's closing claim
 
 ✅ done 2026-09-07 — the `k`-raised arm Part 157 filed as its own load-bearing caveat, plus a `--budget A,B`
-ladder that shares one ingestion. `docs/memory.md` §5. Part 157 held every arm to the same characters and
+ladder that shares one ingestion. `docs/memory-measurements.md` §5. Part 157 held every arm to the same characters and
 concluded the walk beats cosine; it could not see that **`shot-1` never spent its allowance** (1,173 of
 5,400, bound by `k = 10`).
 
@@ -2442,7 +2442,7 @@ different grounds — the winning arm does not walk, so a walk-level budget stil
 ## Part 157 — the walk wins at an EQUAL CHARACTER BUDGET, and expansion stops paying
 
 ✅ done 2026-09-06 — `memory-longmemeval --shots --budget N`, three haystack runs at full sample.
-`docs/memory.md` §5. Every shot table until now let each arm spend whatever its slot count cost, so
+`docs/memory-measurements.md` §5. Every shot table until now let each arm spend whatever its slot count cost, so
 all-evidence recall rewarded whoever returned MORE — the axis **D100**/**D102** say this design does not
 optimise. The cap reproduces the engine's own `MemoryQuery.CharBudget` rule rather than inventing one.
 
@@ -2467,7 +2467,7 @@ stopped at the first item that did not fit, where the engine SKIPS it and keeps 
 ✅ done 2026-09-04, at the owner's direction: *"we're not reproducing mem0, but we need close logic done to a
 good standard — then what's left is our own invention."* The earlier extraction verdict rested on a 4B model
 with an unbounded turn-by-turn prompt, so *"write-time consolidation does not substitute for decay"* was
-partly a statement about the extractor. `docs/memory.md` §5.
+partly a statement about the extractor. `docs/memory-measurements.md` §5.
 
 **The baseline is better by its own numbers** — a strong model reading a whole SESSION and citing each
 fact's turn, compressing to 0.56× where the old one inflated to 7.1×, mis-citing 1 fact in 921 — **and it
@@ -2491,7 +2491,7 @@ limit rather than the model.
 
 ✅ done 2026-09-04 — `TASKS.md` Part 116's runnable third: `--multi --shots` on both variants, with the class
 switch reusing temporal's all-evidence path because Part 116 measured the metric to be shared rather than
-assuming it. `docs/memory.md` §5.
+assuming it. `docs/memory-measurements.md` §5.
 
 **The oracle overstated the second shot's gain by 4×** — +19.2 against the haystack's **+4.8** — the fifth
 question on which that variant has proved biased unpredictably, and worse than the 2.7× Part 112 measured.
@@ -2513,7 +2513,7 @@ better recall per character. All-evidence recall is an archive metric and buryin
 ✅ done 2026-09-04 — `+sem+rel-only,+judge,+judge+enginefuse,vector` re-run under `embeddinggemma:300m`,
 because every figure behind **D105** was one embedder and this repository's standing trap is that a
 recall-quality number is a property of the INSTRUMENT until shown otherwise. Prediction registered before
-the run: levels move, `+judge` sits below the base, `+enginefuse` lands on it. `docs/memory.md` §5.
+the run: levels move, `+judge` sits below the base, `+enginefuse` lands on it. `docs/memory-measurements.md` §5.
 
 **The harm replicates and is slightly larger — the partition costs 12.0 points against 10.5** — which is
 D105's load-bearing half and is not an artefact of one embedder. **The CURE does not fully replicate**:
@@ -2553,7 +2553,7 @@ and in no history — the column that file exists for.
 fused page as its verdict, which is not the engine's path: the engine reorders and then applies its own cut.
 `+sem+rel-only+judge+enginefuse` drives the shipped `GraphMemoryOptions.VerdictCombination` and reads
 **83.0%, identical to `+fuse` in all four categories**, with all three controls reproducing.
-`docs/memory.md` §5.
+`docs/memory-measurements.md` §5.
 
 **The two arms are provably INDEPENDENT, which is what makes the agreement evidence rather than a
 tautology** — separate model call sequences, audits differing at 29.2 endorsements per call against 29.1 —
@@ -2571,7 +2571,7 @@ returned set, so a fused page that contains the same 20 entries in a different o
 ✅ done 2026-09-04 — `GraphMemoryOptions.VerdictCombination` (`MemoryVerdictCombination.Partition` /
 `.Fuse`), the one library change the judge measurements earned. Partition remains the default, so nothing
 moves for anyone who does not set it. Reasoning and the rejected alternatives: `docs/DECISIONS.md` **D105**;
-the measurement it rests on is `docs/memory.md` §5.
+the measurement it rests on is `docs/memory-measurements.md` §5.
 
 **The surface was the decision, not the code** — the item had been blocked on it. Additive won: changing the
 default would be a silent reordering no consumer can detect at compile time (D18's major-bump shape), bought
@@ -2591,7 +2591,7 @@ the assertion was mutation-checked against that exact mutant rather than trusted
 the worthless one.** The shipped prompt says "Be selective" and names no count, so both budget arms were run
 at the SHIPPED depth, injected into the system message at the `ILlmClient` seam so the shipped policy still
 composes, parses and fails open. All three controls reproduced CELL FOR CELL, including the unbudgeted judge
-at 72.5%/29.1 endorsed — the structural null control for the change itself. `docs/memory.md` §5 has the
+at 72.5%/29.1 endorsed — the structural null control for the change itself. `docs/memory-measurements.md` §5 has the
 table.
 
 **It did not bind: asked for at most 20 of 80 the model endorsed 34.9, MORE than the 29.1 it endorsed
@@ -2619,7 +2619,7 @@ facts/turn was *"a property of this model and this prompt as much as of the desi
 given a budget: `memory-longmemeval --extract --facts 2`, stated in the prompt and never truncated in code.
 Inflation fell to **2.1 facts/turn** (11,271 → 3,308) with **evidence survival still 142/142**, and both
 controls reproduced CELL FOR CELL including their McNemar counts, which is what licensed reading the two
-runs against each other. Table, findings and limits: `docs/memory.md` §5.
+runs against each other. Table, findings and limits: `docs/memory-measurements.md` §5.
 
 **The verdict survives the strongest version of its own counter-arm.** Dilution is confirmed — `current@k`
 recovered 75.7% → 87.1%, and on the fixed 70-question denominator the arm goes 49 → 59, so bounding recovers
@@ -2640,7 +2640,7 @@ its reply in code (a code truncation measures truncation), and COUNT how often i
 forgetting silent, extracted facts score 53.0% and are **statistically indistinguishable from plain cosine**
 (McNemar p = 0.572) — the same verdict `+sem+forget0` earned on raw turns, so removing decay lands at
 flat-retriever behaviour whatever the store holds. Alongside decay it *hurt*: 96.9% → 86.0%, `current@k`
-90.0% → 75.7%. `docs/memory.md` §5 has the table; both controls reproduced their published oracle figures.
+90.0% → 75.7%. `docs/memory-measurements.md` §5 has the table; both controls reproduced their published oracle figures.
 
 **The mechanism is dilution, not data loss, and the control is what settled it.** All 142 flagged turns kept
 a fact (142/142), so nothing was deleted — but 1,589 turns became **11,271 facts**, a 7.1× inflation of
@@ -2673,7 +2673,7 @@ result — what the run supports is that neither half substitutes for decay.
 semantic channel and `+sem+rel-only` also drops traversal. On the supersession class decay-off is
 **statistically indistinguishable from plain cosine** (49.3% against 46.4%, McNemar p = 0.791 over 68 paired
 questions) while decay-on reads 72.5% at p < 0.001; on LoCoMo decay-off reaches **83.0% against cosine's
-80.5%**, so the base claims nothing extra. `docs/memory.md` §5 has both tables.
+80.5%**, so the base claims nothing extra. `docs/memory-measurements.md` §5 has both tables.
 
 **`current@k` is IDENTICAL at 90.0% with the knob either way**, so decay changes what is buried and never
 what is found — Part 140's mechanism, now on a one-knob pair instead of across differently-seeded arms. The
@@ -2695,7 +2695,7 @@ because the semantic channel costs supersession. The pair is internally valid, n
 query in the entry's own words returns every entry decay suppressed — 76.9% inside an ordinary ten-slot
 page, 100% within a hundred — so decay costs an entry its position and never its existence. **The invariant
 the whole design rests on had never been measured**, because every metric on record scores what a recall
-RETURNED and D41 is a claim about what it did not. `docs/memory.md` §5 has both tables.
+RETURNED and D41 is a claim about what it did not. `docs/memory-measurements.md` §5 has both tables.
 
 **The boundary is real and the shipped weight is inside it.** Recovery is 100% at weights 1 AND 2 and
 collapses to 18.8% at 4, while the entry sinks continuously under its own query (mean rank 5.0 → 41.7 →
@@ -2724,7 +2724,7 @@ is the first figure **D98** has ever had.
 (72.5% → 83.0%, same model, same depth, same 29.1 endorsements — only the combination rule changes). The
 verdict is the one signal this engine combines by a hard partition while every other is fused by rank
 competition (**D82**, **D103**), so an unendorsed candidate ranked 1st loses to an endorsed one ranked 80th.
-Depth mattered only because it grew the endorsed set until the partition ate the page. `docs/memory.md` §5.
+Depth mattered only because it grew the endorsed set until the partition ate the page. `docs/memory-measurements.md` §5.
 
 **It removes the harm and adds nothing**, and the diagnostic that explains why is the one this Part exists
 for. A verifier can only change a call whose page held no evidence while something deeper did — **19 of
@@ -2749,7 +2749,7 @@ reads the returned SET and is not a substitute for implementing it.
 
 ✅ done 2026-09-03 — **Part 143's "capability floor" is a depth×capability interaction, and this corrects
 it.** Varying only `GraphMemoryOptions.VerificationDepth` on one 4B judge: **83.0% at depth 20, 84.0% at 40,
-72.5% at the shipped 80.** Same model, same prompt, same base arm. `docs/memory.md` §5 has the table.
+72.5% at the shipped 80.** Same model, same prompt, same base arm. `docs/memory-measurements.md` §5 has the table.
 
 **The mechanism is that selectivity collapses with list length.** The model endorses ~17% of a 20-item list
 and ~19% of a 40-item one, then **36% of an 80-item one**, and its lift over chance holds at ~3.2× for the
@@ -2775,7 +2775,7 @@ saying that sweep used a PERFECT judge, for whom depth is free.
 ✅ done 2026-09-03 — **A 4B judge costs 10.5 points where the perfect one gains 9.5.**
 `+sem+rel-only+judge` reads **72.5%** against the same arm's unjudged **83.0%** and the oracle's 92.5% —
 the third branch of the prediction registered in the ladder before the run, and the one meaning the seam has
-a capability FLOOR rather than a capability curve. Table, audit and caveats: `docs/memory.md` §5.
+a capability FLOOR rather than a capability curve. Table, audit and caveats: `docs/memory-measurements.md` §5.
 
 **The mechanism was measured, not inferred.** A `JudgeAudit` decorator (added this Part, mirroring the
 existing `EvidenceRankProbe`) scores the model's endorsements against LoCoMo's own labels: **29.1
@@ -2802,7 +2802,7 @@ sizing advice above it read as a pure cost/quality trade. One header defect fixe
 `+sem+rel-only+oracle` reads **92.5% against the same arm's 83.0%** at n = 200, improving every category —
 the highest figure this benchmark has produced from this engine, against plain cosine's 80.5%. The
 pre-registration called 88–95% with a smaller absolute gain than the +17.5 the oracle bought on `+forget0`;
-both clauses held. `docs/memory.md` §5 has the table.
+both clauses held. `docs/memory-measurements.md` §5 has the table.
 
 **It corrects a claim published earlier the same day.** Every verdict arm was built on `+forget0`, which
 registers no semantic channel, so *"a pure formula beats formula-plus-oracle, the deficit was never the
@@ -2821,7 +2821,7 @@ Consequence for the backlog: Part 128's real-judge item builds on `+sem+rel-only
 moves.** `+sem+forget2` (semantic seeds at shipped K, `RetrievabilityWeight = 2`) reads **69.5% LoCoMo /
 78.8% knowledge-update** against the pre-registered ≥70% / ≥80%. It buys search at the best exchange rate
 measured — 2.0 points per point of suppression — but the trade is smooth and irreducible rather than free.
-Table and the mechanism: `docs/memory.md` §5.
+Table and the mechanism: `docs/memory-measurements.md` §5.
 
 **The clause that could have killed the idea did not fire**: `+sem+forget2` beats `+sem` on suppression
 (78.8 vs 72.5), so pool and burial are separable and strengthening the burying vote works independently of
@@ -2842,7 +2842,7 @@ drifted twice in ten minutes, are asserted equal before a run starts.
 knowledge-update for the first time and collapsed: `+forget0` **49.3% against the shipped default's 86.4%**,
 a −37.1 where the same change is worth +5.5 on LoCoMo. Roughly 7:1 against moving it, so the question
 `TASKS.md` Part 128 filed as "not startable until both workloads are measured" is settled. Table, mechanism
-and the cross-workload trade: `docs/memory.md` §5.
+and the cross-workload trade: `docs/memory-measurements.md` §5.
 
 **Why the cell was empty**: the LongMemEval bench had no arm ladder — arms hardcoded `["lyntai", "vector"]`,
 engine taking no ranking policy — so every LongMemEval figure ever published here was the shipped default.
@@ -2863,10 +2863,10 @@ by reading — `.claude/knowledge/pitfalls.md` carries the rule.
 
 ✅ done 2026-09-02 — **The gap is 3.2 points, not 16.2, and the "depth or seeding" framing is dead.** The
 item's premise fell twice. **By reading**: its "64.9% even with a PERFECT judge" is a PRE-FUSION arm that
-**D103** superseded the day the item was written, and `docs/memory.md` §5 had recorded the post-fusion cell
+**D103** superseded the day the item was written, and `docs/memory-measurements.md` §5 had recorded the post-fusion cell
 as level ever since — the doc was updated and the item beneath it was not. **By measurement**: both readings
 were n = 200 cells of ~37 questions, and at full sample `+sem+rel-only` reads 79.8% multi-hop against
-`vector`'s 83.0%. Ordinary category deficit, no depth question follows. Tables: `docs/memory.md` §5.
+`vector`'s 83.0%. Ordinary category deficit, no depth question follows. Tables: `docs/memory-measurements.md` §5.
 
 **Two results outrank the one it was filed for.** `+sem+rel-only` clears plain cosine on the whole benchmark
 (**82.6 against 81.1**) — the first powered confirmation of that — and the PERFECT-JUDGE arm is the worst of
@@ -2888,7 +2888,7 @@ commands `dev.mjs` declares — became a GENERATED table of 4,172.
 
 **Nothing was deleted without a home.** The per-gate narrative is the new `docs/GATES.md`; eleven traps
 went to `.claude/knowledge/pitfalls.md`; the multilingual arms, the enrichment deltas and the
-`memory-scale` clauses to `docs/memory.md` §5; the migration asymmetry to `.claude/knowledge/storage.md`
+`memory-scale` clauses to `docs/memory-measurements.md` §5; the migration asymmetry to `.claude/knowledge/storage.md`
 §Migrations; the `IMemoryGraphStore` default-body roster to `.claude/knowledge/extending-lyntai.md`.
 
 **Six `check-counts` claims were anchored in exactly one sentence each, all in `CLAUDE.md`** — the trap
@@ -2902,3 +2902,25 @@ citations.
 bytes on disk and ZERO context, because the harness strips it before injection.
 
 - Pay `CLAUDE.md` and the rules tier down to ~13k tokens.
+
+## Part 183 — the measurement record, split out behind a generated results index
+
+✅ done 2026-09-10. **D114**; the new gate is `node devtools/dev.mjs check-measurements [--write]`.
+`docs/memory.md` went **4,248 → 800 lines**: §5 is now `docs/memory-measurements.md`, keeping its number,
+with `memory.md`'s §6–§10 deliberately NOT pulled up into the hole. Every result carries a
+`<!-- result: … -->` marker and the index is derived from them — 75 results across 57 sections, of which
+**13 measure the arm that actually ships**.
+
+**Two of the item's own premises were refuted by the record and are the durable half.** *Backwards-only
+`supersedes=`* — "chronological, so a replacement is written below" — is false in 6 of 75 cases, all one
+shape: a heading announces the correction and quotes the figure it replaces beneath itself. Acyclicity is
+what was actually wanted, so it is checked directly. And the item's proposed BODY scan for
+`CORRECT(ED|ION)|RETRACT|STALE|SUPERSED` was built and measured at **63 hits, ZERO defects** — `stale@k` is
+a metric here and supersession is the subject matter — so it was refused for a HEADING scan (5 of 57
+flagged, 4 genuine). `.claude/knowledge/pitfalls.md` holds both, plus the two traps the split itself paid
+for.
+
+**141 `§5` citations repointed across 30 files**, which `check-links` names — plus **ten bare ones it
+structurally cannot see**, its pattern needing a filename before the `§`.
+
+- Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a generated results index.

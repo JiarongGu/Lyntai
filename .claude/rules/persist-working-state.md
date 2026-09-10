@@ -33,7 +33,7 @@ you discovered is not a decision, because nobody chose it.
 | A choice between alternatives that constrains future work | `docs/DECISIONS.md` |
 | What a pass/sweep/review DID — findings triaged, items closed | `docs/task-archive.md` |
 | A trap that costs something when forgotten — nobody chose it, you *found* it | `.claude/knowledge/pitfalls.md` |
-| A number you measured | the record that owns the measurement (`docs/memory.md` §5 for the memory engine); the CONCLUSION goes to whichever row above fits |
+| A number you measured | the record that owns the measurement (`docs/memory-measurements.md` §5 for the memory engine); the CONCLUSION goes to whichever row above fits |
 | A per-incident bug fix | `docs/FIXES.md` |
 | What a gate is for and what it holds | `docs/GATES.md` |
 | A convention every task must follow | the rules or knowledge tier |

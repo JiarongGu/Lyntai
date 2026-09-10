@@ -21,7 +21,7 @@ public sealed class LlmVerificationOptions
     /// it is.</b> An endorsement PROMOTES ahead of the caller's limit, so a verdict endorsing more candidates
     /// than that limit REPLACES the ranking's page instead of refining it, and everything unendorsed leaves
     /// the page however well it was ranked. Measured on LoCoMo with one 4B judge, varying only
-    /// <see cref="GraphMemoryOptions.VerificationDepth"/> (<c>docs/memory.md</c> §5): at the shipped 4× the
+    /// <see cref="GraphMemoryOptions.VerificationDepth"/> (<c>docs/memory-measurements.md</c> §5): at the shipped 4× the
     /// limit it endorsed 29 of 80 headlines at 2.6% precision and cost <b>10.5 points</b> of evidence-hit,
     /// while at 2× the same model endorsed 7.7 of 40 at 8.4% and was level with no judge at all. <b>The
     /// model did not change; the list it was asked to judge did.</b></para>

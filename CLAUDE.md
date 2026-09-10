@@ -13,12 +13,12 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 ## Current state
 
 **Released: v3.1.0 (2026-08-23).** Twelve packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D113** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D114** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3592 passed / 3613 total, 21 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 588/588, doc samples 80/80. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 625/625, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count well above 21 as "Docker is down and the whole Postgres leg went silently unexercised".
 Everything else on that line is gated. `docs/GATES.md` is why each gate exists, what it measured and which
@@ -31,7 +31,7 @@ the graph engine decays in **interference, never a clock** (**D40**) and **burie
 (**D41**), over InMemory / SQLite / Postgres under one contract. A recall is an **n-shot WALK, not a
 top-k** (**D100**): it returns HEADLINES, and `MemoryWalk.WalkAsync` (**D102**) expands them a step at a
 time, reinforcing what it walks — so a one-shot metric measures the wrong mode. The contract is design
-§5.7; every figure lives in `docs/memory.md` §5 and names the regime it was measured in.
+§5.7; every figure lives in `docs/memory-measurements.md` §5 and names the regime it was measured in.
 
 **The memory subsystem's load-bearing invariants** — each is a rule a change can break silently, and none
 of them is gated, which is why these five are here and the ones a gate or a test already holds are not.
@@ -64,7 +64,9 @@ root) / `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` / `L
 **The records, and what each is for:** `docs/2026-07-17-lyntai-design.md` — the contract (interfaces,
 semantics); read it first · `docs/DECISIONS.md` §How to read it — the rationale log, present tense,
 contiguous `D1..Dn` · `docs/GATES.md` — what each gate is for and the numbers it holds · `docs/memory.md` —
-every memory measurement · `CHANGELOG.md` — per-release detail · `README.md` — the consuming story ·
+the memory CONTRACT, and `docs/memory-measurements.md` the EVIDENCE, behind a generated results index whose
+`ships` and status columns are the two things read wrongly here (**D114**) · `CHANGELOG.md` — per-release
+detail · `README.md` — the consuming story ·
 `TASKS.md` — the OPEN backlog, whose own banner is the live work: read it, never a copy kept here ·
 `docs/task-archive.md` — the closed one, one Part per task · `docs/FIXES.md` — the fix log
 (`.claude/rules/repo-mechanics.md` §Fix log) · `docs/ROADMAP.md` — one line per version ·
@@ -96,8 +98,9 @@ Six things no gate can catch, so they live here rather than in `docs/GATES.md`:
 - **Add a `retiredTerms` entry (`devtools/project.config.mjs`) whenever a decision renames or re-dimensions
   something.** `check-docs` has no dead-rule check, so a MISSING entry is invisible to every gate here.
 - **Each gate owns its OWN escape token** — `drift-ok` (docs), `link-ok` (links), `count-ok` (counts),
-  `comment-ok` (comments), none at all for the length ratchets. Never let one token silence two gates, and
-  write every new allowance so that one LOOSER than needed, or one that stops matching, FAILS.
+  `comment-ok` (comments), `measure-ok` (measurements), none at all for the length ratchets. Never let one
+  token silence two gates, and write every new allowance so that one LOOSER than needed, or one that stops
+  matching, FAILS.
 - **Repointing is the fix and renumbering is the trap**: a renumbered `§` resolves to the WRONG section
   without failing anything. Archiving a task silently breaks every inbound `TASKS.md Part N` the same way.
 - **`check-samples` compiles every fenced `csharp` block in the docs, and the default is ON.** Two
@@ -161,6 +164,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `check-archive` | ✓ | an archive entry that outgrew the OUTCOME it records |
 | `check-backlog` | ✓ | a backlog summarizing the archive; `--write` rebuilds its roster |
 | `check-pitfalls` | ✓ | an unfiled trap or stale facet index; `--write` rebuilds it |
+| `check-measurements` | ✓ | a result reading CURRENT that its own body retracts; `--write` rebuilds the index |
 | `check-dev-loop` | ✓ | this table drifting from `dev.mjs`; `--write` rebuilds it |
 | `check-decision-claims` | ✓ | a DECISION that stopped describing the code it governs |
 | `check-encoding` | ✓ | MOJIBAKE in tracked text — no other gate can see it |

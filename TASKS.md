@@ -15,32 +15,31 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 19 across 12 Parts: 10 startable, 7 blocked, 1 watch, 1 decision-only
+## Open items — 18 across 12 Parts: 9 startable, 7 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 95 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 139 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 148 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 202 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 273 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 351 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 406 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 429 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 500 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 562 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
-| 681 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 702 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
-| 710 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
-| 764 | 129 | Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memo… | startable |  |
-| 843 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
-| 869 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
-| 879 | 177 | Write the task-shape taxonomy down as guidance | startable |  |
-| 925 | 178 | Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a genera… | startable |  <!-- link-ok: carried from this item's own line --> |
-| 934 | 178 | Add a `keeps=` header to superseded `docs/FIXES.md` entries | startable |  |
+| 94 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 138 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 147 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 201 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 272 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 350 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 405 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 428 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 499 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 561 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
+| 680 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 701 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
+| 709 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
+| 763 | 129 | Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memo… | startable |  |
+| 842 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
+| 868 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
+| 878 | 177 | Write the task-shape taxonomy down as guidance | startable |  |
+| 924 | 178 | Add a `keeps=` header to superseded `docs/FIXES.md` entries | startable |  |
 
 <!-- open-items:end -->
 
@@ -55,11 +54,11 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is TEN items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is NINE items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
-**Where things stand is NOT summarized here, deliberately.** `docs/memory.md` §5 is the measurement record,
+**Where things stand is NOT summarized here, deliberately.** `docs/memory-measurements.md` §5 is the measurement record,
 `docs/task-archive.md` holds one Part per closed task, `docs/DECISIONS.md` holds what was decided and why,
 and `docs/FIXES.md` holds per-incident fixes. A copy of any of those goes stale the moment the original is
 amended, which is why this section stopped carrying one on 2026-09-10.
@@ -300,7 +299,7 @@ shipped default). So the item is no longer "a shipped default with a cost and no
 default with a measured cost and a one-line opt-out. Pinned by
 `MemorySalienceInversionTests.The_many_candidates_cost_of_salience_is_bounded_on_the_current_engine`, whose
 bounds are regression guards at the measured values rather than targets.
-<br>**The paired sweep RAN on 2026-08-28, twice, through two real embedders** (`docs/memory.md` §5). It
+<br>**The paired sweep RAN on 2026-08-28, twice, through two real embedders** (`docs/memory-measurements.md` §5). It
 settles two things and reframes the item.
 <br>**One: the premise of "a bounded-admission RULE" was wrong.** That wording asked for a rule keeping
 "salience's gains on the other five shapes". **There are no gains on the other five** — combined Δ miss is
@@ -323,7 +322,7 @@ unclamped value cannot exceed **2.5** and the shipped `MaxSalience = 4` can neve
 `Max1` is indistinguishable from `Off` on all four cells while still registering a retention policy, which is
 the measured form of an option-level neutral.
 <br>**The `NoveltyWeight` sweep that this note named as the remaining one RAN the same day** (`memory-salience
---novelty`, 30 seeds × 2 shapes; `docs/memory.md` §5). It is a real dial where `MaxSalience` is a switch, and
+--novelty`, 30 seeds × 2 shapes; `docs/memory-measurements.md` §5). It is a real dial where `MaxSalience` is a switch, and
 turning it UP makes recall worse monotonically where it matters (`many-candidates` +0.0786 → +0.0954). It
 also refuted a shipped XML claim rather than a value: a NEGATIVE weight is inert, not inverting, because the
 clamp floors at 1 — corrected in `SalienceOptions` on 2026-08-29. **Whether any default MOVES is still the
@@ -337,7 +336,7 @@ embedders at the owner's direction, they pick opposite ends of the ladder (`NW0.
 two instrument defects — a verdict that read miss alone, and an off arm that was never off
 (`docs/FIXES.md`). **Every "salience costs recall" figure quoted above was taken through that off arm**, so
 it prices RETENTION with admission live in both arms; the between-rung comparisons survive untouched because
-every rung shared that same baseline. `docs/memory.md` §5 carries the correction and the re-measurement._
+every rung shared that same baseline. `docs/memory-measurements.md` §5 carries the correction and the re-measurement._
 
 ---
 
@@ -481,7 +480,7 @@ Part 111) and the LongMemEval half closed as **Part 112**. `node devtools/dev.mj
 is the first measurement this repository has taken on an instrument it did not build: evidence-hit@20,
 model-free, 200 LoCoMo questions. Defaults went **11.0% → 31.0%** on D97 and plain cosine is **80.5%** at the
 same k, so a real gap remains. Tables and the two harness defects that had to be fixed first are
-`docs/memory.md` §5.
+`docs/memory-measurements.md` §5.
 <br>**A THIRD harness defect landed 2026-08-29 (`docs/task-archive.md` Part 118) and moved every figure in
 this paragraph**: questions shared a store, and isolating them puts defaults at **54.5%**, not 31.0%. Cosine
 is unchanged at 80.5% — it never touches the graph store — so the gap is **−26.0** rather than −49.5._
@@ -507,13 +506,13 @@ it._
   reader — so its numbers (`docs/task-archive.md` Part 115) were taken under contamination, and widening now
   means re-measuring rather than adding to them._
   <br>_**The FULL QUESTION SET half of this item is DONE (2026-09-01).** All 1,540 questions ran on eight
-  arms — `docs/memory.md` §5's full-sample subsection. It was not bookkeeping: at n = 100 the same instrument
+  arms — `docs/memory-measurements.md` §5's full-sample subsection. It was not bookkeeping: at n = 100 the same instrument
   reported a ranking × walk interaction of +6.7 and category wins of +6.2 / +5.5, and every one of those
   collapsed at full sample (+1.0, −0.6, +0.1). **What is left of this item is the SECOND EMBEDDER and the
   SECOND READER**, which is now the whole of it — restate it that way rather than leaving "the full question
   set" advertised as outstanding._
   <br>_**And a reason the second reader matters more than it did.** The judge column was calibrated against
-  that run's `--dump` and is generous by ≈12 points (`docs/memory.md` §5, finding 7) — same 4B model reading
+  that run's `--dump` and is generous by ≈12 points (`docs/memory-measurements.md` §5, finding 7) — same 4B model reading
   and grading. A second reader is no longer only about confidence in the differences; it is the only way to
   separate the reader's ceiling from the memory layer's._
   <br>_**A second embedder ran on 2026-09-04, on the RETRIEVAL half rather than this one**
@@ -541,7 +540,7 @@ it._
 
 _**Start here.** `docs/DECISIONS.md` **D100** changed what this engine is evaluated as: a walk, not a single
 top-k. The instruments exist — `node devtools/dev.mjs memory-locomo --shots` and
-`memory-longmemeval --shots [--haystack] [--expand-floor w]` — and the tables are `docs/memory.md` §5.
+`memory-longmemeval --shots [--haystack] [--expand-floor w]` — and the tables are `docs/memory-measurements.md` §5.
 Closed alongside it: **D98** (expansion had no vote from forgetting) and **D99** (co-activation is one store
 call). The session that produced all three is `docs/task-archive.md` Parts 112–115.
 <br>**This Part held five items and now holds ONE** — the shot curves for LongMemEval's four unmeasured
@@ -567,7 +566,7 @@ figures that have since moved._
   <br>_**The other two thirds of this item closed 2026-08-29** (`docs/task-archive.md` Part 119):
   knowledge-update went from a 25-question sample to all 70, and the temporal class got the first shot curve
   it has ever had, on both variants._
-  <br>**Read the reproducibility caveat in `docs/memory.md` §5 before adding a fifth curve**: a haystack
+  <br>**Read the reproducibility caveat in `docs/memory-measurements.md` §5 before adding a fifth curve**: a haystack
   figure is reproducible to about ONE question, not to a tenth of a point, and the oracle overstates the
   multi-shot gain by 2.7× on the class where that was checked.
   <br>_**The DECIDING half is done (2026-09-04) and the answer is not what this item assumed** — the classes
@@ -599,7 +598,7 @@ figures that have since moved._
 ## Part 128 — the retrieval gap is RANKING OUT candidates the engine already holds (2026-08-31)
 
 _Opened by three LoCoMo ladders run at the owner's direction after "the memory system performance is not
-good enough". Tables and the full reading are `docs/memory.md` §5; this Part carries only what is still to
+good enough". Tables and the full reading are `docs/memory-measurements.md` §5; this Part carries only what is still to
 do. **Two hypotheses died in those runs and are recorded so nobody re-runs them**: the edges are not the
 problem (**D59** decomposed it — 100% of misses reachable-but-outranked, 0% unreachable), and preserving the
 cosine MAGNITUDE is not the fix (`MultiplicativeRankingPolicy` nets +1.5 overall, and `+sem80+mult`
@@ -608,7 +607,7 @@ collapsed to 21.5% at the time)._
 _**`+sem80+mult` is now 57.0%, not 21.5%** — a direct side effect of per-source fusion: `SemanticSeedSource`
 now sets `Matched = true` carrying an honest cosine, and `MultiplicativeRankingPolicy` reads
 `Matched is null ? 1 : Relevance`, so a semantic seed stopped acting as an implicit neutral multiplier
-(`docs/memory.md` §5, `docs/task-archive.md` **Part 131**). **The conclusion above is UNCHANGED, only its
+(`docs/memory-measurements.md` §5, `docs/task-archive.md` **Part 131**). **The conclusion above is UNCHANGED, only its
 supporting figure moved**: 57.0% is still far below `+sem+rel-only`'s 83.0%, so magnitude preservation is
 still not the fix._
 
@@ -618,7 +617,7 @@ search workload the graph is not paying for itself, and no arm measured so far m
 
 _**61.5% above is superseded, not retracted — it is quoted as written on 2026-08-31.** Per-source fusion
 later moved the best mechanical arm to **83.0%** (`+sem+rel-only`; see the closure note below and
-`docs/memory.md` §5). The rest of that paragraph's claim — cosine beating the engine even WITH a perfect
+`docs/memory-measurements.md` §5). The rest of that paragraph's claim — cosine beating the engine even WITH a perfect
 judge — is untouched by that later change: neither `vector` (80.5%) nor `+forget0+oracle` (77.5%) uses
 semantic seeds._
 
@@ -629,13 +628,13 @@ the weights were diluting a good ordering. **Weight-tuning is therefore retired 
 mechanism is in the harness's own control output: lexical hits carry a rank POSITION (0.963, 0.900) and
 semantic seeds a COSINE (0.742, 0.732), compared on one field, so a semantic candidate is outranked by
 construction however similar it is — which is also why ADDING semantic seeds makes the arm worse.
-`docs/memory.md` §5 carries the table._
+`docs/memory-measurements.md` §5 carries the table._
 
 _**This item CLOSED 2026-08-31 as `docs/task-archive.md` Part 131.** Per-source fusion —
 `IMemorySeedSource` plus `ReciprocalRankFusionPolicy` fusing each source's own ranked list instead of one
 pooled `Relevance` field (`docs/DECISIONS.md` **D103**) — is what the 63.5% two paragraphs up now
 predates: the SAME arm, same name, reads **83.0%** under the fused engine, above plain cosine's 80.5%. That
-makes `+sem+rel-only`, not `+sem+fuse`, the current best mechanical arm. `docs/memory.md` §5 carries the
+makes `+sem+rel-only`, not `+sem+fuse`, the current best mechanical arm. `docs/memory-measurements.md` §5 carries the
 current table; the 61.5%/63.5% figures above are the PRE-fusion measurement that opened this Part and stay
 for that reason._
 
@@ -644,7 +643,7 @@ branch nobody wanted: `+sem+rel-only+judge` reads **72.5%** against the arm's un
 92.5%, so a 4B judge SPENDS 10.5 points where a perfect one gains 9.5. The audit says why — 29.1
 endorsements per recall out of 80 shown, at 2.6% precision, which is an endorsement set larger than the
 20-slot page, so promotion replaces the ranking instead of refining it. **The seam has a capability FLOOR**,
-now stated in `LlmVerificationOptions.ClientName`'s shipped XML doc. `docs/memory.md` §5 carries the table
+now stated in `LlmVerificationOptions.ClientName`'s shipped XML doc. `docs/memory-measurements.md` §5 carries the table
 and the four things it does not say._
 
 - ~~**Decide what TEXT a verifier may read — today it is a 120-character truncation, and that costs a
@@ -707,7 +706,7 @@ shape), bought on one model and one workload. **A reader-facing check is what it
   reordering costs nothing a reader notices, not a hunt for a gain. It belongs with Part 109's QA half,
   which needs a second reader anyway.
 
-- [ ] **Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.** `docs/memory.md` §5 <!-- item: state=startable -->
+- [ ] **Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.** `docs/memory-measurements.md` §5 <!-- item: state=startable -->
   (2026-09-03) has TWO points on it and two points are not a curve: `+sem` trades +22.0 search for −13.9
   suppression and `+sem+forget2` trades +15.0 for −7.6, so the exchange rate is roughly 1:1 and neither
   dominates. A ladder over the weight is what would locate the knee. **Proposing a default from two points
@@ -730,7 +729,7 @@ follows from it. Nobody should sweep `VerificationDepth` on the struck premise._
 
 _~~**Not startable and deliberately not listed above:** whether `RetrievabilityWeight` should move off 1…
 it needs both workloads measured, which is the `+forget0` arm re-run on LongMemEval.~~_
-<br>_**MEASURED AND SETTLED 2026-09-02** (`docs/task-archive.md` **Part 140**, `docs/memory.md` §5). The
+<br>_**MEASURED AND SETTLED 2026-09-02** (`docs/task-archive.md` **Part 140**, `docs/memory-measurements.md` §5). The
 `+forget0` arm ran on LongMemEval knowledge-update and the answer is emphatic: **49.3% against the shipped
 default's 86.4%**, a −37.1 collapse, against the +5.5 it is worth on LoCoMo — **about 7 to 1 against
 moving it.** `RetrievabilityWeight` stays at 1, and this is no longer an open question.
@@ -836,7 +835,7 @@ selective task is a structural constraint, never a prompt. And **D110**: on a ju
 97.7% noise, no promotion rule over them helps, so model choice and calibration are the levers rather than
 the plumbing._
 
-_**What is already measured** (`docs/memory.md` §5, archive Parts 175–176): a 468 MB cross-encoder captures
+_**What is already measured** (`docs/memory-measurements.md` §5, archive Parts 175–176): a 468 MB cross-encoder captures
 6.0 of the 7.0 points a perfect judge offers, and a model 28 months newer at the same architecture and size
 is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come down 26%._
 
@@ -916,21 +915,12 @@ mid-section, so heading-grep is blind by construction; the index must be at RESU
 (3) `decisions-index` barely helped LOCATING cost (~66 vs ~117 lines); its wins were precision and a free
 currency scan, so sizing a new index for READING is over-building._
 
-_**Four items closed 2026-09-10** — `docs/task-archive.md` **Parts 179–182**: the rule template left the
+_**Five items closed 2026-09-10** — `docs/task-archive.md` **Parts 179–183**: the rule template left the
 always-on tier, the roster at the head of this file is generated from per-item markers (**D111**), the
-traps record is filed by facets orthogonal to its headings (**D112**), and the always-on tier was paid down
-60% behind a generated command table (**D113**). What is left is the two below, and the cheap ones are long
-gone — each remaining item moves or rewrites a large maintained document._
+traps record is filed by facets orthogonal to its headings (**D112**), the always-on tier was paid down
+60% behind a generated command table (**D113**), and the measurement record was split out behind a
+generated results index (**D114**). **One item is left**, and the cheap ones are long gone._
 
-- [ ] **Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a generated results index.** <!-- item: state=startable --> <!-- link-ok: the file this item creates by splitting memory.md §5 -->
-  §5 is **3,442 of 4,222 lines (81.5%)**; the rest becomes readable end to end. **Do not renumber** — keep
-  the heading `## 5.` in the new file, because `CLAUDE.md`'s own §-citation rule says renumbering makes
-  existing citations resolve silently to the wrong section. `check-links`' section half will name every
-  inbound citation to repoint. The index needs a per-result marker carrying `arm`/`metric`/`n`/`value`/
-  `ships`/`status`; **`SUPERSEDED` is never hand-written** — the generator derives it from another row's
-  `supersedes=`, since two-sided bookkeeping is where this rots.
-  <br>_The check that would have caught the defect a probe could not reach: a section whose body matches
-  `CORRECT(ED|ION)|RETRACT|STALE|SUPERSED` while its own marker says `status=CURRENT` FAILS._
 - [ ] **Add a `keeps=` header to superseded `docs/FIXES.md` entries** — a table is the wrong fix, because a <!-- item: state=startable -->
   reader arrives INSIDE an entry from a grep and never sees the top of the file. Three same-day entries
   each partly retract the one below, and a probe could not skip the superseded one because its reusable

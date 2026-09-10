@@ -138,7 +138,7 @@ public sealed class LlmMemoryAnnotationPolicy(
                 // of every WRITE — the higher-traffic seam of the two, since a store takes many more writes
                 // than a caller takes recalls. It was missing here while verification had it (found
                 // 2026-08-15); a thinking model spent ~25s per judgement against ~1.5s for one that answers
-                // directly (docs/memory.md §5). Advisory: a backend that cannot express it ignores it, and
+                // directly (docs/memory-measurements.md §5). Advisory: a backend that cannot express it ignores it, and
                 // the parser below still tolerates a reply that reasons anyway.
                 Reasoning = LlmReasoning.Suppress,
             }, ct).ConfigureAwait(false);

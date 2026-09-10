@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 169 traps, indexed two ways
+## Facets — 173 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (30) — 57 · 82 · 91 · 111 · 124 · 130 · 153 · 163 · 170 · 180 · 226 · 246 · 292 · 310 · 425 · 510 · 519 · 529 · 583 · 597 · 667 · 681 · 766 · 956 · 1924 · 1935 · 1972 · 2343 · 2373 · 2382
-- **`encoding`** (6) — 75 · 80 · 536 · 544 · 714 · 1972
-- **`git`** (7) — 170 · 195 · 226 · 251 · 544 · 566 · 719
-- **`build`** (8) — 80 · 510 · 519 · 529 · 583 · 758 · 956 · 1907
-- **`router`** (6) — 799 · 804 · 813 · 815 · 818 · 948
-- **`cli`** (18) — 696 · 714 · 799 · 820 · 828 · 837 · 841 · 853 · 857 · 864 · 868 · 875 · 879 · 912 · 931 · 935 · 940 · 1777
-- **`lifetime`** (6) — 978 · 987 · 992 · 997 · 1010 · 1018
-- **`storage`** (17) — 891 · 1027 · 1129 · 1157 · 1159 · 1160 · 1162 · 1164 · 1182 · 1193 · 1422 · 1434 · 1690 · 1807 · 1954 · 2136 · 2320
-- **`memory`** (38) — 350 · 368 · 496 · 891 · 1061 · 1080 · 1091 · 1117 · 1129 · 1144 · 1165 · 1182 · 1193 · 1232 · 1247 · 1254 · 1273 · 1284 · 1302 · 1315 · 1328 · 1386 · 1441 · 1461 · 1497 · 1533 · 1551 · 1558 · 1589 · 1611 · 1639 · 1711 · 1786 · 1807 · 2029 · 2188 · 2216 · 2299
-- **`generation`** (8) — 804 · 1010 · 1533 · 1724 · 1736 · 1760 · 1867 · 1892
-- **`di`** (12) — 997 · 1247 · 1273 · 1453 · 1455 · 1458 · 1461 · 1479 · 1558 · 1589 · 1736 · 1786
-- **`measurement`** (40) — 335 · 350 · 368 · 409 · 439 · 455 · 474 · 486 · 496 · 617 · 696 · 703 · 708 · 737 · 747 · 753 · 758 · 828 · 1027 · 1046 · 1117 · 1284 · 1315 · 1342 · 1353 · 1368 · 1386 · 1441 · 1497 · 1924 · 2005 · 2056 · 2071 · 2095 · 2115 · 2136 · 2166 · 2203 · 2267 · 2299
-- **`docs`** (19) — 130 · 153 · 259 · 566 · 597 · 617 · 667 · 766 · 777 · 782 · 789 · 1091 · 1611 · 1678 · 1842 · 1852 · 1935 · 1954 · 2225
-- **`tests`** (21) — 912 · 1103 · 1144 · 1165 · 1232 · 1254 · 1422 · 1434 · 1690 · 2018 · 2029 · 2040 · 2216 · 2238 · 2320 · 2328 · 2336 · 2340 · 2343 · 2355 · 2368
+- **`gates`** (34) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 202 · 248 · 268 · 314 · 332 · 447 · 532 · 541 · 551 · 605 · 619 · 689 · 703 · 788 · 978 · 1929 · 1939 · 1965 · 1976 · 2013 · 2384 · 2414 · 2423
+- **`encoding`** (6) — 75 · 80 · 558 · 566 · 736 · 2013
+- **`git`** (7) — 192 · 217 · 248 · 273 · 566 · 588 · 741
+- **`build`** (8) — 80 · 532 · 541 · 551 · 605 · 780 · 978 · 1948
+- **`router`** (6) — 821 · 826 · 835 · 837 · 840 · 970
+- **`cli`** (18) — 718 · 736 · 821 · 842 · 850 · 859 · 863 · 875 · 879 · 886 · 890 · 897 · 901 · 934 · 953 · 957 · 962 · 1799
+- **`lifetime`** (6) — 1000 · 1009 · 1014 · 1019 · 1032 · 1040
+- **`storage`** (17) — 913 · 1049 · 1151 · 1179 · 1181 · 1182 · 1184 · 1186 · 1204 · 1215 · 1444 · 1456 · 1712 · 1829 · 1995 · 2177 · 2361
+- **`memory`** (38) — 372 · 390 · 518 · 913 · 1083 · 1102 · 1113 · 1139 · 1151 · 1166 · 1187 · 1204 · 1215 · 1254 · 1269 · 1276 · 1295 · 1306 · 1324 · 1337 · 1350 · 1408 · 1463 · 1483 · 1519 · 1555 · 1573 · 1580 · 1611 · 1633 · 1661 · 1733 · 1808 · 1829 · 2070 · 2229 · 2257 · 2340
+- **`generation`** (8) — 826 · 1032 · 1555 · 1746 · 1758 · 1782 · 1889 · 1914
+- **`di`** (12) — 1019 · 1269 · 1295 · 1475 · 1477 · 1480 · 1483 · 1501 · 1580 · 1611 · 1758 · 1808
+- **`measurement`** (41) — 111 · 357 · 372 · 390 · 431 · 461 · 477 · 496 · 508 · 518 · 639 · 718 · 725 · 730 · 759 · 769 · 775 · 780 · 850 · 1049 · 1068 · 1139 · 1306 · 1337 · 1364 · 1375 · 1390 · 1408 · 1463 · 1519 · 1965 · 2046 · 2097 · 2112 · 2136 · 2156 · 2177 · 2207 · 2244 · 2308 · 2340
+- **`docs`** (22) — 124 · 152 · 175 · 281 · 588 · 619 · 639 · 689 · 788 · 799 · 804 · 811 · 1113 · 1633 · 1700 · 1864 · 1874 · 1929 · 1939 · 1976 · 1995 · 2266
+- **`tests`** (21) — 934 · 1125 · 1166 · 1187 · 1254 · 1276 · 1444 · 1456 · 1712 · 2059 · 2070 · 2081 · 2257 · 2279 · 2361 · 2369 · 2377 · 2381 · 2384 · 2396 · 2409
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (19) — 170 · 350 · 368 · 597 · 708 · 813 · 818 · 837 · 912 · 992 · 1080 · 1328 · 1461 · 1497 · 1724 · 1736 · 1786 · 1892 · 2188
-- **`cancellation`** (5) — 799 · 804 · 1061 · 1080 · 1103
-- **`vacuous`** (31) — 163 · 335 · 409 · 439 · 519 · 868 · 931 · 948 · 1103 · 1144 · 1165 · 1232 · 1254 · 1342 · 1353 · 1386 · 1497 · 1611 · 1954 · 2029 · 2040 · 2071 · 2203 · 2216 · 2238 · 2267 · 2320 · 2343 · 2355 · 2373 · 2382
-- **`scope-blind`** (33) — 82 · 111 · 124 · 130 · 153 · 163 · 170 · 180 · 226 · 292 · 310 · 544 · 667 · 681 · 956 · 1247 · 1315 · 1422 · 1434 · 1611 · 1639 · 1690 · 1807 · 1907 · 1924 · 1935 · 1954 · 2040 · 2203 · 2216 · 2340 · 2373 · 2382
-- **`second-door`** (20) — 815 · 853 · 857 · 868 · 875 · 935 · 940 · 1018 · 1160 · 1182 · 1461 · 1589 · 1690 · 1711 · 1724 · 1736 · 1760 · 1807 · 1842 · 1867
-- **`stale-claim`** (16) — 57 · 130 · 195 · 259 · 617 · 719 · 766 · 782 · 1091 · 1458 · 1678 · 1711 · 1760 · 1842 · 1935 · 2225
-- **`silent-loss`** (41) — 75 · 80 · 246 · 251 · 292 · 310 · 486 · 536 · 583 · 597 · 696 · 714 · 753 · 841 · 857 · 891 · 978 · 1010 · 1046 · 1117 · 1157 · 1159 · 1160 · 1162 · 1182 · 1193 · 1232 · 1368 · 1441 · 1453 · 1458 · 1479 · 1551 · 1589 · 1639 · 1777 · 1867 · 1972 · 2056 · 2136 · 2267
-- **`wrong-subject`** (43) — 57 · 91 · 251 · 335 · 368 · 425 · 439 · 455 · 474 · 486 · 496 · 510 · 529 · 747 · 777 · 789 · 815 · 864 · 956 · 987 · 997 · 1027 · 1117 · 1165 · 1273 · 1284 · 1302 · 1315 · 1342 · 1353 · 1386 · 1533 · 1558 · 1892 · 2005 · 2056 · 2071 · 2095 · 2115 · 2136 · 2238 · 2299 · 2343
-- **`unmeasured`** (16) — 455 · 496 · 566 · 617 · 667 · 703 · 758 · 820 · 828 · 837 · 879 · 931 · 1302 · 1533 · 1852 · 2225
-- **`ordering`** (10) — 529 · 841 · 940 · 1129 · 1164 · 1479 · 1777 · 1786 · 2018 · 2166
-- **`resource`** (12) — 510 · 544 · 583 · 737 · 820 · 912 · 1018 · 1027 · 1455 · 2328 · 2336 · 2368
+- **`fail-open`** (19) — 192 · 372 · 390 · 619 · 730 · 835 · 840 · 859 · 934 · 1014 · 1102 · 1350 · 1483 · 1519 · 1746 · 1758 · 1808 · 1914 · 2229
+- **`cancellation`** (5) — 821 · 826 · 1083 · 1102 · 1125
+- **`vacuous`** (32) — 111 · 185 · 357 · 431 · 461 · 541 · 890 · 953 · 970 · 1125 · 1166 · 1187 · 1254 · 1276 · 1364 · 1375 · 1408 · 1519 · 1633 · 1995 · 2070 · 2081 · 2112 · 2244 · 2257 · 2279 · 2308 · 2361 · 2384 · 2396 · 2414 · 2423
+- **`scope-blind`** (35) — 82 · 133 · 146 · 152 · 175 · 185 · 192 · 202 · 248 · 314 · 332 · 566 · 689 · 703 · 978 · 1269 · 1337 · 1444 · 1456 · 1633 · 1661 · 1712 · 1829 · 1929 · 1939 · 1948 · 1965 · 1976 · 1995 · 2081 · 2244 · 2257 · 2381 · 2414 · 2423
+- **`second-door`** (20) — 837 · 875 · 879 · 890 · 897 · 957 · 962 · 1040 · 1182 · 1204 · 1483 · 1611 · 1712 · 1733 · 1746 · 1758 · 1782 · 1829 · 1864 · 1889
+- **`stale-claim`** (16) — 57 · 152 · 217 · 281 · 639 · 741 · 788 · 804 · 1113 · 1480 · 1700 · 1733 · 1782 · 1864 · 1976 · 2266
+- **`silent-loss`** (44) — 75 · 80 · 124 · 268 · 273 · 314 · 332 · 508 · 558 · 605 · 619 · 718 · 736 · 775 · 863 · 879 · 913 · 1000 · 1032 · 1068 · 1139 · 1179 · 1181 · 1182 · 1184 · 1204 · 1215 · 1254 · 1390 · 1463 · 1475 · 1480 · 1501 · 1573 · 1611 · 1661 · 1799 · 1889 · 1929 · 1939 · 2013 · 2097 · 2177 · 2308
+- **`wrong-subject`** (44) — 57 · 91 · 111 · 273 · 357 · 390 · 447 · 461 · 477 · 496 · 508 · 518 · 532 · 551 · 769 · 799 · 811 · 837 · 886 · 978 · 1009 · 1019 · 1049 · 1139 · 1187 · 1295 · 1306 · 1324 · 1337 · 1364 · 1375 · 1408 · 1555 · 1580 · 1914 · 2046 · 2097 · 2112 · 2136 · 2156 · 2177 · 2279 · 2340 · 2384
+- **`unmeasured`** (16) — 477 · 518 · 588 · 639 · 689 · 725 · 780 · 842 · 850 · 859 · 901 · 953 · 1324 · 1555 · 1874 · 2266
+- **`ordering`** (10) — 551 · 863 · 962 · 1151 · 1186 · 1501 · 1799 · 1808 · 2059 · 2207
+- **`resource`** (12) — 532 · 566 · 605 · 759 · 842 · 934 · 1040 · 1049 · 1477 · 2369 · 2377 · 2409
 
 <!-- facets:end -->
 
@@ -108,6 +108,28 @@ of the two: most of these traps recur in a subsystem that had never met them.
   rather than an existence check: the registry only ever contains claims someone deliberately settled, so a
   hit is a defect by construction. Reach for a registry, not a corpus scan, whenever "wrong" depends on
   intent rather than on the text.
+- **A record's own SUBJECT MATTER is the vocabulary a gate over it wants to scan for — so the scan reads <!-- trap: sub=gates,measurement shape=vacuous,wrong-subject -->
+  as full of defects and holds none.** The second measured instance of the entry above, and the sharper
+  one, because here the words genuinely belong. `check-measurements` was specified to fail a result reading
+  CURRENT whose body matched `CORRECT(ED|ION)|RETRACT|STALE|SUPERSED`. Built and run over the real record
+  (2026-09-10): **63 hits across 18 results, ZERO defects.** `stale@k` and `current@k` are METRIC NAMES
+  there, "the superseded fact" is the PHENOMENON the knowledge-update workload measures, and `correction`
+  is a corpus class in `memory-density` — a document about supersession is made of the word. Restricting
+  the match to CAPITALS did not rescue it: the survivors were a table row reading `| the SUPERSEDED fact |`
+  and a heading asking *"Does a CORRECTION separate from a RECURRENCE?"*. **What worked was narrowing the
+  SUBJECT, not the pattern** — the same vocabulary over section HEADINGS only, which are short authored
+  claims rather than prose: 5 of 57 flagged, 4 genuine. **Before writing a vocabulary gate, run it and
+  COUNT the defects**, because a scan with a 0% hit rate is indistinguishable from a strict one until
+  somebody looks, and shipping it teaches the next maintainer to reach for the escape token.
+- **A `<!-- marker: … -->` whose value contains `>` matches NOTHING — the row does not fail, it VANISHES.** <!-- trap: sub=gates,docs shape=silent-loss -->
+  `_markers.mjs`' pattern excludes `>` on purpose, so it cannot run past its own `-->`; the cost is that a
+  value like `arm="best threshold >= 6"` makes the whole marker unmatched rather than malformed, and every
+  check that iterates markers simply never sees it. Measured on `check-measurements`' first real run: one
+  result disappeared from a generated index, and the ONLY thing that noticed was the closed-vocabulary rule
+  reporting its metric as unused — had the metric been a common one, the row would have been silently
+  absent from the index that is the whole point of the file. Any gate on this seam must tell "no marker
+  here" from "a marker too broken to match": test for the OPENER (`<!-- name:`) as well as the full
+  pattern, and report the difference.
 - **A gate weakened by a regex LOOKAHEAD has no expiry — worse than the `drift-ok` it was built to <!-- trap: sub=gates shape=scope-blind -->
   avoid.** Found 2026-08-31 narrowing `retiredTerms` to silence seven accurate past-tense code comments
   (`` `SubjectSeedK`'s default of 5 ``, `` `SemanticSeedK` defaulted to 0 ``): <!-- drift-ok: names the two retired identifiers the withdrawn lookahead actually excluded --> a trailing negative lookahead
@@ -267,7 +289,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   prose, found the sentence "the remaining one-factor sweep is `NoveltyWeight`", and advertised that instead
   — and `NoveltyWeight` had also already run, in the very commit that added the sentence. It was committed
   and every gate was green. **So the check is not "re-read the entry", it is "ask the INSTRUMENT"**:
-  `docs/memory.md` §5 and `docs/task-archive.md` record what has actually run, and neither is written by the
+  `docs/memory-measurements.md` §5 and `docs/task-archive.md` record what has actually run, and neither is written by the
   person amending the backlog.
   <br>**Do not build the obvious gate — this one is the shape that cannot be tightened.** Three forms were
   considered against the four real instances. Scanning open `- [ ]` items for a self-closing phrase
@@ -380,7 +402,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   `MemoryVerificationRequest` carries the query and the candidates and NOT the caller's limit, so the policy
   cannot say "at most 20" for a page of 20. **A knob that shapes the input is usually cheaper than a bigger
   model, and it is testable on the model you already have.**
-  <br>**TESTED on the extractor 2026-09-04 (`docs/memory.md` §5), and the prediction held: the inflation was
+  <br>**TESTED on the extractor 2026-09-04 (`docs/memory-measurements.md` §5), and the prediction held: the inflation was
   the PROMPT.** Adding one line — *at most 2 facts* — took 7.1 facts/turn to 2.1 on the same 4B model, cost
   no evidence (survival stayed 142/142) and recovered 11.4 of the 14.3 points of `current@k` the unbounded
   prompt had lost. **Two rules came out of doing it**, and both generalise to any prompt-level bound:
@@ -393,7 +415,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   compete — so input shaping bought back the DILUTION and moved the underlying judgement not at all. **Fix
   the input before buying a bigger model; do not expect it to buy a capability the seam never had.**
   <br>**Then the SAME budget was put to the JUDGE and did not bind at all, so this is two cases and not one
-  rule** (2026-09-04, `docs/memory.md` §5). Asked for at most 20 of 80 the model endorsed **34.9 — MORE than
+  rule** (2026-09-04, `docs/memory-measurements.md` §5). Asked for at most 20 of 80 the model endorsed **34.9 — MORE than
   the 29.1 it endorsed unbudgeted**; asked for at most 5 it endorsed 27.4. **A GENERATIVE task takes a count
   naturally; a SELECTIVE task over a list the model can SEE does not**, because every candidate looks locally
   defensible and a stated number reads as an expectation rather than a cap. **A budget that RAISES the output
@@ -1120,7 +1142,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   of 133 characters: a purpose-built cross-encoder scored **78.0%** against its base's 85.5% and read as a
   refutation of the whole design lead — until the same model on the same arm with headlines long enough to
   hold the turn read **91.0%**. Headline length alone was worth **+13.0** to the reranked arm and +0.5 to
-  the base (`docs/memory.md` §5, **D107**'s neighbour).
+  the base (`docs/memory-measurements.md` §5, **D107**'s neighbour).
   <br>**The tell was that the audit was CLEAN.** 16,002 pairs scored, 15,958 distinct — the model
   discriminated almost perfectly and still lost, which is the signature of a model being fed the wrong
   input rather than of a model that cannot do the job. **Before concluding a model class does not transfer,
@@ -1904,6 +1926,25 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Refactoring & namespace moves
 
+- **Splitting a document silently breaks its BARE `§N` self-citations, and `check-links` cannot see one.** <!-- trap: sub=docs,gates shape=scope-blind,silent-loss -->
+  Measured 2026-09-10 splitting `docs/memory.md` §5 out to `docs/memory-measurements.md` (**D114**): the <!-- link-ok: names the citation that MOVED, which is this entry's whole subject -->
+  gate named all **141** citations that carry a filename, and was structurally blind to **ten** written as
+  a bare `§5`/`§6`/`§7` — its `ANCHOR_PATTERN` requires a filename before the `§` **on purpose**, because
+  "`design §7`" sits within a few words of an unrelated filename and a gate that guesses the target names
+  the wrong file. Eight of the ten pointed from the old file INTO the section that had left it, and two
+  pointed from the new file back at sections that had not. **Every one still rendered, resolved to nothing,
+  and failed no gate.** Before splitting or merging any document, grep it for a bare `§` and decide each
+  one by hand — the gate covers the easy half only. One of them lived inside a fenced `csharp` sample,
+  where it also ships to a reader who copies the block.
+- **A `§N` at the end of a sentence reads as `§N.`, so a fence written `(?!\.)` to exclude sub-sections <!-- trap: sub=docs,gates shape=scope-blind,silent-loss -->
+  silently drops a THIRD of the population.** The same split: a sweep repointing `memory.md` §5 fenced the <!-- link-ok: names the citation that MOVED, which is this entry's whole subject -->
+  digit with `(?!\d|\.)` so it would not match the design record's `§5.7`, reported a confident **96**
+  citations across 28 files, and had skipped **43** — every citation that happened to close a sentence.
+  Caught only by counting the same population a second way and not believing the first number.
+  `(?!\d)(?!\.\d)` is the correct pair: reject `5.7`, accept `5.`. **The general shape — a lookahead
+  written for one exclusion catches a second one nobody enumerated** — is the trap the withdrawn
+  `retiredTerms` lookahead records from the other direction, and both are silent in the PERMISSIVE
+  direction.
 - **A compiler error list is not the authoritative site-list for a rename or move — it misses silently in <!-- trap: sub=build shape=scope-blind -->
   three distinct ways.** Found closing the memory-domain restructure (moving the graph-retention types into
   `.Interference`/`.Forgetting`/`.Modulation`/`.Salience` sub-namespaces): **(1) it cannot see warnings.**
@@ -2081,7 +2122,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   42.2 and 42.2.
   <br>**This is the SECOND instance and the first was already written down.** `docs/task-archive.md` Part 134
   adjudicated an interaction at n = 100 and had to retract it at full sample; that lesson sits in
-  `docs/memory.md` §5, was quoted during the session that repeated it, and was repeated anyway. Knowing the
+  `docs/memory-measurements.md` §5, was quoted during the session that repeated it, and was repeated anyway. Knowing the
   rule is not applying it.
   <br>**The habit that would have caught it, and it is cheap:** before reading a delta as a result, compare
   it to a floor measured IN THE SAME RUN — a pair of arms that must agree, a repeat of one arm, anything that
@@ -2094,7 +2135,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 - **A metric whose MATCH TARGET survives the transformation it ought to detect is blind to that <!-- trap: sub=measurement shape=wrong-subject -->
   transformation, and it reports a clean comparison between arms that differ by exactly it.** Measured
-  2026-09-02 (`docs/memory.md` §5). LoCoMo evidence-hit asks whether a returned turn contains
+  2026-09-02 (`docs/memory-measurements.md` §5). LoCoMo evidence-hit asks whether a returned turn contains
   `"(" + dia_id + ")"`. The graph arms return HEADLINES — `MemoryHeadline.Derive` cuts content at 120
   characters — while the cosine arms return whole turns. But the `dia_id` rides in the 44-character HEADER
   every turn carries, so it is never the part that gets cut: it survived truncation in **5,882 of 5,882**

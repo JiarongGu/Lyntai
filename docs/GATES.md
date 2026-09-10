@@ -6,7 +6,7 @@
 > failure is spurious.
 
 `node devtools/dev.mjs` with no argument prints the authoritative command list; it is derived from the
-switch in `devtools/dev.mjs`, so it cannot be a subset. `verify` runs 21 checks, stopping at the first
+switch in `devtools/dev.mjs`, so it cannot be a subset. `verify` runs 22 checks, stopping at the first
 failure. **Digits, not a number word** — `parseCount` has no hyphenated compounds, so `twenty-one` would be
 skipped rather than compared and the claim it anchors would match nothing.
 
@@ -72,6 +72,7 @@ nobody can see opening.
 | `check-links` | `link-ok` | a line naming a path as DATA — a guard fixture's name, say |
 | `check-counts` | `count-ok` | a sentence quoting a HISTORICAL count ("the list said seven and had eleven") |
 | `check-comments` | `comment-ok` | on a block's first line; reserve it for a block no reader would want shorter — a table, a wire-format capture |
+| `check-measurements` | `measure-ok` | a line discussing ANOTHER result's retraction; naming what this row supersedes is the better fix, and it is also the bookkeeping the index needs |
 | `check-decisions`, `check-archive`, `check-backlog` | **none** | an allowance is a visible ratcheted number and is the only way out |
 
 **An allowance that stops matching FAILS, and one looser than the subject needs FAILS**, so exclusions
@@ -344,7 +345,7 @@ permissive direction.
 **What it gates is different from its sibling's**, which is the point: a decision's reasoning IS its
 payload, while an archive entry's detail belongs to whichever record owns it, so what this removes is
 **DUPLICATION**. The measured cost: a retraction landed on a run whose narrative sat in BOTH the archive
-entry and `docs/memory.md` §5, and only one of the two got edited.
+entry and `docs/memory-measurements.md` §5, and only one of the two got edited.
 
 Limit **20** non-blank lines against the rule's own "roughly ten lines does that" — chosen 2026-09-04, when
 the median entry was 10 and p75 was 16, so the median already complied and the whole weight sat in the
@@ -401,6 +402,47 @@ helped LOCATING cost (~66 lines read against ~117), so an index sized for READIN
 
 Adding or moving a trap means re-running `check-pitfalls --write`, because the trap count sits inside the
 generated block.
+
+### `check-measurements` — whether a published FIGURE is still the current one
+
+The FOURTH gate on the `devtools/scripts/_markers.mjs` seam, and the only one whose subject is a NUMBER
+rather than a name. **None of the prose family can see this defect**: a figure quietly superseded retires
+no vocabulary, dangles no reference and moves no registered count, so the sentence stays grammatical,
+precise and wrong.
+
+Measured 2026-09-10, by the cold-start probe that asked *"what is the best memory configuration"*: ~595
+lines read, 55% of them wasted, and the answer **not current — unverifiable by construction**. The reason
+is structural. The measurement record **RETRACTS INLINE**: a figure published in one section is corrected
+three sections down, mid-paragraph, and one section read on its own is confidently out of date.
+
+**Heading-level indexing is the fix that looks sufficient and is not**, which is the whole design. A
+heading-grep is blind to a mid-section retraction, so the index is at RESULT-ROW granularity — a section
+carries a second `<!-- result: … -->` marker whenever it holds a result whose currency differs from its
+heading's, and that second marker is what lets the gate tell the live half from the dead half.
+
+**`SUPERSEDED` is never authored.** An author writes `CURRENT` or `RETRACTED` and names what a new result
+replaces in `supersedes=`; the index derives the rest. Two-sided bookkeeping is exactly where a record like
+this rots, because the losing half of the pair is the half nobody revisits — and a hand-written
+`status=SUPERSEDED` fails with that as its message. `supersedes=` resolves BACKWARDS only, which is what
+makes a cycle unrepresentable rather than merely unlikely.
+
+The check that repays the rest: **a result still reading CURRENT whose own body says something was
+corrected, retracted, went stale or was superseded FAILS.** The common false positive — a row that is doing
+the superseding — is exempted by `supersedes=` rather than by a token, so the escape for the ordinary case
+is the bookkeeping the index needed anyway. `measure-ok` remains for a line genuinely discussing a third
+result.
+
+`measurementMetrics` (`devtools/project.config.mjs`) is CLOSED and a slug no result uses fails, for
+`pitfallFacets`' reason. Two columns carry the questions the probe could not answer — **`ships`**, whether
+the arm measured is the library's shipped default, and the derived status — and the index reports how many
+rows are on the shipped arm, because reading a ladder rung, a ceiling or an oracle as a configuration
+recommendation is the specific mistake this record invites.
+
+**Two honest limits.** The gate checks that a status is WELL-FORMED, never that it is TRUE: a result
+silently superseded by a run nobody wrote down is invisible, and the index asserts completeness. And a
+**bare `§5`** — no filename — is checked by nothing, here or in `check-links`, whose pattern needs a
+filename by design; splitting this record turned eight of them into silent lies in one commit, which is
+recorded in `.claude/knowledge/pitfalls.md` §Refactoring & namespace moves.
 
 ### `check-decision-claims` — whether a DECISION still describes the code it governs
 
@@ -537,7 +579,7 @@ Deprecation, as opposed to unlisting, is **web-UI only** — no API, so it is no
 
 Every `memory-*` command is a measurement rather than a gate, all out of `verify` for the same cost reason
 (tens of minutes each, and several need a live model server). What each one measures is in the command
-table in `CLAUDE.md`; what each one FOUND is in `docs/memory.md` §5.
+table in `CLAUDE.md`; what each one FOUND is in `docs/memory-measurements.md` §5.
 
 Three of them are not one-factor sweeps and each is exceptional differently: `memory-sweep` is the
 {ranking × forgetting} 2×2; **`memory-scale`'s subject is COST**, so it generates plain entries and reports

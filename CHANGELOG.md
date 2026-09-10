@@ -225,7 +225,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   rewarded — something a single pooled field could not express. `MemoryCandidate.Ranks` (`MemorySeedRanks`)
   carries the evidence; a candidate carrying no ranks at all — a hand-built engine, a BYO gather — falls back
   to today's pooled-relevance term, byte-identical to before this shipped.
-  <br>**Measured on LoCoMo evidence-hit@20** (`docs/memory.md` §5): the semantic channel was previously
+  <br>**Measured on LoCoMo evidence-hit@20** (`docs/memory-measurements.md` §5): the semantic channel was previously
   unreachable — a real cosine could never outrank a fabricated pooled value — and with per-source fusion its
   `+sem+rel-only` arm now reads **83.0%**, above plain cosine's own **80.5%**, the first mechanical arm to
   clear it. **No default moved** — `SemanticSeedOptions` still ships unregistered.
@@ -407,7 +407,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   141,330 to 55,828 characters (~35k tokens to ~14k), which is what every session pays before it does
   anything. Nothing was deleted without a home: the per-gate narrative moved to the new **`docs/GATES.md`**,
   eleven traps to `.claude/knowledge/pitfalls.md`, the multilingual and scale measurements to
-  `docs/memory.md` §5, the migration asymmetry to `.claude/knowledge/storage.md` §Migrations, and the
+  `docs/memory-measurements.md` §5, the migration asymmetry to `.claude/knowledge/storage.md` §Migrations, and the
   `IMemoryGraphStore` default-body roster to `.claude/knowledge/extending-lyntai.md`.
 - **New gate `check-dev-loop`** — `CLAUDE.md`'s command table is now GENERATED from `devtools/dev.mjs`
   plus `devLoopCommands`, the third authored-marker/generated-index gate after `check-backlog` and

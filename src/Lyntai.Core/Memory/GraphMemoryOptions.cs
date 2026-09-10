@@ -285,7 +285,7 @@ public sealed record GraphMemoryOptions
     /// Measured on LoCoMo with a real 4B judge at the shipped depth, the partition cost <b>10.5 points</b> of
     /// evidence-hit on one embedder and <b>12.0</b> on a second, while fusing the same verdict from the same
     /// model recovered ALL of that loss on the first and <b>most</b> of it on the second — 9.5 of 12.0,
-    /// landing 2.5 short of the unjudged base (<c>docs/memory.md</c> §5).
+    /// landing 2.5 short of the unjudged base (<c>docs/memory-measurements.md</c> §5).
     /// <b>So expect it to remove most of a bad judge's cost, never to beat the base</b>: it is insurance
     /// rather than an improvement. How MUCH it recovers is embedder-dependent; that it recovers most of it
     /// replicated. It is not the default because a silent reordering is a change no consumer could detect at
@@ -309,7 +309,7 @@ public sealed record GraphMemoryOptions
     ///
     /// <para><b>That saturation was measured with a PERFECT judge, where depth is free because an oracle
     /// never endorses junk — and for a real one depth is a PRECISION trade, so the knee moves.</b> Measured
-    /// on LoCoMo with one 4B judge (<c>docs/memory.md</c> §5): at 2× the limit it was level with no judge,
+    /// on LoCoMo with one 4B judge (<c>docs/memory-measurements.md</c> §5): at 2× the limit it was level with no judge,
     /// and at this default's 4× it cost 10.5 points of evidence-hit, because its selectivity collapsed on
     /// the longer list and it endorsed more candidates than the page could hold. <b>The default is right for
     /// a strong judge and can be actively harmful for a weak one</b>; it did not move, because one model on

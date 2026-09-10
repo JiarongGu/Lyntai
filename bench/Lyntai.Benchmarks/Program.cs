@@ -38,14 +38,14 @@ if (args.Contains("--salience"))
 // `node devtools/dev.mjs memory-locomo` → --locomo. The benchmark the field publishes against and this
 // repository had no number for. An absolute score is NOT comparable to a published one (different reader
 // model); the ARM DIFFERENCE is, because every arm answers the same questions with the same reader. See
-// MemoryLocomoBench and docs/memory.md §5.
+// MemoryLocomoBench and docs/memory-measurements.md §5.
 if (args.Contains("--locomo"))
     return await MemoryLocomoBench.RunAsync(args);
 
 // `node devtools/dev.mjs memory-longmemeval` → --longmemeval. The benchmark where forgetting is supposed
 // to HELP: a knowledge-update question carries an earlier fact and a later revision, so the score is whether
 // the memory PREFERS the current one — a claim a decay model makes and a flat index cannot. LoCoMo is the
-// opposite shape and penalises decay by construction. See MemoryLongMemEvalBench and docs/memory.md §5.
+// opposite shape and penalises decay by construction. See MemoryLongMemEvalBench and docs/memory-measurements.md §5.
 if (args.Contains("--longmemeval"))
     return await MemoryLongMemEvalBench.RunAsync(args);
 

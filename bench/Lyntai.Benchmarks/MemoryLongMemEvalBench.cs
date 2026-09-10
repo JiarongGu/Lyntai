@@ -17,7 +17,7 @@ namespace Lyntai.Benchmarks;
 /// <b>LongMemEval's knowledge-update class — the benchmark where forgetting is supposed to HELP.</b>
 ///
 /// <para>LoCoMo distributes its questions uniformly over months of history, so it rewards a perfect archive
-/// and penalises decay by construction (<c>docs/memory.md</c> §5). This is the opposite shape. A
+/// and penalises decay by construction (<c>docs/memory-measurements.md</c> §5). This is the opposite shape. A
 /// knowledge-update question carries exactly TWO dated sessions: an earlier one stating a fact and a later
 /// one REVISING it. The turns that carry each are flagged, so the question this asks is not "can you find
 /// it" but <b>"do you prefer the CURRENT value over the superseded one"</b> — which is the claim a decay
@@ -67,7 +67,7 @@ internal static class MemoryLongMemEvalBench
     /// read against.
     ///
     /// <para><b>The control is not optional.</b> A reranker only works here when the seam stops truncating
-    /// (`docs/memory.md` §5: 78.0% at the shipped 120 characters, 91.0% at 512), so the arm must raise
+    /// (`docs/memory-measurements.md` §5: 78.0% at the shipped 120 characters, 91.0% at 512), so the arm must raise
     /// <c>HeadlineChars</c> — and then a bare <c>arm</c> vs <c>arm+rerank</c> comparison would confound the
     /// reranker with the headline change. Hence the pair: <c>+hl512</c> alone, and <c>+hl512+rerank</c>.</para>
     ///
@@ -309,7 +309,7 @@ internal static class MemoryLongMemEvalBench
     /// REPLACES it, rather than landing beside it.
     ///
     /// <para><b>Why it is the half worth measuring.</b> Extraction alone inflated the corpus 7.1× with
-    /// near-duplicates and cost 14 points of <c>current@k</c> (`docs/memory.md` §5). That is the failure
+    /// near-duplicates and cost 14 points of <c>current@k</c> (`docs/memory-measurements.md` §5). That is the failure
     /// mode this removes — and it is also the mechanism the field's write-time designs actually claim, since
     /// extracting a fact resolves nothing on its own.</para>
     ///

@@ -139,7 +139,7 @@ internal static class FieldArms
         // so raising the LIMIT moves the pool and the returned count together — which is what made the
         // 2026-09-07 `fill` arm ambiguous until `--pool` separated them. These change only the pool.
         //
-        // Measured on both LongMemEval classes (`docs/memory.md` §5): a ~1:1 exchange, +27.2 points of
+        // Measured on both LongMemEval classes (`docs/memory-measurements.md` §5): a ~1:1 exchange, +27.2 points of
         // `clean` for -28.0 of all-evidence recall going 4 -> 16, so the shipped 4 is the COVERAGE end of a
         // real axis rather than an unexamined default. What is unmeasured is SEARCH, and it is not a third
         // data point: **D59** decomposed LoCoMo's loss as 100% reachable-but-outranked by replaying each

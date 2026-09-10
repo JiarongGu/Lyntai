@@ -58,7 +58,7 @@ public sealed record ReciprocalRankFusionOptions
     /// at this weight where one source would earn one, so registering another
     /// <see cref="Lyntai.Memory.Seeding.IMemorySeedSource"/> changes what this knob MEANS, not merely how
     /// often it fires. Measured NOT to be what drove the 83.0% LoCoMo gain per-source fusion produced
-    /// (<c>docs/memory.md</c> §5, <c>docs/DECISIONS.md</c> D103) — a consumer tuning this weight against a
+    /// (<c>docs/memory-measurements.md</c> §5, <c>docs/DECISIONS.md</c> D103) — a consumer tuning this weight against a
     /// growing source count should read it as this scaling, not a stronger relevance signal.</para>
     /// <para><b>Must be FINITE and <c>&gt;= 0</c>.</b> A negative weight would not merely weaken this
     /// signal's pull, it would INVERT it: a smaller (better) <c>rankₛ</c> produces a LARGER <c>1/(K +

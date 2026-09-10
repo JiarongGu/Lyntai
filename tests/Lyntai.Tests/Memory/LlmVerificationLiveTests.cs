@@ -29,7 +29,7 @@ namespace Lyntai.Tests.Memory;
 /// <para><b>The model is a PARAMETER, and the ladder is the finding.</b> Recall quality tracks judge
 /// capability, so one model's score is a point on a curve rather than "the" number — and one sample of a
 /// stochastic judge is not a measurement. Which model runs is a deployment choice
-/// (<c>.claude/knowledge/model-decoupling.md</c>); the ladder itself is <c>docs/memory.md</c> §5, which is
+/// (<c>.claude/knowledge/model-decoupling.md</c>); the ladder itself is <c>docs/memory-measurements.md</c> §5, which is
 /// the authority and is not duplicated here.</para>
 ///
 /// <para>Runs only when <c>LYNTAI_LIVE_MODEL</c> (or the legacy <c>LYNTAI_LIVE_OLLAMA</c>) is set AND a model
@@ -60,7 +60,7 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     /// Japanese case — the two non-answering notes, missing the answer entirely — while passing English,
     /// Chinese and Korean. A default that fails the library's own multilingual promise makes the seam look
     /// worse than it is, and it is the value anyone runs first.
-    /// <para><b>The judge ladder lives in <c>docs/memory.md</c> §5 and is not duplicated here</b> — it
+    /// <para><b>The judge ladder lives in <c>docs/memory-measurements.md</c> §5 and is not duplicated here</b> — it
     /// carries miss, pollution and a share-of-reference column for six judges, which is strictly more than a
     /// list of model names would say. <c>gemma3:4b</c> is the default because that table makes it the best
     /// LOCAL arm: pollution <c>0.0492</c>, the lowest of any judge measured including the ground-truth
@@ -312,7 +312,7 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
         //
         // It is not a GATE because the fixture is deliberately adversarial and does not generalise. Measured
         // 2026-08-15: gemma3:4b takes the distractor here in Chinese, Japanese and Korean — yet on the real
-        // corpus it admits the LEAST junk of any judge measured (pollution 0.0492, docs/memory.md §5, better
+        // corpus it admits the LEAST junk of any judge measured (pollution 0.0492, docs/memory-measurements.md §5, better
         // than the ground-truth reference). A fixture that fails the best-measured local model is
         // mis-calibrated as a pass/fail bar; asserting on it would have forced the default to a reasoning
         // model the library's own docs disqualify on latency. So the number goes to the ladder and the

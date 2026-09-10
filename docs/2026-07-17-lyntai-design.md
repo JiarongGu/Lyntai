@@ -394,7 +394,7 @@ this moves it by an order of magnitude. The `filter` arm's `0.000/0.000` is clos
 perfect oracle ("only relevant items survive" is what that phrase means) and is reported as an upper bound
 rather than a result.
 <br>**Two limits that decide how to use it.** The judge's ACCURACY is a separate question, and it is already
-measured: **`docs/memory.md` §5 carries the judge ladder** — six judges with miss, pollution and a
+measured: **`docs/memory-measurements.md` §5 carries the judge ladder** — six judges with miss, pollution and a
 share-of-reference column — and is the authority. It is not restated here; a second table would drift from
 it. Two of its findings bear directly on the ceiling above: the ground-truth arm is a REFERENCE and not an
 upper bound (`gemma3:4b` beats it on both metrics), and **newer beats bigger**. And the judge COSTS a model

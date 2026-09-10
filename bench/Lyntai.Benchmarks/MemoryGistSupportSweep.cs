@@ -28,7 +28,7 @@ namespace Lyntai.Benchmarks;
 /// MEASURED and printed in each band block</b> — a write's cost depends on the injected clock, so read that
 /// line rather than the argument. <c>sum</c> and <c>count</c> never normalize by size and are real
 /// measurements at any gap.</para>
-/// <para><b>What it has measured is <c>docs/memory.md</c> §5</b>, which is where the tables live and where
+/// <para><b>What it has measured is <c>docs/memory-measurements.md</c> §5</b>, which is where the tables live and where
 /// they stay current — the headline being that no <c>count@θ</c> is both pacing- and cardinality-independent,
 /// so there is no constant for the tier to adopt. This block had a copy of those figures until 2026-08-30,
 /// and it had already gone stale: it said 600 replays after the cardinality axis made it 2400.</para>

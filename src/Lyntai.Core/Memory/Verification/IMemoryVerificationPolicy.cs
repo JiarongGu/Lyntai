@@ -54,7 +54,7 @@ public enum MemoryVerdictCombination
     /// silently reproduces <see cref="Partition"/>.</para>
     /// <para><b>Expect SAFETY, not a higher score.</b> Measured on LoCoMo against a real 4B judge it removes
     /// most of the partition's cost and never beats the base — all of a 10.5-point loss on one embedder, 9.5
-    /// of 12.0 on a second (<c>docs/memory.md</c> §5). What it buys is that a weak judge can no longer
+    /// of 12.0 on a second (<c>docs/memory-measurements.md</c> §5). What it buys is that a weak judge can no longer
     /// destroy a good ranking; the rescue a verdict exists for is kept.</para></summary>
     Fuse = 1,
 }

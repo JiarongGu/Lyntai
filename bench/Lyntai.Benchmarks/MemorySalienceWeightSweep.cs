@@ -35,7 +35,7 @@ namespace Lyntai.Benchmarks;
 /// See <c>.claude/knowledge/pitfalls.md</c> for the measured version of both traps.</para>
 ///
 /// <para>The question, the result and what neither settles live in <c>TASKS.md</c> Part 65 and
-/// <c>docs/memory.md</c> §5; <c>PrintNotSwept</c> states the limits at the point of use.</para>
+/// <c>docs/memory-measurements.md</c> §5; <c>PrintNotSwept</c> states the limits at the point of use.</para>
 /// </remarks>
 internal static class MemorySalienceWeightSweep
 {

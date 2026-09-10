@@ -183,8 +183,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D111](#d111--an-open-items-state-is-authored-on-the-item-the-backlogs-roster-is-generated-from-it-2026-09-10) | 2026-09-10 | an open item's STATE is authored on the item; the backlog's roster is generated from it |
 | [D112](#d112--the-traps-record-is-filed-by-facets-orthogonal-to-its-headings-not-by-better-headings-2026-09-10) | 2026-09-10 | the traps record is filed by FACETS orthogonal to its headings, not by better headings |
 | [D113](#d113--claudemds-command-table-is-generated-what-a-gate-is-for-moves-to-docsgatesmd-2026-09-10) | 2026-09-10 | `CLAUDE.md`'s command table is GENERATED; what a gate is FOR moves to `docs/GATES.md` |
+| [D114](#d114--a-measurement-is-a-row-and-a-figures-currency-is-derived-never-authored-twice-2026-09-10) | 2026-09-10 | a measurement is a ROW, and a figure's currency is DERIVED, never authored twice |
 
-_All 113 entries are live decisions._
+_All 114 entries are live decisions._
 
 <!-- index:end -->
 
@@ -1155,7 +1156,7 @@ compromise.
 **"Reachable" means reachable at the SHIPPED pool** (2026-09-07). The decomposition above replayed each
 query *wide open*, which lifted `Limit` — and the engine gathers `Limit × CandidateMultiplier`, so that
 widened the pool and the returned count together. A ladder over the multiplier ALONE, at a fixed output,
-gains nothing on LoCoMo at any rung (54.5% → 44.5% going 4 → 16; `docs/memory.md` §5), so the missed
+gains nothing on LoCoMo at any rung (54.5% → 44.5% going 4 → 16; `docs/memory-measurements.md` §5), so the missed
 evidence already sits in the shipped pool and the claim is the tighter of its two readings.
 
 ## D60 — a cross-backend rule is a FUNCTION, not a sentence; and the archiving step became a gate (2026-08-14)
@@ -2674,7 +2675,7 @@ call the older regime correct on the same bytes, and this corpus cannot say othe
 is narrower and stronger: raw is the wrong DEFAULT for one deployment model, and the seam dissolves on the
 argument rather than on the number.
 
-**What the sweep measured is `docs/memory.md` §5** — tables, retrievability bands and the full reading, from
+**What the sweep measured is `docs/memory-measurements.md` §5** — tables, retrievability bands and the full reading, from
 `node devtools/dev.mjs memory-support`. **Every combining form over member retrievability inverts on some
 axis a deployment does not control**: `sum` and every DISCRIMINATING `count@θ` on write pacing,
 `count@0.8`/`count@0.9` on cardinality, and `mean` on how long ago the newer regime was written. The only
@@ -2773,7 +2774,7 @@ null`, and `MultiplicativeRankingPolicy` then omits the relevance factor rather 
 
 **The defect it fixes was a literal.** Both row projections materialized every node with `Relevance = 1`,
 the MAXIMUM, and only `SeedAsync` overwrote it — so every walked or by-id candidate outranked everything
-that had actually been scored. Measured on LoCoMo (`docs/memory.md` §5), evidence-hit@20:
+that had actually been scored. Measured on LoCoMo (`docs/memory-measurements.md` §5), evidence-hit@20:
 
 | | shipped | fixed |
 |---|---|---|
@@ -2811,7 +2812,7 @@ walked to. Default `0`, which admits everything and is what every release throug
 **The gap it closes.** `EdgeHalfLife` decays the EDGE; nothing consulted the ENTRY on the traversal path. So
 a recall would correctly bury a superseded fact and an expansion of its neighbour handed that fact straight
 back — forgetting governed recall and had no vote in the walk. Measured on LongMemEval's knowledge-update
-class (`docs/memory.md` §5): a context holding the current value and NOT the superseded one fell 40.0% →
+class (`docs/memory-measurements.md` §5): a context holding the current value and NOT the superseded one fell 40.0% →
 36.0% as the walk went deeper, while `stale@k` climbed 56.0% → 60.0%.
 <br>_Every figure in this entry is the **25-question** sample. Re-measured on all 70 (2026-08-29) the same
 fall reads 31.4% → 28.6% with `stale@k` 62.9% → 65.7%: the defect is the same shape and about a third
@@ -2875,7 +2876,7 @@ with detail bought per-entry by expanding — not a big context assembled up fro
 <br>**Amended 2026-09-02: this is now the DEFAULT, not the only behaviour.** **D104**'s `MemoryQuery.Detail`
 lets a caller whose workload is ANSWERING ask for whole entries; the reason for the default is unchanged.
 
-**What measurement settled** (`docs/memory.md` §5). On LongMemEval knowledge-update, shot 1 returns a clean
+**What measurement settled** (`docs/memory-measurements.md` §5). On LongMemEval knowledge-update, shot 1 returns a clean
 context — the current fact and not the superseded one — **31.4%** of the time on 1,169 characters, against
 cosine's **10.0%** on 10,387: **3.1× the precision on a ninth of the context**. _(Re-measured 2026-08-29 on
 all 70 questions; the 25-question sample this entry first quoted read 40.0% against 16.0%, so the LEVEL was
@@ -2899,7 +2900,7 @@ default moves on one class of one benchmark. `ExpansionRetrievabilityFloor` (**D
 same reason.
 
 **What reversing would cost.** Nothing in the library depends on this — it is a stance about what to
-measure, and the shipped surface is unchanged. The cost is in the records: `docs/memory.md` §5 would have
+measure, and the shipped surface is unchanged. The cost is in the records: `docs/memory-measurements.md` §5 would have
 to re-caveat its one-shot tables as primary, and the harnesses' `--shots` modes would become dead weight.
 Reversal is cheap today and gets dearer if a shot-aware recall API is built on top of it.
 
@@ -3076,7 +3077,7 @@ that asymmetry is the harm. Its cost scales with how MANY candidates a judge end
 caller's limit replaces the page instead of refining it, since everything unendorsed is pushed off however
 well it was ranked. Measured on LoCoMo with a real 4B judge at the shipped depth, the partition cost **10.5
 points** of evidence-hit on one embedder and **12.0** on a second, and it is that harm — not the size of the
-cure — that replicated (`docs/memory.md` §5).
+cure — that replicated (`docs/memory-measurements.md` §5).
 
 **Fuse removes MOST of that loss and never beats the base, so it is insurance rather than an improvement.**
 It recovered all of the loss on the first embedder and 9.5 of 12.0 on the second, landing 2.5 short — so
@@ -3105,7 +3106,7 @@ fails if it recurs.
 **What `Fuse` costs a GOOD judge — measured 2026-09-07, and missing when this was decided.** 2.0 points at
 perfect judgement (92.5% → 90.5%, LoCoMo n = 200), so the partition has a real justification and the default
 is a **bet on judge quality**: +2.0 when it is right against −10.5 when the judge is a 4B model, ~5:1 against.
-It stays until that pair is measured on a second workload (`docs/memory.md` §5).
+It stays until that pair is measured on a second workload (`docs/memory-measurements.md` §5).
 
 ## D106 — the gist tier is REFUTED AS SCOPED: abstraction belongs at encoding, not at retrieval (2026-09-04)
 
@@ -3116,7 +3117,7 @@ plus a literature pass agree on why.
 **The measurement refuted every combining form.** `sum` and every discriminating `count@theta` invert with
 write pacing, `count@0.8`/`count@0.9` with cardinality, and `mean` with how long ago the newer regime was
 written. The only rule invariant on both axes is the raw count, which the corpus declares wrong for the
-assistant host (`docs/memory.md` §5).
+assistant host (`docs/memory-measurements.md` §5).
 
 **The literature says where the information went.** Every working system in the field records supersession at
 WRITE time: Zep/Graphiti invalidate a superseded edge through bi-temporal `valid_at`/`invalid_at` windows
@@ -3176,7 +3177,7 @@ alone: the dance is four lines with a genuine hazard, and at 12–29× it is wor
 
 `MemoryVerificationCandidate` carried an id, a headline and a relevance. The headline is a TRUNCATION —
 `GraphMemoryOptions.HeadlineChars` characters of the content, 120 by default — so a policy that scores
-wording was scoring a fragment. Measured on LoCoMo (`docs/memory.md` §5): a cross-encoder reranker given
+wording was scoring a fragment. Measured on LoCoMo (`docs/memory-measurements.md` §5): a cross-encoder reranker given
 headlines SPENT 7.5 points against the arm it was meant to improve, and given whole entries gained **5.0**,
 landing 1.5 short of a perfect judge. The record now carries `Content`.
 
@@ -3203,7 +3204,7 @@ policy.
 
 ## D109 — no competitor penalty: RIF is refused, and the "contradicted" gap is a WRITE-time one (2026-09-08)
 
-`docs/memory.md` §5 filed retrieval-induced forgetting on 2026-08-15 as the shape of the gap between "used"
+`docs/memory-measurements.md` §5 filed retrieval-induced forgetting on 2026-08-15 as the shape of the gap between "used"
 and "gone". Analysed 2026-09-08 and refused. Nothing is built.
 
 **It addresses the wrong half.** The gap NAMES a semantic relation — this fact supersedes that one — and
@@ -3240,7 +3241,7 @@ substituted for its own: a mechanism that sounds apt is exactly the kind that ge
 
 ## D110 — no endorsement CAP on the verification seam: the count rule explains none of the judge's loss (2026-09-10)
 
-A verifier's endorsement set may exceed the page it is promoted into, and `docs/memory.md` §5 records that
+A verifier's endorsement set may exceed the page it is promoted into, and `docs/memory-measurements.md` §5 records that
 as the mechanism costing a 4B judge 10.5 points — 29.1 endorsements per recall out of 80 shown, promoted
 ahead of a 20-slot cut. The obvious surface followed: bound it, as `GraphMemoryOptions`
 `VerificationEndorsementCap` or equivalent. **Measured 2026-09-10 and refused. Nothing is built.**
@@ -3363,3 +3364,35 @@ claim matching nothing fails the gate.
 **The refuted saving, recorded so it is not re-attempted:** deleting the rules tier's YAML frontmatter
 takes 2,857 bytes off disk and **zero** off the context, because the harness strips it before injection.
 Measure the BODY when measuring this tier.
+
+## D114 — a measurement is a ROW, and a figure's currency is DERIVED, never authored twice (2026-09-10)
+
+The measurement half of `docs/memory.md` was **3,459 of that file's 4,248 lines**, and the cold-start probe
+that asked *"what is the best memory configuration"* read ~595 of them and produced an answer that was
+**not current and unverifiable by construction**. It moves to `docs/memory-measurements.md`, every result
+carries a `<!-- result: … -->` marker, and `check-measurements` generates the index at the head of it.
+
+**A heading-level index is the fix that looks sufficient and is not.** This record RETRACTS INLINE — a
+figure published in one section is corrected three sections down, mid-paragraph — so a heading-grep is
+blind to the very case the index exists for. The unit is therefore the RESULT ROW: a section carries a
+second marker whenever it holds a result whose currency differs from its heading's.
+
+**`SUPERSEDED` is never written by hand.** It is derived from a later row's `supersedes=`, and that is the
+load-bearing half: two-sided bookkeeping rots on the LOSING side, because the row nobody revisits is
+precisely the one that went stale. An author writes only `CURRENT` or `RETRACTED` — the claims about a
+result's own fate — and a hand-written `status=SUPERSEDED` fails saying so. `supersedes=` resolves
+BACKWARDS only, which makes a cycle unrepresentable rather than merely unlikely, and holds because the
+record is chronological.
+
+**The alternative refused was RENUMBERING.** Closing the hole at §5 — pulling `memory.md`'s §6–§10 up one —
+would make every existing `§6` citation resolve **silently to the wrong section**, which is the one
+documentation failure no gate can see. So the new file keeps `## 5.` and the old file keeps a numbering
+gap, and the cost is paid once: **141 filename-bearing `§5` citations repointed**, which `check-links`
+names, plus **ten BARE ones that no gate could see** — recorded as a trap, because the
+same split will break the same way in any document.
+
+**What it constrains.** A new measurement is not published by writing a section: it is published by
+writing a row, with the arm, the metric, the sample size, the value, and whether that arm is the one that
+SHIPS. A run that supersedes an earlier figure names it, or the gate reports the survivor as current.
+`ships` is the column a reader turns into a configuration, so an oracle, a ceiling or a ladder rung is
+never `yes`.

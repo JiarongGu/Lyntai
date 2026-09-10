@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Memory;
 /// <see cref="GraphMemoryOptions.HeadlineChars"/> derives that as a 120-character cut of the content. A
 /// cross-encoder reranker — whose whole job is scoring the pair — therefore read the first 120 characters
 /// of most candidates and SPENT 7.5 points where a perfect judge offers +7.0; given whole turns instead it
-/// gained 5.0 (<c>docs/memory.md</c> §5). The engine had the text the entire time:
+/// gained 5.0 (<c>docs/memory-measurements.md</c> §5). The engine had the text the entire time:
 /// <c>SeedAsync</c> already selects the content column and <c>GraphNode.Content</c> carries it, so passing
 /// it costs no extra read.</para>
 ///

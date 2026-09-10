@@ -26,7 +26,7 @@ namespace Lyntai.Benchmarks;
 /// harness supplied either.</para>
 ///
 /// <para><b>It runs against a REAL embedder and refuses without one (2026-08-28)</b> — salience reads
-/// NOVELTY, which a bag-of-words fake turns into a different quantity; <c>docs/memory.md</c> §5 carries the
+/// NOVELTY, which a bag-of-words fake turns into a different quantity; <c>docs/memory-measurements.md</c> §5 carries the
 /// argument and the two-embedder readings. Both arms get the IDENTICAL shared, caching embedder instance and
 /// a vector store, so enrichment is held CONSTANT and only salience varies.</para>
 ///

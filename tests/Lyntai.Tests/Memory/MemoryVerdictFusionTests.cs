@@ -16,7 +16,7 @@ namespace Lyntai.Tests.Memory;
 /// unendorsed one. That is the only place this engine combines a signal by partition rather than by rank
 /// competition, and it is why a weak judge can cost more than no judge at all: an endorsement set larger
 /// than the page REPLACES the ranking instead of refining it. Measured on LoCoMo with a real 4B judge —
-/// −10.5 points partitioned, and exactly its unjudged base when fused (<c>docs/memory.md</c> §5).</para>
+/// −10.5 points partitioned, and exactly its unjudged base when fused (<c>docs/memory-measurements.md</c> §5).</para>
 ///
 /// <para><b>Each arm runs on its OWN database</b>, for the reason
 /// <see cref="MemoryVerificationOrderingTests"/> states: a recall reinforces and links what it returns, so

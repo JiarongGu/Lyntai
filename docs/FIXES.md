@@ -141,7 +141,7 @@ byte-identical in both evidence and gold. Text is nevertheless the only key avai
 
 **The reason it survived four months of use is the interesting half.** Every retrieval ladder on record ran
 `--n 200`, and the stratified sample never drew both copies of any duplicate. So the arm whose 77.5% ceiling
-is quoted in `TASKS.md`, `docs/memory.md` §5 and Part 128's framing had **never been run at full sample and
+is quoted in `TASKS.md`, `docs/memory-measurements.md` §5 and Part 128's framing had **never been run at full sample and
 could not be** — a defect reachable only at a size nobody had used. The QA path carries the same assumption
 and is silent about it: `recalled[(arm, q.Text)] = …` OVERWRITES where `ToDictionary` throws, which is why
 the n = 1,540 QA run earlier the same day completed normally. That silence is benign only because the
@@ -158,13 +158,13 @@ the oracle generous to those questions.
 questions probed, 9,611.4s, and **the divergence warning did not fire**, which is the fix's own control
 reporting that the duplicates are identical. The oracle is demonstrably firing rather than silently
 inert — 65.6% multi-hop against `+forget0`'s 51.4% — so the arm was not repaired into a no-op. Table:
-`docs/memory.md` §5.
+`docs/memory-measurements.md` §5.
 
 ## 2026-08-30 — `memory-salience`'s OFF arm was never off, so its whole table measured one consumer
 
 **Symptom.** `node devtools/dev.mjs memory-salience` (and both its ladders) reports a paired difference
 against an arm labelled `SalienceOff`. Nothing failed, every control was green, and the tables have been
-quoted in `docs/memory.md` §5 and cited by `TASKS.md` Part 65 since 2026-08-28. The defect surfaced only
+quoted in `docs/memory-measurements.md` §5 and cited by `TASKS.md` Part 65 since 2026-08-28. The defect surfaced only
 when the `--novelty` ladder was widened from two corpus shapes to six on 2026-08-30: the `NW0` arm — which
 provably emits no salience at all, `0/51330` writes judged and 0 distinct values — came back
 **significantly worse** than `SalienceOff` on `high-reuse` (+0.0401 [0.0145, 0.0656]) and `high-noise`
@@ -201,7 +201,7 @@ draw; both contrasts print, since the vs-off table is where a confound of this k
 **Verify.** A positive control that throws: the off arm must have been **consulted** (`Judged > 0`) AND have
 declined every write (`Salient == 0`). Asserting `Salient == 0` alone would pass on an arm that was never
 asked — which is precisely the shape that shipped, since the old off arm was not wrapped and contributed no
-row at all. The figures in `docs/memory.md` §5 taken through the old arm are marked rather than deleted;
+row at all. The figures in `docs/memory-measurements.md` §5 taken through the old arm are marked rather than deleted;
 they measure retention, which is a real quantity, just not the one they are labelled with.
 
 ## 2026-08-30 — ComfyUI promised the router it took inputs, then dropped them

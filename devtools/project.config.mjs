@@ -797,6 +797,7 @@ export default {
     'check-archive': 'an archive entry that outgrew the OUTCOME it records',
     'check-backlog': 'a backlog summarizing the archive; `--write` rebuilds its roster',
     'check-pitfalls': 'an unfiled trap or stale facet index; `--write` rebuilds it',
+    'check-measurements': 'a result reading CURRENT that its own body retracts; `--write` rebuilds the index',
     'check-decision-claims': 'a DECISION that stopped describing the code it governs',
     'check-api-vocabulary': 'a retired name back on the frozen public surface',
     'check-samples': 'a fenced `csharp` block that does not COMPILE — default ON',
@@ -890,6 +891,48 @@ export default {
   },
 
   /**
+   * MEASUREMENT METRICS — the CLOSED vocabulary every result in `docs/memory-measurements.md` is scored
+   * by, enforced by `dev.mjs check-measurements` (part of `verify`), which also GENERATES that record's
+   * results index from the per-result markers.
+   *
+   * CLOSED for `pitfallFacets`' reason, one record over: an open vocabulary is a folksonomy, and the
+   * fourth spelling of "how often the current fact beat the one it replaced" makes the index worse than
+   * none, because a reader who filters on one believes they have seen them all. A slug NO RESULT USES
+   * fails too — `retiredApiNames`' "an allowance that matches nothing FAILS", applied to a vocabulary.
+   *
+   * ADDING ONE is deliberate and cheap to review: it must be a distinction a reader would FILTER by, and
+   * it must have a result the day it lands. Merging two is the commoner move — `deep@100` and `page@10`
+   * arrived as separate slugs for one question (is a buried fact still reachable at depth k?) and became
+   * `recovery@k` before either shipped.
+   */
+  measurementMetrics: [
+    // RETRIEVAL — did the evidence come back at all. The bulk of the record.
+    'evidence-hit@k',     // LoCoMo: share of questions whose flagged evidence is in the returned page
+    'miss',               // this repository's own corpus: share of wanted entries not returned
+    'miss-decomposition', // …and WHY: never a candidate, against reachable but outranked
+    'recovery@k',         // is a BURIED entry still reachable at depth k (D41's invariant)
+    // SUPERSESSION — LongMemEval's knowledge-update axis, where forgetting is supposed to win.
+    'prefers-current',    // the current fact ranked above the one it superseded
+    'current@k',          // the current fact is on the page
+    'clean',              // current fact present AND the superseded one absent
+    'all-evidence-recall', // temporal / multi-session: every flagged turn, not just one
+    // READER-FACING — a model reads the page and answers.
+    'token-f1',
+    // THE MODEL-IN-THE-LOOP SEAMS — what a judge, annotator or reranker actually does.
+    'endorsement-rate',   // how much of what it was shown the judge endorsed
+    'screen-verdict',     // one hard case, one call: does this model answer it at all
+    'regime-picks',       // which regime a gist-support rule selects
+    // SIGNALS AND THEIR SEPARABILITY — is the number the engine computes worth anything.
+    'separability-auc',
+    'similar-count',
+    'rrf-score-separation',
+    'marker-survival',    // does a ground-truth marker survive the transform under test
+    // COST — no ground truth, and never mixed with a quality column.
+    'latency',
+    'vram-resident',
+  ],
+
+  /**
    * DECISION-ENTRY DEBT — one entry per `docs/DECISIONS.md` decision whose NON-BLANK body still exceeds
    * `check-decisions`' own MAX_ENTRY, recorded at its CURRENT length so the number can only come down.
    *
@@ -947,7 +990,7 @@ export default {
    * and `check-links`.
    *
    * TO PAY ONE DOWN: strike every sentence a reader could get from the record that OWNS it — the
-   * measurement record (`docs/memory.md` §5 for the memory Parts, which is where most of this debt sits),
+   * measurement record (`docs/memory-measurements.md` §5 for the memory Parts, which is where most of this debt sits),
    * `docs/DECISIONS.md` for a choice, `docs/FIXES.md` for an incident, `.claude/knowledge/pitfalls.md` for
    * a reusable trap. RELOCATE BEFORE DELETING: several of these entries are the only maintained home for a
    * trap, and cutting one without moving it first loses it. Then lower or delete the entry here.
@@ -1024,11 +1067,13 @@ export default {
     "bench/Lyntai.Benchmarks/MemorySalienceSweep.cs": [33],
     "bench/Lyntai.Benchmarks/MemorySpacingSweep.cs": [38],
     "bench/Lyntai.Benchmarks/MemoryVerificationSweep.cs": [27],
-    // 31 → 32 on 2026-08-28, → 33 then → 34 on 2026-09-10: this block is the USAGE BANNER, a
-    // one-line-per-command table, so registering a gate (`check-decisions`, then `check-backlog`, then
-    // `check-pitfalls`) grows it by exactly one. The ratchet permits raising a number deliberately; what it
-    // forbids is a number drifting up unnoticed, which is why this note exists rather than a silent bump.
-    "devtools/dev.mjs": [34],
+    // `devtools/dev.mjs`'s entry is DELETED, 2026-09-10, and the way it went is the useful part. It had
+    // climbed 31 → 32 → 33 → 34 because the block was a USAGE BANNER, one line per command, so registering
+    // a gate grew it by exactly one and each bump was waved through as deliberate. Adding
+    // `check-measurements` made it 35 and the ratchet fired again — at which point the right question was
+    // finally asked: the banner named 30 of 52 commands, the FOURTH hand-maintained copy of a list D113 had
+    // already made derived twice. It is now a pointer, and the block is under the limit with no allowance.
+    // **A ratchet that keeps being raised by one is measuring something that should not exist.**
     "devtools/nuget-unlist.mjs": [28],
     "devtools/scripts/check-api-vocabulary.mjs": [34],
     "devtools/scripts/check-comments.mjs": [41],

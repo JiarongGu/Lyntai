@@ -7,7 +7,7 @@ namespace Lyntai.Benchmarks;
 /// <summary>
 /// A purpose-built cross-encoder reranker, over any OpenAI/Cohere-shaped <c>/v1/rerank</c> endpoint.
 ///
-/// <para><b>Why this arm exists.</b> <c>docs/memory.md</c> §5 records the retrieval gap as ranking rather
+/// <para><b>Why this arm exists.</b> <c>docs/memory-measurements.md</c> §5 records the retrieval gap as ranking rather
 /// than retrieval — the oracle endorses evidence the engine already holds and gains <b>+9.5</b> points,
 /// while a real 4B LLM judge on the same arm SPENDS 10.5. The reading filed there is that the seam's shape
 /// (score <c>(query, candidate)</c> pairs, reorder, never generate) is what rerankers exist for and an LLM

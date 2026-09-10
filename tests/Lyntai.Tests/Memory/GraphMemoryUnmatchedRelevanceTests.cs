@@ -15,7 +15,7 @@ namespace Lyntai.Tests.Memory;
 /// <para><b>Half one, the shipped defect.</b> The row projections materialized every node with
 /// <c>Relevance = 1</c> — the MAXIMUM — and only <c>SeedAsync</c> overwrote it. So a graph-walk neighbour,
 /// or any node fetched by id for a semantic or subject seed, outranked every candidate that had actually
-/// been scored. Measured on LoCoMo (<c>docs/memory.md</c> §5): evidence-hit@20 of 11.0% against 80.5% for
+/// been scored. Measured on LoCoMo (<c>docs/memory-measurements.md</c> §5): evidence-hit@20 of 11.0% against 80.5% for
 /// plain cosine, and semantic seeding worth exactly 0.0 points because a real 0.785 cosine could never
 /// beat a fabricated 1.000.</para>
 ///

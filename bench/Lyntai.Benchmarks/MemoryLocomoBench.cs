@@ -25,7 +25,7 @@ namespace Lyntai.Benchmarks;
 /// <para><b>The ablation is the point.</b> <c>vector</c> is the same embedder and the same k with no graph,
 /// no decay, no salience and no ranking policy — so <c>lyntai</c> minus <c>vector</c> is what this library
 /// adds over plain similarity search. <c>full</c> puts the whole conversation in the prompt and is the
-/// no-memory-needed ceiling. See <c>docs/memory.md</c> §5.</para>
+/// no-memory-needed ceiling. See <c>docs/memory-measurements.md</c> §5.</para>
 /// </summary>
 internal static class MemoryLocomoBench
 {
@@ -167,7 +167,7 @@ internal static class MemoryLocomoBench
             ? await SweepDoubles.TryRealChatAsync(http, "memory-locomo judge")
             : null;
 
-        // The CROSS-ENCODER arm. `docs/memory.md` §5 files a purpose-built reranker as the supported fix for
+        // The CROSS-ENCODER arm. `docs/memory-measurements.md` §5 files a purpose-built reranker as the supported fix for
         // a gap the oracle says is ranking (+9.5 reachable) and a 4B LLM judge SPENDS (-10.5). It is a
         // separate process from the judge and the reader — one llama-server serves one model — so it gets
         // its own endpoint variable and its own reachability probe, and its absence prints a SKIPPED line
@@ -447,7 +447,7 @@ internal static class MemoryLocomoBench
                     // PRE-REGISTERED, 2026-09-01, before the first QA run of the fused arm.
                     //
                     // The retrieval half moved the best mechanical arm 63.5% -> 83.0% (D103,
-                    // docs/memory.md §5). This arm asks the only question that follows: does that
+                    // docs/memory-measurements.md §5). This arm asks the only question that follows: does that
                     // reach the READER, or does a 28.5-point retrieval gain wash out in answering?
                     //
                     // Prediction: PARTIAL conversion. gemma3:4b is the bottleneck on multi-hop and
@@ -744,7 +744,7 @@ internal static class MemoryLocomoBench
 
                 // The REAL judge, on the base that earns it, at three DEPTHS. `+oracle` above is the
                 // ceiling; these are what a model reaches. Skipped when no chat model answers — a scripted
-                // stand-in would measure the stand-in. Results and their limits: `docs/memory.md` §5.
+                // stand-in would measure the stand-in. Results and their limits: `docs/memory-measurements.md` §5.
                 //
                 // Depth is the axis because `DefaultVerificationDepthFactor = 4` was fitted under a PERFECT
                 // judge (D59), for whom depth is free since an oracle never endorses junk. For a real judge

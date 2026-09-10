@@ -21,7 +21,7 @@ namespace Lyntai.Tests.Memory;
 /// <para><b>Scope: ONE shape, ONE seed</b> - <c>ReuseRatio 4</c>, outside the 60-shape grid the routine
 /// class's preconditions are proved over, and the co-activation clique differs BETWEEN arms at the same
 /// seed. That grid is swept by <c>node devtools/dev.mjs memory-support</c>; what it measured, and what it
-/// could not, is <c>docs/memory.md</c> §5.</para>
+/// could not, is <c>docs/memory-measurements.md</c> §5.</para>
 /// </summary>
 public class MemoryGistSupportRuleTests
 {
