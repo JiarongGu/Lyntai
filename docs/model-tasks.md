@@ -127,19 +127,29 @@ size does not — the same 4B model reads best-in-class on this repository's own
 catastrophic on a field benchmark at the shipped depth. One model, two corpora, opposite signs. Price it on
 the corpus at hand; `.claude/knowledge/model-decoupling.md` is the standing rule.
 
-### The shape decides how you SERVE it, too
+### The shape decides how badly a BUSY GPU hurts you
 
-**An encode-only shape and a generative one want opposite serving configurations, and the gap is large
-enough to mistake for a hardware limit.** *Embed* and *score-a-pair* never generate a token — they are all
-prompt processing, so they take GPU offload well. The generative shapes spend most of their wall clock
-producing tokens, which is a different kernel entirely and can be dramatically worse on a *contended*
-device even when prompt processing on that same device is faster.
+**Give every seam the GPU — and know that a contended one punishes the shapes very differently.** On a free
+device offloading wins across the board. What changes under contention is not the size of the win but its
+SIGN, and only for one shape.
 
-Measured here on one contended laptop, so read the DIRECTION and re-measure the size yourself: an embedder
-ran **4.8× faster** fully offloaded, while a 4B instruct model ran an order of magnitude *slower* offloaded
-than on CPU. **Set the offload level per seam and per machine, and never infer one from the other** — the
-same box gave both results within the hour. The vectors were identical across devices, so for the
-encode-only shapes this is a free speed choice rather than a trade.
+Measured on one laptop with plenty of VRAM free in every cell, the only difference being whether a game was
+rendering. Read the DIRECTION and re-measure on your own hardware:
+
+| shape | busy GPU | free GPU |
+|---|---|---|
+| generative (a 4B instruct model) | **26× slower** than CPU | **12× faster** than CPU |
+| encode-only (an embedder) | 4.8× faster than CPU | 5.4× faster than CPU |
+
+**Encode-only work is robust to a busy GPU; generation is not.** That is a second and independent reason to
+prefer a cross-encoder over an instruct model where something else owns the device — a game, another
+service, anything you do not control. Its quality advantage is in §3; this is its cost advantage, and the
+two are unrelated.
+
+**Two practical rules.** Set the offload level explicitly, because the server's default is not neutral and
+it logs nothing to say what it chose. And if a generative seam is mysteriously an order of magnitude slow,
+suspect the neighbour before the model — the tell is a *non-monotone* curve as you vary the offload level,
+since a genuinely wrong setting degrades smoothly and contention does not.
 
 **Where a shortlist of small models exists at all it is a DESK survey** — sizes and capabilities read from
 model cards, never called (`TASKS.md` Part 177). Two things make that tier worth distrusting here rather

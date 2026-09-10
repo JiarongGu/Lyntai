@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 462 · 547 · 556 · 566 · 620 · 634 · 704 · 718 · 842 · 1032 · 1983 · 1993 · 2019 · 2030 · 2067 · 2438 · 2468 · 2477
-- **`encoding`** (6) — 75 · 80 · 573 · 581 · 751 · 2067
+- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 462 · 547 · 556 · 566 · 620 · 634 · 704 · 718 · 843 · 1033 · 1984 · 1994 · 2020 · 2031 · 2068 · 2439 · 2469 · 2478
+- **`encoding`** (6) — 75 · 80 · 573 · 581 · 751 · 2068
 - **`git`** (7) — 207 · 232 · 263 · 288 · 581 · 603 · 756
-- **`build`** (8) — 80 · 547 · 556 · 566 · 620 · 834 · 1032 · 2002
-- **`router`** (6) — 875 · 880 · 889 · 891 · 894 · 1024
-- **`cli`** (18) — 733 · 751 · 875 · 896 · 904 · 913 · 917 · 929 · 933 · 940 · 944 · 951 · 955 · 988 · 1007 · 1011 · 1016 · 1853
-- **`lifetime`** (6) — 1054 · 1063 · 1068 · 1073 · 1086 · 1094
-- **`storage`** (17) — 967 · 1103 · 1205 · 1233 · 1235 · 1236 · 1238 · 1240 · 1258 · 1269 · 1498 · 1510 · 1766 · 1883 · 2049 · 2231 · 2415
-- **`memory`** (38) — 387 · 405 · 533 · 967 · 1137 · 1156 · 1167 · 1193 · 1205 · 1220 · 1241 · 1258 · 1269 · 1308 · 1323 · 1330 · 1349 · 1360 · 1378 · 1391 · 1404 · 1462 · 1517 · 1537 · 1573 · 1609 · 1627 · 1634 · 1665 · 1687 · 1715 · 1787 · 1862 · 1883 · 2124 · 2283 · 2311 · 2394
-- **`generation`** (8) — 880 · 1086 · 1609 · 1800 · 1812 · 1836 · 1943 · 1968
-- **`di`** (12) — 1073 · 1323 · 1349 · 1529 · 1531 · 1534 · 1537 · 1555 · 1634 · 1665 · 1812 · 1862
-- **`measurement`** (43) — 111 · 372 · 387 · 405 · 446 · 476 · 492 · 511 · 523 · 533 · 654 · 733 · 740 · 745 · 774 · 784 · 796 · 823 · 829 · 834 · 904 · 1103 · 1122 · 1193 · 1360 · 1391 · 1418 · 1429 · 1444 · 1462 · 1517 · 1573 · 2019 · 2100 · 2151 · 2166 · 2190 · 2210 · 2231 · 2261 · 2298 · 2362 · 2394
-- **`docs`** (22) — 124 · 152 · 175 · 296 · 603 · 634 · 654 · 704 · 842 · 853 · 858 · 865 · 1167 · 1687 · 1754 · 1918 · 1928 · 1983 · 1993 · 2030 · 2049 · 2320
-- **`tests`** (21) — 988 · 1179 · 1220 · 1241 · 1308 · 1330 · 1498 · 1510 · 1766 · 2113 · 2124 · 2135 · 2311 · 2333 · 2415 · 2423 · 2431 · 2435 · 2438 · 2450 · 2463
+- **`build`** (8) — 80 · 547 · 556 · 566 · 620 · 835 · 1033 · 2003
+- **`router`** (6) — 876 · 881 · 890 · 892 · 895 · 1025
+- **`cli`** (18) — 733 · 751 · 876 · 897 · 905 · 914 · 918 · 930 · 934 · 941 · 945 · 952 · 956 · 989 · 1008 · 1012 · 1017 · 1854
+- **`lifetime`** (6) — 1055 · 1064 · 1069 · 1074 · 1087 · 1095
+- **`storage`** (17) — 968 · 1104 · 1206 · 1234 · 1236 · 1237 · 1239 · 1241 · 1259 · 1270 · 1499 · 1511 · 1767 · 1884 · 2050 · 2232 · 2416
+- **`memory`** (38) — 387 · 405 · 533 · 968 · 1138 · 1157 · 1168 · 1194 · 1206 · 1221 · 1242 · 1259 · 1270 · 1309 · 1324 · 1331 · 1350 · 1361 · 1379 · 1392 · 1405 · 1463 · 1518 · 1538 · 1574 · 1610 · 1628 · 1635 · 1666 · 1688 · 1716 · 1788 · 1863 · 1884 · 2125 · 2284 · 2312 · 2395
+- **`generation`** (8) — 881 · 1087 · 1610 · 1801 · 1813 · 1837 · 1944 · 1969
+- **`di`** (12) — 1074 · 1324 · 1350 · 1530 · 1532 · 1535 · 1538 · 1556 · 1635 · 1666 · 1813 · 1863
+- **`measurement`** (43) — 111 · 372 · 387 · 405 · 446 · 476 · 492 · 511 · 523 · 533 · 654 · 733 · 740 · 745 · 774 · 784 · 796 · 824 · 830 · 835 · 905 · 1104 · 1123 · 1194 · 1361 · 1392 · 1419 · 1430 · 1445 · 1463 · 1518 · 1574 · 2020 · 2101 · 2152 · 2167 · 2191 · 2211 · 2232 · 2262 · 2299 · 2363 · 2395
+- **`docs`** (22) — 124 · 152 · 175 · 296 · 603 · 634 · 654 · 704 · 843 · 854 · 859 · 866 · 1168 · 1688 · 1755 · 1919 · 1929 · 1984 · 1994 · 2031 · 2050 · 2321
+- **`tests`** (21) — 989 · 1180 · 1221 · 1242 · 1309 · 1331 · 1499 · 1511 · 1767 · 2114 · 2125 · 2136 · 2312 · 2334 · 2416 · 2424 · 2432 · 2436 · 2439 · 2451 · 2464
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (19) — 207 · 387 · 405 · 634 · 745 · 889 · 894 · 913 · 988 · 1068 · 1156 · 1404 · 1537 · 1573 · 1800 · 1812 · 1862 · 1968 · 2283
-- **`cancellation`** (5) — 875 · 880 · 1137 · 1156 · 1179
-- **`vacuous`** (33) — 111 · 185 · 192 · 372 · 446 · 476 · 556 · 944 · 1007 · 1024 · 1179 · 1220 · 1241 · 1308 · 1330 · 1418 · 1429 · 1462 · 1573 · 1687 · 2049 · 2124 · 2135 · 2166 · 2298 · 2311 · 2333 · 2362 · 2415 · 2438 · 2450 · 2468 · 2477
-- **`scope-blind`** (35) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 581 · 704 · 718 · 1032 · 1323 · 1391 · 1498 · 1510 · 1687 · 1715 · 1766 · 1883 · 1983 · 1993 · 2002 · 2019 · 2030 · 2049 · 2135 · 2298 · 2311 · 2435 · 2468 · 2477
-- **`second-door`** (20) — 891 · 929 · 933 · 944 · 951 · 1011 · 1016 · 1094 · 1236 · 1258 · 1537 · 1665 · 1766 · 1787 · 1800 · 1812 · 1836 · 1883 · 1918 · 1943
-- **`stale-claim`** (16) — 57 · 152 · 232 · 296 · 654 · 756 · 842 · 858 · 1167 · 1534 · 1754 · 1787 · 1836 · 1918 · 2030 · 2320
-- **`silent-loss`** (46) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 523 · 573 · 620 · 634 · 733 · 751 · 784 · 796 · 829 · 917 · 933 · 967 · 1054 · 1086 · 1122 · 1193 · 1233 · 1235 · 1236 · 1238 · 1258 · 1269 · 1308 · 1444 · 1517 · 1529 · 1534 · 1555 · 1627 · 1665 · 1715 · 1853 · 1943 · 1983 · 1993 · 2067 · 2151 · 2231 · 2362
-- **`wrong-subject`** (46) — 57 · 91 · 111 · 288 · 372 · 405 · 462 · 476 · 492 · 511 · 523 · 533 · 547 · 566 · 784 · 796 · 823 · 853 · 865 · 891 · 940 · 1032 · 1063 · 1073 · 1103 · 1193 · 1241 · 1349 · 1360 · 1378 · 1391 · 1418 · 1429 · 1462 · 1609 · 1634 · 1968 · 2100 · 2151 · 2166 · 2190 · 2210 · 2231 · 2333 · 2394 · 2438
-- **`unmeasured`** (16) — 492 · 533 · 603 · 654 · 704 · 740 · 834 · 896 · 904 · 913 · 955 · 1007 · 1378 · 1609 · 1928 · 2320
-- **`ordering`** (10) — 566 · 917 · 1016 · 1205 · 1240 · 1555 · 1853 · 1862 · 2113 · 2261
-- **`resource`** (12) — 547 · 581 · 620 · 774 · 896 · 988 · 1094 · 1103 · 1531 · 2423 · 2431 · 2463
+- **`fail-open`** (19) — 207 · 387 · 405 · 634 · 745 · 890 · 895 · 914 · 989 · 1069 · 1157 · 1405 · 1538 · 1574 · 1801 · 1813 · 1863 · 1969 · 2284
+- **`cancellation`** (5) — 876 · 881 · 1138 · 1157 · 1180
+- **`vacuous`** (33) — 111 · 185 · 192 · 372 · 446 · 476 · 556 · 945 · 1008 · 1025 · 1180 · 1221 · 1242 · 1309 · 1331 · 1419 · 1430 · 1463 · 1574 · 1688 · 2050 · 2125 · 2136 · 2167 · 2299 · 2312 · 2334 · 2363 · 2416 · 2439 · 2451 · 2469 · 2478
+- **`scope-blind`** (35) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 581 · 704 · 718 · 1033 · 1324 · 1392 · 1499 · 1511 · 1688 · 1716 · 1767 · 1884 · 1984 · 1994 · 2003 · 2020 · 2031 · 2050 · 2136 · 2299 · 2312 · 2436 · 2469 · 2478
+- **`second-door`** (20) — 892 · 930 · 934 · 945 · 952 · 1012 · 1017 · 1095 · 1237 · 1259 · 1538 · 1666 · 1767 · 1788 · 1801 · 1813 · 1837 · 1884 · 1919 · 1944
+- **`stale-claim`** (16) — 57 · 152 · 232 · 296 · 654 · 756 · 843 · 859 · 1168 · 1535 · 1755 · 1788 · 1837 · 1919 · 2031 · 2321
+- **`silent-loss`** (46) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 523 · 573 · 620 · 634 · 733 · 751 · 784 · 796 · 830 · 918 · 934 · 968 · 1055 · 1087 · 1123 · 1194 · 1234 · 1236 · 1237 · 1239 · 1259 · 1270 · 1309 · 1445 · 1518 · 1530 · 1535 · 1556 · 1628 · 1666 · 1716 · 1854 · 1944 · 1984 · 1994 · 2068 · 2152 · 2232 · 2363
+- **`wrong-subject`** (46) — 57 · 91 · 111 · 288 · 372 · 405 · 462 · 476 · 492 · 511 · 523 · 533 · 547 · 566 · 784 · 796 · 824 · 854 · 866 · 892 · 941 · 1033 · 1064 · 1074 · 1104 · 1194 · 1242 · 1350 · 1361 · 1379 · 1392 · 1419 · 1430 · 1463 · 1610 · 1635 · 1969 · 2101 · 2152 · 2167 · 2191 · 2211 · 2232 · 2334 · 2395 · 2439
+- **`unmeasured`** (16) — 492 · 533 · 603 · 654 · 704 · 740 · 835 · 897 · 905 · 914 · 956 · 1008 · 1379 · 1610 · 1929 · 2321
+- **`ordering`** (10) — 566 · 918 · 1017 · 1206 · 1241 · 1556 · 1854 · 1863 · 2114 · 2262
+- **`resource`** (12) — 547 · 581 · 620 · 774 · 897 · 989 · 1095 · 1104 · 1532 · 2424 · 2432 · 2464
 
 <!-- facets:end -->
 
@@ -793,33 +793,34 @@ of the two: most of these traps recur in a subsystem that had never met them.
   exactly what a neighbour also chose. And **verify identity, not plausibility**: read the served model back
   (`/v1/models`) and compare the actual vectors against the other candidate — a shape check cannot separate
   two models that share a shape, and the failure it misses is silent.
-- **GPU offload can be an order of magnitude SLOWER than CPU, and recent `llama-server` offloads by <!-- trap: sub=measurement shape=wrong-subject,silent-loss -->
-  DEFAULT — so a server started without an explicit `-ngl` can silently sit in the bad regime.** Measured
-  2026-09-11 on `gemma-3-4b-it` Q4_K_M (2.31 GiB) with 11.2 GiB of VRAM free, via `llama-bench`:
+- **GPU CONTENTION inverts the offload decision, and it hits GENERATION about sixty times harder than <!-- trap: sub=measurement shape=wrong-subject,silent-loss -->
+  encoding — so the same flag is right and then catastrophically wrong on one box within an hour.**
+  Measured 2026-09-11 with `llama-bench`, 11.2 GiB of VRAM free in every cell. Only the neighbour changed:
+  a game-streaming host was rendering for the "busy" column and idle for the "quiet" one.
 
-  | `-ngl` | 0 (CPU) | 8 | 16 | 24 | 34 (all) |
-  |---|---|---|---|---|---|
-  | generation t/s | **9.22** | 0.45 | 2.49 | 0.33 | 0.10 |
+  | model, test | `-ngl 0` busy | offloaded busy | `-ngl 0` quiet | offloaded quiet |
+  |---|---|---|---|---|
+  | `gemma-3-4b-it`, generation | 9.22 | **0.10** | 6.08 | **73.77** |
+  | `nomic-embed-text`, encode | 175 | 839 | 9,901 | **53,295** |
 
-  **Twenty-six times slower fully offloaded, and NON-MONOTONE across the middle** — which is the tell that
-  this is CONTENTION for the device rather than a setting to tune — a game-streaming host held the GPU
-  throughout. **So none of these figures is a hardware ceiling and none should be planned against**: they
-  price a MOMENT, and the same box uncontended is a different instrument. What transfers is the SHAPE (a
-  non-monotone offload curve means contention) and the habit, never the numbers.
-  Prompt processing moves the OTHER way (90 t/s on CPU against 323 offloaded), so a run judged
-  on prompt speed alone picks exactly the configuration that destroys generation.
-  <br>**So the right `-ngl` is decided by the SHAPE of the task, not by the machine** — and getting this
-  backwards costs hours in either direction. A GENERATIVE seam (a judge, a reader, an extractor) wants
-  `-ngl 0` here; an ENCODE-ONLY seam (an embedder, a cross-encoder reranker) never generates, so it is all
-  prompt processing and wants full offload. Measured the same day on `nomic-embed-text`: **175 t/s at
-  `-ngl 0` against 839 offloaded, 4.8× the other way**, on the same contended GPU that ruined generation.
-  The vectors are byte-identical between the two, so the device is numerically neutral and a run may be
-  compared across it — which is what makes the speed a free choice rather than a trade.
-  <br>**Three consequences.** A reader benchmarked at ~1 t/s and declared "the machine is too slow" was
-  three misconfigured servers, not a machine — the same box does 11.4 t/s at `-ngl 0`. **Always pass `-ngl`
-  explicitly**, since the default is not neutral and the log prints no offload line to say what happened.
-  And **measure the SERVING configuration before measuring the model**: this is **D107**'s warning in a
-  second form — a number that looks like a property of the model is a property of the serving layer.
+  **Offloading is right by DEFAULT — 12× on generation and 5.4× on encoding when the device is free.** What
+  contention does is not slow it evenly: generation swings from 12× faster to 26× slower, roughly a 300×
+  reversal, while encoding stays ahead throughout. **Encode-only work is ROBUST to a busy GPU and
+  generation is not**, which is a second, independent reason a cross-encoder beats an instruct model beside
+  a game — its cost survives the neighbour.
+  <br>**The tell that you are in the bad regime is a NON-MONOTONE offload curve** (0.45 / 2.49 / 0.33 /
+  0.10 across `-ngl` 8/16/24/34): a setting that is genuinely wrong degrades smoothly, and contention does
+  not. Prompt processing also moves the OPPOSITE way to generation under contention, so a run judged on
+  prompt speed alone picks the configuration that destroys generation.
+  <br>**Correcting what this entry said first**, because it shipped for a few hours as guidance: *"the
+  SHAPE of the task decides the offload level — generative wants `-ngl 0`"*. It does not. **Contention
+  decides it**; the shape only decides how badly you are punished for guessing. Every figure in the busy
+  column was taken while a game rendered, and reading any of them as a hardware ceiling was the mistake.
+  <br>**So: always pass `-ngl` explicitly** — the default is not neutral and the log prints no offload line
+  — and **measure the serving configuration before measuring the model**, which is **D107**'s warning in a
+  second form: a number that looks like a property of the model is a property of the serving layer. Vectors
+  are byte-identical across devices, so for encode-only work switching is a free speed choice, and a run
+  may be compared across it.
 - **A model NAME means different things on the two local servers, and a wrong one is not an error.** <!-- trap: sub=measurement shape=wrong-subject -->
   Ollama routes by it; a `llama-server` started with `--model` serves ONE model and answers to its
   `--alias`, so the name is a label and you get the loaded model whatever you ask for. It selects only on a
