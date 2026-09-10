@@ -2999,3 +2999,26 @@ a flag's CALL SITES). A counter for D2 has nothing to derive from — no backend
 D3, D20, D21 and D29 hold and stay ungated; a claim with no extractable shape stays invisible to a predicate.
 
 - Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memory entries.
+
+## Part 187 — the RetrievabilityWeight frontier is a STRAIGHT LINE, so there is no knee to find
+
+✅ done 2026-09-11. The item offered two branches and the measurement picked the second: **not worth
+walking**. Six rungs over the weight, `docs/memory-measurements.md` §5 (`locomo-frontier-ladder-n200`);
+four new arms in `FieldArms`, added to the ladder AND the report list the bench asserts equal.
+
+**The argument was arithmetic before it was a run, and the run tested the arithmetic's assumption.** The
+two known rungs interpolate to non-overlapping windows against the pre-registered rule — LoCoMo ≥ 70 needs
+weight ≤ 1.93, knowledge-update ≥ 80 needs weight ≥ 2.19 — so on a straight frontier no weight passes.
+Every rung then landed within **±1.0 point** of the straight line, slope **−6.8** against a predicted −7.0.
+The exchange rate is constant, so no weight is a bargain. `RetrievabilityWeight` stays at 1.
+
+**The suppression half was deliberately not spent**, on a rule fixed before the run: a straight search axis
+settles it. The four new rungs therefore carry no knowledge-update figure, stated so nobody infers one.
+
+**Two findings the item did not ask for.** All three published anchors reproduced cell for cell across a
+SERVER swap — Ollama then `llama-server`, same weights — so the server is neutral on this workload,
+measured rather than assumed. And the environment nearly ate the run: a port believed free was already held
+by a neighbour serving a DIFFERENT embedder of the SAME dimension, so the request succeeded, the dimension
+check passed, and only reading back the served model caught it (`.claude/knowledge/pitfalls.md`).
+
+- Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.

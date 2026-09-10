@@ -135,6 +135,18 @@ internal static class FieldArms
         "+forget2" => new(name, null, Fusion(retrievability: 2), null, null),
         "+forget4" => new(name, null, Fusion(retrievability: 4), null, null),
 
+        // THE FRONTIER LADDER, between and beyond the two points that defined it. `+sem` (weight 1) and
+        // `+sem+forget2` (weight 2) are the only measured rungs, and their pre-registered decision rule
+        // (>=80% knowledge-update AND >=70% LoCoMo) was missed on both clauses. Interpolating those two
+        // linearly, LoCoMo >= 70 needs weight <= 1.93 and knowledge-update >= 80 needs weight >= 2.19 — two
+        // windows that DO NOT OVERLAP, so on a straight frontier no rung can pass and the ladder is only
+        // worth walking if the curve bends. These rungs exist to test that, not to propose a default:
+        // deciding from two points is the error `docs/task-archive.md` Part 137 records.
+        "+sem+forget0.5" => new(name, null, Fusion(retrievability: 0.5), null, ShippedSemanticK),
+        "+sem+forget1.5" => new(name, null, Fusion(retrievability: 1.5), null, ShippedSemanticK),
+        "+sem+forget2.5" => new(name, null, Fusion(retrievability: 2.5), null, ShippedSemanticK),
+        "+sem+forget3" => new(name, null, Fusion(retrievability: 3), null, ShippedSemanticK),
+
         // The CANDIDATE POOL, widened at a fixed output. The engine gathers `Limit x CandidateMultiplier`,
         // so raising the LIMIT moves the pool and the returned count together — which is what made the
         // 2026-09-07 `fill` arm ambiguous until `--pool` separated them. These change only the pool.

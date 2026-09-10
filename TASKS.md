@@ -15,28 +15,27 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 15 across 10 Parts: 6 startable, 7 blocked, 1 watch, 1 decision-only
+## Open items — 14 across 10 Parts: 5 startable, 7 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 496 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 558 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
-| 677 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 698 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
-| 706 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
-| 761 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
-| 792 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
+| 90 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 134 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 143 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 197 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 268 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 346 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 401 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 424 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 495 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 557 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
+| 676 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 697 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
+| 762 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
+| 793 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
 
 <!-- open-items:end -->
 
@@ -51,7 +50,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is SIX items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is FIVE items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -703,13 +702,15 @@ shape), bought on one model and one workload. **A reader-facing check is what it
   reordering costs nothing a reader notices, not a hunt for a gain. It belongs with Part 109's QA half,
   which needs a second reader anyway.
 
-- [ ] **Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.** `docs/memory-measurements.md` §5 <!-- item: state=startable -->
-  (2026-09-03) has TWO points on it and two points are not a curve: `+sem` trades +22.0 search for −13.9
-  suppression and `+sem+forget2` trades +15.0 for −7.6, so the exchange rate is roughly 1:1 and neither
-  dominates. A ladder over the weight is what would locate the knee. **Proposing a default from two points
-  is the error `docs/task-archive.md` Part 137 records**, so this is the work that would have to come first
-  if any of it is to move a default — and it may simply not be worth it, since the shipped default already
-  wins the workload this design claims.
+_**The frontier item CLOSED 2026-09-11** as `docs/task-archive.md` **Part 187**, and the answer is the
+second branch it offered: **there is no knee, so it is not worth walking**. A six-point ladder
+(`docs/memory-measurements.md` §5) lands every rung within ±1.0 point of a straight line — measured slope
+**−6.8** per unit of weight against a predicted −7.0 — with all three published anchors reproducing cell for
+cell. So the exchange rate is CONSTANT: every weight buys suppression at the same price and none is a
+bargain, which is what a knee would have been. `RetrievabilityWeight` stays at 1.
+<br>**The suppression half was deliberately NOT spent**, per a decision rule fixed before the run: a
+straight search axis settles the question without it. So the four new rungs have no knowledge-update figure
+and none is implied — that is a live gap if anyone reopens this, not an oversight._
 
 _**The ingestion-cost item CLOSED 2026-09-03** (`docs/task-archive.md` **Part 141**): the retrieval path
 honours `--arms` when dropping configs, so a three-arm ladder ingests 2 rather than 13 and n = 200 runs in

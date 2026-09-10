@@ -797,6 +797,19 @@ internal static class MemoryLocomoBench
                 FieldArms.Named("+sem5"),
                 FieldArms.Named("+sem+forget2"),
 
+                // THE FRONTIER LADDER (2026-09-10). `+sem` and `+sem+forget2` are the only two rungs on the
+                // weight, and two points cannot say whether the frontier BENDS. Interpolating them linearly
+                // puts the pre-registered target (>=70 LoCoMo AND >=80 knowledge-update) out of reach — the
+                // two windows are weight <= 1.93 and weight >= 2.19 — so these rungs exist to test the
+                // linearity that argument assumes, not to propose a default from it.
+                //
+                // LoCoMo scores what is FOUND and is blind to what is BURIED (Part 140), so this half
+                // measures the SEARCH axis only; the suppression axis is `memory-longmemeval`'s.
+                FieldArms.Named("+sem+forget0.5"),
+                FieldArms.Named("+sem+forget1.5"),
+                FieldArms.Named("+sem+forget2.5"),
+                FieldArms.Named("+sem+forget3"),
+
                 // The PARITY arm. `+sem` and this differ in exactly one vote — forgetting's — so the pair
                 // is the design's own acceptance test run on both workloads: with decay silent the engine
                 // should reach a strong flat retriever (`vector`) here, and should lose the supersession
@@ -1979,7 +1992,9 @@ internal static class MemoryLocomoBench
         "+sem+rel-only+oracle+fuse", "+sem+rel-only+oracle+pool8", "+sem+rel-only+oracle+pool16",
         .. judged ? JudgeArms.Select(JudgeArmName) : Enumerable.Empty<string>(),
         "+sem+mult", "+sem80+mult", "+rel-only",
-        "+sem5", "+sem+forget2", "+sem+forget0", "+sem+fuse", "+fuse",
+        "+sem5", "+sem+forget2",
+        "+sem+forget0.5", "+sem+forget1.5", "+sem+forget2.5", "+sem+forget3",
+        "+sem+forget0", "+sem+fuse", "+fuse",
         "+pool8", "+pool16", "+pool32", "+sem+rel-only+pool16", "+sem+rel-only+pool32",
     ];
 
