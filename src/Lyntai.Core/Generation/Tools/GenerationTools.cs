@@ -4,6 +4,7 @@ using System.Text.Json;
 using Lyntai.Agents;
 using Lyntai.Generation.Jobs;
 using Lyntai.Generation.Routing;
+using Lyntai.Llm;
 
 namespace Lyntai.Generation.Tools;
 
@@ -283,7 +284,7 @@ public sealed class GenerationInlineTool(
     IGenerationRouter router,
     GenerationOptions options,
     IGenerationArtifactSink? sink = null,
-    string consumer = "agent") : ITool
+    string consumer = LlmConsumers.Agent) : ITool
 {
     /// <summary>The spend/rate-limit tag renders from this tool bill to — <c>"agent"</c> by default, NOT the
     /// platform's <c>"default"</c>. A tool loop is the runaway-spend case (a model retrying a render in a
@@ -345,7 +346,7 @@ public sealed class GenerationInlineTool(
 /// <summary>Submits an ASYNCHRONOUS generation and returns the handle to poll. The shape a video render
 /// actually has — an agent that tried to wait inline would block for minutes.</summary>
 public sealed class GenerationSubmitTool(
-    IGenerationRouter router, GenerationOptions options, string consumer = "agent") : ITool
+    IGenerationRouter router, GenerationOptions options, string consumer = LlmConsumers.Agent) : ITool
 {
     /// <summary>The spend/rate-limit tag submissions from this tool bill to — see
     /// <see cref="GenerationInlineTool.Consumer"/>.</summary>
@@ -475,7 +476,7 @@ public sealed class GenerationFetchTool(
     IEnumerable<IGenerationProvider> providers,
     IGenerationArtifactSink? sink = null,
     Lyntai.Llm.Budgeting.IUsageTracker? usage = null,
-    string consumer = "agent") : ITool
+    string consumer = LlmConsumers.Agent) : ITool
 {
     /// <summary>Whose spend a fetched render is billed to.</summary>
     public string Consumer { get; } = consumer;

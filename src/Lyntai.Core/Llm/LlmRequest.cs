@@ -64,6 +64,21 @@ public static class LlmConsumers
     /// inseparable from the application's.</para></summary>
     public const string Memory = "memory";
 
-    /// <summary>A tool the model drives itself, including the generation tools.</summary>
+    /// <summary>A tool the model drives itself — what <see cref="Lyntai.Generation.Tools"/>' tools bill to
+    /// by default, so one <c>Budget.PerConsumer["agent"]</c> entry caps model-driven renders.
+    /// <para><b>The TOOL LOOP is not tagged with this, and a host budgeting should know why.</b>
+    /// <c>IToolLoop</c> forwards the CALLER's request unchanged, so its iterations — up to
+    /// <see cref="LyntaiOptions.ToolLoopMaxIterations"/> model calls — bill to whatever the caller tagged,
+    /// which through <c>IChatOrchestrator</c> is <see cref="Chat"/>. That is deliberate: the loop is doing
+    /// the caller's work, and re-tagging it would silently move spend out of a cap an existing deployment
+    /// already set.</para></summary>
     public const string Agent = "agent";
+
+    /// <summary>A conversational turn through <c>IChatOrchestrator</c>, including any tool-loop iterations
+    /// it drives.
+    /// <para>Declared because <c>ChatTurn.Consumer</c> defaults to it and the orchestrator puts it straight
+    /// onto the request — so it reaches the usage tracker and the budget layer whether or not anyone named
+    /// it. Until it was declared it was a library-emitted tag with no constant, which is the exact shape the
+    /// remarks above warn about: a bucket no cap covers and no report names.</para></summary>
+    public const string Chat = "chat";
 }

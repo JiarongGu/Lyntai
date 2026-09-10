@@ -17,7 +17,7 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D115** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3609 passed / 3630 total, 21 skipped` (the skips are
+**The baseline a green run should match:** `3612 passed / 3633 total, 21 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 633/633, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count well above 21 as "Docker is down and the whole Postgres leg went silently unexercised".

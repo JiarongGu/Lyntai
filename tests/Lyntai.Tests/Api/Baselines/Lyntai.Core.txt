@@ -1335,6 +1335,7 @@ sealed class Lyntai.Llm.LlmClientFactory
     TryGet(String name, ILlmClient& client) : Boolean
 static class Lyntai.Llm.LlmConsumers
     Agent : String const
+    Chat : String const
     Default : String const
     Memory : String const
     Scoring : String const

@@ -16,7 +16,7 @@ public sealed record ChatTurn
 
     public string MemoryScope { get; init; } = "chat";
 
-    public string Consumer { get; init; } = "chat";
+    public string Consumer { get; init; } = LlmConsumers.Chat;
 
     /// <summary>Route through the tool loop when tools are registered (the model can call them). If false,
     /// a plain completion.</summary>

@@ -14,6 +14,18 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`LlmConsumers.Chat` — the tag the library was already emitting now has a constant to cap it with.**
+  `ChatTurn.Consumer` defaulted to a bare `"chat"` literal and `IChatOrchestrator` puts it straight onto the
+  request, so it reached the usage tracker and the budget layer as a fifth library-emitted tag with nothing
+  to key on — the exact hazard `LlmConsumers`' own remarks describe, *"a bucket no cap covers and no report
+  names"*. The value is unchanged, so nothing moves for an existing deployment; what changes is that
+  `Budget.PerConsumer[LlmConsumers.Chat]` and its three siblings now bind something nameable.
+  <br>**The four per-consumer maps are how a deployment DECLARES that one workload is latency-critical and
+  another is background** — per-workload, which is finer than a per-process profile. `GenerationTools` now
+  references `LlmConsumers.Agent` rather than repeating the literal, and `Agent`'s own docs record what it
+  does NOT cover: the tool loop forwards the CALLER's tag, so its iterations bill to whatever the caller
+  set. That is deliberate — re-tagging would silently move spend out of a cap someone already configured.
+
 - **`AddMemoryCrossEncoderVerification` — fill the memory verification seam with a RERANKER instead of an
   instruct model.** A cross-encoder over any OpenAI/Cohere-shaped `/v1/rerank` endpoint (llama.cpp's
   `--reranking` mode, Cohere, Jina, TEI). It scores `(query, candidate)` pairs and never generates, so it
