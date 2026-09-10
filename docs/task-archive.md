@@ -3049,3 +3049,30 @@ on it. A third cost an hour — a server whose batch was too small for the harne
 short probe (`.claude/knowledge/pitfalls.md`).
 
 - Give LongMemEval's four remaining classes a shot curve.
+
+## Part 189 — a 1B judge is INERT, and the two sizes fail in opposite ways
+
+✅ done 2026-09-11. Narrows Part 177's judge item to its RECENCY half; the smaller-model half is answered
+and the answer is no. `docs/memory-measurements.md` §5 (`locomo-judge-1b-n200`), 791.0s, n = 200.
+
+**`gemma-3-1b-it` Q4_K_M (806,058,240 B) against the 4B incumbent (2,489,757,856 B)** — same family, same
+quantisation, so the run isolates SIZE rather than confounding it with family, recipe and recency at once.
+It reads **83.0% at every depth**: on the base, on `@40` and at the shipped depth alike. Not a broken arm —
+200 calls, 0 declined, 2.4 endorsed per call.
+
+**The finding is that the two sizes fail in OPPOSITE ways.** The 4B ranks well and stops badly (17× lift at
+its own top-1, 29.1 endorsements of 80, so it floods a 20-slot page and destroys 10.5 points). The 1B stops
+fine and cannot rank — a 1.7× lift, which the harness reads as noise. **Its ceiling is zero**: on the 19
+rescuable calls it endorsed the deep evidence 0 times where the 4B managed 10, so no promotion rule,
+threshold or combination over it could win a point. It is safe by being inert, which is an operational fact
+rather than a gain.
+
+**So the route to a small-footprint deployment is a cross-encoder, not a small instruct model** — 468 MB
+captures 6.0 of 7.0 points where 806 MB of instruct model captured 0.0, and that seam shipped the same day
+(**D115**).
+
+**Two probes nearly published a wrong mechanism** — they suggested template-copying, then instability,
+while at n = 200 the endorsement count was stable at 2.4. **A probe sets a hypothesis; it does not measure
+one**, and the pre-registered instrument check is what separated "inert" from "broken".
+
+- Does a newer small INSTRUCT model judge better? (size half)

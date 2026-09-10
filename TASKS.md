@@ -33,8 +33,8 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 494 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
 | 652 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
 | 673 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
-| 738 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
-| 769 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
+| 738 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
+| 774 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
 
 <!-- open-items:end -->
 
@@ -735,23 +735,28 @@ _**What is already measured** (`docs/memory-measurements.md` §5, archive Parts 
 6.0 of the 7.0 points a perfect judge offers, and a model 28 months newer at the same architecture and size
 is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come down 26%._
 
-- [ ] **Does a newer small INSTRUCT model judge better?** The open half of the recency question. Part 176 <!-- item: state=startable -->
-  tested recency in the RERANKER role, where the task is "score a pair"; the incumbent `gemma3:4b` fails in
-  the JUDGE role, where the task is "decide IF each of 80 answered, and stop" — and it fails at STOPPING,
-  not at ranking (39.0% precision at its own top-1 against 2.3% overall, a 17× lift). Instruction-following
-  and calibration on a long visible list is the axis; IFEval is the published proxy. Swapping the model is a
-  config change (`LYNTAI_LIVE_CHAT_URL` / `_MODEL`), so this costs a download and one ladder.
-  <br>**Read `+judge@40` before choosing a target**: the same model at half the shipped depth is already
-  level with no judge — 84.0% against the unjudged base's 83.0% — so a newer model has to beat THAT, not
-  the **−10.5** the shipped depth produces (72.5%).
-  <br>_**This line quoted −14.5 until 2026-09-10 and that figure is in no maintained record**, nor does it
-  follow from any published pair: `docs/memory-measurements.md` §5 states the robust result as the
-  −10.5 → +1.0 swing across depth, and the shipped depth reads −11.5 against `+judge@40` rather than −14.5.
-  Corrected while writing `docs/model-tasks.md`, which cites the same table._
-  _**The candidate shortlist, surveyed 2026-09-10 and adversarially re-checked against the model cards and
-  the HF API.** A DESK survey — sizes and capabilities read, not called — which is the tier GEN-VERIFY exists
-  to distrust, so the SHAPES transfer and nothing here licenses skipping a smoke test. Sizes are exact bytes
-  because MiB and MB straddle a 500 threshold (`pitfalls.md`)._
+- [ ] **Does a NEWER same-size instruct model judge better?** Narrowed 2026-09-11: the SMALLER half is <!-- item: state=startable -->
+  answered and the answer is no. `gemma-3-1b-it` Q4_K_M (**806,058,240 B**) was measured in this seam
+  against the 4B incumbent, same family and same quant, and it is **INERT at every depth** — 83.0% on the
+  base, on `@40` and at the shipped depth alike (`docs/task-archive.md` **Part 189**,
+  `docs/memory-measurements.md` §5).
+  <br>**The two sizes fail in OPPOSITE ways, which is what makes the smaller direction dead.** The 4B ranks
+  well and stops badly (17× lift at its own top-1, 29.1 endorsements of 80, so it floods the page and
+  destroys 10.5 points). The 1B stops fine and cannot rank — a **1.7×** lift, which the harness reads as
+  noise. **Its ceiling is ZERO**: on the 19 calls of 200 where a verifier could possibly help it endorsed
+  the deep evidence 0 times, where the 4B managed 10. No promotion rule over it could win a point.
+  <br>**What is still open is RECENCY at a comparable size** — a newer 4B-class instruct model that ranks
+  better than the incumbent. It must beat `+judge@40`'s **84.0%**, not the shipped depth's 72.5%. Read Part
+  176 first: recency bought nothing in the RERANKER role, so the prior is weak.
+  <br>**And the measured way to spend under a gigabyte here is a cross-encoder, not an instruct model** —
+  468 MB captures 6.0 of the 7.0 points a perfect judge offers, where 806 MB of instruct model captured
+  0.0. That seam now ships (`AddMemoryCrossEncoderVerification`, **D115**), so this item is no longer the
+  route to a small-footprint deployment; it is only the route to a BETTER judge.
+  _**The reranker shortlist below stays** because it is the candidate list for that shipped seam. A DESK
+  survey — sizes and capabilities read, not called — which is the tier GEN-VERIFY exists to distrust, so the
+  SHAPES transfer and nothing here licenses skipping a smoke test. Sizes are exact bytes because MiB and MB
+  straddle a 500 threshold (`pitfalls.md`). Surveyed 2026-09-10 and adversarially re-checked against the
+  model cards and the HF API._
   <br>_**Rerankers under 500 MB, multilingual:** `LAMAR-600m` Q5_K_M **468,393,760 B** — measured, see Part
   176. `xVITA-300M` Q8_0 **332,894,432 B** (2026-08-23, modern-bert) is the untested one and is the smallest
   credible candidate. `Qwen3-Reranker-0.6B` Q6_K **494,879,136 B** is **deprioritised for a Chinese-first
