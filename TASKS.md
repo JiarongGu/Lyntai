@@ -15,27 +15,26 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 14 across 10 Parts: 5 startable, 7 blocked, 1 watch, 1 decision-only
+## Open items — 13 across 9 Parts: 4 startable, 7 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 90 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 134 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 143 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 197 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 268 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 346 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 401 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 424 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 495 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 557 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
-| 676 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 697 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
-| 762 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
-| 793 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
+| 89 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 133 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 142 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 196 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 267 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 345 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 400 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 423 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 494 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 652 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 673 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
+| 738 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
+| 769 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
 
 <!-- open-items:end -->
 
@@ -50,7 +49,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is FIVE items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is FOUR items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -554,40 +553,17 @@ knowledge-update's level down 6–9 points off a small sample. **None was a libr
 the instrument.** So treat the remaining measurement items as RE-measurements: they were scoped against
 figures that have since moved._
 
-- [ ] **Give LongMemEval's four remaining classes a shot curve.** `multi-session` (133 questions) and the <!-- item: state=startable -->
-  three single-session classes have none. **This is no longer "cheap and model-free" work** — the two classes
-  that have curves each needed a metric that matches what the class ASKS (preference for the current fact;
-  all-evidence recall), and the remaining four have neither defined nor obviously shared. Deciding what a
-  shot BUYS on a single-session question is the task; running it afterwards is the easy half.
-  <br>_**The other two thirds of this item closed 2026-08-29** (`docs/task-archive.md` Part 119):
-  knowledge-update went from a 25-question sample to all 70, and the temporal class got the first shot curve
-  it has ever had, on both variants._
-  <br>**Read the reproducibility caveat in `docs/memory-measurements.md` §5 before adding a fifth curve**: a haystack
-  figure is reproducible to about ONE question, not to a tenth of a point, and the oracle overstates the
-  multi-shot gain by 2.7× on the class where that was checked.
-  <br>_**The DECIDING half is done (2026-09-04) and the answer is not what this item assumed** — the classes
-  were measured rather than reasoned about from their names, which is what the item was really blocked on._
-  <br>**The metric IS shared, and it is temporal's all-evidence recall.** Knowledge-update's preference
-  metric needs a current/stale split, which needs evidence spanning two dated sessions — and the three
-  single-session classes span more than one session **0%** of the time, so that metric is structurally
-  inapplicable and all-evidence recall is what is left. `multi-session` (2.5 flagged turns, 91% spanning
-  several sessions) is the same shape as `temporal-reasoning` (1.9, 69%). **So "neither defined nor obviously
-  shared" was wrong on both halves.**
-  <br>**What actually blocks three of the four is the VARIANT, not the metric.** On the oracle the store is
-  comparable to or smaller than the page: `single-session-assistant` has a median of 8 turns and **63% of its
-  questions fit entirely inside `k = 10`**, so the first recall returns the whole conversation and a shot
-  curve is flat by construction. Those three need `--haystack`, at ~40× the ingestion cost.
-  <br>**So the item splits.** `multi-session` is runnable TODAY on the existing loader and temporal's metric
-  — it needs a class switch and nothing else. The three single-session classes need the haystack, and
-  `single-session-assistant` may be unmeasurable even there.
-  <br>_**`multi-session` RAN on 2026-09-04** (`docs/task-archive.md` **Part 155**, `--multi --shots`, both
-  variants). Shot 2 is worth **+4.8** on the haystack and shot 3 exactly nothing, so *expand once* holds on a
-  fourth class — and the ORACLE said +19.2 and +6.4, a 4× overstatement that was briefly published as
-  refuting that rule. **What is left of this item is the three single-session classes**, which need the
-  haystack by construction and where `single-session-assistant` is likely unmeasurable at any k._ **Watch the zero-evidence questions**: 8 in
-  multi-session and 6 in single-session-user carry no flagged turn, and `Load`'s existing guard drops them
-  for the two classes that run today — a new class inherits that only if it takes the same branch.
-  Instrument facts: `.claude/knowledge/pitfalls.md`.
+_**The last three classes RAN 2026-09-11** and this item CLOSED as `docs/task-archive.md` **Part 188**.
+All six LongMemEval classes now have a shot curve. **Shot 3 is worth exactly zero on all three**, so
+*expand once* holds a sixth time; `single-session-user` is FLAT outright (82.8% at every shot while the walk
+returns 7× the characters), which is a sharper negative than a diminishing return. The class this item
+predicted unmeasurable — `single-session-assistant` — moved cleanly on the haystack (85.7 → 89.3), so the
+prediction was right about the ORACLE and the haystack is what fixed it.
+<br>**The finding worth carrying forward is not the curve.** Plain cosine wins all three, and
+`single-session-preference` is the widest gap this record holds: **30.0% against 73.3%** at the same k.
+Preference questions are where this engine is furthest behind a flat retriever, and no judge or reranker
+was in the loop for any cell — the seam measured as worth more than any ranking constant is absent from the
+whole table. `docs/memory-measurements.md` §5._
 
 ---
 

@@ -938,10 +938,38 @@ internal static class MemoryLongMemEvalBench
         var temporal = args.Contains("--temporal") && !ranks;
         var multi = args.Contains("--multi") && !ranks && !temporal;
 
-        // The two classes scored by all-evidence recall load the same way: every flagged turn counts and no
-        // current/stale split is required. Knowledge-update is the one that needs the pair.
-        var allEvidence = temporal || multi;
-        var wantClass = temporal ? "temporal-reasoning" : multi ? "multi-session" : "knowledge-update";
+        // `--class` reaches the THREE SINGLE-SESSION classes, which had no switch at all until 2026-09-11
+        // (`TASKS.md` Part 116). They score on all-evidence recall like temporal and multi-session, and that
+        // sharing was MEASURED rather than assumed: they span more than one session 0% of the time, so
+        // knowledge-update's preference metric needs a current/stale split they structurally cannot supply.
+        //
+        // Expect `single-session-assistant` to be flat or unmeasurable even here — 63% of its questions fit
+        // entirely inside k = 10 on the ORACLE, so the first recall returns the whole conversation and a
+        // shot curve has nothing to expand into. That is why these need `--haystack`, at ~40x the ingestion.
+        var singleClasses = new[] { "single-session-user", "single-session-assistant", "single-session-preference" };
+        var wantSingle = ArgValue(args, "--class");
+        if (wantSingle is not null && !singleClasses.Contains(wantSingle, StringComparer.Ordinal))
+        {
+            Console.Error.WriteLine($"--class {wantSingle}: not a single-session class. One of "
+                + $"{string.Join(", ", singleClasses)}; the other three have their own switches "
+                + "(--temporal, --multi, and knowledge-update by default).");
+            return 1;
+        }
+        if (wantSingle is not null && (ranks || temporal || multi))
+        {
+            Console.Error.WriteLine("--class selects a single-session class and cannot combine with "
+                + "--ranks/--temporal/--multi, which each name a class of their own.");
+            return 1;
+        }
+
+        // Every class scored by all-evidence recall loads the same way: every flagged turn counts and no
+        // current/stale split is required. Knowledge-update is the one that needs the pair. Taking this
+        // branch is also what makes a new class inherit `Load`'s ZERO-EVIDENCE guard — 6 of
+        // single-session-user's questions carry no flagged turn, and on the other branch they would survive
+        // loading and score an automatic miss.
+        var allEvidence = temporal || multi || wantSingle is not null;
+        var wantClass = wantSingle
+            ?? (temporal ? "temporal-reasoning" : multi ? "multi-session" : "knowledge-update");
         var questions = Load(path, wantClass, allEvidence);
         if (questions.Count == 0)
         {
@@ -1056,6 +1084,20 @@ internal static class MemoryLongMemEvalBench
                 Console.WriteLine("'what was the FIRST issue after the service' wants the EARLIER fact, and most");
                 Console.WriteLine("questions need BOTH. So the metric is all-evidence recall, and the suppression");
                 Console.WriteLine("that won the other class is expected to COST here. That is the trade, measured.");
+            }
+            else if (wantSingle is not null)
+            {
+                // A banner naming the WRONG class is how a mislabelled table gets published. This branch
+                // exists because the single-session classes reach the all-evidence path, which until
+                // 2026-09-11 printed multi-session's banner and its statistics for whatever ran on it.
+                Console.WriteLine($"=== LongMemEval {wantSingle}: evidence inside ONE session ===");
+                Console.WriteLine();
+                Console.WriteLine("These classes span more than one session 0% of the time, which is what makes");
+                Console.WriteLine("knowledge-update's preference metric structurally inapplicable and leaves");
+                Console.WriteLine("all-evidence recall (Part 116). Read a FLAT shot curve here as a property of");
+                Console.WriteLine("the class rather than of expansion: on the oracle the store is comparable to");
+                Console.WriteLine("or smaller than the page, so the first recall already returns everything and");
+                Console.WriteLine("there is nothing for a second shot to reach. That is what --haystack is for.");
             }
             else
             {

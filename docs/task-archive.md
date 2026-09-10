@@ -3022,3 +3022,30 @@ by a neighbour serving a DIFFERENT embedder of the SAME dimension, so the reques
 check passed, and only reading back the served model caught it (`.claude/knowledge/pitfalls.md`).
 
 - Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking.
+
+## Part 188 — the last three LongMemEval classes, and the one where expansion buys nothing at all
+
+✅ done 2026-09-11, closing Part 116. All six classes now have a shot curve; the three single-session ones
+had no `--class` switch at all until this run. `docs/memory-measurements.md` §5
+(`longmemeval-single-session-user-shot2-haystack`), 3,141.2s over 74,887 ingested turns.
+
+**Shot 3 is worth exactly zero on all three, so *expand once* holds a sixth time.** `single-session-user` is
+FLAT outright — 82.8% at every shot while the walk returns 7× the characters — which is a sharper negative
+than a diminishing return, and the right answer for a class whose evidence is all in one session.
+
+**The item's own prediction was half right, in the useful direction.** It expected
+`single-session-assistant` to be unmeasurable even on the haystack; it moved 85.7 → 89.3. The reasoning was
+right about the ORACLE (63% of its questions fit inside `k = 10` there) and `--haystack` is what fixed it.
+Its zero-evidence warning also held exactly: 6 of `single-session-user`'s 70 questions carry no flagged turn
+and `Load`'s guard dropped them, which is why n is 64.
+
+**The finding worth carrying is not the curve.** Plain cosine wins all three, and
+`single-session-preference` is the widest gap this record holds — **30.0% against 73.3%** at the same k.
+No judge or reranker was in the loop for any cell.
+
+**Two bench defects fixed to get here**, both of which would have published a wrong table: the three classes
+were unreachable, and the all-evidence path printed `multi-session`'s banner and statistics for whatever ran
+on it. A third cost an hour — a server whose batch was too small for the harness's own inputs passed every
+short probe (`.claude/knowledge/pitfalls.md`).
+
+- Give LongMemEval's four remaining classes a shot curve.
