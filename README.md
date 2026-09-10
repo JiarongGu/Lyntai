@@ -87,6 +87,11 @@ version you installed.
 - `docs/ROADMAP.md` — what's shipped, what's next (generation verification and the open design calls), and
   the standing maintenance policies.
 - `docs/AOT.md` — per-package trimming/Native-AOT status.
+- `docs/model-tasks.md` — every model-backed seam grouped by the SHAPE of the question it asks, what is
+  measured about each, and the shapes this library deliberately refuses a model. Read it before sizing a
+  model for a seam: bounding the input is usually cheaper than a bigger model.
+- `docs/memory.md` — the long-term memory guide: how a recall works, the configuration reference, and the
+  model-backed steps with their measured costs.
 - `CHANGELOG.md` — per-release detail, breaking changes called out.
 
 ## Packages

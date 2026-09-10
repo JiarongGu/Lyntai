@@ -2952,3 +2952,25 @@ not an opinion. It bought four gates — `check-backlog` (**D111**), `check-pitf
 which is the record that owns them; this entry does not carry a second copy. The last of those findings —
 *measure a candidate signal before shipping a scan over it* — came out of building the gates rather than
 out of the probes, and refused two scans on its own terms.
+
+## Part 185 — the task-shape taxonomy, and the four shapes it was scoped around were not the set
+
+✅ done 2026-09-10. **`docs/model-tasks.md`** — every model-backed seam grouped by the SHAPE of the question
+it asks. Reached from `CLAUDE.md`, `README.md`, `docs/memory.md` §Model-backed steps and §10, and
+`.claude/knowledge/model-decoupling.md` §Give the model only what it is genuinely better at. A new
+maintained doc rather than a `docs/memory.md` section, at the owner's call: it spans cortex scorers, the
+tool loop, agent sessions and the embedder, and that file's banner scopes it to the memory subsystem.
+
+**The item's own four shapes were not the set, and that is the durable finding.** Sweeping `src/` found
+four more it could not name (affordance, embed, repair, delegate-a-run); **`score-a-pair` is two unrelated
+tasks** — the cross-encoder carrying the only sub-500 MB evidence, and a generative graded-quality scorer
+unmeasured at any size; and **`classify` overstated what this library hands a model**, whose largest
+classify surfaces are deliberately deterministic. The doc's §3 carries the size evidence and the eight
+blanks.
+
+**A figure was corrected on the way through**, because it sets the bar for a still-open item. `TASKS.md`
+Part 177's first item quoted the shipped judge depth as costing **−14.5**, which is in no maintained record
+and follows from no published pair; the owning table gives 83.0% unjudged against 72.5%, so the cost is
+**−10.5**.
+
+- Write the task-shape taxonomy down as guidance.

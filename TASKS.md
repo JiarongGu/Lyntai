@@ -15,30 +15,29 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 17 across 11 Parts: 8 startable, 7 blocked, 1 watch, 1 decision-only
+## Open items — 16 across 11 Parts: 7 startable, 7 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 93 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 137 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 146 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 200 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 271 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 349 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 404 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 427 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 498 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 560 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
-| 679 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 700 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
-| 708 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
-| 762 | 129 | Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memo… | startable |  |
-| 841 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
-| 867 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
-| 877 | 177 | Write the task-shape taxonomy down as guidance | startable |  |
+| 92 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 136 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 145 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 199 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 270 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 348 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 403 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 426 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 497 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 559 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
+| 678 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 699 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
+| 707 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
+| 761 | 129 | Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memo… | startable |  |
+| 840 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
+| 871 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
 
 <!-- open-items:end -->
 
@@ -53,7 +52,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is EIGHT items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is SEVEN items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -845,7 +844,12 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   and calibration on a long visible list is the axis; IFEval is the published proxy. Swapping the model is a
   config change (`LYNTAI_LIVE_CHAT_URL` / `_MODEL`), so this costs a download and one ladder.
   <br>**Read `+judge@40` before choosing a target**: the same model at half the shipped depth is already
-  level with no judge, so a newer model has to beat THAT, not the −14.5 the shipped depth produces.
+  level with no judge — 84.0% against the unjudged base's 83.0% — so a newer model has to beat THAT, not
+  the **−10.5** the shipped depth produces (72.5%).
+  <br>_**This line quoted −14.5 until 2026-09-10 and that figure is in no maintained record**, nor does it
+  follow from any published pair: `docs/memory-measurements.md` §5 states the robust result as the
+  −10.5 → +1.0 swing across depth, and the shipped depth reads −11.5 against `+judge@40` rather than −14.5.
+  Corrected while writing `docs/model-tasks.md`, which cites the same table._
   _**The candidate shortlist, surveyed 2026-09-10 and adversarially re-checked against the model cards and
   the HF API.** A DESK survey — sizes and capabilities read, not called — which is the tier GEN-VERIFY exists
   to distrust, so the SHAPES transfer and nothing here licenses skipping a smoke test. Sizes are exact bytes
@@ -874,11 +878,13 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   <br>**D107 is the warning**: the last concurrency ceiling found here was a process-global mutex no grep of
   our own code could have found. Expect the answer to be an artefact of the serving layer rather than of the
   model.
-- [ ] **Write the task-shape taxonomy down as guidance.** Enumerate the decision shapes this library <!-- item: state=startable -->
-  actually performs — classify/route, extract, select-from-list, score-a-pair — say which survive at
-  <500 MB and which need a structural constraint rather than a prompt, and put it where a consumer reads it
-  (`docs/memory.md` §7 or a new section, plus `model-decoupling.md`'s neighbourhood). **Not a decision and
-  not new surface**: the seams exist, so this is the advice on top of them.
+_**The taxonomy item CLOSED 2026-09-10** as `docs/task-archive.md` **Part 185**: `docs/model-tasks.md`,
+reached from `CLAUDE.md`, `README.md`, `docs/memory.md` and `.claude/knowledge/model-decoupling.md`. **Its
+four proposed shapes were not the set** — a sweep found four more the list could not name, `score-a-pair`
+turned out to be two unrelated tasks, and `classify` overstated what this library hands a model. **Read
+that doc's §3 before scoping either item above**: the only sub-500 MB evidence this repository holds tests
+the RERANKER role, is `ships=no`, and the library ships no adapter that can call a rerank endpoint — so
+"which shapes survive at <500 MB" is still eight blanks and one qualified cell._
 
 ---
 

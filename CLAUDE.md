@@ -65,7 +65,9 @@ root) / `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` / `L
 semantics); read it first · `docs/DECISIONS.md` §How to read it — the rationale log, present tense,
 contiguous `D1..Dn` · `docs/GATES.md` — what each gate is for and the numbers it holds · `docs/memory.md` —
 the memory CONTRACT, and `docs/memory-measurements.md` the EVIDENCE, behind a generated results index whose
-`ships` and status columns are the two things read wrongly here (**D114**) · `CHANGELOG.md` — per-release
+`ships` and status columns are the two things read wrongly here (**D114**) · `docs/model-tasks.md` — every
+model-backed seam by the SHAPE of the question it asks, and what is measured about each shape ·
+`CHANGELOG.md` — per-release
 detail · `README.md` — the consuming story ·
 `TASKS.md` — the OPEN backlog, whose own banner is the live work: read it, never a copy kept here ·
 `docs/task-archive.md` — the closed one, one Part per task · `docs/FIXES.md` — the fix log

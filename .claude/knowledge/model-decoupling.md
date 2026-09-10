@@ -47,7 +47,10 @@ dependency was never required by the problem — only by the implementation.
   rather than silence or an error.
 - **Give the model only what it is genuinely better at.** It is not better at exact comparison, at
   counting, or at anything with a deterministic answer — using it there is slower, costlier and less
-  correct.
+  correct. **And which SHAPE you hand it decides more than which model does** — a generative task takes a
+  budget and a selective task over a visible list does not, so bound the input before buying a bigger
+  model. The inventory of every shape this library performs, and what is measured about each, is
+  `docs/model-tasks.md`.
 
 ## A model-assisted option is a CANDIDATE in every design — list it, then measure it locally
 

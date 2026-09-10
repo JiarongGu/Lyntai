@@ -295,6 +295,11 @@ Both take `ClientName` to point at a named `AddLlmClient`, so judging runs on a 
 deliberately. **Absent, the engine behaves exactly as it always has** — the model-free floor is a supported
 configuration, not a degraded one.
 
+**These two ask the model DIFFERENT SHAPES of question, and the shape predicts more than the size does** —
+annotation extracts handles out of free text, verification selects from a visible list, and only the first
+of those takes a budget from its prompt. `docs/model-tasks.md` is the inventory: every model-backed seam in
+the library by shape, what is measured about each, and why list LENGTH is the variable to watch here.
+
 #### What it costs you NOT to use a judge
 
 The model-free floor is supported, and it is also where the single largest measured gain sits. From the
@@ -801,4 +806,5 @@ passed to `UseGraph(...)` wins over both, for that engine only.
 | why a choice was made | `docs/DECISIONS.md` D39–D62 and D83–D86 (and D13 for the *keyword* store's eviction bound, which is a different surface) |
 | upgrading from 2.5 | `docs/migration-2.5-to-3.0.md` |
 | the consuming story | `README.md` |
+| which SHAPE of question each model-backed seam asks, and what is measured about each | `docs/model-tasks.md` |
 | traps that pass the build while being wrong | `.claude/knowledge/pitfalls.md` |
