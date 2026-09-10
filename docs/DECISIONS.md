@@ -184,8 +184,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D112](#d112--the-traps-record-is-filed-by-facets-orthogonal-to-its-headings-not-by-better-headings-2026-09-10) | 2026-09-10 | the traps record is filed by FACETS orthogonal to its headings, not by better headings |
 | [D113](#d113--claudemds-command-table-is-generated-what-a-gate-is-for-moves-to-docsgatesmd-2026-09-10) | 2026-09-10 | `CLAUDE.md`'s command table is GENERATED; what a gate is FOR moves to `docs/GATES.md` |
 | [D114](#d114--a-measurement-is-a-row-and-a-figures-currency-is-derived-never-authored-twice-2026-09-10) | 2026-09-10 | a measurement is a ROW, and a figure's currency is DERIVED, never authored twice |
+| [D115](#d115--a-model-backed-ranker-fills-the-verification-seam-and-endorses-a-fixed-pages-worth-2026-09-11) | 2026-09-11 | a model-backed RANKER fills the VERIFICATION seam, and endorses a fixed page's worth |
 
-_All 114 entries are live decisions._
+_All 115 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3396,3 +3397,26 @@ writing a row, with the arm, the metric, the sample size, the value, and whether
 SHIPS. A run that supersedes an earlier figure names it, or the gate reports the survivor as current.
 `ships` is the column a reader turns into a configuration, so an oracle, a ceiling or a ladder rung is
 never `yes`.
+
+## D115 — a model-backed RANKER fills the VERIFICATION seam, and endorses a fixed page's worth (2026-09-11)
+
+`docs/memory-measurements.md` §5 prices the retrieval gap as ranking rather than retrieval, and a
+sub-500 MB cross-encoder captures 6.0 of the 7.0 points a perfect judge offers where a 4B instruct judge
+SPENDS 10.5. Until now the only code that could call a `/v1/rerank` endpoint was a bench harness, so the
+best-measured configuration in the subsystem was one no consumer could reach.
+`AddMemoryCrossEncoderVerification` ships it, in `Lyntai.Providers.Default` beside `HttpEmbedder` — the
+same footprint, no new dependency, and no new package.
+
+**The ranking seam was the obvious home and it is unusable.** `IMemoryRankingPolicy.Rank` is synchronous
+and takes its context by `in`, so no model-backed policy fits it at all; that is why the blocker was once
+recorded as wanting an in-process ONNX package, which would have been a far heavier footprint for the same
+result. Verification is async, already sees the pool at `VerificationDepth`, and promotes before the cut —
+so endorsing the reranker's own top-*n* expresses *rerank the pool and take the top k* through a seam that
+already shipped.
+
+**What it constrains.** The endorsement count is FIXED and the consumer sets it, because
+`MemoryVerificationRequest` deliberately carries no caller limit: a count at a page's width keeps promotion
+a refinement, and one wider than the page replaces the ranking instead — the measured failure of the
+instruct judge, which endorsed 29.1 of 80. A future model-backed ranker belongs here too rather than in
+`IMemoryRankingPolicy`, and the seam stays SINGULAR, so this and the instruct judge are alternatives rather
+than companions.

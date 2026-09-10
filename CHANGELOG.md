@@ -14,6 +14,21 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`AddMemoryCrossEncoderVerification` — fill the memory verification seam with a RERANKER instead of an
+  instruct model.** A cross-encoder over any OpenAI/Cohere-shaped `/v1/rerank` endpoint (llama.cpp's
+  `--reranking` mode, Cohere, Jina, TEI). It scores `(query, candidate)` pairs and never generates, so it
+  runs in a fraction of the memory an instruct model needs and pays none of generation's latency.
+  <br>**Why it is worth having:** on LoCoMo a sub-500 MB cross-encoder captured **6.0 of the 7.0 points** a
+  perfect judge offers, while the 4B instruct judge *spends* 10.5 at the shipped depth. Until now the only
+  code that could call a rerank endpoint was a bench harness, so that measurement described a configuration
+  no consumer could actually reach. Both remain ladder rungs rather than defaults —
+  `docs/memory-measurements.md` §5 owns the figures and their limits, and this seam still ships empty.
+  <br>**Set `CrossEncoderVerificationOptions.EndorseCount` to your recall limit.** It cannot be defaulted
+  for you, because `MemoryVerificationRequest` deliberately does not carry the caller's limit. A fixed count
+  keeps promotion a REFINEMENT of the ranking; endorsing more than a page replaces it, which is precisely
+  how the instruct judge lost its points. Opt-in and fail-open like every model-backed memory seam: an
+  unreachable endpoint reports no opinion and leaves the ranking untouched. `docs/model-tasks.md`.
+
 - **`MemoryVerificationCandidate.Content` — a verifier can read the entry, not a truncation of it.** The
   candidate carried a headline, which is `GraphMemoryOptions.HeadlineChars` characters of the content (120
   by default), so a policy that scores WORDING was scoring a fragment. Measured on LoCoMo: a cross-encoder

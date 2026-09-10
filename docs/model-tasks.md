@@ -24,7 +24,7 @@ cell does and does not cover.
 | **select-from-list** | which members of a visible list qualify | `LlmVerificationOptions` (which notes answered) | per RECALL, one call for all candidates | option | no |
 | **select-from-list** (short) | pick one of two | `IPairwiseComparer` | 2 calls per pair, by default | composition root | no |
 | **select-from-list** (roster) | which tool to call, or none | `IToolLoop`, both paths | per loop iteration, up to `LyntaiOptions.ToolLoopMaxIterations` | composition root | no |
-| **score-a-pair** (cross-encoder) | how relevant is this document to this query | not shipped — see §3 | per candidate | n/a | **yes, one row** |
+| **score-a-pair** (cross-encoder) | how relevant is this document to this query | `CrossEncoderVerificationOptions` | per candidate | endpoint | **yes, one row** |
 | **score-a-pair** (generative) | grade this output against this input, 0..1 | `LlmScorerBase`, and `RelevancyScorer` under it | per evaluation, per scorer | composition root | no |
 | **classify** | is this fact durable enough to keep verbatim | `LlmAnnotationOptions.SuggestGrade`, off by default | per WRITE, when on | option | no |
 | **affordance** | given these tools, what do you want | `MemoryTools`, the generation tools, an MCP-hosted toolset | per model tool call, unbounded by this library | no | no |
@@ -109,10 +109,12 @@ same file is 606 MiB and 636 MB depending on the unit, and a 500 threshold falls
 2. **`ships=no`.** It is a ladder rung, not a configuration recommendation. Reading a rung, a ceiling or an
    oracle as a default is the specific mistake `docs/memory-measurements.md` invites and its status index
    exists to prevent.
-3. **This library ships no adapter that can call a rerank endpoint.** The code behind that measurement is
-   `bench/Lyntai.Benchmarks/CrossEncoderRerank.cs` — a bench harness, not a package. To use the result
-   today you implement the verification seam yourself against your own reranker. It is a supported thing to
-   do, and it is code you write.
+3. **You can now reach it from configuration** — `AddMemoryCrossEncoderVerification` fills the verification
+   seam from a `/v1/rerank` endpoint. Until it shipped, the only code that could call one was a bench
+   harness, so this row's measurement described something a consumer could not have. **Set
+   `CrossEncoderVerificationOptions.EndorseCount` to your recall limit**: it is a fixed count so that
+   promotion refines the ranking, and endorsing more than a page replaces it instead — which is exactly how
+   an instruct model lost 10.5 points in the neighbouring row.
 
 **Every other shape is unmeasured under 500 MB, and that is a statement about this repository rather than
 about the models.** The smallest model ever *called* in the judge role here is a 4B at roughly 3.3 GB.

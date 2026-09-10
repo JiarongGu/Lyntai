@@ -386,8 +386,17 @@ services.AddLyntai(b => b
     .AddMemoryVerification(o => o.Model = "gemma3:4b"));
 ```
 
+**A cross-encoder is the other shipped way to fill this seam, and on the field benchmark it is the one that
+wins.** `AddMemoryCrossEncoderVerification` points the same seam at a `/v1/rerank` endpoint instead of an
+instruct model: it scores `(query, candidate)` pairs and never generates, so it needs a fraction of the
+memory and pays none of generation's latency. A sub-500 MB cross-encoder captured **6.0 of the 7.0 points**
+a perfect judge offers on LoCoMo, where the 4B instruct judge *spends* 10.5 at the shipped depth — figures
+and their limits in `docs/memory-measurements.md` §5, and both are ladder rungs rather than defaults, since
+this seam still ships empty. **Set `EndorseCount` to your recall limit**: a fixed count keeps promotion a
+refinement, and endorsing more than a page is what made the instruct judge replace the ranking instead.
+
 Because it is a policy rather than a mode, a consumer who disagrees with every judgement above implements
-`IMemoryVerificationPolicy` themselves — a cross-encoder reranker, a hosted model, a hand-written rule — and
+`IMemoryVerificationPolicy` themselves — a hosted reranker, a different model, a hand-written rule — and
 registers it. The engine consults whatever is there and behaves identically when nothing is
 (**fail-open**, `docs/memory-measurements.md` §5). `GraphMemoryOptions.VerificationFilters` then decides
 whether a verdict merely reorders or also drops, and `VerificationDepth` how many candidates it sees.

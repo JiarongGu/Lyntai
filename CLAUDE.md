@@ -13,14 +13,17 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 ## Current state
 
 **Released: v3.1.0 (2026-08-23).** Twelve packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D114** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D115** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3592 passed / 3613 total, 21 skipped` (the skips are
+**The baseline a green run should match:** `3609 passed / 3630 total, 21 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 633/633, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count well above 21 as "Docker is down and the whole Postgres leg went silently unexercised".
+**The passed figure above is DERIVED and not yet observed** (2026-09-11): the run that set the total had
+Docker down, so 3,630 and zero failures are measured while the 21-skip split is the previous baseline's —
+confirm it on the first run with Docker up.
 Everything else on that line is gated. `docs/GATES.md` is why each gate exists, what it measured and which
 numbers it holds.
 
