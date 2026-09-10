@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 173 traps, indexed two ways
+## Facets — 174 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (34) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 202 · 248 · 268 · 314 · 332 · 447 · 532 · 541 · 551 · 605 · 619 · 689 · 703 · 788 · 978 · 1929 · 1939 · 1965 · 1976 · 2013 · 2384 · 2414 · 2423
-- **`encoding`** (6) — 75 · 80 · 558 · 566 · 736 · 2013
-- **`git`** (7) — 192 · 217 · 248 · 273 · 566 · 588 · 741
-- **`build`** (8) — 80 · 532 · 541 · 551 · 605 · 780 · 978 · 1948
-- **`router`** (6) — 821 · 826 · 835 · 837 · 840 · 970
-- **`cli`** (18) — 718 · 736 · 821 · 842 · 850 · 859 · 863 · 875 · 879 · 886 · 890 · 897 · 901 · 934 · 953 · 957 · 962 · 1799
-- **`lifetime`** (6) — 1000 · 1009 · 1014 · 1019 · 1032 · 1040
-- **`storage`** (17) — 913 · 1049 · 1151 · 1179 · 1181 · 1182 · 1184 · 1186 · 1204 · 1215 · 1444 · 1456 · 1712 · 1829 · 1995 · 2177 · 2361
-- **`memory`** (38) — 372 · 390 · 518 · 913 · 1083 · 1102 · 1113 · 1139 · 1151 · 1166 · 1187 · 1204 · 1215 · 1254 · 1269 · 1276 · 1295 · 1306 · 1324 · 1337 · 1350 · 1408 · 1463 · 1483 · 1519 · 1555 · 1573 · 1580 · 1611 · 1633 · 1661 · 1733 · 1808 · 1829 · 2070 · 2229 · 2257 · 2340
-- **`generation`** (8) — 826 · 1032 · 1555 · 1746 · 1758 · 1782 · 1889 · 1914
-- **`di`** (12) — 1019 · 1269 · 1295 · 1475 · 1477 · 1480 · 1483 · 1501 · 1580 · 1611 · 1758 · 1808
-- **`measurement`** (41) — 111 · 357 · 372 · 390 · 431 · 461 · 477 · 496 · 508 · 518 · 639 · 718 · 725 · 730 · 759 · 769 · 775 · 780 · 850 · 1049 · 1068 · 1139 · 1306 · 1337 · 1364 · 1375 · 1390 · 1408 · 1463 · 1519 · 1965 · 2046 · 2097 · 2112 · 2136 · 2156 · 2177 · 2207 · 2244 · 2308 · 2340
-- **`docs`** (22) — 124 · 152 · 175 · 281 · 588 · 619 · 639 · 689 · 788 · 799 · 804 · 811 · 1113 · 1633 · 1700 · 1864 · 1874 · 1929 · 1939 · 1976 · 1995 · 2266
-- **`tests`** (21) — 934 · 1125 · 1166 · 1187 · 1254 · 1276 · 1444 · 1456 · 1712 · 2059 · 2070 · 2081 · 2257 · 2279 · 2361 · 2369 · 2377 · 2381 · 2384 · 2396 · 2409
+- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 462 · 547 · 556 · 566 · 620 · 634 · 704 · 718 · 803 · 993 · 1944 · 1954 · 1980 · 1991 · 2028 · 2399 · 2429 · 2438
+- **`encoding`** (6) — 75 · 80 · 573 · 581 · 751 · 2028
+- **`git`** (7) — 207 · 232 · 263 · 288 · 581 · 603 · 756
+- **`build`** (8) — 80 · 547 · 556 · 566 · 620 · 795 · 993 · 1963
+- **`router`** (6) — 836 · 841 · 850 · 852 · 855 · 985
+- **`cli`** (18) — 733 · 751 · 836 · 857 · 865 · 874 · 878 · 890 · 894 · 901 · 905 · 912 · 916 · 949 · 968 · 972 · 977 · 1814
+- **`lifetime`** (6) — 1015 · 1024 · 1029 · 1034 · 1047 · 1055
+- **`storage`** (17) — 928 · 1064 · 1166 · 1194 · 1196 · 1197 · 1199 · 1201 · 1219 · 1230 · 1459 · 1471 · 1727 · 1844 · 2010 · 2192 · 2376
+- **`memory`** (38) — 387 · 405 · 533 · 928 · 1098 · 1117 · 1128 · 1154 · 1166 · 1181 · 1202 · 1219 · 1230 · 1269 · 1284 · 1291 · 1310 · 1321 · 1339 · 1352 · 1365 · 1423 · 1478 · 1498 · 1534 · 1570 · 1588 · 1595 · 1626 · 1648 · 1676 · 1748 · 1823 · 1844 · 2085 · 2244 · 2272 · 2355
+- **`generation`** (8) — 841 · 1047 · 1570 · 1761 · 1773 · 1797 · 1904 · 1929
+- **`di`** (12) — 1034 · 1284 · 1310 · 1490 · 1492 · 1495 · 1498 · 1516 · 1595 · 1626 · 1773 · 1823
+- **`measurement`** (41) — 111 · 372 · 387 · 405 · 446 · 476 · 492 · 511 · 523 · 533 · 654 · 733 · 740 · 745 · 774 · 784 · 790 · 795 · 865 · 1064 · 1083 · 1154 · 1321 · 1352 · 1379 · 1390 · 1405 · 1423 · 1478 · 1534 · 1980 · 2061 · 2112 · 2127 · 2151 · 2171 · 2192 · 2222 · 2259 · 2323 · 2355
+- **`docs`** (22) — 124 · 152 · 175 · 296 · 603 · 634 · 654 · 704 · 803 · 814 · 819 · 826 · 1128 · 1648 · 1715 · 1879 · 1889 · 1944 · 1954 · 1991 · 2010 · 2281
+- **`tests`** (21) — 949 · 1140 · 1181 · 1202 · 1269 · 1291 · 1459 · 1471 · 1727 · 2074 · 2085 · 2096 · 2272 · 2294 · 2376 · 2384 · 2392 · 2396 · 2399 · 2411 · 2424
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (19) — 192 · 372 · 390 · 619 · 730 · 835 · 840 · 859 · 934 · 1014 · 1102 · 1350 · 1483 · 1519 · 1746 · 1758 · 1808 · 1914 · 2229
-- **`cancellation`** (5) — 821 · 826 · 1083 · 1102 · 1125
-- **`vacuous`** (32) — 111 · 185 · 357 · 431 · 461 · 541 · 890 · 953 · 970 · 1125 · 1166 · 1187 · 1254 · 1276 · 1364 · 1375 · 1408 · 1519 · 1633 · 1995 · 2070 · 2081 · 2112 · 2244 · 2257 · 2279 · 2308 · 2361 · 2384 · 2396 · 2414 · 2423
-- **`scope-blind`** (35) — 82 · 133 · 146 · 152 · 175 · 185 · 192 · 202 · 248 · 314 · 332 · 566 · 689 · 703 · 978 · 1269 · 1337 · 1444 · 1456 · 1633 · 1661 · 1712 · 1829 · 1929 · 1939 · 1948 · 1965 · 1976 · 1995 · 2081 · 2244 · 2257 · 2381 · 2414 · 2423
-- **`second-door`** (20) — 837 · 875 · 879 · 890 · 897 · 957 · 962 · 1040 · 1182 · 1204 · 1483 · 1611 · 1712 · 1733 · 1746 · 1758 · 1782 · 1829 · 1864 · 1889
-- **`stale-claim`** (16) — 57 · 152 · 217 · 281 · 639 · 741 · 788 · 804 · 1113 · 1480 · 1700 · 1733 · 1782 · 1864 · 1976 · 2266
-- **`silent-loss`** (44) — 75 · 80 · 124 · 268 · 273 · 314 · 332 · 508 · 558 · 605 · 619 · 718 · 736 · 775 · 863 · 879 · 913 · 1000 · 1032 · 1068 · 1139 · 1179 · 1181 · 1182 · 1184 · 1204 · 1215 · 1254 · 1390 · 1463 · 1475 · 1480 · 1501 · 1573 · 1611 · 1661 · 1799 · 1889 · 1929 · 1939 · 2013 · 2097 · 2177 · 2308
-- **`wrong-subject`** (44) — 57 · 91 · 111 · 273 · 357 · 390 · 447 · 461 · 477 · 496 · 508 · 518 · 532 · 551 · 769 · 799 · 811 · 837 · 886 · 978 · 1009 · 1019 · 1049 · 1139 · 1187 · 1295 · 1306 · 1324 · 1337 · 1364 · 1375 · 1408 · 1555 · 1580 · 1914 · 2046 · 2097 · 2112 · 2136 · 2156 · 2177 · 2279 · 2340 · 2384
-- **`unmeasured`** (16) — 477 · 518 · 588 · 639 · 689 · 725 · 780 · 842 · 850 · 859 · 901 · 953 · 1324 · 1555 · 1874 · 2266
-- **`ordering`** (10) — 551 · 863 · 962 · 1151 · 1186 · 1501 · 1799 · 1808 · 2059 · 2207
-- **`resource`** (12) — 532 · 566 · 605 · 759 · 842 · 934 · 1040 · 1049 · 1477 · 2369 · 2377 · 2409
+- **`fail-open`** (19) — 207 · 387 · 405 · 634 · 745 · 850 · 855 · 874 · 949 · 1029 · 1117 · 1365 · 1498 · 1534 · 1761 · 1773 · 1823 · 1929 · 2244
+- **`cancellation`** (5) — 836 · 841 · 1098 · 1117 · 1140
+- **`vacuous`** (33) — 111 · 185 · 192 · 372 · 446 · 476 · 556 · 905 · 968 · 985 · 1140 · 1181 · 1202 · 1269 · 1291 · 1379 · 1390 · 1423 · 1534 · 1648 · 2010 · 2085 · 2096 · 2127 · 2259 · 2272 · 2294 · 2323 · 2376 · 2399 · 2411 · 2429 · 2438
+- **`scope-blind`** (35) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 581 · 704 · 718 · 993 · 1284 · 1352 · 1459 · 1471 · 1648 · 1676 · 1727 · 1844 · 1944 · 1954 · 1963 · 1980 · 1991 · 2010 · 2096 · 2259 · 2272 · 2396 · 2429 · 2438
+- **`second-door`** (20) — 852 · 890 · 894 · 905 · 912 · 972 · 977 · 1055 · 1197 · 1219 · 1498 · 1626 · 1727 · 1748 · 1761 · 1773 · 1797 · 1844 · 1879 · 1904
+- **`stale-claim`** (16) — 57 · 152 · 232 · 296 · 654 · 756 · 803 · 819 · 1128 · 1495 · 1715 · 1748 · 1797 · 1879 · 1991 · 2281
+- **`silent-loss`** (44) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 523 · 573 · 620 · 634 · 733 · 751 · 790 · 878 · 894 · 928 · 1015 · 1047 · 1083 · 1154 · 1194 · 1196 · 1197 · 1199 · 1219 · 1230 · 1269 · 1405 · 1478 · 1490 · 1495 · 1516 · 1588 · 1626 · 1676 · 1814 · 1904 · 1944 · 1954 · 2028 · 2112 · 2192 · 2323
+- **`wrong-subject`** (44) — 57 · 91 · 111 · 288 · 372 · 405 · 462 · 476 · 492 · 511 · 523 · 533 · 547 · 566 · 784 · 814 · 826 · 852 · 901 · 993 · 1024 · 1034 · 1064 · 1154 · 1202 · 1310 · 1321 · 1339 · 1352 · 1379 · 1390 · 1423 · 1570 · 1595 · 1929 · 2061 · 2112 · 2127 · 2151 · 2171 · 2192 · 2294 · 2355 · 2399
+- **`unmeasured`** (16) — 492 · 533 · 603 · 654 · 704 · 740 · 795 · 857 · 865 · 874 · 916 · 968 · 1339 · 1570 · 1889 · 2281
+- **`ordering`** (10) — 566 · 878 · 977 · 1166 · 1201 · 1516 · 1814 · 1823 · 2074 · 2222
+- **`resource`** (12) — 547 · 581 · 620 · 774 · 857 · 949 · 1055 · 1064 · 1492 · 2384 · 2392 · 2424
 
 <!-- facets:end -->
 
@@ -189,6 +189,21 @@ of the two: most of these traps recur in a subsystem that had never met them.
   the gate — asking it whether the file was in its list and how many lines it would scan — rather than by
   reading its exit code. **For any filter chain, a clean run proves nothing about the stage you edited;
   assert on the intermediate (the file list, the line count), or write the positive control that must fail.**
+- **A text predicate that checks a flag's CALL SITES is defeated by editing the flag's DEFINITION, and it <!-- trap: sub=gates shape=vacuous -->
+  reports green while the defect it was written for is live.** Measured 2026-09-10, designing a predicate
+  for **D29** ("Lyntai disposes only what Lyntai created"). The proposal asserted the literals the wiring
+  passes — `disposeHttpClient: !byo` at each registration. Mutating `var byo = httpClient is not null;` to
+  `is null`, one token and twenty lines away, leaves **every asserted literal intact**: the gate stays
+  green while every host-supplied client is disposed on its way out of the first call and every
+  Lyntai-created one leaks — precisely the "cannot access a disposed object on the SECOND call" the
+  decision exists to prevent. **The predicate was checking spelling, not polarity.**
+  <br>**Two rules, and the second is the general one.** Assert the polarity at its SOURCE, not at the call
+  sites that read it. And **a claim about BEHAVIOUR wants a behavioural test, not a text scan** — register a
+  BYO client, drive two calls, assert the second does not throw. That is decidable and rename-proof, where
+  a regex over call sites is neither.
+  <br>**Frozen counts are the same failure wearing a different hat**: "all 11 lease sites" turns red when a
+  twelfth correct backend arrives, so a predicate must be UNIVERSALLY QUANTIFIED over whatever it finds
+  ("every lease site passes the flag"), never an equality on how many it found today.
 - **`git ls-files` (and `diff --name-only`) C-QUOTE any path containing a non-ASCII byte** — `docs/灵台.md` <!-- link-ok: a guard FIXTURE's name, never a file here --> <!-- trap: sub=gates,git shape=fail-open,scope-blind -->
   comes back as the literal 8-character-escaped string `"docs/\347\201\265\345\217\260.md"`, which matches no
   file on disk. **Always pass `-z` and split on NUL.** Measured 2026-08-11 in `check-sensitive`, where the

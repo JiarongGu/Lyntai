@@ -14,7 +14,8 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import {
-  DECISION_CLAIMS, checkDecisionClaims, defaultOf, policyDomainFolders, silentAotOptOuts,
+  DECISION_CLAIMS, checkDecisionClaims, defaultOf, missingReleasedMigrations, policyDomainFolders,
+  silentAotOptOuts,
   sqliteObjectsMissingPrefix,
   wireJsonSerializerUses,
 } from '../check-decision-claims.mjs';
@@ -124,6 +125,84 @@ describe('sqliteObjectsMissingPrefix (D6)', () => {
     const r = fixture(sql('// no SQL at all in this migration'));
     assert.equal(sqliteObjectsMissingPrefix(r).length, 1);
     assert.match(sqliteObjectsMissingPrefix(r)[0], /broken predicate/);
+  });
+
+  it('sees the VERSION TABLE, which no CREATE statement ever names — the RED case D6 states and the '
+    + 'predicate could not reach', () => {
+    // D6 says the prefix covers "the FluentMigrator version table included", and that table is the
+    // likeliest collision of all because FluentMigrator's default name is the very generic `VersionInfo`.
+    // It is declared as metadata PROPERTIES rather than DDL, so a CREATE-only scan cannot see it: probed
+    // 2026-09-10, renaming it back to the default left the predicate reporting a clean tree.
+    const r = fixture({
+      ...sql('Execute.Sql("CREATE TABLE lyntai_kv (k TEXT)");'),
+      'src/Lyntai.Storage.Sqlite/Migrations/LyntaiVersionTable.cs':
+        'public string TableName => "VersionInfo";\n public string UniqueIndexName => "ux_VersionInfo";',
+    });
+    assert.deepEqual(sqliteObjectsMissingPrefix(r), ['VersionInfo', 'ux_VersionInfo']);
+  });
+
+  it('accepts the version table as it SHIPS, so the new assertion is not merely always-red', () => {
+    const r = fixture({
+      ...sql('Execute.Sql("CREATE TABLE lyntai_kv (k TEXT)");'),
+      'src/Lyntai.Storage.Sqlite/Migrations/LyntaiVersionTable.cs':
+        'public string TableName => "lyntai_version_info";\n'
+        + ' public string UniqueIndexName => "ux_lyntai_version_info";',
+    });
+    assert.deepEqual(sqliteObjectsMissingPrefix(r), []);
+  });
+
+  it('ignores the version table\'s NON-NAME metadata, which carry no object name to collide', () => {
+    // `ColumnName`/`DescriptionColumnName`/`AppliedOnColumnName` are COLUMNS inside an already-prefixed
+    // table, and `SchemaName` ships empty. Treating them as object names would flag the shipped file.
+    const r = fixture({
+      ...sql('Execute.Sql("CREATE TABLE lyntai_kv (k TEXT)");'),
+      'src/Lyntai.Storage.Sqlite/Migrations/LyntaiVersionTable.cs':
+        'public string SchemaName => "";\n public string TableName => "lyntai_version_info";\n'
+        + ' public string ColumnName => "Version";\n public string DescriptionColumnName => "Description";\n'
+        + ' public string UniqueIndexName => "ux_lyntai_version_info";\n'
+        + ' public string AppliedOnColumnName => "AppliedOn";',
+    });
+    assert.deepEqual(sqliteObjectsMissingPrefix(r), []);
+  });
+});
+
+describe('missingReleasedMigrations (D9)', () => {
+  const released = { 'Lyntai.Storage.Sqlite': [202607280001, 202608121100] };
+  const at = (body) => ({
+    'src/Lyntai.Storage.Sqlite/Migrations/M202607280001_Kv.cs': '[Migration(202607280001)]',
+    'src/Lyntai.Storage.Sqlite/Migrations/M202608121100_Memory.cs': body,
+  });
+
+  it('names a RENUMBERED released migration — the RED case no other gate can see', () => {
+    // A renumber leaves the FRESH schema byte-identical, so MigrationSchemaSnapshotTests stays green, and
+    // the tags are untouched, so MigrationTagConventionTests stays green. On a consumer's already-migrated
+    // database the new number is absent from `lyntai_version_info`, so the migration RE-RUNS.
+    const r = fixture(at('[Migration(202609101200)]'));
+    assert.deepEqual(missingReleasedMigrations(r, released), ['Lyntai.Storage.Sqlite: 202608121100']);
+  });
+
+  it('names a DELETED released migration', () => {
+    const r = fixture({ 'src/Lyntai.Storage.Sqlite/Migrations/M202607280001_Kv.cs': '[Migration(202607280001)]' });
+    assert.deepEqual(missingReleasedMigrations(r, released), ['Lyntai.Storage.Sqlite: 202608121100']);
+  });
+
+  it('allows a NEW migration alongside every released one — it is a ratchet, not a freeze', () => {
+    const r = fixture({
+      ...at('[Migration(202608121100)]'),
+      'src/Lyntai.Storage.Sqlite/Migrations/M202701010000_New.cs': '[Migration(202701010000)]',
+    });
+    assert.deepEqual(missingReleasedMigrations(r, released), []);
+  });
+
+  it('tolerates whitespace in the attribute, so a reformat is not a false RED', () => {
+    const r = fixture(at('[Migration( 202608121100 )]'));
+    assert.deepEqual(missingReleasedMigrations(r, released), []);
+  });
+
+  it('FAILS CLOSED when the directory is gone or nothing parses', () => {
+    assert.match(missingReleasedMigrations(fixture({ 'x.txt': '' }), released)[0], /broken predicate/);
+    const empty = fixture({ 'src/Lyntai.Storage.Sqlite/Migrations/README.cs': '// no attribute here' });
+    assert.match(missingReleasedMigrations(empty, released)[0], /broken predicate/);
   });
 });
 

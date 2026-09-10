@@ -2974,3 +2974,28 @@ and follows from no published pair; the owning table gives 83.0% unjudged agains
 **−10.5**.
 
 - Write the task-shape taxonomy down as guidance.
+
+## Part 186 — the pre-memory decision sweep: two defects, a hole in an existing gate, one new ratchet
+
+✅ done 2026-09-10, closing Part 129. Swept `docs/DECISIONS.md` **D1–D38**, the range the item called
+essentially untouched. `check-decision-claims` goes to ten predicates; guard-script tests 625 → 633.
+
+**Two live defects.** **D2** claimed twelve storage domain interfaces against **thirteen** —
+`.claude/knowledge/extending-lyntai.md` and the `add-storage-backend` skill both enumerate thirteen. And
+**D6's own predicate had a hole**: it scanned DDL only, while the FluentMigrator version table D6 names
+explicitly is declared as metadata PROPERTIES. Probed rather than assumed — renaming it back to the
+colliding `VersionInfo` left the gate reporting a CLEAN tree. Both fixed.
+
+**One new predicate, D9**, for what nothing else could see: renumbering a RELEASED migration leaves the
+fresh schema byte-identical and the tags untouched, so both migration guards stay green while a consumer's
+already-migrated database re-runs it. A ratchet over the numbers `v3.1.0` shipped.
+
+**Two gates were designed and REFUSED, which is the reusable half.** A text predicate for D29 is defeated
+by a one-token edit to the flag's definition (`.claude/knowledge/pitfalls.md` §A text predicate that checks
+a flag's CALL SITES). A counter for D2 has nothing to derive from — no backend implements all thirteen and
+`StorageFeature` groups them — so it would be a fourth hand-written copy of the number.
+
+**Already gated, so deliberately not registered:** D31 (`RoutingPolicyTests`), D12 (`FeatureToggleTests`).
+D3, D20, D21 and D29 hold and stay ungated; a claim with no extractable shape stays invisible to a predicate.
+
+- Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memory entries.

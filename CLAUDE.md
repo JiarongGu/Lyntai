@@ -18,7 +18,7 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3592 passed / 3613 total, 21 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 625/625, doc samples 80/80. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 633/633, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count well above 21 as "Docker is down and the whole Postgres leg went silently unexercised".
 Everything else on that line is gated. `docs/GATES.md` is why each gate exists, what it measured and which

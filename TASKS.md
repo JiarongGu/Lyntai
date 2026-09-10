@@ -15,29 +15,28 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 16 across 11 Parts: 7 startable, 7 blocked, 1 watch, 1 decision-only
+## Open items — 15 across 10 Parts: 6 startable, 7 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 92 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 136 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 145 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 199 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 270 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 348 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 403 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 426 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 497 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 559 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
-| 678 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 699 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
-| 707 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
-| 761 | 129 | Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memo… | startable |  |
-| 840 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
-| 871 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
+| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 496 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 558 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
+| 677 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 698 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
+| 706 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
+| 761 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
+| 792 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
 
 <!-- open-items:end -->
 
@@ -52,7 +51,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is SEVEN items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is SIX items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -735,84 +734,6 @@ moving it.** `RetrievabilityWeight` stays at 1, and this is no longer an open qu
 default's (87.1%) while its `stale@k` rises 62.9 → 87.1. Removing forgetting's vote does not change what
 the engine FINDS, it destroys what it BURIES — so LoCoMo, which only scores finding, cannot see the cost.
 **Any future arm that wins on LoCoMo owes this table a visit before it is proposed as a default.**_
-
----
-
-## Part 129 — the decisions-vs-implementation audit, and the gate it argues for (2026-08-31)
-
-_Opened at the owner's direction: "there might be some conflict to the actual implementation of the decision
-itself". There was. **The pattern is the finding**: the log is accurate about VALUES and drifts on COUNTS and
-CLASSIFICATIONS. Every stated constant verified (`ReinforceGain 0`, `SalienceWeight 0`,
-`DiagnosticityWeight 0`, `SpacingWeight 1.5`, all of `DsrOptions`); every defect was a number of things or a
-category._
-
-_Fixed this session: D46's title said "four DOMAINS" against seven; D46's "the only thing that belongs at the
-root" was literally false; `CLAUDE.md` said `IMemoryGraphStore` has five required members against **13**,
-having dropped the "in this major" qualifier D67 carries; D47 gained the rule that its naming shape does NOT
-mean "this is a domain"; D56 now points at D90 for the invariant it predates. **Two findings were WITHDRAWN
-after checking** — retention was reachable via DI all along, and `IMemoryRemovalPolicy` belongs at the root
-because it governs blend MEMBERS rather than entries. Both were inferred from a name or a sentence rather
-than from what the code does, which is the audit's own subject turned on the auditor._
-
-_The full record, including the findings NOT yet acted on, is the untracked
-`local/superpowers/records/2026-08-31-decisions-vs-implementation-audit.md`. **It is on one machine and in no
-history** — anything below that must outlive it is here._
-
-- [ ] **Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memory entries** (everything <!-- item: state=startable -->
-  below D39, essentially untouched — the pass concentrated where the churn is).
-  The probe is the gitignored
-  `devtools/_decisions-audit.mjs` <!-- link-ok: gitignored scratch, named as data; re-creatable from the record -->
-  (re-creatable from the record's Method section — it splits on `## D<n> —`
-  and extracts count / default / on-off / exclusivity / placement shapes).
-  <br>**Verified clean on 2026-08-31 so they are not re-done:** all ten `default`/`onoff` claims; D96's
-  counts (past-tense and correctly so); D49's "the ONLY forgetting curve" (two implementors, one a
-  decorator — defensible as written); and five `placement` claims — D17 (the dialect SEAM is in
-  `Core/Llm/Cli`, the dialects in `Providers.Default`, the hosting package holds neither), D25 (generation
-  contracts in `Core/Generation`, backends in `src/Lyntai.Generation`), D79, D85 (`MemoryWiring` is in
-  `src`), D95 (`local/sensitive-patterns.txt` is untracked — `git ls-files` returns nothing).
-  <br>Sampled rather than exhausted so
-  far; **prose claims with no extractable shape are invisible to it**, and that is probably where the
-  remaining defects are.
-
-  _**Swept 2026-09-02 and NOTHING was found**, which is worth recording precisely because it is weak
-  evidence. The probe was re-created (`devtools/_decisions-audit.mjs` <!-- link-ok: gitignored scratch, re-creatable from this note --> — split on
-  `## D<n> —`, extract shapes) and the two remaining populations enumerated: **26 uniqueness claims across
-  20 entries** and **23 placement claims**, both wider than the 21/12 the item quotes, because the original
-  probe's pattern is gone and mine is not it. Checked by hand: **D88** (only `Grade == Authoritative` reaches
-  the reserve — true), **D67** (generation contracts in `Core/Generation`, backends in `src/Lyntai.Generation`
-  — true), **D46** (already scoped precisely to a policy DOMAIN's types, so the ~40 contract types at the
-  root are not violations), **D15** (`release.yml` is the only workflow — true). Together with the five
-  placement and ten default/on-off claims the 2026-08-31 pass verified, the EXTRACTABLE population is now
-  largely clean._
-  <br>_**D46 was checked because this session might have broken it.** `MemoryDetail` (**D104**) is a new type
-  at the root of `Lyntai.Memory`, and D46's claim names `MemoryDecayState` as the only DOMAIN-shaped type
-  there. It holds: the entry already scopes "domain-shaped" to a policy domain's seam, implementations or
-  options, and lists `MemoryQuery`/`MemoryGrade` as correctly at the root — which is the category
-  `MemoryDetail` joins. **A decision worth auditing is one your own change could invalidate**, and that is a
-  cheaper trigger than a periodic sweep._
-  <br>_What is left is the item's own honest limit: claims with no extractable shape. A regex population is
-  not the population._
-  <br>_**The PRE-MEMORY entries were opened for the first time on 2026-09-04, and both claims checked came
-  back TRUE in substance and got GATED rather than re-audited** — `check-decision-claims` is now eight
-  predicates. **D14** (wire JSON is hand-walked) holds: zero `JsonSerializer` uses in the LLM, provider and
-  generation paths. **D6** (every SQLite object carries `lyntai_`) holds, version table included.
-  <br>**Two process findings came out of gating them, and both are the audit's own subject turned on the
-  auditor.** The hand-check of D14 covered THREE of the six wire paths and called it clean; the predicate
-  immediately found a fourth. Then the predicate's first run flagged the two files whose comments say
-  "JsonDocument.Parse (not JsonSerializer) so the package stays trim/AOT-clean" — the sites most explicitly
-  HONOURING D14 — so it now strips comments, the mirror of the trap `check-links` records. **A predicate is
-  worth more than an audit precisely because the audit is what missed a path.**
-  <br>**Why these two were picked, so the rest can be prioritised the same way:** both are claims whose
-  violation would be a shipped DEFECT rather than stale prose — D14 is a trim promise no `check-warnings`
-  run can see (a source-generated context is AOT-safe and would still falsify it), and an unprefixed SQLite
-  object collides in a consumer's own database. Entries whose claims are merely descriptive can wait._
-
-_**The gate this Part argued for is BUILT** — `docs/task-archive.md` **Part 130**, 2026-08-31:
-`check-decision-claims` is wired into `verify`, and shipped with six predicates, each verified by hand
-before registering and each driven RED by a synthesized tree in its own test. **The count is deliberately
-not restated here** — it grows whenever the sweep gates another claim (two more on 2026-09-04), so a number
-in this sentence would go stale exactly when the Part is making progress. `verify`'s own summary line is
-derived and always right. What is left of this Part is the sweep above._
 
 ---
 

@@ -3,7 +3,9 @@
 // WHY THIS IS A GATE. The 2026-08-31 audit of `docs/DECISIONS.md` against the tree found the log accurate
 // about VALUES and drifting on COUNTS and CLASSIFICATIONS: every stated constant verified, while D46's own
 // title said "four DOMAINS" against seven and `CLAUDE.md` claimed five required `IMemoryGraphStore` members
-// against thirteen. `TASKS.md` Part 129 and the audit record carry the full reading.
+// against thirteen. `docs/task-archive.md` Part 186 carries the full reading, including the two gates that
+// were designed and REFUSED — a text predicate defeated by a one-token edit, and a counter with nothing in
+// the tree to derive.
 //
 // NO EXISTING GATE CAN SEE IT. `check-docs` gates vocabulary a decision RETIRED, `check-links` whether a
 // reference RESOLVES, `check-counts` counts written in PROSE. A decision going stale retires nothing,
@@ -59,12 +61,19 @@ export function wireJsonSerializerUses(r) {
 }
 
 /**
- * Every SQLite object a migration CREATEs whose name does not carry `lyntai_` (D6), worst case first.
+ * Every SQLite object name that does not carry `lyntai_` (D6), from DDL and from version-table metadata.
  *
  * The test is CONTAINS, not starts-with, and that is D6's own wording: indexes follow `ix_`/`ux_` +
  * `lyntai_`, so `ix_lyntai_job_claim` carries the prefix without leading with it. What D6 actually buys is
  * that a consuming application can point `UseSqliteStorage` at its own database — so the property that
  * matters is that no name Lyntai creates can collide with one the application chose.
+ *
+ * TWO SOURCES, because D6 names an object that no `CREATE` ever mentions. Its text scopes the prefix to
+ * "the FluentMigrator version table included", and that table is declared as `IVersionTableMetaData`
+ * properties. A CREATE-only scan therefore could not see the likeliest collision of all — FluentMigrator's
+ * default name is the very generic `VersionInfo`. Probed 2026-09-10 before this was widened: renaming the
+ * table back to that default left the predicate reporting a CLEAN tree, which is the false-pass direction
+ * every gate here is built to avoid.
  */
 export function sqliteObjectsMissingPrefix(r) {
   const dir = path.join(r, 'src', 'Lyntai.Storage.Sqlite');
@@ -79,12 +88,71 @@ export function sqliteObjectsMissingPrefix(r) {
       for (const m of sql.matchAll(
         /CREATE\s+(?:UNIQUE\s+|VIRTUAL\s+)?(?:TABLE|INDEX|TRIGGER)\s+(?:IF\s+NOT\s+EXISTS\s+)?["`[]?([A-Za-z_][A-Za-z0-9_]*)/gi))
         names.push(m[1]);
+      // The VERSION TABLE is named by metadata PROPERTIES, never by DDL, so the scan above cannot reach the
+      // one object D6 calls out by name. Only the two properties that name an OBJECT are read: `ColumnName`,
+      // `DescriptionColumnName` and `AppliedOnColumnName` are columns INSIDE an already-prefixed table and
+      // `SchemaName` ships empty, so reading those would flag the shipped file.
+      for (const m of sql.matchAll(
+        /\b(?:TableName|UniqueIndexName)\s*(?:=>|=)\s*"([^"]+)"/g))
+        names.push(m[1]);
     }
   };
   walk(dir);
   // A parse that finds NOTHING is a broken predicate, not a clean tree — the shape check-sensitive paid for.
   if (names.length === 0) return ['<no CREATE statements found — broken predicate>'];
   return [...new Set(names.filter((n) => !n.toLowerCase().includes('lyntai_')))];
+}
+
+/**
+ * The migration numbers already SHIPPED, per storage package — the ratchet D9's second half needs.
+ *
+ * Captured from `v3.1.0` on 2026-09-10 and identical to HEAD at that point, so this list starts as a pure
+ * ratchet with nothing to pay down. It only ever GROWS: add a row when a migration ships, never remove one.
+ */
+export const RELEASED_MIGRATIONS = {
+  'Lyntai.Storage.Sqlite': [
+    202607280001, 202607280002, 202607280003, 202607280004, 202607280005, 202607280006,
+    202607280007, 202607280008, 202607280009, 202608081215, 202608121100, 202608161159,
+  ],
+  'Lyntai.Storage.Postgres': [
+    202607280001, 202607280002, 202607280003, 202607280004, 202607280005, 202607280006,
+    202607280007, 202607280008, 202607280009, 202608081215, 202608121100, 202608152310, 202608161159,
+  ],
+};
+
+/**
+ * Every RELEASED migration number no longer present in the tree (D9), as `package: number`.
+ *
+ * WHAT NO OTHER GATE SEES. D9 lets a PRE-RELEASE migration be folded into the one that owns its table, and
+ * that carve-out is what makes renumbering a released one thinkable. A renumber leaves the FRESH-database
+ * schema byte-identical, so `MigrationSchemaSnapshotTests` stays green; the tags are untouched, so
+ * `MigrationTagConventionTests` stays green. But an already-migrated database records each migration BY
+ * NUMBER in `lyntai_version_info`, so on a consumer's deployed database the new number is absent and the
+ * migration RE-RUNS — a hard failure on somebody else's upgrade, which D18 singles out as the one class of
+ * break no disclosure repairs.
+ *
+ * The snapshot tests make it worse rather than better: they fail with "the schema changed", whose obvious
+ * remedy (`LYNTAI_UPDATE_SCHEMA_SNAPSHOT=1`) is exactly the wrong move here.
+ *
+ * A RATCHET, not a freeze. A new migration is welcome; only the DISAPPEARANCE of a shipped number is a
+ * defect, so this never obstructs ordinary schema work.
+ */
+export function missingReleasedMigrations(r, released = RELEASED_MIGRATIONS) {
+  const gone = [];
+  for (const [pkg, numbers] of Object.entries(released)) {
+    const dir = path.join(r, 'src', pkg, 'Migrations');
+    if (!fs.existsSync(dir)) { gone.push(`${pkg}: <no Migrations directory — broken predicate>`); continue; }
+    const present = new Set();
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith('.cs')) continue;
+      for (const m of read(r, 'src', pkg, 'Migrations', f).matchAll(/\[Migration\(\s*(\d+)/g))
+        present.add(Number(m[1]));
+    }
+    // A directory that parses to nothing is a broken predicate, not a clean tree.
+    if (present.size === 0) { gone.push(`${pkg}: <no [Migration(n)] found — broken predicate>`); continue; }
+    for (const n of numbers) if (!present.has(n)) gone.push(`${pkg}: ${n}`);
+  }
+  return gone;
 }
 
 /**
@@ -207,6 +275,21 @@ export const DECISION_CLAIMS = [
       + 'A source-generated context would be AOT-safe and would still falsify the entry, which says such '
       + 'envelopes are "deliberately not taken" — and it would raise NO warning, so `check-warnings` '
       + 'cannot see it',
+  },
+  {
+    id: 'D9',
+    claim: 'a RELEASED migration keeps its number — folding is a pre-release move only',
+    holds: (r) => missingReleasedMigrations(r).length === 0,
+    detail: (r) => {
+      const gone = missingReleasedMigrations(r);
+      return gone.length === 0 ? 'every shipped migration number is still present' : `missing: ${gone.join(', ')}`;
+    },
+    why: 'the fold D9 permits before a release is what makes renumbering a SHIPPED migration thinkable, and '
+      + 'nothing else here can see it: a renumber leaves the fresh schema byte-identical (the snapshot tests '
+      + 'stay green) and the tags untouched (the convention test stays green), while an already-migrated '
+      + 'database re-runs the migration because it records the OLD number. That lands on a consumer\'s '
+      + 'upgrade, which D18 names as the one break no disclosure repairs — and the snapshot tests actively '
+      + 'mislead here, since their failure message invites regenerating the golden',
   },
   {
     id: 'D89',

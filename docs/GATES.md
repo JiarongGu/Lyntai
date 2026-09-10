@@ -479,7 +479,7 @@ the prose family. **None of the other four can see it**: a decision going stale 
 dangles no path and moves no registered count, so the sentence stays grammatical, plausible and wrong — and
 `decisions-index` renders a stale TITLE into the index table on top of that.
 
-Measured cost of not having it (2026-08-31, `TASKS.md` Part 129): auditing the log against the
+Measured cost of not having it (2026-08-31, `docs/task-archive.md` Part 186): auditing the log against the
 tree found it **accurate about VALUES and drifting on COUNTS and CLASSIFICATIONS** — every stated constant
 verified, while D46's own title said "four DOMAINS" against seven and `CLAUDE.md` claimed five required
 `IMemoryGraphStore` members against thirteen, having dropped the "in this major" qualifier D67 carries.

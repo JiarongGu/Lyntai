@@ -203,7 +203,7 @@ the backend at all.
 ## D2 — storage is per-domain interfaces, and a backend implements as many as it wants
 Each storage domain has its own interface in Core, free of cross-domain coupling **on purpose**, so a
 composite deployment can route each domain to a different backend without breaking consumers. There are
-twelve such interfaces today and three shipped backends (SQLite, Postgres, InMemory) — the "one SQLite
+thirteen such interfaces today and three shipped backends (SQLite, Postgres, InMemory) — the "one SQLite
 package" this entry originally described was the starting point, not the constraint. Don't couple domains.
 
 ## D3 — fallback is verdict-driven, through one shared classifier, and the policy is REPLACEABLE
