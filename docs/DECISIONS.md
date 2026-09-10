@@ -182,8 +182,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D110](#d110--no-endorsement-cap-on-the-verification-seam-the-count-rule-explains-none-of-the-judges-loss-2026-09-10) | 2026-09-10 | no endorsement CAP on the verification seam: the count rule explains none of the judge's loss |
 | [D111](#d111--an-open-items-state-is-authored-on-the-item-the-backlogs-roster-is-generated-from-it-2026-09-10) | 2026-09-10 | an open item's STATE is authored on the item; the backlog's roster is generated from it |
 | [D112](#d112--the-traps-record-is-filed-by-facets-orthogonal-to-its-headings-not-by-better-headings-2026-09-10) | 2026-09-10 | the traps record is filed by FACETS orthogonal to its headings, not by better headings |
+| [D113](#d113--claudemds-command-table-is-generated-what-a-gate-is-for-moves-to-docsgatesmd-2026-09-10) | 2026-09-10 | `CLAUDE.md`'s command table is GENERATED; what a gate is FOR moves to `docs/GATES.md` |
 
-_All 112 entries are live decisions._
+_All 113 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2843,7 +2844,8 @@ shipped cap — and every `LinkAsync` on a relational store opened its own conne
 totals. Ten connection opens and ten totals reads for twenty upserts, per recall.
 
 **A DEFAULT BODY rather than a required member.** Every other member added to this interface since 3.0 was
-required, and `CLAUDE.md`'s invariant 8 counts them. A store outside this repository must not break for a
+required; `.claude/knowledge/extending-lyntai.md` §Add a storage backend counts them. A store outside this
+repository must not break for a
 performance change it gains nothing from — and unlike `KnownSubjectsAsync`, whose default costs a BYO store
 a FEATURE (no subject seeding, **D88**), this one costs it nothing but speed. Overriding is an optimization,
 never a contract.
@@ -3332,3 +3334,32 @@ completeness. And ONE facet is a weak filter: on 2026-09-10 the largest held abo
 each (`silent-loss` and `wrong-subject` 39, `memory` and `measurement` 36), so one facet narrows 158 traps
 to roughly 40. The INTERSECTION is what filters — an area and a shape together lands near ten — and a
 reader using a single facet should expect a reading list rather than an answer.
+
+## D113 — `CLAUDE.md`'s command table is GENERATED; what a gate is FOR moves to `docs/GATES.md` (2026-09-10)
+
+`## Dev loop` was **65% of the file every session reads before it reads anything else** — 44,909 of 69,296
+characters — and it documented 38 of the 51 commands `dev.mjs` declares. The same file's own usage string
+had already drifted to 24 of 30, which is what makes a hand-written roster in an auto-loaded document the
+worse copy of a list the tree already holds.
+
+**So the roster is generated and the RATIONALE is relocated, and those are two separate decisions.**
+`check-dev-loop` renders the table from `dev.mjs`'s `case` labels plus its `steps` array, with only the
+description authored (`devLoopCommands`, `devtools/project.config.mjs`); an undocumented command FAILS and
+an entry naming no command FAILS. It is the third authored-marker/generated-index gate and shares
+`devtools/scripts/_markers.mjs` with **D111** and **D112**.
+
+**Why a registry rather than markers beside each `case`.** `dev.mjs` is already a comment-dense file under
+`check-comments`' ratchet, so a marker appended to a narrative run fuses into that block and fails for a
+reason unrelated to the table. A description is DATA, which is the same test that keeps `COUNTED_CLAIMS`
+and `DECISION_CLAIMS` OUT of the config file: those are predicates over the tree, this is a string.
+
+**`docs/GATES.md` takes the "measured cost of not having it" narrative**, because the cut rule that drove
+this — *a line stays always-on only if it carries no number, no gate can catch its violation, and violating
+it costs something you cannot cheaply undo* — deletes almost every gate paragraph on the first clause
+alone. The destination is `docs/` so it stays `IN_SCOPE` and `IS_SCANNED`, which is load-bearing: **six
+registered `check-counts` claims were anchored in exactly one sentence each, all in `CLAUDE.md`**, and a
+claim matching nothing fails the gate.
+
+**The refuted saving, recorded so it is not re-attempted:** deleting the rules tier's YAML frontmatter
+takes 2,857 bytes off disk and **zero** off the context, because the harness strips it before injection.
+Measure the BODY when measuring this tier.

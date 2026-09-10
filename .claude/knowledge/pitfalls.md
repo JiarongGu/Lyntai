@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 158 traps, indexed two ways
+## Facets — 169 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (29) — 57 · 82 · 91 · 111 · 124 · 130 · 153 · 163 · 170 · 180 · 226 · 246 · 292 · 310 · 425 · 510 · 519 · 529 · 583 · 597 · 667 · 681 · 879 · 1835 · 1846 · 1883 · 2254 · 2284 · 2293
-- **`encoding`** (6) — 75 · 80 · 536 · 544 · 714 · 1883
-- **`git`** (6) — 170 · 195 · 226 · 251 · 544 · 566
-- **`build`** (7) — 80 · 510 · 519 · 529 · 583 · 879 · 1818
-- **`router`** (6) — 722 · 727 · 736 · 738 · 741 · 871
-- **`cli`** (18) — 696 · 714 · 722 · 743 · 751 · 760 · 764 · 776 · 780 · 787 · 791 · 798 · 802 · 835 · 854 · 858 · 863 · 1688
-- **`lifetime`** (6) — 901 · 910 · 915 · 920 · 933 · 941
-- **`storage`** (17) — 814 · 950 · 1052 · 1080 · 1082 · 1083 · 1085 · 1087 · 1105 · 1116 · 1345 · 1357 · 1601 · 1718 · 1865 · 2047 · 2231
-- **`memory`** (36) — 350 · 368 · 496 · 814 · 984 · 1003 · 1014 · 1040 · 1052 · 1067 · 1088 · 1105 · 1116 · 1155 · 1170 · 1177 · 1196 · 1207 · 1225 · 1238 · 1251 · 1309 · 1364 · 1384 · 1420 · 1456 · 1500 · 1522 · 1550 · 1622 · 1697 · 1718 · 1940 · 2099 · 2127 · 2210
-- **`generation`** (8) — 727 · 933 · 1456 · 1635 · 1647 · 1671 · 1778 · 1803
-- **`di`** (11) — 920 · 1170 · 1196 · 1376 · 1378 · 1381 · 1384 · 1402 · 1500 · 1647 · 1697
-- **`measurement`** (36) — 335 · 350 · 368 · 409 · 439 · 455 · 474 · 486 · 496 · 617 · 696 · 703 · 708 · 751 · 950 · 969 · 1040 · 1207 · 1238 · 1265 · 1276 · 1291 · 1309 · 1364 · 1420 · 1835 · 1916 · 1967 · 1982 · 2006 · 2026 · 2047 · 2077 · 2114 · 2178 · 2210
-- **`docs`** (15) — 130 · 153 · 259 · 566 · 597 · 617 · 667 · 1014 · 1522 · 1589 · 1753 · 1763 · 1846 · 1865 · 2136
-- **`tests`** (21) — 835 · 1026 · 1067 · 1088 · 1155 · 1177 · 1345 · 1357 · 1601 · 1929 · 1940 · 1951 · 2127 · 2149 · 2231 · 2239 · 2247 · 2251 · 2254 · 2266 · 2279
+- **`gates`** (30) — 57 · 82 · 91 · 111 · 124 · 130 · 153 · 163 · 170 · 180 · 226 · 246 · 292 · 310 · 425 · 510 · 519 · 529 · 583 · 597 · 667 · 681 · 766 · 956 · 1924 · 1935 · 1972 · 2343 · 2373 · 2382
+- **`encoding`** (6) — 75 · 80 · 536 · 544 · 714 · 1972
+- **`git`** (7) — 170 · 195 · 226 · 251 · 544 · 566 · 719
+- **`build`** (8) — 80 · 510 · 519 · 529 · 583 · 758 · 956 · 1907
+- **`router`** (6) — 799 · 804 · 813 · 815 · 818 · 948
+- **`cli`** (18) — 696 · 714 · 799 · 820 · 828 · 837 · 841 · 853 · 857 · 864 · 868 · 875 · 879 · 912 · 931 · 935 · 940 · 1777
+- **`lifetime`** (6) — 978 · 987 · 992 · 997 · 1010 · 1018
+- **`storage`** (17) — 891 · 1027 · 1129 · 1157 · 1159 · 1160 · 1162 · 1164 · 1182 · 1193 · 1422 · 1434 · 1690 · 1807 · 1954 · 2136 · 2320
+- **`memory`** (38) — 350 · 368 · 496 · 891 · 1061 · 1080 · 1091 · 1117 · 1129 · 1144 · 1165 · 1182 · 1193 · 1232 · 1247 · 1254 · 1273 · 1284 · 1302 · 1315 · 1328 · 1386 · 1441 · 1461 · 1497 · 1533 · 1551 · 1558 · 1589 · 1611 · 1639 · 1711 · 1786 · 1807 · 2029 · 2188 · 2216 · 2299
+- **`generation`** (8) — 804 · 1010 · 1533 · 1724 · 1736 · 1760 · 1867 · 1892
+- **`di`** (12) — 997 · 1247 · 1273 · 1453 · 1455 · 1458 · 1461 · 1479 · 1558 · 1589 · 1736 · 1786
+- **`measurement`** (40) — 335 · 350 · 368 · 409 · 439 · 455 · 474 · 486 · 496 · 617 · 696 · 703 · 708 · 737 · 747 · 753 · 758 · 828 · 1027 · 1046 · 1117 · 1284 · 1315 · 1342 · 1353 · 1368 · 1386 · 1441 · 1497 · 1924 · 2005 · 2056 · 2071 · 2095 · 2115 · 2136 · 2166 · 2203 · 2267 · 2299
+- **`docs`** (19) — 130 · 153 · 259 · 566 · 597 · 617 · 667 · 766 · 777 · 782 · 789 · 1091 · 1611 · 1678 · 1842 · 1852 · 1935 · 1954 · 2225
+- **`tests`** (21) — 912 · 1103 · 1144 · 1165 · 1232 · 1254 · 1422 · 1434 · 1690 · 2018 · 2029 · 2040 · 2216 · 2238 · 2320 · 2328 · 2336 · 2340 · 2343 · 2355 · 2368
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (19) — 170 · 350 · 368 · 597 · 708 · 736 · 741 · 760 · 835 · 915 · 1003 · 1251 · 1384 · 1420 · 1635 · 1647 · 1697 · 1803 · 2099
-- **`cancellation`** (5) — 722 · 727 · 984 · 1003 · 1026
-- **`vacuous`** (31) — 163 · 335 · 409 · 439 · 519 · 791 · 854 · 871 · 1026 · 1067 · 1088 · 1155 · 1177 · 1265 · 1276 · 1309 · 1420 · 1522 · 1865 · 1940 · 1951 · 1982 · 2114 · 2127 · 2149 · 2178 · 2231 · 2254 · 2266 · 2284 · 2293
-- **`scope-blind`** (33) — 82 · 111 · 124 · 130 · 153 · 163 · 170 · 180 · 226 · 292 · 310 · 544 · 667 · 681 · 879 · 1170 · 1238 · 1345 · 1357 · 1522 · 1550 · 1601 · 1718 · 1818 · 1835 · 1846 · 1865 · 1951 · 2114 · 2127 · 2251 · 2284 · 2293
-- **`second-door`** (20) — 738 · 776 · 780 · 791 · 798 · 858 · 863 · 941 · 1083 · 1105 · 1384 · 1500 · 1601 · 1622 · 1635 · 1647 · 1671 · 1718 · 1753 · 1778
-- **`stale-claim`** (13) — 57 · 130 · 195 · 259 · 617 · 1014 · 1381 · 1589 · 1622 · 1671 · 1753 · 1846 · 2136
-- **`silent-loss`** (39) — 75 · 80 · 246 · 251 · 292 · 310 · 486 · 536 · 583 · 597 · 696 · 714 · 764 · 780 · 814 · 901 · 933 · 969 · 1040 · 1080 · 1082 · 1083 · 1085 · 1105 · 1116 · 1155 · 1291 · 1364 · 1376 · 1381 · 1402 · 1500 · 1550 · 1688 · 1778 · 1883 · 1967 · 2047 · 2178
-- **`wrong-subject`** (39) — 57 · 91 · 251 · 335 · 368 · 425 · 439 · 455 · 474 · 486 · 496 · 510 · 529 · 738 · 787 · 879 · 910 · 920 · 950 · 1040 · 1088 · 1196 · 1207 · 1225 · 1238 · 1265 · 1276 · 1309 · 1456 · 1803 · 1916 · 1967 · 1982 · 2006 · 2026 · 2047 · 2149 · 2210 · 2254
-- **`unmeasured`** (15) — 455 · 496 · 566 · 617 · 667 · 703 · 743 · 751 · 760 · 802 · 854 · 1225 · 1456 · 1763 · 2136
-- **`ordering`** (10) — 529 · 764 · 863 · 1052 · 1087 · 1402 · 1688 · 1697 · 1929 · 2077
-- **`resource`** (11) — 510 · 544 · 583 · 743 · 835 · 941 · 950 · 1378 · 2239 · 2247 · 2279
+- **`fail-open`** (19) — 170 · 350 · 368 · 597 · 708 · 813 · 818 · 837 · 912 · 992 · 1080 · 1328 · 1461 · 1497 · 1724 · 1736 · 1786 · 1892 · 2188
+- **`cancellation`** (5) — 799 · 804 · 1061 · 1080 · 1103
+- **`vacuous`** (31) — 163 · 335 · 409 · 439 · 519 · 868 · 931 · 948 · 1103 · 1144 · 1165 · 1232 · 1254 · 1342 · 1353 · 1386 · 1497 · 1611 · 1954 · 2029 · 2040 · 2071 · 2203 · 2216 · 2238 · 2267 · 2320 · 2343 · 2355 · 2373 · 2382
+- **`scope-blind`** (33) — 82 · 111 · 124 · 130 · 153 · 163 · 170 · 180 · 226 · 292 · 310 · 544 · 667 · 681 · 956 · 1247 · 1315 · 1422 · 1434 · 1611 · 1639 · 1690 · 1807 · 1907 · 1924 · 1935 · 1954 · 2040 · 2203 · 2216 · 2340 · 2373 · 2382
+- **`second-door`** (20) — 815 · 853 · 857 · 868 · 875 · 935 · 940 · 1018 · 1160 · 1182 · 1461 · 1589 · 1690 · 1711 · 1724 · 1736 · 1760 · 1807 · 1842 · 1867
+- **`stale-claim`** (16) — 57 · 130 · 195 · 259 · 617 · 719 · 766 · 782 · 1091 · 1458 · 1678 · 1711 · 1760 · 1842 · 1935 · 2225
+- **`silent-loss`** (41) — 75 · 80 · 246 · 251 · 292 · 310 · 486 · 536 · 583 · 597 · 696 · 714 · 753 · 841 · 857 · 891 · 978 · 1010 · 1046 · 1117 · 1157 · 1159 · 1160 · 1162 · 1182 · 1193 · 1232 · 1368 · 1441 · 1453 · 1458 · 1479 · 1551 · 1589 · 1639 · 1777 · 1867 · 1972 · 2056 · 2136 · 2267
+- **`wrong-subject`** (43) — 57 · 91 · 251 · 335 · 368 · 425 · 439 · 455 · 474 · 486 · 496 · 510 · 529 · 747 · 777 · 789 · 815 · 864 · 956 · 987 · 997 · 1027 · 1117 · 1165 · 1273 · 1284 · 1302 · 1315 · 1342 · 1353 · 1386 · 1533 · 1558 · 1892 · 2005 · 2056 · 2071 · 2095 · 2115 · 2136 · 2238 · 2299 · 2343
+- **`unmeasured`** (16) — 455 · 496 · 566 · 617 · 667 · 703 · 758 · 820 · 828 · 837 · 879 · 931 · 1302 · 1533 · 1852 · 2225
+- **`ordering`** (10) — 529 · 841 · 940 · 1129 · 1164 · 1479 · 1777 · 1786 · 2018 · 2166
+- **`resource`** (12) — 510 · 544 · 583 · 737 · 820 · 912 · 1018 · 1027 · 1455 · 2328 · 2336 · 2368
 
 <!-- facets:end -->
 
@@ -587,8 +587,8 @@ of the two: most of these traps recur in a subsystem that had never met them.
   **1,049,602 bytes** — just over the cap. Node returns `ENOBUFS`, the script sees no output, and the gate
   announces a failure that did not happen.
   **This is the worst class of defect this repo has** — not a gate that misses something, but a gate that
-  LIES, in the direction that trains a reader to ignore it. It is the `windows-machine.md` §"exit codes that
-  lie" trap wearing a different hat, and it will recur for *any* future change that grows the build log,
+  LIES, in the direction that trains a reader to ignore it. It is the `windows-machine.md` §Scripts and
+  exit codes trap wearing a different hat, and it will recur for *any* future change that grows the build log,
   with a message pointing nowhere near the cause.
   Two takeaways: **a `ProjectReference` to the test project pulls its ENTIRE dependency graph** into
   whatever references it — prefer `<Compile Include>` links for the handful of files you actually need; and
@@ -716,6 +716,83 @@ of the two: most of these traps recur in a subsystem that had never met them.
   `parse error … ill-formed UTF-8 byte` from the server, because the GBK console rewrote the payload before
   `curl` ever saw it. **Write the payload to a UTF-8 file and pass `-d @file`** — the same rule
   `windows-machine.md` states for building file content, applied to arguments.
+- **Where no `.gitattributes` declares a convention, `core.autocrlf`'s two values mean nearly opposite <!-- trap: sub=git shape=stale-claim -->
+  things — and a rule that ASSERTS one of them as a fact about the repository is the trap.**
+  `.claude/rules/windows-machine.md` asserted `true` (index gets LF, so a `w/mixed` tree is cosmetic) and
+  this repository was `false` (**the index gets the tree verbatim, so it commits**). A tool wrote CRLF, git
+  faithfully stored CRLF, and `git show --stat` read **2055 insertions / 1931 deletions** for a change whose
+  real size was **131 / 7**. `--ignore-cr-at-eol` and `git ls-files --eol` named it in seconds; the written
+  rule sent the reader the other way first.
+  <br>**`true` is not unconditional either.** It is defined as `text=auto`, and gitattributes(5) says of
+  that: a blob already stored with CRLF stays CRLF on re-add, and binary-detected content (`i/-text`) is
+  never converted at all. So under EITHER setting a `w/mixed` tree can be real and can still commit — which
+  is why the per-file `git ls-files --eol` check is the thing to trust, never the config value.
+  <br>**State the rule, never the value — and better, DECLARE it so there is no value to state.**
+  `.git/config` is untracked, so no document can say what a given clone holds. A tracked `.gitattributes`
+  is the only line-ending declaration that travels; **this repository has one** (`* text=auto eol=lf`,
+  `docs/DECISIONS.md` **D95**), which turns the whole investigation above into a property you can assert.
+  <br>**What declaring it buys, and what it does not.** It makes the COMMIT safe unconditionally — a CRLF
+  or mixed working file is normalized on checkin, so it can no longer reach the index or inflate a diff. It
+  does **not** stop a tool writing CRLF into the working tree (`dev.mjs decisions-index` did exactly that).
+- **A shared runtime killed by IMAGE name takes down tenants that were never yours — and killing strictly <!-- trap: sub=measurement shape=resource -->
+  by PID is still not evidence that it did not.** Written down in `windows-machine.md` and violated anyway:
+  on 2026-08-28 a measurement run finished with `taskkill //F //IM llama-server.exe` and took down a
+  *second* instance on another port, a sibling tool's embedding server that nothing in the run had started.
+  Then on 2026-09-10 a cleanup killed five servers strictly by PID, none of them the sibling's, and the
+  sibling was down at the end of it anyway; whether the kills caused it was never established, and that is
+  the point — *"I only killed my own PIDs"* is an argument, not evidence. **Query the neighbour's health
+  after you clean up** and restart it if it is gone. Note also that `taskkill //F //PID` reported SUCCESS
+  for a process still listening seconds later, so its exit code does not prove the port is free; re-read
+  `netstat` rather than trusting it.
+- **A model NAME means different things on the two local servers, and a wrong one is not an error.** <!-- trap: sub=measurement shape=wrong-subject -->
+  Ollama routes by it; a `llama-server` started with `--model` serves ONE model and answers to its
+  `--alias`, so the name is a label and you get the loaded model whatever you ask for. It selects only on a
+  router server (`--models-dir`). **Never infer from a green run that the model you named is the model that
+  answered** — and run your OWN server on its own port rather than borrowing one that happens to be up,
+  because a server is started with a context and a batch size and those decide what it will accept.
+- **The two local servers disagree about an over-long input, and the disagreement is silent on one side.** <!-- trap: sub=measurement shape=silent-loss -->
+  Ollama truncates and answers; `llama-server` returns `500 … input is too large`. So a run that "worked"
+  on Ollama can crash on llama.cpp, and what that proves is that the truncation was always happening and
+  nothing reported it. The benches now truncate explicitly and COUNT it in the footer. Related and easy to
+  get wrong in the fix: a character budget cannot bound a token limit.
+- **An Ollama model IS a GGUF on disk, and stock `llama-server` still may not load it.** The blobs under <!-- trap: sub=build,measurement shape=unmeasured -->
+  `~/.ollama/models/blobs/sha256-*` carry the `GGUF` magic and Ollama runs them through its own bundled
+  llama.cpp, so pointing your own `llama-server --model <blob>` at one looks like a free way to serve an
+  already-downloaded model. Measured 2026-09-09 on `gemma3:4b` against build 10603:
+  `error loading model hyperparameters: key not found in model: gemma3.attention.layer_norm_rms_epsilon`.
+  Ollama's conversion omits a key upstream requires and its own runner supplies. **Read the manifest to find
+  the blob** (`manifests/registry.ollama.ai/library/<model>/<tag>`, the `application/vnd.ollama.image.model`
+  layer) — but expect to need the model's own GGUF from its source, and check before planning a run around it.
+- **A gate anchored in PROSE dies when the prose moves, and the failure blames the wrong thing.** <!-- trap: sub=gates,docs shape=stale-claim -->
+  `check-counts` requires every registered claim to match at least once, so a pattern too narrow to find its
+  own claim fails rather than passing silently — which is the right design and also means **deleting or
+  rewording the only sentence a claim matches turns the gate red with a message about a stale number.**
+  Six of the registered claims were anchored in exactly one sentence each, all in `CLAUDE.md`. **Move such a
+  sentence VERBATIM and run the gate between the copy and the delete**, so both copies match at the moment
+  of the move. The narrow forms that bite: a trailing semicolon (`Twelve packages;`), bold markers and an
+  em-dash (`**FIVE arms —`), digits rather than a number word (`573/573`), and an en-dash in a range
+  (`D1–D112`). And `parseCount` has no hyphenated compounds, so past twenty write digits. <!-- count-ok: the en-dash range is quoted as a FORM, not as a claim about how far the log goes -->
+  <br>This entry's own range example turned the gate red the moment the next decision landed, which is the
+  trap demonstrating itself — the escape is `count-ok` on that line, never a silent edit to the number.
+- **A skill's template is a general procedure; the FILE in front of you is the convention.** Following <!-- trap: sub=docs shape=wrong-subject -->
+  `fix-log`'s bulleted template literally in 2026-08-30 produced a `**Commit:** pending` field in
+  `docs/FIXES.md` that matched nothing else in the file and that nobody would ever have gone back to fill —
+  the file's own entries are bolded prose paragraphs with no `Commit:` field at all. **Read the newest
+  existing entry and mirror it**: the same `pattern-finder` rule that applies to code applies to records.
+- **A version number written before the release exists SHIPS.** Measured twice on 2026-08-21 in one day's <!-- trap: sub=docs shape=stale-claim -->
+  work: additive surface was written up as arriving in "3.1" on the reasonable assumption that SemVer makes
+  additions a minor, and **one of those sentences was inside an XML doc**, so the published package's
+  IntelliSense named a version that does not exist. The correction then repeated the mistake in a different
+  costume — a ROADMAP row closing with "the next additive release is 3.1.0", the same promise with more
+  confidence. Deliberately NOT gated: a scan for version-shaped tokens drowns in legitimate ones (`net10.0`,
+  a model tag, a vendor's `0.3.40`, every historical heading).
+- **A blocked item is refuted by looking where its BLOCKER lives, and a careful re-check can read the <!-- trap: sub=docs shape=wrong-subject -->
+  wrong place and still be thorough.** Measured 2026-08-23: an item sat labelled blocked on "a real
+  embedding model" while one was pulled on the machine the whole time. The previous re-check had been
+  careful — and it read the **tree**, because that is what the other five blockers needed, and never asked
+  the **machine**. The sweep was honest about what it checked and still wrong about the conclusion, which is
+  why the fix is procedural: **record the blocker's KIND** (tree / environment / decision / data) and
+  re-check against that kind.
 
 ## LLM / router (details in `llm-and-router.md`)
 
@@ -1471,6 +1548,18 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   <br>**The fourth is the same shape aimed inward**: the same round taught `FalQueueProvider` to distinguish
   "never reached the backend" from "may have been delivered", and then wrote a `catch` in another file that
   treated every throw as ambiguous — turning a connection-refused blip into a dead-lettered job.
+- **`Stability` has ONE meaning here and adopting the published convention would silently reinterpret every <!-- trap: sub=memory shape=silent-loss -->
+  stored value.** It is the position delta at which retrievability is `0.5`; FSRS anchors at 90%. Nothing
+  about the type says which, both are defensible, and a change would rewrite the meaning of every row
+  already in every consumer's database without failing anything. The convention is pinned by an assertion
+  rather than by prose — `DsrRetrievabilityTests` requires retrievability at age 20 / stability 20 to be
+  `0.5` — which is what makes the reinterpretation unshippable. **When a stored number's UNIT is a
+  convention, pin it with a test, not a comment.**
+- **A context record that names what the ENGINE measured reads as the whole input a policy gets.** <!-- trap: sub=memory,di shape=wrong-subject -->
+  `SalienceContext` carries the engine name, novelty, comparables and `SimilarCount`, so reading that record
+  alone says a policy can judge nothing else — and a sweep was designed around adding surface before anyone
+  read the method signature, which already passes the whole `MemoryWrite`. **The seam is the signature, not
+  the context type**; check what a policy is HANDED before concluding it needs more.
   <br>**Fifth instance, 2026-08-17, found by review rather than by a consumer:** `GenerationRouter.StreamAsync`
   carried the SUBMIT door's `NeverReachedTheBackend` filter on its catch — a filter whose premise is "the
   act of asking may have been billed", true of a queue submission and false of a stream open — so the one

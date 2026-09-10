@@ -139,8 +139,9 @@ Two properties of that pipeline are easy to get wrong and are worth stating:
   **similarity linking is a redistribution** — it roughly halves misses on entries that cluster with
   others (topical material, an attribute cluster reached by its subject) and it badly hurts the
   rare-but-critical entry that clusters with nothing, because the edges it adds pull traversal toward the
-  crowd. **Novelty feeding salience is a broad, shallow cost** that only turns positive when there is a lot
-  of noise to discriminate against.
+  crowd: `topical` **−0.30**, `attribute` **−0.28**, `critical-rare` **+0.68**, an aggregate that looks
+  small only because those cancel. **Novelty feeding salience is a broad, shallow cost** that only turns
+  positive when there is a lot of noise to discriminate against.
   <br>So the question to ask of your own corpus is not "is an embedder worth it" but **"is my important
   material clustered or isolated?"** If the facts that matter most are the ones nothing else resembles, the
   linking half is working against you, and `MinSimilarity` is the knob — it is the link floor, and a value
@@ -3602,6 +3603,24 @@ Tokenization is one path for every backend (`SearchTerms`): whitespace tokens, t
 spaceless scripts expanded into character n-grams. Thai, Lao, Khmer, Burmese and Tibetan discriminate under
 3-grams, measured against Han as the reference.
 
+`node devtools/dev.mjs memory-language` replays that corpus over **FIVE arms — English / Chinese / Japanese
+/ Korean / `ChineseMixed`** (the roster is `Enum.GetValues<CorpusLanguage>()`, so it is whatever that enum
+declares). `MemoryCorpus` takes `CorpusShape.Language`, default `English` and **byte-identical when unset**
+— proved by goldens captured BEFORE the axis existed, which did not move when it landed. The sweep adopts
+nothing: the language is the consumer's, not a setting.
+
+**The four non-English arms are not interchangeable, and that is the point of having four.** Chinese is a
+spaceless run of Han characters. Japanese is a spaceless run MIXING kanji/hiragana/katakana, where kana's
+small inventory makes trigram collisions likelier. **Korean WRITES SPACES** and is expanded anyway because
+Hangul sits in `SearchTerms`' spaceless range — defensible only because Korean is agglutinative (배우자는 /
+배우자의 share the stem), so it is the arm where the expansion would first cost more than it recovers;
+`CorpusLexicon.WritesWordSpaces` is what keeps that difference assertable instead of assumed.
+**`ChineseMixed` is the fifth and the one closest to real deployment** — Chinese technical prose with
+English terms embedded WITHOUT spaces (`部署pipeline`), which is where a Latin word inside a CJK run used to
+be shredded into fragments that are words in no language. Every other arm is monolingual prose plus ASCII
+ids, so it exercises the script boundary only at a token edge; this one puts it mid-run, where the defect
+lived.
+
 ## 6. Configuration reference
 
 ### Recall shape
@@ -3927,7 +3946,13 @@ Each of these cost a real measurement to find.
   degrade** — 210–260 entries/s at every size, unchanged across 100× the store — and **recall grows
   sub-linearly**, p50 `10.4ms → 18.5ms → 42.0ms` with p99 `77ms` at 100k. Storage is ~1 KB per entry
   (100 MiB at 100k) and a cold first recall costs 21 → 49ms. Every cell reports a hit-rate control, and it
-  was `1.000` throughout — the latencies are real recalls, not fast misses.
+  was `1.000` throughout — the latencies are real recalls, not fast misses (a recall matching nothing is
+  fast, and a table of fast empty recalls reads as good news).
+  <br>**What it covers that `MemoryRecallBenchmarks` did not**, which is why the blank existed at all: that
+  benchmark runs 1k/10k/100k against `SqliteMemoryStore`, the KEYWORD store, so the graph engine's own write
+  and read paths were unmeasured at any size. The two arms — `shipped` and `read-only` — exist to SPLIT a
+  default recall's latency into the read and the write-back it performs afterwards. It runs **sequentially**
+  where every other sweep fans out, because contention cannot bias a rate and biases a latency silently.
   <br>**What is still NOT measured, stated separately because the numbers above make it easy to assume
   otherwise:** recall QUALITY at scale (that corpus has no ground truth and none of this speaks to miss or
   pollution), Postgres, and any model in the loop — an embedder, annotator or verifier would dominate every

@@ -194,6 +194,12 @@ prefix, the `StorageFeature` tags, the Sqlite/Postgres parallelism); read both.
 FluentMigrator, numbered `yyyyMMddHHmm`, **never reused** (an unapplied duplicate number is silently
 skipped). Use `dev.mjs new-migration` to get a unique monotonic number.
 
+**A fresh database applies 12 migrations on SQLite and 13 on POSTGRES, and the asymmetry is deliberate:**
+`M202608152310_MemoryHeadlineSearch` adds a trigram index on `headline` so a recall can match an authored
+one without a sequential scan, and SQLite needs no counterpart because its FTS5 mirror has indexed
+`headline, content` since the graph store shipped. Migrations are per-backend projects; forcing the numbers
+to match would mean shipping a SQLite migration that does nothing. `check-counts` holds the first number.
+
 > **Convention changed 2026-08-08, from `YYYYMMDDNNNN` to `yyyyMMddHHmm`.** <!-- drift-ok --> The timestamp is
 > self-describing where a per-day `NNNN` sequence is not, and two people adding a migration on the same day
 > without coordinating now collide only within the same MINUTE — still resolved by the generator's

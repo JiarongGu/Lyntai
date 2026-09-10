@@ -1,21 +1,14 @@
 ---
 name: windows-machine
+description: Windows development-machine traps that succeed WRONGLY — PowerShell round-trips, BOMs, lying exit codes, killing a shared runtime.
 applies_when: running any shell command, script, or file write on a Windows development machine
-enforces: never round-trip text through PowerShell 5; BOM and encoding traps; exit codes that lie; never kill a shared runtime by name
 ---
 
 # Windows machine traps — the ones that pass silently
 
-Every item here was found the expensive way: it does not fail, it *succeeds wrongly*. Each one either
-corrupts a file, reports the wrong exit code, or takes down something that was not yours.
-
-## Why
-
-A tool that errors teaches you something. These do not error — they produce mangled text, a green build
-from a stale artifact, or a success exit code on a failed script. The cost is not the incident; it is the
-hours spent looking somewhere else.
-
-## How to apply
+Every item here was found the expensive way: it does not fail, it *succeeds wrongly* — it corrupts a file,
+reports the wrong exit code, or takes down something that was not yours. The cost is never the incident; it
+is the hours spent looking somewhere else.
 
 ### Text and encoding
 
@@ -24,103 +17,53 @@ hours spent looking somewhere else.
 - **`-Encoding utf8` writes a BOM on PowerShell 5.** Harmless to PowerShell, poison to anything
   BOM-sensitive — JSON lines, some compilers, some parsers. Write BOM-less UTF-8 deliberately.
 - **On a non-Latin system locale, a compiler may read BOM-less UTF-8 sources as the system codepage** and
-  turn every non-ASCII string literal into mojibake. Set the source codepage explicitly in the build
-  configuration rather than relying on the default.
+  turn every non-ASCII string literal into mojibake. Set the source codepage in the build configuration.
 - **A non-UTF-8 console mangles non-ASCII on the way through.** Never build file content by echoing it
-  through the shell; write the file directly.
-- **`grep $'\r$'` is an ALWAYS-TRUE line-ending check in Git Bash, so it certifies every file it is pointed
-  at.** The shell strips the carriage return from the pattern argument, leaving the bare anchor `$`, which
-  matches every line — a pure-LF three-line file reports three CRLF lines, and its `-cv` twin reports zero
-  LF-only lines. **It cannot fail**, so it reads as a clean result on files it never examined. Measured
-  2026-08-26, after it was used to certify a dozen files across one session; all of them were LF.
-  **Use `git ls-files --eol`**, which is built for this and names the state outright, per file: `w/lf` is a
-  working-tree file that agrees with an LF index, `w/crlf` is one that does not, and `w/mixed` is the defect.
-  For an untracked file, count the bytes (`b.count(b'\r\n')` against `b.count(b'\n')`) — never a shell
-  pattern containing a control character.
-  <br>**Ask the ATTRIBUTE before the config, because the attribute wins.** A `.gitattributes` `text`/`eol`
-  setting overrides `core.autocrlf` entirely, so `git check-attr text eol -- <path>` is the question that
-  decides what happens to a file, and `core.autocrlf` only decides where no attribute applies. Look for a
-  tracked `.gitattributes` first: it is the same answer in every clone, which is exactly what the config is
-  not. **This repository declares one** — `* text=auto eol=lf`, `docs/DECISIONS.md` **D95** — so the whole
-  investigation below is what to do in a repository that does *not*.
-  <br>**Where nothing declares a convention, MEASURE `core.autocrlf` rather than assuming it.** Run
-  `git config --show-origin --get-all core.autocrlf`. The plain form gives the right effective ANSWER; what
-  it hides is the PROVENANCE — this setting is commonly `true` at system and global scope and overridden
-  per-clone, and **the repo-local value wins**. Knowing which scope won is what tells you the value is
-  clone-local and unshared, so a teammate's clone may answer differently.
-  <br>The two answers mean nearly opposite things:
-
-  | | what the index gets | so a `w/mixed` working tree is |
-  |---|---|---|
-  | `true`, no `.gitattributes` | LF, for a file not already stored with CRLF | usually local and cosmetic |
-  | `false`, no `.gitattributes` | **the tree verbatim** | real, and it commits |
-
-  **Row 1 is not unconditional, and its exceptions are ones you meet.** `core.autocrlf=true` is defined as
-  `text=auto`, and gitattributes(5) says of that: *"If it is text and the file was not already in Git with
-  CRLF endings, line endings are converted on checkin and checkout … Otherwise, no conversion is done on
-  checkin or checkout."* So a blob already stored with CRLF stays CRLF on re-add, and binary-detected content
-  (`i/-text`) is never converted at all. Under `true` a `w/mixed` tree can still be real and can still
-  commit — which is why the per-file `i/lf` check below is the thing to trust under EITHER setting.
-
-  **This rule asserted row 1 as a fact about this repository and it was row 2**, which is
-  exactly the failure the rest of this file is about: a tool wrote CRLF, git faithfully stored CRLF, and
-  `git show --stat` read **2055 insertions / 1931 deletions** for a change whose real size was **131 / 7**
-  — the first, discarded commit of the guard-script work that landed as `37d15b4`. That commit was reset
-  away, so the figures live here rather than anywhere a reader can still run `git show` against.
-  `--ignore-cr-at-eol` and `git ls-files --eol` named it in seconds; the sentence above sent the reader the
-  other way first.
-  <br>**So state the rule, never the value — and better, DECLARE the rule so there is no value to state.**
-  `.git/config` is untracked, so no document here can say what a given clone holds, which is why this names
-  the commands instead. A tracked `.gitattributes` is the only line-ending declaration that travels, and
-  adding one turns this whole bullet from a per-clone investigation into a property you can assert: under
-  `* text=auto eol=lf`, `git ls-files --eol` reads `i/lf w/lf` on every file and any other line is a finding.
-  <br>**What declaring it buys, and what it does not.** It makes the COMMIT safe unconditionally — a CRLF or
-  mixed working file is normalized to LF on checkin, so it can no longer reach the index or inflate a diff,
-  and the `--ignore-cr-at-eol` comparison stops being a pre-commit ritual. It does **not** stop a tool
-  writing CRLF into the working tree (`dev.mjs decisions-index` did exactly that), and what happens next
-  turns on the stat cache: **freshly written**, the file shows as ` M` and `git checkout -- <file>` repairs
-  it; **once anything has refreshed the cache** (a `git add`), status goes clean and checkout SKIPS it, so
-  it stays CRLF until deleted and re-checked-out. Either way it cannot reach the index — the clean filter
-  normalizes it and the staged diff is empty. Repair it deliberately whenever `git ls-files --eol` reports
-  anything but `w/lf`.
-  <br>**Where nothing is declared, check `git ls-files --eol` before every commit that touched a file a tool
-  rewrote** — under `false` always, and under `true` too, because of row 1's exceptions above.
+  through the shell; write the file directly. `check-encoding` catches mojibake afterwards, with a
+  deliberately EMPTY exclusion list — but a detector is not a preventer.
+- **`grep $'\r$'` is an ALWAYS-TRUE line-ending check in Git Bash**, so it certifies every file it is
+  pointed at: the shell strips the carriage return, leaving the bare anchor `$`, which matches every line.
+  **It cannot fail.** Use **`git ls-files --eol`**, which names the state per file — `w/lf` agrees with an
+  LF index, `w/crlf` does not, `w/mixed` is the defect. For an untracked file count the bytes, never a
+  shell pattern containing a control character.
+- **Ask the ATTRIBUTE before the config, because the attribute wins.** `git check-attr text eol -- <path>`
+  decides what happens to a file; `core.autocrlf` only decides where no attribute applies. **This
+  repository declares one** (`* text=auto eol=lf`, **D95**), so the per-clone investigation is not needed
+  here — and why asserting a `core.autocrlf` value as a fact is itself the trap is in
+  `.claude/knowledge/pitfalls.md` §Environment / tooling.
+- **A tool can still write CRLF into the WORKING TREE.** Freshly written it shows as ` M` and
+  `git checkout -- <file>` repairs it; once a `git add` has refreshed the stat cache, status goes clean and
+  checkout SKIPS it. It can never reach the index — the clean filter normalizes it — but repair it whenever
+  `git ls-files --eol` reports anything but `w/lf`.
 
 ### Scripts and exit codes
 
 - **`process.exit()` with a network request in flight aborts the process**, and the abort *replaces* the
-  exit code — a script that meant to fail reports success. Set the exit code and let the process end on
-  its own.
-- **PowerShell 5 has no `&&` / `||` chaining.** Use explicit conditionals; a script written with them
-  fails to parse rather than running.
+  exit code — a script that meant to fail reports success. Set the exit code and let the process end.
+- **PowerShell 5 has no `&&` / `||` chaining.** A script written with them fails to parse rather than
+  running.
 - **Path translation can rewrite arguments** meant for a native tool. Disable it for the call when an
   argument must arrive untouched.
+- **Never read an exit code through a pipe.** `cmd | tail` reports *tail's* status, so a failing command
+  looks like a clean one. Redirect to a file and echo `$?`, or check `PIPESTATUS`.
 
 ### Processes and files
 
-- **Never kill a shared runtime by process name.** A browser or framework runtime that your app embeds is
-  usually the same one other applications embed; killing it by name takes them with it. Kill your own
-  process and let it take its children — by **PID**, recorded when you started it.
-  <br>**This rule was written down and violated anyway, 2026-08-28.** A measurement run finished with
-  `taskkill //F //IM llama-server.exe` and took down a *second* instance on another port — a sibling tool's
-  embedding server, which nothing in the run had started and nothing in the run was waiting on. It was
-  restarted and verified healthy, and the cost was only minutes; the point is that the reach of `//IM` is the
-  IMAGE, so it is never scoped to your work. **A local model server is exactly the shared runtime this rule
-  is about**, even though it does not look like a browser: one binary, many tenants, one port each.
-  <br>**Following the PID rule is not enough — VERIFY the neighbour afterwards.** On 2026-09-10 a cleanup
-  killed five servers strictly by PID, none of them the sibling's, and the sibling was down at the end of it
-  anyway. Whether the kills caused it was never established, and that is the point: *"I only killed my own
-  PIDs"* is an argument, not evidence. **Query the neighbour's health after you clean up**, and restart it if
-  it is gone — the check costs one `curl` and the alternative is leaving somebody else's service dead without
-  knowing. Note also that `taskkill //F //PID` reported SUCCESS for a process still listening seconds later,
-  so its exit code does not prove the port is free either; re-read `netstat` rather than trusting it.
+- **Never kill a shared runtime by process name.** `//IM` reaches the IMAGE, so it is never scoped to your
+  work — and **a local model server is exactly this kind of shared runtime**: one binary, many tenants, one
+  port each. Kill your own process by **PID**, recorded when you started it, and let it take its children.
+  <br>**PID is not enough — VERIFY the neighbour afterwards** and restart it if it is gone. *"I only killed
+  my own PIDs"* is an argument, not evidence, and `taskkill //F //PID` has reported SUCCESS for a process
+  still listening seconds later, so re-read `netstat` rather than trusting its exit code. Both incidents:
+  `.claude/knowledge/pitfalls.md` §Environment / tooling.
 - **Copy and move preserve the modification time.** A file restored that way can be *older* than the
-  artifact built from the version you were replacing, so an incremental build silently keeps using the
-  old artifact — a stale PASS, which is the dangerous direction. Undo a change with the same tool that
-  made it, and force a full rebuild if unsure.
+  artifact built from what it replaced, so an incremental build silently keeps the old artifact — a stale
+  PASS, the dangerous direction. Undo a change with the same tool that made it.
 - **Reverting to the last commit discards uncommitted work** the file already carried. It is not an undo.
 
 ### Node
 
 - Some Node versions crash on `fs.cpSync` on Windows with a silent fail-fast. Use an explicit recursive
   copy instead of assuming it works.
+- **`node --test <dir>` does NOT work on Node 24** — a bare directory is loaded as a module; it needs a
+  glob.

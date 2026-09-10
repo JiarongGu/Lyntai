@@ -643,6 +643,16 @@ switch (cmd) {
     break;
   }
 
+  // check-dev-loop — FAIL when CLAUDE.md's command table drifts from this file. The THIRD generated index
+  // (it shares `_markers.mjs` with the two above), and the one that pays for itself: the `## Dev loop`
+  // section was 65% of the always-on file, and this file's OWN usage string had already drifted to 24 of 30
+  // commands while CLAUDE.md called it "the authoritative list". Names and the `verify` column are derived
+  // from the `case` labels and `steps` below; only the description is authored, in `devLoopCommands`.
+  case 'check-dev-loop': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-dev-loop.mjs'), ...args]);
+    break;
+  }
+
   // check-decision-claims — FAIL when a DECISION stops describing the code it governs. Its sibling above
   // gates an entry's LENGTH; this gates its TRUTH. No other gate can: check-docs gates retired vocabulary,
   // check-links gates whether a reference resolves, check-counts gates counts written in prose - and a
@@ -733,7 +743,7 @@ switch (cmd) {
     const steps = [['test-devtools', []], ['build', []], ['check-warnings', []], ['check-packages', []],
       ['check-bundle', []], ['check-encoding', []], ['check-docs', []], ['check-links', []],
       ['check-counts', []], ['check-comments', []], ['check-decisions', []], ['check-archive', []], ['check-backlog', []],
-      ['check-pitfalls', []], ['check-decision-claims', []],
+      ['check-pitfalls', []], ['check-decision-claims', []], ['check-dev-loop', []],
       ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
     // Fingerprinted before and after: every line below describes the tree as it was HERE, so a file edited

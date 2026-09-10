@@ -401,6 +401,20 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `IListableVectorStore` is required. Pruning through the store's own path pays one extra scope census, and
   only when a vector store is wired. `docs/FIXES.md` has the mechanism.
 
+### Internal (no public surface change)
+
+- **The always-on documentation tier is 60% smaller** — `CLAUDE.md` plus `.claude/rules/*` went from
+  141,330 to 55,828 characters (~35k tokens to ~14k), which is what every session pays before it does
+  anything. Nothing was deleted without a home: the per-gate narrative moved to the new **`docs/GATES.md`**,
+  eleven traps to `.claude/knowledge/pitfalls.md`, the multilingual and scale measurements to
+  `docs/memory.md` §5, the migration asymmetry to `.claude/knowledge/storage.md` §Migrations, and the
+  `IMemoryGraphStore` default-body roster to `.claude/knowledge/extending-lyntai.md`.
+- **New gate `check-dev-loop`** — `CLAUDE.md`'s command table is now GENERATED from `devtools/dev.mjs`
+  plus `devLoopCommands`, the third authored-marker/generated-index gate after `check-backlog` and
+  `check-pitfalls`. It replaced a 44,909-character hand-written section that documented 38 of 51 commands;
+  an undocumented command and a registry entry naming no command both FAIL, so it cannot drift the way
+  `dev.mjs`'s own usage string once did.
+
 ## 3.1.0 — 2026-08-23
 
 Three more reports from applications on 3.0.x. Two are the same class as 3.0.1's and 3.0.2's — a wiring that

@@ -15,33 +15,32 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 20 across 12 Parts: 11 startable, 7 blocked, 1 watch, 1 decision-only
+## Open items — 19 across 12 Parts: 10 startable, 7 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 96 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 140 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 149 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 203 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 274 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 352 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 407 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 430 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 501 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 563 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
-| 682 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 703 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
-| 711 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
-| 765 | 129 | Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memo… | startable |  |
-| 844 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
-| 870 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
-| 880 | 177 | Write the task-shape taxonomy down as guidance | startable |  |
-| 923 | 178 | Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a genera… | startable |  <!-- link-ok: carried from this item's own line --> |
-| 932 | 178 | Pay `CLAUDE.md` and the rules tier down to ~13k tokens | startable |  |
-| 942 | 178 | Add a `keeps=` header to superseded `docs/FIXES.md` entries | startable |  |
+| 95 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 139 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 148 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 202 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 273 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 351 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 406 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 429 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 500 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 562 | 116 | Give LongMemEval's four remaining classes a shot curve | startable |  |
+| 681 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 702 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
+| 710 | 128 | Walk the `RetrievabilityWeight` frontier, or decide it is not worth walking | startable |  |
+| 764 | 129 | Finish the sweep: `only` (21) and `placement` (12) claims, and the pre-memo… | startable |  |
+| 843 | 177 | Does a newer small INSTRUCT model judge better? | startable |  |
+| 869 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
+| 879 | 177 | Write the task-shape taxonomy down as guidance | startable |  |
+| 925 | 178 | Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a genera… | startable |  <!-- link-ok: carried from this item's own line --> |
+| 934 | 178 | Add a `keeps=` header to superseded `docs/FIXES.md` entries | startable |  |
 
 <!-- open-items:end -->
 
@@ -56,7 +55,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is ELEVEN items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is TEN items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -892,12 +891,14 @@ a fresh session would: **3,459 lines pulled, 1,838 wasted (53%), and two of five
 current**. Fixed cost before a session does anything was **~36,000 tokens** when this Part opened
 (`CLAUDE.md` 67,686 chars + `.claude/rules/*` 76,106), of which `CLAUDE.md`'s `## Dev loop` was 63%._
 
-_**Closing three of these items made the always-on tier BIGGER, and that is worth knowing before the next
-one starts.** After Parts 179–181 it reads `CLAUDE.md` **69,296** + rules **75,362** = **144,658 chars**,
-with `## Dev loop` now **65%** of `CLAUDE.md`: moving the rule template out saved ~1.6k, and documenting
-two new gates spent more than that back. **Every gate this Part adds pays rent in the one file every
-session reads first** — which is the argument for item 4 below, and the reason it should come before any
-further gate rather than after._
+_**The budget question is SETTLED (2026-09-10, Part 182).** The always-on tier now reads `CLAUDE.md`
+**13,026** + rules body **42,802** = **55,828 chars** (~14k tokens), against **141,330** when the paydown
+started — and the measurement is of the BODY, because the harness strips the rules' frontmatter before
+injection, so deleting it buys nothing. **~14k was accepted rather than the ~13k asked for**: past that
+point the cut removes rules instead of prose, and the two candidates for closing the gap were deleting
+`no-global-memory.md` and merging two rule files. **Every gate this Part adds still pays rent in the one
+file every session reads first** — but the rent is now one row of a generated table (**D113**), not a
+paragraph._
 
 | probe | read | wasted | current? |
 |---|---|---|---|
@@ -915,10 +916,11 @@ mid-section, so heading-grep is blind by construction; the index must be at RESU
 (3) `decisions-index` barely helped LOCATING cost (~66 vs ~117 lines); its wins were precision and a free
 currency scan, so sizing a new index for READING is over-building._
 
-_**Three items closed 2026-09-10** — `docs/task-archive.md` **Parts 179, 180 and 181**: the rule template
-left the always-on tier, the roster at the head of this file is generated from per-item markers (**D111**),
-and the traps record is filed by facets orthogonal to its headings (**D112**). What is left is the three
-below, and the cheap ones are gone — each remaining item moves or rewrites a large maintained document._
+_**Four items closed 2026-09-10** — `docs/task-archive.md` **Parts 179–182**: the rule template left the
+always-on tier, the roster at the head of this file is generated from per-item markers (**D111**), the
+traps record is filed by facets orthogonal to its headings (**D112**), and the always-on tier was paid down
+60% behind a generated command table (**D113**). What is left is the two below, and the cheap ones are long
+gone — each remaining item moves or rewrites a large maintained document._
 
 - [ ] **Split `docs/memory.md` §5 into `docs/memory-measurements.md`, with a generated results index.** <!-- item: state=startable --> <!-- link-ok: the file this item creates by splitting memory.md §5 -->
   §5 is **3,442 of 4,222 lines (81.5%)**; the rest becomes readable end to end. **Do not renumber** — keep
@@ -929,16 +931,6 @@ below, and the cheap ones are gone — each remaining item moves or rewrites a l
   `supersedes=`, since two-sided bookkeeping is where this rots.
   <br>_The check that would have caught the defect a probe could not reach: a section whose body matches
   `CORRECT(ED|ION)|RETRACT|STALE|SUPERSED` while its own marker says `status=CURRENT` FAILS._
-- [ ] **Pay `CLAUDE.md` and the rules tier down to ~13k tokens** (from ~36k, and now the largest of the <!-- item: state=startable -->
-  four remaining — do it FIRST, since every other item's gate documents itself here). The cut rule, applied
-  sentence by sentence: **a line stays always-on only if it carries no number/date/figure, no gate can
-  catch its violation, and violating it costs something you cannot cheaply undo.** `## Dev loop` becomes a
-  generated command table; the "measured cost of not having it" paragraphs move to a new `docs/GATES.md`. <!-- link-ok: the file this item creates for the relocated gate narratives -->
-  <br>**The trap that makes this dangerous:** `check-counts` FAILS a registered claim whose pattern matches
-  nothing, and several are anchored in the exact prose being cut (`verify` runs twenty checks, twelve
-  packages, 12/13 migrations, guard-script tests, `DOMAINS are SEVEN`). The destination must be tracked,
-  `IN_SCOPE` and `IS_SCANNED`, and the sentences must move verbatim enough to keep matching. Run
-  `check-counts` and `check-links` after EACH move, not at the end.
 - [ ] **Add a `keeps=` header to superseded `docs/FIXES.md` entries** — a table is the wrong fix, because a <!-- item: state=startable -->
   reader arrives INSIDE an entry from a grep and never sees the top of the file. Three same-day entries
   each partly retract the one below, and a probe could not skip the superseded one because its reusable

@@ -213,9 +213,16 @@ this list omitted entirely until 2026-09-10**.
 **Read that omission as the warning it is.** `IMemoryGraphStore` is the LARGEST thing in the storage layer
 — a 643-line contract with **thirteen required members**, against 775 and 688 lines of relational
 implementation — and a measured cold-start probe followed these documents and produced a backend plan
-without it. It is also the only one with a per-backend migration asymmetry (12 on SQLite, 13 on Postgres;
-`CLAUDE.md`) and the only one whose contract pins an ORDER (`WriteBackAsync`, **D101**). If you are backing
+without it. It is also the only one with a per-backend migration asymmetry (`.claude/knowledge/storage.md`
+§Migrations) and the only one whose contract pins an ORDER (`WriteBackAsync`, **D101**). If you are backing
 the memory engine, it is most of your work; if you are not, you can skip it like any other.
+
+**THREE of the thirteen carry a default body, and the difference between them matters.**
+`KnownSubjectsAsync` defaults to an empty list, so a BYO store silently gets **no subject seeding** at all
+(**D88**) — nothing fails, recall is simply worse. `LinkManyAsync` (**D99**) and `WriteBackAsync` (**D101**)
+default to the calls the engine used to make inline, so a BYO store loses no behaviour and is merely no
+faster. And `WriteBackAsync` carries an ORDER as contract — the review log last, so a broken log cannot
+cost the touch or the edges — so an override that reorders it is wrong however fast it is.
 
 Mirror `src/Lyntai.Storage.Postgres/`, the
 reference backend, which implements twelve of the thirteen (all but `IModelRoutingStore`). Provide

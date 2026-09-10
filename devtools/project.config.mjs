@@ -768,6 +768,72 @@ export default {
   ],
 
   /**
+   * DEV-LOOP COMMANDS — one line per `dev.mjs` command, the source the `## Dev loop` table in `CLAUDE.md`
+   * is GENERATED from (`dev.mjs check-dev-loop [--write]`, part of `verify`).
+   *
+   * The NAMES are derived from `dev.mjs`'s own `case` labels and the `verify` column from its `steps`
+   * array, so neither can drift; only the description is authored. An undocumented command FAILS and a key
+   * naming no command FAILS, which is what keeps this from becoming the second list `dev.mjs`'s usage
+   * string already drifted into (24 of 30 commands, silently).
+   *
+   * Keep each one SHORT — it is a table cell in the file every session reads first. What a gate is FOR, the
+   * incident behind it and the numbers it holds all belong in `docs/GATES.md`.
+   */
+  devLoopCommands: {
+    verify: 'the "am I done?" gate. Hands off the tree while it runs',
+    build: 'build the solution',
+    test: 'the xUnit tests',
+    'test-devtools': "the guards' own tests — FIRST in `verify`",
+    e2e: 'the Playground against the deterministic provider-stub',
+    'check-warnings': 'a warning in `src/` — an unfailed IL2026 is a FALSE trim promise',
+    'check-packages': 'a package missing from any registry; the misses are silent',
+    'check-bundle': "the bundle's dependency closure — membership is a budget",
+    'check-encoding': 'MOJIBAKE in tracked text — no other gate can see it',
+    'check-docs': 'vocabulary a decision retired (`retiredTerms`)',
+    'check-links': 'a dead path, `Part N`, `§section` or `Type.Member`',
+    'check-counts': 'a COUNT in prose that disagrees with the tree',
+    'check-comments': 'a comment block that outgrew what it explains',
+    'check-decisions': 'a `DECISIONS.md` entry that outgrew the decision',
+    'check-archive': 'an archive entry that outgrew the OUTCOME it records',
+    'check-backlog': 'a backlog summarizing the archive; `--write` rebuilds its roster',
+    'check-pitfalls': 'an unfiled trap or stale facet index; `--write` rebuilds it',
+    'check-decision-claims': 'a DECISION that stopped describing the code it governs',
+    'check-api-vocabulary': 'a retired name back on the frozen public surface',
+    'check-samples': 'a fenced `csharp` block that does not COMPILE — default ON',
+    'check-dev-loop': 'this table drifting from `dev.mjs`; `--write` rebuilds it',
+    'check-sensitive': 'leak scan; `--tree` for everything, not just staged',
+    'consumer-smoke': 'the release gate — a fresh app against the PACKAGES. Minutes',
+    doctor: 'three version checks. NOT in `verify` — run before a release',
+    'check-version': 'the pre-commit version-authorship guard, by hand',
+    'install-hooks': 'set `core.hooksPath` — once per clone, nothing warns you',
+    pack: '→ `publish/packages/`',
+    changelog: 'stamp `## Unreleased` at release time — never by hand',
+    'release-notes': 'render the notes for a tagged version',
+    'decisions-index': 'rebuild `DECISIONS.md`\'s index after adding a `D<n>`',
+    'new-package': 'scaffold an adapter package into every registry',
+    'new-migration': 'scaffold the next migration with a unique number',
+    playground: 'the sample console app',
+    bench: 'BenchmarkDotNet router/FTS benchmarks',
+    'memory-sweep': 'the {ranking × forgetting} 2×2 — miss and pollution rates',
+    'memory-language': 'one factor: `CorpusLanguage`, structurally identical corpora',
+    'memory-spacing': 'is `topical` responsive to `DsrOptions.SpacingWeight`?',
+    'memory-reinforcement': "law 3's `r`-dependence, isolated from reinforcement MAGNITUDE",
+    'memory-bounded': 'the FORM of the growth rule, not its constants — set `ReinforceGain`',
+    'memory-salience': 'enrichment held constant so only salience varies',
+    'memory-salience-weight': 'how LOUD salience is. Needs a real embedder or the curve is an ARTIFACT',
+    'memory-importance': 'WHAT salience measures — novelty against a perfect ORACLE',
+    'memory-density': 'a REFUTATION: does a CORRECTION separate from a RECURRENCE?',
+    'memory-enrichment': 'why an embedder costs recall quality. Calls a REAL model',
+    'memory-annotation': "subject linking with a PERFECT annotator — the CEILING, not a model",
+    'memory-verification': 'the judge seam — what a model in the loop is worth',
+    'memory-fan': "ACT-R's fan effect, measured and REFUSED (D62)",
+    'memory-support': 'rule × θ × clock × `ConnectionBoost`; `--screen` = the model ladder',
+    'memory-scale': 'COST, not quality — latency, throughput, bytes; no ground truth',
+    'memory-locomo': "the FIELD's benchmark; rewards a perfect archive, so read it differentially",
+    'memory-longmemeval': 'prefer a revised fact over the superseded one — **run `--haystack`**',
+  },
+
+  /**
    * TRAP FACETS — the two CLOSED vocabularies every trap in `.claude/knowledge/pitfalls.md` is filed under,
    * enforced by `dev.mjs check-pitfalls` (part of `verify`), which also GENERATES the index at the head of
    * that file from them.

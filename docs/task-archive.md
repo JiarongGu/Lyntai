@@ -2878,3 +2878,27 @@ CONSTRUCTED at n = 1,540, so the arm whose ceiling three maintained records quot
 benchmark. `docs/FIXES.md` has the incident; `pitfalls.md` has the rule and the two instrument facts.
 
 - Multi-hop is the one category no judge fixes.
+
+## Part 182 — the always-on tier, paid down 60% behind a generated command table
+
+✅ done 2026-09-10. **D113**; the new gate is `node devtools/dev.mjs check-dev-loop [--write]`.
+`CLAUDE.md` + `.claude/rules/*` went **141,330 → 55,828 characters** (~35k tokens to ~14k) against the
+item's ~13k target. `## Dev loop` — 65% of `CLAUDE.md`, 44,909 characters documenting 38 of the 51
+commands `dev.mjs` declares — became a GENERATED table of 4,172.
+
+**Nothing was deleted without a home.** The per-gate narrative is the new `docs/GATES.md`; eleven traps
+went to `.claude/knowledge/pitfalls.md`; the multilingual arms, the enrichment deltas and the
+`memory-scale` clauses to `docs/memory.md` §5; the migration asymmetry to `.claude/knowledge/storage.md`
+§Migrations; the `IMemoryGraphStore` default-body roster to `.claude/knowledge/extending-lyntai.md`.
+
+**Six `check-counts` claims were anchored in exactly one sentence each, all in `CLAUDE.md`** — the trap
+the item named, now filed. Each moved verbatim with the gate run between the copy and the delete, and the
+three mechanisms that read `CLAUDE.md` BY PATH (`claude-doctor`, `check-samples`' baseline, D46's
+predicate) all still resolve. Four dead or misleading references were repaired on the way, none of which
+any gate could see: D101's "invariant 8", `extending-lyntai.md`'s bare `CLAUDE.md`, and two `§"quoted"`
+citations.
+
+**One claimed saving was refuted before it was taken:** deleting the rules tier's frontmatter buys 2,857
+bytes on disk and ZERO context, because the harness strips it before injection.
+
+- Pay `CLAUDE.md` and the rules tier down to ~13k tokens.
