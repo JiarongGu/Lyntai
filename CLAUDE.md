@@ -18,7 +18,7 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3612 passed / 3633 total, 21 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 673/673, doc samples 80/80. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 697/697, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count well above 21 as "Docker is down and the whole Postgres leg went silently unexercised".
 **The passed figure above is DERIVED and not yet observed** (2026-09-11): the run that set the total had
@@ -156,6 +156,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `install-hooks` |  | set `core.hooksPath` — once per clone, nothing warns you |
 | `check-sensitive` | ✓ | leak scan; `--tree` for everything, not just staged |
 | `decisions-index` |  | rebuild `DECISIONS.md`'s index after adding a `D<n>` |
+| `rerank-screen` |  | does a candidate GGUF rerank AT ALL? `--inspect` needs no download |
 | `doctor` |  | three version checks. NOT in `verify` — run before a release |
 | `check-version` |  | the pre-commit version-authorship guard, by hand |
 | `changelog` |  | stamp `## Unreleased` at release time — never by hand |

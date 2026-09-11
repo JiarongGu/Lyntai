@@ -831,6 +831,7 @@ export default {
     'memory-support': 'rule × θ × clock × `ConnectionBoost`; `--screen` = the model ladder',
     'memory-scale': 'COST, not quality — latency, throughput, bytes; no ground truth',
     'memory-contention': 'judge vs cross-encoder: does moving verification off the shared model pay?',
+    'rerank-screen': 'does a candidate GGUF rerank AT ALL? `--inspect` needs no download',
     'memory-locomo': "the FIELD's benchmark; rewards a perfect archive, so read it differentially",
     'memory-longmemeval': 'prefer a revised fact over the superseded one — **run `--haystack`**',
   },

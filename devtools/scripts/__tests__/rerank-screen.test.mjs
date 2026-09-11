@@ -1,0 +1,193 @@
+// rerank-screen's own tests.
+//
+// The harness answers "does this GGUF work as a reranker at all". These tests drive the pure half: the
+// two assertions llama.cpp #16407 calls for, the ARCHITECTURE-AWARE head check (whose whole reason for
+// existing is a false positive this repository actually made), and the GGUF header reader.
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import {
+  FIXTURE, longProbe, parseRerankRows, byDocumentOrder, evaluateOrdering, maxDrift,
+  headVerdict, HEAD_TENSORS, readGgufHeader, parseArgs, DEFAULT_PORT,
+} from '../rerank-screen.mjs';
+
+const rows = (...scores) => scores.map((score, index) => ({ index, score }));
+
+describe('parseRerankRows', () => {
+  it('accepts both the Cohere and the bare score spellings', () => {
+    assert.deepEqual(parseRerankRows({ results: [{ index: 0, relevance_score: 1.5 }] }), [{ index: 0, score: 1.5 }]);
+    assert.deepEqual(parseRerankRows({ results: [{ index: 0, score: 1.5 }] }), [{ index: 0, score: 1.5 }]);
+  });
+
+  it('returns NULL rather than a fabricated ordering when the shape is unusable', () => {
+    // A fabricated ordering is indistinguishable from a real one once it reaches a table, which is the
+    // whole reason this returns null instead of falling back to input order.
+    assert.equal(parseRerankRows({}), null, 'no results member');
+    assert.equal(parseRerankRows({ results: [] }), null, 'empty results');
+    assert.equal(parseRerankRows({ results: [{ index: 0 }] }), null, 'no score of either spelling');
+    assert.equal(parseRerankRows({ results: [{ score: 1 }] }), null, 'no index');
+    assert.equal(parseRerankRows({ results: [{ index: 0, score: NaN }] }), null, 'NaN is not a score');
+    assert.equal(parseRerankRows({ results: [{ index: 0, score: Infinity }] }), null, 'Infinity is not a score');
+  });
+});
+
+describe('evaluateOrdering — the two assertions #16407 calls for', () => {
+  it('passes a discriminating scorer that ranks the answer first and the unrelated doc last', () => {
+    const v = evaluateOrdering(rows(7.2, -7.3, -10.8, -14.4));
+    assert.equal(v.allDistinct, true);
+    assert.equal(v.answerFirst, true);
+    assert.equal(v.unrelatedLast, true);
+  });
+
+  it('FAILS a flat scorer, which is the failure that reads as a clean null result', () => {
+    const v = evaluateOrdering(rows(0.5, 0.5, 0.5, 0.5));
+    assert.equal(v.allDistinct, false, 'a model returning one value for every candidate reorders nothing');
+    assert.equal(v.distinct, 1);
+  });
+
+  it('FAILS a shuffled scorer even though its scores are perfectly distinct', () => {
+    // The positive control for the ordering half: distinctness alone cannot catch a head that loads but
+    // computes the wrong thing, so the two assertions are genuinely independent.
+    const v = evaluateOrdering(rows(-14.4, -10.8, -7.3, 7.2));
+    assert.equal(v.allDistinct, true);
+    assert.equal(v.answerFirst, false);
+    assert.equal(v.unrelatedLast, false);
+  });
+
+  it('counts distinctness at 1e-6, far below the ~9e-3 drift a real server shows between calls', () => {
+    // Repeat-call noise must never manufacture a "distinct" verdict on a flat scorer.
+    assert.equal(evaluateOrdering(rows(0.5, 0.5 + 1e-9, 0.5, 0.5)).distinct, 1);
+    assert.equal(evaluateOrdering(rows(0.5, 0.5 + 1e-3, 0.5 + 2e-3, 0.5 + 3e-3)).distinct, 4);
+  });
+
+  it('reports the top-two gap, which is what bounds whether the fixture could see a near-tie flip', () => {
+    assert.equal(evaluateOrdering(rows(7.2, -7.3, -10.8, -14.4)).topTwoGap.toFixed(1), '14.5');
+  });
+});
+
+describe('maxDrift', () => {
+  it('measures the largest per-document move between two responses', () => {
+    assert.equal(maxDrift([1, 2, 3], [1, 2.5, 3]), 0.5);
+  });
+
+  it('is NaN — never 0 — when the two responses do not describe the same documents', () => {
+    // Returning 0 here would report perfect agreement for two incomparable answers, which is the
+    // fail-open direction: a broken call would read as the most stable possible result.
+    assert.ok(Number.isNaN(maxDrift([1, 2], [1])));
+    assert.ok(Number.isNaN(maxDrift([], [])));
+    assert.ok(Number.isNaN(maxDrift([1], null)));
+  });
+});
+
+describe('byDocumentOrder', () => {
+  it('normalises away the server\'s chosen sort, so two responses are comparable', () => {
+    const bestFirst = [{ index: 2, score: 9 }, { index: 0, score: 1 }, { index: 1, score: 5 }];
+    assert.deepEqual(byDocumentOrder(bestFirst), [1, 5, 9]);
+  });
+});
+
+describe('headVerdict — architecture-aware, because a name-only check condemns working models', () => {
+  it('confirms a BERT head', () => {
+    assert.equal(headVerdict('bert', ['blk.0.attn_q.weight', 'cls.output.weight']).state, 'present');
+  });
+
+  it('confirms a jina-bert-v2 head, which is named DIFFERENTLY', () => {
+    // The measured false positive: all three independent conversions of jina-reranker-v1-tiny-en lack
+    // `cls.output.weight` and the model screens 8/8 when served. `cls.weight` is its head.
+    const names = ['blk.0.attn_q.weight', 'cls.weight', 'cls.bias'];
+    assert.equal(headVerdict('jina-bert-v2', names).state, 'present');
+    assert.equal(headVerdict('bert', names).state, 'missing',
+      'the SAME tensor list is a missing head under bert — which is exactly how the false positive arose');
+  });
+
+  it('says UNKNOWN for an unlisted architecture rather than condemning it', () => {
+    const v = headVerdict('some-arch-nobody-added', ['cls.weight']);
+    assert.equal(v.state, 'unknown');
+    assert.equal(v.wanted, null, 'unknown is a statement about HEAD_TENSORS, never about the file');
+  });
+
+  it('catches the real defect: a conversion carrying classifier.* under a bert arch', () => {
+    // The positive control — without this the check could pass by never returning `missing`.
+    assert.equal(headVerdict('bert', ['classifier.weight', 'classifier.bias']).state, 'missing');
+  });
+
+  it('has an entry for every architecture it claims to cover, spelled as GGUF spells it', () => {
+    for (const arch of Object.keys(HEAD_TENSORS)) {
+      assert.match(arch, /^[a-z0-9-]+$/, `${arch} is not a GGUF general.architecture spelling`);
+      assert.ok(HEAD_TENSORS[arch].length > 0);
+    }
+  });
+});
+
+describe('readGgufHeader', () => {
+  /** Minimal well-formed GGUF prefix: magic, version, counts, one string KV, one tensor entry. */
+  function buildGguf({ arch = 'bert', tensors = ['cls.output.weight'] } = {}) {
+    const parts = [];
+    const u32 = (v) => { const b = Buffer.alloc(4); b.writeUInt32LE(v); return b; };
+    const u64 = (v) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(v)); return b; };
+    const str = (s) => Buffer.concat([u64(Buffer.byteLength(s)), Buffer.from(s, 'utf8')]);
+    parts.push(Buffer.from('GGUF', 'ascii'), u32(3), u64(tensors.length), u64(1));
+    parts.push(str('general.architecture'), u32(8), str(arch));      // 8 = STRING
+    for (const t of tensors) parts.push(str(t), u32(1), u64(4), u32(0), u64(0));
+    return Buffer.concat(parts);
+  }
+
+  it('reads the architecture and the tensor names', () => {
+    const h = readGgufHeader(buildGguf({ arch: 'jina-bert-v2', tensors: ['cls.weight', 'blk.0.attn_q.weight'] }));
+    assert.equal(h.version, 3);
+    assert.equal(h.tensorCount, 2);
+    assert.equal(h.meta['general.architecture'], 'jina-bert-v2');
+    assert.deepEqual(h.names, ['cls.weight', 'blk.0.attn_q.weight']);
+  });
+
+  it('throws SHORT — never "0 tensors" — when the buffer stops mid-header', () => {
+    // The distinction is load-bearing: a truncated read reporting an empty tensor list is
+    // indistinguishable from a headless conversion, so the caller must be told to fetch more.
+    const full = buildGguf({ tensors: ['cls.output.weight', 'blk.0.attn_q.weight'] });
+    assert.throws(() => readGgufHeader(full.subarray(0, full.length - 12)), /SHORT/);
+  });
+
+  it('rejects a non-GGUF buffer by magic rather than misparsing it', () => {
+    assert.throws(() => readGgufHeader(Buffer.from('NOPE' + '\0'.repeat(40))), /not a GGUF/);
+  });
+});
+
+describe('parseArgs', () => {
+  it('defaults to a port outside memory-contention\'s range and away from the sibling on 8090', () => {
+    assert.equal(parseArgs([]).port, DEFAULT_PORT);
+    assert.ok(DEFAULT_PORT < 8140 || DEFAULT_PORT > 8144, 'must not collide with memory-contention PORTS');
+    assert.notEqual(DEFAULT_PORT, 8090, "8090 is a sibling tool's embedding server");
+  });
+
+  it('collects --inspect urls and ignores later flags', () => {
+    assert.deepEqual(parseArgs(['--inspect', 'https://a/x.gguf', 'https://b/y.gguf', '--port', '9']).inspect,
+      ['https://a/x.gguf', 'https://b/y.gguf']);
+  });
+
+  it('reads --model and --label', () => {
+    const a = parseArgs(['--model', 'C:/m.gguf', '--label', 'tiny']);
+    assert.equal(a.model, 'C:/m.gguf');
+    assert.equal(a.label, 'tiny');
+  });
+});
+
+describe('the fixture itself', () => {
+  it('names an expected best and worst that are actually in the document list', () => {
+    assert.ok(FIXTURE.documents[FIXTURE.expectedBest]);
+    assert.ok(FIXTURE.documents[FIXTURE.expectedWorst]);
+    assert.notEqual(FIXTURE.expectedBest, FIXTURE.expectedWorst);
+  });
+
+  it('includes distractors that SHARE vocabulary with the query', () => {
+    // A fixture of one answer plus unrelated noise is passed by a model reduced to mean-pooled cosine,
+    // so the overlapping distractors are what make the screen able to fail.
+    const overlapping = FIXTURE.documents.filter((d, i) => i !== FIXTURE.expectedBest && /Apollo|Moon/.test(d));
+    assert.ok(overlapping.length >= 2, 'need at least two lexically-overlapping distractors');
+  });
+
+  it('emits a long probe past the 512-token ceiling that disqualifies a BERT reranker', () => {
+    // ~6,000 characters is what the memory benches can emit; a 512-token model 400s here and passes
+    // every shorter fixture, so the probe has to be this long to be worth running.
+    assert.ok(longProbe().length > 5000, `probe is only ${longProbe().length} chars`);
+  });
+});

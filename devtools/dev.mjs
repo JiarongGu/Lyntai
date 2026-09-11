@@ -377,6 +377,18 @@ switch (cmd) {
     run('node', [path.join(repo, 'devtools', 'scripts', 'decisions-index.mjs'), ...args]);
     break;
 
+  // rerank-screen — does a candidate GGUF work as a reranker AT ALL, before a run is spent on it? Not a
+  // gate and not in `verify`: it needs a model on disk and a llama-server, so it is the instrument the
+  // sub-500 MB sizing question (`docs/model-tasks.md` §3) is answered with. Two assertions carry it —
+  // ORDERING plus DISTINCT scores — because llama.cpp #16407 lets a headless conversion load and score
+  // garbage, and a flat scorer reads as a clean null rather than as the broken instrument it is.
+  // `--inspect <url>` answers "what architecture, and has it a head?" from an HTTP RANGE request, with no
+  // download — and reports UNKNOWN rather than condemning an architecture it has no entry for, which is
+  // the measured false positive that shaped the check (`.claude/knowledge/pitfalls.md`).
+  case 'rerank-screen':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'rerank-screen.mjs'), ...args]);
+    break;
+
   case 'doctor': {
     // all three checks always run (no short-circuit) so drift is reported in one pass. `--fix` syncs the
     // README headline; it deliberately does NOT "fix" the version — a hand-authored version is the problem,
