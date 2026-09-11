@@ -15,24 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 11 across 9 Parts: 2 startable, 7 blocked, 1 watch, 1 decision-only
+## Open items — 12 across 9 Parts: 3 startable, 7 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 87 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 131 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 140 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 194 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 265 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 343 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 398 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 421 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 492 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 650 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 736 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
+| 88 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 132 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 141 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 195 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 266 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 344 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 399 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 422 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 493 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 651 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 737 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
+| 773 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | startable |  |
 
 <!-- open-items:end -->
 
@@ -47,7 +48,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is TWO items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is THREE items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -768,6 +769,25 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   tensors against the working **311** — it is missing `cls.output.weight` and scores silently wrong
   (llama.cpp #16407). `Voodisss` and `zhiqian99` are byte-identical to each other and correct. Prefer an
   official conversion, and smoke-test whatever you pull._
+
+- [ ] **Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no measured floor.** <!-- item: state=startable -->
+  `docs/model-tasks.md` §3 now records the owner's aim: ~500 MB is a sizing TARGET rather than a cap, and
+  **sub-100 MB is the stretch**. Nothing in this repository has measured anything smaller than
+  **468,393,760 B** in any role, so that floor is asserted and not established.
+  <br>**The one lead is a DESK claim, not a result**: `docs/memory-measurements.md` records *"a 149M
+  cross-encoder matches a 1.2B one"* from a published comparison nobody here called. A 149M-parameter model
+  quantized lands around 75–150 MB, which is what makes the target plausible — and the tier GEN-VERIFY exists
+  to distrust. The existing shortlist bottoms out at **332,894,432 B** and holds nothing this small, so this
+  starts with a fresh survey: MiniLM-class cross-encoders (`ms-marco-MiniLM-L-6`, `-L-2`) and static-embedding
+  approaches are where that range lives.
+  <br>**SCORING only — do not survey instruct models for this.** At 806,058,240 B an instruct model was
+  already INERT in the selective role with a ceiling of zero, so nothing smaller picks better. The shape with
+  evidence at small size is `score-a-pair`.
+  <br>**Smoke-test before trusting any number**: a community GGUF conversion can drop `cls.output.weight`,
+  still load, and return scores that are simply wrong (310 tensors against a working 311) — and an obscure
+  sub-100 MB conversion raises that risk rather than lowering it. Score a known answer against known
+  distractors and assert the ORDERING and that the scores are DISTINCT. **State exact bytes**, never MB or
+  MiB alone: the two straddle round thresholds and at 100 MB that bites harder than at 500.
 
 _**The contention item CLOSED 2026-09-11** as `docs/task-archive.md` **Part 190**
 (`docs/memory-measurements.md` §5): moving verification off the shared instruct model is worth most of the

@@ -94,6 +94,33 @@ candidate count, how much text each candidate carries.
 
 ## 3. What survives under 500 MB — one measured row, and the rest blank
 
+> **WHY 500 MB, and the status of that number — a WORKING POSITION, not a rule (2026-09-12).** The owner's
+> stated aim: *"we aim to support smaller model (to save resource because this just a memory system)"*, and
+> **~500 MB is a SIZING TARGET rather than a cap** — *"not 500mb as a hard cap we can test even smaller ones,
+> or around 500mb sizing"*, with **sub-100 MB** named as the stretch.
+>
+> **The reasoning is a BUDGET one and it is independent of quality.** A memory subsystem is infrastructure
+> sitting beside an application's own model, so it should not claim the resources of one. That independence
+> is the load-bearing half: **a bigger model winning on quality would not settle it.** The row below is the
+> convenient case — 468 MB beat a 2.49 GB instruct model in the same seam — and the aim would hold had it
+> lost. The road not taken is to let each seam take the best model available and treat memory's footprint as
+> the application's problem. **Reversal cost is low**: no code encodes a threshold, and nothing is gated on
+> one. It governs which candidates get surveyed and measured, which is why it is recorded here rather than
+> in `docs/DECISIONS.md`.
+>
+> **What this changes about the blanks below:** a `measured <500 MB: no` cell means *not yet shown to fit the
+> budget*, never *not good enough*. Those are different questions and only the first is being asked.
+
+> **WHERE THIS IS HEADING — also a working position (2026-09-12).** The owner names the next goal as **a
+> decision system on a small model**, of which this memory work is the first instance. Three findings below
+> transfer to it directly and one is a warning: a decision is `select-from-list` or `affordance` in §1, which
+> is precisely the shape a small INSTRUCT model failed at (806,058,240 B, inert, ceiling of zero); **list
+> length governs it more than model size** (§2's table: 20 shown → 16.2% precision, 80 → 2.6%, below using
+> none at all); a stated budget does **not** bind a selective task and made one endorse MORE; and the shape
+> that DID work small is `score-a-pair`. **So the evidence points at a SCORER over a bounded candidate list,
+> never a generator asked to choose** — the same conclusion the memory verification seam reached, for the
+> same reasons. `affordance` has no evidence at any size; do not read the above as covering it.
+
 **There is exactly one measurement in this repository of a sub-500 MB model doing any of these jobs**, and
 it is narrower than the question. `docs/memory-measurements.md` §5 owns it (`locomo-lamar600m-q8-n200`,
 n = 200, `ships=no`): a **468,393,760-byte** cross-encoder captures **6.0 of the 7.0 points** a perfect
