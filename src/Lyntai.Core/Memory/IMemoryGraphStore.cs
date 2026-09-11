@@ -626,11 +626,13 @@ public interface IMemoryGraphStore
     /// links. Showing it the handles already in use is what anchors it, exactly as showing it recent facts is
     /// what makes a pronoun resolvable.</para>
     ///
-    /// <para><b>The one member here with a default body</b>, unlike the five required additions this release
-    /// makes. It is an accuracy HINT, not a correctness requirement: a store returning nothing gives an
-    /// annotator no reuse candidates and everything still works, just less consistently. Forcing every BYO
-    /// store to implement it for a feature it may never enable would be a cost with no matching
-    /// guarantee.</para>
+    /// <para><b>It has a DEFAULT BODY on purpose — one of THREE on this interface, and the only one whose
+    /// default costs QUALITY rather than speed.</b> Ignoring <see cref="LinkManyAsync"/> or
+    /// <see cref="WriteBackAsync"/> leaves a store correct and merely slower; ignoring this one leaves it
+    /// correct and less CONSISTENT, because an annotator with no reuse candidates invents a fresh handle
+    /// where it could have matched an existing one. Every other member is required. Forcing a BYO store to
+    /// implement this for a feature it may never enable would be a cost with no matching guarantee — but
+    /// implement it if you enable annotation, because nothing reports the difference.</para>
     /// </summary>
     /// <param name="engine">The owning engine's name.</param>
     /// <param name="taskKey">The task to read within.</param>
