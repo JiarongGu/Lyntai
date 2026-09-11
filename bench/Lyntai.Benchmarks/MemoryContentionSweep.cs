@@ -21,9 +21,9 @@ namespace Lyntai.Benchmarks;
 /// <see cref="SweepDoubles.TryRealChatAsync"/> and <see cref="SweepDoubles.TryRealEmbedderAsync"/> already
 /// take: an arm that silently ran without a model would look exactly like a fast one, and a bag-of-words
 /// stand-in for the embedder was withdrawn once already for producing exactly that illusion (TASKS.md Part
-/// 69). The embedder itself is not probed here — a dead one is caught upstream, by the orchestrator's own
-/// identity check, before this bench ever starts. This is the positive control every cell here depends on.
-/// </para>
+/// 69). The embedder itself is not probed here — <c>devtools/scripts/memory-contention.mjs</c>'s
+/// <c>verifyIdentity</c> asserts its vector dimension before any cell runs. This is the positive control
+/// every cell here depends on.</para>
 ///
 /// <para>It measures nothing about recall QUALITY, and says so.</para>
 /// </summary>
@@ -151,6 +151,8 @@ internal static class MemoryContentionSweep
         var recallSeconds = Stopwatch.GetElapsedTime(recallWall).TotalSeconds;
 
         var annotation = rig.Annotation.Audit;
+        // Arm is blank here on purpose, not an oversight — this runner has no notion of which arm it ran
+        // under. The caller fills it in once there is more than one arm to distinguish.
         return new Row("", "solo",
             BenchStats.Percentile(writeMs, 0.50), BenchStats.Percentile(writeMs, 0.95),
             BenchStats.Percentile(writeMs, 0.99),
@@ -192,11 +194,11 @@ internal static class MemoryContentionSweep
             $"p99 {r.WriteP99:F1}ms ({r.WritesPerSecond:F2}/s) · recall p50 {r.RecallP50:F1}ms " +
             $"p95 {r.RecallP95:F1}ms p99 {r.RecallP99:F1}ms ({r.RecallsPerSecond:F2}/s) · errors {r.Errors}");
         Console.WriteLine($"  {"",-8} controls: hit-rate {r.HitRate:F3}" +
-            (r.HitRate < 1 ? "  <- BELOW 1: partly timing MISSES, not recalls" : "") +
+            (r.HitRate < 1 ? "  ← BELOW 1: partly timing MISSES, not recalls" : "") +
             $" · subjects/write {r.SubjectsPerWrite:F2}" +
-            (r.SubjectsPerWrite <= 0 ? "  <- ZERO: annotation is a no-op that still cost a call" : "") +
+            (r.SubjectsPerWrite <= 0 ? "  ← ZERO: annotation is a no-op that still cost a call" : "") +
             $" · distinct rerank scores {r.DistinctRerankScores}" +
-            (r.DistinctRerankScores <= 1 ? "  <- <=1: the reranker never discriminated" : ""));
+            (r.DistinctRerankScores <= 1 ? "  ← <=1: the reranker never discriminated" : ""));
     }
 
     public static async Task<int> RunAsync(string[] args)
