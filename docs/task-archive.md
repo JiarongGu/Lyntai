@@ -3101,3 +3101,31 @@ cell where contention does not resolve at 3 runs also produced a bench wording f
 told a `--repeat 3` reader to re-run with `--repeat`.
 
 - Price ONE model serving MANY seams, against one model per seam.
+
+## Part 191 — the fused verdict, measured against a READER, and the item's own prediction fails
+
+✅ done 2026-09-11, closing Part 128's reader-facing item. `docs/memory-measurements.md` §5
+(`locomo-verdict-partition-reader-n300`, `locomo-verdict-enginefuse-reader-n300`) holds the arms, both paired
+bounds, the resolvable floor and every control; nothing is copied here.
+
+**Outcome: the item predicted a null and the run refutes it — the SHIPPED partition costs a reader token-F1
+and `+enginefuse` gives most of it back, with both paired 95% bounds excluding zero.** The half that held is
+that fused, the arm still lands just short of its base (**D105**'s "removes a loss and never beats the
+base"). The half that failed is the premise: it is the PARTITION that moves the score, downward, so "this
+option costs nothing a reader notices" was never the question the run was going to answer.
+
+**The mechanism is the one D105 names, now seen on a reader-facing metric.** The judge endorses far more
+candidates than the page holds, so under `Partition` an endorsed set larger than the page REPLACES the
+ranking rather than refining it. **The default is not re-opened** — one workload, one small local reader,
+and D105 decided it on a different metric.
+
+**The reusable half is the BOUND.** This instrument had already been caught manufacturing multi-point
+effects at small n that vanished at full sample, so a bare "we saw no difference" from it is worth nothing;
+the paired CI half-width lets a null read as "nothing larger than X", and building that before the run is
+what turned an expected tie into a refutable result.
+
+**One defect found and deliberately not fixed here:** the harness calls the judge-graded column "generous by
+roughly 12 points", a hardcoded literal the run does not reproduce — the measured gap is about 27.
+`docs/memory-measurements.md` §5 states the measured figure; the bench line is untouched.
+
+- Give the fused verdict a READER-facing measurement.

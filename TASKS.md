@@ -15,25 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 9 Parts: 3 startable, 7 blocked, 1 watch, 1 decision-only
+## Open items — 11 across 9 Parts: 2 startable, 7 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 88 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 132 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 141 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 195 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 266 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 344 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 399 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 422 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 493 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 651 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 672 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
-| 737 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
+| 87 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 131 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 140 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 194 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 265 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 343 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 398 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 421 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 492 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 650 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 736 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
 
 <!-- open-items:end -->
 
@@ -48,7 +47,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is THREE items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is TWO items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -667,15 +666,15 @@ _**The fusion item CLOSED 2026-09-04** as `docs/task-archive.md` **Part 151** / 
 `GraphMemoryOptions.VerdictCombination` ships the choice with `Partition` — today's behaviour — as the
 default, so nothing moves for anyone who does not set it. The surface question it was blocked on was decided
 additively: changing the default would be a silent reordering no consumer can detect at compile time (D18's
-shape), bought on one model and one workload. **A reader-facing check is what it did NOT get** — see below._
+shape), bought on one model and one workload. **The reader-facing check it did NOT get has since run** — the
+note below._
 
-- [ ] **Give the fused verdict a READER-facing measurement.** `evidence-hit@k` reads the returned SET, and <!-- item: state=startable -->
-  fusion also REORDERS it, so the metric that priced the option is structurally blind to half of what it
-  does. Part 151 shipped on set-level evidence plus engine-level facts; what is missing is a QA arm
-  (token-F1 with a reader) over `VerdictCombination = Fuse` against the partition on the same judge.
-  <br>**Do not expect it to move the score** — fused, the arm lands on its base — so this is a check that
-  reordering costs nothing a reader notices, not a hunt for a gain. It belongs with Part 109's QA half,
-  which needs a second reader anyway.
+_**The reader-facing item CLOSED 2026-09-11** as `docs/task-archive.md` **Part 191**, and it closed by
+REFUTING its own prediction. It expected the option not to move the score; at n = 301 both paired bounds
+exclude zero — the shipped **partition** costs a reader real token-F1 and `+enginefuse` gives most of it
+back (`docs/memory-measurements.md` §5, which owns every figure). **The default is not re-opened**: one
+workload, one reader, and **D105** decided it on a different metric. What must not be carried forward is
+"fusing costs nothing a reader notices", which is the sentence the run killed._
 
 _**The frontier item CLOSED 2026-09-11** as `docs/task-archive.md` **Part 187**, and the answer is the
 second branch it offered: **there is no knee, so it is not worth walking**. A six-point ladder
