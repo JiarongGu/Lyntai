@@ -242,7 +242,7 @@ internal static class MemoryLocomoBench
             : composition
             ? [FusedThreeShot, $"vector-{ShotBudget}"]
             : verdictOnly
-                ? ["+sem+rel-only", .. VerdictArms.Select(JudgeArmName)]
+                ? [VerdictBaseArmName, .. VerdictArms.Select(JudgeArmName)]
                 : shotsOnly
             ? ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}", "full"]
             : retrievalOnly
@@ -267,6 +267,24 @@ internal static class MemoryLocomoBench
             }
             arms = [.. arms.Where(a => requested.Contains(a, StringComparer.Ordinal))];
             armsFiltered = true;
+        }
+
+        // `--verdict`'s three names, checked the moment `arms` is final — before a single conversation is
+        // loaded or a single model call spent answering or judging anything. A subset that keeps both judge
+        // arms but drops the base still passes `AssertVerdictAuditsAgree` later (both judge arms ran), so
+        // without this the run would silently diff the partition against itself: the base is what makes a
+        // partition/fuse tie readable at all.
+        if (verdictOnly)
+        {
+            var required = new[] { VerdictBaseArmName, JudgeArmName(VerdictArms[0]), JudgeArmName(VerdictArms[1]) };
+            var missing = required.Where(name => !arms.Contains(name, StringComparer.Ordinal)).ToList();
+            if (missing.Count > 0)
+            {
+                Console.Error.WriteLine("--verdict: arm(s) " + string.Join(", ", missing) + " are not in "
+                    + "this run (dropped by --arms?). --verdict needs all three - base, partition and "
+                    + "enginefuse - the base is what makes a partition/fuse tie readable at all.");
+                return 1;
+            }
         }
 
         var (conversations, questions) = Load(path);
@@ -1280,7 +1298,11 @@ internal static class MemoryLocomoBench
         List<double>? partitionMinusBase = null;
         if (verdictOnly)
         {
-            var baseF1 = verdictF1![arms[0]];
+            // All three resolved by LITERAL NAME, never positionally: `--arms` narrows (and can reorder)
+            // `arms` before `verdictF1` is built from it, so `arms[0]` is the base only when nothing was
+            // dropped. The presence of all three is asserted above, right after `--arms` narrows `arms` -
+            // before a model call - so these lookups cannot throw.
+            var baseF1 = verdictF1![VerdictBaseArmName];
             var partitionF1 = verdictF1[JudgeArmName(VerdictArms[0])];
             var fusedF1 = verdictF1[JudgeArmName(VerdictArms[1])];
             if (baseF1.Count != partitionF1.Count || partitionF1.Count != fusedF1.Count)
@@ -2159,6 +2181,11 @@ internal static class MemoryLocomoBench
         (null, false, null, null, false),
         (null, false, null, null, true),
     ];
+
+    /// <summary>`--verdict`'s unjudged base — the third name its differencing needs. One constant rather
+    /// than a repeated literal, because the arms list and the differencing block must agree on it exactly
+    /// and a typo in either copy would silently stop matching.</summary>
+    private const string VerdictBaseArmName = "+sem+rel-only";
 
     /// <summary>The verdict's weight against the ranking's own rank term when fusing. 1 puts them on equal
     /// footing, which is where a first measurement belongs — it is not a tuned value.</summary>

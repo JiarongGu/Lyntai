@@ -1,5 +1,3 @@
-using System.Linq;
-
 namespace Lyntai.Benchmarks;
 
 /// <summary>The two statistics a benchmark table needs before a percentage can be argued from.
