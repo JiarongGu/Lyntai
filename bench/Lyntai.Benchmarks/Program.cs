@@ -118,6 +118,14 @@ if (args.Contains("--density"))
 if (args.Contains("--gist-support"))
     return await MemoryGistSupportSweep.RunAsync(args);
 
+// `node devtools/dev.mjs memory-contention` → --contention. The second COST sweep, and the one memory-scale
+// named in its own NOT-swept list: "A MODEL IN THE LOOP. Annotation costs a model call per write and
+// verification one per recall; both would dominate every number here and neither is wired." This wires
+// them, plus reranking and embedding, and prices ONE backend serving all four against one per seam.
+// It measures nothing about recall QUALITY and says so — TASKS.md Part 177.
+if (args.Contains("--contention"))
+    return await MemoryContentionSweep.RunAsync(args);
+
 // `node devtools/dev.mjs memory-scale` → --scale. The one blind spot docs/memory.md §7 conceded outright:
 // nothing in this subsystem had exceeded a few hundred entries. The ONLY sweep here whose subject is COST
 // rather than recall quality — which is also why it runs sequentially where the others fan out, since
