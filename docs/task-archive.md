@@ -3076,3 +3076,26 @@ while at n = 200 the endorsement count was stable at 2.4. **A probe sets a hypot
 one**, and the pre-registered instrument check is what separated "inert" from "broken".
 
 - Does a newer small INSTRUCT model judge better? (size half)
+
+## Part 190 — ONE model serving MANY seams, priced: the CONTENTION half is bigger than the model-size half
+
+✅ done 2026-09-11, closing Part 177's contention item. `docs/memory-measurements.md` §5
+(`contention-mixed-recall-quiet-rerank`) holds the grid — {quiet, busy} × {judge, rerank} × {solo, mixed},
+`dedicated` topology, repeat 3 — and every figure and control stays there rather than being copied here.
+
+**Outcome: moving verification off the shared instruct model is worth most of the mixed-workload recall p50,
+and only the first 2x of it is the smaller model.** The cross-encoder is about twice as fast solo; the judge
+then pays a further ~10x for SHARING the chat server with annotation, which is the larger and more durable
+half. Neither arm ships — verification is opt-in in full, so both rows are rungs.
+
+**The bench's scope was wrong before it ran, and the correction is the reusable part.** It was planned around
+FOUR contending seams. `IMemoryVerificationPolicy` is a SINGULAR slot (**D115**), so judging and reranking are
+alternatives that can never contend with EACH OTHER; the seams are three and only annotation can contend.
+
+**Two structural facts came out of the SETUP rather than the measurement**, and live in
+`.claude/knowledge/pitfalls.md`: llama.cpp's router is a process SUPERVISOR (one child server per model, so
+consolidating saves no memory), and `--embedding` / `--reranking` are PROCESS-WIDE. A quiet-device `rerank`
+cell where contention does not resolve at 3 runs also produced a bench wording fix — the NOT-READABLE line
+told a `--repeat 3` reader to re-run with `--repeat`.
+
+- Price ONE model serving MANY seams, against one model per seam.

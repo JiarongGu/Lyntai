@@ -15,26 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 13 across 9 Parts: 4 startable, 7 blocked, 1 watch, 1 decision-only
+## Open items — 12 across 9 Parts: 3 startable, 7 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 89 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 133 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 142 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 196 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 267 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 345 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 400 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 423 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 494 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 652 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 673 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
-| 738 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
-| 774 | 177 | Price ONE model serving MANY seams, against one model per seam | startable |  |
+| 88 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 132 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 141 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 195 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 266 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 344 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 399 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 422 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 493 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 651 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 672 | 128 | Give the fused verdict a READER-facing measurement | startable |  |
+| 737 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
 
 <!-- open-items:end -->
 
@@ -49,7 +48,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is FOUR items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is THREE items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -771,21 +770,17 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   (llama.cpp #16407). `Voodisss` and `zhiqian99` are byte-identical to each other and correct. Prefer an
   official conversion, and smoke-test whatever you pull._
 
-- [ ] **Price ONE model serving MANY seams, against one model per seam.** The deployment shape the owner <!-- item: state=startable -->
-  named. A `llama-server` serves ONE model per process, so "multi-tasking" is either several resident
-  servers (memory-hungry, never swaps — the 2.6× advantage `repo-mechanics.md` records) or one router
-  server (`--models-dir`, which swaps). Measure: throughput and latency when annotation, judging and
-  reranking contend for one backend, against dedicated ones. **`memory-scale` is the harness shape to
-  mirror** — its subject is COST, it reports latency/throughput/bytes and no recall quality, and it runs
-  SEQUENTIALLY because contention biases a latency silently.
-  <br>**D107 is the warning**: the last concurrency ceiling found here was a process-global mutex no grep of
-  our own code could have found. Expect the answer to be an artefact of the serving layer rather than of the
-  model.
+_**The contention item CLOSED 2026-09-11** as `docs/task-archive.md` **Part 190**
+(`docs/memory-measurements.md` §5): moving verification off the shared instruct model is worth most of the
+mixed-workload recall p50, and **only the first 2x of that is the smaller model** — the rest is what the judge
+pays for SHARING the chat server with annotation. Its scope was wrong before it ran: there are THREE
+model-backed seams, not four, because `IMemoryVerificationPolicy` is a SINGULAR slot (**D115**)._
+
 _**The taxonomy item CLOSED 2026-09-10** as `docs/task-archive.md` **Part 185**: `docs/model-tasks.md`,
 reached from `CLAUDE.md`, `README.md`, `docs/memory.md` and `.claude/knowledge/model-decoupling.md`. **Its
 four proposed shapes were not the set** — a sweep found four more the list could not name, `score-a-pair`
 turned out to be two unrelated tasks, and `classify` overstated what this library hands a model. **Read
-that doc's §3 before scoping either item above**: the only sub-500 MB evidence this repository holds tests
+that doc's §3 before scoping the item above**: the only sub-500 MB evidence this repository holds tests
 the RERANKER role, is `ships=no`, and the library ships no adapter that can call a rerank endpoint — so
 "which shapes survive at <500 MB" is still eight blanks and one qualified cell._
 
