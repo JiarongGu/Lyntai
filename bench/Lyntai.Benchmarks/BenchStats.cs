@@ -71,4 +71,23 @@ internal static class BenchStats
         < 0.01 => $"p={p:F4}",
         _ => $"p={p:F3}",
     };
+
+    /// <summary>Nearest-rank, on a copy — <see cref="List{T}.Sort"/> mutates, and a caller taking several
+    /// percentiles off the same sample reads it again for the next one.
+    ///
+    /// <para><b>Hoisted here 2026-09-11</b>, when <c>MemoryContentionSweep</c> needed the identical helper
+    /// <c>MemoryScaleSweep</c> already carried privately. A private second copy is the duplication this
+    /// class exists to prevent — two percentile functions that drift produce two believable tables, the same
+    /// reasoning <see cref="SweepDoubles"/>'s own hoisting note gives for a shared judge client.</para>
+    /// </summary>
+    /// <param name="values">The sample; never mutated by this call.</param>
+    /// <param name="q">The quantile in [0, 1].</param>
+    internal static double Percentile(IReadOnlyList<double> values, double q)
+    {
+        if (values.Count == 0) return 0;
+        var sorted = new List<double>(values);
+        sorted.Sort();
+        var rank = (int)Math.Ceiling(q * sorted.Count) - 1;
+        return sorted[Math.Clamp(rank, 0, sorted.Count - 1)];
+    }
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Lyntai.Memory;
 using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Engines;
@@ -15,12 +16,14 @@ namespace Lyntai.Benchmarks;
 /// <c>memory-enrichment</c> each measure their own seam in isolation; nothing had put all four in front of one
 /// server before, and <c>memory-scale</c> named the gap outright in its own NOT-swept list.
 ///
-/// <para><b>Refuses rather than substituting, on every seam.</b> <see cref="BuildRigAsync"/> checks the chat
-/// model and the reranker before returning a <see cref="Rig"/>, the same posture
+/// <para><b>Refuses rather than substituting, on the seams it checks.</b> <see cref="BuildRigAsync"/> checks
+/// the chat model and the reranker before returning a <see cref="Rig"/> — the same posture
 /// <see cref="SweepDoubles.TryRealChatAsync"/> and <see cref="SweepDoubles.TryRealEmbedderAsync"/> already
 /// take: an arm that silently ran without a model would look exactly like a fast one, and a bag-of-words
 /// stand-in for the embedder was withdrawn once already for producing exactly that illusion (TASKS.md Part
-/// 69). This is the positive control every cell here depends on.</para>
+/// 69). The embedder itself is not probed here — a dead one is caught upstream, by the orchestrator's own
+/// identity check, before this bench ever starts. This is the positive control every cell here depends on.
+/// </para>
 ///
 /// <para>It measures nothing about recall QUALITY, and says so.</para>
 /// </summary>
@@ -97,6 +100,105 @@ internal static class MemoryContentionSweep
         }
     }
 
+    /// <summary><paramref name="HitRate"/>, <paramref name="SubjectsPerWrite"/> and
+    /// <paramref name="DistinctRerankScores"/> are CONTROLS, not results. A recall that matches nothing is
+    /// fast and a table of fast misses looks like good news; an annotation that returns no subjects is a
+    /// fast no-op that still spent a model call; and a reranker returning one value for every candidate never
+    /// discriminated at all, which reads as a clean flat result rather than the broken instrument it is
+    /// (<see cref="CrossEncoderReranker.Audit"/> carries the same reasoning). Read all three before any
+    /// latency here.</summary>
+    private sealed record Row(
+        string Arm, string Load,
+        double WriteP50, double WriteP95, double WriteP99,
+        double RecallP50, double RecallP95, double RecallP99,
+        double WritesPerSecond, double RecallsPerSecond,
+        int Errors, double HitRate, double SubjectsPerWrite, int DistinctRerankScores);
+
+    /// <summary>One seam at a time. SEQUENTIAL on purpose — this is the baseline the mixed cell is read
+    /// against, so contention in it would make the comparison meaningless (MemoryScaleSweep's own rule).
+    /// </summary>
+    private static async Task<Row> RunSoloAsync(Rig rig, int writes, int recalls)
+    {
+        var writeMs = new List<double>(writes);
+        var errors = 0;
+
+        var writeWall = Stopwatch.GetTimestamp();
+        for (var i = 0; i < writes; i++)
+        {
+            var start = Stopwatch.GetTimestamp();
+            try { await rig.Engine.RememberAsync(new MemoryWrite("contention", Scope(i), Content(i))); }
+            catch (Exception) { errors++; }
+            writeMs.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+        }
+        var writeSeconds = Stopwatch.GetElapsedTime(writeWall).TotalSeconds;
+
+        var recallMs = new List<double>(recalls);
+        var hits = 0;
+        var recallWall = Stopwatch.GetTimestamp();
+        for (var i = 0; i < recalls; i++)
+        {
+            var target = i * Math.Max(1, writes / Math.Max(1, recalls));
+            var start = Stopwatch.GetTimestamp();
+            try
+            {
+                var recall = await rig.Engine.RecallAsync(
+                    new MemoryQuery("contention", Scope(target), Query(target), QueryLimit));
+                if (recall.Items.Count > 0) hits++;
+            }
+            catch (Exception) { errors++; }
+            recallMs.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+        }
+        var recallSeconds = Stopwatch.GetElapsedTime(recallWall).TotalSeconds;
+
+        var annotation = rig.Annotation.Audit;
+        return new Row("", "solo",
+            BenchStats.Percentile(writeMs, 0.50), BenchStats.Percentile(writeMs, 0.95),
+            BenchStats.Percentile(writeMs, 0.99),
+            BenchStats.Percentile(recallMs, 0.50), BenchStats.Percentile(recallMs, 0.95),
+            BenchStats.Percentile(recallMs, 0.99),
+            writeSeconds > 0 ? writes / writeSeconds : 0,
+            recallSeconds > 0 ? recalls / recallSeconds : 0,
+            errors, recalls > 0 ? hits / (double)recalls : 0,
+            annotation.Calls > 0 ? annotation.Subjects / (double)annotation.Calls : 0,
+            rig.Reranker.Audit.DistinctScores);
+    }
+
+    private const int QueryLimit = 10;
+    private static string Scope(int i) => $"s{i % 20}";
+    private static string Content(int i) =>
+        $"entry marker{i} covers the deployment checklist and its approval step for component {i % 97}";
+    private static string Query(int i) => $"marker{i}";
+
+    /// <summary>Writes and recalls per cell. <c>--smoke</c> collapses them so the harness can be exercised end
+    /// to end in under a minute — the same reason <see cref="MemoryScaleSweep"/> carries <c>--sizes</c>: an
+    /// instrument is code nothing else validates, and one whose only run takes an hour gets validated by
+    /// reading, which is how a corpus arm once reported 0.0000 on every shape and looked like a result.
+    /// </summary>
+    private static (int Writes, int Recalls) ParseVolume(string[] args) =>
+        args.Contains("--smoke") ? (8, 8) : (ParseInt(args, "--writes", 100), ParseInt(args, "--recalls", 100));
+
+    /// <summary>A named integer flag, e.g. <c>--writes 500</c> overriding <paramref name="fallback"/>. Mirrors
+    /// <see cref="MemoryScaleSweep"/>'s own flag parsers (<c>ParseRepeat</c>, <c>ParseWarmup</c>): same shape,
+    /// same reason.</summary>
+    private static int ParseInt(string[] args, string flag, int fallback)
+    {
+        var i = Array.IndexOf(args, flag);
+        return i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out var n) && n > 0 ? n : fallback;
+    }
+
+    private static void PrintRow(Row r)
+    {
+        Console.WriteLine($"  {r.Load,-8} write p50 {r.WriteP50:F1}ms p95 {r.WriteP95:F1}ms " +
+            $"p99 {r.WriteP99:F1}ms ({r.WritesPerSecond:F2}/s) · recall p50 {r.RecallP50:F1}ms " +
+            $"p95 {r.RecallP95:F1}ms p99 {r.RecallP99:F1}ms ({r.RecallsPerSecond:F2}/s) · errors {r.Errors}");
+        Console.WriteLine($"  {"",-8} controls: hit-rate {r.HitRate:F3}" +
+            (r.HitRate < 1 ? "  <- BELOW 1: partly timing MISSES, not recalls" : "") +
+            $" · subjects/write {r.SubjectsPerWrite:F2}" +
+            (r.SubjectsPerWrite <= 0 ? "  <- ZERO: annotation is a no-op that still cost a call" : "") +
+            $" · distinct rerank scores {r.DistinctRerankScores}" +
+            (r.DistinctRerankScores <= 1 ? "  <- <=1: the reranker never discriminated" : ""));
+    }
+
     public static async Task<int> RunAsync(string[] args)
     {
         using var http = NewHttp();
@@ -106,6 +208,12 @@ internal static class MemoryContentionSweep
         using var db = rig.Db;
         Console.WriteLine("memory-contention: chat, reranker, embedder and the shipped annotation/" +
             "verification policies are all wired onto one engine.");
+
+        var (writes, recalls) = ParseVolume(args);
+        Console.WriteLine($"  {writes} writes, {recalls} recalls per cell\n");
+
+        var solo = await RunSoloAsync(rig, writes, recalls);
+        PrintRow(solo);
         return 0;
     }
 }

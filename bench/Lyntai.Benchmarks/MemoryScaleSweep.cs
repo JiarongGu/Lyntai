@@ -208,7 +208,7 @@ internal static class MemoryScaleSweep
         var cores = (Process.GetCurrentProcess().TotalProcessorTime - cpu).TotalSeconds;
 
         var sorted = latencies.ToList();
-        return new ConcurrentRow(Percentile(sorted, 0.50), Percentile(sorted, 0.99),
+        return new ConcurrentRow(BenchStats.Percentile(sorted, 0.50), BenchStats.Percentile(sorted, 0.99),
             seconds > 0 ? queries / seconds : 0, seconds > 0 ? cores / seconds : 0, errors,
             queries > 0 ? hits / (double)queries : 0);
     }
@@ -321,8 +321,9 @@ internal static class MemoryScaleSweep
 
         return new Row(size.Label, arm.Label, size.Entries,
             writeSeconds > 0 ? size.Entries / writeSeconds : 0,
-            Percentile(recalls, 0.50), Percentile(recalls, 0.95), Percentile(recalls, 0.99),
-            Percentile(expansions, 0.50), Percentile(expansions, 0.95),
+            BenchStats.Percentile(recalls, 0.50), BenchStats.Percentile(recalls, 0.95),
+            BenchStats.Percentile(recalls, 0.99),
+            BenchStats.Percentile(expansions, 0.50), BenchStats.Percentile(expansions, 0.95),
             coldMs, DbBytes(db.DbPath), TimedQueries > 0 ? hits / (double)TimedQueries : 0);
     }
 
@@ -396,17 +397,6 @@ internal static class MemoryScaleSweep
         $"entry marker{i} covers the deployment checklist and its approval step for component {i % 97}";
 
     private static string Query(int i) => $"marker{i}";
-
-    /// <summary>Nearest-rank, on a copy — <see cref="List{T}.Sort"/> mutates, and the caller's list is read
-    /// again for the next percentile.</summary>
-    private static double Percentile(List<double> values, double q)
-    {
-        if (values.Count == 0) return 0;
-        var sorted = new List<double>(values);
-        sorted.Sort();
-        var rank = (int)Math.Ceiling(q * sorted.Count) - 1;
-        return sorted[Math.Clamp(rank, 0, sorted.Count - 1)];
-    }
 
     /// <summary>The db plus its write-ahead log, because a WAL that has not checkpointed holds real bytes and
     /// reporting the main file alone would understate a fresh store by most of its content.</summary>
