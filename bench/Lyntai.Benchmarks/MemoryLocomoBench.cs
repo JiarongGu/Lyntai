@@ -290,6 +290,11 @@ internal static class MemoryLocomoBench
         var f1 = new Dictionary<(string Arm, int Category), double>();
         var exact = new Dictionary<(string Arm, int Category), int>();
         var chars = new Dictionary<string, long>();
+        // `--verdict`'s own record, kept separately from `f1` above: that dictionary sums by (arm, category)
+        // and loses the per-question value the paired bound needs. Per arm, in QUESTION ORDER, so the three
+        // arms can be paired element-wise - a paired difference is only valid if both arms answered the SAME
+        // question at the same index.
+        var verdictF1 = verdictOnly ? arms.ToDictionary(a => a, _ => new List<double>()) : null;
         var millis = new Dictionary<string, double>();
         // `--composition`'s tallies, keyed by arm and — for the walk — by `<arm> shot-N`, so a per-shot row
         // and the final row come out of one pass.
@@ -1229,6 +1234,9 @@ internal static class MemoryLocomoBench
                                 arm, question = q.Text, gold = q.Gold, answer = hypothesis,
                                 unknown = true, f1 = 0.0, exact = false, judge = (bool?)null,
                             }));
+                        // Same value the dump above records for this case, so the paired list and the dump
+                        // cannot disagree about what an "unknown" scored.
+                        verdictF1?[arm].Add(0.0);
                         continue;
                     }
 
@@ -1245,6 +1253,7 @@ internal static class MemoryLocomoBench
                     f1[key] = f1.GetValueOrDefault(key) + itemF1;
                     if (itemExact) exact[key] = exact.GetValueOrDefault(key) + 1;
                     if (verdict is true) correct[key] = correct.GetValueOrDefault(key) + 1;
+                    verdictF1?[arm].Add(itemF1);
                     if (dump)
                         dumped.Add(JsonSerializer.Serialize(new
                         {
@@ -1263,10 +1272,38 @@ internal static class MemoryLocomoBench
                 judgeAudits[JudgeArmName(VerdictArms[1])]))
             return 1;
 
+        // The pairing IS the correctness risk: a paired difference is only valid if both arms answered the
+        // SAME question at the same index. Counts are asserted equal before any subtraction, and this
+        // refuses rather than truncating to the shortest - a silently truncated pairing would produce a
+        // believable number from mismatched questions, which is the worst available failure.
+        List<double>? fusedMinusPartition = null;
+        List<double>? partitionMinusBase = null;
+        if (verdictOnly)
+        {
+            var baseF1 = verdictF1![arms[0]];
+            var partitionF1 = verdictF1[JudgeArmName(VerdictArms[0])];
+            var fusedF1 = verdictF1[JudgeArmName(VerdictArms[1])];
+            if (baseF1.Count != partitionF1.Count || partitionF1.Count != fusedF1.Count)
+            {
+                Console.Error.WriteLine("--verdict: the three arms answered a different NUMBER of questions "
+                    + $"(base {baseF1.Count}, partition {partitionF1.Count}, enginefuse {fusedF1.Count}) so "
+                    + "they cannot be paired - refusing rather than truncating to the shortest.");
+                return 1;
+            }
+
+            fusedMinusPartition = [.. fusedF1.Zip(partitionF1, (fused, partition) => fused - partition)];
+            // The loss D105 says `+enginefuse` recovers, on THIS metric rather than the evidence-hit@k D105
+            // was priced on - the reference the resolvable floor above is judged against.
+            partitionMinusBase = [.. partitionF1.Zip(baseF1, (partition, @base) => partition - @base)];
+        }
+
         if (ranksOnly) PrintRanks(rankProbe);
         else if (composition) PrintComposition(comp);
         else if (shotsOnly) PrintShots(arms, correct, asked, returned, chars, millis);
         else PrintResults(arms, correct, asked, unknown, returned, retrievalOnly, f1, exact, chars, judged);
+
+        if (verdictOnly)
+            PrintVerdictBound(arms, f1, correct, asked, judgeAudits, fusedMinusPartition!, partitionMinusBase!);
 
         // Printed here rather than through PrintResults, which already takes ten arguments and describes
         // every arm — this describes only the judge arms, and only those that ran.
@@ -2005,6 +2042,64 @@ internal static class MemoryLocomoBench
             + $"({ReaderWindowChars} chars, measured by needle probe - see ReaderWindowChars).");
         Console.WriteLine("    The head of the prompt is dropped, so that row is a FLOOR and not a ceiling.");
         Console.WriteLine("    Do NOT read it as 'even full context does badly'.");
+    }
+
+    /// <summary>`--verdict`'s own report: the study's three-row table, then the paired bound that turns an
+    /// expected TIE into a refutable result rather than a bare "we saw no difference".</summary>
+    /// <param name="arms">The study's three arms, in order: base, partition, `+enginefuse`.</param>
+    /// <param name="fusedMinusPartition">Per-question `+enginefuse` minus partition - the study's question.</param>
+    /// <param name="partitionMinusBase">Per-question partition minus base - the loss D105 says `+enginefuse`
+    /// recovers, on this metric rather than the evidence-hit@k D105 was priced on.</param>
+    private static void PrintVerdictBound(IReadOnlyList<string> arms,
+        Dictionary<(string, int), double> f1, Dictionary<(string, int), int> correct,
+        Dictionary<(string, int), int> asked, Dictionary<string, JudgeAudit> judgeAudits,
+        IReadOnlyList<double> fusedMinusPartition, IReadOnlyList<double> partitionMinusBase)
+    {
+        Console.WriteLine();
+        Console.WriteLine("--verdict — what the VERDICT COMBINATION (D105) costs a reader. NOT D103's");
+        Console.WriteLine("ranking fusion, which this bench also runs as the `lyntai-fused*` arms.");
+        Console.WriteLine();
+        Console.WriteLine($"{"arm",-36} {"token-F1",9} {"judge-graded",13} {"endorsed/recall",16}");
+
+        foreach (var arm in arms)
+        {
+            var ask = ScoredCategories.Sum(c => asked.GetValueOrDefault((arm, c)));
+            var f1Mean = ask == 0 ? 0 : ScoredCategories.Sum(c => f1.GetValueOrDefault((arm, c))) / ask;
+            var graded = ask == 0 ? 0 : (double)ScoredCategories.Sum(c => correct.GetValueOrDefault((arm, c))) / ask;
+            // The base arm carries no verification policy, so it has no audit and the column reads "-"
+            // rather than a fabricated zero.
+            var judged = judgeAudits.TryGetValue(arm, out var audit) ? audit.Calls - audit.Declined : 0;
+            var endorsedRecall = judged == 0 ? "-" : $"{(double)audit!.Endorsed / judged:F1}/{RecallLimit}";
+            Console.WriteLine($"{arm,-36} {f1Mean,9:P1} {graded,13:P1} {endorsedRecall,16}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("  'judge-graded' is generous by roughly 12 points - the same model reads and grades");
+        Console.WriteLine("  the answer - but that bias is COMMON-MODE across all three arms, so the");
+        Console.WriteLine("  differences below survive it.");
+
+        Console.WriteLine();
+        var (mean, low, high) = BenchStats.PairedMeanInterval(fusedMinusPartition);
+        Console.WriteLine($"  enginefuse − partition: {mean:+0.0000;-0.0000;0.0000} token-F1, "
+            + $"95% CI [{low:+0.0000;-0.0000;0.0000}, {high:+0.0000;-0.0000;0.0000}]");
+        Console.WriteLine($"  => this run could not have resolved a difference smaller than "
+            + $"{(high - low) / 2:F4} token-F1.");
+
+        var (meanPb, lowPb, highPb) = BenchStats.PairedMeanInterval(partitionMinusBase);
+        Console.WriteLine($"  partition − base: {meanPb:+0.0000;-0.0000;0.0000} token-F1, "
+            + $"95% CI [{lowPb:+0.0000;-0.0000;0.0000}, {highPb:+0.0000;-0.0000;0.0000}]");
+        Console.WriteLine($"  => this run could not have resolved a difference smaller than "
+            + $"{(highPb - lowPb) / 2:F4} token-F1.");
+
+        Console.WriteLine();
+        Console.WriteLine("NOT measured here:");
+        Console.WriteLine("  - COST. The judge and the reader share one model, which is the contention");
+        Console.WriteLine("    priced in docs/memory-measurements.md section 5. It makes this run slow and");
+        Console.WriteLine("    is not this study's subject.");
+        Console.WriteLine("  - A SECOND READER. One reader cannot separate its own ceiling from the memory");
+        Console.WriteLine("    layer's; that is TASKS.md Part 109's remaining half.");
+        Console.WriteLine("  - LONGMEMEVAL. LoCoMo only; the two workloads reward opposite things.");
+        Console.WriteLine("  - ANY DEPTH BUT THE SHIPPED ONE, which is DERIVED (factor 4 x the recall limit).");
     }
 
     /// <summary>The judge ladder, as (depth, fuse, top, budget) tuples. <c>Depth</c> <c>null</c> is the
