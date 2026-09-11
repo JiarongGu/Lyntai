@@ -3902,6 +3902,16 @@ is the reason this is a result rather than the self-grader's opinion.
 the difference it is judged against from the rows it has just printed (`docs/FIXES.md`, 2026-09-11). Every
 other number in that file stands; only that one line does not.
 
+**The harm needs a FLOODING judge, and the verification backend that ships cannot flood — so this result is
+CONDITIONAL, not general.** `Partition` only costs anything when the endorsed set is larger than the page:
+everything unendorsed is pushed off however well it was ranked, so promotion REPLACES the ranking instead of
+refining it. This run's judge endorsed **33.6 for a 20-slot page**, which is the condition met.
+`CrossEncoderVerificationOptions.EndorseCount` — the shipped cross-encoder seam (**D115**) — is a **FIXED
+count defaulting to 20**, so it endorses at most a page's worth by construction and **cannot reach the
+failure measured here at all**. Read the 3.5 points as the price of an instruct judge that floods, never as a
+property of `Partition` alone; on the seam a deployment is most likely to register, the two combination rules
+have nothing to choose between them.
+
 **What it does NOT say.** **COST** — the judge and the reader share one model, which is the contention
 priced in the section above, so nothing here prices the option's latency. **A SECOND READER** — one reader
 cannot separate its own ceiling from the memory layer's, and that is `TASKS.md` Part 109's remaining half;
