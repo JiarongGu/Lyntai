@@ -849,6 +849,9 @@ async function runMeasuredCell(arm, device, handle, ownedPids, knownNeighbourPid
     // A router arm's `ownedPids` is only the router process itself — its per-model children are a SEPARATE
     // PID the census would otherwise flag as contamination. Walk the same transitive closure `neighbourPids`
     // uses so a router's own children count as ours.
+    // KNOWN LIMIT: one SNAPSHOT, taken before the cell. `router-swapping` evicts and reloads a model
+    // mid-cell, so that child arrives after this and reads as contamination — a false ALARM, never a wrong
+    // number, and `dedicated` (the default, and the only arm any published figure used) cannot hit it.
     const seedPids = busy ? [...ownedPids, busy.pid] : ownedPids;
     const rows = await llamaServerProcesses();
     const ownPids = [...ownedPidClosure(rows, seedPids)];
