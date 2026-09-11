@@ -7,8 +7,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  FIXTURE, longProbe, parseRerankRows, byDocumentOrder, evaluateOrdering, maxDrift,
-  headVerdict, HEAD_TENSORS, readGgufHeader, parseArgs, DEFAULT_PORT,
+  FIXTURE, REFERENCE, COMPRESSED_SPREAD, longProbe, parseRerankRows, byDocumentOrder, evaluateOrdering,
+  evaluateReference, maxDrift, headVerdict, HEAD_TENSORS, readGgufHeader, parseArgs, DEFAULT_PORT,
 } from '../rerank-screen.mjs';
 
 const rows = (...scores) => scores.map((score, index) => ({ index, score }));
@@ -168,6 +168,55 @@ describe('parseArgs', () => {
     const a = parseArgs(['--model', 'C:/m.gguf', '--label', 'tiny']);
     assert.equal(a.model, 'C:/m.gguf');
     assert.equal(a.label, 'tiny');
+  });
+});
+
+describe('evaluateReference — the check FIXTURE was too easy to make', () => {
+  const ref = (a, b) => [{ index: 0, score: a }, { index: 1, score: b }];
+
+  it('passes a healthy cross-encoder: right order, logit-scaled spread', () => {
+    // LAMAR-600m, measured: 6.1589 / -7.7068 against the card's 8.607 / -4.320.
+    const v = evaluateReference(ref(6.1589, -7.7068));
+    assert.equal(v.ordered, true);
+    assert.equal(v.compressed, false);
+    assert.ok(v.ratio > 0.5 && v.ratio < 2, `ratio ${v.ratio} should be near 1 for a healthy model`);
+  });
+
+  it('FAILS the GGUF that inverts the pair — which the easy fixture passed', () => {
+    // ms-marco-MiniLM-L6-v2 Q8_0, measured: -0.0927 / -0.0778. It ranks "Berlin is well known for its
+    // museums" ABOVE the population figure. This is the case the whole reference pair exists for.
+    const v = evaluateReference(ref(-0.09269176, -0.07776129));
+    assert.equal(v.ordered, false, 'the answering passage must not score below the merely on-topic one');
+    assert.equal(v.compressed, true);
+  });
+
+  it('flags a COLLAPSED spread even when the ordering survives', () => {
+    // jina-reranker-v1-tiny-en Q4_K_M, measured: 0.1228 / 0.0290. Order right, spread 137.8x too small —
+    // degraded, not broken, and the two must not report the same verdict.
+    const v = evaluateReference(ref(0.12275171, 0.02895314));
+    assert.equal(v.ordered, true);
+    assert.equal(v.compressed, true, 'a 0.094 spread is not a logit separation');
+    assert.ok(v.ratio > 100);
+  });
+
+  it('reads the relevant document from the fixture rather than assuming index 0', () => {
+    const flipped = { ...REFERENCE, relevant: 1 };
+    assert.equal(evaluateReference(ref(5, -5), flipped).ordered, false);
+    assert.equal(evaluateReference(ref(-5, 5), flipped).ordered, true);
+  });
+
+  it('keeps the published pair and its source together, so the magnitude is attributable', () => {
+    assert.equal(REFERENCE.published.length, 2);
+    assert.ok(REFERENCE.published[0] > 0 && REFERENCE.published[1] < 0);
+    assert.match(REFERENCE.source, /model card/);
+    assert.ok(COMPRESSED_SPREAD > 0 && COMPRESSED_SPREAD < 12.9272,
+      'the threshold must sit below the published spread or it can never pass');
+  });
+
+  it('uses two ON-TOPIC documents, which is what makes it harder than FIXTURE', () => {
+    // Both mention Berlin, so lexical overlap cannot separate them and a degraded head cannot coast.
+    assert.equal(REFERENCE.documents.length, 2);
+    for (const d of REFERENCE.documents) assert.match(d, /Berlin/);
   });
 });
 

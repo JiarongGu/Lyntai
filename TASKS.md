@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 9 Parts: 3 startable, 7 blocked, 1 watch, 1 decision-only
+## Open items — 12 across 9 Parts: 2 startable, 8 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -33,7 +33,7 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 493 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
 | 651 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
 | 737 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
-| 776 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | startable |  |
+| 776 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
 
 <!-- open-items:end -->
 
@@ -48,7 +48,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is THREE items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is TWO items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -773,31 +773,41 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   (llama.cpp #16407). `Voodisss` and `zhiqian99` are byte-identical to each other and correct. Prefer an
   official conversion, and smoke-test whatever you pull._
 
-- [ ] **Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no measured floor.** <!-- item: state=startable -->
-  **THE SIZING HALF IS ANSWERED (2026-09-12)** — `docs/memory-measurements.md` §5
-  (`rerank-screen-jina-tiny-33mb`), and the instrument is now `node devtools/dev.mjs rerank-screen`.
-  **A working reranker screens 8/8 at 33,257,824 B**, which is **14.1× below** the 468,393,760 B this line
-  called asserted-not-established. So sub-100 MB is real, and the two things that came with it are what is
-  left to act on.
-  <br>**One: it is ENGLISH-ONLY, and multilingual does NOT fit — structurally, not for want of looking.**
+- [ ] **Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no measured floor.** <!-- item: state=blocked kind=env needs="llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is dropped, so every BERT reranker is degraded — or a RoBERTa-family reranker that fits under 100 MB" -->
+  **THE SIZING HALF IS ANSWERED, AND THE ANSWER IS NO — the blocker is UPSTREAM (2026-09-12).**
+  `docs/memory-measurements.md` §5 (`rerank-screen-reference-pair`); the instrument is
+  `node devtools/dev.mjs rerank-screen`. **No sub-100 MB reranker scores correctly on llama.cpp today.**
+  A first pass claimed one did — 8/8 at 33,257,824 B — and it was **retracted within the hour**: that screen
+  used a fixture of one answer plus unrelated distractors, which a broken head passes. On a pair with a
+  published reference score, `ms-marco-MiniLM-L6-v2` ranks **backwards** and `jina-reranker-v1-tiny-en`
+  orders correctly with **137.8×** too little spread.
+  <br>**The cause is llama.cpp PR #21729, `open` and unmerged**: token_type_ids hardcoded to zero, pooling
+  layers dropped during conversion. A BERT cross-encoder therefore loses its pooler in the file and its
+  segment signal at runtime — and it needs segments to tell the query from the document.
+  **`tokenizer.ggml.token_type_count` predicts every result**: `2` wants a signal it will not get, `1` is
+  the RoBERTa/XLM-R family, which never had segment embeddings and is immune. So **a correct reranker must
+  today be RoBERTa-family**, that family cannot fit under 100 MB, and **468,393,760 B remains the floor**.
+  Not startable as a survey — re-surveying finds more BERT models with the same defect. What would change
+  it: #21729 merging, or a RoBERTa-family reranker small enough to fit.
+  <br>**And it is ENGLISH-ONLY anyway, with multilingual not fitting — structurally, not for want of
+  looking.**
   The best-architected multilingual candidate (`mmarco-mMiniLMv2-L12-H384-v1`, 117,641,603 params,
   `XLMRobertaForSequenceClassification`, `zh`+`ja` and **no `ko`**) bottoms out at **124,925,504 B** (Q4_K_M)
   against **132,584,000 B** (Q8_0) — **6.1% apart**, because XLM-R's 250,002-token vocabulary is 81.6% of the
   parameters. **Quantisation is not a lever on a model whose bulk is its embedding table**, so no quant of
   this architecture reaches 104,857,600 B. **Sub-100 MB and Chinese-first are incompatible on today's
   candidates** — that is a finding for the owner, not a task, and it lives in `docs/model-tasks.md` §3.
-  <br>**Two: NO QUALITY WAS MEASURED.** A screen says a model orders four sentences and survives a
-  6,263-character input. It says nothing about evidence-hit, and the 33 MB model has no workload figure at
-  all. **That is the startable work this item now points at**, and it is a different question from the one
-  the title asks.
+  <br>**And NO QUALITY WAS MEASURED, on any candidate.** A screen reproduces one published pair; it says
+  nothing about evidence-hit. Since nothing sub-100 MB scores correctly, there is currently nothing worth
+  spending a workload run on — which is why this item points at the upstream blocker rather than at a
+  measurement.
   <br>_**What the screen killed, recorded so it is not re-walked.** `ms-marco-MiniLM-L6-v2` Q8_0
-  (25,281,216 B) ranks correctly and is the SMALLER file — and is a 512-token BERT, so `--ctx-size` is
-  silently ignored and a 1,221-token document returns `400 … larger than the max context size`. Since
-  **D108** the seam hands a verifier `Content`, so the whole ms-marco-MiniLM family is disqualified for THIS
-  seam. And `cstr`'s conversions are **2 for 2 dead** — both refuse to load with `bert model needs to define
-  token type count`. `.claude/knowledge/pitfalls.md` carries all three traps, including why a
-  `cls.output.weight` check CANNOT condemn a non-BERT architecture: it read ABSENT on all three conversions
-  of the model that then screened 8/8._
+  (25,281,216 B) is also a 512-token BERT, so `--ctx-size` is silently ignored and a 1,221-token document
+  returns `400 … larger than the max context size` — independent of the head defect, and disqualifying on
+  its own for a seam that hands a verifier `Content` (**D108**). `cstr`'s conversions are **2 for 2 dead**,
+  both refusing to load with `bert model needs to define token type count`. And a `cls.output.weight` check
+  CANNOT condemn a non-BERT architecture: it read ABSENT on all three conversions of `jina-bert-v2`, which
+  names its head `cls.weight`. `.claude/knowledge/pitfalls.md` carries all of these._
   <br>**Still true and still the discipline**: SCORING only, never instruct models (806,058,240 B was inert
   with a ceiling of zero); and **state exact bytes**, never MB or MiB alone.
 

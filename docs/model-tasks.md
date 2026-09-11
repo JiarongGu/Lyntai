@@ -129,14 +129,24 @@ months newer at the same architecture and size scores identically. **State the b
 decides anything** — the same file is 606 MiB and 636 MB depending on the unit, and a 500 threshold falls
 between them.
 
-**Below that there are SCREENS and no scores, and the distinction is the whole of what they are worth**
-(2026-09-12, `rerank-screen-jina-tiny-33mb`). A screen asks *does this model order four sentences and
-survive a real-length input* — nothing more. On that bar a working reranker sits at **33,257,824 B**,
-**14.1× below** the figure above, so the sub-500 MB row is no longer the floor; it is the smallest point
-anyone has priced. Two limits travel with it and neither is incidental: that model is **English-only**, and
-the best-architected MULTILINGUAL candidate bottoms out at **124,925,504 B** because XLM-R's 250,002-token
-vocabulary is 81.6% of its parameters — **quantisation is not a lever on a model whose bulk is its
-embedding table**, so the sub-100 MB stretch and Chinese-first are, on today's candidates, incompatible.
+**Below that, nothing works today — and the blocker is UPSTREAM, not the model shelf** (2026-09-12,
+`rerank-screen-reference-pair`). This paragraph briefly claimed a working reranker at 33,257,824 B, *"14.1×
+below"* the figure above; that was retracted the same day when the candidates were re-screened on a pair
+with a published reference score. `ms-marco-MiniLM-L6-v2` ranks that pair **backwards**, and
+`jina-reranker-v1-tiny-en` orders it correctly with **137.8× too little separation**.
+
+**Read `tokenizer.ggml.token_type_count` before anything else.** llama.cpp PR #21729 — token_type_ids
+hardcoded to zero, pooling layers dropped in conversion — is **open and unmerged**, so a BERT cross-encoder
+loses its pooler in the file and its segment signal at runtime, and a cross-encoder needs segments to tell
+the query from the document. `2` means the model wants a signal it will not get; `1` means RoBERTa/XLM-R,
+which never had segment embeddings and is immune. **Every model that works here reads 1.**
+
+That collapses the sizing question into one sentence: **a correct reranker must currently be
+RoBERTa-family, and that family's 250,002-token vocabulary puts it above 100 MB** — the best multilingual
+candidate bottoms out at **124,925,504 B**, only 6.1% below its own Q8_0, because the vocabulary is 81.6%
+of the parameters and quantisation is not a lever on an embedding table. So **468,393,760 B remains the
+measured floor**, sub-100 MB is blocked by an unmerged patch rather than by availability, and the stretch
+target is worth re-aiming rather than re-surveying.
 
 **Three things that row does not say, and each one matters more than the number.**
 

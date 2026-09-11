@@ -14,7 +14,7 @@ figure is still current.
 
 <!-- results:begin — GENERATED. Edit the per-result `result:` markers, never this index. -->
 
-## Results — 83 measured: 58 current · 2 superseded · 23 retracted
+## Results — 84 measured: 58 current · 2 superseded · 24 retracted
 
 _Generated from the per-result `<!-- result: … -->` markers by
 `node devtools/dev.mjs check-measurements --write`. Edit a marker, never this table._
@@ -23,95 +23,96 @@ record. `SUPERSEDED` is never written by hand — it is derived from another row
 losing half of a pair cannot be the half nobody revisits. Line numbers are for JUMPING: the section
 itself carries the caveats, and no figure here is quotable without them._
 
-**14 of 83 rows measure the arm that actually SHIPS.** Every other row is a ladder
+**14 of 84 rows measure the arm that actually SHIPS.** Every other row is a ladder
 rung, a ceiling, an oracle or a baseline — reading one as a configuration recommendation is the
 mistake this column exists to prevent.
 
 | line | arm | metric | n | value | ships | status |
 | ---: | --- | --- | ---: | ---: | :---: | --- |
-| 128 | shipped limit 10, model-free ranking (each … | miss-decomposition | 140 relevant entr… | 100.0% | **ships** | CURRENT |
-| 144 | `gemma3:4b` judge via `AddMemoryVerificatio… | miss | unstated | 0.2571 | — | CURRENT |
-| 193 | `gemma3:4b` on the Japanese hard case (one … | screen-verdict | 1 call per model,… | `[3,4]` — answe… | — | CURRENT |
-| 218 | `gemma3:4b` resident as a judge co-tenant o… | vram-resident | unstated | ~4.4 GB residen… | — | CURRENT |
-| 297 | `+sem+rel-only+hl512+rerank` — `bge-reranke… | evidence-hit@k | 200 | +5.0 | — | CURRENT |
-| 313 | `+sem+rel-only+rerank` at the shipped `Head… | evidence-hit@k | 200 | 78.0% | — | RETRACTED |
-| 341 | `lyntai+hl512+rerank` — same `bge-reranker-… | prefers-current | 70 knowledge-upda… | 86.8% (59/68) | — | CURRENT |
-| 373 | `+sem+rel-only+judge+top20` — the same 4B j… | evidence-hit@k | 200 | 71.0% | — | CURRENT |
-| 408 | `LAMAR-600m` Q8_0 (2026-07) as reranker, ag… | evidence-hit@k | 200 | 91.0% | — | CURRENT |
-| 438 | `jina-reranker-v1-tiny-en` Q4_K_M (gpustack… | screen-verdict | 1 query × 4 docum… | 8/8 checks | — | CURRENT |
-| 496 | `LAMAR-600m` Q5_K_M on one `llama-server --… | screen-verdict | 6 calls of 4 docu… | 9.42e-3 max dri… | — | CURRENT |
-| 513 | the shipped `LlmMemoryVerificationPolicy` o… | endorsement-rate | 70 knowledge-upda… | 36.2% | — | CURRENT |
-| 606 | `SalienceWeight = 0` (now the shipped defau… | miss | 10 seeds; 10/10 l… | −0.0530 | **ships** | CURRENT |
-| 646 | the FIRST VERSION of the same sweep (verdic… | miss | unstated | 5/5 shapes bett… | — | RETRACTED |
-| 658 | shipped salience vs a `SalienceOff` control… | miss | 30 seeds × 6 shap… | +0.0384 | — | RETRACTED |
-| 763 | `NW1.5` (shipped `NoveltyWeight = 1.5`) vs … | miss | 30 seeds × 6 shap… | +0.0018 | **ships** | CURRENT |
-| 801 | `NW0.5` — the best rung under `nomic-embed-… | miss | 30 seeds × 6 shap… | −0.0116 | — | RETRACTED |
-| 827 | `lyntai` (shipped defaults) | evidence-hit@k | 200 | 54.5% | **ships** | CURRENT |
-| 896 | `lyntai` (shipped defaults) as FIRST publis… | evidence-hit@k | 200 | 11.0% | — | RETRACTED |
-| 1009 | `+sem+rel-only` (semantic seeds on, `Retrie… | evidence-hit@k | 200 | 63.5% | — | SUPERSEDED by L1100 |
-| 1090 | `+forget0+oracle` (PERFECT judge) multi-hop… | evidence-hit@k | 200 | 16 points | — | RETRACTED |
-| 1100 | `+sem+rel-only` under per-source seed fusio… | evidence-hit@k | unstated | 83.0% | — | CURRENT |
-| 1174 | ranking × walk interaction, `lyntai` → `lyn… | token-f1 | 1,540 | +1.0 | — | CURRENT |
-| 1176 | the same ranking × walk interaction measure… | token-f1 | 100 | +6.7 / +4.2 / +… | — | RETRACTED |
-| 1375 | shipped headline derivation — `MemoryHeadli… | marker-survival | 5,882 LoCoMo turns | 5,882 of 5,882 … | **ships** | CURRENT |
-| 1413 | fixed-slot content contrast `lyntai-2shot` … | token-f1 | 1,540 | +1.1 | — | RETRACTED |
-| 1459 | `lyntai-fused-full` — `lyntai-fused`'s own … | token-f1 | 200 | +11.7 | — | CURRENT |
-| 1509 | `lyntai-fused-full`, multi-hop category cel… | token-f1 | 200 (multi-hop ce… | 38.0 vs 37.8 | — | RETRACTED |
-| 1521 | `lyntai-fused-3shot-full` (three-shot walk … | token-f1 | 1,540 | −0.4 | — | CURRENT |
-| 1560 | `lyntai-fused-3shot-full` (+ the walk, 39.7… | token-f1 | 200 | +0.9 | — | RETRACTED |
-| 1603 | `lyntai-fused-api` (fused ranking + `Memory… | token-f1 | 1,540 | −0.4 | — | CURRENT |
-| 1658 | `+sem+rel-only` (best mechanical: semantic … | evidence-hit@k | 1,540 | 82.6% | — | CURRENT |
-| 1691 | `+forget0+oracle` (PERFECT judge, no semant… | evidence-hit@k | 1,540 | 74.6% | — | RETRACTED |
-| 1723 | `+sem+rel-only` (the arm that wins LoCoMo) … | prefers-current | 70 knowledge-upda… | −37.1 | — | CURRENT |
-| 1806 | `+sem+forget2` | evidence-hit@k | 200 | 69.5% | — | CURRENT |
-| 1860 | `+sem+forget0.5` — the top rung of a six-po… | evidence-hit@k | 200 | 80.5% | — | CURRENT |
-| 1905 | `+sem+rel-only+oracle` (a PERFECT judge — a… | evidence-hit@k | 200 | 92.5% | — | CURRENT |
-| 1941 | `+sem+rel-only+judge` (gemma3:4b, shipped `… | evidence-hit@k | 200 | 72.5% | — | SUPERSEDED by L2016 |
-| 2016 | `+sem+rel-only+judge@40` (depth 40 = 2×) | evidence-hit@k | 200 | 84.0% | — | CURRENT |
-| 2063 | `+sem+rel-only+judge+fuse` (same judge, sam… | evidence-hit@k | 200 | 83.0% | — | CURRENT |
-| 2157 | `+sem+rel-only+judge+budget5` | evidence-hit@k | 200 | 76.5% | — | CURRENT |
-| 2212 | `extract+forget0` — strong-CLI extracted fa… | prefers-current | 70 knowledge-upda… | 52.9% | — | CURRENT |
-| 2293 | `shot-2` on the `--haystack` variant (61,18… | all-evidence-recall | 125 of 133 multi-… | +4.8 | — | CURRENT |
-| 2319 | `shot-3` on the ORACLE variant | all-evidence-recall | 125 of 133 multi-… | +6.4 | — | RETRACTED |
-| 2333 | `extract+forget0` — `gemma3:4b`-extracted f… | prefers-current | 70 knowledge-upda… | 53.0% | — | CURRENT |
-| 2374 | `extract+reconcile` — ADD/UPDATE/DELETE at … | prefers-current | 25 | 75.0% | — | RETRACTED |
-| 2449 | `+sem` — decay ON (the one-knob partner of … | prefers-current | 70 questions (68 … | 72.5% | — | CURRENT |
-| 2492 | `RetrievabilityWeight` = 1 — shipped | recovery@k | 26 buried entries… | 100.0% | **ships** | CURRENT |
-| 2525 | the FIRST `--recover` run — `page@10` repor… | recovery@k | unstated | 'decay deletes … | — | RETRACTED |
-| 2545 | `+forget4` — `RetrievabilityWeight` walked … | prefers-current | 70 questions, of … | 100.0% | — | CURRENT |
-| 2566 | `lyntai`, haystack variant (model-free, k =… | prefers-current | 70 knowledge-upda… | 86.4% | **ships** | CURRENT |
-| 2637 | `lyntai` vs `vector` on LoCoMo, shared-stor… | evidence-hit@k | unstated | −49.5 | — | RETRACTED |
-| 2677 | `lyntai` shipped ranking observed by the `-… | rrf-score-separation | 25 questions, sam… | −29% | **ships** | CURRENT |
-| 2723 | K = 120 (RRF ladder rung), haystack | current@k | 25 questions | 0.0 points | — | RETRACTED |
-| 2749 | K = 60 (shipped) | evidence-hit@k | 200 LoCoMo questi… | 54.5% | **ships** | CURRENT |
-| 2796 | `shot-1` (single recall, no expansion), Lon… | clean | all 70 questions | 31.4% | **ships** | CURRENT |
-| 2828 | `shot-1` on the 25-question sample of the s… | clean | 25 questions | 40.0% | — | RETRACTED |
-| 2834 | `GraphMemoryOptions.ExpansionRetrievability… | clean | 25 questions | +4.0 | — | RETRACTED |
-| 2914 | `shot-2` on LoCoMo, shared-store run (pre-i… | evidence-hit@k | 200 questions | +6.0 | — | RETRACTED |
-| 2940 | `shot-1` (one-shot recall, shipped `k = 10`… | clean | 70 | 31.4% | — | CURRENT |
-| 3005 | `fill` (`k = 80`, engine's own `CharBudget`… | clean | 70 | 57.1% | — | CURRENT |
-| 3047 | `fill` (`k = 80`) latency in the run that p… | latency | unstated | 14.7 seconds | — | RETRACTED |
-| 3051 | `pool-16` (`GraphMemoryOptions.CandidateMul… | clean | 70 | 58.6% | — | CURRENT |
-| 3091 | `CandidateMultiplier` 4 (shipped) → 16, on … | all-evidence-recall | unstated | −28.0 | — | CURRENT |
-| 3117 | shipped `CandidateMultiplier = 4` (the `lyn… | evidence-hit@k | 200 | 54.5% | **ships** | CURRENT |
-| 3171 | `+sem+rel-only+oracle+pool16` (×16 pool = 3… | evidence-hit@k | unstated | 96.0% | — | CURRENT |
-| 3197 | `+oracle+pool32` (640 candidates, larger th… | evidence-hit@k | unstated | 100.0% | — | RETRACTED |
-| 3210 | `Partition` (shipped) against `+oracle+fuse… | evidence-hit@k | 200 | +2.0 | — | CURRENT |
-| 3236 | `ExpansionRetrievabilityFloor = 0.8`, knowl… | clean | 70q (knowledge-up… | +2.8 | — | CURRENT |
-| 3346 | shipped novelty salience policy at the ship… | miss | 10 seeds × 4 shap… | 0.710 | **ships** | CURRENT |
-| 3385 | `SalienceContext.SimilarCount` on authored … | separability-auc | 5 recurrence / 5 … | AUC = 1.000 | — | CURRENT |
-| 3417 | `recurrence` population mean `SimilarCount`… | similar-count | one probe per pop… | 6.00 | — | RETRACTED |
-| 3438 | `sum` — Σ r(m) — over an unbuilt gist tier,… | regime-picks | 600 replays = 60 … | phase A 300/300… | — | CURRENT |
-| 3469 | `count@θ`, θ = 0.9 read as one of the two p… | regime-picks | 600 replays = 60 … | phase B 300/300… | — | RETRACTED |
-| 3550 | `count@0.9` across `RoutineCount` rungs 3 /… | regime-picks | 2400 replays = 60… | tie 185 → A 175… | — | CURRENT |
-| 3590 | `mean` — Σ r(m)/n — under `bulk` with `Corp… | regime-picks | 2400 replays per … | B 300/300 at se… | — | CURRENT |
-| 3644 | reinforce on **expansion only** (the shippe… | miss | unstated | 0.4429 | — | CURRENT |
-| 3661 | shipped novelty-driven salience policy, iso… | miss | unstated (the `ma… | −0.0786 | **ships** | CURRENT |
-| 3700 | `shot-2` on the `--haystack` variant, `sing… | all-evidence-recall | 64 of 70 single-s… | +0.0 | — | CURRENT |
-| 3743 | `+sem+rel-only+judge` with `gemma-3-1b-it` … | evidence-hit@k | 200 | 83.0% | — | CURRENT |
-| 3787 | `rerank` — the bench-local `CrossEncoderVer… | latency | 50 writes + 50 re… | 94.5 ms recall … | — | CURRENT |
-| 3886 | `+sem+rel-only+judge` — the SHIPPED `Memory… | token-f1 | 301 questions sam… | −0.0346, CI [−0… | **ships** | CURRENT |
-| 3929 | `+sem+rel-only+judge+enginefuse` — the same… | token-f1 | 301 questions sam… | +0.0295, CI [+0… | — | CURRENT |
+| 129 | shipped limit 10, model-free ranking (each … | miss-decomposition | 140 relevant entr… | 100.0% | **ships** | CURRENT |
+| 145 | `gemma3:4b` judge via `AddMemoryVerificatio… | miss | unstated | 0.2571 | — | CURRENT |
+| 194 | `gemma3:4b` on the Japanese hard case (one … | screen-verdict | 1 call per model,… | `[3,4]` — answe… | — | CURRENT |
+| 219 | `gemma3:4b` resident as a judge co-tenant o… | vram-resident | unstated | ~4.4 GB residen… | — | CURRENT |
+| 298 | `+sem+rel-only+hl512+rerank` — `bge-reranke… | evidence-hit@k | 200 | +5.0 | — | CURRENT |
+| 314 | `+sem+rel-only+rerank` at the shipped `Head… | evidence-hit@k | 200 | 78.0% | — | RETRACTED |
+| 342 | `lyntai+hl512+rerank` — same `bge-reranker-… | prefers-current | 70 knowledge-upda… | 86.8% (59/68) | — | CURRENT |
+| 374 | `+sem+rel-only+judge+top20` — the same 4B j… | evidence-hit@k | 200 | 71.0% | — | CURRENT |
+| 409 | `LAMAR-600m` Q8_0 (2026-07) as reranker, ag… | evidence-hit@k | 200 | 91.0% | — | CURRENT |
+| 439 | `jina-reranker-v1-tiny-en` Q4_K_M (gpustack… | screen-verdict | 1 query × 4 docum… | 8/8 checks | — | RETRACTED |
+| 447 | the same three GGUFs on `cross-encoder/ms-m… | screen-verdict | 1 query × 2 docum… | control 10/10; … | — | CURRENT |
+| 520 | `LAMAR-600m` Q5_K_M on one `llama-server --… | screen-verdict | 6 calls of 4 docu… | 9.42e-3 max dri… | — | CURRENT |
+| 537 | the shipped `LlmMemoryVerificationPolicy` o… | endorsement-rate | 70 knowledge-upda… | 36.2% | — | CURRENT |
+| 630 | `SalienceWeight = 0` (now the shipped defau… | miss | 10 seeds; 10/10 l… | −0.0530 | **ships** | CURRENT |
+| 670 | the FIRST VERSION of the same sweep (verdic… | miss | unstated | 5/5 shapes bett… | — | RETRACTED |
+| 682 | shipped salience vs a `SalienceOff` control… | miss | 30 seeds × 6 shap… | +0.0384 | — | RETRACTED |
+| 787 | `NW1.5` (shipped `NoveltyWeight = 1.5`) vs … | miss | 30 seeds × 6 shap… | +0.0018 | **ships** | CURRENT |
+| 825 | `NW0.5` — the best rung under `nomic-embed-… | miss | 30 seeds × 6 shap… | −0.0116 | — | RETRACTED |
+| 851 | `lyntai` (shipped defaults) | evidence-hit@k | 200 | 54.5% | **ships** | CURRENT |
+| 920 | `lyntai` (shipped defaults) as FIRST publis… | evidence-hit@k | 200 | 11.0% | — | RETRACTED |
+| 1033 | `+sem+rel-only` (semantic seeds on, `Retrie… | evidence-hit@k | 200 | 63.5% | — | SUPERSEDED by L1124 |
+| 1114 | `+forget0+oracle` (PERFECT judge) multi-hop… | evidence-hit@k | 200 | 16 points | — | RETRACTED |
+| 1124 | `+sem+rel-only` under per-source seed fusio… | evidence-hit@k | unstated | 83.0% | — | CURRENT |
+| 1198 | ranking × walk interaction, `lyntai` → `lyn… | token-f1 | 1,540 | +1.0 | — | CURRENT |
+| 1200 | the same ranking × walk interaction measure… | token-f1 | 100 | +6.7 / +4.2 / +… | — | RETRACTED |
+| 1399 | shipped headline derivation — `MemoryHeadli… | marker-survival | 5,882 LoCoMo turns | 5,882 of 5,882 … | **ships** | CURRENT |
+| 1437 | fixed-slot content contrast `lyntai-2shot` … | token-f1 | 1,540 | +1.1 | — | RETRACTED |
+| 1483 | `lyntai-fused-full` — `lyntai-fused`'s own … | token-f1 | 200 | +11.7 | — | CURRENT |
+| 1533 | `lyntai-fused-full`, multi-hop category cel… | token-f1 | 200 (multi-hop ce… | 38.0 vs 37.8 | — | RETRACTED |
+| 1545 | `lyntai-fused-3shot-full` (three-shot walk … | token-f1 | 1,540 | −0.4 | — | CURRENT |
+| 1584 | `lyntai-fused-3shot-full` (+ the walk, 39.7… | token-f1 | 200 | +0.9 | — | RETRACTED |
+| 1627 | `lyntai-fused-api` (fused ranking + `Memory… | token-f1 | 1,540 | −0.4 | — | CURRENT |
+| 1682 | `+sem+rel-only` (best mechanical: semantic … | evidence-hit@k | 1,540 | 82.6% | — | CURRENT |
+| 1715 | `+forget0+oracle` (PERFECT judge, no semant… | evidence-hit@k | 1,540 | 74.6% | — | RETRACTED |
+| 1747 | `+sem+rel-only` (the arm that wins LoCoMo) … | prefers-current | 70 knowledge-upda… | −37.1 | — | CURRENT |
+| 1830 | `+sem+forget2` | evidence-hit@k | 200 | 69.5% | — | CURRENT |
+| 1884 | `+sem+forget0.5` — the top rung of a six-po… | evidence-hit@k | 200 | 80.5% | — | CURRENT |
+| 1929 | `+sem+rel-only+oracle` (a PERFECT judge — a… | evidence-hit@k | 200 | 92.5% | — | CURRENT |
+| 1965 | `+sem+rel-only+judge` (gemma3:4b, shipped `… | evidence-hit@k | 200 | 72.5% | — | SUPERSEDED by L2040 |
+| 2040 | `+sem+rel-only+judge@40` (depth 40 = 2×) | evidence-hit@k | 200 | 84.0% | — | CURRENT |
+| 2087 | `+sem+rel-only+judge+fuse` (same judge, sam… | evidence-hit@k | 200 | 83.0% | — | CURRENT |
+| 2181 | `+sem+rel-only+judge+budget5` | evidence-hit@k | 200 | 76.5% | — | CURRENT |
+| 2236 | `extract+forget0` — strong-CLI extracted fa… | prefers-current | 70 knowledge-upda… | 52.9% | — | CURRENT |
+| 2317 | `shot-2` on the `--haystack` variant (61,18… | all-evidence-recall | 125 of 133 multi-… | +4.8 | — | CURRENT |
+| 2343 | `shot-3` on the ORACLE variant | all-evidence-recall | 125 of 133 multi-… | +6.4 | — | RETRACTED |
+| 2357 | `extract+forget0` — `gemma3:4b`-extracted f… | prefers-current | 70 knowledge-upda… | 53.0% | — | CURRENT |
+| 2398 | `extract+reconcile` — ADD/UPDATE/DELETE at … | prefers-current | 25 | 75.0% | — | RETRACTED |
+| 2473 | `+sem` — decay ON (the one-knob partner of … | prefers-current | 70 questions (68 … | 72.5% | — | CURRENT |
+| 2516 | `RetrievabilityWeight` = 1 — shipped | recovery@k | 26 buried entries… | 100.0% | **ships** | CURRENT |
+| 2549 | the FIRST `--recover` run — `page@10` repor… | recovery@k | unstated | 'decay deletes … | — | RETRACTED |
+| 2569 | `+forget4` — `RetrievabilityWeight` walked … | prefers-current | 70 questions, of … | 100.0% | — | CURRENT |
+| 2590 | `lyntai`, haystack variant (model-free, k =… | prefers-current | 70 knowledge-upda… | 86.4% | **ships** | CURRENT |
+| 2661 | `lyntai` vs `vector` on LoCoMo, shared-stor… | evidence-hit@k | unstated | −49.5 | — | RETRACTED |
+| 2701 | `lyntai` shipped ranking observed by the `-… | rrf-score-separation | 25 questions, sam… | −29% | **ships** | CURRENT |
+| 2747 | K = 120 (RRF ladder rung), haystack | current@k | 25 questions | 0.0 points | — | RETRACTED |
+| 2773 | K = 60 (shipped) | evidence-hit@k | 200 LoCoMo questi… | 54.5% | **ships** | CURRENT |
+| 2820 | `shot-1` (single recall, no expansion), Lon… | clean | all 70 questions | 31.4% | **ships** | CURRENT |
+| 2852 | `shot-1` on the 25-question sample of the s… | clean | 25 questions | 40.0% | — | RETRACTED |
+| 2858 | `GraphMemoryOptions.ExpansionRetrievability… | clean | 25 questions | +4.0 | — | RETRACTED |
+| 2938 | `shot-2` on LoCoMo, shared-store run (pre-i… | evidence-hit@k | 200 questions | +6.0 | — | RETRACTED |
+| 2964 | `shot-1` (one-shot recall, shipped `k = 10`… | clean | 70 | 31.4% | — | CURRENT |
+| 3029 | `fill` (`k = 80`, engine's own `CharBudget`… | clean | 70 | 57.1% | — | CURRENT |
+| 3071 | `fill` (`k = 80`) latency in the run that p… | latency | unstated | 14.7 seconds | — | RETRACTED |
+| 3075 | `pool-16` (`GraphMemoryOptions.CandidateMul… | clean | 70 | 58.6% | — | CURRENT |
+| 3115 | `CandidateMultiplier` 4 (shipped) → 16, on … | all-evidence-recall | unstated | −28.0 | — | CURRENT |
+| 3141 | shipped `CandidateMultiplier = 4` (the `lyn… | evidence-hit@k | 200 | 54.5% | **ships** | CURRENT |
+| 3195 | `+sem+rel-only+oracle+pool16` (×16 pool = 3… | evidence-hit@k | unstated | 96.0% | — | CURRENT |
+| 3221 | `+oracle+pool32` (640 candidates, larger th… | evidence-hit@k | unstated | 100.0% | — | RETRACTED |
+| 3234 | `Partition` (shipped) against `+oracle+fuse… | evidence-hit@k | 200 | +2.0 | — | CURRENT |
+| 3260 | `ExpansionRetrievabilityFloor = 0.8`, knowl… | clean | 70q (knowledge-up… | +2.8 | — | CURRENT |
+| 3370 | shipped novelty salience policy at the ship… | miss | 10 seeds × 4 shap… | 0.710 | **ships** | CURRENT |
+| 3409 | `SalienceContext.SimilarCount` on authored … | separability-auc | 5 recurrence / 5 … | AUC = 1.000 | — | CURRENT |
+| 3441 | `recurrence` population mean `SimilarCount`… | similar-count | one probe per pop… | 6.00 | — | RETRACTED |
+| 3462 | `sum` — Σ r(m) — over an unbuilt gist tier,… | regime-picks | 600 replays = 60 … | phase A 300/300… | — | CURRENT |
+| 3493 | `count@θ`, θ = 0.9 read as one of the two p… | regime-picks | 600 replays = 60 … | phase B 300/300… | — | RETRACTED |
+| 3574 | `count@0.9` across `RoutineCount` rungs 3 /… | regime-picks | 2400 replays = 60… | tie 185 → A 175… | — | CURRENT |
+| 3614 | `mean` — Σ r(m)/n — under `bulk` with `Corp… | regime-picks | 2400 replays per … | B 300/300 at se… | — | CURRENT |
+| 3668 | reinforce on **expansion only** (the shippe… | miss | unstated | 0.4429 | — | CURRENT |
+| 3685 | shipped novelty-driven salience policy, iso… | miss | unstated (the `ma… | −0.0786 | **ships** | CURRENT |
+| 3724 | `shot-2` on the `--haystack` variant, `sing… | all-evidence-recall | 64 of 70 single-s… | +0.0 | — | CURRENT |
+| 3767 | `+sem+rel-only+judge` with `gemma-3-1b-it` … | evidence-hit@k | 200 | 83.0% | — | CURRENT |
+| 3811 | `rerank` — the bench-local `CrossEncoderVer… | latency | 50 writes + 50 re… | 94.5 ms recall … | — | CURRENT |
+| 3910 | `+sem+rel-only+judge` — the SHIPPED `Memory… | token-f1 | 301 questions sam… | −0.0346, CI [−0… | **ships** | CURRENT |
+| 3953 | `+sem+rel-only+judge+enginefuse` — the same… | token-f1 | 301 questions sam… | +0.0295, CI [+0… | — | CURRENT |
 
 <!-- results:end -->
 
@@ -435,34 +436,48 @@ costing 10.5 points is an LLM JUDGE, which faces a different task — decide IF 
 answered, and stop — and a reranker never makes that choice. So this is silent on whether a newer small
 INSTRUCT model judges better, which is the open half.
 
-#### The sub-500 MB floor was ASSERTED; a working reranker sits at 33,257,824 B (smoke screen, 2026-09-12) <!-- result: id=rerank-screen-jina-tiny-33mb arm="`jina-reranker-v1-tiny-en` Q4_K_M (gpustack) served by `llama-server --reranking`, build 10603 — a four-document ordering screen, NOT a workload" metric=screen-verdict n="1 query × 4 documents, plus one 6,263-character extreme input" value="8/8 checks" ships=no status=CURRENT -->
+#### RETRACTED the same day: the sub-100 MB screen passed a reranker that ranks BACKWARDS (2026-09-12) <!-- result: id=rerank-screen-jina-tiny-33mb arm="`jina-reranker-v1-tiny-en` Q4_K_M (gpustack) served by `llama-server --reranking`, build 10603 — a four-document ordering screen, NOT a workload" metric=screen-verdict n="1 query × 4 documents, plus one 6,263-character extreme input" value="8/8 checks" ships=no status=RETRACTED -->
 
-`docs/model-tasks.md` §3 recorded that nothing here had measured anything below **468,393,760 B** in any
-role, so that floor was asserted rather than established. Screened with
-`node devtools/dev.mjs rerank-screen --model <gguf>`, whose two load-bearing assertions are the ones
-`pitfalls.md` prescribes for a reranker — **the ordering puts the answer first, and the scores are
-DISTINCT** — plus a probe of the longest input the memory benches can emit.
+**Published, then refuted within the hour, and the refutation is the result.** The claim was that a working
+reranker sits at **33,257,824 B**, 14.1× below the 468,393,760 B floor `docs/model-tasks.md` §3 had
+asserted. It rested on a four-document fixture — one answer plus three distractors — and **that fixture is
+too easy to detect a broken head.** Re-screened against a pair with a PUBLISHED reference score, two of the
+three models fail and one of them ranks the pair backwards.
 
-| model | on disk | arch | ranks correctly | serves 6,263 chars | screen |
-|---|---|---|---|---|---|
-| `LAMAR-600m` Q5_K_M (**control**) | 468,393,760 B | xlm-roberta | yes | yes | 8/8 |
-| **`jina-reranker-v1-tiny-en` Q4_K_M** | **33,257,824 B** | `jina-bert-v2` | **yes** | **yes** | **8/8** |
-| `ms-marco-MiniLM-L6-v2` Q8_0 | 25,281,216 B | `bert` | yes | **NO — HTTP 400** | 7/8 |
-| `cstr/ms-marco-MiniLM-L-6-v2` q4_k | 19,394,624 B | `bert` | — | — | **will not load** |
-| `cstr/mxbai-rerank-xsmall-v1` q4_k | 67,802,304 B | `bert` | — | — | **will not load** |
+<!-- result: id=rerank-screen-reference-pair arm="the same three GGUFs on `cross-encoder/ms-marco-MiniLM-L6-v2`'s own published example pair — two ON-TOPIC documents, only one of which answers" metric=screen-verdict n="1 query × 2 documents, against a published reference of [8.607138, -4.320078]" value="control 10/10; both sub-100 MB candidates fail" ships=no status=CURRENT supersedes="rerank-screen-jina-tiny-33mb" -->
 
-**A pair-scorer that works at all runs 14.1× below the previous floor.** The smallest thing this
-repository had ever served in the role was 468,393,760 B; `jina-reranker-v1-tiny-en` passes the same
-screen at 33,257,824 B, including the long-input probe.
+| model | on disk | arch | `token_type_count` | pooler tensor | reference pair | spread vs **12.9272** | screen |
+|---|---|---|---|---|---|---|---|
+| `LAMAR-600m` Q5_K_M (**control**) | 468,393,760 B | `bert` (from XLM-R) | **1** | **`cls.weight [1024,1024]`** | 6.161 / −7.700 ✓ | 13.861 (**0.9×**) | **10/10** |
+| `jina-reranker-v1-tiny-en` Q4_K_M | 33,257,824 B | `jina-bert-v2` | 2 | `cls.weight [384]` — a VECTOR | 0.123 / 0.029 ✓ | 0.094 (**137.8×**) | 9/10 |
+| `ms-marco-MiniLM-L6-v2` Q8_0 | 25,281,216 B | `bert` | 2 | **absent** | **−0.093 / −0.078 ✗** | −0.015 (**−860.9×**) | 7/10 |
+| `cstr/ms-marco-MiniLM-L-6-v2` q4_k | 19,394,624 B | `bert` | — | — | will not load | — | — |
+| `cstr/mxbai-rerank-xsmall-v1` q4_k | 67,802,304 B | `bert` | — | — | will not load | — | — |
 
-**The smaller file is the one that fails, and it fails at REQUEST time rather than at load.**
-`ms-marco-MiniLM-L6-v2` ranks the fixture correctly and is 6 MB smaller — and it is a 512-token BERT, so
-`--ctx-size 4096` is silently ignored and a 1,221-token document comes back
-`400 … larger than the max context size (512 tokens). skipping`. Since **D108** the seam hands a verifier
-`Content`, and a LoCoMo turn at ~6,000 characters is well past 512 tokens, so the whole
-ms-marco-MiniLM family is disqualified for THIS seam while being a perfectly good reranker for short
-candidates. The server is up and healthy when this happens, which is why it is a screen result and not a
-survey one.
+**`ms-marco-MiniLM-L6-v2` scores "Berlin is well known for its museums" ABOVE the population figure**, for
+the query *"How many people live in Berlin?"* — its own model card prints `[8.607138, -4.320078]` for those
+exact inputs. It is not weak; it is wrong. The retracted screen called it *"ranks correctly"*.
+
+**The cause is upstream and it is two defects, not one.** llama.cpp PR **#21729** — *"Add token_type_ids
+input for rerank model with type-embedding"* — is `state: open`, `merged: false`, opened 2026-04-10, and
+its body states that *"token_type_ids were hardcoded to zero and pooling layers were discarded during
+conversion, limiting BERT functionality to embedding generation only"*. Both halves are visible in the
+files above: the conversion leaves `ms-marco-MiniLM-L6-v2` with **no pooler tensor at all**, and every BERT
+cross-encoder declares `token_type_count = 2` — it *needs* segment ids to tell the query from the document
+— while the runtime feeds zeros.
+
+**Only the RoBERTa/XLM-R family is immune, and that is the whole finding.** `LAMAR-600m` declares
+`token_type_count = 1` because XLM-R has no segment embeddings to lose, and its pooler survived as a
+`[1024,1024]` matrix. It reproduces the reference pair at **0.9×**. So a *correct* reranker in this seam
+must today be RoBERTa-family — and that family's 250k-token vocabulary is exactly what puts it above
+100 MB. **Sub-100 MB is blocked by an unmerged upstream patch, not by model availability**, and
+**468,393,760 B remains the measured floor.** A reconversion does not fix it; the runtime half is not in
+the file.
+
+**The 512-token ceiling still holds and is now the lesser problem.** `ms-marco-MiniLM-L6-v2` also rejects a
+1,221-token document with `400 … larger than the max context size (512 tokens)` while the server is up and
+healthy — disqualifying for a seam that hands a verifier `Content` (**D108**). Recorded because it is
+independent of the head defect: fixing #21729 would leave it true.
 
 **Sub-100 MB does NOT survive the move to multilingual, and the reason is structural rather than a bad
 quant.** The only credible multilingual candidate at this scale is
@@ -482,16 +497,25 @@ produced, including why a `cls.output.weight` check cannot condemn a non-BERT ar
 
 **What this does NOT say, and the list is longer than the table.**
 
-1. **No quality was measured — none, on any workload.** A screen says a model ORDERS four sentences and
-   answers a long request. `LAMAR-600m`'s +6.0 came from `memory-locomo --retrieval` at n = 200; nothing
-   here is comparable to it, and **`jina-reranker-v1-tiny-en` has no evidence-hit figure at all**.
-2. **It is ENGLISH-ONLY** (`en` is its sole language tag), so it is disqualified for the Chinese-first
-   deployment the shortlist exists to serve, whatever it scores.
-3. **The fixture cannot see a near-tie flip.** Its top two documents are ~14 points apart on the control —
-   about 1,500× the score drift measured below — so it rules out a grossly unstable scorer and nothing
-   finer. On `ms-marco-MiniLM-L6-v2` that margin is only ~12×.
-4. `ships=no`, and the seam it would fill takes a `/v1/rerank` endpoint through
+1. **No quality was measured — none, on any workload.** A screen says a model reproduces one published pair
+   and survives a long request. `LAMAR-600m`'s +6.0 came from `memory-locomo --retrieval` at n = 200;
+   nothing here is comparable to it, and **no sub-100 MB model has an evidence-hit figure at all**.
+2. **A collapsed spread is not a measured quality loss.** `jina-reranker-v1-tiny-en` orders the reference
+   pair correctly at 137.8× too little separation. That is consistent with the two upstream defects and is
+   the reason not to spend a run on it; it is NOT a number saying how much recall it would cost.
+3. **Both candidates are ENGLISH-ONLY**, so neither is a Chinese-first answer whatever it scores.
+4. **One published pair is one pair.** It discriminates where the four-document fixture could not — that is
+   established — but a model could reproduce it and still be poor, and the reference magnitude belongs to
+   `ms-marco-MiniLM-L6-v2` rather than to every family.
+5. `ships=no`, and the seam it would fill takes a `/v1/rerank` endpoint through
    `AddMemoryCrossEncoderVerification` (**D115**). Nothing here recommends a default.
+
+**The instrument defect this pass created and caught, because it is the reusable half.** The first
+reference run FAILED the known-good control, which is implausible — and the cause was the harness sending
+`FIXTURE.query` with `REFERENCE.documents`, i.e. scoring the Apollo question against the Berlin passages.
+Both scored strongly negative and the ordering was meaningless. **A fixture's query and its documents must
+travel together**; the query is now a parameter with no default at the call site. The rule that saved it is
+the one this file already relies on: *when a check condemns the control, doubt the check first.*
 
 #### `/v1/rerank` is not bitwise repeatable within one server, and "reproduces exactly" is a RUN property (2026-09-12) <!-- result: id=rerank-repeatability-drift arm="`LAMAR-600m` Q5_K_M on one `llama-server --reranking` instance — the identical request repeated, and repeated after a differently-shaped batch" metric=screen-verdict n="6 calls of 4 documents on one server instance" value="9.42e-3 max drift" ships=no status=CURRENT -->
 

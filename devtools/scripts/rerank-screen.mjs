@@ -50,6 +50,49 @@ export const FIXTURE = {
 export const longProbe = () =>
   'The Apollo 11 mission. ' + 'Lunar module descent telemetry and crew transcript. '.repeat(120);
 
+/** A pair with a PUBLISHED reference score, and the check that `FIXTURE` was too easy to make.
+ *
+ *  Both documents are on-topic — only one answers — so lexical overlap cannot separate them and a model
+ *  whose head has been degraded by conversion cannot coast. `FIXTURE` alone passed a GGUF that ranks these
+ *  two BACKWARDS, so this is not a redundant second ordering check; it is the one that discriminates.
+ *
+ *  `published` is what `cross-encoder/ms-marco-MiniLM-L6-v2`'s own model card prints for these exact
+ *  inputs. It belongs to THAT model, so the SPREAD is a diagnostic rather than a threshold — a healthy
+ *  cross-encoder of any family separates a relevant from an irrelevant passage by units, not by
+ *  hundredths, and a spread two orders of magnitude below this one means the scores are no longer logits. */
+export const REFERENCE = {
+  query: 'How many people live in Berlin?',
+  documents: [
+    'Berlin had a population of 3,520,031 registered inhabitants in an area of 891.82 square kilometers.',
+    'Berlin is well known for its museums.',
+  ],
+  relevant: 0,
+  published: [8.607138, -4.320078],
+  source: 'cross-encoder/ms-marco-MiniLM-L6-v2 model card',
+};
+
+/** Below this, a score is not a logit any more. `ms-marco-MiniLM-L6-v2` converted by stock llama.cpp
+ *  spreads these two by 0.015 where its own card spreads them by 12.93, and it spreads them the WRONG
+ *  WAY — the conversion drops the pooler and the runtime zeroes `token_type_ids`, so a BERT cross-encoder
+ *  loses the segment signal that tells the query from the document. */
+export const COMPRESSED_SPREAD = 1.0;
+
+/** `{ordered, spread, ratio, compressed}` for the reference pair. `ordered` is the assertion; the rest is
+ *  reported, because the published magnitude is one model's and the ordering is every model's. */
+export function evaluateReference(rows, reference = REFERENCE) {
+  const byIndex = rows.slice().sort((a, b) => a.index - b.index).map((r) => r.score);
+  const other = reference.relevant === 0 ? 1 : 0;
+  const spread = byIndex[reference.relevant] - byIndex[other];
+  const published = reference.published[0] - reference.published[1];
+  return {
+    ordered: spread > 0,
+    spread,
+    ratio: published / spread,
+    compressed: Math.abs(spread) < COMPRESSED_SPREAD,
+    scores: byIndex,
+  };
+}
+
 /** `{index, score}[]` from a `/v1/rerank` body, or NULL when the shape is unusable — never a fabricated
  *  ordering, which would be indistinguishable from a real one in a table. Accepts both the Cohere
  *  (`relevance_score`) and the bare (`score`) spellings, as `CrossEncoderRerank.cs` does. */
@@ -294,10 +337,13 @@ async function screenMain(opts) {
   const before = neighbourPids(await llamaRows(), []);
   console.log(`  neighbours before: ${JSON.stringify(before)} (not ours — must survive teardown)`);
 
-  const rank = async (documents) => {
+  // The query is a PARAMETER, never a default. It was `FIXTURE.query` for every call, so the reference
+  // pair was scored against the wrong question — and the resulting FAIL on the known-good control is what
+  // exposed it. A fixture's query and its documents must travel together.
+  const rank = async (documents, query = FIXTURE.query) => {
     const r = await fetch(`http://127.0.0.1:${opts.port}/v1/rerank`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ model: label, query: FIXTURE.query, documents, top_n: documents.length }),
+      body: JSON.stringify({ model: label, query, documents, top_n: documents.length }),
     });
     const text = await r.text();
     let json = null; try { json = JSON.parse(text); } catch { /* keep raw for the report */ }
@@ -348,6 +394,20 @@ async function screenMain(opts) {
       `${v.distinct} of ${rows.length} — a flat scorer reorders nothing and reads as a clean null`);
     record('ORDERING puts the answer first', v.answerFirst);
     record('unrelated document ranks last', v.unrelatedLast);
+
+    // THE DISCRIMINATING CHECK. Two on-topic documents with a published reference score: the fixture
+    // above cannot separate a working head from a degraded one, and passed a GGUF that inverts this pair.
+    const refRows = parseRerankRows((await rank(REFERENCE.documents, REFERENCE.query)).json);
+    if (!refRows) record('scores the reference pair', false, 'no usable result');
+    else {
+      const ref = evaluateReference(refRows, REFERENCE);
+      record('REFERENCE pair: the answering passage outranks the on-topic one', ref.ordered,
+        `[${ref.scores.map((s) => s.toFixed(4)).join(', ')}] — published ` +
+        `[${REFERENCE.published.join(', ')}] (${REFERENCE.source})`);
+      record('reference scores are LOGIT-SCALED, not collapsed', !ref.compressed,
+        `spread ${ref.spread.toFixed(4)} vs published 12.9272 (${ref.ratio.toFixed(1)}x) — a collapsed ` +
+        `spread means a dropped pooler or zeroed token_type_ids, not a weak model`);
+    }
 
     const long = longProbe();
     const extreme = await rank([long, FIXTURE.documents[3]]);
