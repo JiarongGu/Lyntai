@@ -44,9 +44,11 @@ internal static class MemoryContentionSweep
     ///
     /// <para><b><see cref="Reranker"/> is built regardless of which backend fills verification.</b> Under
     /// <see cref="Verifier.Rerank"/> it scores every candidate through <see cref="CrossEncoderVerifier"/>;
-    /// under <see cref="Verifier.Judge"/> it is still probed for reachability but never invoked. Reading
-    /// <c>DistinctRerankScores</c> as 0 under <c>judge</c> and non-zero under <c>rerank</c> is exactly the
-    /// differential this sweep exists to show — not a broken control.</para></summary>
+    /// under <see cref="Verifier.Judge"/> it is still probed for reachability but never otherwise invoked —
+    /// and <see cref="CrossEncoderReranker.Reset"/>, called right after that probe succeeds, wipes the
+    /// probe's own scores so they cannot leak into the count. Reading <c>DistinctRerankScores</c> as 0 under
+    /// <c>judge</c> and non-zero under <c>rerank</c> is exactly the differential this sweep exists to show.
+    /// </para></summary>
     private sealed record Rig(
         GraphMemoryEngine Engine,
         CrossEncoderReranker Reranker,
@@ -85,6 +87,10 @@ internal static class MemoryContentionSweep
             Console.Error.WriteLine("memory-contention: no reranker — this arm prices a seam, not a stand-in.");
             return null;
         }
+        // The probe above just scored two sentences on THIS instance — without wiping that, DistinctRerankScores
+        // would start every cell already polluted by setup, the same contamination SeedAsync's writes once left
+        // in CountingAnnotation (pitfalls.md).
+        reranker.Reset();
 
         var embedder = new SweepDoubles.OpenAiCompatibleEmbedder(http, SweepDoubles.BaseUrl, SweepDoubles.Model);
         var clients = new SweepDoubles.BenchClientFactory(chat);

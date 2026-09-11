@@ -51,6 +51,18 @@ internal sealed class CrossEncoderReranker(HttpClient http, string baseUrl, stri
     /// same reasoning for salience).</summary>
     internal (int Calls, int Scored, int DistinctScores) Audit => (_calls, _scored, _values.Count);
 
+    /// <summary>Zeroes both counters and clears every distinct score seen. Called once, in
+    /// <see cref="MemoryContentionSweep.BuildRigAsync"/> immediately after <see cref="ReachableAsync"/>
+    /// succeeds, so that probe's own two scored pairs do not count toward the MEASURED region's
+    /// <c>DistinctRerankScores</c> control — the same reason <c>CountingAnnotation.Reset()</c> exists.
+    /// </summary>
+    internal void Reset()
+    {
+        Interlocked.Exchange(ref _calls, 0);
+        Interlocked.Exchange(ref _scored, 0);
+        _values.Clear();
+    }
+
     /// <summary>Scores every document against the query, best-first. Null when the endpoint did not answer
     /// with a usable result — never a fabricated ordering, which would be indistinguishable from a real one
     /// in the table.</summary>

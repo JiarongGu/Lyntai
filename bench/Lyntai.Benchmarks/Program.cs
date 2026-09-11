@@ -121,7 +121,8 @@ if (args.Contains("--gist-support"))
 // `node devtools/dev.mjs memory-contention` → --contention. The second COST sweep, and the one memory-scale
 // named in its own NOT-swept list: "A MODEL IN THE LOOP. Annotation costs a model call per write and
 // verification one per recall; both would dominate every number here and neither is wired." This wires
-// them, plus reranking and embedding, and prices ONE backend serving all four against one per seam.
+// annotation, verification and embedding onto one engine and prices what CONTENDS — verification is a
+// SINGULAR slot, so --verifier picks which backend (judge or rerank) fills it, never both at once (D115).
 // It measures nothing about recall QUALITY and says so — TASKS.md Part 177.
 if (args.Contains("--contention"))
     return await MemoryContentionSweep.RunAsync(args);
