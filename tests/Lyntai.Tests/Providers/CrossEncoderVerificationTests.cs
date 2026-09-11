@@ -45,6 +45,49 @@ public class CrossEncoderVerificationTests
     }
 
     [Fact]
+    public async Task A_backend_returning_ONE_score_for_everything_preserves_the_rank_order_it_was_shown()
+    {
+        // A degenerate backend must DEGRADE TO A NO-OP, and here that is load-bearing rather than
+        // incidental: candidates arrive in rank order (`MemoryVerificationRequest.Candidates`), so endorsing
+        // the engine's own leading k reproduces the engine's ranking under the shipped Partition. It holds
+        // only because the sort is STABLE — an unstable one would promote an arbitrary k from a backend that
+        // expressed no preference, which is worse than abstaining and would be invisible.
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """
+            {"results":[{"index":0,"relevance_score":0.5},
+                        {"index":1,"relevance_score":0.5},
+                        {"index":2,"relevance_score":0.5},
+                        {"index":3,"relevance_score":0.5}]}
+            """);
+
+        var verdict = await Policy(handler, endorse: 2).VerifyAsync(Request("a", "b", "c", "d"));
+
+        Assert.Equal(["a", "b"], verdict.RelevantIds);
+    }
+
+    [Fact]
+    public async Task A_backend_whose_scores_have_COLLAPSED_still_reorders_and_the_seam_cannot_flag_it()
+    {
+        // The dangerous shape, and the reason `CrossEncoderVerificationOptions` tells a deployment to check
+        // its endpoint's SEPARATION rather than trust this seam. Measured on a real sub-100 MB reranker: the
+        // scores are distinct and span 0.094 where a working model spans ~13.9, so they reorder by noise.
+        // Counting distinct scores cannot see it — there are four of four here, exactly as in the healthy
+        // case above — so this test pins the LIMITATION, not a defect to be fixed in the policy.
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """
+            {"results":[{"index":0,"relevance_score":0.0301},
+                        {"index":1,"relevance_score":0.0299},
+                        {"index":2,"relevance_score":0.0302},
+                        {"index":3,"relevance_score":0.0300}]}
+            """);
+
+        var verdict = await Policy(handler, endorse: 2).VerifyAsync(Request("a", "b", "c", "d"));
+
+        // It reorders on differences of 1e-4: "c" is promoted over the "a" it was shown first, and the
+        // verdict is indistinguishable from a confident one.
+        Assert.True(verdict.Judged);
+        Assert.Equal(["c", "a"], verdict.RelevantIds);
+    }
+
+    [Fact]
     public async Task Accepts_score_as_well_as_relevance_score()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,

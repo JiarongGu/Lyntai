@@ -3,7 +3,14 @@ namespace Lyntai.Providers.OpenAiCompatible;
 /// <summary>Configuration for <see cref="CrossEncoderVerificationPolicy"/> — an
 /// <see cref="Lyntai.Memory.Verification.IMemoryVerificationPolicy"/> backed by a cross-encoder over an
 /// OpenAI/Cohere-shaped <c>/v1/rerank</c> endpoint (llama.cpp's <c>--reranking</c> mode, Cohere, Jina,
-/// TEI).</summary>
+/// TEI).
+///
+/// <para><b>Verify your endpoint actually SCORES, because this seam cannot tell you that it does not.</b>
+/// A backend whose scores have collapsed toward each other still returns a well-formed body, still yields
+/// a full endorsement set, and reorders by noise — so a degraded deployment is indistinguishable from a
+/// working one here, and counting distinct scores does not separate them. Check that your endpoint
+/// separates a known-relevant from a known-irrelevant document by UNITS rather than by hundredths, against
+/// the same model and serving stack you will run.</para></summary>
 public sealed class CrossEncoderVerificationOptions
 {
     /// <summary>Endpoint base, e.g. <c>http://localhost:8081</c>. A reranker is its own process: one

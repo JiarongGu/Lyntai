@@ -17,13 +17,16 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D115** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3612 passed / 3633 total, 21 skipped` (the skips are
+**The baseline a green run should match:** `3614 passed / 3635 total, 21 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 703/703, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count well above 21 as "Docker is down and the whole Postgres leg went silently unexercised".
-**The passed figure above is DERIVED and not yet observed** (2026-09-11): the run that set the total had
-Docker down, so 3,630 and zero failures are measured while the 21-skip split is the previous baseline's —
-confirm it on the first run with Docker up.
+**The passed figure above is STILL DERIVED and still not observed** (last checked 2026-09-12): every run
+since 2026-09-11 has had Docker down. What IS measured on this tree is **`3418 passed / 3635 total, 217
+skipped`, zero failures** — the total and the zero are real, the 21-skip split is inherited from the last
+baseline taken with Docker up, and `3614` is that split applied to today's total. Confirm the pair on the
+first run with Docker up; until then a green run means "3,635 total and nothing failed", not that the
+Postgres leg passed.
 Everything else on that line is gated. `docs/GATES.md` is why each gate exists, what it measured and which
 numbers it holds.
 
