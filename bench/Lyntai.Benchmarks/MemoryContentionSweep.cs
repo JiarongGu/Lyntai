@@ -174,7 +174,13 @@ internal static class MemoryContentionSweep
     /// one server's slots — every other pairing here is measured to CONFIRM it costs nothing.</para>
     ///
     /// <para><b>The write:recall ratio is printed, not implied.</b> Annotation runs per write and judging per
-    /// recall, so an unbalanced driver reports the ratio rather than the contention.</para></summary>
+    /// recall, so an unbalanced driver reports the ratio rather than the contention.</para>
+    ///
+    /// <para><b><paramref name="workers"/> is PER LOOP, not the total in flight.</b> It sets
+    /// <c>MaxDegreeOfParallelism</c> independently on the write loop and the recall loop below, so up to
+    /// <c>2 × workers</c> requests reach the shared instruct-model server at once — that doubled figure, not
+    /// <paramref name="workers"/> alone, is the number this cell actually prices. The <c>Load</c> label and
+    /// the run preamble both say so explicitly rather than leaving a reader to infer it.</para></summary>
     private static async Task<Row> RunMixedAsync(Rig rig, int writes, int recalls, int workers)
     {
         var writeMs = new ConcurrentBag<double>();
@@ -213,7 +219,9 @@ internal static class MemoryContentionSweep
         var write = writeMs.ToList();
         var read = recallMs.ToList();
         var annotation = rig.Annotation.Audit;
-        return new Row("", $"mixed×{workers}",
+        // "/loop": workers is set independently on the write and recall loops above, so up to 2x this many
+        // requests are actually in flight against the shared server — the number that matters for contention.
+        return new Row("", $"mixed×{workers}/loop",
             BenchStats.Percentile(write, 0.50), BenchStats.Percentile(write, 0.95),
             BenchStats.Percentile(write, 0.99),
             BenchStats.Percentile(read, 0.50), BenchStats.Percentile(read, 0.95),
@@ -292,6 +300,50 @@ internal static class MemoryContentionSweep
         return i >= 0 && i + 1 < args.Length ? args[i + 1] : "unlabelled";
     }
 
+    /// <summary>How many times to run each cell, <c>--repeat 3</c> overriding the default 1. Mirrors
+    /// <see cref="MemoryScaleSweep"/>'s own <c>ParseRepeat</c> for the reason it recorded: a p99 under
+    /// contention is the noisiest number in that file, and a single-repeat run of one comparison reported a
+    /// 4-5 point improvement that vanished at five repeats — this sweep's mixed cell is exactly that kind of
+    /// contended measurement, read here off <c>RecallP50</c> rather than <c>P99</c>.</summary>
+    private static int ParseRepeat(string[] args)
+    {
+        var i = Array.IndexOf(args, "--repeat");
+        return i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out var n) && n > 0 ? n : 1;
+    }
+
+    /// <summary>Runs one cell <paramref name="repeat"/> times, each against its OWN fresh <see cref="Rig"/> —
+    /// a shared store across "independent" repetitions would let the second warm from the first, and a
+    /// shared <see cref="CountingAnnotation"/> or <see cref="CrossEncoderReranker"/> would accumulate their
+    /// counters across runs instead of reporting what THIS repetition alone did
+    /// (<see cref="MemoryScaleSweep"/>'s own reason for a fresh store per repetition). Keeps the MEDIAN by
+    /// <see cref="Row.RecallP50"/> — the statistic <see cref="PrintContentionCost"/> reads — because a mean
+    /// lets one slow run (a background build, a checkpoint) carry the cell. Returns a <c>null</c> median on
+    /// a mid-run refusal, so the caller can still exit 1 rather than reporting an unmeasured repetition as a
+    /// result.</summary>
+    private static async Task<(Row? Median, List<Row> Runs)> RunRepeatedCellAsync(
+        HttpClient http, int repeat, Func<Rig, Task<Row>> runCell)
+    {
+        var runs = new List<Row>(repeat);
+        for (var i = 0; i < repeat; i++)
+        {
+            var rig = await BuildRigAsync(http);
+            if (rig is null) return (null, runs);
+            using var db = rig.Db;
+            runs.Add(await runCell(rig));
+        }
+        return (runs.OrderBy(r => r.RecallP50).ElementAt(runs.Count / 2), runs);
+    }
+
+    /// <summary>The spread across <paramref name="runs"/>, printed only once <paramref name="repeat"/>
+    /// exceeds 1 — mirrors <see cref="MemoryScaleSweep"/>'s own repeat-spread line so a reader can see
+    /// whether a difference between cells outruns run-to-run noise.</summary>
+    private static void PrintSpread(List<Row> runs, int repeat)
+    {
+        if (repeat <= 1) return;
+        Console.WriteLine($"      ({repeat} runs, p50 recall spread " +
+            $"{runs.Min(r => r.RecallP50):F1}–{runs.Max(r => r.RecallP50):F1}ms)");
+    }
+
     private static void PrintRow(Row r)
     {
         Console.WriteLine($"  {r.Arm}/{r.Load,-8} write p50 {r.WriteP50:F1}ms p95 {r.WriteP95:F1}ms " +
@@ -308,26 +360,41 @@ internal static class MemoryContentionSweep
     public static async Task<int> RunAsync(string[] args)
     {
         using var http = NewHttp();
-        var rig = await BuildRigAsync(http);
-        if (rig is null) return 1;
 
-        using var db = rig.Db;
+        // Built only to gate on reachability before anything prints — the positive control BuildRigAsync's
+        // own header describes. Discarded rather than reused: every cell run below (RunRepeatedCellAsync)
+        // builds its OWN fresh rig, and reusing this one would let repetition 0 of the solo cell warm from it.
+        var probe = await BuildRigAsync(http);
+        if (probe is null) return 1;
+        probe.Db.Dispose();
+
         Console.WriteLine("memory-contention: chat, reranker, embedder and the shipped annotation/" +
             "verification policies are all wired onto one engine.");
 
         var (writes, recalls) = ParseVolume(args);
         var workers = ParseInt(args, "--workers", 4);
+        var repeat = ParseRepeat(args);
         var arm = ParseArm(args);
         // The write:recall ratio is PRINTED, not implied — annotation runs per write and judging per recall,
         // so an unbalanced driver would report the ratio rather than the contention (RunMixedAsync's own doc).
+        // `workers` is likewise spelled out as PER LOOP: the mixed cell drives it independently on the write
+        // and recall loops, so up to 2x this many requests are actually in flight at once.
         Console.WriteLine($"  {writes} writes, {recalls} recalls per cell — write:recall ratio {writes}:{recalls}, "
-            + $"{workers} workers\n");
+            + $"{workers} workers per loop on the mixed cell (up to {workers * 2} requests in flight together), "
+            + $"repeat {repeat}\n");
 
-        var solo = (await RunSoloAsync(rig, writes, recalls)) with { Arm = arm };
+        var (soloMedian, soloRuns) = await RunRepeatedCellAsync(http, repeat, r => RunSoloAsync(r, writes, recalls));
+        if (soloMedian is null) return 1;
+        var solo = soloMedian with { Arm = arm };
         PrintRow(solo);
+        PrintSpread(soloRuns, repeat);
 
-        var mixed = (await RunMixedAsync(rig, writes, recalls, workers)) with { Arm = arm };
+        var (mixedMedian, mixedRuns) =
+            await RunRepeatedCellAsync(http, repeat, r => RunMixedAsync(r, writes, recalls, workers));
+        if (mixedMedian is null) return 1;
+        var mixed = mixedMedian with { Arm = arm };
         PrintRow(mixed);
+        PrintSpread(mixedRuns, repeat);
 
         PrintContentionCost(solo, mixed);
         PrintNotSwept();
