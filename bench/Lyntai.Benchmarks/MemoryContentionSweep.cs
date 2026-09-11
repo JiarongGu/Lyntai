@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using Lyntai.Memory;
 using Lyntai.Memory.Annotation;
@@ -151,8 +152,8 @@ internal static class MemoryContentionSweep
         var recallSeconds = Stopwatch.GetElapsedTime(recallWall).TotalSeconds;
 
         var annotation = rig.Annotation.Audit;
-        // Arm is blank here on purpose, not an oversight — this runner has no notion of which arm it ran
-        // under. The caller fills it in once there is more than one arm to distinguish.
+        // Arm is blank here, not an oversight — this runner has no notion of which arm it ran under. RunAsync
+        // is the caller that fills it in, now that a mixed row exists beside this one to distinguish it from.
         return new Row("", "solo",
             BenchStats.Percentile(writeMs, 0.50), BenchStats.Percentile(writeMs, 0.95),
             BenchStats.Percentile(writeMs, 0.99),
@@ -163,6 +164,97 @@ internal static class MemoryContentionSweep
             errors, recalls > 0 ? hits / (double)recalls : 0,
             annotation.Calls > 0 ? annotation.Subjects / (double)annotation.Calls : 0,
             rig.Reranker.Audit.DistinctScores);
+    }
+
+    /// <summary>Writes and recalls driven CONCURRENTLY, which is the cell this sweep exists for.
+    ///
+    /// <para><b>Only two seams actually contend, and knowing which is the whole finding.</b> Router mode spawns
+    /// one server process per model, so the embedder and the reranker are different processes and cannot
+    /// contend with the judge at all. Annotation and judging both want the instruct model, so they share that
+    /// one server's slots — every other pairing here is measured to CONFIRM it costs nothing.</para>
+    ///
+    /// <para><b>The write:recall ratio is printed, not implied.</b> Annotation runs per write and judging per
+    /// recall, so an unbalanced driver reports the ratio rather than the contention.</para></summary>
+    private static async Task<Row> RunMixedAsync(Rig rig, int writes, int recalls, int workers)
+    {
+        var writeMs = new ConcurrentBag<double>();
+        var recallMs = new ConcurrentBag<double>();
+        var errors = 0;
+        var hits = 0;
+
+        var wall = Stopwatch.GetTimestamp();
+        var writing = Parallel.ForEachAsync(Enumerable.Range(0, writes),
+            new ParallelOptions { MaxDegreeOfParallelism = workers }, async (i, ct) =>
+            {
+                var start = Stopwatch.GetTimestamp();
+                try { await rig.Engine.RememberAsync(new MemoryWrite("contention", Scope(i), Content(i)), ct); }
+                catch (Exception) { Interlocked.Increment(ref errors); }
+                writeMs.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+            });
+
+        var recalling = Parallel.ForEachAsync(Enumerable.Range(0, recalls),
+            new ParallelOptions { MaxDegreeOfParallelism = workers }, async (i, ct) =>
+            {
+                var target = i * Math.Max(1, writes / Math.Max(1, recalls));
+                var start = Stopwatch.GetTimestamp();
+                try
+                {
+                    var recall = await rig.Engine.RecallAsync(
+                        new MemoryQuery("contention", Scope(target), Query(target), QueryLimit), ct);
+                    if (recall.Items.Count > 0) Interlocked.Increment(ref hits);
+                }
+                catch (Exception) { Interlocked.Increment(ref errors); }
+                recallMs.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+            });
+
+        await Task.WhenAll(writing, recalling);
+        var seconds = Stopwatch.GetElapsedTime(wall).TotalSeconds;
+
+        var write = writeMs.ToList();
+        var read = recallMs.ToList();
+        var annotation = rig.Annotation.Audit;
+        return new Row("", $"mixed×{workers}",
+            BenchStats.Percentile(write, 0.50), BenchStats.Percentile(write, 0.95),
+            BenchStats.Percentile(write, 0.99),
+            BenchStats.Percentile(read, 0.50), BenchStats.Percentile(read, 0.95),
+            BenchStats.Percentile(read, 0.99),
+            seconds > 0 ? writes / seconds : 0, seconds > 0 ? recalls / seconds : 0,
+            errors, recalls > 0 ? hits / (double)recalls : 0,
+            annotation.Calls > 0 ? annotation.Subjects / (double)annotation.Calls : 0,
+            rig.Reranker.Audit.DistinctScores);
+    }
+
+    /// <summary>Mixed against solo, refusing a negative exactly as <see cref="MemoryScaleSweep"/> does.
+    /// <para>Concurrency cannot make a seam FASTER than running it alone, so a negative delta is a statement
+    /// about run-to-run variance rather than about contention — and one run per cell carries no variance
+    /// estimate to net it against. Printing it as a percentage anyway is how "−7% of the p50" enters a
+    /// document as a finding.</para></summary>
+    private static void PrintContentionCost(Row solo, Row mixed)
+    {
+        var delta = mixed.RecallP50 - solo.RecallP50;
+        if (delta <= 0)
+        {
+            Console.WriteLine($"    {mixed.Arm}: NOT READABLE — mixed measured {-delta:F1}ms FASTER than solo, "
+                + "which contention cannot do. One run per cell, so this is variance. Re-run with --repeat.");
+            return;
+        }
+        Console.WriteLine($"    {mixed.Arm}: contention costs {delta:F1}ms of the p50 recall "
+            + $"({delta / solo.RecallP50 * 100:F0}% of it)");
+    }
+
+    private static void PrintNotSwept()
+    {
+        Console.WriteLine("\nNOT swept (stated rather than left implicit):");
+        Console.WriteLine("  - RECALL QUALITY. No ground truth here. Nothing says whether contention changes");
+        Console.WriteLine("    WHAT is returned, only what it costs.");
+        Console.WriteLine("  - A BUSY GPU, and this is the figure that does NOT transfer. Every cell was taken");
+        Console.WriteLine("    with the device quiet; generation swings from 12x faster to 26x slower between a");
+        Console.WriteLine("    quiet and a contended device while encoding stays ahead throughout. Read every");
+        Console.WriteLine("    number here as the quiet-device case (pitfalls.md, docs/model-tasks.md section 3).");
+        Console.WriteLine("  - `--parallel`. The chat server's slot count is fixed; varying it is the follow-on,");
+        Console.WriteLine("    and the axis ProviderAdmission speaks to.");
+        Console.WriteLine("  - POSTGRES. SQLite only, matching every sweep here.");
+        Console.WriteLine("  - Absolute latencies are THIS MACHINE's. Compare the arm differences.");
     }
 
     private const int QueryLimit = 10;
@@ -188,9 +280,21 @@ internal static class MemoryContentionSweep
         return i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out var n) && n > 0 ? n : fallback;
     }
 
+    /// <summary>The topology label this run stamps on every row, <c>--arm dedicated</c> overriding the
+    /// default. The orchestrator restarts this process once per topology (dedicated / router-resident /
+    /// router-swapping) against different <c>LYNTAI_LIVE_*</c> endpoints, and nothing in this process
+    /// otherwise knows which one it is — without this flag, three separate runs would print
+    /// identically-labelled rows once combined into one table. Defaults to "unlabelled" so a bare invocation
+    /// (this file's own refusal-path check) still prints a readable row rather than a blank label.</summary>
+    private static string ParseArm(string[] args)
+    {
+        var i = Array.IndexOf(args, "--arm");
+        return i >= 0 && i + 1 < args.Length ? args[i + 1] : "unlabelled";
+    }
+
     private static void PrintRow(Row r)
     {
-        Console.WriteLine($"  {r.Load,-8} write p50 {r.WriteP50:F1}ms p95 {r.WriteP95:F1}ms " +
+        Console.WriteLine($"  {r.Arm}/{r.Load,-8} write p50 {r.WriteP50:F1}ms p95 {r.WriteP95:F1}ms " +
             $"p99 {r.WriteP99:F1}ms ({r.WritesPerSecond:F2}/s) · recall p50 {r.RecallP50:F1}ms " +
             $"p95 {r.RecallP95:F1}ms p99 {r.RecallP99:F1}ms ({r.RecallsPerSecond:F2}/s) · errors {r.Errors}");
         Console.WriteLine($"  {"",-8} controls: hit-rate {r.HitRate:F3}" +
@@ -212,10 +316,21 @@ internal static class MemoryContentionSweep
             "verification policies are all wired onto one engine.");
 
         var (writes, recalls) = ParseVolume(args);
-        Console.WriteLine($"  {writes} writes, {recalls} recalls per cell\n");
+        var workers = ParseInt(args, "--workers", 4);
+        var arm = ParseArm(args);
+        // The write:recall ratio is PRINTED, not implied — annotation runs per write and judging per recall,
+        // so an unbalanced driver would report the ratio rather than the contention (RunMixedAsync's own doc).
+        Console.WriteLine($"  {writes} writes, {recalls} recalls per cell — write:recall ratio {writes}:{recalls}, "
+            + $"{workers} workers\n");
 
-        var solo = await RunSoloAsync(rig, writes, recalls);
+        var solo = (await RunSoloAsync(rig, writes, recalls)) with { Arm = arm };
         PrintRow(solo);
+
+        var mixed = (await RunMixedAsync(rig, writes, recalls, workers)) with { Arm = arm };
+        PrintRow(mixed);
+
+        PrintContentionCost(solo, mixed);
+        PrintNotSwept();
         return 0;
     }
 }
