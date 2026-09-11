@@ -15,25 +15,28 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 9 Parts: 2 startable, 8 blocked, 1 watch, 1 decision-only
+## Open items — 15 across 10 Parts: 5 startable, 8 blocked, 1 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 88 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 132 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 141 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 195 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 266 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 344 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 399 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 422 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 493 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 651 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 737 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
-| 776 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 496 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 654 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 740 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
+| 779 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 849 | 178 | Measure the selective shape BELOW 20 candidates | startable |  |
+| 866 | 178 | Is a decision EXPRESSIBLE through the seams that already ship? | startable |  |
+| 878 | 178 | `affordance` has NO evidence at any size, and that is a blank rather than a… | startable |  |
 
 <!-- open-items:end -->
 
@@ -48,7 +51,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is TWO items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is FIVE items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -822,8 +825,64 @@ reached from `CLAUDE.md`, `README.md`, `docs/memory.md` and `.claude/knowledge/m
 four proposed shapes were not the set** — a sweep found four more the list could not name, `score-a-pair`
 turned out to be two unrelated tasks, and `classify` overstated what this library hands a model. **Read
 that doc's §3 before scoping the item above**: the only sub-500 MB evidence this repository holds tests
-the RERANKER role, is `ships=no`, and the library ships no adapter that can call a rerank endpoint — so
-"which shapes survive at <500 MB" is still eight blanks and one qualified cell._
+the RERANKER role and is `ships=no`, so "which shapes survive at <500 MB" is still eight blanks and one
+qualified cell. (That note also said **the library ships no adapter that can call a rerank endpoint**,
+which **D115** made false the next day — `AddMemoryCrossEncoderVerification` is one.)_
+
+---
+
+## Part 178 — a DECISION system on a small model: the shape is already constrained, and the region that matters is unmeasured (2026-09-12)
+
+_Opened at the owner's direction, who names this the next goal and the memory work its first instance.
+**`docs/model-tasks.md` §1–§3 is the brief** — read it before anything here, because four findings already
+constrain the design and one is a warning._
+
+_**What is already settled, so nobody re-derives it.** A decision is `select-from-list` or `affordance` in
+§1's taxonomy. The evidence points at **a SCORER over a bounded candidate list, never a generator asked to
+choose**: `score-a-pair` is the one shape measured working small (468,393,760 B captures 6.0 of the 7.0
+points a perfect judge offers), while a small INSTRUCT model in the selective role was **inert with a
+ceiling of zero** at 806,058,240 B. And **list length governs the selective shape more than model size**
+does — 20 shown gives 16.2% precision, 40 gives 8.4% (level with using no judge), 80 gives 2.6% (below it).
+A stated budget does not bind a selective task and made one model endorse MORE. **D110** refused a cap over
+endorsements for that reason: the lever is calibration or the combination rule, never a count._
+
+- [ ] **Measure the selective shape BELOW 20 candidates.** <!-- item: state=startable -->
+  That is the region a real decision lives in and the one nobody has looked at:
+  every figure above stops at 20, where the model is already only 3.27× chance. A
+  decision system shows **3 to 7** options, not 80, and that whole region is unmeasured — so "a small model
+  is bad at choosing" is not established for the list length a decision actually uses. **This is the
+  cheapest high-information experiment available and needs no new API**: both models are already on disk
+  (`gemma-3-1b-it` Q4_K_M **806,058,240 B**, `gemma-3-4b-it` Q4_K_M **2,489,757,856 B**).
+  <br>**Run it as a COMPARISON of the two shapes, because that is the design question rather than a
+  curve.** One `select-from-list` call showing N options, against N `score-a-pair` calls scored
+  independently and argmax'd. The second is the shape with small-model evidence behind it and costs N calls
+  instead of 1; the first is what every instinct reaches for. **Which wins at N = 3..7, and at what size**,
+  decides the shape of anything built afterwards — and a null result is just as useful, because it would
+  say the cheap single call is fine at short lists.
+  <br>**Report precision AND lift over chance**, never precision alone: at N = 5 a coin-flip scores 20%, so
+  an unanchored percentage is unreadable. Count how often the seam FIRED, per the fail-open rule — a
+  model that declined is not a model that chose wrongly.
+
+- [ ] **Is a decision EXPRESSIBLE through the seams that already ship?** <!-- item: state=startable -->
+  Answer this before proposing any surface.
+  Part 177 opened with *"no new API is needed"* and that held; the same check belongs here
+  and is pure desk work. `IPairwiseComparer` IS `select-from-list (short)` — pick one of two — and
+  `IToolLoop` is the roster shape (*which tool, or none*). So the question is not "what should a decision
+  API look like" but **which of these three already expresses it, and what is genuinely missing**.
+  <br>_Two facts that bound the answer, both from `docs/model-tasks.md` §1/§5: a pair comparison with
+  position-bias mitigation on is **four** model calls for one logical decision (two judgements, each able to
+  trigger a repair), which is the cost side of the scorer shape. And `affordance` is the only row with **no
+  named-client story at all** — the tool loop takes a client on its public constructor at the composition
+  root, so it IS pinnable, just not through an option._
+
+- [ ] **`affordance` has NO evidence at any size, and that is a blank rather than a negative.** <!-- item: state=startable -->
+  `docs/model-tasks.md` §1 says outright not to read the other findings as covering it — yet it is the
+  shape a tool-calling decision system actually runs on (*given these tools, what do you want*), and it is
+  the one shape this library does not bound: *"per model tool call, unbounded by this library"*. So the
+  input-shaping lever that fixed the extractor and diagnosed the judge has never been tried here, and
+  nothing measures what a small model does with a roster of tools.
+  <br>**Do not start this before the item above.** If a decision is expressible as a bounded scorer, the
+  unbounded affordance shape may be the thing to avoid rather than to measure.
 
 ---
 
