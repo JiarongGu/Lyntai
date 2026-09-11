@@ -355,6 +355,14 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--scale', ...args]);
     break;
 
+  // memory-contention — the second COST sweep, and the one memory-scale named in its own NOT-swept list.
+  // Prices the two verification backends against each other: under `judge` annotation and verification
+  // share one instruct server and contend; under `rerank` verification moves to its own cross-encoder and
+  // nothing is shared. The ORCHESTRATOR owns every server process; the C# bench only measures and refuses
+  // on an identity mismatch. TASKS.md Part 177.
+  case 'memory-contention':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'memory-contention.mjs'), ...args]);
+    break;
 
   case 'install-hooks':
     run('git', ['config', 'core.hooksPath', 'devtools/hooks']);

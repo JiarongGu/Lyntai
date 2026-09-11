@@ -8,6 +8,7 @@ import { describe, it } from 'node:test';
 
 import {
   ARMS, PORTS, ROLES, renderPreset, settingsArgs, isFree, neighbourPids, parseListeners, vanishedNeighbours,
+  parseGpuSample, aggregateGpuSamples, parseArgs,
 } from '../memory-contention.mjs';
 
 describe('renderPreset', () => {
@@ -93,6 +94,75 @@ describe('ARMS', () => {
 
   it('allocates no port the neighbour owns', () => {
     assert.ok(!Object.values(PORTS).includes(8090), '8090 is a sibling tool\'s embedding server');
+  });
+
+  it('gives the busy-device load (Task 8) its own port, distinct from every role and the neighbour', () => {
+    const values = Object.values(PORTS);
+    assert.equal(new Set(values).size, values.length, 'no two roles share a port');
+    assert.ok(!values.includes(8090));
+  });
+});
+
+describe('parseGpuSample', () => {
+  it('parses a CSV line with unit suffixes into numeric util/mem', () => {
+    assert.deepEqual(parseGpuSample('3 %, 2618 MiB\n'), { util: 3, memMiB: 2618 });
+  });
+
+  it('parses the --format=csv,noheader,nounits form the same way', () => {
+    assert.deepEqual(parseGpuSample('9, 53295'), { util: 9, memMiB: 53295 });
+  });
+
+  it('returns null on unparseable input, never a fabricated zero', () => {
+    assert.equal(parseGpuSample('nvidia-smi: command not found'), null);
+  });
+
+  it('returns null on an empty string', () => {
+    assert.equal(parseGpuSample(''), null);
+  });
+});
+
+describe('aggregateGpuSamples', () => {
+  // The rule this control exists for: zero samples must read as UNMEASURED, never as a quiet device. A
+  // fabricated zero here would be indistinguishable from a real 0% reading.
+  it('reports null fields for zero samples, never zero', () => {
+    assert.deepEqual(aggregateGpuSamples([]),
+      { maxUtil: null, meanUtil: null, maxMemMiB: null, samples: 0 });
+  });
+
+  it('reports max and mean utilization and max memory across samples', () => {
+    const samples = [{ util: 3, memMiB: 2600 }, { util: 9, memMiB: 2618 }, { util: 5, memMiB: 2610 }];
+    assert.deepEqual(aggregateGpuSamples(samples),
+      { maxUtil: 9, meanUtil: (3 + 9 + 5) / 3, maxMemMiB: 2618, samples: 3 });
+  });
+});
+
+describe('parseArgs', () => {
+  it('defaults to a single quiet device and forwards everything else to the C# bench unchanged', () => {
+    const { devices, smoke, armNames, benchArgs } = parseArgs(['--verifier', 'rerank', '--smoke']);
+    assert.deepEqual(devices, ['quiet']);
+    assert.equal(smoke, true);
+    assert.equal(armNames, null);
+    assert.deepEqual(benchArgs, ['--verifier', 'rerank', '--smoke']);
+  });
+
+  it('--device busy selects only the busy cell', () => {
+    assert.deepEqual(parseArgs(['--device', 'busy']).devices, ['busy']);
+  });
+
+  it('--device both runs quiet then busy, in that order', () => {
+    assert.deepEqual(parseArgs(['--device', 'both']).devices, ['quiet', 'busy']);
+  });
+
+  it('an unrecognised --device value falls back to quiet rather than refusing', () => {
+    assert.deepEqual(parseArgs(['--device', 'bogus']).devices, ['quiet']);
+  });
+
+  it('strips --device and --arms from what forwards to the C# bench, keeping everything else', () => {
+    const { benchArgs, armNames, devices } = parseArgs(
+      ['--device', 'busy', '--arms', 'dedicated', '--verifier', 'judge', '--workers', '8']);
+    assert.deepEqual(benchArgs, ['--verifier', 'judge', '--workers', '8']);
+    assert.deepEqual(armNames, ['dedicated']);
+    assert.deepEqual(devices, ['busy']);
   });
 });
 

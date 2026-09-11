@@ -5,6 +5,11 @@
 // the SAME process and memory topology and differ only by a reverse-proxy hop. What a router buys is one
 // endpoint, on-demand loading, and eviction; residency and routing are INDEPENDENT axes, which is why
 // `--models-max` is the only thing separating the two router arms.
+//
+// This ORCHESTRATOR owns every server process (topology, the busy-device load); the C# `--contention` sweep
+// it invokes (`runBench`) only measures, against whichever backend `--verifier` names, and refuses on an
+// identity mismatch. `--device quiet|busy|both` decides whether a cell also holds a busy-device load for its
+// duration, and `startGpuSampler` makes "the device was quiet" an ASSERTION rather than a hope.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile, spawn } from 'node:child_process';
@@ -16,8 +21,17 @@ const here = fileURLToPath(import.meta.url);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Ports this harness owns. 8090 is DELIBERATELY absent: a sibling tool's embedding server holds it, and
- *  killing it by image name has already happened twice (`pitfalls.md`). */
-export const PORTS = { router: 8140, chat: 8141, embed: 8142, rerank: 8143 };
+ *  killing it by image name has already happened twice (`pitfalls.md`). `load` is the busy-device generator
+ *  (Task 8) — a second, small llama-server, checked and torn down under the same rules as every other port
+ *  here. */
+export const PORTS = { router: 8140, chat: 8141, embed: 8142, rerank: 8143, load: 8144 };
+
+/** The busy-device load's own model — the smallest GENERATIVE model on disk, not the smallest file overall.
+ *  `ROLES.embed.file` (~333 MB) is smaller still, but the embedder cannot serve `/v1/chat/completions` at
+ *  all, and a driven embedding loop would exercise the wrong shape of GPU work — short pooled-batch encodes,
+ *  never the sustained token-by-token decode the seams under test (chat annotation, the judge backend)
+ *  actually contend on. `gemma-3-1b-it-Q4_K_M.gguf` (~806 MB) is the smallest model that can. */
+const LOAD_MODEL_FILE = 'gemma-3-1b-it-Q4_K_M.gguf';
 
 /** Each role's weights, the flags that ENABLE it, and its context/batch SETTINGS — all three live here as
  *  DATA rather than in a call site, because `renderPreset` (the router arms) and `startArm` (the dedicated
@@ -95,6 +109,91 @@ export function neighbourPids(rows, ownPids) {
     for (const r of rows) if (!mine.has(r.pid) && mine.has(r.ppid)) { mine.add(r.pid); grew = true; }
   }
   return rows.filter((r) => !mine.has(r.pid)).map((r) => r.pid);
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Task 8: the GPU-quiet CONTROL. Every other control on this bench makes a bad cell VISIBLE (hit-rate for
+// an empty recall, subjects/write for a no-op annotation, distinct-rerank-scores for a flat reranker); the
+// ENVIRONMENT had none, so a contaminated run was indistinguishable from a clean one. Before/after sampling
+// is NOT enough — a stream that starts and stops INSIDE one cell is exactly the case `pitfalls.md` measured
+// (generation 12x faster to 26x slower, a ~300x reversal), and bookend sampling cannot see it. Sampling
+// therefore runs FOR THE DURATION of the cell, on an interval, via `startGpuSampler`/`stop()`.
+// ---------------------------------------------------------------------------------------------------------
+
+/** One `nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader` line, e.g. `"3 %, 2618
+ *  MiB"` or the `nounits` form `"3, 2618"` — `parseFloat` reads the leading number off either and ignores
+ *  the unit suffix, so both are accepted without a format flag dependency. `null` for anything that does
+ *  not parse as two numbers, which is what a missing/errored `nvidia-smi` reports upstream. */
+export function parseGpuSample(csvText) {
+  const line = String(csvText).split(/\r?\n/).find((l) => l.trim().length > 0);
+  if (!line) return null;
+  const [utilRaw, memRaw] = line.split(',');
+  const util = Number.parseFloat(utilRaw);
+  const memMiB = Number.parseFloat(memRaw);
+  return Number.isFinite(util) && Number.isFinite(memMiB) ? { util, memMiB } : null;
+}
+
+/** `{maxUtil, meanUtil, maxMemMiB, samples}` over whatever landed. **Zero samples reports NULL fields, never
+ *  zero** — a cell where `nvidia-smi` is absent or every attempt errored must read as UNMEASURED, not as a
+ *  quiet device, or a broken sampler would look exactly like the thing it exists to rule out. */
+export function aggregateGpuSamples(samples) {
+  if (samples.length === 0) return { maxUtil: null, meanUtil: null, maxMemMiB: null, samples: 0 };
+  const utils = samples.map((s) => s.util);
+  const mems = samples.map((s) => s.memMiB);
+  return {
+    maxUtil: Math.max(...utils),
+    meanUtil: utils.reduce((a, b) => a + b, 0) / utils.length,
+    maxMemMiB: Math.max(...mems),
+    samples: samples.length,
+  };
+}
+
+/** One attempt, swallowing everything (absent binary, transient error) to `null` — the caller counts
+ *  successful samples rather than reading an exception as "the device is quiet". */
+async function sampleGpuOnce() {
+  try {
+    const { stdout } = await execFileAsync('nvidia-smi',
+      ['--query-gpu=utilization.gpu,memory.used', '--format=csv,noheader']);
+    return parseGpuSample(stdout);
+  } catch {
+    return null;
+  }
+}
+
+/** Starts polling `nvidia-smi` on `intervalMs`, immediately (not after the first interval, so a short cell
+ *  still gets a data point) and for as long as the caller holds the handle. `stop()` ends the loop and
+ *  returns `aggregateGpuSamples` of whatever landed — awaiting the in-flight poll first, so a `stop()` that
+ *  races a sample never drops it. */
+export function startGpuSampler({ intervalMs = 1_000 } = {}) {
+  const samples = [];
+  let stopped = false;
+  const loop = (async () => {
+    while (!stopped) {
+      const sample = await sampleGpuOnce();
+      if (sample) samples.push(sample);
+      if (stopped) break;
+      await sleep(intervalMs);
+    }
+  })();
+  return {
+    async stop() {
+      stopped = true;
+      await loop;
+      return aggregateGpuSamples(samples);
+    },
+  };
+}
+
+/** Prints the GPU control's line for one cell — the `samples === 0` branch is the "say so" half of "report
+ *  `null`, never silently zero": a reader must not be able to mistake an unmeasured cell for a quiet one. */
+function printGpuLine(device, gpu) {
+  if (gpu.samples === 0) {
+    console.log(`GPU (${device}): UNAVAILABLE — nvidia-smi produced zero samples (absent, or every attempt `
+      + 'errored). Reporting null, not zero — a zero here would read as a quiet device.');
+    return;
+  }
+  console.log(`GPU (${device}): max ${gpu.maxUtil.toFixed(0)}% util, mean ${gpu.meanUtil.toFixed(1)}% util, `
+    + `max ${gpu.maxMemMiB.toFixed(0)} MiB used (${gpu.samples} samples)`);
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -337,6 +436,68 @@ export async function stopArm(handle) {
   return { killed: handle.pids, survivors };
 }
 
+/** The busy-device LOAD (Task 8): a second, small llama-server generating tokens continuously so the shared
+ *  GPU is occupied for the whole cell — the closest same-process analog to the game-rendering neighbour
+ *  `pitfalls.md` measured the 12x-faster-to-26x-slower swing against.
+ *
+ *  **This is a COMPUTE load, not the GRAPHICS workload that measurement used.** The DIRECTION transfers —
+ *  contention should still hit generation far harder than encoding — the MAGNITUDE may not. Read every
+ *  figure taken under `--device busy` with that attached, the same posture this repository takes for every
+ *  borrowed number.
+ *
+ *  Checks and records its port exactly like every other server here, and reaches STEADY STATE (every
+ *  worker has completed one full generation round) before returning, rather than a fixed sleep — so the
+ *  cell's timed region never starts against a cold server. */
+export async function startBusyLoad({ modelDir, scratchDir, serverExe, concurrency = 2 }) {
+  const listeners = parseListeners(await netstat());
+  if (!isFree(listeners, PORTS.load)) {
+    throw new Error(`load port ${PORTS.load} already LISTENING — refusing to bind`);
+  }
+
+  const pid = spawnServer(serverExe, ['--model', `${modelDir}/${LOAD_MODEL_FILE}`, '--alias', 'load',
+    '--port', String(PORTS.load), '--host', '127.0.0.1', '--n-gpu-layers', '99'], scratchDir, 'load');
+  try {
+    await waitUntilListening([PORTS.load]);
+  } catch (err) {
+    await treeKill(pid);
+    throw err;
+  }
+
+  let stopped = false;
+  const url = `http://127.0.0.1:${PORTS.load}/v1/chat/completions`;
+  const prompt = 'Write a long, vivid, detailed description of a rainstorm moving across a city at night.';
+  const readySignals = [];
+  const loops = [];
+  for (let i = 0; i < concurrency; i++) {
+    let markReady;
+    readySignals.push(new Promise((resolve) => { markReady = resolve; }));
+    loops.push((async () => {
+      let firstRoundDone = false;
+      while (!stopped) {
+        try {
+          await postJson(url, { model: 'load', temperature: 0.7, max_tokens: 256,
+            messages: [{ role: 'user', content: prompt }] }, { timeoutMs: 30_000 });
+        } catch { /* best effort: one dropped generation round does not end the load */ }
+        if (!firstRoundDone) { firstRoundDone = true; markReady(); }
+      }
+    })());
+  }
+  // STEADY STATE, not a fixed sleep: every worker has completed one full generation round before this
+  // returns, so the cell's timed region never starts against a cold server.
+  await Promise.all(readySignals);
+
+  return {
+    pid,
+    port: PORTS.load,
+    async stop() {
+      stopped = true;
+      await Promise.all(loops);
+      await treeKill(pid);
+      await settle();
+    },
+  };
+}
+
 /** Verify IDENTITY, not plausibility. A shape check cannot separate two models that share a shape — a
  *  neighbour's embedder passed a "is it 768-dimensional?" probe while being the wrong model entirely. */
 export async function verifyIdentity(endpoints) {
@@ -445,12 +606,25 @@ function syntheticLongestInput(chars = 6_000) {
   return s.slice(0, chars);
 }
 
-function parseArgs(argv) {
+/** `--device quiet|busy|both` (default `quiet`), `--arms a,b`, `--smoke`, and everything else FORWARDED
+ *  verbatim to the C# `--contention` sweep (`--verifier`, `--workers`, `--repeat`, `--writes`, `--recalls`).
+ *  Only `--device` and `--arms` are stripped from `benchArgs`: topology and the device axis are THIS
+ *  module's concern, and the C# bench has no flag for either. An unrecognised `--device` value falls back
+ *  to `quiet` rather than refusing, matching every flag parser in the C# bench this forwards to. */
+export function parseArgs(argv) {
   const armsFlag = argv.indexOf('--arms');
-  return {
-    armNames: armsFlag >= 0 ? argv[armsFlag + 1].split(',').filter(Boolean) : null,
-    smoke: argv.includes('--smoke'),
-  };
+  const armNames = armsFlag >= 0 ? argv[armsFlag + 1].split(',').filter(Boolean) : null;
+
+  const deviceFlag = argv.indexOf('--device');
+  const deviceRaw = deviceFlag >= 0 ? argv[deviceFlag + 1] : 'quiet';
+  const devices = deviceRaw === 'both' ? ['quiet', 'busy'] : deviceRaw === 'busy' ? ['busy'] : ['quiet'];
+
+  const strip = new Set();
+  if (armsFlag >= 0) { strip.add(armsFlag); strip.add(armsFlag + 1); }
+  if (deviceFlag >= 0) { strip.add(deviceFlag); strip.add(deviceFlag + 1); }
+  const benchArgs = argv.filter((_, i) => !strip.has(i));
+
+  return { armNames, smoke: argv.includes('--smoke'), devices, benchArgs };
 }
 
 async function reportNeighbours(label) {
@@ -460,7 +634,64 @@ async function reportNeighbours(label) {
   return rows;
 }
 
-async function runArm(arm, { modelDir, scratchDir, serverExe, smoke }) {
+/** Spawns the C# `--contention` sweep against a running arm's servers. `stdio: 'inherit'` — this IS the
+ *  measurement, so its table streams live rather than being captured and re-printed. Registered in the same
+ *  PID bookkeeping `spawnServer` uses (`spawnedChildren`/`activePids`), so a SIGINT mid-cell still tears the
+ *  bench process down alongside the servers it is measuring. */
+function spawnBenchProcess(repoRoot, benchArgs, envOverlay) {
+  const benchProject = path.join(repoRoot, 'bench', 'Lyntai.Benchmarks');
+  const child = spawn('dotnet',
+    ['run', '-c', 'Release', '--project', benchProject, '--', '--contention', ...benchArgs],
+    { stdio: 'inherit', env: { ...process.env, ...envOverlay } });
+  const forget = () => {
+    if (child.pid != null) { spawnedChildren.delete(child.pid); activePids.delete(child.pid); }
+  };
+  child.once('exit', forget);
+  child.once('error', (err) => { console.error(`spawnBenchProcess: ${err.message}`); forget(); });
+  if (child.pid != null) { spawnedChildren.set(child.pid, child); activePids.add(child.pid); }
+  return child;
+}
+
+function runBench(repoRoot, benchArgs, envOverlay) {
+  return new Promise((resolve, reject) => {
+    const child = spawnBenchProcess(repoRoot, benchArgs, envOverlay);
+    child.once('exit', (code) => resolve(code ?? 1));
+    child.once('error', reject);
+  });
+}
+
+/** One device state's worth of measurement against an already-started arm: optionally hold a busy-device
+ *  load for the WHOLE cell (steady state before, torn down and verified gone after), sample the GPU for the
+ *  WHOLE cell (not bookend before/after — see the Task 8 header comment above `startGpuSampler`), and run
+ *  the C# `--contention` sweep inside that window. */
+async function runMeasuredCell(arm, device, handle, { modelDir, scratchDir, serverExe, benchArgs, repoRoot }) {
+  console.log(`\n--- device: ${device} (arm ${arm.name}) ---`);
+  let busy = null;
+  if (device === 'busy') {
+    busy = await startBusyLoad({ modelDir, scratchDir, serverExe });
+    console.log(`busy load steady: pid ${busy.pid} on port ${busy.port}`);
+  }
+  try {
+    const sampler = startGpuSampler();
+    const exitCode = await runBench(repoRoot, benchArgs, handle.env);
+    const gpu = await sampler.stop();
+    printGpuLine(device, gpu);
+    if (exitCode !== 0) process.exitCode = 1;
+  } finally {
+    if (busy) {
+      await busy.stop();
+      const listeners = parseListeners(await netstat());
+      if (!isFree(listeners, PORTS.load)) {
+        console.error(`SURVIVOR: load port ${PORTS.load} still LISTENING after teardown`);
+        process.exitCode = 1;
+      } else {
+        console.log('busy load generator confirmed gone');
+      }
+    }
+  }
+}
+
+async function runArm(arm, { modelDir, scratchDir, serverExe, smoke, devices, benchArgs, repoRoot }) {
   console.log(`\n=== arm: ${arm.name} (${arm.kind}) ===`);
   // Registration happens INSIDE startArm → spawnServer, at spawn time — not here — so a SIGINT during the
   // model-load wait is already covered by the time this line returns.
@@ -469,15 +700,19 @@ async function runArm(arm, { modelDir, scratchDir, serverExe, smoke }) {
   try {
     const identity = await verifyIdentity(handle.endpoints);
     console.log(`identity: ${identity.ok ? 'OK' : 'FAIL'} — ${identity.detail}`);
-    if (!identity.ok) process.exitCode = 1;
+    if (!identity.ok) { process.exitCode = 1; return; }
 
     const extreme = await probeExtreme(handle.endpoints, syntheticLongestInput());
     console.log(`extreme:  ${extreme.ok ? 'OK' : 'FAIL'} — ${extreme.detail}`);
-    if (!extreme.ok) process.exitCode = 1;
+    if (!extreme.ok) { process.exitCode = 1; return; }
 
     if (smoke) {
       const loadState = await modelLoadState(handle.endpoints);
       console.log(`model-load-state: loaded=[${loadState.loaded.join(',')}] unloaded=[${loadState.unloaded.join(',')}]`);
+    }
+
+    for (const device of devices) {
+      await runMeasuredCell(arm, device, handle, { modelDir, scratchDir, serverExe, benchArgs, repoRoot });
     }
   } finally {
     // treeKill drops each pid from activePids/spawnedChildren itself as it confirms each one gone.
@@ -491,23 +726,36 @@ async function runArm(arm, { modelDir, scratchDir, serverExe, smoke }) {
 }
 
 async function main() {
-  const { armNames, smoke } = parseArgs(process.argv.slice(2));
+  const { armNames, smoke, devices, benchArgs } = parseArgs(process.argv.slice(2));
   const modelDir = process.env.LYNTAI_CONTENTION_MODEL_DIR;
   if (!modelDir) throw new Error('LYNTAI_CONTENTION_MODEL_DIR is not set — no default, by design');
 
   const scratchDir = path.resolve(path.dirname(here), '..', '_contention');
   fs.mkdirSync(scratchDir, { recursive: true });
+  const repoRoot = path.resolve(path.dirname(here), '..', '..');
 
   const serverExe = await resolveServerExe();
   console.log(`llama-server resolved from PATH: ${serverExe}`);
 
-  const targets = armNames ? ARMS.filter((a) => armNames.includes(a.name)) : ARMS;
+  // Default to `dedicated` ONLY — the RE-SCOPE ruling (plan progress ledger, 2026-09-11) demoted topology to
+  // a footnote once the router-is-a-supervisor finding showed `dedicated` and `router-resident` differ only
+  // by a reverse-proxy hop. The measured grid is now {verifier} x {solo, mixed} x {device}, on `dedicated`;
+  // `--arms` still exists for anyone who explicitly wants the topology ladder's own identity/extreme check.
+  const targets = armNames ? ARMS.filter((a) => armNames.includes(a.name))
+                            : ARMS.filter((a) => a.name === 'dedicated');
   if (targets.length === 0) throw new Error(`no matching arm(s) in --arms ${armNames?.join(',')}`);
+
+  if (devices.includes('busy')) {
+    console.log('\nNOTE: the busy-device load below is a COMPUTE load — a second llama-server generating '
+      + 'tokens — not the GRAPHICS workload (a rendering game) pitfalls.md measured the 12x-faster-to-26x'
+      + '-slower swing on. The DIRECTION should transfer; the MAGNITUDE may not. Read every figure from this '
+      + 'device axis with that attached.');
+  }
 
   const before = await reportNeighbours('BEFORE');
 
   for (const arm of targets) {
-    await runArm(arm, { modelDir, scratchDir, serverExe, smoke });
+    await runArm(arm, { modelDir, scratchDir, serverExe, smoke, devices, benchArgs, repoRoot });
   }
 
   const after = await reportNeighbours('AFTER');
