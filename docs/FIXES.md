@@ -7,6 +7,38 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-12 — a malformed embedding element became a silent ZERO, and a zero is a legitimate component
+
+**Symptom.** `HttpEmbedder.ToFloats` read every element as
+`n.ValueKind == JsonValueKind.Number ? (float)n.GetDouble() : 0f`. A JSON `null`, a number sent as a
+string, or an object in an `embedding` array therefore became `0f` — indistinguishable from a real zero
+component — and the result was a plausible, wrong vector that got stored, indexed and compared by cosine
+with nothing anywhere reporting it. The only upstream guard checked the CONTAINER
+(`emb.ValueKind == Array`) and the batch guard checked the COUNT of vectors, never their contents.
+
+**Root cause.** A tolerant parse in the one place tolerance cannot be detected. Everywhere else this file
+fails loudly — a non-2xx throws, a malformed body throws, a vector-count mismatch throws, and the type's
+own XML doc promises `InvalidOperationException` for "the response was malformed" — so the element loop was
+the single silent path in an otherwise strict reader. A wrong vector has no symptom at the seam: it is the
+right length, the right dimension, and it ranks.
+
+**Fix.** `TryToFloats` returns null when any element is not a number, or is not FINITE — a large enough
+magnitude overflows float32 to Infinity and poisons every cosine it touches. All three shapes route that
+null into the failure the caller already had (`?? throw new InvalidOperationException("malformed or empty
+embeddings response")`), so this is not new behaviour but the documented behaviour finally reached. A bad
+element fails the WHOLE response rather than dropping one vector, because dropping one would trip the count
+check instead and report an arity problem pointing away from the real defect.
+
+**Verify.** Five new tests, 22/22 in `HttpEmbedderTests`. The load-bearing one is the positive control —
+*a legitimate ZERO is still a perfectly good component* — because the obvious over-correction is to reject
+`0f`, which is common in a real embedding and was exactly what the old coercion produced. Full `verify`
+green, 22/22 gates, with Docker up.
+
+**Introduced by.** Present since the embedder was written; found by the generic-solution audit rather than
+by a failure, which is the point — this class of defect produces no symptom to notice.
+
+---
+
 ## 2026-09-12 — a judge that never answered reported a substantive TIE, and nothing typed said otherwise
 
 **Symptom.** `LlmPairwiseComparer` returned `PairwiseWinner.Tie` in three unrelated situations: the model

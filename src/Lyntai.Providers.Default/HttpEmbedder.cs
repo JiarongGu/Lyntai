@@ -158,9 +158,12 @@ public sealed class HttpEmbedder(
                     if (el.ValueKind == JsonValueKind.Object &&
                         el.TryGetProperty("embedding", out var emb) && emb.ValueKind == JsonValueKind.Array)
                     {
+                        // a bad element fails the WHOLE response: dropping just this vector would trip the
+                        // count check with a message about arity, pointing away from the real defect
+                        if (TryToFloats(emb) is not { } vector) return null;
                         var index = el.TryGetProperty("index", out var ix) && ix.ValueKind == JsonValueKind.Number
                             ? ix.GetInt32() : i;
-                        items.Add((index, ToFloats(emb)));
+                        items.Add((index, vector));
                     }
                     i++;
                 }
@@ -172,13 +175,17 @@ public sealed class HttpEmbedder(
             {
                 var list = new List<float[]>();
                 foreach (var el in embeddings.EnumerateArray())
-                    if (el.ValueKind == JsonValueKind.Array) list.Add(ToFloats(el));
+                {
+                    if (el.ValueKind != JsonValueKind.Array) continue;
+                    if (TryToFloats(el) is not { } vector) return null;
+                    list.Add(vector);
+                }
                 return list.Count > 0 ? list : null;
             }
 
             // Ollama legacy single /api/embeddings: { embedding: [...] }
             if (root.TryGetProperty("embedding", out var single) && single.ValueKind == JsonValueKind.Array)
-                return [ToFloats(single)];
+                return TryToFloats(single) is { } vector ? [vector] : null;
 
             return null;
         }
@@ -188,12 +195,25 @@ public sealed class HttpEmbedder(
         }
     }
 
-    private static float[] ToFloats(JsonElement array)
+    /// <summary>The vector, or NULL when any element is not a finite number — which makes the whole response
+    /// malformed rather than yielding a vector with a hole in it.
+    ///
+    /// <para><b>A bad element used to become <c>0f</c>.</b> That is indistinguishable from a legitimate zero
+    /// component, so a null, a stringified number or an overflowing magnitude produced a plausible vector
+    /// that was then stored and compared by cosine with nothing reporting it. Failing the response is the
+    /// behaviour this type's own doc already promises, and the caller already turns null into that
+    /// exception.</para></summary>
+    private static float[]? TryToFloats(JsonElement array)
     {
         var vector = new float[array.GetArrayLength()];
         var i = 0;
         foreach (var n in array.EnumerateArray())
-            vector[i++] = n.ValueKind == JsonValueKind.Number ? (float)n.GetDouble() : 0f;
+        {
+            if (n.ValueKind != JsonValueKind.Number) return null;
+            var value = (float)n.GetDouble();
+            if (!float.IsFinite(value)) return null;   // an Infinity poisons every cosine it touches
+            vector[i++] = value;
+        }
         return vector;
     }
 

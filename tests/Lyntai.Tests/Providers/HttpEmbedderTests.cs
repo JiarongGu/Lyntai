@@ -53,6 +53,55 @@ public class HttpEmbedderTests
         Assert.Contains("401", ex.Message); // the status stays, for diagnosis
     }
 
+    // ---- a corrupt vector must FAIL, not arrive ------------------------------------------------------
+    // Every element used to be coerced with `n.ValueKind == Number ? (float)n.GetDouble() : 0f`, so a null,
+    // a string or a non-finite element became a silent 0 in an otherwise plausible vector — which then got
+    // stored, or compared by cosine, with nothing anywhere reporting it. The type's own XML doc already
+    // promises InvalidOperationException on a malformed body; these route the corrupt cases into it.
+
+    [Theory]
+    [InlineData("null", "a JSON null")]
+    [InlineData("\"0.5\"", "a number sent as a string")]
+    [InlineData("{}", "an object")]
+    public async Task A_NON_NUMERIC_element_makes_the_response_malformed_rather_than_a_zeroed_vector(
+        string element, string why)
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
+            $$"""{"data":[{"index":0,"embedding":[1.0,{{element}},3.0]}]}""");
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await Embedder(handler).EmbedAsync(["a"]));
+
+        Assert.Contains("malformed", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(string.IsNullOrEmpty(why));
+    }
+
+    [Fact]
+    public async Task A_NON_FINITE_element_is_malformed_too_because_it_poisons_every_cosine_it_touches()
+    {
+        // JSON has no Infinity literal, but a large enough magnitude overflows float32 on the way in.
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
+            """{"data":[{"index":0,"embedding":[1.0,1e400,3.0]}]}""");
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await Embedder(handler).EmbedAsync(["a"]));
+
+        Assert.Contains("malformed", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task A_legitimate_ZERO_is_still_a_perfectly_good_component()
+    {
+        // The positive control: the fix must reject non-NUMBERS, never the number zero — which is common in
+        // a real embedding and was indistinguishable from the coerced failure value.
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
+            """{"data":[{"index":0,"embedding":[1.0,0.0,3.0]}]}""");
+
+        var vectors = await Embedder(handler).EmbedAsync(["a"]);
+
+        Assert.Equal([1.0f, 0.0f, 3.0f], vectors[0]);
+    }
+
     // ---- role prefixes: driving an ASYMMETRIC model ---------------------------------------------------
     // The E5/BGE/nomic/Arctic families want a different instruction on each side of the comparison. The
     // library supplies neither prefix and knows no model's spelling — the deployment sets both strings.
