@@ -7,7 +7,33 @@ namespace Lyntai.Cortex;
 public enum PairwiseWinner { A, B, Tie }
 
 /// <summary>Which of two candidate outputs a judge preferred for the same input.</summary>
-public sealed record PairwiseResult(PairwiseWinner Winner, string? Reason = null);
+/// <param name="Winner">The preferred output, or <see cref="PairwiseWinner.Tie"/>.</param>
+/// <param name="Reason">The judge's own words, when it gave any.</param>
+public sealed record PairwiseResult(PairwiseWinner Winner, string? Reason = null)
+{
+    /// <summary>Whether the model actually produced a usable answer. <b><see cref="PairwiseWinner.Tie"/>
+    /// with this FALSE is not a verdict of "neither is better"</b> — it is "no verdict", which a judge
+    /// outage, a refusal and an unparseable reply all look like. Collapsing the two lets a model being down
+    /// read as a substantive result, which is the same conflation
+    /// <see cref="Lyntai.Memory.Verification.MemoryVerification.Judged"/> exists to prevent one subsystem
+    /// over.
+    ///
+    /// <para><b>It does not mean the answer was decisive.</b> A judge that answered "tie", and a
+    /// two-pass run whose passes disagreed, are both true — the model spoke in both. Only the absence of a
+    /// usable answer is false.</para>
+    ///
+    /// <para>Defaults to TRUE so a comparer written before this existed keeps meaning what it meant. It is
+    /// a property rather than a positional parameter because adding one would change this record's
+    /// constructor and <c>Deconstruct</c>, which the frozen surface (<b>D70</b>) does not allow.</para>
+    /// </summary>
+    public bool Judged { get; init; } = true;
+
+    /// <summary>No usable answer from the judge. <see cref="PairwiseWinner.Tie"/> is carried as the safe
+    /// neutral — a caller that ignores <see cref="Judged"/> behaves exactly as it did before this
+    /// existed — and <paramref name="reason"/> says which failure it was.</summary>
+    public static PairwiseResult NoOpinion(string reason) =>
+        new(PairwiseWinner.Tie, reason) { Judged = false };
+}
 
 /// <summary>An LLM judge that picks the better of two outputs for a given input — the pairwise-comparison
 /// calibration mode (often more reliable than absolute 0..1 scoring).</summary>
@@ -47,8 +73,18 @@ public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBia
             _ => PairwiseWinner.Tie,
         };
 
+        // A pass that produced no usable answer poisons the pair: there were never two verdicts to compare,
+        // so agreement between them would be agreement with a failure.
+        if (!first.Judged || !swapped.Judged)
+            return PairwiseResult.NoOpinion(
+                $"a position-bias pass produced no usable verdict (forward judged: {first.Judged}, " +
+                $"swapped judged: {swapped.Judged})");
+
         if (first.Winner == secondForA)
             return first; // both passes agree on the same real output — trust it
+
+        // The model DID answer, twice, and contradicted itself — a real judgement that it is not
+        // discriminating on this pair, not an absence of one. So this stays Judged.
         return new PairwiseResult(PairwiseWinner.Tie,
             $"position-bias check disagreed (forward: {first.Winner}, swapped: {secondForA})");
     }
@@ -71,13 +107,15 @@ public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBia
 
         var reply = await llm.CompleteJsonAsync(req, ct).ConfigureAwait(false);
         if (reply.Verdict != LlmVerdict.Ok || !TryParse(reply.Text, out var result))
-            return new PairwiseResult(PairwiseWinner.Tie, "judge produced no usable verdict");
+            return PairwiseResult.NoOpinion("judge produced no usable verdict");
         return result;
     }
 
     internal static bool TryParse(string text, out PairwiseResult result)
     {
-        result = new PairwiseResult(PairwiseWinner.Tie);
+        // the out-value on the FALSE path is not judged: it is only meant to be read when this returns
+        // true, and a caller that ignores the bool must not receive a fabricated verdict
+        result = PairwiseResult.NoOpinion("unparseable judge reply");
         if (!JsonExtract.TryParseObject(text, out var doc)) return false;
         using (doc)
         {

@@ -17,7 +17,7 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D116** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3622 passed / 3644 total, 22 skipped` (the skips are
+**The baseline a green run should match:** `3627 passed / 3649 total, 22 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 703/703, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
@@ -26,8 +26,9 @@ and every one is live-backend gated (a live model, embedder, reranker, Ollama, M
 skipping for another reason. **It is 22 rather than the long-standing 21 because
 `CrossEncoderVerificationLiveTests` is new** — it arrived with **D115** on 2026-09-11, the same window in
 which every run had Docker down, so the old number simply predated it.
-**The Postgres leg is 195 tests**: with the daemon down the same tree reads `3427 passed / 217 skipped`,
-and 217 − 22 = 195 = the difference in passes. A skip count near 217 means those 195 did not run.
+**The Postgres leg is 195 tests**: measured on the same tree at 3,644 total, the daemon down read
+`3427 passed / 217 skipped` against `3622 / 22` with it up, and 217 − 22 = 195 = the difference in passes.
+A skip count near 217 means those 195 did not run.
 Everything else on that line is gated. `docs/GATES.md` is why each gate exists, what it measured and which
 numbers it holds.
 

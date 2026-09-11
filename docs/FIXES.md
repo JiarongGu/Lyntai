@@ -7,6 +7,43 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-12 — a judge that never answered reported a substantive TIE, and nothing typed said otherwise
+
+**Symptom.** `LlmPairwiseComparer` returned `PairwiseWinner.Tie` in three unrelated situations: the model
+answered *"tie"*, the model did not answer at all (`Verdict != Ok`, a refusal, an unparseable reply), and a
+two-pass position-bias run whose passes contradicted each other. `PairwiseResult.Winner` was the only typed
+channel, so a consumer could not tell a judge being DOWN from a judge saying *neither is better* — a model
+outage read as an evaluation result. The only difference was the prose `Reason`, which is `string?` with no
+contract and nothing a caller can branch on.
+
+**Root cause.** The seam was written with one output channel where it needed two, and the library already
+knew that: `MemoryVerification.Judged` exists one subsystem over for exactly this, and its own doc says
+collapsing *"the verifier could not decide"* into *"nothing was relevant"* is the defect to avoid. The
+pairwise seam simply never got the same treatment. Found by an audit for places the library behaves like a
+wrapper for one model rather than a generic solution — a seam that cannot report that its model failed is
+one of those, because the failure becomes indistinguishable from a result.
+
+**Fix.** `PairwiseResult` gains `Judged` (default `true`) and a `NoOpinion(reason)` factory, mirroring
+`MemoryVerification`. `Judged` means **the model produced a usable answer** — not that the answer was
+decisive — so a genuine *"tie"* and a self-contradicting two-pass run are both `true`, and only the absence
+of a usable answer is `false`. A pass that produced nothing now POISONS the combined two-pass result, which
+the original could not express: it would otherwise report a confident verdict built on one real answer and
+one failure. `Winner` is unchanged in every case, so a caller that ignores `Judged` behaves exactly as
+before.
+
+It is an init-only property rather than a positional parameter deliberately: a positional one changes the
+record's constructor AND `Deconstruct` arity, which the frozen surface (**D70**) does not allow. Both API
+baseline diffs are purely additive.
+
+**Verify.** Six new tests, 10/10 in `PairwiseComparerTests`, and the one that matters is the positive
+control — *a judge that genuinely answers TIE is still judged* — without which an implementation reporting
+`Judged = false` for every `Tie` would pass everything else. Full `verify` green, 22/22 gates.
+
+**Introduced by.** `456047f` (judge calibration helpers, v0.4), which shipped the seam with a single output
+channel. Nothing regressed since; the defect is as old as the type.
+
+---
+
 ## 2026-09-11 — a bench printed a HARDCODED caveat about its own output, and it was wrong in both directions
 
 **Symptom.** `memory-locomo --verdict` printed *"'judge-graded' is generous by roughly 12 points"* under its

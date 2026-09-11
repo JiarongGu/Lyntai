@@ -364,9 +364,11 @@ sealed class Lyntai.Cortex.PairwiseResult
     Equals(Object obj) : Boolean
     Equals(PairwiseResult other) : Boolean
     GetHashCode() : Int32
+    Judged : Boolean
     Reason : String
     ToString() : String
     Winner : PairwiseWinner
+    static NoOpinion(String reason) : PairwiseResult
 enum Lyntai.Cortex.PairwiseWinner
     A : PairwiseWinner const
     B : PairwiseWinner const
