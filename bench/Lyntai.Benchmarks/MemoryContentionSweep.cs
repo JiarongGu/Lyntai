@@ -11,11 +11,16 @@ using Lyntai.Storage.Sqlite;
 namespace Lyntai.Benchmarks;
 
 /// <summary>
-/// One backend serving all four model-backed memory seams — annotation, verification, reranking, embedding
-/// — wired onto a single <see cref="GraphMemoryEngine"/>, so a cell prices what CONTENTION between them costs
-/// rather than any one seam's own accuracy. <c>memory-verification</c>, <c>memory-annotation</c> and
-/// <c>memory-enrichment</c> each measure their own seam in isolation; nothing had put all four in front of one
-/// server before, and <c>memory-scale</c> named the gap outright in its own NOT-swept list.
+/// One backend serving the THREE model-backed memory seams — annotation, verification, embedding — wired
+/// onto a single <see cref="GraphMemoryEngine"/>, so a cell prices what CONTENTION between them costs rather
+/// than any one seam's own accuracy. <c>memory-verification</c>, <c>memory-annotation</c> and
+/// <c>memory-enrichment</c> each measure their own seam in isolation; nothing had put all three in front of
+/// one server before, and <c>memory-scale</c> named the gap outright in its own NOT-swept list.
+///
+/// <para><b>Verification is a SINGULAR slot, not a fourth seam (D115).</b>
+/// <see cref="LlmMemoryVerificationPolicy"/> and <see cref="CrossEncoderVerifier"/> are ALTERNATIVES for
+/// <c>IMemoryVerificationPolicy</c>, never simultaneous, and the pick decides whether contention exists at
+/// all — see <see cref="PrintBackendComparison"/>.</para>
 ///
 /// <para><b>Refuses rather than substituting, on the seams it checks.</b> <see cref="BuildRigAsync"/> checks
 /// the chat model and the reranker before returning a <see cref="Rig"/> — the same posture
@@ -35,7 +40,13 @@ internal static class MemoryContentionSweep
     /// <para><b>The embedder is NOT the caching one.</b> <see cref="SweepDoubles.CachingEmbedder"/> memoizes by
     /// text, which is right for a quality sweep replaying a fixed corpus and fatal here: the embedder is the
     /// most frequent model contact in the library (per write AND per recall) and a cache would report its cost
-    /// as zero.</para></summary>
+    /// as zero.</para>
+    ///
+    /// <para><b><see cref="Reranker"/> is built regardless of which backend fills verification.</b> Under
+    /// <see cref="Verifier.Rerank"/> it scores every candidate through <see cref="CrossEncoderVerifier"/>;
+    /// under <see cref="Verifier.Judge"/> it is still probed for reachability but never invoked. Reading
+    /// <c>DistinctRerankScores</c> as 0 under <c>judge</c> and non-zero under <c>rerank</c> is exactly the
+    /// differential this sweep exists to show — not a broken control.</para></summary>
     private sealed record Rig(
         GraphMemoryEngine Engine,
         CrossEncoderReranker Reranker,
@@ -52,11 +63,22 @@ internal static class MemoryContentionSweep
     private static HttpClient NewHttp() =>
         new(new HttpClientHandler { UseProxy = false }) { Timeout = TimeSpan.FromMinutes(5) };
 
-    private static async Task<Rig?> BuildRigAsync(HttpClient http)
+    /// <summary>Which implementation fills the engine's single verification slot.
+    ///
+    /// <para><b>They are alternatives, not additions.</b> <c>IMemoryVerificationPolicy</c> is singular, so a
+    /// deployment picks one — and the pick decides whether any two seams share a model at all. Under
+    /// <see cref="Judge"/> annotation and verification both run on the instruct model and contend; under
+    /// <see cref="Rerank"/> verification moves to its own cross-encoder and nothing is shared.</para></summary>
+    private enum Verifier { Judge, Rerank }
+
+    private static async Task<Rig?> BuildRigAsync(HttpClient http, Verifier verifier)
     {
         var chat = await SweepDoubles.TryRealChatAsync(http, "memory-contention");
         if (chat is null) return null;                      // refuses; the reason is already on stderr
 
+        // Checked regardless of `verifier`: under Judge this is still the positive control the class doc
+        // describes (an unreachable reranker must not silently look like a fast, unused one); under Rerank
+        // it is the seam actually being priced.
         var reranker = new CrossEncoderReranker(http, CrossEncoderReranker.BaseUrl, CrossEncoderReranker.Model);
         if (!await reranker.ReachableAsync())
         {
@@ -70,7 +92,12 @@ internal static class MemoryContentionSweep
         // The SHIPPED policies, not bench-local ones — an arm has to exercise the shipped prompt, parsing and
         // fail-open behaviour or it measures something no consumer inherits (CrossEncoderRerank's own reasoning).
         var annotation = new CountingAnnotation(new LlmMemoryAnnotationPolicy(clients));
-        var verification = new LlmMemoryVerificationPolicy(clients);
+        // IMemoryVerificationPolicy is SINGULAR (D115): the two backends fill the same slot, never both at
+        // once. `top: QueryLimit` mirrors MemoryLocomoBench's own call site — a fixed endorsement count keeps
+        // the promoted set no larger than the page.
+        IMemoryVerificationPolicy verification = verifier == Verifier.Rerank
+            ? new CrossEncoderVerifier(reranker, QueryLimit)
+            : new LlmMemoryVerificationPolicy(clients);
 
         var db = new MemoryPolicySweep.SweepDb();
         var engine = new GraphMemoryEngine("contention", new SqliteMemoryGraphStore(db.Factory),
@@ -211,13 +238,15 @@ internal static class MemoryContentionSweep
 
     /// <summary>Writes and recalls driven CONCURRENTLY, which is the cell this sweep exists for.
     ///
-    /// <para><b>Only two seams actually contend, and knowing which is the whole finding.</b> Router mode spawns
-    /// one server process per model, so the embedder and the reranker are different processes and cannot
-    /// contend with the judge at all. Annotation and judging both want the instruct model, so they share that
-    /// one server's slots — every other pairing here is measured to CONFIRM it costs nothing.</para>
+    /// <para><b>What contends is decided by <see cref="Verifier"/>, not fixed.</b> The embedder is always its
+    /// own process, so it can never contend with anything here. Under <see cref="Verifier.Judge"/> annotation
+    /// and verification both want the instruct model and share its slots — that sharing is the contention
+    /// this cell exists to price. Under <see cref="Verifier.Rerank"/> verification moves to the cross-encoder's
+    /// own process, so nothing shares a model at all — this cell is the null-result control
+    /// <see cref="PrintBackendComparison"/> reads against.</para>
     ///
-    /// <para><b>The write:recall ratio is printed, not implied.</b> Annotation runs per write and judging per
-    /// recall, so an unbalanced driver reports the ratio rather than the contention.</para>
+    /// <para><b>The write:recall ratio is printed, not implied.</b> Annotation runs per write and verification
+    /// per recall, so an unbalanced driver reports the ratio rather than the contention.</para>
     ///
     /// <para><b><paramref name="workers"/> is PER LOOP, not the total in flight.</b> It sets
     /// <c>MaxDegreeOfParallelism</c> independently on the write loop and the recall loop below, so up to
@@ -306,11 +335,33 @@ internal static class MemoryContentionSweep
             + $"({delta / solo.RecallP50 * 100:F0}% of it)");
     }
 
+    /// <summary>What moving verification off the shared instruct model buys.
+    /// <para>Under <c>judge</c> annotation and verification contend for one server's slots; under
+    /// <c>rerank</c> they cannot, because they are different processes with different weights. This line is
+    /// the whole reason the backend is an arm rather than a configuration detail.</para></summary>
+    private static void PrintBackendComparison(Row judgeMixed, Row rerankMixed)
+    {
+        var delta = judgeMixed.RecallP50 - rerankMixed.RecallP50;
+        if (delta <= 0)
+        {
+            Console.WriteLine($"\n  judge vs rerank: NOT READABLE — judge measured {-delta:F1}ms FASTER than "
+                + "rerank at the mixed cell, though only judge shares a model with annotation. One run per "
+                + "cell, so this is variance. Re-run with --repeat.");
+            return;
+        }
+        Console.WriteLine($"\n  judge vs rerank: moving verification off the shared instruct model buys "
+            + $"{delta:F1}ms of the mixed p50 recall ({delta / judgeMixed.RecallP50 * 100:F0}% of it)");
+    }
+
     private static void PrintNotSwept()
     {
         Console.WriteLine("\nNOT swept (stated rather than left implicit):");
         Console.WriteLine("  - RECALL QUALITY. No ground truth here. Nothing says whether contention changes");
         Console.WriteLine("    WHAT is returned, only what it costs.");
+        Console.WriteLine("  - JUDGE AND RERANK RUNNING TOGETHER. IMemoryVerificationPolicy is a SINGULAR");
+        Console.WriteLine("    slot (D115): a deployment fills it with exactly one backend, so the two can");
+        Console.WriteLine("    never contend with EACH OTHER — only annotation can contend, and only with");
+        Console.WriteLine("    whichever one is loaded.");
         Console.WriteLine("  - A BUSY GPU, and this is the figure that does NOT transfer. Every cell was taken");
         Console.WriteLine("    with the device quiet; generation swings from 12x faster to 26x slower between a");
         Console.WriteLine("    quiet and a contended device while encoding stays ahead throughout. Read every");
@@ -344,17 +395,23 @@ internal static class MemoryContentionSweep
         return i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out var n) && n > 0 ? n : fallback;
     }
 
-    /// <summary>The topology label this run stamps on every row, <c>--arm dedicated</c> overriding the
-    /// default. The orchestrator restarts this process once per topology (dedicated / router-resident /
-    /// router-swapping) against different <c>LYNTAI_LIVE_*</c> endpoints, and nothing in this process
-    /// otherwise knows which one it is — without this flag, three separate runs would print
-    /// identically-labelled rows once combined into one table. Defaults to "unlabelled" so a bare invocation
-    /// (this file's own refusal-path check) still prints a readable row rather than a blank label.</summary>
-    private static string ParseArm(string[] args)
+    /// <summary>Which verification backend(s) to run, from <c>--verifier judge|rerank|both</c> — default
+    /// <c>both</c>, since <see cref="PrintBackendComparison"/> needs a mixed row from each side to say
+    /// anything. An unrecognised value falls back to <c>both</c> rather than refusing, matching every other
+    /// flag parser here.</summary>
+    private static Verifier[] ParseVerifiers(string[] args)
     {
-        var i = Array.IndexOf(args, "--arm");
-        return i >= 0 && i + 1 < args.Length ? args[i + 1] : "unlabelled";
+        var i = Array.IndexOf(args, "--verifier");
+        var value = i >= 0 && i + 1 < args.Length ? args[i + 1] : "both";
+        return value switch
+        {
+            "judge" => [Verifier.Judge],
+            "rerank" => [Verifier.Rerank],
+            _ => [Verifier.Judge, Verifier.Rerank],
+        };
     }
+
+    private static string VerifierName(Verifier verifier) => verifier == Verifier.Rerank ? "rerank" : "judge";
 
     /// <summary>How many times to run each cell, <c>--repeat 3</c> overriding the default 1. Mirrors
     /// <see cref="MemoryScaleSweep"/>'s own <c>ParseRepeat</c> for the reason it recorded: a p99 under
@@ -377,12 +434,12 @@ internal static class MemoryContentionSweep
     /// a mid-run refusal, so the caller can still exit 1 rather than reporting an unmeasured repetition as a
     /// result.</summary>
     private static async Task<(Row? Median, List<Row> Runs)> RunRepeatedCellAsync(
-        HttpClient http, int repeat, Func<Rig, Task<Row>> runCell)
+        HttpClient http, int repeat, Verifier verifier, Func<Rig, Task<Row>> runCell)
     {
         var runs = new List<Row>(repeat);
         for (var i = 0; i < repeat; i++)
         {
-            var rig = await BuildRigAsync(http);
+            var rig = await BuildRigAsync(http, verifier);
             if (rig is null) return (null, runs);
             using var db = rig.Db;
             runs.Add(await runCell(rig));
@@ -410,31 +467,37 @@ internal static class MemoryContentionSweep
             $" · subjects/write {r.SubjectsPerWrite:F2}" +
             (r.SubjectsPerWrite <= 0 ? "  ← ZERO: annotation is a no-op that still cost a call" : "") +
             $" · distinct rerank scores {r.DistinctRerankScores}" +
-            (r.DistinctRerankScores <= 1 ? "  ← <=1: the reranker never discriminated" : ""));
+            (r.DistinctRerankScores > 1 ? ""
+                : r.Arm == "judge" ? "  (0 expected under judge — verification never calls the reranker)"
+                : "  ← <=1: the reranker never discriminated"));
     }
 
     public static async Task<int> RunAsync(string[] args)
     {
         using var http = NewHttp();
 
+        var verifiers = ParseVerifiers(args);
+
         // Built only to gate on reachability before anything prints — the positive control BuildRigAsync's
         // own header describes. Discarded rather than reused: every cell run below (RunRepeatedCellAsync)
         // builds its OWN fresh rig, and reusing this one would let repetition 0 of the solo cell warm from it.
-        var probe = await BuildRigAsync(http);
+        // Either requested backend gates the SAME two models (chat, reranker), so which one is passed here
+        // does not change what is checked.
+        var probe = await BuildRigAsync(http, verifiers[0]);
         if (probe is null) return 1;
         probe.Db.Dispose();
 
-        Console.WriteLine("memory-contention: chat, reranker, embedder and the shipped annotation/" +
-            "verification policies are all wired onto one engine.");
+        Console.WriteLine("memory-contention: three model-backed seams — annotation, verification, embedding "
+            + "— wired onto one engine. Verification is a SINGULAR slot (D115): this run fills it with each "
+            + "requested backend in turn, never both at once.");
 
         var (writes, recalls) = ParseVolume(args);
         var workers = ParseInt(args, "--workers", 4);
         var repeat = ParseRepeat(args);
-        var arm = ParseArm(args);
-        // The write:recall ratio is PRINTED, not implied — annotation runs per write and judging per recall,
-        // so an unbalanced driver would report the ratio rather than the contention (RunMixedAsync's own doc).
-        // `workers` is likewise spelled out as PER LOOP: the mixed cell drives it independently on the write
-        // and recall loops, so up to 2x this many requests are actually in flight at once.
+        // The write:recall ratio is PRINTED, not implied — annotation runs per write and verification per
+        // recall, so an unbalanced driver would report the ratio rather than the contention (RunMixedAsync's
+        // own doc). `workers` is likewise spelled out as PER LOOP: the mixed cell drives it independently on
+        // the write and recall loops, so up to 2x this many requests are actually in flight at once.
         Console.WriteLine($"  {writes} writes, {recalls} recalls per cell — write:recall ratio {writes}:{recalls}, "
             + $"{workers} workers per loop on the mixed cell (up to {workers * 2} requests in flight together), "
             + $"repeat {repeat}");
@@ -442,22 +505,38 @@ internal static class MemoryContentionSweep
         // otherwise an empty-store recall is nearly free, which would understate contention). That is a real
         // model call per seed write, so each cell's WALL time exceeds what its own timed numbers add up to.
         Console.WriteLine($"  both cells seed {writes} entries UNTIMED first, so recalls never race an empty "
-            + "store — wall time therefore exceeds the timed numbers below\n");
+            + "store — wall time therefore exceeds the timed numbers below");
 
-        var (soloMedian, soloRuns) = await RunRepeatedCellAsync(http, repeat, r => RunSoloAsync(r, writes, recalls));
-        if (soloMedian is null) return 1;
-        var solo = soloMedian with { Arm = arm };
-        PrintRow(solo);
-        PrintSpread(soloRuns, repeat);
+        var mixedByVerifier = new Dictionary<Verifier, Row>();
+        foreach (var verifier in verifiers)
+        {
+            var name = VerifierName(verifier);
+            Console.WriteLine($"\n-- verifier: {name} --");
 
-        var (mixedMedian, mixedRuns) =
-            await RunRepeatedCellAsync(http, repeat, r => RunMixedAsync(r, writes, recalls, workers));
-        if (mixedMedian is null) return 1;
-        var mixed = mixedMedian with { Arm = arm };
-        PrintRow(mixed);
-        PrintSpread(mixedRuns, repeat);
+            var (soloMedian, soloRuns) =
+                await RunRepeatedCellAsync(http, repeat, verifier, r => RunSoloAsync(r, writes, recalls));
+            if (soloMedian is null) return 1;
+            var solo = soloMedian with { Arm = name };
+            PrintRow(solo);
+            PrintSpread(soloRuns, repeat);
 
-        PrintContentionCost(solo, mixed);
+            var (mixedMedian, mixedRuns) =
+                await RunRepeatedCellAsync(http, repeat, verifier, r => RunMixedAsync(r, writes, recalls, workers));
+            if (mixedMedian is null) return 1;
+            var mixed = mixedMedian with { Arm = name };
+            PrintRow(mixed);
+            PrintSpread(mixedRuns, repeat);
+
+            PrintContentionCost(solo, mixed);
+            mixedByVerifier[verifier] = mixed;
+        }
+
+        // Only readable once BOTH backends ran — a single `--verifier judge` or `--verifier rerank` invocation
+        // has nothing to compare, the same reason PrintSpread stays silent below repeat 2.
+        if (mixedByVerifier.TryGetValue(Verifier.Judge, out var judgeMixed) &&
+            mixedByVerifier.TryGetValue(Verifier.Rerank, out var rerankMixed))
+            PrintBackendComparison(judgeMixed, rerankMixed);
+
         PrintNotSwept();
         return 0;
     }
