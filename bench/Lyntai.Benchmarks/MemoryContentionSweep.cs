@@ -323,40 +323,92 @@ internal static class MemoryContentionSweep
             rig.Reranker.Audit.DistinctScores);
     }
 
+    /// <summary>The observed min/max of <see cref="Row.RecallP50"/> across <paramref name="runs"/> — the
+    /// SAME two numbers <see cref="PrintSpread"/> already prints, factored out so a second caller
+    /// (<see cref="PrintContentionCost"/>'s unresolved-delta branch) reads the identical values rather than
+    /// recomputing them and risking the two disagreeing.</summary>
+    private static (double Min, double Max) RecallP50Range(List<Row> runs) =>
+        (runs.Min(r => r.RecallP50), runs.Max(r => r.RecallP50));
+
     /// <summary>Mixed against solo, refusing a negative exactly as <see cref="MemoryScaleSweep"/> does.
-    /// <para>Concurrency cannot make a seam FASTER than running it alone, so a negative delta is a statement
-    /// about run-to-run variance rather than about contention — and one run per cell carries no variance
-    /// estimate to net it against. Printing it as a percentage anyway is how "−7% of the p50" enters a
-    /// document as a finding.</para></summary>
-    private static void PrintContentionCost(Row solo, Row mixed)
+    ///
+    /// <para><b>What a negative delta MEANS depends on <paramref name="repeat"/>, and the wording must say
+    /// which case it is.</b> At <c>repeat == 1</c> there is no variance estimate at all — "one run per cell"
+    /// is true, and "re-run with --repeat" is real advice. At <c>repeat &gt; 1</c> that advice is FALSE: the
+    /// repeats already ran, so telling a reader who used <c>--repeat 3</c> to re-run with it wastes their
+    /// time and a record quoting the line publishes a false claim about its own configuration. The honest
+    /// read there is a RESULT, not a failure to measure: if the two cells' OWN spreads overlap, contention
+    /// is at or below what this instrument resolves at this repeat count for this arm — not zero, not
+    /// negative, unresolved. Both spreads are printed on the line so a reader sees the overlap rather than
+    /// taking it on trust.</para></summary>
+    private static void PrintContentionCost(Row solo, Row mixed, int repeat, List<Row> soloRuns, List<Row> mixedRuns)
     {
         var delta = mixed.RecallP50 - solo.RecallP50;
-        if (delta <= 0)
+        if (delta > 0)
+        {
+            Console.WriteLine($"    {mixed.Arm}: contention costs {delta:F1}ms of the p50 recall "
+                + $"({delta / solo.RecallP50 * 100:F0}% of it)");
+            return;
+        }
+        if (repeat <= 1)
         {
             Console.WriteLine($"    {mixed.Arm}: NOT READABLE — mixed measured {-delta:F1}ms FASTER than solo, "
                 + "which contention cannot do. One run per cell, so this is variance. Re-run with --repeat.");
             return;
         }
-        Console.WriteLine($"    {mixed.Arm}: contention costs {delta:F1}ms of the p50 recall "
-            + $"({delta / solo.RecallP50 * 100:F0}% of it)");
+        var (soloMin, soloMax) = RecallP50Range(soloRuns);
+        var (mixedMin, mixedMax) = RecallP50Range(mixedRuns);
+        // Overlap is checked, not assumed: a genuinely negative delta that survives `repeat` runs with
+        // NON-overlapping spreads is not explained by noise and should not be worded as if it were.
+        if (soloMin <= mixedMax && mixedMin <= soloMax)
+        {
+            Console.WriteLine($"    {mixed.Arm}: UNRESOLVED at {repeat} runs — solo {soloMin:F1}-{soloMax:F1}ms "
+                + $"and mixed {mixedMin:F1}-{mixedMax:F1}ms OVERLAP, so the {-delta:F1}ms the medians differ "
+                + "by is inside this instrument's noise floor for this arm: contention is not shown to be "
+                + "zero, negative, or any particular size — only that it did not resolve at this repeat count.");
+            return;
+        }
+        Console.WriteLine($"    {mixed.Arm}: STILL NOT READABLE at {repeat} runs — mixed's spread "
+            + $"({mixedMin:F1}-{mixedMax:F1}ms) sits entirely BELOW solo's ({soloMin:F1}-{soloMax:F1}ms), "
+            + "which contention cannot do even accounting for the measured spread. Not explained by "
+            + "run-to-run variance at this repeat count.");
     }
 
-    /// <summary>What moving verification off the shared instruct model buys.
-    /// <para>Under <c>judge</c> annotation and verification contend for one server's slots; under
-    /// <c>rerank</c> they cannot, because they are different processes with different weights. This line is
-    /// the whole reason the backend is an arm rather than a configuration detail.</para></summary>
-    private static void PrintBackendComparison(Row judgeMixed, Row rerankMixed)
+    /// <summary>What moving verification off the shared instruct model buys — same unresolved-vs-not-yet-
+    /// measured distinction as <see cref="PrintContentionCost"/>, and for the identical reason: each side is
+    /// itself a MEDIAN over <paramref name="repeat"/> runs once <c>--repeat</c> is used, so "one run per
+    /// cell" is equally false here when it is.</summary>
+    private static void PrintBackendComparison(Row judgeMixed, Row rerankMixed, int repeat,
+        List<Row> judgeMixedRuns, List<Row> rerankMixedRuns)
     {
         var delta = judgeMixed.RecallP50 - rerankMixed.RecallP50;
-        if (delta <= 0)
+        if (delta > 0)
+        {
+            Console.WriteLine($"\n  judge vs rerank: moving verification off the shared instruct model buys "
+                + $"{delta:F1}ms of the mixed p50 recall ({delta / judgeMixed.RecallP50 * 100:F0}% of it)");
+            return;
+        }
+        if (repeat <= 1)
         {
             Console.WriteLine($"\n  judge vs rerank: NOT READABLE — judge measured {-delta:F1}ms FASTER than "
                 + "rerank at the mixed cell, though only judge shares a model with annotation. One run per "
                 + "cell, so this is variance. Re-run with --repeat.");
             return;
         }
-        Console.WriteLine($"\n  judge vs rerank: moving verification off the shared instruct model buys "
-            + $"{delta:F1}ms of the mixed p50 recall ({delta / judgeMixed.RecallP50 * 100:F0}% of it)");
+        var (judgeMin, judgeMax) = RecallP50Range(judgeMixedRuns);
+        var (rerankMin, rerankMax) = RecallP50Range(rerankMixedRuns);
+        if (judgeMin <= rerankMax && rerankMin <= judgeMax)
+        {
+            Console.WriteLine($"\n  judge vs rerank: UNRESOLVED at {repeat} runs — judge's mixed spread "
+                + $"{judgeMin:F1}-{judgeMax:F1}ms and rerank's {rerankMin:F1}-{rerankMax:F1}ms OVERLAP, so the "
+                + $"{-delta:F1}ms the medians differ by is inside this instrument's noise floor: the backend "
+                + "choice is not shown to make the mixed cell faster OR slower at this repeat count.");
+            return;
+        }
+        Console.WriteLine($"\n  judge vs rerank: STILL NOT READABLE at {repeat} runs — judge's mixed spread "
+            + $"({judgeMin:F1}-{judgeMax:F1}ms) sits entirely BELOW rerank's ({rerankMin:F1}-{rerankMax:F1}ms), "
+            + "though only judge shares a model with annotation. Not explained by run-to-run variance at "
+            + "this repeat count.");
     }
 
     /// <summary>The device-contention LABEL the orchestrator (`devtools/scripts/memory-contention.mjs`)
@@ -479,8 +531,8 @@ internal static class MemoryContentionSweep
     private static void PrintSpread(List<Row> runs, int repeat)
     {
         if (repeat <= 1) return;
-        Console.WriteLine($"      ({repeat} runs, p50 recall spread " +
-            $"{runs.Min(r => r.RecallP50):F1}–{runs.Max(r => r.RecallP50):F1}ms)");
+        var (min, max) = RecallP50Range(runs);
+        Console.WriteLine($"      ({repeat} runs, p50 recall spread {min:F1}–{max:F1}ms)");
     }
 
     private static void PrintRow(Row r)
@@ -540,6 +592,7 @@ internal static class MemoryContentionSweep
             + "store — wall time therefore exceeds the timed numbers below");
 
         var mixedByVerifier = new Dictionary<Verifier, Row>();
+        var mixedRunsByVerifier = new Dictionary<Verifier, List<Row>>();
         foreach (var verifier in verifiers)
         {
             var name = VerifierName(verifier);
@@ -559,15 +612,17 @@ internal static class MemoryContentionSweep
             PrintRow(mixed);
             PrintSpread(mixedRuns, repeat);
 
-            PrintContentionCost(solo, mixed);
+            PrintContentionCost(solo, mixed, repeat, soloRuns, mixedRuns);
             mixedByVerifier[verifier] = mixed;
+            mixedRunsByVerifier[verifier] = mixedRuns;
         }
 
         // Only readable once BOTH backends ran — a single `--verifier judge` or `--verifier rerank` invocation
         // has nothing to compare, the same reason PrintSpread stays silent below repeat 2.
         if (mixedByVerifier.TryGetValue(Verifier.Judge, out var judgeMixed) &&
             mixedByVerifier.TryGetValue(Verifier.Rerank, out var rerankMixed))
-            PrintBackendComparison(judgeMixed, rerankMixed);
+            PrintBackendComparison(judgeMixed, rerankMixed, repeat,
+                mixedRunsByVerifier[Verifier.Judge], mixedRunsByVerifier[Verifier.Rerank]);
 
         PrintNotSwept(device);
         return 0;
