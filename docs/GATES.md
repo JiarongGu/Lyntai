@@ -6,7 +6,7 @@
 > failure is spurious.
 
 `node devtools/dev.mjs` with no argument prints the authoritative command list; it is derived from the
-switch in `devtools/dev.mjs`, so it cannot be a subset. `verify` runs 22 checks, stopping at the first
+switch in `devtools/dev.mjs`, so it cannot be a subset. `verify` runs 23 checks, stopping at the first
 failure. **Digits, not a number word** — `parseCount` has no hyphenated compounds, so `twenty-one` would be
 skipped rather than compared and the claim it anchors would match nothing.
 
@@ -430,6 +430,33 @@ helped LOCATING cost (~66 lines read against ~117), so an index sized for READIN
 
 Adding or moving a trap means re-running `check-pitfalls --write`, because the trap count sits inside the
 generated block.
+
+### `check-options` — whether a shipped option says what it is FOR
+
+**The obligation this enforces is the owner's, stated 2026-09-12:** which model to run and which option to
+select is the consuming application's job, so the library's job is to document all of them and why they
+exist. A settable property on a public `*Options` type is exactly where that lands — it is what a consumer
+assigns, and an undocumented one meets them in IntelliSense as a bare name with no hint of what it buys or
+what its default costs.
+
+**It catches NOTHING-AT-ALL and deliberately stops there**, which is the part to understand before widening
+it. The first run found **5 undocumented options in 5 hits** — all genuine, four of them on
+`AgentSessionOptions`, including `Model`, an option named for the very thing that is explicitly the
+application's choice. The wider rule that suggests itself — *a one-line doc says WHAT and not WHY* — was
+refused on measurement: **53** options have exactly one line and most are correct, because `ApiKey` and
+`BaseUrl` do not need an essay. `.claude/knowledge/pitfalls.md` records two gates this repository built,
+measured at a **0% defect rate**, and withdrew; a hit here is a defect by construction, which is the bar a
+vocabulary gate has to clear before it ships. The one-line count is REPORTED on a passing run so the softer
+tier stays visible without being enforced.
+
+**It fails closed on an empty scan** — a scan finding no options has proved the pattern stopped matching,
+not that the tree is clean — and `optionDocAllowances` (`devtools/project.config.mjs`) excuses a single
+option with a reason, where **a dead allowance FAILS** the moment its option is documented, renamed or
+deleted. Scope is `src/` only: a test's or a bench's options type is an instrument, not a contract.
+
+**What it does NOT hold:** whether the prose is any good, whether a default is right, or whether the doc
+still describes the code — that last is `check-decision-claims`' question, one tier up, and only for
+options a decision governs.
 
 ### `check-measurements` — whether a published FIGURE is still the current one
 

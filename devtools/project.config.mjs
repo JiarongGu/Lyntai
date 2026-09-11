@@ -832,6 +832,7 @@ export default {
     'memory-scale': 'COST, not quality — latency, throughput, bytes; no ground truth',
     'memory-contention': 'judge vs cross-encoder: does moving verification off the shared model pay?',
     'rerank-screen': 'does a candidate GGUF rerank AT ALL? `--inspect` needs no download',
+    'check-options': 'a shipped option a consumer sets with NO xml doc to explain it',
     'memory-locomo': "the FIELD's benchmark; rewards a perfect archive, so read it differentially",
     'memory-longmemeval': 'prefer a revised fact over the superseded one — **run `--haystack`**',
   },

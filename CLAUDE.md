@@ -18,7 +18,7 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3641 passed / 3663 total, 22 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 703/703, doc samples 80/80. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 718/718, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED on 2026-09-12 with Docker up**, ending a run of derived figures: all 22 skips were enumerated
@@ -176,6 +176,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `check-archive` | ✓ | an archive entry that outgrew the OUTCOME it records |
 | `check-backlog` | ✓ | a backlog summarizing the archive; `--write` rebuilds its roster |
 | `check-pitfalls` | ✓ | an unfiled trap or stale facet index; `--write` rebuilds it |
+| `check-options` | ✓ | a shipped option a consumer sets with NO xml doc to explain it |
 | `check-measurements` | ✓ | a result reading CURRENT that its own body retracts; `--write` rebuilds the index |
 | `check-dev-loop` | ✓ | this table drifting from `dev.mjs`; `--write` rebuilds it |
 | `check-decision-claims` | ✓ | a DECISION that stopped describing the code it governs |

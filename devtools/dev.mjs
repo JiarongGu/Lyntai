@@ -640,6 +640,17 @@ switch (cmd) {
     break;
   }
 
+  // check-options — FAIL when a shipped option reaches a consumer with nothing to explain it. Which model
+  // to run and which option to select is the consuming application's job; documenting the choice is the
+  // library's, and a settable property on a public `*Options` type is where that lands. Scope is
+  // deliberately "carries NO `///` doc", which measured 5 defects in 5 hits; the wider "a one-line doc
+  // says WHAT not WHY" rule was refused because 53 options have one and most are right (`ApiKey` needs no
+  // essay). `optionDocAllowances` excuses one with a reason, and a dead allowance FAILS.
+  case 'check-options': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-options.mjs'), ...args]);
+    break;
+  }
+
   // check-measurements — FAIL when the measurement record cannot be read for CURRENCY. The FOURTH gate on
   // the `_markers.mjs` seam, and the one whose subject is a NUMBER rather than a name: the measurement half
   // of `docs/memory.md` was 3,442 of 4,222 lines and it RETRACTS INLINE, so the cold-start probe that asked
@@ -754,6 +765,7 @@ switch (cmd) {
       ['check-bundle', []], ['check-encoding', []], ['check-docs', []], ['check-links', []],
       ['check-counts', []], ['check-comments', []], ['check-decisions', []], ['check-archive', []], ['check-backlog', []],
       ['check-pitfalls', []], ['check-measurements', []], ['check-decision-claims', []], ['check-dev-loop', []],
+      ['check-options', []],
       ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
     // Fingerprinted before and after: every line below describes the tree as it was HERE, so a file edited
