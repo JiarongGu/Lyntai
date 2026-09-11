@@ -107,7 +107,7 @@ mistake this column exists to prevent.
 | 3582 | shipped novelty-driven salience policy, iso… | miss | unstated (the `ma… | −0.0786 | **ships** | CURRENT |
 | 3621 | `shot-2` on the `--haystack` variant, `sing… | all-evidence-recall | 64 of 70 single-s… | +0.0 | — | CURRENT |
 | 3664 | `+sem+rel-only+judge` with `gemma-3-1b-it` … | evidence-hit@k | 200 | 83.0% | — | CURRENT |
-| 3708 | `rerank` — a `bge-reranker-v2-m3` cross-enc… | latency | 50 writes + 50 re… | 94.5 ms recall … | — | CURRENT |
+| 3708 | `rerank` — the bench-local `CrossEncoderVer… | latency | 50 writes + 50 re… | 94.5 ms recall … | — | CURRENT |
 
 <!-- results:end -->
 
@@ -3705,12 +3705,23 @@ not a gain. **The measured way to spend under a gigabyte here is a cross-encoder
 so 0 of 19 bounds the ceiling rather than proving the model never could. It says nothing about the 1B in a
 different role — extraction, annotation and classification are different tasks and none was measured here.
 
-### ONE model serving MANY seams: the judge pays ~10x for SHARING, on top of being 2x slower (`memory-contention --device both --verifier both`, 2026-09-11) <!-- result: id=contention-mixed-recall-quiet-rerank arm="`rerank` — a `bge-reranker-v2-m3` cross-encoder alone in the SINGULAR verification slot, mixed write+recall load, quiet device, `dedicated` topology" metric=latency n="50 writes + 50 recalls per cell, 4 workers per loop, repeat 3" value="94.5 ms recall p50, against 2,672.0 ms for a judge sharing the instruct server with annotation" ships=no status=CURRENT -->
+### ONE model serving MANY seams: the judge pays ~10x for SHARING, on top of being 2x slower (`memory-contention --device both --verifier both`, 2026-09-11) <!-- result: id=contention-mixed-recall-quiet-rerank arm="`rerank` — the bench-local `CrossEncoderVerifier` over `bge-reranker-v2-m3`, alone in the SINGULAR verification slot, mixed write+recall load, quiet device, `dedicated` topology" metric=latency n="50 writes + 50 recalls per cell, 4 workers per loop, repeat 3" value="94.5 ms recall p50, against 2,672.0 ms for a judge sharing the instruct server with annotation" ships=no status=CURRENT -->
 
-**What varied, and only this:** which backend fills the verification slot — `judge` (`LlmMemoryVerificationPolicy`
-on the same `gemma-3-4b-it` server annotation already writes through) against `rerank`
-(`CrossEncoderVerificationPolicy` on its own `bge-reranker-v2-m3` server) — crossed with a quiet and a busy
-device. Same corpus, same embedder, same engine, same `dedicated` topology, one process per model in every cell.
+**What varied, and only this:** which backend fills the verification slot — `judge` (the shipped
+`LlmMemoryVerificationPolicy`, on the same `gemma-3-4b-it` server annotation already writes through) against
+`rerank` (the bench-local `CrossEncoderVerifier`, on its own `bge-reranker-v2-m3` server) — crossed with a
+quiet and a busy device. Same corpus, same embedder, same engine, same `dedicated` topology, one process per
+model in every cell.
+
+**The `rerank` arm ran a bench-local STAND-IN, not the shipped policy, and that is the one naming difference
+that matters here.** `CrossEncoderVerifier` is the harness's own class;
+`src/Lyntai.Providers.Default/CrossEncoderVerificationPolicy.cs` is what `AddMemoryCrossEncoderVerification`
+registers. The two are equivalent FOR A COST MEASUREMENT — the same POST to the same `/v1/rerank`
+endpoint against the same model, and the same fixed top-N endorsement rule, differing only in where N comes
+from (a constructor argument set to the recall limit, against
+`CrossEncoderVerificationOptions.EndorseCount`) — so the latency is dominated by an identical HTTP call and
+these figures carry. **What does NOT carry is anything about the shipped policy's own configuration surface:
+this row prices the SHAPE of a cross-encoder in the verification slot, never the shipped type.**
 
 **THREE model-backed seams, not four** — annotation, verification, embedding. `IMemoryVerificationPolicy` is a
 SINGULAR slot (**D115**), so judging and reranking are ALTERNATIVES a deployment chooses between and can never
@@ -3718,9 +3729,10 @@ contend with EACH OTHER; this run fills the slot with one at a time. **Only anno
 with whichever verification backend shares its server.** The plan that scoped this bench said four seams and
 was wrong.
 
-**Neither arm SHIPS**, which is why both rows read `ships=no`. Verification is opt-in in full: a default engine
-registers no `IMemoryVerificationPolicy` at all, and both `AddMemoryVerification` and
-`AddMemoryCrossEncoderVerification` are calls a consumer makes deliberately. Each arm is a rung.
+**Neither arm SHIPS**, which is why the row reads `ships=no` — and on the `rerank` side for two independent
+reasons, the stand-in above being the second. Verification is opt-in in full: a default engine registers no
+`IMemoryVerificationPolicy` at all, and both `AddMemoryVerification` and `AddMemoryCrossEncoderVerification`
+are calls a consumer makes deliberately. Each arm is a rung.
 
 **Instrument.** `node devtools/dev.mjs memory-contention -- --device both --verifier both --writes 50
 --recalls 50 --repeat 3`, exit 0, the `dedicated` arm only. Every cell seeds 50 entries UNTIMED first, then

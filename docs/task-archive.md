@@ -3086,7 +3086,9 @@ one**, and the pre-registered instrument check is what separated "inert" from "b
 **Outcome: moving verification off the shared instruct model is worth most of the mixed-workload recall p50,
 and only the first 2x of it is the smaller model.** The cross-encoder is about twice as fast solo; the judge
 then pays a further ~10x for SHARING the chat server with annotation, which is the larger and more durable
-half. Neither arm ships — verification is opt-in in full, so both rows are rungs.
+half. Neither arm ships — verification is opt-in in full, and the `rerank` cells ran the bench-local
+`CrossEncoderVerifier` rather than the shipped `CrossEncoderVerificationPolicy` (equivalent for COST, same
+endpoint and same fixed top-N rule), so the row prices a cross-encoder's SHAPE in that slot.
 
 **The bench's scope was wrong before it ran, and the correction is the reusable part.** It was planned around
 FOUR contending seams. `IMemoryVerificationPolicy` is a SINGULAR slot (**D115**), so judging and reranking are
