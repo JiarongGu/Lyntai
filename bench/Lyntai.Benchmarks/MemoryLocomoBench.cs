@@ -127,6 +127,17 @@ internal static class MemoryLocomoBench
             return 1;
         }
 
+        // `--verdict` needs a reader (it scores token-F1 over the QA arms); `--retrieval` needs none. Left
+        // unchecked, the two together would drop `needsReader` to false while the verdict arms still expect
+        // one, so refuse here — before spending an embedder connection on a run that cannot proceed — rather
+        // than let that surface later as a confusing failure.
+        if (args.Contains("--verdict") && args.Contains("--retrieval"))
+        {
+            Console.Error.WriteLine("memory-locomo: --verdict and --retrieval are different studies - run "
+                + "one or the other. --verdict needs a reader; --retrieval measures retrieval with none.");
+            return 1;
+        }
+
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         var embedder = await SweepDoubles.TryRealEmbedderAsync(http, "memory-locomo");
         if (embedder is null) return 1;
@@ -1246,6 +1257,12 @@ internal static class MemoryLocomoBench
             Console.WriteLine($"  {convId}: {turns.Count} turns ingested, {mine.Count} question(s) asked");
         }
 
+        // Before any table: a failed control here must not be followed by a table that invites reading it
+        // anyway (see AssertVerdictAuditsAgree).
+        if (verdictOnly && !AssertVerdictAuditsAgree(judgeAudits[JudgeArmName(VerdictArms[0])],
+                judgeAudits[JudgeArmName(VerdictArms[1])]))
+            return 1;
+
         if (ranksOnly) PrintRanks(rankProbe);
         else if (composition) PrintComposition(comp);
         else if (shotsOnly) PrintShots(arms, correct, asked, returned, chars, millis);
@@ -1869,6 +1886,35 @@ internal static class MemoryLocomoBench
         if (cap.Capped == 0)
             Console.WriteLine("    ! INERT - the judge never exceeded this cap, so this arm IS its uncapped"
                 + " twin. Any score difference is the instrument, not the rule.");
+    }
+
+    /// <summary>The control this whole study rests on. `--verdict`'s two judge arms are shown the SAME
+    /// candidates by the same model with the same prompts at the same derived depth; only how the verdict
+    /// reaches the page differs. So their audits must be EQUAL — the file's own note at the fusion site says
+    /// a fused arm's audit is a cross-check against its unfused twin.
+    ///
+    /// <para><b>A divergence is not a footnote.</b> It means the two arms are not the comparison the table
+    /// claims, so no number in that table is readable. Prints what differed and returns false; the caller
+    /// exits non-zero rather than publishing.</para></summary>
+    private static bool AssertVerdictAuditsAgree(JudgeAudit partition, JudgeAudit fused)
+    {
+        (string Field, int A, int B)[] pairs =
+        [
+            ("Calls", partition.Calls, fused.Calls),
+            ("Shown", partition.Shown, fused.Shown),
+            ("Endorsed", partition.Endorsed, fused.Endorsed),
+            ("Declined", partition.Declined, fused.Declined),
+            ("EmptyVerdicts", partition.EmptyVerdicts, fused.EmptyVerdicts),
+        ];
+
+        var bad = pairs.Where(p => p.A != p.B).ToList();
+        if (bad.Count == 0) return true;
+
+        Console.Error.WriteLine("--verdict: the two judge arms DISAGREE on what the judge did, so they are");
+        Console.Error.WriteLine("  not the same comparison and no number below is readable:");
+        foreach (var p in bad)
+            Console.Error.WriteLine($"    {p.Field}: partition {p.A} vs enginefuse {p.B}");
+        return false;
     }
 
     private static void PrintResults(IReadOnlyList<string> arms,
