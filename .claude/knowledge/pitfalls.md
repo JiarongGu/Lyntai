@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 177 traps, indexed two ways
+## Facets — 180 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 462 · 547 · 556 · 566 · 620 · 634 · 704 · 718 · 854 · 1044 · 1995 · 2005 · 2031 · 2042 · 2079 · 2450 · 2480 · 2489
-- **`encoding`** (6) — 75 · 80 · 573 · 581 · 751 · 2079
+- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 462 · 547 · 556 · 566 · 620 · 634 · 704 · 718 · 920 · 1110 · 2061 · 2071 · 2097 · 2108 · 2145 · 2516 · 2546 · 2555
+- **`encoding`** (6) — 75 · 80 · 573 · 581 · 751 · 2145
 - **`git`** (7) — 207 · 232 · 263 · 288 · 581 · 603 · 756
-- **`build`** (8) — 80 · 547 · 556 · 566 · 620 · 846 · 1044 · 2014
-- **`router`** (6) — 887 · 892 · 901 · 903 · 906 · 1036
-- **`cli`** (18) — 733 · 751 · 887 · 908 · 916 · 925 · 929 · 941 · 945 · 952 · 956 · 963 · 967 · 1000 · 1019 · 1023 · 1028 · 1865
-- **`lifetime`** (6) — 1066 · 1075 · 1080 · 1085 · 1098 · 1106
-- **`storage`** (17) — 979 · 1115 · 1217 · 1245 · 1247 · 1248 · 1250 · 1252 · 1270 · 1281 · 1510 · 1522 · 1778 · 1895 · 2061 · 2243 · 2427
-- **`memory`** (38) — 387 · 405 · 533 · 979 · 1149 · 1168 · 1179 · 1205 · 1217 · 1232 · 1253 · 1270 · 1281 · 1320 · 1335 · 1342 · 1361 · 1372 · 1390 · 1403 · 1416 · 1474 · 1529 · 1549 · 1585 · 1621 · 1639 · 1646 · 1677 · 1699 · 1727 · 1799 · 1874 · 1895 · 2136 · 2295 · 2323 · 2406
-- **`generation`** (8) — 892 · 1098 · 1621 · 1812 · 1824 · 1848 · 1955 · 1980
-- **`di`** (12) — 1085 · 1335 · 1361 · 1541 · 1543 · 1546 · 1549 · 1567 · 1646 · 1677 · 1824 · 1874
-- **`measurement`** (44) — 111 · 372 · 387 · 405 · 446 · 476 · 492 · 511 · 523 · 533 · 654 · 733 · 740 · 745 · 774 · 784 · 796 · 807 · 835 · 841 · 846 · 916 · 1115 · 1134 · 1205 · 1372 · 1403 · 1430 · 1441 · 1456 · 1474 · 1529 · 1585 · 2031 · 2112 · 2163 · 2178 · 2202 · 2222 · 2243 · 2273 · 2310 · 2374 · 2406
-- **`docs`** (22) — 124 · 152 · 175 · 296 · 603 · 634 · 654 · 704 · 854 · 865 · 870 · 877 · 1179 · 1699 · 1766 · 1930 · 1940 · 1995 · 2005 · 2042 · 2061 · 2332
-- **`tests`** (21) — 1000 · 1191 · 1232 · 1253 · 1320 · 1342 · 1510 · 1522 · 1778 · 2125 · 2136 · 2147 · 2323 · 2345 · 2427 · 2435 · 2443 · 2447 · 2450 · 2462 · 2475
+- **`build`** (8) — 80 · 547 · 556 · 566 · 620 · 912 · 1110 · 2080
+- **`router`** (6) — 953 · 958 · 967 · 969 · 972 · 1102
+- **`cli`** (18) — 733 · 751 · 953 · 974 · 982 · 991 · 995 · 1007 · 1011 · 1018 · 1022 · 1029 · 1033 · 1066 · 1085 · 1089 · 1094 · 1931
+- **`lifetime`** (6) — 1132 · 1141 · 1146 · 1151 · 1164 · 1172
+- **`storage`** (17) — 1045 · 1181 · 1283 · 1311 · 1313 · 1314 · 1316 · 1318 · 1336 · 1347 · 1576 · 1588 · 1844 · 1961 · 2127 · 2309 · 2493
+- **`memory`** (38) — 387 · 405 · 533 · 1045 · 1215 · 1234 · 1245 · 1271 · 1283 · 1298 · 1319 · 1336 · 1347 · 1386 · 1401 · 1408 · 1427 · 1438 · 1456 · 1469 · 1482 · 1540 · 1595 · 1615 · 1651 · 1687 · 1705 · 1712 · 1743 · 1765 · 1793 · 1865 · 1940 · 1961 · 2202 · 2361 · 2389 · 2472
+- **`generation`** (8) — 958 · 1164 · 1687 · 1878 · 1890 · 1914 · 2021 · 2046
+- **`di`** (12) — 1151 · 1401 · 1427 · 1607 · 1609 · 1612 · 1615 · 1633 · 1712 · 1743 · 1890 · 1940
+- **`measurement`** (47) — 111 · 372 · 387 · 405 · 446 · 476 · 492 · 511 · 523 · 533 · 654 · 733 · 740 · 745 · 774 · 784 · 804 · 815 · 843 · 868 · 874 · 890 · 907 · 912 · 982 · 1181 · 1200 · 1271 · 1438 · 1469 · 1496 · 1507 · 1522 · 1540 · 1595 · 1651 · 2097 · 2178 · 2229 · 2244 · 2268 · 2288 · 2309 · 2339 · 2376 · 2440 · 2472
+- **`docs`** (22) — 124 · 152 · 175 · 296 · 603 · 634 · 654 · 704 · 920 · 931 · 936 · 943 · 1245 · 1765 · 1832 · 1996 · 2006 · 2061 · 2071 · 2108 · 2127 · 2398
+- **`tests`** (21) — 1066 · 1257 · 1298 · 1319 · 1386 · 1408 · 1576 · 1588 · 1844 · 2191 · 2202 · 2213 · 2389 · 2411 · 2493 · 2501 · 2509 · 2513 · 2516 · 2528 · 2541
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (19) — 207 · 387 · 405 · 634 · 745 · 901 · 906 · 925 · 1000 · 1080 · 1168 · 1416 · 1549 · 1585 · 1812 · 1824 · 1874 · 1980 · 2295
-- **`cancellation`** (5) — 887 · 892 · 1149 · 1168 · 1191
-- **`vacuous`** (34) — 111 · 185 · 192 · 372 · 446 · 476 · 556 · 796 · 956 · 1019 · 1036 · 1191 · 1232 · 1253 · 1320 · 1342 · 1430 · 1441 · 1474 · 1585 · 1699 · 2061 · 2136 · 2147 · 2178 · 2310 · 2323 · 2345 · 2374 · 2427 · 2450 · 2462 · 2480 · 2489
-- **`scope-blind`** (35) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 581 · 704 · 718 · 1044 · 1335 · 1403 · 1510 · 1522 · 1699 · 1727 · 1778 · 1895 · 1995 · 2005 · 2014 · 2031 · 2042 · 2061 · 2147 · 2310 · 2323 · 2447 · 2480 · 2489
-- **`second-door`** (20) — 903 · 941 · 945 · 956 · 963 · 1023 · 1028 · 1106 · 1248 · 1270 · 1549 · 1677 · 1778 · 1799 · 1812 · 1824 · 1848 · 1895 · 1930 · 1955
-- **`stale-claim`** (16) — 57 · 152 · 232 · 296 · 654 · 756 · 854 · 870 · 1179 · 1546 · 1766 · 1799 · 1848 · 1930 · 2042 · 2332
-- **`silent-loss`** (46) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 523 · 573 · 620 · 634 · 733 · 751 · 784 · 807 · 841 · 929 · 945 · 979 · 1066 · 1098 · 1134 · 1205 · 1245 · 1247 · 1248 · 1250 · 1270 · 1281 · 1320 · 1456 · 1529 · 1541 · 1546 · 1567 · 1639 · 1677 · 1727 · 1865 · 1955 · 1995 · 2005 · 2079 · 2163 · 2243 · 2374
-- **`wrong-subject`** (46) — 57 · 91 · 111 · 288 · 372 · 405 · 462 · 476 · 492 · 511 · 523 · 533 · 547 · 566 · 784 · 807 · 835 · 865 · 877 · 903 · 952 · 1044 · 1075 · 1085 · 1115 · 1205 · 1253 · 1361 · 1372 · 1390 · 1403 · 1430 · 1441 · 1474 · 1621 · 1646 · 1980 · 2112 · 2163 · 2178 · 2202 · 2222 · 2243 · 2345 · 2406 · 2450
-- **`unmeasured`** (16) — 492 · 533 · 603 · 654 · 704 · 740 · 846 · 908 · 916 · 925 · 967 · 1019 · 1390 · 1621 · 1940 · 2332
-- **`ordering`** (10) — 566 · 929 · 1028 · 1217 · 1252 · 1567 · 1865 · 1874 · 2125 · 2273
-- **`resource`** (12) — 547 · 581 · 620 · 774 · 908 · 1000 · 1106 · 1115 · 1543 · 2435 · 2443 · 2475
+- **`fail-open`** (19) — 207 · 387 · 405 · 634 · 745 · 967 · 972 · 991 · 1066 · 1146 · 1234 · 1482 · 1615 · 1651 · 1878 · 1890 · 1940 · 2046 · 2361
+- **`cancellation`** (5) — 953 · 958 · 1215 · 1234 · 1257
+- **`vacuous`** (34) — 111 · 185 · 192 · 372 · 446 · 476 · 556 · 804 · 1022 · 1085 · 1102 · 1257 · 1298 · 1319 · 1386 · 1408 · 1496 · 1507 · 1540 · 1651 · 1765 · 2127 · 2202 · 2213 · 2244 · 2376 · 2389 · 2411 · 2440 · 2493 · 2516 · 2528 · 2546 · 2555
+- **`scope-blind`** (35) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 581 · 704 · 718 · 1110 · 1401 · 1469 · 1576 · 1588 · 1765 · 1793 · 1844 · 1961 · 2061 · 2071 · 2080 · 2097 · 2108 · 2127 · 2213 · 2376 · 2389 · 2513 · 2546 · 2555
+- **`second-door`** (20) — 969 · 1007 · 1011 · 1022 · 1029 · 1089 · 1094 · 1172 · 1314 · 1336 · 1615 · 1743 · 1844 · 1865 · 1878 · 1890 · 1914 · 1961 · 1996 · 2021
+- **`stale-claim`** (16) — 57 · 152 · 232 · 296 · 654 · 756 · 920 · 936 · 1245 · 1612 · 1832 · 1865 · 1914 · 1996 · 2108 · 2398
+- **`silent-loss`** (47) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 523 · 573 · 620 · 634 · 733 · 751 · 784 · 815 · 843 · 907 · 995 · 1011 · 1045 · 1132 · 1164 · 1200 · 1271 · 1311 · 1313 · 1314 · 1316 · 1336 · 1347 · 1386 · 1522 · 1595 · 1607 · 1612 · 1633 · 1705 · 1743 · 1793 · 1931 · 2021 · 2061 · 2071 · 2145 · 2229 · 2309 · 2440
+- **`wrong-subject`** (48) — 57 · 91 · 111 · 288 · 372 · 405 · 462 · 476 · 492 · 511 · 523 · 533 · 547 · 566 · 784 · 815 · 843 · 868 · 874 · 931 · 943 · 969 · 1018 · 1110 · 1141 · 1151 · 1181 · 1271 · 1319 · 1427 · 1438 · 1456 · 1469 · 1496 · 1507 · 1540 · 1687 · 1712 · 2046 · 2178 · 2229 · 2244 · 2268 · 2288 · 2309 · 2411 · 2472 · 2516
+- **`unmeasured`** (17) — 492 · 533 · 603 · 654 · 704 · 740 · 890 · 912 · 974 · 982 · 991 · 1033 · 1085 · 1456 · 1687 · 2006 · 2398
+- **`ordering`** (10) — 566 · 995 · 1094 · 1283 · 1318 · 1633 · 1931 · 1940 · 2191 · 2339
+- **`resource`** (13) — 547 · 581 · 620 · 774 · 874 · 974 · 1066 · 1172 · 1181 · 1609 · 2501 · 2509 · 2541
 
 <!-- facets:end -->
 
@@ -793,6 +793,14 @@ of the two: most of these traps recur in a subsystem that had never met them.
   exactly what a neighbour also chose. And **verify identity, not plausibility**: read the served model back
   (`/v1/models`) and compare the actual vectors against the other candidate — a shape check cannot separate
   two models that share a shape, and the failure it misses is silent.
+  <br>**The SAME neighbour was still holding 8090 on 2026-09-11**, invisible to a fresh sweep of
+  8080/8081/8082/11434/1234 that reported "no model server ports listening". It survived a design session's
+  spawn-and-teardown only because it was looked for. **A sweep of the ports you were going to use is not a
+  census of the machine** — enumerate `llama-server` processes and their parents, not a port list you wrote.
+  <br>**And the check must test `LISTENING`, which is the same trap's other direction.** Matching the port
+  alone (`netstat | grep ':8137 '`) also matches the `TIME_WAIT` sockets a server you just tore down leaves
+  behind, so it reports BUSY on a free port — a false ABORT where the entry above is a false PROCEED. One is
+  merely annoying and the other is silent, which is exactly why the loose check survives review.
 - **A smoke test on a TYPICAL input certifies a server that fails on the inputs the run actually sends.** <!-- trap: sub=measurement shape=vacuous -->
   Twice on 2026-09-11, and the second cost an hour of ingestion. A `llama-server` embedder answered a
   four-word probe perfectly and returned **HTTP 500 — *"input (1442 tokens) is too large… current batch
@@ -832,12 +840,70 @@ of the two: most of these traps recur in a subsystem that had never met them.
   second form: a number that looks like a property of the model is a property of the serving layer. Vectors
   are byte-identical across devices, so for encode-only work switching is a free speed choice, and a run
   may be compared across it.
+- **A bare `new HttpClient` leaves PROXY RESOLUTION on, which costs up to 2 SECONDS per local call — and it <!-- trap: sub=measurement shape=wrong-subject,silent-loss -->
+  is BIMODAL, so it reads as the model's tail latency rather than as an offset.** Measured 2026-09-11. The
+  same entry one layer further out than the one above: a number that looks like a property of the model is
+  a property of the CLIENT.
+
+  | client | mean | max |
+  |---|---|---|
+  | `localhost`, proxy on | 513 ms | **2,051 ms** |
+  | `127.0.0.1`, proxy on | 8.9 ms | 34 ms |
+  | either, `UseProxy = false` | **0.4 ms** | 1.0 ms |
+
+  <br>**This CORRECTS a widely-repeated explanation, and the correction is the useful half.** The delay was
+  attributed to Windows resolving `localhost` to `::1` first and an IPv4-only listener paying a failed
+  connect. **Nothing at the TCP layer is slow here**: a raw connect to `[::1]` on a port with no IPv6
+  listener refuses in **5.8 ms**, and to a dead `::1` port in **0.4 ms**. Disabling the proxy collapses
+  BOTH spellings, which address-family selection cannot explain.
+  <br>**So `127.0.0.1` only mitigates** — still 15× the direct path — and `UseProxy = false` on the handler
+  is the actual fix. **Every bench in `bench/Lyntai.Benchmarks` builds a bare
+  `new HttpClient { Timeout = … }`**, so any new one that reports latency must set it. No published figure
+  is affected: `memory-scale`, the only latency sweep, has no HTTP client at all.
+  <br>**And the verification lesson generalises past networking.** The superseded claim shipped with a
+  check asserting *"localhost never faster"* — an ORDERING, which passes cleanly while the stated mechanism
+  is wrong, because `localhost` really is slower just not for that reason. **A check aimed at the symptom
+  confirms the symptom and certifies whatever story is attached to it**; aim it at the mechanism (here,
+  proxy-on against proxy-off) or it cannot fail in the direction that matters.
 - **A model NAME means different things on the two local servers, and a wrong one is not an error.** <!-- trap: sub=measurement shape=wrong-subject -->
   Ollama routes by it; a `llama-server` started with `--model` serves ONE model and answers to its
   `--alias`, so the name is a label and you get the loaded model whatever you ask for. It selects only on a
   router server (`--models-dir`). **Never infer from a green run that the model you named is the model that
   answered** — and run your OWN server on its own port rather than borrowing one that happens to be up,
   because a server is started with a context and a batch size and those decide what it will accept.
+- **`llama-server`'s ROUTER mode is a process SUPERVISOR, not one process holding several models — so <!-- trap: sub=measurement shape=wrong-subject,resource -->
+  consolidating seams onto a router saves no memory at all.** Measured 2026-09-11 on build 10603. The
+  router builds a full `llama-server.exe` command line per model and spawns it as a CHILD: the argv is
+  readable in `/v1/models` (`status.args`), and three loaded models showed as three children of the router
+  PID, each on its own ephemeral port, each with a grandchild of its own. **Weights, KV cache and compute
+  are separate in both topologies** — three dedicated servers and one router with three models are the same
+  process count plus a ~115 MB supervisor. What a router actually buys is ONE endpoint, on-demand loading
+  and an eviction policy (`--models-max`, default **4**, so a router holding three models never swaps).
+  <br>**Two consequences worth having before you plan a run.** "Several resident servers, or one router
+  which swaps" is a false binary — residency and routing are independent axes, and a router is only a
+  swapping one when `--models-max` binds. And **two seams contend only when they want the SAME model**,
+  because anything else is a different process; an annotator and a judge sharing one instruct model contend
+  for that child's `--parallel` slots, while an embedder and a reranker beside them cannot contend at all.
+  <br>**Tree-kill reaches three levels** (router → child → grandchild) and `/T` was observed clearing all
+  of them — but assert every PID gone afterwards rather than trusting the exit code, per the image-name
+  entry above.
+- **`--embedding` and `--reranking` are PROCESS-WIDE, so a plain `--models-dir` router serves chat and <!-- trap: sub=measurement shape=unmeasured -->
+  nothing else — while still LISTING every model it found.** Measured 2026-09-11. `--embedding` is
+  documented as *"restrict to only support embedding use case"*; neither flag is per-request. A router
+  started without them answered `/v1/chat/completions` normally and returned
+  **`501 … This server does not support embeddings. Start it with --embeddings`** (and the same for
+  reranking) — after spawning the child models anyway, so the model list and the process table both look
+  correct. **Per-model roles need `--models-preset`**, an INI whose section is the served id and whose keys
+  are long-form flags without the `--`; the format is recoverable from the router's own `status.preset`
+  field. This serves all three roles on one port, verified end to end:
+  ```ini
+  [embed]
+  model = <dir>/embeddinggemma-300M-Q8_0.gguf
+  n-gpu-layers = 99
+  embeddings = true
+  ```
+  <br>**Check this before scoping any run around a router**, because the failure arrives after the servers
+  are up and the model list reads fine — the shape the Ollama-GGUF entry below has in a different costume.
 - **The two local servers disagree about an over-long input, and the disagreement is silent on one side.** <!-- trap: sub=measurement shape=silent-loss -->
   Ollama truncates and answers; `llama-server` returns `500 … input is too large`. So a run that "worked"
   on Ollama can crash on llama.cpp, and what that proves is that the truncation was always happening and
