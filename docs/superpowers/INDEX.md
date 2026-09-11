@@ -1,7 +1,14 @@
 # Design records — index
 
 The per-version design records (specs and plans) are **not tracked**. They live in the gitignored
-`local/superpowers/{specs,plans}/`, and this file is the tracked list of what exists.
+`local/superpowers/{specs,plans}/`, and this file is the tracked list of the ones worth finding again.
+
+**It is NOT a complete inventory, and saying so is the correction.** This line claimed to list "what exists"
+until 2026-09-11, when counting found **13 rows against 52 records on disk**. Nothing gates the gap: the
+paths are under `local/`, which `check-links` skips by design, so an unindexed record is invisible to every
+check here. **A row earns its place by having a CONCLUSION worth reaching** — the rightmost column is the
+point of the file, and a record whose conclusions already live in a maintained document needs no row at all.
+Do not read a missing row as a missing record.
 
 ## Why they are not in the repository
 
@@ -42,6 +49,8 @@ true about that day, not about the library._
 
 | Date | Topic | Shipped in | Spec | Plan | Conclusions live in |
 |---|---|---|---|---|---|
+| 2026-09-11 | ONE model serving MANY seams, priced against one per seam (`memory-contention`) | unreleased | ✓ | ✓ | archive Part 190 · `docs/memory-measurements.md` §5 (`contention-mixed-recall-quiet-rerank`) · `pitfalls.md` (router mode is a SUPERVISOR; `--embedding`/`--reranking` are process-wide; a port check must test LISTENING; a bare `HttpClient` leaves proxy resolution on) |
+| 2026-09-11 | What `VerdictCombination` costs a READER (`memory-locomo --verdict`) — the backlog predicted a null and the run refuted it | unreleased | ✓ | ✓ | archive Part 191 · `docs/memory-measurements.md` §5 (two rows, partition and `+enginefuse`) · `docs/FIXES.md` (a bench printed a hardcoded caveat about its own output) |
 | 2026-08-27 | The gist tier — design, then the support RULE, then a field-research pass. **Nothing shipped: refuted as scoped** | not shipped | 3 records | — | **D94** · **D106** · `docs/memory-measurements.md` §5 (three sweeps + the field survey) · archive Parts 104, 108, 153 |
 | 2026-08-26 | The "superhuman memory" proposal — assessment, then Phase 1 and Phase 2 | unreleased | ✓ | ✓ | **D90** · design §5.7.0 · `docs/memory.md` §7 · `docs/FIXES.md` (two entries) · `pitfalls.md` (§Second doors, §Environment, CLI) · `windows-machine.md` · archive Parts 97, 98, 100 · `TASKS.md` Part 99 |
 | 2026-08-26 | Graph-engine COST at 1k / 10k / 100k (`memory-scale`, the §7 blind spot) — plus a `--repeat 5` run that settled the read-vs-write-back split the single-cell run could not | unreleased | — | 2 records | `docs/memory.md` §7 · archive Part 97 |
