@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace Lyntai.Benchmarks;
 
 /// <summary>The two statistics a benchmark table needs before a percentage can be argued from.
@@ -61,6 +63,33 @@ internal static class BenchStats
         }
 
         return Math.Min(1, 2 * tail);
+    }
+
+    /// <summary>A 95% interval for the MEAN of paired per-question differences — the instrument for a NULL.
+    ///
+    /// <para><b>Why neither existing member fits.</b> <see cref="Wilson"/> bounds a PROPORTION and
+    /// <see cref="McNemarExact"/> tests paired BINARY outcomes; token-F1 is continuous and paired, so a
+    /// difference here is a real number per question rather than a win or a loss.</para>
+    ///
+    /// <para><b>The half-width is the finding when nothing moves.</b> A bare "we saw no difference" is not a
+    /// result — this reports "nothing larger than X", which is what makes a null refutable. A single
+    /// observation yields an infinite interval rather than a zero-width one, because one pair bounds
+    /// nothing.</para></summary>
+    /// <param name="differences">One signed difference per question, arm A minus arm B, SAME questions.</param>
+    internal static (double Mean, double Low, double High) PairedMeanInterval(
+        IReadOnlyList<double> differences)
+    {
+        if (differences.Count == 0) return (0, double.NegativeInfinity, double.PositiveInfinity);
+
+        var n = differences.Count;
+        var mean = differences.Sum() / n;
+        if (n == 1) return (mean, double.NegativeInfinity, double.PositiveInfinity);
+
+        // Sample standard deviation (n-1): these questions are a SAMPLE of LoCoMo's 1,540, not the whole of
+        // it, and the population form would understate the interval on exactly the small n this exists for.
+        var variance = differences.Sum(d => (d - mean) * (d - mean)) / (n - 1);
+        var half = Z * Math.Sqrt(variance / n);
+        return (mean, mean - half, mean + half);
     }
 
     /// <summary>A p-value as a table cell, said the way a reader can act on: never "p = 0.000".</summary>
