@@ -15,6 +15,9 @@ public sealed class JobOptions
     /// what a lane IS — but it stops the option quietly promising a bound it cannot deliver.</para></summary>
     public Dictionary<string, int> LaneConcurrency { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>What a lane absent from <see cref="LaneConcurrency"/> gets. <b>Defaults to 1 — serial</b>,
+    /// so an unnamed lane cannot quietly acquire parallelism it was never sized for; a lane that wants more
+    /// declares it. Per lane, per PROCESS: two hosts running the same lane each get this many.</summary>
     public int DefaultLaneConcurrency { get; set; } = 1;
 
     /// <summary>A global cap on the size of one runner pass's concurrent batch, across ALL lanes (0 =

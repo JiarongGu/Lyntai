@@ -10,7 +10,16 @@ namespace Lyntai.Providers.OpenAiCompatible;
 /// a full endorsement set, and reorders by noise — so a degraded deployment is indistinguishable from a
 /// working one here, and counting distinct scores does not separate them. Check that your endpoint
 /// separates a known-relevant from a known-irrelevant document by UNITS rather than by hundredths, against
-/// the same model and serving stack you will run.</para></summary>
+/// the same model and serving stack you will run.</para>
+///
+/// <para><b>And when you cannot vet the backend, BOUND what it can cost instead of trusting it.</b>
+/// <see cref="Lyntai.Memory.GraphMemoryOptions.VerdictCombination"/> set to
+/// <see cref="Lyntai.Memory.Verification.MemoryVerdictCombination.Fuse"/> makes an endorsement COMPETE on
+/// rank rather than replace the page. Measured with a cross-encoder in this seam it removes the partition's
+/// whole <b>7.5-point</b> loss and adds nothing (<c>docs/memory-measurements.md</c> §5) — insurance rather
+/// than an improvement, which is what a backend of unknown quality is worth paying for. It is the same
+/// lever that doc offers for a weak LLM judge; a reranker is the other half of the same choice.</para>
+/// </summary>
 public sealed class CrossEncoderVerificationOptions
 {
     /// <summary>Endpoint base, e.g. <c>http://localhost:8081</c>. A reranker is its own process: one
