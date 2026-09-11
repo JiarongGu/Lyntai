@@ -494,7 +494,7 @@ public sealed class GraphMemoryEngine(
         if (!Enriches || _options.SimilarityK <= 0) return null;
         try
         {
-            var vector = await embedder!.EmbedAsync(write.Content, ct).ConfigureAwait(false);
+            var vector = await embedder!.EmbedAsync(write.Content, EmbeddingRole.Document, ct).ConfigureAwait(false);
             var near = await vectors!
                 .SearchAsync($"{Name}|{write.TaskKey}|{write.Scope}", vector, _options.SimilarityK + 1, ct)
                 .ConfigureAwait(false);

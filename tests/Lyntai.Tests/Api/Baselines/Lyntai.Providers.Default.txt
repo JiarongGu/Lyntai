@@ -112,13 +112,16 @@ sealed class Lyntai.Providers.OpenAiCompatible.CrossEncoderVerificationPolicy
 sealed class Lyntai.Providers.OpenAiCompatible.HttpEmbedder
     .ctor(String id, OpenAiCompatibleEmbedderOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<HttpEmbedder> logger = null, Boolean disposeHttpClient = true)
     EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
+    EmbedAsync(IReadOnlyList<String> texts, EmbeddingRole role, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
 sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleEmbedderOptions
     .ctor()
     ApiKey : String
     BaseUrl : String
     BatchSize : Int32
+    DocumentPrefix : String
     Flavor : OpenAiFlavor
     Model : String
+    QueryPrefix : String
 sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleOptions
     .ctor()
     ApiKey : String

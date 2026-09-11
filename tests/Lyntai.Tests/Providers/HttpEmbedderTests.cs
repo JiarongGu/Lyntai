@@ -19,6 +19,15 @@ public class HttpEmbedderTests
         ],"model":"text-embedding-3-small","usage":{"prompt_tokens":4,"total_tokens":4}}
         """;
 
+    // The same shape carrying ONE vector. HttpEmbedder asserts the returned vector count matches the batch
+    // size, so a single-input test scripted with the two-vector body above fails on that guard rather than
+    // on what it meant to assert.
+    private const string OpenAiBodyOne = """
+        {"object":"list","data":[
+          {"object":"embedding","index":0,"embedding":[1.0,2.0,3.0]}
+        ],"model":"text-embedding-3-small","usage":{"prompt_tokens":2,"total_tokens":2}}
+        """;
+
     private static HttpEmbedder Embedder(StubHttpHandler handler, Action<OpenAiCompatibleEmbedderOptions>? configure = null)
     {
         var config = new OpenAiCompatibleEmbedderOptions
@@ -42,6 +51,67 @@ public class HttpEmbedderTests
 
         Assert.Contains("not configured", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("401", ex.Message); // the status stays, for diagnosis
+    }
+
+    // ---- role prefixes: driving an ASYMMETRIC model ---------------------------------------------------
+    // The E5/BGE/nomic/Arctic families want a different instruction on each side of the comparison. The
+    // library supplies neither prefix and knows no model's spelling — the deployment sets both strings.
+
+    [Fact]
+    public async Task A_QUERY_and_a_DOCUMENT_are_sent_with_their_own_configured_prefixes()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBodyOne);
+        var embedder = Embedder(handler, c =>
+        {
+            c.DocumentPrefix = "search_document: ";
+            c.QueryPrefix = "search_query: ";
+        });
+
+        await embedder.EmbedAsync(["paris is the capital"], EmbeddingRole.Document);
+        await embedder.EmbedAsync(["where is paris"], EmbeddingRole.Query);
+
+        Assert.Contains("search_document: paris is the capital", handler.Requests[0].Body);
+        Assert.Contains("search_query: where is paris", handler.Requests[1].Body);
+    }
+
+    [Fact]
+    public async Task With_NO_prefixes_configured_the_text_is_sent_verbatim_whatever_the_role()
+    {
+        // The default must be a symmetric model, because that is what the library shipped before roles
+        // existed and what most endpoints serve.
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBodyOne);
+        var embedder = Embedder(handler);
+
+        await embedder.EmbedAsync(["paris"], EmbeddingRole.Query);
+
+        Assert.Contains("\"paris\"", handler.Requests[0].Body);
+        Assert.DoesNotContain("query", handler.Requests[0].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Configuring_only_ONE_side_leaves_the_other_verbatim()
+    {
+        // A model with an instruction on queries only (the BGE shape) must not get an invented document
+        // prefix — an empty string and "unset" have to mean the same thing here.
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBodyOne);
+        var embedder = Embedder(handler, c => c.QueryPrefix = "Represent this sentence: ");
+
+        await embedder.EmbedAsync(["stored text"], EmbeddingRole.Document);
+
+        Assert.Contains("\"stored text\"", handler.Requests[0].Body);
+        Assert.DoesNotContain("Represent", handler.Requests[0].Body);
+    }
+
+    [Fact]
+    public async Task The_prefix_is_applied_to_EVERY_text_in_a_batch()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBody);
+        var embedder = Embedder(handler, c => c.DocumentPrefix = "passage: ");
+
+        await embedder.EmbedAsync(["first", "second"], EmbeddingRole.Document);
+
+        Assert.Contains("passage: first", handler.Requests[0].Body);
+        Assert.Contains("passage: second", handler.Requests[0].Body);
     }
 
     [Fact]

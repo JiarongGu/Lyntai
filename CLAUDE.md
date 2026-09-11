@@ -13,19 +13,19 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 ## Current state
 
 **Released: v3.1.0 (2026-08-23).** Twelve packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D115** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D116** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3614 passed / 3635 total, 21 skipped` (the skips are
+**The baseline a green run should match:** `3623 passed / 3644 total, 21 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 703/703, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count well above 21 as "Docker is down and the whole Postgres leg went silently unexercised".
 **The passed figure above is STILL DERIVED and still not observed** (last checked 2026-09-12): every run
-since 2026-09-11 has had Docker down. What IS measured on this tree is **`3418 passed / 3635 total, 217
+since 2026-09-11 has had Docker down. What IS measured on this tree is **`3427 passed / 3644 total, 217
 skipped`, zero failures** — the total and the zero are real, the 21-skip split is inherited from the last
-baseline taken with Docker up, and `3614` is that split applied to today's total. Confirm the pair on the
-first run with Docker up; until then a green run means "3,635 total and nothing failed", not that the
+baseline taken with Docker up, and `3623` is that split applied to today's total. Confirm the pair on the
+first run with Docker up; until then a green run means "3,644 total and nothing failed", not that the
 Postgres leg passed.
 Everything else on that line is gated. `docs/GATES.md` is why each gate exists, what it measured and which
 numbers it holds.

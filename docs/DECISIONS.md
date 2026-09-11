@@ -185,8 +185,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D113](#d113--claudemds-command-table-is-generated-what-a-gate-is-for-moves-to-docsgatesmd-2026-09-10) | 2026-09-10 | `CLAUDE.md`'s command table is GENERATED; what a gate is FOR moves to `docs/GATES.md` |
 | [D114](#d114--a-measurement-is-a-row-and-a-figures-currency-is-derived-never-authored-twice-2026-09-10) | 2026-09-10 | a measurement is a ROW, and a figure's currency is DERIVED, never authored twice |
 | [D115](#d115--a-model-backed-ranker-fills-the-verification-seam-and-endorses-a-fixed-pages-worth-2026-09-11) | 2026-09-11 | a model-backed RANKER fills the VERIFICATION seam, and endorses a fixed page's worth |
+| [D116](#d116--the-embedding-seam-carries-a-role-because-an-asymmetric-model-cannot-infer-it-2026-09-12) | 2026-09-12 | the embedding seam carries a ROLE, because an asymmetric model cannot infer it |
 
-_All 115 entries are live decisions._
+_All 116 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3420,3 +3421,36 @@ a refinement, and one wider than the page replaces the ranking instead — the m
 instruct judge, which endorsed 29.1 of 80. A future model-backed ranker belongs here too rather than in
 `IMemoryRankingPolicy`, and the seam stays SINGULAR, so this and the instruct judge are alternatives rather
 than companions.
+
+## D116 — the embedding seam carries a ROLE, because an asymmetric model cannot infer it (2026-09-12)
+
+`IEmbedder` gains a role-aware overload with a DEFAULT BODY forwarding to the role-less one, and every
+Lyntai call site passes `EmbeddingRole.Document` when storing and `Query` when searching. The library
+supplies no prefix and names no model; `OpenAiCompatibleEmbedderOptions.DocumentPrefix`/`QueryPrefix` let a
+deployment say what its own model wants, defaulting to nothing.
+
+**The gap was that no implementation could fix this from outside.** The E5, BGE, nomic and Arctic families
+are trained with a distinct instruction per side and score materially worse when both are embedded
+identically. One method served both paths, so a BYO embedder had no way to learn which side it was serving
+— which makes it a seam defect rather than a configuration one, and is why an options-only fix was
+rejected: it would have worked for the shipped HTTP embedder and for nothing a consumer wrote.
+
+**A default-implemented member, not a new required one, and not a second interface.** A required member
+would break every existing `IEmbedder` — the surface is frozen under **D70** with no carve-out. A separate
+`IRoleAwareEmbedder` the engine type-tests was considered and refused: it splits one seam in two, and a
+consumer who implements the wrong half gets silence. The default body means an embedder written before this
+keeps working untouched, which is also the correct behaviour for a symmetric model, so the common case
+needs no action at all. `ILlmProvider.SupportsToolCalls` already established the pattern here.
+
+**What it constrains.** `Document` is the enum's zero value, so anything landing on `default` is the
+STORING side — a corpus embedded consistently is still searchable, one embedded as queries is comparable to
+nothing. The role-less overload stays the primitive and keeps its meaning ("not specified — treat as
+`Document`"), so it can never be removed. A prefix is applied VERBATIM including any trailing space, and
+changing one invalidates every vector already stored, so it is re-index-or-don't-touch rather than a knob
+to tune. Vectors must keep one dimension ACROSS roles, since a query vector is compared against document
+vectors.
+
+**What it does NOT do.** It buys no quality by itself — it makes a class of models drivable, and whether
+any of them is better on a given corpus is the deployment's measurement, not this library's claim. No
+figure in `docs/memory-measurements.md` moves: every arm there ran through the role-less path, which is
+still exactly what an unprefixed deployment does.

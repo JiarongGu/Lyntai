@@ -31,7 +31,7 @@ public sealed class SemanticMemory(
         // vectors keep their old dimension; the vector stores degrade gracefully (in-memory/SQLite rank a
         // mismatched row last via Cosine=0; pgvector rejects it), so REINDEX (ForgetAsync + re-Remember).
         if (string.IsNullOrWhiteSpace(content)) return;
-        var vector = await Embedder.EmbedAsync(content, ct).ConfigureAwait(false);
+        var vector = await Embedder.EmbedAsync(content, EmbeddingRole.Document, ct).ConfigureAwait(false);
         await vectors.UpsertAsync(Collection(taskKey, scope), IdFor(content), vector, content, ct).ConfigureAwait(false);
         _logger.LogDebug("semantic memory: remembered {Chars} chars in {Task}/{Scope}", content.Length, taskKey, scope);
     }
@@ -42,7 +42,7 @@ public sealed class SemanticMemory(
         if (string.IsNullOrWhiteSpace(query) || k <= 0) return [];
         try
         {
-            var qv = await Embedder.EmbedAsync(query, ct).ConfigureAwait(false);
+            var qv = await Embedder.EmbedAsync(query, EmbeddingRole.Query, ct).ConfigureAwait(false);
             if (scope is null) return await AcrossScopesAsync(taskKey, qv, k, minScore, ct).ConfigureAwait(false);
             var matches = await vectors.SearchAsync(Collection(taskKey, scope), qv, k, ct).ConfigureAwait(false);
             return [.. matches.Where(m => m.Score >= minScore).Select(m => new SemanticHit(m.Payload, m.Score))];

@@ -68,6 +68,21 @@ public sealed class HttpEmbedder(
         return result;
     }
 
+    /// <summary>Embed for a known <paramref name="role"/>, applying that side's configured prefix
+    /// (<see cref="OpenAiCompatibleEmbedderOptions.DocumentPrefix"/> /
+    /// <see cref="OpenAiCompatibleEmbedderOptions.QueryPrefix"/>) before the request, then continuing
+    /// through the role-less path above — so batching, ordering and every failure mode are identical.
+    /// With neither prefix set (the default, and every symmetric model) it forwards without allocating.
+    /// </summary>
+    public Task<IReadOnlyList<float[]>> EmbedAsync(
+        IReadOnlyList<string> texts, EmbeddingRole role, CancellationToken ct = default)
+    {
+        var prefix = role == EmbeddingRole.Query ? config.QueryPrefix : config.DocumentPrefix;
+        return string.IsNullOrEmpty(prefix)
+            ? EmbedAsync(texts, ct)
+            : EmbedAsync([.. texts.Select(t => prefix + t)], ct);
+    }
+
     private async Task<IReadOnlyList<float[]>> EmbedBatchAsync(IReadOnlyList<string> batch, HttpClient http, CancellationToken ct)
     {
         var timeout = options.ProviderTimeout;
