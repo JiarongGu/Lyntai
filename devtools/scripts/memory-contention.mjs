@@ -19,13 +19,23 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  *  killing it by image name has already happened twice (`pitfalls.md`). */
 export const PORTS = { router: 8140, chat: 8141, embed: 8142, rerank: 8143 };
 
-/** Each role's weights and the flags that ENABLE it. `--embedding` and `--reranking` are process-wide
+/** Each role's weights, the flags that ENABLE it, and its context/batch SETTINGS — all three live here as
+ *  DATA rather than in a call site, because `renderPreset` (the router arms) and `startArm` (the dedicated
+ *  arm) must both read the SAME numbers. `dedicated` differing from a router arm by more than routing would
+ *  void the whole comparison this bench exists to make.
+ *
+ *  Settings sizing: `embed` needs its whole sequence in ONE physical batch for pooled embeddings, and 2048
+ *  is embeddinggemma's trained window. `rerank` sizes for a query+document PAIR, well under bge-m3's 8192.
+ *  `chat` gets only a context size — causal prompts chunk fine at the default physical batch, unlike a
+ *  pooled or cross-encoded input. Undersizing fails LOUDLY (`500 … input (N tokens) is too large`), which is
+ *  what `probeExtreme` exists to catch — a four-word probe against the unsized default once certified a
+ *  server that then rejected a real ~1,500-token turn. `--embedding` and `--reranking` are process-wide
  *  restrictions rather than per-request modes, so a role without its flag answers 501 while still being
- *  listed by the router — which is why they live here and not at a call site. */
+ *  listed by the router — which is why the flags live here too, not at a call site. */
 export const ROLES = {
-  chat:   { file: 'gemma-3-4b-it-Q4_K_M.gguf',      flags: [] },
-  embed:  { file: 'embeddinggemma-300M-Q8_0.gguf',  flags: ['embeddings'] },
-  rerank: { file: 'bge-reranker-v2-m3-Q8_0.gguf',   flags: ['reranking'] },
+  chat:   { file: 'gemma-3-4b-it-Q4_K_M.gguf',      flags: [],              settings: { 'ctx-size': 8192 } },
+  embed:  { file: 'embeddinggemma-300M-Q8_0.gguf',  flags: ['embeddings'],  settings: { 'ctx-size': 2048, 'batch-size': 2048, 'ubatch-size': 2048 } },
+  rerank: { file: 'bge-reranker-v2-m3-Q8_0.gguf',   flags: ['reranking'],   settings: { 'ctx-size': 4096, 'batch-size': 4096, 'ubatch-size': 4096 } },
 };
 
 export const ARMS = [
@@ -35,14 +45,26 @@ export const ARMS = [
 ];
 
 /** The INI `--models-preset` takes: section = served id, keys = long-form flags without the `--`.
- *  Format recovered from the router's own `status.preset` field rather than guessed. */
+ *  Format recovered from the router's own `status.preset` field rather than guessed. Emits `ROLES[role]`'s
+ *  `settings` as plain `key = value` lines — the SAME keys `settingsArgs` turns into `--`-prefixed CLI args
+ *  for the dedicated arm, which is what keeps the two arms comparable. */
 export function renderPreset(modelDir, roles) {
   return roles.map((role) => {
-    const { file, flags } = ROLES[role];
+    const { file, flags, settings } = ROLES[role];
     const lines = [`[${role}]`, `model = ${modelDir}/${file}`, 'n-gpu-layers = 99'];
     for (const flag of flags) lines.push(`${flag} = true`);
+    for (const [key, value] of Object.entries(settings ?? {})) lines.push(`${key} = ${value}`);
     return lines.join('\n');
   }).join('\n\n') + '\n';
+}
+
+/** `ROLES[role].settings` as the `--`-prefixed CLI args `llama-server` expects, for the DEDICATED arm.
+ *  Exists as its own exported function — rather than inlined at `startArm`'s call site — so a test can
+ *  assert this equals what `renderPreset` emits for the same role from the same data: that equivalence is
+ *  what keeps `dedicated` comparable to the router arms, so it is the thing to protect with an assertion,
+ *  not just with shared data. */
+export function settingsArgs(role) {
+  return Object.entries(ROLES[role].settings ?? {}).flatMap(([key, value]) => [`--${key}`, String(value)]);
 }
 
 export function writePreset(path, modelDir, roles) {
@@ -81,9 +103,12 @@ export function neighbourPids(rows, ownPids) {
 // ---------------------------------------------------------------------------------------------------------
 
 /** Raw `netstat -ano` text, fetched fresh on every call — the caller decides whether a moment already
- *  superseded is good enough, this function never decides that for them. */
+ *  superseded is good enough, this function never decides that for them. `maxBuffer` is raised well past
+ *  `execFile`'s 1 MB default: a busy machine's connection table can exceed it, and the default failure mode
+ *  is a silent truncation or a thrown error, either of which reads as "no listeners" to a caller checking a
+ *  specific port. */
 async function netstat() {
-  const { stdout } = await execFileAsync('netstat', ['-ano']);
+  const { stdout } = await execFileAsync('netstat', ['-ano'], { maxBuffer: 16 * 1024 * 1024 });
   return stdout;
 }
 
@@ -128,18 +153,64 @@ async function answers(port) {
   }
 }
 
+/** Every PID this module has spawned and not yet confirmed exited, registered at SPAWN time — not after
+ *  `startArm` returns — so a SIGINT during the multi-gigabyte model LOAD window (the longest and most likely
+ *  window to be interrupted in) still reaches it. A bare module-level `Set` has no side effect worth gating
+ *  on import (nothing is spawned, nothing is listened for); only the `process.on('SIGINT', …)` registration
+ *  below is gated behind `import.meta.main`, since THAT is the thing importing this module for a test must
+ *  not attach. */
+const activePids = new Set();
+
+/** pid -> ChildProcess for everything still considered ours. Windows can RECYCLE a pid the instant its
+ *  owning process exits, so `treeKill` must never blindly `/T` a pid this map no longer vouches for — an
+ *  early-exited child's slot could belong to a stranger by the time teardown actually runs. Cleared by the
+ *  same `exit`/`error` handling that clears `activePids`. */
+const spawnedChildren = new Map();
+
 /** Spawn one server with its stdout/stderr captured to its OWN log file rather than inherited — three
  *  servers sharing this process's console would interleave unreadably. Deliberately NOT `detached`: this
  *  process stays alive for the whole `startArm`..`stopArm` span and tears children down explicitly by PID,
  *  and `detached` solves a problem this call does not have (a detached child survives only a parent that
  *  outlives it — the wrong property here, and the exact trap that once reported an embedder "started"
- *  while it never came up). */
+ *  while it never came up). Tracks the CHILD, not just its pid: an early exit must drop the pid from both
+ *  registries below, and an `error` event with no listener (a bad exe, `ENOENT`) would otherwise crash this
+ *  whole process asynchronously, well after this function has already returned. */
 function spawnServer(serverExe, args, scratchDir, label) {
   const outFd = fs.openSync(path.join(scratchDir, `${label}.out.log`), 'a');
   const errFd = fs.openSync(path.join(scratchDir, `${label}.err.log`), 'a');
-  const child = spawn(serverExe, args, { stdio: ['ignore', outFd, errFd] });
-  child.on('exit', () => { try { fs.closeSync(outFd); } catch { /* already closed */ } try { fs.closeSync(errFd); } catch { /* already closed */ } });
-  if (!child.pid) throw new Error(`spawn did not return a pid for ${label}`);
+  let closed = false;
+  const closeFds = () => {
+    if (closed) return;
+    closed = true;
+    try { fs.closeSync(outFd); } catch { /* already closed */ }
+    try { fs.closeSync(errFd); } catch { /* already closed */ }
+  };
+
+  let child;
+  try {
+    child = spawn(serverExe, args, { stdio: ['ignore', outFd, errFd] });
+  } catch (err) {
+    closeFds();     // spawn threw synchronously — 'exit' will never fire to release these fds
+    throw err;
+  }
+
+  // Attached BEFORE the pid check below, not after: a failed spawn (bad exe, ENOENT) can leave `child.pid`
+  // undefined SYNCHRONOUSLY while still queuing an async 'error' event for next tick. Checking pid first and
+  // attaching listeners only in the success path would leave that queued event with no listener, which
+  // crashes this whole process well after this call has already returned.
+  const forget = () => {
+    if (child.pid != null) { spawnedChildren.delete(child.pid); activePids.delete(child.pid); }
+    closeFds();
+  };
+  child.once('exit', forget);
+  child.once('error', (err) => {
+    console.error(`spawnServer: ${label} (pid ${child.pid ?? '?'}) — ${err.message}`);
+    forget();
+  });
+
+  if (!child.pid) { closeFds(); throw new Error(`spawn did not return a pid for ${label}`); }
+  spawnedChildren.set(child.pid, child);
+  activePids.add(child.pid);
   return child.pid;
 }
 
@@ -162,14 +233,21 @@ async function waitUntilListening(ports, { timeoutMs = 180_000, intervalMs = 500
 
 /** Kill one PID and its tree. "Already gone" is success, not failure — anything else is re-thrown so a
  *  caller killing several PIDs in a loop finds out which one actually failed. The exit code is still not
- *  trusted for anything beyond that: `stopArm` re-reads `netstat` rather than believing this succeeded. */
+ *  trusted for anything beyond that: `stopArm` re-reads `netstat` rather than believing this succeeded.
+ *
+ *  If `spawnedChildren` no longer vouches for this pid, it already exited on its own — do NOT `/T` it
+ *  regardless: Windows can hand that exact number to an unrelated process the moment ours released it, and
+ *  killing "our" pid at that point would kill a stranger's tree. */
 async function treeKill(pid) {
+  if (!spawnedChildren.has(pid)) { activePids.delete(pid); return; }
   try {
     await execFileAsync('taskkill', ['/F', '/PID', String(pid), '/T']);
   } catch (err) {
     const msg = String(err?.stderr ?? err?.message ?? '');
     if (!/not found/i.test(msg)) throw err;
   }
+  spawnedChildren.delete(pid);
+  activePids.delete(pid);
 }
 
 /** A short pause after teardown, before re-reading `netstat` — a killed listener's socket does not always
@@ -234,7 +312,7 @@ export async function startArm(arm, { modelDir, scratchDir, serverExe }) {
         const flags = ROLES[role].flags.flatMap((f) => [`--${f}`]);
         pids.push(spawnServer(serverExe, ['--model', `${modelDir}/${ROLES[role].file}`,
           '--alias', role, '--port', String(PORTS[role]), '--host', '127.0.0.1',
-          '--n-gpu-layers', '99', ...flags], scratchDir, `${arm.name}-${role}`));
+          '--n-gpu-layers', '99', ...flags, ...settingsArgs(role)], scratchDir, `${arm.name}-${role}`));
       }
     }
     await waitUntilListening(ports);
@@ -313,6 +391,16 @@ export async function neighbourReport(ownPids) {
   return health;
 }
 
+/** Compare two `neighbourReport` rosters BY PID, never by aggregate count or "is anything still alive" — an
+ *  aggregate check reports clean if a DIFFERENT llama-server happens to still be up while the one that
+ *  mattered is gone, which is the exact failure this file exists to catch ("I only killed my own PIDs" is
+ *  an argument, not evidence). Every pid present `before` must still be present in `after` AND still
+ *  answering; anything else is named, by pid, in the result. */
+export function vanishedNeighbours(before, after) {
+  const afterByPid = new Map(after.map((r) => [r.pid, r]));
+  return before.filter((b) => !(afterByPid.get(b.pid)?.alive)).map((b) => b.pid);
+}
+
 /** Read the router's own model-load ledger off `/v1/models`' `status.value` (the literal strings observed
  *  are `"loaded"` / `"unloaded"`). This is the ENTIRE content of the `router-swapping` arm: without a load
  *  COUNT, that arm's latency numbers cannot say whether a swap happened, which makes them unreadable.
@@ -336,22 +424,16 @@ export async function modelLoadState(endpoints) {
 }
 
 // ---------------------------------------------------------------------------------------------------------
-// CLI entry point — a thin wrapper, so importing this module for a test spawns nothing. Registered as a
-// SIGINT handler too: a Ctrl+C during a multi-gigabyte model load must still reach every PID already
-// recorded, or an interrupted smoke run leaks a server nothing will ever tear down.
+// CLI entry point — a thin wrapper, so importing this module for a test spawns nothing AND attaches no
+// process-wide listener. `activePids`/`spawnedChildren` (declared beside `spawnServer`) are plain, empty
+// collections at import time; only the `process.on('SIGINT', …)` registration below is gated behind
+// `import.meta.main`, since a listener attached on every import would accumulate across repeated imports
+// (a test file among them) and could fire `process.exit(130)` during an unrelated Ctrl+C.
 // ---------------------------------------------------------------------------------------------------------
-
-const activePids = new Set();
 
 async function killTracked(pids) {
   for (const pid of pids) { try { await treeKill(pid); } catch { /* best effort */ } }
 }
-
-process.on('SIGINT', async () => {
-  console.error(`\nSIGINT — killing ${activePids.size} tracked PID(s) before exit: ${[...activePids].join(', ')}`);
-  await killTracked(activePids);
-  process.exit(130);
-});
 
 /** A synthetic worst-case single memory entry: real sentences repeated to ~6,000 characters, the figure
  *  this repository's other benches already truncate LongMemEval texts to (`pitfalls.md`). Not a corpus
@@ -380,8 +462,9 @@ async function reportNeighbours(label) {
 
 async function runArm(arm, { modelDir, scratchDir, serverExe, smoke }) {
   console.log(`\n=== arm: ${arm.name} (${arm.kind}) ===`);
+  // Registration happens INSIDE startArm → spawnServer, at spawn time — not here — so a SIGINT during the
+  // model-load wait is already covered by the time this line returns.
   const handle = await startArm(arm, { modelDir, scratchDir, serverExe });
-  for (const pid of handle.pids) activePids.add(pid);
   console.log(`started, pids: ${handle.pids.join(', ')}`);
   try {
     const identity = await verifyIdentity(handle.endpoints);
@@ -390,14 +473,15 @@ async function runArm(arm, { modelDir, scratchDir, serverExe, smoke }) {
 
     const extreme = await probeExtreme(handle.endpoints, syntheticLongestInput());
     console.log(`extreme:  ${extreme.ok ? 'OK' : 'FAIL'} — ${extreme.detail}`);
+    if (!extreme.ok) process.exitCode = 1;
 
     if (smoke) {
       const loadState = await modelLoadState(handle.endpoints);
       console.log(`model-load-state: loaded=[${loadState.loaded.join(',')}] unloaded=[${loadState.unloaded.join(',')}]`);
     }
   } finally {
+    // treeKill drops each pid from activePids/spawnedChildren itself as it confirms each one gone.
     const stopped = await stopArm(handle);
-    for (const pid of handle.pids) activePids.delete(pid);
     console.log(`stopped. survivors on ${Object.values(PORTS).join('/')}: ${stopped.survivors.length}`);
     if (stopped.survivors.length) {
       console.error(`SURVIVORS: ${JSON.stringify(stopped.survivors)}`);
@@ -427,16 +511,22 @@ async function main() {
   }
 
   const after = await reportNeighbours('AFTER');
-  if (before.length > 0 && after.length === 0) {
-    console.error('NEIGHBOUR IS DOWN — restart it before doing anything else.');
-    process.exitCode = 1;
-  } else if (before.some((b) => b.alive) && !after.some((a) => a.alive)) {
-    console.error('NEIGHBOUR STOPPED ANSWERING — restart it before doing anything else.');
+  // By PID, not by aggregate count or "is anything still alive" — killing PID 22464 while some OTHER
+  // llama-server happens to be up must still be reported, not hidden behind an aggregate that stayed non-zero.
+  const vanished = vanishedNeighbours(before, after);
+  if (vanished.length) {
+    console.error(`NEIGHBOUR PID(S) GONE OR NOT ANSWERING: ${vanished.join(', ')} — restart before doing anything else.`);
     process.exitCode = 1;
   }
 }
 
 if (import.meta.main ?? (process.argv[1] && path.resolve(process.argv[1]) === here)) {
+  // Gated here, not at module scope: importing this file for a test must attach no process-wide listener.
+  process.on('SIGINT', async () => {
+    console.error(`\nSIGINT — killing ${activePids.size} tracked PID(s) before exit: ${[...activePids].join(', ')}`);
+    await killTracked(activePids);
+    process.exit(130);
+  });
   main().catch((err) => {
     console.error(err);
     process.exitCode = 1;
