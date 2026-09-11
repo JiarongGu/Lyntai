@@ -1,10 +1,10 @@
 // memory-contention — what it costs to serve MANY memory seams from ONE model server.
 //
-// Read the spec's §1 before changing an arm here. A probe on 2026-09-11 found that llama-server's ROUTER
-// mode is a process SUPERVISOR — one child server per model — so `dedicated` and `router-resident` have
-// the SAME process and memory topology and differ only by a reverse-proxy hop. What a router buys is one
-// endpoint, on-demand loading, and eviction; residency and routing are INDEPENDENT axes, which is why
-// `--models-max` is the only thing separating the two router arms.
+// A probe on 2026-09-11 found that llama-server's ROUTER mode is a process SUPERVISOR — one child server
+// per model — so `dedicated` and `router-resident` have the SAME process and memory topology and differ
+// only by a reverse-proxy hop. What a router buys is one endpoint, on-demand loading, and eviction;
+// residency and routing are INDEPENDENT axes, which is why `--models-max` is the only thing separating the
+// two router arms.
 //
 // This ORCHESTRATOR owns every server process (topology, the busy-device load); the C# `--contention` sweep
 // it invokes (`runBench`) only measures, against whichever backend `--verifier` names, and refuses on an
@@ -99,15 +99,24 @@ export function parseListeners(netstatText) {
 
 export const isFree = (listeners, port) => !listeners.has(port);
 
-/** Every llama-server PID that is neither ours nor a descendant of ours. Enumerating PROCESSES rather than
- *  a port list is the point: the sibling's server was invisible to a sweep of the ports we planned to use. */
-export function neighbourPids(rows, ownPids) {
+/** The transitive closure of `ownPids` over `rows` (`{pid, ppid}`) — walks children, then grandchildren,
+ *  until nothing new joins. Shared by `neighbourPids` (everyone OUTSIDE the closure) and the GPU census's
+ *  `ownPids` (everyone INSIDE it, so a router's spawned model children count as ours) — one traversal, not
+ *  two that could drift apart. */
+export function ownedPidClosure(rows, ownPids) {
   const mine = new Set(ownPids);
   let grew = true;
   while (grew) {               // transitive: the router's children spawn grandchildren
     grew = false;
     for (const r of rows) if (!mine.has(r.pid) && mine.has(r.ppid)) { mine.add(r.pid); grew = true; }
   }
+  return mine;
+}
+
+/** Every llama-server PID that is neither ours nor a descendant of ours. Enumerating PROCESSES rather than
+ *  a port list is the point: the sibling's server was invisible to a sweep of the ports we planned to use. */
+export function neighbourPids(rows, ownPids) {
+  const mine = ownedPidClosure(rows, ownPids);
   return rows.filter((r) => !mine.has(r.pid)).map((r) => r.pid);
 }
 
@@ -836,16 +845,26 @@ async function runMeasuredCell(arm, device, handle, ownedPids, knownNeighbourPid
     }
     console.log(`busy load steady: pid ${busy.pid} on port ${busy.port}`);
   }
-  const ownPids = busy ? [...ownedPids, busy.pid] : ownedPids;
   try {
+    // A router arm's `ownedPids` is only the router process itself — its per-model children are a SEPARATE
+    // PID the census would otherwise flag as contamination. Walk the same transitive closure `neighbourPids`
+    // uses so a router's own children count as ours.
+    const seedPids = busy ? [...ownedPids, busy.pid] : ownedPids;
+    const rows = await llamaServerProcesses();
+    const ownPids = [...ownedPidClosure(rows, seedPids)];
     const sampler = startGpuSampler();
     const census = startGpuCensus();
-    const exitCode = await runBench(repoRoot, benchArgs, device, handle.env);
-    const gpu = await sampler.stop();
-    const censusResult = await census.stop();
-    printGpuLine(device, gpu);
-    printCensusLine(device, censusResult, ownPids, knownNeighbourPids);
-    if (exitCode !== 0) process.exitCode = 1;
+    try {
+      const exitCode = await runBench(repoRoot, benchArgs, device, handle.env);
+      if (exitCode !== 0) process.exitCode = 1;
+    } finally {
+      // stop() must run even if runBench rejects, or the sampler/census polling timers keep this process
+      // alive forever.
+      const gpu = await sampler.stop();
+      const censusResult = await census.stop();
+      printGpuLine(device, gpu);
+      printCensusLine(device, censusResult, ownPids, knownNeighbourPids);
+    }
   } finally {
     if (busy) {
       await busy.stop();

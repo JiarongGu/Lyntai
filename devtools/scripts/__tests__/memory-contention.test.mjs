@@ -7,8 +7,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  ARMS, PORTS, ROLES, renderPreset, settingsArgs, isFree, neighbourPids, parseListeners, vanishedNeighbours,
-  parseGpuSample, aggregateGpuSamples, parseArgs, parseGpuComputeApps, censusContamination,
+  ARMS, PORTS, ROLES, renderPreset, settingsArgs, isFree, neighbourPids, ownedPidClosure, parseListeners,
+  vanishedNeighbours, parseGpuSample, aggregateGpuSamples, parseArgs, parseGpuComputeApps, censusContamination,
 } from '../memory-contention.mjs';
 
 describe('renderPreset', () => {
@@ -194,6 +194,27 @@ describe('neighbourPids', () => {
     const rows = [{ pid: 22464, ppid: 18212 }, { pid: 4242, ppid: 999 }, { pid: 77, ppid: 4242 }];
     // 4242 is ours and 77 is its child; 22464 is the sibling's and must survive.
     assert.deepEqual(neighbourPids(rows, [4242]), [22464]);
+  });
+});
+
+describe('ownedPidClosure', () => {
+  // The trap this exists for: a router arm's `ownedPids` seed is only the router process. Its per-model
+  // children (and their own children) must still count as ours, or the GPU census flags them as
+  // contamination — the finding this function was extracted to fix.
+  it('walks grandchildren, not just direct children', () => {
+    const rows = [{ pid: 4242, ppid: 999 }, { pid: 77, ppid: 4242 }, { pid: 78, ppid: 77 }];
+    assert.deepEqual(ownedPidClosure(rows, [4242]), new Set([4242, 77, 78]));
+  });
+
+  it('leaves an unrelated PID out of the closure', () => {
+    const rows = [{ pid: 22464, ppid: 18212 }, { pid: 4242, ppid: 999 }, { pid: 77, ppid: 4242 }];
+    assert.deepEqual(ownedPidClosure(rows, [4242]), new Set([4242, 77]));
+  });
+
+  it('is the shared walk neighbourPids filters against', () => {
+    const rows = [{ pid: 22464, ppid: 18212 }, { pid: 4242, ppid: 999 }, { pid: 77, ppid: 4242 }];
+    const mine = ownedPidClosure(rows, [4242]);
+    assert.deepEqual(rows.filter((r) => !mine.has(r.pid)).map((r) => r.pid), neighbourPids(rows, [4242]));
   });
 });
 

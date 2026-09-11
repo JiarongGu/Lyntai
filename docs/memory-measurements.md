@@ -3720,8 +3720,13 @@ registers. The two are equivalent FOR A COST MEASUREMENT — the same POST to th
 endpoint against the same model, and the same fixed top-N endorsement rule, differing only in where N comes
 from (a constructor argument set to the recall limit, against
 `CrossEncoderVerificationOptions.EndorseCount`) — so the latency is dominated by an identical HTTP call and
-these figures carry. **What does NOT carry is anything about the shipped policy's own configuration surface:
-this row prices the SHAPE of a cross-encoder in the verification slot, never the shipped type.**
+these figures carry — **except CLIENT LIFETIME.** The bench shares ONE `HttpClient` (`UseProxy = false`)
+across every call; the shipped policy's default (`disposeHttpClient = true`) creates and disposes one PER
+call via `httpFactory()`, which against a 94.5 ms mixed p50 is not noise. So the absolute `rerank` figures
+below are not what the shipped policy's default configuration would cost; the ARM DIFFERENCE (`judge`
+against `rerank`, both read off this same bench) is unaffected. **What does NOT carry is anything about the
+shipped policy's own configuration surface: this row prices the SHAPE of a cross-encoder in the
+verification slot, never the shipped type.**
 
 **THREE model-backed seams, not four** — annotation, verification, embedding. `IMemoryVerificationPolicy` is a
 SINGULAR slot (**D115**), so judging and reranking are ALTERNATIVES a deployment chooses between and can never
@@ -3734,7 +3739,7 @@ reasons, the stand-in above being the second. Verification is opt-in in full: a 
 `IMemoryVerificationPolicy` at all, and both `AddMemoryVerification` and `AddMemoryCrossEncoderVerification`
 are calls a consumer makes deliberately. Each arm is a rung.
 
-**Instrument.** `node devtools/dev.mjs memory-contention -- --device both --verifier both --writes 50
+**Instrument.** `node devtools/dev.mjs memory-contention --device both --verifier both --writes 50
 --recalls 50 --repeat 3`, exit 0, the `dedicated` arm only. Every cell seeds 50 entries UNTIMED first, then
 times 50 writes and 50 recalls; the `mixed` cell runs both loops together at 4 workers each (up to 8 requests
 in flight), and every figure below is the median of 3 runs. Models: `gemma-3-4b-it` Q4_K_M (chat — annotation

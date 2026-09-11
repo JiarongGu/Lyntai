@@ -7,6 +7,34 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-11 — a burst-1 rate limiter test on the REAL clock, flaking only under `verify`'s own load
+
+**Symptom.** Two `GenerationGovernanceTests` (the hosted-image and TTS-stream rate-limit cases) failed
+intermittently under a full `verify` run and passed every time in isolation — the same "invisible to a
+standalone run that starts clean" shape as Part 99's watched flake below, but a DIFFERENT cause: this is two
+tests, not nine, and neither spawns a process or resolves a PATH entry. **This is NOT Part 99's watched
+flake** (`TASKS.md` Part 99) — that one is nine `ProcessRunner`/CLI-provider tests failing together from one
+cached-failed-lookup cause. Conflating the two would dilute the only refutable claim Part 99's item has:
+recurrence of exactly those nine names, from that one mechanism.
+
+**Root cause.** Both tests built a `TokenBucketRateLimiter` with `RateLimitOptions { PermitsPerSecond = 1,
+Burst = 1 }` on the REAL clock, then asserted the second of two immediately-awaited calls was refused. A
+burst-1 bucket refills at 1 permit/second, so the assertion only holds if the gap between the two `await`s
+stays under a second — true in isolation, not guaranteed once `verify` has run `test-devtools`, `build` and
+nine gates ahead of the test step and the machine is under load. A stall of a second or more between the two
+calls refills the bucket and wrongly admits the second one.
+
+**Fix.** Both sites now inject a fixed clock instead of the real one — `TokenBucketRateLimiter` already
+accepts an optional `Func<DateTimeOffset>? clock`, so this is a one-line change per site, matching
+`RateLimitTests`' own pattern (`FrozenNow`, a constant `DateTimeOffset`).
+
+**Verify.** The subsequent full `verify` ran clean.
+
+**Introduced by.** `86ee606` (2026-08-04, GEN5 governance/telemetry), which built both tests on the real
+clock; fixed the same day `verify` first surfaced the flake, in `93689ca`.
+
+---
+
 ## 2026-09-09 — the fail-open chain: 16 more sites, and the contracts that stated the false premise
 
 **Symptom.** None observed, and that is the entry's own point. This closes the item the entry below opened:
