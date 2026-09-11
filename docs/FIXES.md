@@ -7,9 +7,48 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-12 — three fail-open contracts were false for the BYO implementations they were written to protect
+
+**Symptom.** `ScoringService`, `MemoryPromptComposer` and `PromptRegistry` each promise fail-open in their
+shipped XML docs — *"skips null/faulted results"*, *"Never throws — an outage in either source yields
+whatever the other returned"*, *"a store outage → the default"* — and each guarded its handler with a bare
+`catch (OperationCanceledException) { throw; }`. A BYO scorer, embedder, memory store or key-value store
+that imposes its OWN deadline raises that exact type, so its timeout propagated out instead of degrading.
+Worst of the five sites is `ScoringService`'s per-scorer loop: `results` is a method-local, so one scorer's
+deadline discarded every score already computed.
+
+**Root cause.** A component's own timeout and the caller's cancellation are the same exception type and can
+only be told apart by asking whose token is cancelled. `Lyntai.Memory` was swept for exactly this on
+2026-09-09 (`docs/task-archive.md` Parts 173–174) and the pattern it settled on —
+`catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }` above the fail-open arm —
+is used at a dozen sites there. Cortex and Prompts were never swept; that sweep's own closing note names
+only the SWALLOWING (`{ return; }`) shape as surviving outside memory, which is true and is a different
+shape from this one.
+
+**Fix.** The memory pattern applied verbatim at all five sites. `Winner`-style behaviour is unchanged for a
+caller who never cancels; what changes is that a component's own deadline now degrades as documented.
+
+**Scope, measured rather than assumed.** The tree holds **27** bare rethrows of this shape outside
+`Lyntai.Memory`; **5** are fixed here and the other 22 are deliberately left, because reachability is the
+test rather than the text. Those sit in `Lyntai.Generation` (which reports a verdict rather than promising
+fail-open) and in the SQLite/Postgres stores, where the wrapped component is the database driver: SQLite
+sets `DefaultTimeout = 30` and surfaces it as `SqliteException`, Npgsql as `NpgsqlException` /
+`TimeoutException` — **neither is an `OperationCanceledException`**, so the fail-open arm already catches
+them and the rethrow is unreachable. The five fixed are precisely the ones wrapping a **BYO seam**, where a
+consumer's own `CancellationTokenSource` genuinely produces this type.
+
+**Verify.** Nine new tests, 33/33 across the three suites. Each class gets the same pair — a component's
+own timeout degrades, AND the caller's cancellation still propagates — because without the second half
+"swallow every `OperationCanceledException`" would pass the first. Full `verify` green with Docker up.
+
+**Introduced by.** Each site as written; found by the generic-solution audit, not by a failure. Nothing
+regressed — the promise was never true for a BYO implementation.
+
+---
+
 ## 2026-09-12 — a malformed embedding element became a silent ZERO, and a zero is a legitimate component
 
-**Symptom.** `HttpEmbedder.ToFloats` read every element as
+**Symptom.** `HttpEmbedder.ToFloats` <!-- link-ok: the PRE-RENAME name, which this entry exists to describe; the fix renamed it to TryToFloats --> read every element as
 `n.ValueKind == JsonValueKind.Number ? (float)n.GetDouble() : 0f`. A JSON `null`, a number sent as a
 string, or an object in an `embedding` array therefore became `0f` — indistinguishable from a real zero
 component — and the result was a plausible, wrong vector that got stored, indexed and compared by cosine

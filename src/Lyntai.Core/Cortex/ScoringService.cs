@@ -31,10 +31,13 @@ public sealed class ScoringService(
                 if (r is null) continue; // ran, but not applicable to this context (no score)
                 results.Add(new ScoredResult(scorer.Id, scorer.Name, scorer.Group, scorer.IsLlm, r.Score, r.Reason));
             }
-            catch (OperationCanceledException) { throw; }
+            // The CALLER's cancel propagates; a scorer's OWN deadline is a fault like any other. Both
+            // arrive as this type, so only the token tells them apart — and a bare rethrow here discarded
+            // every score already in `results`, which is a method-local (Lyntai.Memory, 2026-09-09).
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "scorer {Scorer} faulted; skipped (fail-open)", scorer.Id);
+                _logger.LogWarning(ex, "scorer {Scorer} faulted or timed out; skipped (fail-open)", scorer.Id);
             }
         }
 
@@ -44,7 +47,7 @@ public sealed class ScoringService(
             {
                 await store.SaveAsync(ctx.SessionId, results, ct).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) { throw; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "score persistence failed for {Session}; results still returned", ctx.SessionId);

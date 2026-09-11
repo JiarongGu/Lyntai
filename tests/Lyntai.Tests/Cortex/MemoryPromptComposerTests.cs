@@ -16,6 +16,57 @@ public class MemoryPromptComposerTests
         return mem;
     }
 
+    // ---- "Never throws" has to survive a BYO store's OWN deadline -------------------------------------
+    // The type doc promises "an outage in either source yields whatever the other returned (or the base
+    // prompt)". A custom store that imposes its own timeout raises the SAME exception type the caller's
+    // cancel does, so a bare rethrow made that promise false for exactly the implementations it was
+    // written to protect.
+
+    private sealed class TimingOutMemoryStore : IMemoryStore
+    {
+        public Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null,
+            CancellationToken ct = default) => throw new OperationCanceledException("the store's own deadline");
+        public Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null,
+            string? query = null, int? limit = null, CancellationToken ct = default) =>
+            throw new OperationCanceledException("the store's own deadline");
+        public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default) =>
+            throw new OperationCanceledException("the store's own deadline");
+        public Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null,
+            CancellationToken ct = default) => throw new OperationCanceledException("the store's own deadline");
+    }
+
+    [Fact]
+    public async Task A_lexical_stores_OWN_timeout_leaves_the_semantic_half_intact()
+    {
+        var composer = new MemoryPromptComposer(new TimingOutMemoryStore(), SemanticWith("embed me"));
+
+        var composed = await composer.ComposeAsync("base", "trip", scope: "s", query: "embed me");
+
+        Assert.Contains("- embed me", composed);   // the other source still answered
+    }
+
+    [Fact]
+    public async Task A_lexical_stores_OWN_timeout_with_no_other_source_yields_the_BASE_prompt()
+    {
+        var composer = new MemoryPromptComposer(new TimingOutMemoryStore());
+
+        var composed = await composer.ComposeAsync("base", "trip", scope: "s", query: "anything");
+
+        Assert.Equal("base", composed);
+    }
+
+    [Fact]
+    public async Task The_CALLERS_cancellation_still_propagates_out_of_compose()
+    {
+        // The control: without it, "swallow every OperationCanceledException" passes both tests above.
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var composer = new MemoryPromptComposer(new TimingOutMemoryStore());
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            async () => await composer.ComposeAsync("base", "trip", scope: "s", query: "q", ct: cts.Token));
+    }
+
     [Fact]
     public async Task Hybrid_leads_with_semantic_hits_and_dedups_against_lexical()
     {

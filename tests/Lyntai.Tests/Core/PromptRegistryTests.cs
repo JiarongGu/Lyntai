@@ -8,6 +8,44 @@ public class PromptRegistryTests
     private readonly InMemoryKeyValueStore _kv = new();
     private const string Default = "Summarize {input} in {lang}.";
 
+    // ---- "a store outage → the default" has to survive a BYO store's OWN deadline ---------------------
+
+    private sealed class TimingOutKeyValueStore : Lyntai.Storage.IKeyValueStore
+    {
+        public Task<string?> GetAsync(string key, CancellationToken ct = default) =>
+            throw new OperationCanceledException("the store's own deadline");
+        public Task SetAsync(string key, string value, CancellationToken ct = default) =>
+            throw new OperationCanceledException("the store's own deadline");
+        public Task DeleteAsync(string key, CancellationToken ct = default) =>
+            throw new OperationCanceledException("the store's own deadline");
+        public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default) =>
+            throw new OperationCanceledException("the store's own deadline");
+    }
+
+    [Fact]
+    public async Task A_STORES_own_timeout_falls_back_to_the_default_template()
+    {
+        // A remote override store with its own deadline must not be able to stop a prompt rendering —
+        // which the class doc has always promised and a bare rethrow quietly broke.
+        var registry = new PromptRegistry(new TimingOutKeyValueStore());
+
+        var rendered = await registry.RenderAsync("summary", Default,
+            new Dictionary<string, string> { ["input"] = "the text", ["lang"] = "English" });
+
+        Assert.Equal("Summarize the text in English.", rendered);
+    }
+
+    [Fact]
+    public async Task The_CALLERS_cancellation_still_propagates_out_of_render()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var registry = new PromptRegistry(new TimingOutKeyValueStore());
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            async () => await registry.RenderAsync("summary", Default, vars: null, ct: cts.Token));
+    }
+
     [Fact]
     public async Task No_override_renders_default_with_vars()
     {

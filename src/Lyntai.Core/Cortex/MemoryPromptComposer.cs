@@ -44,7 +44,10 @@ public sealed class MemoryPromptComposer(
                 var hits = await semantic.RecallAsync(taskKey, scope, query, limit ?? DefaultSemanticK, ct: ct).ConfigureAwait(false);
                 foreach (var hit in hits) if (seen.Add(hit.Content)) contents.Add(hit.Content);
             }
-            catch (OperationCanceledException) { throw; }
+            // "Never throws" is this type's contract, and a BYO embedder or vector store imposing its own
+            // deadline raises the same exception type the caller's cancel does — so only the token separates
+            // them, and a bare rethrow made that promise false for every custom store.
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex) { _logger.LogWarning(ex, "semantic recall failed while composing for {Task}; continuing with lexical", taskKey); }
         }
 
@@ -55,7 +58,7 @@ public sealed class MemoryPromptComposer(
                 var entries = await memory.RecallAsync(taskKey, scope, query, limit, ct).ConfigureAwait(false);
                 foreach (var entry in entries) if (seen.Add(entry.Content)) contents.Add(entry.Content);
             }
-            catch (OperationCanceledException) { throw; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 // recall is contractually fail-open, but a broken custom store must not sink the prompt

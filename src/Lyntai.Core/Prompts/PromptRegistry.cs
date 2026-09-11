@@ -75,7 +75,9 @@ public sealed partial class PromptRegistry(
             }
             return kv is null ? null : await kv.GetAsync(KeyPrefix + name, ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
+        // A BYO remote store's own deadline is not the caller's cancel, though both arrive as this type —
+        // and rendering a prompt must survive one, which is what "a store outage → the default" promises.
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "prompt override lookup failed for {Name}; using the default", name);
