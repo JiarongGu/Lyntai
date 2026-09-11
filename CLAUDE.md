@@ -17,16 +17,17 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D116** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3623 passed / 3644 total, 21 skipped` (the skips are
+**The baseline a green run should match:** `3622 passed / 3644 total, 22 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 703/703, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
-a skip count well above 21 as "Docker is down and the whole Postgres leg went silently unexercised".
-**The passed figure above is STILL DERIVED and still not observed** (last checked 2026-09-12): every run
-since 2026-09-11 has had Docker down. What IS measured on this tree is **`3427 passed / 3644 total, 217
-skipped`, zero failures** — the total and the zero are real, the 21-skip split is inherited from the last
-baseline taken with Docker up, and `3623` is that split applied to today's total. Confirm the pair on the
-first run with Docker up; until then a green run means "3,644 total and nothing failed", not that the
-Postgres leg passed.
+a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
+**MEASURED on 2026-09-12 with Docker up**, ending a run of derived figures: all 22 skips were enumerated
+and every one is live-backend gated (a live model, embedder, reranker, Ollama, MCP or CLI), so nothing is
+skipping for another reason. **It is 22 rather than the long-standing 21 because
+`CrossEncoderVerificationLiveTests` is new** — it arrived with **D115** on 2026-09-11, the same window in
+which every run had Docker down, so the old number simply predated it.
+**The Postgres leg is 195 tests**: with the daemon down the same tree reads `3427 passed / 217 skipped`,
+and 217 − 22 = 195 = the difference in passes. A skip count near 217 means those 195 did not run.
 Everything else on that line is gated. `docs/GATES.md` is why each gate exists, what it measured and which
 numbers it holds.
 
