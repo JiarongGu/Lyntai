@@ -109,7 +109,7 @@ mistake this column exists to prevent.
 | 3666 | `+sem+rel-only+judge` with `gemma-3-1b-it` … | evidence-hit@k | 200 | 83.0% | — | CURRENT |
 | 3710 | `rerank` — the bench-local `CrossEncoderVer… | latency | 50 writes + 50 re… | 94.5 ms recall … | — | CURRENT |
 | 3809 | `+sem+rel-only+judge` — the SHIPPED `Memory… | token-f1 | 301 questions sam… | −0.0346, CI [−0… | **ships** | CURRENT |
-| 3844 | `+sem+rel-only+judge+enginefuse` — the same… | token-f1 | 301 questions sam… | +0.0295, CI [+0… | — | CURRENT |
+| 3852 | `+sem+rel-only+judge+enginefuse` — the same… | token-f1 | 301 questions sam… | +0.0295, CI [+0… | — | CURRENT |
 
 <!-- results:end -->
 
@@ -3811,12 +3811,17 @@ not copied here. `--parallel` was fixed. SQLite only, one embedder, one judge mo
 **What varied, and only this:** how an endorsed candidate reaches the page. Three arms, one reader, one
 judge, one corpus, one embedder, the same derived depth of 80: the no-judge base `+sem+rel-only`; the
 shipped partition `+sem+rel-only+judge`; and `+sem+rel-only+judge+enginefuse`, which is
-`GraphMemoryOptions.VerdictCombination` set to `MemoryVerdictCombination.Fuse` **through the engine's own
-path** rather than through the bench-local verifier the 2026-09-03 section above used to prove the idea.
+`GraphMemoryOptions.VerdictCombination` set to `MemoryVerdictCombination.Fuse`.
 
-**This is D105's VERDICT combination and NOT D103's RANKING fusion**, which this same bench runs as its
-`lyntai-fused*` arms — so the arm suffix is `+enginefuse` and the word "fuse" is never written bare here. A
-name meaning two things makes the table silently wrong, which is why the harness spells it out too.
+**THREE different things in this bench are called fusion, so none of them is written bare here.** This
+section measures **D105's VERDICT combination**, the `+enginefuse` suffix. It is **not D103's RANKING
+fusion**, which the same bench runs as its `lyntai-fused*` arms. And it is **not the published
+`+sem+rel-only+judge+fuse` arm** of the 2026-09-03 section above, which proved the same IDEA on
+`evidence-hit@k` through the bench-local `FusedVerdictVerifier` — a verifier that emits an already-fused page
+as its verdict. `+enginefuse` instead sets the option and lets the ENGINE reorder and apply its own cut, so
+it is the control saying the shipped code reproduces that proof; an arm landing on the partition's number
+would have meant the option never reached this path. A name meaning three things makes a table silently
+wrong, which is why the harness spells the distinction out in its own header too.
 
 **`Partition` is the SHIPPED default and `Fuse` is not**, which is why the row above reads `ships=yes` and
 the row below reads `ships=no`. Nothing in this section is a recommendation to change that: **D105** decided
@@ -3837,7 +3842,10 @@ gitignored:
 (`docs/task-archive.md` **Part 191**) wrote its own expectation down: *"Do not expect it to move the score —
 fused, the arm lands on its base — so this is a check that reordering costs nothing a reader notices, not a
 hunt for a gain."* **Half of that holds and the half it rests on does not.** Fused, the arm does land just
-short of its base (32.6 against 33.1), which is exactly D105's *"removes a loss and never beats the base"*.
+short of its base (32.6 against 33.1), which is exactly D105's *"removes a loss and never beats the base"* —
+and that **0.5-point** gap is the one comparison in this section carrying no interval, so read it against
+the floor in finding 4: it is under a QUARTER of the 0.0233 this run could resolve on a difference of that
+shape, which is what makes "lands on its base" evidence rather than an eyeball.
 But the option is not what fails to move the score — **the PARTITION moves it, downward**, and fusion gives
 most of that back. Both paired bounds exclude zero: `partition − base` is **−0.0346 token-F1, 95% CI
 [−0.0579, −0.0113]**, and `enginefuse − partition` is **+0.0295, 95% CI [+0.0078, +0.0512]**
@@ -3862,28 +3870,37 @@ calls 301, declined 0, judged 'none relevant' 0, shown/call 80.0, endorsed/call 
 harness ASSERTS that equality on calls / shown / endorsed / declined / empty verdicts and exits non-zero
 rather than publishing when it breaks, which is what proves both arms saw the same judge output and only the
 COMBINATION differed. Beyond that: `items/q` is **20.0** on every arm, so no arm was handed a bigger page;
-`unknown` runs 17–23 of 301, far from the count that would make an arm's score a retrieval failure; the
-three arms answered the same 301 questions, asserted equal before any subtraction; and every per-conversation
-clone control reproduces (419 of 419 turns, and so on for all ten conversations).
+`unknown` runs 17–23 of 301, far from the count that would make an arm's score a retrieval failure; and
+every per-conversation clone control reproduces (419 of 419 turns, and so on for all ten conversations).
+**The pairing itself rests on two guarantees of DIFFERENT strength, and they are worth separating.** What
+the harness asserts is only that the three per-question score lists are equal in COUNT, refusing rather than
+truncating to the shortest — a silently truncated pairing would produce a believable number from mismatched
+questions. Question IDENTITY is STRUCTURAL rather than asserted: one pass appends exactly one score per arm
+per question, so index *i* is the same question in all three lists by construction. That is the stronger of
+the two, and it is why the counts are all that needs checking.
 
 **4. The bound is why a NULL would have been worth stating at all.** This run could not have resolved a
 difference smaller than **0.0217 token-F1** on `enginefuse − partition`, or **0.0233** on
-`partition − base` — the CI half-widths. At the `--n 4` smoke run (5 questions sampled) those floors were
-**0.0995** and **0.0544**, so the instrument tightened by roughly 4× and both effects here sit well clear of
-it. That matters because a bare "we saw no difference" from this harness is worth nothing: the same
-instrument was measured manufacturing **6-point** effects at n = 100 that vanished at full sample (the
-ranking × walk interaction above). A null had to arrive as *"nothing larger than X"*, and an unbounded one
-would have been unpublishable.
+`partition − base` — the CI half-widths, printed by the run itself. Each effect clears its own floor by more
+than a point. That matters because a bare "we saw no difference" from this instrument is worth nothing: it
+is on record manufacturing a **+6.7** at n = 100 that read **+1.0** at full sample
+(`locomo-interaction-full-n1540` above, which is the row that withdrew the n = 100 series). So a null here
+had to arrive as *"nothing larger than X"* or it would have been unpublishable — which is why the bound was
+built before the run rather than reached for after it.
 
-**5. The judge-graded column is generous, and the run's own header understates by how much.** The harness
-prints *"generous by roughly 12 points"*; that sentence is a **hardcoded literal, not a figure derived from
-this run**, and on these arms the gap is **26.7 / 27.8 / 26.5 points** (judge-graded minus token-F1, base /
-partition / `+enginefuse`). Read the gap as an indicator rather than a bias estimate — the two columns are
-different scales, a mean overlap against a share of questions marked correct. **What carries is that the gap
-is nearly CONSTANT across the three arms**, which is what "common-mode" has to mean for the differences to
-survive it, and the judge-graded column moves the same direction as token-F1 on both comparisons (−2.3 then
-+1.6), as does `exact` (15.9 → 14.0 → 15.3). Three columns agreeing is the reason this is a result rather
-than the self-grader's opinion.
+**5. The judge-graded column is generous, and the figure to use is the one derived from these arms.** The
+gap is **26.7 / 27.8 / 26.5 points** — judge-graded minus token-F1, base / partition / `+enginefuse`. Read
+it as an indicator rather than a bias estimate: the two columns are different scales, a mean overlap against
+a share of questions marked correct. **What carries is that the gap is nearly CONSTANT across the three
+arms** — it varies **1.3 points** against a largest arm difference of **3.5** — which is what "common-mode"
+has to mean for the differences to survive it. The judge-graded column also moves the same direction as
+token-F1 on both comparisons (−2.3 then +1.6), as does `exact` (15.9 → 14.0 → 15.3); three columns agreeing
+is the reason this is a result rather than the self-grader's opinion.
+<br>**The provenance file named above carries one line that is WRONG, and it is this caveat.** It reads
+*"generous by roughly 12 points"* — a hardcoded literal the harness printed whatever it had measured, about
+15 points off here and the wrong SIGN on the bring-up run. The harness now derives that gap, its spread and
+the difference it is judged against from the rows it has just printed (`docs/FIXES.md`, 2026-09-11). Every
+other number in that file stands; only that one line does not.
 
 **What it does NOT say.** **COST** — the judge and the reader share one model, which is the contention
 priced in the section above, so nothing here prices the option's latency. **A SECOND READER** — one reader

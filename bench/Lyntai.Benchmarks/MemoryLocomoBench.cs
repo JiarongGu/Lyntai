@@ -2061,6 +2061,7 @@ internal static class MemoryLocomoBench
         Console.WriteLine();
         Console.WriteLine($"{"arm",-36} {"token-F1",9} {"judge-graded",13} {"endorsed/recall",16}");
 
+        var gaps = new List<(string Arm, double Gap)>();
         foreach (var arm in arms)
         {
             var ask = ScoredCategories.Sum(c => asked.GetValueOrDefault((arm, c)));
@@ -2070,22 +2071,37 @@ internal static class MemoryLocomoBench
             // rather than a fabricated zero.
             var judged = judgeAudits.TryGetValue(arm, out var audit) ? audit.Calls - audit.Declined : 0;
             var endorsedRecall = judged == 0 ? "-" : $"{(double)audit!.Endorsed / judged:F1}/{RecallLimit}";
+            gaps.Add((arm, graded - f1Mean));
             Console.WriteLine($"{arm,-36} {f1Mean,9:P1} {graded,13:P1} {endorsedRecall,16}");
         }
 
-        Console.WriteLine();
-        Console.WriteLine("  'judge-graded' is generous by roughly 12 points - the same model reads and grades");
-        Console.WriteLine("  the answer - but that bias is COMMON-MODE across all three arms, so the");
-        Console.WriteLine("  differences below survive it.");
+        var (mean, low, high) = BenchStats.PairedMeanInterval(fusedMinusPartition);
+        var (meanPb, lowPb, highPb) = BenchStats.PairedMeanInterval(partitionMinusBase);
+
+        // DERIVED, never asserted: both the SIZE and the SIGN of the self-grading gap move with the sample,
+        // so a fixed "generous by roughly N points" describes one run and then prints over every other one.
+        // The COMMON-MODE claim is the load-bearing half - it is what licenses reading the differences at
+        // all - so it stays, with the spread it rests on computed. Incident: `docs/FIXES.md`, 2026-09-11.
+        var spread = gaps.Count == 0 ? 0 : gaps.Max(g => g.Gap) - gaps.Min(g => g.Gap);
+        var largest = Math.Max(Math.Abs(mean), Math.Abs(meanPb));
 
         Console.WriteLine();
-        var (mean, low, high) = BenchStats.PairedMeanInterval(fusedMinusPartition);
+        Console.WriteLine("  'judge-graded' is the SAME model reading and grading its own answer, so it is not a");
+        Console.WriteLine("  second opinion. Its gap to token-F1 is DERIVED from the rows above rather than");
+        Console.WriteLine("  asserted, because both the SIZE and the SIGN of that gap move with the sample:");
+        foreach (var (arm, gap) in gaps)
+            Console.WriteLine($"    {arm,-36} {gap * 100,7:+0.0;-0.0;0.0} points");
+        Console.WriteLine($"  The gap VARIES {spread * 100:F1} points across the arms against a largest arm difference");
+        Console.WriteLine($"  of {largest * 100:F1} points, so it is COMMON-MODE to that extent and the differences below");
+        Console.WriteLine("  survive it. A spread comparable to those differences would mean the opposite, which is");
+        Console.WriteLine("  why this is computed rather than claimed.");
+
+        Console.WriteLine();
         Console.WriteLine($"  enginefuse − partition: {mean:+0.0000;-0.0000;0.0000} token-F1, "
             + $"95% CI [{low:+0.0000;-0.0000;0.0000}, {high:+0.0000;-0.0000;0.0000}]");
         Console.WriteLine($"  => this run could not have resolved a difference smaller than "
             + $"{(high - low) / 2:F4} token-F1.");
 
-        var (meanPb, lowPb, highPb) = BenchStats.PairedMeanInterval(partitionMinusBase);
         Console.WriteLine($"  partition − base: {meanPb:+0.0000;-0.0000;0.0000} token-F1, "
             + $"95% CI [{lowPb:+0.0000;-0.0000;0.0000}, {highPb:+0.0000;-0.0000;0.0000}]");
         Console.WriteLine($"  => this run could not have resolved a difference smaller than "

@@ -3119,13 +3119,13 @@ candidates than the page holds, so under `Partition` an endorsed set larger than
 ranking rather than refining it. **The default is not re-opened** — one workload, one small local reader,
 and D105 decided it on a different metric.
 
-**The reusable half is the BOUND.** This instrument had already been caught manufacturing multi-point
-effects at small n that vanished at full sample, so a bare "we saw no difference" from it is worth nothing;
-the paired CI half-width lets a null read as "nothing larger than X", and building that before the run is
-what turned an expected tie into a refutable result.
+**The reusable half is the BOUND.** This instrument has been caught manufacturing effects at small n that
+vanished at full sample, so a bare "we saw no difference" from it is worth nothing; the paired CI half-width
+lets a null read as "nothing larger than X", and building it before the run is what turned an expected tie
+into a refutable result either way.
 
-**One defect found and deliberately not fixed here:** the harness calls the judge-graded column "generous by
-roughly 12 points", a hardcoded literal the run does not reproduce — the measured gap is about 27.
-`docs/memory-measurements.md` §5 states the measured figure; the bench line is untouched.
+**One defect found, fixed as its own concern** (`docs/FIXES.md`): the harness printed a hardcoded caveat
+about its own judge-graded column whatever it had measured — wrong in size here, wrong in SIGN on the
+bring-up run. It now derives that gap from the rows it just printed.
 
 - Give the fused verdict a READER-facing measurement.

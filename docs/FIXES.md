@@ -7,6 +7,40 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-11 — a bench printed a HARDCODED caveat about its own output, and it was wrong in both directions
+
+**Symptom.** `memory-locomo --verdict` printed *"'judge-graded' is generous by roughly 12 points"* under its
+own results table, on every run, regardless of what that table said. At `--n 300` the measured gap was
+**26.7 / 27.8 / 26.5 points** across the three arms — about 15 points off. On the bring-up run the gap ran
+the OTHER way, judge-graded BELOW token-F1, so the sentence was not merely stale but directionally wrong.
+
+**Root cause.** The number was a string literal in `PrintVerdictBound`, written from one early observation
+and never connected to the arms printed three lines above it. A literal in an explanatory note reads exactly
+like a derived one, and a caveat is the last line anybody re-checks against the table it explains — so it
+rots invisibly while the table beside it moves. Nothing could catch it: `check-counts` gates counted claims
+in maintained PROSE and this is a bench's stdout, `check-measurements` reads the record rather than the
+harness, and the run's own exit code is 0 either way.
+
+**Fix.** The caveat now DERIVES everything it asserts from the rows it has just printed: the per-arm gap,
+its spread across arms, and the largest paired arm difference it is judged against. The load-bearing half of
+the sentence is kept — the bias is COMMON-MODE, which is the only reason the column is reported beside
+token-F1 rather than instead of it — but it is now stated as a computed comparison (*"the gap VARIES x
+points against a largest arm difference of y"*) with the note that a spread comparable to those differences
+would mean the opposite. A derived number cannot be wrong in either direction.
+
+**Verify.** `build` clean. Not re-run: the n = 300 sweep is a ~50-minute contended-model run and this
+changes only a report line, so the arithmetic was checked against the recorded table instead — the three
+gaps and the 1.3-point spread follow from the arms in
+`devtools/_verdict/run-verdict-n300-2026-09-11.txt` <!-- link-ok: gitignored raw sweep output, named as provenance -->,
+and the 3.5-point reference is that file's own `partition − base` mean of −0.0346. **That file predates this
+fix and still shows the literal**: every other number in it stands, and only that one caveat line does not,
+which `docs/memory-measurements.md` §5 states where the figures are published.
+
+**Introduced by.** `01b9889` (2026-09-11, the paired bound for the verdict study), the same commit that
+added the table the caveat describes.
+
+---
+
 ## 2026-09-11 — a burst-1 rate limiter test on the REAL clock, flaking only under `verify`'s own load
 
 **Symptom.** Two `GenerationGovernanceTests` (the hosted-image and TTS-stream rate-limit cases) failed

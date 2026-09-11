@@ -670,9 +670,9 @@ shape), bought on one model and one workload. **The reader-facing check it did N
 note below._
 
 _**The reader-facing item CLOSED 2026-09-11** as `docs/task-archive.md` **Part 191**, and it closed by
-REFUTING its own prediction. It expected the option not to move the score; at n = 301 both paired bounds
-exclude zero — the shipped **partition** costs a reader real token-F1 and `+enginefuse` gives most of it
-back (`docs/memory-measurements.md` §5, which owns every figure). **The default is not re-opened**: one
+REFUTING its own prediction. It expected the option not to move the score; both paired bounds exclude zero —
+the shipped **partition** costs a reader real token-F1 and `+enginefuse` gives most of it back
+(`docs/memory-measurements.md` §5, which owns every figure). **The default is not re-opened**: one
 workload, one reader, and **D105** decided it on a different metric. What must not be carried forward is
 "fusing costs nothing a reader notices", which is the sentence the run killed._
 
