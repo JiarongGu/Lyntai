@@ -152,6 +152,12 @@ internal static class MemoryLocomoBench
         // a corpus with near-duplicate turns reaches both arms and only a DIFFERENCE is walk-specific.
         // Model-free and retrieval-side: no reader answers anything here, so neither can be credited.
         var composition = args.Contains("--composition");
+        // `--verdict` is TASKS.md Part 128: `evidence-hit@k` reads the returned SET, and D105's
+        // VerdictCombination also REORDERS it, so the metric that priced the option is structurally blind to
+        // half of what it does. This is the reader's view of the same choice — token-F1 over
+        // Partition against Fuse on ONE judge, with the unjudged base that makes the pair readable.
+        // NOT D103's ranking fusion, which this file also contains: see the `+enginefuse` suffix.
+        var verdictOnly = args.Contains("--verdict");
         var needsReader = !args.Contains("--retrieval") && !shotsOnly && !ranksOnly && !composition;
         var chat = needsReader ? await SweepDoubles.TryRealChatAsync(http, "memory-locomo") : null;
         if (needsReader && chat is null) return 1;
@@ -161,11 +167,21 @@ internal static class MemoryLocomoBench
         // this subsystem's fix and neither field benchmark had ever wired the seam; the ladder now prices it
         // against its own oracle ceiling.
         //
-        // ADDITIVE and DISCLOSED, never a gate: the mechanical arms are model-free and run in full whether or
-        // not a judge answers, and a run that silently dropped the arm would read as having measured it.
-        var judgeChat = args.Contains("--retrieval") && !args.Contains("--no-judge")
+        // ADDITIVE and DISCLOSED, never a gate, for `--retrieval`: the mechanical arms are model-free and run
+        // in full whether or not a judge answers, and a run that silently dropped the arm would read as
+        // having measured it. `--verdict` is the opposite: two of its three arms ARE the judge under
+        // Partition and under Fuse, so without one the study has nothing to compare — it refuses below rather
+        // than silently running the base three times.
+        var judgeChat = (args.Contains("--retrieval") || verdictOnly) && !args.Contains("--no-judge")
             ? await SweepDoubles.TryRealChatAsync(http, "memory-locomo judge")
             : null;
+        if (verdictOnly && judgeChat is null)
+        {
+            if (args.Contains("--no-judge"))
+                Console.Error.WriteLine("memory-locomo verdict: --no-judge leaves two of the three arms "
+                    + "without a verifier - refusing rather than comparing nothing.");
+            return 1;
+        }
 
         // The CROSS-ENCODER arm. `docs/memory-measurements.md` §5 files a purpose-built reranker as the supported fix for
         // a gap the oracle says is ranking (+9.5 reachable) and a 4B LLM judge SPENDS (-10.5). It is a
@@ -214,7 +230,9 @@ internal static class MemoryLocomoBench
             ? ["ranks"]
             : composition
             ? [FusedThreeShot, $"vector-{ShotBudget}"]
-            : shotsOnly
+            : verdictOnly
+                ? ["+sem+rel-only", .. VerdictArms.Select(JudgeArmName)]
+                : shotsOnly
             ? ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}", "full"]
             : retrievalOnly
                 ? [.. RetrievalArms(judgeChat is not null, reranker is not null), "vector", .. wantFull ? ["full"] : Array.Empty<string>()]
@@ -357,7 +375,9 @@ internal static class MemoryLocomoBench
         var judgeFusions = new Dictionary<string, FusedVerdictVerifier>(StringComparer.Ordinal);
         var judgeCaps = new Dictionary<string, CappedVerdictVerifier>(StringComparer.Ordinal);
         if (judgeChat is not null)
-            foreach (var spec in JudgeArms)
+            // `--verdict` needs only its OWN two arms, not the retrieval ladder's ten - the same
+            // construction path serves both rather than a second copy of it.
+            foreach (var spec in verdictOnly ? VerdictArms : JudgeArms)
             {
                 // The audit sits INSIDE the fusion, so it records what the MODEL said rather than what the
                 // fusion made of it — which also makes a fused arm's audit a cross-check against its
@@ -433,6 +453,21 @@ internal static class MemoryLocomoBench
                 ? [FieldArms.Shipped() with { Ranking = rankProbe }]
                 : composition
                 ? [Fused(FusedThreeShot)]
+                : verdictOnly
+                // The base plus its two judge arms, named by `JudgeArmName` so this can never disagree
+                // with `arms` above about what the study's three rows are called.
+                ? [FieldArms.Named("+sem+rel-only"),
+                    .. VerdictArms.Select(spec => FieldArms.Named("+sem+rel-only") with
+                    {
+                        Name = JudgeArmName(spec),
+                        // Same inert-Options rule as the retrieval ladder's own judge slice (`Ladder()`
+                        // below): null keeps the shipped default, and an arm that sets only
+                        // VerdictCombination still inherits the shipped (DERIVED) VerificationDepth.
+                        Options = spec.EngineFuse
+                            ? new GraphMemoryOptions { VerdictCombination = MemoryVerdictCombination.Fuse }
+                            : null,
+                        Verification = judgePolicies[JudgeArmName(spec)],
+                    })]
                 : retrievalOnly
                 ? Ladder()
                 : shotsOnly
@@ -1957,6 +1992,15 @@ internal static class MemoryLocomoBench
         // NULL control: a cap that cannot bind at depth 80, so it must reproduce the uncapped arm exactly,
         // and any move there is the instrument rather than the rule.
         (null, false, RecallLimit, null, false), (null, false, 80, null, false),
+    ];
+
+    /// <summary>`--verdict`'s two judge arms: the shipped partition, and the same judge fused. Both leave
+    /// Depth null so they inherit the DERIVED shipped depth, and differ in exactly one field — which is what
+    /// makes their audits comparable at all.</summary>
+    private static readonly (int? Depth, bool Fuse, int? Top, int? Budget, bool EngineFuse)[] VerdictArms =
+    [
+        (null, false, null, null, false),
+        (null, false, null, null, true),
     ];
 
     /// <summary>The verdict's weight against the ranking's own rank term when fusing. 1 puts them on equal
