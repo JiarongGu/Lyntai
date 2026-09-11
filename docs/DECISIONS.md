@@ -3109,9 +3109,6 @@ perfect judgement (92.5% → 90.5%, LoCoMo n = 200), so the partition has a real
 is a **bet on judge quality**: +2.0 when it is right against −10.5 when the judge is a 4B model, ~5:1 against.
 It stays until that pair is measured on a second workload (`docs/memory-measurements.md` §5).
 
-**The first reader-facing evidence for this trade-off — token-F1 on the same LoCoMo workload, not the
-evidence-hit@k this decision priced — is now in `docs/memory-measurements.md` §5, the `--verdict` study.**
-
 ## D106 — the gist tier is REFUTED AS SCOPED: abstraction belongs at encoding, not at retrieval (2026-09-04)
 
 **No gist tier ships, and the backlog item is closed rather than built** (`docs/task-archive.md` Part 153). A read-time tier that
