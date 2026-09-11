@@ -359,7 +359,16 @@ internal static class MemoryContentionSweep
             + $"{delta:F1}ms of the mixed p50 recall ({delta / judgeMixed.RecallP50 * 100:F0}% of it)");
     }
 
-    private static void PrintNotSwept()
+    /// <summary>The device-contention LABEL the orchestrator (`devtools/scripts/memory-contention.mjs`)
+    /// sets via <c>LYNTAI_CONTENTION_DEVICE</c> before invoking this sweep — <c>"busy"</c> when it is
+    /// holding a busy-device load for the cell's duration, <c>"quiet"</c> otherwise (the default, so a
+    /// bare <c>dotnet run -- --contention</c> outside the orchestrator still describes itself correctly).
+    /// LABELLING ONLY: nothing here reads this value to change what is measured, only what is PRINTED about
+    /// it — the orchestrator alone decides whether a load actually runs.</summary>
+    private static string DeviceMode() =>
+        Environment.GetEnvironmentVariable("LYNTAI_CONTENTION_DEVICE") is { Length: > 0 } v ? v : "quiet";
+
+    private static void PrintNotSwept(string device)
     {
         Console.WriteLine("\nNOT swept (stated rather than left implicit):");
         Console.WriteLine("  - RECALL QUALITY. No ground truth here. Nothing says whether contention changes");
@@ -368,10 +377,21 @@ internal static class MemoryContentionSweep
         Console.WriteLine("    slot (D115): a deployment fills it with exactly one backend, so the two can");
         Console.WriteLine("    never contend with EACH OTHER — only annotation can contend, and only with");
         Console.WriteLine("    whichever one is loaded.");
-        Console.WriteLine("  - A BUSY GPU, and this is the figure that does NOT transfer. Every cell was taken");
-        Console.WriteLine("    with the device quiet; generation swings from 12x faster to 26x slower between a");
-        Console.WriteLine("    quiet and a contended device while encoding stays ahead throughout. Read every");
-        Console.WriteLine("    number here as the quiet-device case (pitfalls.md, docs/model-tasks.md section 3).");
+        if (device == "busy")
+        {
+            Console.WriteLine("  - NOT excluded THIS run: the device was DELIBERATELY loaded"
+                + " (LYNTAI_CONTENTION_DEVICE=busy) by a second llama-server generating tokens on its own");
+            Console.WriteLine("    port, held by the orchestrator for the whole cell. Every number above is");
+            Console.WriteLine("    the CONTENDED case, not the quiet one — do not read it as a quiet-device");
+            Console.WriteLine("    baseline (pitfalls.md, docs/model-tasks.md section 3).");
+        }
+        else
+        {
+            Console.WriteLine("  - A BUSY GPU, and this is the figure that does NOT transfer. Every cell was taken");
+            Console.WriteLine("    with the device quiet; generation swings from 12x faster to 26x slower between a");
+            Console.WriteLine("    quiet and a contended device while encoding stays ahead throughout. Read every");
+            Console.WriteLine("    number here as the quiet-device case (pitfalls.md, docs/model-tasks.md section 3).");
+        }
         Console.WriteLine("  - `--parallel`. The chat server's slot count is fixed; varying it is the follow-on,");
         Console.WriteLine("    and the axis ProviderAdmission speaks to.");
         Console.WriteLine("  - POSTGRES. SQLite only, matching every sweep here.");
@@ -497,6 +517,12 @@ internal static class MemoryContentionSweep
             + "— wired onto one engine. Verification is a SINGULAR slot (D115): this run fills it with each "
             + "requested backend in turn, never both at once.");
 
+        var device = DeviceMode();
+        Console.WriteLine(device == "busy"
+            ? "  device: BUSY — LYNTAI_CONTENTION_DEVICE=busy, the orchestrator is holding a busy-device load "
+                + "for this cell. Every figure below is the CONTENDED case."
+            : "  device: quiet (LYNTAI_CONTENTION_DEVICE unset or \"quiet\")");
+
         var (writes, recalls) = ParseVolume(args);
         var workers = ParseInt(args, "--workers", 4);
         var repeat = ParseRepeat(args);
@@ -543,7 +569,7 @@ internal static class MemoryContentionSweep
             mixedByVerifier.TryGetValue(Verifier.Rerank, out var rerankMixed))
             PrintBackendComparison(judgeMixed, rerankMixed);
 
-        PrintNotSwept();
+        PrintNotSwept(device);
         return 0;
     }
 }

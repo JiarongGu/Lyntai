@@ -149,15 +149,105 @@ export function aggregateGpuSamples(samples) {
 }
 
 /** One attempt, swallowing everything (absent binary, transient error) to `null` — the caller counts
- *  successful samples rather than reading an exception as "the device is quiet". */
+ *  successful samples rather than reading an exception as "the device is quiet". `timeout` is load-bearing:
+ *  without it a hung `nvidia-smi` hangs `stop()` (and therefore the whole cell) forever. */
 async function sampleGpuOnce() {
   try {
     const { stdout } = await execFileAsync('nvidia-smi',
-      ['--query-gpu=utilization.gpu,memory.used', '--format=csv,noheader']);
+      ['--query-gpu=utilization.gpu,memory.used', '--format=csv,noheader'], { timeout: 5_000 });
     return parseGpuSample(stdout);
   } catch {
     return null;
   }
+}
+
+/** The device is near its documented idle baseline (3-6% util, 2,618 MiB) — checked ONCE, before the first
+ *  cell, to catch a game or another load that is ALREADY running before this module starts anything of its
+ *  own. Deliberately loose (10% / 2.7 GiB): the point is to catch a busy neighbour, not to fail on ordinary
+ *  driver jitter. Skips (rather than refuses) when `nvidia-smi` is unavailable — the same "cannot verify" is
+ *  not "verified clean" posture `aggregateGpuSamples` takes for a mid-cell sample. */
+const GPU_IDLE_MAX_UTIL = 10;
+const GPU_IDLE_MAX_MEM_MIB = 2.7 * 1024;
+
+export async function assertGpuIdle() {
+  const sample = await sampleGpuOnce();
+  if (sample === null) {
+    console.log('GPU idle check: nvidia-smi unavailable — skipping (cannot verify the device is quiet).');
+    return;
+  }
+  if (sample.util > GPU_IDLE_MAX_UTIL || sample.memMiB > GPU_IDLE_MAX_MEM_MIB) {
+    throw new Error(`GPU is not idle before starting: ${sample.util}% util, ${sample.memMiB} MiB used `
+      + `(expected <=${GPU_IDLE_MAX_UTIL}% util and <=${GPU_IDLE_MAX_MEM_MIB.toFixed(0)} MiB) — a game or `
+      + 'another load may already be running. Refusing to start the grid.');
+  }
+  console.log(`GPU idle check: OK — ${sample.util}% util, ${sample.memMiB} MiB used`);
+}
+
+/** One `nvidia-smi --query-compute-apps=pid,used_gpu_memory --format=csv,noheader` line per GPU-using
+ *  PROCESS, e.g. `"12345, 806 MiB"`. Unlike `parseGpuSample`'s query (always one line, the device), this
+ *  query emits ZERO lines on an idle device — a genuinely quiet reading — so an empty array is not an error
+ *  here the way it would be for utilization. */
+export function parseGpuComputeApps(csvText) {
+  const rows = [];
+  for (const line of String(csvText).split(/\r?\n/).map((l) => l.trim()).filter(Boolean)) {
+    const [pidRaw, memRaw] = line.split(',');
+    const pid = Number.parseInt(pidRaw, 10);
+    const memMiB = Number.parseFloat(memRaw);
+    if (Number.isFinite(pid) && Number.isFinite(memMiB)) rows.push({ pid, memMiB });
+  }
+  return rows;
+}
+
+/** `null` on a failed/absent `nvidia-smi` (the caller must tell "confirmed nobody's using the device" apart
+ *  from "could not ask" — the same distinction the utilization side protects). */
+async function sampleGpuComputeAppsOnce() {
+  try {
+    const { stdout } = await execFileAsync('nvidia-smi',
+      ['--query-compute-apps=pid,used_gpu_memory', '--format=csv,noheader'], { timeout: 5_000 });
+    return parseGpuComputeApps(stdout);
+  } catch {
+    return null;
+  }
+}
+
+/** Which PIDs in `censusPids` are neither OURS (`ownPids` — this cell's servers, and the busy load if one
+ *  is running) nor the ALREADY-KNOWN neighbour (`knownNeighbourPids`, captured once before this run's first
+ *  cell — never hardcoded, since a neighbour's PID is only ever true for one session). Reported by PID, the
+ *  same shape `vanishedNeighbours` already uses, because an aggregate ("was anything extra running?") hides
+ *  WHICH process it was. */
+export function censusContamination(censusPids, ownPids, knownNeighbourPids) {
+  const expected = new Set([...ownPids, ...knownNeighbourPids]);
+  return censusPids.filter((pid) => !expected.has(pid));
+}
+
+/** Polls the compute-apps census on `intervalMs` for as long as the caller holds the handle — for the WHOLE
+ *  cell, not bookend before/after, for the identical reason `startGpuSampler` does: a contaminating process
+ *  that starts and stops INSIDE the cell must still be caught. `stop()` returns the UNION of every PID seen
+ *  across every sample (a transient contaminant that came and went is still a contaminant) and `sampledOk`
+ *  — false only when `nvidia-smi` never once answered, so the caller can tell "confirmed clean" from
+ *  "never checked" apart, exactly as `aggregateGpuSamples`' `samples: 0` does for utilization. */
+export function startGpuCensus({ intervalMs = 1_000 } = {}) {
+  const seen = new Set();
+  let stopped = false;
+  let sampledOk = false;
+  const loop = (async () => {
+    while (!stopped) {
+      const rows = await sampleGpuComputeAppsOnce();
+      if (rows !== null) {
+        sampledOk = true;
+        for (const { pid } of rows) seen.add(pid);
+      }
+      if (stopped) break;
+      await sleep(intervalMs);
+    }
+  })();
+  return {
+    async stop() {
+      stopped = true;
+      await loop;
+      return { pids: [...seen], sampledOk };
+    },
+  };
 }
 
 /** Starts polling `nvidia-smi` on `intervalMs`, immediately (not after the first interval, so a short cell
@@ -185,7 +275,13 @@ export function startGpuSampler({ intervalMs = 1_000 } = {}) {
 }
 
 /** Prints the GPU control's line for one cell — the `samples === 0` branch is the "say so" half of "report
- *  `null`, never silently zero": a reader must not be able to mistake an unmeasured cell for a quiet one. */
+ *  `null`, never silently zero": a reader must not be able to mistake an unmeasured cell for a quiet one.
+ *
+ *  **Utilization does not detect contamination — it SATURATES.** A cell already running real chat/embed/
+ *  rerank traffic can sit at 90%+ on its own, so a neighbour arriving on top of that shows up as LATENCY,
+ *  not as a visible jump here. `maxMemMiB` is additive against the known idle baseline and worth reading;
+ *  `startGpuCensus`/`censusContamination` (printed separately) is what actually attributes contamination,
+ *  by PID. */
 function printGpuLine(device, gpu) {
   if (gpu.samples === 0) {
     console.log(`GPU (${device}): UNAVAILABLE — nvidia-smi produced zero samples (absent, or every attempt `
@@ -193,7 +289,28 @@ function printGpuLine(device, gpu) {
     return;
   }
   console.log(`GPU (${device}): max ${gpu.maxUtil.toFixed(0)}% util, mean ${gpu.meanUtil.toFixed(1)}% util, `
-    + `max ${gpu.maxMemMiB.toFixed(0)} MiB used (${gpu.samples} samples)`);
+    + `max ${gpu.maxMemMiB.toFixed(0)} MiB used (${gpu.samples} samples) — informational; see the census `
+    + 'line below for contamination');
+}
+
+/** Prints the census's verdict for one cell — CLEAN (only this run's own PIDs and the pre-run-known
+ *  neighbour touched the device), CONTAMINATED (named, by PID — never an aggregate), or UNCHECKED
+ *  (`nvidia-smi --query-compute-apps` never once answered). */
+function printCensusLine(device, census, ownPids, knownNeighbourPids) {
+  if (!census.sampledOk) {
+    console.log(`GPU census (${device}): UNCHECKED — nvidia-smi --query-compute-apps never answered. `
+      + 'Contamination NOT ruled out this cell.');
+    return;
+  }
+  const contaminants = censusContamination(census.pids, ownPids, knownNeighbourPids);
+  if (contaminants.length) {
+    console.error(`GPU CENSUS CONTAMINATED (${device}): unexpected PID(s) using the device this cell: `
+      + contaminants.join(', '));
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`GPU census (${device}): clean — only this run's PID(s) [${ownPids.join(',') || 'none'}] `
+    + `and the known neighbour [${knownNeighbourPids.join(',') || 'none'}] touched the device.`);
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -445,16 +562,27 @@ export async function stopArm(handle) {
  *  figure taken under `--device busy` with that attached, the same posture this repository takes for every
  *  borrowed number.
  *
- *  Checks and records its port exactly like every other server here, and reaches STEADY STATE (every
- *  worker has completed one full generation round) before returning, rather than a fixed sleep — so the
- *  cell's timed region never starts against a cold server. */
+ *  Checks and records its port exactly like every other server here, and reaches STEADY STATE — every
+ *  worker's FIRST generation round has genuinely SUCCEEDED, not merely completed — before returning, rather
+ *  than a fixed sleep. **A round that 500s still "completes"**: an earlier version signalled ready the
+ *  moment a round returned regardless of outcome, so a load that could not serve a single request would
+ *  report "steady" while applying zero real GPU work — the mixed cell would then be measured under a device
+ *  labelled busy but not actually contended. The same vacuous-control shape this bench has already hit
+ *  three times (`CountingAnnotation` polluted by the seed, the reranker polluted by its own probe, the
+ *  mixed cell credited with free empty recalls) — verify the thing WORKS, not merely that it RAN. */
 export async function startBusyLoad({ modelDir, scratchDir, serverExe, concurrency = 2 }) {
   const listeners = parseListeners(await netstat());
   if (!isFree(listeners, PORTS.load)) {
     throw new Error(`load port ${PORTS.load} already LISTENING — refusing to bind`);
   }
+  const modelPath = `${modelDir}/${LOAD_MODEL_FILE}`;
+  if (!fs.existsSync(modelPath)) {
+    // Without this, a missing model still spawns the server, still binds the port, and only fails at the
+    // 180s waitUntilListening timeout — the slowest possible way to learn the file is not there.
+    throw new Error(`busy-load model not found: ${modelPath}`);
+  }
 
-  const pid = spawnServer(serverExe, ['--model', `${modelDir}/${LOAD_MODEL_FILE}`, '--alias', 'load',
+  const pid = spawnServer(serverExe, ['--model', modelPath, '--alias', 'load',
     '--port', String(PORTS.load), '--host', '127.0.0.1', '--n-gpu-layers', '99'], scratchDir, 'load');
   try {
     await waitUntilListening([PORTS.load]);
@@ -466,25 +594,32 @@ export async function startBusyLoad({ modelDir, scratchDir, serverExe, concurren
   let stopped = false;
   const url = `http://127.0.0.1:${PORTS.load}/v1/chat/completions`;
   const prompt = 'Write a long, vivid, detailed description of a rainstorm moving across a city at night.';
-  const readySignals = [];
-  const loops = [];
-  for (let i = 0; i < concurrency; i++) {
-    let markReady;
-    readySignals.push(new Promise((resolve) => { markReady = resolve; }));
-    loops.push((async () => {
-      let firstRoundDone = false;
-      while (!stopped) {
-        try {
-          await postJson(url, { model: 'load', temperature: 0.7, max_tokens: 256,
-            messages: [{ role: 'user', content: prompt }] }, { timeoutMs: 30_000 });
-        } catch { /* best effort: one dropped generation round does not end the load */ }
-        if (!firstRoundDone) { firstRoundDone = true; markReady(); }
-      }
-    })());
+
+  // A round is a SUCCESS only if the server actually returned a completion — a thrown request (timeout,
+  // connection reset, a 500) or an empty body is a MISS, exactly like every other control in this file.
+  async function oneRound() {
+    try {
+      const res = await postJson(url, { model: 'load', temperature: 0.7, max_tokens: 256,
+        messages: [{ role: 'user', content: prompt }] }, { timeoutMs: 30_000 });
+      return Boolean(res?.choices?.[0]?.message);
+    } catch {
+      return false;
+    }
   }
-  // STEADY STATE, not a fixed sleep: every worker has completed one full generation round before this
-  // returns, so the cell's timed region never starts against a cold server.
-  await Promise.all(readySignals);
+
+  // STEADY STATE, not a fixed sleep, and not merely "completed": every worker's first round must have
+  // SUCCEEDED before this returns. Abort (killing the pid this module just spawned) rather than proceeding
+  // with an unverified load — a caller must never be handed a "steady" load that cannot actually serve.
+  const firstRoundResults = await Promise.all(Array.from({ length: concurrency }, oneRound));
+  if (firstRoundResults.some((ok) => !ok)) {
+    await treeKill(pid);
+    throw new Error('busy load: at least one worker\'s first generation round failed — refusing to call '
+      + 'this load steady. Check the load server\'s log in the scratch directory.');
+  }
+
+  const loops = Array.from({ length: concurrency }, () => (async () => {
+    while (!stopped) { await oneRound(); }        // best effort thereafter — one dropped round does not end the load
+  })());
 
   return {
     pid,
@@ -634,48 +769,82 @@ async function reportNeighbours(label) {
   return rows;
 }
 
-/** Spawns the C# `--contention` sweep against a running arm's servers. `stdio: 'inherit'` — this IS the
- *  measurement, so its table streams live rather than being captured and re-printed. Registered in the same
- *  PID bookkeeping `spawnServer` uses (`spawnedChildren`/`activePids`), so a SIGINT mid-cell still tears the
- *  bench process down alongside the servers it is measuring. */
-function spawnBenchProcess(repoRoot, benchArgs, envOverlay) {
-  const benchProject = path.join(repoRoot, 'bench', 'Lyntai.Benchmarks');
-  const child = spawn('dotnet',
-    ['run', '-c', 'Release', '--project', benchProject, '--', '--contention', ...benchArgs],
-    { stdio: 'inherit', env: { ...process.env, ...envOverlay } });
+/** Spawns any process this module considers ITS OWN for the rest of the run's lifetime — `stdio: 'inherit'`
+ *  so the child's own output streams live, and registered in the same PID bookkeeping `spawnServer` uses
+ *  (`spawnedChildren`/`activePids`), so a SIGINT mid-build or mid-cell still tears it down. Used for both
+ *  the one-time `dotnet build` and the per-cell `dotnet run --no-build` invocation below — a plain child
+ *  process, not a server, so it is never checked against a port. */
+function spawnTracked(exe, args, envOverlay = {}) {
+  const child = spawn(exe, args, { stdio: 'inherit', env: { ...process.env, ...envOverlay } });
   const forget = () => {
     if (child.pid != null) { spawnedChildren.delete(child.pid); activePids.delete(child.pid); }
   };
   child.once('exit', forget);
-  child.once('error', (err) => { console.error(`spawnBenchProcess: ${err.message}`); forget(); });
+  child.once('error', (err) => { console.error(`spawnTracked: ${exe} — ${err.message}`); forget(); });
   if (child.pid != null) { spawnedChildren.set(child.pid, child); activePids.add(child.pid); }
   return child;
 }
 
-function runBench(repoRoot, benchArgs, envOverlay) {
+function runTracked(exe, args, envOverlay) {
   return new Promise((resolve, reject) => {
-    const child = spawnBenchProcess(repoRoot, benchArgs, envOverlay);
+    const child = spawnTracked(exe, args, envOverlay);
     child.once('exit', (code) => resolve(code ?? 1));
     child.once('error', reject);
   });
 }
 
+/** Builds the C# bench ONCE, outside any sampled window. Without this, `dotnet run -c Release` performs an
+ *  implicit restore/build check on EVERY invocation — tens of CPU-only seconds on a cold tree — and that
+ *  cost would sit inside whichever cell happened to run first, dragging its `meanUtil` down and making
+ *  Task 9's mean-utilization column incomparable run to run. `--no-build` on the per-cell invocation
+ *  (`runBench`, below) is what this buys: that call skips restore and build entirely. */
+async function buildBench(repoRoot) {
+  const benchProject = path.join(repoRoot, 'bench', 'Lyntai.Benchmarks');
+  console.log('\nbuilding the C# bench (dotnet build -c Release) once, OUTSIDE any sampled window...');
+  const code = await runTracked('dotnet', ['build', '-c', 'Release', benchProject]);
+  if (code !== 0) throw new Error(`dotnet build -c Release exited ${code} — refusing to start any cell`);
+}
+
+/** Spawns the C# `--contention` sweep against a running arm's servers, `--no-build` (see `buildBench`).
+ *  `LYNTAI_CONTENTION_DEVICE` is a LABEL only — the bench reads it to describe the run correctly
+ *  (`PrintNotSwept`), never to change what it measures; the orchestrator alone decides whether a busy load
+ *  actually runs. */
+function runBench(repoRoot, benchArgs, device, envOverlay) {
+  const benchProject = path.join(repoRoot, 'bench', 'Lyntai.Benchmarks');
+  return runTracked('dotnet',
+    ['run', '-c', 'Release', '--project', benchProject, '--no-build', '--', '--contention', ...benchArgs],
+    { ...envOverlay, LYNTAI_CONTENTION_DEVICE: device });
+}
+
 /** One device state's worth of measurement against an already-started arm: optionally hold a busy-device
- *  load for the WHOLE cell (steady state before, torn down and verified gone after), sample the GPU for the
- *  WHOLE cell (not bookend before/after — see the Task 8 header comment above `startGpuSampler`), and run
- *  the C# `--contention` sweep inside that window. */
-async function runMeasuredCell(arm, device, handle, { modelDir, scratchDir, serverExe, benchArgs, repoRoot }) {
+ *  load for the WHOLE cell (steady state verified before, torn down and verified gone after), sample the
+ *  GPU AND census the GPU's process list for the WHOLE cell (not bookend before/after — see the Task 8
+ *  header comment above `startGpuSampler`), and run the C# `--contention` sweep inside that window. A busy
+ *  load that never reaches steady state aborts THIS cell (non-zero exit, clear message) rather than
+ *  measuring a device labelled busy that is not actually contended. */
+async function runMeasuredCell(arm, device, handle, ownedPids, knownNeighbourPids,
+  { modelDir, scratchDir, serverExe, benchArgs, repoRoot }) {
   console.log(`\n--- device: ${device} (arm ${arm.name}) ---`);
   let busy = null;
   if (device === 'busy') {
-    busy = await startBusyLoad({ modelDir, scratchDir, serverExe });
+    try {
+      busy = await startBusyLoad({ modelDir, scratchDir, serverExe });
+    } catch (err) {
+      console.error(`ABORTING this cell — busy-device load did not reach steady state: ${err.message}`);
+      process.exitCode = 1;
+      return;
+    }
     console.log(`busy load steady: pid ${busy.pid} on port ${busy.port}`);
   }
+  const ownPids = busy ? [...ownedPids, busy.pid] : ownedPids;
   try {
     const sampler = startGpuSampler();
-    const exitCode = await runBench(repoRoot, benchArgs, handle.env);
+    const census = startGpuCensus();
+    const exitCode = await runBench(repoRoot, benchArgs, device, handle.env);
     const gpu = await sampler.stop();
+    const censusResult = await census.stop();
     printGpuLine(device, gpu);
+    printCensusLine(device, censusResult, ownPids, knownNeighbourPids);
     if (exitCode !== 0) process.exitCode = 1;
   } finally {
     if (busy) {
@@ -691,7 +860,7 @@ async function runMeasuredCell(arm, device, handle, { modelDir, scratchDir, serv
   }
 }
 
-async function runArm(arm, { modelDir, scratchDir, serverExe, smoke, devices, benchArgs, repoRoot }) {
+async function runArm(arm, knownNeighbourPids, { modelDir, scratchDir, serverExe, smoke, devices, benchArgs, repoRoot }) {
   console.log(`\n=== arm: ${arm.name} (${arm.kind}) ===`);
   // Registration happens INSIDE startArm → spawnServer, at spawn time — not here — so a SIGINT during the
   // model-load wait is already covered by the time this line returns.
@@ -712,7 +881,8 @@ async function runArm(arm, { modelDir, scratchDir, serverExe, smoke, devices, be
     }
 
     for (const device of devices) {
-      await runMeasuredCell(arm, device, handle, { modelDir, scratchDir, serverExe, benchArgs, repoRoot });
+      await runMeasuredCell(arm, device, handle, handle.pids, knownNeighbourPids,
+        { modelDir, scratchDir, serverExe, benchArgs, repoRoot });
     }
   } finally {
     // treeKill drops each pid from activePids/spawnedChildren itself as it confirms each one gone.
@@ -734,13 +904,21 @@ async function main() {
   fs.mkdirSync(scratchDir, { recursive: true });
   const repoRoot = path.resolve(path.dirname(here), '..', '..');
 
+  // Refuses BEFORE anything else starts if a game or another load is already running — the census below
+  // only catches a contaminant that arrives DURING a cell; this catches one that was there all along.
+  await assertGpuIdle();
+
+  // Built ONCE, before any server or the busy load starts — see `buildBench`'s own doc for why a per-cell
+  // `dotnet run` implicit build would otherwise sit inside the sampled window.
+  await buildBench(repoRoot);
+
   const serverExe = await resolveServerExe();
   console.log(`llama-server resolved from PATH: ${serverExe}`);
 
-  // Default to `dedicated` ONLY — the RE-SCOPE ruling (plan progress ledger, 2026-09-11) demoted topology to
-  // a footnote once the router-is-a-supervisor finding showed `dedicated` and `router-resident` differ only
-  // by a reverse-proxy hop. The measured grid is now {verifier} x {solo, mixed} x {device}, on `dedicated`;
-  // `--arms` still exists for anyone who explicitly wants the topology ladder's own identity/extreme check.
+  // Default to `dedicated` ONLY — topology is a footnote, not a measured axis: the router-is-a-supervisor
+  // finding (this file's own header comment) showed `dedicated` and `router-resident` differ only by a
+  // reverse-proxy hop. The measured grid is {verifier} x {solo, mixed} x {device}, on `dedicated`; `--arms`
+  // still exists for anyone who explicitly wants the topology ladder's own identity/extreme check.
   const targets = armNames ? ARMS.filter((a) => armNames.includes(a.name))
                             : ARMS.filter((a) => a.name === 'dedicated');
   if (targets.length === 0) throw new Error(`no matching arm(s) in --arms ${armNames?.join(',')}`);
@@ -753,9 +931,13 @@ async function main() {
   }
 
   const before = await reportNeighbours('BEFORE');
+  // Captured ONCE, before the first cell — never hardcoded to a specific PID, because a neighbour's PID is
+  // only ever true for one session. This is the "known neighbour" half of the census's expected-PID set;
+  // `ownPids` (this run's own servers, computed per cell in `runMeasuredCell`) is the other half.
+  const knownNeighbourPids = before.map((r) => r.pid);
 
   for (const arm of targets) {
-    await runArm(arm, { modelDir, scratchDir, serverExe, smoke, devices, benchArgs, repoRoot });
+    await runArm(arm, knownNeighbourPids, { modelDir, scratchDir, serverExe, smoke, devices, benchArgs, repoRoot });
   }
 
   const after = await reportNeighbours('AFTER');

@@ -23,6 +23,11 @@ public class GenerationGovernanceTests
     private static readonly GenerationRequest Image = new() { Kind = GenerationKinds.Image, Prompt = "a red square" };
     private static readonly GenerationRequest Video = new() { Kind = GenerationKinds.Video, Prompt = "a cat surfing" };
 
+    // A FIXED instant, not the real clock: a burst-1 bucket refills at 1/s, so two `await`s on the real
+    // clock are only reliably refused if the whole gap between them stays under a second — which a loaded
+    // machine does not guarantee. Mirrors RateLimitTests.T0.
+    private static readonly DateTimeOffset FrozenNow = new(2026, 7, 18, 0, 0, 0, TimeSpan.Zero);
+
     private static IReadOnlyList<GenerationCandidate> Order(params string[] ids) =>
         [.. ids.Select(id => new GenerationCandidate(id))];
 
@@ -261,7 +266,7 @@ public class GenerationGovernanceTests
     {
         var backend = new FakeGenerationProvider { Id = "hosted" };
         var limits = new RateLimitOptions { PermitsPerSecond = 1, Burst = 1, MaxWait = TimeSpan.Zero };
-        var router = new RateLimitedGenerationRouter(Router([backend]), new TokenBucketRateLimiter(limits));
+        var router = new RateLimitedGenerationRouter(Router([backend]), new TokenBucketRateLimiter(limits, () => FrozenNow));
 
         var first = await router.GenerateAsync(Order("hosted"), Image);
         var second = await router.GenerateAsync(Order("hosted"), Image);
@@ -496,7 +501,7 @@ public class GenerationGovernanceTests
             Script = [GenerationChunk.Content([1]), GenerationChunk.Completed()],
         };
         var limits = new RateLimitOptions { PermitsPerSecond = 1, Burst = 1, MaxWait = TimeSpan.Zero };
-        var router = new RateLimitedGenerationRouter(Router([backend]), new TokenBucketRateLimiter(limits));
+        var router = new RateLimitedGenerationRouter(Router([backend]), new TokenBucketRateLimiter(limits, () => FrozenNow));
 
         var first = await Collect(router.StreamAsync(Order("tts"), Speech));
         var second = await Collect(router.StreamAsync(Order("tts"), Speech));

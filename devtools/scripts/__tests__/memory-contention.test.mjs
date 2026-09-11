@@ -8,7 +8,7 @@ import { describe, it } from 'node:test';
 
 import {
   ARMS, PORTS, ROLES, renderPreset, settingsArgs, isFree, neighbourPids, parseListeners, vanishedNeighbours,
-  parseGpuSample, aggregateGpuSamples, parseArgs,
+  parseGpuSample, aggregateGpuSamples, parseArgs, parseGpuComputeApps, censusContamination,
 } from '../memory-contention.mjs';
 
 describe('renderPreset', () => {
@@ -223,5 +223,46 @@ describe('vanishedNeighbours', () => {
     const before = [{ pid: 1, port: 111, alive: true }, { pid: 2, port: 222, alive: true }];
     const after = [{ pid: 1, port: 111, alive: true }];
     assert.deepEqual(vanishedNeighbours(before, after), [2]);
+  });
+});
+
+describe('parseGpuComputeApps', () => {
+  it('parses one PID per GPU-using process, with unit suffixes', () => {
+    assert.deepEqual(parseGpuComputeApps('12345, 806 MiB\n22464, 40 MiB\n'),
+      [{ pid: 12345, memMiB: 806 }, { pid: 22464, memMiB: 40 }]);
+  });
+
+  it('parses the nounits form the same way', () => {
+    assert.deepEqual(parseGpuComputeApps('12345, 806'), [{ pid: 12345, memMiB: 806 }]);
+  });
+
+  // Unlike parseGpuSample's query (always one line, the device), an idle device answers this query with
+  // ZERO lines — a genuinely quiet reading, not an error, and the parser must not confuse the two.
+  it('returns an empty array on a genuinely idle device, never null', () => {
+    assert.deepEqual(parseGpuComputeApps(''), []);
+  });
+
+  it('skips a malformed line rather than throwing', () => {
+    assert.deepEqual(parseGpuComputeApps('not a csv line\n12345, 806 MiB'), [{ pid: 12345, memMiB: 806 }]);
+  });
+});
+
+describe('censusContamination', () => {
+  // The rule the utilization control cannot enforce: only OUR pids and the ALREADY-KNOWN neighbour may be
+  // using the device during a cell. Reported by PID, mirroring vanishedNeighbours.
+  it('is clean when every PID using the device is either ours or the known neighbour', () => {
+    assert.deepEqual(censusContamination([101, 102, 22464], [101, 102], [22464]), []);
+  });
+
+  it('names a PID that is neither ours nor the known neighbour', () => {
+    assert.deepEqual(censusContamination([101, 102, 22464, 55555], [101, 102], [22464]), [55555]);
+  });
+
+  it('names every unexpected PID, not just the first', () => {
+    assert.deepEqual(censusContamination([101, 4242, 9999], [101], []), [4242, 9999]);
+  });
+
+  it('is clean on an idle census (no PIDs at all)', () => {
+    assert.deepEqual(censusContamination([], [101], [22464]), []);
   });
 });
