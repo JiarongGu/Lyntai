@@ -91,6 +91,15 @@ internal static class MemoryContentionSweep
 
         internal (int Calls, int Subjects) Audit => (Volatile.Read(ref _calls), Volatile.Read(ref _subjects));
 
+        /// <summary>Zeroes both counters. Called once, after <see cref="MemoryContentionSweep.SeedAsync"/>'s
+        /// untimed writes, so a seed write's own annotation call does not count toward the TIMED region's
+        /// <c>SubjectsPerWrite</c> control.</summary>
+        internal void Reset()
+        {
+            Interlocked.Exchange(ref _calls, 0);
+            Interlocked.Exchange(ref _subjects, 0);
+        }
+
         public async Task<MemoryAnnotation> AnnotateAsync(MemoryAnnotationRequest request,
             CancellationToken ct = default)
         {
@@ -115,11 +124,40 @@ internal static class MemoryContentionSweep
         double WritesPerSecond, double RecallsPerSecond,
         int Errors, double HitRate, double SubjectsPerWrite, int DistinctRerankScores);
 
+    /// <summary>Untimed writes that give a cell's fresh store <paramref name="count"/> entries BEFORE its
+    /// timed region starts.
+    ///
+    /// <para><b>Why a cell needs this at all.</b> Without it, the mixed cell's early recalls raced an empty
+    /// store: a recall that matches nothing skips verification and reranking entirely, so it is nearly free
+    /// — and the mixed cell would look artificially FAST in exact proportion to how many of its own early
+    /// recalls found nothing, for a reason that has nothing to do with contention. Seeding indices
+    /// <c>[0, count)</c> — the SAME range every timed recall targets — means a recall always has something
+    /// to match, in both cells, regardless of how far the concurrent timed WRITE loop (which uses an offset
+    /// range so it does not just refresh a seeded row) has progressed.</para>
+    ///
+    /// <para><b>Resets <see cref="CountingAnnotation"/> before returning</b>, because annotation runs per
+    /// write and a seed write is still a write: without this, the TIMED region's <c>SubjectsPerWrite</c>
+    /// control would read the union of the seed's calls and its own. The reranker's audit needs no such
+    /// reset — reranking fires on RECALL, and nothing here recalls.</para></summary>
+    private static async Task SeedAsync(Rig rig, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            // Best-effort: a seed write that fails shows up as a lower HitRate in the timed region — the
+            // control already built for exactly this — rather than aborting a cell partway through seeding.
+            try { await rig.Engine.RememberAsync(new MemoryWrite("contention", Scope(i), Content(i))); }
+            catch (Exception) { /* surfaced via HitRate, not here */ }
+        }
+        rig.Annotation.Reset();
+    }
+
     /// <summary>One seam at a time. SEQUENTIAL on purpose — this is the baseline the mixed cell is read
     /// against, so contention in it would make the comparison meaningless (MemoryScaleSweep's own rule).
     /// </summary>
     private static async Task<Row> RunSoloAsync(Rig rig, int writes, int recalls)
     {
+        await SeedAsync(rig, writes);
+
         var writeMs = new List<double>(writes);
         var errors = 0;
 
@@ -127,7 +165,12 @@ internal static class MemoryContentionSweep
         for (var i = 0; i < writes; i++)
         {
             var start = Stopwatch.GetTimestamp();
-            try { await rig.Engine.RememberAsync(new MemoryWrite("contention", Scope(i), Content(i))); }
+            // Offset past SeedAsync's [0, writes) range so a timed write INSERTS rather than refreshing a
+            // seeded row — the store dedupes by (engine, task, scope, content hash).
+            try
+            {
+                await rig.Engine.RememberAsync(new MemoryWrite("contention", Scope(writes + i), Content(writes + i)));
+            }
             catch (Exception) { errors++; }
             writeMs.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
         }
@@ -180,9 +223,16 @@ internal static class MemoryContentionSweep
     /// <c>MaxDegreeOfParallelism</c> independently on the write loop and the recall loop below, so up to
     /// <c>2 × workers</c> requests reach the shared instruct-model server at once — that doubled figure, not
     /// <paramref name="workers"/> alone, is the number this cell actually prices. The <c>Load</c> label and
-    /// the run preamble both say so explicitly rather than leaving a reader to infer it.</para></summary>
+    /// the run preamble both say so explicitly rather than leaving a reader to infer it.</para>
+    ///
+    /// <para><b>Seeded to <paramref name="writes"/> entries, untimed, before either loop starts</b> — see
+    /// <see cref="SeedAsync"/>. Without it an early recall here would race an empty store and be nearly free,
+    /// pushing the contention delta toward zero for a reason that has nothing to do with contention.</para>
+    /// </summary>
     private static async Task<Row> RunMixedAsync(Rig rig, int writes, int recalls, int workers)
     {
+        await SeedAsync(rig, writes);
+
         var writeMs = new ConcurrentBag<double>();
         var recallMs = new ConcurrentBag<double>();
         var errors = 0;
@@ -193,7 +243,13 @@ internal static class MemoryContentionSweep
             new ParallelOptions { MaxDegreeOfParallelism = workers }, async (i, ct) =>
             {
                 var start = Stopwatch.GetTimestamp();
-                try { await rig.Engine.RememberAsync(new MemoryWrite("contention", Scope(i), Content(i)), ct); }
+                // Offset past SeedAsync's [0, writes) range so a timed write INSERTS rather than refreshing
+                // a seeded row — the store dedupes by (engine, task, scope, content hash).
+                try
+                {
+                    await rig.Engine.RememberAsync(
+                        new MemoryWrite("contention", Scope(writes + i), Content(writes + i)), ct);
+                }
                 catch (Exception) { Interlocked.Increment(ref errors); }
                 writeMs.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
             });
@@ -381,7 +437,12 @@ internal static class MemoryContentionSweep
         // and recall loops, so up to 2x this many requests are actually in flight at once.
         Console.WriteLine($"  {writes} writes, {recalls} recalls per cell — write:recall ratio {writes}:{recalls}, "
             + $"{workers} workers per loop on the mixed cell (up to {workers * 2} requests in flight together), "
-            + $"repeat {repeat}\n");
+            + $"repeat {repeat}");
+        // Both cells seed `writes` entries UNTIMED before their clock starts (SeedAsync's own doc says why:
+        // otherwise an empty-store recall is nearly free, which would understate contention). That is a real
+        // model call per seed write, so each cell's WALL time exceeds what its own timed numbers add up to.
+        Console.WriteLine($"  both cells seed {writes} entries UNTIMED first, so recalls never race an empty "
+            + "store — wall time therefore exceeds the timed numbers below\n");
 
         var (soloMedian, soloRuns) = await RunRepeatedCellAsync(http, repeat, r => RunSoloAsync(r, writes, recalls));
         if (soloMedian is null) return 1;
