@@ -121,12 +121,22 @@ candidate count, how much text each candidate carries.
 > never a generator asked to choose** — the same conclusion the memory verification seam reached, for the
 > same reasons. `affordance` has no evidence at any size; do not read the above as covering it.
 
-**There is exactly one measurement in this repository of a sub-500 MB model doing any of these jobs**, and
-it is narrower than the question. `docs/memory-measurements.md` §5 owns it (`locomo-lamar600m-q8-n200`,
-n = 200, `ships=no`): a **468,393,760-byte** cross-encoder captures **6.0 of the 7.0 points** a perfect
-judge offers on that workload, at 74% of the incumbent's bytes, and a model 28 months newer at the same
-architecture and size scores identically. **State the byte count whenever a size decides anything** — the
-same file is 606 MiB and 636 MB depending on the unit, and a 500 threshold falls between them.
+**There is exactly one QUALITY measurement in this repository of a sub-500 MB model doing any of these
+jobs**, and it is narrower than the question. `docs/memory-measurements.md` §5 owns it
+(`locomo-lamar600m-q8-n200`, n = 200, `ships=no`): a **468,393,760-byte** cross-encoder captures **6.0 of
+the 7.0 points** a perfect judge offers on that workload, at 74% of the incumbent's bytes, and a model 28
+months newer at the same architecture and size scores identically. **State the byte count whenever a size
+decides anything** — the same file is 606 MiB and 636 MB depending on the unit, and a 500 threshold falls
+between them.
+
+**Below that there are SCREENS and no scores, and the distinction is the whole of what they are worth**
+(2026-09-12, `rerank-screen-jina-tiny-33mb`). A screen asks *does this model order four sentences and
+survive a real-length input* — nothing more. On that bar a working reranker sits at **33,257,824 B**,
+**14.1× below** the figure above, so the sub-500 MB row is no longer the floor; it is the smallest point
+anyone has priced. Two limits travel with it and neither is incidental: that model is **English-only**, and
+the best-architected MULTILINGUAL candidate bottoms out at **124,925,504 B** because XLM-R's 250,002-token
+vocabulary is 81.6% of its parameters — **quantisation is not a lever on a model whose bulk is its
+embedding table**, so the sub-100 MB stretch and Chinese-first are, on today's candidates, incompatible.
 
 **Three things that row does not say, and each one matters more than the number.**
 
@@ -144,10 +154,19 @@ same file is 606 MiB and 636 MB depending on the unit, and a 500 threshold falls
    an instruct model lost 10.5 points in the neighbouring row.
 
 **Every other shape is unmeasured under 500 MB, and that is a statement about this repository rather than
-about the models.** The smallest model ever *called* in the judge role here is a 4B at roughly 3.3 GB.
-Nothing under 2 GB has been tried in any selective role; the shipped extract seam has never been
-quality-measured at any size; classify, affordance and the generative graded-quality scorer have no
-evidence at any size. **Do not read a blank cell as a negative result.**
+about the models.** The smallest model called in the JUDGE role here is **806,058,240 B**
+(`gemma-3-1b-it` Q4_K_M, `locomo-judge-1b-n200`) — and it was **inert**, with a ceiling of zero, which is a
+measured negative rather than a blank. Below that, nothing has been tried in any selective role; the
+shipped extract seam has never been quality-measured at any size; classify, affordance and the generative
+graded-quality scorer have no evidence at any size. **Do not read a blank cell as a negative result** —
+and do not read that 1B row as one either, since it prices *instruct models in a selective role*, which is
+precisely the shape §1 says to stop reaching for.
+
+> _Corrected 2026-09-12. This paragraph read "the smallest model ever *called* in the judge role here is a
+> 4B at roughly 3.3 GB. Nothing under 2 GB has been tried in any selective role" — **both false when
+> written**: the 1B judge run landed the day before. Recorded rather than silently fixed because the
+> mechanism is the one `pitfalls.md` files under a backlog summary going stale — the sentence was composed
+> from the §2 narrative about the 4B, not from the results index, which already carried the row._
 
 **And do not carry any magnitude here into your own deployment.** Direction transfers between corpora and
 size does not — the same 4B model reads best-in-class on this repository's own synthetic corpus and

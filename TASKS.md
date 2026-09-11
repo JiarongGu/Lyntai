@@ -33,7 +33,7 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 493 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
 | 651 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
 | 737 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
-| 773 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | startable |  |
+| 776 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | startable |  |
 
 <!-- open-items:end -->
 
@@ -758,7 +758,10 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   model cards and the HF API._
   <br>_**Rerankers under 500 MB, multilingual:** `LAMAR-600m` Q5_K_M **468,393,760 B** — measured, see Part
   176. `xVITA-300M` Q8_0 **332,894,432 B** (2026-08-23, modern-bert) is the untested one and is the smallest
-  credible candidate. `Qwen3-Reranker-0.6B` Q6_K **494,879,136 B** is **deprioritised for a Chinese-first
+  credible MULTILINGUAL candidate — **it is no longer the smallest credible one outright**, which this line
+  claimed until 2026-09-12: an ENGLISH-only reranker screens 8/8 at **33,257,824 B**, and the multilingual
+  floor is a separate and much higher number for the structural reason the sizing item below records.
+  `Qwen3-Reranker-0.6B` Q6_K **494,879,136 B** is **deprioritised for a Chinese-first
   deployment**: it is 0.85 BEHIND bge on MTEB-zh (71.31 against 72.16) while +8.77 on English, and jina's
   independent table scores it BEIR 56.94 against bge's 56.42 — so the English gain is protocol-dependent. It
   is also `Qwen3ForCausalLM` scoring yes/no logits, not a `*ForSequenceClassification` cross-encoder._
@@ -771,23 +774,32 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   official conversion, and smoke-test whatever you pull._
 
 - [ ] **Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no measured floor.** <!-- item: state=startable -->
-  `docs/model-tasks.md` §3 now records the owner's aim: ~500 MB is a sizing TARGET rather than a cap, and
-  **sub-100 MB is the stretch**. Nothing in this repository has measured anything smaller than
-  **468,393,760 B** in any role, so that floor is asserted and not established.
-  <br>**The one lead is a DESK claim, not a result**: `docs/memory-measurements.md` records *"a 149M
-  cross-encoder matches a 1.2B one"* from a published comparison nobody here called. A 149M-parameter model
-  quantized lands around 75–150 MB, which is what makes the target plausible — and the tier GEN-VERIFY exists
-  to distrust. The existing shortlist bottoms out at **332,894,432 B** and holds nothing this small, so this
-  starts with a fresh survey: MiniLM-class cross-encoders (`ms-marco-MiniLM-L-6`, `-L-2`) and static-embedding
-  approaches are where that range lives.
-  <br>**SCORING only — do not survey instruct models for this.** At 806,058,240 B an instruct model was
-  already INERT in the selective role with a ceiling of zero, so nothing smaller picks better. The shape with
-  evidence at small size is `score-a-pair`.
-  <br>**Smoke-test before trusting any number**: a community GGUF conversion can drop `cls.output.weight`,
-  still load, and return scores that are simply wrong (310 tensors against a working 311) — and an obscure
-  sub-100 MB conversion raises that risk rather than lowering it. Score a known answer against known
-  distractors and assert the ORDERING and that the scores are DISTINCT. **State exact bytes**, never MB or
-  MiB alone: the two straddle round thresholds and at 100 MB that bites harder than at 500.
+  **THE SIZING HALF IS ANSWERED (2026-09-12)** — `docs/memory-measurements.md` §5
+  (`rerank-screen-jina-tiny-33mb`), and the instrument is now `node devtools/dev.mjs rerank-screen`.
+  **A working reranker screens 8/8 at 33,257,824 B**, which is **14.1× below** the 468,393,760 B this line
+  called asserted-not-established. So sub-100 MB is real, and the two things that came with it are what is
+  left to act on.
+  <br>**One: it is ENGLISH-ONLY, and multilingual does NOT fit — structurally, not for want of looking.**
+  The best-architected multilingual candidate (`mmarco-mMiniLMv2-L12-H384-v1`, 117,641,603 params,
+  `XLMRobertaForSequenceClassification`, `zh`+`ja` and **no `ko`**) bottoms out at **124,925,504 B** (Q4_K_M)
+  against **132,584,000 B** (Q8_0) — **6.1% apart**, because XLM-R's 250,002-token vocabulary is 81.6% of the
+  parameters. **Quantisation is not a lever on a model whose bulk is its embedding table**, so no quant of
+  this architecture reaches 104,857,600 B. **Sub-100 MB and Chinese-first are incompatible on today's
+  candidates** — that is a finding for the owner, not a task, and it lives in `docs/model-tasks.md` §3.
+  <br>**Two: NO QUALITY WAS MEASURED.** A screen says a model orders four sentences and survives a
+  6,263-character input. It says nothing about evidence-hit, and the 33 MB model has no workload figure at
+  all. **That is the startable work this item now points at**, and it is a different question from the one
+  the title asks.
+  <br>_**What the screen killed, recorded so it is not re-walked.** `ms-marco-MiniLM-L6-v2` Q8_0
+  (25,281,216 B) ranks correctly and is the SMALLER file — and is a 512-token BERT, so `--ctx-size` is
+  silently ignored and a 1,221-token document returns `400 … larger than the max context size`. Since
+  **D108** the seam hands a verifier `Content`, so the whole ms-marco-MiniLM family is disqualified for THIS
+  seam. And `cstr`'s conversions are **2 for 2 dead** — both refuse to load with `bert model needs to define
+  token type count`. `.claude/knowledge/pitfalls.md` carries all three traps, including why a
+  `cls.output.weight` check CANNOT condemn a non-BERT architecture: it read ABSENT on all three conversions
+  of the model that then screened 8/8._
+  <br>**Still true and still the discipline**: SCORING only, never instruct models (806,058,240 B was inert
+  with a ceiling of zero); and **state exact bytes**, never MB or MiB alone.
 
 _**The contention item CLOSED 2026-09-11** as `docs/task-archive.md` **Part 190**
 (`docs/memory-measurements.md` §5): moving verification off the shared instruct model is worth most of the
