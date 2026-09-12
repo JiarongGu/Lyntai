@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 188 traps, indexed two ways
+## Facets — 189 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 998 · 1238 · 2189 · 2199 · 2225 · 2236 · 2273 · 2644 · 2674 · 2683
-- **`encoding`** (6) — 75 · 80 · 590 · 598 · 827 · 2273
+- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 998 · 1257 · 2208 · 2218 · 2244 · 2255 · 2292 · 2663 · 2693 · 2702
+- **`encoding`** (6) — 75 · 80 · 590 · 598 · 827 · 2292
 - **`git`** (7) — 207 · 232 · 263 · 288 · 598 · 620 · 832
-- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 990 · 1238 · 2208
-- **`router`** (6) — 1081 · 1086 · 1095 · 1097 · 1100 · 1230
-- **`cli`** (18) — 750 · 827 · 1081 · 1102 · 1110 · 1119 · 1123 · 1135 · 1139 · 1146 · 1150 · 1157 · 1161 · 1194 · 1213 · 1217 · 1222 · 2059
-- **`lifetime`** (6) — 1260 · 1269 · 1274 · 1279 · 1292 · 1300
-- **`storage`** (17) — 1173 · 1309 · 1411 · 1439 · 1441 · 1442 · 1444 · 1446 · 1464 · 1475 · 1704 · 1716 · 1972 · 2089 · 2255 · 2437 · 2621
-- **`memory`** (38) — 387 · 422 · 550 · 1173 · 1343 · 1362 · 1373 · 1399 · 1411 · 1426 · 1447 · 1464 · 1475 · 1514 · 1529 · 1536 · 1555 · 1566 · 1584 · 1597 · 1610 · 1668 · 1723 · 1743 · 1779 · 1815 · 1833 · 1840 · 1871 · 1893 · 1921 · 1993 · 2068 · 2089 · 2330 · 2489 · 2517 · 2600
-- **`generation`** (8) — 1086 · 1292 · 1815 · 2006 · 2018 · 2042 · 2149 · 2174
-- **`di`** (12) — 1279 · 1529 · 1555 · 1735 · 1737 · 1740 · 1743 · 1761 · 1840 · 1871 · 2018 · 2068
-- **`measurement`** (55) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 850 · 860 · 880 · 891 · 919 · 946 · 952 · 968 · 985 · 990 · 1029 · 1047 · 1062 · 1110 · 1309 · 1328 · 1399 · 1566 · 1597 · 1624 · 1635 · 1650 · 1668 · 1723 · 1779 · 2225 · 2306 · 2357 · 2372 · 2396 · 2416 · 2437 · 2467 · 2504 · 2568 · 2600
-- **`docs`** (22) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 998 · 1009 · 1014 · 1021 · 1373 · 1893 · 1960 · 2124 · 2134 · 2189 · 2199 · 2236 · 2255 · 2526
-- **`tests`** (21) — 1194 · 1385 · 1426 · 1447 · 1514 · 1536 · 1704 · 1716 · 1972 · 2319 · 2330 · 2341 · 2517 · 2539 · 2621 · 2629 · 2637 · 2641 · 2644 · 2656 · 2669
+- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 990 · 1257 · 2227
+- **`router`** (6) — 1100 · 1105 · 1114 · 1116 · 1119 · 1249
+- **`cli`** (18) — 750 · 827 · 1100 · 1121 · 1129 · 1138 · 1142 · 1154 · 1158 · 1165 · 1169 · 1176 · 1180 · 1213 · 1232 · 1236 · 1241 · 2078
+- **`lifetime`** (6) — 1279 · 1288 · 1293 · 1298 · 1311 · 1319
+- **`storage`** (17) — 1192 · 1328 · 1430 · 1458 · 1460 · 1461 · 1463 · 1465 · 1483 · 1494 · 1723 · 1735 · 1991 · 2108 · 2274 · 2456 · 2640
+- **`memory`** (38) — 387 · 422 · 550 · 1192 · 1362 · 1381 · 1392 · 1418 · 1430 · 1445 · 1466 · 1483 · 1494 · 1533 · 1548 · 1555 · 1574 · 1585 · 1603 · 1616 · 1629 · 1687 · 1742 · 1762 · 1798 · 1834 · 1852 · 1859 · 1890 · 1912 · 1940 · 2012 · 2087 · 2108 · 2349 · 2508 · 2536 · 2619
+- **`generation`** (8) — 1105 · 1311 · 1834 · 2025 · 2037 · 2061 · 2168 · 2193
+- **`di`** (12) — 1298 · 1548 · 1574 · 1754 · 1756 · 1759 · 1762 · 1780 · 1859 · 1890 · 2037 · 2087
+- **`measurement`** (56) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 850 · 860 · 880 · 891 · 919 · 946 · 952 · 968 · 985 · 990 · 1029 · 1048 · 1066 · 1081 · 1129 · 1328 · 1347 · 1418 · 1585 · 1616 · 1643 · 1654 · 1669 · 1687 · 1742 · 1798 · 2244 · 2325 · 2376 · 2391 · 2415 · 2435 · 2456 · 2486 · 2523 · 2587 · 2619
+- **`docs`** (22) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 998 · 1009 · 1014 · 1021 · 1392 · 1912 · 1979 · 2143 · 2153 · 2208 · 2218 · 2255 · 2274 · 2545
+- **`tests`** (21) — 1213 · 1404 · 1445 · 1466 · 1533 · 1555 · 1723 · 1735 · 1991 · 2338 · 2349 · 2360 · 2536 · 2558 · 2640 · 2648 · 2656 · 2660 · 2663 · 2675 · 2688
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (19) — 207 · 387 · 422 · 651 · 762 · 1095 · 1100 · 1119 · 1194 · 1274 · 1362 · 1610 · 1743 · 1779 · 2006 · 2018 · 2068 · 2174 · 2489
-- **`cancellation`** (5) — 1081 · 1086 · 1343 · 1362 · 1385
-- **`vacuous`** (38) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 880 · 1047 · 1150 · 1213 · 1230 · 1385 · 1426 · 1447 · 1514 · 1536 · 1624 · 1635 · 1668 · 1779 · 1893 · 2255 · 2330 · 2341 · 2372 · 2504 · 2517 · 2539 · 2568 · 2621 · 2644 · 2656 · 2674 · 2683
-- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1062 · 1238 · 1529 · 1597 · 1704 · 1716 · 1893 · 1921 · 1972 · 2089 · 2189 · 2199 · 2208 · 2225 · 2236 · 2255 · 2341 · 2504 · 2517 · 2641 · 2674 · 2683
-- **`second-door`** (20) — 1097 · 1135 · 1139 · 1150 · 1157 · 1217 · 1222 · 1300 · 1442 · 1464 · 1743 · 1871 · 1972 · 1993 · 2006 · 2018 · 2042 · 2089 · 2124 · 2149
-- **`stale-claim`** (17) — 57 · 152 · 232 · 296 · 671 · 819 · 832 · 998 · 1014 · 1373 · 1740 · 1960 · 1993 · 2042 · 2124 · 2236 · 2526
-- **`silent-loss`** (49) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 827 · 860 · 891 · 919 · 985 · 1029 · 1123 · 1139 · 1173 · 1260 · 1292 · 1328 · 1399 · 1439 · 1441 · 1442 · 1444 · 1464 · 1475 · 1514 · 1650 · 1723 · 1735 · 1740 · 1761 · 1833 · 1871 · 1921 · 2059 · 2149 · 2189 · 2199 · 2273 · 2357 · 2437 · 2568
-- **`wrong-subject`** (54) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 860 · 891 · 919 · 946 · 952 · 1009 · 1021 · 1029 · 1047 · 1062 · 1097 · 1146 · 1238 · 1269 · 1279 · 1309 · 1399 · 1447 · 1555 · 1566 · 1584 · 1597 · 1624 · 1635 · 1668 · 1815 · 1840 · 2174 · 2306 · 2357 · 2372 · 2396 · 2416 · 2437 · 2539 · 2600 · 2644
-- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 968 · 990 · 1102 · 1110 · 1119 · 1161 · 1213 · 1584 · 1815 · 2134 · 2526
-- **`ordering`** (10) — 583 · 1123 · 1222 · 1411 · 1446 · 1761 · 2059 · 2068 · 2319 · 2467
-- **`resource`** (13) — 564 · 598 · 637 · 850 · 952 · 1102 · 1194 · 1300 · 1309 · 1737 · 2629 · 2637 · 2669
+- **`fail-open`** (20) — 207 · 387 · 422 · 651 · 762 · 1029 · 1114 · 1119 · 1138 · 1213 · 1293 · 1381 · 1629 · 1762 · 1798 · 2025 · 2037 · 2087 · 2193 · 2508
+- **`cancellation`** (5) — 1100 · 1105 · 1362 · 1381 · 1404
+- **`vacuous`** (38) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 880 · 1066 · 1169 · 1232 · 1249 · 1404 · 1445 · 1466 · 1533 · 1555 · 1643 · 1654 · 1687 · 1798 · 1912 · 2274 · 2349 · 2360 · 2391 · 2523 · 2536 · 2558 · 2587 · 2640 · 2663 · 2675 · 2693 · 2702
+- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1081 · 1257 · 1548 · 1616 · 1723 · 1735 · 1912 · 1940 · 1991 · 2108 · 2208 · 2218 · 2227 · 2244 · 2255 · 2274 · 2360 · 2523 · 2536 · 2660 · 2693 · 2702
+- **`second-door`** (20) — 1116 · 1154 · 1158 · 1169 · 1176 · 1236 · 1241 · 1319 · 1461 · 1483 · 1762 · 1890 · 1991 · 2012 · 2025 · 2037 · 2061 · 2108 · 2143 · 2168
+- **`stale-claim`** (17) — 57 · 152 · 232 · 296 · 671 · 819 · 832 · 998 · 1014 · 1392 · 1759 · 1979 · 2012 · 2061 · 2143 · 2255 · 2545
+- **`silent-loss`** (50) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 827 · 860 · 891 · 919 · 985 · 1029 · 1048 · 1142 · 1158 · 1192 · 1279 · 1311 · 1347 · 1418 · 1458 · 1460 · 1461 · 1463 · 1483 · 1494 · 1533 · 1669 · 1742 · 1754 · 1759 · 1780 · 1852 · 1890 · 1940 · 2078 · 2168 · 2208 · 2218 · 2292 · 2376 · 2456 · 2587
+- **`wrong-subject`** (54) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 860 · 891 · 919 · 946 · 952 · 1009 · 1021 · 1048 · 1066 · 1081 · 1116 · 1165 · 1257 · 1288 · 1298 · 1328 · 1418 · 1466 · 1574 · 1585 · 1603 · 1616 · 1643 · 1654 · 1687 · 1834 · 1859 · 2193 · 2325 · 2376 · 2391 · 2415 · 2435 · 2456 · 2558 · 2619 · 2663
+- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 968 · 990 · 1121 · 1129 · 1138 · 1180 · 1232 · 1603 · 1834 · 2153 · 2545
+- **`ordering`** (10) — 583 · 1142 · 1241 · 1430 · 1465 · 1780 · 2078 · 2087 · 2338 · 2486
+- **`resource`** (13) — 564 · 598 · 637 · 850 · 952 · 1121 · 1213 · 1319 · 1328 · 1756 · 2648 · 2656 · 2688
 
 <!-- facets:end -->
 
@@ -1025,6 +1025,25 @@ of the two: most of these traps recur in a subsystem that had never met them.
   the **machine**. The sweep was honest about what it checked and still wrong about the conclusion, which is
   why the fix is procedural: **record the blocker's KIND** (tree / environment / decision / data) and
   re-check against that kind.
+
+- **A server that ACCEPTS a `tools` array and returns 200 has not promised to use it — a model with no <!-- trap: sub=measurement shape=fail-open,silent-loss -->
+  tool template drops the roster on the floor and answers from parametric knowledge instead.** Measured
+  2026-09-12 scoping the affordance shape. `gemma-3-4b-it` Q4_K_M on `llama-server` build 10603, sent three
+  well-formed OpenAI function definitions: **HTTP 200, `tool_calls: null`**, and a confidently fabricated
+  weather report dated *November 2023* in the content field. `tool_choice: "required"` — the one structural
+  constraint the wire format offers — changed nothing; still `null`. **`--jinja` changed nothing either**,
+  byte-identically, so it is not the built-in-template fallback: gemma-3's own template has no tool section,
+  and the array is simply discarded.
+  <br>**The failure shape is the dangerous one.** No error, no warning, no empty reply — a plausible answer.
+  A deployment wiring a tool loop onto this model gets invented data where it expected a tool call, and
+  nothing in the transport reports it. The library's own fallback is the protection: `ToolLoop` prefers
+  native function-calling and degrades to a PROMPT protocol, which needs no template support at all.
+  <br>**And the reason this is a blocker rather than a finding: there is no POSITIVE CONTROL.** No
+  tool-capable instruct model is on this machine, so *"this model will not emit tool calls"* cannot be told
+  apart from *"this build drops the array"*. That is exactly what `rerank-screen` exists to refuse one
+  domain over — a broken conversion reads as a weak model — so **measure a model you KNOW emits tool calls
+  before concluding anything about one that does not.** Check `tools` support before planning a run around
+  it, and prefer the prompt protocol where the model's template is unknown.
 
 - **A dataset's ground truth is a SET, and taking its first element turns the rest into DISTRACTORS — so <!-- trap: sub=measurement shape=wrong-subject,silent-loss -->
   the benchmark scores a right answer as wrong.** Measured 2026-09-12 building `memory-decision`. LoCoMo's

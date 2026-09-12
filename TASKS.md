@@ -15,27 +15,28 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 14 across 10 Parts: 3 startable, 8 blocked, 1 watch, 2 decision-only
+## Open items — 15 across 10 Parts: 3 startable, 9 blocked, 1 watch, 2 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 90 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 134 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 143 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 197 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 268 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 346 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 401 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 424 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 495 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 653 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 739 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
-| 778 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 865 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
-| 877 | 178 | `affordance` has NO evidence at any size, and that is a blank rather than a… | startable |  |
+| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 496 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
+| 654 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 740 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
+| 779 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 866 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
+| 878 | 178 | Measure `affordance` through the PROMPT protocol — the transport this libra… | startable |  |
+| 898 | 178 | Measure `affordance` through the NATIVE transport — needs a tool-capable mo… | blocked · env | a GGUF whose chat template emits tool_calls, as a POSITIVE CONTROL — neithe… |
 
 <!-- open-items:end -->
 
@@ -874,17 +875,35 @@ carries the comparison against the other four seams, so nobody re-walks them._
   vocabulary question rides along — the seam is `Lyntai.Memory.Verification`, and a decision is not memory.
   <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit._
 
-- [ ] **`affordance` has NO evidence at any size, and that is a blank rather than a negative.** <!-- item: state=startable -->
-  `docs/model-tasks.md` §1 says outright not to read the other findings as covering it — yet it is the
-  shape a tool-calling decision system actually runs on (*given these tools, what do you want*), and it is
-  the one shape this library does not bound: *"per model tool call, unbounded by this library"*. So the
-  input-shaping lever that fixed the extractor and diagnosed the judge has never been tried here, and
-  nothing measures what a small model does with a roster of tools.
-  <br>**The precondition it carried is now DISCHARGED, and it did not resolve the way the item guessed.**
-  It read *"if a decision is expressible as a bounded scorer, the unbounded affordance shape may be the
-  thing to avoid"* — a decision IS expressible that way, but the 3-7 measurement also showed a 4B is best
-  asked to CHOOSE rather than to score, so "avoid the generative shape" is not what the evidence says. Start
-  it on its own merits.
+- [ ] **Measure `affordance` through the PROMPT protocol — the transport this library authors.** <!-- item: state=startable -->
+  `docs/model-tasks.md` §1 says outright not to read the other findings as covering it, yet it is the shape
+  a tool-calling decision system runs on (*given these tools, what do you want*) and the one shape this
+  library does not bound: *"per model tool call, unbounded by this library"*. Nothing measures what a small
+  model does with a roster of tools.
+  <br>**Scoped 2026-09-12 by a probe, and the scope is now HALF the original.** `ToolLoop` prefers native
+  function-calling and falls back to a prompt protocol it authors itself. The native half is blocked (below);
+  the prompt half needs no template support from the model at all, is the path a gemma-class deployment
+  actually gets, and is a prompt this repository owns — so it is the more relevant measurement of the two.
+  <br>**The roster is constructible with NO new API**: `ToolLoop` and `ToolRegistry` are both public with
+  public constructors, so a per-call 3-7 tool roster is `new ToolLoop(client, new ToolRegistry(tools),
+  options)`. `IToolLoop`'s own doc says the tools come from the registry and NOT from `LlmRequest.Tools`.
+  <br>**Mirror the item-1 instrument rather than inventing one** (`docs/memory-measurements.md` §5): roster
+  size 3-7, both models, a `random` null and an `oracle` through the real path, and the same trials ALSO
+  posed as plain `select-from-list` — that cross-shape arm is what separates the cost of the TOOL transport
+  from the cost of choosing. Count the failure modes a forced choice cannot express: no tool invoked at all,
+  a hallucinated name that resolves to nothing, malformed arguments.
+  <br>_The corpus is a SYNTHETIC roster of deliberately confusable tools (owner's call, 2026-09-12) — a
+  fixture built to be measured, which is the weakest evidence tier here and must be said in the record._
+
+- [ ] **Measure `affordance` through the NATIVE transport — needs a tool-capable model on disk.** <!-- item: state=blocked kind=env needs="a GGUF whose chat template emits tool_calls, as a POSITIVE CONTROL — neither instruct model here does" -->
+  Probed 2026-09-12 and the native path is **silently inert on both models this machine holds**:
+  `gemma-3-4b-it` Q4_K_M sent three well-formed function definitions returns **HTTP 200 with
+  `tool_calls: null`** and a fabricated answer instead, `tool_choice: "required"` does not bind, and
+  `--jinja` changes nothing byte-for-byte — gemma-3's template has no tool section, so the array is dropped.
+  <br>**What blocks it is the missing POSITIVE CONTROL, not the negative result.** Without a model known to
+  emit tool calls, *"this model will not"* cannot be distinguished from *"this build drops the array"* — the
+  distinction `rerank-screen` exists to enforce one domain over. Unblocked by one download: a GGUF with a
+  tool template. `.claude/knowledge/pitfalls.md` carries the probe and the failure shape.
 
 ---
 
