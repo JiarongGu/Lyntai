@@ -21,14 +21,18 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 live-backend only), e2e 3/3, guard-script tests 744/744, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED on 2026-09-12 with Docker up**, ending a run of derived figures: all 22 skips were enumerated
-and every one is live-backend gated (a live model, embedder, reranker, Ollama, MCP or CLI), so nothing is
-skipping for another reason. **It is 22 rather than the long-standing 21 because
-`CrossEncoderVerificationLiveTests` is new** — it arrived with **D115** on 2026-09-11, the same window in
-which every run had Docker down, so the old number simply predated it.
-**The Postgres leg is 195 tests**: measured on the same tree at 3,644 total, the daemon down read
-`3427 passed / 217 skipped` against `3622 / 22` with it up, and 217 − 22 = 195 = the difference in passes.
-A skip count near 217 means those 195 did not run.
+**MEASURED with Docker up, re-attested 2026-09-12 at `8883723`** — read off that run's own output, never
+derived from a diff, which is the discipline the sentence above states and the one an updated number most
+easily breaks. All 22 skips were enumerated and every one is live-backend gated (a live model, embedder,
+reranker, Ollama, MCP or CLI), so nothing is skipping for another reason. **It is 22 rather than the
+long-standing 21 because `CrossEncoderVerificationLiveTests` is new** — it arrived with **D115** on
+2026-09-11, the same window in which every run had Docker down, so the old number simply predated it.
+**Re-attest the COMMIT alongside the figures whenever they move**: a dated claim left standing over a
+changed number cannot be told from an extrapolated one, and that is how it read to a cold reader.
+**The Postgres leg is 195 tests**, measured on an EARLIER tree of 3,644 total (the daemon down read
+`3427 passed / 217 skipped` against `3622 / 22` with it up, and 217 − 22 = 195 = the difference in passes).
+That total is smaller than the baseline above because the tree has grown since; the 195 is the quantity
+that carries forward, never the totals it was derived from. A skip count near 217 means those 195 did not run.
 Everything else on that line is gated. `docs/GATES.md` is why each gate exists, what it measured and which
 numbers it holds.
 

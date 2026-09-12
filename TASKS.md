@@ -30,13 +30,13 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
 | 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 496 | 109 | Widen the QA half: the full question set, a second embedder, a second reader | startable |  |
-| 654 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 740 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
-| 779 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 866 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
-| 878 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
-| 892 | 178 | Measure `affordance` through the NATIVE transport — needs a tool-capable mo… | blocked · env | a GGUF whose chat template emits tool_calls, as a POSITIVE CONTROL — neithe… |
+| 496 | 109 | Widen the QA half: a SECOND EMBEDDER and a SECOND READER | startable |  |
+| 655 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 741 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
+| 780 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 867 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
+| 879 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
+| 893 | 178 | Measure `affordance` through the NATIVE transport — needs a tool-capable mo… | blocked · env | a GGUF whose chat template emits tool_calls, as a POSITIVE CONTROL — neithe… |
 
 <!-- open-items:end -->
 
@@ -493,7 +493,7 @@ judge beside it, plus a `--shots` diagnostic for the multi-shot mode the one-sho
 found **D98** and four harness defects. What is left of the item is below: more of it, not the first of
 it._
 
-- [ ] **Widen the QA half: the full question set, a second embedder, a second reader.** 100 of 1540 LoCoMo <!-- item: state=startable -->
+- [ ] **Widen the QA half: a SECOND EMBEDDER and a SECOND READER.** 100 of 1540 LoCoMo <!-- item: state=startable -->
   questions ran, on one local reader whose window the `full` arm exceeds. The absolute values are not
   comparable to a published number and only the ARM DIFFERENCE transfers, so what widening buys is
   confidence in the differences rather than a rankable score.
@@ -505,9 +505,10 @@ it._
   <br>_**The FULL QUESTION SET half of this item is DONE (2026-09-01).** All 1,540 questions ran on eight
   arms — `docs/memory-measurements.md` §5's full-sample subsection. It was not bookkeeping: at n = 100 the same instrument
   reported a ranking × walk interaction of +6.7 and category wins of +6.2 / +5.5, and every one of those
-  collapsed at full sample (+1.0, −0.6, +0.1). **What is left of this item is the SECOND EMBEDDER and the
-  SECOND READER**, which is now the whole of it — restate it that way rather than leaving "the full question
-  set" advertised as outstanding._
+  collapsed at full sample (+1.0, −0.6, +0.1). **The title was restated on 2026-09-12** — it had advertised
+  that finished half for eleven days, and `check-backlog --write` copied the stale wording into the
+  generated roster, which is the first thing a fresh session reads. **A generated table cannot be more
+  current than the marker line it reads.**_
   <br>_**And a reason the second reader matters more than it did.** The judge column was calibrated against
   that run's `--dump` and is generous by ≈12 points (`docs/memory-measurements.md` §5, finding 7) — same 4B model reading
   and grading. A second reader is no longer only about confidence in the differences; it is the only way to

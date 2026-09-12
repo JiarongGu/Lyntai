@@ -3132,7 +3132,7 @@ bring-up run. It now derives that gap from the rows it just printed.
 
 ## Part 192 — the selective shape BELOW 20 candidates: a 468 MB cross-encoder wins
 
-✅ done 2026-09-12, closing Part 178's first item. `docs/memory-measurements.md` §5
+✅ done 2026-09-12, closing `TASKS.md` Part 178's first item. `docs/memory-measurements.md` §5
 (`decision-shape-single-evidence`) holds the grid, the controls, the noise floor and the prediction
 scorecard; nothing is copied here. The instrument is `node devtools/dev.mjs memory-decision`, new.
 
@@ -3156,7 +3156,7 @@ and what it cost each arm are in the measurement record.
 
 ## Part 193 — a decision IS expressible through a seam that already ships, and what is missing is the margin
 
-✅ done 2026-09-12, closing Part 178's second item — a desk audit, no code. Every claim was read off the
+✅ done 2026-09-12, closing `TASKS.md` Part 178's second item — a desk audit, no code. Every claim was read off the
 tree and spot-verified by hand.
 
 - **Is a decision EXPRESSIBLE through the seams that already ship?** Answer this before proposing any
@@ -3181,7 +3181,7 @@ end.
 
 ## Part 194 — `affordance` measured: a 4B routes a roster well and cannot decline, and no prompt fixes it
 
-✅ done 2026-09-12, closing Part 178's third item. New bench `tool-affordance`; one additive public option;
+✅ done 2026-09-12, closing `TASKS.md` Part 178's third item. New bench `tool-affordance`; one additive public option;
 **the shipped default deliberately unchanged.**
 
 - **Measure `affordance` through the PROMPT protocol — the transport this library authors.** Roster size

@@ -25,6 +25,18 @@ left? The archive gains a per-task history the line never carried anyway.
 - **Never let the backlog SUMMARIZE the archive.** A running tally of what closed is the same accumulation
   one level up: unbounded, answering a question the archive already answers, pushing the open items down.
 
+## `TASKS.md` Part N and archive Part N are DIFFERENT numbers — always name the file
+
+**The two files number independently, so a bare `Part 178` is ambiguous and resolves to the wrong document
+about half the time.** The backlog keeps a Part's original number until it closes; the archive allocates
+sequentially as things land. They have long since diverged — an open `TASKS.md` Part 178 and an archived
+Part 178 on an unrelated subject both exist, and three archive entries said "closing Part 178's Nth item"
+meaning the backlog's while sitting in the file where that number means something else.
+
+**Write `` `TASKS.md` Part N `` or `` `docs/task-archive.md` Part N ``, every time.** A cross-reference
+gate can only check that a Part N EXISTS, not that it is the one you meant — which is the same shape as a
+renumbered `§` resolving silently, and it fails the same way: quietly, to a plausible wrong answer.
+
 ## A MEASUREMENT task names what it will CHANGE before it runs — and the instrument is not the deliverable
 
 **Before the first run, write down what a YES does to the library and what a NO does.** If no outcome
