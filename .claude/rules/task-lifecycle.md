@@ -95,3 +95,17 @@ clear: one waits on recurrence, the other on a ruling.
   "needs more work" is not, and neither is a missing instrument this repository could simply build.
 - **A cleared blocker does not always mean a finished item.** Say which of the two moved, or the next
   reader assumes both did.
+
+**A DOWNLOAD is a step, not a blocker — unless you cannot name the file.** The line had drifted: one item
+sat `startable` needing a model nobody had named, while its neighbour sat `blocked · env` for a download.
+Both cannot be right, and a cold reader called the inconsistency out before any of it was measured.
+
+- **A named, freely available artifact is a STEP.** "Pull `all-MiniLM-L6-v2` Q8" is a first step with a
+  known URL and a known size. Marking that blocked hides work that someone could start in the next minute.
+- **BLOCKED is for what a download cannot fix**: a vendor key or an account, an upstream patch that has not
+  merged, a model class nobody has shown to exist, hardware that is absent. The test is whether the item
+  could begin today if someone simply decided to.
+- **An item whose first step is "find out whether a suitable model exists" is startable, and the survey IS
+  the work.** It stops being startable only once the survey has come back empty for a structural reason —
+  which is exactly how the sub-100 MB reranker item earned its `blocked` state and why the embedder half
+  did not inherit it.

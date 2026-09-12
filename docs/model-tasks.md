@@ -191,6 +191,25 @@ of the parameters and quantisation is not a lever on an embedding table. So **46
 measured floor**, sub-100 MB is blocked by an unmerged patch rather than by availability, and the stretch
 target is worth re-aiming rather than re-surveying.
 
+**RE-AIMED 2026-09-12, and this paragraph read as more final than it is.** Everything above is about the
+**cross-encoder** role, and #21729's two defects are role-specific: zeroed `token_type_ids` costs a model
+its SEGMENT signal, and a dropped pooler costs it a LEARNED pooling head. A cross-encoder needs both to tell
+a query from a document. **A single-sequence embedder using MEAN pooling needs neither** — one sequence has
+no segments to distinguish, and llama.cpp pools natively. So the blocker does not reach the embedder role,
+and this repository's own 333,590,944 B embedder answering every bench is the standing evidence.
+
+**The embedder role at sub-100 MB has never been surveyed here at all**, and §3.1 is why that is now the
+interesting gap rather than a footnote: on tool routing an embedder is the strongest model-free arm and
+beats the smallest generative model by 44-78 points. The open question is whether that 81.0% survives at a
+tenth of the bytes — and **nothing structural says it cannot.**
+
+**The class worth aiming at is a STATIC embedding model** — a token→vector lookup table plus pooling, with
+no transformer at inference. That moves the question off llama.cpp entirely: such a model is a table and an
+average, so the constraint becomes tokenization and a runtime rather than a GGUF conversion. It is the only
+candidate class where "sub-100 MB" and "no server at all" are the same sentence. `TASKS.md` Part 196 holds
+the thread; nothing here is measured, and a size that small on a task this repository has only ever run at
+333 MB deserves the smoke test §3's own reranker rows earned the hard way.
+
 **Three things that row does not say, and each one matters more than the number.**
 
 1. **It tests the cross-encoder RERANKER role only.** That is *score-a-pair*, a model class trained to emit

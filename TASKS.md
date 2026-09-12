@@ -15,27 +15,29 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 14 across 10 Parts: 1 startable, 9 blocked, 1 watch, 3 decision-only
+## Open items — 16 across 11 Parts: 3 startable, 8 blocked, 1 watch, 4 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 92 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 136 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 145 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 199 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 270 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 348 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 403 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 426 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 497 | 109 | Widen the QA half: a SECOND EMBEDDER and a SECOND READER | startable |  |
-| 656 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 742 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 829 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
-| 841 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
-| 855 | 178 | Measure `affordance` through the NATIVE transport — needs a tool-capable mo… | blocked · env | a GGUF whose chat template emits tool_calls, as a POSITIVE CONTROL — neithe… |
+| 94 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 138 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 147 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 201 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 272 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 350 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 405 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 428 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 499 | 109 | Widen the QA half: a SECOND EMBEDDER and a SECOND READER | startable |  |
+| 658 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 744 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 831 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
+| 843 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
+| 857 | 178 | Measure `affordance` through the NATIVE transport — the positive control is… | startable |  |
+| 895 | 196 | Survey and SMOKE-TEST sub-100 MB embedders — the role the sizing target was… | startable |  |
+| 913 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface: a managed IEmbedder implementation, and whe… |
 
 <!-- open-items:end -->
 
@@ -50,9 +52,9 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is ONE item, and it is a
-measurement** — every item that would change shipped library code is `decision-only` and waiting on a
-ruling, which is a fact about this backlog worth seeing before picking work. That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is THREE items**, and what a
+reader most needs before picking one is that all three are MEASUREMENT or SURVEY — every item that would
+change shipped library code is `decision-only` and waiting on a ruling. That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -852,17 +854,74 @@ carries the comparison against the other four seams, so nobody re-walks them._
   since 1.0 with no carve-out (**D70**). The MEASUREMENT that would justify it is also missing — this grid
   tops out at seven tools and a catalogue is where a bound would matter._
 
-- [ ] **Measure `affordance` through the NATIVE transport — needs a tool-capable model on disk.** <!-- item: state=blocked kind=env needs="a GGUF whose chat template emits tool_calls, as a POSITIVE CONTROL — neither instruct model here does" -->
+- [ ] **Measure `affordance` through the NATIVE transport — the positive control is a SURVEY, not a wait.** <!-- item: state=startable -->
   Probed 2026-09-12 and the native path is **silently inert on both models this machine holds**:
   `gemma-3-4b-it` Q4_K_M sent three well-formed function definitions returns **HTTP 200 with
   `tool_calls: null`** and a fabricated answer instead, `tool_choice: "required"` does not bind, and
   `--jinja` changes nothing byte-for-byte — gemma-3's template has no tool section, so the array is dropped.
-  <br>**What blocks it is the missing POSITIVE CONTROL, not the negative result.** Without a model known to
-  emit tool calls, *"this model will not"* cannot be distinguished from *"this build drops the array"* — the
-  distinction `rerank-screen` exists to enforce one domain over. Unblocked by one download: a GGUF with a
-  tool template. `.claude/knowledge/pitfalls.md` carries the probe and the failure shape.
+  <br>**What it needs is a POSITIVE CONTROL, not the negative result.** Without a model known to emit tool
+  calls, *"this model will not"* cannot be distinguished from *"this build drops the array"* — the
+  distinction `rerank-screen` exists to enforce one domain over.
+  <br>_**Re-triaged from `blocked · env` to startable on 2026-09-12**, under `task-lifecycle.md`'s rule that
+  a NAMED download is a step and a SURVEY is the work. It was marked blocked on "a GGUF whose chat template
+  emits tool_calls" — which nobody had gone looking for. **First step: find one and verify the template
+  actually carries a tool section**, by reading the GGUF's own `tokenizer.chat_template` rather than trusting
+  a model card, since that is precisely how gemma-3 passed a `tools` array and silently dropped it. Only if
+  that survey comes back empty for a structural reason does this earn `blocked` again._
+  <br>_**Size does not matter for the control** — it exists to prove the BUILD emits `tool_calls` at all, so
+  the cheapest model with a tool template wins. The measurement afterwards is still about small models.
+  `.claude/knowledge/pitfalls.md` carries the probe and the failure shape._
 
 ---
+
+---
+
+## Part 196 — sub-100 MB, re-aimed at the EMBEDDER role: the blocker that killed the reranker survey does not reach it (2026-09-12)
+
+_Opened at the owner's direction: **"we still have a lot sub-100 MB model related development to do."** The
+stretch target has been `docs/model-tasks.md` §3's since it was written; what is new is WHERE it can land._
+
+_**The blocker everyone quotes is role-specific, and that was not said plainly until now.** llama.cpp
+PR #21729 zeroes `token_type_ids` and drops pooling layers in conversion. A CROSS-ENCODER needs both — the
+segment signal to tell a query from a document, a head to pool with. **A single-sequence embedder using MEAN
+pooling needs neither**, and llama.cpp pools natively. So "sub-100 MB is dead" is true of the reranker role
+and has never been tested in the embedder role. `docs/model-tasks.md` §3 now says so._
+
+_**And §3.1 is why this is the interesting gap rather than a footnote.** On tool routing a 333,590,944 B
+embedder reads **81.0%**, beating the smallest generative model by 44-78 points at 41% of the bytes — the
+best model-free arm this repository has measured on any selective task. The question is whether that
+survives at a tenth of the bytes._
+
+- [ ] **Survey and SMOKE-TEST sub-100 MB embedders — the role the sizing target was never aimed at.** <!-- item: state=startable -->
+  Two classes. **Tiny transformer embedders** (`all-MiniLM-L6-v2` Q8 ≈ 23 MB, `bge-micro-v2`, `gte-tiny`)
+  load on llama.cpp today and need no upstream fix. **Static embedding models** (`model2vec` / `potion`,
+  8-30 MB) are a token→vector table plus pooling with NO transformer at inference — a different runtime
+  question, not a GGUF one.
+  <br>**State exact BYTES, never MB** (`pitfalls.md`), and **smoke-test before trusting a run**: §3's
+  reranker rows were retracted within the hour when an easy fixture passed a model that ranked a published
+  pair backwards. An embedder's equivalent check is a known-similar and known-unrelated pair, asserting both
+  the ordering and a spread that has not collapsed.
+  <br>_**What a YES and a NO each change** (`task-lifecycle.md`): **YES** → the `<500 MB` row in
+  `docs/model-tasks.md` §3 gains a second filled cell in a new ROLE, and §3.1's routing recommendation gets
+  a floor an order of magnitude below today's. **NO** → a published negative closing the embedder role at
+  that size, which is the half §3 currently leaves open by omission rather than by evidence._
+  <br>_The instrument EXISTS and needs no new harness: `tool-affordance`'s `cosine` arm scores tool routing
+  at 81.0%, and the memory benches take any `IEmbedder`. **Swapping the embedder changes trial construction
+  too** — it orders the distractors — so pin trials to one embedder and vary only the scoring arm, or the
+  runs are not comparable._
+
+- [ ] **Decide whether an IN-PROCESS embedder with NO server is a thing this library should ship.** <!-- item: state=decision-only needs="a ruling on new public surface: a managed IEmbedder implementation, and whether it earns a dependency" -->
+  A static embedding model is a lookup table and an average, so it is implementable in pure managed code —
+  the hard part is TOKENIZATION, not inference. `IEmbedder` is already the seam; what does not exist is any
+  implementation that runs without an HTTP endpoint.
+  <br>**Why it is worth asking**: the stated aim is that a memory subsystem *"should not claim the resources
+  of"* the application's own model (§3). An embedder needing no server, no GPU and no port is the strongest
+  possible form of that, and it is the one place where sub-100 MB and zero-infrastructure coincide.
+  <br>_Not startable until ruled: a managed tokenizer is a third-party dependency, and
+  `dotnet-package-layout.md` forbids one in Core — so this is an ADAPTER package plus a public type, on an
+  API frozen under SemVer since 1.0 (**D70**). The ruling is which of those costs is acceptable, and it is
+  the owner's._
+
 
 ## How to work a task (evergreen)
 
