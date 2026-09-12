@@ -573,6 +573,94 @@ internal static class SweepDoubles
             return json.RootElement.GetProperty("choices")[0]
                 .GetProperty("message").GetProperty("content").GetString();
         }
+
+        /// <summary>One turn through the NATIVE function-calling transport: tool declarations go on the
+        /// request and the model's structured <c>tool_calls</c> come back, rather than a JSON object parsed
+        /// out of prose.
+        ///
+        /// <para><b>Null <c>Calls</c> and an empty one are different answers.</b> Null is a transport
+        /// failure — the endpoint did not answer — and empty is the model declining to call anything, which
+        /// is a real affordance outcome. Collapsing them would report a dead socket as a decision.</para>
+        ///
+        /// <para>An absent <c>id</c> is SYNTHESIZED rather than passed through empty: the loop echoes it on
+        /// the tool-result turn, and a provider rejects the follow-up request when it cannot correlate
+        /// them.</para></summary>
+        /// <param name="maxTokens">Output cap. <c>FinishReason</c> comes back so a caller can tell a model
+        /// that CHOSE not to call a tool from one the cap cut off mid-generation — two very different
+        /// findings that a bare empty <c>tool_calls</c> reports identically.</param>
+        public async Task<(string? Content, IReadOnlyList<LlmToolCall>? Calls, string? FinishReason)>
+            AskWithToolsAsync(
+            IReadOnlyList<LlmMessage> messages, IReadOnlyList<LlmTool> tools,
+            CancellationToken ct = default, int maxTokens = 192)
+        {
+            using var response = await http.PostAsJsonAsync($"{baseUrl}/v1/chat/completions",
+                new
+                {
+                    model,
+                    messages = messages.Select(WireMessage).ToArray(),
+                    tools = tools.Select(t => new
+                    {
+                        type = "function",
+                        function = new
+                        {
+                            name = t.Name,
+                            description = t.Description ?? "",
+                            parameters = JsonSerializer.Deserialize<JsonElement>(
+                                t.ParametersJsonSchema is { Length: > 0 } s ? s : "{}"),
+                        },
+                    }).ToArray(),
+                    temperature = 0,
+                    max_tokens = maxTokens,
+                }, ct);
+            if (!response.IsSuccessStatusCode) return (null, null, null);
+
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            if (!json.RootElement.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
+                return (null, null, null);
+            var message = choices[0].GetProperty("message");
+            var finish = choices[0].TryGetProperty("finish_reason", out var f) ? f.GetString() : null;
+
+            var content = message.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String
+                ? c.GetString() : null;
+
+            var calls = new List<LlmToolCall>();
+            if (message.TryGetProperty("tool_calls", out var raw) && raw.ValueKind == JsonValueKind.Array)
+            {
+                var index = 0;
+                foreach (var call in raw.EnumerateArray())
+                {
+                    if (!call.TryGetProperty("function", out var fn)) continue;
+                    var id = call.TryGetProperty("id", out var i) ? i.GetString() : null;
+                    calls.Add(new LlmToolCall(
+                        string.IsNullOrEmpty(id) ? $"call_{index}" : id,
+                        fn.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                        fn.TryGetProperty("arguments", out var a) ? a.GetString() ?? "{}" : "{}"));
+                    index++;
+                }
+            }
+            return (content, calls, finish);
+        }
+
+        /// <summary>A message in OpenAI wire shape. Three cases, because an assistant tool-call turn and a
+        /// tool-result turn are not plain text ones and a provider rejects a transcript missing either.</summary>
+        private static object WireMessage(LlmMessage m)
+        {
+            if (m.Role == "tool")
+                return new { role = "tool", content = m.Content, tool_call_id = m.ToolCallId ?? "" };
+            if (m.ToolCalls is { Count: > 0 } calls)
+                return new
+                {
+                    role = m.Role,
+                    content = m.Content.Length == 0 ? null : m.Content,
+                    tool_calls = calls.Select(c => new
+                    {
+                        id = c.Id,
+                        type = "function",
+                        function = new { name = c.Name, arguments = c.ArgumentsJson },
+                    }).ToArray(),
+                };
+            return new { role = m.Role, content = m.Content };
+        }
     }
 
     /// <summary><b>Hoisted here 2026-09-09</b>, when a second field bench needed the same judge client. A

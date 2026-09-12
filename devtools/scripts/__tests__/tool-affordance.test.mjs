@@ -4,8 +4,8 @@ import { describe, it } from 'node:test';
 import { DEFAULT_PORT as EMBED_SCREEN_PORT } from '../embed-screen.mjs';
 import { ROLES as DECISION_ROLES, PORTS as DECISION_PORTS } from '../memory-decision.mjs';
 import {
-  EXTRA_PORT_BASE, MAX_EXTRA_ARMS, NEEDED_FREE_MIB, PORTS, ROLES, armsEnv, envFor, extraSpecs,
-  hasHeadroom, parseArgs, parseGpuMemory, serverSpecs,
+  EXTRA_PORT_BASE, MAX_EXTRA_ARMS, NATIVE_PORT, NEEDED_FREE_MIB, PORTS, ROLES, armsEnv, envFor,
+  extraSpecs, hasHeadroom, nativeSpecs, parseArgs, parseGpuMemory, serverSpecs,
 } from '../tool-affordance.mjs';
 
 describe('serverSpecs', () => {
@@ -175,6 +175,33 @@ describe('extra embedder arms — vary the SCORING, never the trial construction
     assert.equal(armsEnv([]), null);
     assert.equal(Object.hasOwn(envFor([]), 'LYNTAI_LIVE_EMBED_ARMS'), false);
     assert.equal(envFor(arms).LYNTAI_LIVE_EMBED_ARMS, armsEnv(arms));
+  });
+
+  it('gives the TOOL-CAPABLE model a port no arm and no neighbour owns', () => {
+    // Binding a busy port fails UPWARD — the incumbent answers — so a collision here would measure the
+    // native transport against whichever model happened to be on that port.
+    const taken = [
+      ...Object.values(PORTS), ...Object.values(DECISION_PORTS), EMBED_SCREEN_PORT, 8090,
+      ...Array.from({ length: MAX_EXTRA_ARMS }, (_, i) => EXTRA_PORT_BASE + i),
+    ];
+    assert.ok(!taken.includes(NATIVE_PORT), `${NATIVE_PORT} collides`);
+    assert.ok(NATIVE_PORT < 8140 || NATIVE_PORT > 8153, `${NATIVE_PORT} collides`);
+  });
+
+  it('serves the tool-capable model WITHOUT --jinja, because the probe refuted that dependency', () => {
+    // Measured 2026-09-13: --jinja is byte-irrelevant on this build for a model whose template carries a
+    // tool section AND for one whose does not. Passing it would imply a dependency that does not exist.
+    const [spec] = nativeSpecs('qwen.gguf', '/models');
+    assert.ok(!spec.argv.includes('--jinja'));
+    assert.equal(spec.argv[spec.argv.indexOf('-ngl') + 1], '99');
+    assert.ok(spec.argv.includes('127.0.0.1'));
+    assert.equal(spec.port, NATIVE_PORT);
+  });
+
+  it('serves NOTHING when no tool-capable model was named', () => {
+    assert.deepEqual(nativeSpecs(null, '/models'), []);
+    assert.equal(Object.hasOwn(envFor([], null), 'LYNTAI_LIVE_NATIVE_URL'), false);
+    assert.equal(envFor([], 'q.gguf').LYNTAI_LIVE_NATIVE_URL, `http://127.0.0.1:${NATIVE_PORT}`);
   });
 
   it('leaves LYNTAI_LIVE_MODEL_URL pointing at the PRIMARY embedder — it builds the trials', () => {

@@ -35,8 +35,8 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 743 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
 | 830 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
 | 842 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
-| 856 | 178 | Measure `affordance` through the NATIVE transport — the positive control is… | startable |  |
-| 902 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface: a managed IEmbedder implementation, and whe… |
+| 864 | 178 | Measure the NATIVE transport's FALSE-CALL rate | startable |  |
+| 907 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface: a managed IEmbedder implementation, and whe… |
 
 <!-- open-items:end -->
 
@@ -853,23 +853,28 @@ carries the comparison against the other four seams, so nobody re-walks them._
   since 1.0 with no carve-out (**D70**). The MEASUREMENT that would justify it is also missing — this grid
   tops out at seven tools and a catalogue is where a bound would matter._
 
-- [ ] **Measure `affordance` through the NATIVE transport — the positive control is a SURVEY, not a wait.** <!-- item: state=startable -->
-  Probed 2026-09-12 and the native path is **silently inert on both models this machine holds**:
-  `gemma-3-4b-it` Q4_K_M sent three well-formed function definitions returns **HTTP 200 with
-  `tool_calls: null`** and a fabricated answer instead, `tool_choice: "required"` does not bind, and
-  `--jinja` changes nothing byte-for-byte — gemma-3's template has no tool section, so the array is dropped.
-  <br>**What it needs is a POSITIVE CONTROL, not the negative result.** Without a model known to emit tool
-  calls, *"this model will not"* cannot be distinguished from *"this build drops the array"* — the
-  distinction `rerank-screen` exists to enforce one domain over.
-  <br>_**Re-triaged from `blocked · env` to startable on 2026-09-12**, under `task-lifecycle.md`'s rule that
-  a NAMED download is a step and a SURVEY is the work. It was marked blocked on "a GGUF whose chat template
-  emits tool_calls" — which nobody had gone looking for. **First step: find one and verify the template
-  actually carries a tool section**, by reading the GGUF's own `tokenizer.chat_template` rather than trusting
-  a model card, since that is precisely how gemma-3 passed a `tools` array and silently dropped it. Only if
-  that survey comes back empty for a structural reason does this earn `blocked` again._
-  <br>_**Size does not matter for the control** — it exists to prove the BUILD emits `tool_calls` at all, so
-  the cheapest model with a tool template wins. The measurement afterwards is still about small models.
-  `.claude/knowledge/pitfalls.md` carries the probe and the failure shape._
+_**The native-transport item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 197**. The survey did not
+come back empty — Qwen2.5, Qwen3 and Llama-3.2 all carry a tool section in their own
+`tokenizer.chat_template` — and the paired measurement says the two transports TIE on accuracy while
+failing in opposite directions, with convergence (11-24% prompt against 99.4-100% native) the largest
+effect in the grid. It also refuted `docs/model-tasks.md` §3.1's headline: a 491,400,032 B model reads six
+times a 806,058,240 B one on the same arm, so that result was the MODEL's rather than the size class's.
+`docs/memory-measurements.md` §5 owns the figures._
+
+- [ ] **Measure the NATIVE transport's FALSE-CALL rate.** <!-- item: state=startable -->
+  The column that decided the prompt protocol's own headline is unmeasured for native:
+  `docs/task-archive.md` Part 197 ran with `--skip-baseline`, which drops the negative corpus along with
+  the 4B and 1B arms, so every native figure published is from trials where a right tool EXISTS.
+  <br>**Why this is the interesting half rather than bookkeeping.** The shipped finding about the prompt
+  protocol is that a 4B invokes a tool on **90-95%** of requests nothing on the roster serves and that no
+  prompt wording moves it (**D110**, `docs/model-tasks.md` §2). The native transport already declines
+  **21.6-30.1%** of the time when a tool DOES fit — five times the prompt path — so the obvious hypothesis
+  is that it also declines usefully on the negative corpus. If it does, *narrow the roster first* stops
+  being the only lever and the TRANSPORT becomes one, which is a different answer to §2's hardest case.
+  <br>_Startable with what is on disk: the corpus, the harness and `qwen2.5-0.5b-instruct` all exist, and
+  `RunNegativeTrialsAsync` needs the native arm added to its variant list. **Read the result beside a
+  positive-corpus run** — an arm that declines everything scores perfectly on the negative half and is
+  useless, which is the false-call table's own trap pointed the other way._
 
 ---
 

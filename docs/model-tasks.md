@@ -15,19 +15,19 @@ reference; the rule in §2 is the part that changes what you build.
 
 Every row is a real call this library makes. **"Named client" is whether a deployment can point that seam
 at a chosen backend through an option** — §5 is why the answer is mostly no and what to do instead.
-**"Measured <500 MB" is the honest column**, and it is nearly empty on purpose: §3 says what the one filled
-cell does and does not cover.
+**"Measured <500 MB" is the honest column**, and it is still mostly empty: §3 says what each filled cell
+does and does not cover, and a blank means *not yet shown to fit the budget*, never *not good enough*.
 
 | shape | the question | where | how often | named client | measured <500 MB |
 |---|---|---|---|---|---|
 | **extract** | pull structured facts out of free text | `LlmAnnotationOptions` (subject handles) | per WRITE | option | no |
 | **select-from-list** | which members of a visible list qualify | `LlmVerificationOptions` (which notes answered) | per RECALL, one call for all candidates | option | no |
 | **select-from-list** (short) | pick one of two | `IPairwiseComparer` | 2 calls per pair, by default | composition root | no |
-| **select-from-list** (roster) | which tool to call, or none | `IToolLoop`, both paths | per loop iteration, up to `LyntaiOptions.ToolLoopMaxIterations` | composition root | no |
+| **select-from-list** (roster) | which tool to call, or none | `IToolLoop`, both paths | per loop iteration, up to `LyntaiOptions.ToolLoopMaxIterations` | composition root | **yes — §3.1** |
 | **score-a-pair** (cross-encoder) | how relevant is this document to this query | `CrossEncoderVerificationOptions` | per candidate | endpoint | **yes, one row** |
 | **score-a-pair** (generative) | grade this output against this input, 0..1 | `LlmScorerBase`, and `RelevancyScorer` under it | per evaluation, per scorer | composition root | no |
 | **classify** | is this fact durable enough to keep verbatim | `LlmAnnotationOptions.SuggestGrade`, off by default | per WRITE, when on | option | no |
-| **affordance** | given these tools, what do you want | `MemoryTools`, the generation tools, an MCP-hosted toolset | per model tool call, unbounded by this library | no | no — but §3.1 |
+| **affordance** | given these tools, what do you want | `MemoryTools`, the generation tools, an MCP-hosted toolset | per model tool call, unbounded by this library | no | **yes — §3.1** |
 | **embed** | place this text in a vector space | `IEmbedder` | per WRITE **and** per RECALL | no | **yes — §3.3** |
 | **repair** | re-emit that, as JSON this time | the shared JSON completion helper | at most once per call, under three seams | inherited | no |
 | **delegate a run** | here is a task, do it | `IAgentSession` | per session, model-driven | n/a — you pick a CLI | out of scope |
@@ -164,13 +164,16 @@ candidate count, how much text each candidate carries.
 > instruct model at three options (72.0% against 71.5%), pulls AHEAD as the list grows (67.4% against
 > 63.6% at seven), and is the only arm flat in N.
 
-**There is exactly one QUALITY measurement in this repository of a sub-500 MB model doing any of these
-jobs**, and it is narrower than the question. `docs/memory-measurements.md` §5 owns it
-(`locomo-lamar600m-q8-n200`, n = 200, `ships=no`): a **468,393,760-byte** cross-encoder captures **6.0 of
+**THREE quality measurements of a sub-500 MB model now exist, in three different roles**, and the first is
+still the narrowest. `docs/memory-measurements.md` §5 owns all of them: the RERANKER
+(`locomo-lamar600m-q8-n200`, n = 200, `ships=no`) — a **468,393,760-byte** cross-encoder captures **6.0 of
 the 7.0 points** a perfect judge offers on that workload, at 74% of the incumbent's bytes, and a model 28
-months newer at the same architecture and size scores identically. **State the byte count whenever a size
-decides anything** — the same file is 606 MiB and 636 MB depending on the unit, and a 500 threshold falls
-between them.
+months newer at the same architecture and size scores identically; the EMBEDDER (§3.3, `ships=no`) — a
+**25,008,064-byte** bi-encoder routes tools within 2.4 points of a 13× larger one at a three-option roster;
+and TOOL CHOOSING (§3.1, `ships=no`) — a **491,400,032-byte** instruct model picks the right tool on
+**60.7%** of trials at three options, six times what a larger 1B managed. **State the byte count whenever
+a size decides anything** — the same file is 606 MiB and 636 MB depending on the unit, and a 500 threshold
+falls between them.
 
 **Below that, nothing works today — and the blocker is UPSTREAM, not the model shelf** (2026-09-12,
 `rerank-screen-reference-pair`). This paragraph briefly claimed a working reranker at 33,257,824 B, *"14.1×
@@ -256,13 +259,21 @@ the corpus at hand; `.claude/knowledge/model-decoupling.md` is the standing rule
 `affordance-false-call-4b`), on a SYNTHETIC 42-tool fixture through `IToolLoop`'s prompt protocol — the
 weakest evidence tier here, so read the directions and none of the magnitudes.
 
-**AT THE SIZE CLASS THIS PROJECT TARGETS, THE PROMPT-PROTOCOL TOOL TRANSPORT DOES NOT WORK.** §3's aim is
-~500 MB; the smallest generative model tested here is **806,058,240 B**, already over it, and through the
-loop it picks the right tool on **10.1% of trials at three options falling to 3.0% at seven**. Posed as a
-flat choice instead of a protocol turn it reaches 36.9% → 19.0% — better, still unusable. **A 333,590,944 B
-embedder scoring the same tool descriptions reads 81.0%, flat in roster size**, beating the generative arm
-by 44-78 points at 41% of the bytes. Nothing at or under the sizing target has been shown to choose a tool
-generatively, and the two arms that ARE inside it are both model-free scorers.
+**THAT HEADLINE WAS THE MODEL, NOT THE SIZE CLASS — CORRECTED 2026-09-13.** This section read *"at the
+size class this project targets, the prompt-protocol tool transport does not work"*, on a
+**806,058,240 B** `gemma-3-1b-it` picking the right tool on **10.1% of trials at three options falling to
+3.0% at seven** (36.9% → 19.0% posed as a flat choice). Same arm, same corpus, same harness, a
+**491,400,032 B** `qwen2.5-0.5b-instruct` reads **60.7% → 48.8%** — about **six times** the score at
+**61% of the bytes**, and INSIDE the sizing target. `docs/memory-measurements.md` §5
+(`affordance-native-transport`) owns the table.
+
+**So the transport is not what was broken; that model was.** What survives unchanged is the comparison
+against the free arm: **a 333,590,944 B embedder scoring the same tool descriptions reads 81.0%, flat in
+roster size**, still ahead of every generative arm at or under the target and still the cheapest. And the
+gemma-3-1b row stays as measured — it is a real result about a real model a deployment might pick.
+
+**Nothing here says smaller is better.** It says the model family and its tool training dominate the byte
+count at this scale, which is an argument for SCREENING a candidate rather than for choosing one by size.
 
 **The consequence is an architecture, not a model choice.** Let the embedder pick the tool and give the
 model only the argument-filling job for the one tool that won: choosing 1-of-7 is what the small model

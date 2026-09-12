@@ -63,18 +63,47 @@ export function extraSpecs(arms, modelDir) {
   }));
 }
 
+/** The TOOL-CAPABLE model's port. Clear of the four roles (8160-8163), of every embedder arm
+ *  (`EXTRA_PORT_BASE` + `MAX_EXTRA_ARMS` - 1 = 8166) and of `embed-screen`'s 8167 — a test asserts all
+ *  three, because binding a busy port fails UPWARD and the incumbent answers every request. */
+export const NATIVE_PORT = 8169;
+
+/** The tool-capable chat server, or `[]` when none was asked for. Served like the other chat roles and
+ *  NOT with `--jinja`: measured 2026-09-13, that flag is byte-irrelevant on this build for both a model
+ *  whose template carries a tool section and one whose does not, so passing it would imply a dependency
+ *  the probe refuted. */
+export function nativeSpecs(file, modelDir) {
+  if (!file) return [];
+  return [{
+    label: 'native',
+    port: NATIVE_PORT,
+    argv: [
+      '--model', path.join(modelDir, file), '--alias', 'native',
+      '--port', String(NATIVE_PORT), '--host', '127.0.0.1', '--no-webui', '-ngl', '99',
+      '--ctx-size', '8192', '--parallel', '4',
+    ],
+  }];
+}
+
 /** `label=url,…` for `LYNTAI_LIVE_EMBED_ARMS`, or NULL for no arms — an absent variable and an empty
  *  one are different things to the bench, and only the first means "no extra arms were asked for". */
 export const armsEnv = (arms) => (arms.length === 0
   ? null
   : arms.map((a, i) => `${a.label}=http://127.0.0.1:${EXTRA_PORT_BASE + i}`).join(','));
 
-/** The four roles' env, plus the arms. `LYNTAI_LIVE_MODEL_URL` still names the PRIMARY embedder: it
- *  builds the trials, and an arm that could move that would change which distractors a roster holds. */
-export function envFor(arms = []) {
+/** The four roles' env, plus the embedder arms and the tool-capable model. `LYNTAI_LIVE_MODEL_URL` still
+ *  names the PRIMARY embedder: it builds the trials, and an arm that could move that would change which
+ *  distractors a roster holds. A variable is ABSENT rather than empty when its arm was not asked for. */
+export function envFor(arms = [], nativeFile = null) {
   const env = decisionEnvFor(PORTS);
   const value = armsEnv(arms);
-  return value === null ? env : { ...env, LYNTAI_LIVE_EMBED_ARMS: value };
+  return {
+    ...env,
+    ...(value === null ? {} : { LYNTAI_LIVE_EMBED_ARMS: value }),
+    ...(nativeFile
+      ? { LYNTAI_LIVE_NATIVE_URL: `http://127.0.0.1:${NATIVE_PORT}`, LYNTAI_LIVE_NATIVE_MODEL: 'native' }
+      : {}),
+  };
 }
 
 /** VRAM the four servers need free, from a COMPLETED run's own sampler: it peaked at 8,670 MiB device-total
@@ -145,8 +174,14 @@ async function buildBench(repoRoot) {
 export function parseArgs(argv) {
   const embedArms = [];
   const benchArgs = [];
+  let nativeModel = null;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--skip-build') continue;
+    if (argv[i] === '--native-model') {
+      nativeModel = argv[++i] ?? null;
+      if (!nativeModel) throw new Error('tool-affordance: --native-model wants a GGUF filename');
+      continue;
+    }
     if (argv[i] === '--embed-arm') {
       const spec = argv[++i] ?? '';
       const at = spec.indexOf('=');
@@ -157,11 +192,11 @@ export function parseArgs(argv) {
     }
     benchArgs.push(argv[i]);
   }
-  return { skipBuild: argv.includes('--skip-build'), embedArms, benchArgs };
+  return { skipBuild: argv.includes('--skip-build'), embedArms, nativeModel, benchArgs };
 }
 
 async function main() {
-  const { skipBuild, benchArgs, embedArms } = parseArgs(process.argv.slice(2));
+  const { skipBuild, benchArgs, embedArms, nativeModel } = parseArgs(process.argv.slice(2));
   const modelDir = process.env.LYNTAI_MODEL_DIR ?? process.env.LYNTAI_CONTENTION_MODEL_DIR;
   if (!modelDir) {
     console.error('tool-affordance: set LYNTAI_MODEL_DIR to the directory holding the GGUFs.');
@@ -175,7 +210,8 @@ async function main() {
   const scratchDir = path.resolve(path.dirname(here), '..', '_affordance');
   fs.mkdirSync(scratchDir, { recursive: true });
 
-  const missing = [...Object.values(ROLES).map((r) => r.file), ...embedArms.map((a) => a.file)]
+  const missing = [...Object.values(ROLES).map((r) => r.file), ...embedArms.map((a) => a.file),
+    ...(nativeModel ? [nativeModel] : [])]
     .filter((f) => !fs.existsSync(path.join(modelDir, f)));
   if (missing.length) {
     console.error(`tool-affordance: missing model file(s) in ${modelDir}: ${missing.join(', ')}`);
@@ -198,7 +234,7 @@ async function main() {
   let pids = [];
   // HOISTED out of the try, because `finally` re-reads the OWNED ports and a port it does not know about
   // is a leak nothing reports — the silent direction of the very check this teardown exists to be.
-  const extras = extraSpecs(embedArms, modelDir);
+  const extras = [...extraSpecs(embedArms, modelDir), ...nativeSpecs(nativeModel, modelDir)];
   const ownedPorts = [...Object.values(PORTS), ...extras.map((s) => s.port)];
   const gpu = startGpuSampler();
   try {
@@ -233,7 +269,7 @@ async function main() {
 
     const code = await runTracked('dotnet', ['run', '-c', 'Release', '--no-build',
       '--project', path.join(repoRoot, 'bench', 'Lyntai.Benchmarks'), '--', '--affordance', ...benchArgs],
-      envFor(embedArms));
+      envFor(embedArms, nativeModel));
     if (code !== 0) process.exitCode = code;
   } finally {
     const device = await gpu.stop();

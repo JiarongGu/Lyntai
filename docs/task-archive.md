@@ -3251,3 +3251,31 @@ screen asserts health and reports sharpness.
 **Ratio, per `task-lifecycle.md`:** ~430 instrument lines against 0 in `src/`, and no default moved —
 correct for a survey whose YES fills a documentation cell. Two runs followed the first actionable finding,
 each pricing one decision (quantisation; the pooling mode).
+
+## Part 197 — the NATIVE tool transport, unblocked by a survey and measured
+
+✅ closed 2026-09-13. Moved out of `TASKS.md` Part 178.
+
+- **Measure `affordance` through the NATIVE transport — the positive control is a SURVEY, not a wait.**
+
+**Outcome: the blocker was discharged by looking, and the measurement says the transports tie on accuracy
+and differ completely in HOW they fail.** `docs/memory-measurements.md` §5 owns every figure
+(`native-tool-positive-control`, `affordance-native-transport`).
+
+**The control took one survey and one probe.** `tokenizer.chat_template` read out of the GGUF header shows
+Qwen2.5, Qwen3 and Llama-3.2 all carry a tool section and gemma-3 none; `qwen2.5-0.5b-instruct` Q4_K_M then
+emitted `tool_calls` on all six cells where `gemma-3-4b-it` emitted none, same run, same build. The item had
+been marked `blocked · env` for a model nobody had gone looking for — which is the case
+`task-lifecycle.md`'s *a NAMED download is a step* rule was written for, and it held.
+
+**Three findings beyond the item's question**, each recorded where it belongs: accuracy is a wash while
+CONVERGENCE is not (11-24% on the prompt protocol against 99.4-100% native, the largest effect in the
+grid); `--jinja` is byte-irrelevant on this build and `tool_choice: "required"` binds only where the
+template supports it; and **§3.1's headline was refuted** — a 491,400,032 B model reads six times a
+806,058,240 B one on the same arm, so that result was the model's and not the size class's.
+
+**Instruments:** a native `ILlmClient` for the bench, `--skip-baseline`, a paired transport table, and a
+truncation counter that bounded the decline rate at 1.09% rather than leaving it arguable.
+
+**Ratio:** ~250 instrument lines against 0 in `src/`. Two runs, the second added only after the first
+raised an artifact the first could not rule out.

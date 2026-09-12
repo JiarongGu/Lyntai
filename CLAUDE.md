@@ -18,7 +18,7 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3643 passed / 3665 total, 22 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 784/784, doc samples 80/80. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 787/787, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED with Docker up, re-attested 2026-09-12 at `8883723`** — read off that run's own output, never
@@ -30,8 +30,8 @@ long-standing 21 because `CrossEncoderVerificationLiveTests` is new** — it arr
 **Re-attest the COMMIT alongside the figures whenever they move**: a dated claim left standing over a
 changed number cannot be told from an extrapolated one, and that is how it read to a cold reader.
 **Re-confirmed 2026-09-13**: a green `verify` read the trio back IDENTICALLY off its own output, and the
-only figure that moved was the guard count (744 → 784, which `check-counts` derives from the tree and so
-cannot go stale unseen). The commit above is therefore still the one the trio was attested at.
+only figure that moved was the guard count — which `check-counts` derives from the tree and so cannot go
+stale unseen. The commit above is therefore still the one the trio was attested at.
 **The Postgres leg is 195 tests**, measured on an EARLIER tree of 3,644 total (the daemon down read
 `3427 passed / 217 skipped` against `3622 / 22` with it up, and 217 − 22 = 195 = the difference in passes).
 That total is smaller than the baseline above because the tree has grown since; the 195 is the quantity

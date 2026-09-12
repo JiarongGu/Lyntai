@@ -27,6 +27,10 @@ internal static class ToolAffordanceSweep
 {
     private const int Seed = 20260912;
 
+    /// <summary>The tool-capable model's arm label. One constant, because it names three arms and a
+    /// mismatch between them would leave a cell that never ran looking like one that scored zero.</summary>
+    private const string NativeLabel = "tool";
+
     /// <summary>Roster sizes. Nested exactly as <c>memory-decision</c>'s: a trial holds gold plus
     /// <see cref="MaxDistractors"/> ordered distractors and N = 3 uses the first two, so the five cells
     /// share their distractors by construction and stay paired.</summary>
@@ -71,6 +75,23 @@ internal static class ToolAffordanceSweep
         + "  for the final answer: {\"final\": \"<answer>\"}\n"
         + "After a tool call you receive its result, then continue. Only call tools listed below.\n";
 
+    /// <summary>What a loop arm's client must be able to tell the harness, so the two transports report
+    /// through one path. Extracted when the native arm landed: the reporting code cast to the prompt
+    /// client's concrete type, so a second client would have silently contributed zero calls, zero prompt
+    /// characters and — worst — zero ERRORS, which is the counter that keeps a fail-open arm honest.</summary>
+    private interface ICountedLoopClient
+    {
+        int Calls { get; }
+
+        long FirstPromptChars { get; }
+
+        string? FirstReply { get; }
+
+        /// <summary>Calls the endpoint could not answer. A trial with any of these is never scored as the
+        /// model declining — that conflation would report a stalled socket as an affordance decision.</summary>
+        int Errors { get; }
+    }
+
     private static readonly System.Collections.Concurrent.ConcurrentBag<string> Dumped = [];
 
     private const int DumpTrials = 3;
@@ -105,7 +126,7 @@ internal static class ToolAffordanceSweep
     private sealed record Cell(string Arm, int N, int Capacity)
     {
         internal int Trials, Fired, Hits, Ties, Calls;
-        internal int NoTool, Hallucinated, Malformed, Converged, Recovered, Failed;
+        internal int NoTool, Hallucinated, Malformed, Converged, Recovered, Failed, Truncated;
         internal long FirstPromptChars;
         internal readonly int[] HitsByPosition = new int[MaxDistractors + 2];
         internal readonly int[] ShownByPosition = new int[MaxDistractors + 2];
@@ -140,6 +161,11 @@ internal static class ToolAffordanceSweep
         // make the axis unaffordable. The dropped arms are NAMED in the output, never silently absent.
         var scorersOnly = args.Contains("--scorers-only");
 
+        // `--skip-baseline` drops the 4B and 1B arms while keeping everything else. Their figures are
+        // already published and they cost ~2 hours; the NATIVE transport question needs neither, because
+        // neither model can take that path at all — gemma-3's template carries no tool section.
+        var skipBaseline = args.Contains("--skip-baseline");
+
         // UseProxy=false is not decoration: proxy resolution against a local endpoint measured up to
         // 2,051 ms per call and is BIMODAL, so it reads as the model's own tail.
         //
@@ -160,13 +186,15 @@ internal static class ToolAffordanceSweep
         var big = await SweepDoubles.TryRealChatAsync(http, "tool-affordance");
         if (big is null) return 1;
         var small = TrySmallChat(http);
+        var nativeChat = TryNativeChat(http);
 
         var reranker = new CrossEncoderReranker(http, CrossEncoderReranker.BaseUrl, CrossEncoderReranker.Model);
         var rerankOk = await reranker.ReachableAsync();
         reranker.Reset();   // the probe's own two pairs must not count toward the measured region's audit
 
         var trials = await BuildTrialsAsync(embedder, difficulty, cap);
-        PrintPreamble(big, small, rerankOk, difficulty, trials.Count, lanes, extra, scorersOnly);
+        PrintPreamble(big, small, rerankOk, difficulty, trials.Count, lanes, extra, scorersOnly,
+            scorersOnly ? null : nativeChat, skipBaseline);
         PrintTrialProfile(trials, difficulty);
 
         // `cosine` is the PRIMARY embedder — the one that also built the trials — so its name is kept and
@@ -174,11 +202,12 @@ internal static class ToolAffordanceSweep
         var scorers = new List<(string Arm, SweepDoubles.CachingEmbedder Embedder)> { ("cosine", embedder) };
         scorers.AddRange(extra.Select(e => ($"cosine-{e.Label}", e.Embedder)));
 
-        var cells = await RunArmsAsync(trials, scorersOnly ? null : big, scorersOnly ? null : small,
-            rerankOk ? reranker : null, scorers, lanes);
-        var falseCalls = scorersOnly
-            ? []
-            : await RunNegativeTrialsAsync(big, small, lanes);
+        var baseline = !scorersOnly && !skipBaseline;
+        var cells = await RunArmsAsync(trials, baseline ? big : null, baseline ? small : null,
+            scorersOnly ? null : nativeChat, rerankOk ? reranker : null, scorers, lanes);
+        var falseCalls = baseline
+            ? await RunNegativeTrialsAsync(big, small, lanes)
+            : [];
 
         PrintAccuracyTable(cells, trials.Count);
         PrintFalseCalls(falseCalls);
@@ -187,6 +216,7 @@ internal static class ToolAffordanceSweep
         PrintWhereFreeArmFails(cells);
         PrintPreambleComparison(cells);
         PrintShapeComparison(cells);
+        PrintTransportComparison(cells);
         PrintPositionBias(cells);
         PrintNotSwept();
         await WriteOutcomesAsync();
@@ -202,6 +232,18 @@ internal static class ToolAffordanceSweep
         var url = Environment.GetEnvironmentVariable("LYNTAI_LIVE_SMALL_URL");
         if (string.IsNullOrWhiteSpace(url)) return null;
         var model = Environment.GetEnvironmentVariable("LYNTAI_LIVE_SMALL_MODEL") ?? "small";
+        return new SweepDoubles.OpenAiCompatibleChat(http, url, model);
+    }
+
+    /// <summary>The TOOL-CAPABLE model, if one is served — the only arm that can take the loop's native
+    /// path. Absent is a SKIPPED arm with a printed reason, never a silent substitution: a model whose
+    /// chat template has no tool section returns HTTP 200 with <c>tool_calls: null</c> and answers anyway,
+    /// so a native arm quietly backed by the wrong model would read as the transport failing.</summary>
+    private static SweepDoubles.OpenAiCompatibleChat? TryNativeChat(HttpClient http)
+    {
+        var url = Environment.GetEnvironmentVariable("LYNTAI_LIVE_NATIVE_URL");
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        var model = Environment.GetEnvironmentVariable("LYNTAI_LIVE_NATIVE_MODEL") ?? "native";
         return new SweepDoubles.OpenAiCompatibleChat(http, url, model);
     }
 
@@ -286,6 +328,7 @@ internal static class ToolAffordanceSweep
         IReadOnlyList<Trial> trials,
         SweepDoubles.OpenAiCompatibleChat? big,
         SweepDoubles.OpenAiCompatibleChat? small,
+        SweepDoubles.OpenAiCompatibleChat? nativeChat,
         CrossEncoderReranker? reranker,
         IReadOnlyList<(string Arm, SweepDoubles.CachingEmbedder Embedder)> scorers,
         int lanes)
@@ -295,6 +338,10 @@ internal static class ToolAffordanceSweep
         var chats = new List<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)>();
         if (big is not null) chats.Add(("4b", big));
         if (small is not null) chats.Add(("1b", small));
+        // The tool-capable model is its own list: it gets a NATIVE arm the others cannot take, and it does
+        // not get the preamble arm, whose question is settled and belongs to the prompt protocol.
+        var natives = new List<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)>();
+        if (nativeChat is not null) natives.Add((NativeLabel, nativeChat));
 
         // Materialised UP FRONT so a cell that never ran is distinguishable from one that ran and scored
         // zero — the same reason the fired counter exists a level down.
@@ -308,6 +355,12 @@ internal static class ToolAffordanceSweep
                 names.Add($"loop-{label}-v2");   // the candidate preamble, PAIRED on the same trials
                 names.Add($"select-{label}");
             }
+            foreach (var (label, _) in natives)
+            {
+                names.Add($"loop-{label}");          // the SAME model on the prompt protocol
+                names.Add($"loop-{label}-native");   // …and on native function-calling, same trials
+                names.Add($"select-{label}");
+            }
             if (reranker is not null) names.Add("rerank");
             foreach (var name in names) cells[(name, n)] = new Cell(name, n, trials.Count);
         }
@@ -316,7 +369,7 @@ internal static class ToolAffordanceSweep
         await Parallel.ForEachAsync(trials.Select((t, i) => (Trial: t, Index: i)),
             new ParallelOptions { MaxDegreeOfParallelism = lanes }, async (item, ct) =>
             {
-                await RunOneTrialAsync(item.Trial, item.Index, chats, reranker, scorers, cells, ct);
+                await RunOneTrialAsync(item.Trial, item.Index, chats, natives, reranker, scorers, cells, ct);
                 var seen = Interlocked.Increment(ref done);
                 // Every ten, not every twenty-five: a redirected stdout is block-buffered, so a sparse
                 // progress line leaves a multi-hour run looking hung for its first half.
@@ -329,6 +382,7 @@ internal static class ToolAffordanceSweep
     private static async Task RunOneTrialAsync(
         Trial trial, int index,
         IReadOnlyList<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)> chats,
+        IReadOnlyList<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)> natives,
         CrossEncoderReranker? reranker,
         IReadOnlyList<(string Arm, SweepDoubles.CachingEmbedder Embedder)> scorers,
         Dictionary<(string Arm, int N), Cell> cells,
@@ -373,6 +427,18 @@ internal static class ToolAffordanceSweep
                     goldSlot, index, ct);
                 await LoopArmAsync(cells[($"loop-{label}-v2", n)], new BenchLoopClient(chat), roster, trial,
                     goldSlot, index, ct, CandidatePreamble);
+                await SelectArmAsync(cells[($"select-{label}", n)], chat, roster, trial, goldSlot, index, ct);
+            }
+
+            // The transport comparison, PAIRED on one model and one trial: the same roster reaches the
+            // same weights twice, once as a prompt protocol this library authors and once as native
+            // function-calling. Two models on two transports would confound the two.
+            foreach (var (label, chat) in natives)
+            {
+                await LoopArmAsync(cells[($"loop-{label}", n)], new BenchLoopClient(chat), roster, trial,
+                    goldSlot, index, ct);
+                await LoopArmAsync(cells[($"loop-{label}-native", n)], new NativeBenchLoopClient(chat),
+                    roster, trial, goldSlot, index, ct);
                 await SelectArmAsync(cells[($"select-{label}", n)], chat, roster, trial, goldSlot, index, ct);
             }
 
@@ -512,7 +578,7 @@ internal static class ToolAffordanceSweep
         // A trial the endpoint could not answer is NOT the model declining, and conflating the two would
         // report a stalled socket as "it chose not to call a tool" — the exact reading this arm exists to
         // make. It is excluded from every failure-mode rate and counted on its own.
-        var failed = client is BenchLoopClient { Errors: > 0 };
+        var failed = client is ICountedLoopClient { Errors: > 0 };
 
         lock (cell)
         {
@@ -525,14 +591,15 @@ internal static class ToolAffordanceSweep
                 if (recovered) cell.Recovered++;
                 if (result.Ok) cell.Converged++;
             }
-            if (client is BenchLoopClient counted)
+            if (client is ICountedLoopClient counted)
             {
                 cell.Calls += counted.Calls;
                 cell.FirstPromptChars += counted.FirstPromptChars;
             }
+            if (client is NativeBenchLoopClient native) cell.Truncated += native.Truncated;
         }
 
-        if (_dump && index < DumpTrials && client is BenchLoopClient dumpable && dumpable.FirstReply is { } text)
+        if (_dump && index < DumpTrials && client is ICountedLoopClient dumpable && dumpable.FirstReply is { } text)
             Dump($"{cell.Arm}@{cell.N}", index, text);
 
         var hit = chose >= 0 && chose + 1 == goldSlot;
@@ -631,18 +698,18 @@ internal static class ToolAffordanceSweep
     /// <para>One instance per loop run, so no locking is needed — a run is sequential. The prompt is counted
     /// from the REQUEST rather than composed here, so a change to the protocol's own system prompt moves
     /// this number instead of going unnoticed.</para></summary>
-    private sealed class BenchLoopClient(SweepDoubles.OpenAiCompatibleChat chat) : ILlmClient
+    private sealed class BenchLoopClient(SweepDoubles.OpenAiCompatibleChat chat) : ILlmClient, ICountedLoopClient
     {
-        internal int Calls { get; private set; }
+        public int Calls { get; private set; }
 
-        internal long FirstPromptChars { get; private set; }
+        public long FirstPromptChars { get; private set; }
 
-        internal string? FirstReply { get; private set; }
+        public string? FirstReply { get; private set; }
 
         /// <summary>Calls the endpoint could not answer — a stall, a dropped socket, a non-200. Counted
         /// rather than thrown, so one bad call costs a TRIAL and never the run; a trial with any of these
         /// is reported separately and is never scored as the model declining.</summary>
-        internal int Errors { get; private set; }
+        public int Errors { get; private set; }
 
         public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
         {
@@ -667,6 +734,81 @@ internal static class ToolAffordanceSweep
             return text is null
                 ? new LlmReply("", LlmVerdict.Failed, Detail: "bench chat returned nothing")
                 : new LlmReply(text, LlmVerdict.Ok);
+        }
+
+        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+            throw new NotSupportedException("the affordance arm drives the loop's completion path");
+    }
+
+    /// <summary>The same loop over the NATIVE function-calling transport: declarations go on the request and
+    /// the model's structured <c>tool_calls</c> come back, so <see cref="ToolLoop"/> takes its native branch
+    /// instead of authoring a prompt protocol.
+    ///
+    /// <para><b>This is the arm `TASKS.md` Part 178 could not run</b>, and it needs a model whose template
+    /// carries a tool section — gemma-3's does not, and the array is silently discarded. Pair it against the
+    /// SAME model's prompt arm or the comparison confounds the transport with the model.</para>
+    ///
+    /// <para><c>SupportsStreamingToolCalls</c> stays false: the streaming half would deliver the same
+    /// choice through a second code path, and guessing wrong there fails SILENTLY — no call chunk arrives
+    /// and the turn's prose reads as a final answer.</para></summary>
+    private sealed class NativeBenchLoopClient(SweepDoubles.OpenAiCompatibleChat chat) : ILlmClient, ICountedLoopClient
+    {
+        public int Calls { get; private set; }
+
+        public long FirstPromptChars { get; private set; }
+
+        public string? FirstReply { get; private set; }
+
+        public int Errors { get; private set; }
+
+        /// <summary>Turns the OUTPUT CAP cut off while no tool call had been emitted. Separates a model
+        /// that chose not to call a tool from one that never got to — the pair a bare empty
+        /// <c>tool_calls</c> cannot tell apart, and the difference between a finding and an artifact.</summary>
+        internal int Truncated { get; private set; }
+
+        public bool SupportsToolCalls(LlmRequest req) => true;
+
+        public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+        {
+            Calls++;
+            // The DECLARATIONS are counted here and not just the messages, because on this transport the
+            // roster travels in `req.Tools` rather than in message content. Counting messages alone would
+            // make this arm's prompt size CONSTANT in N, and the control that asserts "the roster grew with
+            // the roster" would void the run — reporting a correct native arm as a broken one.
+            if (Calls == 1)
+                FirstPromptChars = req.Messages.Sum(m => (long)m.Content.Length)
+                    + (req.Tools?.Sum(t => (long)(t.Name.Length + (t.Description?.Length ?? 0)
+                        + (t.ParametersJsonSchema?.Length ?? 0))) ?? 0);
+
+            try
+            {
+                var (content, calls, finish) = await chat
+                    .AskWithToolsAsync(req.Messages, req.Tools ?? [], ct, LoopMaxTokens).ConfigureAwait(false);
+                // A turn the CAP cut off is not a model that declined, and an empty `tool_calls` reports
+                // the two identically. Counted so a decline rate can be read as one.
+                if (finish == "length" && (calls is null || calls.Count == 0)) Truncated++;
+                // NULL calls is the transport failing; an EMPTY list is the model declining. Only the first
+                // is an error, and scoring the second as one would flatter every arm that cannot decline.
+                if (calls is null)
+                {
+                    Errors++;
+                    if (Calls == 1) FirstReply = "(no answer)";
+                    return new LlmReply("", LlmVerdict.Failed, Detail: "bench native chat returned nothing");
+                }
+                if (Calls == 1)
+                    FirstReply = calls.Count > 0
+                        ? string.Join("; ", calls.Select(c => $"{c.Name} {c.ArgumentsJson}"))
+                        : content ?? "";
+                return new LlmReply(content ?? "", LlmVerdict.Ok) { ToolCalls = calls };
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException
+                                           && !ct.IsCancellationRequested)
+            {
+                // Never swallow the CALLER's cancellation — that belongs to whoever asked to stop.
+                Errors++;
+                if (Calls == 1) FirstReply = "(no answer)";
+                return new LlmReply("", LlmVerdict.Failed, Detail: "bench native chat returned nothing");
+            }
         }
 
         public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
@@ -765,7 +907,8 @@ internal static class ToolAffordanceSweep
 
     private static void PrintPreamble(SweepDoubles.OpenAiCompatibleChat big,
         SweepDoubles.OpenAiCompatibleChat? small, bool rerankOk, Difficulty difficulty, int trials, int lanes,
-        IReadOnlyList<(string Label, SweepDoubles.CachingEmbedder Embedder)> extra, bool scorersOnly)
+        IReadOnlyList<(string Label, SweepDoubles.CachingEmbedder Embedder)> extra, bool scorersOnly,
+        SweepDoubles.OpenAiCompatibleChat? nativeChat, bool skipBaseline)
     {
         Console.WriteLine("\ntool-affordance — what a small model does with a roster of 3-7 tools, through the");
         Console.WriteLine("                  PROMPT protocol ToolLoop authors itself\n");
@@ -786,6 +929,23 @@ internal static class ToolAffordanceSweep
             : small is null
                 ? "  small      : SKIPPED — set LYNTAI_LIVE_SMALL_URL to add the small-model arms"
                 : $"  small      : {small.Model}");
+        if (nativeChat is null)
+        {
+            Console.WriteLine("  native     : SKIPPED — set LYNTAI_LIVE_NATIVE_URL to a model whose chat");
+            Console.WriteLine("               template carries a tool section, and the NATIVE path is measured");
+        }
+        else
+        {
+            Console.WriteLine($"  native     : {nativeChat.Model}  — the SAME model runs `loop-{NativeLabel}`");
+            Console.WriteLine($"               (prompt) and `loop-{NativeLabel}-native`, paired on identical");
+            Console.WriteLine("               trials, so the gap is the TRANSPORT and not the model");
+        }
+        if (skipBaseline)
+        {
+            Console.WriteLine("\n  *** --skip-baseline: the 4B and 1B arms and the negative corpus are absent");
+            Console.WriteLine("      from this run. Neither can take the native path at all, so they answer");
+            Console.WriteLine("      nothing it asks, and their figures are already published. ***");
+        }
         if (scorersOnly)
         {
             Console.WriteLine("\n  *** --scorers-only: every arm that calls a CHAT model is absent from this run —");
@@ -1033,6 +1193,61 @@ internal static class ToolAffordanceSweep
         }
         Console.WriteLine("  `net` is candidate minus shipped. Read it WITH the false-call table: a candidate");
         Console.WriteLine("  that wins here and raises false calls has moved the failure, not removed it.");
+    }
+
+    /// <summary>The question `TASKS.md` Part 178 asks: does routing a choice through NATIVE function-calling
+    /// beat the prompt protocol this library authors, on one model that can do both?
+    ///
+    /// <para>Paired McNemar on identical trials with an identical roster, so only the trials the two
+    /// transports DISAGREED on carry information. Two models on two transports would confound them, which
+    /// is why the native model runs both arms rather than being compared against the published 4B.</para>
+    ///
+    /// <para>`no tool` is printed beside the accuracy because the two transports fail differently: the
+    /// prompt path can emit unparseable JSON, and the native path can return an empty `tool_calls` while
+    /// answering from parametric knowledge. Both are DECLINES, and accuracy alone hides which.</para>
+    /// </summary>
+    private static void PrintTransportComparison(IReadOnlyList<Cell> cells)
+    {
+        var prompt = cells.Where(c => c.Arm == $"loop-{NativeLabel}").ToList();
+        var native = cells.Where(c => c.Arm == $"loop-{NativeLabel}-native").ToList();
+        if (prompt.Count == 0 || native.Count == 0) return;
+
+        Console.WriteLine("\nTRANSPORT: the same model on the PROMPT protocol vs NATIVE function-calling\n");
+        Console.WriteLine($"{"N",2} {"prompt",8} {"native",8} {"net",6} {"discordant",11} {"p",10} "
+            + $"{"no-tool p→n",14}");
+        Console.WriteLine(new string('-', 62));
+        foreach (var n in RosterSizes)
+        {
+            var p = prompt.FirstOrDefault(c => c.N == n);
+            var v = native.FirstOrDefault(c => c.N == n);
+            if (p is null || v is null) continue;
+
+            var onlyNative = v.Correct.Where((x, i) => x && !p.Correct[i]).Count();
+            var onlyPrompt = p.Correct.Where((x, i) => x && !v.Correct[i]).Count();
+            var net = onlyNative - onlyPrompt;
+            var tp = Math.Max(1, p.Trials - p.Failed);
+            var tv = Math.Max(1, v.Trials - v.Failed);
+            Console.WriteLine($"{n,2} {(double)p.Hits / Math.Max(1, p.Trials),8:P1} "
+                + $"{(double)v.Hits / Math.Max(1, v.Trials),8:P1} "
+                + $"{(net > 0 ? $"+{net}" : net.ToString(CultureInfo.InvariantCulture)),6} "
+                + $"{onlyPrompt + onlyNative,11} "
+                + $"{BenchStats.Format(BenchStats.McNemarExact(onlyNative, onlyPrompt)),10} "
+                + $"{$"{(double)p.NoTool / tp,0:P0}→{(double)v.NoTool / tv,0:P0}",14}");
+        }
+        Console.WriteLine("\n  `net` is native minus prompt. Accuracy is over ALL trials, not fired ones: a loop");
+        Console.WriteLine("  that invoked nothing is a real outcome of the transport, and dropping it would");
+        Console.WriteLine("  compare the two on different denominators.");
+
+        // The native path's no-tool rate is the headline of this table, so the one artifact that could
+        // manufacture it gets its own line. A turn the CAP cut off before any call was emitted reports
+        // as an empty `tool_calls`, which is byte-identical to a model that decided not to call one.
+        var truncated = native.Sum(c => c.Truncated);
+        var turns = native.Sum(c => c.Calls);
+        Console.WriteLine($"\n  native turns cut off by the {LoopMaxTokens}-token cap with no tool call: "
+            + $"{truncated} of {turns} ({(turns == 0 ? 0 : (double)truncated / turns):P2})");
+        Console.WriteLine(truncated == 0
+            ? "  ZERO — so every no-tool above is the model DECLINING, not the harness truncating it."
+            : "  NON-ZERO — subtract these before reading the no-tool column as a decline rate.");
     }
 
     /// <summary>Position bias, AT ONE roster size rather than pooled over them. Pooling confounds slot with
