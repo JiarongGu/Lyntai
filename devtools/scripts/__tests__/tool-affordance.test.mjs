@@ -1,9 +1,11 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
+import { DEFAULT_PORT as EMBED_SCREEN_PORT } from '../embed-screen.mjs';
 import { ROLES as DECISION_ROLES, PORTS as DECISION_PORTS } from '../memory-decision.mjs';
 import {
-  NEEDED_FREE_MIB, PORTS, ROLES, envFor, hasHeadroom, parseArgs, parseGpuMemory, serverSpecs,
+  EXTRA_PORT_BASE, MAX_EXTRA_ARMS, NEEDED_FREE_MIB, PORTS, ROLES, armsEnv, envFor, extraSpecs,
+  hasHeadroom, parseArgs, parseGpuMemory, serverSpecs,
 } from '../tool-affordance.mjs';
 
 describe('serverSpecs', () => {
@@ -108,5 +110,77 @@ describe('parseArgs', () => {
   it('forwards a flag this module has never heard of, so the bench can grow one without an edit here', () => {
     assert.deepEqual(parseArgs(['--dump']).benchArgs, ['--dump']);
     assert.equal(parseArgs(['--dump']).skipBuild, false);
+  });
+
+  it('takes repeatable --embed-arm label=file and keeps BOTH halves out of the bench args', () => {
+    // The flag AND its value: leaving the value behind would reach the C# sweep as a bare positional
+    // and be read by nothing, which compiles and runs and silently measures the wrong configuration.
+    const o = parseArgs(['--embed-arm', 'minilm=a.gguf', '--embed-arm', 'bgezh=b.gguf', '--n', '20']);
+    assert.deepEqual(o.embedArms, [
+      { label: 'minilm', file: 'a.gguf' }, { label: 'bgezh', file: 'b.gguf' },
+    ]);
+    assert.deepEqual(o.benchArgs, ['--n', '20']);
+  });
+
+  it('rejects an --embed-arm that is not label=file rather than guessing one half', () => {
+    assert.throws(() => parseArgs(['--embed-arm', 'a.gguf']), /label=file/);
+    assert.throws(() => parseArgs(['--embed-arm', '=a.gguf']), /label=file/);
+  });
+});
+
+describe('extra embedder arms — vary the SCORING, never the trial construction', () => {
+  const arms = [{ label: 'minilm', file: 'a.gguf' }, { label: 'bgezh', file: 'b.gguf' }];
+
+  it('gives each arm its own port, inside this harness and outside every neighbour', () => {
+    const specs = extraSpecs(arms, '/models');
+    assert.deepEqual(specs.map((s) => s.port), [EXTRA_PORT_BASE, EXTRA_PORT_BASE + 1]);
+    const taken = [
+      ...Object.values(PORTS), ...Object.values(DECISION_PORTS), EMBED_SCREEN_PORT, 8090,
+    ];
+    for (const spec of specs) {
+      assert.ok(!taken.includes(spec.port), `${spec.port} collides with a neighbouring harness`);
+      assert.ok(spec.port < 8140 || spec.port > 8153, `${spec.port} collides`);
+    }
+  });
+
+  it('refuses more arms than it has ports, rather than overrunning into another harness', () => {
+    // Silently allocating past the block would bind a port memory-decision or embed-screen owns, and a
+    // busy port fails UPWARD: the incumbent answers and every figure is taken on the wrong model.
+    const many = Array.from({ length: MAX_EXTRA_ARMS + 1 }, (_, i) => ({ label: `m${i}`, file: 'x.gguf' }));
+    assert.throws(() => extraSpecs(many, '/models'), /at most/);
+    assert.ok(EXTRA_PORT_BASE + MAX_EXTRA_ARMS - 1 < EMBED_SCREEN_PORT);
+  });
+
+  it('passes --embeddings and an explicit -ngl, like every other role here', () => {
+    for (const spec of extraSpecs(arms, '/models')) {
+      assert.ok(spec.argv.includes('--embeddings'));
+      assert.equal(spec.argv[spec.argv.indexOf('-ngl') + 1], '99');
+      assert.ok(spec.argv.includes('127.0.0.1'));
+    }
+  });
+
+  it('does NOT pass --pooling, so each model is served as its own GGUF declares', () => {
+    // Measured 2026-09-12 by `embed-screen --pooling mean,cls`: all-MiniLM-L6-v2 under the wrong mode
+    // loses 45% of its cosine range. The conversions carry the trained mode, so forcing one here would
+    // make the table a property of this argv rather than of the models.
+    for (const spec of extraSpecs(arms, '/models')) assert.ok(!spec.argv.includes('--pooling'));
+  });
+
+  it('names every arm in LYNTAI_LIVE_EMBED_ARMS as label=url on 127.0.0.1', () => {
+    assert.equal(armsEnv(arms), `minilm=http://127.0.0.1:${EXTRA_PORT_BASE},`
+      + `bgezh=http://127.0.0.1:${EXTRA_PORT_BASE + 1}`);
+  });
+
+  it('sets NOTHING when there are no arms, so the bench sees an absent variable not an empty one', () => {
+    assert.equal(armsEnv([]), null);
+    assert.equal(Object.hasOwn(envFor([]), 'LYNTAI_LIVE_EMBED_ARMS'), false);
+    assert.equal(envFor(arms).LYNTAI_LIVE_EMBED_ARMS, armsEnv(arms));
+  });
+
+  it('leaves LYNTAI_LIVE_MODEL_URL pointing at the PRIMARY embedder — it builds the trials', () => {
+    // The arms must not be able to move trial construction. Distractors are ordered by cosine against
+    // the request, so a different constructing embedder gives a different roster and the runs stop
+    // being comparable — which is the one way this measurement could quietly answer another question.
+    assert.equal(envFor(arms).LYNTAI_LIVE_MODEL_URL, `http://127.0.0.1:${PORTS.embed}`);
   });
 });

@@ -412,6 +412,16 @@ switch (cmd) {
     run('node', [path.join(repo, 'devtools', 'scripts', 'rerank-screen.mjs'), ...args]);
     break;
 
+  // embed-screen — the same question one role over, and the role the sub-100 MB target was re-aimed at
+  // (`docs/model-tasks.md` §3): #21729 blocks a cross-encoder and does not reach a single-sequence
+  // embedder. Its fixture is the discriminating kind — within-pair sentences share no content word while
+  // two DIFFERENT pairs share vocabulary — because an easy one is what certified a broken reranker. It
+  // reports the cosine RANGE beside the ordering (ordering is not discrimination) and sweeps `--pooling`,
+  // since a CLS-trained model served under mean pooling publishes the serving layer as the model.
+  case 'embed-screen':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'embed-screen.mjs'), ...args]);
+    break;
+
   case 'doctor': {
     // all three checks always run (no short-circuit) so drift is reported in one pass. `--fix` syncs the
     // README headline; it deliberately does NOT "fix" the version — a hand-authored version is the problem,

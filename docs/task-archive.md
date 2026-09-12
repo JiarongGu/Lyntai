@@ -3226,3 +3226,28 @@ rather than open work, and leaving it inside a retired backlog item would have l
 
 **What this does NOT close**: the sub-100 MB cross-encoder item in the same Part, which is blocked upstream
 on llama.cpp PR #21729 and is about the reranker role rather than an instruct model.
+
+## Part 196 — sub-100 MB in the EMBEDDER role: it works, and the floor belongs to the vocabulary
+
+✅ closed 2026-09-12. Moved out of `TASKS.md` Part 196, which opened the same day.
+
+- **Survey and SMOKE-TEST sub-100 MB embedders — the role the sizing target was never aimed at.**
+
+**Outcome: YES — four sub-100 MB embedders screen HEALTHY on llama.cpp today, and a 25,008,064 B one costs
+2.4 points of tool routing at three options and 11.4 at seven.** A slope, not a point.
+`docs/model-tasks.md` §3.3 is the filled cell; `docs/memory-measurements.md` §5 owns every figure and
+caveat (`embed-screen-sub100mb`, `affordance-cosine-sub100mb`).
+
+**Three findings the item did not ask for**, each recorded where it belongs: the multilingual size floor is
+the TOKENIZER's rather than the cross-encoder role's, every candidate is a 512-position model and so cannot
+be `IEmbedder`, and the STATIC class has no GGUF in existence — which is what the sibling decision-only
+item now turns on.
+
+**Instruments:** `embed-screen` is new; `tool-affordance` grew paired embedder arms and `--scorers-only`,
+taking a candidate from ~2 hours to 94 seconds, which is what makes this axis a survey. **The screen was
+wrong first** — it asserted a HARD fixture and failed four healthy models; `pitfalls.md` carries why a
+screen asserts health and reports sharpness.
+
+**Ratio, per `task-lifecycle.md`:** ~430 instrument lines against 0 in `src/`, and no default moved —
+correct for a survey whose YES fills a documentation cell. Two runs followed the first actionable finding,
+each pricing one decision (quantisation; the pooling mode).

@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 191 traps, indexed two ways
+## Facets — 194 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 998 · 1295 · 2246 · 2256 · 2282 · 2293 · 2330 · 2701 · 2731 · 2740
-- **`encoding`** (6) — 75 · 80 · 590 · 598 · 827 · 2330
-- **`git`** (7) — 207 · 232 · 263 · 288 · 598 · 620 · 832
-- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 990 · 1295 · 2265
-- **`router`** (6) — 1138 · 1143 · 1152 · 1154 · 1157 · 1287
-- **`cli`** (18) — 750 · 827 · 1138 · 1159 · 1167 · 1176 · 1180 · 1192 · 1196 · 1203 · 1207 · 1214 · 1218 · 1251 · 1270 · 1274 · 1279 · 2116
-- **`lifetime`** (6) — 1317 · 1326 · 1331 · 1336 · 1349 · 1357
-- **`storage`** (17) — 1230 · 1366 · 1468 · 1496 · 1498 · 1499 · 1501 · 1503 · 1521 · 1532 · 1761 · 1773 · 2029 · 2146 · 2312 · 2494 · 2678
-- **`memory`** (38) — 387 · 422 · 550 · 1230 · 1400 · 1419 · 1430 · 1456 · 1468 · 1483 · 1504 · 1521 · 1532 · 1571 · 1586 · 1593 · 1612 · 1623 · 1641 · 1654 · 1667 · 1725 · 1780 · 1800 · 1836 · 1872 · 1890 · 1897 · 1928 · 1950 · 1978 · 2050 · 2125 · 2146 · 2387 · 2546 · 2574 · 2657
-- **`generation`** (9) — 1116 · 1143 · 1349 · 1872 · 2063 · 2075 · 2099 · 2206 · 2231
-- **`di`** (12) — 1336 · 1586 · 1612 · 1792 · 1794 · 1797 · 1800 · 1818 · 1897 · 1928 · 2075 · 2125
-- **`measurement`** (58) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 850 · 860 · 880 · 891 · 919 · 946 · 952 · 968 · 985 · 990 · 1029 · 1048 · 1066 · 1081 · 1098 · 1116 · 1167 · 1366 · 1385 · 1456 · 1623 · 1654 · 1681 · 1692 · 1707 · 1725 · 1780 · 1836 · 2282 · 2363 · 2414 · 2429 · 2453 · 2473 · 2494 · 2524 · 2561 · 2625 · 2657
-- **`docs`** (22) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 998 · 1009 · 1014 · 1021 · 1430 · 1950 · 2017 · 2181 · 2191 · 2246 · 2256 · 2293 · 2312 · 2583
-- **`tests`** (21) — 1251 · 1442 · 1483 · 1504 · 1571 · 1593 · 1761 · 1773 · 2029 · 2376 · 2387 · 2398 · 2574 · 2596 · 2678 · 2686 · 2694 · 2698 · 2701 · 2713 · 2726
+- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 1035 · 1332 · 2283 · 2293 · 2319 · 2330 · 2367 · 2738 · 2768 · 2777
+- **`encoding`** (6) — 75 · 80 · 590 · 598 · 864 · 2367
+- **`git`** (7) — 207 · 232 · 263 · 288 · 598 · 620 · 869
+- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 1027 · 1332 · 2302
+- **`router`** (6) — 1175 · 1180 · 1189 · 1191 · 1194 · 1324
+- **`cli`** (18) — 750 · 864 · 1175 · 1196 · 1204 · 1213 · 1217 · 1229 · 1233 · 1240 · 1244 · 1251 · 1255 · 1288 · 1307 · 1311 · 1316 · 2153
+- **`lifetime`** (6) — 1354 · 1363 · 1368 · 1373 · 1386 · 1394
+- **`storage`** (17) — 1267 · 1403 · 1505 · 1533 · 1535 · 1536 · 1538 · 1540 · 1558 · 1569 · 1798 · 1810 · 2066 · 2183 · 2349 · 2531 · 2715
+- **`memory`** (38) — 387 · 422 · 550 · 1267 · 1437 · 1456 · 1467 · 1493 · 1505 · 1520 · 1541 · 1558 · 1569 · 1608 · 1623 · 1630 · 1649 · 1660 · 1678 · 1691 · 1704 · 1762 · 1817 · 1837 · 1873 · 1909 · 1927 · 1934 · 1965 · 1987 · 2015 · 2087 · 2162 · 2183 · 2424 · 2583 · 2611 · 2694
+- **`generation`** (9) — 1153 · 1180 · 1386 · 1909 · 2100 · 2112 · 2136 · 2243 · 2268
+- **`di`** (12) — 1373 · 1623 · 1649 · 1829 · 1831 · 1834 · 1837 · 1855 · 1934 · 1965 · 2112 · 2162
+- **`measurement`** (61) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 827 · 843 · 850 · 887 · 897 · 917 · 928 · 956 · 983 · 989 · 1005 · 1022 · 1027 · 1066 · 1085 · 1103 · 1118 · 1135 · 1153 · 1204 · 1403 · 1422 · 1493 · 1660 · 1691 · 1718 · 1729 · 1744 · 1762 · 1817 · 1873 · 2319 · 2400 · 2451 · 2466 · 2490 · 2510 · 2531 · 2561 · 2598 · 2662 · 2694
+- **`docs`** (22) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 1035 · 1046 · 1051 · 1058 · 1467 · 1987 · 2054 · 2218 · 2228 · 2283 · 2293 · 2330 · 2349 · 2620
+- **`tests`** (21) — 1288 · 1479 · 1520 · 1541 · 1608 · 1630 · 1798 · 1810 · 2066 · 2413 · 2424 · 2435 · 2611 · 2633 · 2715 · 2723 · 2731 · 2735 · 2738 · 2750 · 2763
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (21) — 207 · 387 · 422 · 651 · 762 · 1029 · 1116 · 1152 · 1157 · 1176 · 1251 · 1331 · 1419 · 1667 · 1800 · 1836 · 2063 · 2075 · 2125 · 2231 · 2546
-- **`cancellation`** (5) — 1138 · 1143 · 1400 · 1419 · 1442
-- **`vacuous`** (38) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 880 · 1066 · 1207 · 1270 · 1287 · 1442 · 1483 · 1504 · 1571 · 1593 · 1681 · 1692 · 1725 · 1836 · 1950 · 2312 · 2387 · 2398 · 2429 · 2561 · 2574 · 2596 · 2625 · 2678 · 2701 · 2713 · 2731 · 2740
-- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1081 · 1295 · 1586 · 1654 · 1761 · 1773 · 1950 · 1978 · 2029 · 2146 · 2246 · 2256 · 2265 · 2282 · 2293 · 2312 · 2398 · 2561 · 2574 · 2698 · 2731 · 2740
-- **`second-door`** (20) — 1154 · 1192 · 1196 · 1207 · 1214 · 1274 · 1279 · 1357 · 1499 · 1521 · 1800 · 1928 · 2029 · 2050 · 2063 · 2075 · 2099 · 2146 · 2181 · 2206
-- **`stale-claim`** (17) — 57 · 152 · 232 · 296 · 671 · 819 · 832 · 998 · 1014 · 1430 · 1797 · 2017 · 2050 · 2099 · 2181 · 2293 · 2583
-- **`silent-loss`** (51) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 827 · 860 · 891 · 919 · 985 · 1029 · 1048 · 1116 · 1180 · 1196 · 1230 · 1317 · 1349 · 1385 · 1456 · 1496 · 1498 · 1499 · 1501 · 1521 · 1532 · 1571 · 1707 · 1780 · 1792 · 1797 · 1818 · 1890 · 1928 · 1978 · 2116 · 2206 · 2246 · 2256 · 2330 · 2414 · 2494 · 2625
-- **`wrong-subject`** (55) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 860 · 891 · 919 · 946 · 952 · 1009 · 1021 · 1048 · 1066 · 1081 · 1098 · 1154 · 1203 · 1295 · 1326 · 1336 · 1366 · 1456 · 1504 · 1612 · 1623 · 1641 · 1654 · 1681 · 1692 · 1725 · 1872 · 1897 · 2231 · 2363 · 2414 · 2429 · 2453 · 2473 · 2494 · 2596 · 2657 · 2701
-- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 968 · 990 · 1159 · 1167 · 1176 · 1218 · 1270 · 1641 · 1872 · 2191 · 2583
-- **`ordering`** (10) — 583 · 1180 · 1279 · 1468 · 1503 · 1818 · 2116 · 2125 · 2376 · 2524
-- **`resource`** (14) — 564 · 598 · 637 · 850 · 952 · 1098 · 1159 · 1251 · 1357 · 1366 · 1794 · 2686 · 2694 · 2726
+- **`fail-open`** (21) — 207 · 387 · 422 · 651 · 762 · 1066 · 1153 · 1189 · 1194 · 1213 · 1288 · 1368 · 1456 · 1704 · 1837 · 1873 · 2100 · 2112 · 2162 · 2268 · 2583
+- **`cancellation`** (5) — 1175 · 1180 · 1437 · 1456 · 1479
+- **`vacuous`** (39) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 827 · 917 · 1103 · 1244 · 1307 · 1324 · 1479 · 1520 · 1541 · 1608 · 1630 · 1718 · 1729 · 1762 · 1873 · 1987 · 2349 · 2424 · 2435 · 2466 · 2598 · 2611 · 2633 · 2662 · 2715 · 2738 · 2750 · 2768 · 2777
+- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1118 · 1332 · 1623 · 1691 · 1798 · 1810 · 1987 · 2015 · 2066 · 2183 · 2283 · 2293 · 2302 · 2319 · 2330 · 2349 · 2435 · 2598 · 2611 · 2735 · 2768 · 2777
+- **`second-door`** (20) — 1191 · 1229 · 1233 · 1244 · 1251 · 1311 · 1316 · 1394 · 1536 · 1558 · 1837 · 1965 · 2066 · 2087 · 2100 · 2112 · 2136 · 2183 · 2218 · 2243
+- **`stale-claim`** (18) — 57 · 152 · 232 · 296 · 671 · 819 · 850 · 869 · 1035 · 1051 · 1467 · 1834 · 2054 · 2087 · 2136 · 2218 · 2330 · 2620
+- **`silent-loss`** (51) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 864 · 897 · 928 · 956 · 1022 · 1066 · 1085 · 1153 · 1217 · 1233 · 1267 · 1354 · 1386 · 1422 · 1493 · 1533 · 1535 · 1536 · 1538 · 1558 · 1569 · 1608 · 1744 · 1817 · 1829 · 1834 · 1855 · 1927 · 1965 · 2015 · 2153 · 2243 · 2283 · 2293 · 2367 · 2451 · 2531 · 2662
+- **`wrong-subject`** (58) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 827 · 843 · 850 · 897 · 928 · 956 · 983 · 989 · 1046 · 1058 · 1085 · 1103 · 1118 · 1135 · 1191 · 1240 · 1332 · 1363 · 1373 · 1403 · 1493 · 1541 · 1649 · 1660 · 1678 · 1691 · 1718 · 1729 · 1762 · 1909 · 1934 · 2268 · 2400 · 2451 · 2466 · 2490 · 2510 · 2531 · 2633 · 2694 · 2738
+- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 1005 · 1027 · 1196 · 1204 · 1213 · 1255 · 1307 · 1678 · 1909 · 2228 · 2620
+- **`ordering`** (10) — 583 · 1217 · 1316 · 1505 · 1540 · 1855 · 2153 · 2162 · 2413 · 2561
+- **`resource`** (14) — 564 · 598 · 637 · 887 · 989 · 1135 · 1196 · 1288 · 1394 · 1403 · 1831 · 2723 · 2731 · 2763
 
 <!-- facets:end -->
 
@@ -824,6 +824,43 @@ of the two: most of these traps recur in a subsystem that had never met them.
   `--alias` entry below ("a model NAME means different things on the two local servers") one layer earlier,
   in the FILE rather than at the endpoint — and the same rule closes both: **verify identity by something
   the file computes, never by something it is labelled.**
+- **A screen fixture can be too HARD, and that fails WORKING models — the same defect as one too easy, <!-- trap: sub=measurement shape=wrong-subject,vacuous -->
+  pointed the other way and much easier to be proud of.** Measured 2026-09-12 building `embed-screen`.
+  The reranker lesson above ("an easy fixture certifies a broken model") was applied enthusiastically: four
+  topic pairs whose within-pair sentences share NO content word while two different pairs share `Moon` and
+  `Earth`, asserted as pass/fail. The 333,590,944 B control separated it (+0.1634); **all four sub-100 MB
+  candidates conflated it (−0.06 to −0.13) while being demonstrably healthy** — stable vectors, full cosine
+  range, correct dimensions, every easy comparison right. Shipped as written, the screen would have
+  published *"no sub-100 MB embedder works"*, which is the retracted reranker row's mistake inverted.
+  <br>**The rule is that a screen asserts HEALTH and reports SHARPNESS, and they are different questions.**
+  A health check must pass any working model — its job is to catch a dead conversion — so it gets the EASY
+  pair and a generous threshold. Sharpness is a number, printed beside a known-good control, never a
+  verdict. The tell that you have merged them: your check fails a model you cannot otherwise fault.
+  <br>**The reranker screen could assert a hard case only because it had a PUBLISHED reference score.** An
+  external ground truth licenses a threshold; a fixture you authored does not, and an absolute cosine
+  threshold is not portable across embedding families anyway. **With no published number, run a control and
+  report the difference** — which is also why `embed-screen` takes `--control`.
+- **`rerank-screen --inspect` reporting `head: MISSING` says NOTHING about an embedder, and the word <!-- trap: sub=measurement shape=wrong-subject -->
+  reads like a defect.** A cross-encoder has a classification head; a bi-encoder has none BY DESIGN. The
+  same field that is evidence in one role is vacuous in the other, and `all-MiniLM-L6-v2` — which screens
+  healthy — reports MISSING. This is the architecture-bound entry above with the ROLE varying instead of
+  the architecture, so the same correction applies twice over: **tensor presence is a positive signal
+  only.** `embed-screen --inspect` prints the fields that do decide an embedder — `embedding_length`,
+  `context_length`, `pooling_type`, `token_type_count` — and says so inline.
+- **A size floor attributed to a ROLE can belong to the TOKENIZER, and the arithmetic settles it in one <!-- trap: sub=measurement shape=wrong-subject,stale-claim -->
+  line.** The reranker survey concluded that sub-100 MB is dead because a cross-encoder needs a segment
+  signal and a pooler, so only the RoBERTa/XLM-R family works and that family is too big. The second half
+  is true and the reason given is not: measured one role over, `multilingual-e5-small` Q8_0 is
+  **132,439,008 B** against the reranker survey's **132,584,000 B** — **0.11% apart**, same architecture,
+  completely different role. The wall is the vocabulary: 250,002 × 384 = 96,000,768 embedding parameters,
+  **102,000,816 B at Q8_0's 8.5 bits per weight — over 100,000,000 B before a single transformer layer.**
+  <br>**So quantisation is not a lever and MONOLINGUAL is the escape**, which the role-based explanation
+  hides: `bge-small-zh-v1.5` carries a 21,128-token vocabulary and fits the whole model in 47,886,240 B.
+  **Compute `vocab × hidden` before believing any story about why a family is too large** — it is one
+  multiplication, and it distinguishes a structural limit from a re-survey worth running.
+  <br>**And a mismatched vocabulary costs TOKENS, not just quality**: that Chinese model spends **2,170**
+  tokens on the same 6,263-character English text `all-MiniLM-L6-v2` covers in **1,207**, so it hits a
+  context or batch ceiling at 55% of the text — a second, quieter cost of the wrong tokenizer.
 - **CJK passed to a command-line argument goes through the console encoding and arrives mangled.** A <!-- trap: sub=encoding,cli shape=silent-loss -->
   `curl -d '{"documents":["评审会…"]}'` on this machine produced
   `parse error … ill-formed UTF-8 byte` from the server, because the GBK console rewrote the payload before

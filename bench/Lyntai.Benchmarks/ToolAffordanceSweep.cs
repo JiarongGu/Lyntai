@@ -133,6 +133,13 @@ internal static class ToolAffordanceSweep
         var cap = ArgValue(args, "--n") is { } n && int.TryParse(n, out var parsed) ? parsed : int.MaxValue;
         _dump = args.Contains("--dump");
 
+        // `--scorers-only` drops every arm that calls a chat model — the loop arms, the cross-shape arms
+        // and the whole negative corpus — leaving the model-free scorers plus the two scripted controls.
+        // It exists because the EMBEDDER axis is a survey (`TASKS.md` Part 196): a sub-100 MB candidate is
+        // one more `cosine-*` column, and paying ~2 hours of generation per candidate to add one would
+        // make the axis unaffordable. The dropped arms are NAMED in the output, never silently absent.
+        var scorersOnly = args.Contains("--scorers-only");
+
         // UseProxy=false is not decoration: proxy resolution against a local endpoint measured up to
         // 2,051 ms per call and is BIMODAL, so it reads as the model's own tail.
         //
@@ -148,6 +155,8 @@ internal static class ToolAffordanceSweep
 
         var embedder = await SweepDoubles.TryRealEmbedderAsync(http, "tool-affordance");
         if (embedder is null) return 1;
+        var extra = await SweepDoubles.TryExtraEmbeddersAsync(http, "tool-affordance");
+        if (extra is null) return 1;
         var big = await SweepDoubles.TryRealChatAsync(http, "tool-affordance");
         if (big is null) return 1;
         var small = TrySmallChat(http);
@@ -157,11 +166,19 @@ internal static class ToolAffordanceSweep
         reranker.Reset();   // the probe's own two pairs must not count toward the measured region's audit
 
         var trials = await BuildTrialsAsync(embedder, difficulty, cap);
-        PrintPreamble(big, small, rerankOk, difficulty, trials.Count, lanes);
+        PrintPreamble(big, small, rerankOk, difficulty, trials.Count, lanes, extra, scorersOnly);
         PrintTrialProfile(trials, difficulty);
 
-        var cells = await RunArmsAsync(trials, big, small, rerankOk ? reranker : null, embedder, lanes);
-        var falseCalls = await RunNegativeTrialsAsync(big, small, lanes);
+        // `cosine` is the PRIMARY embedder — the one that also built the trials — so its name is kept and
+        // its figure stays comparable to every published table. The extras vary only the scoring.
+        var scorers = new List<(string Arm, SweepDoubles.CachingEmbedder Embedder)> { ("cosine", embedder) };
+        scorers.AddRange(extra.Select(e => ($"cosine-{e.Label}", e.Embedder)));
+
+        var cells = await RunArmsAsync(trials, scorersOnly ? null : big, scorersOnly ? null : small,
+            rerankOk ? reranker : null, scorers, lanes);
+        var falseCalls = scorersOnly
+            ? []
+            : await RunNegativeTrialsAsync(big, small, lanes);
 
         PrintAccuracyTable(cells, trials.Count);
         PrintFalseCalls(falseCalls);
@@ -267,13 +284,16 @@ internal static class ToolAffordanceSweep
 
     private static async Task<List<Cell>> RunArmsAsync(
         IReadOnlyList<Trial> trials,
-        SweepDoubles.OpenAiCompatibleChat big,
+        SweepDoubles.OpenAiCompatibleChat? big,
         SweepDoubles.OpenAiCompatibleChat? small,
         CrossEncoderReranker? reranker,
-        SweepDoubles.CachingEmbedder embedder,
+        IReadOnlyList<(string Arm, SweepDoubles.CachingEmbedder Embedder)> scorers,
         int lanes)
     {
-        var chats = new List<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)> { ("4b", big) };
+        // Empty under `--scorers-only`, which is what drops every model arm — the arm NAMES are built
+        // from this list, so a skipped arm does not appear as a cell that ran and scored zero.
+        var chats = new List<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)>();
+        if (big is not null) chats.Add(("4b", big));
         if (small is not null) chats.Add(("1b", small));
 
         // Materialised UP FRONT so a cell that never ran is distinguishable from one that ran and scored
@@ -281,7 +301,7 @@ internal static class ToolAffordanceSweep
         var cells = new Dictionary<(string Arm, int N), Cell>();
         foreach (var n in RosterSizes)
         {
-            var names = new List<string> { "cosine", "loop-random", "loop-oracle" };
+            var names = new List<string>(scorers.Select(s => s.Arm)) { "loop-random", "loop-oracle" };
             foreach (var (label, _) in chats)
             {
                 names.Add($"loop-{label}");
@@ -296,7 +316,7 @@ internal static class ToolAffordanceSweep
         await Parallel.ForEachAsync(trials.Select((t, i) => (Trial: t, Index: i)),
             new ParallelOptions { MaxDegreeOfParallelism = lanes }, async (item, ct) =>
             {
-                await RunOneTrialAsync(item.Trial, item.Index, chats, reranker, embedder, cells, ct);
+                await RunOneTrialAsync(item.Trial, item.Index, chats, reranker, scorers, cells, ct);
                 var seen = Interlocked.Increment(ref done);
                 // Every ten, not every twenty-five: a redirected stdout is block-buffered, so a sparse
                 // progress line leaves a multi-hour run looking hung for its first half.
@@ -310,7 +330,7 @@ internal static class ToolAffordanceSweep
         Trial trial, int index,
         IReadOnlyList<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)> chats,
         CrossEncoderReranker? reranker,
-        SweepDoubles.CachingEmbedder embedder,
+        IReadOnlyList<(string Arm, SweepDoubles.CachingEmbedder Embedder)> scorers,
         Dictionary<(string Arm, int N), Cell> cells,
         CancellationToken ct)
     {
@@ -325,9 +345,14 @@ internal static class ToolAffordanceSweep
         var scores = new Dictionary<string, double?[]>(StringComparer.Ordinal);
         var declarations = options.Select(i => ToolAffordanceCorpus.Declaration(tools[i])).ToList();
 
-        var query = (await embedder.EmbedAsync([trial.Request], ct))[0];
-        var vectors = await embedder.EmbedAsync(declarations, ct);
-        scores["cosine"] = [.. vectors.Select(v => (double?)Cosine(query, v))];
+        // One row per embedder arm. Every arm sees the SAME roster, because the trials were built by the
+        // primary embedder before any of them ran — so a difference here is the scorer and nothing else.
+        foreach (var (arm, scorer) in scorers)
+        {
+            var query = (await scorer.EmbedAsync([trial.Request], ct))[0];
+            var vectors = await scorer.EmbedAsync(declarations, ct);
+            scores[arm] = [.. vectors.Select(v => (double?)Cosine(query, v))];
+        }
 
         if (reranker is not null)
         {
@@ -739,7 +764,8 @@ internal static class ToolAffordanceSweep
     // ── reporting ─────────────────────────────────────────────────────────────────────────────────────────
 
     private static void PrintPreamble(SweepDoubles.OpenAiCompatibleChat big,
-        SweepDoubles.OpenAiCompatibleChat? small, bool rerankOk, Difficulty difficulty, int trials, int lanes)
+        SweepDoubles.OpenAiCompatibleChat? small, bool rerankOk, Difficulty difficulty, int trials, int lanes,
+        IReadOnlyList<(string Label, SweepDoubles.CachingEmbedder Embedder)> extra, bool scorersOnly)
     {
         Console.WriteLine("\ntool-affordance — what a small model does with a roster of 3-7 tools, through the");
         Console.WriteLine("                  PROMPT protocol ToolLoop authors itself\n");
@@ -753,14 +779,38 @@ internal static class ToolAffordanceSweep
             + (difficulty == Difficulty.Hard
                 ? "  — the gold's own family, seven tools authored to be adjacent"
                 : "  — tools from OTHER families; this is the INSTRUMENT CHECK, not a result"));
-        Console.WriteLine($"  big        : {big.Model}");
-        Console.WriteLine(small is null
-            ? "  small      : SKIPPED — set LYNTAI_LIVE_SMALL_URL to add the small-model arms"
-            : $"  small      : {small.Model}");
+        Console.WriteLine(scorersOnly
+            ? "  big        : NOT RUN — --scorers-only"
+            : $"  big        : {big!.Model}");
+        Console.WriteLine(scorersOnly ? "  small      : NOT RUN — --scorers-only"
+            : small is null
+                ? "  small      : SKIPPED — set LYNTAI_LIVE_SMALL_URL to add the small-model arms"
+                : $"  small      : {small.Model}");
+        if (scorersOnly)
+        {
+            Console.WriteLine("\n  *** --scorers-only: every arm that calls a CHAT model is absent from this run —");
+            Console.WriteLine("      loop-4b, loop-4b-v2, select-4b, loop-1b, loop-1b-v2, select-1b, and the whole");
+            Console.WriteLine("      negative (false-call) corpus. This run prices the MODEL-FREE scorers only.");
+            Console.WriteLine("      The scripted transport controls still run, and `cosine` reproducing its");
+            Console.WriteLine("      published figure is what makes these cells comparable to a full run's. ***");
+        }
         Console.WriteLine(rerankOk
             ? $"  rerank     : {CrossEncoderReranker.Model} at {CrossEncoderReranker.BaseUrl}"
             : "  rerank     : SKIPPED — nothing usable answered /v1/rerank");
-        Console.WriteLine($"  concurrency: {lanes} in-flight request(s)\n");
+        Console.WriteLine($"  concurrency: {lanes} in-flight request(s)");
+        Console.WriteLine($"  embedder   : {SweepDoubles.ServedOrRequestedModel}  — builds the trials AND "
+            + "scores the `cosine` arm");
+        Console.WriteLine(extra.Count == 0
+            ? "  embed arms : none — set LYNTAI_LIVE_EMBED_ARMS=label=url,… to add `cosine-<label>` arms"
+            : $"  embed arms : {string.Join(", ", extra.Select(e => $"cosine-{e.Label}"))}");
+        if (extra.Count > 0)
+        {
+            Console.WriteLine("               Trial construction is PINNED to the primary embedder above, so");
+            Console.WriteLine("               every arm sees the same roster and only the SCORING varies. It");
+            Console.WriteLine("               also means `cosine` faces distractors selected to be hardest for");
+            Console.WriteLine("               itself, which biases against it rather than for it.\n");
+        }
+        else Console.WriteLine();
         Console.WriteLine("  How to read this. `loop-*` runs the REAL ToolLoop on its prompt path; `select-*`");
         Console.WriteLine("  poses the same trial as a forced choice over the same text, so the gap between");
         Console.WriteLine("  them is the TRANSPORT and not the choosing. `loop-random` must land on 1/N and");

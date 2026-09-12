@@ -28,7 +28,7 @@ cell does and does not cover.
 | **score-a-pair** (generative) | grade this output against this input, 0..1 | `LlmScorerBase`, and `RelevancyScorer` under it | per evaluation, per scorer | composition root | no |
 | **classify** | is this fact durable enough to keep verbatim | `LlmAnnotationOptions.SuggestGrade`, off by default | per WRITE, when on | option | no |
 | **affordance** | given these tools, what do you want | `MemoryTools`, the generation tools, an MCP-hosted toolset | per model tool call, unbounded by this library | no | no — but §3.1 |
-| **embed** | place this text in a vector space | `IEmbedder` | per WRITE **and** per RECALL | no | not treated as a size question |
+| **embed** | place this text in a vector space | `IEmbedder` | per WRITE **and** per RECALL | no | **yes — §3.3** |
 | **repair** | re-emit that, as JSON this time | the shared JSON completion helper | at most once per call, under three seams | inherited | no |
 | **delegate a run** | here is a task, do it | `IAgentSession` | per session, model-driven | n/a — you pick a CLI | out of scope |
 
@@ -194,21 +194,25 @@ target is worth re-aiming rather than re-surveying.
 **RE-AIMED 2026-09-12, and this paragraph read as more final than it is.** Everything above is about the
 **cross-encoder** role, and #21729's two defects are role-specific: zeroed `token_type_ids` costs a model
 its SEGMENT signal, and a dropped pooler costs it a LEARNED pooling head. A cross-encoder needs both to tell
-a query from a document. **A single-sequence embedder using MEAN pooling needs neither** — one sequence has
-no segments to distinguish, and llama.cpp pools natively. So the blocker does not reach the embedder role,
-and this repository's own 333,590,944 B embedder answering every bench is the standing evidence.
+a query from a document. **A single-sequence embedder needs neither** — and §3.3 has now TESTED that rather
+than arguing it, with a mechanism sharper than this paragraph first carried: a single sequence IS segment 0,
+so zeroing `token_type_ids` writes the correct value instead of destroying a signal.
 
-**The embedder role at sub-100 MB has never been surveyed here at all**, and §3.1 is why that is now the
-interesting gap rather than a footnote: on tool routing an embedder is the strongest model-free arm and
-beats the smallest generative model by 44-78 points. The open question is whether that 81.0% survives at a
-tenth of the bytes — and **nothing structural says it cannot.**
+**And the floor turned out to belong to the VOCABULARY rather than to the role** (§3.3, finding 5). The
+468,393,760 B above reads here as what a cross-encoder structurally costs; measured one role over, the same
+wall stands in the same place for the same reason — an XLM-R embedding table is 96,000,768 parameters, which
+is **102,000,816 B at Q8_0** and therefore over the target before a single transformer layer. So
+**monolingual is the escape and quantising is not**: a Chinese-capable embedder screens healthy at
+**47,886,240 B**.
 
-**The class worth aiming at is a STATIC embedding model** — a token→vector lookup table plus pooling, with
-no transformer at inference. That moves the question off llama.cpp entirely: such a model is a table and an
-average, so the constraint becomes tokenization and a runtime rather than a GGUF conversion. It is the only
-candidate class where "sub-100 MB" and "no server at all" are the same sentence. `TASKS.md` Part 196 holds
-the thread; nothing here is measured, and a size that small on a task this repository has only ever run at
-333 MB deserves the smoke test §3's own reranker rows earned the hard way.
+**The STATIC class is blocked on a RUNTIME, not on size** — recorded so nobody re-surveys it. A `model2vec`
+/ `potion` model is a token→vector table plus pooling with no transformer at inference, which moves the
+question off llama.cpp entirely; that is the appeal, since it is the only candidate class where "sub-100 MB"
+and "no server at all" are one sentence. But **no GGUF of any such model exists** (the HuggingFace model API
+searched three ways, zero results), so nothing in this repository's serving path can run one — and
+`potion-retrieval-32M`, the retrieval-tuned member, is **129,210,456 B** and over the target regardless.
+Reaching the class needs ONNX or a managed implementation whose hard part is the tokenizer: a new dependency
+and new public surface, which is the open question `TASKS.md` Part 196 holds.
 
 **Three things that row does not say, and each one matters more than the number.**
 
@@ -314,6 +318,42 @@ architecture `new`, which llama.cpp does not register, so it cannot load at all.
 against the working **311** — it is missing `cls.output.weight` and scores silently wrong (llama.cpp
 #16407). `Voodisss` and `zhiqian99` are byte-identical to each other and correct. Prefer an official
 conversion, and smoke-test whatever you pull.
+
+### 3.3 `embed`: sub-100 MB WORKS, and the deficit grows with the list
+
+**Measured 2026-09-12** (`docs/memory-measurements.md` §5, `embed-screen-sub100mb` and
+`affordance-cosine-sub100mb`), on the same SYNTHETIC tool-routing fixture §3.1 uses — so read the
+directions and none of the magnitudes. This is the one filled cell outside the reranker role.
+
+**Four sub-100 MB GGUF embedders load, serve and screen HEALTHY on llama.cpp today**, against the
+333,590,944 B incumbent as a known-good control. The re-aiming in §3 is therefore confirmed rather than
+merely argued.
+
+| model | bytes | tool routing, N = 3 | N = 7 |
+|---|---:|---|---|
+| `embeddinggemma-300M` Q8_0 (the incumbent) | 333,590,944 | 81.0% | 81.0% |
+| `all-MiniLM-L6-v2` Q8_0 | **25,008,064** | 78.6% | 69.6% |
+| `bge-small-en-v1.5` f16 | 67,308,128 | 76.8% | 69.6% |
+
+**The headline is a slope, not a point.** At a 3-tool roster a **13.3× smaller** model costs 2.4 points; at
+seven it costs 11.4. The incumbent is FLAT in roster size and none of the small ones is — which is §2's
+list-length rule turning up on a **model-free** arm. Size the model to the list you actually show it.
+
+**Three consequences worth carrying off this fixture.**
+
+1. **Quantisation is free down here.** f16 against Q8_0 on identical trials moves at most 1.2 points for
+   45.6% fewer bytes, and an independent screen agrees to within 0.001. Take the Q8.
+2. **The small model errs DIFFERENTLY from the big one** — on the trials the incumbent gets wrong it is
+   right 56-62% of the time, beating a 468,393,760 B cross-encoder at 5.3% of the bytes. It is not a
+   degraded copy.
+3. **Every one of them is a 512-position model, and the size column cannot see that.** All four reject a
+   6,263-character input, so none can be the memory `IEmbedder` — which is called per WRITE *and* per
+   RECALL over entries truncated at ~6,000 characters. **Sub-100 MB is a SHORT-INPUT story here**: a tool
+   roster, a query, a headline. Ask a candidate's `context_length` before its byte count.
+
+**And check the POOLING before you believe any of it.** `bert.pooling_type` survives conversion — MiniLM
+declares mean, both bge models declare CLS — so the correct flag is no `--pooling` flag. Forcing MiniLM to
+CLS costs it 45% of its cosine range, which would publish as a property of the model.
 
 ### The shape decides how badly a BUSY GPU hurts you
 

@@ -118,6 +118,62 @@ internal static class SweepDoubles
         return null;
     }
 
+    /// <summary>Environment variable naming EXTRA embedders to score with, as <c>label=url</c> pairs
+    /// separated by commas. Each becomes its own scoring arm beside the primary one.</summary>
+    internal const string ArmsVariable = "LYNTAI_LIVE_EMBED_ARMS";
+
+    /// <summary>
+    /// The extra embedders named by <see cref="ArmsVariable"/>, or <c>null</c> when one of them could not
+    /// be reached — in which case the refusal is already on stderr and the caller should return non-zero.
+    ///
+    /// <para><b>It REFUSES rather than skipping, and that is the point.</b> A skipped arm is an absent
+    /// COLUMN, and an absent column reads as "not measured" when what happened was "not reached" — the
+    /// same conflation the loop arms' <c>unanswered</c> counter exists to prevent one layer down. An empty
+    /// variable is a legitimate "no extra arms" and returns an empty list.</para>
+    ///
+    /// <para>The primary embedder stays whatever <see cref="TryRealEmbedderAsync"/> resolved, because it is
+    /// the one that CONSTRUCTS the trials. Varying that would change which distractors a roster holds, so
+    /// two runs would not be comparable — the arms here vary only the SCORING.</para>
+    /// </summary>
+    internal static async Task<List<(string Label, CachingEmbedder Embedder)>?> TryExtraEmbeddersAsync(
+        HttpClient http, string sweep)
+    {
+        var spec = Environment.GetEnvironmentVariable(ArmsVariable);
+        var arms = new List<(string, CachingEmbedder)>();
+        if (string.IsNullOrWhiteSpace(spec)) return arms;
+
+        foreach (var entry in spec.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var at = entry.IndexOf('=', StringComparison.Ordinal);
+            if (at <= 0 || at == entry.Length - 1)
+            {
+                Console.Error.WriteLine($"{sweep}: ✗ {ArmsVariable} entry \"{entry}\" is not label=url.");
+                return null;
+            }
+
+            var label = entry[..at];
+            var url = entry[(at + 1)..];
+            var real = new OpenAiCompatibleEmbedder(http, url, label);
+            if (!await real.ReachableAsync())
+            {
+                Console.Error.WriteLine($"{sweep}: ✗ embedder arm \"{label}\" unreachable at {url}.");
+                Console.Error.WriteLine("  Refusing to run: a skipped arm is a missing column, and a missing");
+                Console.Error.WriteLine("  column reads as \"not measured\" rather than as \"not reached\".");
+                return null;
+            }
+
+            // Identity, not plausibility: a `--model`-started llama-server answers to whatever name it is
+            // asked, so the requested label proves nothing and a shape check cannot separate two models
+            // that share a dimension. What the server says it loaded is a fact the process computed.
+            var served = await real.ServedModelAsync();
+            Console.WriteLine($"{sweep}: embedder arm {label} at {url}"
+                + (served is null ? " (this build names no model)" : $" serving {served}")
+                + StandardNote(url));
+            arms.Add((label, new CachingEmbedder(real)));
+        }
+        return arms;
+    }
+
     /// <summary>
     /// Counts how many writes salience judged notable — the control that separates "this arm's signal did
     /// nothing" from "this arm's signal never fired".

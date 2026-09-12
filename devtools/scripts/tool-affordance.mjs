@@ -40,7 +40,42 @@ export { ROLES };
 
 export const serverSpecs = (modelDir) => specsFor(PORTS, modelDir);
 
-export const envFor = () => decisionEnvFor(PORTS);
+/** Ports for EXTRA embedder arms. Its own small block above the four roles and below `embed-screen`'s
+ *  8167, so the cap is structural rather than a convention someone has to remember. */
+export const EXTRA_PORT_BASE = 8164;
+
+export const MAX_EXTRA_ARMS = 3;
+
+/** One `llama-server` per extra embedder, each served as its OWN GGUF declares — no `--pooling`. The
+ *  trained mode survives conversion (the header carries it), and forcing one made `all-MiniLM-L6-v2`
+ *  lose 45% of its cosine range when measured under the wrong one. */
+export function extraSpecs(arms, modelDir) {
+  if (arms.length > MAX_EXTRA_ARMS)
+    throw new Error(`tool-affordance: at most ${MAX_EXTRA_ARMS} extra embedder arm(s), got ${arms.length}`);
+  return arms.map((arm, i) => ({
+    label: `embed-${arm.label}`,
+    port: EXTRA_PORT_BASE + i,
+    argv: [
+      '--model', path.join(modelDir, arm.file), '--alias', arm.label,
+      '--port', String(EXTRA_PORT_BASE + i), '--host', '127.0.0.1', '--no-webui', '-ngl', '99',
+      '--embeddings', '--ctx-size', '2048', '--batch-size', '2048', '--ubatch-size', '2048',
+    ],
+  }));
+}
+
+/** `label=url,…` for `LYNTAI_LIVE_EMBED_ARMS`, or NULL for no arms — an absent variable and an empty
+ *  one are different things to the bench, and only the first means "no extra arms were asked for". */
+export const armsEnv = (arms) => (arms.length === 0
+  ? null
+  : arms.map((a, i) => `${a.label}=http://127.0.0.1:${EXTRA_PORT_BASE + i}`).join(','));
+
+/** The four roles' env, plus the arms. `LYNTAI_LIVE_MODEL_URL` still names the PRIMARY embedder: it
+ *  builds the trials, and an arm that could move that would change which distractors a roster holds. */
+export function envFor(arms = []) {
+  const env = decisionEnvFor(PORTS);
+  const value = armsEnv(arms);
+  return value === null ? env : { ...env, LYNTAI_LIVE_EMBED_ARMS: value };
+}
 
 /** VRAM the four servers need free, from a COMPLETED run's own sampler: it peaked at 8,670 MiB device-total
  *  against a ~2,251 MiB neighbour, so this harness's footprint is ~6,419 MiB. Rounded up for the allocator.
@@ -102,14 +137,31 @@ async function buildBench(repoRoot) {
 }
 
 /** `--difficulty`, `--n`, `--concurrency`, `--dump` and anything else are FORWARDED verbatim to the C#
- *  sweep; only `--skip-build` is this module's. Nothing is stripped beyond it, so a flag added to the bench
- *  needs no edit here. */
+ *  sweep; only `--skip-build` and `--embed-arm` are this module's. Nothing else is stripped, so a flag
+ *  added to the bench needs no edit here.
+ *
+ *  <b>`--embed-arm label=file.gguf` takes its VALUE out too.</b> A stripped flag whose value stayed would
+ *  reach the sweep as a bare positional, be read by nothing, and run a measurement nobody asked for. */
 export function parseArgs(argv) {
-  return { skipBuild: argv.includes('--skip-build'), benchArgs: argv.filter((a) => a !== '--skip-build') };
+  const embedArms = [];
+  const benchArgs = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--skip-build') continue;
+    if (argv[i] === '--embed-arm') {
+      const spec = argv[++i] ?? '';
+      const at = spec.indexOf('=');
+      if (at <= 0 || at === spec.length - 1)
+        throw new Error(`tool-affordance: --embed-arm wants label=file, got "${spec}"`);
+      embedArms.push({ label: spec.slice(0, at), file: spec.slice(at + 1) });
+      continue;
+    }
+    benchArgs.push(argv[i]);
+  }
+  return { skipBuild: argv.includes('--skip-build'), embedArms, benchArgs };
 }
 
 async function main() {
-  const { skipBuild, benchArgs } = parseArgs(process.argv.slice(2));
+  const { skipBuild, benchArgs, embedArms } = parseArgs(process.argv.slice(2));
   const modelDir = process.env.LYNTAI_MODEL_DIR ?? process.env.LYNTAI_CONTENTION_MODEL_DIR;
   if (!modelDir) {
     console.error('tool-affordance: set LYNTAI_MODEL_DIR to the directory holding the GGUFs.');
@@ -123,7 +175,7 @@ async function main() {
   const scratchDir = path.resolve(path.dirname(here), '..', '_affordance');
   fs.mkdirSync(scratchDir, { recursive: true });
 
-  const missing = Object.values(ROLES).map((r) => r.file)
+  const missing = [...Object.values(ROLES).map((r) => r.file), ...embedArms.map((a) => a.file)]
     .filter((f) => !fs.existsSync(path.join(modelDir, f)));
   if (missing.length) {
     console.error(`tool-affordance: missing model file(s) in ${modelDir}: ${missing.join(', ')}`);
@@ -144,10 +196,15 @@ async function main() {
   if (!skipBuild) await buildBench(repoRoot);
 
   let pids = [];
+  // HOISTED out of the try, because `finally` re-reads the OWNED ports and a port it does not know about
+  // is a leak nothing reports — the silent direction of the very check this teardown exists to be.
+  const extras = extraSpecs(embedArms, modelDir);
+  const ownedPorts = [...Object.values(PORTS), ...extras.map((s) => s.port)];
   const gpu = startGpuSampler();
   try {
-    pids = await startServers(serverSpecs(modelDir), { scratchDir, serverExe });
-    console.log(`\nServers up on ${Object.values(PORTS).join(', ')} (pids ${pids.join(', ')})\n`);
+    pids = await startServers([...serverSpecs(modelDir), ...extras], { scratchDir, serverExe });
+    console.log(`\nServers up on ${[...Object.values(PORTS), ...extras.map((s) => s.port)].join(', ')} `
+      + `(pids ${pids.join(', ')})\n`);
 
     console.log('IDENTITY — what each port actually loaded, read back from the server:');
     const identity = await identityReport(modelDir, PORTS);
@@ -176,19 +233,19 @@ async function main() {
 
     const code = await runTracked('dotnet', ['run', '-c', 'Release', '--no-build',
       '--project', path.join(repoRoot, 'bench', 'Lyntai.Benchmarks'), '--', '--affordance', ...benchArgs],
-      envFor());
+      envFor(embedArms));
     if (code !== 0) process.exitCode = code;
   } finally {
     const device = await gpu.stop();
     // Unconditional, not `if (pids.length)`: a start that THREW leaves `pids` empty while being the most
     // likely moment to have leaked one, so the survivor re-read must run on that path above all.
-    const { survivors } = await stopServers(pids, Object.values(PORTS));
+    const { survivors } = await stopServers(pids, ownedPorts);
     if (survivors.length) {
       console.error(`\n*** PORTS STILL LISTENING after teardown: ${JSON.stringify(survivors)} `
         + '(port, pid) — kill these by PID before the next run ***');
       process.exitCode = 1;
     } else {
-      console.log(`\nTeardown: all ${Object.values(PORTS).length} owned ports free`);
+      console.log(`\nTeardown: all ${ownedPorts.length} owned ports free`);
     }
     console.log(device.samples === 0
       ? 'GPU: UNAVAILABLE — nvidia-smi produced zero samples. Reporting null, not zero.'

@@ -849,6 +849,7 @@ export default {
     'memory-decision': 'a FORCED CHOICE at 3-7 options: one select call, or N score calls argmax\'d?',
     'tool-affordance': 'given these tools, what do you want — through the PROMPT protocol, on a SYNTHETIC roster',
     'rerank-screen': 'does a candidate GGUF rerank AT ALL? `--inspect` needs no download',
+    'embed-screen': 'does a candidate GGUF EMBED at all? Sweeps `--pooling`, reads the range not the order',
     'check-options': 'a shipped option a consumer sets with NO xml doc to explain it',
     'memory-locomo': "the FIELD's benchmark; rewards a perfect archive, so read it differentially",
     'memory-longmemeval': 'prefer a revised fact over the superseded one — **run `--haystack`**',
