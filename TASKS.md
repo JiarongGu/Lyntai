@@ -22,21 +22,21 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 93 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 137 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 146 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 200 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 271 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 349 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 404 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 427 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 498 | 109 | Widen the QA half: a SECOND READER | startable |  |
-| 691 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 777 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 864 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
-| 876 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
-| 905 | 178 | Decide whether the PROMPT-protocol fallback should announce itself | decision-only | a ruling on whether a silent transport fallback may stay silent, or earns a… |
-| 949 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface and WHICH dependency: a 2x2 of static/transf… |
+| 94 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 138 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 147 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 201 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 272 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 350 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 405 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 428 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 514 | 109 | Price COMPLETENESS on the memory workloads, where the reader half only meas… | startable |  |
+| 653 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 739 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 826 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
+| 838 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
+| 867 | 178 | Decide whether the PROMPT-protocol fallback should announce itself | decision-only | a ruling on whether a silent transport fallback may stay silent, or earns a… |
+| 911 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface and WHICH dependency: a 2x2 of static/transf… |
 
 <!-- open-items:end -->
 
@@ -52,8 +52,9 @@ history rather than context (`repo-mechanics.md`)._
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
 longer drift apart. Edit the marker, never the table. **The startable set is ONE item**, and what a reader
-most needs before picking it up is that its first step is a NAMED DOWNLOAD rather than a measurement —
-every item that would change shipped library code is `decision-only` and waiting on a ruling. That sentence
+most needs before picking it up is that its first step is a SCORING CHANGE rather than a run — the obvious
+run is confounded, and the item says how. Every item that would change shipped library code is
+`decision-only` and waits on a ruling. That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -495,80 +496,41 @@ judge beside it, plus a `--shots` diagnostic for the multi-shot mode the one-sho
 found **D98** and four harness defects. What is left of the item is below: more of it, not the first of
 it._
 
-- [ ] **Widen the QA half: a SECOND READER.** The absolute values are not comparable to a <!-- item: state=startable -->
-  published number and only the ARM DIFFERENCE transfers, so what widening buys is confidence in the
-  differences rather than a rankable score.
-  <br>_**The EMBEDDER half CLOSED 2026-09-13** as `docs/task-archive.md` **Part 199**: `nomic-embed-text-v1.5`
-  Q8_0 (146,146,432 B) against the incumbent (333,590,944 B), paired per question, moves **no arm** —
-  −5.5 to +2.9 with every CI spanning zero — and the conclusion the arms support survives the swap. The
-  bound is stated with the null: ±7-12 point intervals exclude a LARGE effect only.
-  `docs/memory-measurements.md` §5 owns the figures._
-  <br>**What is left is the READER, and it must be a SMALLER one — corrected 2026-09-13 at the owner's
-  direction.** This line briefly called for a model STRONGER than the 4B, on the argument that a second
-  reader exists to separate the reader's ceiling from the memory layer's. **Two things are wrong with
-  that.** The separation is already available model-free — `memory-locomo --retrieval` scores
-  `evidence-hit@k` with no reader at all, which is the instrument for *"what is the memory layer worth"*.
-  And a reader above the 4B measures a configuration this project has ruled out: §3's sizing position
-  aims at ~500 MB, and **D110**'s window already retired the 4B as a production candidate, keeping it only
-  as a CEILING arm.
-  <br>**The question worth asking is the deployment's: do the arm differences SURVIVE at the size class
-  that would actually run?** Both candidates are already on disk and need no download —
-  `gemma-3-1b-it` Q4_K_M (**806,058,240 B**) and `qwen2.5-0.5b-instruct` Q4_K_M (**491,400,032 B**), the
-  latter inside the sizing target. Run the same four arms at n = 61 and compare the ARM ORDERING against
-  `docs/memory-measurements.md` §5's `locomo-qa-second-embedder` table, which is the paired baseline.
-  <br>_**A floor is a real outcome here, not a failed run.** If a small reader scores near zero on every
-  arm, that says the reader is the binding constraint at this size and the memory layer cannot be
-  priced through it — which is worth knowing before anyone ships a small reader over this engine. Report
-  it as the result rather than escalating to a bigger model, which would answer a different question._
-  <br>**Cost, measured rather than guessed:** the fixed half is ingesting ~670 turns per touched
-  conversation and the scaling half is TWO model calls per arm per question — the answer, and the judge
-  that grades it. Eleven arms at n = 6 took **1,006 s**; four arms at n = 61 took **946 s**. So **cut
-  `--arms` before n**, and expect ~16 minutes per four-arm run at this sample size.
-  <br>_Two things a re-run should carry. The orchestrator used here is SCRATCH and would need promoting to
-  a tracked command — `memory-locomo` has no server orchestrator of its own, unlike `memory-decision` and
-  `tool-affordance`, so a run picks up whatever happens to be listening, which is the port-fails-upward
-  hazard `pitfalls.md` records. And the bench's embedder double implements only the ROLE-LESS
-  `IEmbedder` overload, so every asymmetric model it serves is measured without the prefixes it was
-  trained with — fair between models, below ceiling for all of them._
-  <br>_The `full` arm's window overrun is now confirmed rather than inferred: **108,428 chars/q and 6 of 6
-  unknown** on this reader. Any widened run should keep it as the documented ceiling-failure arm and never
-  read its 0.0% as a memory-layer result._
-  <br>_**The cross-question contamination this item named as a precondition is FIXED** (2026-08-29,
-  `docs/task-archive.md` Part 118): every question now runs against a private byte-copy of the ingested
-  store, so a widened run no longer inherits it. **The QA half itself has NOT been re-run** — it needs a
-  reader — so its numbers (`docs/task-archive.md` Part 115) were taken under contamination, and widening now
-  means re-measuring rather than adding to them._
-  <br>_**The FULL QUESTION SET half of this item is DONE (2026-09-01).** All 1,540 questions ran on eight
-  arms — `docs/memory-measurements.md` §5's full-sample subsection. It was not bookkeeping: at n = 100 the same instrument
-  reported a ranking × walk interaction of +6.7 and category wins of +6.2 / +5.5, and every one of those
-  collapsed at full sample (+1.0, −0.6, +0.1). **The title was restated on 2026-09-12** — it had advertised
-  that finished half for eleven days, and `check-backlog --write` copied the stale wording into the
-  generated roster, which is the first thing a fresh session reads. **A generated table cannot be more
-  current than the marker line it reads.**_
-  <br>_**And a reason the second reader matters more than it did.** The judge column was calibrated against
-  that run's `--dump` and is generous by ≈12 points (`docs/memory-measurements.md` §5, finding 7) — same 4B model reading
-  and grading. A second reader is no longer only about confidence in the differences; it is the only way to
-  separate the reader's ceiling from the memory layer's._
-  <br>_**A second embedder ran on 2026-09-04, on the RETRIEVAL half rather than this one**
-  (`docs/task-archive.md` **Part 154**): `embeddinggemma:300m` over the judge/fusion ladder, which corrected
-  a shipped XML doc. **That does not close the embedder half of THIS item** — token-F1 with a reader is a
-  different measurement — but it does answer the cheaper question the item was partly asking, and it is
-  evidence the axis is worth the run: the arm ordering held while the size of one effect did not._
-  <br>_**`ExpansionRetrievabilityFloor` is no longer part of this item.** It was swept across both workloads
-  on 2026-08-30 (`docs/task-archive.md` **Part 123**), and the owner settled it the same day: the default
-  stays at `0`. This line said it "needs more than one workload" and quoted a cost of 4 points — the
-  25-question figures — after the run that superseded both; at full sample the trade is +2.8 points of
-  `clean` for −1.5 of `current@k`, and `GraphMemoryOptions.ExpansionRetrievabilityFloor`'s own XML doc has
-  carried the corrected pair since that run. A QA pass may still report the floor as a column; it is not a
-  default this item decides._
-  <br>*(**LongMemEval is no longer part of this item** — it landed 2026-08-29 in both variants,
-  `docs/task-archive.md` Part 112. What it left behind is scope rather than a gap: two of its six classes are
-  measured, and `multi-session` (133 questions), the three single-session classes and `BEAM` are untouched.
-  None of them is obviously the next one to run, which is why this stays a QA-half item and not a
-  class-coverage one.)*
-  <br>**Take the haystack finding into the QA half when it runs.** The oracle variant is biased per class and
-  the sign is not predictable in advance, so a QA table taken on the oracle would inherit that bias silently.
-  Run it on `--haystack`, at ~40× the ingestion cost per question.
+_**The QA-widening item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 200**. Both halves ran: a
+second EMBEDDER moved no arm (Part 199), and a second and third READER — `gemma-3-1b-it` 806,058,240 B and
+`qwen2.5-0.5b-instruct` 491,400,032 B, both already on disk — were measured on the same four arms and the
+same seeded questions. **The arm ORDERING broadly holds and the SPREAD collapses**: `lyntai-fused` is last
+under all three readers and `vector` first or second, while the spread across arms falls 14.7 → 8.8 → 4.7
+points down the size ladder. So a smaller reader registers the memory layer less, which bounds what memory
+work can be worth to a small consumer. `docs/memory-measurements.md` §5 owns the figures._
+
+_**The centering item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 201**, by REFUTATION — the
+outcome the item itself named as the more useful one. The direction that looked consistent on the hard
+fixture (**+8 / +6 / +3** for the static model) becomes **−1 / 0 / −2** on the easy one, where that arm had
+room to move, so it was a property of the FIXTURE rather than of the model class. **Do not re-derive it.**
+`docs/memory-measurements.md` §5 (`affordance-centering-refuted`) owns the figures and the one half that
+stays untested — the claimed harm to a transformer sits under a 94-97% ceiling there._
+
+- [ ] **Price COMPLETENESS on the memory workloads, where the reader half only measured LoCoMo QA.** <!-- item: state=startable -->
+  Whole items beat truncated ones by **+14.9 / +9.2 / +7.1** token-F1 across 4B / 1B / 0.5B on a SEARCH
+  workload (`locomo-qa-completeness-vs-depth`). LongMemEval's knowledge-update class is the OPPOSITE
+  workload — it scores whether a recall prefers a revised fact over the one it superseded — and
+  `MemoryQuery.Detail` has never been run there.
+  <br>**Why it is not bookkeeping.** A lever worth +15 on search that cost suppression would be a different
+  recommendation from one that is free, and `docs/deployment-shapes.md` states it today without that caveat.
+  <br>**But the OBVIOUS run is confounded, and that was caught before spending it** (2026-09-13,
+  `pitfalls.md`). `MemoryDetail` rehydrates the TEXT of an already-chosen set and cannot change which items
+  come back — while the knowledge-update bench scores by searching `i.Content ?? i.Headline` for the
+  superseded fact. So `stale@k` would rise purely because the scorer can SEE more of each item, and the
+  table would read as *"full detail hurts suppression"* with nothing about suppression having moved.
+  <br>**So the item needs one of two things first.** Score that class by an IDENTIFIER the detail flag
+  cannot touch — which is what `evidence-hit@k` already does one bench over and why it is immune — or
+  accept that a model-free metric cannot answer this and put a READER on the knowledge-update class, which
+  is the only arrangement where more text per item is genuinely what is being measured.
+  <br>_`memory-longmemeval` and the corpora are on disk; the missing piece is the scoring change, not the
+  run._
+
+---
 
 ## Part 116 — the n-shot WALK: what D100 opens, and the surface it does not have yet (2026-08-29)
 

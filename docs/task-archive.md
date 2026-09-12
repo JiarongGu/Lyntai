@@ -3332,3 +3332,54 @@ so a run takes whatever is listening.
 
 **Ratio:** zero instrument lines in the tree — both halves were env changes behind a scratch orchestrator —
 against three runs. The cost is now measured rather than guessed: four arms at n = 61 is ~16 minutes.
+
+## Part 200 — the QA half widened: a smaller reader registers the memory layer LESS
+
+✅ closed 2026-09-13. `TASKS.md` Part 109's remaining half; the embedder half closed as Part 199.
+
+- **Widen the QA half: a SECOND EMBEDDER and a SECOND READER.**
+
+**Outcome: the arm ORDERING broadly holds across three readers and the SPREAD collapses with reader size
+— 14.7 / 8.8 / 4.7 points across 4B / 1B / 0.5B.** `lyntai-fused` is last under all three and `vector`
+first or second; the top two swap at 0.5B within 0.9 points, which is a near-tie rather than a reordering.
+So the differences the QA half exists to establish are real at 4B and shrink toward noise below it.
+`docs/memory-measurements.md` §5 owns the figures.
+
+**The consequence is a limit, and it is the useful half**: a smaller reader discriminates less between a
+good page and a bad one, so memory quality buys less the smaller the consumer. That bounds what any
+future memory work can be worth to a very small deployment, and it is now in `docs/deployment-shapes.md`.
+
+**The item's own framing was CORRECTED mid-flight** and the correction is the durable part. It called for
+a reader STRONGER than the incumbent, to separate the reader's ceiling from the memory layer's. Two things
+were wrong: `--retrieval` already separates them model-free, and a reader above the 4B prices a
+configuration the sizing position rules out. The right second reader is a SMALLER one, and both were
+already on disk — so what read as a multi-gigabyte download was a re-run.
+
+**Two caveats carried forward** rather than rediscovered: the `unknown` rate differs enormously by reader
+(4B 5.3%, 1B 22.1%, 0.5B 0.0%), so token-F1 flatters a model that always guesses and cross-reader
+ABSOLUTES are not comparable; and the DEPTH lever is a null at this power, not a demonstration of no
+effect.
+
+## Part 201 — mean-centering REFUTED, and a static embedder priced on the memory workload
+
+✅ closed 2026-09-13. Opened the same day by `TASKS.md` Part 109's successor and closed by replication.
+
+- **Re-test mean-CENTERING at power — the direction is consistent and the grid cannot resolve it.**
+
+**Outcome: REFUTED, which is the outcome the item said would be the more useful one.** Centering looked
+like it helped the static embedder (+8 / +6 / +3 paired trials) and hurt every transformer (−7 / −8 / −8)
+on the hard fixture. Re-run on the `easy` fixture — a genuinely different confusable set over the same
+tools — the static model's gain becomes **−1 / 0 / −2** and nothing moves anywhere. The sign flips; the
+direction was the fixture's, not the model class's. `docs/memory-measurements.md` §5
+(`affordance-centering-refuted`) owns it, including the one half that stays untested: the claimed harm to
+a transformer is compressed by a 94-97% ceiling on that fixture.
+
+**Power could not be bought the obvious way and the item said so.** The corpus is 168 trials by
+construction, so `--n` cannot raise it — a second FIXTURE was the available replication, and it was enough
+because the arm the claim was about had room to move.
+
+**Alongside it, the static class was priced on the MEMORY workload** (archive entry shared deliberately:
+one session, one instrument). `potion-base-8M` costs **0.5 points** on the shipped default and reproduces
+`+forget0` exactly, because those arms do not seed semantically — it costs 10 points only where semantic
+seeding is on. **How much an embedder is worth is a property of the arm**, which is why a class that looked
+~12 points behind on a purely embedding-bound task is nearly free here.

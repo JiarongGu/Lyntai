@@ -71,10 +71,16 @@ about cross-tenant cache behaviour. The contention figures are one box.
 - **Budget VRAM as additive.** Four servers (4B + 1B + embedder + reranker) measured a ~6,419 MiB footprint;
   the harness refuses to start under 7,000 MiB free because launching into too little kills the process
   **silently** — no exception, output truncated mid-sentence, exit code 127.
-- **A static embedder is the only option that contends for nothing at all.** `potion-base-8M` is
-  **30,236,760 B** of CPU lookup table: no server, no GPU, no port. It costs roughly 12 points of selective
-  accuracy against a GPU-resident embedder (`affordance-static-embedders`), and nothing in this library can
-  call one yet — `TASKS.md` Part 196 holds that ruling.
+- **A static embedder is the only option that contends for nothing at all**, and on the MEMORY workload it
+  is nearly free. `potion-base-8M` is **30,236,760 B** of CPU lookup table — no server, no GPU, no port.
+  Against the 333,590,944 B incumbent it costs **0.5 points on the shipped default** (54.0% against 54.5%,
+  one question in two hundred) and reproduces `+forget0` EXACTLY, because those arms do not seed
+  semantically; it costs **10 points** only where semantic seeding is on
+  (`locomo-retrieval-static-embedder`). On a purely embedding-bound selective task it is ~12 points behind
+  (`affordance-static-embedders`) — **how much an embedder is worth is a property of the ARM**.
+  <br>And turning semantic seeds ON is worth more than the embedder is: **+21.5** points over the shipped
+  default even with the static model. Do not read "cannot afford a GPU embedder" as "cannot afford the
+  arm". Nothing in this library can call a static embedder yet — `TASKS.md` Part 196 holds that ruling.
 
 **Not measured here:** anything on a device this repository does not have, and any frame-time impact — the
 contention figures measure the MODEL's throughput while a neighbour rendered, never the neighbour's.

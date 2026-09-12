@@ -31,43 +31,60 @@ export const PORTS = { embed: 8170, chat: 8171 };
 /** `{label, port, argv}` per role — the shape `startServers` takes, exported so a test can assert the
  *  argv without spawning anything.
  *
+ *  <b>Only what is actually CALLED.</b> `--embed-endpoint` names an embedder already running (a static
+ *  `model2vec` model has no GGUF, so no `llama-server` can serve one), and `memory-locomo --retrieval`
+ *  scores a model-free metric that needs no reader at all — serving 2.5 GB of chat weights for it is the
+ *  same waste `tool-affordance --scorers-only` had to shed before it could run on a busy device.
+ *
  *  <b>The embedder's batch is sized to its context on purpose.</b> A LoCoMo turn reaches ~6,000 characters
  *  and the physical batch defaults BELOW that, which surfaces as an HTTP 500 on a real turn long after a
  *  short probe passed — the "smoke test on a TYPICAL input" trap, which cost an hour of ingestion once. */
 export function serverSpecs(embedFile, chatFile, modelDir) {
-  return [
-    {
-      label: 'embed',
-      port: PORTS.embed,
-      argv: ['--model', path.join(modelDir, embedFile), '--alias', 'embed',
-        '--port', String(PORTS.embed), '--host', '127.0.0.1', '--no-webui', '-ngl', '99',
-        '--embeddings', '--ctx-size', '2048', '--batch-size', '2048', '--ubatch-size', '2048'],
-    },
-    {
-      label: 'chat',
-      port: PORTS.chat,
-      argv: ['--model', path.join(modelDir, chatFile), '--alias', 'chat',
-        '--port', String(PORTS.chat), '--host', '127.0.0.1', '--no-webui', '-ngl', '99',
-        '--ctx-size', '8192', '--parallel', '2'],
-    },
-  ];
+  const specs = [];
+  if (embedFile) specs.push({
+    label: 'embed',
+    port: PORTS.embed,
+    argv: ['--model', path.join(modelDir, embedFile), '--alias', 'embed',
+      '--port', String(PORTS.embed), '--host', '127.0.0.1', '--no-webui', '-ngl', '99',
+      '--embeddings', '--ctx-size', '2048', '--batch-size', '2048', '--ubatch-size', '2048'],
+  });
+  if (chatFile) specs.push({
+    label: 'chat',
+    port: PORTS.chat,
+    argv: ['--model', path.join(modelDir, chatFile), '--alias', 'chat',
+      '--port', String(PORTS.chat), '--host', '127.0.0.1', '--no-webui', '-ngl', '99',
+      '--ctx-size', '8192', '--parallel', '2'],
+  });
+  return specs;
 }
 
 /** Env the bench reads. Every URL spells 127.0.0.1, never `localhost`: on Windows that resolves to ::1
  *  first and costs ~1.8 s per call against an IPv4-only listener, which at a few thousand calls is the
- *  whole run. The bench's own defaults spell `localhost`, so inheriting them is the bug. */
-export const envFor = () => ({
-  LYNTAI_LIVE_MODEL_URL: `http://127.0.0.1:${PORTS.embed}`, LYNTAI_LIVE_EMBED_MODEL: 'embed',
-  LYNTAI_LIVE_CHAT_URL: `http://127.0.0.1:${PORTS.chat}`, LYNTAI_LIVE_CHAT_MODEL: 'chat',
-});
+ *  whole run. The bench's own defaults spell `localhost`, so inheriting them is the bug.
+ *
+ *  A role is ABSENT rather than empty when it was not asked for, so the bench refuses loudly instead of
+ *  inheriting a default that points at whatever else is listening. */
+export function envFor({ embedUrl = `http://127.0.0.1:${PORTS.embed}`, chat = true } = {}) {
+  return {
+    LYNTAI_LIVE_MODEL_URL: embedUrl, LYNTAI_LIVE_EMBED_MODEL: 'embed',
+    ...(chat
+      ? { LYNTAI_LIVE_CHAT_URL: `http://127.0.0.1:${PORTS.chat}`, LYNTAI_LIVE_CHAT_MODEL: 'chat' }
+      : {}),
+  };
+}
 
-/** `--embed` and `--chat` are this module's; everything after a bare `--` is FORWARDED verbatim to
- *  `memory-locomo`, so a flag the bench grows needs no edit here. */
+/** `--embed`, `--embed-endpoint` and `--chat` are this module's; everything after a bare `--` is
+ *  FORWARDED verbatim to `memory-locomo`, so a flag the bench grows needs no edit here. */
 export function parseArgs(argv) {
   const at = (n) => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] ?? null : null; };
   const dashdash = argv.indexOf('--');
+  const embedEndpoint = at('embed-endpoint');
+  const embed = at('embed');
+  if (embed && embedEndpoint)
+    throw new Error('locomo-pair: pass --embed OR --embed-endpoint, not both');
   return {
-    embed: at('embed'),
+    embed,
+    embedEndpoint,
     chat: at('chat'),
     benchArgs: dashdash >= 0 ? argv.slice(dashdash + 1) : [],
   };
@@ -84,16 +101,18 @@ async function servedFile(port) {
 }
 
 async function main() {
-  const { embed, chat, benchArgs } = parseArgs(process.argv.slice(2));
+  const { embed, embedEndpoint, chat, benchArgs } = parseArgs(process.argv.slice(2));
   const modelDir = process.env.LYNTAI_MODEL_DIR ?? process.env.LYNTAI_CONTENTION_MODEL_DIR;
-  if (!modelDir || !embed || !chat) {
-    console.error('locomo-pair: set LYNTAI_MODEL_DIR and pass --embed <file.gguf> --chat <file.gguf>.');
+  if (!modelDir || !(embed || embedEndpoint)) {
+    console.error('locomo-pair: set LYNTAI_MODEL_DIR and pass --embed <file.gguf> (or');
+    console.error('  --embed-endpoint <url> for an embedder this harness cannot start), plus');
+    console.error('  --chat <file.gguf> for any mode that READS. `--retrieval` needs no reader.');
     console.error('  No default model directory, by design — a developer-machine path must never reach');
     console.error('  a tracked file. Everything after a bare `--` goes to memory-locomo unchanged.');
     process.exitCode = 2;
     return;
   }
-  const missing = [embed, chat].filter((f) => !fs.existsSync(path.join(modelDir, f)));
+  const missing = [embed, chat].filter((f) => f && !fs.existsSync(path.join(modelDir, f)));
   if (missing.length) {
     console.error(`locomo-pair: missing model file(s) in ${modelDir}: ${missing.join(', ')}`);
     process.exitCode = 2;
@@ -104,28 +123,33 @@ async function main() {
   const scratchDir = path.resolve(path.dirname(here), '..', '_locomo-pair');
   fs.mkdirSync(scratchDir, { recursive: true });
 
-  const serverExe = await resolveServerExe();
+  const serverExe = (embed || chat) ? await resolveServerExe() : null;
   const before = await neighbourReport(ownedPids());
   console.log(`Neighbours BEFORE (${before.length}): ${JSON.stringify(before.map((r) => r.pid))}`);
-  console.log(`embedder: ${embed} (${fs.statSync(path.join(modelDir, embed)).size} B)`);
-  console.log(`reader  : ${chat} (${fs.statSync(path.join(modelDir, chat)).size} B)`);
+  console.log(embed
+    ? `embedder: ${embed} (${fs.statSync(path.join(modelDir, embed)).size} B)`
+    : `embedder: ${embedEndpoint} (already running; this harness did not start it)`);
+  console.log(chat ? `reader  : ${chat} (${fs.statSync(path.join(modelDir, chat)).size} B)`
+    : 'reader  : NONE — a mode that does not read needs no chat server');
 
   let pids = [];
   const started = Date.now();
   try {
-    pids = await startServers(serverSpecs(embed, chat, modelDir), { scratchDir, serverExe });
-    console.log(`servers up on ${Object.values(PORTS).join(', ')} (pids ${pids.join(', ')})`);
-    for (const [role, port] of Object.entries(PORTS))
-      console.log(`  ${role}: serving ${await servedFile(port) ?? 'unknown (this build exposes no /props)'}`);
+    const specs = serverSpecs(embed, chat, modelDir);
+    pids = await startServers(specs, { scratchDir, serverExe });
+    console.log(`servers up on ${specs.map((s) => s.port).join(', ') || '(none needed)'} `
+      + `(pids ${pids.join(', ') || '-'})`);
+    for (const spec of specs)
+      console.log(`  ${spec.label}: serving ${await servedFile(spec.port) ?? 'unknown'}`);
 
     const code = await runTracked('dotnet', ['run', '-c', 'Release',
       '--project', path.join(repoRoot, 'bench', 'Lyntai.Benchmarks'), '--', '--locomo', ...benchArgs],
-      envFor());
+      envFor({ embedUrl: embedEndpoint ?? undefined, chat: !!chat }));
     if (code !== 0) process.exitCode = code;
   } finally {
     // Unconditional: a start that THREW is the likeliest moment to have leaked one, so the survivor
     // re-read must run on that path above all.
-    const { survivors } = await stopServers(pids, Object.values(PORTS));
+    const { survivors } = await stopServers(pids, serverSpecs(embed, chat, modelDir).map((s) => s.port));
     if (survivors.length) {
       console.error(`*** PORTS STILL LISTENING: ${JSON.stringify(survivors)} — kill these by PID ***`);
       process.exitCode = 1;

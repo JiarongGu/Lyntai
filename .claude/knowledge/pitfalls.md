@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 198 traps, indexed two ways
+## Facets — 199 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (36) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 1041 · 1138 · 1393 · 2344 · 2354 · 2380 · 2391 · 2428 · 2799 · 2829 · 2838
-- **`encoding`** (6) — 75 · 80 · 590 · 598 · 864 · 2428
+- **`gates`** (36) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 1041 · 1154 · 1409 · 2360 · 2370 · 2396 · 2407 · 2444 · 2815 · 2845 · 2854
+- **`encoding`** (6) — 75 · 80 · 590 · 598 · 864 · 2444
 - **`git`** (7) — 207 · 232 · 263 · 288 · 598 · 620 · 869
-- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 1033 · 1393 · 2363
-- **`router`** (6) — 1236 · 1241 · 1250 · 1252 · 1255 · 1385
-- **`cli`** (18) — 750 · 864 · 1236 · 1257 · 1265 · 1274 · 1278 · 1290 · 1294 · 1301 · 1305 · 1312 · 1316 · 1349 · 1368 · 1372 · 1377 · 2214
-- **`lifetime`** (6) — 1415 · 1424 · 1429 · 1434 · 1447 · 1455
-- **`storage`** (17) — 1328 · 1464 · 1566 · 1594 · 1596 · 1597 · 1599 · 1601 · 1619 · 1630 · 1859 · 1871 · 2127 · 2244 · 2410 · 2592 · 2776
-- **`memory`** (38) — 387 · 422 · 550 · 1328 · 1498 · 1517 · 1528 · 1554 · 1566 · 1581 · 1602 · 1619 · 1630 · 1669 · 1684 · 1691 · 1710 · 1721 · 1739 · 1752 · 1765 · 1823 · 1878 · 1898 · 1934 · 1970 · 1988 · 1995 · 2026 · 2048 · 2076 · 2148 · 2223 · 2244 · 2485 · 2644 · 2672 · 2755
-- **`generation`** (11) — 1101 · 1131 · 1214 · 1241 · 1447 · 1970 · 2161 · 2173 · 2197 · 2304 · 2329
-- **`di`** (12) — 1434 · 1684 · 1710 · 1890 · 1892 · 1895 · 1898 · 1916 · 1995 · 2026 · 2173 · 2223
-- **`measurement`** (64) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 827 · 843 · 850 · 887 · 897 · 917 · 928 · 962 · 989 · 995 · 1011 · 1028 · 1033 · 1072 · 1101 · 1116 · 1131 · 1146 · 1164 · 1179 · 1196 · 1214 · 1265 · 1464 · 1483 · 1554 · 1721 · 1752 · 1779 · 1790 · 1805 · 1823 · 1878 · 1934 · 2380 · 2461 · 2512 · 2527 · 2551 · 2571 · 2592 · 2622 · 2659 · 2723 · 2755
-- **`docs`** (23) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 1041 · 1052 · 1057 · 1064 · 1138 · 1528 · 2048 · 2115 · 2279 · 2289 · 2344 · 2354 · 2391 · 2410 · 2681
-- **`tests`** (21) — 1349 · 1540 · 1581 · 1602 · 1669 · 1691 · 1859 · 1871 · 2127 · 2474 · 2485 · 2496 · 2672 · 2694 · 2776 · 2784 · 2792 · 2796 · 2799 · 2811 · 2824
+- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 1033 · 1409 · 2379
+- **`router`** (6) — 1252 · 1257 · 1266 · 1268 · 1271 · 1401
+- **`cli`** (18) — 750 · 864 · 1252 · 1273 · 1281 · 1290 · 1294 · 1306 · 1310 · 1317 · 1321 · 1328 · 1332 · 1365 · 1384 · 1388 · 1393 · 2230
+- **`lifetime`** (6) — 1431 · 1440 · 1445 · 1450 · 1463 · 1471
+- **`storage`** (17) — 1344 · 1480 · 1582 · 1610 · 1612 · 1613 · 1615 · 1617 · 1635 · 1646 · 1875 · 1887 · 2143 · 2260 · 2426 · 2608 · 2792
+- **`memory`** (39) — 387 · 422 · 550 · 1116 · 1344 · 1514 · 1533 · 1544 · 1570 · 1582 · 1597 · 1618 · 1635 · 1646 · 1685 · 1700 · 1707 · 1726 · 1737 · 1755 · 1768 · 1781 · 1839 · 1894 · 1914 · 1950 · 1986 · 2004 · 2011 · 2042 · 2064 · 2092 · 2164 · 2239 · 2260 · 2501 · 2660 · 2688 · 2771
+- **`generation`** (11) — 1101 · 1147 · 1230 · 1257 · 1463 · 1986 · 2177 · 2189 · 2213 · 2320 · 2345
+- **`di`** (12) — 1450 · 1700 · 1726 · 1906 · 1908 · 1911 · 1914 · 1932 · 2011 · 2042 · 2189 · 2239
+- **`measurement`** (65) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 827 · 843 · 850 · 887 · 897 · 917 · 928 · 962 · 989 · 995 · 1011 · 1028 · 1033 · 1072 · 1101 · 1116 · 1132 · 1147 · 1162 · 1180 · 1195 · 1212 · 1230 · 1281 · 1480 · 1499 · 1570 · 1737 · 1768 · 1795 · 1806 · 1821 · 1839 · 1894 · 1950 · 2396 · 2477 · 2528 · 2543 · 2567 · 2587 · 2608 · 2638 · 2675 · 2739 · 2771
+- **`docs`** (23) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 1041 · 1052 · 1057 · 1064 · 1154 · 1544 · 2064 · 2131 · 2295 · 2305 · 2360 · 2370 · 2407 · 2426 · 2697
+- **`tests`** (21) — 1365 · 1556 · 1597 · 1618 · 1685 · 1707 · 1875 · 1887 · 2143 · 2490 · 2501 · 2512 · 2688 · 2710 · 2792 · 2800 · 2808 · 2812 · 2815 · 2827 · 2840
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (21) — 207 · 387 · 422 · 651 · 762 · 1072 · 1214 · 1250 · 1255 · 1274 · 1349 · 1429 · 1517 · 1765 · 1898 · 1934 · 2161 · 2173 · 2223 · 2329 · 2644
-- **`cancellation`** (5) — 1236 · 1241 · 1498 · 1517 · 1540
-- **`vacuous`** (42) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 827 · 917 · 1101 · 1116 · 1131 · 1164 · 1305 · 1368 · 1385 · 1540 · 1581 · 1602 · 1669 · 1691 · 1779 · 1790 · 1823 · 1934 · 2048 · 2410 · 2485 · 2496 · 2527 · 2659 · 2672 · 2694 · 2723 · 2776 · 2799 · 2811 · 2829 · 2838
-- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1179 · 1393 · 1684 · 1752 · 1859 · 1871 · 2048 · 2076 · 2127 · 2244 · 2344 · 2354 · 2363 · 2380 · 2391 · 2410 · 2496 · 2659 · 2672 · 2796 · 2829 · 2838
-- **`second-door`** (20) — 1252 · 1290 · 1294 · 1305 · 1312 · 1372 · 1377 · 1455 · 1597 · 1619 · 1898 · 2026 · 2127 · 2148 · 2161 · 2173 · 2197 · 2244 · 2279 · 2304
-- **`stale-claim`** (18) — 57 · 152 · 232 · 296 · 671 · 819 · 850 · 869 · 1041 · 1057 · 1528 · 1895 · 2115 · 2148 · 2197 · 2279 · 2391 · 2681
-- **`silent-loss`** (53) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 864 · 897 · 928 · 962 · 1028 · 1072 · 1131 · 1138 · 1146 · 1214 · 1278 · 1294 · 1328 · 1415 · 1447 · 1483 · 1554 · 1594 · 1596 · 1597 · 1599 · 1619 · 1630 · 1669 · 1805 · 1878 · 1890 · 1895 · 1916 · 1988 · 2026 · 2076 · 2214 · 2304 · 2344 · 2354 · 2428 · 2512 · 2592 · 2723
-- **`wrong-subject`** (60) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 827 · 843 · 850 · 897 · 928 · 962 · 989 · 995 · 1052 · 1064 · 1101 · 1116 · 1146 · 1164 · 1179 · 1196 · 1252 · 1301 · 1393 · 1424 · 1434 · 1464 · 1554 · 1602 · 1710 · 1721 · 1739 · 1752 · 1779 · 1790 · 1823 · 1970 · 1995 · 2329 · 2461 · 2512 · 2527 · 2551 · 2571 · 2592 · 2694 · 2755 · 2799
-- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 1011 · 1033 · 1257 · 1265 · 1274 · 1316 · 1368 · 1739 · 1970 · 2289 · 2681
-- **`ordering`** (10) — 583 · 1278 · 1377 · 1566 · 1601 · 1916 · 2214 · 2223 · 2474 · 2622
-- **`resource`** (14) — 564 · 598 · 637 · 887 · 995 · 1196 · 1257 · 1349 · 1455 · 1464 · 1892 · 2784 · 2792 · 2824
+- **`fail-open`** (21) — 207 · 387 · 422 · 651 · 762 · 1072 · 1230 · 1266 · 1271 · 1290 · 1365 · 1445 · 1533 · 1781 · 1914 · 1950 · 2177 · 2189 · 2239 · 2345 · 2660
+- **`cancellation`** (5) — 1252 · 1257 · 1514 · 1533 · 1556
+- **`vacuous`** (43) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 827 · 917 · 1101 · 1116 · 1132 · 1147 · 1180 · 1321 · 1384 · 1401 · 1556 · 1597 · 1618 · 1685 · 1707 · 1795 · 1806 · 1839 · 1950 · 2064 · 2426 · 2501 · 2512 · 2543 · 2675 · 2688 · 2710 · 2739 · 2792 · 2815 · 2827 · 2845 · 2854
+- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1195 · 1409 · 1700 · 1768 · 1875 · 1887 · 2064 · 2092 · 2143 · 2260 · 2360 · 2370 · 2379 · 2396 · 2407 · 2426 · 2512 · 2675 · 2688 · 2812 · 2845 · 2854
+- **`second-door`** (20) — 1268 · 1306 · 1310 · 1321 · 1328 · 1388 · 1393 · 1471 · 1613 · 1635 · 1914 · 2042 · 2143 · 2164 · 2177 · 2189 · 2213 · 2260 · 2295 · 2320
+- **`stale-claim`** (18) — 57 · 152 · 232 · 296 · 671 · 819 · 850 · 869 · 1041 · 1057 · 1544 · 1911 · 2131 · 2164 · 2213 · 2295 · 2407 · 2697
+- **`silent-loss`** (53) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 864 · 897 · 928 · 962 · 1028 · 1072 · 1147 · 1154 · 1162 · 1230 · 1294 · 1310 · 1344 · 1431 · 1463 · 1499 · 1570 · 1610 · 1612 · 1613 · 1615 · 1635 · 1646 · 1685 · 1821 · 1894 · 1906 · 1911 · 1932 · 2004 · 2042 · 2092 · 2230 · 2320 · 2360 · 2370 · 2444 · 2528 · 2608 · 2739
+- **`wrong-subject`** (61) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 827 · 843 · 850 · 897 · 928 · 962 · 989 · 995 · 1052 · 1064 · 1101 · 1116 · 1132 · 1162 · 1180 · 1195 · 1212 · 1268 · 1317 · 1409 · 1440 · 1450 · 1480 · 1570 · 1618 · 1726 · 1737 · 1755 · 1768 · 1795 · 1806 · 1839 · 1986 · 2011 · 2345 · 2477 · 2528 · 2543 · 2567 · 2587 · 2608 · 2710 · 2771 · 2815
+- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 1011 · 1033 · 1273 · 1281 · 1290 · 1332 · 1384 · 1755 · 1986 · 2305 · 2697
+- **`ordering`** (10) — 583 · 1294 · 1393 · 1582 · 1617 · 1932 · 2230 · 2239 · 2490 · 2638
+- **`resource`** (14) — 564 · 598 · 637 · 887 · 995 · 1212 · 1273 · 1365 · 1471 · 1480 · 1908 · 2800 · 2808 · 2840
 
 <!-- facets:end -->
 
@@ -1113,6 +1113,22 @@ of the two: most of these traps recur in a subsystem that had never met them.
   then cannot emit a well-formed `{"final": …}` after the observation. It also costs the extra call that
   repair round bills: 2.34-2.54 model calls per run against 1.70-1.79. **Count what the loop DID, not just
   what it chose**; the published grid could not see this because its models were 1.6x and 5x larger.
+- **A scorer that matches TEXT is moved by any option that only changes how much text is SHOWN — so the <!-- trap: sub=measurement,memory shape=wrong-subject,vacuous -->
+  arm reads as a retrieval change when nothing about retrieval moved.** Caught 2026-09-13 while scoping
+  `MemoryDetail.Full` against LongMemEval's knowledge-update class, BEFORE the run. `MemoryItem` carries a
+  120-character `Headline` and a nullable whole-entry `Content`, and that bench scores by searching
+  `i.Content ?? i.Headline` for the superseded fact. Under `MemoryDetail.Headline` the scorer sees 120
+  characters per item; under `Full` it sees the whole turn. **The same entries are on the page either way**
+  — `Detail` rehydrates the text of an already-chosen set and cannot change which items come back — so
+  `stale@k` would have RISEN and read as *"full detail hurts suppression"* when all that changed was the
+  scorer's eyesight.
+  <br>**The three metrics in this repository divide cleanly on it, and only one is exposed.**
+  `evidence-hit@k` matches a `dia_id`, which survives truncation and is immune — its own doc says so. A
+  READER-facing metric (token-F1) is genuinely measuring the effect, because the reader really does see
+  more. A TEXT-MATCHED model-free metric is the confounded one.
+  <br>**Ask of any option under test: does the SCORER read the thing this option varies?** If it does, the
+  arm measures visibility rather than behaviour — and the fix is to score by an identifier the option
+  cannot touch, not to add a caveat to the table.
 - **A p-value that WANDERS between runs is evidence the test is underpowered, not evidence of no <!-- trap: sub=measurement shape=wrong-subject,vacuous -->
   effect — and reading it the other way publishes a real result as a null.** Walked into 2026-09-13 and
   caught by a third run. Two runs of the transport grid each had exactly one cell under p = 0.05 and **it

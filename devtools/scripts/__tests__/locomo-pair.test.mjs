@@ -64,6 +64,45 @@ describe('envFor', () => {
     assert.equal(envFor().LYNTAI_LIVE_MODEL_URL, `http://127.0.0.1:${PORTS.embed}`);
     assert.equal(envFor().LYNTAI_LIVE_CHAT_URL, `http://127.0.0.1:${PORTS.chat}`);
   });
+
+  it('leaves the reader variables ABSENT when no reader was asked for', () => {
+    // Absent rather than empty: the bench then refuses loudly instead of inheriting its own default,
+    // which spells `localhost` and would point at whatever else happened to be listening.
+    const env = envFor({ chat: false });
+    assert.equal(Object.hasOwn(env, 'LYNTAI_LIVE_CHAT_URL'), false);
+    assert.equal(env.LYNTAI_LIVE_MODEL_URL, `http://127.0.0.1:${PORTS.embed}`);
+  });
+
+  it('points the embedder at an EXTERNAL url when one was given', () => {
+    assert.equal(envFor({ embedUrl: 'http://127.0.0.1:8180' }).LYNTAI_LIVE_MODEL_URL,
+      'http://127.0.0.1:8180');
+  });
+});
+
+describe('only what is CALLED gets served', () => {
+  it('serves no reader for a mode that does not read', () => {
+    // `memory-locomo --retrieval` scores a model-free metric. Serving 2.5 GB of chat weights for it is
+    // the waste `tool-affordance --scorers-only` had to shed before it could start on a busy device.
+    const specs = serverSpecs('e.gguf', null, '/models');
+    assert.deepEqual(specs.map((s) => s.label), ['embed']);
+  });
+
+  it('serves NOTHING when the embedder is an external endpoint and no reader was asked for', () => {
+    // A static model2vec embedder has no GGUF, so this harness cannot start one at all.
+    assert.deepEqual(serverSpecs(null, null, '/models'), []);
+  });
+
+  it('refuses --embed together with --embed-endpoint rather than silently preferring one', () => {
+    assert.throws(() => parseArgs(['--embed', 'e.gguf', '--embed-endpoint', 'http://x']), /not both/);
+  });
+
+  it('parses an endpoint embedder and an absent reader', () => {
+    const o = parseArgs(['--embed-endpoint', 'http://127.0.0.1:8180', '--', '--retrieval']);
+    assert.equal(o.embedEndpoint, 'http://127.0.0.1:8180');
+    assert.equal(o.embed, null);
+    assert.equal(o.chat, null);
+    assert.deepEqual(o.benchArgs, ['--retrieval']);
+  });
 });
 
 describe('parseArgs', () => {
