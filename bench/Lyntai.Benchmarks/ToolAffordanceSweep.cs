@@ -183,8 +183,12 @@ internal static class ToolAffordanceSweep
         if (embedder is null) return 1;
         var extra = await SweepDoubles.TryExtraEmbeddersAsync(http, "tool-affordance");
         if (extra is null) return 1;
-        var big = await SweepDoubles.TryRealChatAsync(http, "tool-affordance");
-        if (big is null) return 1;
+        // Not resolved at all under `--scorers-only`: that mode calls no chat model, and DEMANDING one
+        // meant the orchestrator had to serve ~3.3 GB of weights it never touched — which is what made the
+        // cheap mode refuse to start on a machine whose GPU was merely busy. A mode that exists to be
+        // affordable must not pay the full bill.
+        var big = scorersOnly ? null : await SweepDoubles.TryRealChatAsync(http, "tool-affordance");
+        if (!scorersOnly && big is null) return 1;
         var small = TrySmallChat(http);
         var nativeChat = TryNativeChat(http);
 
@@ -202,9 +206,19 @@ internal static class ToolAffordanceSweep
         var scorers = new List<(string Arm, SweepDoubles.CachingEmbedder Embedder)> { ("cosine", embedder) };
         scorers.AddRange(extra.Select(e => ($"cosine-{e.Label}", e.Embedder)));
 
+        // CENTERING, as a paired arm on EVERY embedder rather than a rescue for the weak one. An embedding
+        // space is anisotropic — every vector shares a large common component — so cosine measures that
+        // shared direction as much as the text. Subtracting the corpus centroid removes it, and the reason
+        // it is run on the incumbent too is that a lever which only ever gets tried on a small model can
+        // never be shown to transfer. The centroid is over all 42 declarations, computed ONCE per embedder.
+        var centroids = new Dictionary<string, float[]>(StringComparer.Ordinal);
+        foreach (var (arm, scorer) in scorers)
+            centroids[arm] = Centroid(await scorer.EmbedAsync(
+                [.. ToolAffordanceCorpus.Tools.Select(ToolAffordanceCorpus.Declaration)]));
+
         var baseline = !scorersOnly && !skipBaseline;
         var cells = await RunArmsAsync(trials, baseline ? big : null, baseline ? small : null,
-            scorersOnly ? null : nativeChat, rerankOk ? reranker : null, scorers, lanes);
+            scorersOnly ? null : nativeChat, rerankOk ? reranker : null, scorers, centroids, lanes);
         var negativeNatives = scorersOnly || nativeChat is null
             ? []
             : new[] { (NativeLabel, nativeChat) };
@@ -295,6 +309,23 @@ internal static class ToolAffordanceSweep
         return [.. Enumerable.Range(0, cap).Select(i => trials[(int)(i * stride)])];
     }
 
+    /// <summary>The mean vector of a set — the direction every embedding in this corpus shares.</summary>
+    private static float[] Centroid(IReadOnlyList<float[]> vectors)
+    {
+        var mean = new float[vectors[0].Length];
+        foreach (var v in vectors)
+            for (var i = 0; i < mean.Length && i < v.Length; i++) mean[i] += v[i];
+        for (var i = 0; i < mean.Length; i++) mean[i] /= vectors.Count;
+        return mean;
+    }
+
+    private static float[] Subtract(float[] v, float[] mean)
+    {
+        var result = new float[v.Length];
+        for (var i = 0; i < v.Length; i++) result[i] = v[i] - (i < mean.Length ? mean[i] : 0f);
+        return result;
+    }
+
     private static double Cosine(float[] a, float[] b)
     {
         double dot = 0, na = 0, nb = 0;
@@ -333,6 +364,7 @@ internal static class ToolAffordanceSweep
         SweepDoubles.OpenAiCompatibleChat? nativeChat,
         CrossEncoderReranker? reranker,
         IReadOnlyList<(string Arm, SweepDoubles.CachingEmbedder Embedder)> scorers,
+        IReadOnlyDictionary<string, float[]> centroids,
         int lanes)
     {
         // Empty under `--scorers-only`, which is what drops every model arm — the arm NAMES are built
@@ -350,7 +382,8 @@ internal static class ToolAffordanceSweep
         var cells = new Dictionary<(string Arm, int N), Cell>();
         foreach (var n in RosterSizes)
         {
-            var names = new List<string>(scorers.Select(s => s.Arm)) { "loop-random", "loop-oracle" };
+            var names = new List<string>(scorers.SelectMany(s => new[] { s.Arm, $"{s.Arm}-centered" }))
+                { "loop-random", "loop-oracle" };
             foreach (var (label, _) in chats)
             {
                 names.Add($"loop-{label}");
@@ -371,7 +404,7 @@ internal static class ToolAffordanceSweep
         await Parallel.ForEachAsync(trials.Select((t, i) => (Trial: t, Index: i)),
             new ParallelOptions { MaxDegreeOfParallelism = lanes }, async (item, ct) =>
             {
-                await RunOneTrialAsync(item.Trial, item.Index, chats, natives, reranker, scorers, cells, ct);
+                await RunOneTrialAsync(item.Trial, item.Index, chats, natives, reranker, scorers, centroids, cells, ct);
                 var seen = Interlocked.Increment(ref done);
                 // Every ten, not every twenty-five: a redirected stdout is block-buffered, so a sparse
                 // progress line leaves a multi-hour run looking hung for its first half.
@@ -387,6 +420,7 @@ internal static class ToolAffordanceSweep
         IReadOnlyList<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)> natives,
         CrossEncoderReranker? reranker,
         IReadOnlyList<(string Arm, SweepDoubles.CachingEmbedder Embedder)> scorers,
+        IReadOnlyDictionary<string, float[]> centroids,
         Dictionary<(string Arm, int N), Cell> cells,
         CancellationToken ct)
     {
@@ -408,6 +442,14 @@ internal static class ToolAffordanceSweep
             var query = (await scorer.EmbedAsync([trial.Request], ct))[0];
             var vectors = await scorer.EmbedAsync(declarations, ct);
             scores[arm] = [.. vectors.Select(v => (double?)Cosine(query, v))];
+
+            // The SAME vectors, scored after removing the corpus centroid — paired by construction, so the
+            // two arms differ in nothing but that subtraction and no second embedding call is spent.
+            if (centroids.TryGetValue(arm, out var mean))
+            {
+                var q = Subtract(query, mean);
+                scores[$"{arm}-centered"] = [.. vectors.Select(v => (double?)Cosine(q, Subtract(v, mean)))];
+            }
         }
 
         if (reranker is not null)

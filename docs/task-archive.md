@@ -3318,10 +3318,12 @@ it**: the engine's arms sit below plain cosine under both. `docs/memory-measurem
 (`locomo-qa-second-embedder`) owns the figures and states the bound, which matters here because the result
 is a null: ±7-12 point intervals exclude a large effect only.
 
-**The reader half is BLOCKED on the machine, and that is the scoping finding.** A second reader exists to
-separate the reader's ceiling from the memory layer's, and every alternative on this machine is *weaker*
-than the incumbent 4B — which lowers the ceiling rather than separating it. It needs a stronger model,
-which is a download that fits this device.
+**The reader half stays open, and its scoping was CORRECTED the same day.** This entry first said it needed
+a model STRONGER than the 4B, to stop the reader's ceiling confounding the memory layer. The owner rejected
+that and was right twice over: `--retrieval` already separates the layer model-free, and a reader above the
+4B prices a configuration the sizing position rules out. The question is the deployment's — do the arm
+differences survive at the size class that would actually run — so the second reader is a SMALLER one, and
+both candidates were already on disk.
 
 **Two caveats worth carrying** rather than rediscovering: the bench's embedder double implements only the
 role-less `IEmbedder` overload, so every asymmetric model is measured without the prefixes it was trained

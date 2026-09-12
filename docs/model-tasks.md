@@ -214,14 +214,25 @@ is **102,000,816 B at Q8_0** and therefore over the target before a single trans
 **monolingual is the escape and quantising is not**: a Chinese-capable embedder screens healthy at
 **47,886,240 B**.
 
-**The STATIC class is blocked on a RUNTIME, not on size** — recorded so nobody re-surveys it. A `model2vec`
-/ `potion` model is a token→vector table plus pooling with no transformer at inference, which moves the
-question off llama.cpp entirely; that is the appeal, since it is the only candidate class where "sub-100 MB"
-and "no server at all" are one sentence. But **no GGUF of any such model exists** (the HuggingFace model API
-searched three ways, zero results), so nothing in this repository's serving path can run one — and
-`potion-retrieval-32M`, the retrieval-tuned member, is **129,210,456 B** and over the target regardless.
-Reaching the class needs ONNX or a managed implementation whose hard part is the tokenizer: a new dependency
-and new public surface, which is the open question `TASKS.md` Part 196 holds.
+**The STATIC class is now MEASURED, and the answer is that it works and costs ~12 points.** A `model2vec` /
+`potion` model is a token→vector table plus pooling with no transformer at inference, which moves the
+question off llama.cpp entirely — and that is the appeal, since it is the only candidate class where
+"sub-100 MB" and "no server at all" are one sentence. **No GGUF of any such model exists** (the HuggingFace
+API searched three ways, zero results), so it was unreachable by every instrument here until a shim made it
+measurable. On tool routing (`docs/memory-measurements.md` §5, `affordance-static-embedders`):
+
+- **It works.** All three sizes screen HEALTHY, and **none has a context limit** — a lookup table has no
+  positional embeddings, so it swallows an input every sub-100 MB *transformer* embedder rejects at 512.
+- **A smaller TRANSFORMER still beats it**: `all-MiniLM-L6-v2` Q8_0 at **25,008,064 B** is ahead of
+  `potion-retrieval-32M` at **129,210,456 B** at every roster size.
+- **Retrieval tuning does not close it** — the tuned member at 4.3× the bytes of `potion-base-8M` reads no
+  better at three options and worse at seven. The gap is the class, not the member.
+
+**So the trade is not quality-per-byte; it is infrastructure.** Roughly 12 points of tool-routing accuracy
+for no server, no GPU and no port — which is worth very different amounts to a shared host and to a game
+that already owns the device. Reaching the class in-process still needs ONNX or a managed implementation
+whose hard part is the tokenizer: a new dependency and new public surface, which is the open question
+`TASKS.md` Part 196 holds, now with a price attached.
 
 **Three things that row does not say, and each one matters more than the number.**
 
@@ -393,8 +404,12 @@ rendering. Read the DIRECTION and re-measure on your own hardware:
 
 | shape | busy GPU | free GPU |
 |---|---|---|
-| generative (a 4B instruct model) | **26× slower** than CPU | **12× faster** than CPU |
+| generative (a 4B instruct model) | **92× slower** than CPU | **12× faster** than CPU |
 | encode-only (an embedder) | 4.8× faster than CPU | 5.4× faster than CPU |
+
+_The busy-GPU generation cell read **26×** until 2026-09-13 and does not divide out of the measurement it
+comes from: 0.10 tokens/s offloaded against 9.22 on CPU, both in the busy column, is 92×. The encode row
+was correct. `.claude/knowledge/pitfalls.md` carries the raw table and the correction._
 
 **Encode-only work is robust to a busy GPU; generation is not.** That is a second and independent reason to
 prefer a cross-encoder over an instruct model where something else owns the device — a game, another

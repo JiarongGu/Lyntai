@@ -31,12 +31,12 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 404 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 427 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
 | 498 | 109 | Widen the QA half: a SECOND READER | startable |  |
-| 685 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 771 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 858 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
-| 870 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
-| 899 | 178 | Decide whether the PROMPT-protocol fallback should announce itself | decision-only | a ruling on whether a silent transport fallback may stay silent, or earns a… |
-| 943 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface: a managed IEmbedder implementation, and whe… |
+| 691 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 777 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 864 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
+| 876 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
+| 905 | 178 | Decide whether the PROMPT-protocol fallback should announce itself | decision-only | a ruling on whether a silent transport fallback may stay silent, or earns a… |
+| 949 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface: a managed IEmbedder implementation, and whe… |
 
 <!-- open-items:end -->
 
@@ -503,17 +503,23 @@ it._
   −5.5 to +2.9 with every CI spanning zero — and the conclusion the arms support survives the swap. The
   bound is stated with the null: ±7-12 point intervals exclude a LARGE effect only.
   `docs/memory-measurements.md` §5 owns the figures._
-  <br>**What is left is the READER, and it must be a STRONGER one — that is the whole point.** A second
-  reader exists to separate the reader's ceiling from the memory layer's, and every alternative already on
-  this machine is *below* the incumbent `gemma-3-4b-it` (`gemma-3-1b-it` 806,058,240 B,
-  `qwen2.5-0.5b-instruct` 491,400,032 B). A weaker reader lowers the ceiling instead of separating it, so
-  running one would answer a different question.
-  <br>**First step, and it is a STEP rather than a blocker** (`task-lifecycle.md`: a NAMED download is a
-  step): pull **`Qwen2.5-7B-Instruct-Q4_K_M.gguf`, 4,683,074,240 B** — a different family as well as a
-  larger size, which is what makes a ceiling difference readable rather than just a scale one, and it fits
-  12 GB of VRAM beside an embedder. Then re-run the four arms at n = 61 and compare the ARM ORDERING
-  against `docs/memory-measurements.md` §5's `locomo-qa-second-embedder` table, which is the paired
-  baseline it should be read against.
+  <br>**What is left is the READER, and it must be a SMALLER one — corrected 2026-09-13 at the owner's
+  direction.** This line briefly called for a model STRONGER than the 4B, on the argument that a second
+  reader exists to separate the reader's ceiling from the memory layer's. **Two things are wrong with
+  that.** The separation is already available model-free — `memory-locomo --retrieval` scores
+  `evidence-hit@k` with no reader at all, which is the instrument for *"what is the memory layer worth"*.
+  And a reader above the 4B measures a configuration this project has ruled out: §3's sizing position
+  aims at ~500 MB, and **D110**'s window already retired the 4B as a production candidate, keeping it only
+  as a CEILING arm.
+  <br>**The question worth asking is the deployment's: do the arm differences SURVIVE at the size class
+  that would actually run?** Both candidates are already on disk and need no download —
+  `gemma-3-1b-it` Q4_K_M (**806,058,240 B**) and `qwen2.5-0.5b-instruct` Q4_K_M (**491,400,032 B**), the
+  latter inside the sizing target. Run the same four arms at n = 61 and compare the ARM ORDERING against
+  `docs/memory-measurements.md` §5's `locomo-qa-second-embedder` table, which is the paired baseline.
+  <br>_**A floor is a real outcome here, not a failed run.** If a small reader scores near zero on every
+  arm, that says the reader is the binding constraint at this size and the memory layer cannot be
+  priced through it — which is worth knowing before anyone ships a small reader over this engine. Report
+  it as the result rather than escalating to a bigger model, which would answer a different question._
   <br>**Cost, measured rather than guessed:** the fixed half is ingesting ~670 turns per touched
   conversation and the scaling half is TWO model calls per arm per question — the answer, and the judge
   that grades it. Eleven arms at n = 6 took **1,006 s**; four arms at n = 61 took **946 s**. So **cut
@@ -947,13 +953,20 @@ turns on._
   <br>**Why it is worth asking**: the stated aim is that a memory subsystem *"should not claim the resources
   of"* the application's own model (§3). An embedder needing no server, no GPU and no port is the strongest
   possible form of that, and it is the one place where sub-100 MB and zero-infrastructure coincide.
-  <br>**The survey SHARPENED this and did not answer it** (2026-09-12). A managed implementation is now the
-  only way to reach the static class at all: **no GGUF of any `model2vec` / `potion` / `static-retrieval`
-  model exists**, so llama.cpp cannot serve one and the alternative runtime is ONNX. Sizes, exact:
+  <br>**The class is now PRICED, so this is a ruling on a known trade rather than on a hope**
+  (2026-09-13, `docs/memory-measurements.md` §5 `affordance-static-embedders`). Measured through a shim,
+  because no GGUF of any `model2vec` / `potion` / `static-retrieval` model exists and llama.cpp therefore
+  cannot serve one: **every size screens HEALTHY and none has a context limit** — a lookup table has no
+  positional embeddings, so it accepts an input every sub-100 MB *transformer* embedder rejects at 512.
+  On tool routing it reads **63.1-70.8%** at three options against a 25,008,064 B MiniLM's **78.6%** and
+  the 333,590,944 B incumbent's **81.0%**. **Retrieval tuning does not close it**: the tuned member at
+  **129,210,456 B** is no better at three options and worse at seven than `potion-base-8M` at
+  **30,236,760 B**, so the gap is the class rather than the member.
+  <br>**The ruling is therefore: is ~12 points of selective accuracy worth no server, no GPU and no port?**
+  That is worth very different amounts to a shared host and to a game that already owns the device — which
+  is why it is a deployment question and not a benchmark one. Exact sizes for the cheap members:
   `potion-base-2M` **7,559,256 B**, `potion-base-8M` **30,236,760 B**, `static-retrieval-mrl-en-v1`'s int8
-  ONNX **31,259,319 B** — while `potion-retrieval-32M`, the retrieval-tuned member, is **129,210,456 B** and
-  over the target anyway. So the cheap members are the ones NOT tuned for retrieval, which is the trade
-  whoever rules on this is actually buying.
+  ONNX **31,259,319 B**.
   <br>_Not startable until ruled: a managed tokenizer is a third-party dependency, and
   `dotnet-package-layout.md` forbids one in Core — so this is an ADAPTER package plus a public type, on an
   API frozen under SemVer since 1.0 (**D70**). The ruling is which of those costs is acceptable, and it is

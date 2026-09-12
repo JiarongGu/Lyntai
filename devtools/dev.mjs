@@ -422,6 +422,15 @@ switch (cmd) {
     run('node', [path.join(repo, 'devtools', 'scripts', 'embed-screen.mjs'), ...args]);
     break;
 
+  // locomo-pair — `memory-locomo` against a CHOSEN embedder and reader, owning both servers. It is the one
+  // study here with no orchestrator, so a bare run takes whatever is LISTENING and silently measures
+  // someone else's model (`.claude/knowledge/pitfalls.md` — a busy port fails UPWARD). This makes the pair
+  // an argument, which is what lets "does the conclusion survive a second embedder / a smaller reader" be
+  // asked at all. Everything after a bare `--` is forwarded to the bench unchanged.
+  case 'locomo-pair':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'locomo-pair.mjs'), ...args]);
+    break;
+
   case 'doctor': {
     // all three checks always run (no short-circuit) so drift is reported in one pass. `--fix` syncs the
     // README headline; it deliberately does NOT "fix" the version — a hand-authored version is the problem,

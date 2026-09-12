@@ -283,4 +283,29 @@ describe('parseArgs', () => {
     assert.deepEqual(o.inspect, ['http://a', 'http://b']);
     assert.equal(o.port, 9);
   });
+
+  it('takes repeatable --endpoint label=url, for an embedder this harness cannot START', () => {
+    // A model2vec/potion static embedder has no GGUF in existence, so llama-server cannot serve it and
+    // the class was unreachable by every instrument here. An already-running OpenAI-compatible endpoint
+    // is the seam that reaches it — and the same door screens Ollama or anything hosted.
+    const o = parseArgs(['--endpoint', 'potion-8M=http://127.0.0.1:8180',
+      '--endpoint', 'potion-2M=http://127.0.0.1:8181']);
+    assert.deepEqual(o.endpoints, [
+      { label: 'potion-8M', url: 'http://127.0.0.1:8180' },
+      { label: 'potion-2M', url: 'http://127.0.0.1:8181' },
+    ]);
+  });
+
+  it('rejects an --endpoint that is not label=url rather than guessing one half', () => {
+    assert.throws(() => parseArgs(['--endpoint', 'http://127.0.0.1:8180']), /label=url/);
+    assert.throws(() => parseArgs(['--endpoint', '=http://x']), /label=url/);
+    assert.throws(() => parseArgs(['--endpoint', 'potion=']), /label=url/);
+  });
+
+  it('carries --bytes so an endpoint row can still state a SIZE the endpoint does not know', () => {
+    // The size column is the whole point of this survey and an HTTP endpoint cannot report its own
+    // weight file. Absent is reported as unknown rather than as zero, which would read as a measurement.
+    assert.equal(parseArgs(['--endpoint', 'p=http://x', '--bytes', '30236760']).bytes, 30236760);
+    assert.equal(parseArgs(['--endpoint', 'p=http://x']).bytes, null);
+  });
 });

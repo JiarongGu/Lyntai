@@ -213,9 +213,22 @@ export function parseArgs(argv) {
     inspect.push(a);
   }
 
+  // `label=url` for an embedder this harness cannot START — a static model2vec/potion model has no GGUF
+  // in existence, so llama-server cannot serve it and the class was unreachable by every instrument here.
+  const endpoints = all('endpoint').map((spec) => {
+    const eq = spec.indexOf('=');
+    if (eq <= 0 || eq === spec.length - 1)
+      throw new Error(`embed-screen: --endpoint wants label=url, got "${spec}"`);
+    return { label: spec.slice(0, eq), url: spec.slice(eq + 1) };
+  });
+
   const pooling = at('pooling');
   return {
     inspect,
+    endpoints,
+    // An endpoint cannot report its own weight file, and the size column is the point of this survey.
+    // Null rather than 0: absent must read as unknown, never as a measurement.
+    bytes: at('bytes') ? Number(at('bytes')) : null,
     models: all('model'),
     control: at('control'),
     // `[null]` is "whatever the GGUF declares", which is itself a measurement — see `serverSpec`.
@@ -240,9 +253,9 @@ const postJson = async (url, body, timeoutMs = 180_000) => {
 /** What the port actually loaded, read back from the process rather than assumed from the argv: a
  *  `--model`-started `llama-server` answers to whatever name it is asked, so the requested one proves
  *  nothing. `null` on a build with no `/props` — reported as unknown, never as agreement. */
-async function servedFile(port) {
+async function servedFile(baseUrl) {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/props`, { signal: AbortSignal.timeout(10_000) });
+    const res = await fetch(`${baseUrl}/props`, { signal: AbortSignal.timeout(10_000) });
     const props = await res.json().catch(() => null);
     const raw = props?.model_path ?? props?.default_generation_settings?.model ?? null;
     return typeof raw === 'string' && raw.length > 0 ? path.basename(raw.replace(/\\/g, '/')) : null;
@@ -251,46 +264,80 @@ async function servedFile(port) {
 
 /** Embed one text through `/v1/embeddings`, returning `{vector, status}`; `vector` is null on anything
  *  unusable so the caller can tell a rejection from a bad shape. */
-async function embed(port, text) {
-  const { status, body } = await postJson(`http://127.0.0.1:${port}/v1/embeddings`,
+async function embed(baseUrl, text) {
+  const { status, body } = await postJson(`${baseUrl}/v1/embeddings`,
     { model: 'embed', input: text });
   return { status, vector: parseEmbedding(body), detail: JSON.stringify(body ?? {}).slice(0, 200) };
 }
 
-/** One (model, pooling) cell: start, screen, tear down, re-read. Returns the row for the summary. */
-async function screenOne({ model, pooling, opts, serverExe, scratchDir, isControl }) {
-  const label = path.basename(model);
-  const bytes = fs.statSync(model).size;
-  const row = { label, model, pooling, bytes, isControl, checks: [], verdict: null };
+/** One cell: start (unless the endpoint is already up), screen, tear down, re-read.
+ *
+ *  <b>`endpoint` is the mode for an embedder this harness cannot START.</b> A static model2vec/potion
+ *  model has no GGUF in existence, so `llama-server` cannot serve it and the whole class was unreachable
+ *  by every instrument here. Given an already-running OpenAI-compatible URL the SAME fixture, the same
+ *  assertions and the same control comparison apply — only the process lifecycle differs. */
+async function screenOne({ model, pooling, opts, serverExe, scratchDir, isControl, endpoint }) {
+  const manage = !endpoint;
+  const label = endpoint ? endpoint.label : path.basename(model);
+  // An endpoint cannot report its own weight file. `--bytes` supplies it; absent stays UNKNOWN rather
+  // than 0, because a zero in the size column of a sizing survey reads as a measurement.
+  const bytes = endpoint ? opts.bytes : fs.statSync(model).size;
+  const baseUrl = endpoint ? endpoint.url : `http://127.0.0.1:${opts.port}`;
+  const row = { label, model, pooling, bytes, isControl, endpoint: !!endpoint, checks: [], verdict: null };
   const record = (name, ok, detail) => {
     row.checks.push({ name, ok });
     console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
   };
 
-  console.log(`\n=== embed-screen: ${label}  pooling=${pooling ?? '(as declared)'}`
+  console.log(`\n=== embed-screen: ${label}  `
+    + (endpoint ? `endpoint ${endpoint.url}` : `pooling=${pooling ?? '(as declared)'}`)
     + `${isControl ? '  [CONTROL]' : ''} ===`);
   // Both units, always: they straddle round thresholds and a sweep once mis-sorted candidates by 27%.
-  console.log(`  bytes   : ${bytes}  (${(bytes / 1024 / 1024).toFixed(2)} MiB | ${(bytes / 1e6).toFixed(2)} MB)`);
+  console.log(bytes === null || bytes === undefined
+    ? '  bytes   : UNKNOWN — pass --bytes to state it; an endpoint cannot report its own weight file'
+    : `  bytes   : ${bytes}  (${(bytes / 1024 / 1024).toFixed(2)} MiB | ${(bytes / 1e6).toFixed(2)} MB)`);
 
   let pids = [];
   try {
-    const spec = serverSpec({ model, port: opts.port, pooling, ctx: opts.ctx, ngl: opts.ngl });
-    try {
-      pids = await startServers([spec], { scratchDir, serverExe });
-    } catch (err) {
-      record('server starts', false, err.message);
-      return row;
+    if (manage) {
+      const spec = serverSpec({ model, port: opts.port, pooling, ctx: opts.ctx, ngl: opts.ngl });
+      try {
+        pids = await startServers([spec], { scratchDir, serverExe });
+      } catch (err) {
+        record('server starts', false, err.message);
+        return row;
+      }
+      record('server starts', true);
+    } else {
+      // Not "assume it is up": an unreachable endpoint must FAIL here rather than surface as a model
+      // that embeds nothing, which is the same conflation the vector checks below exist to prevent.
+      const probe = await embed(baseUrl, 'probe').catch(() => ({ vector: null, status: 0, detail: 'unreachable' }));
+      record('the endpoint answers', probe.vector !== null,
+        probe.vector ? `${baseUrl} (dim ${probe.vector.length})` : `${baseUrl}: ${probe.detail}`);
+      if (probe.vector === null) return row;
     }
-    record('server starts', true);
 
-    const served = await servedFile(opts.port);
-    record('the port serves the file this screen asked for', served === null || served === label,
-      served === null ? 'unknown — this build exposes no /props' : `serving ${served}`);
+    // IDENTITY, and the two modes can assert different amounts of it. For a GGUF the label IS the file
+    // this screen told the server to load, so equality is a real check. For an ENDPOINT the label is
+    // whatever the caller typed, so asserting equality tests the caller's spelling rather than the
+    // server — it failed a perfectly good endpoint the first time. What is still worth asserting there
+    // is that the endpoint NAMES something, so a human can see which server answered; an endpoint that
+    // names nothing is reported as unverifiable rather than as agreement.
+    const served = await servedFile(baseUrl);
+    row.served = served;
+    if (manage)
+      record('the port serves the file this screen asked for', served === null || served === label,
+        served === null ? 'unknown — this build exposes no /props' : `serving ${served}`);
+    else
+      record('the endpoint NAMES what it serves, so a wrong server is visible', served !== null,
+        served === null
+          ? 'this endpoint names no model — identity cannot be verified from here'
+          : `serving ${served} (asked for ${label}; the label is yours, so this is REPORTED not asserted)`);
 
     const texts = fixtureTexts();
     const vectors = [];
     for (const text of texts) {
-      const { status, vector, detail } = await embed(opts.port, text);
+      const { status, vector, detail } = await embed(baseUrl, text);
       if (!vector) {
         record('POST /v1/embeddings returns a usable vector', false, `HTTP ${status}: ${detail}`);
         return row;
@@ -306,7 +353,7 @@ async function screenOne({ model, pooling, opts, serverExe, scratchDir, isContro
     // HEALTH — the assertions. Is this a working embedder at all?
     const healthVectors = [];
     for (const text of healthTexts()) {
-      const { vector } = await embed(opts.port, text);
+      const { vector } = await embed(baseUrl, text);
       if (vector) healthVectors.push(vector);
     }
     const h = healthVectors.length === 3 ? evaluateHealth(healthVectors) : null;
@@ -330,7 +377,7 @@ async function screenOne({ model, pooling, opts, serverExe, scratchDir, isContro
       + `${v.separated ? 'separates' : 'CONFLATES'} — read against the control's, never an absolute`);
 
     const long = FIXTURE.longProbe();
-    const extreme = await embed(opts.port, long);
+    const extreme = await embed(baseUrl, long);
     row.longOk = extreme.vector !== null;
     // ROLE FIT, and it is a real disqualification for one role and irrelevant to another — so it is
     // reported with its consequence rather than folded into a single verdict. A 512-position model
@@ -344,14 +391,16 @@ async function screenOne({ model, pooling, opts, serverExe, scratchDir, isContro
 
     // REPEATABILITY, not determinism. The seam consumes an ORDER, so assert the vector is stable
     // enough that a near-tie cannot flip and REPORT the drift rather than asserting bitwise equality.
-    const again = await embed(opts.port, texts[0]);
+    const again = await embed(baseUrl, texts[0]);
     const drift = again.vector ? 1 - cosine(vectors[0], again.vector) : NaN;
     record('a repeated call returns the same vector', Number.isFinite(drift) && drift < 1e-6,
       `1 - cos = ${Number.isFinite(drift) ? drift.toExponential(2) : 'unusable'}`);
   } finally {
     // Unconditional, not `if (pids.length)`: a start that THREW is the most likely moment to have
-    // leaked one, so the survivor re-read must run on that path above all.
-    const { survivors } = await stopServers(pids, [opts.port]);
+    // leaked one, so the survivor re-read must run on that path above all. An ENDPOINT row started
+    // nothing and must tear down nothing — killing a server this screen did not start is the
+    // image-name mistake  records, aimed at a port instead of a process name.
+    const { survivors } = manage ? await stopServers(pids, [opts.port]) : { survivors: [] };
     if (survivors.length) {
       console.error(`  *** PORT STILL LISTENING after teardown: ${JSON.stringify(survivors)} — kill by PID ***`);
       row.leaked = true;
@@ -377,7 +426,8 @@ function printSummary(rows) {
   for (const r of rows) {
     const v = r.evaluation;
     console.log(`${(r.label + (r.isControl ? ' [control]' : '')).padEnd(38)} `
-      + `${String(r.pooling ?? 'declared').padEnd(9)} ${String(r.bytes).padStart(12)} `
+      + `${String(r.endpoint ? 'endpoint' : (r.pooling ?? 'declared')).padEnd(9)} `
+      + `${String(r.bytes ?? '?').padStart(12)} `
       + `${String(v?.dimension ?? '-').padStart(4)} ${(r.health ? r.health.gap.toFixed(4) : '-').padStart(7)} `
       + `${(v ? v.range.toFixed(4) : '-').padStart(7)} `
       + `${(v ? (v.margin >= 0 ? '+' : '') + v.margin.toFixed(4) : '-').padStart(8)} `
@@ -424,8 +474,8 @@ async function main() {
   if (opts.inspect.length) return inspectMain(opts.inspect);
 
   const models = [...(opts.control ? [opts.control] : []), ...opts.models];
-  if (models.length === 0) {
-    console.error('embed-screen: need --model <path.gguf>, or --inspect <gguf-url> …');
+  if (models.length === 0 && opts.endpoints.length === 0) {
+    console.error('embed-screen: need --model <path.gguf>, --endpoint <label=url>, or --inspect <url> …');
     console.error('  --control <path.gguf> screens a known-good embedder first, so a candidate\'s');
     console.error('  margin is read against one rather than against an absolute threshold.');
     process.exitCode = 2;
@@ -438,7 +488,9 @@ async function main() {
     return;
   }
 
-  const serverExe = opts.server ?? await resolveServerExe();
+  // Only resolved when something has to be STARTED: an endpoint-only run must work on a machine with no
+  // llama-server at all, which is the point of the mode — the class it reaches has no GGUF to serve.
+  const serverExe = models.length === 0 ? null : (opts.server ?? await resolveServerExe());
   const scratchDir = path.resolve(path.dirname(here), '..', '_embed-screen');
   fs.mkdirSync(scratchDir, { recursive: true });
 
@@ -453,6 +505,9 @@ async function main() {
         rows.push(await screenOne({
           model, pooling, opts, serverExe, scratchDir, isControl: model === opts.control,
         }));
+    // Endpoints last, so a `--control` GGUF row is already on the table to read their margin against.
+    for (const endpoint of opts.endpoints)
+      rows.push(await screenOne({ endpoint, opts, serverExe, scratchDir, isControl: false }));
   } finally {
     printSummary(rows);
     const after = await neighbourReport(ownedPids());

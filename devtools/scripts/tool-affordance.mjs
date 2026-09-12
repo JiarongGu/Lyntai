@@ -38,7 +38,14 @@ export const PORTS = { chat: 8160, small: 8161, embed: 8162, rerank: 8163 };
  *  serves lives in this module's test, because it is the invariant that keeps the two tables comparable. */
 export { ROLES };
 
-export const serverSpecs = (modelDir) => specsFor(PORTS, modelDir);
+/** The four role servers, or just the two the SCORER arms need.
+ *
+ *  <b>`--scorers-only` calls no chat model</b>, so serving the 4B and the 1B costs ~3.3 GB of weights
+ *  nothing reads — and that is what made the cheap mode refuse to start behind the VRAM gate on a machine
+ *  whose GPU was merely busy. The mode exists to make the embedder axis a survey; paying the full bill
+ *  defeats it. The reranker stays because it IS a scoring arm. */
+export const serverSpecs = (modelDir, scorersOnly = false) => specsFor(PORTS, modelDir)
+  .filter((s) => !scorersOnly || s.label === 'embed' || s.label === 'rerank');
 
 /** Ports for EXTRA embedder arms. Its own small block above the four roles and below `embed-screen`'s
  *  8167, so the cap is structural rather than a convention someone has to remember. */
@@ -86,17 +93,24 @@ export function nativeSpecs(file, modelDir) {
 }
 
 /** `label=url,…` for `LYNTAI_LIVE_EMBED_ARMS`, or NULL for no arms — an absent variable and an empty
- *  one are different things to the bench, and only the first means "no extra arms were asked for". */
-export const armsEnv = (arms) => (arms.length === 0
-  ? null
-  : arms.map((a, i) => `${a.label}=http://127.0.0.1:${EXTRA_PORT_BASE + i}`).join(','));
+ *  one are different things to the bench, and only the first means "no extra arms were asked for".
+ *
+ *  <b>`endpoints` are arms this harness does NOT start.</b> A static `model2vec`/`potion` embedder has no
+ *  GGUF in existence, so no `llama-server` can serve one — but the bench only ever wanted a URL. They are
+ *  appended AFTER the served arms so the port arithmetic above does not depend on how many were named. */
+export const armsEnv = (arms, endpoints = []) => {
+  const served = arms.map((a, i) => `${a.label}=http://127.0.0.1:${EXTRA_PORT_BASE + i}`);
+  const extern = endpoints.map((e) => `${e.label}=${e.url}`);
+  const all = [...served, ...extern];
+  return all.length === 0 ? null : all.join(',');
+};
 
 /** The four roles' env, plus the embedder arms and the tool-capable model. `LYNTAI_LIVE_MODEL_URL` still
  *  names the PRIMARY embedder: it builds the trials, and an arm that could move that would change which
  *  distractors a roster holds. A variable is ABSENT rather than empty when its arm was not asked for. */
-export function envFor(arms = [], nativeFile = null) {
+export function envFor(arms = [], nativeFile = null, endpoints = []) {
   const env = decisionEnvFor(PORTS);
-  const value = armsEnv(arms);
+  const value = armsEnv(arms, endpoints);
   return {
     ...env,
     ...(value === null ? {} : { LYNTAI_LIVE_EMBED_ARMS: value }),
@@ -119,6 +133,10 @@ export function envFor(arms = [], nativeFile = null) {
  *  would have refused runs that fit. A ceiling taken from a failed run measures the failure. */
 export const NEEDED_FREE_MIB = 7000;
 
+/** What the SCORER-ONLY subset needs: an embedder and a reranker rather than four servers. Derived from
+ *  the same completed run, whose two chat children are the ~3.3 GB this subset does not load. */
+export const SCORERS_ONLY_FREE_MIB = 2500;
+
 /** One `nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader` line — `"2251 MiB, 12282
  *  MiB"` or the `nounits` form. `null` for anything that does not parse as two numbers, because the caller
  *  SKIPS on null and REFUSES on false: a blank read as zero-used would claim the whole card is free. */
@@ -136,7 +154,7 @@ export const hasHeadroom = ({ usedMiB, totalMiB }, neededMiB) => totalMiB - used
 /** Refuse BEFORE spawning anything, so an out-of-memory device produces a sentence rather than a corpse.
  *  Skips when `nvidia-smi` is unavailable — the same "cannot verify is not verified clean" posture
  *  `assertGpuIdle` takes, and for the same reason: a CPU-only machine must still be able to run this. */
-async function assertGpuHeadroom() {
+async function assertGpuHeadroom(needMiB = NEEDED_FREE_MIB) {
   let sample = null;
   try {
     const { stdout } = await execFileAsync('nvidia-smi',
@@ -150,10 +168,10 @@ async function assertGpuHeadroom() {
   }
   const free = sample.totalMiB - sample.usedMiB;
   console.log(`GPU headroom: ${free.toFixed(0)} MiB free of ${sample.totalMiB.toFixed(0)} `
-    + `(need ${NEEDED_FREE_MIB})`);
-  if (hasHeadroom(sample, NEEDED_FREE_MIB)) return true;
+    + `(need ${needMiB})`);
+  if (hasHeadroom(sample, needMiB)) return true;
 
-  console.error(`  Refusing to start: four servers need ~${NEEDED_FREE_MIB} MiB and only ${free.toFixed(0)} `
+  console.error(`  Refusing to start: this run needs ~${needMiB} MiB and only ${free.toFixed(0)} `
     + 'is free. Loading them anyway kills this process with no error at all — close the neighbour, or wait');
   console.error('  for a previous run\'s memory to be released (it lags the port going free).');
   return false;
@@ -173,6 +191,7 @@ async function buildBench(repoRoot) {
  *  reach the sweep as a bare positional, be read by nothing, and run a measurement nobody asked for. */
 export function parseArgs(argv) {
   const embedArms = [];
+  const embedEndpoints = [];
   const benchArgs = [];
   let nativeModel = null;
   for (let i = 0; i < argv.length; i++) {
@@ -190,13 +209,22 @@ export function parseArgs(argv) {
       embedArms.push({ label: spec.slice(0, at), file: spec.slice(at + 1) });
       continue;
     }
+    if (argv[i] === '--embed-endpoint') {
+      const spec = argv[++i] ?? '';
+      const at = spec.indexOf('=');
+      if (at <= 0 || at === spec.length - 1)
+        throw new Error(`tool-affordance: --embed-endpoint wants label=url, got "${spec}"`);
+      embedEndpoints.push({ label: spec.slice(0, at), url: spec.slice(at + 1) });
+      continue;
+    }
     benchArgs.push(argv[i]);
   }
-  return { skipBuild: argv.includes('--skip-build'), embedArms, nativeModel, benchArgs };
+  return { skipBuild: argv.includes('--skip-build'), embedArms, embedEndpoints, nativeModel, benchArgs };
 }
 
 async function main() {
-  const { skipBuild, benchArgs, embedArms, nativeModel } = parseArgs(process.argv.slice(2));
+  const { skipBuild, benchArgs, embedArms, embedEndpoints, nativeModel } = parseArgs(process.argv.slice(2));
+  const scorersOnly = benchArgs.includes('--scorers-only');
   const modelDir = process.env.LYNTAI_MODEL_DIR ?? process.env.LYNTAI_CONTENTION_MODEL_DIR;
   if (!modelDir) {
     console.error('tool-affordance: set LYNTAI_MODEL_DIR to the directory holding the GGUFs.');
@@ -219,7 +247,7 @@ async function main() {
     return;
   }
 
-  if (!await assertGpuHeadroom()) {
+  if (!await assertGpuHeadroom(scorersOnly ? SCORERS_ONLY_FREE_MIB : NEEDED_FREE_MIB)) {
     process.exitCode = 2;
     return;
   }
@@ -238,7 +266,7 @@ async function main() {
   const ownedPorts = [...Object.values(PORTS), ...extras.map((s) => s.port)];
   const gpu = startGpuSampler();
   try {
-    pids = await startServers([...serverSpecs(modelDir), ...extras], { scratchDir, serverExe });
+    pids = await startServers([...serverSpecs(modelDir, scorersOnly), ...extras], { scratchDir, serverExe });
     console.log(`\nServers up on ${[...Object.values(PORTS), ...extras.map((s) => s.port)].join(', ')} `
       + `(pids ${pids.join(', ')})\n`);
 
@@ -269,7 +297,7 @@ async function main() {
 
     const code = await runTracked('dotnet', ['run', '-c', 'Release', '--no-build',
       '--project', path.join(repoRoot, 'bench', 'Lyntai.Benchmarks'), '--', '--affordance', ...benchArgs],
-      envFor(embedArms, nativeModel));
+      envFor(embedArms, nativeModel, embedEndpoints));
     if (code !== 0) process.exitCode = code;
   } finally {
     const device = await gpu.stop();

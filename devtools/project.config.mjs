@@ -850,6 +850,7 @@ export default {
     'tool-affordance': 'given these tools, what do you want — through the PROMPT protocol, on a SYNTHETIC roster',
     'rerank-screen': 'does a candidate GGUF rerank AT ALL? `--inspect` needs no download',
     'embed-screen': 'does a candidate GGUF EMBED at all? Sweeps `--pooling`, reads the range not the order',
+    'locomo-pair': '`memory-locomo` against a CHOSEN embedder + reader, owning both servers',
     'check-options': 'a shipped option a consumer sets with NO xml doc to explain it',
     'memory-locomo': "the FIELD's benchmark; rewards a perfect archive, so read it differentially",
     'memory-longmemeval': 'prefer a revised fact over the superseded one — **run `--haystack`**',

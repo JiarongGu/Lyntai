@@ -4,7 +4,8 @@ import { describe, it } from 'node:test';
 import { DEFAULT_PORT as EMBED_SCREEN_PORT } from '../embed-screen.mjs';
 import { ROLES as DECISION_ROLES, PORTS as DECISION_PORTS } from '../memory-decision.mjs';
 import {
-  EXTRA_PORT_BASE, MAX_EXTRA_ARMS, NATIVE_PORT, NEEDED_FREE_MIB, PORTS, ROLES, armsEnv, envFor,
+  EXTRA_PORT_BASE, MAX_EXTRA_ARMS, NATIVE_PORT, NEEDED_FREE_MIB, PORTS, ROLES,
+  SCORERS_ONLY_FREE_MIB, armsEnv, envFor,
   extraSpecs, hasHeadroom, nativeSpecs, parseArgs, parseGpuMemory, serverSpecs,
 } from '../tool-affordance.mjs';
 
@@ -171,6 +172,31 @@ describe('extra embedder arms — vary the SCORING, never the trial construction
       + `bgezh=http://127.0.0.1:${EXTRA_PORT_BASE + 1}`);
   });
 
+  it('carries an ALREADY-RUNNING endpoint arm beside the ones it starts', () => {
+    // A model2vec/potion static embedder has no GGUF, so this harness cannot start one — but the BENCH
+    // only ever wanted a URL. Endpoints append after the served arms so the port arithmetic above is
+    // untouched, which is what keeps a spawned arm's port independent of how many endpoints were named.
+    const eps = [{ label: 'potion8M', url: 'http://127.0.0.1:8180' }];
+    assert.equal(armsEnv(arms, eps), `minilm=http://127.0.0.1:${EXTRA_PORT_BASE},`
+      + `bgezh=http://127.0.0.1:${EXTRA_PORT_BASE + 1},potion8M=http://127.0.0.1:8180`);
+    assert.equal(armsEnv([], eps), 'potion8M=http://127.0.0.1:8180');
+  });
+
+  it('parses --embed-endpoint label=url and keeps both halves out of the bench args', () => {
+    const o = parseArgs(['--embed-endpoint', 'potion8M=http://127.0.0.1:8180', '--n', '20']);
+    assert.deepEqual(o.embedEndpoints, [{ label: 'potion8M', url: 'http://127.0.0.1:8180' }]);
+    assert.deepEqual(o.benchArgs, ['--n', '20']);
+    assert.throws(() => parseArgs(['--embed-endpoint', 'http://x']), /label=url/);
+  });
+
+  it('does NOT count an endpoint against the spawned-arm port budget', () => {
+    // The cap exists because ports run out, and an endpoint consumes none of them.
+    const many = Array.from({ length: MAX_EXTRA_ARMS }, (_, i) => ({ label: `m${i}`, file: 'x.gguf' }));
+    assert.equal(extraSpecs(many, '/models').length, MAX_EXTRA_ARMS);
+    const eps = [{ label: 'e', url: 'http://127.0.0.1:9999' }];
+    assert.ok(armsEnv(many, eps).endsWith('e=http://127.0.0.1:9999'));
+  });
+
   it('sets NOTHING when there are no arms, so the bench sees an absent variable not an empty one', () => {
     assert.equal(armsEnv([]), null);
     assert.equal(Object.hasOwn(envFor([]), 'LYNTAI_LIVE_EMBED_ARMS'), false);
@@ -209,5 +235,26 @@ describe('extra embedder arms — vary the SCORING, never the trial construction
     // the request, so a different constructing embedder gives a different roster and the runs stop
     // being comparable — which is the one way this measurement could quietly answer another question.
     assert.equal(envFor(arms).LYNTAI_LIVE_MODEL_URL, `http://127.0.0.1:${PORTS.embed}`);
+  });
+});
+
+describe('--scorers-only must be CHEAP, or the mode defeats itself', () => {
+  it('serves only the embedder and the reranker — the chat models are never called', () => {
+    // Measured cost of not doing this: the mode refused to start behind the VRAM gate on a merely busy
+    // GPU, because it was serving ~3.3 GB of chat weights nothing in it reads.
+    const labels = serverSpecs('/models', true).map((s) => s.label).sort();
+    assert.deepEqual(labels, ['embed', 'rerank']);
+    // The reranker stays because it IS a scoring arm; dropping it would drop a measured column.
+    assert.ok(serverSpecs('/models', true).some((s) => s.argv.includes('--reranking')));
+  });
+
+  it('still serves all four by default, so the full grid is unchanged', () => {
+    assert.equal(serverSpecs('/models').length, 4);
+    assert.equal(serverSpecs('/models', false).length, 4);
+  });
+
+  it('asks for LESS headroom in that mode, and both figures stay under this device', () => {
+    assert.ok(SCORERS_ONLY_FREE_MIB < NEEDED_FREE_MIB);
+    assert.ok(SCORERS_ONLY_FREE_MIB > 0 && NEEDED_FREE_MIB < 12282);
   });
 });
