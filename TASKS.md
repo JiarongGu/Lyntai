@@ -15,28 +15,27 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 15 across 10 Parts: 2 startable, 9 blocked, 1 watch, 3 decision-only
+## Open items — 14 across 10 Parts: 1 startable, 9 blocked, 1 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 496 | 109 | Widen the QA half: a SECOND EMBEDDER and a SECOND READER | startable |  |
-| 655 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 741 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
-| 780 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 867 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
-| 879 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
-| 893 | 178 | Measure `affordance` through the NATIVE transport — needs a tool-capable mo… | blocked · env | a GGUF whose chat template emits tool_calls, as a POSITIVE CONTROL — neithe… |
+| 92 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 136 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 145 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 199 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 270 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 348 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 403 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 426 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 497 | 109 | Widen the QA half: a SECOND EMBEDDER and a SECOND READER | startable |  |
+| 656 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 742 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 829 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
+| 841 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
+| 855 | 178 | Measure `affordance` through the NATIVE transport — needs a tool-capable mo… | blocked · env | a GGUF whose chat template emits tool_calls, as a POSITIVE CONTROL — neithe… |
 
 <!-- open-items:end -->
 
@@ -51,7 +50,9 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is TWO items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is ONE item, and it is a
+measurement** — every item that would change shipped library code is `decision-only` and waiting on a
+ruling, which is a fact about this backlog worth seeing before picking work. That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -737,45 +738,6 @@ the plumbing._
 _**What is already measured** (`docs/memory-measurements.md` §5, archive Parts 175–176): a 468 MB cross-encoder captures
 6.0 of the 7.0 points a perfect judge offers, and a model 28 months newer at the same architecture and size
 is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come down 26%._
-
-- [ ] **Does a NEWER same-size instruct model judge better?** Narrowed 2026-09-11: the SMALLER half is <!-- item: state=startable -->
-  answered and the answer is no. `gemma-3-1b-it` Q4_K_M (**806,058,240 B**) was measured in this seam
-  against the 4B incumbent, same family and same quant, and it is **INERT at every depth** — 83.0% on the
-  base, on `@40` and at the shipped depth alike (`docs/task-archive.md` **Part 189**,
-  `docs/memory-measurements.md` §5).
-  <br>**The two sizes fail in OPPOSITE ways, which is what makes the smaller direction dead.** The 4B ranks
-  well and stops badly (17× lift at its own top-1, 29.1 endorsements of 80, so it floods the page and
-  destroys 10.5 points). The 1B stops fine and cannot rank — a **1.7×** lift, which the harness reads as
-  noise. **Its ceiling is ZERO**: on the 19 calls of 200 where a verifier could possibly help it endorsed
-  the deep evidence 0 times, where the 4B managed 10. No promotion rule over it could win a point.
-  <br>**What is still open is RECENCY at a comparable size** — a newer 4B-class instruct model that ranks
-  better than the incumbent. It must beat `+judge@40`'s **84.0%**, not the shipped depth's 72.5%. Read Part
-  176 first: recency bought nothing in the RERANKER role, so the prior is weak.
-  <br>**And the measured way to spend under a gigabyte here is a cross-encoder, not an instruct model** —
-  468 MB captures 6.0 of the 7.0 points a perfect judge offers, where 806 MB of instruct model captured
-  0.0. That seam now ships (`AddMemoryCrossEncoderVerification`, **D115**), so this item is no longer the
-  route to a small-footprint deployment; it is only the route to a BETTER judge.
-  _**The reranker shortlist below stays** because it is the candidate list for that shipped seam. A DESK
-  survey — sizes and capabilities read, not called — which is the tier GEN-VERIFY exists to distrust, so the
-  SHAPES transfer and nothing here licenses skipping a smoke test. Sizes are exact bytes because MiB and MB
-  straddle a 500 threshold (`pitfalls.md`). Surveyed 2026-09-10 and adversarially re-checked against the
-  model cards and the HF API._
-  <br>_**Rerankers under 500 MB, multilingual:** `LAMAR-600m` Q5_K_M **468,393,760 B** — measured, see Part
-  176. `xVITA-300M` Q8_0 **332,894,432 B** (2026-08-23, modern-bert) is the untested one and is the smallest
-  credible MULTILINGUAL candidate — **it is no longer the smallest credible one outright**, which this line
-  claimed until 2026-09-12: an ENGLISH-only reranker screens 8/8 at **33,257,824 B**, and the multilingual
-  floor is a separate and much higher number for the structural reason the sizing item below records.
-  `Qwen3-Reranker-0.6B` Q6_K **494,879,136 B** is **deprioritised for a Chinese-first
-  deployment**: it is 0.85 BEHIND bge on MTEB-zh (71.31 against 72.16) while +8.77 on English, and jina's
-  independent table scores it BEIR 56.94 against bge's 56.42 — so the English gain is protocol-dependent. It
-  is also `Qwen3ForCausalLM` scoring yes/no logits, not a `*ForSequenceClassification` cross-encoder._
-  <br>_**Two dead ends, recorded so they are not re-walked:** `bge-reranker-base`/`-large` are "Chinese and
-  English" per their own card — fine for the first phase, a dead end for the JP/KR one. And `gte`'s GGUF
-  declares architecture `new`, which llama.cpp does not register, so it cannot load at all._
-  <br>_**Provenance matters more than the quant here.** `mradermacher`'s Qwen3-Reranker Q6_K has **310**
-  tensors against the working **311** — it is missing `cls.output.weight` and scores silently wrong
-  (llama.cpp #16407). `Voodisss` and `zhiqian99` are byte-identical to each other and correct. Prefer an
-  official conversion, and smoke-test whatever you pull._
 
 - [ ] **Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no measured floor.** <!-- item: state=blocked kind=env needs="llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is dropped, so every BERT reranker is degraded — or a RoBERTa-family reranker that fits under 100 MB" -->
   **THE SIZING HALF IS ANSWERED, AND THE ANSWER IS NO — the blocker is UPSTREAM (2026-09-12).**

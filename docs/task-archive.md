@@ -3202,3 +3202,27 @@ its own wording; the default was left alone because no tested wording earned the
 **What is NOT closed**: the native transport (blocked on a positive control), any roster larger than seven,
 and argument QUALITY. The corpus is synthetic, so only arm differences transfer. The follow-up — bound the
 roster before the model sees it — is in `TASKS.md` as decision-only.
+
+## Part 195 — the newer-4B-judge question, retired by ruling rather than answered
+
+✅ closed 2026-09-12 by the owner's ruling, **not by measurement** — no run was spent and nothing here says
+a newer 4B judges no better. Moved out of `TASKS.md` Part 177.
+
+- **Does a NEWER same-size instruct model judge better?** What remained open was RECENCY at a comparable
+  size — a newer 4B-class instruct model that beats `+judge@40`'s 84.0%.
+
+**Outcome: a 4B-class model is not a production candidate here, so its quality questions do not earn runs.**
+The owner's words: *"we not really going to use 4B in most of our real production case, so our current 4B
+benchmark should be enough."* That is an application of the ~500 MB sizing position `docs/model-tasks.md` §3
+already carried, sharpened into a scope rule; the ruling is recorded there rather than as a `D<n>`, because
+that is where the sizing target lives and what it governs is which candidates get surveyed.
+
+**The 4B does NOT leave the benches** — it stays as the CEILING arm that makes a small model's score
+readable. What stops is asking whether a better 4B exists.
+
+**Its reranker shortlist survived the retirement** and moved to `docs/model-tasks.md` §3.2: it is the
+candidate list for the shipped `AddMemoryCrossEncoderVerification` (**D115**), so it is maintained state
+rather than open work, and leaving it inside a retired backlog item would have lost it.
+
+**What this does NOT close**: the sub-100 MB cross-encoder item in the same Part, which is blocked upstream
+on llama.cpp PR #21729 and is about the reranker role rather than an instruct model.

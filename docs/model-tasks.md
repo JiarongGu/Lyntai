@@ -126,6 +126,17 @@ candidate count, how much text each candidate carries.
 >
 > **What this changes about the blanks below:** a `measured <500 MB: no` cell means *not yet shown to fit the
 > budget*, never *not good enough*. Those are different questions and only the first is being asked.
+>
+> **RULED 2026-09-12: a 4B-class model is not a production candidate, so its QUALITY questions are retired.**
+> The owner's words — *"we not really going to use 4B in most of our real production case, so our current 4B
+> benchmark should be enough"*. The 4B stays in the grids as a CEILING arm, which is what makes a small
+> model's score readable; what stops is spending runs on whether a *better* 4B exists. This retired
+> `TASKS.md`'s "Does a NEWER same-size instruct model judge better?" (`docs/task-archive.md` Part 195) —
+> **closed by ruling, never measured**, so nothing here says the answer is no.
+>
+> **It also re-points every reading below.** Where a row compares a 4B against something small, the 4B is
+> the ceiling and the small arm is the candidate — §3.1 is the worked example, and it inverts that section's
+> own headline.
 
 > **WHERE THIS IS HEADING — also a working position (2026-09-12).** The owner names the next goal as **a
 > decision system on a small model**, of which this memory work is the first instance. Three findings below
@@ -222,10 +233,24 @@ the corpus at hand; `.claude/knowledge/model-decoupling.md` is the standing rule
 `affordance-false-call-4b`), on a SYNTHETIC 42-tool fixture through `IToolLoop`'s prompt protocol — the
 weakest evidence tier here, so read the directions and none of the magnitudes.
 
-**Choosing is the easy half.** A 2,489,757,856 B model reads 86.3% at a seven-tool roster against a
-333,590,944 B embedder's 81.0%, and recovers 72-84% of the trials that embedder gets wrong. A 468,393,760 B
-cross-encoder **loses** to the bi-encoder here (76.8%), inverting its win in the decision grid — the shapes
-are not interchangeable across tasks.
+**AT THE SIZE CLASS THIS PROJECT TARGETS, THE PROMPT-PROTOCOL TOOL TRANSPORT DOES NOT WORK.** §3's aim is
+~500 MB; the smallest generative model tested here is **806,058,240 B**, already over it, and through the
+loop it picks the right tool on **10.1% of trials at three options falling to 3.0% at seven**. Posed as a
+flat choice instead of a protocol turn it reaches 36.9% → 19.0% — better, still unusable. **A 333,590,944 B
+embedder scoring the same tool descriptions reads 81.0%, flat in roster size**, beating the generative arm
+by 44-78 points at 41% of the bytes. Nothing at or under the sizing target has been shown to choose a tool
+generatively, and the two arms that ARE inside it are both model-free scorers.
+
+**The consequence is an architecture, not a model choice.** Let the embedder pick the tool and give the
+model only the argument-filling job for the one tool that won: choosing 1-of-7 is what the small model
+fails at, while filling `{"place": "Galway"}` for an already-chosen tool is a far smaller task. **That
+second half is UNMEASURED here** — this grid scores the choice and only checks that arguments parsed — so
+treat it as the shape the evidence points at rather than as a measured recommendation.
+
+**Above the target, choosing is the easy half.** A 2,489,757,856 B model reads 86.3% at a seven-tool roster
+against the embedder's 81.0%, and recovers 72-84% of the trials that embedder gets wrong — so the capability
+is real, it just costs 5x the sizing target. A 468,393,760 B cross-encoder **loses** to the bi-encoder here
+(76.8%), inverting its win in the decision grid — the shapes are not interchangeable across tasks.
 
 **Declining is the half that fails, and it fails silently.** Given 20 requests no tool on the roster serves,
 the same 4B invokes one on **90-95%** of them, fabricating arguments to force a fit
@@ -240,6 +265,36 @@ marked *unbounded by this library*. And a 806,058,240 B model is the mirror fail
 never invokes a tool when one DOES fit (81-93% of the time), emitting
 `{"final": "…Please wait a moment while I retrieve the data."}` — the task understood, the grammar
 unavailable. **One prompt, two opposite pathologies, decided by size.**
+
+### 3.2 Cross-encoder candidates under 500 MB — a DESK survey, not a measurement
+
+**The candidate list for `AddMemoryCrossEncoderVerification` (D115).** Moved here from `TASKS.md` on
+2026-09-12 when the item holding it was retired — it is the candidate list for a SHIPPED seam, which is
+maintained state rather than open work.
+
+**A DESK survey — sizes and capabilities read, not called.** That is the tier GEN-VERIFY exists to distrust,
+so the SHAPES transfer and nothing here licenses skipping a smoke test. Sizes are exact bytes because MiB
+and MB straddle a 500 threshold (`.claude/knowledge/pitfalls.md`). Surveyed 2026-09-10 and adversarially
+re-checked against the model cards and the HF API.
+
+**Rerankers under 500 MB, multilingual:** `LAMAR-600m` Q5_K_M **468,393,760 B** — measured, see
+`docs/task-archive.md` Part 176. `xVITA-300M` Q8_0 **332,894,432 B** (2026-08-23, modern-bert) is the
+untested one and is the smallest credible MULTILINGUAL candidate — **not the smallest credible one
+outright**: an ENGLISH-only reranker screens 8/8 at **33,257,824 B**, and the multilingual floor is a
+separate and much higher number for the structural reason §3 records. `Qwen3-Reranker-0.6B` Q6_K
+**494,879,136 B** is **deprioritised for a Chinese-first deployment** — 0.85 BEHIND bge on MTEB-zh (71.31
+against 72.16) while +8.77 on English, and jina's independent table scores it BEIR 56.94 against bge's
+56.42, so the English gain is protocol-dependent. It is also `Qwen3ForCausalLM` scoring yes/no logits, not a
+`*ForSequenceClassification` cross-encoder.
+
+**Two dead ends, recorded so they are not re-walked:** `bge-reranker-base`/`-large` are "Chinese and English"
+per their own card — fine for a first phase, a dead end for a JP/KR one. And `gte`'s GGUF declares
+architecture `new`, which llama.cpp does not register, so it cannot load at all.
+
+**Provenance matters more than the quant here.** `mradermacher`'s Qwen3-Reranker Q6_K has **310** tensors
+against the working **311** — it is missing `cls.output.weight` and scores silently wrong (llama.cpp
+#16407). `Voodisss` and `zhiqian99` are byte-identical to each other and correct. Prefer an official
+conversion, and smoke-test whatever you pull.
 
 ### The shape decides how badly a BUSY GPU hurts you
 

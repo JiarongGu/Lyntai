@@ -417,10 +417,13 @@ export const COUNTED_CLAIMS = [
   },
   {
     what: 'startable backlog items',
-    // Anchored on `startable set is N items`, the banner's own shape. Deliberately not a bare `(\w+)
+    // Anchored on `startable set is N item(s)`, the banner's own shape. Deliberately not a bare `(\w+)
     // items`: `TASKS.md` says "items" constantly about candidates, endorsed items and codex stream items,
     // and a gate firing on those is one somebody switches off.
-    pattern: /startable set is \*{0,2}([\w]+)\*{0,2} items/gi,
+    // `items?` since 2026-09-12: the count reached ONE and the plural-only pattern stopped matching, which
+    // the gate reports as "its pattern found no occurrence" — a gate that cannot express a legitimate value
+    // fails on the day that value arrives, and the tempting fix is ungrammatical prose.
+    pattern: /startable set is \*{0,2}([\w]+)\*{0,2} items?/gi,
     count: countStartableItems,
     why: 'this exact sentence has advertised finished work four times, and nothing derived it',
   },
