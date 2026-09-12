@@ -3129,3 +3129,52 @@ about its own judge-graded column whatever it had measured — wrong in size her
 bring-up run. It now derives that gap from the rows it just printed.
 
 - Give the fused verdict a READER-facing measurement.
+
+## Part 192 — the selective shape BELOW 20 candidates: a 468 MB cross-encoder wins
+
+✅ done 2026-09-12, closing Part 178's first item. `docs/memory-measurements.md` §5
+(`decision-shape-single-evidence`) holds the grid, the controls, the noise floor and the prediction
+scorecard; nothing is copied here. The instrument is `node devtools/dev.mjs memory-decision`, new.
+
+- **Measure the selective shape BELOW 20 candidates.** One `select-from-list` call showing N options,
+  against N `score-a-pair` calls scored independently and argmax'd. Which wins at N = 3..7, and at what
+  size.
+
+**Outcome: the best arm is the SMALLEST model in the grid, and the winning generative shape inverts with
+model size.** A cross-encoder doing the scorer shape in one round trip matches a 5.3x larger instruct model
+at three options and pulls ahead as the list grows. Among the generative arms, the large model wants to be
+asked to CHOOSE and the small one wants to be asked to SCORE — but the small one in the select shape is not
+judging at all: it emits a constant, which accuracy alone reads as "at chance" and only a position column
+can distinguish.
+
+**The first grid was RETRACTED, and the retraction is the more useful half.** It let a second correct
+answer into the options — LoCoMo's evidence is a LIST and the harness read its first element — which
+flattered the arm that ignores the options and penalised every arm that reads them. Three instrument
+defects were found and fixed the same day: that one, a vacuous `oracle` control hardcoded to 100%, and a
+position table pooled over list lengths. All three are in `.claude/knowledge/pitfalls.md`; the retraction
+and what it cost each arm are in the measurement record.
+
+## Part 193 — a decision IS expressible through a seam that already ships, and what is missing is the margin
+
+✅ done 2026-09-12, closing Part 178's second item — a desk audit, no code. Every claim was read off the
+tree and spot-verified by hand.
+
+- **Is a decision EXPRESSIBLE through the seams that already ship?** Answer this before proposing any
+  surface. Which of `IPairwiseComparer`, `IToolLoop` and the verification seam already expresses it, and
+  what is genuinely missing.
+
+**Outcome: `IMemoryVerificationPolicy` already takes `(query, bounded candidate list with ids and full
+`Content`)` and already distinguishes the two answers a decision seam must not conflate** —
+`MemoryVerification.NoOpinion` (`Judged: false`, the seam did not answer) from `NothingRelevant`
+(`Judged: true`, a first-class "none of these"). And `CrossEncoderVerificationPolicy` with
+`EndorseCount = 1` **is** argmax over N scorings in one round trip, reachable from configuration via
+`AddMemoryCrossEncoderVerification` (**D115**). So Part 177's "no new API is needed" held a second time.
+
+**What is genuinely missing is ONE thing: no score or margin on the way out**, so a confidence threshold
+cannot be expressed — left as a `decision-only` backlog item, because it is a surface question and the
+owner's call.
+
+**Why the other three seams are worse fits — and the fourth the item's own list missed
+(`IMemoryAnnotationPolicy`, whose `Known` IS a bounded candidate set) — is `docs/model-tasks.md` §6**, which
+gained the comparison so it sits beside the shape taxonomy rather than in an archive nobody reads end to
+end.

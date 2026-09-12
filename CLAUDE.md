@@ -18,7 +18,7 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3641 passed / 3663 total, 22 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 718/718, doc samples 80/80. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 731/731, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED on 2026-09-12 with Docker up**, ending a run of derived figures: all 22 skips were enumerated
@@ -158,6 +158,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `memory-support` |  | rule × θ × clock × `ConnectionBoost`; `--screen` = the model ladder |
 | `memory-scale` |  | COST, not quality — latency, throughput, bytes; no ground truth |
 | `memory-contention` |  | judge vs cross-encoder: does moving verification off the shared model pay? |
+| `memory-decision` |  | a FORCED CHOICE at 3-7 options: one select call, or N score calls argmax'd? |
 | `install-hooks` |  | set `core.hooksPath` — once per clone, nothing warns you |
 | `check-sensitive` | ✓ | leak scan; `--tree` for everything, not just staged |
 | `decisions-index` |  | rebuild `DECISIONS.md`'s index after adding a `D<n>` |

@@ -108,10 +108,13 @@ internal static class MemoryLocomoBench
     private static readonly string[] CategoryNames =
         ["", "multi-hop", "temporal", "open-domain", "single-hop", "adversarial(excluded)"];
 
-    private sealed record Question(string ConvId, string Text, string Gold, int Category,
+    // `internal` rather than private, and the loader with them: `MemoryDecisionSweep` builds its trials from
+    // this corpus, and a second loader would be a REPLICA of a shipped rule — the shape that has already
+    // moved a published row by 4 points while looking entirely plausible (`pitfalls.md`).
+    internal sealed record Question(string ConvId, string Text, string Gold, int Category,
         IReadOnlyList<string> Evidence);
 
-    private sealed record Turn(string Speaker, string Text, string Date, string DiaId);
+    internal sealed record Turn(string Speaker, string Text, string Date, string DiaId);
 
     public static async Task<int> RunAsync(string[] args)
     {
@@ -1462,7 +1465,7 @@ internal static class MemoryLocomoBench
         return verdict?.TrimStart().StartsWith("YES", StringComparison.OrdinalIgnoreCase) == true;
     }
 
-    private static (List<(string Id, List<Turn> Turns)>, List<Question>) Load(string path)
+    internal static (List<(string Id, List<Turn> Turns)>, List<Question>) Load(string path)
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
         var conversations = new List<(string, List<Turn>)>();
@@ -1505,7 +1508,7 @@ internal static class MemoryLocomoBench
 
     /// <summary>A seeded, category-STRATIFIED sample. Proportional rather than equal-per-category, so the
     /// mix matches the benchmark's own and the overall number means the same thing a full run's would.</summary>
-    private static List<Question> Stratify(List<Question> all, int take)
+    internal static List<Question> Stratify(List<Question> all, int take)
     {
         if (take >= all.Count) return all;
         var rng = new Random(Seed);

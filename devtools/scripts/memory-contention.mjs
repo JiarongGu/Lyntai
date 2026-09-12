@@ -517,29 +517,23 @@ function envFor(arm) {
         LYNTAI_LIVE_RERANK_URL: at(PORTS.rerank), LYNTAI_LIVE_RERANK_MODEL: 'rerank' };
 }
 
-export async function startArm(arm, { modelDir, scratchDir, serverExe }) {
-  const ports = arm.kind === 'router' ? [PORTS.router] : [PORTS.chat, PORTS.embed, PORTS.rerank];
-
-  // The SPECIFIC ports, immediately before binding — never a range checked earlier. Binding a busy port
-  // fails UPWARD: no error, and the incumbent answers every request.
+/** Start a set of servers, or leave NOTHING behind trying. `specs` is `{label, port, argv}[]`.
+ *
+ *  <b>Hoisted 2026-09-12</b>, when `memory-decision.mjs` needed the same lifecycle over a different role
+ *  set. Every line of it is a trap this repository already paid for — check the SPECIFIC ports immediately
+ *  before binding (a busy port fails UPWARD and the incumbent answers), wait for `/health` rather than for
+ *  a bind, and kill a PARTIAL start rather than leaking it past the throw. A second copy would be a second
+ *  chance to omit one of the three, which is the duplication `BenchStats.Percentile`'s own hoisting note
+ *  gives the same reason for. */
+export async function startServers(specs, { scratchDir, serverExe }) {
+  const ports = specs.map((s) => s.port);
   const listeners = parseListeners(await netstat());
   const taken = ports.filter((p) => !isFree(listeners, p));
   if (taken.length) throw new Error(`ports already LISTENING: ${taken.join(', ')} — refusing to bind`);
 
   const pids = [];
   try {
-    if (arm.kind === 'router') {
-      const ini = writePreset(`${scratchDir}/presets-${arm.name}.ini`, modelDir, ['chat', 'embed', 'rerank']);
-      pids.push(spawnServer(serverExe, ['--models-preset', ini, '--port', String(PORTS.router),
-        '--host', '127.0.0.1', '--models-max', String(arm.modelsMax)], scratchDir, arm.name));
-    } else {
-      for (const role of ['chat', 'embed', 'rerank']) {
-        const flags = ROLES[role].flags.flatMap((f) => [`--${f}`]);
-        pids.push(spawnServer(serverExe, ['--model', `${modelDir}/${ROLES[role].file}`,
-          '--alias', role, '--port', String(PORTS[role]), '--host', '127.0.0.1',
-          '--n-gpu-layers', '99', ...flags, ...settingsArgs(role)], scratchDir, `${arm.name}-${role}`));
-      }
-    }
+    for (const spec of specs) pids.push(spawnServer(serverExe, spec.argv, scratchDir, spec.label));
     await waitUntilListening(ports);
   } catch (err) {
     // A partial start is still a start: a spawn that failed on the SECOND of three roles must not leak the
@@ -548,18 +542,43 @@ export async function startArm(arm, { modelDir, scratchDir, serverExe }) {
     for (const pid of pids) { try { await treeKill(pid); } catch { /* best effort during failure cleanup */ } }
     throw err;
   }
+  return pids;
+}
+
+/** Tear down by PID and then RE-READ, because the exit code is not evidence: `taskkill /F /PID` has reported
+ *  SUCCESS for a process still listening seconds later. `ownedPorts` is what to re-check. */
+export async function stopServers(pids, ownedPorts) {
+  for (const pid of pids) {
+    try { await treeKill(pid); } catch (err) { console.error(`stopServers: PID ${pid} — ${err.message}`); }
+  }               // /T: the tree is THREE levels (router→child→grandchild)
+  await settle();
+  const listeners = parseListeners(await netstat());
+  return { killed: pids, survivors: [...listeners.entries()].filter(([p]) => ownedPorts.includes(p)) };
+}
+
+export async function startArm(arm, { modelDir, scratchDir, serverExe }) {
+  const specs = arm.kind === 'router'
+    ? [{
+        label: arm.name,
+        port: PORTS.router,
+        argv: ['--models-preset',
+          writePreset(`${scratchDir}/presets-${arm.name}.ini`, modelDir, ['chat', 'embed', 'rerank']),
+          '--port', String(PORTS.router), '--host', '127.0.0.1', '--models-max', String(arm.modelsMax)],
+      }]
+    : ['chat', 'embed', 'rerank'].map((role) => ({
+        label: `${arm.name}-${role}`,
+        port: PORTS[role],
+        argv: ['--model', `${modelDir}/${ROLES[role].file}`, '--alias', role,
+          '--port', String(PORTS[role]), '--host', '127.0.0.1', '--n-gpu-layers', '99',
+          ...ROLES[role].flags.map((f) => `--${f}`), ...settingsArgs(role)],
+      }));
+
+  const pids = await startServers(specs, { scratchDir, serverExe });
   return { arm, pids, env: envFor(arm), endpoints: envFor(arm) };
 }
 
 export async function stopArm(handle) {
-  for (const pid of handle.pids) {
-    try { await treeKill(pid); } catch (err) { console.error(`stopArm: PID ${pid} — ${err.message}`); }
-  }               // /T: the tree is THREE levels (router→child→grandchild)
-  await settle();
-  // The exit code is not evidence — taskkill has reported SUCCESS for a process still listening. Re-read.
-  const listeners = parseListeners(await netstat());
-  const survivors = [...listeners.entries()].filter(([p]) => Object.values(PORTS).includes(p));
-  return { killed: handle.pids, survivors };
+  return stopServers(handle.pids, Object.values(PORTS));
 }
 
 /** The busy-device LOAD (Task 8): a second, small llama-server generating tokens continuously so the shared
@@ -794,7 +813,12 @@ function spawnTracked(exe, args, envOverlay = {}) {
   return child;
 }
 
-function runTracked(exe, args, envOverlay) {
+/** Every PID this module currently considers its own — for `neighbourReport`, which must be told what to
+ *  EXCLUDE. Exported as a snapshot rather than as the live Set so an importing orchestrator cannot mutate
+ *  the bookkeeping that teardown depends on. */
+export const ownedPids = () => [...activePids];
+
+export function runTracked(exe, args, envOverlay) {
   return new Promise((resolve, reject) => {
     const child = spawnTracked(exe, args, envOverlay);
     child.once('exit', (code) => resolve(code ?? 1));

@@ -56,9 +56,18 @@ export const repoFiles = (repo, tiers = []) => {
  * bulleted block) joins as `"…proved by" + " " + "      seven"`, and a pattern anchored on single-space
  * adjacency never crosses the extra whitespace — the claim is invisible.
  *
+ * A BLOCKQUOTE marker on the continuation is stripped for the same reason and was missed for the same
+ * reason. Found 2026-09-12: a retired claim wrapping inside a `>` block joined as `"…never a" + " " +
+ * "> generator asked to choose"`, and the `>` sat exactly where the pattern expected a space — so the one
+ * place this repository puts its standing working positions was the one place the gate could not read a
+ * wrapped claim. It is the same defect the indentation trim already fixed, wearing markdown's syntax
+ * instead of whitespace; `check-docs`' `commentLinesOnly` is the third instance, for `//`.
+ *
  * @param {string[]} lines
  * @returns {string[]} one window per input line: `lines[i]` joined to `lines[i + 1]`'s trimmed text, or
  *   `lines[i]` unchanged for the last line.
  */
 export const twoLineWindows = (lines) =>
-  lines.map((line, i) => (i + 1 < lines.length ? `${line} ${lines[i + 1].replace(/^\s+/, '')}` : line));
+  lines.map((line, i) => (i + 1 < lines.length
+    ? `${line} ${lines[i + 1].replace(/^\s+/, '').replace(/^(?:>\s*)+/, '')}`
+    : line));

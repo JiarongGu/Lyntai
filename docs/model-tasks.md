@@ -78,6 +78,12 @@ that model is level with using no judge at all; at 80 it is well below. So *"whi
 question and *"how many did you show it"* was the right one. `docs/memory-measurements.md` §5 owns the
 table and the arm-level scores.
 
+**Below 20 the governing variable changes, and the table above does not extend down.** Measured 2026-09-12
+at 3-7 options in a FORCED choice — exactly one right (`docs/memory-measurements.md` §5): a 4B reads 71.5%
+at N = 3 falling only to 63.6% at N = 7, so list length costs it little, while WHICH SHAPE it is asked in
+costs it far more and a 1B stops choosing entirely. **Lift over chance is capped at N down here**, so the
+3.27x / 1.74x column above cannot be compared against it at all.
+
 **What it is NOT is a knowledge failure.** The same run shows the model ranks well and stops badly —
 precision at its own top-ranked endorsement is far above its precision overall, a large lift. So the lever
 is calibration or the combination rule, never a count. That is **D110**, which refused to build a cap over
@@ -117,9 +123,20 @@ candidate count, how much text each candidate carries.
 > is precisely the shape a small INSTRUCT model failed at (806,058,240 B, inert, ceiling of zero); **list
 > length governs it more than model size** (§2's table: 20 shown → 16.2% precision, 80 → 2.6%, below using
 > none at all); a stated budget does **not** bind a selective task and made one endorse MORE; and the shape
-> that DID work small is `score-a-pair`. **So the evidence points at a SCORER over a bounded candidate list,
-> never a generator asked to choose** — the same conclusion the memory verification seam reached, for the
-> same reasons. `affordance` has no evidence at any size; do not read the above as covering it.
+> that DID work small is `score-a-pair`. `affordance` has no evidence at any size; do not read the above as
+> covering it.
+>
+> **This paragraph used to end "the evidence points at a SCORER over a bounded candidate list, never a <!-- drift-ok: quotes the rule the 3-7 measurement retired -->
+> generator asked to choose", and the 3-7 region has since been MEASURED and it is not that simple**
+> (2026-09-12, `docs/memory-measurements.md` §5, `decision-shape-single-evidence`). Among the GENERATIVE
+> arms **the winning shape inverts with model size**: at 2,489,757,856 B a generator asked to choose beats
+> N scorings at every list length from 3 to 7 (`p<0.0001`); at 806,058,240 B it loses at every one, because
+> it stops choosing and emits a constant. **Pick the shape from the size, never in advance.**
+>
+> **What survives intact is the recommendation, and it got stronger.** The best arm measured is a
+> **468,393,760-byte cross-encoder** doing the scorer shape in one round trip — it matches the 5.3x larger
+> instruct model at three options (72.0% against 71.5%), pulls AHEAD as the list grows (67.4% against
+> 63.6% at seven), and is the only arm flat in N.
 
 **There is exactly one QUALITY measurement in this repository of a sub-500 MB model doing any of these
 jobs**, and it is narrower than the question. `docs/memory-measurements.md` §5 owns it
@@ -266,7 +283,41 @@ silently run on whatever backend happens to be default. The surface does not yet
 > `Model` alone is not a reliable pin. This is **D87**'s shape, and whether that precedence is right is
 > still open (`TASKS.md` Part 128).
 
-## 6. Where to look next
+## 6. Can you express a DECISION through what ships? Yes — through the verification seam
+
+**A decision** — given a query and a bounded list of 3-7 options, choose one or none — **is expressible
+today, and one shipped implementation already IS the argmax.** Audited 2026-09-12 against the frozen
+surface (`TASKS.md` Part 178, `docs/task-archive.md` Part 193).
+
+`MemoryVerificationRequest(Query, Candidates)` is exactly `(query, bounded option list)`; a candidate
+carries an `Id`, a `Relevance` and — since **D108** — its whole `Content`. The reply distinguishes the two
+answers a decision seam must never conflate: `MemoryVerification.NoOpinion` is *the seam did not answer*
+(`Judged: false`), and `NothingRelevant` is a first-class *none of these* (`Judged: true`). And
+`CrossEncoderVerificationPolicy` with `CrossEncoderVerificationOptions.EndorseCount = 1` is argmax over N
+scorings in ONE round trip, reachable through `AddMemoryCrossEncoderVerification` (**D115**).
+
+**What is missing is the MARGIN, not the ability to ask.** `MemoryVerification` is
+`(IReadOnlyList<string>, bool)`, so the cross-encoder's real-valued scores are computed and discarded at
+the endorsement cut — and a confidence threshold, which is what a decision system is usually built on,
+cannot be expressed. **No public type in the library carries a per-option score out of a model-backed
+seam.** Whether to add one is open and is a surface question rather than a measurement.
+
+### Why the other seams fit worse
+
+| seam | the obstacle |
+|---|---|
+| `IPairwiseComparer` | Frozen at **N = 2**, over two `string`s rather than identified options, returning A/B/Tie with **no score**. Costs up to **four** model calls per pair (both orders, each able to trigger one JSON repair). No aggregator ships — `JudgeAgreement` compares two verdict vectors, it does not pick a winner. |
+| `IToolLoop` | The right roster shape, the wrong SOURCE: options come from a process-wide DI `IToolRegistry`, and the interface's own doc says the tools come "from the registry, not `LlmRequest.Tools`". A per-call 3-7 option list reaches it only by constructing `ToolLoop` and `ToolRegistry` by hand — both public, so possible, but not configurable. |
+| `IScorer` / `LlmScorerBase` | The one-pair PRIMITIVE, not a chooser. N options is N calls plus a caller-side argmax, and `ScoringService` keys results by SCORER rather than by candidate, so N options cannot be told apart inside one evaluation. |
+| `IMemoryAnnotationPolicy` | Closer than it looks — its `Known` list IS a bounded candidate set, and the prompt asks the model to reuse one "copied exactly". But the output is free-form strings unconstrained to that list, with no id echo, so it expresses "pick from these" only by asking nicely. |
+
+**And position bias is handled at N = 2 and nowhere else.** `LlmPairwiseComparer` runs both orders and
+reports `Tie` when they disagree, because a judge favouring whatever is shown first is a documented failure
+mode. Nothing at N > 2 carries that mitigation — and the N > 2 failure is a different one anyway
+(`docs/memory-measurements.md` §5): at seven options a 4B model's penalty lands on the LAST slot, and a 1B
+stops choosing altogether.
+
+## 7. Where to look next
 
 | you want | read |
 |---|---|

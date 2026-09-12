@@ -23,6 +23,26 @@ describe('twoLineWindows', () => {
     assert.equal(w0, 'byte-identical when unset, proved by seven goldens');
   });
 
+  it('strips a BLOCKQUOTE marker off the continuation — markdown\'s version of the same defect', () => {
+    // Measured 2026-09-12: a retired claim wrapping inside a `>` block joined as "…never a" + " " +
+    // "> generator asked to choose", putting the marker exactly where the pattern wanted a space. This
+    // repository keeps its standing working positions in blockquotes, so that was the one place a wrapped
+    // claim could not be read — and check-docs reported the file clean while the claim was false.
+    const [w0] = twoLineWindows(['> the evidence points at a scorer, never a', '> generator asked to choose']);
+    assert.equal(w0, '> the evidence points at a scorer, never a generator asked to choose');
+  });
+
+  it('strips an INDENTED and NESTED blockquote marker, in that order', () => {
+    const [w0] = twoLineWindows(['a claim that wraps', '  > > deep inside a quote']);
+    assert.equal(w0, 'a claim that wraps deep inside a quote');
+  });
+
+  it('leaves a `>` that is not a line-leading marker alone', () => {
+    // `>` is only a blockquote at the START of a line; mid-line it is content (a comparison, an arrow).
+    const [w0] = twoLineWindows(['the threshold is', 'x > 6 for every rung']);
+    assert.equal(w0, 'the threshold is x > 6 for every rung');
+  });
+
   it('never touches the FIRST line — only the continuation is trimmed', () => {
     // Load-bearing: check-counts's duplicate-report guard (`m.index >= line.length + 1`) anchors the join
     // boundary at the RAW first line's own length. Trimming the first line's tail would move that boundary

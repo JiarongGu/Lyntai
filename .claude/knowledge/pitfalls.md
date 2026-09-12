@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 185 traps, indexed two ways
+## Facets — 188 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 998 · 1188 · 2139 · 2149 · 2175 · 2186 · 2223 · 2594 · 2624 · 2633
-- **`encoding`** (6) — 75 · 80 · 590 · 598 · 827 · 2223
+- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 998 · 1238 · 2189 · 2199 · 2225 · 2236 · 2273 · 2644 · 2674 · 2683
+- **`encoding`** (6) — 75 · 80 · 590 · 598 · 827 · 2273
 - **`git`** (7) — 207 · 232 · 263 · 288 · 598 · 620 · 832
-- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 990 · 1188 · 2158
-- **`router`** (6) — 1031 · 1036 · 1045 · 1047 · 1050 · 1180
-- **`cli`** (18) — 750 · 827 · 1031 · 1052 · 1060 · 1069 · 1073 · 1085 · 1089 · 1096 · 1100 · 1107 · 1111 · 1144 · 1163 · 1167 · 1172 · 2009
-- **`lifetime`** (6) — 1210 · 1219 · 1224 · 1229 · 1242 · 1250
-- **`storage`** (17) — 1123 · 1259 · 1361 · 1389 · 1391 · 1392 · 1394 · 1396 · 1414 · 1425 · 1654 · 1666 · 1922 · 2039 · 2205 · 2387 · 2571
-- **`memory`** (38) — 387 · 422 · 550 · 1123 · 1293 · 1312 · 1323 · 1349 · 1361 · 1376 · 1397 · 1414 · 1425 · 1464 · 1479 · 1486 · 1505 · 1516 · 1534 · 1547 · 1560 · 1618 · 1673 · 1693 · 1729 · 1765 · 1783 · 1790 · 1821 · 1843 · 1871 · 1943 · 2018 · 2039 · 2280 · 2439 · 2467 · 2550
-- **`generation`** (8) — 1036 · 1242 · 1765 · 1956 · 1968 · 1992 · 2099 · 2124
-- **`di`** (12) — 1229 · 1479 · 1505 · 1685 · 1687 · 1690 · 1693 · 1711 · 1790 · 1821 · 1968 · 2018
-- **`measurement`** (52) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 850 · 860 · 880 · 891 · 919 · 946 · 952 · 968 · 985 · 990 · 1060 · 1259 · 1278 · 1349 · 1516 · 1547 · 1574 · 1585 · 1600 · 1618 · 1673 · 1729 · 2175 · 2256 · 2307 · 2322 · 2346 · 2366 · 2387 · 2417 · 2454 · 2518 · 2550
-- **`docs`** (22) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 998 · 1009 · 1014 · 1021 · 1323 · 1843 · 1910 · 2074 · 2084 · 2139 · 2149 · 2186 · 2205 · 2476
-- **`tests`** (21) — 1144 · 1335 · 1376 · 1397 · 1464 · 1486 · 1654 · 1666 · 1922 · 2269 · 2280 · 2291 · 2467 · 2489 · 2571 · 2579 · 2587 · 2591 · 2594 · 2606 · 2619
+- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 990 · 1238 · 2208
+- **`router`** (6) — 1081 · 1086 · 1095 · 1097 · 1100 · 1230
+- **`cli`** (18) — 750 · 827 · 1081 · 1102 · 1110 · 1119 · 1123 · 1135 · 1139 · 1146 · 1150 · 1157 · 1161 · 1194 · 1213 · 1217 · 1222 · 2059
+- **`lifetime`** (6) — 1260 · 1269 · 1274 · 1279 · 1292 · 1300
+- **`storage`** (17) — 1173 · 1309 · 1411 · 1439 · 1441 · 1442 · 1444 · 1446 · 1464 · 1475 · 1704 · 1716 · 1972 · 2089 · 2255 · 2437 · 2621
+- **`memory`** (38) — 387 · 422 · 550 · 1173 · 1343 · 1362 · 1373 · 1399 · 1411 · 1426 · 1447 · 1464 · 1475 · 1514 · 1529 · 1536 · 1555 · 1566 · 1584 · 1597 · 1610 · 1668 · 1723 · 1743 · 1779 · 1815 · 1833 · 1840 · 1871 · 1893 · 1921 · 1993 · 2068 · 2089 · 2330 · 2489 · 2517 · 2600
+- **`generation`** (8) — 1086 · 1292 · 1815 · 2006 · 2018 · 2042 · 2149 · 2174
+- **`di`** (12) — 1279 · 1529 · 1555 · 1735 · 1737 · 1740 · 1743 · 1761 · 1840 · 1871 · 2018 · 2068
+- **`measurement`** (55) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 850 · 860 · 880 · 891 · 919 · 946 · 952 · 968 · 985 · 990 · 1029 · 1047 · 1062 · 1110 · 1309 · 1328 · 1399 · 1566 · 1597 · 1624 · 1635 · 1650 · 1668 · 1723 · 1779 · 2225 · 2306 · 2357 · 2372 · 2396 · 2416 · 2437 · 2467 · 2504 · 2568 · 2600
+- **`docs`** (22) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 998 · 1009 · 1014 · 1021 · 1373 · 1893 · 1960 · 2124 · 2134 · 2189 · 2199 · 2236 · 2255 · 2526
+- **`tests`** (21) — 1194 · 1385 · 1426 · 1447 · 1514 · 1536 · 1704 · 1716 · 1972 · 2319 · 2330 · 2341 · 2517 · 2539 · 2621 · 2629 · 2637 · 2641 · 2644 · 2656 · 2669
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (19) — 207 · 387 · 422 · 651 · 762 · 1045 · 1050 · 1069 · 1144 · 1224 · 1312 · 1560 · 1693 · 1729 · 1956 · 1968 · 2018 · 2124 · 2439
-- **`cancellation`** (5) — 1031 · 1036 · 1293 · 1312 · 1335
-- **`vacuous`** (37) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 880 · 1100 · 1163 · 1180 · 1335 · 1376 · 1397 · 1464 · 1486 · 1574 · 1585 · 1618 · 1729 · 1843 · 2205 · 2280 · 2291 · 2322 · 2454 · 2467 · 2489 · 2518 · 2571 · 2594 · 2606 · 2624 · 2633
-- **`scope-blind`** (35) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1188 · 1479 · 1547 · 1654 · 1666 · 1843 · 1871 · 1922 · 2039 · 2139 · 2149 · 2158 · 2175 · 2186 · 2205 · 2291 · 2454 · 2467 · 2591 · 2624 · 2633
-- **`second-door`** (20) — 1047 · 1085 · 1089 · 1100 · 1107 · 1167 · 1172 · 1250 · 1392 · 1414 · 1693 · 1821 · 1922 · 1943 · 1956 · 1968 · 1992 · 2039 · 2074 · 2099
-- **`stale-claim`** (17) — 57 · 152 · 232 · 296 · 671 · 819 · 832 · 998 · 1014 · 1323 · 1690 · 1910 · 1943 · 1992 · 2074 · 2186 · 2476
-- **`silent-loss`** (48) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 827 · 860 · 891 · 919 · 985 · 1073 · 1089 · 1123 · 1210 · 1242 · 1278 · 1349 · 1389 · 1391 · 1392 · 1394 · 1414 · 1425 · 1464 · 1600 · 1673 · 1685 · 1690 · 1711 · 1783 · 1821 · 1871 · 2009 · 2099 · 2139 · 2149 · 2223 · 2307 · 2387 · 2518
-- **`wrong-subject`** (51) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 860 · 891 · 919 · 946 · 952 · 1009 · 1021 · 1047 · 1096 · 1188 · 1219 · 1229 · 1259 · 1349 · 1397 · 1505 · 1516 · 1534 · 1547 · 1574 · 1585 · 1618 · 1765 · 1790 · 2124 · 2256 · 2307 · 2322 · 2346 · 2366 · 2387 · 2489 · 2550 · 2594
-- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 968 · 990 · 1052 · 1060 · 1069 · 1111 · 1163 · 1534 · 1765 · 2084 · 2476
-- **`ordering`** (10) — 583 · 1073 · 1172 · 1361 · 1396 · 1711 · 2009 · 2018 · 2269 · 2417
-- **`resource`** (13) — 564 · 598 · 637 · 850 · 952 · 1052 · 1144 · 1250 · 1259 · 1687 · 2579 · 2587 · 2619
+- **`fail-open`** (19) — 207 · 387 · 422 · 651 · 762 · 1095 · 1100 · 1119 · 1194 · 1274 · 1362 · 1610 · 1743 · 1779 · 2006 · 2018 · 2068 · 2174 · 2489
+- **`cancellation`** (5) — 1081 · 1086 · 1343 · 1362 · 1385
+- **`vacuous`** (38) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 880 · 1047 · 1150 · 1213 · 1230 · 1385 · 1426 · 1447 · 1514 · 1536 · 1624 · 1635 · 1668 · 1779 · 1893 · 2255 · 2330 · 2341 · 2372 · 2504 · 2517 · 2539 · 2568 · 2621 · 2644 · 2656 · 2674 · 2683
+- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1062 · 1238 · 1529 · 1597 · 1704 · 1716 · 1893 · 1921 · 1972 · 2089 · 2189 · 2199 · 2208 · 2225 · 2236 · 2255 · 2341 · 2504 · 2517 · 2641 · 2674 · 2683
+- **`second-door`** (20) — 1097 · 1135 · 1139 · 1150 · 1157 · 1217 · 1222 · 1300 · 1442 · 1464 · 1743 · 1871 · 1972 · 1993 · 2006 · 2018 · 2042 · 2089 · 2124 · 2149
+- **`stale-claim`** (17) — 57 · 152 · 232 · 296 · 671 · 819 · 832 · 998 · 1014 · 1373 · 1740 · 1960 · 1993 · 2042 · 2124 · 2236 · 2526
+- **`silent-loss`** (49) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 827 · 860 · 891 · 919 · 985 · 1029 · 1123 · 1139 · 1173 · 1260 · 1292 · 1328 · 1399 · 1439 · 1441 · 1442 · 1444 · 1464 · 1475 · 1514 · 1650 · 1723 · 1735 · 1740 · 1761 · 1833 · 1871 · 1921 · 2059 · 2149 · 2189 · 2199 · 2273 · 2357 · 2437 · 2568
+- **`wrong-subject`** (54) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 860 · 891 · 919 · 946 · 952 · 1009 · 1021 · 1029 · 1047 · 1062 · 1097 · 1146 · 1238 · 1269 · 1279 · 1309 · 1399 · 1447 · 1555 · 1566 · 1584 · 1597 · 1624 · 1635 · 1668 · 1815 · 1840 · 2174 · 2306 · 2357 · 2372 · 2396 · 2416 · 2437 · 2539 · 2600 · 2644
+- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 968 · 990 · 1102 · 1110 · 1119 · 1161 · 1213 · 1584 · 1815 · 2134 · 2526
+- **`ordering`** (10) — 583 · 1123 · 1222 · 1411 · 1446 · 1761 · 2059 · 2068 · 2319 · 2467
+- **`resource`** (13) — 564 · 598 · 637 · 850 · 952 · 1102 · 1194 · 1300 · 1309 · 1737 · 2629 · 2637 · 2669
 
 <!-- facets:end -->
 
@@ -1025,6 +1025,56 @@ of the two: most of these traps recur in a subsystem that had never met them.
   the **machine**. The sweep was honest about what it checked and still wrong about the conclusion, which is
   why the fix is procedural: **record the blocker's KIND** (tree / environment / decision / data) and
   re-check against that kind.
+
+- **A dataset's ground truth is a SET, and taking its first element turns the rest into DISTRACTORS — so <!-- trap: sub=measurement shape=wrong-subject,silent-loss -->
+  the benchmark scores a right answer as wrong.** Measured 2026-09-12 building `memory-decision`. LoCoMo's
+  `evidence` is a list of turn ids; the harness took `Evidence[0]` as "the" answer and drew distractors from
+  the rest of the conversation. **409 of 1,540 scored questions (26.6%) carry more than one evidence turn —
+  97.9% of the multi-hop class** — and because the distractors were the top turns BY COSINE, the discarded
+  golds are exactly what that pool selects. A quarter of trials had a second correct option while the prompt
+  asserted exactly one did.
+  <br>**The bias has a DIRECTION, and it is the one that flatters a broken arm.** Re-measured clean, every
+  arm that actually reads the options gained 7-15 points while the arm that emits a CONSTANT moved −0.3 to
+  +2.9 — nothing. So the contamination compressed the gap between judgement and none, which was the axis the
+  write-up argued from, and it reversed a headline: a 468 MB cross-encoder read 3.0 points behind a 2.49 GB
+  instruct model and actually sits ahead of it.
+  <br>**The tell is a plural field read in the singular**, and the loader it borrowed from had it right all
+  along — `MemoryLocomoBench` scores a hit as `Evidence.Any(...)`. Reusing a corpus loader does not inherit
+  its SCORING rule. Ask of any ground-truth field: *is this a set, and does my task permit more than one
+  right answer?* If the task needs exactly one, FILTER to the questions that have exactly one rather than
+  picking a representative — and exclude every flagged id from the distractor pool, not just the one chosen.
+
+- **A model asked for a score on a scale it will not use returns a BINARY verdict, and the tie rate that <!-- trap: sub=measurement shape=wrong-subject,vacuous -->
+  follows reads as a property of the SHAPE under test rather than of the prompt.** Measured 2026-09-12
+  building `memory-decision` (`docs/memory-measurements.md` §5). Asked for `LlmScorerBase`'s own 0..1, a 4B
+  and a 1B both replied `{"score": 0}` or `{"score": 1}` and **nothing between**, across every captured
+  reply. A binary score cannot rank 7 options, so an argmax over it is a coin flip — and the arm would have
+  been published as "the score-a-pair shape loses" when what lost was the scale the prompt asked for.
+  Widening to an integer 0-100 took the same model to a genuinely graded 0/10/20/30/60/70/75/90/95/100.
+  <br>**The tell is a tie rate, and it is only visible if something COUNTS ties.** Distinctness is not
+  discrimination and this file already says so for a reranker; the same audit is owed to any generative
+  scorer, because a coarse scale and a model that cannot tell the options apart produce identical tables.
+  <br>**The general rule: CAPTURE WHAT THE MODEL SAID before pricing what it did.** A raw-reply dump over
+  the first few trials is a few lines of harness and it is what separates "the model cannot do this" from
+  "the model was not asked for something it can give". Reasoning about the prompt would not have found it —
+  0..1 is the scale the library itself ships.
+
+- **Pooling a per-POSITION table over list lengths confounds position with length, and the confound points <!-- trap: sub=measurement shape=wrong-subject,scope-blind -->
+  the same way the real effect does.** Measured 2026-09-12, in the first run of the same bench. Accuracy by
+  the gold option's slot was summed over N = 3..7 — but slot 7 occurs ONLY at N = 7, slot 6 only at N = 6
+  and 7, while slot 1 occurs at every length, and accuracy falls with N. So every arm showed a downward
+  slope by slot, **including three argmax arms that cannot have a position effect at all** (an argmax over
+  per-option scores does not know what order they were shown in). Read as position bias, it would have been
+  an artifact of which cells each slot averages.
+  <br>**The fix is to read it at ONE list length**, where every slot exists and every cell shares a length,
+  so a slope IS position. Doing that reversed the finding's shape: pooled, the 4B looked like it had a
+  monotone first-slot preference; at N = 7 alone its penalty lands on the LAST slot (21% against 46-81%
+  elsewhere) and the three controls show no dip there.
+  <br>**The general shape: when a breakdown's categories are not available in every cell you are summing
+  over, the aggregate measures availability as much as effect.** Ask of any pooled table — *does every
+  bucket draw from the same cells?* — and if not, report one cell rather than the sum. The control that
+  caught it is the one this file already prescribes: an arm that structurally CANNOT show the effect, kept
+  in the table for exactly this reason.
 
 ## LLM / router (details in `llm-and-router.md`)
 

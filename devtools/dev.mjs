@@ -364,6 +364,17 @@ switch (cmd) {
     run('node', [path.join(repo, 'devtools', 'scripts', 'memory-contention.mjs'), ...args]);
     break;
 
+  // memory-decision — the FORCED CHOICE, which every selective figure here stops short of. Published
+  // precision and lift are measured on an endorse-a-SUBSET task over 20-80 candidates; a decision shows
+  // 3-7 options and exactly one is right, so neither column transfers. Two SHAPES on the same two instruct
+  // models — one select-from-list call over N options against N score-a-pair calls argmax'd — plus a
+  // cross-encoder doing the second shape in one round trip, which separates SHAPE from SIZE. The
+  // ORCHESTRATOR owns four concurrent servers so the arms are paired trial for trial; it does NOT refuse a
+  // busy device, because the metric is accuracy and every cell shares one backend. TASKS.md Part 178.
+  case 'memory-decision':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'memory-decision.mjs'), ...args]);
+    break;
+
   case 'install-hooks':
     run('git', ['config', 'core.hooksPath', 'devtools/hooks']);
     console.log('git hooks installed (core.hooksPath = devtools/hooks). Pre-commit runs check-sensitive.');

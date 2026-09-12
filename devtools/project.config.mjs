@@ -365,6 +365,21 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    {
+      // A SHAPE rule retired by measurement rather than a rename, which is why it needs an entry at all:
+      // nothing about the code changed, so no other gate can see the claim go stale. Standing guidance said
+      // the evidence pointed at "a SCORER over a bounded candidate list, never a generator asked to choose".
+      // Measured at 3-7 options on 2026-09-12 that is HALF true — the winning shape INVERTS with model size,
+      // and at 2.49 GB the generator asked to choose wins at every list length. The two live occurrences are
+      // quotations of the retired rule and carry `drift-ok`.
+      term: 'never a generator asked to choose',
+      why: 'it was inferred from an endorse-a-SUBSET task at 20-80 candidates and does not survive the '
+        + 'forced choice at 3-7, which is the length a decision actually uses',
+      use: 'the winning SHAPE inverts with model size — a generator asked to choose WINS at 2,489,757,856 B '
+        + 'and loses at 806,058,240 B, where it stops choosing and emits a constant. Say "pick the shape '
+        + 'from the size", and cite `docs/memory-measurements.md` §5 (`decision-shape-single-evidence`). '
+        + 'The scorer recommendation survives only for the small-model half.',
+    },
     // 2026-09-10, from `docs/FIXES.md`. "Re-throw only OperationCanceledException" was the fail-open rule
     // this repository taught for its own storage seams — and it is the DEFECT, not a shorthand for it: an
     // `HttpClient` deadline arrives as `TaskCanceledException`, which IS an `OperationCanceledException`,
@@ -831,6 +846,7 @@ export default {
     'memory-support': 'rule × θ × clock × `ConnectionBoost`; `--screen` = the model ladder',
     'memory-scale': 'COST, not quality — latency, throughput, bytes; no ground truth',
     'memory-contention': 'judge vs cross-encoder: does moving verification off the shared model pay?',
+    'memory-decision': 'a FORCED CHOICE at 3-7 options: one select call, or N score calls argmax\'d?',
     'rerank-screen': 'does a candidate GGUF rerank AT ALL? `--inspect` needs no download',
     'check-options': 'a shipped option a consumer sets with NO xml doc to explain it',
     'memory-locomo': "the FIELD's benchmark; rewards a perfect archive, so read it differentially",
@@ -925,6 +941,7 @@ export default {
     'endorsement-rate',   // how much of what it was shown the judge endorsed
     'screen-verdict',     // one hard case, one call: does this model answer it at all
     'regime-picks',       // which regime a gist-support rule selects
+    'forced-choice-accuracy', // pick ONE of N options, exactly one of which is right — never an endorsed subset
     // SIGNALS AND THEIR SEPARABILITY — is the number the engine computes worth anything.
     'separability-auc',
     'similar-count',

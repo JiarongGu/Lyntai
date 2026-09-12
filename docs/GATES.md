@@ -636,15 +636,21 @@ Every `memory-*` command is a measurement rather than a gate, all out of `verify
 (tens of minutes each, and several need a live model server). What each one measures is in the command
 table in `CLAUDE.md`; what each one FOUND is in `docs/memory-measurements.md` §5.
 
-Three of them are not one-factor sweeps and each is exceptional differently: `memory-sweep` is the
+Four of them are not one-factor sweeps and each is exceptional differently: `memory-sweep` is the
 {ranking × forgetting} 2×2; **`memory-scale`'s subject is COST**, so it generates plain entries and reports
 no miss or pollution rate at all; and `memory-support` crosses rule × θ × clock × `ConnectionBoost` and
-carries a second `--screen` mode for the model ladder.
+carries a second `--screen` mode for the model ladder; and `memory-decision` crosses shape × list length ×
+model size.
 
 **`memory-locomo` and `memory-longmemeval` belong to a different family** — they are the FIELD's
 benchmarks, measured on data this repository did not build. Both are model-free (the dataset names the
 evidence turn, so no reader and no judge can be credited or blamed), and both need a dataset the command
 prints a `curl` for.
+
+**`memory-contention` and `memory-decision` are ORCHESTRATED** — a Node script owns the server processes and
+the C# sweep only measures, because both need several `llama-server` instances at once and a bench cannot be
+trusted to tear them down. `memory-decision` is also the only sweep whose subject is not the memory engine
+at all: it measures what a model does with a bounded list of options, and it touches no store.
 
 **`memory-sweep`'s corpus holds neither authoritative material nor an authored headline BY DEFAULT** —
 `CorpusShape.AuthoritativeCount` is opt-in and `0` unless a caller asks, so any change to grade behaviour

@@ -135,6 +135,15 @@ if (args.Contains("--contention"))
 if (args.Contains("--scale"))
     return await MemoryScaleSweep.RunAsync(args);
 
+// `node devtools/dev.mjs memory-decision` → --decision. Every selective figure this repository holds stops
+// at 20 candidates and measures an endorse-a-SUBSET task; a decision is a FORCED CHOICE over 3-7 options, so
+// neither the precision nor the lift column transfers. Two SHAPES on the same two models — one
+// select-from-list call over N options, against N score-a-pair calls argmax'd — plus a cross-encoder doing
+// the second shape in one round trip, so shape and size are separated. Not a `[Benchmark]`: it needs three
+// live servers and its subject is ACCURACY, which BenchmarkDotNet measures nothing about. TASKS.md Part 178.
+if (args.Contains("--decision"))
+    return await MemoryDecisionSweep.RunAsync(args);
+
 // A `--evidence` study lived here on 2026-08-12 and was removed with the `GraphMemoryOptions.ReinforceOn`
 // seam it drove — see that option's own reverted-here note. Its FINDING survives in TASKS.md Part 64: the
 // engine's reinforcement conflates an age RESET with a stability GROWTH, and those pull in opposite
