@@ -44,10 +44,10 @@ reach it**, and the size question is a choice of CLI rather than of a weight fil
 backends have no prompt contract this library authors, no parse, and no quality measurement anywhere in
 this repository. Treat nothing here as transferring to them.
 
-## 2. Bound the INPUT before buying a bigger model — and the two cases are not one rule
+## 2. Bound the INPUT before buying a bigger model — and the three cases are not one rule
 
 **A model given an unbounded task stops discriminating, and it reads as the model being too small.** This
-is the most transferable thing in this document, it was measured twice on two different seams with the same
+is the most transferable thing in this document, it was measured on three different seams with the same
 model, and it splits:
 
 - **A GENERATIVE task takes a count naturally.** A fact extractor asked for "the facts" with no budget
@@ -56,6 +56,12 @@ model, and it splits:
   not bind at all: asked for **at most 20 of 80 it endorsed 34.9 — MORE than the 29.1 it endorsed
   unbudgeted**; asked for at most 5 it endorsed 27.4. Every candidate looks locally defensible, and a
   stated number reads as an expectation rather than a cap.
+- **An AFFORDANCE task — a roster of tools — cannot be bounded by the model AT ALL, and this is the case
+  that bites hardest.** Given 3-7 tools and a request none of them serves, a 4B invokes one anyway on
+  **90-95%** of trials, fabricating arguments to force the fit. **Two prompt rewrites in opposite directions
+  moved it by nothing** — so unlike the two cases above, there is no instruction that helps. The only lever
+  is to narrow the roster before the model ever sees it, and §1 marks this the one shape the library leaves
+  *unbounded*. §3.1 has the figures; a 1B fails the exact mirror way.
 
 **A budget that RAISES the output is the tell**, and it is only visible if you count how often the seam
 fired. The trap and its full reasoning are `.claude/knowledge/pitfalls.md` §A model given an UNBOUNDED task;
@@ -92,6 +98,10 @@ the endorsements for exactly this reason.
 **The consequence for your own seams:** before concluding a seam needs a bigger model, check what the seam
 HANDS it — how many items, how long, and whether the instruction bounds the answer. A knob that shapes the
 input is usually cheaper than a bigger model, and it is testable on the model you already have.
+
+**And check the input bound is one you CONTROL.** The three cases differ in who can enforce it: a generative
+task takes the instruction, a selective one ignores it, and an affordance task ignores it *and* acts anyway.
+Where the model supplies no bound, the caller must — which is a structural fix, not a prompt.
 
 **One honest limit on all of this.** Every library-authored prompt named in §1 is a compile-time constant,
 and none of them routes through the prompt registry. So on the two memory seams the prompt is not a knob

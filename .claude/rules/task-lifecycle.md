@@ -25,6 +25,30 @@ left? The archive gains a per-task history the line never carried anyway.
 - **Never let the backlog SUMMARIZE the archive.** A running tally of what closed is the same accumulation
   one level up: unbounded, answering a question the archive already answers, pushing the open items down.
 
+## A MEASUREMENT task names what it will CHANGE before it runs — and the instrument is not the deliverable
+
+**Before the first run, write down what a YES does to the library and what a NO does.** If no outcome
+changes shipped code, a shipped default, or a documented recommendation, it is a research question rather
+than a task, and it belongs in `docs/DECISIONS.md` as an option with a trigger — not in the backlog, which
+holds work someone could start today.
+
+**Measurement tasks are the ones that silently consume a session, and the mechanism is specific:** an
+instrument always has one more defensible improvement. Resilience, a control, a better breakdown, a guard
+for the failure that just cost a run — each is individually justified, and collectively they are polishing a
+tool instead of using its output. Nothing fails, nothing is wrong, and the session ships nothing.
+
+- **Two signals, and both are countable.** Lines added to the instrument against lines added to `src/`; and
+  runs spent after the first actionable finding. When a finding is actionable, STOP instrumenting and act on
+  it — the next improvement to the harness will still be there afterwards.
+- **A negative result IS a deliverable, and must be written as one.** *"Two prompt rewrites in opposite
+  directions moved it by nothing, so wording is not the lever"* stops the next session spending a round on
+  it. But say plainly that it is a refutation rather than an improvement; a negative result dressed up as
+  progress is worse than either.
+- **Report the ratio when you report the result.** A session that measured a great deal and changed nothing
+  is a legitimate outcome exactly once — when the measurement refuted the change. Any other time it is a
+  finding about the session, and the person reading has to be told, because they are the only one who can
+  redirect it.
+
 ## An archive entry is an OUTCOME and a POINTER, not a write-up
 
 **What the task DID, what it decided, and where the detail lives.** The archive is reached by `Part N`
