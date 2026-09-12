@@ -30,13 +30,13 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 349 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
 | 404 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 427 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 498 | 109 | Widen the QA half: a SECOND EMBEDDER and a SECOND READER | startable |  |
-| 657 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 743 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 830 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
-| 842 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
-| 871 | 178 | Decide whether the PROMPT-protocol fallback should announce itself | decision-only | a ruling on whether a silent transport fallback may stay silent, or earns a… |
-| 915 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface: a managed IEmbedder implementation, and whe… |
+| 498 | 109 | Widen the QA half: a SECOND READER | startable |  |
+| 685 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 771 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 858 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
+| 870 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
+| 899 | 178 | Decide whether the PROMPT-protocol fallback should announce itself | decision-only | a ruling on whether a silent transport fallback may stay silent, or earns a… |
+| 943 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface: a managed IEmbedder implementation, and whe… |
 
 <!-- open-items:end -->
 
@@ -51,9 +51,9 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is ONE item**, and what a
-reader most needs before picking it is that it is a MEASUREMENT — every item that would
-change shipped library code is `decision-only` and waiting on a ruling. That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is ONE item**, and what a reader
+most needs before picking it up is that its first step is a NAMED DOWNLOAD rather than a measurement —
+every item that would change shipped library code is `decision-only` and waiting on a ruling. That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -495,10 +495,38 @@ judge beside it, plus a `--shots` diagnostic for the multi-shot mode the one-sho
 found **D98** and four harness defects. What is left of the item is below: more of it, not the first of
 it._
 
-- [ ] **Widen the QA half: a SECOND EMBEDDER and a SECOND READER.** 100 of 1540 LoCoMo <!-- item: state=startable -->
-  questions ran, on one local reader whose window the `full` arm exceeds. The absolute values are not
-  comparable to a published number and only the ARM DIFFERENCE transfers, so what widening buys is
-  confidence in the differences rather than a rankable score.
+- [ ] **Widen the QA half: a SECOND READER.** The absolute values are not comparable to a <!-- item: state=startable -->
+  published number and only the ARM DIFFERENCE transfers, so what widening buys is confidence in the
+  differences rather than a rankable score.
+  <br>_**The EMBEDDER half CLOSED 2026-09-13** as `docs/task-archive.md` **Part 199**: `nomic-embed-text-v1.5`
+  Q8_0 (146,146,432 B) against the incumbent (333,590,944 B), paired per question, moves **no arm** —
+  −5.5 to +2.9 with every CI spanning zero — and the conclusion the arms support survives the swap. The
+  bound is stated with the null: ±7-12 point intervals exclude a LARGE effect only.
+  `docs/memory-measurements.md` §5 owns the figures._
+  <br>**What is left is the READER, and it must be a STRONGER one — that is the whole point.** A second
+  reader exists to separate the reader's ceiling from the memory layer's, and every alternative already on
+  this machine is *below* the incumbent `gemma-3-4b-it` (`gemma-3-1b-it` 806,058,240 B,
+  `qwen2.5-0.5b-instruct` 491,400,032 B). A weaker reader lowers the ceiling instead of separating it, so
+  running one would answer a different question.
+  <br>**First step, and it is a STEP rather than a blocker** (`task-lifecycle.md`: a NAMED download is a
+  step): pull **`Qwen2.5-7B-Instruct-Q4_K_M.gguf`, 4,683,074,240 B** — a different family as well as a
+  larger size, which is what makes a ceiling difference readable rather than just a scale one, and it fits
+  12 GB of VRAM beside an embedder. Then re-run the four arms at n = 61 and compare the ARM ORDERING
+  against `docs/memory-measurements.md` §5's `locomo-qa-second-embedder` table, which is the paired
+  baseline it should be read against.
+  <br>**Cost, measured rather than guessed:** the fixed half is ingesting ~670 turns per touched
+  conversation and the scaling half is TWO model calls per arm per question — the answer, and the judge
+  that grades it. Eleven arms at n = 6 took **1,006 s**; four arms at n = 61 took **946 s**. So **cut
+  `--arms` before n**, and expect ~16 minutes per four-arm run at this sample size.
+  <br>_Two things a re-run should carry. The orchestrator used here is SCRATCH and would need promoting to
+  a tracked command — `memory-locomo` has no server orchestrator of its own, unlike `memory-decision` and
+  `tool-affordance`, so a run picks up whatever happens to be listening, which is the port-fails-upward
+  hazard `pitfalls.md` records. And the bench's embedder double implements only the ROLE-LESS
+  `IEmbedder` overload, so every asymmetric model it serves is measured without the prefixes it was
+  trained with — fair between models, below ceiling for all of them._
+  <br>_The `full` arm's window overrun is now confirmed rather than inferred: **108,428 chars/q and 6 of 6
+  unknown** on this reader. Any widened run should keep it as the documented ceiling-failure arm and never
+  read its 0.0% as a memory-layer result._
   <br>_**The cross-question contamination this item named as a precondition is FIXED** (2026-08-29,
   `docs/task-archive.md` Part 118): every question now runs against a private byte-copy of the ingested
   store, so a widened run no longer inherits it. **The QA half itself has NOT been re-run** — it needs a

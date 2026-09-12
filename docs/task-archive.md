@@ -3304,3 +3304,29 @@ third run showed the effect sizes had been stable throughout: native costs **2.4
 **One instrument defect fixed on the way in:** the negative runner counted a trial the endpoint could not
 answer as the model declining, which on an arm whose whole signal is declining would have read as
 restraint. Now counted and excluded.
+
+## Part 199 — a SECOND EMBEDDER on the LoCoMo QA half: no arm moves
+
+✅ closed 2026-09-13. The EMBEDDER half of `TASKS.md` Part 109; the reader half stays open there and is
+now recorded `blocked · env`.
+
+- **Widen the QA half: a SECOND EMBEDDER and a SECOND READER.**
+
+**Outcome: swapping a 333,590,944 B embedder for a 146,146,432 B one moves no arm** — paired per question,
+−5.5 to +2.9 token-F1 with all four CIs spanning zero — **and the conclusion the arms support survives
+it**: the engine's arms sit below plain cosine under both. `docs/memory-measurements.md` §5
+(`locomo-qa-second-embedder`) owns the figures and states the bound, which matters here because the result
+is a null: ±7-12 point intervals exclude a large effect only.
+
+**The reader half is BLOCKED on the machine, and that is the scoping finding.** A second reader exists to
+separate the reader's ceiling from the memory layer's, and every alternative on this machine is *weaker*
+than the incumbent 4B — which lowers the ceiling rather than separating it. It needs a stronger model,
+which is a download that fits this device.
+
+**Two caveats worth carrying** rather than rediscovering: the bench's embedder double implements only the
+role-less `IEmbedder` overload, so every asymmetric model is measured without the prefixes it was trained
+with — fair between models, below ceiling for all of them; and `memory-locomo` has no server orchestrator,
+so a run takes whatever is listening.
+
+**Ratio:** zero instrument lines in the tree — both halves were env changes behind a scratch orchestrator —
+against three runs. The cost is now measured rather than guessed: four arms at n = 61 is ~16 minutes.
