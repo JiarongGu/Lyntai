@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 189 traps, indexed two ways
+## Facets — 191 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 998 · 1257 · 2208 · 2218 · 2244 · 2255 · 2292 · 2663 · 2693 · 2702
-- **`encoding`** (6) — 75 · 80 · 590 · 598 · 827 · 2292
+- **`gates`** (35) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 998 · 1295 · 2246 · 2256 · 2282 · 2293 · 2330 · 2701 · 2731 · 2740
+- **`encoding`** (6) — 75 · 80 · 590 · 598 · 827 · 2330
 - **`git`** (7) — 207 · 232 · 263 · 288 · 598 · 620 · 832
-- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 990 · 1257 · 2227
-- **`router`** (6) — 1100 · 1105 · 1114 · 1116 · 1119 · 1249
-- **`cli`** (18) — 750 · 827 · 1100 · 1121 · 1129 · 1138 · 1142 · 1154 · 1158 · 1165 · 1169 · 1176 · 1180 · 1213 · 1232 · 1236 · 1241 · 2078
-- **`lifetime`** (6) — 1279 · 1288 · 1293 · 1298 · 1311 · 1319
-- **`storage`** (17) — 1192 · 1328 · 1430 · 1458 · 1460 · 1461 · 1463 · 1465 · 1483 · 1494 · 1723 · 1735 · 1991 · 2108 · 2274 · 2456 · 2640
-- **`memory`** (38) — 387 · 422 · 550 · 1192 · 1362 · 1381 · 1392 · 1418 · 1430 · 1445 · 1466 · 1483 · 1494 · 1533 · 1548 · 1555 · 1574 · 1585 · 1603 · 1616 · 1629 · 1687 · 1742 · 1762 · 1798 · 1834 · 1852 · 1859 · 1890 · 1912 · 1940 · 2012 · 2087 · 2108 · 2349 · 2508 · 2536 · 2619
-- **`generation`** (8) — 1105 · 1311 · 1834 · 2025 · 2037 · 2061 · 2168 · 2193
-- **`di`** (12) — 1298 · 1548 · 1574 · 1754 · 1756 · 1759 · 1762 · 1780 · 1859 · 1890 · 2037 · 2087
-- **`measurement`** (56) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 850 · 860 · 880 · 891 · 919 · 946 · 952 · 968 · 985 · 990 · 1029 · 1048 · 1066 · 1081 · 1129 · 1328 · 1347 · 1418 · 1585 · 1616 · 1643 · 1654 · 1669 · 1687 · 1742 · 1798 · 2244 · 2325 · 2376 · 2391 · 2415 · 2435 · 2456 · 2486 · 2523 · 2587 · 2619
-- **`docs`** (22) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 998 · 1009 · 1014 · 1021 · 1392 · 1912 · 1979 · 2143 · 2153 · 2208 · 2218 · 2255 · 2274 · 2545
-- **`tests`** (21) — 1213 · 1404 · 1445 · 1466 · 1533 · 1555 · 1723 · 1735 · 1991 · 2338 · 2349 · 2360 · 2536 · 2558 · 2640 · 2648 · 2656 · 2660 · 2663 · 2675 · 2688
+- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 990 · 1295 · 2265
+- **`router`** (6) — 1138 · 1143 · 1152 · 1154 · 1157 · 1287
+- **`cli`** (18) — 750 · 827 · 1138 · 1159 · 1167 · 1176 · 1180 · 1192 · 1196 · 1203 · 1207 · 1214 · 1218 · 1251 · 1270 · 1274 · 1279 · 2116
+- **`lifetime`** (6) — 1317 · 1326 · 1331 · 1336 · 1349 · 1357
+- **`storage`** (17) — 1230 · 1366 · 1468 · 1496 · 1498 · 1499 · 1501 · 1503 · 1521 · 1532 · 1761 · 1773 · 2029 · 2146 · 2312 · 2494 · 2678
+- **`memory`** (38) — 387 · 422 · 550 · 1230 · 1400 · 1419 · 1430 · 1456 · 1468 · 1483 · 1504 · 1521 · 1532 · 1571 · 1586 · 1593 · 1612 · 1623 · 1641 · 1654 · 1667 · 1725 · 1780 · 1800 · 1836 · 1872 · 1890 · 1897 · 1928 · 1950 · 1978 · 2050 · 2125 · 2146 · 2387 · 2546 · 2574 · 2657
+- **`generation`** (9) — 1116 · 1143 · 1349 · 1872 · 2063 · 2075 · 2099 · 2206 · 2231
+- **`di`** (12) — 1336 · 1586 · 1612 · 1792 · 1794 · 1797 · 1800 · 1818 · 1897 · 1928 · 2075 · 2125
+- **`measurement`** (58) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 850 · 860 · 880 · 891 · 919 · 946 · 952 · 968 · 985 · 990 · 1029 · 1048 · 1066 · 1081 · 1098 · 1116 · 1167 · 1366 · 1385 · 1456 · 1623 · 1654 · 1681 · 1692 · 1707 · 1725 · 1780 · 1836 · 2282 · 2363 · 2414 · 2429 · 2453 · 2473 · 2494 · 2524 · 2561 · 2625 · 2657
+- **`docs`** (22) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 998 · 1009 · 1014 · 1021 · 1430 · 1950 · 2017 · 2181 · 2191 · 2246 · 2256 · 2293 · 2312 · 2583
+- **`tests`** (21) — 1251 · 1442 · 1483 · 1504 · 1571 · 1593 · 1761 · 1773 · 2029 · 2376 · 2387 · 2398 · 2574 · 2596 · 2678 · 2686 · 2694 · 2698 · 2701 · 2713 · 2726
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (20) — 207 · 387 · 422 · 651 · 762 · 1029 · 1114 · 1119 · 1138 · 1213 · 1293 · 1381 · 1629 · 1762 · 1798 · 2025 · 2037 · 2087 · 2193 · 2508
-- **`cancellation`** (5) — 1100 · 1105 · 1362 · 1381 · 1404
-- **`vacuous`** (38) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 880 · 1066 · 1169 · 1232 · 1249 · 1404 · 1445 · 1466 · 1533 · 1555 · 1643 · 1654 · 1687 · 1798 · 1912 · 2274 · 2349 · 2360 · 2391 · 2523 · 2536 · 2558 · 2587 · 2640 · 2663 · 2675 · 2693 · 2702
-- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1081 · 1257 · 1548 · 1616 · 1723 · 1735 · 1912 · 1940 · 1991 · 2108 · 2208 · 2218 · 2227 · 2244 · 2255 · 2274 · 2360 · 2523 · 2536 · 2660 · 2693 · 2702
-- **`second-door`** (20) — 1116 · 1154 · 1158 · 1169 · 1176 · 1236 · 1241 · 1319 · 1461 · 1483 · 1762 · 1890 · 1991 · 2012 · 2025 · 2037 · 2061 · 2108 · 2143 · 2168
-- **`stale-claim`** (17) — 57 · 152 · 232 · 296 · 671 · 819 · 832 · 998 · 1014 · 1392 · 1759 · 1979 · 2012 · 2061 · 2143 · 2255 · 2545
-- **`silent-loss`** (50) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 827 · 860 · 891 · 919 · 985 · 1029 · 1048 · 1142 · 1158 · 1192 · 1279 · 1311 · 1347 · 1418 · 1458 · 1460 · 1461 · 1463 · 1483 · 1494 · 1533 · 1669 · 1742 · 1754 · 1759 · 1780 · 1852 · 1890 · 1940 · 2078 · 2168 · 2208 · 2218 · 2292 · 2376 · 2456 · 2587
-- **`wrong-subject`** (54) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 860 · 891 · 919 · 946 · 952 · 1009 · 1021 · 1048 · 1066 · 1081 · 1116 · 1165 · 1257 · 1288 · 1298 · 1328 · 1418 · 1466 · 1574 · 1585 · 1603 · 1616 · 1643 · 1654 · 1687 · 1834 · 1859 · 2193 · 2325 · 2376 · 2391 · 2415 · 2435 · 2456 · 2558 · 2619 · 2663
-- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 968 · 990 · 1121 · 1129 · 1138 · 1180 · 1232 · 1603 · 1834 · 2153 · 2545
-- **`ordering`** (10) — 583 · 1142 · 1241 · 1430 · 1465 · 1780 · 2078 · 2087 · 2338 · 2486
-- **`resource`** (13) — 564 · 598 · 637 · 850 · 952 · 1121 · 1213 · 1319 · 1328 · 1756 · 2648 · 2656 · 2688
+- **`fail-open`** (21) — 207 · 387 · 422 · 651 · 762 · 1029 · 1116 · 1152 · 1157 · 1176 · 1251 · 1331 · 1419 · 1667 · 1800 · 1836 · 2063 · 2075 · 2125 · 2231 · 2546
+- **`cancellation`** (5) — 1138 · 1143 · 1400 · 1419 · 1442
+- **`vacuous`** (38) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 880 · 1066 · 1207 · 1270 · 1287 · 1442 · 1483 · 1504 · 1571 · 1593 · 1681 · 1692 · 1725 · 1836 · 1950 · 2312 · 2387 · 2398 · 2429 · 2561 · 2574 · 2596 · 2625 · 2678 · 2701 · 2713 · 2731 · 2740
+- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1081 · 1295 · 1586 · 1654 · 1761 · 1773 · 1950 · 1978 · 2029 · 2146 · 2246 · 2256 · 2265 · 2282 · 2293 · 2312 · 2398 · 2561 · 2574 · 2698 · 2731 · 2740
+- **`second-door`** (20) — 1154 · 1192 · 1196 · 1207 · 1214 · 1274 · 1279 · 1357 · 1499 · 1521 · 1800 · 1928 · 2029 · 2050 · 2063 · 2075 · 2099 · 2146 · 2181 · 2206
+- **`stale-claim`** (17) — 57 · 152 · 232 · 296 · 671 · 819 · 832 · 998 · 1014 · 1430 · 1797 · 2017 · 2050 · 2099 · 2181 · 2293 · 2583
+- **`silent-loss`** (51) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 827 · 860 · 891 · 919 · 985 · 1029 · 1048 · 1116 · 1180 · 1196 · 1230 · 1317 · 1349 · 1385 · 1456 · 1496 · 1498 · 1499 · 1501 · 1521 · 1532 · 1571 · 1707 · 1780 · 1792 · 1797 · 1818 · 1890 · 1928 · 1978 · 2116 · 2206 · 2246 · 2256 · 2330 · 2414 · 2494 · 2625
+- **`wrong-subject`** (55) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 860 · 891 · 919 · 946 · 952 · 1009 · 1021 · 1048 · 1066 · 1081 · 1098 · 1154 · 1203 · 1295 · 1326 · 1336 · 1366 · 1456 · 1504 · 1612 · 1623 · 1641 · 1654 · 1681 · 1692 · 1725 · 1872 · 1897 · 2231 · 2363 · 2414 · 2429 · 2453 · 2473 · 2494 · 2596 · 2657 · 2701
+- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 968 · 990 · 1159 · 1167 · 1176 · 1218 · 1270 · 1641 · 1872 · 2191 · 2583
+- **`ordering`** (10) — 583 · 1180 · 1279 · 1468 · 1503 · 1818 · 2116 · 2125 · 2376 · 2524
+- **`resource`** (14) — 564 · 598 · 637 · 850 · 952 · 1098 · 1159 · 1251 · 1357 · 1366 · 1794 · 2686 · 2694 · 2726
 
 <!-- facets:end -->
 
@@ -1094,6 +1094,44 @@ of the two: most of these traps recur in a subsystem that had never met them.
   bucket draw from the same cells?* — and if not, report one cell rather than the sum. The control that
   caught it is the one this file already prescribes: an arm that structurally CANNOT show the effect, kept
   in the table for exactly this reason.
+
+- **A fan-out bench that lets ONE call throw discards every trial it had already finished, and the longer <!-- trap: sub=measurement shape=resource,wrong-subject -->
+  the run the likelier it is.** Measured 2026-09-12 building `tool-affordance`: a single chat call stalled
+  past the `HttpClient.Timeout` of 300 s on a device at 98.4% mean GPU util, and the `TaskCanceledException`
+  came out of `Parallel.ForEachAsync` unhandled — **96 minutes and roughly 70 of 168 completed trials, gone,
+  with nothing written down.** Every server was torn down correctly and the neighbour survived; the hygiene
+  held and the RESULT still evaporated.
+  <br>**The modelling error is the transferable half.** The harness already had a vocabulary for *the seam
+  declined* — the fired counter this file insists on — and none for *the endpoint never answered*. Those are
+  different events and only one is about the model, so had the call merely returned nothing the run would
+  have finished and published a stall as "the model chose not to call a tool". **A fail-open arm needs a
+  THIRD outcome, not two**: answered, declined, and unreachable.
+  <br>**So catch per call, count it, exclude it from every rate, print the count, and VOID the run above a
+  threshold** — and shorten the deadline while you are there, because a call an order of magnitude past the
+  median is unusable whether or not it eventually returns. Excluding without printing is the worse bug: it
+  shrinks every denominator while the table still looks complete. Never swallow the CALLER's cancellation
+  doing it — `TaskCanceledException` is an `OperationCanceledException`, so the filter has to ask
+  `!ct.IsCancellationRequested` rather than match on the type.
+
+- **A tool roster is not a menu a model will decline — hand a 4B seven tools and it invokes one for 90-95% <!-- trap: sub=measurement,generation shape=fail-open,silent-loss -->
+  of requests NONE of them serves.** Measured 2026-09-12 (`tool-affordance`, `docs/memory-measurements.md`
+  §5). It does not pick something defensibly adjacent; it fabricates arguments to force a fit —
+  `restart_service {"service": "sourdough_starter_knowledge_base"}` for a baking question,
+  `historical_weather {"place": "room"}` for *how much paint do I need*, `translate_text {"to": "en"}` on
+  English. The same model routes the roster WELL when a right tool exists (86.3% at seven options), so this
+  is not weakness: **the selective half works and the refusal half does not.**
+  <br>**Prompt wording does not reach it, and that is the expensive half to learn.** Two rewrites in
+  opposite directions, ten paired cells each: pushing toward tool use took false calls to **100%**, putting
+  the escape first left them at **90-95%** and was significant in **0 of 10**. Do not spend a round of
+  prompt engineering on this — it is a property of handing a model a roster.
+  <br>**So bound the roster BEFORE the model sees it**, because the model supplies no bound of its own; and
+  where a false call is expensive, make the tool itself refuse rather than trusting the decision not to
+  arrive. **A small model fails the MIRROR way** — 0-5% false calls and it will not call a tool when one
+  does fit — so a fix aimed at one size makes the other worse, and neither is visible without BOTH a
+  positive and a negative corpus.
+  <br>**The measurement trap underneath is the general one**: a fixture where every request has a right
+  answer cannot see a false positive at all, so any change that merely pushes harder scores as a clean win.
+  Build the negative half before tuning anything against the positive half.
 
 ## LLM / router (details in `llm-and-router.md`)
 

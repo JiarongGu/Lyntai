@@ -847,6 +847,7 @@ export default {
     'memory-scale': 'COST, not quality — latency, throughput, bytes; no ground truth',
     'memory-contention': 'judge vs cross-encoder: does moving verification off the shared model pay?',
     'memory-decision': 'a FORCED CHOICE at 3-7 options: one select call, or N score calls argmax\'d?',
+    'tool-affordance': 'given these tools, what do you want — through the PROMPT protocol, on a SYNTHETIC roster',
     'rerank-screen': 'does a candidate GGUF rerank AT ALL? `--inspect` needs no download',
     'check-options': 'a shipped option a consumer sets with NO xml doc to explain it',
     'memory-locomo': "the FIELD's benchmark; rewards a perfect archive, so read it differentially",
@@ -942,6 +943,7 @@ export default {
     'screen-verdict',     // one hard case, one call: does this model answer it at all
     'regime-picks',       // which regime a gist-support rule selects
     'forced-choice-accuracy', // pick ONE of N options, exactly one of which is right — never an endorsed subset
+    'false-call-rate',    // given a roster and a request NOTHING on it serves, how often a tool is invoked anyway
     // SIGNALS AND THEIR SEPARABILITY — is the number the engine computes worth anything.
     'separability-auc',
     'similar-count',

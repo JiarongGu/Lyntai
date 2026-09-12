@@ -491,13 +491,23 @@ internal static class SweepDoubles
         /// one-token answer, and a model that wants to explain itself is spending latency the seam cannot
         /// afford. <paramref name="maxTokens"/> raises it for a caller that genuinely needs a phrase — the
         /// LoCoMo reader wants a few words — and the default is unchanged so no existing arm moves.</remarks>
-        public async Task<string?> AskAsync(string prompt, CancellationToken ct = default, int maxTokens = 4)
+        public Task<string?> AskAsync(string prompt, CancellationToken ct = default, int maxTokens = 4) =>
+            AskTurnsAsync([("user", prompt)], ct, maxTokens);
+
+        /// <summary>The same call with the ROLES preserved, for an arm measuring a transport that composes
+        /// several turns.
+        /// <para><b>Flattening them into one user message is not neutral</b> — a system message is where a
+        /// protocol's rules go, and a model that weights the two differently would be priced on a prompt its
+        /// caller never sends. <see cref="AskAsync"/> is now this method with a single user turn, so nothing
+        /// that already used it moves.</para></summary>
+        public async Task<string?> AskTurnsAsync(IReadOnlyList<(string Role, string Content)> turns,
+            CancellationToken ct = default, int maxTokens = 4)
         {
             using var response = await http.PostAsJsonAsync($"{baseUrl}/v1/chat/completions",
                 new
                 {
                     model,
-                    messages = new[] { new { role = "user", content = prompt } },
+                    messages = turns.Select(t => new { role = t.Role, content = t.Content }).ToArray(),
                     temperature = 0,
                     max_tokens = maxTokens,
                 }, ct);

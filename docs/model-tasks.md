@@ -27,7 +27,7 @@ cell does and does not cover.
 | **score-a-pair** (cross-encoder) | how relevant is this document to this query | `CrossEncoderVerificationOptions` | per candidate | endpoint | **yes, one row** |
 | **score-a-pair** (generative) | grade this output against this input, 0..1 | `LlmScorerBase`, and `RelevancyScorer` under it | per evaluation, per scorer | composition root | no |
 | **classify** | is this fact durable enough to keep verbatim | `LlmAnnotationOptions.SuggestGrade`, off by default | per WRITE, when on | option | no |
-| **affordance** | given these tools, what do you want | `MemoryTools`, the generation tools, an MCP-hosted toolset | per model tool call, unbounded by this library | no | no |
+| **affordance** | given these tools, what do you want | `MemoryTools`, the generation tools, an MCP-hosted toolset | per model tool call, unbounded by this library | no | no — but §3.1 |
 | **embed** | place this text in a vector space | `IEmbedder` | per WRITE **and** per RECALL | no | not treated as a size question |
 | **repair** | re-emit that, as JSON this time | the shared JSON completion helper | at most once per call, under three seams | inherited | no |
 | **delegate a run** | here is a task, do it | `IAgentSession` | per session, model-driven | n/a — you pick a CLI | out of scope |
@@ -133,6 +133,11 @@ candidate count, how much text each candidate carries.
 > N scorings at every list length from 3 to 7 (`p<0.0001`); at 806,058,240 B it loses at every one, because
 > it stops choosing and emits a constant. **Pick the shape from the size, never in advance.**
 >
+> **`affordance` is no longer blank, and its result is the sharpest warning in this document — §3.1.**
+> A 4B routes a 3-7 tool roster well (86.3% at N = 7 against an embedder's 81.0%), and on the same roster it
+> invokes a tool for **90-95% of requests nothing on it serves**. The selective half works; the DECLINE does
+> not, and two prompt rewrites in opposite directions moved it by nothing.
+>
 > **What survives intact is the recommendation, and it got stronger.** The best arm measured is a
 > **468,393,760-byte cross-encoder** doing the scorer shape in one round trip — it matches the 5.3x larger
 > instruct model at three options (72.0% against 71.5%), pulls AHEAD as the list grows (67.4% against
@@ -184,8 +189,9 @@ target is worth re-aiming rather than re-surveying.
 about the models.** The smallest model called in the JUDGE role here is **806,058,240 B**
 (`gemma-3-1b-it` Q4_K_M, `locomo-judge-1b-n200`) — and it was **inert**, with a ceiling of zero, which is a
 measured negative rather than a blank. Below that, nothing has been tried in any selective role; the
-shipped extract seam has never been quality-measured at any size; classify, affordance and the generative
-graded-quality scorer have no evidence at any size. **Do not read a blank cell as a negative result** —
+shipped extract seam has never been quality-measured at any size; classify and the generative graded-quality
+scorer have no evidence at any size (**affordance now has some — §3.1**). **Do not read a blank cell as a
+negative result** —
 and do not read that 1B row as one either, since it prices *instruct models in a selective role*, which is
 precisely the shape §1 says to stop reaching for.
 
@@ -199,6 +205,31 @@ precisely the shape §1 says to stop reaching for.
 size does not — the same 4B model reads best-in-class on this repository's own synthetic corpus and
 catastrophic on a field benchmark at the shipped depth. One model, two corpora, opposite signs. Price it on
 the corpus at hand; `.claude/knowledge/model-decoupling.md` is the standing rule.
+
+### 3.1 `affordance`: the selection works, the REFUSAL does not
+
+**Measured 2026-09-12** (`docs/memory-measurements.md` §5, `affordance-prompt-protocol-4b` and
+`affordance-false-call-4b`), on a SYNTHETIC 42-tool fixture through `IToolLoop`'s prompt protocol — the
+weakest evidence tier here, so read the directions and none of the magnitudes.
+
+**Choosing is the easy half.** A 2,489,757,856 B model reads 86.3% at a seven-tool roster against a
+333,590,944 B embedder's 81.0%, and recovers 72-84% of the trials that embedder gets wrong. A 468,393,760 B
+cross-encoder **loses** to the bi-encoder here (76.8%), inverting its win in the decision grid — the shapes
+are not interchangeable across tasks.
+
+**Declining is the half that fails, and it fails silently.** Given 20 requests no tool on the roster serves,
+the same 4B invokes one on **90-95%** of them, fabricating arguments to force a fit
+(`restart_service {"service": "sourdough_starter_knowledge_base"}`). **Two preamble rewrites in opposite
+directions changed nothing** — one reached 100%, the other stayed at 90-95% — so this is a property of
+handing a model a roster, not of the wording. `LyntaiOptions.ToolProtocolPreamble` exists so a deployment can
+try its own; the shipped default was left alone because no tested wording earned the change.
+
+**Two consequences for anyone wiring a tool loop.** A roster is not a menu the model will decline — **narrow
+it before the model sees it**, because the model supplies no bound of its own and this is the one row in §1
+marked *unbounded by this library*. And a 806,058,240 B model is the mirror failure: 0-5% false calls, but it
+never invokes a tool when one DOES fit (81-93% of the time), emitting
+`{"final": "…Please wait a moment while I retrieve the data."}` — the task understood, the grammar
+unavailable. **One prompt, two opposite pathologies, decided by size.**
 
 ### The shape decides how badly a BUSY GPU hurts you
 

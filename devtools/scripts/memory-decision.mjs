@@ -40,30 +40,37 @@ export const ROLES = {
 
 /** `{label, port, argv}` per role — the shape `startServers` takes. Exported so a test can assert the argv
  *  without spawning anything, which is the only way to check `-ngl` is passed EXPLICITLY: the server's
- *  default is not neutral and its log prints no offload line. */
-export function serverSpecs(modelDir) {
+ *  default is not neutral and its log prints no offload line.
+ *
+ *  <b>Parameterised by PORTS 2026-09-12</b>, when `tool-affordance` needed the same four roles on four
+ *  ports of its own. The role table stays here and is IMPORTED rather than copied: the two sweeps' tables
+ *  are read together, so a drifted weights list would make that comparison wrong rather than noisy, and
+ *  neither sweep's output would say so. */
+export function specsFor(ports, modelDir) {
   return Object.entries(ROLES).map(([role, { file, flags, settings }]) => ({
     label: role,
-    port: PORTS[role],
+    port: ports[role],
     argv: [
       '--model', path.join(modelDir, file), '--alias', role,
-      '--port', String(PORTS[role]), '--host', '127.0.0.1', '--no-webui', '-ngl', '99',
+      '--port', String(ports[role]), '--host', '127.0.0.1', '--no-webui', '-ngl', '99',
       ...flags.map((f) => `--${f}`),
       ...Object.entries(settings).flatMap(([k, v]) => [`--${k}`, String(v)]),
     ],
   }));
 }
 
+export const serverSpecs = (modelDir) => specsFor(PORTS, modelDir);
+
 /** Env the C# sweep reads. Every URL spells 127.0.0.1, never `localhost`: on Windows that resolves to ::1
  *  first and costs ~1.8 s per call against an IPv4-only listener — at several thousand calls it is the
  *  whole run. */
-export function envFor() {
+export function envFor(ports = PORTS) {
   const at = (p) => `http://127.0.0.1:${p}`;
   return {
-    LYNTAI_LIVE_CHAT_URL: at(PORTS.chat), LYNTAI_LIVE_CHAT_MODEL: 'chat',
-    LYNTAI_LIVE_SMALL_URL: at(PORTS.small), LYNTAI_LIVE_SMALL_MODEL: 'small',
-    LYNTAI_LIVE_MODEL_URL: at(PORTS.embed), LYNTAI_LIVE_EMBED_MODEL: 'embed',
-    LYNTAI_LIVE_RERANK_URL: at(PORTS.rerank), LYNTAI_LIVE_RERANK_MODEL: 'rerank',
+    LYNTAI_LIVE_CHAT_URL: at(ports.chat), LYNTAI_LIVE_CHAT_MODEL: 'chat',
+    LYNTAI_LIVE_SMALL_URL: at(ports.small), LYNTAI_LIVE_SMALL_MODEL: 'small',
+    LYNTAI_LIVE_MODEL_URL: at(ports.embed), LYNTAI_LIVE_EMBED_MODEL: 'embed',
+    LYNTAI_LIVE_RERANK_URL: at(ports.rerank), LYNTAI_LIVE_RERANK_MODEL: 'rerank',
   };
 }
 
@@ -84,12 +91,12 @@ export function servedFile(props) {
   return typeof raw === 'string' && raw.length > 0 ? path.basename(raw.replace(/\\/g, '/')) : null;
 }
 
-async function identityReport(modelDir) {
+export async function identityReport(modelDir, ports = PORTS) {
   const rows = [];
   for (const [role, { file }] of Object.entries(ROLES)) {
     let props = null;
     try {
-      const res = await fetch(`http://127.0.0.1:${PORTS[role]}/props`, { signal: AbortSignal.timeout(10_000) });
+      const res = await fetch(`http://127.0.0.1:${ports[role]}/props`, { signal: AbortSignal.timeout(10_000) });
       props = await res.json().catch(() => null);
     } catch { /* older builds have no /props; the `unknown` branch below is the honest answer */ }
     const served = servedFile(props);
@@ -102,8 +109,8 @@ async function identityReport(modelDir) {
 /** The reranker check that actually discriminates. Ordering plus distinctness passed a GGUF that ranks the
  *  published pair BACKWARDS, so the pair — and the SPREAD, which says whether the scores are still logits —
  *  is the check worth running before a run is spent. */
-async function screenReranker() {
-  const body = await postJson(`http://127.0.0.1:${PORTS.rerank}/v1/rerank`, {
+export async function screenReranker(ports = PORTS) {
+  const body = await postJson(`http://127.0.0.1:${ports.rerank}/v1/rerank`, {
     model: 'rerank', query: REFERENCE.query, documents: REFERENCE.documents, top_n: REFERENCE.documents.length,
   });
   const rows = parseRerankRows(body);

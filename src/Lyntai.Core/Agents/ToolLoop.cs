@@ -205,7 +205,10 @@ public sealed class ToolLoop(
         {
             // Prompt-protocol fallback for providers without native tool-calling: {"tool":…}/{"final":…} over
             // the text contract via LlmStructuredExtensions.CompleteJsonAsync.
-            var messages = new List<LlmMessage> { LlmMessage.System(BuildSystemPrompt(tools)) };
+            var messages = new List<LlmMessage>
+            {
+                LlmMessage.System(BuildSystemPrompt(tools, options.ToolProtocolPreamble)),
+            };
             messages.AddRange(req.Messages);
 
             for (var iteration = 0; iteration < budget; iteration++)
@@ -354,14 +357,24 @@ public sealed class ToolLoop(
         }
     }
 
-    private static string BuildSystemPrompt(IReadOnlyList<ITool> tools)
+    /// <summary>The instruction half of the prompt-protocol system message, as shipped. Public so a
+    /// deployment overriding <see cref="LyntaiOptions.ToolProtocolPreamble"/> can APPEND to it rather than
+    /// re-type a contract this loop's own parser depends on.</summary>
+    public const string DefaultProtocolPreamble =
+        "You can use tools to answer the request. On each turn reply with EXACTLY ONE JSON object "
+        + "and nothing else, in one of these two forms:\n"
+        + "  to call a tool:      {\"tool\": \"<name>\", \"arguments\": { ... }}\n"
+        + "  for the final answer: {\"final\": \"<answer>\"}\n"
+        + "After a tool call you receive its result, then continue. Only call tools listed below.\n";
+
+    private static string BuildSystemPrompt(IReadOnlyList<ITool> tools, string? preamble)
     {
         var sb = new StringBuilder();
-        sb.Append("You can use tools to answer the request. On each turn reply with EXACTLY ONE JSON object ");
-        sb.Append("and nothing else, in one of these two forms:\n");
-        sb.Append("  to call a tool:      {\"tool\": \"<name>\", \"arguments\": { ... }}\n");
-        sb.Append("  for the final answer: {\"final\": \"<answer>\"}\n");
-        sb.Append("After a tool call you receive its result, then continue. Only call tools listed below.\n\n");
+        // The preamble is the consumer's to replace; the roster below is NOT, because a loop whose model was
+        // never told what it may call still runs and still answers — from its own knowledge.
+        sb.Append(string.IsNullOrWhiteSpace(preamble) ? DefaultProtocolPreamble : preamble);
+        if (sb[^1] != '\n') sb.Append('\n');
+        sb.Append('\n');
         sb.Append("Tools:\n");
         foreach (var t in tools)
         {

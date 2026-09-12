@@ -3178,3 +3178,27 @@ owner's call.
 (`IMemoryAnnotationPolicy`, whose `Known` IS a bounded candidate set) — is `docs/model-tasks.md` §6**, which
 gained the comparison so it sits beside the shape taxonomy rather than in an archive nobody reads end to
 end.
+
+## Part 194 — `affordance` measured: a 4B routes a roster well and cannot decline, and no prompt fixes it
+
+✅ done 2026-09-12, closing Part 178's third item. New bench `tool-affordance`; one additive public option;
+**the shipped default deliberately unchanged.**
+
+- **Measure `affordance` through the PROMPT protocol — the transport this library authors.** Roster size
+  3-7, both models, a `random` null and an `oracle` through the real path, and the same trials posed as
+  plain `select-from-list`. Count the failure modes a forced choice cannot express.
+
+**Outcome: the selective half works and the REFUSAL half does not.** A 4B routes a seven-tool roster better
+than a 333,590,944 B embedder and recovers most of what that embedder gets wrong — then invokes a tool on
+**90-95%** of requests nothing on the roster serves, fabricating arguments to force a fit. A 1B fails the
+mirror way and will not call a tool when one DOES fit. Figures: `docs/memory-measurements.md` §5; consuming
+advice: `docs/model-tasks.md` §3.1; the reusable trap: `.claude/knowledge/pitfalls.md`.
+
+**Two preamble rewrites were measured and BOTH refuted**, so **prompt wording is not the lever** — and that
+negative result is the deliverable, because it stops the next session spending a round on it.
+`LyntaiOptions.ToolProtocolPreamble` and `ToolLoop.DefaultProtocolPreamble` shipped so a deployment can try
+its own wording; the default was left alone because no tested wording earned the change.
+
+**What is NOT closed**: the native transport (blocked on a positive control), any roster larger than seven,
+and argument QUALITY. The corpus is synthetic, so only arm differences transfer. The follow-up — bound the
+roster before the model sees it — is in `TASKS.md` as decision-only.

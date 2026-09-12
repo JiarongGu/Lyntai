@@ -375,6 +375,18 @@ switch (cmd) {
     run('node', [path.join(repo, 'devtools', 'scripts', 'memory-decision.mjs'), ...args]);
     break;
 
+  // tool-affordance — the one shape in docs/model-tasks.md §1 with no evidence at any size, and the one
+  // this library does not bound: "per model tool call, unbounded by this library". Runs the REAL ToolLoop
+  // on its PROMPT path — the native one is silently inert on both models here and blocked on a positive
+  // control — over a SYNTHETIC roster of deliberately confusable tools, against the same trials posed as a
+  // flat forced choice. That second arm is what separates the cost of the TOOL TRANSPORT from the cost of
+  // choosing; without it a bad number cannot be attributed to either. Both controls go through the real
+  // loop driven by a scripted client, so a break in the transport fails a control instead of being
+  // published. Same four roles as memory-decision on four ports of its own. TASKS.md Part 178.
+  case 'tool-affordance':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'tool-affordance.mjs'), ...args]);
+    break;
+
   case 'install-hooks':
     run('git', ['config', 'core.hooksPath', 'devtools/hooks']);
     console.log('git hooks installed (core.hooksPath = devtools/hooks). Pre-commit runs check-sensitive.');

@@ -14,6 +14,19 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`LyntaiOptions.ToolProtocolPreamble` and `ToolLoop.DefaultProtocolPreamble` — the tool-loop's prompt
+  protocol stops being a compile-time constant.** `IToolLoop`'s fallback path sends a system message the
+  library authors; until now no deployment could see it or change it, which `docs/model-tasks.md` §2 records
+  as a standing limitation. The preamble is now the INSTRUCTION half only — **the tool roster is always
+  appended and cannot be suppressed**, because a loop whose model was never told what it may call still runs
+  and still answers, from its own knowledge. `DefaultProtocolPreamble` is public so a consumer can append to
+  the shipped text rather than retype a contract the loop's own parser depends on.
+  <br>**The default is unchanged, deliberately.** Measured 2026-09-12 (`docs/memory-measurements.md` §5,
+  `docs/model-tasks.md` §3.1): a 4B given a 3-7 tool roster invokes a tool on **90-95% of requests nothing on
+  the roster serves**, and two preamble rewrites in opposite directions moved that by nothing — one reached
+  100%, the other was significant in 0 of 10 paired cells. **Prompt wording is not the lever**, so no wording
+  earned the default; the option exists so a deployment can try its own and measure it.
+
 - **`LlmConsumers.Chat` — the tag the library was already emitting now has a constant to cap it with.**
   `ChatTurn.Consumer` defaulted to a bare `"chat"` literal and `IChatOrchestrator` puts it straight onto the
   request, so it reached the usage tracker and the budget layer as a fifth library-emitted tag with nothing

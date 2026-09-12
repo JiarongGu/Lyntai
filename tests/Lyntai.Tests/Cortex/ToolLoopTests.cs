@@ -192,6 +192,38 @@ public class ToolLoopTests
     }
 
     [Fact]
+    public async Task A_custom_protocol_preamble_replaces_the_instructions_and_keeps_the_roster()
+    {
+        // The instruction half is a deployment knob; the ROSTER is not. A consumer who could suppress the
+        // tool list would get a loop whose model is never told what it may call — silently, since the loop
+        // would still run and the model would still answer.
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok));
+        var options = new LyntaiOptions { ToolProtocolPreamble = "ONLY-MINE. Reply with JSON." };
+
+        await new ToolLoop(client, new ToolRegistry([Echo()]), options).RunAsync(Ask());
+
+        var system = Assert.Single(client.Calls[0].Messages, m => m.Role == "system").Content;
+        Assert.StartsWith("ONLY-MINE. Reply with JSON.", system);
+        Assert.Contains("echo", system);                                 // the roster still reaches the model
+        Assert.DoesNotContain("You can use tools", system);              // the default is genuinely replaced
+    }
+
+    [Fact]
+    public async Task The_shipped_preamble_is_what_a_null_option_sends_and_is_readable_by_a_consumer()
+    {
+        // Exposed so a deployment can EXTEND rather than rewrite. A consumer appending one sentence should
+        // not have to re-type a protocol contract whose exact wording the loop's own parser depends on.
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok));
+
+        await new ToolLoop(client, new ToolRegistry([Echo()]), new LyntaiOptions()).RunAsync(Ask());
+
+        var system = Assert.Single(client.Calls[0].Messages, m => m.Role == "system").Content;
+        Assert.StartsWith(ToolLoop.DefaultProtocolPreamble, system);
+    }
+
+    [Fact]
     public async Task Usage_is_surfaced_on_the_no_tools_single_completion()
     {
         var client = new FakeLlmClient();

@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 15 across 10 Parts: 3 startable, 9 blocked, 1 watch, 2 decision-only
+## Open items — 15 across 10 Parts: 2 startable, 9 blocked, 1 watch, 3 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -35,8 +35,8 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 740 | 177 | Does a NEWER same-size instruct model judge better? | startable |  |
 | 779 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
 | 866 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
-| 878 | 178 | Measure `affordance` through the PROMPT protocol — the transport this libra… | startable |  |
-| 898 | 178 | Measure `affordance` through the NATIVE transport — needs a tool-capable mo… | blocked · env | a GGUF whose chat template emits tool_calls, as a POSITIVE CONTROL — neithe… |
+| 878 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
+| 892 | 178 | Measure `affordance` through the NATIVE transport — needs a tool-capable mo… | blocked · env | a GGUF whose chat template emits tool_calls, as a POSITIVE CONTROL — neithe… |
 
 <!-- open-items:end -->
 
@@ -51,7 +51,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is THREE items.** That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is TWO items.** That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -875,25 +875,19 @@ carries the comparison against the other four seams, so nobody re-walks them._
   vocabulary question rides along — the seam is `Lyntai.Memory.Verification`, and a decision is not memory.
   <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit._
 
-- [ ] **Measure `affordance` through the PROMPT protocol — the transport this library authors.** <!-- item: state=startable -->
-  `docs/model-tasks.md` §1 says outright not to read the other findings as covering it, yet it is the shape
-  a tool-calling decision system runs on (*given these tools, what do you want*) and the one shape this
-  library does not bound: *"per model tool call, unbounded by this library"*. Nothing measures what a small
-  model does with a roster of tools.
-  <br>**Scoped 2026-09-12 by a probe, and the scope is now HALF the original.** `ToolLoop` prefers native
-  function-calling and falls back to a prompt protocol it authors itself. The native half is blocked (below);
-  the prompt half needs no template support from the model at all, is the path a gemma-class deployment
-  actually gets, and is a prompt this repository owns — so it is the more relevant measurement of the two.
-  <br>**The roster is constructible with NO new API**: `ToolLoop` and `ToolRegistry` are both public with
-  public constructors, so a per-call 3-7 tool roster is `new ToolLoop(client, new ToolRegistry(tools),
-  options)`. `IToolLoop`'s own doc says the tools come from the registry and NOT from `LlmRequest.Tools`.
-  <br>**Mirror the item-1 instrument rather than inventing one** (`docs/memory-measurements.md` §5): roster
-  size 3-7, both models, a `random` null and an `oracle` through the real path, and the same trials ALSO
-  posed as plain `select-from-list` — that cross-shape arm is what separates the cost of the TOOL transport
-  from the cost of choosing. Count the failure modes a forced choice cannot express: no tool invoked at all,
-  a hallucinated name that resolves to nothing, malformed arguments.
-  <br>_The corpus is a SYNTHETIC roster of deliberately confusable tools (owner's call, 2026-09-12) — a
-  fixture built to be measured, which is the weakest evidence tier here and must be said in the record._
+- [ ] **Bound the tool roster BEFORE the model sees it — the model supplies no bound of its own.** <!-- item: state=decision-only needs="a ruling on new public surface: a per-call selector seam on a frozen API" -->
+  `affordance` is the one shape in `docs/model-tasks.md` §1 marked *unbounded by this library*. Measured
+  2026-09-12 (`docs/task-archive.md` Part 194, `docs/model-tasks.md` §3.1): a 4B invokes a tool on
+  **90-95%** of requests nothing on the roster serves, and **two preamble rewrites in opposite directions
+  moved it by nothing** — so wording is not the lever and narrowing the roster is what is left.
+  `IToolRegistry` hands the loop every registered tool on every iteration; a deployment with a catalogue has
+  no seam, no option and no way to narrow it.
+  <br>**The shape is a selector** — `(request, all registered tools) -> the k most likely` — with an
+  embedding-similarity implementation as the shipped one, since an embedder alone picks the right tool 81.0%
+  of the time on this fixture at 333,590,944 B.
+  <br>_Not startable until the surface is ruled on: it is a new public seam on an API frozen under SemVer
+  since 1.0 with no carve-out (**D70**). The MEASUREMENT that would justify it is also missing — this grid
+  tops out at seven tools and a catalogue is where a bound would matter._
 
 - [ ] **Measure `affordance` through the NATIVE transport — needs a tool-capable model on disk.** <!-- item: state=blocked kind=env needs="a GGUF whose chat template emits tool_calls, as a POSITIVE CONTROL — neither instruct model here does" -->
   Probed 2026-09-12 and the native path is **silently inert on both models this machine holds**:

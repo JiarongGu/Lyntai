@@ -144,6 +144,14 @@ if (args.Contains("--scale"))
 if (args.Contains("--decision"))
     return await MemoryDecisionSweep.RunAsync(args);
 
+// `node devtools/dev.mjs tool-affordance` → --affordance. The one shape in docs/model-tasks.md §1 with no
+// evidence at any size, and the one this library does not bound — "per model tool call, unbounded by this
+// library". Runs the REAL ToolLoop on its PROMPT path (the native one is silently inert on both models
+// here and blocked on a positive control), against the same trials posed as a flat forced choice, so the
+// gap between them is the TRANSPORT rather than the choosing. TASKS.md Part 178.
+if (args.Contains("--affordance"))
+    return await ToolAffordanceSweep.RunAsync(args);
+
 // A `--evidence` study lived here on 2026-08-12 and was removed with the `GraphMemoryOptions.ReinforceOn`
 // seam it drove — see that option's own reverted-here note. Its FINDING survives in TASKS.md Part 64: the
 // engine's reinforcement conflates an age RESET with a stability GROWTH, and those pull in opposite

@@ -89,6 +89,21 @@ public sealed class LyntaiOptions
     /// round-trips before it gives up). Per-call override on <c>RunAsync</c>.</summary>
     public int ToolLoopMaxIterations { get; set; } = 8;
 
+    /// <summary>The INSTRUCTION half of the prompt-protocol system message an
+    /// <see cref="Lyntai.Agents.IToolLoop"/> sends on its fallback path — how the model is told to reply.
+    /// Null (the default) sends <see cref="Lyntai.Agents.ToolLoop.DefaultProtocolPreamble"/>.
+    /// <para><b>The tool ROSTER is always appended by the library and cannot be suppressed here.</b> A
+    /// preamble that replaced the whole message would let a consumer ship a loop whose model is never told
+    /// what it may call — and it would fail silently, because the loop still runs and the model still
+    /// answers, from its own knowledge.</para>
+    /// <para><b>Whatever you write must still ask for the two-key JSON grammar</b>
+    /// (<c>{"tool":…,"arguments":…}</c> / <c>{"final":…}</c>): the loop's parser is fixed, so a preamble
+    /// describing a different reply shape degrades every turn to a direct answer. Start from
+    /// <see cref="Lyntai.Agents.ToolLoop.DefaultProtocolPreamble"/> and append rather than rewriting.</para>
+    /// <para>Affects the PROMPT path only — the native function-calling path sends no protocol message at
+    /// all, so setting this changes nothing on a tool-capable provider.</para></summary>
+    public string? ToolProtocolPreamble { get; set; }
+
     /// <summary>Durable-job tuning (lanes, lease, poll interval, retries).</summary>
     public JobOptions Jobs { get; } = new();
 
