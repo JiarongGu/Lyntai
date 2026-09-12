@@ -3279,3 +3279,28 @@ truncation counter that bounded the decline rate at 1.09% rather than leaving it
 
 **Ratio:** ~250 instrument lines against 0 in `src/`. Two runs, the second added only after the first
 raised an artifact the first could not rule out.
+
+## Part 198 — the native transport's FALSE-CALL rate: the first lever found on §2's hardest case
+
+✅ closed 2026-09-13. Moved out of `TASKS.md` Part 178, which opened it the same day.
+
+- **Measure the NATIVE transport's FALSE-CALL rate.**
+
+**Outcome: on requests NO tool serves, native function-calling invokes one on 20-30% where the prompt
+protocol invokes one on 90-100%.** And it is discrimination rather than blanket restraint — the same model
+fires on 70-78% of requests a tool DOES serve, about **50 points of separation** where the prompt protocol
+has none at all. `docs/memory-measurements.md` §5 (`affordance-native-false-calls`) owns the figures.
+
+**What that changes is a shipped conclusion.** `docs/model-tasks.md` §2 recorded that an affordance task
+*"cannot be bounded by the model AT ALL"*, with narrowing the roster the only remedy — a finding from
+**D110** measured entirely through the prompt protocol. It replicates there on a second model and size
+class, and the TRANSPORT turns out to be a second lever worth 65-75 points. §2 and §3.1 now say so.
+
+**It also CORRECTED the previous Part's own headline, within hours.** Part 197 published *"on accuracy it
+is a wash"* because two runs each had one cell under p = 0.05 and it was a different cell each time. The
+third run showed the effect sizes had been stable throughout: native costs **2.4-9.6 points** at N = 3..6.
+`pitfalls.md` carries the general form — a wandering p-value is an underpowered test, not a null.
+
+**One instrument defect fixed on the way in:** the negative runner counted a trial the endpoint could not
+answer as the model declining, which on an arm whose whole signal is declining would have read as
+restraint. Now counted and excluded.

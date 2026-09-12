@@ -205,9 +205,11 @@ internal static class ToolAffordanceSweep
         var baseline = !scorersOnly && !skipBaseline;
         var cells = await RunArmsAsync(trials, baseline ? big : null, baseline ? small : null,
             scorersOnly ? null : nativeChat, rerankOk ? reranker : null, scorers, lanes);
-        var falseCalls = baseline
-            ? await RunNegativeTrialsAsync(big, small, lanes)
-            : [];
+        var negativeNatives = scorersOnly || nativeChat is null
+            ? []
+            : new[] { (NativeLabel, nativeChat) };
+        var falseCalls = await RunNegativeTrialsAsync(
+            baseline ? big : null, baseline ? small : null, negativeNatives, lanes);
 
         PrintAccuracyTable(cells, trials.Count);
         PrintFalseCalls(falseCalls);
@@ -460,19 +462,32 @@ internal static class ToolAffordanceSweep
     /// <para><b>This is the only arm that can refute a preamble change</b>, and it is why the candidate is
     /// not simply "try harder to call a tool". Reported per (arm, N) as a rate over the negative set.</para>
     /// </summary>
-    private static async Task<Dictionary<(string Arm, int N), (int Trials, int Called)>>
-        RunNegativeTrialsAsync(SweepDoubles.OpenAiCompatibleChat big,
-            SweepDoubles.OpenAiCompatibleChat? small, int lanes)
+    private static async Task<Dictionary<(string Arm, int N), (int Trials, int Called, int Failed)>>
+        RunNegativeTrialsAsync(SweepDoubles.OpenAiCompatibleChat? big,
+            SweepDoubles.OpenAiCompatibleChat? small,
+            IReadOnlyList<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)> natives, int lanes)
     {
-        var chats = new List<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)> { ("4b", big) };
-        if (small is not null) chats.Add(("1b", small));
+        // One flat list of (arm, how to build its client, which preamble), because the arms are no longer
+        // one grid: the baseline models vary the PREAMBLE and the tool-capable one varies the TRANSPORT.
+        // Nesting two loops produced the cross product of both, which is three arms nobody asked for.
+        var arms = new List<(string Name, Func<ILlmClient> Client, string? Preamble)>();
+        foreach (var (label, chat) in new[] { ("4b", big), ("1b", small) }.Where(p => p.Item2 is not null))
+        {
+            arms.Add(($"loop-{label}", () => new BenchLoopClient(chat!), null));
+            arms.Add(($"loop-{label}-v2", () => new BenchLoopClient(chat!), CandidatePreamble));
+        }
+        foreach (var (label, chat) in natives)
+        {
+            arms.Add(($"loop-{label}", () => new BenchLoopClient(chat), null));
+            // The native branch composes no protocol prompt at all, so a preamble would be inert here —
+            // passing one would imply the wording was under test when it cannot reach this path.
+            arms.Add(($"loop-{label}-native", () => new NativeBenchLoopClient(chat), null));
+        }
 
-        var variants = new List<(string Suffix, string? Preamble)> { ("", null), ("-v2", CandidatePreamble) };
-        var result = new Dictionary<(string, int), (int Trials, int Called)>();
+        var result = new Dictionary<(string Arm, int N), (int Trials, int Called, int Failed)>();
         foreach (var n in RosterSizes)
-            foreach (var (label, _) in chats)
-                foreach (var (suffix, _) in variants)
-                    result[($"loop-{label}{suffix}", n)] = (0, 0);
+            foreach (var (name, _, _) in arms) result[(name, n)] = (0, 0, 0);
+        if (arms.Count == 0) return result;
 
         var tools = ToolAffordanceCorpus.Tools;
         var requests = ToolAffordanceCorpus.NoToolRequests;
@@ -492,36 +507,41 @@ internal static class ToolAffordanceSweep
                     var registry = new ToolRegistry(
                         roster.Select(t => new ToolAffordanceCorpus.SyntheticTool(t)));
 
-                    foreach (var (label, chat) in chats)
-                        foreach (var (suffix, preamble) in variants)
+                    foreach (var (name, factory, preamble) in arms)
+                    {
+                        await gate.WaitAsync(ct);
+                        ToolLoopResult run;
+                        var client = factory();
+                        try
                         {
-                            await gate.WaitAsync(ct);
-                            ToolLoopResult run;
-                            try
-                            {
-                                var loop = new ToolLoop(new BenchLoopClient(chat), registry,
-                                    new LyntaiOptions { ToolProtocolPreamble = preamble });
-                                run = await loop.RunAsync(
-                                    new LlmRequest { Messages = [LlmMessage.User(item.Request)] },
-                                    LoopIterations, ct);
-                            }
-                            finally { gate.Release(); }
-
-                            var key = ($"loop-{label}{suffix}", n);
-                            lock (result)
-                            {
-                                var (trials, called) = result[key];
-                                result[key] = (trials + 1, called + (run.Steps.Count > 0 ? 1 : 0));
-                            }
-
-                            // WHICH tool it invented, not just how often. A false-call RATE is a counter and
-                            // a counter cannot say whether the model picked something defensibly adjacent or
-                            // something absurd — and the rate is a claim about shipped behaviour.
-                            if (_dump && item.Index < DumpTrials * 2)
-                                Dump($"negative:{label}{suffix}@{n}", item.Index, run.Steps.Count > 0
-                                    ? $"CALLED {run.Steps[0].Tool} {run.Steps[0].ArgumentsJson} :: {item.Request}"
-                                    : $"(answered directly) :: {item.Request}");
+                            var loop = new ToolLoop(client, registry,
+                                new LyntaiOptions { ToolProtocolPreamble = preamble });
+                            run = await loop.RunAsync(
+                                new LlmRequest { Messages = [LlmMessage.User(item.Request)] },
+                                LoopIterations, ct);
                         }
+                        finally { gate.Release(); }
+
+                        // A trial the ENDPOINT could not answer is not the model declining, and this
+                        // counter is what keeps the two apart. Without it a stalled socket reads as
+                        // perfect restraint — which is the direction that flatters an arm silently.
+                        var failed = client is ICountedLoopClient { Errors: > 0 };
+                        lock (result)
+                        {
+                            var (trials, called, bad) = result[(name, n)];
+                            result[(name, n)] = failed
+                                ? (trials, called, bad + 1)
+                                : (trials + 1, called + (run.Steps.Count > 0 ? 1 : 0), bad);
+                        }
+
+                        // WHICH tool it invented, not just how often. A false-call RATE is a counter and
+                        // a counter cannot say whether the model picked something defensibly adjacent or
+                        // something absurd — and the rate is a claim about shipped behaviour.
+                        if (_dump && item.Index < DumpTrials * 2)
+                            Dump($"negative:{name}@{n}", item.Index, run.Steps.Count > 0
+                                ? $"CALLED {run.Steps[0].Tool} {run.Steps[0].ArgumentsJson} :: {item.Request}"
+                                : $"(answered directly) :: {item.Request}");
+                    }
                 }
             });
 
@@ -531,24 +551,42 @@ internal static class ToolAffordanceSweep
     /// <summary>False-call rate on the requests no tool serves — the regression column for any preamble
     /// change. Read it BESIDE the accuracy table: a candidate that lifts choice accuracy and lifts this has
     /// bought one at the price of the other, and only the pair says whether that is a win.</summary>
-    private static void PrintFalseCalls(Dictionary<(string Arm, int N), (int Trials, int Called)> falseCalls)
+    private static void PrintFalseCalls(
+        Dictionary<(string Arm, int N), (int Trials, int Called, int Failed)> falseCalls)
     {
+        if (falseCalls.Count == 0)
+        {
+            Console.WriteLine("\nFALSE CALLS: NOT RUN — no arm was asked for. The positive trials cannot see");
+            Console.WriteLine("  this failure, so nothing in this run bounds a fabricated tool call.");
+            return;
+        }
+
         Console.WriteLine($"\nFALSE CALLS on {ToolAffordanceCorpus.NoToolRequests.Count} requests NO tool "
             + "serves — lower is better, and a preamble change must not raise it\n");
-        Console.WriteLine($"{"arm",-14} " + string.Join(" ", RosterSizes.Select(n => $"{$"N={n}",9}")));
-        Console.WriteLine(new string('-', 14 + RosterSizes.Length * 10));
+        Console.WriteLine($"{"arm",-18} " + string.Join(" ", RosterSizes.Select(n => $"{$"N={n}",9}")));
+        Console.WriteLine(new string('-', 18 + RosterSizes.Length * 10));
         foreach (var arm in falseCalls.Keys.Select(k => k.Arm).Distinct().OrderBy(a => a, StringComparer.Ordinal))
         {
             var cellsByN = RosterSizes.Select(n =>
             {
-                var (trials, called) = falseCalls[(arm, n)];
+                var (trials, called, _) = falseCalls[(arm, n)];
                 return trials == 0 ? "        -" : $"{(double)called / trials,9:P1}";
             });
-            Console.WriteLine($"{arm,-14} {string.Join(" ", cellsByN)}");
+            Console.WriteLine($"{arm,-18} {string.Join(" ", cellsByN)}");
         }
+
+        // Excluded from every rate above, so the count has to be printed: an unreported 10% would shrink
+        // each denominator while the table still looked complete.
+        var failed = falseCalls.Values.Sum(v => v.Failed);
+        var attempts = falseCalls.Values.Sum(v => v.Trials) + failed;
+        Console.WriteLine($"\n  unanswered by the endpoint: {failed} of {attempts} "
+            + $"({(attempts == 0 ? 0 : (double)failed / attempts):P2}) — excluded from every rate above, "
+            + "because a\n  dead socket is not a model showing restraint");
         Console.WriteLine("\n  A tool call here is the model fabricating an action. The corpus's positive trials");
         Console.WriteLine("  CANNOT see this failure — every one of them has a right tool — so without this");
         Console.WriteLine("  table a preamble that simply pushes harder scores as a clean win.");
+        Console.WriteLine("\n  READ IT WITH THE ACCURACY TABLE. An arm that declines everything scores a perfect");
+        Console.WriteLine("  0% here and is useless; this column only bounds the cost of the other one.");
     }
 
     /// <summary>One run of the REAL <see cref="ToolLoop"/> over a roster of N tools.

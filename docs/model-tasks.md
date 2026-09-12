@@ -56,12 +56,18 @@ model, and it splits:
   not bind at all: asked for **at most 20 of 80 it endorsed 34.9 — MORE than the 29.1 it endorsed
   unbudgeted**; asked for at most 5 it endorsed 27.4. Every candidate looks locally defensible, and a
   stated number reads as an expectation rather than a cap.
-- **An AFFORDANCE task — a roster of tools — cannot be bounded by the model AT ALL, and this is the case
-  that bites hardest.** Given 3-7 tools and a request none of them serves, a 4B invokes one anyway on
-  **90-95%** of trials, fabricating arguments to force the fit. **Two prompt rewrites in opposite directions
-  moved it by nothing** — so unlike the two cases above, there is no instruction that helps. The only lever
-  is to narrow the roster before the model ever sees it, and §1 marks this the one shape the library leaves
-  *unbounded*. §3.1 has the figures; a 1B fails the exact mirror way.
+- **An AFFORDANCE task — a roster of tools — cannot be bounded by the PROMPT, and this is the case that
+  bites hardest.** Given 3-7 tools and a request none of them serves, a 4B invokes one anyway on
+  **90-95%** of trials, fabricating arguments to force the fit; a 0.5B on the same protocol reads
+  **90-100%**. **Two prompt rewrites in opposite directions moved it by nothing** — so unlike the two cases
+  above, no instruction helps, and §1 marks this the one shape the library leaves *unbounded*.
+  <br>**But the TRANSPORT bounds it, which this bullet denied until 2026-09-13.** It read *"cannot be
+  bounded by the model AT ALL"* and named narrowing the roster as the only lever. Measured on the one model
+  here that can take both paths, native function-calling invokes a tool on **20-30%** of those same
+  requests against the prompt protocol's 90-100% — and it is discrimination rather than blanket restraint,
+  firing on 70-78% of requests a tool DOES serve against 20-30% where none does, about **50 points of
+  separation** where the prompt protocol has none. It costs **2.4-9.6 points** of accuracy where a tool
+  does fit. §3.1 has the figures; a 1B on the prompt protocol fails the exact mirror way.
 
 **A budget that RAISES the output is the tell**, and it is only visible if you count how often the seam
 fired. The trap and its full reasoning are `.claude/knowledge/pitfalls.md` §A model given an UNBOUNDED task;
@@ -293,12 +299,22 @@ directions changed nothing** — one reached 100%, the other stayed at 90-95% �
 handing a model a roster, not of the wording. `LyntaiOptions.ToolProtocolPreamble` exists so a deployment can
 try its own; the shipped default was left alone because no tested wording earned the change.
 
-**Two consequences for anyone wiring a tool loop.** A roster is not a menu the model will decline — **narrow
-it before the model sees it**, because the model supplies no bound of its own and this is the one row in §1
-marked *unbounded by this library*. And a 806,058,240 B model is the mirror failure: 0-5% false calls, but it
-never invokes a tool when one DOES fit (81-93% of the time), emitting
+**Two consequences for anyone wiring a tool loop.** A roster is not a menu the model will decline **on the
+prompt protocol** — narrow it before the model sees it, because there the model supplies no bound of its
+own, and §1 marks this the one row *unbounded by this library*. And a 806,058,240 B model is the mirror
+failure: 0-5% false calls, but it never invokes a tool when one DOES fit (81-93% of the time), emitting
 `{"final": "…Please wait a moment while I retrieve the data."}` — the task understood, the grammar
 unavailable. **One prompt, two opposite pathologies, decided by size.**
+
+**The third consequence, added 2026-09-13: PREFER THE NATIVE TRANSPORT where the model has a tool
+template.** On the one model measured both ways, it cuts false calls from 90-100% to **20-30%** while still
+firing on 70-78% of requests a tool serves — roughly 50 points of separation against the prompt
+protocol's none — and it never hallucinates a tool name or emits unusable arguments, where the prompt path
+does both on 1-3% of trials. It also finishes the loop: **99.4-100% converged against 11.3-24.4%**, and at
+1.70-1.79 model calls per run against 2.34-2.54, because the prompt path spends a JSON repair round. It
+costs 2.4-9.6 points of choice accuracy. **Check the template before relying on it** — a model without a
+tool section returns 200 with `tool_calls: null` and answers anyway, which is why `ToolLoop` keeps the
+prompt protocol as its portable fallback.
 
 ### 3.2 Cross-encoder candidates under 500 MB — a DESK survey, not a measurement
 

@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 197 traps, indexed two ways
+## Facets — 198 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (36) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 1035 · 1116 · 1371 · 2322 · 2332 · 2358 · 2369 · 2406 · 2777 · 2807 · 2816
-- **`encoding`** (6) — 75 · 80 · 590 · 598 · 864 · 2406
+- **`gates`** (36) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 1035 · 1132 · 1387 · 2338 · 2348 · 2374 · 2385 · 2422 · 2793 · 2823 · 2832
+- **`encoding`** (6) — 75 · 80 · 590 · 598 · 864 · 2422
 - **`git`** (7) — 207 · 232 · 263 · 288 · 598 · 620 · 869
-- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 1027 · 1371 · 2341
-- **`router`** (6) — 1214 · 1219 · 1228 · 1230 · 1233 · 1363
-- **`cli`** (18) — 750 · 864 · 1214 · 1235 · 1243 · 1252 · 1256 · 1268 · 1272 · 1279 · 1283 · 1290 · 1294 · 1327 · 1346 · 1350 · 1355 · 2192
-- **`lifetime`** (6) — 1393 · 1402 · 1407 · 1412 · 1425 · 1433
-- **`storage`** (17) — 1306 · 1442 · 1544 · 1572 · 1574 · 1575 · 1577 · 1579 · 1597 · 1608 · 1837 · 1849 · 2105 · 2222 · 2388 · 2570 · 2754
-- **`memory`** (38) — 387 · 422 · 550 · 1306 · 1476 · 1495 · 1506 · 1532 · 1544 · 1559 · 1580 · 1597 · 1608 · 1647 · 1662 · 1669 · 1688 · 1699 · 1717 · 1730 · 1743 · 1801 · 1856 · 1876 · 1912 · 1948 · 1966 · 1973 · 2004 · 2026 · 2054 · 2126 · 2201 · 2222 · 2463 · 2622 · 2650 · 2733
-- **`generation`** (11) — 1095 · 1109 · 1192 · 1219 · 1425 · 1948 · 2139 · 2151 · 2175 · 2282 · 2307
-- **`di`** (12) — 1412 · 1662 · 1688 · 1868 · 1870 · 1873 · 1876 · 1894 · 1973 · 2004 · 2151 · 2201
-- **`measurement`** (63) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 827 · 843 · 850 · 887 · 897 · 917 · 928 · 956 · 983 · 989 · 1005 · 1022 · 1027 · 1066 · 1095 · 1109 · 1124 · 1142 · 1157 · 1174 · 1192 · 1243 · 1442 · 1461 · 1532 · 1699 · 1730 · 1757 · 1768 · 1783 · 1801 · 1856 · 1912 · 2358 · 2439 · 2490 · 2505 · 2529 · 2549 · 2570 · 2600 · 2637 · 2701 · 2733
-- **`docs`** (23) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 1035 · 1046 · 1051 · 1058 · 1116 · 1506 · 2026 · 2093 · 2257 · 2267 · 2322 · 2332 · 2369 · 2388 · 2659
-- **`tests`** (21) — 1327 · 1518 · 1559 · 1580 · 1647 · 1669 · 1837 · 1849 · 2105 · 2452 · 2463 · 2474 · 2650 · 2672 · 2754 · 2762 · 2770 · 2774 · 2777 · 2789 · 2802
+- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 1027 · 1387 · 2357
+- **`router`** (6) — 1230 · 1235 · 1244 · 1246 · 1249 · 1379
+- **`cli`** (18) — 750 · 864 · 1230 · 1251 · 1259 · 1268 · 1272 · 1284 · 1288 · 1295 · 1299 · 1306 · 1310 · 1343 · 1362 · 1366 · 1371 · 2208
+- **`lifetime`** (6) — 1409 · 1418 · 1423 · 1428 · 1441 · 1449
+- **`storage`** (17) — 1322 · 1458 · 1560 · 1588 · 1590 · 1591 · 1593 · 1595 · 1613 · 1624 · 1853 · 1865 · 2121 · 2238 · 2404 · 2586 · 2770
+- **`memory`** (38) — 387 · 422 · 550 · 1322 · 1492 · 1511 · 1522 · 1548 · 1560 · 1575 · 1596 · 1613 · 1624 · 1663 · 1678 · 1685 · 1704 · 1715 · 1733 · 1746 · 1759 · 1817 · 1872 · 1892 · 1928 · 1964 · 1982 · 1989 · 2020 · 2042 · 2070 · 2142 · 2217 · 2238 · 2479 · 2638 · 2666 · 2749
+- **`generation`** (11) — 1095 · 1125 · 1208 · 1235 · 1441 · 1964 · 2155 · 2167 · 2191 · 2298 · 2323
+- **`di`** (12) — 1428 · 1678 · 1704 · 1884 · 1886 · 1889 · 1892 · 1910 · 1989 · 2020 · 2167 · 2217
+- **`measurement`** (64) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 827 · 843 · 850 · 887 · 897 · 917 · 928 · 956 · 983 · 989 · 1005 · 1022 · 1027 · 1066 · 1095 · 1110 · 1125 · 1140 · 1158 · 1173 · 1190 · 1208 · 1259 · 1458 · 1477 · 1548 · 1715 · 1746 · 1773 · 1784 · 1799 · 1817 · 1872 · 1928 · 2374 · 2455 · 2506 · 2521 · 2545 · 2565 · 2586 · 2616 · 2653 · 2717 · 2749
+- **`docs`** (23) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 1035 · 1046 · 1051 · 1058 · 1132 · 1522 · 2042 · 2109 · 2273 · 2283 · 2338 · 2348 · 2385 · 2404 · 2675
+- **`tests`** (21) — 1343 · 1534 · 1575 · 1596 · 1663 · 1685 · 1853 · 1865 · 2121 · 2468 · 2479 · 2490 · 2666 · 2688 · 2770 · 2778 · 2786 · 2790 · 2793 · 2805 · 2818
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (21) — 207 · 387 · 422 · 651 · 762 · 1066 · 1192 · 1228 · 1233 · 1252 · 1327 · 1407 · 1495 · 1743 · 1876 · 1912 · 2139 · 2151 · 2201 · 2307 · 2622
-- **`cancellation`** (5) — 1214 · 1219 · 1476 · 1495 · 1518
-- **`vacuous`** (41) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 827 · 917 · 1095 · 1109 · 1142 · 1283 · 1346 · 1363 · 1518 · 1559 · 1580 · 1647 · 1669 · 1757 · 1768 · 1801 · 1912 · 2026 · 2388 · 2463 · 2474 · 2505 · 2637 · 2650 · 2672 · 2701 · 2754 · 2777 · 2789 · 2807 · 2816
-- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1157 · 1371 · 1662 · 1730 · 1837 · 1849 · 2026 · 2054 · 2105 · 2222 · 2322 · 2332 · 2341 · 2358 · 2369 · 2388 · 2474 · 2637 · 2650 · 2774 · 2807 · 2816
-- **`second-door`** (20) — 1230 · 1268 · 1272 · 1283 · 1290 · 1350 · 1355 · 1433 · 1575 · 1597 · 1876 · 2004 · 2105 · 2126 · 2139 · 2151 · 2175 · 2222 · 2257 · 2282
-- **`stale-claim`** (18) — 57 · 152 · 232 · 296 · 671 · 819 · 850 · 869 · 1035 · 1051 · 1506 · 1873 · 2093 · 2126 · 2175 · 2257 · 2369 · 2659
-- **`silent-loss`** (53) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 864 · 897 · 928 · 956 · 1022 · 1066 · 1109 · 1116 · 1124 · 1192 · 1256 · 1272 · 1306 · 1393 · 1425 · 1461 · 1532 · 1572 · 1574 · 1575 · 1577 · 1597 · 1608 · 1647 · 1783 · 1856 · 1868 · 1873 · 1894 · 1966 · 2004 · 2054 · 2192 · 2282 · 2322 · 2332 · 2406 · 2490 · 2570 · 2701
-- **`wrong-subject`** (59) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 827 · 843 · 850 · 897 · 928 · 956 · 983 · 989 · 1046 · 1058 · 1095 · 1124 · 1142 · 1157 · 1174 · 1230 · 1279 · 1371 · 1402 · 1412 · 1442 · 1532 · 1580 · 1688 · 1699 · 1717 · 1730 · 1757 · 1768 · 1801 · 1948 · 1973 · 2307 · 2439 · 2490 · 2505 · 2529 · 2549 · 2570 · 2672 · 2733 · 2777
-- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 1005 · 1027 · 1235 · 1243 · 1252 · 1294 · 1346 · 1717 · 1948 · 2267 · 2659
-- **`ordering`** (10) — 583 · 1256 · 1355 · 1544 · 1579 · 1894 · 2192 · 2201 · 2452 · 2600
-- **`resource`** (14) — 564 · 598 · 637 · 887 · 989 · 1174 · 1235 · 1327 · 1433 · 1442 · 1870 · 2762 · 2770 · 2802
+- **`fail-open`** (21) — 207 · 387 · 422 · 651 · 762 · 1066 · 1208 · 1244 · 1249 · 1268 · 1343 · 1423 · 1511 · 1759 · 1892 · 1928 · 2155 · 2167 · 2217 · 2323 · 2638
+- **`cancellation`** (5) — 1230 · 1235 · 1492 · 1511 · 1534
+- **`vacuous`** (42) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 827 · 917 · 1095 · 1110 · 1125 · 1158 · 1299 · 1362 · 1379 · 1534 · 1575 · 1596 · 1663 · 1685 · 1773 · 1784 · 1817 · 1928 · 2042 · 2404 · 2479 · 2490 · 2521 · 2653 · 2666 · 2688 · 2717 · 2770 · 2793 · 2805 · 2823 · 2832
+- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1173 · 1387 · 1678 · 1746 · 1853 · 1865 · 2042 · 2070 · 2121 · 2238 · 2338 · 2348 · 2357 · 2374 · 2385 · 2404 · 2490 · 2653 · 2666 · 2790 · 2823 · 2832
+- **`second-door`** (20) — 1246 · 1284 · 1288 · 1299 · 1306 · 1366 · 1371 · 1449 · 1591 · 1613 · 1892 · 2020 · 2121 · 2142 · 2155 · 2167 · 2191 · 2238 · 2273 · 2298
+- **`stale-claim`** (18) — 57 · 152 · 232 · 296 · 671 · 819 · 850 · 869 · 1035 · 1051 · 1522 · 1889 · 2109 · 2142 · 2191 · 2273 · 2385 · 2675
+- **`silent-loss`** (53) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 864 · 897 · 928 · 956 · 1022 · 1066 · 1125 · 1132 · 1140 · 1208 · 1272 · 1288 · 1322 · 1409 · 1441 · 1477 · 1548 · 1588 · 1590 · 1591 · 1593 · 1613 · 1624 · 1663 · 1799 · 1872 · 1884 · 1889 · 1910 · 1982 · 2020 · 2070 · 2208 · 2298 · 2338 · 2348 · 2422 · 2506 · 2586 · 2717
+- **`wrong-subject`** (60) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 827 · 843 · 850 · 897 · 928 · 956 · 983 · 989 · 1046 · 1058 · 1095 · 1110 · 1140 · 1158 · 1173 · 1190 · 1246 · 1295 · 1387 · 1418 · 1428 · 1458 · 1548 · 1596 · 1704 · 1715 · 1733 · 1746 · 1773 · 1784 · 1817 · 1964 · 1989 · 2323 · 2455 · 2506 · 2521 · 2545 · 2565 · 2586 · 2688 · 2749 · 2793
+- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 1005 · 1027 · 1251 · 1259 · 1268 · 1310 · 1362 · 1733 · 1964 · 2283 · 2675
+- **`ordering`** (10) — 583 · 1272 · 1371 · 1560 · 1595 · 1910 · 2208 · 2217 · 2468 · 2616
+- **`resource`** (14) — 564 · 598 · 637 · 887 · 989 · 1190 · 1251 · 1343 · 1449 · 1458 · 1886 · 2778 · 2786 · 2818
 
 <!-- facets:end -->
 
@@ -1092,20 +1092,36 @@ of the two: most of these traps recur in a subsystem that had never met them.
   `tokenizer.chat_template` rather than a model card — Qwen2.5, Qwen3 and Llama-3.2 all carry a real tool
   section, gemma-3 carries none — and prefer the prompt protocol wherever the template is unknown.
 
-- **Two transports can score the SAME and fail completely differently, so an accuracy table is the wrong <!-- trap: sub=measurement,generation shape=wrong-subject,vacuous -->
-  readout for a transport question.** Measured 2026-09-13, the same `qwen2.5-0.5b-instruct` on `ToolLoop`'s
-  prompt protocol and on native function-calling, paired trial for trial. Accuracy: **net −16 to +1 across
-  five roster sizes, with the one cell under p=0.05 in each of two runs being a DIFFERENT cell** — nothing
-  there. The failure modes: native declines on **21.6-30.1%** of trials against the prompt path's 3.0-6.0%,
-  and in exchange hallucinates a tool name **0.0%** of the time against 0.6-1.2% and emits unusable
-  arguments **0.0%** against 0.6-2.4%. **A deployment picking between them is choosing which failure to
-  handle, not buying accuracy**, and a table of accuracy alone says there is nothing to choose.
+- **An ACCURACY table is the wrong readout for a transport question — the two transports differ far more <!-- trap: sub=measurement,generation shape=wrong-subject,vacuous -->
+  in HOW they fail than in what they score.** Measured 2026-09-13, the same `qwen2.5-0.5b-instruct` on
+  `ToolLoop`'s prompt protocol and on native function-calling, paired trial for trial. Accuracy moves by
+  2.4-9.6 points. Meanwhile native declines on **21.6-30.3%** of trials against the prompt path's 1.8-5.4%,
+  hallucinates a tool name **0.0%** of the time against 0.6-1.8%, emits unusable arguments **0.0%** against
+  0.0-2.4% — and on requests NO tool serves it invokes one on **20-30%** against **90-100%**, which is the
+  largest number anywhere in the grid and is invisible to every accuracy column.
+  <br>**A deployment picking between them is choosing which failure to handle**, and an accuracy table
+  reports that choice as nearly a tie.
   <br>**The largest effect was in a column nobody would have added for the accuracy question**:
   CONVERGENCE. The prompt protocol picks a tool on 94-96% of trials and then finishes the loop on
   **11.3-24.4%** of them, against native's **99.4-100%** — the model emits a well-formed `{"tool": …}` and
   then cannot emit a well-formed `{"final": …}` after the observation. It also costs the extra call that
   repair round bills: 2.34-2.54 model calls per run against 1.70-1.79. **Count what the loop DID, not just
   what it chose**; the published grid could not see this because its models were 1.6x and 5x larger.
+- **A p-value that WANDERS between runs is evidence the test is underpowered, not evidence of no <!-- trap: sub=measurement shape=wrong-subject,vacuous -->
+  effect — and reading it the other way publishes a real result as a null.** Walked into 2026-09-13 and
+  caught by a third run. Two runs of the transport grid each had exactly one cell under p = 0.05 and **it
+  was a different cell each time** (N = 6 then N = 5), which was written up as *"on accuracy it is a wash,
+  and the run that said otherwise did not replicate"*. **The EFFECT SIZES had been stable across both runs
+  all along** — the per-cell net was −14 then −16 at N = 5, −16 then −13 at N = 6 — and the third run
+  landed on −16 and −14. The conclusion was taken from the noisiest statistic on the table while the
+  steadiest one sat beside it.
+  <br>**The mechanism: ~50 discordant trials cannot resolve a 10-trial net**, so McNemar's p wanders across
+  0.03-0.07 on an effect that is genuinely there. A wandering p is what an underpowered test DOES.
+  <br>**So compare EFFECT SIZES across runs first, and treat the p-value as a property of the sample
+  size.** Two runs are enough to notice a disagreement and not enough to call it noise — if two runs
+  disagree about significance while agreeing about magnitude, that is a reason to run a third, never a
+  reason to publish a null. This file already says a negative result is a deliverable; it is only a
+  deliverable when it is a negative RESULT rather than an underpowered one.
 - **An OUTPUT CAP that cuts a turn off before any tool call reports as an empty `tool_calls`, which is <!-- trap: sub=measurement,generation shape=silent-loss,vacuous -->
   byte-identical to a model that DECLINED.** Same run. A 22-30% decline rate is a headline, and a harness
   that cannot separate the two would be publishing its own `max_tokens` as a model property. `finish_reason`

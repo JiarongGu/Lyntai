@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 15 across 11 Parts: 2 startable, 8 blocked, 1 watch, 4 decision-only
+## Open items — 15 across 11 Parts: 1 startable, 8 blocked, 1 watch, 5 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -35,8 +35,8 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 743 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
 | 830 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
 | 842 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
-| 864 | 178 | Measure the NATIVE transport's FALSE-CALL rate | startable |  |
-| 907 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface: a managed IEmbedder implementation, and whe… |
+| 871 | 178 | Decide whether the PROMPT-protocol fallback should announce itself | decision-only | a ruling on whether a silent transport fallback may stay silent, or earns a… |
+| 915 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface: a managed IEmbedder implementation, and whe… |
 
 <!-- open-items:end -->
 
@@ -51,8 +51,8 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is TWO items**, and what a
-reader most needs before picking one is that both are MEASUREMENT or SURVEY — every item that would
+longer drift apart. Edit the marker, never the table. **The startable set is ONE item**, and what a
+reader most needs before picking it is that it is a MEASUREMENT — every item that would
 change shipped library code is `decision-only` and waiting on a ruling. That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
@@ -861,20 +861,28 @@ effect in the grid. It also refuted `docs/model-tasks.md` §3.1's headline: a 49
 times a 806,058,240 B one on the same arm, so that result was the MODEL's rather than the size class's.
 `docs/memory-measurements.md` §5 owns the figures._
 
-- [ ] **Measure the NATIVE transport's FALSE-CALL rate.** <!-- item: state=startable -->
-  The column that decided the prompt protocol's own headline is unmeasured for native:
-  `docs/task-archive.md` Part 197 ran with `--skip-baseline`, which drops the negative corpus along with
-  the 4B and 1B arms, so every native figure published is from trials where a right tool EXISTS.
-  <br>**Why this is the interesting half rather than bookkeeping.** The shipped finding about the prompt
-  protocol is that a 4B invokes a tool on **90-95%** of requests nothing on the roster serves and that no
-  prompt wording moves it (**D110**, `docs/model-tasks.md` §2). The native transport already declines
-  **21.6-30.1%** of the time when a tool DOES fit — five times the prompt path — so the obvious hypothesis
-  is that it also declines usefully on the negative corpus. If it does, *narrow the roster first* stops
-  being the only lever and the TRANSPORT becomes one, which is a different answer to §2's hardest case.
-  <br>_Startable with what is on disk: the corpus, the harness and `qwen2.5-0.5b-instruct` all exist, and
-  `RunNegativeTrialsAsync` needs the native arm added to its variant list. **Read the result beside a
-  positive-corpus run** — an arm that declines everything scores perfectly on the negative half and is
-  useless, which is the false-call table's own trap pointed the other way._
+_**The false-call item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 198**, and the hypothesis held:
+native function-calling invokes a tool on **20-30%** of requests nothing serves against the prompt
+protocol's **90-100%**, while still firing on 70-78% where a tool does fit — about 50 points of separation
+where the prompt protocol has none. So the TRANSPORT is a second lever on §2's hardest case, and
+`docs/model-tasks.md` §2 and §3.1 now say so. It also corrected Part 197's own "accuracy is a wash"
+headline: the cost is **2.4-9.6 points** at N = 3..6. `docs/memory-measurements.md` §5 owns the figures._
+
+- [ ] **Decide whether the PROMPT-protocol fallback should announce itself.** <!-- item: state=decision-only needs="a ruling on whether a silent transport fallback may stay silent, or earns a warning or new public surface" -->
+  The evidence is in and the choice is the owner's.
+  <br>**What the measurement leaves on the table.** `ToolLoop` picks the native path when
+  `ILlmClient.SupportsToolCalls` says so and silently falls back to its prompt protocol otherwise
+  (`src/Lyntai.Core/Agents/ToolLoop.cs:93`). On the one model measured both ways that fallback is not a
+  degradation of degree: it takes false calls from 20-30% to **90-100%**, convergence from 99.4-100% to
+  **11.3-24.4%**, and adds a billed repair round. A deployment on a model with no tool template gets the
+  second column and nothing says so.
+  <br>**Three options, each a different promise.** Leave it — the loop already prefers native and the
+  documentation now carries the trade, which costs nothing and tells no one at runtime. Log a warning when
+  the prompt path is taken with a roster above some size, which is observable but picks a threshold on one
+  model's evidence. Or surface the transport on `ToolLoopResult` so a caller can decide, which is additive
+  public surface on an API frozen under SemVer since 1.0 (**D70**).
+  <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit. And the
+  evidence is ONE model on a synthetic English corpus, which is thin ground for a shipped default._
 
 ---
 
