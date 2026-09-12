@@ -82,6 +82,8 @@ contiguous `D1..Dn` · `docs/GATES.md` — what each gate is for and the numbers
 the memory CONTRACT, and `docs/memory-measurements.md` the EVIDENCE, behind a generated results index whose
 `ships` and status columns are the two things read wrongly here (**D114**) · `docs/model-tasks.md` — every
 model-backed seam by the SHAPE of the question it asks, and what is measured about each shape ·
+`docs/deployment-shapes.md` — the SAME evidence cut by the shape of the deployment (shared server,
+contended device, several models in parallel, the size class you can afford) ·
 `CHANGELOG.md` — per-release
 detail · `README.md` — the consuming story ·
 `TASKS.md` — the OPEN backlog, whose own banner is the live work: read it, never a copy kept here ·

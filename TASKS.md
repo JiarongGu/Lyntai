@@ -36,7 +36,7 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 864 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
 | 876 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
 | 905 | 178 | Decide whether the PROMPT-protocol fallback should announce itself | decision-only | a ruling on whether a silent transport fallback may stay silent, or earns a… |
-| 949 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface: a managed IEmbedder implementation, and whe… |
+| 949 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface and WHICH dependency: a 2x2 of static/transf… |
 
 <!-- open-items:end -->
 
@@ -946,10 +946,20 @@ multilingual floor is the TOKENIZER's rather than the cross-encoder role's (mono
 quantising does not), and the STATIC class has no GGUF in existence, which is what the item below now
 turns on._
 
-- [ ] **Decide whether an IN-PROCESS embedder with NO server is a thing this library should ship.** <!-- item: state=decision-only needs="a ruling on new public surface: a managed IEmbedder implementation, and whether it earns a dependency" -->
-  A static embedding model is a lookup table and an average, so it is implementable in pure managed code —
-  the hard part is TOKENIZATION, not inference. `IEmbedder` is already the seam; what does not exist is any
-  implementation that runs without an HTTP endpoint.
+- [ ] **Decide whether an IN-PROCESS embedder with NO server is a thing this library should ship.** <!-- item: state=decision-only needs="a ruling on new public surface and WHICH dependency: a 2x2 of static/transformer x CPU/GPU, each a different adapter cost" -->
+  `IEmbedder` is already the seam; what does not exist is any implementation that runs without an HTTP
+  endpoint.
+  <br>**WIDENED 2026-09-13 — it is a 2×2, not a single question**, and the four cells cost very different
+  amounts (`docs/deployment-shapes.md` §Shape: no server at all). STATIC × CPU is `model2vec`, pure managed
+  apart from a tokenizer (`Microsoft.ML.Tokenizers`), the smallest possible footprint, measured ~12 points
+  behind. TRANSFORMER × CPU is ONNX Runtime. TRANSFORMER × GPU is ONNX **DirectML** — vendor-neutral on any
+  DX12 device — or LLamaSharp plus a CUDA backend, which is NVIDIA-only and would be the library choosing
+  the user's hardware, the thing **D68** refuses. STATIC × GPU is empty: there is no matmul to accelerate.
+  <br>**And it is NOT a quality or a speed question, which narrows the ruling usefully.** Encode-only
+  vectors are byte-identical across devices, so moving a model in-process cannot change a retrieval score;
+  and a local HTTP call with `UseProxy = false` measures **0.4 ms**, so there is no latency to win. The
+  entire case is operational — no second process to ship and supervise, no port, a lifetime tied to the
+  application's — which is decisive for a distributed app and invisible to a benchmark.
   <br>**Why it is worth asking**: the stated aim is that a memory subsystem *"should not claim the resources
   of"* the application's own model (§3). An embedder needing no server, no GPU and no port is the strongest
   possible form of that, and it is the one place where sub-100 MB and zero-infrastructure coincide.

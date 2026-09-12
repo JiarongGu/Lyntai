@@ -518,6 +518,7 @@ stops choosing altogether.
 
 | you want | read |
 |---|---|
+| which configuration, for the SHAPE OF DEPLOYMENT you are in | `docs/deployment-shapes.md` |
 | which model, rather than which task | `docs/memory.md` §Choosing the model |
 | what the memory seams cost, and the judge's field caveat | `docs/memory.md` §Model-backed steps |
 | the figures behind every claim here | `docs/memory-measurements.md` §5 |
