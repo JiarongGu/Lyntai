@@ -216,6 +216,7 @@ sealed class Lyntai.Agents.ToolLoopResult
     Ok : Boolean
     Steps : IReadOnlyList<ToolStep>
     ToString() : String
+    Transport : Nullable<ToolTransport>
     Usage : LlmUsage
     Verdict : LlmVerdict
 sealed class Lyntai.Agents.ToolRegistry
@@ -245,6 +246,11 @@ sealed class Lyntai.Agents.ToolStep
     Result : String
     ToString() : String
     Tool : String
+enum Lyntai.Agents.ToolTransport
+    Native : ToolTransport const
+    None : ToolTransport const
+    Prompt : ToolTransport const
+    value__ : Int32
 sealed class Lyntai.Agents.UsageFinal
     .ctor(Int64 InputTokens, Int64 OutputTokens, Int64 CacheReadTokens, Int64 CacheCreateTokens, String Model)
     CacheCreateTokens : Int64

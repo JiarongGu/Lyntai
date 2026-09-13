@@ -326,6 +326,10 @@ does both on 1-3% of trials. It also finishes the loop: **99.4-100% converged ag
 costs 2.4-9.6 points of choice accuracy. **Check the template before relying on it** — a model without a
 tool section returns 200 with `tool_calls: null` and answers anyway, which is why `ToolLoop` keeps the
 prompt protocol as its portable fallback.
+<br>**And you no longer have to check by hand at runtime**: `ToolLoopResult.Transport` (**D117**) reports
+which of the two actually ran, so a deployment that silently landed in the second column above can see it.
+It is a fact about the run rather than a warning, so it fires no threshold and says nothing about whether
+the fallback was the wrong answer for your model.
 
 ### 3.2 Cross-encoder candidates under 500 MB — a DESK survey, not a measurement
 

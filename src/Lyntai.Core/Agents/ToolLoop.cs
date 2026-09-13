@@ -36,24 +36,50 @@ public sealed class ToolLoop(
     {
         var steps = new List<ToolStep>();
         var usage = new UsageSum();
+        var transport = new TransportChoice();
         SessionEnded? end = null;
-        await foreach (var e in RunCoreAsync(req, maxIterations, steps, usage, ct).ConfigureAwait(false))
+        await foreach (var e in RunCoreAsync(req, maxIterations, steps, usage, transport, ct).ConfigureAwait(false))
             if (e is SessionEnded se) end = se; // the core always terminates with exactly one SessionEnded
 
         var verdict = end?.Verdict ?? LlmVerdict.Failed;
-        return new ToolLoopResult(end?.FinalText ?? "", verdict, steps, end?.Diagnostic) { Usage = usage.Value };
+        return new ToolLoopResult(end?.FinalText ?? "", verdict, steps, end?.Diagnostic)
+        {
+            Usage = usage.Value,
+            Transport = transport.Value,
+        };
     }
 
     /// <summary>Live door (TL2): the shared core's events, streamed as they happen.</summary>
     public IAsyncEnumerable<AgentStreamEvent> StreamAsync(LlmRequest req, int? maxIterations = null, CancellationToken ct = default)
-        => RunCoreAsync(req, maxIterations, [], new UsageSum(), ct);
+        => RunCoreAsync(req, maxIterations, [], new UsageSum(), new TransportChoice(), ct);
+
+    /// <summary>The transport the core chose, carried out as a side output the way <c>steps</c> and
+    /// <c>usage</c> already are — an async iterator cannot return one, and the alternative was widening the
+    /// shared <see cref="SessionEnded"/>, which <see cref="IAgentSession"/> also produces and which has no
+    /// transport to report.</summary>
+    private sealed class TransportChoice
+    {
+        public ToolTransport? Value { get; private set; }
+
+        public void Choose(ToolTransport transport) => Value = transport;
+    }
+
+    /// <summary>The diagnostics tag for a transport, DERIVED from the enum rather than written beside it —
+    /// the published span values are `none`/`native`/`prompt` and a second literal is a second chance to
+    /// drift, which is the argument <see cref="ToolObservations.ErrorPrefix"/> already makes one file over.</summary>
+    private static string Tag(ToolTransport transport) => transport switch
+    {
+        ToolTransport.None => "none",
+        ToolTransport.Native => "native",
+        _ => "prompt",
+    };
 
     /// <summary>The single event-producing core both doors share. Drives the loop (native / prompt / no-tools),
     /// yields live <see cref="AgentStreamEvent"/>s, and populates <paramref name="steps"/> + <paramref name="usage"/>
     /// as side outputs so <see cref="RunAsync"/> can fold the same run. Always ends with exactly one terminal
     /// <see cref="SessionEnded"/> (preceded by a <see cref="UsageFinal"/> when any provider reported usage).</summary>
     private async IAsyncEnumerable<AgentStreamEvent> RunCoreAsync(
-        LlmRequest req, int? maxIterations, List<ToolStep> steps, UsageSum usage,
+        LlmRequest req, int? maxIterations, List<ToolStep> steps, UsageSum usage, TransportChoice transport,
         [EnumeratorCancellation] CancellationToken ct)
     {
         using var activity = LyntaiDiagnostics.StartToolLoop(req.Consumer);
@@ -81,17 +107,19 @@ public sealed class ToolLoop(
         if (tools.Count == 0)
         {
             Enter();
+            transport.Choose(ToolTransport.None);
             var direct = await client.CompleteAsync(req, ct).ConfigureAwait(false);
             usage.Add(direct.Usage);
             var ok = direct.Verdict == LlmVerdict.Ok;
             if (ok && direct.Text.Length > 0) yield return new TextDelta(direct.Text);
-            foreach (var ev in Finish("none", direct.Verdict, ok ? direct.Text : "", direct.Detail)) yield return ev;
+            foreach (var ev in Finish(Tag(ToolTransport.None), direct.Verdict, ok ? direct.Text : "", direct.Detail)) yield return ev;
             yield break;
         }
 
         var budget = maxIterations ?? options.ToolLoopMaxIterations;
         var native = client.SupportsToolCalls(req);
-        var mode = native ? "native" : "prompt";
+        transport.Choose(native ? ToolTransport.Native : ToolTransport.Prompt);
+        var mode = Tag(transport.Value!.Value);
 
         if (native)
         {
@@ -167,7 +195,7 @@ public sealed class ToolLoop(
 
                 if (verdict != LlmVerdict.Ok)
                 {
-                    foreach (var ev in Finish("native", verdict, null, detail)) yield return ev;
+                    foreach (var ev in Finish(mode, verdict, null, detail)) yield return ev;
                     yield break;
                 }
                 if (calls.Count == 0)
@@ -176,7 +204,7 @@ public sealed class ToolLoop(
                     // On the streaming path the prose has ALREADY been delivered chunk by chunk; re-emitting
                     // the accumulated text here would duplicate the whole answer.
                     if (!streaming && text.Length > 0) yield return new TextDelta(text);
-                    foreach (var ev in Finish("native", LlmVerdict.Ok, text, null)) yield return ev; // no calls → answered
+                    foreach (var ev in Finish(mode, LlmVerdict.Ok, text, null)) yield return ev; // no calls → answered
                     yield break;
                 }
 
@@ -192,7 +220,7 @@ public sealed class ToolLoop(
                     if (gated.Blocked)
                     {
                         yield return new ToolResult(call.Id, gated.Reason ?? "", true);
-                        foreach (var ev in Finish("native", LlmVerdict.Refused, null, gated.Reason)) yield return ev;
+                        foreach (var ev in Finish(mode, LlmVerdict.Refused, null, gated.Reason)) yield return ev;
                         yield break;
                     }
                     steps.Add(new ToolStep(call.Name, gated.Args, gated.Observation));
@@ -221,20 +249,20 @@ public sealed class ToolLoop(
                 usage.Add(reply.Usage);
                 if (reply.Verdict != LlmVerdict.Ok)
                 {
-                    foreach (var ev in Finish("prompt", reply.Verdict, null, reply.Detail)) yield return ev; // surface refusal / all-down
+                    foreach (var ev in Finish(mode, reply.Verdict, null, reply.Detail)) yield return ev; // surface refusal / all-down
                     yield break;
                 }
                 if (!TryParseTurn(reply.Text, out var call))
                 {
                     yield return new TextDelta(reply.Text); // no recognized key → a direct answer
-                    foreach (var ev in Finish("prompt", LlmVerdict.Ok, reply.Text, null)) yield return ev;
+                    foreach (var ev in Finish(mode, LlmVerdict.Ok, reply.Text, null)) yield return ev;
                     yield break;
                 }
                 if (call.IsFinal)
                 {
                     _logger.LogDebug("tool-loop: final answer after {Steps} tool step(s)", steps.Count);
                     yield return new TextDelta(call.FinalAnswer);
-                    foreach (var ev in Finish("prompt", LlmVerdict.Ok, call.FinalAnswer, null)) yield return ev;
+                    foreach (var ev in Finish(mode, LlmVerdict.Ok, call.FinalAnswer, null)) yield return ev;
                     yield break;
                 }
 
@@ -244,7 +272,7 @@ public sealed class ToolLoop(
                 if (gated.Blocked)
                 {
                     yield return new ToolResult(null, gated.Reason ?? "", true);
-                    foreach (var ev in Finish("prompt", LlmVerdict.Refused, null, gated.Reason)) yield return ev;
+                    foreach (var ev in Finish(mode, LlmVerdict.Refused, null, gated.Reason)) yield return ev;
                     yield break;
                 }
                 steps.Add(new ToolStep(call.ToolName, gated.Args, gated.Observation));

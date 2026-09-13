@@ -15,27 +15,26 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 14 across 10 Parts: 5 startable, 8 blocked, 1 watch
+## Open items — 13 across 10 Parts: 4 startable, 8 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 94 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 138 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 147 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 201 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 272 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 350 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 405 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 428 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 643 | 128 | A memory seam's `Model` silently loses to a candidate's — make the contradi… | startable |  |
-| 736 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 823 | 178 | Carry a per-option SCORE out of the verification seam | startable |  |
-| 840 | 178 | MEASURE tool routing at catalogue scale — the seam is not ruled on until it… | startable |  |
-| 875 | 178 | Announce the PROMPT-protocol fallback — surface the transport on `ToolLoopR… | startable |  |
-| 923 | 196 | Ship an IN-PROCESS embedder: BOTH CPU cells of the 2×2, as two adapter pack… | startable |  |
+| 93 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 137 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 146 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 200 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 271 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 349 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 404 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 427 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 642 | 128 | A memory seam's `Model` silently loses to a candidate's — make the contradi… | startable |  |
+| 735 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 822 | 178 | Carry a per-option SCORE out of the verification seam | startable |  |
+| 839 | 178 | MEASURE tool routing at catalogue scale — the seam is not ruled on until it… | startable |  |
+| 907 | 196 | Ship an IN-PROCESS embedder: BOTH CPU cells of the 2×2, as two adapter pack… | startable |  |
 
 <!-- open-items:end -->
 
@@ -50,7 +49,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is FIVE items**, and what a reader
+longer drift apart. Edit the marker, never the table. **The startable set is FOUR items**, and what a reader
 most needs is that all five were `decision-only` until 2026-09-13 and are startable because the owner RULED
 on them, not because anything in the tree changed. Each one's ruling is written at the head of the item,
 above the options it chose between — the losing options are kept deliberately, because they are why the
@@ -872,26 +871,11 @@ where the prompt protocol has none. So the TRANSPORT is a second lever on §2's 
 `docs/model-tasks.md` §2 and §3.1 now say so. It also corrected Part 197's own "accuracy is a wash"
 headline: the cost is **2.4-9.6 points** at N = 3..6. `docs/memory-measurements.md` §5 owns the figures._
 
-- [ ] **Announce the PROMPT-protocol fallback — surface the transport on `ToolLoopResult`.** <!-- item: state=startable -->
-  **RULED 2026-09-13: surface the transport, and NOT a warning.** The distinction that decided it is that
-  reporting which transport ran is a FACT about what happened, not a claim about quality — so the
-  one-model-on-a-synthetic-corpus caveat this item ends on does not apply to it. It applies squarely to the
-  warning option, which would have to pick a roster-size threshold out of that same thin evidence and ship
-  it as a default. A caller reading the transport can decide for itself.
-  <br>**What the measurement leaves on the table.** `ToolLoop` picks the native path when
-  `ILlmClient.SupportsToolCalls` says so and silently falls back to its prompt protocol otherwise
-  (`src/Lyntai.Core/Agents/ToolLoop.cs:93`). On the one model measured both ways that fallback is not a
-  degradation of degree: it takes false calls from 20-30% to **90-100%**, convergence from 99.4-100% to
-  **11.3-24.4%**, and adds a billed repair round. A deployment on a model with no tool template gets the
-  second column and nothing says so.
-  <br>**Three options, each a different promise.** Leave it — the loop already prefers native and the
-  documentation now carries the trade, which costs nothing and tells no one at runtime. Log a warning when
-  the prompt path is taken with a roster above some size, which is observable but picks a threshold on one
-  model's evidence. Or surface the transport on `ToolLoopResult` so a caller can decide, which is additive
-  public surface on an API frozen under SemVer since 1.0 (**D70**).
-  <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit. And the
-  evidence is ONE model on a synthetic English corpus, which is thin ground for a shipped default._
-
+_**The fallback-visibility item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 203** / **D117**:
+`ToolLoopResult.Transport` reports which transport ran, as a nullable init-only property. A result property
+rather than a warning, because reporting which transport ran is a FACT about the run and needs no evidence,
+where a warning would have shipped a roster-size threshold taken from one model on a synthetic corpus.
+Nullable because `None` (no tools registered) and "a BYO loop never said" are different claims._
 ---
 
 ---

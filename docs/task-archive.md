@@ -3411,3 +3411,22 @@ the other rows readable as retrieval rather than eyesight.
 
 **Unmeasured, named rather than implied:** completeness for a READER on this class, and whether the one
 positive cell survives replication — this mode keeps no per-question outcomes, so it reports no interval.
+
+## Part 203 — the tool loop's silent transport fallback becomes visible
+
+✅ closed 2026-09-13. `TASKS.md` Part 178's fallback item, ruled by the owner the same day.
+
+- **Decide whether the PROMPT-protocol fallback should announce itself.**
+
+**Outcome: it announces itself through `ToolLoopResult.Transport`, and NOT through a warning** (**D117**,
+`CHANGELOG.md`). The distinction that decided it: reporting which transport ran is a FACT about the run, so
+it needs no evidence and cannot age; a warning would have had to ship a roster-size threshold taken from one
+model on a synthetic English corpus, which is the genuinely thin part of the evidence.
+
+**Two shape choices worth keeping.** It is an init-only PROPERTY, never a record parameter — widening
+`ToolLoopResult`'s primary constructor is a BINARY break, which the backlog item missed when it called the
+addition simply "additive". And it is NULLABLE, because `None` (nothing registered, one plain completion)
+and "a BYO `IToolLoop` never reported" are different claims that must not collapse.
+
+**What it deliberately does not reach:** the STREAM door. `SessionEnded` is shared with `IAgentSession`,
+which has no transport to report, so widening it for one producer was the worse trade.

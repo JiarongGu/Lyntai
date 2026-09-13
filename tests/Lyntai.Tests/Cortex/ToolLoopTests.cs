@@ -628,4 +628,38 @@ public class ToolLoopTests
         Assert.Equal(15, result.Usage!.InputTokens);
         Assert.Equal(6, result.Usage.OutputTokens);
     }
+
+    [Fact]
+    public async Task The_result_reports_which_TRANSPORT_carried_the_run_so_a_silent_fallback_is_visible()
+    {
+        // The prompt fallback is not a degradation of degree: on the one model measured both ways it takes
+        // false calls from 20-30% to 90-100% and convergence from 99.4-100% down to 11.3-24.4%
+        // (`docs/memory-measurements.md` §5). A deployment on a model with no tool template got that second
+        // column and nothing said so. Reporting the transport is a FACT about what ran, which is why it is a
+        // result property rather than a warning with a threshold picked out of one model's evidence.
+        var prompt = new FakeLlmClient();
+        prompt.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok));
+        var fell_back = await Loop(prompt, Echo()).RunAsync(Ask());
+        Assert.Equal(ToolTransport.Prompt, fell_back.Transport);
+
+        var native = new FakeLlmClient { SupportsToolCallsResult = true };
+        native.Replies.Enqueue(new LlmReply("answered", LlmVerdict.Ok));
+        var went_native = await Loop(native, Echo()).RunAsync(Ask());
+        Assert.Equal(ToolTransport.Native, went_native.Transport);
+    }
+
+    [Fact]
+    public async Task A_run_with_NO_tools_reports_None_which_is_distinguishable_from_a_loop_that_did_not_say()
+    {
+        // Three-way on purpose. `None` is a positive claim that no tool transport was needed; null is a BYO
+        // IToolLoop that never reported one. Collapsing them would make a silent implementation
+        // indistinguishable from a plain completion - the same reason MemoryReviewWrite.Verified is nullable.
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("straight answer", LlmVerdict.Ok));
+
+        var result = await Loop(client).RunAsync(Ask());
+
+        Assert.Equal(ToolTransport.None, result.Transport);
+        Assert.Null(new ToolLoopResult("x", LlmVerdict.Ok, []).Transport);
+    }
 }

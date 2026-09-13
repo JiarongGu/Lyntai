@@ -186,8 +186,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D114](#d114--a-measurement-is-a-row-and-a-figures-currency-is-derived-never-authored-twice-2026-09-10) | 2026-09-10 | a measurement is a ROW, and a figure's currency is DERIVED, never authored twice |
 | [D115](#d115--a-model-backed-ranker-fills-the-verification-seam-and-endorses-a-fixed-pages-worth-2026-09-11) | 2026-09-11 | a model-backed RANKER fills the VERIFICATION seam, and endorses a fixed page's worth |
 | [D116](#d116--the-embedding-seam-carries-a-role-because-an-asymmetric-model-cannot-infer-it-2026-09-12) | 2026-09-12 | the embedding seam carries a ROLE, because an asymmetric model cannot infer it |
+| [D117](#d117--a-tool-loop-reports-its-transport-because-the-fallback-is-silent-and-not-a-degradation-of-degree-2026-09-13) | 2026-09-13 | a tool loop REPORTS its transport, because the fallback is silent and not a degradation of degree |
 
-_All 116 entries are live decisions._
+_All 117 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3454,3 +3455,36 @@ vectors.
 any of them is better on a given corpus is the deployment's measurement, not this library's claim. No
 figure in `docs/memory-measurements.md` moves: every arm there ran through the role-less path, which is
 still exactly what an unprefixed deployment does.
+
+## D117 — a tool loop REPORTS its transport, because the fallback is silent and not a degradation of degree (2026-09-13)
+
+`ToolLoopResult` gains `Transport` (`ToolTransport?` — `None` / `Native` / `Prompt`), as an init-only
+property. `ToolLoop` sets it at the one point it already decides: `ILlmClient.SupportsToolCalls` says
+native, or the loop falls back to its own prompt protocol. Nothing else changes, and no default moves.
+
+**The gap was that the fallback is invisible and expensive.** Measured on one model through both transports
+(`docs/memory-measurements.md` §5): the prompt path invokes a tool on **90-100%** of requests nothing on the
+roster serves against native's 20-30%, converges on **11.3-24.4%** of runs against 99.4-100%, and bills an
+extra repair round. A deployment whose model's chat template carries no tool section gets that column and
+nothing said so — the transport reached an OpenTelemetry span tag and never the caller.
+
+**A result property, not a warning, and the distinction is what decided it.** A warning would have to pick
+a roster-size threshold, and the only evidence available is ONE model on a synthetic English corpus —
+thin ground for a shipped default that fires in everyone's logs. Reporting which transport ran is a FACT
+about what happened rather than a claim about whether it was bad, so it needs no evidence to justify and
+cannot age badly. The caller already knows its own deployment and can decide.
+
+**Init-only, never a record parameter.** Widening `ToolLoopResult`'s primary constructor would be a BINARY
+break for every caller constructing it positionally — the same reason `Usage` is a property, and the
+distinction the backlog item got wrong by calling the addition simply "additive". Additive surface is a
+MINOR under SemVer; a constructor widening is not.
+
+**Nullable, because "did not say" is not "no tools".** `None` is a positive claim that nothing was
+registered and one plain completion ran; `null` is a BYO `IToolLoop` that never reported. Collapsing them
+would make a silent implementation indistinguishable from a genuine no-tools run — `MemoryReviewWrite.Verified`
+refuses the same collapse for the same reason. The built-in loop always reports.
+
+**What it does not do.** The STREAM door does not carry it: `StreamAsync` yields `AgentStreamEvent`s, and
+the only terminal is `SessionEnded`, which `IAgentSession` also produces and which has no transport to
+report. Widening a shared event for one producer was the worse trade, so a streaming consumer that needs
+this reads it from `RunAsync` instead.

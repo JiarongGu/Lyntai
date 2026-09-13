@@ -14,6 +14,18 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`ToolLoopResult.Transport` and the `ToolTransport` enum — a tool loop now reports which transport ran**
+  (**D117**). `ToolLoop` prefers native function-calling and silently falls back to its own prompt protocol
+  when `ILlmClient.SupportsToolCalls` says no. That fallback is not a degradation of degree: measured on one
+  model both ways (`docs/memory-measurements.md` §5), it takes false calls from 20-30% to **90-100%**,
+  convergence from 99.4-100% down to **11.3-24.4%**, and bills an extra repair round. Until now the choice
+  reached an OpenTelemetry span tag and never the caller.
+  <br>**A result property rather than a warning**, because reporting which transport ran is a fact about what
+  happened rather than a claim about whether it was bad — a warning would have had to ship a roster-size
+  threshold picked from one model on a synthetic corpus. **Nullable on purpose**: `None` says no tools were
+  registered, `null` says a BYO `IToolLoop` never reported. Additive; no default moves, and the streaming
+  door is unchanged.
+
 - **`LyntaiOptions.ToolProtocolPreamble` and `ToolLoop.DefaultProtocolPreamble` — the tool-loop's prompt
   protocol stops being a compile-time constant.** `IToolLoop`'s fallback path sends a system message the
   library authors; until now no deployment could see it or change it, which `docs/model-tasks.md` §2 records
