@@ -196,9 +196,19 @@ which never had segment embeddings and is immune. **Every model that works here 
 That collapses the sizing question into one sentence: **a correct reranker must currently be
 RoBERTa-family, and that family's 250,002-token vocabulary puts it above 100 MB** — the best multilingual
 candidate bottoms out at **124,925,504 B**, only 6.1% below its own Q8_0, because the vocabulary is 81.6%
-of the parameters and quantisation is not a lever on an embedding table. So **468,393,760 B remains the
-measured floor**, sub-100 MB is blocked by an unmerged patch rather than by availability, and the stretch
-target is worth re-aiming rather than re-surveying.
+of the parameters and quantisation is not a lever on an embedding table. So 468,393,760 B was recorded as
+the measured floor, with sub-100 MB blocked by an unmerged patch rather than by availability.
+
+> **SCOPED 2026-09-14: every sentence above is about llama.cpp, and the floor went with it.** Read through
+> a runtime that does not convert, the same `ms-marco-MiniLM-L6-v2` reproduces its own model card to four
+> decimal places — and its int8 ONNX export is **23,200,716 B**, correctly ordered and still logit-scaled,
+> **20.2× below** that floor (`docs/memory-measurements.md` §5, `rerank-screen-onnx-runtime`). So the
+> constraint was never "a correct sub-100 MB cross-encoder does not exist"; it was "llama.cpp cannot
+> convert one". **What survives untouched** is the multilingual half — the 250,002-token vocabulary is a
+> property of the model, not the runtime, so a Chinese-first deployment is still above 100 MB — and the
+> 512-token ceiling, likewise the model's. **What is NOT established** is any quality figure, and that the
+> library can reach an ONNX model at all: `AddMemoryCrossEncoderVerification` (**D115**) takes a
+> `/v1/rerank` endpoint and an ONNX file has no server.
 
 **RE-AIMED 2026-09-12, and this paragraph read as more final than it is.** Everything above is about the
 **cross-encoder** role, and #21729's two defects are role-specific: zeroed `token_type_ids` costs a model

@@ -49,6 +49,7 @@ const RETIRED = [
   'Lyntai.Providers.OpenAiCompatible', // folded into Lyntai.Providers.Default at 2.0.1
   'Lyntai.Providers.ClaudeCli.Mcp', //   removed at 1.1.0
   'Lyntai.Providers.Local', //           renamed to Lyntai.Providers.LlamaSharp (D122's naming pass)
+  'Lyntai.Providers.ExtensionsAi', //    folded into Lyntai.Providers.Default (D123)
 ];
 
 /**

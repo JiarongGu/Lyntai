@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The one-line install: `dotnet add package Lyntai` gets Core, the dependency-free default backends,
-    in-memory storage, and BOTH halves of MCP. Everything with a heavy or platform-specific dependency stays an
-    explicit opt-in — Lyntai.Storage.Sqlite's native binary, Lyntai.Providers.LlamaSharp's LLamaSharp,
-    Lyntai.Secrets.Dpapi's Windows-only API, Lyntai.Providers.ExtensionsAi's MEAI. See docs/DECISIONS.md D25.
+    The one-line install: `dotnet add package Lyntai` gets Core, the default backends (including the MEAI
+    bridge and the in-process model2vec embedder), in-memory storage, and BOTH halves of MCP. Everything
+    with a heavy or platform-specific dependency stays an explicit opt-in — Lyntai.Storage.Sqlite's native
+    binary, Lyntai.Providers.LlamaSharp's LLamaSharp, Lyntai.Secrets.Dpapi's Windows-only API.
+    See docs/DECISIONS.md D25.
 
     This is how "most consumers want X" is served WITHOUT putting X's dependencies in front of someone who only
     wanted storage: a metapackage is opt-in convenience, whereas Core is mandatory. MCP is included here rather
@@ -23,7 +24,7 @@
     <PackageId>Lyntai</PackageId>
     <AssemblyName>Lyntai.Bundle</AssemblyName>
     <RootNamespace>Lyntai.Bundle</RootNamespace>
-    <Description>The recommended STARTING set for Lyntai — not the whole library (6 of 11 packages). You get: the core library, the dependency-free LLM backends (claude/codex CLI, any OpenAI-compatible endpoint for chat + embeddings), the Microsoft.Extensions.AI bridge, both halves of MCP, and IN-MEMORY storage. Two things to know: storage is in-memory, so ADD Lyntai.Storage.Sqlite (or .Postgres) for anything that must survive a restart; and image/video/audio generation is NOT included — add Lyntai.Generation. Also opt-in: Lyntai.Providers.LlamaSharp (local GGUF) and Lyntai.Secrets.Dpapi (Windows). Everything left out is left out because it drags a native payload, a platform-specific API, or a dependency an application that did not ask for that feature should not carry.</Description>
+    <Description>The recommended STARTING set for Lyntai — not the whole library (5 of 10 packages). You get: the core library, the default LLM backends (claude/codex CLI, any OpenAI-compatible endpoint for chat + embeddings, an in-process model2vec embedder, the Microsoft.Extensions.AI bridge), both halves of MCP, and IN-MEMORY storage. Two things to know: storage is in-memory, so ADD Lyntai.Storage.Sqlite (or .Postgres) for anything that must survive a restart; and image/video/audio generation is NOT included — add Lyntai.Generation. Also opt-in: Lyntai.Providers.LlamaSharp (local GGUF) and Lyntai.Secrets.Dpapi (Windows). Everything left out is left out because it drags a native payload, a platform-specific API, or a dependency an application that did not ask for that feature should not carry.</Description>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
     <!-- nothing is compiled here, so the doc-file and trim analyzers have nothing to say -->
@@ -42,10 +43,6 @@
     <ProjectReference Include="..\Lyntai.Storage.InMemory\Lyntai.Storage.InMemory.csproj" />
     <ProjectReference Include="..\Lyntai.Tools.Mcp\Lyntai.Tools.Mcp.csproj" />
     <ProjectReference Include="..\Lyntai.Tools.Mcp.Hosting\Lyntai.Tools.Mcp.Hosting.csproj" />
-    <!-- FREE to include: MCP already drags Microsoft.Extensions.AI.Abstractions transitively, so the bridge
-         adds no new third-party dependency to the bundle's closure — 38 KB of managed code, 0 after trimming.
-         See DECISIONS.md D26 for the rule this satisfies. -->
-    <ProjectReference Include="..\Lyntai.Providers.ExtensionsAi\Lyntai.Providers.ExtensionsAi.csproj" />
   </ItemGroup>
 
 </Project>

@@ -28,7 +28,6 @@ public class ApiSurfaceTests
         "Lyntai.Storage.Sqlite",
         "Lyntai.Storage.InMemory",
         "Lyntai.Storage.Postgres",
-        "Lyntai.Providers.ExtensionsAi",
         "Lyntai.Providers.LlamaSharp",
         "Lyntai.Tools.Mcp",
         "Lyntai.Tools.Mcp.Hosting",
@@ -46,7 +45,6 @@ public class ApiSurfaceTests
         ["Lyntai.Storage.Sqlite"] = typeof(SqliteConnectionFactory).Assembly,
         ["Lyntai.Storage.InMemory"] = typeof(InMemoryKeyValueStore).Assembly,
         ["Lyntai.Storage.Postgres"] = typeof(PostgresConnectionFactory).Assembly,
-        ["Lyntai.Providers.ExtensionsAi"] = typeof(Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider).Assembly,
         // The namespace stays `Lyntai.Providers.Local` on purpose — only the PACKAGE was renamed, so no
         // consumer edits a `using`. The key is the ASSEMBLY name, which follows the project.
         ["Lyntai.Providers.LlamaSharp"] = typeof(Lyntai.Providers.Local.LocalProvider).Assembly,

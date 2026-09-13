@@ -7,9 +7,9 @@
     (Core + managed Microsoft.Extensions.Http; no native payload), so bundling costs a consumer nothing.
 
     Packages stay SEPARATE when they drag something a consumer may not want: Lyntai.Providers.LlamaSharp
-    (LLamaSharp + a native backend), Lyntai.Providers.ExtensionsAi (Microsoft.Extensions.AI),
-    Lyntai.Storage.Sqlite (a native SQLite binary), Lyntai.Tools.Mcp.Hosting (ModelContextProtocol.Core),
-    Lyntai.Secrets.Dpapi (Windows-only). See docs/DECISIONS.md D25.
+    (LLamaSharp + a native backend), Lyntai.Storage.Sqlite (a native SQLite binary),
+    Lyntai.Tools.Mcp.Hosting (ModelContextProtocol.Core), Lyntai.Secrets.Dpapi (Windows-only).
+    See docs/DECISIONS.md D25.
 
     NAMESPACES ARE UNCHANGED (Lyntai.Providers.ClaudeCli / .CodexCli / .OpenAiCompatible) — merging the
     packages must not force a consumer to edit `using` directives; only the PackageReference changes.
@@ -17,7 +17,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Providers.Default</PackageId>
-    <Description>The default Lyntai LLM backend set: the authenticated `claude` and `codex` CLIs, and any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat + embeddings — bundled because they share one dependency footprint and ship no native payload. Media backends live in Lyntai.Generation; heavier ones (local GGUF, the MEAI bridge) are their own packages.</Description>
+    <Description>The default Lyntai LLM backend set: the authenticated `claude` and `codex` CLIs, any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat + embeddings, an in-process model2vec embedder, and the two-way Microsoft.Extensions.AI bridge — bundled because none of them ships a native payload. Media backends live in Lyntai.Generation; local GGUF inference is Lyntai.Providers.LlamaSharp.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,6 +26,11 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- ABSTRACTIONS ONLY, and it costs the bundle NOTHING: Lyntai.Tools.Mcp already pins this id
+         transitively through ModelContextProtocol.Core, and both MCP halves are in the bundle, so every
+         one-line-install consumer already carries this assembly. The MEAI bridge folded in here rather
+         than holding a package id for 37,376 B of code that adapts a type the bundle already has. -->
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

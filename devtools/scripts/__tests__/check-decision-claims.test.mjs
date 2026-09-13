@@ -218,7 +218,10 @@ describe('wireJsonSerializerUses (D14)', () => {
     // Two shipped files say "JsonDocument.Parse (not JsonSerializer)" precisely because they honour D14;
     // a text match flagged the two call sites most explicitly obeying it.
     const r = fixture({
-      'src/Lyntai.Providers.ExtensionsAi/Decl.cs':
+      // Must be a path the predicate actually WALKS, or this passes by scanning nothing rather than by
+      // ignoring the comment — the vacuous-filter shape. It named a package that has since been folded
+      // away (D123), which would have left it green and meaningless.
+      'src/Lyntai.Providers.Default/Decl.cs':
         '// JsonDocument.Parse (not JsonSerializer) so the package stays trim/AOT-clean\n'
         + '/// Uses <see cref="JsonNode"/>, not reflection-based <c>JsonSerializer</c>.\n'
         + '/* JsonSerializer.Deserialize would be wrong here */\n'

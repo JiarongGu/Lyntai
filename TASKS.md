@@ -15,23 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 8 Parts: 1 startable, 8 blocked, 1 watch
+## Open items — 11 across 8 Parts: 2 startable, 8 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 90 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 134 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 143 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 197 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 268 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 346 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 401 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 424 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 716 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 866 | 196 | Ship the TRANSFORMER x CPU embedder — an ONNX Runtime adapter | startable |  |
+| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 473 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
+| 732 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | blocked · tree | an in-process cross-encoder path: D115's seam takes a /v1/rerank endpoint a… |
+| 902 | 196 | Ship the TRANSFORMER x CPU embedder — an ONNX Runtime adapter | startable |  |
 
 <!-- open-items:end -->
 
@@ -46,11 +47,11 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is ONE item**, and what a reader
-most needs is that all five were `decision-only` until 2026-09-13 and are startable because the owner RULED
-on them, not because anything in the tree changed. Each one's ruling is written at the head of the item,
-above the options it chose between — the losing options are kept deliberately, because they are why the
-winner is right. `decision-only` is now EMPTY. That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is TWO items**, and they arrived
+by opposite routes: the ONNX package because the owner RULED on it, and the SQLite dedup race because a
+`verify` run finally produced a name, an exception and a standalone reproduction. Neither came from
+re-reading the tree — a ruling and a captured failure are the two things that move an item, and only one of
+them is work you can schedule. `decision-only` is now EMPTY. That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -469,6 +470,21 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   not confirm or refute the `ProcessRunner` fix this item watches. The name was not captured; capture it if
   it recurs, which is the only thing that would make it actionable.
 
+- [ ] **`SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another caller is still using.** <!-- item: state=startable -->
+  **Captured 2026-09-14 — a name, an exception, and a reproduction, which is what the note above asked for
+  and did not get.** `System.ObjectDisposedException: Cannot access a disposed object. Object name:
+  'SQLitePCL.sqlite3'`, thrown inside `SqliteConnectionFactory.OpenAsync`
+  (`src/Lyntai.Storage.Sqlite/SqliteConnectionFactory.cs`) while the test exercises concurrent dedup.
+  <br>**It is NOT the flake above, and the difference is the whole point:** that one is *only* under
+  `verify` and has never reproduced standalone. This one failed **1 of 3 standalone runs** of its own
+  class — so it is not `verify`-specific, not process-churn, and not the nine. Nothing here touches
+  `ProcessRunner`.
+  <br>**Startable, and the reproduction is the cheap part** — loop the single class until it fails. What
+  makes it worth doing rather than muting: the exception says a connection was DISPOSED while in use, which
+  is a lifetime defect in shipped storage code rather than a test-only race, and the same factory serves
+  every SQLite domain. A test that fails a third of the time is also a gate that passes two thirds of the
+  time for the wrong reason.
+
 ## Part 109 — LoCoMo says the shipped ranking defaults lose to plain cosine on a uniform-history workload (2026-08-29)
 
 _Opened by `docs/task-archive.md` Part 110; the first item CLOSED as **D97** (`docs/task-archive.md`
@@ -713,7 +729,27 @@ _**What is already measured** (`docs/memory-measurements.md` §5, archive Parts 
 6.0 of the 7.0 points a perfect judge offers, and a model 28 months newer at the same architecture and size
 is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come down 26%._
 
-- [ ] **Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no measured floor.** <!-- item: state=blocked kind=env needs="llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is dropped, so every BERT reranker is degraded — or a RoBERTa-family reranker that fits under 100 MB" -->
+- [ ] **MEASURE the sub-100 MB cross-encoder that now exists — and give the library a way to reach it.** <!-- item: state=blocked kind=tree needs="an in-process cross-encoder path: D115's seam takes a /v1/rerank endpoint and an ONNX file has no server, so this waits on TASKS.md Part 196's ONNX package" -->
+  **THE BLOCKER BELOW IS REFUTED (2026-09-14), by a route neither of its two stated unblockers
+  anticipated** — not #21729 merging, not a small RoBERTa: a runtime that does not convert at all.
+  `docs/memory-measurements.md` §5 (`rerank-screen-onnx-runtime`); the probe is
+  `devtools/_rerank-onnx/probe.py`. The SAME `ms-marco-MiniLM-L6-v2` whose GGUF ranks the reference pair
+  **backwards** reproduces its own model card to **four decimal places** through ONNX Runtime, and its int8
+  export is **23,200,716 B**, correctly ordered, still logit-scaled — **20.2× below** the floor recorded
+  below. Quantisation costs 1.4% of spread. **So the floor was llama.cpp's, never the model class's.**
+  <br>**What is left is therefore the two things the old framing never reached.** First, QUALITY: no
+  sub-100 MB reranker has an evidence-hit figure through any runtime, and `LAMAR-600m`'s +6.0 is the number
+  to beat. Second, REACHABILITY, which is why this is `blocked · tree` rather than startable —
+  `AddMemoryCrossEncoderVerification` (**D115**) takes a `/v1/rerank` endpoint and an ONNX file has no
+  server, so this needs Part 196's ONNX package or an in-process `IMemoryVerificationPolicy`. Do them in
+  that order: the package is the prerequisite, the measurement is the point.
+  <br>**Two things the refutation does NOT touch**, stated so they are not swept along: the multilingual
+  half below still holds (a 250,002-token vocabulary is the model's, not the runtime's, so Chinese-first is
+  still above 100 MB), and so does the 512-token ceiling.
+
+  _Everything from here down is the 2026-09-12 reading, kept because its mechanism is still correct about
+  GGUFs and because the way it generalised one runtime's defect into a property of the model class is the
+  reusable lesson._
   **THE SIZING HALF IS ANSWERED, AND THE ANSWER IS NO — the blocker is UPSTREAM (2026-09-12).**
   `docs/memory-measurements.md` §5 (`rerank-screen-reference-pair`); the instrument is
   `node devtools/dev.mjs rerank-screen`. **No sub-100 MB reranker scores correctly on llama.cpp today.**
@@ -877,6 +913,17 @@ turns on._
   dependency was written rather than isolated. **ONNX passes it**, and saying why is the record's job: the
   native runtime IS the feature, cannot be written, and at ~16.4 MB is three orders of magnitude past the
   point where owning it is an option.
+
+  **THE PACKAGE IS WORTH IT, and that is MEASURED rather than argued (2026-09-14).** The owner's ruling was
+  *test the reranker hypothesis first* — whether ONNX Runtime sidesteps llama.cpp PR #21729, which would
+  give the 16.4 MB a second job. **It does, decisively**: same model, same published pair, fp32 ONNX
+  reproduces the card to four decimal places where the GGUF ranks it backwards, and an int8 export scores
+  correctly at **23,200,716 B** (`docs/memory-measurements.md` §5, `rerank-screen-onnx-runtime`). So this
+  package serves the EMBEDDER cell and unblocks the RERANKER one (`TASKS.md` Part 177), and the ~9 points
+  of tool routing was never the whole case for it.
+  <br>**Design consequence, since two seams now share one runtime:** do not build an embedder that happens
+  to load ONNX. The session, the tokenizer pass and the pooling are common; what differs is the head and
+  the output shape. Whatever is built for the embedder should leave the reranker a class, not a rewrite.
 
   **The DEPENDENCY IS RULED (2026-09-14, owner): `Microsoft.ML.OnnxRuntime.Managed` only**, with the
   consuming app adding `Microsoft.ML.OnnxRuntime` (CPU), `.DirectML` or `.Gpu`. That is the

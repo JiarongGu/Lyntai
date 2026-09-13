@@ -192,8 +192,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D120](#d120--the-tool-roster-is-bounded-by-a-seam-because-the-model-supplies-no-bound-of-its-own-2026-09-13) | 2026-09-13 | the tool roster is BOUNDED by a seam, because the model supplies no bound of its own |
 | [D121](#d121--an-in-process-embedder-ships-and-the-case-for-it-is-operational-rather-than-quality-or-speed-2026-09-13) | 2026-09-13 | an IN-PROCESS embedder ships, and the case for it is OPERATIONAL rather than quality or speed |
 | [D122](#d122--a-dependency-you-use-5-of-is-written-not-isolated-the-static-embedder-owns-its-tokenizer-and-needs-no-package-2026-09-14) | 2026-09-14 | a dependency you use 5% of is written, not isolated: the static embedder owns its tokenizer and n… |
+| [D123](#d123--a-package-boundary-must-isolate-a-dependency-the-consumer-can-refuse-the-meai-bridge-folds-into-providersdefault-2026-09-14) | 2026-09-14 | a package boundary must isolate a dependency the consumer can REFUSE; the MEAI bridge folds into… |
 
-_All 122 entries are live decisions._
+_All 123 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3686,3 +3687,36 @@ shipped vocabulary is English (`docs/model-tasks.md` §3 has the composition), s
 needs a multilingual export — and those are usually SentencePiece. **Do not read this entry as having
 answered that**; the algorithm is language-agnostic and pinned on CJK by a live test, only the vocabulary
 is not.
+
+## D123 — a package boundary must isolate a dependency the consumer can REFUSE; the MEAI bridge folds into Providers.Default (2026-09-14)
+
+`Lyntai.Providers.ExtensionsAi` is gone. `ExtensionsAiProvider`, `LyntaiChatClient`,
+`LyntaiToolDeclaration` and `AddExtensionsAiProvider` are in `Lyntai.Providers.Default` under their
+existing namespaces, so the migration is one `PackageReference` and no `using`. The old id is unlisted
+(**D44**).
+
+**The boundary isolated nothing, and that is measurable rather than a matter of taste.** It existed to keep
+`Microsoft.Extensions.AI.Abstractions` (669,768 B) off consumers who did not want it — but
+`ModelContextProtocol.Core` pins that same id transitively, and **both MCP halves are bundle members**, so
+every one-line-install consumer already carried the assembly. The bundle's own comment said as much while
+drawing the opposite conclusion: it called the bridge "FREE to include" *because* MCP already drags the
+dependency. A dependency the consumer cannot refuse is not one a package boundary can protect them from.
+
+**What it cost to keep.** A package id, six registry rows, an API baseline and a release slot, for
+**37,376 B** of code — the same accounting **D122** applied to the static embedder, reached from the other
+direction: there the dependency was removable, here it was already unavoidable.
+
+**Who actually pays, stated rather than waved past.** A consumer referencing `Lyntai.Providers.Default`
+ALONE — no bundle, no MCP — now carries 669,768 B they may never call. Under trimming it is removed
+outright, which `docs/AOT.md` measures on exactly this assembly. That is the trade: a real cost to an
+untrimmed non-bundle consumer, against a package id for every consumer and every release.
+
+**And it belongs with the providers on its own terms.** The bridge produces an `ILlmProvider` the router
+selects and falls over between — it is a provider, not a neighbouring concern, and `Providers.*` is where a
+provider goes. The dependency argument is why the boundary could go; this is why `Providers.Default` is the
+destination rather than somewhere new.
+
+**The rule this leaves:** before drawing a package boundary, ask whether the consumer can actually decline
+what it isolates. If a bundle member already pins it, or the mandatory Core does, the boundary buys
+nothing and costs a permanent id. **It does not license folding on size alone** — `Lyntai.Storage.Sqlite`
+is small too, and its native binary is refusable, so it stays.

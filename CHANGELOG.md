@@ -14,6 +14,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **`Lyntai.Providers.ExtensionsAi` is folded into `Lyntai.Providers.Default`** (**D123**). The migration is
+  one `PackageReference` and no `using` — every namespace and type name is unchanged, and
+  `AddExtensionsAiProvider(id, chatClient)` still registers it. **The boundary was isolating nothing**:
+  `ModelContextProtocol.Core` pins `Microsoft.Extensions.AI.Abstractions` transitively and both MCP halves
+  are bundle members, so a one-line-install consumer already carried that assembly and could not refuse it.
+  **What changes for whom:** a consumer referencing `Lyntai.Providers.Default` alone, with no bundle and no
+  MCP, now carries 669,768 B it may never call — removed outright under trimming. The old id is unlisted.
+
 - **`Lyntai.Providers.Local` is renamed `Lyntai.Providers.LlamaSharp`.** Every package here is named for
   the dependency it ISOLATES, and "Local" stopped naming anything once the in-process static embedder
   landed — it described three things and identified none. **The namespace and every type name are

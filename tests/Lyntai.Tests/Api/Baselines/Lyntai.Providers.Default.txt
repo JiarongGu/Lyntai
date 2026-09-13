@@ -13,6 +13,9 @@ sealed class Lyntai.Embeddings.Static.StaticEmbedder
 sealed class Lyntai.Embeddings.Static.StaticEmbedderOptions
     .ctor()
     Normalize : Nullable<Boolean>
+static class Lyntai.ExtensionsAiBuilderExtensions
+    static AddExtensionsAiProvider(LyntaiBuilder builder, String id, Func<IServiceProvider,IChatClient> clientFactory) : LyntaiBuilder
+    static AddExtensionsAiProvider(LyntaiBuilder builder, String id, IChatClient client) : LyntaiBuilder
 static class Lyntai.OpenAiCompatibleBuilderExtensions
     static AddAzureOpenAiProvider(LyntaiBuilder builder, String endpoint, String apiKey, String defaultModel = null, String id = "azure-openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddLlamaProvider(LyntaiBuilder builder, String baseUrl = null, String defaultModel = null, String id = "llama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
@@ -107,6 +110,15 @@ sealed class Lyntai.Providers.CodexCli.CodexCliProvider
     StatusAsync(CancellationToken ct = default) : Task<ProviderAuthStatus>
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
     UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
+sealed class Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider
+    .ctor(String id, IChatClient client, LyntaiOptions options, ILogger<ExtensionsAiProvider> logger = null)
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    Id : String
+    IsAvailable : Boolean
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls : Boolean
+static class Lyntai.Providers.ExtensionsAi.LyntaiChatClientExtensions
+    static AsChatClient(ILlmClient client) : IChatClient
 sealed class Lyntai.Providers.OpenAiCompatible.CrossEncoderVerificationOptions
     .ctor()
     ApiKey : String

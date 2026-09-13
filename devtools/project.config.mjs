@@ -41,7 +41,6 @@ export default {
     'src/Lyntai.Storage.Sqlite',
     'src/Lyntai.Storage.InMemory',
     'src/Lyntai.Storage.Postgres',
-    'src/Lyntai.Providers.ExtensionsAi',
     'src/Lyntai.Providers.LlamaSharp',
     'src/Lyntai.Tools.Mcp',
     'src/Lyntai.Tools.Mcp.Hosting',
