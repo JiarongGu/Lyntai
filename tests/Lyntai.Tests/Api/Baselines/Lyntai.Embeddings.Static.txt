@@ -1,0 +1,9 @@
+sealed class Lyntai.Embeddings.Static.StaticEmbedder
+    Dimensions : Int32
+    EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
+    static FromDirectory(String directory, StaticEmbedderOptions options = null) : StaticEmbedder
+sealed class Lyntai.Embeddings.Static.StaticEmbedderOptions
+    .ctor()
+    Normalize : Nullable<Boolean>
+static class Lyntai.StaticBuilderExtensions
+    static AddStaticEmbedder(LyntaiBuilder builder, String modelDirectory, Action<StaticEmbedderOptions> configure = null) : LyntaiBuilder

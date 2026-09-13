@@ -21,6 +21,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`Lyntai.Embeddings.Static` — an in-process embedder with NO server, GPU or port** (**D121**).
+  `AddStaticEmbedder(modelDirectory)` over a `model2vec` lookup table; its only third-party dependency is the
+  managed `Microsoft.ML.Tokenizers`, which is why it is its own package. **The case is operational, not
+  quality or speed**: encode-only vectors are byte-identical across devices and a local HTTP call already
+  measures 0.4 ms, so what this buys is a desktop or game application that cannot spawn a server at all.
+  Priced: `potion-base-8M` (30,236,760 B) costs **0.5 points** on the shipped memory default and about 12 on
+  a purely embedding-bound selective task — how much an embedder is worth is a property of the ARM. It also
+  has **no context limit**, where every sub-100 MB transformer embedder rejects an input past 512 tokens.
+
 - **`IToolSelector` and `AddEmbeddingToolSelector` — the tool roster can be BOUNDED before the model sees
   it** (**D120**). `IToolRegistry` hands the loop every registered tool on every iteration and the model
   supplies no bound of its own: a 4B invokes a tool on **90-95%** of requests nothing on the roster serves,

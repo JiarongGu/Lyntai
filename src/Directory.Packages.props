@@ -31,6 +31,10 @@
     <!-- in-process local inference (managed only; the consumer app picks an LLamaSharp.Backend.*) -->
     <PackageVersion Include="LLamaSharp" Version="0.27.0" />
 
+    <!-- Lyntai.Embeddings.Static: a WordPiece/BPE tokenizer in MANAGED code. The only third-party
+         dependency the static embedder needs, which is the whole reason that package is separate. -->
+    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
+
     <!-- MCP (Model Context Protocol) client — for exposing an MCP server's tools as Lyntai ITools -->
     <PackageVersion Include="ModelContextProtocol.Core" Version="1.4.1" />
 

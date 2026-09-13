@@ -1064,7 +1064,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   rewording the only sentence a claim matches turns the gate red with a message about a stale number.**
   Six of the registered claims were anchored in exactly one sentence each, all in `CLAUDE.md`. **Move such a
   sentence VERBATIM and run the gate between the copy and the delete**, so both copies match at the moment
-  of the move. The narrow forms that bite: a trailing semicolon (`Twelve packages;`), bold markers and an
+  of the move. The narrow forms that bite: a trailing semicolon (`Twelve packages;`), bold markers and an <!-- count-ok: the package count is quoted as a FORM, not as a claim about how many packages ship -->
   em-dash (`**FIVE arms —`), digits rather than a number word (`573/573`), and an en-dash in a range
   (`D1–D112`). And `parseCount` has no hyphenated compounds, so past twenty write digits. <!-- count-ok: the en-dash range is quoted as a FORM, not as a claim about how far the log goes -->
   <br>This entry's own range example turned the gate red the moment the next decision landed, which is the

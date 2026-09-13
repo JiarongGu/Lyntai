@@ -190,8 +190,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D118](#d118--a-verification-verdict-carries-the-score-it-judged-on-for-every-candidate-it-scored-2026-09-13) | 2026-09-13 | a verification verdict carries the SCORE it judged on, for every candidate it scored |
 | [D119](#d119--a-seams-model-that-its-client-can-never-honour-fails-at-composition-2026-09-13) | 2026-09-13 | a seam's `Model` that its client can never honour FAILS at composition |
 | [D120](#d120--the-tool-roster-is-bounded-by-a-seam-because-the-model-supplies-no-bound-of-its-own-2026-09-13) | 2026-09-13 | the tool roster is BOUNDED by a seam, because the model supplies no bound of its own |
+| [D121](#d121--an-in-process-embedder-ships-and-the-case-for-it-is-operational-rather-than-quality-or-speed-2026-09-13) | 2026-09-13 | an IN-PROCESS embedder ships, and the case for it is OPERATIONAL rather than quality or speed |
 
-_All 120 entries are live decisions._
+_All 121 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3600,3 +3601,39 @@ which is source-compatible and BINARY-breaking. It is consistent with how that c
 (`logger`, `guards`) and consumers reach it through `AddLyntai`, but it is a break and `CHANGELOG.md`
 carries it under **Breaking** rather than under Added. An overload was refused for the reason
 `repo-mechanics.md` gives: it would pay for a pre-compiled caller that does not exist.
+
+## D121 — an IN-PROCESS embedder ships, and the case for it is OPERATIONAL rather than quality or speed (2026-09-13)
+
+`Lyntai.Embeddings.Static` — `StaticEmbedder` over a `model2vec` lookup table, registered with
+`AddStaticEmbedder(modelDirectory)`. No HTTP endpoint, no GPU, no port, no second process. It is an ADAPTER
+package because its one third-party dependency, `Microsoft.ML.Tokenizers`, may not go in Core.
+
+**Neither quality nor latency argues for it, and saying so narrows the decision usefully.** Encode-only
+vectors are byte-identical across devices, so moving a model in-process cannot change a retrieval score;
+and a local HTTP call with `UseProxy = false` measures **0.4 ms**, so there is nothing to win. The case is
+that a desktop or game application cannot spawn `llama-server.exe` on a stranger's machine — an operational
+constraint no benchmark reports and the strongest form of *"the memory subsystem should not claim the
+resources of the application's own model"*.
+
+**The class is PRICED, so this is a ruling on a known trade.** `potion-base-8M` (**30,236,760 B**) costs
+**0.5 points** against a 333,590,944 B server-hosted embedder on the shipped memory default, and about
+**12** on a purely embedding-bound selective task. **How much an embedder is worth is a property of the
+ARM**, which is why both figures ship rather than the headline alone.
+
+**It has no context limit**, unlike every sub-100 MB transformer embedder, which reject an input past 512
+tokens: a lookup table has no positional embeddings, so a long document is more rows to average. That is
+the one capability this class has over its transformer neighbour and it is not a small one.
+
+**The GPU column stays unbuilt.** STATIC × GPU has no matmul to accelerate, and a CUDA backend would be the
+library choosing the user's hardware — what **D68** refuses. If a GPU cell is ever built it is DirectML,
+for being vendor-neutral on any DX12 device.
+
+**Two failure modes are handled deliberately, both chosen against a silent alternative.** A file that is
+not safetensors THROWS rather than yielding a plausible table, because a wrong table embeds fine and costs
+retrieval quality nobody can trace. An empty text yields a ZERO vector rather than throwing, because that
+is what an empty string means and a corpus must not be refused over one document.
+
+**What the tests cannot cover and the live one does.** A real export ships a PRUNED vocabulary — 29,528
+rows against the base model's 30,522 — so a table and a tokenizer that disagree about which row an id names
+would still produce finite vectors. The synthetic fixture cannot see that; `StaticEmbedderLiveTests` ranks
+a related pair above an unrelated one on a real model and is skipped without one.

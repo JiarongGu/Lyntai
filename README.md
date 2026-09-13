@@ -109,6 +109,7 @@ version you installed.
 | `Lyntai.Tools.Mcp` | Expose an MCP server's tools as Lyntai `ITool`s. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. Runs on `HttpListener` — **no ASP.NET Core**. |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
+| `Lyntai.Embeddings.Static` | In-process, server-free embedding over a model2vec static lookup table — no HTTP endpoint, no GPU, no port |
 | `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D25). |
 
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
