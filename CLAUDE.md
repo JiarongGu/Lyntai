@@ -17,17 +17,18 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D124** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3678 passed / 3702 total, 24 skipped` (the skips are
+**The baseline a green run should match:** `3704 passed / 3733 total, 29 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 811/811, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-14 at `8d6d973`** — read off that run's own output, never
+**MEASURED with Docker up, re-attested 2026-09-14 at `aaafd58`** — read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
-easily breaks. All 24 skips were enumerated and every one is live-backend gated (a live model, embedder,
-reranker, Ollama, MCP or CLI), so nothing is skipping for another reason. **It is 24 rather than 23 because
-`WordPieceTokenizerLiveTests` is new** — it arrived with **D122**, gated on a model directory, the same
-live-backend shape as every other skip; the 23 it replaces was `StaticEmbedderLiveTests` (**D121**) over a
-long-standing 21 plus `CrossEncoderVerificationLiveTests` (**D115**).
+easily breaks. All 29 skips were enumerated and every one is live-backend gated (a live model, embedder,
+reranker, Ollama, MCP or CLI), so nothing is skipping for another reason. **It is 29 rather than 24 because
+`OnnxEmbedderLiveTests` is FIVE** — they arrived with **D124**, gated on a model directory like
+`WordPieceTokenizerLiveTests` (**D122**) and `StaticEmbedderLiveTests` (**D121**) before them.
+**Run with `LYNTAI_ONNX_MODEL_DIR` and `LYNTAI_STATIC_MODEL_DIR` set and the count reads 22, not 29** — a
+LOWER skip count is the live suites running, which is the one direction that needs no investigation.
 **Re-attest the COMMIT alongside the figures whenever they move**: a dated claim left standing over a
 changed number cannot be told from an extrapolated one, and that is how it read to a cold reader.
 **The TOTAL can now move DOWNWARD, which the previous wording did not anticipate.** `ApiSurfaceTests` and
