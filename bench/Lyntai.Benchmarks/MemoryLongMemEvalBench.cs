@@ -1107,10 +1107,15 @@ internal static class MemoryLongMemEvalBench
                 return 1;
             }
 
-            if (temporal || ranks || allEvidence)
+            // Every CLASS is fair game, because every one of them scores by turn tag and cuts its body with
+            // the same cap — only the metric differs, and that difference is the point. Knowledge-update
+            // scores `clean`, where a cap that trims the tail SUPPRESSES the superseded fact; the
+            // all-evidence classes score coverage, where trimming can only lose flagged turns. Running both
+            // is what separates a filter from a tax. `--ranks` is the exception and has no body to cap.
+            if (ranks)
             {
-                Console.Error.WriteLine("--detail: knowledge-update only. The completeness trade is scored "
-                    + "against `clean`, which needs the current/stale split the other classes do not carry.");
+                Console.Error.WriteLine("--detail: not with --ranks, which scores ONE probe-wrapped engine "
+                    + "over a K ladder and never assembles a capped body for an arm to render.");
                 return 1;
             }
         }
@@ -1159,9 +1164,9 @@ internal static class MemoryLongMemEvalBench
                 Console.WriteLine();
             }
             Preamble(sampled, questions.Count, turns, haystack, seed, wantClass);
-            BudgetPreamble(budgets, fillK, pools);
+            BudgetPreamble(budgets, fillK, pools, detail);
             return shots
-                ? await RunTemporalShotsAsync(sampled, embedder, expandFloor, budgets, fillK, pools, args)
+                ? await RunTemporalShotsAsync(sampled, embedder, expandFloor, budgets, fillK, pools, args, detail)
                 : await RunTemporalAsync(sampled, embedder, args);
         }
 
@@ -1822,10 +1827,10 @@ internal static class MemoryLongMemEvalBench
     /// all.</summary>
     private static async Task<int> RunTemporalShotsAsync(List<Question> sampled,
         SweepDoubles.CachingEmbedder embedder, double expandFloor, ContextBudget[] budgets, int fillK,
-        int[] pools, string[] args)
+        int[] pools, string[] args, bool detail = false)
     {
         var stopwatch = Stopwatch.StartNew();
-        var arms = ShotArms(args, budgets, pools);
+        var arms = ShotArms(args, budgets, pools, detail);
         if (arms is null) return 1;
         var ladder = budgets.Length > 1;
         var all = new Dictionary<string, int>();
@@ -1883,6 +1888,13 @@ internal static class MemoryLongMemEvalBench
             foreach (var m in binding.Count > 0 ? pools : [])
                 pooled.Add((m, (await RecallArmAsync(q, embedder, expandFloor, RecallLimit, m)).Body));
 
+            // The COMPLETENESS arm, as the knowledge-update runner builds it and for the same reason: its own
+            // store, the shipped limit and multiplier, MemoryDetail.Full. Here it is scored on COVERAGE, so
+            // a cap that suppresses a superseded fact one class over can only lose flagged turns.
+            var whole = detail && binding.Count > 0
+                ? (await RecallArmAsync(q, embedder, expandFloor, RecallLimit, null, MemoryDetail.Full)).Body
+                : [];
+
             foreach (var b in budgets)
             {
                 if (!b.Binds)
@@ -1899,6 +1911,8 @@ internal static class MemoryLongMemEvalBench
 
                 foreach (var (m, body) in pooled)
                     Score(Label($"pool-{m}", b, ladder), b.Fit(body));
+
+                if (detail) Score(Label(CompleteArm, b, ladder), b.Fit(whole));
             }
         }
 

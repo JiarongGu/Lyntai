@@ -167,11 +167,18 @@ overhead and becomes a FILTER. Swept over six budgets, `clean` runs **32.9 → 4
 returns to exactly break-even once the cap no longer binds. Too tight and the page starves (the current
 fact itself falls out, 82.9% → 47.1%); too loose and the superseded fact comes back with everything else.
 
+**And the counter-test says the rule is symmetric** (`longmemeval-temporal-completeness-tax`). Run on the
+class that wants EVERY flagged turn rather than one fact suppressed, the same six budgets never cross
+headline parity — −24.3 to −10.6 points, reaching zero only where the cap stops binding. **So a character
+cap on whole items is a FILTER where the workload wants suppression and a TAX where it wants coverage.**
+The knowledge-update peak was never completeness being good; it was the cap removing the superseded fact,
+and a coverage workload has nothing it is useful to remove.
+
 **Two things follow, and the second is the one to act on.** Do not read the search figures as a general
-rule about context budgets — the lever's sign depends on the workload AND the cap. And on this workload
-completeness is not the lever to reach for at all: a deeper first recall trimmed hard (`fill` at 1,200,
-or `CandidateMultiplier = 16`) reaches **61.4%** at a third of the context, beating completeness at its own
-optimum.
+rule about context budgets — the lever's sign depends on the workload AND the cap. And on the suppression
+workload completeness is not the lever to reach for anyway: a deeper first recall trimmed hard (`fill` at
+1,200, or `CandidateMultiplier = 16`) reaches **61.4%** at a third of the context, beating completeness at
+its own optimum.
 
 **And bound a SELECTIVE input before buying a bigger model.** List length governs a judge more than model
 choice does (20 shown → 16.2% precision, 80 → 2.6%), and for a tool roster the native transport bounds what
