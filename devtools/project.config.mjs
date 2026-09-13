@@ -45,6 +45,7 @@ export default {
     'src/Lyntai.Tools.Mcp',
     'src/Lyntai.Tools.Mcp.Hosting',
     'src/Lyntai.Secrets.Dpapi',
+    'src/Lyntai.Providers.Onnx',
     'src/Lyntai.Generation',
   ],
   /**

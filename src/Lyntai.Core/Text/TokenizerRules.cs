@@ -15,12 +15,15 @@ namespace Lyntai.Text;
 /// is what the reference pipeline does and what every shipped BERT config states.</param>
 /// <param name="TokenizeChineseCharacters"><c>tokenize_chinese_chars</c>.</param>
 /// <param name="UnknownToken"><c>unk_token</c>.</param>
+/// <param name="ClassificationToken"><c>cls_token</c>.</param>
+/// <param name="SeparatorToken"><c>sep_token</c>.</param>
 internal sealed record TokenizerRules(
-    bool Lowercase, bool? StripAccents, bool TokenizeChineseCharacters, string UnknownToken)
+    bool Lowercase, bool? StripAccents, bool TokenizeChineseCharacters, string UnknownToken,
+    string ClassificationToken, string SeparatorToken)
 {
     /// <summary>What a BERT tokenizer does when its config says nothing — the reference implementation's
     /// own defaults, so a model shipped without the file behaves as its author assumed.</summary>
-    private static readonly TokenizerRules Defaults = new(true, null, true, "[UNK]");
+    private static readonly TokenizerRules Defaults = new(true, null, true, "[UNK]", "[CLS]", "[SEP]");
 
     /// <summary>Read <c>tokenizer_config.json</c> from <paramref name="directory"/>, falling back to
     /// <see cref="Defaults"/> when it is absent or unreadable — a missing config is the common case for a
@@ -38,7 +41,9 @@ internal sealed record TokenizerRules(
                 Flag(root, "do_lower_case") ?? Defaults.Lowercase,
                 Flag(root, "strip_accents"),
                 Flag(root, "tokenize_chinese_chars") ?? Defaults.TokenizeChineseCharacters,
-                Text(root, "unk_token") ?? Defaults.UnknownToken);
+                Text(root, "unk_token") ?? Defaults.UnknownToken,
+                Text(root, "cls_token") ?? Defaults.ClassificationToken,
+                Text(root, "sep_token") ?? Defaults.SeparatorToken);
         }
         catch (JsonException)
         {

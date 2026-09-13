@@ -98,7 +98,7 @@ version you installed.
 
 | Package | What it gives you |
 |---|---|
-| **`Lyntai`** | **The starting set (5 of 10)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage. Not the whole library: add `Lyntai.Storage.Sqlite` to persist and `Lyntai.Generation` for media. |
+| **`Lyntai`** | **The starting set (5 of 11)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage. Not the whole library: add `Lyntai.Storage.Sqlite` to persist and `Lyntai.Generation` for media. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI — plus `Lyntai.Text.WordPieceTokenizer`, a BERT tokenizer owned rather than depended on (**D122**), usable anywhere a token-aware step is wanted. Deps: DI + Logging abstractions only. |
 | `Lyntai.Providers.Default` | The dependency-free **LLM** backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddStaticEmbedder(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port; and the two-way `Microsoft.Extensions.AI` bridge (any `IChatClient` → a Lyntai provider, and `AsChatClient()` back). Media backends moved to `Lyntai.Generation`. |
 | `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLocalProvider(modelPath)` and every namespace are unchanged. |
@@ -108,6 +108,7 @@ version you installed.
 | `Lyntai.Tools.Mcp` | Expose an MCP server's tools as Lyntai `ITool`s. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. Runs on `HttpListener` — **no ASP.NET Core**. |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
+| `Lyntai.Providers.Onnx` | In-process **transformer** embedding via ONNX Runtime — `AddOnnxEmbedder(dir)`, no server, no port. Pooling, normalization and the sequence limit are read from the model's own files. References the **managed half only**: add one native backend yourself (`Microsoft.ML.OnnxRuntime` for CPU, `.DirectML` for any DX12 GPU, `.Gpu` for CUDA), because the library does not choose your hardware. |
 | `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D25). |
 
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
@@ -132,10 +133,10 @@ dotnet add package Lyntai.Generation       # image/video/audio backends
 
 **`Lyntai` is a starting set, not the whole library.** It gives you Core, the LLM backends, the MEAI bridge,
 both halves of MCP, and **in-memory** storage. The two that surprise people: nothing persists until you add
-`Lyntai.Storage.Sqlite` (or `.Postgres`), and generation is not included. The five packages left out are left
-out for a reason — a native payload (`Storage.Sqlite`, `Providers.LlamaSharp`), a platform-specific API
-(`Secrets.Dpapi`), a server dependency (`Storage.Postgres`), or an unverified surface (`Lyntai.Generation`) —
-see `docs/DECISIONS.md` D26.
+`Lyntai.Storage.Sqlite` (or `.Postgres`), and generation is not included. The six packages left out are left
+out for a reason — a native payload (`Storage.Sqlite`, `Providers.LlamaSharp`, `Providers.Onnx`), a
+platform-specific API (`Secrets.Dpapi`), a server dependency (`Storage.Postgres`), or an unverified surface
+(`Lyntai.Generation`) — see `docs/DECISIONS.md` D26.
 
 **Convenience vs size.** `Lyntai` is a bundle with no code of its own — it just pulls a curated set. A
 framework-dependent `dotnet publish` copies the **whole** dependency graph and analyses nothing, so that lands

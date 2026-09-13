@@ -1,0 +1,20 @@
+static class Lyntai.OnnxBuilderExtensions
+    static AddOnnxEmbedder(LyntaiBuilder builder, String modelDirectory, Action<OnnxEmbedderOptions> configure = null) : LyntaiBuilder
+sealed class Lyntai.Providers.Onnx.OnnxEmbedder
+    Dispose() : Void
+    EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
+    Id : String
+    IsAvailable : Boolean
+    MaxTokens : Int32
+    static FromDirectory(String directory, OnnxEmbedderOptions options = null) : OnnxEmbedder
+sealed class Lyntai.Providers.Onnx.OnnxEmbedderOptions
+    .ctor()
+    Id : String
+    MaxTokens : Nullable<Int32>
+    ModelFile : String
+    Normalize : Nullable<Boolean>
+    Pooling : Nullable<OnnxPooling>
+enum Lyntai.Providers.Onnx.OnnxPooling
+    Cls : OnnxPooling const
+    Mean : OnnxPooling const
+    value__ : Int32

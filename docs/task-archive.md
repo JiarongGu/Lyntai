@@ -3534,3 +3534,28 @@ table, and a live test now pins it because the synthetic fixture structurally ca
 
 **A contract pinned that would otherwise be invisible:** CONTENT tokens only, no `[CLS]`/`[SEP]`. Bracketing
 would fold two rows into every mean and shift each vector by an amount no smoke test could see.
+
+## Part 208 — the TRANSFORMER x CPU embedder ships, and the CPU column of the 2x2 is complete
+
+✅ closed 2026-09-14. `TASKS.md` Part 196's remaining item, authorised by the 2026-09-13 ruling.
+
+- **Ship the TRANSFORMER × CPU embedder — an ONNX Runtime adapter.**
+
+**Outcome: `Lyntai.Providers.Onnx` shipped** (**D124**, `CHANGELOG.md`) — `AddOnnxEmbedder(dir)`, managed
+half only so the app picks CPU / DirectML / CUDA. One package fills BOTH transformer cells of
+`docs/deployment-shapes.md`'s 2×2, which had the GPU one down as unbuilt.
+
+**The owner's ruling was MEASURE FIRST, and the measurement changed what the package is for.** Before
+building, the reranker hypothesis was tested: ONNX Runtime reproduces `ms-marco-MiniLM-L6-v2`'s published
+pair to four decimals where llama.cpp's GGUF ranks it backwards, and an int8 export scores correctly at
+23,200,716 B. So the package unblocks `TASKS.md` Part 177 as well as filling this cell
+(`docs/memory-measurements.md` §5, `rerank-screen-onnx-runtime`).
+
+**Embedders became providers on the way through.** `IEmbeddingProvider` gives them the `Id`/`IsAvailable`
+the LLM and generation seams already had — additive, because adding a base to `IEmbedder` would break every
+BYO implementation. **D124** carries why.
+
+**Two things pinned that would otherwise be invisible:** correctness is checked against Python's
+`onnxruntime` rather than against plausibility — a wrong pooling mode still returns finite, unit-length,
+well-ordered vectors — and the DI registration uses a factory, because `AddSingleton(instance)` does not
+dispose a native session.

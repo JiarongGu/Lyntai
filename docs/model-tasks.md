@@ -242,10 +242,12 @@ measurable. On tool routing (`docs/memory-measurements.md` §5, `affordance-stat
 for no server, no GPU and no port — which is worth very different amounts to a shared host and to a game
 that already owns the device.
 
-**The managed implementation SHIPPED (2026-09-14, `docs/DECISIONS.md` D122), and its hard part was smaller
-than this paragraph assumed** — it read "a new dependency and new public surface". WordPiece over a
-`vocab.txt` is ~250 lines, so `Lyntai.Text.WordPieceTokenizer` adds ONE public type and no dependency at
-all; what is left of Part 196 is the ONNX cell, where the runtime genuinely is a native dependency.
+**BOTH in-process routes now ship, and the hard part was smaller than this paragraph assumed** — it read
+"a new dependency and new public surface". WordPiece over a `vocab.txt` is ~250 lines, so
+`Lyntai.Text.WordPieceTokenizer` adds one public type and no dependency at all (**D122**), and the
+TRANSFORMER half is `Lyntai.Providers.Onnx` (**D124**), where the runtime genuinely is a native dependency
+and is isolated for exactly that reason. The trade this section describes is therefore now a
+CONFIGURATION choice rather than a gap: ~12 points against ~16 MB of native code and a 512-token limit.
 
 **But the shipped class is ENGLISH, and the limit is the VOCABULARY rather than the tokenizer.** Counted
 2026-09-14 over `potion-base-8M`'s 29,528 rows: **1,900 non-ASCII (6.4%)** — **488 Han**, 188 Kana,

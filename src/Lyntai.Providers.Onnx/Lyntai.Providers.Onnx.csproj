@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Lyntai.Providers.Onnx — the ADAPTER for ONNX Runtime, and the dependency it isolates is a NATIVE one.
+    That is the whole reason it is a package rather than a class in Providers.Default: D122 folded the static
+    embedder in because its dependency could be WRITTEN (a WordPiece pass is ~250 lines); an inference runtime
+    cannot, and at ~16 MB of native code per RID it is exactly what a consumer may refuse.
+  -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Lyntai.Providers.Onnx</PackageId>
+    <Description>In-process transformer embedding via ONNX Runtime. References the MANAGED half only — the consuming app adds one native backend (Microsoft.ML.OnnxRuntime for CPU, .DirectML for any DX12 GPU, .Gpu for CUDA), so the library never picks the user's hardware. Wired via builder.AddOnnxEmbedder(modelDirectory).</Description>
+    <!-- ONNX Runtime loads a native library dynamically and resolves its provider by name: this package
+         cannot honestly claim trim/AOT compatibility. The analyzer stays ON for OUR code, which is what
+         keeps the docs/AOT.md row true rather than merely written. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTrimmable>false</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MANAGED ONLY, ON PURPOSE: no Microsoft.ML.OnnxRuntime here. Forcing a backend would nail the package
+         to one runtime (CPU vs DirectML vs CUDA) and ship ~16 MB of native code to consumers who wanted a
+         different one; the app references the backend matching its hardware and it flows in transitively.
+         Same stance as Lyntai.Providers.LlamaSharp. The cost is declared rather than hidden: with no backend
+         referenced, the failure is at first use, and AddOnnxEmbedder's doc says which packages fix it. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" />
+  </ItemGroup>
+
+  <!-- Every package here grants this: internals are implementation detail, and their tests reach them.
+       Omitting it breaks the build the moment a moved/new type has an internal member under test — which is
+       exactly how this line came to be in the template. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lyntai.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,4 +1,5 @@
 using System.Reflection;
+using Lyntai.Embeddings;
 using Lyntai.Generation;
 using Lyntai.Lifecycle;
 using Lyntai.Llm;
@@ -18,7 +19,8 @@ public class ProviderIdentityTests
     [Theory]
     [InlineData(typeof(ILlmProvider))]
     [InlineData(typeof(IGenerationProvider))]
-    public void Both_seams_still_declare_Id_themselves(Type seam)
+    [InlineData(typeof(IEmbeddingProvider))]
+    public void Every_seam_still_declares_Id_itself(Type seam)
     {
         var declared = seam.GetProperty(
             "Id", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
@@ -29,10 +31,11 @@ public class ProviderIdentityTests
     }
 
     [Fact]
-    public void Both_provider_seams_are_provider_identities()
+    public void Every_provider_seam_is_a_provider_identity()
     {
         Assert.True(typeof(IProviderIdentity).IsAssignableFrom(typeof(IGenerationProvider)));
         Assert.True(typeof(IProviderIdentity).IsAssignableFrom(typeof(ILlmProvider)));
+        Assert.True(typeof(IProviderIdentity).IsAssignableFrom(typeof(IEmbeddingProvider)));
     }
 
     // The whole point of reusing the member both seams already declare: nothing that exists has to change.

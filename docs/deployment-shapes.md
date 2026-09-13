@@ -80,7 +80,8 @@ about cross-tenant cache behaviour. The contention figures are one box.
   (`affordance-static-embedders`) — **how much an embedder is worth is a property of the ARM**.
   <br>And turning semantic seeds ON is worth more than the embedder is: **+21.5** points over the shipped
   default even with the static model. Do not read "cannot afford a GPU embedder" as "cannot afford the
-  arm". Nothing in this library can call a static embedder yet — `TASKS.md` Part 196 holds that ruling.
+  arm". **Both in-process embedders now ship** — `AddStaticEmbedder` (**D121**) and `AddOnnxEmbedder`
+  (**D124**) — so this is a configuration choice rather than a gap.
 
 **Not measured here:** anything on a device this repository does not have, and any frame-time impact — the
 contention figures measure the MODEL's throughput while a neighbour rendered, never the neighbour's.
@@ -116,17 +117,19 @@ tear down; no port to conflict or prompt a firewall; a lifetime tied to the appl
 and they are decisive for a distributed application — they are simply not things a benchmark answers.
 
 **The option space is a 2×2, and the dependency cost differs by an order of magnitude across it.** Surveyed
-2026-09-13. **The CPU column is the one being adopted and its STATIC half now SHIPS** (**D121**); the GPU
-column stays unbuilt and the reason is under the table.
+2026-09-13. **The CPU column is COMPLETE** — static as **D121**, transformer as **D124** — and the GPU
+column turned out to need no separate build, for the reason under the table.
 
 | | CPU | GPU |
 |---|---|---|
 | **static** (lookup table, no matmul) | **SHIPS** in `Lyntai.Providers.Default` (**D121**, **D122**) — `AddStaticEmbedder(dir)`, needing NO package and NO dependency because its WordPiece tokenizer is owned and sits in Core; **0.5 points** behind on the memory default and ~12 on a selective task, and the only cell with NO context limit | n/a — there is nothing to accelerate |
-| **transformer** | ONNX Runtime — a NATIVE dependency, so it cannot inherit the trim/AOT claim the static cell keeps. Not built; `TASKS.md` Part 196 scopes it | ONNX Runtime **DirectML**, or LLamaSharp + a CUDA backend |
+| **transformer** | **SHIPS** as `Lyntai.Providers.Onnx` (**D124**) — `AddOnnxEmbedder(dir)`. A NATIVE dependency, so it opts OUT of the trim/AOT claim the static cell keeps, and it HAS a 512-token limit | **the SAME package**: it references ONNX Runtime's managed half only, so the app adding `.DirectML` (any DX12 device) or `.Gpu` (CUDA) instead of the CPU backend moves this cell with no library change |
 
 **For a game, DirectML is the one worth noting**: it is vendor-neutral on any DX12 device and ships with
 Windows, where a CUDA backend requires the user to have an NVIDIA card and runtime. A library that
-hard-wired CUDA would be choosing the user's hardware for them, which is the thing **D68** refuses.
+hard-wired CUDA would be choosing the user's hardware for them, which is the thing **D68** refuses — and
+referencing only ONNX Runtime's MANAGED half is how the transformer row avoids choosing at all. **That is
+why one package fills two cells**: the backend is the app's `PackageReference`, not the library's.
 
 **The ruling was the dependency, not the capability. The real boundary is MANAGED against NATIVE rather
 than static against transformer** — `potion-base-8M` ships its own `onnx/model.onnx`, so ONNX could serve

@@ -10,6 +10,11 @@ public sealed class StaticEmbedderOptions
     /// what a <c>model2vec</c> export states and what its reference implementation honours — set this only
     /// to override a model that declares the wrong thing.</summary>
     public bool? Normalize { get; set; }
+
+    /// <summary>The provider id this backend reports as <see cref="IEmbeddingProvider.Id"/>. Give it a
+    /// distinct value when a deployment registers more than one embedder, so a diagnostic can say which
+    /// one produced a vector.</summary>
+    public string Id { get; set; } = "static";
 }
 
 /// <summary>An <see cref="IEmbedder"/> that runs IN PROCESS with no server, no GPU and no port: a
@@ -34,18 +39,27 @@ public sealed class StaticEmbedderOptions
 /// <para><b>No PCA or Zipf weighting is applied at inference.</b> A <c>model2vec</c> export bakes both into
 /// the table when it is built, so the runtime is a lookup and a mean. This reads <c>config.json</c> only for
 /// <c>normalize</c>.</para></summary>
-public sealed class StaticEmbedder : IEmbedder
+public sealed class StaticEmbedder : IEmbeddingProvider
 {
     private readonly WordPieceTokenizer _tokenizer;
     private readonly SafetensorsTable _table;
     private readonly bool _normalize;
 
-    private StaticEmbedder(WordPieceTokenizer tokenizer, SafetensorsTable table, bool normalize)
+    private StaticEmbedder(WordPieceTokenizer tokenizer, SafetensorsTable table, bool normalize, string id)
     {
         _tokenizer = tokenizer;
         _table = table;
         _normalize = normalize;
+        Id = id;
     }
+
+    /// <inheritdoc />
+    public string Id { get; }
+
+    /// <summary>Always true once constructed. The table is loaded EAGERLY, so a model that is missing or
+    /// truncated has already thrown at composition — there is no later state in which this becomes
+    /// false.</summary>
+    public bool IsAvailable => true;
 
     /// <summary>The vector width this model produces.</summary>
     public int Dimensions => _table.Dimensions;
@@ -79,7 +93,8 @@ public sealed class StaticEmbedder : IEmbedder
         // from the model's own tokenizer_config.json for the same reason.
         var tokenizer = WordPieceTokenizer.FromModelDirectory(directory);
 
-        return new StaticEmbedder(tokenizer, table, options?.Normalize ?? NormalizeFromConfig(directory));
+        return new StaticEmbedder(
+            tokenizer, table, options?.Normalize ?? NormalizeFromConfig(directory), options?.Id ?? "static");
     }
 
     /// <inheritdoc />

@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\src\Lyntai.Tools.Mcp\Lyntai.Tools.Mcp.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Tools.Mcp.Hosting\Lyntai.Tools.Mcp.Hosting.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Secrets.Dpapi\Lyntai.Secrets.Dpapi.csproj" />
+    <ProjectReference Include="..\..\src\Lyntai.Providers.Onnx\Lyntai.Providers.Onnx.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Generation\Lyntai.Generation.csproj" />
   </ItemGroup>
 
@@ -35,6 +36,9 @@
          reference implementation WordPieceTokenizerTests asserts id-for-id equality against, which is what
          makes owning the tokenizer safe rather than hopeful. See src/Directory.Packages.props. -->
     <PackageReference Include="Microsoft.ML.Tokenizers" />
+    <!-- The NATIVE ONNX backend, supplied here the way a consuming application supplies it — the adapter
+         package deliberately ships only the managed half. See src/Directory.Packages.props. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
     <!-- Direct only to RAISE the transitive SSH.NET that Testcontainers pulls past its advisory
          (GHSA-q939-rpr3-3284) — nothing in this project uses SSH. See src/Directory.Packages.props. -->
     <PackageReference Include="SSH.NET" />

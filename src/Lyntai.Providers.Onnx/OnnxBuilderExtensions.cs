@@ -1,0 +1,53 @@
+using Lyntai.Embeddings;
+using Lyntai.Providers.Onnx;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+// Lives in the Lyntai namespace so the Add*/Use* methods appear on the builder.
+namespace Lyntai;
+
+/// <summary>DI entry point for <c>Lyntai.Providers.Onnx</c>. A consumer composes this adapter through the
+/// builder (<c>services.AddLyntai(cfg =&gt; cfg.AddOnnxEmbedder(…))</c>) and never constructs its types by
+/// hand.</summary>
+public static class OnnxBuilderExtensions
+{
+    /// <summary>
+    /// Embed IN PROCESS with a transformer through ONNX Runtime — no HTTP endpoint, no server, no port.
+    ///
+    /// <para><b>This package references the MANAGED half of ONNX Runtime only, so the consuming application
+    /// MUST add exactly one native backend</b> — <c>Microsoft.ML.OnnxRuntime</c> (CPU),
+    /// <c>Microsoft.ML.OnnxRuntime.DirectML</c> (any DX12 GPU) or <c>Microsoft.ML.OnnxRuntime.Gpu</c>
+    /// (CUDA). Without one the load throws at this call. That is deliberate: nailing the package to a
+    /// backend would ship ~16 MB of the wrong native code to everyone and choose the user's hardware for
+    /// them, which is what <c>docs/DECISIONS.md</c> D68 refuses.</para>
+    ///
+    /// <para><b>Loaded EAGERLY</b>, so a missing, truncated or non-ONNX model is a composition error heard
+    /// at startup rather than on the first recall. Pooling, normalization and the sequence limit come from
+    /// the model's own files unless <paramref name="configure"/> overrides them.</para>
+    ///
+    /// <para>Registered with <c>TryAdd</c>, so an <see cref="IEmbedder"/> registered before this call
+    /// wins — the BYO story every seam here has.</para>
+    /// </summary>
+    /// <param name="builder">The Lyntai builder.</param>
+    /// <param name="modelDirectory">A directory holding an ONNX graph and <c>vocab.txt</c>.</param>
+    /// <param name="configure">Knobs; null takes the model's own configuration.</param>
+    public static LyntaiBuilder AddOnnxEmbedder(this LyntaiBuilder builder, string modelDirectory,
+        Action<OnnxEmbedderOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelDirectory);
+
+        var options = new OnnxEmbedderOptions();
+        configure?.Invoke(options);
+
+        var embedder = OnnxEmbedder.FromDirectory(modelDirectory, options);
+
+        // A FACTORY returning an already-built instance, and the two halves are both load-bearing. Building
+        // it here is what makes a bad model fail at composition; registering it through a factory rather
+        // than as an instance is what makes the container OWN it — `AddSingleton(instance)` does not
+        // dispose what it did not create, and this holds a native session. Pinned by
+        // `OnnxRegistrationTests`, because collapsing this to TryAddSingleton(embedder) reads as a tidy-up.
+        builder.Services.TryAddSingleton<IEmbedder>(_ => embedder);
+        return builder;
+    }
+}

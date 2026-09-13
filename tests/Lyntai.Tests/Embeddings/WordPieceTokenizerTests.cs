@@ -259,6 +259,83 @@ public class WordPieceTokenizerTests
     }
 }
 
+/// <summary><see cref="WordPieceTokenizer.Encode"/> — the TRANSFORMER path, which is the one thing the
+/// static embedder must never get.
+///
+/// <para>A <c>model2vec</c> table is a mean over content rows, so bracketing it with <c>[CLS]</c>/<c>[SEP]</c>
+/// shifts every vector. A BERT graph is the opposite: it takes those tokens plus an attention mask and a
+/// segment id as three separate tensors, and omitting any of them does not fail — it returns a plausible,
+/// wrong vector.</para></summary>
+public class WordPieceEncodeTests
+{
+    private static List<string> Vocabulary(params string[] words) =>
+        ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", .. words];
+
+    private static WordPieceTokenizer Tokenizer(params string[] words) =>
+        WordPieceTokenizer.FromVocabulary(Vocabulary(words));
+
+    [Fact]
+    public void Brackets_the_content_with_CLS_and_SEP()
+    {
+        var encoding = Tokenizer("alpha", "beta").Encode("alpha beta");
+
+        Assert.Equal([2, 5, 6, 3], encoding.Ids);
+    }
+
+    [Fact]
+    public void Attends_to_every_token_it_emits()
+    {
+        // The mask exists to mark PADDING, which is added when a batch is assembled rather than here — so a
+        // single encoding is all ones. A zero anywhere in this array would silently drop a real token.
+        var encoding = Tokenizer("alpha", "beta").Encode("alpha beta");
+
+        Assert.Equal(encoding.Ids.Length, encoding.AttentionMask.Length);
+        Assert.All(encoding.AttentionMask, m => Assert.Equal(1, m));
+    }
+
+    [Fact]
+    public void Marks_every_token_as_SEGMENT_ZERO_because_one_text_is_one_segment()
+    {
+        // Segment ids are what a cross-encoder uses to tell a query from a document, and what llama.cpp's
+        // GGUF conversion zeroes (TASKS.md Part 177). A single-sequence embedder legitimately sends zeros;
+        // the point of emitting the tensor at all is that the graph asks for it.
+        var encoding = Tokenizer("alpha", "beta").Encode("alpha beta");
+
+        Assert.Equal(encoding.Ids.Length, encoding.TokenTypeIds.Length);
+        Assert.All(encoding.TokenTypeIds, t => Assert.Equal(0, t));
+    }
+
+    [Fact]
+    public void Truncates_to_maxTokens_INCLUDING_the_two_special_tokens()
+    {
+        // The off-by-two that matters: a 512-position model rejects 513, so reserving room for [CLS]/[SEP]
+        // is the difference between a long document embedding and the whole call throwing.
+        var encoding = Tokenizer("alpha").Encode(string.Join(' ', Enumerable.Repeat("alpha", 50)), maxTokens: 8);
+
+        Assert.Equal(8, encoding.Ids.Length);
+        Assert.Equal(2, encoding.Ids[0]);
+        Assert.Equal(3, encoding.Ids[^1]);
+        Assert.Equal(6, encoding.Ids.Count(id => id == 5));
+    }
+
+    [Fact]
+    public void An_EMPTY_text_is_still_a_valid_sequence_rather_than_nothing()
+    {
+        // [CLS][SEP] is what BERT does with an empty string. Returning an empty tensor instead would make
+        // the graph fail on a batch containing one blank document.
+        var encoding = Tokenizer("alpha").Encode("");
+
+        Assert.Equal([2, 3], encoding.Ids);
+    }
+
+    [Fact]
+    public void Rejects_a_maxTokens_too_small_to_hold_the_special_tokens()
+    {
+        // Silently returning [CLS][SEP] for maxTokens: 2 would embed every document identically.
+        Assert.Throws<ArgumentOutOfRangeException>(() => Tokenizer("alpha").Encode("alpha", maxTokens: 2));
+    }
+}
+
 /// <summary><see cref="WordPieceTokenizer.FromModelDirectory"/> — the entry point that takes its rules from
 /// the model instead of from the caller's guess.</summary>
 public class WordPieceTokenizerFromModelDirectoryTests : IDisposable

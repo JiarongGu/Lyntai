@@ -9,9 +9,12 @@ static class Lyntai.CrossEncoderVerificationRegistration
 sealed class Lyntai.Embeddings.Static.StaticEmbedder
     Dimensions : Int32
     EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
+    Id : String
+    IsAvailable : Boolean
     static FromDirectory(String directory, StaticEmbedderOptions options = null) : StaticEmbedder
 sealed class Lyntai.Embeddings.Static.StaticEmbedderOptions
     .ctor()
+    Id : String
     Normalize : Nullable<Boolean>
 static class Lyntai.ExtensionsAiBuilderExtensions
     static AddExtensionsAiProvider(LyntaiBuilder builder, String id, Func<IServiceProvider,IChatClient> clientFactory) : LyntaiBuilder

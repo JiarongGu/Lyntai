@@ -193,8 +193,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D121](#d121--an-in-process-embedder-ships-and-the-case-for-it-is-operational-rather-than-quality-or-speed-2026-09-13) | 2026-09-13 | an IN-PROCESS embedder ships, and the case for it is OPERATIONAL rather than quality or speed |
 | [D122](#d122--a-dependency-you-use-5-of-is-written-not-isolated-the-static-embedder-owns-its-tokenizer-and-needs-no-package-2026-09-14) | 2026-09-14 | a dependency you use 5% of is written, not isolated: the static embedder owns its tokenizer and n… |
 | [D123](#d123--a-package-boundary-must-isolate-a-dependency-the-consumer-can-refuse-the-meai-bridge-folds-into-providersdefault-2026-09-14) | 2026-09-14 | a package boundary must isolate a dependency the consumer can REFUSE; the MEAI bridge folds into… |
+| [D124](#d124--the-transformer-embedder-ships-as-lyntaiprovidersonnx-managed-half-only-and-embedders-join-the-provider-family-2026-09-14) | 2026-09-14 | the TRANSFORMER embedder ships as Lyntai.Providers.Onnx, managed-half only, and embedders join th… |
 
-_All 123 entries are live decisions._
+_All 124 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3661,9 +3662,9 @@ over a `vocab.txt`, the answer is ~250 lines and no boundary at all. That killed
 *`Providers.*` holds the ADAPTER to something external, Core holds the LOGIC*: `StaticEmbedder` provides
 embeddings from a specific model layout, so it stays a provider; a tokenizer is text logic any caller can
 use — a memory budget in tokens rather than characters, a future ONNX embedder — so it is public in Core.
-**Neither rule generalizes to the ONNX cell** (`TASKS.md` Part 196): the native runtime IS the feature,
-cannot be written, and is exactly the external thing a `Providers.*` package exists to isolate — the test
-that keeps this from becoming "never take a dependency".
+**Neither rule generalizes to the ONNX cell** (**D124**): the native runtime IS the feature, cannot be
+written, and is exactly the external thing a `Providers.*` package exists to isolate — the test that keeps
+this from becoming "never take a dependency", applied the same day to the opposite answer.
 
 **Core could only take the tokenizer because there was nothing attached to it.** Core is mandatory and
 carries the smallest footprint of all (**D25**) — it may take no third-party dependency, ever. So writing
@@ -3720,3 +3721,44 @@ destination rather than somewhere new.
 what it isolates. If a bundle member already pins it, or the mandatory Core does, the boundary buys
 nothing and costs a permanent id. **It does not license folding on size alone** — `Lyntai.Storage.Sqlite`
 is small too, and its native binary is refusable, so it stays.
+
+## D124 — the TRANSFORMER embedder ships as Lyntai.Providers.Onnx, managed-half only, and embedders join the provider family (2026-09-14)
+
+`AddOnnxEmbedder(modelDirectory)` runs a sentence-transformer in process through ONNX Runtime — no server,
+no port. It completes the CPU column of `docs/deployment-shapes.md`'s 2×2, whose static half is **D121**.
+
+**It earns a package where the static embedder did not, and the test is D122's own.** That rule asks what
+fraction of a dependency you use and whether it could be written instead: a WordPiece pass is ~250 lines,
+an inference runtime is not, and at **~16 MB of native code per RID** it is exactly what a consumer may
+refuse. Same rule, opposite answer — which is what keeps it from reading as "never take a dependency".
+
+**MANAGED HALF ONLY**, so the consuming app adds `Microsoft.ML.OnnxRuntime` (CPU),
+`.DirectML` (any DX12 GPU) or `.Gpu` (CUDA). That is `Lyntai.Providers.LlamaSharp`'s stance and what
+**D68** requires — a library that referenced one backend would choose the user's hardware and ship ~16 MB
+of the wrong native code to everyone else. **The cost is declared rather than hidden**: with no backend
+referenced the failure is at load, and `AddOnnxEmbedder`'s doc names the three packages that fix it. A side
+effect worth stating — the same package serves the GPU cell, which was listed as unbuilt.
+
+**Embedders become PROVIDERS, additively.** `IEmbeddingProvider : IProviderIdentity, IEmbedder` gives an
+embedding backend the `Id` + `IsAvailable` that `ILlmProvider` and `IGenerationProvider` already have.
+**Changing `IEmbedder` itself was refused**: those two could adopt `IProviderIdentity` as a base because
+they already declared `Id`, and `IEmbedder` does not — adding it would introduce a REQUIRED member and
+break every bring-your-own embedder at compile. This is the optional-capability pattern Core already uses
+for `IGenerationJobProvider`. `StaticEmbedder` adopts it too, so the family is consistent rather than the
+new arrival being special.
+
+**Registered through a FACTORY, not as an instance, and that is a resource decision rather than style.**
+`AddSingleton(instance)` does not dispose what the container did not create, and this holds a native
+session; building eagerly still makes a bad model fail at composition. Both halves are pinned by
+`OnnxRegistrationTests`, which asserts the instance overload leaks and the factory overload does not —
+because collapsing the factory to a `TryAddSingleton(embedder)` reads as a tidy-up.
+
+**Every knob defaults to READING THE MODEL**, because pooling, normalization and the position limit are
+properties of how it was trained: `1_Pooling/config.json`, `modules.json`, and `config.json`'s
+`max_position_embeddings` — never `tokenizer_config.json`'s `model_max_length`, which is routinely
+1,000,000. Guessing any of them returns plausible vectors that rank wrongly.
+
+**Correctness is established against a REFERENCE, not against plausibility.** The live test pins the
+cosines the same export produces through Python's `onnxruntime` with the reference HF tokenizer, matching
+to four decimals. A wrong pooling mode, a mask that averages padding in, or a dropped `token_type_ids`
+all still yield finite, unit-length, correctly-ordered vectors — so ordering alone proves nothing.

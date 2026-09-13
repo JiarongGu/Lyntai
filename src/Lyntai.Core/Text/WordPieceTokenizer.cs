@@ -3,6 +3,17 @@ using System.Text;
 
 namespace Lyntai.Text;
 
+/// <summary>One text encoded for a transformer — the three tensors a BERT-family graph takes, in the order
+/// it takes them.
+///
+/// <para><b>All three are load-bearing and none fails loudly.</b> A missing mask attends to padding, a
+/// missing segment id costs a cross-encoder the signal that tells its query from its document, and either
+/// returns a plausible, wrong vector.</para></summary>
+/// <param name="Ids">Vocabulary ids, bracketed by the classification and separator tokens.</param>
+/// <param name="AttentionMask">1 for a real token, 0 for padding. All ones until a batch adds padding.</param>
+/// <param name="TokenTypeIds">Which segment each token belongs to; all zero for a single text.</param>
+public readonly record struct WordPieceEncoding(int[] Ids, int[] AttentionMask, int[] TokenTypeIds);
+
 /// <summary>BERT's WordPiece tokenizer — text to vocabulary ids, owned rather than depended on.
 ///
 /// <para><b>Why the library owns one.</b> Buying this from <c>Microsoft.ML.Tokenizers</c> costs 812 KB of
@@ -27,16 +38,20 @@ public sealed class WordPieceTokenizer
 
     private readonly Dictionary<string, int> _vocabulary;
     private readonly int _unknownId;
+    private readonly int? _classificationId;
+    private readonly int? _separatorId;
     private readonly bool _lowercase;
     private readonly bool _stripAccents;
     private readonly bool _tokenizeChineseCharacters;
 
     private WordPieceTokenizer(
-        Dictionary<string, int> vocabulary, int unknownId,
+        Dictionary<string, int> vocabulary, int unknownId, int? classificationId, int? separatorId,
         bool lowercase, bool stripAccents, bool tokenizeChineseCharacters)
     {
         _vocabulary = vocabulary;
         _unknownId = unknownId;
+        _classificationId = classificationId;
+        _separatorId = separatorId;
         _lowercase = lowercase;
         _stripAccents = stripAccents;
         _tokenizeChineseCharacters = tokenizeChineseCharacters;
@@ -49,11 +64,14 @@ public sealed class WordPieceTokenizer
     /// <param name="stripAccents">Drop combining marks (<c>strip_accents</c>; null follows
     /// <paramref name="lowercase"/>, which is what the reference does).</param>
     /// <param name="tokenizeChineseCharacters">Give each CJK character its own token.</param>
+    /// <param name="classificationToken">Opens a sequence in <see cref="Encode"/> (<c>cls_token</c>).</param>
+    /// <param name="separatorToken">Closes a sequence in <see cref="Encode"/> (<c>sep_token</c>).</param>
     /// <exception cref="InvalidDataException"><paramref name="unknownToken"/> is not in the vocabulary —
     /// without it an unmatchable word has no id to fall back to, and every such word would vanish.</exception>
     public static WordPieceTokenizer FromVocabulary(
         IReadOnlyList<string> vocabulary, string unknownToken = "[UNK]",
-        bool lowercase = true, bool? stripAccents = null, bool tokenizeChineseCharacters = true)
+        bool lowercase = true, bool? stripAccents = null, bool tokenizeChineseCharacters = true,
+        string classificationToken = "[CLS]", string separatorToken = "[SEP]")
     {
         ArgumentNullException.ThrowIfNull(vocabulary);
 
@@ -66,8 +84,15 @@ public sealed class WordPieceTokenizer
                 $"The vocabulary has no '{unknownToken}' row. A WordPiece vocabulary must carry one — "
                 + "without it a word that cannot be pieced has no id, and the text silently disappears.");
 
+        // NULLABLE rather than required: a model2vec vocabulary is pruned and may carry neither token, and
+        // that path never calls Encode. Failing to load over a token the caller will not use would refuse a
+        // perfectly good model; Encode itself says what is missing when it is actually needed.
+        int? classificationId = map.TryGetValue(classificationToken, out var cls) ? cls : null;
+        int? separatorId = map.TryGetValue(separatorToken, out var sep) ? sep : null;
+
         return new WordPieceTokenizer(
-            map, unknownId, lowercase, stripAccents ?? lowercase, tokenizeChineseCharacters);
+            map, unknownId, classificationId, separatorId,
+            lowercase, stripAccents ?? lowercase, tokenizeChineseCharacters);
     }
 
     /// <summary>Load from a model directory: <c>vocab.txt</c> for the rows, and <c>tokenizer_config.json</c>
@@ -90,7 +115,8 @@ public sealed class WordPieceTokenizer
         var rules = TokenizerRules.FromDirectory(directory);
         return FromVocabulary(
             File.ReadAllLines(vocabulary), rules.UnknownToken,
-            rules.Lowercase, rules.StripAccents, rules.TokenizeChineseCharacters);
+            rules.Lowercase, rules.StripAccents, rules.TokenizeChineseCharacters,
+            rules.ClassificationToken, rules.SeparatorToken);
     }
 
     /// <summary>The ids of <paramref name="text"/>'s content tokens, in order. Never null; empty for text
@@ -102,6 +128,43 @@ public sealed class WordPieceTokenizer
 
         foreach (var word in Words(text)) AppendPieces(word, ids);
         return ids;
+    }
+
+    /// <summary>Encode one text for a TRANSFORMER: <c>[CLS]</c> + content + <c>[SEP]</c>, with the
+    /// attention mask and segment ids the graph takes alongside the ids.
+    ///
+    /// <para><b>Separate from <see cref="EncodeToIds"/> on purpose.</b> A lookup-table model must get
+    /// content tokens ONLY — bracketing it folds two rows into every mean — so the two callers genuinely
+    /// want different answers and neither default is safe for the other.</para>
+    ///
+    /// <para><b><paramref name="maxTokens"/> counts the special tokens</b>, so a 512-position model takes
+    /// 510 content tokens. Truncation is silent, as every BERT pipeline's is; the caller decides whether a
+    /// truncated document is acceptable.</para></summary>
+    /// <param name="text">The text. Empty yields the bare <c>[CLS] [SEP]</c> pair, which is what BERT does
+    /// and keeps a batch containing a blank document valid.</param>
+    /// <param name="maxTokens">Total sequence length INCLUDING both special tokens.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Under 3 — no room for content.</exception>
+    /// <exception cref="InvalidOperationException">The vocabulary has no classification or separator
+    /// token, so this model cannot be encoded for a transformer at all.</exception>
+    public WordPieceEncoding Encode(string text, int maxTokens = 512)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxTokens, 3);
+        if (_classificationId is not { } cls || _separatorId is not { } sep)
+            throw new InvalidOperationException(
+                "This vocabulary carries no classification/separator token, so it cannot be encoded for a "
+                + "transformer. A model2vec table is the usual reason — use EncodeToIds for that class.");
+
+        var content = EncodeToIds(text ?? string.Empty);
+        var kept = Math.Min(content.Count, maxTokens - 2);
+
+        var ids = new int[kept + 2];
+        ids[0] = cls;
+        for (var i = 0; i < kept; i++) ids[i + 1] = content[i];
+        ids[^1] = sep;
+
+        var mask = new int[ids.Length];
+        Array.Fill(mask, 1);
+        return new WordPieceEncoding(ids, mask, new int[ids.Length]);
     }
 
     /// <summary>Clean, pad CJK, split on whitespace, normalize each word, then split off punctuation —

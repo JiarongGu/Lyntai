@@ -15,24 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 11 across 8 Parts: 2 startable, 8 blocked, 1 watch
+## Open items — 10 across 7 Parts: 2 startable, 7 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 473 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
-| 732 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | blocked · tree | an in-process cross-encoder path: D115's seam takes a /v1/rerank endpoint a… |
-| 902 | 196 | Ship the TRANSFORMER x CPU embedder — an ONNX Runtime adapter | startable |  |
+| 90 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 134 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 143 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 197 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 268 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 346 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 401 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 424 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 472 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
+| 731 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
 
 <!-- open-items:end -->
 
@@ -729,20 +728,26 @@ _**What is already measured** (`docs/memory-measurements.md` §5, archive Parts 
 6.0 of the 7.0 points a perfect judge offers, and a model 28 months newer at the same architecture and size
 is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come down 26%._
 
-- [ ] **MEASURE the sub-100 MB cross-encoder that now exists — and give the library a way to reach it.** <!-- item: state=blocked kind=tree needs="an in-process cross-encoder path: D115's seam takes a /v1/rerank endpoint and an ONNX file has no server, so this waits on TASKS.md Part 196's ONNX package" -->
+- [ ] **MEASURE the sub-100 MB cross-encoder that now exists — and give the library a way to reach it.** <!-- item: state=startable -->
   **THE BLOCKER BELOW IS REFUTED (2026-09-14), by a route neither of its two stated unblockers
   anticipated** — not #21729 merging, not a small RoBERTa: a runtime that does not convert at all.
   `docs/memory-measurements.md` §5 (`rerank-screen-onnx-runtime`); the probe is
-  `devtools/_rerank-onnx/probe.py`. The SAME `ms-marco-MiniLM-L6-v2` whose GGUF ranks the reference pair
+  `devtools/onnx/rerank-screen.py`. The SAME `ms-marco-MiniLM-L6-v2` whose GGUF ranks the reference pair
   **backwards** reproduces its own model card to **four decimal places** through ONNX Runtime, and its int8
   export is **23,200,716 B**, correctly ordered, still logit-scaled — **20.2× below** the floor recorded
   below. Quantisation costs 1.4% of spread. **So the floor was llama.cpp's, never the model class's.**
-  <br>**What is left is therefore the two things the old framing never reached.** First, QUALITY: no
-  sub-100 MB reranker has an evidence-hit figure through any runtime, and `LAMAR-600m`'s +6.0 is the number
-  to beat. Second, REACHABILITY, which is why this is `blocked · tree` rather than startable —
-  `AddMemoryCrossEncoderVerification` (**D115**) takes a `/v1/rerank` endpoint and an ONNX file has no
-  server, so this needs Part 196's ONNX package or an in-process `IMemoryVerificationPolicy`. Do them in
-  that order: the package is the prerequisite, the measurement is the point.
+  <br>**What is left is therefore the two things the old framing never reached, and the first is now
+  STARTABLE.** The prerequisite landed the same day: `Lyntai.Providers.Onnx` (**D124**,
+  `docs/task-archive.md` Part 208) is an ONNX session, a WordPiece pass and a pooling step in this
+  repository, so a cross-encoder head is a class beside `OnnxEmbedder` rather than a new package — the
+  session plumbing and `Lyntai.Text.WordPieceTokenizer` are already shared.
+  <br>**Two pieces of real work remain.** REACHABILITY: `AddMemoryCrossEncoderVerification` (**D115**)
+  takes a `/v1/rerank` endpoint and an ONNX file has no server, so this needs an in-process
+  `IMemoryVerificationPolicy` — a seam that exists, with no ONNX implementation behind it. And the
+  tokenizer needs its PAIR overload: a cross-encoder's whole signal is `token_type_ids` 0 for the query
+  and 1 for the document, which `Encode` does not emit today and which is exactly what llama.cpp zeroes.
+  <br>Then QUALITY, which is the point: no sub-100 MB reranker has an evidence-hit figure through ANY
+  runtime, and `LAMAR-600m`'s +6.0 at 468,393,760 B is the number to beat. A screen is not a measurement.
   <br>**Two things the refutation does NOT touch**, stated so they are not swept along: the multilingual
   half below still holds (a 250,002-token vocabulary is the model's, not the runtime's, so Chinese-first is
   still above 100 MB), and so does the 512-token ceiling.
@@ -874,99 +879,6 @@ Nullable because `None` (no tools registered) and "a BYO loop never said" are di
 ---
 
 ---
-
-## Part 196 — sub-100 MB, re-aimed at the EMBEDDER role: the blocker that killed the reranker survey does not reach it (2026-09-12)
-
-_Opened at the owner's direction: **"we still have a lot sub-100 MB model related development to do."** The
-stretch target has been `docs/model-tasks.md` §3's since it was written; what is new is WHERE it can land._
-
-_**The blocker everyone quotes is role-specific, and that was not said plainly until now.** llama.cpp
-PR #21729 zeroes `token_type_ids` and drops pooling layers in conversion. A CROSS-ENCODER needs both — the
-segment signal to tell a query from a document, a head to pool with. **A single-sequence embedder using MEAN
-pooling needs neither**, and llama.cpp pools natively. So "sub-100 MB is dead" is true of the reranker role
-and has never been tested in the embedder role. `docs/model-tasks.md` §3 now says so._
-
-_**And §3.1 is why this is the interesting gap rather than a footnote.** On tool routing a 333,590,944 B
-embedder reads **81.0%**, beating the smallest generative model by 44-78 points at 41% of the bytes — the
-best model-free arm this repository has measured on any selective task. The question is whether that
-survives at a tenth of the bytes._
-
-_**The survey CLOSED 2026-09-12** as `docs/task-archive.md` **Part 196**, and the answer is YES:
-`docs/model-tasks.md` §3.3 is the filled cell, `docs/memory-measurements.md` §5 the evidence. Four
-sub-100 MB embedders screen HEALTHY and a 25,008,064 B one costs 2.4 points of tool routing at three
-options, 11.4 at seven — a slope rather than a point. It also moved the two paragraphs above: the
-multilingual floor is the TOKENIZER's rather than the cross-encoder role's (monolingual escapes it,
-quantising does not), and the STATIC class has no GGUF in existence, which is what the item below now
-turns on._
-
-- [ ] **Ship the TRANSFORMER x CPU embedder — an ONNX Runtime adapter.** The second of the two packages <!-- item: state=startable -->
-  the 2026-09-13 ruling authorised. **The STATIC half SHIPPED** (**D121**, `docs/task-archive.md` Part 207)
-  and **stopped being a package on 2026-09-14** (**D122**) — the adapter is in `Lyntai.Providers.Default`
-  and its tokenizer, owned rather than referenced, is public in `Lyntai.Core`. So what is left is one
-  package, and the work it needs is known rather than guessed.
-
-  **The boundary is MANAGED against NATIVE, not static against transformer.** `potion-base-8M` ships its own
-  `onnx/model.onnx`, so ONNX Runtime could serve the STATIC class too; what a consumer actually chooses
-  between is a package they can trim and AOT-compile and one they cannot. Write the decision in those terms.
-  <br>**D122 sharpened the test this has to pass**: a package boundary is worth what the dependency behind
-  it costs, and the static cell FAILED that test — 812 KB of closure for one WordPiece call, so the
-  dependency was written rather than isolated. **ONNX passes it**, and saying why is the record's job: the
-  native runtime IS the feature, cannot be written, and at ~16.4 MB is three orders of magnitude past the
-  point where owning it is an option.
-
-  **THE PACKAGE IS WORTH IT, and that is MEASURED rather than argued (2026-09-14).** The owner's ruling was
-  *test the reranker hypothesis first* — whether ONNX Runtime sidesteps llama.cpp PR #21729, which would
-  give the 16.4 MB a second job. **It does, decisively**: same model, same published pair, fp32 ONNX
-  reproduces the card to four decimal places where the GGUF ranks it backwards, and an int8 export scores
-  correctly at **23,200,716 B** (`docs/memory-measurements.md` §5, `rerank-screen-onnx-runtime`). So this
-  package serves the EMBEDDER cell and unblocks the RERANKER one (`TASKS.md` Part 177), and the ~9 points
-  of tool routing was never the whole case for it.
-  <br>**Design consequence, since two seams now share one runtime:** do not build an embedder that happens
-  to load ONNX. The session, the tokenizer pass and the pooling are common; what differs is the head and
-  the output shape. Whatever is built for the embedder should leave the reranker a class, not a rewrite.
-
-  **The DEPENDENCY IS RULED (2026-09-14, owner): `Microsoft.ML.OnnxRuntime.Managed` only**, with the
-  consuming app adding `Microsoft.ML.OnnxRuntime` (CPU), `.DirectML` or `.Gpu`. That is the
-  `Lyntai.Providers.LlamaSharp` precedent exactly, and what **D68** implies — the library never picks the
-  user's hardware. A consequence to state rather than discover: the same package then serves the GPU cell of
-  the 2x2, so `docs/deployment-shapes.md`'s table moves with it.
-
-  **Three concrete consequences, each already checked:**
-  1. **It cannot inherit the trim/AOT claim.** ONNX Runtime is a native dependency, so the csproj must set
-     `IsAotCompatible=false` / `IsTrimmable=false` / `EnableTrimAnalyzer=true` and the `docs/AOT.md` row must
-     say so — the template calls this out, and `check-warnings` is what keeps the claim honest.
-     `Lyntai.Providers.Default`'s row reads "compatible" and that must stay TRUE of it, which is now a
-     REASON THIS IS A SEPARATE PACKAGE rather than a side note.
-  2. **`new-package` does the registries**, and the misses are silent: the solution, packableProjects, the
-     test ProjectReference, `ApiSurfaceTests`, `docs/AOT.md` and the README table.
-  3. **Bundle membership is NOT automatic (D26)** and a native runtime is exactly the dependency a
-     one-line-install consumer may refuse, so it almost certainly does not go in `Lyntai.Bundle`.
-
-  **The tokenizer half is already DONE and was not, before.** An ONNX transformer takes `input_ids` +
-  `attention_mask` (+ `token_type_ids`), so it needs the same WordPiece pass — and
-  `Lyntai.Text.WordPieceTokenizer` is PUBLIC in Core, verified id-for-id against a real 29,528-row pruned
-  vocabulary, so an adapter package can simply use it. What it deliberately does NOT emit is
-  `[CLS]`/`[SEP]` and an attention mask, because a `model2vec` table must not have them. **That is the only
-  new tokenizer work and it is additive** — a second factory or an option, never a change to what the
-  static path gets, which is pinned by a test that would fail if it moved.
-  <br>**And the vocabulary is ENGLISH** (`docs/model-tasks.md` §3): 488 Han rows, zero Hangul. That bounds
-  the whole cell for a CJK deployment regardless of runtime, so do not read an ONNX package as fixing it.
-
-  **What to reuse rather than rewrite.** `StaticEmbedder` already settles the shape a second adapter should
-  match: `FromDirectory` loading eagerly so a truncated model fails at composition, an empty text yielding a
-  ZERO vector rather than throwing, a corrupt model THROWING rather than producing plausible vectors, and a
-  `[SkippableFact]` live test beside the synthetic one. **The live test is the load-bearing half**: a real
-  export ships a pruned vocabulary, which the synthetic fixture structurally cannot catch.
-
-  **Which model to test against.** `potion-base-8M`'s own `onnx/model.onnx` is already on disk, which makes
-  the first run cheap; a real sentence-transformer export (`all-MiniLM-L6-v2`, `bge-small-en-v1.5`) is the
-  honest target for the TRANSFORMER cell, since serving a static table through ONNX measures the runtime
-  rather than the class.
-
-  _**Not blocked**: no key, no download that is not already local, and no ruling outstanding — the ruling was
-  given on 2026-09-13 and this is the half that was not built before the session ended._
-
-
 
 ## How to work a task (evergreen)
 

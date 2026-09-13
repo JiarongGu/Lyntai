@@ -32,6 +32,7 @@ public class ApiSurfaceTests
         "Lyntai.Tools.Mcp",
         "Lyntai.Tools.Mcp.Hosting",
         "Lyntai.Secrets.Dpapi",
+        "Lyntai.Providers.Onnx",
         "Lyntai.Generation",
     ];
 
@@ -51,6 +52,7 @@ public class ApiSurfaceTests
         ["Lyntai.Tools.Mcp"] = typeof(Lyntai.Tools.Mcp.McpToolset).Assembly,
         ["Lyntai.Tools.Mcp.Hosting"] = typeof(Lyntai.McpToolHostBuilderExtensions).Assembly,
         ["Lyntai.Secrets.Dpapi"] = typeof(Lyntai.Secrets.DpapiSecretProtector).Assembly,
+        ["Lyntai.Providers.Onnx"] = typeof(Lyntai.OnnxBuilderExtensions).Assembly,
         ["Lyntai.Generation"] = typeof(Lyntai.Generation.Providers.OpenAiImageProvider).Assembly,
     };
 

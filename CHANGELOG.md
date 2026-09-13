@@ -52,11 +52,31 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   was dropped rather than `[UNK]`, and accents were not stripped though the model's config asks for it.
   Nothing released was affected; the defect arrived and left inside this release (`docs/FIXES.md`).
 
+- **`Lyntai.Providers.Onnx` — an in-process TRANSFORMER embedder** (**D124**). `AddOnnxEmbedder(dir)` runs
+  a sentence-transformer through ONNX Runtime with no server and no port, completing the CPU column of the
+  in-process 2×2 whose static half shipped as **D121**. Measured, it is worth roughly **+9.6 points** of
+  tool-routing accuracy at three options over the static class at comparable model bytes — for ~16 MB of
+  native runtime and this package's trim/AOT claim, and a 512-token limit the static class does not have.
+  **It references the MANAGED half of ONNX Runtime only**: add `Microsoft.ML.OnnxRuntime` (CPU),
+  `.DirectML` (any DX12 GPU) or `.Gpu` (CUDA) in your app, exactly as `Lyntai.Providers.LlamaSharp` leaves
+  the backend choice to you — so the same package also serves the GPU cell. Pooling, normalization and the
+  sequence limit are read from the model's own `1_Pooling/config.json`, `modules.json` and `config.json`
+  rather than guessed.
+
+- **`IEmbeddingProvider` — embedding backends join the provider family** (**D124**). `IProviderIdentity` +
+  `IEmbedder`, so an embedder carries the `Id` and `IsAvailable` that `ILlmProvider` and
+  `IGenerationProvider` already do: a deployment can register more than one and tell them apart, and a
+  diagnostic can say WHICH embedder produced a vector. **Additive on purpose** — `IEmbedder` is unchanged,
+  because adding a base interface that introduces a required `Id` would break every BYO embedder at
+  compile. `StaticEmbedder` and `OnnxEmbedder` both implement it; `StaticEmbedderOptions` gains `Id`.
+
 - **`Lyntai.Text.WordPieceTokenizer` — a BERT tokenizer the library owns** (**D122**). `FromModelDirectory`
   takes its rules from the model's own `tokenizer_config.json` rather than a caller's guess, because the ids
   a model was built against depend on them. Public because it is general text logic, not the embedder's
   private business: anything wanting a token-aware step — a budget in tokens rather than characters, a
-  future ONNX embedder — can use it. It emits CONTENT tokens only, with no `[CLS]`/`[SEP]`, deliberately.
+  future ONNX embedder — can use it. `EncodeToIds` emits CONTENT tokens only, with no `[CLS]`/`[SEP]`,
+  because a `model2vec` table must not have them; `Encode` is the transformer path, adding those tokens
+  plus the attention mask and segment ids a BERT graph takes as separate tensors.
 
 - **`IToolSelector` and `AddEmbeddingToolSelector` — the tool roster can be BOUNDED before the model sees
   it** (**D120**). `IToolRegistry` hands the loop every registered tool on every iteration and the model
