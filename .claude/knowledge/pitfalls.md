@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 199 traps, indexed two ways
+## Facets — 200 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (36) — 57 · 82 · 91 · 111 · 124 · 133 · 146 · 152 · 175 · 185 · 192 · 207 · 217 · 263 · 283 · 329 · 347 · 479 · 564 · 573 · 583 · 637 · 651 · 721 · 735 · 1041 · 1154 · 1409 · 2360 · 2370 · 2396 · 2407 · 2444 · 2815 · 2845 · 2854
-- **`encoding`** (6) — 75 · 80 · 590 · 598 · 864 · 2444
-- **`git`** (7) — 207 · 232 · 263 · 288 · 598 · 620 · 869
-- **`build`** (8) — 80 · 564 · 573 · 583 · 637 · 1033 · 1409 · 2379
-- **`router`** (6) — 1252 · 1257 · 1266 · 1268 · 1271 · 1401
-- **`cli`** (18) — 750 · 864 · 1252 · 1273 · 1281 · 1290 · 1294 · 1306 · 1310 · 1317 · 1321 · 1328 · 1332 · 1365 · 1384 · 1388 · 1393 · 2230
-- **`lifetime`** (6) — 1431 · 1440 · 1445 · 1450 · 1463 · 1471
-- **`storage`** (17) — 1344 · 1480 · 1582 · 1610 · 1612 · 1613 · 1615 · 1617 · 1635 · 1646 · 1875 · 1887 · 2143 · 2260 · 2426 · 2608 · 2792
-- **`memory`** (39) — 387 · 422 · 550 · 1116 · 1344 · 1514 · 1533 · 1544 · 1570 · 1582 · 1597 · 1618 · 1635 · 1646 · 1685 · 1700 · 1707 · 1726 · 1737 · 1755 · 1768 · 1781 · 1839 · 1894 · 1914 · 1950 · 1986 · 2004 · 2011 · 2042 · 2064 · 2092 · 2164 · 2239 · 2260 · 2501 · 2660 · 2688 · 2771
-- **`generation`** (11) — 1101 · 1147 · 1230 · 1257 · 1463 · 1986 · 2177 · 2189 · 2213 · 2320 · 2345
-- **`di`** (12) — 1450 · 1700 · 1726 · 1906 · 1908 · 1911 · 1914 · 1932 · 2011 · 2042 · 2189 · 2239
-- **`measurement`** (65) — 111 · 372 · 387 · 405 · 422 · 463 · 493 · 509 · 528 · 540 · 550 · 671 · 750 · 757 · 762 · 768 · 795 · 808 · 819 · 827 · 843 · 850 · 887 · 897 · 917 · 928 · 962 · 989 · 995 · 1011 · 1028 · 1033 · 1072 · 1101 · 1116 · 1132 · 1147 · 1162 · 1180 · 1195 · 1212 · 1230 · 1281 · 1480 · 1499 · 1570 · 1737 · 1768 · 1795 · 1806 · 1821 · 1839 · 1894 · 1950 · 2396 · 2477 · 2528 · 2543 · 2567 · 2587 · 2608 · 2638 · 2675 · 2739 · 2771
-- **`docs`** (23) — 124 · 152 · 175 · 296 · 620 · 651 · 671 · 721 · 1041 · 1052 · 1057 · 1064 · 1154 · 1544 · 2064 · 2131 · 2295 · 2305 · 2360 · 2370 · 2407 · 2426 · 2697
-- **`tests`** (21) — 1365 · 1556 · 1597 · 1618 · 1685 · 1707 · 1875 · 1887 · 2143 · 2490 · 2501 · 2512 · 2688 · 2710 · 2792 · 2800 · 2808 · 2812 · 2815 · 2827 · 2840
+- **`gates`** (36) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 499 · 584 · 593 · 603 · 657 · 671 · 741 · 755 · 1061 · 1174 · 1429 · 2380 · 2390 · 2416 · 2427 · 2464 · 2835 · 2865 · 2874
+- **`encoding`** (7) — 75 · 95 · 100 · 610 · 618 · 884 · 2464
+- **`git`** (7) — 227 · 252 · 283 · 308 · 618 · 640 · 889
+- **`build`** (8) — 100 · 584 · 593 · 603 · 657 · 1053 · 1429 · 2399
+- **`router`** (6) — 1272 · 1277 · 1286 · 1288 · 1291 · 1421
+- **`cli`** (19) — 75 · 770 · 884 · 1272 · 1293 · 1301 · 1310 · 1314 · 1326 · 1330 · 1337 · 1341 · 1348 · 1352 · 1385 · 1404 · 1408 · 1413 · 2250
+- **`lifetime`** (6) — 1451 · 1460 · 1465 · 1470 · 1483 · 1491
+- **`storage`** (17) — 1364 · 1500 · 1602 · 1630 · 1632 · 1633 · 1635 · 1637 · 1655 · 1666 · 1895 · 1907 · 2163 · 2280 · 2446 · 2628 · 2812
+- **`memory`** (39) — 407 · 442 · 570 · 1136 · 1364 · 1534 · 1553 · 1564 · 1590 · 1602 · 1617 · 1638 · 1655 · 1666 · 1705 · 1720 · 1727 · 1746 · 1757 · 1775 · 1788 · 1801 · 1859 · 1914 · 1934 · 1970 · 2006 · 2024 · 2031 · 2062 · 2084 · 2112 · 2184 · 2259 · 2280 · 2521 · 2680 · 2708 · 2791
+- **`generation`** (11) — 1121 · 1167 · 1250 · 1277 · 1483 · 2006 · 2197 · 2209 · 2233 · 2340 · 2365
+- **`di`** (12) — 1470 · 1720 · 1746 · 1926 · 1928 · 1931 · 1934 · 1952 · 2031 · 2062 · 2209 · 2259
+- **`measurement`** (65) — 131 · 392 · 407 · 425 · 442 · 483 · 513 · 529 · 548 · 560 · 570 · 691 · 770 · 777 · 782 · 788 · 815 · 828 · 839 · 847 · 863 · 870 · 907 · 917 · 937 · 948 · 982 · 1009 · 1015 · 1031 · 1048 · 1053 · 1092 · 1121 · 1136 · 1152 · 1167 · 1182 · 1200 · 1215 · 1232 · 1250 · 1301 · 1500 · 1519 · 1590 · 1757 · 1788 · 1815 · 1826 · 1841 · 1859 · 1914 · 1970 · 2416 · 2497 · 2548 · 2563 · 2587 · 2607 · 2628 · 2658 · 2695 · 2759 · 2791
+- **`docs`** (23) — 144 · 172 · 195 · 316 · 640 · 671 · 691 · 741 · 1061 · 1072 · 1077 · 1084 · 1174 · 1564 · 2084 · 2151 · 2315 · 2325 · 2380 · 2390 · 2427 · 2446 · 2717
+- **`tests`** (21) — 1385 · 1576 · 1617 · 1638 · 1705 · 1727 · 1895 · 1907 · 2163 · 2510 · 2521 · 2532 · 2708 · 2730 · 2812 · 2820 · 2828 · 2832 · 2835 · 2847 · 2860
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (21) — 207 · 387 · 422 · 651 · 762 · 1072 · 1230 · 1266 · 1271 · 1290 · 1365 · 1445 · 1533 · 1781 · 1914 · 1950 · 2177 · 2189 · 2239 · 2345 · 2660
-- **`cancellation`** (5) — 1252 · 1257 · 1514 · 1533 · 1556
-- **`vacuous`** (43) — 111 · 185 · 192 · 372 · 405 · 463 · 493 · 573 · 768 · 808 · 827 · 917 · 1101 · 1116 · 1132 · 1147 · 1180 · 1321 · 1384 · 1401 · 1556 · 1597 · 1618 · 1685 · 1707 · 1795 · 1806 · 1839 · 1950 · 2064 · 2426 · 2501 · 2512 · 2543 · 2675 · 2688 · 2710 · 2739 · 2792 · 2815 · 2827 · 2845 · 2854
-- **`scope-blind`** (36) — 82 · 133 · 146 · 152 · 175 · 185 · 207 · 217 · 263 · 329 · 347 · 598 · 721 · 735 · 1195 · 1409 · 1700 · 1768 · 1875 · 1887 · 2064 · 2092 · 2143 · 2260 · 2360 · 2370 · 2379 · 2396 · 2407 · 2426 · 2512 · 2675 · 2688 · 2812 · 2845 · 2854
-- **`second-door`** (20) — 1268 · 1306 · 1310 · 1321 · 1328 · 1388 · 1393 · 1471 · 1613 · 1635 · 1914 · 2042 · 2143 · 2164 · 2177 · 2189 · 2213 · 2260 · 2295 · 2320
-- **`stale-claim`** (18) — 57 · 152 · 232 · 296 · 671 · 819 · 850 · 869 · 1041 · 1057 · 1544 · 1911 · 2131 · 2164 · 2213 · 2295 · 2407 · 2697
-- **`silent-loss`** (53) — 75 · 80 · 124 · 283 · 288 · 329 · 347 · 540 · 590 · 637 · 651 · 750 · 808 · 864 · 897 · 928 · 962 · 1028 · 1072 · 1147 · 1154 · 1162 · 1230 · 1294 · 1310 · 1344 · 1431 · 1463 · 1499 · 1570 · 1610 · 1612 · 1613 · 1615 · 1635 · 1646 · 1685 · 1821 · 1894 · 1906 · 1911 · 1932 · 2004 · 2042 · 2092 · 2230 · 2320 · 2360 · 2370 · 2444 · 2528 · 2608 · 2739
-- **`wrong-subject`** (61) — 57 · 91 · 111 · 288 · 372 · 405 · 422 · 479 · 493 · 509 · 528 · 540 · 550 · 564 · 583 · 768 · 795 · 827 · 843 · 850 · 897 · 928 · 962 · 989 · 995 · 1052 · 1064 · 1101 · 1116 · 1132 · 1162 · 1180 · 1195 · 1212 · 1268 · 1317 · 1409 · 1440 · 1450 · 1480 · 1570 · 1618 · 1726 · 1737 · 1755 · 1768 · 1795 · 1806 · 1839 · 1986 · 2011 · 2345 · 2477 · 2528 · 2543 · 2567 · 2587 · 2608 · 2710 · 2771 · 2815
-- **`unmeasured`** (17) — 509 · 550 · 620 · 671 · 721 · 757 · 1011 · 1033 · 1273 · 1281 · 1290 · 1332 · 1384 · 1755 · 1986 · 2305 · 2697
-- **`ordering`** (10) — 583 · 1294 · 1393 · 1582 · 1617 · 1932 · 2230 · 2239 · 2490 · 2638
-- **`resource`** (14) — 564 · 598 · 637 · 887 · 995 · 1212 · 1273 · 1365 · 1471 · 1480 · 1908 · 2800 · 2808 · 2840
+- **`fail-open`** (21) — 227 · 407 · 442 · 671 · 782 · 1092 · 1250 · 1286 · 1291 · 1310 · 1385 · 1465 · 1553 · 1801 · 1934 · 1970 · 2197 · 2209 · 2259 · 2365 · 2680
+- **`cancellation`** (5) — 1272 · 1277 · 1534 · 1553 · 1576
+- **`vacuous`** (43) — 131 · 205 · 212 · 392 · 425 · 483 · 513 · 593 · 788 · 828 · 847 · 937 · 1121 · 1136 · 1152 · 1167 · 1200 · 1341 · 1404 · 1421 · 1576 · 1617 · 1638 · 1705 · 1727 · 1815 · 1826 · 1859 · 1970 · 2084 · 2446 · 2521 · 2532 · 2563 · 2695 · 2708 · 2730 · 2759 · 2812 · 2835 · 2847 · 2865 · 2874
+- **`scope-blind`** (36) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 618 · 741 · 755 · 1215 · 1429 · 1720 · 1788 · 1895 · 1907 · 2084 · 2112 · 2163 · 2280 · 2380 · 2390 · 2399 · 2416 · 2427 · 2446 · 2532 · 2695 · 2708 · 2832 · 2865 · 2874
+- **`second-door`** (20) — 1288 · 1326 · 1330 · 1341 · 1348 · 1408 · 1413 · 1491 · 1633 · 1655 · 1934 · 2062 · 2163 · 2184 · 2197 · 2209 · 2233 · 2280 · 2315 · 2340
+- **`stale-claim`** (18) — 57 · 172 · 252 · 316 · 691 · 839 · 870 · 889 · 1061 · 1077 · 1564 · 1931 · 2151 · 2184 · 2233 · 2315 · 2427 · 2717
+- **`silent-loss`** (54) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 560 · 610 · 657 · 671 · 770 · 828 · 884 · 917 · 948 · 982 · 1048 · 1092 · 1167 · 1174 · 1182 · 1250 · 1314 · 1330 · 1364 · 1451 · 1483 · 1519 · 1590 · 1630 · 1632 · 1633 · 1635 · 1655 · 1666 · 1705 · 1841 · 1914 · 1926 · 1931 · 1952 · 2024 · 2062 · 2112 · 2250 · 2340 · 2380 · 2390 · 2464 · 2548 · 2628 · 2759
+- **`wrong-subject`** (61) — 57 · 111 · 131 · 308 · 392 · 425 · 442 · 499 · 513 · 529 · 548 · 560 · 570 · 584 · 603 · 788 · 815 · 847 · 863 · 870 · 917 · 948 · 982 · 1009 · 1015 · 1072 · 1084 · 1121 · 1136 · 1152 · 1182 · 1200 · 1215 · 1232 · 1288 · 1337 · 1429 · 1460 · 1470 · 1500 · 1590 · 1638 · 1746 · 1757 · 1775 · 1788 · 1815 · 1826 · 1859 · 2006 · 2031 · 2365 · 2497 · 2548 · 2563 · 2587 · 2607 · 2628 · 2730 · 2791 · 2835
+- **`unmeasured`** (17) — 529 · 570 · 640 · 691 · 741 · 777 · 1031 · 1053 · 1293 · 1301 · 1310 · 1352 · 1404 · 1775 · 2006 · 2325 · 2717
+- **`ordering`** (10) — 603 · 1314 · 1413 · 1602 · 1637 · 1952 · 2250 · 2259 · 2510 · 2658
+- **`resource`** (14) — 584 · 618 · 657 · 907 · 1015 · 1232 · 1293 · 1385 · 1491 · 1500 · 1928 · 2820 · 2828 · 2860
 
 <!-- facets:end -->
 
@@ -72,6 +72,26 @@ of the two: most of these traps recur in a subsystem that had never met them.
   status, so a failing verify looks like a clean one — the notification for the very run that proved this
   gate said `exit code 0` while the output said `✗`. Redirect to a file and echo `$?`, or check `PIPESTATUS`.
 
+- **An unescaped BACKTICK inside `node -e "…"` under bash is command substitution, and it silently EATS <!-- trap: sub=encoding,cli shape=silent-loss -->
+  the text it swallows — the edit lands, mangled, and reports success.** Hit three times in one session
+  (2026-09-13) editing prose that is full of backticked identifiers, which is most prose in this
+  repository. `` `tool-affordance` `` became empty, `` `stale@k` `` became empty, and a sentence that read
+  *"measured on \`tool-affordance\` it moves…"* was written to the file as *"measured on  it moves…"*. The
+  script exits 0 and the file is valid — only the meaning is gone.
+  <br>**Two worse variants, both real here.** Bash also tries to RUN the swallowed words, so
+  `` `docs/model-tasks.md` `` printed *"command not found"* and, where a redirection was in play, CREATED
+  FILES named after them — three empty files called `seams`, `the` and a mojibake third reached a commit.
+  And a `\n` inside a double-quoted `node -e` becomes a literal newline, so a generated string literal is
+  written across two lines and the file no longer parses.
+  <br>**The rule is the one this repository already states for a different reason: use the file-writing
+  tools.** `no-tmp-for-repo-files.md` says compose in place because OS temp is invisible; this says it
+  because the SHELL is a second parser between you and the bytes. A `node -e` that writes a file is only
+  safe with a single-quoted program and no backticks in the payload — and for repository prose there is no
+  reason to reach for one at all.
+  <br>**And never clean up with `find . -maxdepth 1 -delete`**: the same session used it to remove those
+  three files and took `LICENSE` and `Lyntai.slnx` with them. Both were tracked, so `git checkout --`
+  restored them and `verify` proved the tree intact — but a delete whose predicate is "not the extensions
+  I happened to list" is a whitelist nobody reviewed. Remove named paths, or `git clean -n` first.
 - **This machine's console is GBK/CP936.** Writing UTF-8 through it (PowerShell `Set-Content`/`Out-File` <!-- trap: sub=encoding shape=silent-loss -->
   without `-Encoding utf8`, `echo >`, a shell heredoc) **double-encodes and lossily corrupts** non-ASCII
   content — it once mangled every `灵台`/`—`/`§` in `TASKS.md` irreversibly. **Always write files with
