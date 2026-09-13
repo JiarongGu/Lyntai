@@ -46,6 +46,12 @@ public sealed class LyntaiBuilder
     /// the memory engine registry.</summary>
     internal Dictionary<string, LlmClientBuilder> NamedLlmClients { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Every seam that pinned a MODEL, recorded so composition can check it against the candidates
+    /// its client actually routes over. Recorded rather than checked on the spot because the client may be
+    /// registered AFTER the seam — composition-root order is deliberately not load-bearing here, which is
+    /// the same promise <see cref="LlmClientBuilder.UseProviders"/> makes about naming backends.</summary>
+    internal List<(string Seam, string? ClientName, string Model)> SeamModelPins { get; } = [];
+
     // Fold order (higher = outer). The cache is OUTERMOST so a hit returns without touching inner
     // decorators — in particular a cached hit is free and must NOT count toward the usage budget or spend a
     // rate-limit permit. Rate-limit is innermost (closest to the provider — it throttles real calls).

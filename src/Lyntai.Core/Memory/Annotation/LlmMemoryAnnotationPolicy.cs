@@ -23,9 +23,12 @@ public sealed class LlmAnnotationOptions
     /// <para><b>A CANDIDATE that pins a model OUTRANKS this, so setting it is not a guarantee.</b> The
     /// router resolves <c>candidate.Model ?? request.Model</c>, and <c>docs/DECISIONS.md</c> <b>D87</b>
     /// derives a named client's candidates from <c>LyntaiOptions.DefaultCandidates</c>, keeping any model
-    /// pinned there — so on a deployment that pins models globally this is inert, silently, because
-    /// annotation is fail-open. <b>To pin the annotator's model with certainty, name a client whose
-    /// candidates pin it</b> (<see cref="ClientName"/>) rather than setting this.</para></summary>
+    /// pinned there. <b>To pin the annotator's model with certainty, name a client whose candidates pin
+    /// it</b> (<see cref="ClientName"/>) rather than setting this.</para>
+    /// <para><b>The provably-inert case now FAILS AT COMPOSITION rather than silently</b> (<b>D119</b>):
+    /// when every candidate the chosen client routes over pins a model of its own and none is this one,
+    /// composition throws. A PARTLY pinned list still composes, since the request is reachable through any
+    /// candidate pinning nothing — so this stays a preference rather than a guarantee.</para></summary>
     public string? Model { get; set; }
 
     /// <summary>The most subjects to accept from one reply. Bounds how many edges one write can create when

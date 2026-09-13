@@ -15,25 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 10 Parts: 3 startable, 8 blocked, 1 watch
+## Open items — 11 across 9 Parts: 2 startable, 8 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 92 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 136 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 145 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 199 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 270 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 348 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 403 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 426 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 641 | 128 | A memory seam's `Model` silently loses to a candidate's — make the contradi… | startable |  |
-| 734 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 828 | 178 | MEASURE tool routing at catalogue scale — the seam is not ruled on until it… | startable |  |
-| 896 | 196 | Ship an IN-PROCESS embedder: BOTH CPU cells of the 2×2, as two adapter pack… | startable |  |
+| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 717 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 811 | 178 | MEASURE tool routing at catalogue scale — the seam is not ruled on until it… | startable |  |
+| 879 | 196 | Ship an IN-PROCESS embedder: BOTH CPU cells of the 2×2, as two adapter pack… | startable |  |
 
 <!-- open-items:end -->
 
@@ -48,7 +47,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is THREE items**, and what a reader
+longer drift apart. Edit the marker, never the table. **The startable set is TWO items**, and what a reader
 most needs is that all five were `decision-only` until 2026-09-13 and are startable because the owner RULED
 on them, not because anything in the tree changed. Each one's ruling is written at the head of the item,
 above the options it chose between — the losing options are kept deliberately, because they are why the
@@ -638,27 +637,11 @@ survives OUTSIDE memory and is deliberately not swept**: `JobRunner`'s heartbeat
 (`catch (OperationCanceledException) { return; }` over `_store.HeartbeatSlotsAsync`), where per **D73** a
 lost heartbeat is a lost cross-process job slot. Different subsystem, different promise, its own answer._
 
-- [ ] **A memory seam's `Model` silently loses to a candidate's — make the contradiction IMPOSSIBLE.** <!-- item: state=startable -->
-  **RULED 2026-09-13, and the ruling is a fourth option none of the three below named.** The router's
-  precedence STAYS: `candidate.Model ?? req.Model` is correct, because a candidate IS a provider-and-model
-  pair and letting `req.Model` win would dissolve its identity. What changes is that the silent case becomes
-  impossible — **throw at composition when a seam's `Model` and its client's candidates are BOTH explicitly
-  set and disagree.** A deployment that set only one is untouched, so this breaks nobody; a deployment that
-  set both meant something, and today it is silently getting the other one. The three options below are kept
-  because the two that lost are why the winner is right.
-  `LlmVerificationOptions.Model` and `LlmAnnotationOptions.Model` set `LlmRequest.Model`, and the router
-  resolves `candidate.Model ?? req.Model` (`src/Lyntai.Core/Llm/Routing/LlmRouter.cs`), so a candidate that
-  pins a model wins. **D87** derives a named client's candidates from `LyntaiOptions.DefaultCandidates` and
-  keeps a model pinned there — so on any deployment that pins models globally, setting a seam's `Model` does
-  NOTHING. Both seams are fail-open, so the judge or annotator simply runs on another model and nothing
-  reports it: D87's own symptom shape, one subsystem over.
-  <br>**The XML docs on both properties now state the precedence** (2026-09-03), which is the honest
-  minimum and ships to consumers. What is NOT decided is whether the precedence is RIGHT. Three options,
-  and each is a different promise: leave it and treat `ClientName` as the only reliable pin; make
-  `req.Model` win, which is a routing behaviour change no consumer can detect at compile time (**D18**'s
-  major-bump shape); or refuse the ambiguity outright and throw at composition when a seam names a model its
-  client's candidates contradict, which is the loudest and the least convenient.
-  <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit._
+_**The seam-`Model` item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 205** / **D119**: the
+router's precedence STAYS (a candidate is a provider-and-model pair), and the provably-inert case now
+throws at composition instead of running silently on another model. **Narrow on purpose** — every candidate
+pinned AND none matching — so a partly-pinned list still composes and a deployment that set only one of the
+two values is untouched._
 
 _**The fusion item CLOSED 2026-09-04** as `docs/task-archive.md` **Part 151** / **D105**:
 `GraphMemoryOptions.VerdictCombination` ships the choice with `Partition` — today's behaviour — as the

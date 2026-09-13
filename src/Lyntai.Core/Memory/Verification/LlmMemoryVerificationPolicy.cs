@@ -36,10 +36,13 @@ public sealed class LlmVerificationOptions
     /// router resolves <c>candidate.Model ?? request.Model</c>, so this value is used only where the
     /// selected candidate names no model of its own — and <c>docs/DECISIONS.md</c> <b>D87</b> derives a
     /// named client's candidates from <c>LyntaiOptions.DefaultCandidates</c>, keeping any model pinned
-    /// there. On a deployment that pins models globally this is therefore inert, silently, because
-    /// verification is fail-open and a judge on the wrong model still answers. <b>To pin the judge's model
-    /// with certainty, name a client whose candidates pin it</b> (<see cref="ClientName"/>) rather than
-    /// setting this.</para>
+    /// there. <b>To pin the judge's model with certainty, name a client whose candidates pin it</b>
+    /// (<see cref="ClientName"/>) rather than setting this.</para>
+    /// <para><b>The provably-inert case now FAILS AT COMPOSITION rather than silently</b> (<b>D119</b>):
+    /// when every candidate the chosen client routes over pins a model of its own and none is this one,
+    /// composition throws. A PARTLY pinned list still composes — the request is reachable through any
+    /// candidate pinning nothing — so this remains a preference rather than a guarantee, and the throw
+    /// catches only the configuration that could never work.</para>
     /// <para><b>Whatever is chosen must be MULTILINGUAL if the application stores non-Latin text.</b> This
     /// library detects no language and passes both query and headlines through verbatim, so an English-only
     /// model silently becomes the thing that decides which Chinese memories are worth returning.</para>

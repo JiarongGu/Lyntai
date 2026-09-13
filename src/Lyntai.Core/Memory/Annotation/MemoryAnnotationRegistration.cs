@@ -42,6 +42,10 @@ public static class MemoryAnnotationRegistration
         var options = new LlmAnnotationOptions();
         configure?.Invoke(options);
 
+        // Recorded, not checked here — see AddMemoryVerification for why order must not be load-bearing.
+        if (!string.IsNullOrWhiteSpace(options.Model))
+            builder.SeamModelPins.Add((nameof(AddMemoryAnnotation), options.ClientName, options.Model));
+
         // TryAdd, so a consumer's own IMemoryAnnotationPolicy registered before this call wins outright —
         // the same BYO story every other seam in this subsystem has.
         builder.Services.TryAddSingleton<IMemoryAnnotationPolicy>(sp => new LlmMemoryAnnotationPolicy(

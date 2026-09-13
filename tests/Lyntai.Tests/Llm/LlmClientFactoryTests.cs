@@ -323,4 +323,69 @@ public class LlmClientFactoryTests
     {
         public bool IsRefusal(LlmRequest request, string replyText) => true;
     }
+
+    [Fact]
+    public void A_seam_Model_that_its_clients_candidates_can_never_honour_FAILS_AT_COMPOSITION()
+    {
+        // The router resolves `candidate.Model ?? request.Model`, so a candidate that pins a model wins and
+        // a seam's Model is used only where the selected candidate names none. When EVERY candidate pins one
+        // and none is the seam's, the option is provably inert - and both memory seams are fail-open, so the
+        // judge just runs on another model and nothing reports it. D87's symptom shape, one subsystem over.
+        var error = Assert.Throws<InvalidOperationException>(() => Build(b =>
+        {
+            WithProviders(b, "cheap");
+            b.Options.DefaultCandidates.Add(new LlmCandidate("cheap", "big-model"));
+            b.AddMemoryVerification(o => o.Model = "small-model");
+        }).GetRequiredService<ILlmClientFactory>());
+
+        Assert.Contains("small-model", error.Message, StringComparison.Ordinal);
+        Assert.Contains("AddMemoryVerification", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_seam_Model_a_candidate_COULD_honour_composes_cleanly_so_a_working_deployment_is_untouched()
+    {
+        // Three shapes that must NOT throw, because each can work. The whole point of ruling for a throw was
+        // that it breaks nobody who did not state a contradiction.
+        using var matches = Build(b =>            // a candidate pins exactly what the seam asked for
+        {
+            WithProviders(b, "cheap");
+            b.Options.DefaultCandidates.Add(new LlmCandidate("cheap", "small-model"));
+            b.AddMemoryVerification(o => o.Model = "small-model");
+        });
+        Assert.NotNull(matches.GetRequiredService<ILlmClientFactory>());
+
+        using var unpinned = Build(b =>           // a candidate pins nothing, so the seam's Model is used
+        {
+            WithProviders(b, "cheap");
+            b.Options.DefaultCandidates.Add(new LlmCandidate("cheap"));
+            b.AddMemoryVerification(o => o.Model = "small-model");
+        });
+        Assert.NotNull(unpinned.GetRequiredService<ILlmClientFactory>());
+
+        using var partial = Build(b =>            // one pinned, one not - the seam still applies to the second
+        {
+            WithProviders(b, "cheap", "spare");
+            b.Options.DefaultCandidates.Add(new LlmCandidate("cheap", "big-model"));
+            b.Options.DefaultCandidates.Add(new LlmCandidate("spare"));
+            b.AddMemoryVerification(o => o.Model = "small-model");
+        });
+        Assert.NotNull(partial.GetRequiredService<ILlmClientFactory>());
+    }
+
+    [Fact]
+    public void The_contradiction_is_checked_against_the_NAMED_clients_own_candidates_not_the_global_list()
+    {
+        // A seam naming a client must be judged against THAT client's list. Checking the global one would
+        // both miss a real contradiction and invent a false one, since a name narrows candidates too.
+        var error = Assert.Throws<InvalidOperationException>(() => Build(b =>
+        {
+            WithProviders(b, "cheap", "best");
+            b.Options.DefaultCandidates.Add(new LlmCandidate("best"));        // unpinned - would NOT throw
+            b.AddLlmClient("judge", c => c.UseCandidates(new LlmCandidate("cheap", "big-model")));
+            b.AddMemoryVerification(o => { o.ClientName = "judge"; o.Model = "small-model"; });
+        }).GetRequiredService<ILlmClientFactory>());
+
+        Assert.Contains("judge", error.Message, StringComparison.Ordinal);
+    }
 }

@@ -188,8 +188,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D116](#d116--the-embedding-seam-carries-a-role-because-an-asymmetric-model-cannot-infer-it-2026-09-12) | 2026-09-12 | the embedding seam carries a ROLE, because an asymmetric model cannot infer it |
 | [D117](#d117--a-tool-loop-reports-its-transport-because-the-fallback-is-silent-and-not-a-degradation-of-degree-2026-09-13) | 2026-09-13 | a tool loop REPORTS its transport, because the fallback is silent and not a degradation of degree |
 | [D118](#d118--a-verification-verdict-carries-the-score-it-judged-on-for-every-candidate-it-scored-2026-09-13) | 2026-09-13 | a verification verdict carries the SCORE it judged on, for every candidate it scored |
+| [D119](#d119--a-seams-model-that-its-client-can-never-honour-fails-at-composition-2026-09-13) | 2026-09-13 | a seam's `Model` that its client can never honour FAILS at composition |
 
-_All 118 entries are live decisions._
+_All 119 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3525,3 +3526,39 @@ implementations that construct this, and it would change the record's `Deconstru
 **What it deliberately does not do.** It does not rename or move the seam. A decision is not memory and
 `Lyntai.Memory.Verification` is the wrong vocabulary for one, but minting a parallel namespace for a single
 property is the worse trade — the vocabulary question stays open rather than being answered by accident.
+
+## D119 — a seam's `Model` that its client can never honour FAILS at composition (2026-09-13)
+
+The router's precedence is unchanged and correct: `candidate.Model ?? request.Model`, so a candidate that
+pins a model outranks a seam's. What changes is that the PROVABLY inert case stops being silent —
+`AddMemoryVerification` and `AddMemoryAnnotation` record a stated `Model`, and composing
+`ILlmClientFactory` throws when every candidate the seam's client routes over pins a model of its own and
+none is the one asked for.
+
+**The precedence was never the defect.** A candidate IS a provider-and-model pair; letting the request win
+would dissolve its identity, and **D18**'s major-bump shape applies to any routing change no consumer can
+detect at compile time. The defect was that `LlmVerificationOptions.Model` LOOKS like it works, does
+nothing on any deployment that pins models globally (**D87** derives a named client's candidates from
+`LyntaiOptions.DefaultCandidates`), and both seams are fail-open — so the judge or annotator runs on another
+model and nothing reports it. That is D87's own symptom shape, one subsystem over.
+
+**Narrow on purpose: EVERY candidate pinned AND none matching.** A single unpinned candidate makes the
+request reachable, so a partly-pinned list is not a contradiction and does not throw. The check catches a
+configuration that could never work, never one that is merely fragile — which is what makes it safe to add
+to a shipped library: a deployment that set only one of the two values is untouched, and one that set both
+meant something and is currently getting the other.
+
+**Composition, not first call**, and the precedent is one file away: `LlmClientBuilder.UseCandidates`
+already throws for a candidate naming a backend outside the client's pool, because *"a candidate the router
+cannot select fails every call, and that failure is worth having at startup rather than per request"*. An
+inert model pin is the same shape with a quieter failure.
+
+**Recorded at registration, checked at composition**, so composition-root ORDER stays irrelevant — the
+client a seam names may be registered after it, which `UseProviders` already promises. A named client is
+checked against ITS OWN resolved candidates, never the global list: a name narrows candidates as well as
+providers, so checking the global list would both miss a real contradiction and invent a false one.
+
+**What it does not do.** It does not validate a `ClientName` that matches no registered client; that is
+already an error at resolution. It does not reach BYO policies — a consumer's own
+`IMemoryVerificationPolicy` never passes through these registrations and is free to read `Model` however it
+likes.

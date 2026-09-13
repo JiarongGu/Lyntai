@@ -3454,3 +3454,27 @@ are both properties.
 **The vocabulary question is deliberately still open.** A decision is not memory and
 `Lyntai.Memory.Verification` is the wrong home for one, but minting a parallel namespace for a single
 property would have answered it by accident.
+
+## Part 205 — a seam's `Model` stops losing silently
+
+✅ closed 2026-09-13. `TASKS.md` Part 128's last item, ruled by the owner the same day.
+
+- **Decide whether a memory seam's `Model` should beat a candidate's — today it silently loses.**
+
+**Outcome: neither of the item's three options — the ruling was a FOURTH** (**D119**, `CHANGELOG.md`). The
+router's precedence stays, because `candidate.Model ?? request.Model` is correct: a candidate IS a
+provider-and-model pair and letting the request win would dissolve its identity. What was wrong was only
+that the losing case was SILENT, both seams being fail-open. Composition now throws when every candidate
+the seam's client routes over pins a model of its own and none is the one asked for.
+
+**The narrowness is the part that made it shippable.** A single unpinned candidate makes the request
+reachable, so a partly-pinned list is not a contradiction and does not throw. The check catches what could
+never work, never what is merely fragile — so a deployment that set one value keeps working, and one that
+set both meant something and was getting the other.
+
+**Recorded at registration, checked at composition**, so composition-root order stays irrelevant: the
+client a seam names may be registered after it. A named client is checked against its OWN resolved
+candidates, never the global list, since a name narrows candidates as well as providers.
+
+**Two shipped XML docs said this was "inert, silently" and are now false**; both were corrected with the
+code rather than left to rot.

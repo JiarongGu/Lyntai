@@ -37,6 +37,11 @@ public static class MemoryVerificationRegistration
         var options = new LlmVerificationOptions();
         configure?.Invoke(options);
 
+        // Recorded, not checked here: the client this names may be registered later, and composition-root
+        // order must not decide whether a contradiction is caught. Composition does the checking (D119).
+        if (!string.IsNullOrWhiteSpace(options.Model))
+            builder.SeamModelPins.Add((nameof(AddMemoryVerification), options.ClientName, options.Model));
+
         // TryAdd, so a consumer's own IMemoryVerificationPolicy registered before this call wins outright —
         // the same BYO story every other seam in this subsystem has.
         builder.Services.TryAddSingleton<IMemoryVerificationPolicy>(sp => new LlmMemoryVerificationPolicy(

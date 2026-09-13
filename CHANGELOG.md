@@ -14,6 +14,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **A memory seam's `Model` that its client can never honour now FAILS at composition** (**D119**).
+  `AddMemoryVerification`/`AddMemoryAnnotation` set `LlmRequest.Model`, but the router resolves
+  `candidate.Model ?? request.Model` — so on any deployment whose candidates pin models globally the setting
+  did nothing, and both seams are fail-open, so the judge ran on another model and nothing reported it.
+  Composition now throws when EVERY candidate the seam's client routes over pins a model and none is the one
+  asked for. **Narrow on purpose**: a single unpinned candidate makes the request reachable, so a
+  partly-pinned list still composes and a deployment that set only one of the two values is untouched. The
+  router's precedence is unchanged.
+
 - **`MemoryVerification.Scores` — a verification verdict now carries the score it judged on** (**D118**).
   `CrossEncoderVerificationPolicy` computed a real-valued score per candidate and discarded all of it at the
   endorsement cut; no public type carried a per-option confidence out of a model-backed seam, which is what

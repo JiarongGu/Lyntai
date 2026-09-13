@@ -163,8 +163,41 @@ public static class LyntaiServiceCollectionExtensions
                 entry => entry.Key,
                 entry => ComposeNamed(sp, entry.Key, entry.Value),
                 StringComparer.Ordinal);
+            VerifySeamModelPins(sp);
             return new LlmClientFactory(named, sp.GetRequiredService<ILlmClient>());
         });
+
+        // A seam that pinned a MODEL its client can never honour, failed here rather than per call (D119).
+        //
+        // The router resolves `candidate.Model ?? request.Model`, so a candidate that pins a model outranks
+        // a seam's. That precedence is CORRECT — a candidate is a provider-and-model pair, and letting the
+        // request win would dissolve its identity — so what is wrong is only that the losing case was
+        // SILENT: both memory seams are fail-open, so the judge or annotator ran on another model and
+        // nothing reported it. Same argument as the pooled-candidate check above: a setting that can never
+        // take effect is worth hearing about at startup rather than never.
+        void VerifySeamModelPins(IServiceProvider sp)
+        {
+            foreach (var (seam, clientName, model) in builder.SeamModelPins)
+            {
+                // A named client's OWN list, never the global one — a name narrows candidates as well as
+                // providers, so checking the global list would both miss a real contradiction and invent a
+                // false one.
+                var candidates = clientName is { } name && builder.NamedLlmClients.TryGetValue(name, out var c)
+                    ? ClientCandidates.Resolve(c.ProviderIds, c.Candidates, options.DefaultCandidates)
+                    : options.DefaultCandidates;
+
+                if (!ClientCandidates.ModelPinIsInert(model, candidates)) continue;
+
+                var where = clientName is { } n ? $"client '{n}'" : "the default client";
+                throw new InvalidOperationException(
+                    $"{seam} pins Model '{model}', but every candidate {where} routes over pins a model of " +
+                    $"its own and none is '{model}' " +
+                    $"({string.Join(", ", candidates.Select(c => $"{c.ProviderId}:{c.Model}"))}). " +
+                    "The router resolves `candidate.Model ?? request.Model`, so this setting can never take " +
+                    "effect and the seam would silently run on another model. Name a client whose candidates " +
+                    "pin the model you want (ClientName), or drop the Model.");
+            }
+        }
 
         ILlmClient ComposeNamed(IServiceProvider sp, string name, LlmClientBuilder client)
         {

@@ -55,4 +55,20 @@ internal static class ClientCandidates
         var pool = new HashSet<string>(providerIds, StringComparer.OrdinalIgnoreCase);
         return [.. stated.Select(c => c.ProviderId).Where(id => !pool.Contains(id)).Distinct(StringComparer.OrdinalIgnoreCase)];
     }
+
+    /// <summary>Whether a seam asking for <paramref name="model"/> can NEVER get it from
+    /// <paramref name="candidates"/> — the router resolves <c>candidate.Model ?? request.Model</c>, so a
+    /// seam's model is reachable only through a candidate that pins none.
+    ///
+    /// <para><b>Deliberately narrow: every candidate pins a model AND none is this one.</b> A single
+    /// unpinned candidate makes the request reachable, so a partly-pinned list is NOT a contradiction and
+    /// must not be reported as one — it works, just not on every hop. The point of the check is to catch a
+    /// configuration that is PROVABLY inert, never one that is merely fragile, because the caller who set
+    /// both values meant something and the caller who set one is entitled to keep working.</para>
+    ///
+    /// <para>An empty list cannot contradict anything: there is no candidate to out-rank the request.</para></summary>
+    internal static bool ModelPinIsInert(string model, IReadOnlyList<LlmCandidate> candidates) =>
+        candidates.Count > 0
+        && candidates.All(c => !string.IsNullOrWhiteSpace(c.Model))
+        && !candidates.Any(c => string.Equals(c.Model, model, StringComparison.OrdinalIgnoreCase));
 }
