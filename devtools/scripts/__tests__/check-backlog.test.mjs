@@ -375,6 +375,14 @@ describe('check-backlog — the generated manifest', () => {
 
     assert.equal(unmarked.length, 0, 'every open item in TASKS.md must carry an `item:` marker');
     assert.ok(items.length > 0, 'TASKS.md must hold open items');
-    assert.ok(items.some((i) => i.state === 'startable'), 'some work must be startable');
+
+    // Asserts the VOCABULARY, never that a particular state is present. This read
+    // `items.some((i) => i.state === 'startable')` until 2026-09-13, when the last startable item closed
+    // and a fully-blocked backlog — a legitimate state the banner now states outright — failed the guards
+    // that gate the repository. That is the same shape as `check-counts`' own plural-only pattern breaking
+    // on the day the count reached ONE: a control that encodes a PROJECT state fails when the project
+    // reaches it, and the tempting fix is to invent work.
+    for (const item of items)
+      assert.ok(STATES.includes(item.state), `line ${item.line}: state \`${item.state}\` is outside the vocabulary`);
   });
 });

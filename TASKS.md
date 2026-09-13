@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 15 across 11 Parts: 1 startable, 8 blocked, 1 watch, 5 decision-only
+## Open items — 14 across 10 Parts: 8 blocked, 1 watch, 5 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -30,13 +30,12 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 350 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
 | 405 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 428 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 514 | 109 | Price COMPLETENESS on the memory workloads, where the reader half only meas… | startable |  |
-| 653 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
-| 739 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 826 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
-| 838 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
-| 867 | 178 | Decide whether the PROMPT-protocol fallback should announce itself | decision-only | a ruling on whether a silent transport fallback may stay silent, or earns a… |
-| 911 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface and WHICH dependency: a 2x2 of static/transf… |
+| 643 | 128 | Decide whether a memory seam's `Model` should beat a candidate's — today it… | decision-only | a ruling between three promises — the fix is a decision, not an edit |
+| 729 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 816 | 178 | Decide whether a verification verdict should carry a per-option SCORE | decision-only | a ruling on public surface — the evidence is in, the choice is the owner's |
+| 828 | 178 | Bound the tool roster BEFORE the model sees it — the model supplies no boun… | decision-only | a ruling on new public surface: a per-call selector seam on a frozen API |
+| 857 | 178 | Decide whether the PROMPT-protocol fallback should announce itself | decision-only | a ruling on whether a silent transport fallback may stay silent, or earns a… |
+| 901 | 196 | Decide whether an IN-PROCESS embedder with NO server is a thing this librar… | decision-only | a ruling on new public surface and WHICH dependency: a 2x2 of static/transf… |
 
 <!-- open-items:end -->
 
@@ -51,10 +50,11 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is ONE item**, and what a reader
-most needs before picking it up is that its first step is a SCORING CHANGE rather than a run — the obvious
-run is confounded, and the item says how. Every item that would change shipped library code is
-`decision-only` and waits on a ruling. That sentence
+longer drift apart. Edit the marker, never the table. **The startable set is ZERO items**, and what a reader
+most needs is that this is not the same as "nothing to do": every remaining item is blocked on the
+environment, on data only a deployment produces, or on a RULING the owner has not given. Five are
+`decision-only` and each would change shipped library code the moment it is decided, so the backlog is
+waiting on a person rather than on work. That sentence
 is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
 **four** times, and nothing derived it.
 
@@ -511,24 +511,14 @@ room to move, so it was a property of the FIXTURE rather than of the model class
 `docs/memory-measurements.md` §5 (`affordance-centering-refuted`) owns the figures and the one half that
 stays untested — the claimed harm to a transformer sits under a 94-97% ceiling there._
 
-- [ ] **Price COMPLETENESS on the memory workloads, where the reader half only measured LoCoMo QA.** <!-- item: state=startable -->
-  Whole items beat truncated ones by **+14.9 / +9.2 / +7.1** token-F1 across 4B / 1B / 0.5B on a SEARCH
-  workload (`locomo-qa-completeness-vs-depth`). LongMemEval's knowledge-update class is the OPPOSITE
-  workload — it scores whether a recall prefers a revised fact over the one it superseded — and
-  `MemoryQuery.Detail` has never been run there.
-  <br>**Why it is not bookkeeping.** A lever worth +15 on search that cost suppression would be a different
-  recommendation from one that is free, and `docs/deployment-shapes.md` states it today without that caveat.
-  <br>**But the OBVIOUS run is confounded, and that was caught before spending it** (2026-09-13,
-  `pitfalls.md`). `MemoryDetail` rehydrates the TEXT of an already-chosen set and cannot change which items
-  come back — while the knowledge-update bench scores by searching `i.Content ?? i.Headline` for the
-  superseded fact. So `stale@k` would rise purely because the scorer can SEE more of each item, and the
-  table would read as *"full detail hurts suppression"* with nothing about suppression having moved.
-  <br>**So the item needs one of two things first.** Score that class by an IDENTIFIER the detail flag
-  cannot touch — which is what `evidence-hit@k` already does one bench over and why it is immune — or
-  accept that a model-free metric cannot answer this and put a READER on the knowledge-update class, which
-  is the only arrangement where more text per item is genuinely what is being measured.
-  <br>_`memory-longmemeval` and the corpora are on disk; the missing piece is the scoring change, not the
-  run._
+_**The completeness item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 202**, and it closed by
+refuting the blocker it was filed with. The class is scored by a turn TAG, not by the fact's text, so the
+confound named here could not reach it — and an unbudgeted run is therefore VACUOUS rather than confounded.
+The measurable arrangement is a CHARACTER CAP, where whole items become fewer items: **−11.4** points of
+`clean` at 1,200, **+8.6** at 5,400, **exactly 0.0** at 20,000 where the cap binds on neither arm and the
+`full` arm reproduces `shot-1` to the decimal. `docs/memory-measurements.md` §5
+(`longmemeval-ku-completeness-budget`) owns the figures; `docs/deployment-shapes.md` carries the caveat.
+**Still unmeasured and named rather than implied**: completeness for a READER on this class._
 
 ---
 

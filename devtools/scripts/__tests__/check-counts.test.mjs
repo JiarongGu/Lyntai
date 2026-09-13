@@ -290,7 +290,12 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     const text = fs.readFileSync(path.join(repo, 'TASKS.md'), 'utf8');
     const independent = (text.match(/^- \[ \][^\n]*<!--\s*item:[^>]*state=startable/gm) ?? []).length;
 
-    assert.ok(independent > 0, 'TASKS.md must hold startable work for this counter to mean anything');
+    // The anti-vacuity guard is that the file holds MARKED OPEN ITEMS — not that any of them is startable.
+    // It asserted `independent > 0` until 2026-09-13, when the last startable item closed and this failed
+    // on a legitimate backlog. Zero startable is a real state and the banner says so; what would make the
+    // agreement below vacuous is a file this regex cannot parse at all, which is what this now checks.
+    assert.ok((text.match(/^- \[ \][^\n]*<!--\s*item:/gm) ?? []).length > 0,
+      'TASKS.md must hold marked open items for this counter to mean anything');
     assert.equal(countStartableItems(repo), independent);
   });
 

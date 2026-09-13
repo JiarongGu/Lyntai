@@ -152,11 +152,21 @@ before choosing one.
 
 ## What to spend a context budget on, in any shape
 
-**Completeness, not count.** Giving a reader whole items instead of 120-character headlines is worth
-**+14.9 / +9.2 / +7.1** token-F1 at 4B / 1B / 0.5B — on HALF the context that doubling the item count
-spends, which buys nothing at any size. `MemoryQuery.Detail = MemoryDetail.Full` (**D104**) is the shipped
-route and `GraphMemoryOptions.HeadlineChars` still defaults to 120. A second seam agrees independently:
-**D108**'s reranker went 78.0% → 91.0% on whole turns.
+**Completeness, not count — on a SEARCH workload, which is the half that was measured.** Giving a reader
+whole items instead of 120-character headlines is worth **+14.9 / +9.2 / +7.1** token-F1 at 4B / 1B / 0.5B
+— on HALF the context that doubling the item count spends, which buys nothing at any size.
+`MemoryQuery.Detail = MemoryDetail.Full` (**D104**) is the shipped route and
+`GraphMemoryOptions.HeadlineChars` still defaults to 120. A second seam agrees independently: **D108**'s
+reranker went 78.0% → 91.0% on whole turns.
+
+**But on a SUPPRESSION workload it is budget-dependent, and at a tight budget it COSTS**
+(`longmemeval-ku-completeness-budget`). Whole items are bigger, so a character cap admits fewer of them —
+and on the class that scores preferring a revised fact over the one it superseded, that lands **−11.4**
+points of `clean` at a 1,200-character budget, **+8.6** at 5,400, and **exactly zero** once the cap stops
+binding. The mechanism is the same in all three: too tight and the page starves (the current fact itself
+falls out, 82.9% → 47.1%), too loose and there is nothing to trade. **So spend the lever where the cap
+trims the tail rather than the answer**, and do not read the search figures as a general rule about
+context budgets.
 
 **And bound a SELECTIVE input before buying a bigger model.** List length governs a judge more than model
 choice does (20 shown → 16.2% precision, 80 → 2.6%), and for a tool roster the native transport bounds what

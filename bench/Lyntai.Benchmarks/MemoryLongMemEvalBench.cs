@@ -56,6 +56,12 @@ internal static class MemoryLongMemEvalBench
     /// proportion. The arm is the shipped recall asked for more, and that is the thing worth pricing.</summary>
     private const int DefaultFillLimit = 60;
     private const string FillArm = "fill";
+
+    /// <summary>The COMPLETENESS arm (<c>--detail</c>): the shipped recall at the shipped <c>k</c>, asking for
+    /// <see cref="MemoryDetail.Full"/> instead of headlines. Its twin is <c>shot-1</c> / <c>pool-4</c> — same
+    /// limit, same multiplier, same ranking — so the pair isolates how much of each item is returned and
+    /// nothing else.</summary>
+    private const string CompleteArm = "full";
     private const string Task = "lme";
     private const string Scope = "session";
 
@@ -1074,6 +1080,41 @@ internal static class MemoryLongMemEvalBench
             pools = [.. wanted.Distinct().Order()];
         }
 
+        // `--detail` adds the COMPLETENESS arm: the shipped recall asking for MemoryDetail.Full.
+        //
+        // It requires `--budget`, and the reason is that without one the arm is not merely uninteresting, it
+        // is VACUOUS — provably, not probably. `Detail` is applied in the engine's PROJECTION, after ranking,
+        // verification and reinforcement (GraphMemoryEngine.RecallAsync), so it cannot change which nodes come
+        // back or in what order; it changes only how much of each one is rendered. This class is scored by
+        // `Turn.Tag`, a synthetic `(sNtM)` id sitting at character 0 of every ingested turn, and
+        // `MemoryHeadline.Derive` cuts a PREFIX — so the tag survives truncation and every per-item verdict is
+        // identical under either detail level. Same items, same verdicts, byte-identical table.
+        //
+        // A character cap is what makes the lever bite: `ContextBudget.Fit` (and the engine's own
+        // `MemoryQuery.CharBudget`, which it reproduces) price each item at `Content?.Length ?? Headline.Length`,
+        // so whole items spend the allowance faster and FEWER of them fit. That is the completeness-versus-depth
+        // trade, on the one class that scores suppression rather than coverage.
+        var detail = args.Contains("--detail");
+        if (detail)
+        {
+            if (budgets.All(b => !b.Binds))
+            {
+                Console.Error.WriteLine("--detail: only applies with --budget. Detail is a PROJECTION-level "
+                    + "choice - it changes how much of each returned item is rendered, never which items are "
+                    + "returned - and this class is scored by a turn tag that survives truncation, so with no "
+                    + "character cap the arm is identical to `shot-1` by construction. Add --budget, or drop "
+                    + "--detail.");
+                return 1;
+            }
+
+            if (temporal || ranks || allEvidence)
+            {
+                Console.Error.WriteLine("--detail: knowledge-update only. The completeness trade is scored "
+                    + "against `clean`, which needs the current/stale split the other classes do not carry.");
+                return 1;
+            }
+        }
+
         if (allEvidence)
         {
             if (temporal)
@@ -1189,8 +1230,8 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine("what 'clean' scores, and it is the metric a smaller context is supposed to buy.");
             Console.WriteLine();
             Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
-            BudgetPreamble(budgets, fillK, pools);
-            return await RunShotsAsync(sampled, embedder, expandFloor, budgets, fillK, pools, args);
+            BudgetPreamble(budgets, fillK, pools, detail);
+            return await RunShotsAsync(sampled, embedder, expandFloor, budgets, fillK, pools, args, detail);
         }
 
         // `--ranks` scores ONE probe-wrapped engine over a K ladder, so it has no arms to select. Rejected
@@ -1448,8 +1489,9 @@ internal static class MemoryLongMemEvalBench
     /// <c>vector-{ShotBudget}</c> goes — <c>k</c> no longer decides what cosine spends, and an arm whose name
     /// promises a slot count that is not what bounds it is worse than no arm — and <c>fill</c> arrives, being
     /// the only arm that tries to SPEND the allowance rather than stopping at the shipped limit.</summary>
-    private static string[] ShotArmNames(ContextBudget budget, int[] pools) => budget.Binds
-        ? ["shot-1", "shot-2", "shot-3", FillArm, .. pools.Select(p => $"pool-{p}"), "vector"]
+    private static string[] ShotArmNames(ContextBudget budget, int[] pools, bool detail = false) => budget.Binds
+        ? ["shot-1", "shot-2", "shot-3", FillArm, .. pools.Select(p => $"pool-{p}"),
+            .. detail ? new[] { CompleteArm } : [], "vector"]
         : ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}"];
 
     /// <summary>One label per (arm, budget). <b>With a single budget the suffix is dropped</b>, so a
@@ -1459,11 +1501,11 @@ internal static class MemoryLongMemEvalBench
         ladder && budget.Binds ? $"{arm}@{budget.Chars}" : arm;
 
     /// <summary>Every label a ladder reports, narrowed by <c>--arms</c>.</summary>
-    private static string[]? ShotArms(string[] args, ContextBudget[] budgets, int[] pools)
+    private static string[]? ShotArms(string[] args, ContextBudget[] budgets, int[] pools, bool detail = false)
     {
         var ladder = budgets.Length > 1;
         return FilterArms(args,
-            [.. budgets.SelectMany(b => ShotArmNames(b, pools).Select(a => Label(a, b, ladder)))]);
+            [.. budgets.SelectMany(b => ShotArmNames(b, pools, detail).Select(a => Label(a, b, ladder)))]);
     }
 
     /// <summary>Cosine's body under a budget: drawn best-first from the WHOLE ranked corpus and then capped,
@@ -1497,8 +1539,12 @@ internal static class MemoryLongMemEvalBench
     /// <c>GraphMemoryOptions.CandidateMultiplier</c>, which is what <c>fill</c> uses; a value is what
     /// separates a wider POOL from a wider OUTPUT, since the engine gathers <c>limit × multiplier</c> and
     /// the two arms can therefore be made to see the same candidates and return different counts.</param>
+    /// <param name="detail">How much of each returned item to render. The default is the shipped
+    /// <see cref="MemoryDetail.Headline"/>; <see cref="MemoryDetail.Full"/> is the <c>full</c> arm and is
+    /// visible ONLY through a character cap, since detail is projected after ranking and cannot move the set.</param>
     private static async Task<(IReadOnlyList<string> Body, double Ms)> RecallArmAsync(Question q,
-        SweepDoubles.CachingEmbedder embedder, double expandFloor, int limit, int? multiplier = null)
+        SweepDoubles.CachingEmbedder embedder, double expandFloor, int limit, int? multiplier = null,
+        MemoryDetail detail = MemoryDetail.Headline)
     {
         using var db = new MemoryPolicySweep.SweepDb();
         var options = new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor };
@@ -1510,7 +1556,8 @@ internal static class MemoryLongMemEvalBench
             await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
 
         var clock = Stopwatch.StartNew();
-        var recall = await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: limit));
+        var recall = await engine.RecallAsync(
+            new MemoryQuery(Task, Scope, q.Text, Limit: limit, Detail: detail));
         return ([.. recall.Items.Select(i => i.Content ?? i.Headline)], clock.Elapsed.TotalMilliseconds);
     }
 
@@ -1518,7 +1565,7 @@ internal static class MemoryLongMemEvalBench
     /// the unbudgeted one — <c>vector</c> changes meaning (best-first over the whole corpus, not a top-k)
     /// and one arm is gone. A reader handed the numbers alone would compare them with published rows they
     /// do not belong beside.</summary>
-    private static void BudgetPreamble(ContextBudget[] budgets, int fillK, int[] pools)
+    private static void BudgetPreamble(ContextBudget[] budgets, int fillK, int[] pools, bool detail = false)
     {
         var binding = budgets.Where(b => b.Binds).ToList();
         if (binding.Count == 0) return;
@@ -1539,6 +1586,19 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine("           OUTPUT fixed and varies only the POOL, which `fill` moves together.");
             Console.WriteLine("           `pool-4` is the shipped multiplier and must land on shot-1: same");
             Console.WriteLine("           configuration by a different route, so it is this arm's own control.");
+        }
+
+        if (detail)
+        {
+            Console.WriteLine($"Detail:    `{CompleteArm}` is k = {RecallLimit} at the shipped multiplier asking for");
+            Console.WriteLine("           MemoryDetail.Full - so it and shot-1 choose the SAME items in the same");
+            Console.WriteLine("           order and differ only in how much of each is rendered. Detail is");
+            Console.WriteLine("           projected after ranking, so without this cap the two are identical;");
+            Console.WriteLine("           the cap is what converts whole items into FEWER of them.");
+            Console.WriteLine("           A budget too large to bind on either is the arm's VACUITY control: it");
+            Console.WriteLine("           must reproduce shot-1 on every quality column while carrying whatever");
+            Console.WriteLine("           multiple of the characters this corpus costs. If it does not, the");
+            Console.WriteLine("           metric is reading TEXT and no row below is about retrieval.");
         }
 
         if (binding.Count > 1)
@@ -1591,10 +1651,10 @@ internal static class MemoryLongMemEvalBench
     /// </summary>
     private static async Task<int> RunShotsAsync(List<Question> sampled,
         SweepDoubles.CachingEmbedder embedder, double expandFloor, ContextBudget[] budgets, int fillK,
-        int[] pools, string[] args)
+        int[] pools, string[] args, bool detail = false)
     {
         var stopwatch = Stopwatch.StartNew();
-        var arms = ShotArms(args, budgets, pools);
+        var arms = ShotArms(args, budgets, pools, detail);
         if (arms is null) return 1;
         var ladder = budgets.Length > 1;
         var cur = new Dictionary<string, int>();
@@ -1667,6 +1727,13 @@ internal static class MemoryLongMemEvalBench
                 pooled.Add((m, body, ms));
             }
 
+            // The COMPLETENESS arm, on its own store for the same reason every arm above has one. Shipped
+            // limit, shipped multiplier, MemoryDetail.Full — so the ONLY difference from `shot-1` is how much
+            // of each chosen item is rendered, and the budget is what turns that into fewer items.
+            var (whole, wholeMs) = detail && binding.Count > 0
+                ? await RecallArmAsync(q, embedder, expandFloor, RecallLimit, null, MemoryDetail.Full)
+                : ((IReadOnlyList<string>)[], 0d);
+
             foreach (var b in budgets)
             {
                 if (!b.Binds)
@@ -1691,6 +1758,8 @@ internal static class MemoryLongMemEvalBench
 
                 foreach (var (m, body, ms) in pooled)
                     Score(Label($"pool-{m}", b, ladder), b.Fit(body), ms);
+
+                if (detail) Score(Label(CompleteArm, b, ladder), b.Fit(whole), wholeMs);
             }
         }
 

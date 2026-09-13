@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (36) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 499 · 584 · 593 · 603 · 657 · 671 · 741 · 755 · 1061 · 1174 · 1429 · 2380 · 2390 · 2416 · 2427 · 2464 · 2835 · 2865 · 2874
-- **`encoding`** (7) — 75 · 95 · 100 · 610 · 618 · 884 · 2464
+- **`gates`** (36) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 499 · 584 · 593 · 603 · 657 · 671 · 741 · 755 · 1061 · 1188 · 1443 · 2394 · 2404 · 2430 · 2441 · 2478 · 2849 · 2879 · 2888
+- **`encoding`** (7) — 75 · 95 · 100 · 610 · 618 · 884 · 2478
 - **`git`** (7) — 227 · 252 · 283 · 308 · 618 · 640 · 889
-- **`build`** (8) — 100 · 584 · 593 · 603 · 657 · 1053 · 1429 · 2399
-- **`router`** (6) — 1272 · 1277 · 1286 · 1288 · 1291 · 1421
-- **`cli`** (19) — 75 · 770 · 884 · 1272 · 1293 · 1301 · 1310 · 1314 · 1326 · 1330 · 1337 · 1341 · 1348 · 1352 · 1385 · 1404 · 1408 · 1413 · 2250
-- **`lifetime`** (6) — 1451 · 1460 · 1465 · 1470 · 1483 · 1491
-- **`storage`** (17) — 1364 · 1500 · 1602 · 1630 · 1632 · 1633 · 1635 · 1637 · 1655 · 1666 · 1895 · 1907 · 2163 · 2280 · 2446 · 2628 · 2812
-- **`memory`** (39) — 407 · 442 · 570 · 1136 · 1364 · 1534 · 1553 · 1564 · 1590 · 1602 · 1617 · 1638 · 1655 · 1666 · 1705 · 1720 · 1727 · 1746 · 1757 · 1775 · 1788 · 1801 · 1859 · 1914 · 1934 · 1970 · 2006 · 2024 · 2031 · 2062 · 2084 · 2112 · 2184 · 2259 · 2280 · 2521 · 2680 · 2708 · 2791
-- **`generation`** (11) — 1121 · 1167 · 1250 · 1277 · 1483 · 2006 · 2197 · 2209 · 2233 · 2340 · 2365
-- **`di`** (12) — 1470 · 1720 · 1746 · 1926 · 1928 · 1931 · 1934 · 1952 · 2031 · 2062 · 2209 · 2259
-- **`measurement`** (65) — 131 · 392 · 407 · 425 · 442 · 483 · 513 · 529 · 548 · 560 · 570 · 691 · 770 · 777 · 782 · 788 · 815 · 828 · 839 · 847 · 863 · 870 · 907 · 917 · 937 · 948 · 982 · 1009 · 1015 · 1031 · 1048 · 1053 · 1092 · 1121 · 1136 · 1152 · 1167 · 1182 · 1200 · 1215 · 1232 · 1250 · 1301 · 1500 · 1519 · 1590 · 1757 · 1788 · 1815 · 1826 · 1841 · 1859 · 1914 · 1970 · 2416 · 2497 · 2548 · 2563 · 2587 · 2607 · 2628 · 2658 · 2695 · 2759 · 2791
-- **`docs`** (23) — 144 · 172 · 195 · 316 · 640 · 671 · 691 · 741 · 1061 · 1072 · 1077 · 1084 · 1174 · 1564 · 2084 · 2151 · 2315 · 2325 · 2380 · 2390 · 2427 · 2446 · 2717
-- **`tests`** (21) — 1385 · 1576 · 1617 · 1638 · 1705 · 1727 · 1895 · 1907 · 2163 · 2510 · 2521 · 2532 · 2708 · 2730 · 2812 · 2820 · 2828 · 2832 · 2835 · 2847 · 2860
+- **`build`** (8) — 100 · 584 · 593 · 603 · 657 · 1053 · 1443 · 2413
+- **`router`** (6) — 1286 · 1291 · 1300 · 1302 · 1305 · 1435
+- **`cli`** (19) — 75 · 770 · 884 · 1286 · 1307 · 1315 · 1324 · 1328 · 1340 · 1344 · 1351 · 1355 · 1362 · 1366 · 1399 · 1418 · 1422 · 1427 · 2264
+- **`lifetime`** (6) — 1465 · 1474 · 1479 · 1484 · 1497 · 1505
+- **`storage`** (17) — 1378 · 1514 · 1616 · 1644 · 1646 · 1647 · 1649 · 1651 · 1669 · 1680 · 1909 · 1921 · 2177 · 2294 · 2460 · 2642 · 2826
+- **`memory`** (39) — 407 · 442 · 570 · 1136 · 1378 · 1548 · 1567 · 1578 · 1604 · 1616 · 1631 · 1652 · 1669 · 1680 · 1719 · 1734 · 1741 · 1760 · 1771 · 1789 · 1802 · 1815 · 1873 · 1928 · 1948 · 1984 · 2020 · 2038 · 2045 · 2076 · 2098 · 2126 · 2198 · 2273 · 2294 · 2535 · 2694 · 2722 · 2805
+- **`generation`** (11) — 1121 · 1181 · 1264 · 1291 · 1497 · 2020 · 2211 · 2223 · 2247 · 2354 · 2379
+- **`di`** (12) — 1484 · 1734 · 1760 · 1940 · 1942 · 1945 · 1948 · 1966 · 2045 · 2076 · 2223 · 2273
+- **`measurement`** (65) — 131 · 392 · 407 · 425 · 442 · 483 · 513 · 529 · 548 · 560 · 570 · 691 · 770 · 777 · 782 · 788 · 815 · 828 · 839 · 847 · 863 · 870 · 907 · 917 · 937 · 948 · 982 · 1009 · 1015 · 1031 · 1048 · 1053 · 1092 · 1121 · 1136 · 1166 · 1181 · 1196 · 1214 · 1229 · 1246 · 1264 · 1315 · 1514 · 1533 · 1604 · 1771 · 1802 · 1829 · 1840 · 1855 · 1873 · 1928 · 1984 · 2430 · 2511 · 2562 · 2577 · 2601 · 2621 · 2642 · 2672 · 2709 · 2773 · 2805
+- **`docs`** (23) — 144 · 172 · 195 · 316 · 640 · 671 · 691 · 741 · 1061 · 1072 · 1077 · 1084 · 1188 · 1578 · 2098 · 2165 · 2329 · 2339 · 2394 · 2404 · 2441 · 2460 · 2731
+- **`tests`** (21) — 1399 · 1590 · 1631 · 1652 · 1719 · 1741 · 1909 · 1921 · 2177 · 2524 · 2535 · 2546 · 2722 · 2744 · 2826 · 2834 · 2842 · 2846 · 2849 · 2861 · 2874
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (21) — 227 · 407 · 442 · 671 · 782 · 1092 · 1250 · 1286 · 1291 · 1310 · 1385 · 1465 · 1553 · 1801 · 1934 · 1970 · 2197 · 2209 · 2259 · 2365 · 2680
-- **`cancellation`** (5) — 1272 · 1277 · 1534 · 1553 · 1576
-- **`vacuous`** (43) — 131 · 205 · 212 · 392 · 425 · 483 · 513 · 593 · 788 · 828 · 847 · 937 · 1121 · 1136 · 1152 · 1167 · 1200 · 1341 · 1404 · 1421 · 1576 · 1617 · 1638 · 1705 · 1727 · 1815 · 1826 · 1859 · 1970 · 2084 · 2446 · 2521 · 2532 · 2563 · 2695 · 2708 · 2730 · 2759 · 2812 · 2835 · 2847 · 2865 · 2874
-- **`scope-blind`** (36) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 618 · 741 · 755 · 1215 · 1429 · 1720 · 1788 · 1895 · 1907 · 2084 · 2112 · 2163 · 2280 · 2380 · 2390 · 2399 · 2416 · 2427 · 2446 · 2532 · 2695 · 2708 · 2832 · 2865 · 2874
-- **`second-door`** (20) — 1288 · 1326 · 1330 · 1341 · 1348 · 1408 · 1413 · 1491 · 1633 · 1655 · 1934 · 2062 · 2163 · 2184 · 2197 · 2209 · 2233 · 2280 · 2315 · 2340
-- **`stale-claim`** (18) — 57 · 172 · 252 · 316 · 691 · 839 · 870 · 889 · 1061 · 1077 · 1564 · 1931 · 2151 · 2184 · 2233 · 2315 · 2427 · 2717
-- **`silent-loss`** (54) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 560 · 610 · 657 · 671 · 770 · 828 · 884 · 917 · 948 · 982 · 1048 · 1092 · 1167 · 1174 · 1182 · 1250 · 1314 · 1330 · 1364 · 1451 · 1483 · 1519 · 1590 · 1630 · 1632 · 1633 · 1635 · 1655 · 1666 · 1705 · 1841 · 1914 · 1926 · 1931 · 1952 · 2024 · 2062 · 2112 · 2250 · 2340 · 2380 · 2390 · 2464 · 2548 · 2628 · 2759
-- **`wrong-subject`** (61) — 57 · 111 · 131 · 308 · 392 · 425 · 442 · 499 · 513 · 529 · 548 · 560 · 570 · 584 · 603 · 788 · 815 · 847 · 863 · 870 · 917 · 948 · 982 · 1009 · 1015 · 1072 · 1084 · 1121 · 1136 · 1152 · 1182 · 1200 · 1215 · 1232 · 1288 · 1337 · 1429 · 1460 · 1470 · 1500 · 1590 · 1638 · 1746 · 1757 · 1775 · 1788 · 1815 · 1826 · 1859 · 2006 · 2031 · 2365 · 2497 · 2548 · 2563 · 2587 · 2607 · 2628 · 2730 · 2791 · 2835
-- **`unmeasured`** (17) — 529 · 570 · 640 · 691 · 741 · 777 · 1031 · 1053 · 1293 · 1301 · 1310 · 1352 · 1404 · 1775 · 2006 · 2325 · 2717
-- **`ordering`** (10) — 603 · 1314 · 1413 · 1602 · 1637 · 1952 · 2250 · 2259 · 2510 · 2658
-- **`resource`** (14) — 584 · 618 · 657 · 907 · 1015 · 1232 · 1293 · 1385 · 1491 · 1500 · 1928 · 2820 · 2828 · 2860
+- **`fail-open`** (21) — 227 · 407 · 442 · 671 · 782 · 1092 · 1264 · 1300 · 1305 · 1324 · 1399 · 1479 · 1567 · 1815 · 1948 · 1984 · 2211 · 2223 · 2273 · 2379 · 2694
+- **`cancellation`** (5) — 1286 · 1291 · 1548 · 1567 · 1590
+- **`vacuous`** (43) — 131 · 205 · 212 · 392 · 425 · 483 · 513 · 593 · 788 · 828 · 847 · 937 · 1121 · 1136 · 1166 · 1181 · 1214 · 1355 · 1418 · 1435 · 1590 · 1631 · 1652 · 1719 · 1741 · 1829 · 1840 · 1873 · 1984 · 2098 · 2460 · 2535 · 2546 · 2577 · 2709 · 2722 · 2744 · 2773 · 2826 · 2849 · 2861 · 2879 · 2888
+- **`scope-blind`** (36) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 618 · 741 · 755 · 1229 · 1443 · 1734 · 1802 · 1909 · 1921 · 2098 · 2126 · 2177 · 2294 · 2394 · 2404 · 2413 · 2430 · 2441 · 2460 · 2546 · 2709 · 2722 · 2846 · 2879 · 2888
+- **`second-door`** (20) — 1302 · 1340 · 1344 · 1355 · 1362 · 1422 · 1427 · 1505 · 1647 · 1669 · 1948 · 2076 · 2177 · 2198 · 2211 · 2223 · 2247 · 2294 · 2329 · 2354
+- **`stale-claim`** (18) — 57 · 172 · 252 · 316 · 691 · 839 · 870 · 889 · 1061 · 1077 · 1578 · 1945 · 2165 · 2198 · 2247 · 2329 · 2441 · 2731
+- **`silent-loss`** (54) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 560 · 610 · 657 · 671 · 770 · 828 · 884 · 917 · 948 · 982 · 1048 · 1092 · 1181 · 1188 · 1196 · 1264 · 1328 · 1344 · 1378 · 1465 · 1497 · 1533 · 1604 · 1644 · 1646 · 1647 · 1649 · 1669 · 1680 · 1719 · 1855 · 1928 · 1940 · 1945 · 1966 · 2038 · 2076 · 2126 · 2264 · 2354 · 2394 · 2404 · 2478 · 2562 · 2642 · 2773
+- **`wrong-subject`** (61) — 57 · 111 · 131 · 308 · 392 · 425 · 442 · 499 · 513 · 529 · 548 · 560 · 570 · 584 · 603 · 788 · 815 · 847 · 863 · 870 · 917 · 948 · 982 · 1009 · 1015 · 1072 · 1084 · 1121 · 1136 · 1166 · 1196 · 1214 · 1229 · 1246 · 1302 · 1351 · 1443 · 1474 · 1484 · 1514 · 1604 · 1652 · 1760 · 1771 · 1789 · 1802 · 1829 · 1840 · 1873 · 2020 · 2045 · 2379 · 2511 · 2562 · 2577 · 2601 · 2621 · 2642 · 2744 · 2805 · 2849
+- **`unmeasured`** (17) — 529 · 570 · 640 · 691 · 741 · 777 · 1031 · 1053 · 1307 · 1315 · 1324 · 1366 · 1418 · 1789 · 2020 · 2339 · 2731
+- **`ordering`** (10) — 603 · 1328 · 1427 · 1616 · 1651 · 1966 · 2264 · 2273 · 2524 · 2672
+- **`resource`** (14) — 584 · 618 · 657 · 907 · 1015 · 1246 · 1307 · 1399 · 1505 · 1514 · 1942 · 2834 · 2842 · 2874
 
 <!-- facets:end -->
 
@@ -1136,12 +1136,26 @@ of the two: most of these traps recur in a subsystem that had never met them.
 - **A scorer that matches TEXT is moved by any option that only changes how much text is SHOWN — so the <!-- trap: sub=measurement,memory shape=wrong-subject,vacuous -->
   arm reads as a retrieval change when nothing about retrieval moved.** Caught 2026-09-13 while scoping
   `MemoryDetail.Full` against LongMemEval's knowledge-update class, BEFORE the run. `MemoryItem` carries a
-  120-character `Headline` and a nullable whole-entry `Content`, and that bench scores by searching
-  `i.Content ?? i.Headline` for the superseded fact. Under `MemoryDetail.Headline` the scorer sees 120
-  characters per item; under `Full` it sees the whole turn. **The same entries are on the page either way**
-  — `Detail` rehydrates the text of an already-chosen set and cannot change which items come back — so
-  `stale@k` would have RISEN and read as *"full detail hurts suppression"* when all that changed was the
-  scorer's eyesight.
+  120-character `Headline` and a nullable whole-entry `Content`, and that bench reads
+  `i.Content ?? i.Headline`. Under `MemoryDetail.Headline` the scorer sees 120 characters per item; under
+  `Full` it sees the whole turn.
+  <br>**BOTH halves of this entry's original worked example were wrong, checked against the code 2026-09-13,
+  and the general rule below survives them.** It read that the knowledge-update bench *"scores by searching
+  `i.Content ?? i.Headline` for the superseded fact"* and that `Detail` *"rehydrates the text of an
+  already-chosen set and cannot change which items come back"*.
+  <br>**It does not search for the fact — it matches `Turn.Tag`**, a synthetic `(sNtM)` id the harness
+  prepends at character 0 of every ingested turn, and `MemoryHeadline.Derive` cuts a PREFIX. Replicated over
+  both corpora: **257,710 of 257,710 headlines contain their own tag**, tag length ≤ 9 against a
+  120-character headline. So that class was never text-matched and this confound could not have reached it.
+  <br>**And `Detail` CAN change which items come back** — not through ranking, which it genuinely cannot
+  touch (it is applied in the projection, after ranking and reinforcement), but through SIZE. Any character
+  cap prices an item at `Content?.Length ?? Headline.Length` — `MemoryQuery.CharBudget` in the engine, and
+  the bench's own `--budget` — so whole items spend the allowance faster and FEWER fit. `MemoryWalk` has a
+  second path: `UpgradedCount` is 0 throughout under `Full` (nothing left to upgrade), so
+  `step.NewItems.Count == 0 && step.UpgradedCount == 0` ends the walk a step earlier than it would under
+  headlines. **"Projection-only" is not the same as "inert".**
+  <br>**The reusable shape is that a lever can reach the scored set through a SECOND channel** — here item
+  size feeding a budget — and checking only the obvious channel is how a confound survives being looked for.
   <br>**The three metrics in this repository divide cleanly on it, and only one is exposed.**
   `evidence-hit@k` matches a `dia_id`, which survives truncation and is immune — its own doc says so. A
   READER-facing metric (token-F1) is genuinely measuring the effect, because the reader really does see

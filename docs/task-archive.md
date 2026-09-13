@@ -3383,3 +3383,31 @@ one session, one instrument). `potion-base-8M` costs **0.5 points** on the shipp
 `+forget0` exactly, because those arms do not seed semantically — it costs 10 points only where semantic
 seeding is on. **How much an embedder is worth is a property of the arm**, which is why a class that looked
 ~12 points behind on a purely embedding-bound task is nearly free here.
+
+## Part 202 — COMPLETENESS priced on the suppression workload, and the confound it was blocked on refuted
+
+✅ closed 2026-09-13. `TASKS.md` Part 109's last open item, and the last startable item in the backlog.
+
+- **Price COMPLETENESS on the memory workloads, where the reader half only measured LoCoMo QA.**
+
+**Outcome: the lever is BUDGET-DEPENDENT on this class and at a tight cap it COSTS**, so the search
+workload's *"completeness, not count"* is not a general rule about context budgets.
+`docs/memory-measurements.md` §5 (`longmemeval-ku-completeness-budget`) owns the figures;
+`docs/deployment-shapes.md` now names the workload its recommendation was measured on.
+
+**The item's stated blocker was WRONG in both halves, which is why this took a scoring change to nothing.**
+The class is scored by a turn TAG that survives truncation, not by the fact's text — so the confound could
+not reach it — and `Detail` is not inert either: it changes item SIZE, which feeds every character cap and
+`MemoryWalk`'s termination rule. The durable trap is filed in `.claude/knowledge/pitfalls.md`.
+
+**So neither fix the item offered was the answer.** Identifier scoring was already in place, which makes an
+unbudgeted run VACUOUS rather than confounded; a reader was never needed to get a figure. The measurable
+arrangement was the third one — a CHARACTER CAP, which is what turns whole items into fewer items.
+
+**The instrument is one arm and one rejection.** `memory-longmemeval --detail` adds `full` and REFUSES to
+run without `--budget`, where it would be identical to `shot-1` by construction. Its vacuity control is the
+non-binding rung, which reproduced `shot-1` to the decimal at 9.7× the characters — the thing that makes
+the other rows readable as retrieval rather than eyesight.
+
+**Unmeasured, named rather than implied:** completeness for a READER on this class, and whether the one
+positive cell survives replication — this mode keeps no per-question outcomes, so it reports no interval.
