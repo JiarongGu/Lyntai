@@ -94,6 +94,9 @@ sealed class Lyntai.Agents.CliToolSession
     .ctor(IReadOnlyList<String> extraArgs, Func<ValueTask> dispose = null)
     DisposeAsync() : ValueTask
     ExtraArgs : IReadOnlyList<String>
+sealed class Lyntai.Agents.EmbeddingToolSelector
+    .ctor(IEmbedder embedder, ToolSelectorOptions options = null)
+    SelectAsync(LlmRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>
 sealed class Lyntai.Agents.FunctionTool
     .ctor(String name, Func<String,CancellationToken,Task<String>> invoke, String description = null, String parametersJsonSchema = null)
     Description : String
@@ -120,6 +123,8 @@ interface Lyntai.Agents.IToolLoop
 interface Lyntai.Agents.IToolRegistry
     Find(String name) : ITool
     Tools : IReadOnlyList<ITool>
+interface Lyntai.Agents.IToolSelector
+    SelectAsync(LlmRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>
 sealed class Lyntai.Agents.McpCliContext
     .ctor(McpEndpoint endpoint, Func<String,String,String> writeTempFile)
     Endpoint : McpEndpoint
@@ -201,7 +206,7 @@ sealed class Lyntai.Agents.ToolCall
     PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
 sealed class Lyntai.Agents.ToolLoop
-    .ctor(ILlmClient client, IToolRegistry registry, LyntaiOptions options, ILogger<ToolLoop> logger = null, IGuardRail guards = null)
+    .ctor(ILlmClient client, IToolRegistry registry, LyntaiOptions options, ILogger<ToolLoop> logger = null, IGuardRail guards = null, IToolSelector selector = null)
     DefaultProtocolPreamble : String const
     RunAsync(LlmRequest req, Nullable<Int32> maxIterations = null, CancellationToken ct = default) : Task<ToolLoopResult>
     StreamAsync(LlmRequest req, Nullable<Int32> maxIterations = null, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
@@ -236,6 +241,9 @@ sealed class Lyntai.Agents.ToolResult
     IsError : Boolean
     PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
+sealed class Lyntai.Agents.ToolSelectorOptions
+    .ctor()
+    Limit : Int32
 sealed class Lyntai.Agents.ToolStep
     .ctor(String Tool, String ArgumentsJson, String Result)
     ArgumentsJson : String
@@ -3179,5 +3187,7 @@ static class Lyntai.Text.JsonExtract
     static ExtractObject(String text) : String
     static IsValid(String text) : Boolean
     static TryParseObject(String text, JsonDocument& doc) : Boolean
+static class Lyntai.ToolSelectorRegistration
+    static AddEmbeddingToolSelector(LyntaiBuilder builder, Action<ToolSelectorOptions> configure = null) : LyntaiBuilder
 static class Microsoft.Extensions.DependencyInjection.LyntaiServiceCollectionExtensions
     static AddLyntai(IServiceCollection services, Action<LyntaiBuilder> configure) : IServiceCollection

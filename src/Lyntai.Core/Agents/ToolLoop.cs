@@ -25,7 +25,8 @@ public sealed class ToolLoop(
     IToolRegistry registry,
     LyntaiOptions options,
     ILogger<ToolLoop>? logger = null,
-    IGuardRail? guards = null) : IToolLoop
+    IGuardRail? guards = null,
+    IToolSelector? selector = null) : IToolLoop
 {
     private readonly ILogger _logger = logger ?? NullLogger<ToolLoop>.Instance;
 
@@ -64,6 +65,34 @@ public sealed class ToolLoop(
         public void Choose(ToolTransport transport) => Value = transport;
     }
 
+    /// <summary>The roster the model will actually see, narrowed by an <see cref="IToolSelector"/> when one
+    /// is registered.
+    ///
+    /// <para><b>FAIL-OPEN in three ways</b>, because the failure that matters is dropping the tool the
+    /// request needed: no selector, a selector that FAULTS, and a selector returning an EMPTY roster all
+    /// yield the full list. Only the caller's own cancellation propagates — a selector's own deadline is a
+    /// fault, and a fault here must cost tokens rather than the answer.</para></summary>
+    private async Task<IReadOnlyList<ITool>> NarrowAsync(
+        LlmRequest req, IReadOnlyList<ITool> tools, CancellationToken ct)
+    {
+        if (selector is null || tools.Count == 0) return tools;
+
+        try
+        {
+            var narrowed = await selector.SelectAsync(req, tools, ct).ConfigureAwait(false);
+            if (narrowed is null || narrowed.Count == 0) return tools;
+            if (narrowed.Count < tools.Count)
+                _logger.LogDebug("Tool roster narrowed from {All} to {Shown}", tools.Count, narrowed.Count);
+            return narrowed;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Tool selector failed; showing the whole roster of {Count}", tools.Count);
+            return tools;
+        }
+    }
+
     /// <summary>The diagnostics tag for a transport, DERIVED from the enum rather than written beside it —
     /// the published span values are `none`/`native`/`prompt` and a second literal is a second chance to
     /// drift, which is the argument <see cref="ToolObservations.ErrorPrefix"/> already makes one file over.</summary>
@@ -83,7 +112,7 @@ public sealed class ToolLoop(
         [EnumeratorCancellation] CancellationToken ct)
     {
         using var activity = LyntaiDiagnostics.StartToolLoop(req.Consumer);
-        var tools = registry.Tools;
+        var tools = await NarrowAsync(req, registry.Tools, ct).ConfigureAwait(false);
 
         // Re-assert the loop span as current before each child-span-creating await. Activity.Current is an
         // AsyncLocal, and an async iterator resets it across every `yield return` (each MoveNextAsync runs in

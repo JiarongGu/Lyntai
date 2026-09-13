@@ -326,9 +326,12 @@ public static class LyntaiServiceCollectionExtensions
     private static void RegisterAgents(IServiceCollection services, LyntaiOptions options)
     {
         services.TryAddSingleton<IToolRegistry>(sp => new ToolRegistry(sp.GetServices<ITool>()));
+        // GetService for the selector, never GetRequiredService: it is opt-in, and an unregistered one means
+        // "show every tool", which is what the loop did before the seam existed.
         services.TryAddSingleton<IToolLoop>(sp => new ToolLoop(
             sp.GetRequiredService<ILlmClient>(), sp.GetRequiredService<IToolRegistry>(), options,
-            sp.GetService<ILogger<ToolLoop>>(), guards: sp.GetService<Lyntai.Guards.IGuardRail>()));
+            sp.GetService<ILogger<ToolLoop>>(), guards: sp.GetService<Lyntai.Guards.IGuardRail>(),
+            selector: sp.GetService<IToolSelector>()));
     }
 
     /// <summary>Durable jobs: the handler registry, enqueue queue, admission control, runner, and scheduler.

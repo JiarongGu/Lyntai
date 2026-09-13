@@ -12,7 +12,24 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ## Unreleased
 
+### Breaking
+
+- **`ToolLoop`'s constructor gains an optional trailing `IToolSelector? selector` parameter** (**D120**).
+  Source-compatible — existing code keeps compiling — but BINARY-breaking for a pre-compiled caller of the
+  old signature. Consumers reach the loop through `AddLyntai`, and the constructor already grew this way for
+  `logger` and `guards`. An overload was refused deliberately: it would pay for a caller that does not exist.
+
 ### Added
+
+- **`IToolSelector` and `AddEmbeddingToolSelector` — the tool roster can be BOUNDED before the model sees
+  it** (**D120**). `IToolRegistry` hands the loop every registered tool on every iteration and the model
+  supplies no bound of its own: a 4B invokes a tool on **90-95%** of requests nothing on the roster serves,
+  and two preamble rewrites in opposite directions moved that by nothing — so wording is not the lever.
+  `EmbeddingToolSelector` is the shipped implementation, model-free, scoring the request against each tool's
+  own name and description; measured, that arm still picks the right tool from **35** options **81.5%** of
+  the time against 3% chance. **Fail-open in three ways** — no selector, a faulting selector and an empty
+  result all leave the roster whole, because dropping the tool a request needed is the failure that matters.
+  A `Limit` of zero or less narrows nothing. Unregistered by default; the loop is unchanged without it.
 
 - **A memory seam's `Model` that its client can never honour now FAILS at composition** (**D119**).
   `AddMemoryVerification`/`AddMemoryAnnotation` set `LlmRequest.Model`, but the router resolves

@@ -15,24 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 11 across 9 Parts: 2 startable, 8 blocked, 1 watch
+## Open items — 10 across 8 Parts: 1 startable, 8 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 717 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 811 | 178 | MEASURE tool routing at catalogue scale — the seam is not ruled on until it… | startable |  |
-| 879 | 196 | Ship an IN-PROCESS embedder: BOTH CPU cells of the 2×2, as two adapter pack… | startable |  |
+| 90 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 134 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 143 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 197 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 268 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 346 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 401 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 424 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 716 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
+| 866 | 196 | Ship an IN-PROCESS embedder: BOTH CPU cells of the 2×2, as two adapter pack… | startable |  |
 
 <!-- open-items:end -->
 
@@ -47,7 +46,7 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is TWO items**, and what a reader
+longer drift apart. Edit the marker, never the table. **The startable set is ONE item**, and what a reader
 most needs is that all five were `decision-only` until 2026-09-13 and are startable because the owner RULED
 on them, not because anything in the tree changed. Each one's ruling is written at the head of the item,
 above the options it chose between — the losing options are kept deliberately, because they are why the
@@ -808,25 +807,13 @@ primary constructor is a BINARY break — which the item's own "additive" framin
 question it raised is deliberately still open: a decision is not memory, but minting a parallel namespace
 for one property is the worse trade._
 
-- [ ] **MEASURE tool routing at catalogue scale — the seam is not ruled on until its evidence exists.** <!-- item: state=startable -->
-  **RULED 2026-09-13: measure first, decide after.** The seam is NOT approved and NOT refused. This grid
-  tops out at seven tools and a catalogue is where a bound would matter, so shipping a permanent selector
-  ahead of the evidence that sizes it is the thing this repository refuses everywhere else. **The startable
-  work is the instrument**: extend the synthetic roster past seven to 20-50 and re-read whether the
-  embedding selector holds its 81.0%. That either justifies the seam or kills it, and it needs no ruling and
-  no public surface. The seam's shape, below, is what gets built IF the measurement earns it.
-  `affordance` is the one shape in `docs/model-tasks.md` §1 marked *unbounded by this library*. Measured
-  2026-09-12 (`docs/task-archive.md` Part 194, `docs/model-tasks.md` §3.1): a 4B invokes a tool on
-  **90-95%** of requests nothing on the roster serves, and **two preamble rewrites in opposite directions
-  moved it by nothing** — so wording is not the lever and narrowing the roster is what is left.
-  `IToolRegistry` hands the loop every registered tool on every iteration; a deployment with a catalogue has
-  no seam, no option and no way to narrow it.
-  <br>**The shape is a selector** — `(request, all registered tools) -> the k most likely` — with an
-  embedding-similarity implementation as the shipped one, since an embedder alone picks the right tool 81.0%
-  of the time on this fixture at 333,590,944 B.
-  <br>_Not startable until the surface is ruled on: it is a new public seam on an API frozen under SemVer
-  since 1.0 with no carve-out (**D70**). The MEASUREMENT that would justify it is also missing — this grid
-  tops out at seven tools and a catalogue is where a bound would matter._
+_**The tool-roster item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 206** / **D120**, in the
+order the ruling set: MEASURE, then decide. The ladder ran to 35 options
+(`affordance-roster-catalogue`) and a model-free embedder still reads **81.5%** against 3% chance, so
+`IToolSelector` + `EmbeddingToolSelector` shipped. **The figure bounds the seam from BELOW twice over** —
+argmax where a selector is scored on recall@k, and the `easy` fixture, whose distractors past the first
+handful are semantically distant. The `hard` fixture cannot pose the question at all: its distractors come
+from the gold tool's own family, which holds seven._
 
 _**The native-transport item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 197**. The survey did not
 come back empty — Qwen2.5, Qwen3 and Llama-3.2 all carry a tool section in their own

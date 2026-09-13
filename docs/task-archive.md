@@ -3478,3 +3478,31 @@ candidates, never the global list, since a name narrows candidates as well as pr
 
 **Two shipped XML docs said this was "inert, silently" and are now false**; both were corrected with the
 code rather than left to rot.
+
+## Part 206 — the tool roster gets a bound, after the measurement that justified one
+
+✅ closed 2026-09-13. `TASKS.md` Part 178's roster item. Ruled *measure first, decide after*, and it closed
+in that order.
+
+- **Bound the tool roster BEFORE the model sees it — the model supplies no bound of its own.**
+
+**Outcome: measured, then built** (**D120**, `CHANGELOG.md`). `IToolSelector` with `EmbeddingToolSelector`
+shipped and `AddEmbeddingToolSelector` to register it; `ToolLoop` narrows through it and is unchanged when
+none is registered. Figures: `docs/memory-measurements.md` §5 (`affordance-roster-catalogue`).
+
+**The item's stated blocker was wrong and cheaply so.** It read *"this grid tops out at seven tools"*; the
+FIXTURE holds 42, and the cap was the `hard` difficulty drawing distractors from the gold tool's own
+family, which holds seven. `easy` draws from every other family, so catalogue scale was reachable the same
+afternoon rather than needing a new corpus.
+
+**What the measurement bought, and why it is a floor.** A model-free embedder reads **81.5%** at 35 options
+against 3% chance. It bounds the seam from BELOW twice: argmax, where a selector is scored on recall at a
+cut; and the `easy` fixture, whose added options are semantically distant where a real catalogue is a mix.
+
+**Fail-open in three ways** — no selector, a faulting one, an empty result — because the failure that
+matters is dropping the tool the request needed. A `Limit` of zero or less narrows nothing, so a
+misconfiguration cannot blind the loop.
+
+**One real cost, declared rather than buried:** `ToolLoop`'s constructor gains an optional trailing
+parameter, which is binary-breaking. It sits under **Breaking** in the changelog; an overload was refused
+because it would pay for a pre-compiled caller that does not exist.

@@ -189,8 +189,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D117](#d117--a-tool-loop-reports-its-transport-because-the-fallback-is-silent-and-not-a-degradation-of-degree-2026-09-13) | 2026-09-13 | a tool loop REPORTS its transport, because the fallback is silent and not a degradation of degree |
 | [D118](#d118--a-verification-verdict-carries-the-score-it-judged-on-for-every-candidate-it-scored-2026-09-13) | 2026-09-13 | a verification verdict carries the SCORE it judged on, for every candidate it scored |
 | [D119](#d119--a-seams-model-that-its-client-can-never-honour-fails-at-composition-2026-09-13) | 2026-09-13 | a seam's `Model` that its client can never honour FAILS at composition |
+| [D120](#d120--the-tool-roster-is-bounded-by-a-seam-because-the-model-supplies-no-bound-of-its-own-2026-09-13) | 2026-09-13 | the tool roster is BOUNDED by a seam, because the model supplies no bound of its own |
 
-_All 119 entries are live decisions._
+_All 120 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3562,3 +3563,40 @@ providers, so checking the global list would both miss a real contradiction and 
 already an error at resolution. It does not reach BYO policies — a consumer's own
 `IMemoryVerificationPolicy` never passes through these registrations and is free to read `Model` however it
 likes.
+
+## D120 — the tool roster is BOUNDED by a seam, because the model supplies no bound of its own (2026-09-13)
+
+`IToolSelector` — `(request, every registered tool) -> the ones worth showing` — with
+`EmbeddingToolSelector` as the shipped implementation and `AddEmbeddingToolSelector` to register it.
+`ToolLoop` narrows through it when one is registered and behaves exactly as before when none is.
+
+**The problem is measured and the lever is not wording.** A 4B invokes a tool on **90-95%** of requests
+nothing on the roster serves, and two preamble rewrites in OPPOSITE directions moved that by nothing
+(`docs/memory-measurements.md` §5) — so narrowing the roster is what is left, and `IToolRegistry` hands the
+loop everything on every iteration, giving a deployment with a catalogue no seam, no option and no way.
+
+**Built only after the evidence existed.** The grid stopped at seven options, where a bound does not yet
+matter, and the seam was deliberately not shipped on that. Swept to thirty-five
+(`affordance-roster-catalogue`) a model-free embedder still picks the right tool **81.5%** of the time
+against 3% chance — so narrowing is feasible and cheap. **That figure bounds the seam from BELOW twice
+over**: it is argmax where a selector is scored on recall at a cut, and it is the `easy` fixture, whose
+distractors past the first handful are semantically distant.
+
+**FAIL-OPEN in three ways, because the failure that matters is dropping the tool the request needed.** No
+selector, a selector that faults, and one returning an empty roster all yield the full list. A selector is
+an optimisation; a broken one must cost tokens and never the answer. Only the caller's own cancellation
+propagates — an implementation's deadline is a fault.
+
+**A `Limit` of zero or less narrows NOTHING**, rather than showing no tools: a misconfiguration must not be
+able to blind the loop, and "no tools" is already sayable by registering none. The default of 8 is
+explicitly unmeasured — the evidence sizes the SELECTOR, not the cut.
+
+**The description is what gets embedded**, name included, so a roster whose descriptions do not say what
+each tool is FOR narrows badly. That is a property of the descriptions rather than of the embedder, and the
+one thing a deployment can fix directly.
+
+**The cost, stated rather than buried:** `ToolLoop`'s constructor gains an optional trailing parameter,
+which is source-compatible and BINARY-breaking. It is consistent with how that constructor already grew
+(`logger`, `guards`) and consumers reach it through `AddLyntai`, but it is a break and `CHANGELOG.md`
+carries it under **Breaking** rather than under Added. An overload was refused for the reason
+`repo-mechanics.md` gives: it would pay for a pre-compiled caller that does not exist.
