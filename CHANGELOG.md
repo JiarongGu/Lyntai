@@ -14,8 +14,8 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
-- **`LlmCandidate` and `GenerationCandidate` are replaced by `Lyntai.Lifecycle.ProviderCandidate`**
-  (**D125**). <!-- drift-ok: the entry announcing the rename has to name what it renamed --> The two were byte-identical records — `(string ProviderId, string? Model = null)` — one per
+- **`LlmCandidate` and `GenerationCandidate` are replaced by `Lyntai.Lifecycle.ProviderCandidate`** <!-- drift-ok: the entry announcing a rename has to name what it renamed -->
+  (**D125**). The two were byte-identical records — `(string ProviderId, string? Model = null)` — one per
   domain, and the generation one's own doc said the pair was the routing unit "exactly as on the LLM side".
   Migration is a type name and a `using Lyntai.Lifecycle;`; the members, the case-insensitive id matching
   and the ordinal model comparison are unchanged. `UseDefaultGenerationCandidates` is NOT affected — it is a
