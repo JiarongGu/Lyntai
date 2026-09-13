@@ -864,24 +864,46 @@ quantising does not), and the STATIC class has no GGUF in existence, which is wh
 turns on._
 
 - [ ] **Ship the TRANSFORMER x CPU embedder — an ONNX Runtime adapter.** The second of the two packages <!-- item: state=startable -->
-  the 2026-09-13 ruling authorised. **The STATIC half SHIPPED the same day** as `Lyntai.Embeddings.Static`
-  (**D121**, `docs/task-archive.md` Part 207), so what is left is one package, and the work it needs is
-  known rather than guessed.
+  the 2026-09-13 ruling authorised. **The STATIC half SHIPPED** (**D121**, `docs/task-archive.md` Part 207)
+  and **stopped being a package on 2026-09-14** (**D122**) — the adapter is in `Lyntai.Providers.Default`
+  and its tokenizer, owned rather than referenced, is public in `Lyntai.Core`. So what is left is one
+  package, and the work it needs is known rather than guessed.
 
-  **The boundary is MANAGED against NATIVE, not static against transformer** — found while building the
-  first half, and it is the thing to get right in the decision record. `potion-base-8M` ships its own
+  **The boundary is MANAGED against NATIVE, not static against transformer.** `potion-base-8M` ships its own
   `onnx/model.onnx`, so ONNX Runtime could serve the STATIC class too; what a consumer actually chooses
   between is a package they can trim and AOT-compile and one they cannot. Write the decision in those terms.
+  <br>**D122 sharpened the test this has to pass**: a package boundary is worth what the dependency behind
+  it costs, and the static cell FAILED that test — 812 KB of closure for one WordPiece call, so the
+  dependency was written rather than isolated. **ONNX passes it**, and saying why is the record's job: the
+  native runtime IS the feature, cannot be written, and at ~16.4 MB is three orders of magnitude past the
+  point where owning it is an option.
+
+  **The DEPENDENCY IS RULED (2026-09-14, owner): `Microsoft.ML.OnnxRuntime.Managed` only**, with the
+  consuming app adding `Microsoft.ML.OnnxRuntime` (CPU), `.DirectML` or `.Gpu`. That is the
+  `Lyntai.Providers.LlamaSharp` precedent exactly, and what **D68** implies — the library never picks the
+  user's hardware. A consequence to state rather than discover: the same package then serves the GPU cell of
+  the 2x2, so `docs/deployment-shapes.md`'s table moves with it.
 
   **Three concrete consequences, each already checked:**
   1. **It cannot inherit the trim/AOT claim.** ONNX Runtime is a native dependency, so the csproj must set
      `IsAotCompatible=false` / `IsTrimmable=false` / `EnableTrimAnalyzer=true` and the `docs/AOT.md` row must
-     say so — the template calls this out, and `check-warnings` is what keeps the claim honest. The static
-     package's row reads "compatible" and that must stay TRUE of it alone.
-  2. **`new-package` does the registries**, and the misses are silent: it wired the solution, packableProjects,
-     the test ProjectReference, `ApiSurfaceTests`, `docs/AOT.md` and the README table for the static one.
+     say so — the template calls this out, and `check-warnings` is what keeps the claim honest.
+     `Lyntai.Providers.Default`'s row reads "compatible" and that must stay TRUE of it, which is now a
+     REASON THIS IS A SEPARATE PACKAGE rather than a side note.
+  2. **`new-package` does the registries**, and the misses are silent: the solution, packableProjects, the
+     test ProjectReference, `ApiSurfaceTests`, `docs/AOT.md` and the README table.
   3. **Bundle membership is NOT automatic (D26)** and a native runtime is exactly the dependency a
      one-line-install consumer may refuse, so it almost certainly does not go in `Lyntai.Bundle`.
+
+  **The tokenizer half is already DONE and was not, before.** An ONNX transformer takes `input_ids` +
+  `attention_mask` (+ `token_type_ids`), so it needs the same WordPiece pass — and
+  `Lyntai.Text.WordPieceTokenizer` is PUBLIC in Core, verified id-for-id against a real 29,528-row pruned
+  vocabulary, so an adapter package can simply use it. What it deliberately does NOT emit is
+  `[CLS]`/`[SEP]` and an attention mask, because a `model2vec` table must not have them. **That is the only
+  new tokenizer work and it is additive** — a second factory or an option, never a change to what the
+  static path gets, which is pinned by a test that would fail if it moved.
+  <br>**And the vocabulary is ENGLISH** (`docs/model-tasks.md` §3): 488 Han rows, zero Hangul. That bounds
+  the whole cell for a CJK deployment regardless of runtime, so do not read an ONNX package as fixing it.
 
   **What to reuse rather than rewrite.** `StaticEmbedder` already settles the shape a second adapter should
   match: `FromDirectory` loading eagerly so a truncated model fails at composition, an empty text yielding a

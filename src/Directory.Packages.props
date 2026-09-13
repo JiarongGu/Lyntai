@@ -31,10 +31,6 @@
     <!-- in-process local inference (managed only; the consumer app picks an LLamaSharp.Backend.*) -->
     <PackageVersion Include="LLamaSharp" Version="0.27.0" />
 
-    <!-- Lyntai.Embeddings.Static: a WordPiece/BPE tokenizer in MANAGED code. The only third-party
-         dependency the static embedder needs, which is the whole reason that package is separate. -->
-    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
-
     <!-- MCP (Model Context Protocol) client — for exposing an MCP server's tools as Lyntai ITools -->
     <PackageVersion Include="ModelContextProtocol.Core" Version="1.4.1" />
 
@@ -46,6 +42,12 @@
          the Postgres/Docker-gated tests report as SKIPPED (visible) rather than silently PASS -->
     <PackageVersion Include="Xunit.SkippableFact" Version="1.5.23" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
+    <!-- TEST-ONLY. It was the static embedder's tokenizer until that tokenizer was brought in-house: at
+         325,896 B plus Google.Protobuf's 489,568 B it cost 812 KB of closure for one WordPiece call, and
+         it kept the embedder out of the dependency-free Lyntai.Providers.Default. It stays here as the
+         reference WordPieceTokenizerTests asserts id-for-id equality against — which is also what found
+         the two rules it gets wrong (tab/newline/CR are not word separators; accents are not stripped). -->
+    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
     <!-- TRANSITIVE PIN, not a dependency this repository uses. Testcontainers 4.13.0 drags SSH.NET 2025.1.0,
          which carries a known HIGH-severity advisory (GHSA-q939-rpr3-3284) and so makes every restore of the
          test project emit NU1903. Nothing else would surface it: `check-warnings` gates `src/` projects only

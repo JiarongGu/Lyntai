@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Microsoft.ML.Tokenizers;
+using Lyntai.Text;
 
 namespace Lyntai.Embeddings.Static;
 
@@ -36,11 +36,11 @@ public sealed class StaticEmbedderOptions
 /// <c>normalize</c>.</para></summary>
 public sealed class StaticEmbedder : IEmbedder
 {
-    private readonly Tokenizer _tokenizer;
+    private readonly WordPieceTokenizer _tokenizer;
     private readonly SafetensorsTable _table;
     private readonly bool _normalize;
 
-    private StaticEmbedder(Tokenizer tokenizer, SafetensorsTable table, bool normalize)
+    private StaticEmbedder(WordPieceTokenizer tokenizer, SafetensorsTable table, bool normalize)
     {
         _tokenizer = tokenizer;
         _table = table;
@@ -75,9 +75,9 @@ public sealed class StaticEmbedder : IEmbedder
 
         // WordPiece, because the shipped static models tokenize with a BERT vocabulary — potion-* declares
         // `baai/bge-base-en-v1.5` as its tokenizer_name. The table was BUILT against these ids, so the
-        // tokenizer is part of the model rather than a choice.
-        using var vocabularyStream = File.OpenRead(vocabulary);
-        var tokenizer = BertTokenizer.Create(vocabularyStream);
+        // tokenizer is part of the model rather than a choice, and `FromModelDirectory` takes its rules
+        // from the model's own tokenizer_config.json for the same reason.
+        var tokenizer = WordPieceTokenizer.FromModelDirectory(directory);
 
         return new StaticEmbedder(tokenizer, table, options?.Normalize ?? NormalizeFromConfig(directory));
     }

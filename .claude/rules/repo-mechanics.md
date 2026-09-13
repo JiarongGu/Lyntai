@@ -113,7 +113,7 @@ present in **42 of 50** entries, because `**Introduced by.**` is part of the ent
 `dotnet-package-layout.md` states the boundaries; here they resolve to concrete names.
 
 - **Contract in `Lyntai.Core`, implementation in an adapter** (`Lyntai.Storage.Sqlite`,
-  `Lyntai.Providers.Default`, `Lyntai.Providers.Local`, …) that project-references Core only — or one
+  `Lyntai.Providers.Default`, `Lyntai.Providers.LlamaSharp`, …) that project-references Core only — or one
   domain package such as `Lyntai.Generation` — and **never adapter→adapter**. "Most consumers want X"
   makes it a member of the `Lyntai` metapackage, never a Core dependency (**D25**/**D26**/**D27**).
 - **Every `src/*` is packable**; `samples/` and `tests/` are not. `node devtools/dev.mjs new-package`

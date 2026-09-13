@@ -121,19 +121,25 @@ column stays unbuilt and the reason is under the table.
 
 | | CPU | GPU |
 |---|---|---|
-| **static** (lookup table, no matmul) | **SHIPS** as `Lyntai.Embeddings.Static` (**D121**) — `AddStaticEmbedder(dir)`. Pure managed apart from `Microsoft.ML.Tokenizers`; **0.5 points** behind on the memory default and ~12 on a selective task, and the only cell with NO context limit | n/a — there is nothing to accelerate |
+| **static** (lookup table, no matmul) | **SHIPS** in `Lyntai.Providers.Default` (**D121**, **D122**) — `AddStaticEmbedder(dir)`, needing NO package and NO dependency because its WordPiece tokenizer is owned and sits in Core; **0.5 points** behind on the memory default and ~12 on a selective task, and the only cell with NO context limit | n/a — there is nothing to accelerate |
 | **transformer** | ONNX Runtime — a NATIVE dependency, so it cannot inherit the trim/AOT claim the static cell keeps. Not built; `TASKS.md` Part 196 scopes it | ONNX Runtime **DirectML**, or LLamaSharp + a CUDA backend |
 
 **For a game, DirectML is the one worth noting**: it is vendor-neutral on any DX12 device and ships with
 Windows, where a CUDA backend requires the user to have an NVIDIA card and runtime. A library that
 hard-wired CUDA would be choosing the user's hardware for them, which is the thing **D68** refuses.
 
-**The ruling was the dependency, not the capability**, and that is why the two CPU cells are two packages
-rather than one: `dotnet-package-layout.md` splits by the dependency a package ISOLATES, and a managed
-tokenizer and a native runtime are not the same promise to a consumer. **The real boundary is MANAGED
-against NATIVE rather than static against transformer** — `potion-base-8M` ships its own `onnx/model.onnx`,
-so ONNX could serve the static class too; what a consumer is choosing between is a package they can trim
-and AOT-compile and one they cannot.
+**The ruling was the dependency, not the capability. The real boundary is MANAGED against NATIVE rather
+than static against transformer** — `potion-base-8M` ships its own `onnx/model.onnx`, so ONNX could serve
+the static class too; what a consumer is choosing between is a package they can trim and AOT-compile and
+one they cannot.
+
+**The static cell turned out to need NO package of its own**, which is the sharper form of that boundary.
+It was briefly `Lyntai.Embeddings.Static`, isolating `Microsoft.ML.Tokenizers` — until that dependency was
+measured at **812 KB** of closure (325,896 B, plus `Google.Protobuf`'s 489,568 B for the SentencePiece
+models it never loads) for one WordPiece call. Owning the tokenizer is ~250 lines, so the embedder folded
+into the dependency-free `Lyntai.Providers.Default` and kept that package's `✅` trim/AOT row. **A package
+boundary is worth what the dependency behind it costs, and a dependency you use 5% of can be written
+instead of isolated** — which does not transfer to the ONNX cell, where the native runtime IS the feature.
 
 ## Shape: the size class you can afford
 

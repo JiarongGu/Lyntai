@@ -43,7 +43,7 @@ const read = (r, ...p) => fs.readFileSync(path.join(r, ...p), 'utf8');
  */
 export function wireJsonSerializerUses(r) {
   const roots = ['src/Lyntai.Core/Llm', 'src/Lyntai.Core/Generation', 'src/Lyntai.Generation',
-    'src/Lyntai.Providers.Default', 'src/Lyntai.Providers.ExtensionsAi', 'src/Lyntai.Providers.Local'];
+    'src/Lyntai.Providers.Default', 'src/Lyntai.Providers.ExtensionsAi', 'src/Lyntai.Providers.LlamaSharp'];
   const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   const hits = [];
   const walk = (rel) => {

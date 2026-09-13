@@ -191,8 +191,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D119](#d119--a-seams-model-that-its-client-can-never-honour-fails-at-composition-2026-09-13) | 2026-09-13 | a seam's `Model` that its client can never honour FAILS at composition |
 | [D120](#d120--the-tool-roster-is-bounded-by-a-seam-because-the-model-supplies-no-bound-of-its-own-2026-09-13) | 2026-09-13 | the tool roster is BOUNDED by a seam, because the model supplies no bound of its own |
 | [D121](#d121--an-in-process-embedder-ships-and-the-case-for-it-is-operational-rather-than-quality-or-speed-2026-09-13) | 2026-09-13 | an IN-PROCESS embedder ships, and the case for it is OPERATIONAL rather than quality or speed |
+| [D122](#d122--a-dependency-you-use-5-of-is-written-not-isolated-the-static-embedder-owns-its-tokenizer-and-needs-no-package-2026-09-14) | 2026-09-14 | a dependency you use 5% of is written, not isolated: the static embedder owns its tokenizer and n… |
 
-_All 121 entries are live decisions._
+_All 122 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3604,9 +3605,13 @@ carries it under **Breaking** rather than under Added. An overload was refused f
 
 ## D121 — an IN-PROCESS embedder ships, and the case for it is OPERATIONAL rather than quality or speed (2026-09-13)
 
-`Lyntai.Embeddings.Static` — `StaticEmbedder` over a `model2vec` lookup table, registered with
-`AddStaticEmbedder(modelDirectory)`. No HTTP endpoint, no GPU, no port, no second process. It is an ADAPTER
-package because its one third-party dependency, `Microsoft.ML.Tokenizers`, may not go in Core.
+`StaticEmbedder` over a `model2vec` lookup table, registered with `AddStaticEmbedder(modelDirectory)`. No
+HTTP endpoint, no GPU, no port, no second process.
+
+> **AMENDED — it is not a package.** This shipped as `Lyntai.Embeddings.Static`, an adapter package
+> isolating `Microsoft.ML.Tokenizers`. **D122** priced that dependency and wrote the tokenizer instead, so
+> the embedder now lives in `Lyntai.Providers.Default` and its tokenizer in Core. Everything below is
+> unchanged; only the packaging claim moved. The package was never published, so no id is burned.
 
 **Neither quality nor latency argues for it, and saying so narrows the decision usefully.** Encode-only
 vectors are byte-identical across devices, so moving a model in-process cannot change a retrieval score;
@@ -3637,3 +3642,47 @@ is what an empty string means and a corpus must not be refused over one document
 rows against the base model's 30,522 — so a table and a tokenizer that disagree about which row an id names
 would still produce finite vectors. The synthetic fixture cannot see that; `StaticEmbedderLiveTests` ranks
 a related pair above an unrelated one on a real model and is skipped without one.
+
+## D122 — a dependency you use 5% of is written, not isolated: the static embedder owns its tokenizer and needs no package (2026-09-14)
+
+`Lyntai.Embeddings.Static` is gone, its contents split by KIND: the adapter (`StaticEmbedder`,
+`SafetensorsTable`, `AddStaticEmbedder`) is in **`Lyntai.Providers.Default`** under its existing namespace;
+the logic it needed, `WordPieceTokenizer`, is public in **`Lyntai.Core`** (`Lyntai.Text`) and replaces
+`Microsoft.ML.Tokenizers`. Never published, so no id is burned and no consumer edits a `using`.
+
+**The dependency was PRICED, and that decided it.** `Microsoft.ML.Tokenizers` is 325,896 B and drags
+`Google.Protobuf` at 489,568 B for SentencePiece models this never loads — **812 KB of closure for one
+`BertTokenizer.Create` call**, plus a package id and six registry rows for 16,384 B of code.
+
+**Two rules decided it, and they answer different questions.** *A package boundary is worth what the
+dependency behind it costs*, so before isolating one, ask what fraction you use — at 5%, a WordPiece pass
+over a `vocab.txt`, the answer is ~250 lines and no boundary at all. That killed the package. Then
+*`Providers.*` holds the ADAPTER to something external, Core holds the LOGIC*: `StaticEmbedder` provides
+embeddings from a specific model layout, so it stays a provider; a tokenizer is text logic any caller can
+use — a memory budget in tokens rather than characters, a future ONNX embedder — so it is public in Core.
+**Neither rule generalizes to the ONNX cell** (`TASKS.md` Part 196): the native runtime IS the feature,
+cannot be written, and is exactly the external thing a `Providers.*` package exists to isolate — the test
+that keeps this from becoming "never take a dependency".
+
+**Core could only take the tokenizer because there was nothing attached to it.** Core is mandatory and
+carries the smallest footprint of all (**D25**) — it may take no third-party dependency, ever. So writing
+the tokenizer was not merely the better trade, it is the ONLY thing that made it eligible for Core.
+
+**The alternative that lost, and why it was close.** Keeping the dependency and folding into
+`Providers.Default` needs no new code and no tokenizer risk — but that package is in the `Lyntai` bundle,
+so `Google.Protobuf` would enter the one-line install's closure and need a `bundleAllowedDependencies`
+entry, a list **D26** says must stay nearly empty.
+
+**Owning a tokenizer is only safe because the risk is TESTABLE, and that is the load-bearing half.** A
+tokenizer that disagrees by one rule returns finite, plausible, wrong vectors — the failure nothing
+downstream can attribute. `Microsoft.ML.Tokenizers` therefore stays a TEST-only reference, and
+`WordPieceTokenizerTests` asserts id-for-id equality against it on the fixture and on a real 29,528-row
+pruned vocabulary. **It found FOUR defects in the implementation being removed**, each one text silently
+LOST rather than mis-split, all corrected here (`docs/FIXES.md`).
+
+**The TRIGGER that reopens this: a model that is not WordPiece.** The rule holds because WordPiece over a
+`vocab.txt` is ~250 lines; SentencePiece is not, and is what `Google.Protobuf` was in that 812 KB for. The
+shipped vocabulary is English (`docs/model-tasks.md` §3 has the composition), so a CJK-first deployment
+needs a multilingual export — and those are usually SentencePiece. **Do not read this entry as having
+answered that**; the algorithm is language-agnostic and pinned on CJK by a live test, only the vocabulary
+is not.

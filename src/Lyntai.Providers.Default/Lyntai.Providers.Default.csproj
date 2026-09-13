@@ -6,7 +6,7 @@
     OpenRouter, Azure), plus the HTTP embedder. One package because their dependency footprint is the same
     (Core + managed Microsoft.Extensions.Http; no native payload), so bundling costs a consumer nothing.
 
-    Packages stay SEPARATE when they drag something a consumer may not want: Lyntai.Providers.Local
+    Packages stay SEPARATE when they drag something a consumer may not want: Lyntai.Providers.LlamaSharp
     (LLamaSharp + a native backend), Lyntai.Providers.ExtensionsAi (Microsoft.Extensions.AI),
     Lyntai.Storage.Sqlite (a native SQLite binary), Lyntai.Tools.Mcp.Hosting (ModelContextProtocol.Core),
     Lyntai.Secrets.Dpapi (Windows-only). See docs/DECISIONS.md D25.

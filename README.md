@@ -98,18 +98,17 @@ version you installed.
 
 | Package | What it gives you |
 |---|---|
-| **`Lyntai`** | **The starting set (6 of 12)** — Core + the dependency-free LLM backends + the MEAI bridge + both halves of MCP + **in-memory** storage. Not the whole library: add `Lyntai.Storage.Sqlite` to persist and `Lyntai.Generation` for media. |
-| `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI. Deps: DI + Logging abstractions only. |
-| `Lyntai.Providers.Default` | The dependency-free **LLM** backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings. Media backends moved to `Lyntai.Generation`. |
+| **`Lyntai`** | **The starting set (6 of 11)** — Core + the dependency-free LLM backends + the MEAI bridge + both halves of MCP + **in-memory** storage. Not the whole library: add `Lyntai.Storage.Sqlite` to persist and `Lyntai.Generation` for media. |
+| `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI — plus `Lyntai.Text.WordPieceTokenizer`, a BERT tokenizer owned rather than depended on (**D122**), usable anywhere a token-aware step is wanted. Deps: DI + Logging abstractions only. |
+| `Lyntai.Providers.Default` | The dependency-free **LLM** backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; and `AddStaticEmbedder(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port. Media backends moved to `Lyntai.Generation`. |
 | `Lyntai.Providers.ExtensionsAi` | Bridge, both directions: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider, and `AsChatClient()` back. *(In the bundle — MCP already pins the MEAI abstractions, so it costs no new dependency.)* |
-| `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. |
+| `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLocalProvider(modelPath)` and every namespace are unchanged. |
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
 | `Lyntai.Storage.InMemory` | Zero-dependency in-memory storage — tests, ephemeral use, or mixed per-domain. |
 | `Lyntai.Tools.Mcp` | Expose an MCP server's tools as Lyntai `ITool`s. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. Runs on `HttpListener` — **no ASP.NET Core**. |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
-| `Lyntai.Embeddings.Static` | In-process, server-free embedding over a model2vec static lookup table — no HTTP endpoint, no GPU, no port |
 | `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D25). |
 
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
@@ -135,7 +134,7 @@ dotnet add package Lyntai.Generation       # image/video/audio backends
 **`Lyntai` is a starting set, not the whole library.** It gives you Core, the LLM backends, the MEAI bridge,
 both halves of MCP, and **in-memory** storage. The two that surprise people: nothing persists until you add
 `Lyntai.Storage.Sqlite` (or `.Postgres`), and generation is not included. The five packages left out are left
-out for a reason — a native payload (`Storage.Sqlite`, `Providers.Local`), a platform-specific API
+out for a reason — a native payload (`Storage.Sqlite`, `Providers.LlamaSharp`), a platform-specific API
 (`Secrets.Dpapi`), a server dependency (`Storage.Postgres`), or an unverified surface (`Lyntai.Generation`) —
 see `docs/DECISIONS.md` D26.
 
@@ -1265,13 +1264,13 @@ in-flight calls finish normally (`docs/DECISIONS.md` D30).
 services.AddLyntai(b => b.ConfigureProviderAdmission(a => a.BySlot["sd-local"] = 1));  // one render at a time
 ```
 
-### Local in-process inference (`Lyntai.Providers.Local`)
+### Local in-process inference (`Lyntai.Providers.LlamaSharp`)
 
 Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess. Reference the
-`LLamaSharp.Backend.*` that matches your hardware alongside `Lyntai.Providers.Local`:
+`LLamaSharp.Backend.*` that matches your hardware alongside `Lyntai.Providers.LlamaSharp`:
 
 ```xml
-<PackageReference Include="Lyntai.Providers.Local" />                  <!-- version: the current release -->
+<PackageReference Include="Lyntai.Providers.LlamaSharp" />             <!-- version: the current release -->
 <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />  <!-- or .Cuda12 / .Vulkan / .Metal -->
 ```
 

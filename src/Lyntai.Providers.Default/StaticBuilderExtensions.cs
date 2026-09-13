@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 // Lives in the Lyntai namespace so the Add*/Use* methods appear on the builder.
 namespace Lyntai;
 
-/// <summary>DI entry point for <c>Lyntai.Embeddings.Static</c>. A consumer composes this adapter through the builder
+/// <summary>DI entry point for the in-process static embedder. A consumer composes it through the builder
 /// (<c>services.AddLyntai(cfg =&gt; cfg.AddStaticEmbedder(…))</c>) and never constructs its types by hand.</summary>
 public static class StaticBuilderExtensions
 {

@@ -1,8 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    Named for the dependency it ISOLATES, not for where it runs: "Local" described three adapters once the
+    in-process embedder landed in Lyntai.Providers.Default, and named none of them. Renamed from
+    Lyntai.Providers.Local — the old id is in devtools/nuget-unlist.mjs RETIRED (D44).
+
+    The NAMESPACE and the type names are deliberately unchanged, so a consumer edits one PackageReference
+    and no `using`. AddLlamaSharpProvider was refused: AddLlamaProvider already exists next door for
+    llama-server over HTTP, and two names that close meaning opposite things is worse than an imprecise one.
+  -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>Lyntai.Providers.Local</PackageId>
+    <PackageId>Lyntai.Providers.LlamaSharp</PackageId>
     <Description>Lyntai LLM provider for in-process local inference of GGUF models via LLamaSharp (llama.cpp). References LLamaSharp managed only — the consuming app picks an LLamaSharp.Backend.* (Cpu/Cuda/Vulkan/Metal) matching its hardware. Wired via builder.AddLocalProvider(modelPath).</Description>
     <!-- LLamaSharp is native interop + reflection-materialized options: this package cannot honestly
          claim trim/AOT compatibility (the native llama.cpp backend is loaded dynamically). Analyzer

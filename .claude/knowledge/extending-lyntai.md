@@ -86,7 +86,7 @@ needs nothing beyond Core/BCL — or only managed `Microsoft.Extensions.Http` �
 `CodexCliProvider` and `OpenAiCompatibleProvider` already live; namespaces stay `Lyntai.Providers.<Name>`
 inside the one assembly (D25), so nothing an author writes changes. It earns its own
 `src/Lyntai.Providers.<Name>/` package (ref Core only, never adapter→adapter) only when it drags a native
-runtime, a platform-specific API, or a dependency a consumer might refuse — `Lyntai.Providers.Local` is the
+runtime, a platform-specific API, or a dependency a consumer might refuse — `Lyntai.Providers.LlamaSharp` is the
 worked example. When it does earn one, scaffold it with `node devtools/dev.mjs new-package <Lyntai.X>`: a
 package must enter NINE registries, `check-packages` gates them, and the misses are silent (no
 `ApiSurfaceTests` entry means no API gate at all). Never register them by hand — and remember a published

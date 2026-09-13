@@ -230,9 +230,21 @@ measurable. On tool routing (`docs/memory-measurements.md` §5, `affordance-stat
 
 **So the trade is not quality-per-byte; it is infrastructure.** Roughly 12 points of tool-routing accuracy
 for no server, no GPU and no port — which is worth very different amounts to a shared host and to a game
-that already owns the device. Reaching the class in-process still needs ONNX or a managed implementation
-whose hard part is the tokenizer: a new dependency and new public surface, which is the open question
-`TASKS.md` Part 196 holds, now with a price attached.
+that already owns the device.
+
+**The managed implementation SHIPPED (2026-09-14, `docs/DECISIONS.md` D122), and its hard part was smaller
+than this paragraph assumed** — it read "a new dependency and new public surface". WordPiece over a
+`vocab.txt` is ~250 lines, so `Lyntai.Text.WordPieceTokenizer` adds ONE public type and no dependency at
+all; what is left of Part 196 is the ONNX cell, where the runtime genuinely is a native dependency.
+
+**But the shipped class is ENGLISH, and the limit is the VOCABULARY rather than the tokenizer.** Counted
+2026-09-14 over `potion-base-8M`'s 29,528 rows: **1,900 non-ASCII (6.4%)** — **488 Han**, 188 Kana,
+**0 Hangul**, 86 Cyrillic, 88 Arabic. The Han rows are the top-frequency characters, against roughly 3,000
+for basic literacy and 7,000 for general text, so Chinese tokenizes STRUCTURALLY correctly (each character
+its own token, pinned by a live test against this vocabulary) and then misses the table constantly; Korean
+cannot work at all. **This is the same floor §3 records for the reranker role, arriving by the same
+route** — a multilingual vocabulary is most of a small model's parameters. A CJK-first deployment needs a
+multilingual export, and the caveat in D122 is that those are usually SentencePiece rather than WordPiece.
 
 **Three things that row does not say, and each one matters more than the number.**
 

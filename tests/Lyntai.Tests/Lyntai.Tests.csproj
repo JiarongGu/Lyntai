@@ -18,11 +18,10 @@
     <ProjectReference Include="..\..\src\Lyntai.Storage.InMemory\Lyntai.Storage.InMemory.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Storage.Postgres\Lyntai.Storage.Postgres.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.ExtensionsAi\Lyntai.Providers.ExtensionsAi.csproj" />
-    <ProjectReference Include="..\..\src\Lyntai.Providers.Local\Lyntai.Providers.Local.csproj" />
+    <ProjectReference Include="..\..\src\Lyntai.Providers.LlamaSharp\Lyntai.Providers.LlamaSharp.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Tools.Mcp\Lyntai.Tools.Mcp.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Tools.Mcp.Hosting\Lyntai.Tools.Mcp.Hosting.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Secrets.Dpapi\Lyntai.Secrets.Dpapi.csproj" />
-    <ProjectReference Include="..\..\src\Lyntai.Embeddings.Static\Lyntai.Embeddings.Static.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Generation\Lyntai.Generation.csproj" />
   </ItemGroup>
 
@@ -33,6 +32,10 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Xunit.SkippableFact" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <!-- TEST-ONLY, and the reason is the point: nothing in src/ references it any more. It is the
+         reference implementation WordPieceTokenizerTests asserts id-for-id equality against, which is what
+         makes owning the tokenizer safe rather than hopeful. See src/Directory.Packages.props. -->
+    <PackageReference Include="Microsoft.ML.Tokenizers" />
     <!-- Direct only to RAISE the transitive SSH.NET that Testcontainers pulls past its advisory
          (GHSA-q939-rpr3-3284) — nothing in this project uses SSH. See src/Directory.Packages.props. -->
     <PackageReference Include="SSH.NET" />

@@ -3187,6 +3187,10 @@ static class Lyntai.Text.JsonExtract
     static ExtractObject(String text) : String
     static IsValid(String text) : Boolean
     static TryParseObject(String text, JsonDocument& doc) : Boolean
+sealed class Lyntai.Text.WordPieceTokenizer
+    EncodeToIds(String text) : IReadOnlyList<Int32>
+    static FromModelDirectory(String directory) : WordPieceTokenizer
+    static FromVocabulary(IReadOnlyList<String> vocabulary, String unknownToken = "[UNK]", Boolean lowercase = true, Nullable<Boolean> stripAccents = null, Boolean tokenizeChineseCharacters = true) : WordPieceTokenizer
 static class Lyntai.ToolSelectorRegistration
     static AddEmbeddingToolSelector(LyntaiBuilder builder, Action<ToolSelectorOptions> configure = null) : LyntaiBuilder
 static class Microsoft.Extensions.DependencyInjection.LyntaiServiceCollectionExtensions

@@ -29,11 +29,10 @@ public class ApiSurfaceTests
         "Lyntai.Storage.InMemory",
         "Lyntai.Storage.Postgres",
         "Lyntai.Providers.ExtensionsAi",
-        "Lyntai.Providers.Local",
+        "Lyntai.Providers.LlamaSharp",
         "Lyntai.Tools.Mcp",
         "Lyntai.Tools.Mcp.Hosting",
         "Lyntai.Secrets.Dpapi",
-        "Lyntai.Embeddings.Static",
         "Lyntai.Generation",
     ];
 
@@ -48,11 +47,12 @@ public class ApiSurfaceTests
         ["Lyntai.Storage.InMemory"] = typeof(InMemoryKeyValueStore).Assembly,
         ["Lyntai.Storage.Postgres"] = typeof(PostgresConnectionFactory).Assembly,
         ["Lyntai.Providers.ExtensionsAi"] = typeof(Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider).Assembly,
-        ["Lyntai.Providers.Local"] = typeof(Lyntai.Providers.Local.LocalProvider).Assembly,
+        // The namespace stays `Lyntai.Providers.Local` on purpose — only the PACKAGE was renamed, so no
+        // consumer edits a `using`. The key is the ASSEMBLY name, which follows the project.
+        ["Lyntai.Providers.LlamaSharp"] = typeof(Lyntai.Providers.Local.LocalProvider).Assembly,
         ["Lyntai.Tools.Mcp"] = typeof(Lyntai.Tools.Mcp.McpToolset).Assembly,
         ["Lyntai.Tools.Mcp.Hosting"] = typeof(Lyntai.McpToolHostBuilderExtensions).Assembly,
         ["Lyntai.Secrets.Dpapi"] = typeof(Lyntai.Secrets.DpapiSecretProtector).Assembly,
-        ["Lyntai.Embeddings.Static"] = typeof(Lyntai.StaticBuilderExtensions).Assembly,
         ["Lyntai.Generation"] = typeof(Lyntai.Generation.Providers.OpenAiImageProvider).Assembly,
     };
 

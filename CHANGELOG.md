@@ -14,6 +14,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **`Lyntai.Providers.Local` is renamed `Lyntai.Providers.LlamaSharp`.** Every package here is named for
+  the dependency it ISOLATES, and "Local" stopped naming anything once the in-process static embedder
+  landed — it described three things and identified none. **The namespace and every type name are
+  unchanged**, deliberately, so the migration is one `PackageReference` and no `using` edit;
+  `AddLocalProvider(modelPath)` still registers it. `AddLlamaSharpProvider` was refused because
+  `AddLlamaProvider` already exists next door for llama-server over HTTP, and two names that close meaning
+  opposite things is worse than one imprecise one. The old id is unlisted (**D44**).
+
 - **`ToolLoop`'s constructor gains an optional trailing `IToolSelector? selector` parameter** (**D120**).
   Source-compatible — existing code keeps compiling — but BINARY-breaking for a pre-compiled caller of the
   old signature. Consumers reach the loop through `AddLyntai`, and the constructor already grew this way for
@@ -21,14 +29,26 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
-- **`Lyntai.Embeddings.Static` — an in-process embedder with NO server, GPU or port** (**D121**).
-  `AddStaticEmbedder(modelDirectory)` over a `model2vec` lookup table; its only third-party dependency is the
-  managed `Microsoft.ML.Tokenizers`, which is why it is its own package. **The case is operational, not
-  quality or speed**: encode-only vectors are byte-identical across devices and a local HTTP call already
-  measures 0.4 ms, so what this buys is a desktop or game application that cannot spawn a server at all.
-  Priced: `potion-base-8M` (30,236,760 B) costs **0.5 points** on the shipped memory default and about 12 on
-  a purely embedding-bound selective task — how much an embedder is worth is a property of the ARM. It also
+- **An in-process embedder with NO server, GPU or port** (**D121**, **D122**).
+  `AddStaticEmbedder(modelDirectory)` over a `model2vec` lookup table, **in `Lyntai.Providers.Default`** —
+  no new package and **no new dependency**, because its WordPiece tokenizer is owned rather than referenced
+  (**D122**: `Microsoft.ML.Tokenizers` cost 812 KB of closure, with `Google.Protobuf`, for one call). Both
+  packages keep their `✅` trim/AOT rows. **The case is operational, not quality or speed**:
+  encode-only vectors are byte-identical across devices and a local HTTP call already measures 0.4 ms, so
+  what this buys is a desktop or game application that cannot spawn a server at all. Priced:
+  `potion-base-8M` (30,236,760 B) costs **0.5 points** on the shipped memory default and about 12 on a
+  purely embedding-bound selective task — how much an embedder is worth is a property of the ARM. It also
   has **no context limit**, where every sub-100 MB transformer embedder rejects an input past 512 tokens.
+  <br>Owning the tokenizer also **corrected four ways the referenced one lost text** — `\t`/`\n`/`\r` did
+  not separate words, `$ ^ + = | < >` were dropped though each has a vocabulary row, an unmatchable symbol
+  was dropped rather than `[UNK]`, and accents were not stripped though the model's config asks for it.
+  Nothing released was affected; the defect arrived and left inside this release (`docs/FIXES.md`).
+
+- **`Lyntai.Text.WordPieceTokenizer` — a BERT tokenizer the library owns** (**D122**). `FromModelDirectory`
+  takes its rules from the model's own `tokenizer_config.json` rather than a caller's guess, because the ids
+  a model was built against depend on them. Public because it is general text logic, not the embedder's
+  private business: anything wanting a token-aware step — a budget in tokens rather than characters, a
+  future ONNX embedder — can use it. It emits CONTENT tokens only, with no `[CLS]`/`[SEP]`, deliberately.
 
 - **`IToolSelector` and `AddEmbeddingToolSelector` — the tool roster can be BOUNDED before the model sees
   it** (**D120**). `IToolRegistry` hands the loop every registered tool on every iteration and the model

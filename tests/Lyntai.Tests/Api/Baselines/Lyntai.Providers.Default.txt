@@ -6,6 +6,13 @@ static class Lyntai.CodexCliBuilderExtensions
     static AddCodexCliProvider(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, CodexCliDialect dialect = null) : LyntaiBuilder
 static class Lyntai.CrossEncoderVerificationRegistration
     static AddMemoryCrossEncoderVerification(LyntaiBuilder builder, Action<CrossEncoderVerificationOptions> configure = null, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+sealed class Lyntai.Embeddings.Static.StaticEmbedder
+    Dimensions : Int32
+    EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
+    static FromDirectory(String directory, StaticEmbedderOptions options = null) : StaticEmbedder
+sealed class Lyntai.Embeddings.Static.StaticEmbedderOptions
+    .ctor()
+    Normalize : Nullable<Boolean>
 static class Lyntai.OpenAiCompatibleBuilderExtensions
     static AddAzureOpenAiProvider(LyntaiBuilder builder, String endpoint, String apiKey, String defaultModel = null, String id = "azure-openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddLlamaProvider(LyntaiBuilder builder, String baseUrl = null, String defaultModel = null, String id = "llama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
@@ -144,3 +151,5 @@ enum Lyntai.Providers.OpenAiCompatible.OpenAiFlavor
     OpenAi : OpenAiFlavor const
     OpenRouter : OpenAiFlavor const
     value__ : Int32
+static class Lyntai.StaticBuilderExtensions
+    static AddStaticEmbedder(LyntaiBuilder builder, String modelDirectory, Action<StaticEmbedderOptions> configure = null) : LyntaiBuilder

@@ -42,11 +42,10 @@ export default {
     'src/Lyntai.Storage.InMemory',
     'src/Lyntai.Storage.Postgres',
     'src/Lyntai.Providers.ExtensionsAi',
-    'src/Lyntai.Providers.Local',
+    'src/Lyntai.Providers.LlamaSharp',
     'src/Lyntai.Tools.Mcp',
     'src/Lyntai.Tools.Mcp.Hosting',
     'src/Lyntai.Secrets.Dpapi',
-    'src/Lyntai.Embeddings.Static',
     'src/Lyntai.Generation',
   ],
   /**

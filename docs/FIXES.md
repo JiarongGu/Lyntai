@@ -7,6 +7,51 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-14 — the static embedder's tokenizer silently DELETED text: newlines, `$ ^ + = | < >`, and every emoji
+
+**Symptom.** `StaticEmbedder` tokenized through `Microsoft.ML.Tokenizers`' `BertTokenizer`, which departs
+from the reference BERT pipeline in four ways — and every one of them LOSES text rather than mis-splitting
+it, so the vector is finite, plausible and wrong:
+
+1. **`\t`, `\n`, `\r` do not separate words.** `"alpha\nbeta"` is one unmatchable token, so it embeds as a
+   single `[UNK]`. Any multi-line document, memory entry or conversation turn is affected at every break.
+2. **ASCII symbols are dropped entirely.** `$ ^ + = | < >` each have their own vocabulary row and each
+   vanished — so a price, a comparison, and a URL's query string lose characters the model was trained on.
+3. **An unmatchable symbol is dropped rather than `[UNK]`.** An emoji produced no token at all, silently
+   shortening the mean rather than contributing the row the table has an opinion about.
+4. **Accents were not stripped**, though every BERT `tokenizer_config.json` declares `strip_accents: null`,
+   which the reference reads as *follow `do_lower_case`* — on. `"café"` was `[UNK]` instead of `cafe`.
+
+**Root cause.** (1)–(3) are one mistake: the reference's `_is_punctuation` tests the ASCII ranges 33-47,
+58-64, 91-96 and 123-126 **and then** the Unicode `P*` categories, precisely because `$ ^ + = | < >` are
+Unicode *symbols* (Sc/Sk/Sm) rather than punctuation. Testing only the categories fails to split on them,
+and the characters are then neither matched nor emitted. (4) is a plain default disagreement — the library
+leaves accents on; the model's own config asks for them off.
+
+**A fifth hazard that was not a defect, but was one edit away.** `BertTokenizer` shadows `EncodeToIds` with
+a `new` method that adds `[CLS]`/`[SEP]`; the base does not. `StaticEmbedder` held the field as `Tokenizer`,
+so it got the base one — correct for a `model2vec` table, and correct **by the declared type of a private
+field**. Narrowing that field to `BertTokenizer`, which reads as a safe tidy-up, would have folded two rows
+into every vector (`.claude/knowledge/pitfalls.md`).
+
+**Fix.** The tokenizer is owned: `WordPieceTokenizer` implements the reference pipeline, and
+`TokenizerRules` reads `do_lower_case` / `strip_accents` / `tokenize_chinese_chars` / `unk_token` from the
+model's own `tokenizer_config.json` rather than defaulting them — the same stance `NormalizeFromConfig`
+already took for `normalize`. This was reached while pricing the dependency for **D122**, not while
+hunting a bug.
+
+**Verify.** 15 new tests. The load-bearing one asserts id-for-id equality against
+`Microsoft.ML.Tokenizers` — now a TEST-only reference — over a corpus built to hit the rules
+implementations disagree on, and again over a **real 29,528-row pruned vocabulary** behind
+`LYNTAI_STATIC_MODEL_DIR`; both are exact. The four corrections are pinned by a test that asserts the OLD
+answer as well as the new, so if the library is ever fixed upstream the exclusion fails rather than rots.
+`StaticEmbedderLiveTests` still passes against a real `potion-base-8M`.
+
+**Introduced by.** **D121**, the commit that shipped the static embedder (2026-09-13) — the defect shipped
+with the feature and was never released.
+
+---
+
 ## 2026-09-12 — three fail-open contracts were false for the BYO implementations they were written to protect
 
 **Symptom.** `ScoringService`, `MemoryPromptComposer` and `PromptRegistry` each promise fail-open in their

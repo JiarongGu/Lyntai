@@ -3518,11 +3518,14 @@ open for the TRANSFORMER × CPU package and now carries its scoping.
 `model2vec` lookup table, no server, GPU or port. Verified against a real `potion-base-8M`, not only a
 fixture.
 
-**The framing improved while building it, and that is the half worth carrying.** The packaging boundary is
-**MANAGED against NATIVE**, not static against transformer: `potion-base-8M` ships its own `onnx/model.onnx`,
-so ONNX Runtime could serve the static class too. What a consumer chooses between is a package they can
-trim and AOT-compile and one they cannot — which is why the ONNX cell must OPT OUT of the trim claim the
-static one keeps.
+> **The PACKAGE did not survive the next day** (**D122**): its dependency was priced, the tokenizer written
+> instead, and the pieces split by kind — adapter to `Lyntai.Providers.Default`, tokenizer to
+> `Lyntai.Core`. `AddStaticEmbedder` and every namespace
+> are unchanged. Read the package name above as history; the capability is current.
+
+**The framing improved while building it, and that is the half worth carrying:** the packaging boundary is
+**MANAGED against NATIVE**, not static against transformer — `docs/deployment-shapes.md` owns it, and
+**D122** owns what it then costs to cross.
 
 **One worry checked rather than assumed.** A `model2vec` export ships a PRUNED vocabulary — 29,528 rows
 against the base model's 30,522 — so a table and tokenizer disagreeing about which row an id names would

@@ -25,7 +25,7 @@ inside that one assembly (D25: consolidating packages must not force a consumer 
 
 It earns its own `src/Lyntai.Providers.<Name>/` package (project-ref `Lyntai.Core` only, never
 adapter→adapter) **the moment it drags a native runtime, a platform-specific API, or a dependency a
-consumer might refuse** — `Lyntai.Providers.Local` (LLamaSharp + a native backend) is the worked example.
+consumer might refuse** — `Lyntai.Providers.LlamaSharp` (LLamaSharp + a native backend) is the worked example.
 Do not create one for tidiness: a published package id can never be freed or reused (D23), so a needless
 id is permanent. If it does earn a package, scaffold it — see the Baselines bullet below; never hand-roll
 the csproj.
@@ -61,7 +61,7 @@ the csproj.
 ## Native provider checklist (non-CLI)
 - [ ] A class in `src/Lyntai.Providers.Default/` unless the backend drags a dependency a consumer might
       refuse — the footprint test above. `OpenAiCompatibleProvider` lives there (managed
-      `Microsoft.Extensions.Http` only); `Lyntai.Providers.Local` earned its own package.
+      `Microsoft.Extensions.Http` only); `Lyntai.Providers.LlamaSharp` earned its own package.
 - [ ] `MyProvider : ILlmProvider` — `Id`, `IsAvailable`, `CompleteAsync`, `StreamAsync`.
 - [ ] Failures classified via `LlmVerdictClassifier` (429→RateLimited, 401/403→AuthFailed, filter→Refused,
       too-big→ContextWindowExceeded, deadline→Timeout, else Failed). No local heuristics.
