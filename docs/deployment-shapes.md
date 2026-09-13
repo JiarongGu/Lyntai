@@ -159,14 +159,19 @@ whole items instead of 120-character headlines is worth **+14.9 / +9.2 / +7.1** 
 `GraphMemoryOptions.HeadlineChars` still defaults to 120. A second seam agrees independently: **D108**'s
 reranker went 78.0% → 91.0% on whole turns.
 
-**But on a SUPPRESSION workload it is budget-dependent, and at a tight budget it COSTS**
-(`longmemeval-ku-completeness-budget`). Whole items are bigger, so a character cap admits fewer of them —
-and on the class that scores preferring a revised fact over the one it superseded, that lands **−11.4**
-points of `clean` at a 1,200-character budget, **+8.6** at 5,400, and **exactly zero** once the cap stops
-binding. The mechanism is the same in all three: too tight and the page starves (the current fact itself
-falls out, 82.9% → 47.1%), too loose and there is nothing to trade. **So spend the lever where the cap
-trims the tail rather than the answer**, and do not read the search figures as a general rule about
-context budgets.
+**On a SUPPRESSION workload it behaves completely differently — there is an OPTIMUM, not a direction**
+(`longmemeval-ku-completeness-peak`). Whole items are bigger, so a character cap admits fewer of them, and
+on the class that scores preferring a revised fact over the one it superseded that cap stops being an
+overhead and becomes a FILTER. Swept over six budgets, `clean` runs **32.9 → 40.0 → 48.6 → 54.3 → 52.9 →
+44.3%** against a flat 44.3% for headlines: it costs at a tight cap, peaks around **4,200 characters**, and
+returns to exactly break-even once the cap no longer binds. Too tight and the page starves (the current
+fact itself falls out, 82.9% → 47.1%); too loose and the superseded fact comes back with everything else.
+
+**Two things follow, and the second is the one to act on.** Do not read the search figures as a general
+rule about context budgets — the lever's sign depends on the workload AND the cap. And on this workload
+completeness is not the lever to reach for at all: a deeper first recall trimmed hard (`fill` at 1,200,
+or `CandidateMultiplier = 16`) reaches **61.4%** at a third of the context, beating completeness at its own
+optimum.
 
 **And bound a SELECTIVE input before buying a bigger model.** List length governs a judge more than model
 choice does (20 shown → 16.2% precision, 80 → 2.6%), and for a tool roster the native transport bounds what
