@@ -3506,3 +3506,28 @@ misconfiguration cannot blind the loop.
 **One real cost, declared rather than buried:** `ToolLoop`'s constructor gains an optional trailing
 parameter, which is binary-breaking. It sits under **Breaking** in the changelog; an overload was refused
 because it would pay for a pre-compiled caller that does not exist.
+
+## Part 207 — the STATIC in-process embedder ships; the ONNX half is scoped, not built
+
+✅ closed 2026-09-13 for the static half. `TASKS.md` Part 196's item, ruled the same day. The item stays
+open for the TRANSFORMER × CPU package and now carries its scoping.
+
+- **Ship an IN-PROCESS embedder: BOTH CPU cells of the 2×2, as two adapter packages.**
+
+**Outcome: `Lyntai.Embeddings.Static` shipped** (**D121**, `CHANGELOG.md`) — `AddStaticEmbedder(dir)` over a
+`model2vec` lookup table, no server, GPU or port. Verified against a real `potion-base-8M`, not only a
+fixture.
+
+**The framing improved while building it, and that is the half worth carrying.** The packaging boundary is
+**MANAGED against NATIVE**, not static against transformer: `potion-base-8M` ships its own `onnx/model.onnx`,
+so ONNX Runtime could serve the static class too. What a consumer chooses between is a package they can
+trim and AOT-compile and one they cannot — which is why the ONNX cell must OPT OUT of the trim claim the
+static one keeps.
+
+**One worry checked rather than assumed.** A `model2vec` export ships a PRUNED vocabulary — 29,528 rows
+against the base model's 30,522 — so a table and tokenizer disagreeing about which row an id names would
+produce finite, plausible, wrong vectors. `vocab.txt` turned out to be the pruned list, exactly matching the
+table, and a live test now pins it because the synthetic fixture structurally cannot.
+
+**A contract pinned that would otherwise be invisible:** CONTENT tokens only, no `[CLS]`/`[SEP]`. Bracketing
+would fold two rows into every mean and shift each vector by an amount no smoke test could see.

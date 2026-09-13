@@ -31,7 +31,7 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 401 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 424 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
 | 716 | 177 | Survey and smoke-test a SUB-100 MB cross-encoder — the sizing target has no… | blocked · env | llama.cpp PR #21729 to merge — token_type_ids are zeroed and the pooler is … |
-| 866 | 196 | Ship an IN-PROCESS embedder: BOTH CPU cells of the 2×2, as two adapter pack… | startable |  |
+| 866 | 196 | Ship the TRANSFORMER x CPU embedder — an ONNX Runtime adapter | startable |  |
 
 <!-- open-items:end -->
 
@@ -863,52 +863,40 @@ multilingual floor is the TOKENIZER's rather than the cross-encoder role's (mono
 quantising does not), and the STATIC class has no GGUF in existence, which is what the item below now
 turns on._
 
-- [ ] **Ship an IN-PROCESS embedder: BOTH CPU cells of the 2×2, as two adapter packages.** <!-- item: state=startable -->
-  **RULED 2026-09-13: STATIC × CPU and TRANSFORMER × CPU both ship; the GPU column does not.** Two
-  packages, because they isolate different dependencies and `dotnet-package-layout.md` splits by dependency
-  footprint: a `model2vec` adapter is pure managed apart from `Microsoft.ML.Tokenizers`, and an ONNX Runtime
-  adapter drags in a native runtime a consumer may refuse. Neither belongs in Core. **The GPU cells stay
-  unbuilt**: STATIC × GPU has no matmul to accelerate, and a CUDA backend would be the library choosing the
-  user's hardware, which is what **D68** refuses — if a GPU cell is ever built it is DirectML, for being
-  vendor-neutral on any DX12 device.
-  <br>**One figure in the body below is quoted out of its regime and must not drive the design**: the
-  ~12-point gap is a purely embedding-bound SELECTIVE task. On the memory workload the same static model
-  costs **0.5 points** on the shipped default (`docs/deployment-shapes.md`), which is the number a memory
-  consumer should read.
-  `IEmbedder` is already the seam; what does not exist is any implementation that runs without an HTTP
-  endpoint.
-  <br>**WIDENED 2026-09-13 — it is a 2×2, not a single question**, and the four cells cost very different
-  amounts (`docs/deployment-shapes.md` §Shape: no server at all). STATIC × CPU is `model2vec`, pure managed
-  apart from a tokenizer (`Microsoft.ML.Tokenizers`), the smallest possible footprint, measured ~12 points
-  behind. TRANSFORMER × CPU is ONNX Runtime. TRANSFORMER × GPU is ONNX **DirectML** — vendor-neutral on any
-  DX12 device — or LLamaSharp plus a CUDA backend, which is NVIDIA-only and would be the library choosing
-  the user's hardware, the thing **D68** refuses. STATIC × GPU is empty: there is no matmul to accelerate.
-  <br>**And it is NOT a quality or a speed question, which narrows the ruling usefully.** Encode-only
-  vectors are byte-identical across devices, so moving a model in-process cannot change a retrieval score;
-  and a local HTTP call with `UseProxy = false` measures **0.4 ms**, so there is no latency to win. The
-  entire case is operational — no second process to ship and supervise, no port, a lifetime tied to the
-  application's — which is decisive for a distributed app and invisible to a benchmark.
-  <br>**Why it is worth asking**: the stated aim is that a memory subsystem *"should not claim the resources
-  of"* the application's own model (§3). An embedder needing no server, no GPU and no port is the strongest
-  possible form of that, and it is the one place where sub-100 MB and zero-infrastructure coincide.
-  <br>**The class is now PRICED, so this is a ruling on a known trade rather than on a hope**
-  (2026-09-13, `docs/memory-measurements.md` §5 `affordance-static-embedders`). Measured through a shim,
-  because no GGUF of any `model2vec` / `potion` / `static-retrieval` model exists and llama.cpp therefore
-  cannot serve one: **every size screens HEALTHY and none has a context limit** — a lookup table has no
-  positional embeddings, so it accepts an input every sub-100 MB *transformer* embedder rejects at 512.
-  On tool routing it reads **63.1-70.8%** at three options against a 25,008,064 B MiniLM's **78.6%** and
-  the 333,590,944 B incumbent's **81.0%**. **Retrieval tuning does not close it**: the tuned member at
-  **129,210,456 B** is no better at three options and worse at seven than `potion-base-8M` at
-  **30,236,760 B**, so the gap is the class rather than the member.
-  <br>**The ruling is therefore: is ~12 points of selective accuracy worth no server, no GPU and no port?**
-  That is worth very different amounts to a shared host and to a game that already owns the device — which
-  is why it is a deployment question and not a benchmark one. Exact sizes for the cheap members:
-  `potion-base-2M` **7,559,256 B**, `potion-base-8M` **30,236,760 B**, `static-retrieval-mrl-en-v1`'s int8
-  ONNX **31,259,319 B**.
-  <br>_Not startable until ruled: a managed tokenizer is a third-party dependency, and
-  `dotnet-package-layout.md` forbids one in Core — so this is an ADAPTER package plus a public type, on an
-  API frozen under SemVer since 1.0 (**D70**). The ruling is which of those costs is acceptable, and it is
-  the owner's._
+- [ ] **Ship the TRANSFORMER x CPU embedder — an ONNX Runtime adapter.** The second of the two packages <!-- item: state=startable -->
+  the 2026-09-13 ruling authorised. **The STATIC half SHIPPED the same day** as `Lyntai.Embeddings.Static`
+  (**D121**, `docs/task-archive.md` Part 207), so what is left is one package, and the work it needs is
+  known rather than guessed.
+
+  **The boundary is MANAGED against NATIVE, not static against transformer** — found while building the
+  first half, and it is the thing to get right in the decision record. `potion-base-8M` ships its own
+  `onnx/model.onnx`, so ONNX Runtime could serve the STATIC class too; what a consumer actually chooses
+  between is a package they can trim and AOT-compile and one they cannot. Write the decision in those terms.
+
+  **Three concrete consequences, each already checked:**
+  1. **It cannot inherit the trim/AOT claim.** ONNX Runtime is a native dependency, so the csproj must set
+     `IsAotCompatible=false` / `IsTrimmable=false` / `EnableTrimAnalyzer=true` and the `docs/AOT.md` row must
+     say so — the template calls this out, and `check-warnings` is what keeps the claim honest. The static
+     package's row reads "compatible" and that must stay TRUE of it alone.
+  2. **`new-package` does the registries**, and the misses are silent: it wired the solution, packableProjects,
+     the test ProjectReference, `ApiSurfaceTests`, `docs/AOT.md` and the README table for the static one.
+  3. **Bundle membership is NOT automatic (D26)** and a native runtime is exactly the dependency a
+     one-line-install consumer may refuse, so it almost certainly does not go in `Lyntai.Bundle`.
+
+  **What to reuse rather than rewrite.** `StaticEmbedder` already settles the shape a second adapter should
+  match: `FromDirectory` loading eagerly so a truncated model fails at composition, an empty text yielding a
+  ZERO vector rather than throwing, a corrupt model THROWING rather than producing plausible vectors, and a
+  `[SkippableFact]` live test beside the synthetic one. **The live test is the load-bearing half**: a real
+  export ships a pruned vocabulary, which the synthetic fixture structurally cannot catch.
+
+  **Which model to test against.** `potion-base-8M`'s own `onnx/model.onnx` is already on disk, which makes
+  the first run cheap; a real sentence-transformer export (`all-MiniLM-L6-v2`, `bge-small-en-v1.5`) is the
+  honest target for the TRANSFORMER cell, since serving a static table through ONNX measures the runtime
+  rather than the class.
+
+  _**Not blocked**: no key, no download that is not already local, and no ruling outstanding — the ruling was
+  given on 2026-09-13 and this is the half that was not built before the session ended._
+
 
 
 ## How to work a task (evergreen)

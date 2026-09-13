@@ -116,21 +116,24 @@ tear down; no port to conflict or prompt a firewall; a lifetime tied to the appl
 and they are decisive for a distributed application — they are simply not things a benchmark answers.
 
 **The option space is a 2×2, and the dependency cost differs by an order of magnitude across it.** Surveyed
-2026-09-13; all four exist and are maintained, none is adopted here.
+2026-09-13. **The CPU column is the one being adopted and its STATIC half now SHIPS** (**D121**); the GPU
+column stays unbuilt and the reason is under the table.
 
 | | CPU | GPU |
 |---|---|---|
-| **static** (lookup table, no matmul) | `model2vec` — measured at ~12 points behind; needs a managed tokenizer (`Microsoft.ML.Tokenizers`), pure managed, smallest possible footprint | n/a — there is nothing to accelerate |
-| **transformer** | ONNX Runtime — native dependency | ONNX Runtime **DirectML**, or LLamaSharp + a CUDA backend |
+| **static** (lookup table, no matmul) | **SHIPS** as `Lyntai.Embeddings.Static` (**D121**) — `AddStaticEmbedder(dir)`. Pure managed apart from `Microsoft.ML.Tokenizers`; **0.5 points** behind on the memory default and ~12 on a selective task, and the only cell with NO context limit | n/a — there is nothing to accelerate |
+| **transformer** | ONNX Runtime — a NATIVE dependency, so it cannot inherit the trim/AOT claim the static cell keeps. Not built; `TASKS.md` Part 196 scopes it | ONNX Runtime **DirectML**, or LLamaSharp + a CUDA backend |
 
 **For a game, DirectML is the one worth noting**: it is vendor-neutral on any DX12 device and ships with
 Windows, where a CUDA backend requires the user to have an NVIDIA card and runtime. A library that
 hard-wired CUDA would be choosing the user's hardware for them, which is the thing **D68** refuses.
 
-**None of this is shipped, and the ruling is the dependency, not the capability.** `IEmbedder` is already
-the seam; `dotnet-package-layout.md` forbids a third-party dependency in Core, so every cell above is an
-ADAPTER package plus a public type on an API frozen under SemVer since 1.0 (**D70**). `TASKS.md` Part 196
-holds it.
+**The ruling was the dependency, not the capability**, and that is why the two CPU cells are two packages
+rather than one: `dotnet-package-layout.md` splits by the dependency a package ISOLATES, and a managed
+tokenizer and a native runtime are not the same promise to a consumer. **The real boundary is MANAGED
+against NATIVE rather than static against transformer** — `potion-base-8M` ships its own `onnx/model.onnx`,
+so ONNX could serve the static class too; what a consumer is choosing between is a package they can trim
+and AOT-compile and one they cannot.
 
 ## Shape: the size class you can afford
 
