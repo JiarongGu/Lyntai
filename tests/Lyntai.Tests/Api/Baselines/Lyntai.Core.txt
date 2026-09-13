@@ -2542,6 +2542,7 @@ sealed class Lyntai.Memory.Verification.MemoryVerification
     GetHashCode() : Int32
     Judged : Boolean
     RelevantIds : IReadOnlyList<String>
+    Scores : IReadOnlyDictionary<String,Double>
     ToString() : String
     static NoOpinion : MemoryVerification
     static NothingRelevant : MemoryVerification

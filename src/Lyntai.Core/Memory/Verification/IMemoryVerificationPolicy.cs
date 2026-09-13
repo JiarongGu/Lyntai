@@ -126,4 +126,24 @@ public sealed record MemoryVerification(IReadOnlyList<string> RelevantIds, bool 
     /// <see cref="NoOpinion"/> and meaningful: it is a recall that found nothing useful, which is exactly the
     /// observation the review log could never previously contain.</summary>
     public static MemoryVerification NothingRelevant { get; } = new([]);
+
+    /// <summary>How strongly each candidate scored, keyed by <see cref="MemoryVerificationCandidate.Id"/>,
+    /// or <see langword="null"/> when the policy reported none. Covers EVERY candidate it scored, not only
+    /// the endorsed ones — the rejected scores are the half a margin needs, since an endorsement says
+    /// nothing about how far ahead it was.
+    ///
+    /// <para><b>Null is not an empty map.</b> Null means the policy said nothing; a populated map of zeros
+    /// is a real judgement that nothing resembled the query. That is <see cref="Judged"/>'s distinction one
+    /// level down, and collapsing it would let a policy that cannot score look like one that scored
+    /// everything at the floor.</para>
+    ///
+    /// <para><b>The scale is the POLICY's and is not comparable across them</b>, the same caveat
+    /// <see cref="MemoryVerificationCandidate.Relevance"/> carries. A cross-encoder's number and a judge's
+    /// are not the same quantity, and neither supports an absolute floor derived from one value — a
+    /// RELATIVE test (the top against the rest) is what this supports.</para>
+    ///
+    /// <para><b>An init property rather than a positional parameter</b>, so the record's
+    /// <c>Deconstruct</c> keeps its arity: widening the primary constructor would be a BINARY break for
+    /// every one of the implementations that construct this.</para></summary>
+    public IReadOnlyDictionary<string, double>? Scores { get; init; }
 }

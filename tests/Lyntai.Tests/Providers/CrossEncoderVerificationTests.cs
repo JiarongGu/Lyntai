@@ -245,6 +245,41 @@ public class CrossEncoderVerificationTests
         Assert.Equal("Bearer k", handler.Requests[0].Auth);
         Assert.Contains("bge-reranker-v2-m3", handler.Requests[0].Body);
     }
+    [Fact]
+    public async Task The_verdict_carries_the_score_for_EVERY_candidate_including_the_ones_it_did_not_endorse()
+    {
+        // The rejected scores are the half a margin needs: endorsing c and b says nothing about HOW much
+        // better they were than a. Before this the policy computed a real-valued score per candidate and
+        // discarded all of it at the endorsement cut, so no public type in the library carried a per-option
+        // confidence out of a model-backed seam.
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """
+            {"results":[{"index":0,"relevance_score":0.10},
+                        {"index":1,"relevance_score":0.80},
+                        {"index":2,"relevance_score":0.95}]}
+            """);
+
+        var verdict = await Policy(handler, endorse: 2).VerifyAsync(Request("a", "b", "c"));
+
+        Assert.NotNull(verdict.Scores);
+        Assert.Equal(3, verdict.Scores!.Count);
+        Assert.Equal(0.95, verdict.Scores["c"], 3);
+        Assert.Equal(0.80, verdict.Scores["b"], 3);
+        Assert.Equal(0.10, verdict.Scores["a"], 3);   // unendorsed, and still scored
+    }
+
+    [Fact]
+    public async Task A_verdict_with_NO_scores_is_distinguishable_from_one_that_scored_everything_at_zero()
+    {
+        // Null means the policy reported none; a populated map of zeros is a real judgement that nothing
+        // resembled the query. The same distinction Judged already draws, one level down.
+        Assert.Null(MemoryVerification.NoOpinion.Scores);
+        Assert.Null(MemoryVerification.NothingRelevant.Scores);
+
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """{"results":[]}""");
+        var empty = await Policy(handler).VerifyAsync(Request("a"));
+        Assert.False(empty.Judged);
+        Assert.Null(empty.Scores);
+    }
 }
 
 /// <summary>The wire format against a REAL reranker, so the adapter's request and response shapes are

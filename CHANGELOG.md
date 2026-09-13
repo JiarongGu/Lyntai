@@ -14,6 +14,16 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`MemoryVerification.Scores` — a verification verdict now carries the score it judged on** (**D118**).
+  `CrossEncoderVerificationPolicy` computed a real-valued score per candidate and discarded all of it at the
+  endorsement cut; no public type carried a per-option confidence out of a model-backed seam, which is what
+  a decision system is usually built on. It covers EVERY candidate scored, not the endorsed subset — the
+  rejected scores are the half a margin needs. **Null is not an empty map**: null means the policy reported
+  nothing, a map of zeros is a judgement that nothing matched. The scale is the policy's own and is not
+  comparable across policies — a real reranker scored a known pair at +1.19 and −10.23, so anything assuming
+  `[0,1]` would drop the discriminating half. An `LlmMemoryVerificationPolicy` judge leaves it null.
+  Additive; no default moves.
+
 - **`ToolLoopResult.Transport` and the `ToolTransport` enum — a tool loop now reports which transport ran**
   (**D117**). `ToolLoop` prefers native function-calling and silently falls back to its own prompt protocol
   when `ILlmClient.SupportsToolCalls` says no. That fallback is not a degradation of degree: measured on one

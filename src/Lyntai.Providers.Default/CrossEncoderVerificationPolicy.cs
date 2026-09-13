@@ -63,7 +63,17 @@ public sealed class CrossEncoderVerificationPolicy(
             .Where(s => s.Index >= 0 && s.Index < request.Candidates.Count)   // never invent an id
             .Select(s => request.Candidates[s.Index].Id)
             .ToList();
-        return new MemoryVerification(ids);
+
+        // EVERY scored candidate, not just the endorsed ones: the rejected scores are what a caller needs
+        // to read a margin, and this policy had been computing and discarding them. Same index guard as
+        // above, and last-wins on a duplicated index rather than throwing — a backend that repeats one is
+        // malformed, and losing the verdict over it would be the fail-open seam turning into a hard failure.
+        var byId = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var (index, score) in scored)
+            if (index >= 0 && index < request.Candidates.Count)
+                byId[request.Candidates[index].Id] = score;
+
+        return new MemoryVerification(ids) { Scores = byId };
     }
 
     /// <summary>Scores every document against the query. Null — never a fabricated ordering — when the

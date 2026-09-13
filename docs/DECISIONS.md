@@ -187,8 +187,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D115](#d115--a-model-backed-ranker-fills-the-verification-seam-and-endorses-a-fixed-pages-worth-2026-09-11) | 2026-09-11 | a model-backed RANKER fills the VERIFICATION seam, and endorses a fixed page's worth |
 | [D116](#d116--the-embedding-seam-carries-a-role-because-an-asymmetric-model-cannot-infer-it-2026-09-12) | 2026-09-12 | the embedding seam carries a ROLE, because an asymmetric model cannot infer it |
 | [D117](#d117--a-tool-loop-reports-its-transport-because-the-fallback-is-silent-and-not-a-degradation-of-degree-2026-09-13) | 2026-09-13 | a tool loop REPORTS its transport, because the fallback is silent and not a degradation of degree |
+| [D118](#d118--a-verification-verdict-carries-the-score-it-judged-on-for-every-candidate-it-scored-2026-09-13) | 2026-09-13 | a verification verdict carries the SCORE it judged on, for every candidate it scored |
 
-_All 117 entries are live decisions._
+_All 118 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3488,3 +3489,39 @@ refuses the same collapse for the same reason. The built-in loop always reports.
 the only terminal is `SessionEnded`, which `IAgentSession` also produces and which has no transport to
 report. Widening a shared event for one producer was the worse trade, so a streaming consumer that needs
 this reads it from `RunAsync` instead.
+
+## D118 — a verification verdict carries the SCORE it judged on, for every candidate it scored (2026-09-13)
+
+`MemoryVerification` gains `Scores` (`IReadOnlyDictionary<string, double>?`, keyed by candidate id) as an
+init-only property. `CrossEncoderVerificationPolicy` populates it; `LlmMemoryVerificationPolicy` leaves it
+null, because a judge returns ids and has no per-candidate number to report.
+
+**The gap was that the seam threw the number away.** That policy already computed a real-valued score per
+candidate and discarded all of it at the endorsement cut, and no public type in the library carried a
+per-option score or confidence out of a model-backed seam — which is what a decision system is usually
+built on. `CrossEncoderVerificationPolicy` with `EndorseCount = 1` IS an argmax, and an argmax that cannot
+report its margin is the one shape a caller cannot reconstruct from outside.
+
+**Every candidate it scored, not the endorsed subset.** The rejected scores are the half a margin needs: an
+endorsement says nothing about how far ahead it was, so returning only the winners would ship the same gap
+under a new name.
+
+**Null is not an empty map, and the distinction is the same one `Judged` already draws.** Null means the
+policy reported nothing; a populated map of zeros is a judgement that nothing resembled the query. Collapsed,
+a policy that cannot score would be indistinguishable from one that scored everything at the floor — which
+is exactly the fail-open confusion this seam's tests exist to prevent.
+
+**The scale belongs to the POLICY and is not comparable across them.** `MemoryVerificationCandidate.Relevance`
+already carries this caveat and it applies unchanged: a cross-encoder's number and a judge's are different
+quantities, no absolute floor can be derived from one value, and a RELATIVE test (top against the rest) is
+what this supports. Measured evidence that the range is genuinely open: a real reranker scored a known pair
+at **+1.19** and **−10.23**, so anything clamping to `[0,1]` would drop the discriminating half.
+
+**An init property, never a record parameter.** Widening the primary constructor is a BINARY break for the
+implementations that construct this, and it would change the record's `Deconstruct` arity — the same reason
+`MemoryVerificationCandidate.Content` (**D108**) is a property. The backlog item called the addition simply
+"additive"; that is true of the surface and false of the constructor.
+
+**What it deliberately does not do.** It does not rename or move the seam. A decision is not memory and
+`Lyntai.Memory.Verification` is the wrong vocabulary for one, but minting a parallel namespace for a single
+property is the worse trade — the vocabulary question stays open rather than being answered by accident.

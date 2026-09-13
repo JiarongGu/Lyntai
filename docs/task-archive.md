@@ -3430,3 +3430,27 @@ and "a BYO `IToolLoop` never reported" are different claims that must not collap
 
 **What it deliberately does not reach:** the STREAM door. `SessionEnded` is shared with `IAgentSession`,
 which has no transport to report, so widening it for one producer was the worse trade.
+
+## Part 204 — the verification seam stops discarding the score it judged on
+
+✅ closed 2026-09-13. `TASKS.md` Part 178's score item, ruled by the owner the same day.
+
+- **Decide whether a verification verdict should carry a per-option SCORE.**
+
+**Outcome: it carries them** (**D118**, `CHANGELOG.md`). `MemoryVerification.Scores` is an init-only
+`IReadOnlyDictionary<string, double>?` keyed by candidate id, populated by `CrossEncoderVerificationPolicy`
+and left null by the LLM judge, which has no per-candidate number to report.
+
+**Two shape choices carry the reasoning.** EVERY scored candidate, not the endorsed subset — an endorsement
+says nothing about how far ahead it was, so returning only winners would have shipped the same gap under a
+new name. And NULL is not an empty map: null is a policy that reported nothing, a map of zeros is a
+judgement that nothing matched, which is `Judged`'s own distinction one level down.
+
+**The item's framing was wrong in one load-bearing way**, corrected before implementing: it called adding
+the scores "additive", which is true of the surface and false of the CONSTRUCTOR. Widening the primary
+constructor is a binary break and changes `Deconstruct` arity, which is why this and `Content` (**D108**)
+are both properties.
+
+**The vocabulary question is deliberately still open.** A decision is not memory and
+`Lyntai.Memory.Verification` is the wrong home for one, but minting a parallel namespace for a single
+property would have answered it by accident.
