@@ -17,24 +17,26 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D123** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3665 passed / 3688 total, 23 skipped` (the skips are
+**The baseline a green run should match:** `3678 passed / 3702 total, 24 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 811/811, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-13 at `5933a26`** — read off that run's own output, never
+**MEASURED with Docker up, re-attested 2026-09-14 at `8d6d973`** — read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
-easily breaks. All 23 skips were enumerated and every one is live-backend gated (a live model, embedder,
-reranker, Ollama, MCP or CLI), so nothing is skipping for another reason. **It is 23 rather than 22 because `StaticEmbedderLiveTests` is new** — it arrived with **D121** and is
-gated on a model directory, the same live-backend shape as every other skip. The 22 it replaces was itself
-one more than the long-standing 21, for `CrossEncoderVerificationLiveTests` (**D115**).
+easily breaks. All 24 skips were enumerated and every one is live-backend gated (a live model, embedder,
+reranker, Ollama, MCP or CLI), so nothing is skipping for another reason. **It is 24 rather than 23 because
+`WordPieceTokenizerLiveTests` is new** — it arrived with **D122**, gated on a model directory, the same
+live-backend shape as every other skip; the 23 it replaces was `StaticEmbedderLiveTests` (**D121**) over a
+long-standing 21 plus `CrossEncoderVerificationLiveTests` (**D115**).
 **Re-attest the COMMIT alongside the figures whenever they move**: a dated claim left standing over a
 changed number cannot be told from an extrapolated one, and that is how it read to a cold reader.
-**The xUnit pair is MOVING as the 2026-09-13 ruling series lands**, and the commit above is re-attested
-each time it does: **D117** added two tests, **D118** two more, **D119** three, **D120** five and **D121** ten, taking 3643 to 3665. Everything else
-reads back identically off each run's own output — the skip roster, e2e 3/3, doc samples 80/80 — and the guard
-count is derived from the tree by `check-counts`, so it cannot go stale unseen. **A `+n` that matches a
-named set of new tests is the only movement needing no investigation; any other is a finding**, and a
-series is exactly when that rule is easiest to stop applying.
+**The TOTAL can now move DOWNWARD, which the previous wording did not anticipate.** `ApiSurfaceTests` and
+`ApiSurfaceRendererTests` are theories over the packable roster, so **retiring a package costs two tests**:
+**D122** and **D123** took thirteen packages to eleven (−4) while the tokenizer added 18, and 3688 − 4 + 18
+= 3702. Everything else reads back identically off each run's own output — the skip roster, e2e 3/3, doc
+samples 80/80 — and the guard count is derived from the tree by `check-counts`, so it cannot go stale
+unseen. **Movement that reconciles against a NAMED cause on both sides is the only kind needing no
+investigation; any other is a finding**, and "+n new tests" is no longer the whole of that rule.
 **The Postgres leg is 195 tests**, measured on an EARLIER tree of 3,644 total (the daemon down read
 `3427 passed / 217 skipped` against `3622 / 22` with it up, and 217 − 22 = 195 = the difference in passes).
 That total is smaller than the baseline above because the tree has grown since; the 195 is the quantity
