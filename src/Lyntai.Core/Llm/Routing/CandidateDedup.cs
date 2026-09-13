@@ -1,3 +1,5 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Llm.Routing;
 
 /// <summary>Drops repeat (ProviderId, Model) candidates — first wins, order preserved — so a
@@ -9,7 +11,7 @@ namespace Lyntai.Llm.Routing;
 /// one candidate" is list bookkeeping over a pair of strings, not an LLM concept, and a second copy would be a
 /// second set of bugs. The generic overload exists because generation dedups the RESOLVED pair — the provider
 /// instance an id actually selected, and the model after the candidate's override has been applied to the
-/// request — which is not an <see cref="LlmCandidate"/> at all.</para>
+/// request — which is not an <see cref="ProviderCandidate"/> at all.</para>
 ///
 /// <para><b>The provider-id half compares case-INSENSITIVELY</b>, matching how every other id in the tree is
 /// matched (<c>GenerationRouter</c>, <c>ProviderPoolGuard</c>, <c>IToolRegistry</c>,
@@ -21,7 +23,7 @@ namespace Lyntai.Llm.Routing;
 /// endpoint.</para></summary>
 internal static class CandidateDedup
 {
-    public static IReadOnlyList<LlmCandidate> Dedup(IEnumerable<LlmCandidate> candidates) =>
+    public static IReadOnlyList<ProviderCandidate> Dedup(IEnumerable<ProviderCandidate> candidates) =>
         Dedup(candidates, c => (c.ProviderId, c.Model));
 
     /// <summary>Dedup any sequence on the (provider id, model) pair <paramref name="key"/> projects out —

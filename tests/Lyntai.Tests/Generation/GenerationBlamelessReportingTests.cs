@@ -1,5 +1,6 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
@@ -25,7 +26,7 @@ public class GenerationBlamelessReportingTests
 {
     private static GenerationRequest Image() => new() { Kind = GenerationKinds.Image, Prompt = "a red square" };
 
-    private static GenerationCandidate[] Order(params string[] ids) => [.. ids.Select(id => new GenerationCandidate(id))];
+    private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
     // ---- the reporting rule --------------------------------------------------------------------------
 
@@ -202,7 +203,7 @@ public class GenerationSubmitBlamelessReportingTests
 {
     private static GenerationRequest Video() => new() { Kind = GenerationKinds.Video, Prompt = "a cat surfing" };
 
-    private static GenerationCandidate[] Order(params string[] ids) => [.. ids.Select(id => new GenerationCandidate(id))];
+    private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
     [Fact]
     public async Task A_submission_only_blameless_queues_rejected_still_reports_what_one_of_them_said()

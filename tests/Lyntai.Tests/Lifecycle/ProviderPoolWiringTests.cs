@@ -296,8 +296,8 @@ public class ProviderPoolWiringTests
         var router = sp.GetRequiredService<IGenerationRouter>();
         var request = new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a cat" };
 
-        var first = router.GenerateAsync([new GenerationCandidate("a1111")], request);
-        var second = router.GenerateAsync([new GenerationCandidate("a1111")], request);
+        var first = router.GenerateAsync([new ProviderCandidate("a1111")], request);
+        var second = router.GenerateAsync([new ProviderCandidate("a1111")], request);
 
         // bounded deliberately: were the container path gated, the second call would never reach the backend
         // and an unbounded await here would hang the whole run rather than failing it (see GateWait)
@@ -368,7 +368,7 @@ public class ProviderPoolWiringTests
 
         var router = sp.GetRequiredService<ILlmRouterFactory>().For([
             new ProviderRegistration<ILlmProvider>(key, () => new FakeLlmProvider("openai"))]);
-        var reply = await router.CompleteAsync([new LlmCandidate("openai")],
+        var reply = await router.CompleteAsync([new ProviderCandidate("openai")],
             new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
         Assert.Equal(LlmVerdict.Ok, reply.Verdict);
@@ -386,7 +386,7 @@ public class ProviderPoolWiringTests
 
         var router = sp.GetRequiredService<IGenerationRouterFactory>().For([
             new ProviderRegistration<IGenerationProvider>(key, () => new FakeGenerationProvider { Id = "a1111" })]);
-        var result = await router.GenerateAsync([new GenerationCandidate("a1111")],
+        var result = await router.GenerateAsync([new ProviderCandidate("a1111")],
             new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a cat" });
 
         Assert.True(result.IsOk);
@@ -415,7 +415,7 @@ public class ProviderPoolWiringTests
         var router = sp.GetRequiredService<ILlmRouterFactory>().For([
             new ProviderRegistration<ILlmProvider>(
                 ProviderKey.For("openai").With("tenant", "a").Build(), () => provider)]);
-        var reply = await router.CompleteAsync([new LlmCandidate("openai")],
+        var reply = await router.CompleteAsync([new ProviderCandidate("openai")],
             new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
         Assert.Equal(LlmVerdict.Ok, reply.Verdict);
@@ -431,7 +431,7 @@ public class ProviderPoolWiringTests
         using var sp = Provider(b => b.AddGenerationProvider(_ => backend));
 
         var result = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
-            [new GenerationCandidate("a1111")],
+            [new ProviderCandidate("a1111")],
             new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a cat" });
 
         Assert.True(result.IsOk);

@@ -736,18 +736,9 @@ interface Lyntai.Generation.Jobs.IGenerationArtifactSink
     ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default) : Task
 sealed class Lyntai.Generation.Routing.BudgetedGenerationRouter
     .ctor(IGenerationRouter inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedGenerationRouter> logger = null)
-    GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
-    StreamAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
-    SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
-sealed class Lyntai.Generation.Routing.GenerationCandidate
-    .ctor(String ProviderId, String Model = null)
-    Deconstruct(String& ProviderId, String& Model) : Void
-    Equals(GenerationCandidate other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    Model : String
-    ProviderId : String
-    ToString() : String
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 enum Lyntai.Generation.Routing.GenerationFallbackAction
     Advance : GenerationFallbackAction const
     CooldownAndAdvance : GenerationFallbackAction const
@@ -772,9 +763,9 @@ sealed class Lyntai.Generation.Routing.GenerationPipelineResult
     Verdict : GenerationVerdict
 sealed class Lyntai.Generation.Routing.GenerationRouter
     .ctor(IEnumerable<IGenerationProvider> providers, GenerationRoutingPolicy policy = null, DeadHostTracker deadHosts = null, Func<IGenerationProvider,Nullable<ProviderKey>> configuration = null, IProviderAdmission admission = null)
-    GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
-    StreamAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
-    SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Routing.GenerationRouterFactory
     .ctor(IProviderPool<IGenerationProvider> pool, DeadHostTracker deadHosts, GenerationRoutingPolicy policy = null, IRateLimiter rateLimiter = null, IUsageTracker usage = null, LyntaiOptions options = null, ILoggerFactory loggers = null, IProviderAdmission admission = null)
     For(IReadOnlyList<IGenerationProvider> providers) : IGenerationRouter
@@ -785,8 +776,8 @@ sealed class Lyntai.Generation.Routing.GenerationRoutingPolicy
     ExemptSoleCandidate : Boolean
     On(GenerationVerdict verdict, GenerationFallbackAction action) : GenerationRoutingPolicy
 sealed class Lyntai.Generation.Routing.GenerationStage
-    .ctor(GenerationRequest Request, IReadOnlyList<GenerationCandidate> Candidates)
-    Candidates : IReadOnlyList<GenerationCandidate>
+    .ctor(GenerationRequest Request, IReadOnlyList<ProviderCandidate> Candidates)
+    Candidates : IReadOnlyList<ProviderCandidate>
     Deconstruct(GenerationRequest& Request, IReadOnlyList`1& Candidates) : Void
     Equals(GenerationStage other) : Boolean
     Equals(Object obj) : Boolean
@@ -805,17 +796,17 @@ sealed class Lyntai.Generation.Routing.GenerationSubmission
     ProviderId : String
     ToString() : String
 interface Lyntai.Generation.Routing.IGenerationRouter
-    GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
-    StreamAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
-    SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 interface Lyntai.Generation.Routing.IGenerationRouterFactory
     For(IReadOnlyList<IGenerationProvider> providers) : IGenerationRouter
     For(IReadOnlyList<ProviderRegistration<IGenerationProvider>> providers) : IGenerationRouter
 sealed class Lyntai.Generation.Routing.RateLimitedGenerationRouter
     .ctor(IGenerationRouter inner, IRateLimiter limiter, ILogger<RateLimitedGenerationRouter> logger = null)
-    GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
-    StreamAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
-    SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Tools.GenerationBackendsTool
     .ctor(IEnumerable<IGenerationProvider> providers, GenerationOptions options = null)
     Description : String
@@ -858,7 +849,7 @@ static class Lyntai.GenerationBuilderExtensions
     static UseDefaultGenerationCandidates(LyntaiBuilder builder, String[] providerIds) : LyntaiBuilder
 sealed class Lyntai.GenerationOptions
     .ctor()
-    DefaultCandidates : List<GenerationCandidate>
+    DefaultCandidates : List<ProviderCandidate>
     ProbeDeadline : TimeSpan
     RateLimit : RateLimitOptions
 sealed class Lyntai.Guards.DenylistGuard
@@ -1100,6 +1091,15 @@ sealed class Lyntai.Lifecycle.ProviderAdmissionOptions
     .ctor()
     BySlot : IDictionary<String,Int32>
     Default : Int32
+sealed class Lyntai.Lifecycle.ProviderCandidate
+    .ctor(String ProviderId, String Model = null)
+    Deconstruct(String& ProviderId, String& Model) : Void
+    Equals(Object obj) : Boolean
+    Equals(ProviderCandidate other) : Boolean
+    GetHashCode() : Int32
+    Model : String
+    ProviderId : String
+    ToString() : String
 struct Lyntai.Lifecycle.ProviderKey
     .ctor(String Slot, String Fingerprint)
     Deconstruct(String& Slot, String& Fingerprint) : Void
@@ -1294,10 +1294,10 @@ interface Lyntai.Llm.ILlmProvider
     SupportsStreamingToolCalls : Boolean
     SupportsToolCalls : Boolean
 interface Lyntai.Llm.ILlmRouter
-    CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
-    StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
-    SupportsStreamingToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) : Boolean
-    SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) : Boolean
+    CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req) : Boolean
+    SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req) : Boolean
 interface Lyntai.Llm.IProviderAuth
     LoginAsync(ProviderLoginRequest request = null, CancellationToken ct = default) : Task<ProviderAuthResult>
     LogoutAsync(CancellationToken ct = default) : Task<ProviderAuthResult>
@@ -1322,15 +1322,6 @@ sealed class Lyntai.Llm.LlmAttachment
     ToString() : String
     Uri : String
     Url() : String
-sealed class Lyntai.Llm.LlmCandidate
-    .ctor(String ProviderId, String Model = null)
-    Deconstruct(String& ProviderId, String& Model) : Void
-    Equals(LlmCandidate other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    Model : String
-    ProviderId : String
-    ToString() : String
 sealed class Lyntai.Llm.LlmChunk
     .ctor()
     Detail : String
@@ -1576,17 +1567,17 @@ sealed class Lyntai.Llm.Routing.KeyValueModelRoutingStore
     GetModelOverrideAsync(String consumer, CancellationToken ct = default) : Task<String>
     KeyPrefix : String
 sealed class Lyntai.Llm.Routing.LlmClient
-    .ctor(ILlmRouter router, LyntaiOptions options, IReadOnlyList<LlmCandidate> candidates = null)
+    .ctor(ILlmRouter router, LyntaiOptions options, IReadOnlyList<ProviderCandidate> candidates = null)
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
     SupportsStreamingToolCalls(LlmRequest req) : Boolean
     SupportsToolCalls(LlmRequest req) : Boolean
 sealed class Lyntai.Llm.Routing.LlmRouter
     .ctor(IEnumerable<ILlmProvider> providers, DeadHostTracker deadHosts, LyntaiOptions options, ILogger<LlmRouter> logger = null, IModelRoutingStore modelRouting = null, Func<ILlmProvider,Nullable<ProviderKey>> configuration = null, IProviderAdmission admission = null)
-    CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
-    StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
-    SupportsStreamingToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) : Boolean
-    SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) : Boolean
+    CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req) : Boolean
+    SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req) : Boolean
 sealed class Lyntai.Llm.Routing.LlmRouterFactory
     .ctor(IProviderPool<ILlmProvider> pool, DeadHostTracker deadHosts, LyntaiOptions options, ILoggerFactory loggers = null, IModelRoutingStore modelRouting = null, IProviderAdmission admission = null)
     For(IReadOnlyList<ILlmProvider> providers) : ILlmRouter
@@ -1608,7 +1599,7 @@ sealed class Lyntai.Llm.Streaming.InactivityClock
     Stop() : Void
 sealed class Lyntai.LlmClientBuilder
     Name : String
-    UseCandidates(LlmCandidate[] candidates) : LlmClientBuilder
+    UseCandidates(ProviderCandidate[] candidates) : LlmClientBuilder
     UseProviders(String[] providerIds) : LlmClientBuilder
 static class Lyntai.LlmClientRegistration
     static AddLlmClient(LyntaiBuilder builder, String name, Action<LlmClientBuilder> configure = null) : LyntaiBuilder
@@ -1654,7 +1645,7 @@ sealed class Lyntai.LyntaiBuilder
     Options : LyntaiOptions
     RateLimitDecoratorOrder : Int32 const
     Services : IServiceCollection
-    UseDefaultCandidates(LlmCandidate[] candidates) : LyntaiBuilder
+    UseDefaultCandidates(ProviderCandidate[] candidates) : LyntaiBuilder
     UseDefaultCandidates(String[] providerIds) : LyntaiBuilder
 sealed class Lyntai.LyntaiOptions
     .ctor()
@@ -1663,7 +1654,7 @@ sealed class Lyntai.LyntaiOptions
     Cache : CacheOptions
     DeadHostCooldown : TimeSpan
     DeadHostThreshold : Int32
-    DefaultCandidates : List<LlmCandidate>
+    DefaultCandidates : List<ProviderCandidate>
     DefaultModelByConsumer : Dictionary<String,String>
     Jobs : JobOptions
     MaxProviderTimeout : TimeSpan

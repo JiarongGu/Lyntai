@@ -1,3 +1,5 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Llm.Routing;
 
 /// <summary>Works out the fallback list a NAMED <see cref="ILlmClient"/> routes over.
@@ -20,15 +22,15 @@ internal static class ClientCandidates
     /// <param name="stated">What <c>UseCandidates</c> said, if anything. Wins outright: a caller who states a
     /// list has answered the question this method exists to answer.</param>
     /// <param name="defaults">The global fallback list.</param>
-    internal static IReadOnlyList<LlmCandidate> Resolve(
+    internal static IReadOnlyList<ProviderCandidate> Resolve(
         IReadOnlyList<string> providerIds,
-        IReadOnlyList<LlmCandidate> stated,
-        IReadOnlyList<LlmCandidate> defaults)
+        IReadOnlyList<ProviderCandidate> stated,
+        IReadOnlyList<ProviderCandidate> defaults)
     {
         if (stated.Count > 0) return [.. stated];
         if (providerIds.Count == 0) return [.. defaults];
 
-        var derived = new List<LlmCandidate>(providerIds.Count);
+        var derived = new List<ProviderCandidate>(providerIds.Count);
         foreach (var id in providerIds)
         {
             // Every default entry for this id, not just the first: a global list may legitimately name one
@@ -36,7 +38,7 @@ internal static class ClientCandidates
             // one of the pair would silently drop half a configured fallback chain.
             var pinned = defaults.Where(c =>
                 string.Equals(c.ProviderId, id, StringComparison.OrdinalIgnoreCase)).ToList();
-            derived.AddRange(pinned.Count > 0 ? pinned : [new LlmCandidate(id)]);
+            derived.AddRange(pinned.Count > 0 ? pinned : [new ProviderCandidate(id)]);
         }
 
         return derived;
@@ -49,7 +51,7 @@ internal static class ClientCandidates
     /// answers to that id. An empty pool therefore rejects every stated candidate, which is correct — there
     /// is no backend for one to select.</para></summary>
     internal static IReadOnlyList<string> OutsideThePool(
-        IReadOnlyList<string> providerIds, IReadOnlyList<LlmCandidate> stated)
+        IReadOnlyList<string> providerIds, IReadOnlyList<ProviderCandidate> stated)
     {
         if (stated.Count == 0) return [];
         var pool = new HashSet<string>(providerIds, StringComparer.OrdinalIgnoreCase);
@@ -67,7 +69,7 @@ internal static class ClientCandidates
     /// both values meant something and the caller who set one is entitled to keep working.</para>
     ///
     /// <para>An empty list cannot contradict anything: there is no candidate to out-rank the request.</para></summary>
-    internal static bool ModelPinIsInert(string model, IReadOnlyList<LlmCandidate> candidates) =>
+    internal static bool ModelPinIsInert(string model, IReadOnlyList<ProviderCandidate> candidates) =>
         candidates.Count > 0
         && candidates.All(c => !string.IsNullOrWhiteSpace(c.Model))
         && !candidates.Any(c => string.Equals(c.Model, model, StringComparison.OrdinalIgnoreCase));

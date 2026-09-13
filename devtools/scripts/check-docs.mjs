@@ -31,6 +31,12 @@ const repo = join(dirname(here), '..', '..');
 export const HISTORICAL = [
   /^CHANGELOG\.md$/,
   /^docs\/task-archive\.md$/,
+  // A dated PLAN OF RECORD. Its file tables and code snippets record what was CREATED on 2026-08-04, so a
+  // rename since then makes them inaccurate to rewrite rather than inaccurate to leave — the same
+  // "accurate BY using the vocabulary of their day" rationale the two entries above rest on. Added when
+  // D125 unified the two candidate records and produced 45 hits in this one file, every one naming a path
+  // or a snippet exactly as it stood that day.
+  /^docs\/2026-08-04-generation-platform-plan\.md$/,
 ];
 
 /**

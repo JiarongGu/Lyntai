@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
@@ -41,7 +42,7 @@ public sealed class BudgetedGenerationRouter(
 
     /// <inheritdoc/>
     public async Task<GenerationResult> GenerateAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
             return GenerationResult.Failure(GenerationVerdict.Refused, reason);
@@ -57,7 +58,7 @@ public sealed class BudgetedGenerationRouter(
     /// itself is only known when the render finishes, which is why <c>GenerationRenderJobHandler</c> records
     /// it: this decorator never sees the completed result.</remarks>
     public async Task<GenerationSubmission> SubmitAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
             return new GenerationSubmission("",
@@ -78,7 +79,7 @@ public sealed class BudgetedGenerationRouter(
     /// only place a streaming backend can report it — the total is not known until the stream ends. A backend
     /// that reports none records none, exactly as on the inline path.</para></remarks>
     public async IAsyncEnumerable<GenerationChunk> StreamAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)

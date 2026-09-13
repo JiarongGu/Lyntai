@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -16,7 +17,7 @@ public class LlmStructuredExtensionsTests
     private static ILlmClient Client(FakeLlmProvider provider)
     {
         var options = new LyntaiOptions();
-        options.DefaultCandidates.Add(new LlmCandidate(provider.Id));
+        options.DefaultCandidates.Add(new ProviderCandidate(provider.Id));
         return new LlmClient(new LlmRouter([provider], new DeadHostTracker(), options), options);
     }
 

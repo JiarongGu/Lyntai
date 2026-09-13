@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.Json;
 using Lyntai.Generation.Routing;
 using Lyntai.Jobs;
@@ -71,7 +72,7 @@ public sealed class GenerationRenderJobHandler(
     {
         // "provider" or "provider:model" — the same spec shape the DI builder accepts, so a payload can be
         // written by hand or copied from configuration
-        var candidates = job.Candidates.Select(GenerationCandidateSpec.Parse).ToList();
+        var candidates = job.Candidates.Select(ProviderCandidateSpec.Parse).ToList();
         var submission = await router.SubmitAsync(candidates, job.Request, ct).ConfigureAwait(false);
 
         if (submission.Operation.Status == GenerationOperationStatus.Failed)

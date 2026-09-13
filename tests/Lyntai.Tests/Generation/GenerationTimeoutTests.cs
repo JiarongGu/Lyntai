@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.Json;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
@@ -244,7 +245,7 @@ public class GenerationTimeoutTests
         var router = new GenerationRouter([StalledFal(), second]);
 
         var submission = await router.SubmitAsync(
-            [new GenerationCandidate("fal"), new GenerationCandidate("fake-video")], Video());
+            [new ProviderCandidate("fal"), new ProviderCandidate("fake-video")], Video());
 
         Assert.Equal(0, second.SubmitCalls);                       // the whole point: nobody pays twice
         Assert.Equal("fal", submission.ProviderId);                // and the caller learns WHO may hold it
@@ -260,7 +261,7 @@ public class GenerationTimeoutTests
             deadHosts: tracker);
 
         await router.SubmitAsync(
-            [new GenerationCandidate("fal"), new GenerationCandidate("fake-video")], Video());
+            [new ProviderCandidate("fal"), new ProviderCandidate("fake-video")], Video());
 
         Assert.False(tracker.IsDead("generation::fal"));
     }

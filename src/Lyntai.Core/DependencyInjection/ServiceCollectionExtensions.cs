@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Cortex;
@@ -232,7 +233,7 @@ public static class LyntaiServiceCollectionExtensions
         // two construction sites (docs/FIXES.md), where an optional argument added to one path and not the
         // other left a documented knob unwired and the compiler could not see it.
         ILlmClient Compose(IServiceProvider sp, ILlmRouter router,
-            IReadOnlyList<LlmCandidate>? candidates = null)
+            IReadOnlyList<ProviderCandidate>? candidates = null)
         {
             ILlmClient client = new LlmClient(router, options, candidates);
             foreach (var (_, decorate) in builder.FrontDoorDecorators.OrderBy(d => d.Order))

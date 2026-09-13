@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -30,7 +31,7 @@ public class RouterCandidateIdCaseTests
         var provider = new FakeLlmProvider("openai");
         provider.Replies.Enqueue(new LlmReply("served", LlmVerdict.Ok));
 
-        var reply = await Router(provider).CompleteAsync([new LlmCandidate("OpenAI")], Req);
+        var reply = await Router(provider).CompleteAsync([new ProviderCandidate("OpenAI")], Req);
 
         Assert.Equal(LlmVerdict.Ok, reply.Verdict);
         Assert.Equal("served", reply.Text);
@@ -44,7 +45,7 @@ public class RouterCandidateIdCaseTests
         // the caller got a synthetic reply naming no provider at all
         var provider = new FakeLlmProvider("Ollama");
 
-        var reply = await Router(provider).CompleteAsync([new LlmCandidate("ollama")], Req);
+        var reply = await Router(provider).CompleteAsync([new ProviderCandidate("ollama")], Req);
 
         Assert.Equal(LlmVerdict.Ok, reply.Verdict);
         Assert.DoesNotContain("no live candidate", reply.Detail ?? "");
@@ -57,7 +58,7 @@ public class RouterCandidateIdCaseTests
         var provider = new FakeLlmProvider("openai");
 
         var chunks = new List<LlmChunk>();
-        await foreach (var chunk in Router(provider).StreamAsync([new LlmCandidate("OPENAI")], Req))
+        await foreach (var chunk in Router(provider).StreamAsync([new ProviderCandidate("OPENAI")], Req))
             chunks.Add(chunk);
 
         Assert.Equal(1, provider.StreamCalls);
@@ -69,7 +70,7 @@ public class RouterCandidateIdCaseTests
     {
         // they resolve to one provider, so leaving both in the list would re-attempt a backend that just
         // failed — and would inflate the count RoutingPolicy.ExemptSoleCandidate reads
-        var deduped = CandidateDedup.Dedup([new LlmCandidate("openai"), new LlmCandidate("OpenAI")]);
+        var deduped = CandidateDedup.Dedup([new ProviderCandidate("openai"), new ProviderCandidate("OpenAI")]);
 
         Assert.Single(deduped);
         Assert.Equal("openai", deduped[0].ProviderId);   // first wins, spelled as the caller wrote it
@@ -80,8 +81,8 @@ public class RouterCandidateIdCaseTests
     {
         // the deliberate asymmetry: the id is an identity this library owns, the model id is the vendor's
         var deduped = CandidateDedup.Dedup([
-            new LlmCandidate("openai", "gpt-x"),
-            new LlmCandidate("openai", "GPT-X"),
+            new ProviderCandidate("openai", "gpt-x"),
+            new ProviderCandidate("openai", "GPT-X"),
         ]);
 
         Assert.Equal(2, deduped.Count);
@@ -97,7 +98,7 @@ public class RouterCandidateIdCaseTests
         provider.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "boom"));
         provider.Replies.Enqueue(new LlmReply("recovered", LlmVerdict.Ok));
         var router = new LlmRouter([provider], tracker, new LyntaiOptions());
-        LlmCandidate[] listedTwice = [new("openai"), new("OpenAI")];
+        ProviderCandidate[] listedTwice = [new("openai"), new("OpenAI")];
 
         await router.CompleteAsync(listedTwice, Req);
         var second = await router.CompleteAsync(listedTwice, Req);

@@ -35,7 +35,7 @@ public class RouterFactoryTests
         var backend = new FakeGenerationProvider { Id = "a1111" };
 
         var router = factory.For([new ProviderRegistration<IGenerationProvider>(Key("a"), () => backend)]);
-        var result = await router.GenerateAsync([new GenerationCandidate("a1111")], Request());
+        var result = await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
 
         Assert.True(result.IsOk);
         Assert.Equal(1, backend.GenerateCalls);
@@ -72,7 +72,7 @@ public class RouterFactoryTests
         for (var i = 0; i < 2; i++)
         {
             var router = factory.For([new ProviderRegistration<IGenerationProvider>(Key("a"), () => failing)]);
-            await router.GenerateAsync([new GenerationCandidate("a1111")], Request());
+            await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
         }
 
         Assert.True(tracker.IsDead($"generation::{Key("a")}"));
@@ -90,7 +90,7 @@ public class RouterFactoryTests
         failing.Verdicts.Enqueue(GenerationVerdict.RateLimited);
 
         var router = factory.For([new ProviderRegistration<IGenerationProvider>(Key("cfg-a"), () => failing)]);
-        await router.GenerateAsync([new GenerationCandidate("a1111")], Request());
+        await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
 
         Assert.True(tracker.IsDead($"generation::{Key("cfg-a")}"));
         Assert.False(tracker.IsDead($"generation::{Key("cfg-b")}"));
@@ -108,7 +108,7 @@ public class RouterFactoryTests
         failing.Verdicts.Enqueue(GenerationVerdict.RateLimited);
 
         var router = factory.For([(IGenerationProvider)failing]);
-        await router.GenerateAsync([new GenerationCandidate("a1111")], Request());
+        await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
 
         Assert.True(tracker.IsDead("generation::a1111"));
         Assert.Equal(0, pool.Statistics.Created);
@@ -160,7 +160,7 @@ public class RouterFactoryTests
             new ProviderRegistration<IGenerationProvider>(Key("cfg", "a1111"), () => primary),
             new ProviderRegistration<IGenerationProvider>(Key("cfg", "comfyui"), () => secondary),
         ]);
-        var result = await router.GenerateAsync([new GenerationCandidate("comfyui")], Request());
+        var result = await router.GenerateAsync([new ProviderCandidate("comfyui")], Request());
 
         Assert.True(result.IsOk);
         Assert.Equal(1, secondary.GenerateCalls);
@@ -176,7 +176,7 @@ public class RouterFactoryTests
         var backend = new FakeGenerationProvider { Id = "a1111" };
 
         var router = Factory(pool).For([new ProviderRegistration<IGenerationProvider>(Key("a"), () => backend)]);
-        var result = await router.GenerateAsync([new GenerationCandidate("a1111")], Request());
+        var result = await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
 
         Assert.True(result.IsOk);
         Assert.Equal(1, pool.Statistics.Created);
@@ -192,7 +192,7 @@ public class RouterFactoryTests
         var second = new FakeGenerationProvider { Id = "a1111" };
 
         var router = Factory(new BoundedProviderPool<IGenerationProvider>()).For([first, (IGenerationProvider)second]);
-        var result = await router.GenerateAsync([new GenerationCandidate("a1111")], Request());
+        var result = await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
 
         Assert.True(result.IsOk);
         Assert.Equal(1, first.GenerateCalls);
@@ -242,8 +242,8 @@ public class RouterFactoryTests
         using var sp = services.BuildServiceProvider();
         var router = sp.GetRequiredService<IGenerationRouter>();
 
-        var first = await router.GenerateAsync([new GenerationCandidate("hosted")], Request());
-        var second = await router.GenerateAsync([new GenerationCandidate("hosted")], Request());
+        var first = await router.GenerateAsync([new ProviderCandidate("hosted")], Request());
+        var second = await router.GenerateAsync([new ProviderCandidate("hosted")], Request());
 
         Assert.True(first.IsOk);                                     // spent the only permit, and 5.0
         Assert.Equal(GenerationVerdict.Refused, second.Verdict);     // NOT RateLimited — the budget refused first
@@ -290,7 +290,7 @@ public class RouterFactoryTests
 
         var router = LlmFactory(pool, tracker)
             .For([new ProviderRegistration<ILlmProvider>(key, () => provider)]);
-        await router.CompleteAsync([new LlmCandidate("openai")], Prompt());
+        await router.CompleteAsync([new ProviderCandidate("openai")], Prompt());
 
         Assert.Single(provider.Calls);
         Assert.True(tracker.IsDead(key.ToString()));
@@ -307,7 +307,7 @@ public class RouterFactoryTests
         provider.Replies.Enqueue(new LlmReply("nope", LlmVerdict.RateLimited));
 
         var router = LlmFactory(pool, tracker).For([(ILlmProvider)provider]);
-        await router.CompleteAsync([new LlmCandidate("openai")], Prompt());
+        await router.CompleteAsync([new ProviderCandidate("openai")], Prompt());
 
         Assert.True(tracker.IsDead("openai"));
         Assert.Equal(0, pool.Statistics.Created);

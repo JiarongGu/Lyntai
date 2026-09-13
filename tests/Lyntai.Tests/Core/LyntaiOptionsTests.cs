@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -71,11 +72,11 @@ public class LyntaiOptionsTests
     public void Candidates_env_parses_provider_and_model_pairs()
     {
         var options = new LyntaiOptions();
-        options.DefaultCandidates.Add(new LlmCandidate("code-configured"));
+        options.DefaultCandidates.Add(new ProviderCandidate("code-configured"));
 
         options.ApplyEnvOverrides(k => k == "LYNTAI_DEFAULT_CANDIDATES" ? "claude-cli:sonnet, ollama" : null);
 
-        Assert.Equal([new LlmCandidate("claude-cli", "sonnet"), new LlmCandidate("ollama")],
+        Assert.Equal([new ProviderCandidate("claude-cli", "sonnet"), new ProviderCandidate("ollama")],
             options.DefaultCandidates);
     }
 

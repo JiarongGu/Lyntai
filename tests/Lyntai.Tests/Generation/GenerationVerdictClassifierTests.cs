@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;
@@ -120,7 +121,7 @@ public class GenerationVerdictClassifierTests
         gap.Verdicts.Enqueue(translated);
         var working = new FakeGenerationProvider { Id = "b" };
         var router = new GenerationRouter([gap, working], deadHosts: deadHosts);
-        GenerationCandidate[] candidates = [new("a"), new("b")];
+        ProviderCandidate[] candidates = [new("a"), new("b")];
         var request = new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" };
 
         var first = await router.GenerateAsync(candidates, request);

@@ -153,10 +153,10 @@ public interface ILlmProvider {
 
 // Ordered candidates → fallback. See §6 for the routing semantics.
 public interface ILlmRouter {
-    Task<LlmReply> CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default);
-    IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default);
+    Task<LlmReply> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default);
+    IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default);
 }
-public sealed record LlmCandidate(string ProviderId, string? Model = null);
+public sealed record ProviderCandidate(string ProviderId, string? Model = null);
 ```
 *(2026-08-05: `LlmVerdict` now has **nine** members — the five above plus `ContextWindowExceeded`,
 `AuthFailed`, `Unsupported` and `NotConfigured`. **`src/Lyntai.Core/Llm/LlmVerdict.cs` is the canonical

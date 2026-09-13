@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;
@@ -42,7 +43,7 @@ public class GenerationRoutingPolicyTests
         var router = new GenerationRouter([refusing, permissive], policy);
 
         var result = await router.GenerateAsync(
-            [new GenerationCandidate("hosted"), new GenerationCandidate("local")], Image());
+            [new ProviderCandidate("hosted"), new ProviderCandidate("local")], Image());
 
         Assert.True(result.IsOk);
         Assert.Equal(1, permissive.GenerateCalls);
@@ -61,7 +62,7 @@ public class GenerationRoutingPolicyTests
         var router = new GenerationRouter([first, second], policy);
 
         var result = await router.GenerateAsync(
-            [new GenerationCandidate("a"), new GenerationCandidate("b")], Image());
+            [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
         Assert.Equal(GenerationVerdict.Refused, result.Verdict);
         Assert.Equal(1, second.GenerateCalls);   // it did try the second one
@@ -78,7 +79,7 @@ public class GenerationRoutingPolicyTests
         var router = new GenerationRouter([failing, working], policy);
 
         var result = await router.GenerateAsync(
-            [new GenerationCandidate("a"), new GenerationCandidate("b")], Image());
+            [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
         Assert.Equal(GenerationVerdict.Failed, result.Verdict);
         Assert.Equal(0, working.GenerateCalls);
@@ -100,7 +101,7 @@ public class GenerationRoutingPolicyTests
         using var sp = services.BuildServiceProvider();
 
         var result = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
-            [new GenerationCandidate("hosted"), new GenerationCandidate("local")], Image());
+            [new ProviderCandidate("hosted"), new ProviderCandidate("local")], Image());
 
         Assert.True(result.IsOk);
     }
@@ -115,7 +116,7 @@ public class GenerationRoutingPolicyTests
         var router = new GenerationRouter([refusing, working]);
 
         var result = await router.GenerateAsync(
-            [new GenerationCandidate("a"), new GenerationCandidate("b")], Image());
+            [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
         Assert.Equal(GenerationVerdict.Refused, result.Verdict);
         Assert.Equal(0, working.GenerateCalls);

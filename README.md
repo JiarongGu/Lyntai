@@ -1114,7 +1114,7 @@ Backends declare what they can do, and the router **skips a candidate that can't
 spending anything — media backends differ far more than chat models do (medium, input roles, duration
 ceilings, model catalogues):
 
-<!-- compile-given: IReadOnlyList<GenerationCandidate> candidates;
+<!-- compile-given: IReadOnlyList<ProviderCandidate> candidates;
      void Save(byte[] data) { } -->
 ```csharp
 var result = await router.GenerateAsync(candidates, new GenerationRequest
@@ -1148,8 +1148,8 @@ routes independently, so the image leg and the video leg need not be the same ve
 ```csharp
 var result = await router.RunPipelineAsync(
 [
-    new GenerationStage(image, [new GenerationCandidate("openai-images")]),
-    new GenerationStage(video, [new GenerationCandidate("fal")])
+    new GenerationStage(image, [new ProviderCandidate("openai-images")]),
+    new GenerationStage(video, [new ProviderCandidate("fal")])
     {
         InputRole = GenerationInputRoles.FirstFrame,        // what the still IS to the video backend
     },

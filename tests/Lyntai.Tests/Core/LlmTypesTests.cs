@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 
 namespace Lyntai.Tests.Core;
@@ -27,8 +28,8 @@ public class LlmTypesTests
     public void Records_have_value_equality()
     {
         Assert.Equal(LlmMessage.User("x"), new LlmMessage("user", "x"));
-        Assert.Equal(new LlmCandidate("p", "m"), new LlmCandidate("p", "m"));
-        Assert.NotEqual(new LlmCandidate("p", "m"), new LlmCandidate("p", null));
+        Assert.Equal(new ProviderCandidate("p", "m"), new ProviderCandidate("p", "m"));
+        Assert.NotEqual(new ProviderCandidate("p", "m"), new ProviderCandidate("p", null));
         Assert.Equal(new LlmUsage(1, 2, 3, 0.5), new LlmUsage(1, 2, 3, 0.5));
         Assert.Equal(new LlmReply("t", LlmVerdict.Ok), new LlmReply("t", LlmVerdict.Ok));
         // adding tool-call surface must not change equality of tool-call-less replies

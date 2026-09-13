@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
 
@@ -9,20 +10,20 @@ public class CandidateDedupTests
     public void Duplicate_primary_is_stripped_first_wins()
     {
         var deduped = CandidateDedup.Dedup([
-            new LlmCandidate("a", "m1"),
-            new LlmCandidate("b"),
-            new LlmCandidate("a", "m1"),
+            new ProviderCandidate("a", "m1"),
+            new ProviderCandidate("b"),
+            new ProviderCandidate("a", "m1"),
         ]);
-        Assert.Equal([new LlmCandidate("a", "m1"), new LlmCandidate("b")], deduped);
+        Assert.Equal([new ProviderCandidate("a", "m1"), new ProviderCandidate("b")], deduped);
     }
 
     [Fact]
     public void Same_provider_different_model_is_kept_and_order_preserved()
     {
         var deduped = CandidateDedup.Dedup([
-            new LlmCandidate("a", "m1"),
-            new LlmCandidate("a", "m2"),
-            new LlmCandidate("a"),
+            new ProviderCandidate("a", "m1"),
+            new ProviderCandidate("a", "m2"),
+            new ProviderCandidate("a"),
         ]);
         Assert.Equal(3, deduped.Count);
         Assert.Equal("m1", deduped[0].Model);

@@ -1,3 +1,5 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Generation.Routing;
 
 /// <summary>One stage of a pipeline: what to generate, and which backends may serve it.</summary>
@@ -7,7 +9,7 @@ namespace Lyntai.Generation.Routing;
 /// image backend and a video backend are rarely the same vendor.</param>
 public sealed record GenerationStage(
     GenerationRequest Request,
-    IReadOnlyList<GenerationCandidate> Candidates)
+    IReadOnlyList<ProviderCandidate> Candidates)
 {
     /// <summary>What the previous stage's artifact IS to this one — a <see cref="GenerationInputRoles"/>
     /// value, or null for the backend's own default interpretation.

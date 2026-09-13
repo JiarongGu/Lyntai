@@ -1,5 +1,6 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;
+using Lyntai.Lifecycle;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
@@ -22,7 +23,7 @@ public class GenerationRouterTests
         var video = new FakeGenerationJobProvider { Id = "video-backend" };
 
         var result = await Router(video, image).GenerateAsync(
-            [new GenerationCandidate("video-backend"), new GenerationCandidate("image-backend")], Image());
+            [new ProviderCandidate("video-backend"), new ProviderCandidate("image-backend")], Image());
 
         Assert.True(result.IsOk);
         Assert.Equal(1, image.GenerateCalls);
@@ -41,7 +42,7 @@ public class GenerationRouterTests
         var healthy = new FakeGenerationProvider { Id = "a1111" };
 
         var result = await Router(broken, healthy).GenerateAsync(
-            [new GenerationCandidate("byo"), new GenerationCandidate("a1111")], Image());
+            [new ProviderCandidate("byo"), new ProviderCandidate("a1111")], Image());
 
         Assert.True(result.IsOk);                 // the healthy candidate was reached
         Assert.Equal(1, healthy.GenerateCalls);
@@ -61,7 +62,7 @@ public class GenerationRouterTests
         var healthy = new FakeGenerationProvider { Id = "a1111" };
 
         var result = await Router(broken, healthy).GenerateAsync(
-            [new GenerationCandidate("byo"), new GenerationCandidate("a1111")], Image());
+            [new ProviderCandidate("byo"), new ProviderCandidate("a1111")], Image());
 
         Assert.True(result.IsOk);
         Assert.Equal(1, healthy.GenerateCalls);
@@ -77,7 +78,7 @@ public class GenerationRouterTests
         await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            Router(slow).GenerateAsync([new GenerationCandidate("byo")], Image(), cts.Token));
+            Router(slow).GenerateAsync([new ProviderCandidate("byo")], Image(), cts.Token));
     }
 
     [Fact]
@@ -96,7 +97,7 @@ public class GenerationRouterTests
         };
 
         await Assert.ThrowsAsync<HttpRequestException>(() =>
-            Router(broken).SubmitAsync([new GenerationCandidate("byo-video")], Video()));
+            Router(broken).SubmitAsync([new ProviderCandidate("byo-video")], Video()));
     }
 
     [Fact]
@@ -110,7 +111,7 @@ public class GenerationRouterTests
             SubmitThrows = new TimeoutException("no answer"),
         };
 
-        var submission = await Router(ambiguous).SubmitAsync([new GenerationCandidate("byo-video")], Video());
+        var submission = await Router(ambiguous).SubmitAsync([new ProviderCandidate("byo-video")], Video());
 
         Assert.True(submission.Operation.Inconclusive);
         Assert.Equal("byo-video", submission.ProviderId);   // named, so a human can check that account
@@ -124,7 +125,7 @@ public class GenerationRouterTests
         var image = new FakeGenerationProvider { Id = "image-backend" };
 
         var result = await Router(video, image).GenerateAsync(
-            [new GenerationCandidate("video-backend"), new GenerationCandidate("image-backend")], Image());
+            [new ProviderCandidate("video-backend"), new ProviderCandidate("image-backend")], Image());
 
         Assert.True(result.IsOk);
         Assert.Equal(1, image.GenerateCalls);
@@ -142,7 +143,7 @@ public class GenerationRouterTests
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await Router(failing, working).GenerateAsync(
-            [new GenerationCandidate("a"), new GenerationCandidate("b")], Image());
+            [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
         Assert.True(result.IsOk);
         Assert.Equal(1, failing.GenerateCalls);
@@ -157,7 +158,7 @@ public class GenerationRouterTests
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await Router(refusing, working).GenerateAsync(
-            [new GenerationCandidate("a"), new GenerationCandidate("b")], Image());
+            [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
         Assert.Equal(GenerationVerdict.Refused, result.Verdict);
         Assert.Equal(0, working.GenerateCalls);   // the whole point
@@ -171,7 +172,7 @@ public class GenerationRouterTests
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await Router(unconfigured, working).GenerateAsync(
-            [new GenerationCandidate("a"), new GenerationCandidate("b")], Image());
+            [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
         Assert.True(result.IsOk);
         Assert.Equal(1, working.GenerateCalls);
@@ -187,7 +188,7 @@ public class GenerationRouterTests
         unconfigured.Verdicts.Enqueue(GenerationVerdict.NotConfigured);
 
         var result = await Router(failing, unconfigured).GenerateAsync(
-            [new GenerationCandidate("a"), new GenerationCandidate("b")], Image());
+            [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
         Assert.Equal(GenerationVerdict.RateLimited, result.Verdict);
     }
@@ -198,7 +199,7 @@ public class GenerationRouterTests
         // "nothing here can do that" is a configuration answer, not a runtime fault
         var video = new FakeGenerationJobProvider { Id = "video-backend" };
 
-        var result = await Router(video).GenerateAsync([new GenerationCandidate("video-backend")], Image());
+        var result = await Router(video).GenerateAsync([new ProviderCandidate("video-backend")], Image());
 
         Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
         Assert.Contains("no capable", result.Detail);
@@ -210,7 +211,7 @@ public class GenerationRouterTests
         var image = new FakeGenerationProvider { Id = "image-backend" };
 
         var result = await Router(image).GenerateAsync(
-            [new GenerationCandidate("typo"), new GenerationCandidate("image-backend")], Image());
+            [new ProviderCandidate("typo"), new ProviderCandidate("image-backend")], Image());
 
         Assert.True(result.IsOk);
     }
@@ -229,7 +230,7 @@ public class GenerationRouterTests
             },
         };
 
-        var result = await Router(aggregator).GenerateAsync([new GenerationCandidate("aggregator", "sdxl")], Image());
+        var result = await Router(aggregator).GenerateAsync([new ProviderCandidate("aggregator", "sdxl")], Image());
 
         Assert.True(result.IsOk);
     }
@@ -241,7 +242,7 @@ public class GenerationRouterTests
         var video = new FakeGenerationJobProvider { Id = "video-backend" };
 
         var submission = await Router(video).SubmitAsync(
-            [new GenerationCandidate("video-backend")], new GenerationRequest { Kind = GenerationKinds.Video, Prompt = "x" });
+            [new ProviderCandidate("video-backend")], new GenerationRequest { Kind = GenerationKinds.Video, Prompt = "x" });
 
         Assert.Equal("video-backend", submission.ProviderId);
         Assert.Equal("op-1", submission.Operation.Id);
@@ -254,7 +255,7 @@ public class GenerationRouterTests
         var image = new FakeGenerationProvider { Id = "image-backend" };
 
         var submission = await Router(image).SubmitAsync(
-            [new GenerationCandidate("image-backend")], new GenerationRequest { Kind = GenerationKinds.Video, Prompt = "x" });
+            [new ProviderCandidate("image-backend")], new GenerationRequest { Kind = GenerationKinds.Video, Prompt = "x" });
 
         Assert.Equal(GenerationOperationStatus.Failed, submission.Operation.Status);
         Assert.Contains("no capable", submission.Operation.Detail);

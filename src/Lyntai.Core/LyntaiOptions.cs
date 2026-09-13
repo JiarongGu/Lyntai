@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Globalization;
 using Lyntai.Jobs;
 using Lyntai.Llm;
@@ -47,7 +48,7 @@ public sealed class LyntaiOptions
 
     /// <summary>Router fallback order used when a caller doesn't pass explicit candidates
     /// (scorers, composition helpers, the Playground).</summary>
-    public List<LlmCandidate> DefaultCandidates { get; } = [];
+    public List<ProviderCandidate> DefaultCandidates { get; } = [];
 
     /// <summary>Default model per consumer tag ("default" applies when the tag has no entry).</summary>
     public Dictionary<string, string> DefaultModelByConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -245,8 +246,8 @@ public sealed class LyntaiOptions
             {
                 var sep = part.IndexOf(':');
                 DefaultCandidates.Add(sep < 0
-                    ? new LlmCandidate(part)
-                    : new LlmCandidate(part[..sep], part[(sep + 1)..]));
+                    ? new ProviderCandidate(part)
+                    : new ProviderCandidate(part[..sep], part[(sep + 1)..]));
             }
         }
 

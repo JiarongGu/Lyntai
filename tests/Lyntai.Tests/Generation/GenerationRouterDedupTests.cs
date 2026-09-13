@@ -1,5 +1,6 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;
+using Lyntai.Lifecycle;
 using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 
@@ -29,7 +30,7 @@ public class GenerationRouterDedupTests
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await new GenerationRouter([failing, working]).GenerateAsync(
-            [new GenerationCandidate("a"), new GenerationCandidate("a"), new GenerationCandidate("b")], Image());
+            [new ProviderCandidate("a"), new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
         Assert.True(result.IsOk);
         Assert.Equal(1, failing.GenerateCalls);
@@ -44,7 +45,7 @@ public class GenerationRouterDedupTests
         var sole = new FakeGenerationProvider { Id = "sole" };
         sole.Verdicts.Enqueue(GenerationVerdict.RateLimited);
         var router = new GenerationRouter([sole], deadHosts: Benching());
-        GenerationCandidate[] listedTwice = [new("sole"), new("sole")];
+        ProviderCandidate[] listedTwice = [new("sole"), new("sole")];
 
         await router.GenerateAsync(listedTwice, Image());
         var second = await router.GenerateAsync(listedTwice, Image());
@@ -64,7 +65,7 @@ public class GenerationRouterDedupTests
         var working = new FakeGenerationProvider { Id = "local" };
 
         var result = await new GenerationRouter([failing, working]).GenerateAsync(
-            [new GenerationCandidate("a1111"), new GenerationCandidate("A1111"), new GenerationCandidate("local")],
+            [new ProviderCandidate("a1111"), new ProviderCandidate("A1111"), new ProviderCandidate("local")],
             Image());
 
         Assert.True(result.IsOk);
@@ -81,8 +82,8 @@ public class GenerationRouterDedupTests
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await new GenerationRouter([aggregator, working]).GenerateAsync(
-            [new GenerationCandidate("aggregator", "sdxl"), new GenerationCandidate("aggregator"),
-             new GenerationCandidate("b")],
+            [new ProviderCandidate("aggregator", "sdxl"), new ProviderCandidate("aggregator"),
+             new ProviderCandidate("b")],
             Image() with { Model = "sdxl" });
 
         Assert.True(result.IsOk);
@@ -99,7 +100,7 @@ public class GenerationRouterDedupTests
         aggregator.Verdicts.Enqueue(GenerationVerdict.Ok);
 
         var result = await new GenerationRouter([aggregator]).GenerateAsync(
-            [new GenerationCandidate("aggregator", "flux-1"), new GenerationCandidate("aggregator", "sdxl")],
+            [new ProviderCandidate("aggregator", "flux-1"), new ProviderCandidate("aggregator", "sdxl")],
             Image());
 
         Assert.True(result.IsOk);

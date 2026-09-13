@@ -945,7 +945,7 @@ unreachable through the platform, because the capability pre-filter was only eve
 <!-- compile-skip: the member as it appears on the interface — a partial signature, not a standalone unit -->
 ```csharp
 IAsyncEnumerable<GenerationChunk> StreamAsync(
-    IReadOnlyList<GenerationCandidate> candidates,
+    IReadOnlyList<ProviderCandidate> candidates,
     GenerationRequest request,
     CancellationToken ct = default);
 ```
@@ -959,15 +959,15 @@ refusal:
 public sealed class MyRouter : IGenerationRouter
 {
     public Task<GenerationResult> GenerateAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
         CancellationToken ct = default) => throw new NotImplementedException("your inline door");
 
     public Task<GenerationSubmission> SubmitAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
         CancellationToken ct = default) => throw new NotImplementedException("your submit door");
 
     public async IAsyncEnumerable<GenerationChunk> StreamAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         await Task.CompletedTask;

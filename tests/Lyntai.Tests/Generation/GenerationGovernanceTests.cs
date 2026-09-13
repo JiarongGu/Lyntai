@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Lyntai.Diagnostics;
@@ -28,8 +29,8 @@ public class GenerationGovernanceTests
     // machine does not guarantee. Mirrors RateLimitTests.T0.
     private static readonly DateTimeOffset FrozenNow = new(2026, 7, 18, 0, 0, 0, TimeSpan.Zero);
 
-    private static IReadOnlyList<GenerationCandidate> Order(params string[] ids) =>
-        [.. ids.Select(id => new GenerationCandidate(id))];
+    private static IReadOnlyList<ProviderCandidate> Order(params string[] ids) =>
+        [.. ids.Select(id => new ProviderCandidate(id))];
 
     // ---- dead-host cooldown --------------------------------------------------------------------------
 
@@ -323,7 +324,7 @@ public class GenerationGovernanceTests
         ActivitySource.AddActivityListener(listener);
         var router = Router([new FakeGenerationProvider { Id = "tel-ok" }]);
 
-        await router.GenerateAsync([new GenerationCandidate("tel-ok", "sdxl")], Image);
+        await router.GenerateAsync([new ProviderCandidate("tel-ok", "sdxl")], Image);
 
         var span = Assert.Single(SpansWith(spans, "gen_ai.system", "tel-ok"));
         Assert.Equal("generate image", span.DisplayName);

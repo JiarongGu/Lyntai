@@ -23,7 +23,7 @@ public class GenerationSubmitFallbackTests
 {
     private static GenerationRequest Video() => new() { Kind = GenerationKinds.Video, Prompt = "a cat surfing" };
 
-    private static GenerationCandidate[] Order(params string[] ids) => [.. ids.Select(id => new GenerationCandidate(id))];
+    private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
     /// <summary>How long a bounded await waits before failing outright — see the note in
     /// <c>RouterCooldownKeyTests</c>: a leaked permit makes the waiting caller wait FOREVER, and an unbounded

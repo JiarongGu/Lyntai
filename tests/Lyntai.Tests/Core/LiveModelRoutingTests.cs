@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -45,7 +46,7 @@ public class LiveModelRoutingTests
         options.DefaultModelByConsumer["scoring"] = "config-model";
         var router = new LlmRouter([provider], new DeadHostTracker(), options,
             modelRouting: new KeyValueModelRoutingStore(kv));
-        IReadOnlyList<LlmCandidate> candidates = [new LlmCandidate("p")];
+        IReadOnlyList<ProviderCandidate> candidates = [new ProviderCandidate("p")];
         var req = new LlmRequest { Messages = [LlmMessage.User("hi")], Consumer = "scoring" };
 
         await router.CompleteAsync(candidates, req);

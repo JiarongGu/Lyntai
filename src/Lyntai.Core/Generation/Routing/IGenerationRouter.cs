@@ -1,3 +1,5 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Generation.Routing;
 
 /// <summary>Picks a capable media backend and falls over when one fails. The media counterpart of
@@ -15,7 +17,7 @@ public interface IGenerationRouter
     /// configured" that was not even accurate. Only a run in which nothing said anything reports that
     /// sentence.</remarks>
     Task<GenerationResult> GenerateAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
 
     /// <summary>Submit an asynchronous generation through the first capable job-capable candidate. The
     /// returned operation is paired with the provider id that owns it, because an operation id only means
@@ -34,7 +36,7 @@ public interface IGenerationRouter
     /// SUBSTANTIVE rejection where there was one, otherwise a blameless rejection that still explained itself,
     /// on the same rule <see cref="GenerateAsync"/> follows.</para></remarks>
     Task<GenerationSubmission> SubmitAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
 
     /// <summary>Stream through the first capable <see cref="GenerationDelivery.Stream"/> candidate, emitting
     /// media as it is produced. The third door, added in 3.0 — before it, a backend advertising
@@ -60,7 +62,7 @@ public interface IGenerationRouter
     /// media finished or because the process died, which is the one question a raw stream cannot
     /// answer.</para></remarks>
     IAsyncEnumerable<GenerationChunk> StreamAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
 }
 
 /// <summary>An accepted asynchronous generation plus the backend that owns it — persist BOTH: an operation id

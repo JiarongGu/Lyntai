@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
 using Lyntai.Llm.RateLimiting;
@@ -33,7 +34,7 @@ public sealed class RateLimitedGenerationRouter(
 
     /// <inheritdoc/>
     public async Task<GenerationResult> GenerateAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
     {
         if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
         {
@@ -45,7 +46,7 @@ public sealed class RateLimitedGenerationRouter(
 
     /// <inheritdoc/>
     public async Task<GenerationSubmission> SubmitAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
     {
         if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
         {
@@ -63,7 +64,7 @@ public sealed class RateLimitedGenerationRouter(
     /// charging it per chunk would let the length of the media decide the rate rather than the rate deciding
     /// it.</remarks>
     public async IAsyncEnumerable<GenerationChunk> StreamAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))

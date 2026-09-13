@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using Lyntai;
 using Lyntai.Llm;
@@ -136,7 +137,7 @@ public class RouterEndToEndTests : IDisposable
             .ConfigurePrimaryHttpMessageHandler(() => _http);
         using var sp = services.BuildServiceProvider();
         var router = sp.GetRequiredService<ILlmRouter>();
-        var candidates = new List<LlmCandidate> { new("openai"), new("claude-cli") };
+        var candidates = new List<ProviderCandidate> { new("openai"), new("claude-cli") };
 
         var r1 = await router.CompleteAsync(candidates, Req("first"));
         Assert.Equal("stub reply: first", r1.Text);   // http 500 → fell to CLI

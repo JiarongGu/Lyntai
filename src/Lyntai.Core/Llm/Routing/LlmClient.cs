@@ -1,3 +1,5 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Llm.Routing;
 
 /// <summary>Default <see cref="ILlmClient"/>: the router over a fallback list.</summary>
@@ -5,7 +7,7 @@ public sealed class LlmClient : ILlmClient
 {
     private readonly ILlmRouter _router;
     private readonly LyntaiOptions _options;
-    private readonly IReadOnlyList<LlmCandidate>? _candidates;
+    private readonly IReadOnlyList<ProviderCandidate>? _candidates;
 
     /// <summary>Route over <paramref name="candidates"/>, or over
     /// <see cref="LyntaiOptions.DefaultCandidates"/> when none are given.</summary>
@@ -17,14 +19,14 @@ public sealed class LlmClient : ILlmClient
     /// <para><c>null</c> (the default) reads <see cref="LyntaiOptions.DefaultCandidates"/> at each call, so
     /// an override applied after composition still takes.</para></param>
     public LlmClient(ILlmRouter router, LyntaiOptions options,
-        IReadOnlyList<LlmCandidate>? candidates = null)
+        IReadOnlyList<ProviderCandidate>? candidates = null)
     {
         _router = router;
         _options = options;
         _candidates = candidates is null ? null : [.. candidates];
     }
 
-    private IReadOnlyList<LlmCandidate> Candidates => _candidates ?? _options.DefaultCandidates;
+    private IReadOnlyList<ProviderCandidate> Candidates => _candidates ?? _options.DefaultCandidates;
 
     public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
         _router.CompleteAsync(Candidates, req, ct);

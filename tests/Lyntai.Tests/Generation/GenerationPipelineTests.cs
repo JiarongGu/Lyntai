@@ -1,5 +1,6 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;
+using Lyntai.Lifecycle;
 using Lyntai.Llm.Budgeting;
 using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
@@ -18,8 +19,8 @@ public class GenerationPipelineTests
     private static readonly GenerationRequest Video =
         new() { Kind = GenerationKinds.Video, Prompt = "pan across it" };
 
-    private static IReadOnlyList<GenerationCandidate> Order(params string[] ids) =>
-        [.. ids.Select(id => new GenerationCandidate(id))];
+    private static IReadOnlyList<ProviderCandidate> Order(params string[] ids) =>
+        [.. ids.Select(id => new ProviderCandidate(id))];
 
     /// <summary>An Ok carrying <paramref name="artifacts"/> artifacts. Built through the CONSTRUCTOR rather
     /// than <see cref="GenerationResult.Success"/> so zero is expressible — that shape is what a BYO router
@@ -341,12 +342,12 @@ public class GenerationPipelineTests
 
         public List<GenerationRequest> Requests { get; } = [];
 
-        public List<IReadOnlyList<GenerationCandidate>> Candidates { get; } = [];
+        public List<IReadOnlyList<ProviderCandidate>> Candidates { get; } = [];
 
         public int Calls => Requests.Count;
 
         public Task<GenerationResult> GenerateAsync(
-            IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+            IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
             CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
@@ -358,12 +359,12 @@ public class GenerationPipelineTests
         }
 
         public Task<GenerationSubmission> SubmitAsync(
-            IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+            IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
             CancellationToken ct = default) =>
             throw new NotSupportedException("the pipeline must drive the inline door");
 
         public IAsyncEnumerable<GenerationChunk> StreamAsync(
-            IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+            IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
             CancellationToken ct = default) =>
             throw new NotSupportedException("the pipeline must drive the inline door");
     }

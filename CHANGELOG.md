@@ -14,6 +14,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **`LlmCandidate` and `GenerationCandidate` are replaced by `Lyntai.Lifecycle.ProviderCandidate`**
+  (**D125**). <!-- drift-ok: the entry announcing the rename has to name what it renamed --> The two were byte-identical records — `(string ProviderId, string? Model = null)` — one per
+  domain, and the generation one's own doc said the pair was the routing unit "exactly as on the LLM side".
+  Migration is a type name and a `using Lyntai.Lifecycle;`; the members, the case-insensitive id matching
+  and the ordinal model comparison are unchanged. `UseDefaultGenerationCandidates` is NOT affected — it is a
+  builder method, not the type. **This is the first step of unifying the provider layer**: one candidate,
+  then one routing spine, then capabilities declared as data rather than as a type hierarchy.
+
 - **`Lyntai.Providers.ExtensionsAi` is folded into `Lyntai.Providers.Default`** (**D123**). The migration is
   one `PackageReference` and no `using` — every namespace and type name is unchanged, and
   `AddExtensionsAiProvider(id, chatClient)` still registers it. **The boundary was isolating nothing**:

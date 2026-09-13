@@ -19,8 +19,8 @@ public class RouterCooldownKeyTests
 
     private static GenerationRequest VideoRequest() => new() { Kind = GenerationKinds.Video, Prompt = "a cat" };
 
-    private static List<GenerationCandidate> Candidates(params string[] ids) =>
-        [.. ids.Select(id => new GenerationCandidate(id))];
+    private static List<ProviderCandidate> Candidates(params string[] ids) =>
+        [.. ids.Select(id => new ProviderCandidate(id))];
 
     /// <summary>How long a bounded await waits before failing the test outright. Generous enough never to
     /// fire on a loaded machine, short enough that the failure is legible.
@@ -222,7 +222,7 @@ public class RouterCooldownKeyTests
 
         var router = new LlmRouter([provider], tracker, new LyntaiOptions(), configuration: _ => cfg);
 
-        await router.CompleteAsync([new LlmCandidate("openai")],
+        await router.CompleteAsync([new ProviderCandidate("openai")],
             new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
         Assert.True(tracker.IsDead(cfg.ToString()));
@@ -248,7 +248,7 @@ public class RouterCooldownKeyTests
 
         var router = new LlmRouter([provider], tracker, options, configuration: _ => cfg);
 
-        await router.CompleteAsync([new LlmCandidate("openai", "gpt-5")],
+        await router.CompleteAsync([new ProviderCandidate("openai", "gpt-5")],
             new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
         Assert.True(tracker.IsDead($"{cfg}::gpt-5"));      // the configuration AND the model
@@ -273,7 +273,7 @@ public class RouterCooldownKeyTests
         var router = new LlmRouter([provider], new DeadHostTracker(), new LyntaiOptions(),
             configuration: _ => cfg, admission: admission);
 
-        await router.CompleteAsync([new LlmCandidate("openai")],
+        await router.CompleteAsync([new ProviderCandidate("openai")],
             new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
         Assert.Equal(0, admission.GateCount);
@@ -294,7 +294,7 @@ public class RouterCooldownKeyTests
             configuration: _ => cfg, admission: admission);
 
         var chunks = new List<LlmChunk>();
-        await foreach (var chunk in router.StreamAsync([new LlmCandidate("openai")],
+        await foreach (var chunk in router.StreamAsync([new ProviderCandidate("openai")],
                            new LlmRequest { Messages = [LlmMessage.User("hi")] }))
         {
             // mid-stream the gate must be untouched — the stream never entered it

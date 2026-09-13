@@ -81,7 +81,7 @@ public sealed class GenerationRouter(
 
     /// <inheritdoc/>
     public async Task<GenerationResult> GenerateAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
     {
         var capable = Capable(candidates, request, GenerationDelivery.Inline);
         GenerationResult? firstFailure = null;     // the first SUBSTANTIVE failure — what the caller is told
@@ -145,7 +145,7 @@ public sealed class GenerationRouter(
 
     /// <inheritdoc/>
     public async Task<GenerationSubmission> SubmitAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
     {
         var capable = Capable(candidates, request, GenerationDelivery.Job);
         var benched = 0;
@@ -259,7 +259,7 @@ public sealed class GenerationRouter(
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<GenerationChunk> StreamAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var capable = Capable(candidates, request, GenerationDelivery.Stream);
@@ -544,7 +544,7 @@ public sealed class GenerationRouter(
     /// <para>The dedup itself is the LLM router's (<see cref="CandidateDedup"/>) — first wins, order preserved
     /// — rather than a second copy of it here.</para></summary>
     private List<(IGenerationProvider Provider, GenerationRequest Request)> Capable(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, GenerationDelivery delivery)
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, GenerationDelivery delivery)
     {
         var resolved = new List<(IGenerationProvider Provider, GenerationRequest Request)>();
         foreach (var candidate in candidates)

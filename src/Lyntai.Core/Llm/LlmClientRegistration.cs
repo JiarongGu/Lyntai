@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,7 +15,7 @@ public sealed class LlmClientBuilder
 
     internal List<string> ProviderIds { get; } = [];
 
-    internal List<LlmCandidate> Candidates { get; } = [];
+    internal List<ProviderCandidate> Candidates { get; } = [];
 
     /// <summary>
     /// Route this client over the named backends ONLY, in the order given — which is also the fallback
@@ -63,7 +64,7 @@ public sealed class LlmClientBuilder
     /// append.</para>
     /// </summary>
     /// <param name="candidates">The fallback list, in order.</param>
-    public LlmClientBuilder UseCandidates(params LlmCandidate[] candidates)
+    public LlmClientBuilder UseCandidates(params ProviderCandidate[] candidates)
     {
         ArgumentNullException.ThrowIfNull(candidates);
         Candidates.Clear();

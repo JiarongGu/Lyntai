@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Diagnostics.CodeAnalysis;
 using Lyntai.Agents;
 using Lyntai.Cortex;
@@ -442,13 +443,13 @@ public sealed class LyntaiBuilder
 
     /// <summary>Set the router fallback order used when callers don't pass explicit candidates.
     /// SETS (clears + replaces) the default candidate list — the last call wins; it does not append.
-    /// Each provider id becomes an <see cref="LlmCandidate"/> with default options.</summary>
+    /// Each provider id becomes an <see cref="ProviderCandidate"/> with default options.</summary>
     public LyntaiBuilder UseDefaultCandidates(params string[] providerIds) =>
-        UseDefaultCandidates([.. providerIds.Select(id => new LlmCandidate(id))]);
+        UseDefaultCandidates([.. providerIds.Select(id => new ProviderCandidate(id))]);
 
     /// <summary>Set the router fallback order used when callers don't pass explicit candidates.
     /// SETS (clears + replaces) the default candidate list — the last call wins; it does not append.</summary>
-    public LyntaiBuilder UseDefaultCandidates(params LlmCandidate[] candidates)
+    public LyntaiBuilder UseDefaultCandidates(params ProviderCandidate[] candidates)
     {
         Options.DefaultCandidates.Clear();
         Options.DefaultCandidates.AddRange(candidates);

@@ -194,8 +194,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D122](#d122--a-dependency-you-use-5-of-is-written-not-isolated-the-static-embedder-owns-its-tokenizer-and-needs-no-package-2026-09-14) | 2026-09-14 | a dependency you use 5% of is written, not isolated: the static embedder owns its tokenizer and n… |
 | [D123](#d123--a-package-boundary-must-isolate-a-dependency-the-consumer-can-refuse-the-meai-bridge-folds-into-providersdefault-2026-09-14) | 2026-09-14 | a package boundary must isolate a dependency the consumer can REFUSE; the MEAI bridge folds into… |
 | [D124](#d124--the-transformer-embedder-ships-as-lyntaiprovidersonnx-managed-half-only-and-embedders-join-the-provider-family-2026-09-14) | 2026-09-14 | the TRANSFORMER embedder ships as Lyntai.Providers.Onnx, managed-half only, and embedders join th… |
+| [D125](#d125--one-providercandidate-routing-a-backend-and-model-pair-is-one-rule-not-one-per-domain-2026-09-14) | 2026-09-14 | one ProviderCandidate: routing a backend-and-model pair is ONE rule, not one per domain |
 
-_All 124 entries are live decisions._
+_All 125 entries are live decisions._
 
 <!-- index:end -->
 
@@ -1406,7 +1407,7 @@ a sibling.
 | `Compose` on the two composition seams | `StabilityFactor`, `Signals` | named for the ACT, which is the exact convention retiring `Appraise` settled — every seam method in this domain is named for what it RETURNS, and the age composition already was |
 | `SummedAgeComposition` &c. | `…CompositionPolicy` | dropped the suffix their own interfaces and every sibling policy carry, so a reader could not tell `MultiplicativeRetentionComposition` was a policy while `MultiplicativeRankingPolicy` was |   <!-- drift-ok: a rename record NAMES the retired spelling -->
 | `LocalDiffusionOptions.Strength` | `DenoisingStrength` | the same img2img dial under two names in one package, where the neighbouring backend already said `DenoisingStrength` |
-| `UseDefaultGenerationCandidates(candidates:)` | `providerIds:` | its own doc asserts it matches `UseDefaultCandidates(providerIds:)` "exactly", and `GenerationCandidate` is a real type in that namespace |
+| `UseDefaultGenerationCandidates(candidates:)` | `providerIds:` | its own doc asserts it matches `UseDefaultCandidates(providerIds:)` "exactly", and `GenerationCandidate` is a real type in that namespace | <!-- drift-ok: a 2026-08-11 audit row recording the surface AS IT WAS; D125 renamed the type afterwards -->
 
 **Made internal, having never earned their surface:** `MemoryEngineComposition` (a DI carrier record whose
 five references are all in the file that declares it) and `BudgetedGenerationRouter.RecordAsync` — whose own
@@ -1434,7 +1435,7 @@ name that is dead EVERYWHERE, and these are each still live and correct somewher
 | `AuthoritativeReserve` | 1 | `GraphMemoryOptions` — the SLOTS member, which keeps its name |
 | `policy` | 7 | including `InMemorySecretVault(policy:)`, an access policy |
 | `Strength` | 6 | `GraphNode.Strength`, `MemoryDecayState.Strength` — connection strength |
-| `candidates` | 19 | `GenerationCandidate[]` parameters throughout the routing surface |
+| `candidates` | 19 | `GenerationCandidate[]` parameters throughout the routing surface | <!-- drift-ok: a 2026-08-11 audit row recording the surface AS IT WAS; D125 renamed the type afterwards -->
 
 The first draft of this entry claimed "every rename above is registered", which was false for six of eleven,
 and its registry comment asserted `Reserve` was banned when `Reserve` appeared in no `names` array at all.
@@ -3762,3 +3763,37 @@ properties of how it was trained: `1_Pooling/config.json`, `modules.json`, and `
 cosines the same export produces through Python's `onnxruntime` with the reference HF tokenizer, matching
 to four decimals. A wrong pooling mode, a mask that averages padding in, or a dropped `token_type_ids`
 all still yield finite, unit-length, correctly-ordered vectors — so ordering alone proves nothing.
+
+## D125 — one ProviderCandidate: routing a backend-and-model pair is ONE rule, not one per domain (2026-09-14)
+
+`LlmCandidate` and `GenerationCandidate` are gone. <!-- drift-ok: this entry RETIRES both names, so it has to say them --> `Lyntai.Lifecycle.ProviderCandidate(string ProviderId,
+string? Model = null)` replaces both, across 195 references in 41 files. **Breaking, deliberately** — the
+library has one consumer today, so the window for this is now.
+
+**They were BYTE-IDENTICAL, and each admitted it.** Same two members, same case-insensitive id matching,
+same ordinal model comparison; the generation one's own XML doc said the pair was the routing unit
+"exactly as on the LLM side", and `GenerationRouter` already imported the LLM router's `CandidateDedup`
+rather than copying it. Two copies of one rule drift; one cannot.
+
+**This is the first step of a larger correction, and recording that is the point.** The provider layer grew
+one stack per domain — two candidate records, two routers (434 and 569 lines), two factories whose bodies
+share three VERBATIM copy-pasted comments, two sets of budgeting/rate-limiting decorators. Only the
+lifecycle tier was ever built once: `IProviderIdentity`, `IProviderPool<T>`, `IProviderAdmission`,
+`DeadHostTracker`, `ProviderKey` are already generic, which is what made this rename mechanical.
+
+**The direction agreed with the owner, which constrains what may be added next: ONE provider interface,
+with capabilities as DATA rather than as a type hierarchy.** A backend declares what content KINDS and
+which operations it serves, exactly as `GenerationCapabilities` already does — `Kinds` is an open string
+list, so `"text"` fits it today — and the router filters on that declaration before dispatching.
+
+**Two designs were considered and REJECTED on the way here, because both would have entrenched the split.**
+A third domain seam (`IEmbeddingProvider` as a peer of `ILlmProvider` and `IGenerationProvider`) makes
+embedding a parallel stack when an embedding model is a TEXT backend like a chat model. And splitting
+operations into types (`IChatProvider` / `IEmbeddingProvider`) encodes as a hierarchy what belongs in data:
+chat and embed are two operations on one content type, not two kinds of provider.
+
+**The objection that blocked this for one round, recorded because it was WRONG:** that an embedder cannot
+implement `CompleteAsync` without faking it. It can — `LlmVerdict.Unsupported` already exists for "a
+capability/transport gap", `LlmVerdict.NotConfigured`'s own doc says it mirrors `GenerationVerdict`'s, and
+every generation backend already lives under exactly that contract. A declared capability plus a verdict is
+how a provider says "not mine", and the vocabulary for it shipped long ago.

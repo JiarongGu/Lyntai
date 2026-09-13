@@ -17,7 +17,7 @@ public sealed class GenerationOptions
     /// <summary>Candidate order used when a caller doesn't name one — the media counterpart of
     /// <c>LyntaiOptions.DefaultCandidates</c>, and mutable for the same reason: the builder sets it at
     /// configure time.</summary>
-    public List<GenerationCandidate> DefaultCandidates { get; } = [];
+    public List<ProviderCandidate> DefaultCandidates { get; } = [];
 
     /// <summary>Throttling for generation, SEPARATE from <c>LyntaiOptions.RateLimit</c> (which governs chat).
     /// A render and a chat turn hit different vendors' limits — often different accounts — so one shared
@@ -161,7 +161,7 @@ public static class GenerationBuilderExtensions
     {
         var options = GenerationOptionsFor(builder);
         options.DefaultCandidates.Clear();
-        options.DefaultCandidates.AddRange(providerIds.Select(GenerationCandidateSpec.Parse));
+        options.DefaultCandidates.AddRange(providerIds.Select(ProviderCandidateSpec.Parse));
         return builder;
     }
 

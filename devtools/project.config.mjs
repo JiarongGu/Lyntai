@@ -125,20 +125,27 @@ export default {
    * last stale reference is repaired the allowance is a hole nobody can see expiring, and the next
    * genuine dangling reference in that file would go unreported forever.
    */
-  staleReferenceAllowances: [
-    {
-      file: 'docs/2026-08-04-generation-platform-plan.md',
-      why: 'Its own STATUS banner (2026-08-05) says the file-structure table is superseded twice over: the '
-        + '2.0.1 restructure moved the generation CONTRACTS into src/Lyntai.Core/Generation/ (D25) and D25 '
-        + 'then re-split the BACKENDS into the Lyntai.Generation package. Every src/Lyntai.Generation/*.cs '
-        + 'and tests/Lyntai.Tests/Media/*.cs path below that banner is the layout AS FIRST WRITTEN, which is '
-        + 'what makes it a faithful record of how the core was built. The document stays tracked only '
-        + 'because GEN-VERIFY/GEN6/GEN7 still execute from its live half (docs/superpowers/INDEX.md), and '
-        + 'it moves to local/ when the last of those closes — at which point this allowance goes with it.',
-    },
-  ],
+  // EMPTY on purpose, and the reason is worth keeping so the next dangling reference is not waved through
+  // as "there used to be an allowance". The one entry here covered
+  // `docs/2026-08-04-generation-platform-plan.md`, whose paths below its 2026-08-05 status banner are the
+  // layout AS FIRST WRITTEN — a faithful record of how the core was built, superseded twice by D25. D125
+  // moved that file into `check-docs`' HISTORICAL list for the same reason, and `check-links` reads
+  // HISTORICAL from there, so the file is no longer scanned and the allowance matched nothing — which this
+  // registry treats as a failure by design. The COST, stated rather than buried: that document's still-live
+  // half (GEN-VERIFY/GEN6/GEN7 execute from it) is now outside both gates until it moves to local/.
+  staleReferenceAllowances: [],
 
   retiredApiNames: [
+    {
+      // D125's provider unification. These were two BYTE-IDENTICAL records — `(string ProviderId, string?
+      // Model = null)` — one per domain, and the generation one's own XML doc admitted it behaved "exactly
+      // as on the LLM side". Whole-identifier equality is what lets `UseDefaultGenerationCandidates` (a
+      // generation BUILDER method, not the type) stay live without needing an allowance.
+      names: ['LlmCandidate', 'GenerationCandidate', 'GenerationCandidateSpec'],
+      use: '`Lyntai.Lifecycle.ProviderCandidate` / `ProviderCandidateSpec`',
+      why: 'which backend and which of its models is ONE routing rule, not one per domain — two copies of '
+        + 'it drift and a single type cannot (D125)',
+    },
     {
       // D76's naming sweep of the surface D67-D76 added. 'Flags' on an options object reads as boolean
       // feature flags or a [Flags] enum in .NET, not as 'the argv token for each argument' - so it is a
@@ -365,6 +372,16 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    {
+      // D125. The SURFACE half is in `retiredApiNames`; this is the prose half. Both names described the
+      // same record in two namespaces, so a document naming either is describing a type that no longer
+      // exists. Historical records (CHANGELOG below the Unreleased boundary, the task archive) are exempt
+      // by file; a deliberate mention inside a maintained document takes `drift-ok` on its line.
+      term: '\\b(?:Llm|Generation)Candidate\\b',
+      why: 'the two per-domain candidate records were unified into one (D125) — naming either sends a '
+        + 'reader to a type the tree no longer has',
+      use: '`ProviderCandidate`',
+    },
     {
       // A SHAPE rule retired by measurement rather than a rename, which is why it needs an entry at all:
       // nothing about the code changed, so no other gate can see the claim go stale. Standing guidance said

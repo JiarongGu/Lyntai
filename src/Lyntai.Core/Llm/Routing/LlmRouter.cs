@@ -72,7 +72,7 @@ public sealed class LlmRouter(
         return map;
     });
 
-    public async Task<LlmReply> CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default)
+    public async Task<LlmReply> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default)
     {
         var liveModel = await LiveModelAsync(req.Consumer, ct).ConfigureAwait(false);
         LlmReply? last = null;           // the last SUBSTANTIVE failure — what the caller is told
@@ -149,7 +149,7 @@ public sealed class LlmRouter(
     private static bool IsBlameless(LlmVerdict verdict) =>
         verdict is LlmVerdict.NotConfigured or LlmVerdict.Unsupported;
 
-    public async IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req,
+    public async IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var liveModel = await LiveModelAsync(req.Consumer, ct).ConfigureAwait(false);
@@ -307,7 +307,7 @@ public sealed class LlmRouter(
     /// it resolves against the CONFIGURED default model (no live <see cref="IModelRoutingStore"/> read) —
     /// under <see cref="CooldownScope.ProviderAndModel"/> plus a live override, the probe's cooldown key
     /// can differ from the completion's.</summary>
-    public bool SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req)
+    public bool SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req)
     {
         foreach (var candidate in LiveCandidates(candidates, req, liveModel: null))
             return candidate.Provider.SupportsToolCalls; // first live candidate decides
@@ -315,7 +315,7 @@ public sealed class LlmRouter(
     }
 
     /// <inheritdoc/>
-    public bool SupportsStreamingToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req)
+    public bool SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req)
     {
         foreach (var candidate in LiveCandidates(candidates, req, liveModel: null))
             return candidate.Provider.SupportsStreamingToolCalls; // first live candidate decides, as above
@@ -327,7 +327,7 @@ public sealed class LlmRouter(
     /// consumer default → live override when supplied), skip unknown/unavailable/cooling providers (with
     /// the sole-candidate exemption), and pair each survivor with its cooldown key.</summary>
     private IEnumerable<(ILlmProvider Provider, string? Model, string Key)> LiveCandidates(
-        IReadOnlyList<LlmCandidate> candidates, LlmRequest req, string? liveModel)
+        IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, string? liveModel)
     {
         var deduped = CandidateDedup.Dedup(candidates);
         var soleCandidate = deduped.Count == 1;
@@ -414,7 +414,7 @@ public sealed class LlmRouter(
             : identity;
     }
 
-    private ILlmProvider? SelectLive(LlmCandidate candidate, string? effectiveModel, bool soleCandidate, out string skipReason)
+    private ILlmProvider? SelectLive(ProviderCandidate candidate, string? effectiveModel, bool soleCandidate, out string skipReason)
     {
         if (!_byId.Value.TryGetValue(candidate.ProviderId, out var provider))
         { skipReason = "no provider with this id registered"; return null; }

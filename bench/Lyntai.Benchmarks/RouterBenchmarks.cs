@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Lyntai;
@@ -14,8 +15,8 @@ public class RouterBenchmarks
     private LlmRouter _router = null!;
     private LlmRouter _routerFallover = null!;
     private readonly LlmRequest _req = new() { Messages = [LlmMessage.User("bench")] };
-    private readonly IReadOnlyList<LlmCandidate> _single = [new LlmCandidate("ok")];
-    private readonly IReadOnlyList<LlmCandidate> _two = [new LlmCandidate("down"), new LlmCandidate("ok")];
+    private readonly IReadOnlyList<ProviderCandidate> _single = [new ProviderCandidate("ok")];
+    private readonly IReadOnlyList<ProviderCandidate> _two = [new ProviderCandidate("down"), new ProviderCandidate("ok")];
 
     [GlobalSetup]
     public void Setup()

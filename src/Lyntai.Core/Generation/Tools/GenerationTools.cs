@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
@@ -112,11 +113,11 @@ internal static class GenerationToolJson
 
     /// <summary>Candidates the model named, or the host's configured default order. A model naming a backend it
     /// invented gets an "unsupported" answer from routing rather than a crash.</summary>
-    public static IReadOnlyList<GenerationCandidate> Candidates(
-        IReadOnlyList<string> named, IReadOnlyList<GenerationCandidate> defaults)
+    public static IReadOnlyList<ProviderCandidate> Candidates(
+        IReadOnlyList<string> named, IReadOnlyList<ProviderCandidate> defaults)
     {
         if (named.Count == 0) return defaults;
-        return [.. named.Select(GenerationCandidateSpec.Parse)];
+        return [.. named.Select(ProviderCandidateSpec.Parse)];
     }
 
     /// <summary>The arguments the two operation-handle tools take — the backend id and operation id

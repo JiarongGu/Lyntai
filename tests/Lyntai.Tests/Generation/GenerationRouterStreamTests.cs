@@ -1,5 +1,6 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;
+using Lyntai.Lifecycle;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
@@ -22,8 +23,8 @@ public class GenerationRouterStreamTests
     private static GenerationRequest Speech() =>
         new() { Kind = GenerationKinds.Audio, Prompt = "read this aloud" };
 
-    private static GenerationCandidate[] Candidates(params IGenerationProvider[] providers) =>
-        [.. providers.Select(p => new GenerationCandidate(p.Id))];
+    private static ProviderCandidate[] Candidates(params IGenerationProvider[] providers) =>
+        [.. providers.Select(p => new ProviderCandidate(p.Id))];
 
     private static async Task<List<GenerationChunk>> Collect(IAsyncEnumerable<GenerationChunk> stream)
     {

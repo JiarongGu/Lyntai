@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
@@ -189,7 +190,7 @@ public class LlmClientFactoryTests
     {
         var small = new FakeLlmProvider("local");
         using var sp = Build(b => b
-            .UseDefaultCandidates(new LlmCandidate("hosted"), new LlmCandidate("local", "qwen3:4b"))
+            .UseDefaultCandidates(new ProviderCandidate("hosted"), new ProviderCandidate("local", "qwen3:4b"))
             .AddLlmClient("judge", c => c.UseProviders("local"))
             .Services.AddSingleton<ILlmProvider>(new FakeLlmProvider("hosted"))
                      .AddSingleton<ILlmProvider>(small));
@@ -274,8 +275,8 @@ public class LlmClientFactoryTests
     {
         var backend = new FakeLlmProvider("local");
         using var sp = Build(b => b
-            .UseDefaultCandidates(new LlmCandidate("local", "big"))
-            .AddLlmClient("judge", c => c.UseCandidates(new LlmCandidate("local", "small")))
+            .UseDefaultCandidates(new ProviderCandidate("local", "big"))
+            .AddLlmClient("judge", c => c.UseCandidates(new ProviderCandidate("local", "small")))
             .Services.AddSingleton<ILlmProvider>(backend));
 
         await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
@@ -291,7 +292,7 @@ public class LlmClientFactoryTests
     public void A_candidate_outside_the_clients_own_pool_is_refused()
     {
         using var sp = Build(b => WithProviders(b, "a", "b")
-            .AddLlmClient("judge", c => c.UseProviders("a").UseCandidates(new LlmCandidate("b"))));
+            .AddLlmClient("judge", c => c.UseProviders("a").UseCandidates(new ProviderCandidate("b"))));
 
         var ex = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ILlmClientFactory>());
         Assert.Contains("judge", ex.Message, StringComparison.Ordinal);
@@ -312,7 +313,7 @@ public class LlmClientFactoryTests
     public void A_stated_candidate_naming_no_registered_backend_is_refused_even_with_no_pool()
     {
         using var sp = Build(b => WithProviders(b, "a")
-            .AddLlmClient("judge", c => c.UseCandidates(new LlmCandidate("ghost"))));
+            .AddLlmClient("judge", c => c.UseCandidates(new ProviderCandidate("ghost"))));
 
         var ex = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ILlmClientFactory>());
         Assert.Contains("ghost", ex.Message, StringComparison.Ordinal);
@@ -334,7 +335,7 @@ public class LlmClientFactoryTests
         var error = Assert.Throws<InvalidOperationException>(() => Build(b =>
         {
             WithProviders(b, "cheap");
-            b.Options.DefaultCandidates.Add(new LlmCandidate("cheap", "big-model"));
+            b.Options.DefaultCandidates.Add(new ProviderCandidate("cheap", "big-model"));
             b.AddMemoryVerification(o => o.Model = "small-model");
         }).GetRequiredService<ILlmClientFactory>());
 
@@ -350,7 +351,7 @@ public class LlmClientFactoryTests
         using var matches = Build(b =>            // a candidate pins exactly what the seam asked for
         {
             WithProviders(b, "cheap");
-            b.Options.DefaultCandidates.Add(new LlmCandidate("cheap", "small-model"));
+            b.Options.DefaultCandidates.Add(new ProviderCandidate("cheap", "small-model"));
             b.AddMemoryVerification(o => o.Model = "small-model");
         });
         Assert.NotNull(matches.GetRequiredService<ILlmClientFactory>());
@@ -358,7 +359,7 @@ public class LlmClientFactoryTests
         using var unpinned = Build(b =>           // a candidate pins nothing, so the seam's Model is used
         {
             WithProviders(b, "cheap");
-            b.Options.DefaultCandidates.Add(new LlmCandidate("cheap"));
+            b.Options.DefaultCandidates.Add(new ProviderCandidate("cheap"));
             b.AddMemoryVerification(o => o.Model = "small-model");
         });
         Assert.NotNull(unpinned.GetRequiredService<ILlmClientFactory>());
@@ -366,8 +367,8 @@ public class LlmClientFactoryTests
         using var partial = Build(b =>            // one pinned, one not - the seam still applies to the second
         {
             WithProviders(b, "cheap", "spare");
-            b.Options.DefaultCandidates.Add(new LlmCandidate("cheap", "big-model"));
-            b.Options.DefaultCandidates.Add(new LlmCandidate("spare"));
+            b.Options.DefaultCandidates.Add(new ProviderCandidate("cheap", "big-model"));
+            b.Options.DefaultCandidates.Add(new ProviderCandidate("spare"));
             b.AddMemoryVerification(o => o.Model = "small-model");
         });
         Assert.NotNull(partial.GetRequiredService<ILlmClientFactory>());
@@ -381,8 +382,8 @@ public class LlmClientFactoryTests
         var error = Assert.Throws<InvalidOperationException>(() => Build(b =>
         {
             WithProviders(b, "cheap", "best");
-            b.Options.DefaultCandidates.Add(new LlmCandidate("best"));        // unpinned - would NOT throw
-            b.AddLlmClient("judge", c => c.UseCandidates(new LlmCandidate("cheap", "big-model")));
+            b.Options.DefaultCandidates.Add(new ProviderCandidate("best"));        // unpinned - would NOT throw
+            b.AddLlmClient("judge", c => c.UseCandidates(new ProviderCandidate("cheap", "big-model")));
             b.AddMemoryVerification(o => { o.ClientName = "judge"; o.Model = "small-model"; });
         }).GetRequiredService<ILlmClientFactory>());
 
