@@ -32,11 +32,29 @@ internal static class ToolAffordanceSweep
     private const string NativeLabel = "tool";
 
     /// <summary>Roster sizes. Nested exactly as <c>memory-decision</c>'s: a trial holds gold plus
-    /// <see cref="MaxDistractors"/> ordered distractors and N = 3 uses the first two, so the five cells
-    /// share their distractors by construction and stay paired.</summary>
-    private static readonly int[] RosterSizes = [3, 4, 5, 6, 7];
+    /// <see cref="MaxDistractors"/> ordered distractors and N = 3 uses the first two, so the cells share
+    /// their distractors by construction and stay paired.
+    ///
+    /// <para><b>Settable by <c>--roster</c>, and the DEFAULT is the published ladder</b> — a run that
+    /// passes nothing reproduces every table already in the record. The ceiling is a property of the
+    /// FIXTURE and differs by difficulty: <c>hard</c> draws distractors from the gold tool's own family, so
+    /// it cannot exceed <see cref="ToolAffordanceCorpus.FamilySize"/> and that is a design choice rather
+    /// than an oversight — the distractors are meant to be the hardest available. <c>easy</c> draws from
+    /// every OTHER family, so its ceiling is the rest of the corpus. <see cref="RosterCeiling"/> is where
+    /// that is enforced, because an over-large roster silently yields ZERO trials otherwise.</para></summary>
+    private static int[] RosterSizes { get; set; } = [3, 4, 5, 6, 7];
 
-    private const int MaxDistractors = ToolAffordanceCorpus.FamilySize - 1;
+    /// <summary>Distractors a trial carries, derived from the largest roster asked for so the cells stay
+    /// nested however the ladder is set.</summary>
+    private static int MaxDistractors => RosterSizes[^1] - 1;
+
+    /// <summary>The largest roster this fixture can fill at <paramref name="difficulty"/>, and the reason
+    /// the two differ. Enforced rather than documented because the failure is SILENT: the trial builder
+    /// skips any gold whose pool is short, so a roster one past the ceiling produces an empty table rather
+    /// than an error.</summary>
+    private static int RosterCeiling(Difficulty difficulty) => difficulty == Difficulty.Hard
+        ? ToolAffordanceCorpus.FamilySize
+        : 1 + ToolAffordanceCorpus.Tools.Count - ToolAffordanceCorpus.FamilySize;
 
     /// <summary>Iterations a loop arm is given. TWO, not one: the first turn is the choice this sweep
     /// scores, and the second is what makes the run a real loop — the model receives the observation and is
@@ -150,6 +168,46 @@ internal static class ToolAffordanceSweep
         }
 
         var difficulty = ArgValue(args, "--difficulty") == "easy" ? Difficulty.Easy : Difficulty.Hard;
+
+        // `--roster 3,7,14,...` takes the ladder to CATALOGUE scale, which is where bounding a tool roster
+        // would actually matter — the published cells stop at seven and a deployment with a catalogue is the
+        // case the selector question was asked about (`TASKS.md` Part 178).
+        //
+        // Validated against the fixture rather than trusted: `hard` draws its distractors from the gold
+        // tool's own family, so it cannot go past FamilySize, and asking for more makes the trial builder
+        // skip EVERY gold and print an empty table instead of failing.
+        if (ArgValue(args, "--roster") is { } spec)
+        {
+            var wanted = new List<int>();
+            foreach (var part in spec.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!int.TryParse(part, out var size) || size < 2)
+                {
+                    Console.Error.WriteLine($"--roster: '{part}' is not a roster size of at least 2.");
+                    return 1;
+                }
+
+                wanted.Add(size);
+            }
+
+            var ceiling = RosterCeiling(difficulty);
+            var over = wanted.Where(n => n > ceiling).ToList();
+            if (over.Count > 0)
+            {
+                Console.Error.WriteLine($"--roster: {string.Join(", ", over)} exceed(s) what the "
+                    + $"{(difficulty == Difficulty.Hard ? "hard" : "easy")} fixture can fill (ceiling {ceiling}). "
+                    + (difficulty == Difficulty.Hard
+                        ? "`hard` draws distractors from the gold tool's OWN family, which holds "
+                          + $"{ToolAffordanceCorpus.FamilySize}; that is the design, not a limit to raise. "
+                          + "Use --difficulty easy for a catalogue-scale roster."
+                        : $"The corpus holds {ToolAffordanceCorpus.Tools.Count} tools and a gold's own family "
+                          + "is excluded."));
+                return 1;
+            }
+
+            RosterSizes = [.. wanted.Distinct().Order()];
+        }
+
         var lanes = ArgValue(args, "--concurrency") is { } c && int.TryParse(c, out var l) ? Math.Max(1, l) : 4;
         var cap = ArgValue(args, "--n") is { } n && int.TryParse(n, out var parsed) ? parsed : int.MaxValue;
         _dump = args.Contains("--dump");
@@ -1339,7 +1397,10 @@ internal static class ToolAffordanceSweep
     {
         var n = RosterSizes[^1];
         Console.WriteLine($"\nPOSITION of the right tool in the roster — accuracy by slot, at N = {n} ONLY\n");
-        Console.WriteLine("  arm            slot 1  slot 2  slot 3  slot 4  slot 5  slot 6  slot 7");
+
+        // DERIVED from the roster, never a fixed seven. It was a literal until `--roster` existed, and the
+        // first catalogue-scale run printed a 7-slot header over 35 columns — a table nobody could read.
+        Console.WriteLine("  arm          " + string.Join(" ", Enumerable.Range(1, n).Select(s => $"{$"slot {s}",6}")));
         foreach (var cell in cells.Where(c => c.N == n && c.Arm is not ("loop-random" or "loop-oracle"))
                      .OrderBy(c => c.Arm, StringComparer.Ordinal))
             Console.WriteLine($"  {cell.Arm,-13} " + string.Join(" ", Enumerable.Range(1, n)

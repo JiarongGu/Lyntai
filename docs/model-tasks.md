@@ -289,6 +289,14 @@ against the free arm: **a 333,590,944 B embedder scoring the same tool descripti
 roster size**, still ahead of every generative arm at or under the target and still the cheapest. And the
 gemma-3-1b row stays as measured — it is a real result about a real model a deployment might pick.
 
+**"Flat in roster size" was measured over 3-7 options; at CATALOGUE scale it decays, gently**
+(`affordance-roster-catalogue`). Swept to thirty-five on the `easy` fixture the embedder runs
+**96.4% → 81.5%**, losing about fifteen points to a twelvefold roster while chance falls 33% → 3%. **These
+are different fixtures and the cells are not comparable** — `hard` draws distractors from the gold tool's
+own family and therefore cannot pose a roster above **seven at all**, which is a property of the design.
+A catalogue is a mix of both, so 81.5% is an optimistic bound and the argmax metric makes it a low one for
+a selector, which would be scored on recall@k instead.
+
 **Nothing here says smaller is better.** It says the model family and its tool training dominate the byte
 count at this scale, which is an argument for SCREENING a candidate rather than for choosing one by size.
 
