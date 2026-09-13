@@ -17,21 +17,21 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D121** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3655 passed / 3677 total, 22 skipped` (the skips are
+**The baseline a green run should match:** `3665 passed / 3688 total, 23 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 811/811, doc samples 80/80. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-13 at `70ef58a`** — read off that run's own output, never
+**MEASURED with Docker up, re-attested 2026-09-13 at `5933a26`** — read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
-easily breaks. All 22 skips were enumerated and every one is live-backend gated (a live model, embedder,
-reranker, Ollama, MCP or CLI), so nothing is skipping for another reason. **It is 22 rather than the
-long-standing 21 because `CrossEncoderVerificationLiveTests` is new** — it arrived with **D115** on
-2026-09-11, the same window in which every run had Docker down, so the old number simply predated it.
+easily breaks. All 23 skips were enumerated and every one is live-backend gated (a live model, embedder,
+reranker, Ollama, MCP or CLI), so nothing is skipping for another reason. **It is 23 rather than 22 because `StaticEmbedderLiveTests` is new** — it arrived with **D121** and is
+gated on a model directory, the same live-backend shape as every other skip. The 22 it replaces was itself
+one more than the long-standing 21, for `CrossEncoderVerificationLiveTests` (**D115**).
 **Re-attest the COMMIT alongside the figures whenever they move**: a dated claim left standing over a
 changed number cannot be told from an extrapolated one, and that is how it read to a cold reader.
 **The xUnit pair is MOVING as the 2026-09-13 ruling series lands**, and the commit above is re-attested
-each time it does: **D117** added two tests, **D118** two more, **D119** three and **D120** five, taking 3643 to 3655. Everything else
-reads back identically off each run's own output — 22 skips, e2e 3/3, doc samples 80/80 — and the guard
+each time it does: **D117** added two tests, **D118** two more, **D119** three, **D120** five and **D121** ten, taking 3643 to 3665. Everything else
+reads back identically off each run's own output — the skip roster, e2e 3/3, doc samples 80/80 — and the guard
 count is derived from the tree by `check-counts`, so it cannot go stale unseen. **A `+n` that matches a
 named set of new tests is the only movement needing no investigation; any other is a finding**, and a
 series is exactly when that rule is easiest to stop applying.
