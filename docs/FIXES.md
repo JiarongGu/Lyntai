@@ -7,6 +7,53 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-15 — a graph engine's vector collections could be forgotten ACROSS a task boundary
+
+**Symptom.** `GraphMemoryEngine` addressed a similarity-index collection as `{engine}|{taskKey}|{scope}`.
+Because `|` is an ordinary character a caller may put in either component, two different triples composed to
+ONE address: engine `E` + task `a` + scope `b|c` and engine `E` + task `a|b` + scope `c` both give
+`E|a|b|c`. Forgetting either task erased the other's enrichment vectors, and `SemanticSeedSource`'s
+unscoped path — which prefix-swept `{engine}|{taskKey}|` — could read a neighbouring task's collections. A
+task boundary is the one thing `docs/memory.md` §7 holds absolute (**D92**), and nothing validated either
+component for the separator.
+
+**Root cause.** Two independent mistakes that only bite together. The separator was PRINTABLE, so composed
+addresses are ambiguous; and the address was spelled in THREE places — the engine's `VectorCollection`
+helper, the seed source's own copy, and an inline interpolation on the engine's similarity-SEARCH path —
+so no side could be fixed without another silently disagreeing. The engine's own doc named that hazard
+(*"two spellings of one address is how a removal quietly misses the collection a write created"*) while
+carrying a second spelling next door and a third inside itself.
+
+**The third spelling was missed on the first pass and found by the tests**, which is the detail worth
+carrying: grepping for calls to the helper (`VectorCollection(`) finds every site that USES the owner and
+none that bypasses it, and the bypassing one is the only kind that can drift. The search that finds it is
+for the SHAPE — an interpolation composing the address — not for the helper's name.
+
+**The repository had already solved this TWICE elsewhere.** `MemoryContentId.For` length-frames its
+components (`{len}:{value}`) with a comment naming the same collision, and `SemanticMemory` has used U+001F since it shipped, with
+the reason in a comment: *"so ("ab","c") and ("a","bc") can't collide onto one collection."* The graph
+engine, written later, did not inherit it. A convention that lives in one implementation's comment is not a
+convention.
+
+**Fix.** `MemoryVectorCollection` (internal, `Lyntai.Core/Memory/`) now owns the address for both sides:
+`For(engine, taskKey, scope)` and `PrefixFor(engine, taskKey)`, separated by U+001F. The engine's
+`VectorCollection` and the seed source's `Collection`/prefix all delegate to it, so there is one spelling
+and an unambiguous one. Validating keys was considered and rejected: it moves a silent corruption to a
+runtime throw on data a caller may already hold, where an unambiguous separator makes the collision
+unrepresentable instead.
+
+**Verify.** `MemoryVectorCollectionTests` — a theory over three ambiguous triples, the prefix's
+non-reach into a neighbouring task, write-side/read-side agreement, and a behavioural test that remembers
+into both colliding triples, forgets one, and asserts the other keeps its vectors. **All three of the
+collision tests were confirmed to FAIL with the separator temporarily set back to `|`**, which is the only
+evidence that they test the defect rather than the fix.
+
+**Introduced by.** The graph engine's enrichment write path, at its introduction — the address has had this
+shape since the vector collections existed. Persisted vectors written under the old address are orphaned by
+the change rather than migrated, so a deployment re-indexes; enrichment rebuilds them on the next write.
+
+---
+
 ## 2026-09-14 — the static embedder's tokenizer silently DELETED text: newlines, `$ ^ + = | < >`, and every emoji
  <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
 **Symptom.** `StaticEmbedder` tokenized through `Microsoft.ML.Tokenizers`' `BertTokenizer`, which departs <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->

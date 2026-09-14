@@ -323,8 +323,8 @@ public sealed class SeedSourceTests : IDisposable
         var garden = await engine.RememberAsync(new MemoryWrite(TaskKey: "task", Scope: "garden", Content: "gardening notes"));
 
         var vectors = new InMemoryVectorStore();
-        await vectors.UpsertAsync("seedtest|task|home", home.Id, [1f, 0f], "plumbing arrangements", CancellationToken.None);
-        await vectors.UpsertAsync("seedtest|task|garden", garden.Id, [1f, 0f], "gardening notes", CancellationToken.None);
+        await vectors.UpsertAsync(MemoryVectorCollection.For("seedtest", "task", "home"), home.Id, [1f, 0f], "plumbing arrangements", CancellationToken.None);
+        await vectors.UpsertAsync(MemoryVectorCollection.For("seedtest", "task", "garden"), garden.Id, [1f, 0f], "gardening notes", CancellationToken.None);
 
         var source = new SemanticSeedSource(new FixedEmbedder([1f, 0f]), vectors);
         var request = new MemorySeedRequest("seedtest", store,

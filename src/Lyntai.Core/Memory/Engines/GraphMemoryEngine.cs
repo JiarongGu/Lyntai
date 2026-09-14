@@ -496,7 +496,7 @@ public sealed class GraphMemoryEngine(
         {
             var vector = await embedder!.EmbedAsync(write.Content, EmbeddingRole.Document, ct).ConfigureAwait(false);
             var near = await vectors!
-                .SearchAsync($"{Name}|{write.TaskKey}|{write.Scope}", vector, _options.SimilarityK + 1, ct)
+                .SearchAsync(VectorCollection(write.TaskKey, write.Scope), vector, _options.SimilarityK + 1, ct)
                 .ConfigureAwait(false);
             return (vector, near);
         }
@@ -1097,11 +1097,11 @@ public sealed class GraphMemoryEngine(
         }
     }
 
-    /// <summary>This engine's similarity-index address for one (task, scope).
-    /// <para>Spelled once because three sites read it — enrichment's write and both removal verbs — and
-    /// <see cref="SemanticSeedSource"/> rebuilds the same shape on the read side. Two spellings of one
-    /// address is how a removal quietly misses the collection a write created.</para></summary>
-    private string VectorCollection(string taskKey, string scope) => $"{Name}|{taskKey}|{scope}";
+    /// <summary>This engine's similarity-index address for one (task, scope). The shape itself belongs to
+    /// <see cref="MemoryVectorCollection"/>, which the read side uses too — one spelling, because two is how
+    /// a removal quietly misses the collection a write created.</summary>
+    private string VectorCollection(string taskKey, string scope) =>
+        MemoryVectorCollection.For(Name, taskKey, scope);
 
     /// <summary>Clamp one component of a composed <see cref="MemoryTick"/> to something a store may keep.
     /// <para><b><see cref="Math.Max(double,double)"/> is not a finiteness guard</b> — it PROPAGATES

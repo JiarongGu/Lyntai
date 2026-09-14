@@ -43,7 +43,7 @@ public class IndexRebuildTests
             var vector = await embedder.EmbedAsync(node.Content);
             // THE WRINKLE: this format is GraphMemoryEngine's private convention. An application has no
             // supported way to learn it, and a rebuild that guessed it wrongly would look like it worked.
-            await vectors.UpsertAsync($"{Engine}|{node.TaskKey}|{node.Scope}",
+            await vectors.UpsertAsync(MemoryVectorCollection.For(Engine, node.TaskKey, node.Scope),
                 node.Id.ToString(CultureInfo.InvariantCulture), vector, node.Content);
         }
         return nodes.Count;
@@ -64,7 +64,7 @@ public class IndexRebuildTests
         for (var i = 0; i < 12; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"fact number {i} about the deployment"));
 
-        var collection = $"{Engine}|t|s";
+        var collection = MemoryVectorCollection.For(Engine, "t", "s");
         var indexed = await IndexedIdsAsync(vectors, collection);
         Assert.Equal(12, indexed.Count);
 
@@ -98,7 +98,7 @@ public class IndexRebuildTests
         await engine.RememberAsync(new MemoryWrite("t", "s", "the production database runs on postgres"));
         await engine.RememberAsync(new MemoryWrite("t", "s", "kittens are small and unrelated"));
 
-        var collection = $"{Engine}|t|s";
+        var collection = MemoryVectorCollection.For(Engine, "t", "s");
         var query = await embedder.EmbedAsync("the production database runs on postgres");
         var before = (await vectors.SearchAsync(collection, query, 1)).Single();
 

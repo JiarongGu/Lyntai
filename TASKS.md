@@ -15,23 +15,29 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 7 Parts: 2 startable, 7 blocked, 1 watch
+## Open items — 16 across 8 Parts: 8 startable, 7 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 90 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 134 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 143 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 197 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 268 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 346 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 401 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 424 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 472 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
-| 731 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
+| 96 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 140 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 149 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 203 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 274 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 352 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 407 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 430 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 478 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
+| 737 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
+| 917 | 179 | A provider package implements a MEMORY seam, which is the thesis violation … | startable |  |
+| 926 | 179 | Two more instances of the D136 class — one taxonomy under two names | startable |  |
+| 935 | 179 | `FuseVerdict` reads a fresh default, not the configured options | startable |  |
+| 942 | 179 | `CLAUDE.md`'s graph-memory roster says SEVEN domains and the tree has EIGHT | startable |  |
+| 948 | 179 | Pooling maths is `internal` to the ONNX package and re-implemented by hand … | startable |  |
+| 955 | 179 | `Lyntai.Tools.Mcp` and `Lyntai.Tools.Mcp.Hosting` isolate the same dependen… | startable |  |
 
 <!-- open-items:end -->
 
@@ -46,13 +52,13 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is TWO items**, and they arrived
-by opposite routes: the ONNX package because the owner RULED on it, and the SQLite dedup race because a
-`verify` run finally produced a name, an exception and a standalone reproduction. Neither came from
-re-reading the tree — a ruling and a captured failure are the two things that move an item, and only one of
-them is work you can schedule. `decision-only` is now EMPTY. That sentence
-is hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
-**four** times, and nothing derived it.
+longer drift apart. Edit the marker, never the table. **The startable set is EIGHT items**, six of them
+Part 179's — a design REVIEW, which is the third route an item arrives by and the only one that can be
+scheduled on purpose. The other two are a ruling and a captured failure, and neither comes from re-reading
+the tree; a review does, which is why it produced seven at once after months of ones and twos, and why the
+first of them closed the day it was filed.
+`decision-only` is still EMPTY. That sentence is hand-written on purpose and gated by `check-counts`:
+the banner it replaces advertised finished work **four** times, and nothing derived it.
 
 **Where things stand is NOT summarized here, deliberately.** `docs/memory-measurements.md` §5 is the measurement record,
 `docs/task-archive.md` holds one Part per closed task, `docs/DECISIONS.md` holds what was decided and why,
@@ -897,3 +903,58 @@ Nullable because `None` (no tools registered) and "a BYO loop never said" are di
   message.
 - **When a task completes, archive it** (`.claude/rules/task-lifecycle.md`): move its entry (with the
   completion date + a one-line **Outcome**) into `docs/task-archive.md`, and delete it from here.
+
+---
+
+## Part 179 — the D125–D138 design review: what the layering audit found (2026-09-15)
+
+Four parallel reviewers against one thesis — **a provider is the backend seam; everything the library DOES
+with a backend is process logic and belongs in Core**. The thesis HOLDS in the memory→provider direction:
+across 69 files `Lyntai.Core/Memory` names no `HttpClient`, no ONNX or storage type, no provider id and no
+model id, and duplicates no routing logic. Every finding below is the other direction, or a residue of the
+rename campaign. Items are ordered by the order they should be taken, not by severity alone.
+
+- [ ] **A provider package implements a MEMORY seam, which is the thesis violation itself.** <!-- item: state=startable -->
+  `src/Lyntai.Providers.Default/CrossEncoderVerificationPolicy.cs:32` is `: IMemoryVerificationPolicy`, one
+  class fusing the rerank HTTP transport with memory business logic — the `Content ?? Headline` choice
+  (**D108**) and the top-`EndorseCount` cut. Cost: nothing else in the tree can call a rerank endpoint, so a
+  scorer, a ranking policy or an `IToolSelector` wanting one rewrites the HTTP. **D130 already predicted the
+  shape**: *"a reranker is `Produces: [score]` — no new operation, no new interface, no new family."*
+  `ProviderKinds` has no `Score` member, and this class stands in for it. Closing this also unblocks
+  `TASKS.md` Part 177's second half.
+
+- [ ] **Two more instances of the D136 class — one taxonomy under two names.** <!-- item: state=startable -->
+  `FallbackAction` (`Llm/Routing/FallbackAction.cs`) and `GenerationFallbackAction`
+  (`Generation/Routing/GenerationRoutingPolicy.cs`) carry the same four members in a different order, and
+  the latter's own doc says *"the same four actions … because the question is the same one"*. `GenerationKinds`
+  and `ProviderKinds` declare `Image`/`Video`/`Audio`/`Model3d` with identical names AND values, and backends
+  set both in adjacent fields of one record. D136 merged the routing table's KEY and left its VALUE
+  duplicated. `GenerationInputRoles` is NOT part of this — it is a separate vocabulary of input roles and
+  stays.
+
+- [ ] **`FuseVerdict` reads a fresh default, not the configured options.** <!-- item: state=startable -->
+  Its own remark says otherwise. `GraphMemoryEngine.cs:1413` is `new ReciprocalRankFusionOptions().K` while the remark two
+  lines above states the constant is *"READ from `ReciprocalRankFusionOptions` … so the engine and the
+  shipped ranking default cannot drift apart"*. A consumer setting `K = 5` gets 5 in ranking and 60 in
+  verdict fusion, and `K` selects a regime rather than tuning one. `MemoryVerdictFusionTests` never varies
+  `K`, so it is invisible.
+
+- [ ] **`CLAUDE.md`'s graph-memory roster says SEVEN domains and the tree has EIGHT.** <!-- item: state=startable -->
+  `Lyntai.Memory.Seeding` is omitted (`CLAUDE.md:78`) and is textbook domain shape under **D46**/**D48** —
+  one seam (`IMemorySeedSource`), three implementations, its own options. **D46** designates that namespace
+  map as the one live roster, and nothing gates the count, so the always-on placement guidance a session
+  reads before adding a seeding type is wrong by one domain.
+
+- [ ] **Pooling maths is `internal` to the ONNX package and re-implemented by hand next door.** <!-- item: state=startable -->
+  `Providers.Onnx/EmbeddingPooling.cs` holds mean-pool + L2-normalize; `Providers.Default/Model2VecProvider.cs`
+  does both again inline. It is runtime-independent vector maths every embedder backend wants, and
+  `Core/Memory/VectorMath.cs` is the precedent for sharing exactly this. The padding-mask correctness
+  argument is documented in only one of the two copies — and it is the half that can be WRONG without
+  failing.
+
+- [ ] **`Lyntai.Tools.Mcp` and `Lyntai.Tools.Mcp.Hosting` isolate the same dependency.** <!-- item: state=startable -->
+  Both reference exactly `Lyntai.Core` + `ModelContextProtocol.Core`, and both are bundle members. The
+  ASP.NET/Kestrel dependency that once made the halves differ was replaced by BCL `HttpListener`, and
+  nothing took its place as the justification — which is **D123**'s own fold test verbatim. Folding costs a
+  permanent package id (**D23**), so decide deliberately; `devtools/nuget-unlist.mjs`'s `RETIRED` array is
+  where a fold must register (**D44**).

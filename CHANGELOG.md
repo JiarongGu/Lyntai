@@ -20,6 +20,17 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `IEmbedder`. A host answering BOTH routes is registered twice, under two ids, so a trace names the
   backend that answered.
 
+### Fixed
+
+- **A graph engine's vector collections could be forgotten ACROSS a task boundary.** The similarity-index
+  address was `{engine}|{taskKey}|{scope}`, so two different triples composed to one collection — task `a` +
+  scope `b|c` and task `a|b` + scope `c` — and forgetting either erased the other's enrichment vectors,
+  while the unscoped semantic seed prefix-swept into a neighbouring task. The separator is now U+001F and
+  the address has ONE owner used by both the write and read sides. **Vectors persisted under the old address
+  are orphaned rather than migrated**: a deployment re-indexes, and enrichment rebuilds them on the next
+  write. Task isolation itself (`docs/memory.md` §7) is unchanged — it was the address that leaked, not the
+  rule. Detail in `docs/FIXES.md`.
+
 ### Breaking
 
 - **The provider TYPES catch up with their registrations** (**D138**). `LocalProvider` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->

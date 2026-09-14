@@ -3559,3 +3559,22 @@ BYO implementation. **D124** carries why.
 `onnxruntime` rather than against plausibility — a wrong pooling mode still returns finite, unit-length,
 well-ordered vectors — and the DI registration uses a factory, because `AddSingleton(instance)` does not
 dispose a native session.
+
+---
+
+## Part 209 — a vector-collection address could be forgotten ACROSS a task boundary
+
+✅ closed 2026-09-15. `TASKS.md` Part 179's first item, from the D125–D138 design review.
+
+- **Task isolation can be CROSSED: the graph engine's vector-collection address uses a bare `|`.**
+
+**Outcome: `MemoryVectorCollection` now owns the address for every side**, separated by U+001F, so two
+different (engine, task, scope) triples cannot name one collection and a task prefix cannot reach a
+neighbour. The incident — symptom, the THREE spellings the address actually had, why validating keys was
+rejected, and the re-index a deployment owes — is `docs/FIXES.md`, 2026-09-15.
+
+**The reusable half is how the third spelling was found.** Two were obvious (the engine's helper, the seed
+source's copy); the third was an inline interpolation on the engine's own similarity-SEARCH path, which
+grepping for calls to the helper cannot see, because the sites that BYPASS an owner are the only ones that
+can drift. The tests caught it, and only because they were first confirmed to FAIL with the separator
+temporarily restored.

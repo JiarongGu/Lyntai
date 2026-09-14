@@ -104,7 +104,7 @@ public sealed class SemanticSeedSource(
     {
         if (vectors is not IListableVectorStore listable) return [];
 
-        var prefix = $"{engine}|{taskKey}|";
+        var prefix = MemoryVectorCollection.PrefixFor(engine, taskKey);
         var merged = new List<VectorMatch>();
         foreach (var collection in await listable.ListCollectionsAsync(prefix, ct).ConfigureAwait(false))
         {
@@ -114,7 +114,9 @@ public sealed class SemanticSeedSource(
         return merged;
     }
 
-    /// <summary>The same <c>{engine}|{taskKey}|{scope}</c> key <c>GraphMemoryEngine</c> writes vectors under,
-    /// so a collection this source searches is exactly one an enrichment write already populated.</summary>
-    private static string Collection(string engine, string taskKey, string scope) => $"{engine}|{taskKey}|{scope}";
+    /// <summary>The same key <c>GraphMemoryEngine</c> writes vectors under — the shape is
+    /// <see cref="MemoryVectorCollection"/>'s, so a collection this source searches is exactly one an
+    /// enrichment write already populated, and neither side can drift.</summary>
+    private static string Collection(string engine, string taskKey, string scope) =>
+        MemoryVectorCollection.For(engine, taskKey, scope);
 }

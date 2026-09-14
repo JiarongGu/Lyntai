@@ -35,7 +35,10 @@ public class MemoryRemovalCompletenessTests
         new("project/graph", store ?? new InMemoryMemoryGraphStore(), options,
             agePolicies: [new PerWriteAgePolicy()], embedder: new FakeEmbedder(), vectors: vectors);
 
-    private static string Collection(string taskKey, string scope) => $"project/graph|{taskKey}|{scope}";
+    // The engine's own address, asked for rather than restated — a second spelling here is how these
+    // assertions would keep passing against a collection the engine no longer writes.
+    private static string Collection(string taskKey, string scope) =>
+        MemoryVectorCollection.For("project/graph", taskKey, scope);
 
     /// <summary>Every payload still retrievable from <paramref name="collection"/>. A zero vector is a legal
     /// probe: <see cref="VectorMath.Cosine"/> returns 0 rather than NaN for one, and a search returns the
