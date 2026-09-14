@@ -164,7 +164,7 @@ using Microsoft.Extensions.DependencyInjection;
 services.AddLyntai(cfg =>
 {
     cfg.AddClaudeCli();                          // spawns the authenticated `claude` CLI, no API key
-    cfg.AddOpenAiCompatible("ollama", o => o.BaseUrl = "http://localhost:11434");
+    cfg.AddHttpProvider("ollama", o => o.BaseUrl = "http://localhost:11434");
     cfg.AddExtensionsAi("openai", myChatClient); // bridge any Microsoft.Extensions.AI IChatClient
     cfg.UseSqliteStorage("app.db");                      // all storage domains, migrated on startup
     cfg.AddScorer<OutcomeScorer>();                      // eval dimensions are DI registrations
@@ -698,12 +698,12 @@ under two ids, because they are two different models:
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOpenAiCompatible("local-chat", o =>
+    .AddHttpProvider("local-chat", o =>
     {
         o.BaseUrl = "http://localhost:11434";
         o.Model = "llama3.1";
     })
-    .AddOpenAiCompatible("local-embed", o =>
+    .AddHttpProvider("local-embed", o =>
     {
         o.BaseUrl = "http://localhost:11434";     // same server, different backend
         o.Model = "nomic-embed-text";
@@ -856,7 +856,7 @@ Lyntai defines the interfaces; your app owns the resource lifecycle wherever tha
 ```csharp
 services.AddLyntai(cfg =>
 {
-    // Provider presets (or the generic AddOpenAiCompatible, or your own IModelProvider):
+    // Provider presets (or the generic AddHttpProvider, or your own IModelProvider):
     cfg.AddOpenAi(apiKey, model: "gpt-4o-mini");
     cfg.AddLlama(model: "gemma-3-4b");      // llama.cpp llama-server, :8080
     cfg.AddOllama(model: "llama3.2:3b");
@@ -1077,7 +1077,7 @@ services.AddLyntai(cfg => cfg
 
 Each backend has an `Add*` of its own — `AddOpenAiImage`, `AddAutomatic1111`,
 `AddComfyUi`, `AddFal`, `AddLocalDiffusion` — and each takes a **configure
-callback**, the same shape as `AddOpenAiCompatible(id, o => …)` on the LLM side. Every option has a
+callback**, the same shape as `AddHttpProvider(id, o => …)` on the LLM side. Every option has a
 default (each backend's conventional local URL, or the vendor's API root), so a registration sets only what
 differs from it; a blank base URL reports `NotConfigured` rather than failing.
 `AddGenerationProvider(sp => …)` remains the BYO seam for a backend of your own.
@@ -1609,7 +1609,7 @@ await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunA
   Pair it with a vision model (`llava` and friends). **One shape does not travel on the Ollama-native path:**
   an attachment carrying only a remote URL, because `/api/chat` has no URL form and Lyntai will not fetch
   the bytes for you — it is logged as undeliverable rather than dropped silently. Send bytes, or use
-  Ollama's `/v1` surface through `AddOpenAiCompatible`, which takes a URL.
+  Ollama's `/v1` surface through `AddHttpProvider`, which takes a URL.
 
 ## Dev loop
 

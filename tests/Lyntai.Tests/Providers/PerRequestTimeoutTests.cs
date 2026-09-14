@@ -4,7 +4,7 @@ using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
-using Lyntai.Providers.OpenAiCompatible;
+using Lyntai.Providers.Http;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
@@ -124,10 +124,10 @@ public class PerRequestTimeoutTests
         }
     }
 
-    private static OpenAiCompatibleProvider Http(TimeSpan delay, TimeSpan global)
+    private static HttpModelProvider Http(TimeSpan delay, TimeSpan global)
     {
-        var config = new OpenAiCompatibleOptions { BaseUrl = "https://api.openai.com", ApiKey = "k" };
-        return new OpenAiCompatibleProvider("openai", config,
+        var config = new HttpModelOptions { BaseUrl = "https://api.openai.com", ApiKey = "k" };
+        return new HttpModelProvider("openai", config,
             () => new HttpClient(new DelayHandler(delay)), new LyntaiOptions { ProviderTimeout = global });
     }
 

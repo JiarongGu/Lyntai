@@ -3,13 +3,13 @@ using Lyntai;
 using Lyntai.Lifecycle;
 using Lyntai.Embeddings;
 using Lyntai.Memory;
-using Lyntai.Providers.OpenAiCompatible;
+using Lyntai.Providers.Http;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
 
-public class OpenAiEmbeddingsTransportTests
+public class HttpEmbeddingsTransportTests
 {
     // OpenAI / LM Studio shape: { data: [ { index, embedding: [...] }, ... ] }. Integer-valued floats keep
     // the equality asserts exact (every value below is exactly representable in float32).
@@ -20,7 +20,7 @@ public class OpenAiEmbeddingsTransportTests
         ],"model":"text-embedding-3-small","usage":{"prompt_tokens":4,"total_tokens":4}}
         """;
 
-    // The same shape carrying ONE vector. OpenAiEmbeddingsTransport asserts the returned vector count matches the batch
+    // The same shape carrying ONE vector. HttpEmbeddingsTransport asserts the returned vector count matches the batch
     // size, so a single-input test scripted with the two-vector body above fails on that guard rather than
     // on what it meant to assert.
     private const string OpenAiBodyOne = """
@@ -29,16 +29,16 @@ public class OpenAiEmbeddingsTransportTests
         ],"model":"text-embedding-3-small","usage":{"prompt_tokens":2,"total_tokens":2}}
         """;
 
-    private static OpenAiEmbeddingsTransport Embedder(StubHttpHandler handler, Action<OpenAiCompatibleOptions>? configure = null)
+    private static HttpEmbeddingsTransport Embedder(StubHttpHandler handler, Action<HttpModelOptions>? configure = null)
     {
-        var config = new OpenAiCompatibleOptions
+        var config = new HttpModelOptions
         { BaseUrl = "https://api.openai.com", ApiKey = "test-key", Model = "text-embedding-3-small" };
         configure?.Invoke(config);
-        return new OpenAiEmbeddingsTransport("openai", config, () => new HttpClient(handler, disposeHandler: false),
+        return new HttpEmbeddingsTransport("openai", config, () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
 
-    // An embedder has NO verdict and NO fallback — it throws (see the OpenAiEmbeddingsTransport type doc), so there is no
+    // An embedder has NO verdict and NO fallback — it throws (see the HttpEmbeddingsTransport type doc), so there is no
     // "advance without blame" for it to reach and no verdict change to make. The only thing a host can act on
     // is the WORDING: "not configured" points at setup, while a bare 401 points at a key that was never
     // supplied. Message-only parity with the provider-side NotConfigured distinction.
@@ -203,7 +203,7 @@ public class OpenAiEmbeddingsTransportTests
         Assert.Equal([4.0f, 5.0f, 6.0f], vectors[1]);
     }
 
-    [Fact] // Ollama flavor: the native batched /api/embed endpoint + its { embeddings: [[...]] } shape, no auth
+    [Fact] // Ollama dialect: the native batched /api/embed endpoint + its { embeddings: [[...]] } shape, no auth
     public async Task Ollama_flavor_hits_api_embed_and_parses_embeddings_array()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """
@@ -304,7 +304,7 @@ public class OpenAiEmbeddingsTransportTests
         // so recall returns it. The stub repeats its last script, so one Enqueue covers both calls.
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """{"data":[{"index":0,"embedding":[1.0,0.0]}]}""");
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddOpenAiCompatible("test",
+        services.AddLyntai(b => b.AddHttpProvider("test",
             o =>
             {
                 o.BaseUrl = "https://api.openai.com";

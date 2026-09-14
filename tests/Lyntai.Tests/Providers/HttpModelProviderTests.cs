@@ -1,13 +1,13 @@
 using System.Net;
 using Lyntai;
 using Lyntai.Llm;
-using Lyntai.Providers.OpenAiCompatible;
-using Lyntai.Providers.OpenAiCompatible.Payloads;
+using Lyntai.Providers.Http;
+using Lyntai.Providers.Http.Payloads;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 
-public class OpenAiCompatibleProviderTests
+public class HttpModelProviderTests
 {
     [Fact] // P3: a bare Azure resource URL composes the /openai/v1 surface and sends the api-key header
     public async Task Azure_preset_composes_the_openai_v1_endpoint_and_sends_api_key()
@@ -100,11 +100,11 @@ public class OpenAiCompatibleProviderTests
          "usage":{"prompt_tokens":10,"completion_tokens":4}}
         """;
 
-    private static OpenAiCompatibleProvider Provider(StubHttpHandler handler, Action<OpenAiCompatibleOptions>? configure = null)
+    private static HttpModelProvider Provider(StubHttpHandler handler, Action<HttpModelOptions>? configure = null)
     {
-        var config = new OpenAiCompatibleOptions { BaseUrl = "https://api.openai.com", ApiKey = "test-key" };
+        var config = new HttpModelOptions { BaseUrl = "https://api.openai.com", ApiKey = "test-key" };
         configure?.Invoke(config);
-        return new OpenAiCompatibleProvider("openai", config, () => new HttpClient(handler, disposeHandler: false),
+        return new HttpModelProvider("openai", config, () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
 

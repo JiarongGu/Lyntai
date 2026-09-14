@@ -1,10 +1,16 @@
-namespace Lyntai.Providers.OpenAiCompatible;
+namespace Lyntai.Providers.Http;
 
-/// <summary>Wire/endpoint dialect for an OpenAI-compatible provider or embedder. Pin it on the options to
-/// force a shape; leave it <see cref="Auto"/> (the default) to detect it from the BaseUrl.</summary>
-public enum OpenAiFlavor
+/// <summary>Which wire dialect an HTTP endpoint speaks — the routes it exposes and the payload shape it
+/// takes. Pin it on the options to force one; leave it <see cref="Auto"/> (the default) to detect it from
+/// the BaseUrl.
+///
+/// <para><b>Not every member is OpenAI-compatible, which is why the family is not named for OpenAI</b>
+/// (<c>docs/DECISIONS.md</c> D135). <see cref="OpenAi"/>, <see cref="OpenRouter"/> and
+/// <see cref="AzureOpenAi"/> post OpenAI's schema; <see cref="Ollama"/> posts Ollama's own, and the two are
+/// different endpoints with different bodies on the same server.</para></summary>
+public enum HttpDialect
 {
-    /// <summary>Detect the flavor from the BaseUrl shape (see <see cref="ProviderDetect"/>). Detection is
+    /// <summary>Detect the dialect from the BaseUrl shape (see <see cref="ProviderDetect"/>). Detection is
     /// fail-open — an unrecognized URL is treated as plain <see cref="OpenAi"/>.</summary>
     Auto,
 
@@ -22,11 +28,11 @@ public enum OpenAiFlavor
 
     /// <summary>OpenRouter. Currently behaves IDENTICALLY to <see cref="OpenAi"/> (no code path branches on
     /// it yet) — kept distinct so OpenRouter-specific behavior (e.g. its ranking headers) can land later
-    /// without re-detecting, and so a pinned flavor stays honest.</summary>
+    /// without re-detecting, and so a pinned dialect stays honest.</summary>
     OpenRouter,
 
     /// <summary>Azure OpenAI. Its OpenAI-COMPATIBLE (v1) surface lives under <c>/openai/v1</c> on the
     /// resource host (a bare resource URL would 404 at <c>/v1/…</c>), and key auth conventionally travels in
-    /// the <c>api-key</c> header — this flavor makes both adjustments.</summary>
+    /// the <c>api-key</c> header — this dialect makes both adjustments.</summary>
     AzureOpenAi,
 }

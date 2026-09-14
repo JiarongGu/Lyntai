@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lyntai.Llm;
 
-namespace Lyntai.Providers.OpenAiCompatible.Payloads;
+namespace Lyntai.Providers.Http.Payloads;
 
 /// <summary>Canonical <see cref="LlmRequest"/> → OpenAI chat-completions schema.
 /// Tool parameter schemas embed as JSON objects; structured output uses response_format.json_schema.</summary>

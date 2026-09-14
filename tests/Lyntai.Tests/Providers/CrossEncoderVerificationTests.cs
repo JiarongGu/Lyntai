@@ -1,6 +1,6 @@
 using System.Net;
 using Lyntai.Memory.Verification;
-using Lyntai.Providers.OpenAiCompatible;
+using Lyntai.Providers.Http;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;

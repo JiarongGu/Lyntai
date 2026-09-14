@@ -15,7 +15,7 @@ namespace Lyntai.Generation.Providers;
 /// still propagate as an <see cref="OperationCanceledException"/>. Both arrive here as the same exception type,
 /// so the discriminator is the caller's own token: if <c>ct</c> is cancelled the caller asked to stop and the
 /// exception is theirs; otherwise the only clocks left are ours and the client's, and both mean "timed out".
-/// This mirrors the LLM side's idiom exactly (<c>OpenAiCompatibleProvider.CompleteAsync</c>) — one rule for both
+/// This mirrors the LLM side's idiom exactly (<c>HttpModelProvider.CompleteAsync</c>) — one rule for both
 /// domains rather than two that drift.</para>
 ///
 /// <para>A caller who cancels at the same instant the deadline fires gets cancellation, not a timeout: the

@@ -98,7 +98,7 @@ One more item of the same kind — a real run, not a design call — sits outsid
   usage) is unaffected; the KIND of event is what a real run has to confirm.
 
 _This section previously listed three "design calls still open" — blameless-vs-reportable, the curated-memory
-`taskKey`/`scope` move, and renaming `OpenAiCompatibleOptions.ContextSize`. **All three were settled and
+`taskKey`/`scope` move, and renaming `HttpModelOptions.ContextSize`. **All three were settled and
 shipped in 2.3.0** (`docs/DECISIONS.md` D37 for the blameless half; the rename landed as `OllamaContextSize`),
 and the section simply outlived them. Removed 2026-08-12 — `docs/task-archive.md` Part 43/44 carries each
 one's outcome. The `major-bump-or-never` framing on the third was also wrong on its own terms, as its archive

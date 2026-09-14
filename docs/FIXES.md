@@ -1486,7 +1486,7 @@ shape aggregators and proxies use — produced `LlmVerdict.Failed` with the deta
 response after retry"*, after the identical request had been sent a second time to the host that had just
 said it was rate-limited. The operator was pointed at the response shape; the actual problem was quota.
 
-**Root cause.** `OpenAiCompatibleProvider` read the failure channel only when the STATUS was non-2xx
+**Root cause.** `OpenAiCompatibleProvider` read the failure channel only when the STATUS was non-2xx <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
 (`if (!response.IsSuccessStatusCode) return MapHttpFailure(...)`). On a 2xx the body went to `TryExtract`,
 which returns false for a body carrying no `choices`/`message`/`finish_reason` — so an error-only body fell
 into the malformed-body path, which retries once and then reports `Failed`. Streaming had the same shape:
@@ -1500,8 +1500,8 @@ penalised toward being benched, and a second billable request was sent first.
 **This is the THIRD instance of one class.** The same "two answer channels, precedence pinned on one" defect
 shipped in `CliProviderEngine.CompleteAsync` (2026-08-05, this log) and again on the claude agent session
 (`8dac87f`). Both sweeps checked the CLI seams; neither checked the HTTP provider.
-
-**Fix.** `OpenAiHttp.InBandError(body)` — one reader of the in-band channel for every OpenAI-compatible
+ <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
+**Fix.** `OpenAiHttp.InBandError(body)` — one reader of the in-band channel for every OpenAI-compatible <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
 surface in the package — consulted BEFORE the retry on the buffered path, and on the zero-content path when
 streaming. The verdict comes from the shared corpus (`LlmVerdictClassifier.FromErrorText`), never a local
 heuristic, and carries the same `AuthFailed → NotConfigured` promotion `FromHttpFailure` makes, restated

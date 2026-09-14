@@ -33,12 +33,12 @@ public class RouterEndToEndTests : IDisposable
         services.AddLyntai(b =>
         {
             b.AddClaudeCli();
-            b.AddOpenAiCompatible("openai", c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; });
+            b.AddHttpProvider("openai", c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; });
             b.UseDefaultCandidates("claude-cli", "openai");
             if (tune is not null) b.Configure(tune);
         });
         // reroute the provider's named HttpClient into the scripted handler
-        services.AddHttpClient(OpenAiCompatibleBuilderExtensions.HttpClientName("openai"))
+        services.AddHttpClient(HttpProviderBuilderExtensions.HttpClientName("openai"))
             .ConfigurePrimaryHttpMessageHandler(() => _http);
         return services.BuildServiceProvider();
     }
@@ -130,10 +130,10 @@ public class RouterEndToEndTests : IDisposable
         services.AddLyntai(b =>
         {
             b.AddClaudeCli();
-            b.AddOpenAiCompatible("openai", c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; });
+            b.AddHttpProvider("openai", c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; });
             b.UseDefaultCandidates("claude-cli", "openai");
         });
-        services.AddHttpClient(OpenAiCompatibleBuilderExtensions.HttpClientName("openai"))
+        services.AddHttpClient(HttpProviderBuilderExtensions.HttpClientName("openai"))
             .ConfigurePrimaryHttpMessageHandler(() => _http);
         using var sp = services.BuildServiceProvider();
         var router = sp.GetRequiredService<ILlmRouter>();

@@ -22,18 +22,27 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **The HTTP backend is named for the transport, not for OpenAI** (**D135**). `AddOpenAiCompatible` → <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
+  `AddHttpProvider`, `OpenAiCompatibleProvider` → `HttpModelProvider`, `OpenAiCompatibleOptions` → <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
+  `HttpModelOptions`, `OpenAiFlavor` → `HttpDialect` (and the `Flavor` property → `Dialect`), in the new <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
+  `Lyntai.Providers.Http` namespace. The old name was false for the `Ollama` dialect, which posts
+  `/api/chat` and `/api/embed` — endpoints that vendor documents as distinct from its OpenAI-compatible
+  `/v1` surface. `OpenAiPayload` and the `HttpDialect.OpenAi` member keep the name: they denote OpenAI's
+  actual schema. **`AddHttpProvider` keeps the `Provider` suffix** under D134's rule — it is the generic
+  registration, where `Provider` is the noun.
+
 - **The `Provider` suffix is dropped from every backend registration** (**D134**): `AddOpenAiProvider` → <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
-  `AddOpenAi`, `AddOllamaProvider` → `AddOllama`, `AddOpenAiCompatibleProvider` → `AddOpenAiCompatible`, <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
+  `AddOpenAi`, `AddOllamaProvider` → `AddOllama`, `AddHttpProviderProvider` → `AddHttpProvider`, <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
   and so through all seventeen. Once D132 had unified the roster onto one suffix, that suffix distinguished
   nothing. **`AddProvider`, `AddEmbeddingProvider` and `AddGenerationProvider` keep theirs** — they take a
   factory and are the generic primitives, where `Provider` is the noun rather than a suffix on a name.
 
 - **There is one `Add*` per backend, and no route sub-objects** (**D132**, **D133**).
-  `AddOpenAiCompatibleEmbedder` is removed and `OpenAiCompatibleOptions` is flat — <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
-  `BaseUrl`, `ApiKey`, `Flavor`, `Model`, `Produces`, plus the route-specific knobs. `DefaultModel` is
+  `AddHttpProviderEmbedder` is removed and `HttpModelOptions` is flat — <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `BaseUrl`, `ApiKey`, `Dialect`, `Model`, `Produces`, plus the route-specific knobs. `DefaultModel` is
   renamed `Model` and the presets' `defaultModel:` parameter `model:`. `HttpEmbedder` and <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `OpenAiCompatibleEmbedderOptions` are gone; the wire shape is the internal <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
-  `OpenAiEmbeddingsTransport`.
+  `HttpEmbeddingsTransport`.
 
 - **The `*Embedder` suffix is retired from every registration** (**D132**): `AddOnnxEmbedder` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `AddOnnx`, `AddStaticEmbedder` → `AddModel2Vec` (with `StaticEmbedder` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
@@ -53,8 +62,8 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 - **`IEmbedder` is the embedding FRONT DOOR, and embeddings now have fallback** (**D129**). The `IEmbedder`
   a consumer resolves is a router over every backend that produces vectors, so registering two
   endpoints gives failover instead of the second silently replacing the first — which is what
-  `OpenAiEmbeddingsTransport`'s own doc admitted: *"there is one embedder slot, so a later registration wins"*.
-  `Model2VecProvider`, `OnnxEmbedder` and `OpenAiEmbeddingsTransport` **stop implementing `IEmbedder`** and are providers
+  `HttpEmbeddingsTransport`'s own doc admitted: *"there is one embedder slot, so a later registration wins"*.
+  `Model2VecProvider`, `OnnxEmbedder` and `HttpEmbeddingsTransport` **stop implementing `IEmbedder`** and are providers
   only; a chat-only backend is never asked to embed, because the capability filter runs before dispatch.
   **Bring-your-own is unchanged**: `AddEmbeddings(...)` registers inside the configure callback, which runs
   before the front door is seeded with `TryAdd`, so an app-supplied embedder still wins. New:
@@ -265,7 +274,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   <br>**`defaultModel` is a LABEL there, not a selector.** A `llama-server` started with `--model` serves
   exactly one model and answers to whatever `--alias` names it, so a wrong model name is not an error — you
   get the loaded model either way. It selects only on a router server (`--models-dir`). Nothing about
-  existing wiring changes; `AddOpenAiCompatible` already reached llama-server and still does.
+  existing wiring changes; `AddHttpProvider` already reached llama-server and still does.
 
 - **`SqliteRuntime.DisableMemoryStatistics()` — the read-concurrency ceiling, and the one line that lifts
   it.** SQLite collects memory-allocation statistics by default, and maintaining them takes a
@@ -517,7 +526,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   <br>**The write path was the worse half**: annotation runs before the entry is stored, so a slow
   annotator lost the FACT rather than its subject edges. A caller's own cancellation still propagates
   unchanged — the two are now told apart by whether the caller's token is actually cancelled, the same
-  distinction `OpenAiEmbeddingsTransport` and the OpenAI-compatible provider already drew.
+  distinction `HttpEmbeddingsTransport` and the OpenAI-compatible provider already drew.
   <br>**Nothing changes for a deployment with no annotator or verifier registered**, which is the default:
   both seams are opt-in. The promise now lives on both seam CONTRACTS, so a BYO policy is held to it too.
 
@@ -531,7 +540,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   <br>**A behaviour change only for a BYO component that times out**, and only in the direction the docs
   already promised — a store, engine, embedder or vector store whose own deadline fires now degrades instead
   of throwing. A caller's cancellation propagates exactly as before, and a deployment on the shipped
-  SQLite/Postgres/InMemory stores and the shipped `OpenAiEmbeddingsTransport` sees nothing change at all, because none of
+  SQLite/Postgres/InMemory stores and the shipped `HttpEmbeddingsTransport` sees nothing change at all, because none of
   those raise a cancellation they were not asked for.
   <br>**Four seam contracts said otherwise and were corrected**, since a fixed behaviour with a doc still
   asserting the old one is the worse half: `IMemoryEngine.RecallAsync` said *"Only
@@ -1342,7 +1351,7 @@ Both ship in a minor under `docs/DECISIONS.md` — the deferred-SemVer-strictnes
 break while every consumer is first-party. Neither can bind silently: each is a compile error that names the
 fix.
 
-- **`OpenAiCompatibleOptions.ContextSize` → `OllamaContextSize`.** The option only ever affected the
+- **`HttpModelOptions.ContextSize` → `OllamaContextSize`.** The option only ever affected the
   Ollama-native payload (`options.num_ctx` on `/api/chat`) and was silently ignored by every other flavour —
   including Ollama's *own* OpenAI-compatible `/v1` surface — so the generic name invited exactly the
   configuration that does nothing. The type (`int?`) and behaviour are unchanged; only the name says which
@@ -1635,7 +1644,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
 - **`b.AddSemanticMemory(…)`** — the wiring seam for semantic recall, so an app enabling it composes with
   builder calls instead of hand-constructing a vector store, a connection factory and an embedder. Overloads
   mirror `AddEmbeddings` (instance / factory / by type), plus a no-argument one for when the embedder arrives
-  from elsewhere (`AddOpenAiCompatibleEmbedder`, or a host registration made before `AddLyntai`). Its real
+  from elsewhere (`AddHttpProviderEmbedder`, or a host registration made before `AddLyntai`). Its real
   value is that it **states the intent**: semantic memory was previously enabled purely as a side effect of
   an `IEmbedder` being registered, so forgetting one registered no `ISemanticMemory` at all and every recall
   path skipped it in silence. `AddLyntai` now throws at composition instead. Everything stays substitutable —
@@ -1682,7 +1691,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   where a request exists, and opted out of with `Timeout.InfiniteTimeSpan`. A fired deadline is a
   **`GenerationVerdict.Timeout` result, not a throw** (these backends are contractually fail-safe), while the
   caller's own cancellation still propagates as `OperationCanceledException` — the two are told apart by the
-  caller's token, the same discriminator `OpenAiCompatibleProvider` uses on the LLM side. A BYO client's own
+  caller's token, the same discriminator `HttpModelProvider` uses on the LLM side. A BYO client's own
   `HttpClient.Timeout` now also surfaces as that verdict instead of escaping as `TaskCanceledException`.
 - **What a deadline means for the queue backends is now stated rather than assumed.** For `FalQueueProvider` and
   `ComfyUiProvider` it bounds **one HTTP call** — submit, status, fetch, cancel — never the render, which
@@ -1755,7 +1764,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   identical.
 - **An unconfigured LLM backend is skipped, not benched — `LlmVerdict.NotConfigured`.** When an
   OpenAI-compatible endpoint answers 401/403 to a call that carried **no** credentials,
-  `OpenAiCompatibleProvider` now reports the new `LlmVerdict.NotConfigured` instead of `AuthFailed`, and the
+  `HttpModelProvider` now reports the new `LlmVerdict.NotConfigured` instead of `AuthFailed`, and the
   default `RoutingPolicy` maps it to `FallbackAction.Advance`. **What you observe:** a candidate you listed
   but never configured is skipped with no cooldown and no dead-host penalty, where it previously benched that
   provider for the whole cooldown window on every first attempt; when everything is unconfigured, the
@@ -1781,7 +1790,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
     the guard `GenerationRouter` already had. **Unchanged:** which substantive failure wins (still the last
     one attempted), and `ContextWindowExceeded` still surfaces normally — "your prompt is too big" is a real
     answer. When every candidate is unconfigured you still get `NotConfigured`, not a generic error.
-  - **`OpenAiEmbeddingsTransport` deliberately unchanged in behaviour:** an embedding call has no verdict and no
+  - **`HttpEmbeddingsTransport` deliberately unchanged in behaviour:** an embedding call has no verdict and no
     fallback — it throws — so there is nothing for it to route around. Its 401 message now says
     `(not configured: no ApiKey)` when no key was supplied, so a host can tell setup from a rejected key.
     Message only; the exception type is still `HttpRequestException`.
@@ -1854,7 +1863,7 @@ because the restructure was designed around keeping namespaces fixed.
   binary), `Providers.Local` (LLamaSharp), `Tools.Mcp*` (MEAI/ASP.NET Core), `Secrets.Dpapi` (Windows-only).
   This is deliberately how "most consumers use X" is served — **not** by adding X's dependencies to the
   mandatory package.
-- **`Lyntai.Providers.ClaudeCli`, `Lyntai.Providers.CodexCli` and `Lyntai.Providers.OpenAiCompatible` are
+- **`Lyntai.Providers.ClaudeCli`, `Lyntai.Providers.CodexCli` and `Lyntai.Providers.Http` are
   merged into `Lyntai.Providers.Default`.** Packages are now split by **dependency footprint, not by vendor**
   (`docs/DECISIONS.md` — the dependency-footprint package split): those three need nothing beyond Core and managed `Microsoft.Extensions.Http`, so
   bundling them costs a consumer nothing and removes two ids plus their release ceremony. Everything that
@@ -2245,8 +2254,8 @@ is the deferred-SemVer-strictness rule.
   the Kestrel host did not. Apps using the plain CLI provider gain no new runtime requirement.
 
 ### Internal (no public surface change)
-- **OpenAI-compatible endpoint/auth rules deduped** into `OpenAiEndpoint`. `OpenAiCompatibleProvider` and
-  `OpenAiEmbeddingsTransport` each carried their own copy of the flavor resolution, the Azure `/openai/v1` rule, the
+- **OpenAI-compatible endpoint/auth rules deduped** into `HttpEndpoint`. `HttpModelProvider` and
+  `HttpEmbeddingsTransport` each carried their own copy of the dialect resolution, the Azure `/openai/v1` rule, the
   `/v1`-suffix logic and the `api-key` header block — differing only in route name. A drift between the two
   copies would have been silent (chat keeps working while embeddings 404, or the reverse).
 - **`LyntaiBuilder` qualification cleanup** — ~55 fully-qualified `Lyntai.Llm.Caching.…`-style references
@@ -2268,10 +2277,10 @@ migration ledger into clean per-domain baselines (the pre-release migration-fold
   **Before the first 1.0 run, drop your `lyntai_*` tables (including `lyntai_version_info`) or delete the
   dev database**; Lyntai recreates them. One-time, pre-1.0 only — post-1.0 the ledger is append-only.
 - **Public-surface shrink/settle** (pre-freeze): `Lyntai.Tools.Mcp.McpTool`,
-  `Lyntai.Providers.OpenAiCompatible.ProviderDetect` (incl. `Detect`), and
+  `Lyntai.Providers.Http.ProviderDetect` (incl. `Detect`), and
   `Lyntai.Providers.ExtensionsAi.LyntaiChatClient` → `internal`; FluentMigrator migration classes removed
   from the public surface; `LocalModelOptions.AntiPrompts` → `StopSequences`;
-  `OpenAiCompatibleOptions.Flavor`/`OpenAiCompatibleOptions.Flavor` `string` → `OpenAiFlavor` enum;
+  `HttpModelOptions.Dialect`/`HttpModelOptions.Dialect` `string` → `HttpDialect` enum;
   `IVectorStore` gains a required `DeleteAsync(collection, id)`.
 
 ### Added
@@ -2280,21 +2289,21 @@ migration ledger into clean per-domain baselines (the pre-release migration-fold
   null = "ran, no score"). Non-breaking to existing scorers.
 - **`IVectorStore.DeleteAsync(collection, id)`** — single-vector removal across InMemory / SQLite /
   Postgres (pgvector), for incremental collection updates without a full rebuild.
-- **`OpenAiFlavor` enum** (`Auto`/`OpenAi`/`Ollama`/`OpenRouter`/`AzureOpenAi`) — a typo-safe replacement
-  for the old magic-string flavor; `Auto` = URL-detected.
+- **`HttpDialect` enum** (`Auto`/`OpenAi`/`Ollama`/`OpenRouter`/`AzureOpenAi`) — a typo-safe replacement
+  for the old magic-string dialect; `Auto` = URL-detected.
 - Member-level XML docs on non-obvious frozen surface: `PostgresVectorStore` search/upsert/remove,
-  `OpenAiEmbeddingsTransport.EmbedAsync` (throw contract), `DpapiSecretProtector` (all-input → `CryptographicException`),
+  `HttpEmbeddingsTransport.EmbedAsync` (throw contract), `DpapiSecretProtector` (all-input → `CryptographicException`),
   `ClaudeCliProvider.IsAvailable` (optimistic BYO-runner).
-- **Built-in `IEmbedder` for OpenAI-compatible endpoints** (EMB1): `Lyntai.Providers.OpenAiCompatible` now
-  ships `OpenAiEmbeddingsTransport` + a `builder.AddOpenAiCompatibleEmbedder(id, o => { o.BaseUrl; o.Model; o.ApiKey; })`
+- **Built-in `IEmbedder` for OpenAI-compatible endpoints** (EMB1): `Lyntai.Providers.Http` now
+  ships `HttpEmbeddingsTransport` + a `builder.AddHttpProviderEmbedder(id, o => { o.BaseUrl; o.Model; o.ApiKey; })`
   method, so an app already talking to an OpenAI-compatible chat endpoint can turn on semantic memory
   (`ISemanticMemory`) **without a BYO embedder**. It POSTs the batched `{model, input[]}` body and extracts
   vectors tolerantly from either the OpenAI/LM-Studio `data[].embedding` shape (re-ordered by the
   authoritative `index`) or Ollama's `embeddings[[…]]` shape — one impl covers OpenAI, LM Studio, OpenRouter,
-  Azure, and local Ollama. Endpoint + flavor reuse the chat provider's `ProviderDetect` (Ollama → native
+  Azure, and local Ollama. Endpoint + dialect reuse the chat provider's `ProviderDetect` (Ollama → native
   `/api/embed`; a bare Azure resource → `/openai/v1/embeddings`; else `/v1/embeddings`, not double-prefixing a
   `/v1` base) and the same BYO-`HttpClient` seam; the per-call deadline is `LyntaiOptions.ProviderTimeout`.
-  `OpenAiCompatibleOptions.BatchSize` splits an over-cap input list into several requests. Pairs with
+  `HttpModelOptions.BatchSize` splits an over-cap input list into several requests. Pairs with
   the existing in-memory / `UseSqliteVectorStore` / pgvector vector stores. Additive — no breaking change.
   Live-gated Ollama coverage sits alongside the chat provider's (`LYNTAI_LIVE_OLLAMA`, embed model via
   `LYNTAI_OLLAMA_EMBED_MODEL`, default `nomic-embed-text`).
@@ -2338,7 +2347,7 @@ a frozen column via SELECT aliases.
 - **SourceLink / deterministic release builds** (`src/Directory.Build.props`): `PublishRepositoryUrl` +
   `ContinuousIntegrationBuild` under GitHub Actions (the manual `release.yml` pipeline) — stepping into
   Lyntai from a consuming app resolves sources from the repo.
-- **Azure OpenAI as a first-class flavor**: `AddAzureOpenAi(...)` preset,
+- **Azure OpenAI as a first-class dialect**: `AddAzureOpenAi(...)` preset,
   `ProviderDetect.AzureOpenAi` (detects `*.openai.azure.com`), bare-resource endpoint completion to
   `/openai/v1/chat/completions`, and the `api-key` header sent alongside `Authorization: Bearer`.
 - **`IKeyValueStore.ListKeysAsync(prefix?)`** — enumerate stored keys (ordinal order, case-sensitive
@@ -2390,7 +2399,7 @@ a frozen column via SELECT aliases.
   computed property and `Success` still excludes timeouts.
 - **Renames for what things ARE:** `CuratedMemory.Task` → `TaskKey` (a scoping key, not a
   `System.Threading.Tasks.Task` — DB column unchanged, aliased in SELECTs);
-  `OpenAiCompatibleOptions.NumCtx` → `ContextSize` (`int?`; `LocalModelOptions.ContextSize`
+  `HttpModelOptions.NumCtx` → `ContextSize` (`int?`; `LocalModelOptions.ContextSize`
   `uint?` → `int?` to match); `UsageLive`/`UsageFinal` members gained the `*Tokens` suffix
   (`InputTokens`, `OutputTokens`, `CacheReadTokens`, + `CacheCreateTokens` on final).
 - **Wire-format internals are now `internal`:** `ClaudeArgs`, `ClaudeAgentArgs`, `StreamJsonParser`,
@@ -2436,7 +2445,7 @@ pass's own diff). No new migration. **Breaking changes below (pre-1.0 minor-bump
   literal (was order-dependent injection over dictionary order).
 - **Bridges:** prose alongside native tool calls survives transcript replay (OpenAI payload + MEAI
   forward bridge); the reverse bridge maps declaration-only tool schemas (`AIFunctionDeclaration`);
-  streamed OpenAI-flavor requests send `stream_options.include_usage` so streams stop bypassing
+  streamed OpenAI-dialect requests send `stream_options.include_usage` so streams stop bypassing
   budget/telemetry accounting; the ephemeral MCP config (bearer token) is owner-only on Unix.
 - **Jobs/scheduler:** a corrupt persisted next-run self-heals (re-anchor + overwrite) instead of
   silently freezing the schedule forever; the impossible-cron error names the expression.
@@ -3492,7 +3501,7 @@ existing `new LlmReply`/`LlmMessage` call site source-compatible.
     `ILlmClient.SupportsToolCalls` / `ILlmRouter.SupportsToolCalls(candidates)` — the loop asks the
     front door whether native tool-calling is available for the default routing (first live candidate)
     without ever seeing the candidate list.
-  - **`OpenAiCompatibleProvider`** parses `tool_calls` from the response into `LlmReply.ToolCalls`
+  - **`HttpModelProvider`** parses `tool_calls` from the response into `LlmReply.ToolCalls`
     (handling OpenAI's string arguments *and* Ollama's object arguments; synthesizing an id when Ollama
     omits one) and serializes assistant-tool-call turns + `role:"tool"` result turns in both the OpenAI
     and Ollama payloads. `SupportsToolCalls => true`.
@@ -3579,7 +3588,7 @@ implementation; Lyntai provides the interface. All additive; the `ClaudeCliProvi
 ### Added
 - **`IProcessRunner`** — the process-spawning seam (default `ProcessRunner`). Register your own to own
   how the `claude` CLI is spawned (sandbox, custom shell, remote/audited execution).
-- **BYO HttpClient** — `AddOpenAiCompatible` (and the presets) accept an optional
+- **BYO HttpClient** — `AddHttpProvider` (and the presets) accept an optional
   `Func<IServiceProvider, HttpClient>`, so you supply your configured client (Polly, auth handlers,
   proxy, a named `IHttpClientFactory` client) and own its lifecycle.
 - **BYO DB connection + schema** — `UseSqliteStorage`/`UsePostgresStorage` gain an
@@ -3601,7 +3610,7 @@ infrastructure, now that a Postgres-capable Docker and a local Ollama are availa
   `UsePostgresStorage(conn, migrateOnFirstUse)`. Integration-tested against a real container via
   Testcontainers (skips when Docker is unavailable). Proves the domain-interface seam holds for a
   heavyweight server DB — three backends now (SQLite, in-memory, Postgres).
-- **Opt-in live Ollama test** — validates the OpenAI-compatible provider (Ollama flavor) against a
+- **Opt-in live Ollama test** — validates the OpenAI-compatible provider (Ollama dialect) against a
   real endpoint (completion with real usage, streaming, through the router). Gated on
   `LYNTAI_LIVE_OLLAMA`; the default run stays fast and dependency-free.
 
@@ -3731,7 +3740,7 @@ Production-hardening release: everything surfaced by the multi-agent code review
   the non-streaming path and the CLI provider.
 - Claude CLI: content without a terminal result event ends `Final`, not a spurious error; spawns
   from a neutral cwd (no host-project CLAUDE.md/hooks loaded into library calls).
-- `http://localhost:11434/v1` (Ollama's OpenAI-compatible surface) detects the OpenAI flavor.
+- `http://localhost:11434/v1` (Ollama's OpenAI-compatible surface) detects the OpenAI dialect.
 - SQLite `CommandTimeout` set deliberately (the driver's busy-retry loop is independent of
   `PRAGMA busy_timeout`).
 

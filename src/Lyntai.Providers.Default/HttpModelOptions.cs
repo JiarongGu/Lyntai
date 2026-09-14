@@ -1,8 +1,8 @@
 using Lyntai.Lifecycle;
 
-namespace Lyntai.Providers.OpenAiCompatible;
+namespace Lyntai.Providers.Http;
 
-/// <summary>One OpenAI-compatible BACKEND: an endpoint, a model, and what that model puts out.
+/// <summary>One BACKEND served over HTTP: an endpoint, a dialect, a model, and what that model puts out.
 ///
 /// <para><b>One registration is one backend, and a shared hostname does not make two of them one.</b> A
 /// chat model and an embedding model are different models at different routes with different wire shapes;
@@ -15,10 +15,10 @@ namespace Lyntai.Providers.OpenAiCompatible;
 /// whole premise is that <see cref="ProviderKinds"/> is an OPEN list — a reranking host would have grown a
 /// third, a rendering host a fourth. <see cref="Produces"/> is one field because a registration serves one
 /// kind.</para></summary>
-public sealed class OpenAiCompatibleOptions
+public sealed class HttpModelOptions
 {
     /// <summary>Endpoint base, e.g. <c>https://api.openai.com</c>, <c>http://localhost:11434</c>,
-    /// <c>https://openrouter.ai/api/v1</c>. The flavor is detected from this URL unless pinned.</summary>
+    /// <c>https://openrouter.ai/api/v1</c>. The dialect is detected from this URL unless pinned.</summary>
     public string BaseUrl { get; set; } = "https://api.openai.com";
 
     /// <summary>Bearer token; null for keyless endpoints (local Ollama, LM Studio, llama-server).</summary>
@@ -28,8 +28,8 @@ public sealed class OpenAiCompatibleOptions
     /// <c>text-embedding-3-small</c>. Used when neither the request nor the candidate pins one.</summary>
     public string? Model { get; set; }
 
-    /// <summary>Pin the payload flavor; <see cref="OpenAiFlavor.Auto"/> (default) detects it from BaseUrl.</summary>
-    public OpenAiFlavor Flavor { get; set; } = OpenAiFlavor.Auto;
+    /// <summary>Pin the payload dialect; <see cref="HttpDialect.Auto"/> (default) detects it from BaseUrl.</summary>
+    public HttpDialect Dialect { get; set; } = HttpDialect.Auto;
 
     /// <summary>What this backend puts out — <see cref="ProviderKinds.Text"/> (default) posts to
     /// <c>/chat/completions</c>, <see cref="ProviderKinds.Vector"/> to <c>/embeddings</c>. It is the field
@@ -41,12 +41,12 @@ public sealed class OpenAiCompatibleOptions
     /// one hostname is not that.</para></summary>
     public string Produces { get; set; } = ProviderKinds.Text;
 
-    /// <summary>Context-window override for <see cref="OpenAiFlavor.Ollama"/> serving
+    /// <summary>Context-window override for <see cref="HttpDialect.Ollama"/> serving
     /// <see cref="ProviderKinds.Text"/> ONLY — it becomes Ollama's <c>options.num_ctx</c> on the native
-    /// <c>/api/chat</c> payload. **Every other flavor IGNORES it silently**: the OpenAI-shaped payload has
+    /// <c>/api/chat</c> payload. **Every other dialect IGNORES it silently**: the OpenAI-shaped payload has
     /// no equivalent knob (the context window is a property of the deployed model there), and that includes
     /// Ollama's own OpenAI-COMPATIBLE <c>/v1</c> surface, which resolves to
-    /// <see cref="OpenAiFlavor.OpenAi"/>. The name carries the backend for exactly that reason — a generic
+    /// <see cref="HttpDialect.OpenAi"/>. The name carries the backend for exactly that reason — a generic
     /// one read as a portable setting and was not one.</summary>
     public int? OllamaContextSize { get; set; }
 

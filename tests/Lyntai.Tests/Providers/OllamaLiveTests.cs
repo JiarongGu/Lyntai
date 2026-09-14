@@ -1,13 +1,13 @@
 using Lyntai;
 using Lyntai.Llm;
-using Lyntai.Providers.OpenAiCompatible;
+using Lyntai.Providers.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
 
 /// <summary>
 /// OPT-IN live integration against a real local Ollama — proves the OpenAI-compatible provider
-/// (Ollama flavor) works end-to-end against a real endpoint, not just a stubbed HttpMessageHandler.
+/// (Ollama dialect) works end-to-end against a real endpoint, not just a stubbed HttpMessageHandler.
 /// Runs only when <c>LYNTAI_LIVE_OLLAMA</c> is set AND the endpoint is reachable; otherwise it reports as
 /// SKIPPED (<c>Xunit.SkippableFact</c>), so the default test run stays fast, deterministic, and
 /// dependency-free (CI never runs the live path) while still saying honestly that it did not run.
@@ -23,9 +23,9 @@ public class OllamaLiveTests
     private static string Model => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_MODEL") ?? DefaultModel;
     private static string EmbedModel => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL") ?? DefaultEmbedModel;
 
-    private static OpenAiCompatibleProvider Provider() =>
+    private static HttpModelProvider Provider() =>
         new("ollama",
-            new OpenAiCompatibleOptions { BaseUrl = BaseUrl, Model = Model },
+            new HttpModelOptions { BaseUrl = BaseUrl, Model = Model },
             () => new HttpClient(),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(3) }); // cold model load can be slow
 
@@ -79,8 +79,8 @@ public class OllamaLiveTests
     {
         Skip.IfNot(await LiveAsync(), Reason); // also requires `ollama pull nomic-embed-text`
 
-        var embedder = new OpenAiEmbeddingsTransport("ollama",
-            new OpenAiCompatibleOptions { BaseUrl = BaseUrl, Model = EmbedModel },
+        var embedder = new HttpEmbeddingsTransport("ollama",
+            new HttpModelOptions { BaseUrl = BaseUrl, Model = EmbedModel },
             () => new HttpClient(),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(3) }); // cold model load can be slow
 
@@ -100,7 +100,7 @@ public class OllamaLiveTests
         // the whole point of the abstraction: a real HTTP provider behind the router/front door
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOpenAiCompatible("ollama", c => { c.BaseUrl = BaseUrl; c.Model = Model; })
+            .AddHttpProvider("ollama", c => { c.BaseUrl = BaseUrl; c.Model = Model; })
             .UseDefaultCandidates("ollama")
             .Configure(o => o.ProviderTimeout = TimeSpan.FromMinutes(3)));
         using var sp = services.BuildServiceProvider();

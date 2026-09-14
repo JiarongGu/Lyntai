@@ -8,41 +8,41 @@ using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Lyntai.Providers.OpenAiCompatible;
+namespace Lyntai.Providers.Http;
 
 /// <summary>
-/// The <c>/embeddings</c> WIRE SHAPE, composed by <see cref="OpenAiCompatibleProvider"/> when a host
+/// The <c>/embeddings</c> WIRE SHAPE, composed by <see cref="HttpModelProvider"/> when a host
 /// declares that route. It is a transport rather than a backend — it has no id and no capabilities,
 /// because the provider that owns it is the backend (<c>docs/DECISIONS.md</c> D132). Posts
 /// <c>{model, input[]}</c> — batched — and extracts vectors tolerantly from either the OpenAI/LM-Studio
-/// <c>data[].embedding</c> shape or Ollama's <c>embeddings[[…]]</c> shape. Endpoint + flavor come from the
+/// <c>data[].embedding</c> shape or Ollama's <c>embeddings[[…]]</c> shape. Endpoint + dialect come from the
 /// same <see cref="ProviderDetect"/> the chat provider uses (Ollama → native <c>/api/embed</c>; a bare
 /// Azure resource → <c>/openai/v1/embeddings</c>; everything else → <c>/v1/embeddings</c>).
 /// <see cref="LyntaiOptions.ProviderTimeout"/> is the deadline for one HTTP REQUEST, so a call that
-/// <see cref="OpenAiCompatibleOptions.BatchSize"/> splits is bounded by batches × that value rather
+/// <see cref="HttpModelOptions.BatchSize"/> splits is bounded by batches × that value rather
 /// than by it once. Failures THROW (an embedding call has no verdict/fallback) —
 /// <see cref="Lyntai.Memory.ISemanticMemory.RecallAsync"/> is fail-open and swallows them, while
 /// <c>RememberAsync</c> surfaces them by design. Because there is no verdict, a 401 with no key supplied
 /// says so in the message instead: see <see cref="NotConfiguredHint"/>.
 /// </summary>
-internal sealed class OpenAiEmbeddingsTransport(
+internal sealed class HttpEmbeddingsTransport(
     string id,
-    OpenAiCompatibleOptions config,
+    HttpModelOptions config,
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
     ILogger? logger = null,
     bool disposeHttpClient = true)
 {
-    private readonly ILogger _logger = logger ?? NullLogger<OpenAiEmbeddingsTransport>.Instance;
+    private readonly ILogger _logger = logger ?? NullLogger<HttpEmbeddingsTransport>.Instance;
 
-    private readonly OpenAiFlavor _flavor = OpenAiEndpoint.ResolveFlavor(config.Flavor, config.BaseUrl);
+    private readonly HttpDialect _dialect = HttpEndpoint.ResolveDialect(config.Dialect, config.BaseUrl);
 
     /// <summary>Get the per-call HttpClient. Lyntai-created clients are disposed after each call; an
     /// APP-supplied (BYO) client is NEVER disposed — the app owns its lifetime.</summary>
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
 
     /// <summary>Embed <paramref name="texts"/>, returning one vector per input in the SAME order (batched
-    /// per <see cref="OpenAiCompatibleOptions.BatchSize"/> and concatenated). An empty input returns
+    /// per <see cref="HttpModelOptions.BatchSize"/> and concatenated). An empty input returns
     /// an empty list without any HTTP call. Failure THROWS (an embedding call has no verdict/fallback) — the
     /// caller decides whether to swallow it (recall is fail-open) or surface it (remember is not).</summary>
     /// <returns>One <c>float[]</c> per input text, in input order.</returns>
@@ -73,8 +73,8 @@ internal sealed class OpenAiEmbeddingsTransport(
     }
 
     /// <summary>Embed for a known <paramref name="role"/>, applying that side's configured prefix
-    /// (<see cref="OpenAiCompatibleOptions.DocumentPrefix"/> /
-    /// <see cref="OpenAiCompatibleOptions.QueryPrefix"/>) before the request, then continuing
+    /// (<see cref="HttpModelOptions.DocumentPrefix"/> /
+    /// <see cref="HttpModelOptions.QueryPrefix"/>) before the request, then continuing
     /// through the role-less path above — so batching, ordering and every failure mode are identical.
     /// With neither prefix set (the default, and every symmetric model) it forwards without allocating.
     /// </summary>
@@ -98,9 +98,9 @@ internal sealed class OpenAiEmbeddingsTransport(
             using var response = await http.SendAsync(BuildRequest(batch), timeoutCts.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                var errorBody = await OpenAiHttp.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
+                var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
                 throw new HttpRequestException(
-                    $"{id}: embeddings HTTP {(int)response.StatusCode}{NotConfiguredHint(response.StatusCode)} {OpenAiHttp.Head(errorBody)}");
+                    $"{id}: embeddings HTTP {(int)response.StatusCode}{NotConfiguredHint(response.StatusCode)} {HttpBody.Head(errorBody)}");
             }
             body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
         }
@@ -121,7 +121,7 @@ internal sealed class OpenAiEmbeddingsTransport(
     private HttpRequestMessage BuildRequest(IReadOnlyList<string> texts)
     {
         // {model, input[]} — accepted verbatim by both the OpenAI /v1/embeddings and the Ollama /api/embed
-        // shapes, so one body serves every flavor; only the endpoint + response key differ.
+        // shapes, so one body serves every dialect; only the endpoint + response key differ.
         var payload = new JsonObject
         {
             ["model"] = config.Model ?? "",
@@ -131,14 +131,14 @@ internal sealed class OpenAiEmbeddingsTransport(
         {
             Content = new StringContent(payload.ToJsonString(), new UTF8Encoding(false), "application/json"),
         };
-        OpenAiEndpoint.ApplyAuth(request, config.ApiKey, _flavor);
+        HttpEndpoint.ApplyAuth(request, config.ApiKey, _dialect);
         return request;
     }
 
     /// <summary>The embeddings endpoint — Ollama's native batched <c>/api/embed</c> (parallel to the chat
     /// provider's <c>/api/chat</c>), otherwise the OpenAI-compatible <c>embeddings</c> route.</summary>
     private Uri Endpoint() =>
-        OpenAiEndpoint.Build(config.BaseUrl, _flavor, ollamaNativePath: "/api/embed", openAiRoute: "embeddings");
+        HttpEndpoint.Build(config.BaseUrl, _dialect, ollamaNativePath: "/api/embed", openAiRoute: "embeddings");
 
     /// <summary>Tolerant extraction covering the two response shapes: OpenAI/LM-Studio
     /// <c>data[].embedding</c> (ordered by the authoritative <c>index</c>) and Ollama <c>embeddings[[…]]</c>

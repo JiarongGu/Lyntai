@@ -20,15 +20,15 @@ sealed class Lyntai.Embeddings.Model2Vec.Model2VecProviderOptions
 static class Lyntai.ExtensionsAiBuilderExtensions
     static AddExtensionsAi(LyntaiBuilder builder, String id, Func<IServiceProvider,IChatClient> clientFactory) : LyntaiBuilder
     static AddExtensionsAi(LyntaiBuilder builder, String id, IChatClient client) : LyntaiBuilder
-static class Lyntai.Model2VecBuilderExtensions
-    static AddModel2Vec(LyntaiBuilder builder, String modelDirectory, Action<Model2VecProviderOptions> configure = null) : LyntaiBuilder
-static class Lyntai.OpenAiCompatibleBuilderExtensions
+static class Lyntai.HttpProviderBuilderExtensions
     static AddAzureOpenAi(LyntaiBuilder builder, String endpoint, String apiKey, String model = null, String id = "azure-openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddHttpProvider(LyntaiBuilder builder, String id, Action<HttpModelOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddLlama(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "llama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOllama(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "ollama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOpenAi(LyntaiBuilder builder, String apiKey, String model = null, String id = "openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddOpenAiCompatible(LyntaiBuilder builder, String id, Action<OpenAiCompatibleOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOpenRouter(LyntaiBuilder builder, String apiKey, String model = null, String id = "openrouter", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+static class Lyntai.Model2VecBuilderExtensions
+    static AddModel2Vec(LyntaiBuilder builder, String modelDirectory, Action<Model2VecProviderOptions> configure = null) : LyntaiBuilder
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     .ctor()
     AllowedTools : IReadOnlyList<String>
@@ -126,28 +126,35 @@ sealed class Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
 static class Lyntai.Providers.ExtensionsAi.LyntaiChatClientExtensions
     static AsChatClient(ILlmClient client) : IChatClient
-sealed class Lyntai.Providers.OpenAiCompatible.CrossEncoderVerificationOptions
+sealed class Lyntai.Providers.Http.CrossEncoderVerificationOptions
     .ctor()
     ApiKey : String
     BaseUrl : String
     EndorseCount : Int32
     Model : String
-sealed class Lyntai.Providers.OpenAiCompatible.CrossEncoderVerificationPolicy
+sealed class Lyntai.Providers.Http.CrossEncoderVerificationPolicy
     .ctor(CrossEncoderVerificationOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<CrossEncoderVerificationPolicy> logger = null, Boolean disposeHttpClient = true)
     VerifyAsync(MemoryVerificationRequest request, CancellationToken ct = default) : Task<MemoryVerification>
-sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleOptions
+enum Lyntai.Providers.Http.HttpDialect
+    Auto : HttpDialect const
+    AzureOpenAi : HttpDialect const
+    Ollama : HttpDialect const
+    OpenAi : HttpDialect const
+    OpenRouter : HttpDialect const
+    value__ : Int32
+sealed class Lyntai.Providers.Http.HttpModelOptions
     .ctor()
     ApiKey : String
     BaseUrl : String
     BatchSize : Int32
+    Dialect : HttpDialect
     DocumentPrefix : String
-    Flavor : OpenAiFlavor
     Model : String
     OllamaContextSize : Nullable<Int32>
     Produces : String
     QueryPrefix : String
-sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider
-    .ctor(String id, OpenAiCompatibleOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<OpenAiCompatibleProvider> logger = null, Boolean disposeHttpClient = true)
+sealed class Lyntai.Providers.Http.HttpModelProvider
+    .ctor(String id, HttpModelOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<HttpModelProvider> logger = null, Boolean disposeHttpClient = true)
     Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
@@ -155,10 +162,3 @@ sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider
     Id : String
     IsAvailable : Boolean
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
-enum Lyntai.Providers.OpenAiCompatible.OpenAiFlavor
-    Auto : OpenAiFlavor const
-    AzureOpenAi : OpenAiFlavor const
-    Ollama : OpenAiFlavor const
-    OpenAi : OpenAiFlavor const
-    OpenRouter : OpenAiFlavor const
-    value__ : Int32

@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 using Lyntai.Llm;
-using Lyntai.Providers.OpenAiCompatible.Payloads;
+using Lyntai.Providers.Http.Payloads;
 
 namespace Lyntai.Tests.Providers;
 

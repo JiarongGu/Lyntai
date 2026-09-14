@@ -1,5 +1,5 @@
 using Lyntai.Memory.Verification;
-using Lyntai.Providers.OpenAiCompatible;
+using Lyntai.Providers.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;

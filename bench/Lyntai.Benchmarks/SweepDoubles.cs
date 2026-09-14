@@ -244,7 +244,7 @@ internal static class SweepDoubles
     /// embedding model" while a perfectly good one was loaded.</para>
     /// </summary>
     /// <remarks>
-    /// Written here rather than reusing <c>OpenAiEmbeddingsTransport</c> so the bench project keeps its two project
+    /// Written here rather than reusing <c>HttpEmbeddingsTransport</c> so the bench project keeps its two project
     /// references — the csproj records what pulling a third one cost the last time (a build log past Node's
     /// spawnSync buffer, reported as a failed build that had in fact succeeded).
     /// </remarks>

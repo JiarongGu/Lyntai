@@ -4,7 +4,7 @@ using Lyntai.Agents;
 using Lyntai.Llm;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Providers.CodexCli;
-using Lyntai.Providers.OpenAiCompatible;
+using Lyntai.Providers.Http;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
@@ -164,12 +164,12 @@ public class WireNumberToleranceTests
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    private static OpenAiCompatibleProvider Provider(StubHttpHandler handler,
-        Action<OpenAiCompatibleOptions>? configure = null)
+    private static HttpModelProvider Provider(StubHttpHandler handler,
+        Action<HttpModelOptions>? configure = null)
     {
-        var config = new OpenAiCompatibleOptions { BaseUrl = "https://api.openai.com", ApiKey = "test-key" };
+        var config = new HttpModelOptions { BaseUrl = "https://api.openai.com", ApiKey = "test-key" };
         configure?.Invoke(config);
-        return new OpenAiCompatibleProvider("openai", config, () => new HttpClient(handler, disposeHandler: false),
+        return new HttpModelProvider("openai", config, () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
 

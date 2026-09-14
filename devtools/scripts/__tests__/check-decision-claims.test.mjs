@@ -209,9 +209,9 @@ describe('missingReleasedMigrations (D9)', () => {
 describe('wireJsonSerializerUses (D14)', () => {
   it('finds a real USE in a wire path — the RED case the claim exists for', () => {
     const r = fixture({
-      'src/Lyntai.Providers.Default/OpenAiHttp.cs': 'var x = JsonSerializer.Deserialize<Reply>(body);',
+      'src/Lyntai.Providers.Default/HttpBody.cs': 'var x = JsonSerializer.Deserialize<Reply>(body);',
     });
-    assert.deepEqual(wireJsonSerializerUses(r), ['src/Lyntai.Providers.Default/OpenAiHttp.cs']);
+    assert.deepEqual(wireJsonSerializerUses(r), ['src/Lyntai.Providers.Default/HttpBody.cs']);
   });
 
   it('IGNORES the word in a comment, which is what the first run got wrong', () => {

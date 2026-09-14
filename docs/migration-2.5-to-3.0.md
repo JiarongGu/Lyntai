@@ -839,7 +839,7 @@ new GraphMemoryOptions { LogReviews = false }
 
 Only for a consumer of the `Lyntai.Generation` package. Every `Add*Provider` now takes
 `Action<TOptions> configure` instead of a constructed options object, matching
-`AddOpenAiCompatible(id, o => …)` on the LLM side and `AddMemoryEngine(name, e => …)` above.
+`AddHttpProvider(id, o => …)` on the LLM side and `AddMemoryEngine(name, e => …)` above.
 
 <!-- compile-skip: a before/after pair — the "before" is the 2.5 API and cannot compile here -->
 ```csharp

@@ -398,7 +398,7 @@ in that pass — and every one was startable, which is why the banner stopped cl
 were open. All have now closed (archive Parts 76, 78–81 and 84) except the one below, whose blocker is not
 a design question: it needs two or three real aggregators to measure against._
 
-- [ ] **Decide what an aggregator's in-band `code` means.** `OpenAiHttp.InBandError` deliberately reports <!-- item: state=blocked kind=env,data needs="two or three real aggregators to measure an in-band code against" -->
+- [ ] **Decide what an aggregator's in-band `code` means.** `HttpBody.InBandError` deliberately reports <!-- item: state=blocked kind=env,data needs="two or three real aggregators to measure an in-band code against" -->
   only THAT an `error` member is present and what it says; it does not read a numeric `code` as an HTTP
   status, because that mapping is not measured across the gateways this provider serves. A 200 carrying
   `{"error":{"code":429}}` therefore classifies from the message text alone. Measuring two or three real

@@ -2,7 +2,7 @@ using System.Text;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Providers.ExtensionsAi;
-using Lyntai.Providers.OpenAiCompatible.Payloads;
+using Lyntai.Providers.Http.Payloads;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.AI;
 

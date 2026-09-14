@@ -204,8 +204,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D132](#d132--a-second-add-method-for-one-backend-is-the-split-routes-are-configuration-2026-09-14) | 2026-09-14 | a second `Add*` method for one backend IS the split: routes are configuration |
 | [D133](#d133--one-registration-is-one-backend-a-shared-hostname-does-not-merge-two-2026-09-14) | 2026-09-14 | one registration is one backend; a shared hostname does not merge two |
 | [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) | 2026-09-14 | a registration names the BACKEND; the `Provider` suffix is gone from all seventeen |
+| [D135](#d135--the-http-family-is-named-for-the-transport-and-its-dialects-not-for-openai-2026-09-14) | 2026-09-14 | the HTTP family is named for the TRANSPORT and its dialects, not for OpenAI |
 
-_All 134 entries are live decisions._
+_All 135 entries are live decisions._
 
 <!-- index:end -->
 
@@ -1677,7 +1678,7 @@ provider can surface calls on `LlmReply.ToolCalls` while its stream drops them �
 in this library did until now. Answering one for the other would make an agentic turn look like a plain
 answer: no call chunk arrives, the loop sees zero calls, and it reports the turn's prose as the final answer
 while the tool never runs. **That failure is silent, which is why it gets its own question and why the
-default is `false`.** Only `OpenAiCompatibleProvider` opts in; every other provider keeps the pre-3.0
+default is `false`.** Only `HttpModelProvider` opts in; every other provider keeps the pre-3.0
 buffered path byte for byte.
 
 **A tool call COMMITS a stream, for a sharper reason than content does.** The router's existing rule is "no
@@ -3423,7 +3424,7 @@ never `yes`.
 sub-500 MB cross-encoder captures 6.0 of the 7.0 points a perfect judge offers where a 4B instruct judge
 SPENDS 10.5. Until now the only code that could call a `/v1/rerank` endpoint was a bench harness, so the
 best-measured configuration in the subsystem was one no consumer could reach.
-`AddMemoryCrossEncoderVerification` ships it, in `Lyntai.Providers.Default` beside `OpenAiEmbeddingsTransport` — the
+`AddMemoryCrossEncoderVerification` ships it, in `Lyntai.Providers.Default` beside `HttpEmbeddingsTransport` — the
 same footprint, no new dependency, and no new package.
 
 **The ranking seam was the obvious home and it is unusable.** `IMemoryRankingPolicy.Rank` is synchronous
@@ -3444,7 +3445,7 @@ than companions.
 
 `IEmbedder` gains a role-aware overload with a DEFAULT BODY forwarding to the role-less one, and every
 Lyntai call site passes `EmbeddingRole.Document` when storing and `Query` when searching. The library
-supplies no prefix and names no model; `OpenAiCompatibleOptions.DocumentPrefix`/`QueryPrefix` let a
+supplies no prefix and names no model; `HttpModelOptions.DocumentPrefix`/`QueryPrefix` let a
 deployment say what its own model wants, defaulting to nothing.
 
 **The gap was that no implementation could fix this from outside.** The E5, BGE, nomic and Arctic families
@@ -3896,7 +3897,7 @@ class satisfies both with a single method and nothing is written twice.
 **Registration is ADDITIVE on purpose.** `AddModel2Vec` / `AddOnnx` now call `AddProvider`
 *and* keep the `TryAddSingleton<IEmbedder>` slot. Nothing moves for a deployment registering exactly one
 embedder; what changes is that a second one is now expressible and distinguishable by id, which the single
-slot cannot do — `OpenAiEmbeddingsTransport`'s own shipped doc admits it: *"there is one embedder slot, so a later
+slot cannot do — `HttpEmbeddingsTransport`'s own shipped doc admits it: *"there is one embedder slot, so a later
 registration wins"*.
 
 **What this does NOT yet do**, stated so the gap is not mistaken for finished work: the `IEmbedder` a
@@ -3907,13 +3908,13 @@ second router, and that is exactly what minting a third family would have made i
 ## D129 — IEmbedder is the FRONT DOOR, not a backend contract: embeddings get routing and fallback (2026-09-14)
 
 `IEmbedder` is now implemented by `RoutedEmbedder` alone — a router over every `IModelProvider` declaring
-`ProviderOperation.Embed`. `Model2VecProvider`, `OnnxEmbedder` and `OpenAiEmbeddingsTransport` stop implementing it and are
+`ProviderOperation.Embed`. `Model2VecProvider`, `OnnxEmbedder` and `HttpEmbeddingsTransport` stop implementing it and are
 providers only; `AddEmbeddingProvider` registers them and states, at composition time, that something can
 embed.
 
 **One type was doing two jobs, and that is why embeddings had no fallback.** Chat has always separated them
 — consumers resolve `ILlmClient`, backends implement the provider seam — while embedding had `IEmbedder` on
-both sides, so a consumer held a BACKEND directly. `OpenAiEmbeddingsTransport`'s own shipped doc admitted the
+both sides, so a consumer held a BACKEND directly. `HttpEmbeddingsTransport`'s own shipped doc admitted the
 consequence: *"there is one embedder slot, so a later registration wins"*. Registering a second endpoint
 silently replaced the first instead of giving it a fallback.
 
@@ -3956,8 +3957,8 @@ exactly one field, which is what the whole series was reaching for.
 **`Produces` is a LIST, and that is what the previous shape could not express.** An OpenAI-compatible host
 answers `/chat/completions` AND `/embeddings`, so it declares `[text, vector]` and implements both methods
 off one configuration, one id and one HttpClient. Under an `Embed` operation that backend had to be split
-into two registrations pointed at the same endpoint — which is how `OpenAiEmbeddingsTransport` came to exist beside
-`OpenAiCompatibleProvider` in the first place.
+into two registrations pointed at the same endpoint — which is how `HttpEmbeddingsTransport` came to exist beside
+`HttpModelProvider` in the first place.
 
 **`Accepts` is checked only when a caller pins it**, because the common case is text in and pinning it
 everywhere would be noise. It earns its place on the image→video edge, where a text-only backend must not
@@ -3974,7 +3975,7 @@ the old model and needs nothing new under this one.
 
 ## D131 — a backend's `Produces` is DERIVED from its configuration, so a modality is a field (2026-09-14)
 
-`OpenAiCompatibleOptions.Embeddings` is a nullable section. Set it and the provider declares
+`HttpModelOptions.Embeddings` is a nullable section. Set it and the provider declares
 `Produces: [text, vector]` and serves `/embeddings` from the same registration that serves
 `/chat/completions` — one id, one configuration, one `HttpClient`, one entry in the provider collection.
 
@@ -3982,8 +3983,8 @@ the old model and needs nothing new under this one.
 host should declare `[text, vector]`; nothing in the tree did, so the claim was untested. Declaring it
 required exactly the change above and no new type, which is the evidence the model is right.
 
-**The alternative was two registrations pointed at one server** — `AddOpenAiCompatible` plus <!-- drift-ok: D131/D132 name what they retire -->
-`AddOpenAiCompatibleEmbedder`, as the tree did through 3.1.0. That costs two ids a router reports <!-- drift-ok: D131/D132 name what they retire -->
+**The alternative was two registrations pointed at one server** — `AddHttpProvider` plus <!-- drift-ok: D131/D132 name what they retire -->
+`AddHttpProviderEmbedder`, as the tree did through 3.1.0. That costs two ids a router reports <!-- drift-ok: D131/D132 name what they retire -->
 separately, two named `HttpClient`s, and a base URL written twice with nothing checking they agree. The
 duplication is invisible until the day one of them is edited.
 
@@ -3992,7 +3993,7 @@ is null rather than taking it as a parameter, so a host cannot claim a route it 
 call. The generalization: **adding a modality to an existing backend is a field to set, not a class to
 write** — which is what makes `Produces` being a list worth anything.
 
-**A blank field in the section INHERITS the host it was declared on** — `BaseUrl`, `ApiKey`, `Flavor` —
+**A blank field in the section INHERITS the host it was declared on** — `BaseUrl`, `ApiKey`, `Dialect` —
 because declaring embeddings *there* says they live on the same server. Setting one overrides it, which is
 the split-port deployment this repository's own benches use (chat on 8080, embeddings on 8081). **`Model`
 is the deliberate exception and does not inherit `DefaultModel`**: a chat model is not an embedding model,
@@ -4009,8 +4010,8 @@ same collection plus the statement that something can embed — the flag `AddSem
 
 ## D132 — a second `Add*` method for one backend IS the split: routes are configuration (2026-09-14)
 
-`AddOpenAiCompatibleEmbedder` is gone. <!-- drift-ok: this entry RETIRES the name, so it has to say it -->
-`OpenAiCompatibleOptions` gains a `Chat` section beside `Embeddings`, both nullable, and a host declares
+`AddHttpProviderEmbedder` is gone. <!-- drift-ok: this entry RETIRES the name, so it has to say it -->
+`HttpModelOptions` gains a `Chat` section beside `Embeddings`, both nullable, and a host declares
 which routes it serves by which sections it sets. `*Embedder` is retired from every registration name:
 `AddOnnx`, `AddModel2Vec`, `AddLlamaSharp`.
 
@@ -4019,7 +4020,7 @@ a both-routes host, but an embeddings-only host still needed its own method — 
 the TOP level while embeddings had a section, so there was no way to say "this host serves no chat". The
 asymmetry in the options forced the asymmetry in the API.
  <!-- drift-ok: D131/D132 name what they retire -->
-**The first attempt was to rename that method**, `AddOpenAiCompatibleEmbeddings`. That is the same split <!-- drift-ok: D131/D132 name what they retire -->
+**The first attempt was to rename that method**, `AddHttpProviderEmbeddings`. That is the same split <!-- drift-ok: D131/D132 name what they retire -->
 wearing a better name, and it is worth recording because it was written and shipped nowhere: **a second
 `Add*` for one backend re-enters the chat-vs-embedder taxonomy through the one surface a consumer actually
 reads.** The test is not whether the name is good — it is whether the method exists.
@@ -4040,13 +4041,13 @@ export, its own doc said so six times, so `AddModel2Vec` names what it loads exa
 `AddOnnx` names the runtime. `AddLocalProvider` had the same illness with no cure in the old name at <!-- drift-ok: D131/D132 name what they retire -->
 all: it became `AddLlamaSharp`, matching the package that ships it.
  <!-- drift-ok: D131/D132 name what they retire -->
-**`HttpEmbedder` becomes the internal `OpenAiEmbeddingsTransport`**, with no id and no capabilities. It was <!-- drift-ok: D131/D132 name what they retire -->
+**`HttpEmbedder` becomes the internal `HttpEmbeddingsTransport`**, with no id and no capabilities. It was <!-- drift-ok: D131/D132 name what they retire -->
 public because it used to be registered directly; now the provider composes it, and a transport that
 declares its own identity would be a second backend for one host.
 
 ## D133 — one registration is one backend; a shared hostname does not merge two (2026-09-14)
 
-`OpenAiCompatibleOptions` has no route sections. It carries `BaseUrl`, `ApiKey`, `Flavor`, `Model` and one
+`HttpModelOptions` has no route sections. It carries `BaseUrl`, `ApiKey`, `Dialect`, `Model` and one
 `Produces`, and a host answering both routes is registered TWICE, under two ids. This **supersedes D131's
 bundling**; **D130**'s model and **D132**'s single registration method both stand.
 
@@ -4078,7 +4079,7 @@ worth less than an id that names one backend.
 
 ## D134 — a registration names the BACKEND; the `Provider` suffix is gone from all seventeen (2026-09-14)
 
-`AddOpenAiCompatible`, `AddOllama`, `AddOnnx`, `AddClaudeCli`, `AddModel2Vec`, `AddLlamaSharp`, `AddFal`,
+`AddHttpProvider`, `AddOllama`, `AddOnnx`, `AddClaudeCli`, `AddModel2Vec`, `AddLlamaSharp`, `AddFal`,
 `AddComfyUi` — every backend registration drops the suffix.
 
 **A suffix carried by all of them distinguishes none of them.** **D132** unified the roster ONTO `Provider`
@@ -4099,3 +4100,34 @@ allowance, which is the test that the distinction is real rather than convenient
 **What it constrains:** a new backend registers as `Add<Name>` — the skill and
 `.claude/knowledge/extending-lyntai.md` now say so at the checklist line where the old suffix was being
 copied forward. `check-api-vocabulary` and `check-docs` hold the seventeen retired names.
+
+## D135 — the HTTP family is named for the TRANSPORT and its dialects, not for OpenAI (2026-09-14)
+
+`AddHttpProvider` / `HttpModelProvider` / `HttpModelOptions` / `HttpDialect`, in `Lyntai.Providers.Http`.
+`OpenAiFlavor.Flavor` becomes `HttpDialect.Dialect`. <!-- drift-ok: this entry RETIRES both names, so it has to say them -->
+
+**The name was FALSE, not merely broad.** `HttpDialect.Ollama` posts to `/api/chat` and `/api/embed` with
+Ollama's own body — `options.num_ctx`, a base64 `images[]` array — and that vendor documents those as
+distinct from its separate OpenAI-COMPATIBLE `/v1` surface. The tree said so itself: `HttpEndpoint.Build`'s
+parameter is named for *"Ollama's native, non-OpenAI path"*. One registration method claimed compatibility
+that one of its four dialects explicitly does not have.
+
+**Three dialects genuinely are compatible, and that is the trap.** `llama-server` implements OpenAI's schema
+on purpose, as do OpenRouter and Azure; the label is accurate for them. A name that is right three times out
+of four is harder to catch than one that is simply wrong, and it survived every gate here because no gate
+reads a name for truth.
+
+**The category was wrong even where the label was true.** This is a model reached over HTTP in one of
+several wire dialects, and naming the family after one vendor centres that vendor for endpoints that have
+nothing to do with it — `AddOpenAiCompatible` pointed at a local llama-server reads as though a key and an <!-- drift-ok: names what this entry retires -->
+account are involved. **The repository already had the right word**: `CLAUDE.md` says a new CLI backend is a
+DIALECT, never a new provider. The HTTP side is the identical shape — one engine, a dialect per backend —
+and now says so.
+
+**`AddHttpProvider` KEEPS the suffix `AddOllama` drops**, which is **D134**'s rule rather than an exception
+to it: the generic registration is where `Provider` is the NOUN, exactly as in `AddProvider` and
+`AddGenerationProvider`. A vendor preset names a backend and takes no suffix; the generic one names the act.
+
+**What keeps the OpenAI name, because it earns it:** `OpenAiPayload` builds OpenAI's actual schema, and
+`HttpDialect.OpenAi` is the member for it. The PHRASE "OpenAI-compatible" also stays wherever it describes
+those three dialects — it is a true statement about a route, and only a false one about the family.

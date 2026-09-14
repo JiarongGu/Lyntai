@@ -65,7 +65,7 @@ Lyntai/
 │  ├─ Lyntai.Core/                     # interfaces + router/fallback + cortex + DI. No heavy deps.
 │  ├─ Lyntai.Storage.Sqlite/           # Dapper + FluentMigrator + FTS5 impls of every store domain
 │  ├─ Lyntai.Providers.ClaudeCli/      # authenticated `claude` CLI spawn (family hygiene)
-│  ├─ Lyntai.Providers.OpenAiCompatible/  # HttpClient: OpenAI/Ollama/OpenRouter/…, URL-native detect
+│  ├─ Lyntai.Providers.Http/  # HttpClient: OpenAI/Ollama/OpenRouter/…, URL-native detect
 │  └─ Lyntai.Providers.ExtensionsAi/   # bridge: Microsoft.Extensions.AI IChatClient → IModelProvider
 ├─ samples/
 │  └─ Lyntai.Playground/               # console app exercising the full stack (live smoke)
@@ -85,7 +85,7 @@ runtime, which is exactly the footprint a consumer might refuse.)*
 > **Amendment (2026-08-05): the tree above is the v0.1 cut; `src/` now holds TWELVE packable projects.**
 > The RULE it illustrates is unchanged and still verified — every adapter references `Lyntai.Core` only, never
 > another adapter — but two of the names are gone. `Lyntai.Providers.ClaudeCli` and
-> `Lyntai.Providers.OpenAiCompatible` merged into **`Lyntai.Providers.Default`** at 2.0.1, because a boundary
+> `Lyntai.Providers.Http` merged into **`Lyntai.Providers.Default`** at 2.0.1, because a boundary
 > has to answer *which dependency does this isolate?* and those two isolated nothing: process spawn plus
 > `HttpClient`, both dependency-free, and the CLIs share one `CliProviderEngine` (`docs/DECISIONS.md` **D25**;
 > a new CLI backend is an `ICliProviderDialect` in that package, D21/D22). Today: `Lyntai.Core`,
@@ -222,7 +222,7 @@ public interface ITraceStore { /* run traces + steps */ }
 ```csharp
 services.AddLyntai(cfg => {
     cfg.AddClaudeCli();                          // family default, no API key
-    cfg.AddOpenAiCompatible("ollama", o => o.BaseUrl = "http://localhost:11434");
+    cfg.AddHttpProvider("ollama", o => o.BaseUrl = "http://localhost:11434");
     cfg.AddExtensionsAi("openai", chatClient);   // bridge any IChatClient
     cfg.UseSqliteStorage(dbPath);
     cfg.AddScorer<MyScorer>();

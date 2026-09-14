@@ -26,7 +26,7 @@ public class ByoHttpClientTests
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOpenAiCompatible("openai",
+            .AddHttpProvider("openai",
                 c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; },
                 httpClient: _ => appClient) // BYO
             .UseDefaultCandidates("openai"));
@@ -49,7 +49,7 @@ public class ByoHttpClientTests
         // call fails on a connection error (proving the client existed and tried) — no network.
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOpenAiCompatible("local", c => c.BaseUrl = "http://127.0.0.1:1")
+            .AddHttpProvider("local", c => c.BaseUrl = "http://127.0.0.1:1")
             .UseDefaultCandidates("local")
             .Configure(o => o.ProviderTimeout = TimeSpan.FromSeconds(5)));
         using var sp = services.BuildServiceProvider();

@@ -1,5 +1,5 @@
 using Lyntai;
-using Lyntai.Providers.OpenAiCompatible;
+using Lyntai.Providers.Http;
 
 namespace Lyntai.Tests.Live;
 
@@ -8,7 +8,7 @@ namespace Lyntai.Tests.Live;
 /// llama.cpp's <c>llama-server</c> are both usable without editing a test.
 ///
 /// <para><b>Deliberately NOT merged with <see cref="OllamaLive"/>, which answers a different question.</b>
-/// That one gates suites that are ABOUT Ollama — they exercise <see cref="OpenAiFlavor.Ollama"/>'s NATIVE
+/// That one gates suites that are ABOUT Ollama — they exercise <see cref="HttpDialect.Ollama"/>'s NATIVE
 /// routes, so "is Ollama up" is exactly the right probe and a llama.cpp endpoint should skip them. This one
 /// gates suites that merely need something to embed or judge with, where pinning the vendor is what stopped
 /// the harness running on a different backend at all. Two questions, two gates; collapsing them would either
@@ -48,14 +48,14 @@ public static class LiveModel
     /// <c>LocalDiffusionOptions.Accelerator</c> takes (<c>docs/DECISIONS.md</c> D68): guessing from a port or
     /// a banner is a rule that is right until someone runs llama-server on 11434, and then it is wrong in a
     /// way that presents as a 404 rather than as a bad guess.
-    /// <para>Defaults to <see cref="OpenAiFlavor.Ollama"/>, which is what every one of these suites did
+    /// <para>Defaults to <see cref="HttpDialect.Ollama"/>, which is what every one of these suites did
     /// before this type existed, so an unset variable changes nothing.</para>
     /// </summary>
-    public static OpenAiFlavor Flavor =>
+    public static HttpDialect Dialect =>
         Read(FlavorVariable)?.ToLowerInvariant() switch
         {
-            "openai" or "llamacpp" or "llama.cpp" or "llama-server" => OpenAiFlavor.OpenAi,
-            _ => OpenAiFlavor.Ollama,
+            "openai" or "llamacpp" or "llama.cpp" or "llama-server" => HttpDialect.OpenAi,
+            _ => HttpDialect.Ollama,
         };
 
     /// <summary>The message a skip carries — one string, so a reader scanning skips sees one reason.</summary>
@@ -85,17 +85,17 @@ public static class LiveModel
     }
 
     /// <summary>Register the live endpoint as a provider under <paramref name="id"/>, in whichever dialect
-    /// <see cref="Flavor"/> names. The one place a live suite says "give me a model", so adding a backend is
+    /// <see cref="Dialect"/> names. The one place a live suite says "give me a model", so adding a backend is
     /// an environment variable rather than an edit to every suite.</summary>
     /// <param name="builder">The builder to register into.</param>
     /// <param name="model">The model to default to.</param>
     /// <param name="id">The provider id; the default matches what these suites already used.</param>
     public static LyntaiBuilder AddLive(this LyntaiBuilder builder, string model, string id = "ollama") =>
-        builder.AddOpenAiCompatible(id, o =>
+        builder.AddHttpProvider(id, o =>
         {
             o.BaseUrl = BaseUrl;
             o.Model = model;
-            o.Flavor = Flavor;
+            o.Dialect = Dialect;
         });
 
     private static string? Read(string name) =>

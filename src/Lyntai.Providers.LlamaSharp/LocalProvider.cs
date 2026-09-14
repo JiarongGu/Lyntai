@@ -110,7 +110,7 @@ public sealed class LocalProvider(
 
             // the timeout is an INACTIVITY clock: re-armed before each token read and stopped while we
             // and the consumer process a token — a slow-but-healthy local generation isn't killed under
-            // a slow reader (mirrors OpenAiCompatibleProvider / ProcessRunner).
+            // a slow reader (mirrors HttpModelProvider / ProcessRunner).
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var enumerator = executor.InferAsync(prompt, inference, timeoutCts.Token).GetAsyncEnumerator(timeoutCts.Token);
             await using (enumerator.ConfigureAwait(false))

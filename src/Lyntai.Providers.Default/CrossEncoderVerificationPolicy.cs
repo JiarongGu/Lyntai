@@ -5,7 +5,7 @@ using Lyntai.Memory.Verification;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Lyntai.Providers.OpenAiCompatible;
+namespace Lyntai.Providers.Http;
 
 /// <summary>
 /// A cross-encoder reranker in the memory VERIFICATION seam, over an OpenAI/Cohere-shaped

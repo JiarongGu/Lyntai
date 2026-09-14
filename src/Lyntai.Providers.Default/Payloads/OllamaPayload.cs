@@ -2,7 +2,7 @@ using System.Text.Json.Nodes;
 using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
 
-namespace Lyntai.Providers.OpenAiCompatible.Payloads;
+namespace Lyntai.Providers.Http.Payloads;
 
 /// <summary>Canonical <see cref="LlmRequest"/> → Ollama /api/chat schema: sampling knobs live under
 /// <c>options</c> (num_predict/num_ctx), structured output is a top-level <c>format</c> schema object.</summary>
@@ -101,7 +101,7 @@ internal static class OllamaPayload
                     "ollama /api/chat cannot deliver {Count} attachment(s) on this turn: its images array " +
                     "takes inline base64 only, and these carry no bytes (a remote Uri). Inline them " +
                     "(LlmMessage.UserWithImage) or point the provider at Ollama's OpenAI-compatible /v1 " +
-                    "surface via AddOpenAiCompatible, which accepts an image URL.", undeliverable);
+                    "surface via AddHttpProvider, which accepts an image URL.", undeliverable);
 
             if (images.Length > 0)
                 return new JsonObject

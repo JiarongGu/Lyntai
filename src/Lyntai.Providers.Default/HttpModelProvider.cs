@@ -6,32 +6,38 @@ using System.Text;
 using System.Text.Json;
 using Lyntai.Llm;
 using Lyntai.Llm.Streaming;
-using Lyntai.Providers.OpenAiCompatible.Payloads;
+using Lyntai.Providers.Http.Payloads;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Lyntai.Providers.OpenAiCompatible;
+namespace Lyntai.Providers.Http;
 
-/// <summary>
-/// HttpClient-based provider for OpenAI-compatible endpoints (OpenAI, Ollama, OpenRouter, …).
-/// Maps HTTP status → verdict (429 RateLimited, 5xx Failed, deadline Timeout, content-filter
-/// Refused), extracts text tolerantly from either the OpenAI or the Ollama response shape, and
-/// retries once on a malformed body (design §6).
-/// </summary>
-public sealed class OpenAiCompatibleProvider(
+/// <summary>A model served over HTTP, in one of several wire DIALECTS —
+/// <see cref="HttpModelOptions.Dialect"/> picks the routes and the payload shape.
+///
+/// <para><b>It is not named for a vendor because it is not one.</b> Three dialects post the OpenAI schema to
+/// <c>/v1/…</c> and are fairly called OpenAI-compatible; <see cref="HttpDialect.Ollama"/> posts Ollama's own
+/// <c>/api/chat</c> and <c>/api/embed</c>, which by its own documentation are NOT. A name claiming otherwise
+/// was false for that dialect and misleading for the rest (<c>docs/DECISIONS.md</c> D135). It is the same
+/// shape the CLI side already has: one engine, a dialect per backend.</para>
+///
+/// <para>Maps HTTP status → verdict (429 RateLimited, 5xx Failed, deadline Timeout, content-filter
+/// Refused), extracts text tolerantly from either response shape, and retries once on a malformed body
+/// (design §6).</para></summary>
+public sealed class HttpModelProvider(
     string id,
-    OpenAiCompatibleOptions config,
+    HttpModelOptions config,
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
-    ILogger<OpenAiCompatibleProvider>? logger = null,
+    ILogger<HttpModelProvider>? logger = null,
     bool disposeHttpClient = true) : IModelProvider
 {
-    private readonly ILogger _logger = logger ?? NullLogger<OpenAiCompatibleProvider>.Instance;
-    private readonly OpenAiFlavor _flavor = OpenAiEndpoint.ResolveFlavor(config.Flavor, config.BaseUrl);
+    private readonly ILogger _logger = logger ?? NullLogger<HttpModelProvider>.Instance;
+    private readonly HttpDialect _dialect = HttpEndpoint.ResolveDialect(config.Dialect, config.BaseUrl);
 
     public string Id => id;
 
-    /// <summary>What this backend serves, DERIVED from <see cref="OpenAiCompatibleOptions.Produces"/>: text
+    /// <summary>What this backend serves, DERIVED from <see cref="HttpModelOptions.Produces"/>: text
     /// is buffered or streamed with native tool calls on both paths; vector is one batched call, since there
     /// is no such thing as a partially delivered embedding.
     /// <para>Models are NOT enumerated — an aggregator fronts hundreds behind one id, which is exactly the
@@ -49,14 +55,14 @@ public sealed class OpenAiCompatibleProvider(
 
     /// <summary>Does this registration post to <c>/embeddings</c> rather than <c>/chat/completions</c>? One
     /// field decides the route, the wire shape, and which methods answer.</summary>
-    private static bool ServesVectors(OpenAiCompatibleOptions c) =>
+    private static bool ServesVectors(HttpModelOptions c) =>
         string.Equals(c.Produces, ProviderKinds.Vector, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The <c>/embeddings</c> wire shape, or null when this backend produces something else. It is
     /// composed rather than inherited: an embeddings call has nothing in common with a completion beyond the
     /// host it is posted to.</summary>
-    private readonly OpenAiEmbeddingsTransport? _embeddings = !ServesVectors(config) ? null
-        : new OpenAiEmbeddingsTransport(id, config, httpFactory, options, logger, disposeHttpClient);
+    private readonly HttpEmbeddingsTransport? _embeddings = !ServesVectors(config) ? null
+        : new HttpEmbeddingsTransport(id, config, httpFactory, options, logger, disposeHttpClient);
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(config.BaseUrl);
 
@@ -87,7 +93,7 @@ public sealed class OpenAiCompatibleProvider(
 
     /// <summary>The embeddings transport, or the refusal <see cref="IModelProvider"/>'s own default gives.
     /// Reached only by a caller that ignored <see cref="Capabilities"/>, since a router checks first.</summary>
-    private OpenAiEmbeddingsTransport Vectors() => _embeddings
+    private HttpEmbeddingsTransport Vectors() => _embeddings
         ?? throw new NotSupportedException(
             $"{id} produces {config.Produces}, not {ProviderKinds.Vector} — an embedding model is its own "
             + "backend, registered with Produces = ProviderKinds.Vector.");
@@ -112,7 +118,7 @@ public sealed class OpenAiCompatibleProvider(
                 {
                     if (!response.IsSuccessStatusCode)
                     {
-                        var errorBody = await OpenAiHttp.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
+                        var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
                         return MapHttpFailure(response.StatusCode, errorBody);
                     }
                     body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
@@ -145,7 +151,7 @@ public sealed class OpenAiCompatibleProvider(
 
             // The backend ANSWERED, at HTTP 200, in the other channel. Classified before the retry on
             // purpose: re-sending to a host that just reported a rate limit is the harm, not the symptom.
-            if (OpenAiHttp.InBandError(body) is { } inBand) return InBandFailure(inBand);
+            if (HttpBody.InBandError(body) is { } inBand) return InBandFailure(inBand);
 
             if (attempt == 0)
             {
@@ -177,7 +183,7 @@ public sealed class OpenAiCompatibleProvider(
                 HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                var errorBody = await OpenAiHttp.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
+                var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
                 var mapped = MapHttpFailure(response.StatusCode, errorBody);
                 startupError = LlmChunk.Error(mapped.Verdict, mapped.Detail);
             }
@@ -240,7 +246,7 @@ public sealed class OpenAiCompatibleProvider(
             if (chunkUsage is not null) usage = chunkUsage;
             if (reason is not null) finishReason = reason;
             if (toolCallDeltas is not null) toolCalls.Add(toolCallDeltas);
-            if (OpenAiHttp.InBandError(payload) is { } streamed) inBandError = streamed;
+            if (HttpBody.InBandError(payload) is { } streamed) inBandError = streamed;
             if (text is { Length: > 0 })
             {
                 sawContent = true;
@@ -249,7 +255,7 @@ public sealed class OpenAiCompatibleProvider(
             // finish_reason terminates an NDJSON (Ollama) stream. An SSE stream instead runs on to its
             // [DONE] sentinel (or EOF) so the trailing stream_options usage chunk — sent AFTER the
             // finish_reason line, with an EMPTY choices array — is still read into `usage`.
-            if (isFinal && _flavor == OpenAiFlavor.Ollama) break;
+            if (isFinal && _dialect == HttpDialect.Ollama) break;
         }
 
         // a streamed content filter must end as Refused, not a benign Final — same verdict the
@@ -308,7 +314,7 @@ public sealed class OpenAiCompatibleProvider(
     {
         // the logger travels into the Ollama payload so an attachment /api/chat cannot carry is reported
         // rather than dropped in silence (its images array is inline base64 only — no remote URL form)
-        var payload = _flavor == OpenAiFlavor.Ollama
+        var payload = _dialect == HttpDialect.Ollama
             ? OllamaPayload.Build(req, model, stream, config.OllamaContextSize, _logger)
             : OpenAiPayload.Build(req, model, stream);
 
@@ -316,14 +322,14 @@ public sealed class OpenAiCompatibleProvider(
         {
             Content = new StringContent(payload.ToJsonString(), new UTF8Encoding(false), "application/json"),
         };
-        OpenAiEndpoint.ApplyAuth(request, config.ApiKey, _flavor);
+        HttpEndpoint.ApplyAuth(request, config.ApiKey, _dialect);
         return request;
     }
 
     /// <summary>The chat endpoint — Ollama's native <c>/api/chat</c>, otherwise the OpenAI-compatible
     /// <c>chat/completions</c> route.</summary>
     private Uri Endpoint() =>
-        OpenAiEndpoint.Build(config.BaseUrl, _flavor, ollamaNativePath: "/api/chat", openAiRoute: "chat/completions");
+        HttpEndpoint.Build(config.BaseUrl, _dialect, ollamaNativePath: "/api/chat", openAiRoute: "chat/completions");
 
     /// <summary>Whether this provider has anything to authenticate WITH — what separates "not set up yet"
     /// from "your key was rejected" when the server answers 401/403.</summary>
@@ -341,12 +347,12 @@ public sealed class OpenAiCompatibleProvider(
     {
         var verdict = LlmVerdictClassifier.FromErrorText(error);
         if (verdict == LlmVerdict.AuthFailed && !HasCredentials) verdict = LlmVerdict.NotConfigured;
-        return new LlmReply("", verdict, Detail: $"{id}: {OpenAiHttp.Head(error)}");
+        return new LlmReply("", verdict, Detail: $"{id}: {HttpBody.Head(error)}");
     }
 
     private LlmReply MapHttpFailure(HttpStatusCode status, string body)
     {
-        var detail = $"{id}: HTTP {(int)status} {OpenAiHttp.Head(body)}";
+        var detail = $"{id}: HTTP {(int)status} {HttpBody.Head(body)}";
         // typed status wins; body text goes through the ONE shared classifier (never local heuristics).
         // hasCredentials separates "never set up" (NotConfigured — skipped blamelessly) from "your key was
         // rejected" (AuthFailed — benched for the cooldown window). A local OpenAI-compatible server needs no

@@ -20,7 +20,7 @@ Read `.claude/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.claud
 **A package boundary must answer "which dependency does this isolate?"** A dialect or a native provider
 that needs nothing beyond Core/BCL — or only managed `Microsoft.Extensions.Http` — is **a class in
 `src/Lyntai.Providers.Default/`**, next to `ClaudeCliDialect`, `CodexCliDialect` and
-`OpenAiCompatibleProvider`, which is where 2.0.1 merged them. Namespaces stay `Lyntai.Providers.<Name>`
+`HttpModelProvider`, which is where 2.0.1 merged them. Namespaces stay `Lyntai.Providers.<Name>`
 inside that one assembly (D25: consolidating packages must not force a consumer to edit a `using`).
 
 It earns its own `src/Lyntai.Providers.<Name>/` package (project-ref `Lyntai.Core` only, never
@@ -61,13 +61,13 @@ the csproj.
 
 ## Native provider checklist (non-CLI)
 - [ ] A class in `src/Lyntai.Providers.Default/` unless the backend drags a dependency a consumer might
-      refuse — the footprint test above. `OpenAiCompatibleProvider` lives there (managed
+      refuse — the footprint test above. `HttpModelProvider` lives there (managed
       `Microsoft.Extensions.Http` only); `Lyntai.Providers.LlamaSharp` earned its own package.
 - [ ] `MyProvider : IModelProvider` — `Id`, `IsAvailable`, `CompleteAsync`, `StreamAsync`.
 - [ ] Failures classified via `LlmVerdictClassifier` (429→RateLimited, 401/403→AuthFailed, filter→Refused,
       too-big→ContextWindowExceeded, deadline→Timeout, else Failed). No local heuristics.
 - [ ] An HTTP backend classifies through the **three-argument** `FromHttpFailure(status, body,
-      hasCredentials)` — copy `OpenAiCompatibleProvider`. A 401/403 answered to a call that carried NO
+      hasCredentials)` — copy `HttpModelProvider`. A 401/403 answered to a call that carried NO
       credentials is `NotConfigured`, not `AuthFailed`: AuthFailed BENCHES the provider for the cooldown
       window, so a backend the consumer merely listed without configuring is penalised on every first
       attempt (`docs/DECISIONS.md` D31). Not "a key is required" — a local OpenAI-compatible endpoint (LM
@@ -76,7 +76,7 @@ the csproj.
       two-argument overload.
 - [ ] Empty/no output → `Failed` (and a terminal `Error` chunk when streaming), never `Ok`.
 - [ ] Streaming timeout is an **inactivity clock** (re-arm per read, `CancelAfter(InfiniteTimeSpan)` after)
-      — copy `OpenAiCompatibleProvider.StreamAsync`. Yield `Content` only for non-empty text; end with one
+      — copy `HttpModelProvider.StreamAsync`. Yield `Content` only for non-empty text; end with one
       `Final`(usage) or `Error`.
 - [ ] Spawning a CLI → go through `ProcessRunner` (never shell out directly).
 - [ ] `Add<Name>(this LyntaiBuilder, …)` extension in the adapter package — NO `Provider` suffix, which

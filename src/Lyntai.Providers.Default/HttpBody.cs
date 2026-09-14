@@ -1,14 +1,14 @@
 using System.Text.Json;
 
-namespace Lyntai.Providers.OpenAiCompatible;
+namespace Lyntai.Providers.Http;
 
 /// <summary>
-/// The HTTP error-reporting conventions every OpenAI-compatible surface in this package shares — the chat
+/// The HTTP error-reporting conventions every HTTP surface in this package shares, whichever dialect — the chat
 /// provider and the embedder read and trim a failure body identically, so it lives here once for the same
-/// reason <see cref="OpenAiEndpoint"/> does: two copies drift silently, and the drift shows up as a worse
+/// reason <see cref="HttpEndpoint"/> does: two copies drift silently, and the drift shows up as a worse
 /// diagnostic on one surface only.
 /// </summary>
-internal static class OpenAiHttp
+internal static class HttpBody
 {
     /// <summary>Read a response body for a DIAGNOSTIC message. Never throws: a body that can't be read is
     /// reported as empty rather than replacing the failure it was meant to describe.</summary>

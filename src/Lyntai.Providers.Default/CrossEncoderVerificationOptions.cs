@@ -1,4 +1,4 @@
-namespace Lyntai.Providers.OpenAiCompatible;
+namespace Lyntai.Providers.Http;
 
 /// <summary>Configuration for <see cref="CrossEncoderVerificationPolicy"/> — an
 /// <see cref="Lyntai.Memory.Verification.IMemoryVerificationPolicy"/> backed by a cross-encoder over an

@@ -51,7 +51,7 @@ using var meterListener = tel.CreateMeterListener();
 var services = new ServiceCollection();
 services.AddLyntai(b => b
     .AddClaudeCli()
-    .AddOpenAiCompatible("ollama", c =>
+    .AddHttpProvider("ollama", c =>
     {
         c.BaseUrl = Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL") ?? "http://localhost:11434";
         c.Model = "llama3";

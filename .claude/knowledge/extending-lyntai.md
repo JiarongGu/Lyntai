@@ -79,11 +79,11 @@ Rules specific to this path:
 - **Portable installs are free if you don't fight them** — the host passes `command` (+ `environment`) to your
   builder extension (D22); pass both straight through to the engine and don't read env vars yourself.
 
-**B. Native `IModelProvider`** for anything else (like `OpenAiCompatibleProvider`). **Where it lives is a
+**B. Native `IModelProvider`** for anything else (like `HttpModelProvider`). **Where it lives is a
 FOOTPRINT test, not one-package-per-backend** (`docs/DECISIONS.md` D25): a dialect or native provider that
 needs nothing beyond Core/BCL — or only managed `Microsoft.Extensions.Http` — is a class in
 `src/Lyntai.Providers.Default/`, where `ClaudeCliDialect`, `CodexCliDialect`, `ClaudeCliProvider`,
-`CodexCliProvider` and `OpenAiCompatibleProvider` already live; namespaces stay `Lyntai.Providers.<Name>`
+`CodexCliProvider` and `HttpModelProvider` already live; namespaces stay `Lyntai.Providers.<Name>`
 inside the one assembly (D25), so nothing an author writes changes. It earns its own
 `src/Lyntai.Providers.<Name>/` package (ref Core only, never adapter→adapter) only when it drags a native
 runtime, a platform-specific API, or a dependency a consumer might refuse — `Lyntai.Providers.LlamaSharp` is the
@@ -110,7 +110,7 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
   deadline→`Timeout`, else→`Failed`.
   **An HTTP backend classifies through the THREE-argument overload**,
   `LlmVerdictClassifier.FromHttpFailure(status, body, hasCredentials)` (see
-  `OpenAiCompatibleProvider`, which passes `HasCredentials`). A 401/403 answered to a call that carried NO
+  `HttpModelProvider`, which passes `HasCredentials`). A 401/403 answered to a call that carried NO
   credentials is `NotConfigured`, not `AuthFailed` — and the difference is not cosmetic, because routing acts
   on it: `AuthFailed` BENCHES the provider for the cooldown window, so a backend the consumer merely listed
   without configuring would be penalised on every first attempt for a fact the platform knew before calling,
@@ -125,7 +125,7 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
 - **Streaming timeout is an INACTIVITY clock**, never a single `CancelAfter` over the whole stream:
   re-arm before each read, `CancelAfter(Timeout.InfiniteTimeSpan)` after it returns. A single deadline
   counts consumer dwell time and kills healthy streams. Copy the shape from
-  `OpenAiCompatibleProvider.StreamAsync` / `ProcessRunner.StreamLinesAsync`.
+  `HttpModelProvider.StreamAsync` / `ProcessRunner.StreamLinesAsync`.
 - **Only yield `LlmChunk.Content` for non-empty text**; end with exactly one `Final` (with usage) or
   `Error`.
 - Spawning a CLI? Go through `ProcessRunner` (ArgumentList only, prompt via stdin, BOM-less UTF-8,

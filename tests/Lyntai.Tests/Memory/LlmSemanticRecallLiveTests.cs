@@ -62,7 +62,7 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
             .UseDefaultCandidates("ollama")
             // The chat provider does not register an embedder — that is its own seam, reached through the
             // OpenAI-compatible registration, which every backend here serves at /v1/embeddings.
-            .AddOpenAiCompatible("ollama-embed", o =>
+            .AddHttpProvider("ollama-embed", o =>
             {
                 o.BaseUrl = BaseUrl;
                 o.Model = EmbedModel;

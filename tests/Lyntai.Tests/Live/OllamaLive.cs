@@ -15,7 +15,7 @@ namespace Lyntai.Tests.Live;
 ///
 /// <para><b>Its scope narrowed 2026-08-26, and the narrowing is the point — this is NOT the gate to reach
 /// for.</b> Only suites that are ABOUT Ollama belong here: they exercise
-/// <c>OpenAiFlavor.Ollama</c>'s NATIVE routes, so <c>/api/tags</c> is exactly the right probe and a
+/// <c>HttpDialect.Ollama</c>'s NATIVE routes, so <c>/api/tags</c> is exactly the right probe and a
 /// non-Ollama endpoint SHOULD skip them. A suite that merely needs a model to embed or judge with uses
 /// <see cref="LiveModel"/>, which probes the OpenAI-compatible routes both Ollama and llama.cpp's
 /// <c>llama-server</c> serve. Four suites were gated here for no reason other than being written next to

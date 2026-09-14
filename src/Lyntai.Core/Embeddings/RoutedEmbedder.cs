@@ -10,7 +10,7 @@ namespace Lyntai.Embeddings;
 /// <para><b>This is the embedding analogue of <c>ILlmClient</c>, and its absence was a real gap.</b> Chat
 /// has always had a front door separate from its backends; embedding had ONE type doing both jobs, so a
 /// consumer held a backend directly and a failing embedder took the whole recall path with it
-/// (<c>docs/DECISIONS.md</c> D129). <c>OpenAiEmbeddingsTransport</c>'s own shipped doc admitted the other half: "there
+/// (<c>docs/DECISIONS.md</c> D129). <c>HttpEmbeddingsTransport</c>'s own shipped doc admitted the other half: "there
 /// is one embedder slot, so a later registration wins".</para>
 ///
 /// <para><b>It loses to an explicitly registered <see cref="IEmbedder"/></b>, which is what keeps the
@@ -42,7 +42,7 @@ internal sealed class RoutedEmbedder(
         if (capable.Count == 0)
             throw new InvalidOperationException(
                 "No registered backend produces ProviderKinds.Vector from text. Register one "
-                + "(AddModel2Vec / AddOnnx / AddOpenAiCompatibleEmbedder), or supply your own "
+                + "(AddModel2Vec / AddOnnx / AddHttpProviderEmbedder), or supply your own "
                 + "with AddEmbeddings.");
 
         Exception? last = null;

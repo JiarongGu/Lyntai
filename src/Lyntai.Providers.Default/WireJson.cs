@@ -10,7 +10,7 @@ namespace Lyntai.Providers;
 /// number that is not an integral <c>long</c> — a fractional token count from a proxy that averages, or
 /// anything past <c>long.MaxValue</c>. Every caller is a <c>usage</c> read on an OTHERWISE GOOD reply, and
 /// none of them catches it: the JSON guards around them are all <c>catch (JsonException)</c>, so the throw
-/// escaped <c>OpenAiCompatibleProvider.CompleteAsync</c>, escaped its streaming enumerator, and broke the
+/// escaped <c>HttpModelProvider.CompleteAsync</c>, escaped its streaming enumerator, and broke the
 /// "never throws" promise both <c>claude</c> stream-json readers make. The third copy used
 /// <see cref="JsonElement.TryGetInt64"/> and read the same field as 0. This is that third behaviour, kept.</para>
 ///

@@ -2,8 +2,8 @@ using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 using Lyntai.Llm;
-using Lyntai.Providers.OpenAiCompatible;
-using Lyntai.Providers.OpenAiCompatible.Payloads;
+using Lyntai.Providers.Http;
+using Lyntai.Providers.Http.Payloads;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.Logging;
 
@@ -161,8 +161,8 @@ public class OllamaAttachmentTests
         // logger), or the payload fix ships while every real call still sends text only
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
             """{"message":{"role":"assistant","content":"a cat"},"done":true,"prompt_eval_count":7,"eval_count":3}""");
-        var config = new OpenAiCompatibleOptions { BaseUrl = "http://localhost:11434", ApiKey = null };
-        var provider = new OpenAiCompatibleProvider("ollama", config,
+        var config = new HttpModelOptions { BaseUrl = "http://localhost:11434", ApiKey = null };
+        var provider = new HttpModelProvider("ollama", config,
             () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
 

@@ -3,7 +3,7 @@ using Lyntai;
 using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Lyntai.Llm;
-using Lyntai.Providers.OpenAiCompatible;
+using Lyntai.Providers.Http;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,12 +24,12 @@ public class TwoBackendsOneHostTests
         {"object":"list","data":[{"object":"embedding","index":0,"embedding":[1.0,2.0,3.0]}]}
         """;
 
-    private static OpenAiCompatibleProvider Provider(
-        StubHttpHandler handler, Action<OpenAiCompatibleOptions> configure)
+    private static HttpModelProvider Provider(
+        StubHttpHandler handler, Action<HttpModelOptions> configure)
     {
-        var config = new OpenAiCompatibleOptions { BaseUrl = Host, Model = "a-model" };
+        var config = new HttpModelOptions { BaseUrl = Host, Model = "a-model" };
         configure(config);
-        return new OpenAiCompatibleProvider("host", config, () => new HttpClient(handler, disposeHandler: false),
+        return new HttpModelProvider("host", config, () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
 
@@ -95,18 +95,18 @@ public class TwoBackendsOneHostTests
             .Enqueue(HttpStatusCode.OK, EmbedBody);
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOpenAiCompatible("local-chat", o =>
+            .AddHttpProvider("local-chat", o =>
             {
                 o.BaseUrl = Host;
                 o.Model = "llama3.1";
-                o.Flavor = OpenAiFlavor.OpenAi;
+                o.Dialect = HttpDialect.OpenAi;
             }, httpClient: _ => new HttpClient(handler, disposeHandler: false))
-            .AddOpenAiCompatible("local-embed", o =>
+            .AddHttpProvider("local-embed", o =>
             {
                 o.BaseUrl = Host;
                 o.Model = "nomic-embed-text";
                 o.Produces = ProviderKinds.Vector;
-                o.Flavor = OpenAiFlavor.OpenAi;
+                o.Dialect = HttpDialect.OpenAi;
             }, httpClient: _ => new HttpClient(handler, disposeHandler: false)));
         using var sp = services.BuildServiceProvider();
 
@@ -130,7 +130,7 @@ public class TwoBackendsOneHostTests
     public void A_chat_only_deployment_gets_NO_embedder_rather_than_a_broken_one()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddOpenAiCompatible("chat", o => o.BaseUrl = Host));
+        services.AddLyntai(b => b.AddHttpProvider("chat", o => o.BaseUrl = Host));
         using var sp = services.BuildServiceProvider();
 
         Assert.Null(sp.GetService<IEmbedder>());

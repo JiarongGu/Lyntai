@@ -9,7 +9,7 @@ namespace Lyntai.Tests.Providers;
 
 /// <summary>The pre-configured provider presets set the right endpoint/id defaults and route through
 /// the same OpenAI-compatible provider; a BYO-httpClient path lets each hit a scripted handler. Apps
-/// wanting bespoke config keep AddOpenAiCompatible or their own IModelProvider via AddProvider.</summary>
+/// wanting bespoke config keep AddHttpProvider or their own IModelProvider via AddProvider.</summary>
 public class ProviderPresetsTests
 {
     private const string OkBody = """
@@ -49,7 +49,7 @@ public class ProviderPresetsTests
             .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
         Assert.Equal(LlmVerdict.Ok, reply.Verdict);
-        Assert.Equal("http://localhost:11434/api/chat", handler.Requests[0].Uri!.ToString()); // Ollama flavor
+        Assert.Equal("http://localhost:11434/api/chat", handler.Requests[0].Uri!.ToString()); // Ollama dialect
         Assert.Null(handler.Requests[0].Auth); // keyless
     }
 

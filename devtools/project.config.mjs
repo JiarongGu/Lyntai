@@ -137,6 +137,26 @@ export default {
 
   retiredApiNames: [
     {
+      // D135. `OpenAiPayload` and the `HttpDialect.OpenAi` MEMBER are deliberately absent: they name
+      // OpenAI's actual schema, which is one of four dialects and correctly called that.
+      names: [
+        'AddOpenAiCompatible',
+        'AddOpenAiCompatibleProvider',
+        'OpenAiCompatibleProvider',
+        'OpenAiCompatibleOptions',
+        'OpenAiCompatibleBuilderExtensions',
+        'OpenAiEmbeddingsTransport',
+        'OpenAiEndpoint',
+        'OpenAiFlavor',
+        'OpenAiHttp',
+      ],
+      use: '`AddHttpProvider` / `HttpModelProvider` / `HttpModelOptions` / `HttpDialect` in '
+        + '`Lyntai.Providers.Http`',
+      why: 'the family is not OpenAI — the Ollama dialect posts /api/chat and /api/embed, which that '
+        + 'vendor documents as NOT OpenAI-compatible, so the name was false for one dialect and centred a '
+        + 'vendor for all four (D135)',
+    },
+    {
       // D134. `AddProvider`, `AddEmbeddingProvider` and `AddGenerationProvider` are deliberately NOT here:
       // those take a FACTORY and are the generic primitives, where `Provider` is the noun rather than a
       // suffix on a backend's name. Whole-identifier equality keeps them live without an allowance.
@@ -154,12 +174,12 @@ export default {
         'AddModel2VecProvider',
         'AddOllamaProvider',
         'AddOnnxProvider',
-        'AddOpenAiCompatibleProvider',
+        'AddHttpProviderProvider',
         'AddOpenAiImageProvider',
         'AddOpenAiProvider',
         'AddOpenRouterProvider',
       ],
-      use: 'the same name without the suffix — `AddOpenAiCompatible`, `AddOllama`, `AddOnnx`, `AddClaudeCli`',
+      use: 'the same name without the suffix — `AddHttpProvider`, `AddOllama`, `AddOnnx`, `AddClaudeCli`',
       why: 'every one of these returns an IModelProvider, so a suffix carried by all of them distinguishes '
         + 'none of them — the objection that retired the name IProvider, one layer out (D134)',
     },
@@ -174,11 +194,11 @@ export default {
     },
     {
       names: [
-        'AddOpenAiCompatibleEmbedder', 'AddOpenAiCompatibleEmbeddings',
+        'AddHttpProviderEmbedder', 'AddHttpProviderEmbeddings',
         'OpenAiCompatibleEmbedderOptions', 'HttpEmbedder', 'EmbedderHttpClientName',
       ],
-      use: '`AddOpenAiCompatible` with `OpenAiCompatibleOptions.Embeddings` set (and `Chat = null` '
-        + 'for a host that serves no chat); the wire shape is the internal `OpenAiEmbeddingsTransport`',
+      use: '`AddHttpProvider` with `HttpModelOptions.Embeddings` set (and `Chat = null` '
+        + 'for a host that serves no chat); the wire shape is the internal `HttpEmbeddingsTransport`',
       why: 'a second Add* method for the same backend IS the chat-vs-embedder split, re-entering through '
         + 'the one surface a consumer types. One host, one registration, routes as configuration (D132)',
     },
@@ -463,9 +483,18 @@ export default {
    */
   retiredTerms: [
     {
+      // D135. The prose half. `OpenAiPayload` and `OpenAiFlavor.OpenAi`'s member name are absent for the
+      // reason on the surface rule above; so is the PHRASE "OpenAI-compatible", which stays correct about
+      // the three dialects that are.
+      term: '\\bAddOpenAiCompatible\\b|\\bAddOpenAiCompatibleProvider\\b|\\bOpenAiCompatibleProvider\\b|\\bOpenAiCompatibleOptions\\b|\\bOpenAiCompatibleBuilderExtensions\\b|\\bOpenAiEmbeddingsTransport\\b|\\bOpenAiEndpoint\\b|\\bOpenAiFlavor\\b|\\bOpenAiHttp\\b',
+      why: 'the HTTP family is not OpenAI — one of its four dialects is documented by its own vendor as '
+        + 'not OpenAI-compatible (D135)',
+      use: 'the `Http*` name in `Lyntai.Providers.Http`',
+    },
+    {
       // D134. The prose half. The generic factory primitives are absent for the reason given on the
       // surface rule above, and `AddProvider` would otherwise match inside every one of these.
-      term: '\\bAddAutomatic1111Provider\\b|\\bAddAzureOpenAiProvider\\b|\\bAddClaudeCliProvider\\b|\\bAddCodexCliProvider\\b|\\bAddComfyUiProvider\\b|\\bAddExtensionsAiProvider\\b|\\bAddFalProvider\\b|\\bAddLlamaProvider\\b|\\bAddLlamaSharpProvider\\b|\\bAddLocalDiffusionProvider\\b|\\bAddModel2VecProvider\\b|\\bAddOllamaProvider\\b|\\bAddOnnxProvider\\b|\\bAddOpenAiCompatibleProvider\\b|\\bAddOpenAiImageProvider\\b|\\bAddOpenAiProvider\\b|\\bAddOpenRouterProvider\\b',
+      term: '\\bAddAutomatic1111Provider\\b|\\bAddAzureOpenAiProvider\\b|\\bAddClaudeCliProvider\\b|\\bAddCodexCliProvider\\b|\\bAddComfyUiProvider\\b|\\bAddExtensionsAiProvider\\b|\\bAddFalProvider\\b|\\bAddLlamaProvider\\b|\\bAddLlamaSharpProvider\\b|\\bAddLocalDiffusionProvider\\b|\\bAddModel2VecProvider\\b|\\bAddOllamaProvider\\b|\\bAddOnnxProvider\\b|\\bAddHttpProviderProvider\\b|\\bAddOpenAiImageProvider\\b|\\bAddOpenAiProvider\\b|\\bAddOpenRouterProvider\\b',
       why: 'a Provider suffix on every backend registration distinguishes none of them (D134)',
       use: 'the same name without the suffix',
     },
@@ -474,14 +503,14 @@ export default {
       // of these describes a registration or a type the tree no longer has. `StaticEmbedder` is matched but
       // the WORD "static" is not — a lookup table is still correctly called static embeddings in prose,
       // which is exactly why the type had to be renamed and the technique did not.
-      term: '\\bAddOpenAiCompatibleEmbedder\\b|\\bAddOpenAiCompatibleEmbeddings\\b'
+      term: '\\bAddHttpProviderEmbedder\\b|\\bAddHttpProviderEmbeddings\\b'
         + '|\\bOpenAiCompatibleEmbedderOptions\\b|\\bHttpEmbedder\\b'
         + '|\\bAddStaticEmbedder\\b|\\bStaticEmbedderOptions\\b|\\bStaticEmbedder\\b'
         + '|\\bAddOnnxEmbedder\\b|\\bAddLocalProvider\\b',
       why: 'every registration returns an IModelProvider, so an *Embedder suffix sorted backends by what '
         + 'they produce — the taxonomy D130 deleted from the types and D132 from the surface',
-      use: '`AddOpenAiCompatible` (with `Chat`/`Embeddings` saying which routes), '
-        + '`AddOnnx`, `AddModel2Vec`, `AddLlamaSharp`, `OpenAiEmbeddingsTransport`',
+      use: '`AddHttpProvider` (with `Chat`/`Embeddings` saying which routes), '
+        + '`AddOnnx`, `AddModel2Vec`, `AddLlamaSharp`, `HttpEmbeddingsTransport`',
     },
     {
       // D125. The SURFACE half is in `retiredApiNames`; this is the prose half. Both names described the
