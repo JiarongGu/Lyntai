@@ -1,11 +1,12 @@
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Text;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
 namespace Lyntai.Providers.Onnx;
 
-/// <summary>An <see cref="IEmbeddingProvider"/> running a TRANSFORMER in process through ONNX Runtime — no
+/// <summary>An <see cref="IModelProvider"/> running a TRANSFORMER in process through ONNX Runtime — no
 /// HTTP endpoint, no server, no port.
 ///
 /// <para><b>What it buys over the static class, measured.</b> On tool routing a 25,008,064 B transformer
@@ -19,7 +20,7 @@ namespace Lyntai.Providers.Onnx;
 /// <para><b>Inference runs on the calling thread.</b> The async signature is the seam's, not a promise to
 /// yield — a batch of long documents is CPU-bound for tens of milliseconds. Wrap the call if that matters
 /// to your scheduler.</para></summary>
-public sealed class OnnxEmbedder : IEmbeddingProvider, IDisposable
+public sealed class OnnxEmbedder : IModelProvider, IEmbedder, IDisposable
 {
     private readonly InferenceSession _session;
     private readonly WordPieceTokenizer _tokenizer;
@@ -44,6 +45,15 @@ public sealed class OnnxEmbedder : IEmbeddingProvider, IDisposable
 
     /// <inheritdoc />
     public string Id { get; }
+
+    /// <summary>Text in, vectors out — and nothing else. Declaring only <see cref="ProviderOperation.Embed"/>
+    /// is how this backend tells a router never to send it a chat or a render; every other operation keeps
+    /// <see cref="IModelProvider"/>'s default "I do not serve that" body, so declining costs no code.</summary>
+    public ProviderCapabilities Capabilities { get; } = new()
+    {
+        Kinds = [ProviderKinds.Text],
+        Operations = [ProviderOperation.Embed],
+    };
 
     /// <summary>Always true once constructed: the session is opened EAGERLY, so a missing, truncated or
     /// non-ONNX model has already thrown at composition.</summary>

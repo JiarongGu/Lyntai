@@ -42,11 +42,17 @@ public static class OnnxBuilderExtensions
 
         var embedder = OnnxEmbedder.FromDirectory(modelDirectory, options);
 
+        // ALSO a provider, not only an embedder slot (D128). Declaring ProviderOperation.Embed puts this
+        // backend in the same collection the router selects chat and media from, so a deployment can
+        // register more than one and tell them apart by id — which the single IEmbedder slot cannot.
+        builder.AddProvider(_ => embedder);
+
         // A FACTORY returning an already-built instance, and the two halves are both load-bearing. Building
         // it here is what makes a bad model fail at composition; registering it through a factory rather
         // than as an instance is what makes the container OWN it — `AddSingleton(instance)` does not
         // dispose what it did not create, and this holds a native session. Pinned by
         // `OnnxRegistrationTests`, because collapsing this to TryAddSingleton(embedder) reads as a tidy-up.
+        // The slot stays, so nothing changes for a consumer who registers exactly one embedder.
         builder.Services.TryAddSingleton<IEmbedder>(_ => embedder);
         return builder;
     }

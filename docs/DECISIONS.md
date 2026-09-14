@@ -70,7 +70,7 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 
 | # | Date | Decision |
 |---|---|---|
-| [D1](#d1--the-llm-seam-is-lyntais-own-illmprovider-with-a-microsoftextensionsai-bridge) | — | the LLM seam is Lyntai's own `IModelProvider`, with a `Microsoft.Extensions.AI` bridge |
+| [D1](#d1--the-llm-seam-is-lyntais-own-imodelprovider-with-a-microsoftextensionsai-bridge) | — | the LLM seam is Lyntai's own `IModelProvider`, with a `Microsoft.Extensions.AI` bridge |
 | [D2](#d2--storage-is-per-domain-interfaces-and-a-backend-implements-as-many-as-it-wants) | — | storage is per-domain interfaces, and a backend implements as many as it wants |
 | [D3](#d3--fallback-is-verdict-driven-through-one-shared-classifier-and-the-policy-is-replaceable) | — | fallback is verdict-driven, through one shared classifier, and the policy is REPLACEABLE |
 | [D4](#d4--streaming-no-fallback-after-the-first-token-and-the-timeout-is-an-inactivity-clock) | — | streaming: no fallback after the first token, and the timeout is an inactivity clock |
@@ -197,8 +197,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D125](#d125--one-providercandidate-routing-a-backend-and-model-pair-is-one-rule-not-one-per-domain-2026-09-14) | 2026-09-14 | one ProviderCandidate: routing a backend-and-model pair is ONE rule, not one per domain |
 | [D126](#d126--capability-is-data-providercapabilities-generalizes-the-model-the-generation-domain-already-had-2026-09-14) | 2026-09-14 | capability is DATA: ProviderCapabilities generalizes the model the generation domain already had |
 | [D127](#d127--one-provider-interface-imodelprovider-with-every-operation-defaulted-to-unsupported-2026-09-14) | 2026-09-14 | ONE provider interface: IModelProvider, with every operation defaulted to Unsupported |
+| [D128](#d128--an-embedder-is-a-provider-iembeddingprovider-is-deleted-and-embedding-is-a-declared-operation-2026-09-14) | 2026-09-14 | an embedder is a provider: IEmbeddingProvider is deleted and embedding is a declared OPERATION |
 
-_All 127 entries are live decisions._
+_All 128 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3868,3 +3869,31 @@ rewritten, not deleted — an inline backend "is not an `IGenerationStreamProvid
 `ProviderOperation.Stream`", and the router's synthesized *"does not implement IGenerationStreamProvider"* <!-- drift-ok: the entry RETIRING these seams has to name them -->
 became the backend's own *"does not serve StreamAsync — see its ProviderCapabilities"*, which names a
 contract the caller can actually check.
+
+## D128 — an embedder is a provider: IEmbeddingProvider is deleted and embedding is a declared OPERATION (2026-09-14)
+
+`StaticEmbedder` and `OnnxEmbedder` implement `IModelProvider` declaring
+`Kinds: ["text"], Operations: [Embed]`, and register into the provider collection as well as the
+`IEmbedder` slot. `IEmbeddingProvider` — added earlier the same day — is gone.
+
+**It was the mistake this whole series exists to correct, and it is worth naming.** `IEmbeddingProvider`
+gave embedders `Id` and `IsAvailable` by minting a THIRD provider family beside the LLM and generation
+ones. That is splitting by domain what belongs in data: an embedding model is a text backend like a chat
+model, and the difference between them is one enum member (**D126**), not one interface.
+
+**`IEmbedder` SURVIVES, and the division is deliberate.** It is the minimal bring-your-own seam — one
+method, implementable by a lambda-shaped adapter — while `IModelProvider` is the ROUTED seam with identity,
+capabilities and eight operations. A backend that wants routing implements the provider; someone wrapping
+an existing client keeps the one-method contract. **The two `EmbedAsync` signatures are identical**, so a
+class satisfies both with a single method and nothing is written twice.
+
+**Registration is ADDITIVE on purpose.** `AddStaticEmbedder` / `AddOnnxEmbedder` now call `AddProvider`
+*and* keep the `TryAddSingleton<IEmbedder>` slot. Nothing moves for a deployment registering exactly one
+embedder; what changes is that a second one is now expressible and distinguishable by id, which the single
+slot cannot do — `HttpEmbedder`'s own shipped doc admits it: *"there is one embedder slot, so a later
+registration wins"*.
+
+**What this does NOT yet do**, stated so the gap is not mistaken for finished work: the `IEmbedder` a
+consumer resolves is still that slot, so embedding has no FALLBACK. The providers are now routable and the
+router already owns candidates, cooldown and admission — the remaining step is an embed door on it, not a
+second router, and that is exactly what minting a third family would have made impossible.

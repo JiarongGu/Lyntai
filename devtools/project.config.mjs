@@ -152,6 +152,15 @@ export default {
       // question on the other. Generalized rather than copied. `Deliveries` became `Operations` because the
       // list now spans Embed as well as Inline/Job/Stream, and `Inline` became `Complete` for the same
       // reason: a chat completion and an inline render are the same operation on different KINDS.
+      // D128. Added and removed the SAME DAY, which is why it is recorded rather than quietly dropped: it
+      // gave embedders an Id by minting a THIRD provider family, when what they needed was one enum member
+      // on the capability object they already had. An embedder is an IModelProvider declaring Embed.
+      names: ['IEmbeddingProvider'],
+      use: '`Lyntai.Lifecycle.IModelProvider` declaring `ProviderOperation.Embed`',
+      why: 'an embedding model is a TEXT backend like a chat model — giving it its own provider family '
+        + 'splits by domain what belongs in data (D128)',
+    },
+    {
       // D127's collapse. FIVE seams became one: the two domain provider interfaces, the optional streaming
       // one (streaming is an OPERATION now, declared in data), and the LLM probe seam with its own probe
       // record — which had duplicated the generation one in a different field order, and was found only by

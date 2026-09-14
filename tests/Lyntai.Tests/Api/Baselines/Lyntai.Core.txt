@@ -521,9 +521,6 @@ enum Lyntai.Embeddings.EmbeddingRole
 interface Lyntai.Embeddings.IEmbedder
     EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
     EmbedAsync(IReadOnlyList<String> texts, EmbeddingRole role, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
-interface Lyntai.Embeddings.IEmbeddingProvider
-    Id : String
-    IsAvailable : Boolean
 sealed class Lyntai.Generation.GenerationArtifact
     .ctor(String MediaType, Byte[] Data = null, String Uri = null, IReadOnlyDictionary<String,String> Metadata = null)
     Data : Byte[]

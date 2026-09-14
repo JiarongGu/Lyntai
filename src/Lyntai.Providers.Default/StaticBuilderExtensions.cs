@@ -40,6 +40,12 @@ public static class StaticBuilderExtensions
         configure?.Invoke(options);
 
         var embedder = StaticEmbedder.FromDirectory(modelDirectory, options);
+
+        // ALSO a provider, not only an embedder slot (D128). Declaring ProviderOperation.Embed puts this
+        // backend in the same collection the router selects chat and media from, so a deployment can
+        // register more than one and tell them apart by id — which the single IEmbedder slot cannot.
+        // The slot registration below stays, so nothing changes for a consumer who registers exactly one.
+        builder.AddProvider(_ => embedder);
         builder.Services.TryAddSingleton<IEmbedder>(embedder);
         return builder;
     }

@@ -14,6 +14,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **An embedder is a PROVIDER: `IEmbeddingProvider` is removed** (**D128**). `StaticEmbedder` and
+  `OnnxEmbedder` are `IModelProvider`s declaring `Kinds: ["text"], Operations: [Embed]`, and
+  `AddStaticEmbedder` / `AddOnnxEmbedder` now register them into the provider collection **as well as** the
+  `IEmbedder` slot. Nothing moves for a deployment with exactly one embedder; what changes is that a second
+  one is expressible and distinguishable by id. **`IEmbedder` stays** as the minimal bring-your-own seam —
+  one method, implementable by a lambda — while `IModelProvider` is the routed one; the two `EmbedAsync`
+  signatures are identical, so a class satisfies both with a single method.
+
 - **ONE provider interface: `Lyntai.Lifecycle.IModelProvider`** (**D127**). It replaces `ILlmProvider`, <!-- drift-ok: the entry announcing a removal has to name what it removed -->
   `IGenerationProvider`, `IGenerationStreamProvider` and `IProviderProbe`. <!-- drift-ok: the removal entry names what it removed --> A backend now declares `Id`,
   `IsAvailable` and `Capabilities`, and overrides only the operations it serves — `CompleteAsync`,

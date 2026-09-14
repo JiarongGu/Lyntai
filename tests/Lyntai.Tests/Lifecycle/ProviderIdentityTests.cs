@@ -1,5 +1,4 @@
 using System.Reflection;
-using Lyntai.Embeddings;
 using Lyntai.Generation;
 using Lyntai.Lifecycle;
 using Lyntai.Llm;
@@ -18,7 +17,6 @@ public class ProviderIdentityTests
     // Without this test the next "remove the duplicate declaration" cleanup passes every gate we have.
     [Theory]
     [InlineData(typeof(IModelProvider))]
-    [InlineData(typeof(IEmbeddingProvider))]
     public void Every_seam_still_declares_Id_itself(Type seam)
     {
         var declared = seam.GetProperty(
@@ -33,7 +31,6 @@ public class ProviderIdentityTests
     public void Every_provider_seam_is_a_provider_identity()
     {
         Assert.True(typeof(IProviderIdentity).IsAssignableFrom(typeof(IModelProvider)));
-        Assert.True(typeof(IProviderIdentity).IsAssignableFrom(typeof(IEmbeddingProvider)));
     }
 
     // The whole point of reusing the member both seams already declare: nothing that exists has to change.

@@ -1,6 +1,7 @@
 static class Lyntai.OnnxBuilderExtensions
     static AddOnnxEmbedder(LyntaiBuilder builder, String modelDirectory, Action<OnnxEmbedderOptions> configure = null) : LyntaiBuilder
 sealed class Lyntai.Providers.Onnx.OnnxEmbedder
+    Capabilities : ProviderCapabilities
     Dispose() : Void
     EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
     Id : String

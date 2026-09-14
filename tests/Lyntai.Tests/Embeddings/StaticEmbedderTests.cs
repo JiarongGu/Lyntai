@@ -1,6 +1,9 @@
 using System.Text;
 using System.Text.Json;
+using Lyntai.Embeddings;
 using Lyntai.Embeddings.Static;
+using Lyntai.Lifecycle;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Embeddings;
 
@@ -53,6 +56,35 @@ public class StaticEmbedderTests : IDisposable
     /// <summary>A BERT vocabulary needs its special tokens present, and WordPiece needs [UNK].</summary>
     private static List<string> Vocabulary(params string[] words) =>
         ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", .. words];
+
+    [Fact]
+    public void Declares_EMBED_and_nothing_else_so_a_router_never_sends_it_a_chat()
+    {
+        // An embedder is a provider like any other now (D128) — what makes it an embedder is the DECLARATION,
+        // not a separate interface. Asserting the absences is the half that matters: it is what stops the
+        // router dispatching a completion here and getting the default Unsupported back.
+        var embedder = StaticEmbedder.FromDirectory(WriteModel(Vocabulary("alpha")));
+
+        Assert.Equal([ProviderKinds.Text], embedder.Capabilities.Kinds);
+        Assert.Equal([ProviderOperation.Embed], embedder.Capabilities.Operations);
+        Assert.Equal("static", embedder.Id);
+        Assert.True(embedder.IsAvailable);
+    }
+
+    [Fact]
+    public void AddStaticEmbedder_registers_it_as_a_PROVIDER_as_well_as_the_embedder_slot()
+    {
+        // Both halves are load-bearing: the slot keeps the one-embedder deployment working untouched, and
+        // the provider collection is what lets a second embedder be registered and told apart by id.
+        var services = new ServiceCollection();
+        services.AddLyntai(cfg => cfg.AddStaticEmbedder(WriteModel(Vocabulary("alpha"))));
+        var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetService<IEmbedder>());
+        var asProvider = Assert.Single(
+            provider.GetServices<IModelProvider>().Where(p => p.Id == "static"));
+        Assert.Contains(ProviderOperation.Embed, asProvider.Capabilities.Operations);
+    }
 
     [Fact]
     public void Reads_the_table_and_reports_the_models_own_width()

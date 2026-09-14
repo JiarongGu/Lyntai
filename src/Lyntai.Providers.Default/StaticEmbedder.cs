@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.Json;
 using Lyntai.Text;
 
@@ -11,7 +12,7 @@ public sealed class StaticEmbedderOptions
     /// to override a model that declares the wrong thing.</summary>
     public bool? Normalize { get; set; }
 
-    /// <summary>The provider id this backend reports as <see cref="IEmbeddingProvider.Id"/>. Give it a
+    /// <summary>The provider id this backend reports as <see cref="IModelProvider.Id"/>. Give it a
     /// distinct value when a deployment registers more than one embedder, so a diagnostic can say which
     /// one produced a vector.</summary>
     public string Id { get; set; } = "static";
@@ -39,7 +40,7 @@ public sealed class StaticEmbedderOptions
 /// <para><b>No PCA or Zipf weighting is applied at inference.</b> A <c>model2vec</c> export bakes both into
 /// the table when it is built, so the runtime is a lookup and a mean. This reads <c>config.json</c> only for
 /// <c>normalize</c>.</para></summary>
-public sealed class StaticEmbedder : IEmbeddingProvider
+public sealed class StaticEmbedder : IModelProvider, IEmbedder
 {
     private readonly WordPieceTokenizer _tokenizer;
     private readonly SafetensorsTable _table;
@@ -55,6 +56,15 @@ public sealed class StaticEmbedder : IEmbeddingProvider
 
     /// <inheritdoc />
     public string Id { get; }
+
+    /// <summary>Text in, vectors out — and nothing else. Declaring only <see cref="ProviderOperation.Embed"/>
+    /// is how this backend tells a router never to send it a chat or a render; every other operation keeps
+    /// <see cref="IModelProvider"/>'s default "I do not serve that" body, so declining costs no code.</summary>
+    public ProviderCapabilities Capabilities { get; } = new()
+    {
+        Kinds = [ProviderKinds.Text],
+        Operations = [ProviderOperation.Embed],
+    };
 
     /// <summary>Always true once constructed. The table is loaded EAGERLY, so a model that is missing or
     /// truncated has already thrown at composition — there is no later state in which this becomes

@@ -7,6 +7,7 @@ static class Lyntai.CodexCliBuilderExtensions
 static class Lyntai.CrossEncoderVerificationRegistration
     static AddMemoryCrossEncoderVerification(LyntaiBuilder builder, Action<CrossEncoderVerificationOptions> configure = null, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
 sealed class Lyntai.Embeddings.Static.StaticEmbedder
+    Capabilities : ProviderCapabilities
     Dimensions : Int32
     EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
     Id : String
