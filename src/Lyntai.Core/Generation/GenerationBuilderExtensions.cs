@@ -46,11 +46,11 @@ public sealed class GenerationOptions
 
 public static class GenerationBuilderExtensions
 {
-    /// <summary>Register a media backend into the <see cref="IGenerationProvider"/> collection. Adding a backend is
+    /// <summary>Register a media backend into the <see cref="IModelProvider"/> collection. Adding a backend is
     /// one registration — never an edit to a branch inside an existing provider (which is exactly the shape a
     /// sibling app grew: one class with an <c>if (provider == "automatic1111")</c> inside).</summary>
     public static LyntaiBuilder AddGenerationProvider(
-        this LyntaiBuilder builder, Func<IServiceProvider, IGenerationProvider> factory)
+        this LyntaiBuilder builder, Func<IServiceProvider, IModelProvider> factory)
     {
         builder.Services.AddSingleton(factory);
         EnsureRouter(builder);
@@ -127,7 +127,7 @@ public static class GenerationBuilderExtensions
         {
             var budgeted = sp.GetService<GenerationBudgetGovernance>() is not null;
             return new GenerationRouterFactory(
-                sp.GetRequiredService<IProviderPool<IGenerationProvider>>(),
+                sp.GetRequiredService<IProviderPool<IModelProvider>>(),
                 sp.GetRequiredService<DeadHostTracker>(),
                 sp.GetService<GenerationRoutingPolicy>(),
                 sp.GetService<GenerationRateLimitGovernance>()?.Limiter,
@@ -138,7 +138,7 @@ public static class GenerationBuilderExtensions
         });
 
         builder.Services.TryAddSingleton<IGenerationRouter>(sp =>
-            sp.GetRequiredService<IGenerationRouterFactory>().For([.. sp.GetServices<IGenerationProvider>()]));
+            sp.GetRequiredService<IGenerationRouterFactory>().For([.. sp.GetServices<IModelProvider>()]));
     }
 
     /// <summary>Tune per-verdict fallback for generation routing. The defaults follow the SHAPE of the LLM
@@ -179,7 +179,7 @@ public static class GenerationBuilderExtensions
     public static LyntaiBuilder AddGenerationTools(this LyntaiBuilder builder)
     {
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationBackendsTool(
-            sp.GetServices<IGenerationProvider>(),
+            sp.GetServices<IModelProvider>(),
             GenerationOptionsFor(sp)));   // the listing's aggregate ProbeDeadline lives here
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationInlineTool(
             sp.GetRequiredService<Lyntai.Generation.Routing.IGenerationRouter>(),
@@ -189,9 +189,9 @@ public static class GenerationBuilderExtensions
             sp.GetRequiredService<Lyntai.Generation.Routing.IGenerationRouter>(),
             GenerationOptionsFor(sp)));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationStatusTool(
-            sp.GetServices<IGenerationProvider>()));
+            sp.GetServices<IModelProvider>()));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationFetchTool(
-            sp.GetServices<IGenerationProvider>(),
+            sp.GetServices<IModelProvider>(),
             sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>(),
             sp.GetService<Lyntai.Llm.Budgeting.IUsageTracker>()));
         return builder;

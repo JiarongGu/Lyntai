@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -9,7 +10,7 @@ public class LlmRouterCompleteTests
 {
     private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")] };
 
-    private static LlmRouter Router(DeadHostTracker? tracker, params ILlmProvider[] providers) =>
+    private static LlmRouter Router(DeadHostTracker? tracker, params IModelProvider[] providers) =>
         new(providers, tracker ?? new DeadHostTracker(), new LyntaiOptions());
 
     [Fact]
@@ -290,9 +291,15 @@ public class LlmRouterCompleteTests
         Assert.Contains("no live candidate", reply.Detail);
     }
 
-    private sealed class ThrowingProvider(string id) : ILlmProvider
+    private sealed class ThrowingProvider(string id) : IModelProvider
     {
         public string Id => id;
+
+        public ProviderCapabilities Capabilities { get; set; } = new()
+        {
+            Kinds = [ProviderKinds.Text],
+            Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
+        };
         public bool IsAvailable => true;
         public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
             throw new InvalidOperationException("kaboom");

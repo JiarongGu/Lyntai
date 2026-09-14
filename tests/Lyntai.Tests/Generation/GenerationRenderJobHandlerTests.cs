@@ -2,6 +2,7 @@ using Lyntai.Generation;
 using Lyntai.Generation.Jobs;
 using Lyntai.Generation.Routing;
 using Lyntai.Jobs;
+using Lyntai.Lifecycle;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
@@ -43,7 +44,7 @@ public class GenerationRenderJobHandlerTests
         Handler(FakeGenerationJobProvider? backend = null)
     {
         backend ??= new FakeGenerationJobProvider { Id = "video" };
-        IGenerationProvider[] providers = [backend];
+        IModelProvider[] providers = [backend];
         var sink = new CollectingSink();
         var handler = new GenerationRenderJobHandler(new GenerationRouter(providers), providers, sink);
         return (handler, backend, sink);
@@ -138,7 +139,7 @@ public class GenerationRenderJobHandlerTests
     {
         // no capable backend is a configuration problem: retrying cannot fix it, so don't burn the queue on it
         var image = new FakeGenerationProvider { Id = "image-only" };
-        IGenerationProvider[] providers = [image];
+        IModelProvider[] providers = [image];
         var handler = new GenerationRenderJobHandler(new GenerationRouter(providers), providers, new CollectingSink());
 
         var outcome = await handler.HandleAsync(new RecordingContext().Build(

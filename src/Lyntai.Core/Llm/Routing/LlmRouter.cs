@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lyntai.Llm.Routing;
 
-/// <summary>Fallback router over the DI collection of <see cref="ILlmProvider"/>s (design §6).
+/// <summary>Fallback router over the DI collection of <see cref="IModelProvider"/>s (design §6).
 /// Behavior is driven by <see cref="RoutingPolicy"/> (<see cref="LyntaiOptions.Routing"/>): the
 /// defaults reproduce §6 exactly, so an untouched policy behaves as documented.</summary>
 /// <param name="providers">The registered backends. First registration wins on a duplicate id.</param>
@@ -41,12 +41,12 @@ namespace Lyntai.Llm.Routing;
 /// consumer which simply stops enumerating would hold a permit until its enumerator is finally disposed.
 /// Bounding a long-lived stream needs a lease the consumer cannot forget, which this is not.</para></param>
 public sealed class LlmRouter(
-    IEnumerable<ILlmProvider> providers,
+    IEnumerable<IModelProvider> providers,
     DeadHostTracker deadHosts,
     LyntaiOptions options,
     ILogger<LlmRouter>? logger = null,
     IModelRoutingStore? modelRouting = null,
-    Func<ILlmProvider, ProviderKey?>? configuration = null,
+    Func<IModelProvider, ProviderKey?>? configuration = null,
     IProviderAdmission? admission = null) : ILlmRouter
 {
     private readonly ILogger _logger = logger ?? NullLogger<LlmRouter>.Instance;
@@ -54,7 +54,7 @@ public sealed class LlmRouter(
 
     // resolved once: the no-delegate case must cost nothing per candidate, and a null-returning delegate must
     // be indistinguishable from no delegate at all
-    private readonly Func<ILlmProvider, ProviderKey?> _configuration = configuration ?? (_ => null);
+    private readonly Func<IModelProvider, ProviderKey?> _configuration = configuration ?? (_ => null);
 
     // provider lookup by id, built once — O(1) per candidate/retry instead of a linear scan. First
     // registration wins on a duplicate id (preserving the prior FirstOrDefault semantics).
@@ -65,9 +65,9 @@ public sealed class LlmRouter(
     // the guard, poolable, and then never selected here: the backend was simply never tried, with no error
     // and one debug line. Case-folding also merges two registrations whose ids differ only in case, which is
     // the same "first registration wins" rule one step earlier: the second was unreachable either way.
-    private readonly Lazy<IReadOnlyDictionary<string, ILlmProvider>> _byId = new(() =>
+    private readonly Lazy<IReadOnlyDictionary<string, IModelProvider>> _byId = new(() =>
     {
-        var map = new Dictionary<string, ILlmProvider>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, IModelProvider>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in providers) map.TryAdd(p.Id, p);
         return map;
     });
@@ -310,7 +310,7 @@ public sealed class LlmRouter(
     public bool SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req)
     {
         foreach (var candidate in LiveCandidates(candidates, req, liveModel: null))
-            return candidate.Provider.SupportsToolCalls; // first live candidate decides
+            return candidate.Provider.Capabilities.SupportsToolCalls; // first live candidate decides
         return false;
     }
 
@@ -318,7 +318,7 @@ public sealed class LlmRouter(
     public bool SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req)
     {
         foreach (var candidate in LiveCandidates(candidates, req, liveModel: null))
-            return candidate.Provider.SupportsStreamingToolCalls; // first live candidate decides, as above
+            return candidate.Provider.Capabilities.SupportsStreamingToolCalls; // first live candidate decides, as above
         return false;
     }
 
@@ -326,7 +326,7 @@ public sealed class LlmRouter(
     /// times): dedup the list, resolve each candidate's EFFECTIVE model (candidate override → request →
     /// consumer default → live override when supplied), skip unknown/unavailable/cooling providers (with
     /// the sole-candidate exemption), and pair each survivor with its cooldown key.</summary>
-    private IEnumerable<(ILlmProvider Provider, string? Model, string Key)> LiveCandidates(
+    private IEnumerable<(IModelProvider Provider, string? Model, string Key)> LiveCandidates(
         IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, string? liveModel)
     {
         var deduped = CandidateDedup.Dedup(candidates);
@@ -344,7 +344,7 @@ public sealed class LlmRouter(
         }
     }
 
-    private async Task<LlmReply> TryCompleteAsync(ILlmProvider provider, string? effectiveModel, LlmRequest req, CancellationToken ct)
+    private async Task<LlmReply> TryCompleteAsync(IModelProvider provider, string? effectiveModel, LlmRequest req, CancellationToken ct)
     {
         // the permit is taken BEFORE the span opens, so a queued call's wait never inflates the backend's
         // reported latency. Scoped with `using`, so the verdict return, the rethrown caller cancel and the
@@ -398,7 +398,7 @@ public sealed class LlmRouter(
     /// disposing: a permit that is not returned pins its gate for the life of the process, so the call site
     /// scopes the result with <c>using</c> and lets success, failure, a throw and cancellation all release it
     /// the same way.</summary>
-    private async ValueTask<IDisposable?> EnterAdmissionAsync(ILlmProvider provider, CancellationToken ct) =>
+    private async ValueTask<IDisposable?> EnterAdmissionAsync(IModelProvider provider, CancellationToken ct) =>
         admission is not null && _configuration(provider) is { } key
             ? await admission.EnterAsync(key, ct).ConfigureAwait(false)
             : null;
@@ -406,7 +406,7 @@ public sealed class LlmRouter(
     /// <summary>The dead-host key for a candidate: its CONFIGURATION when one is known, else its provider id
     /// — so two configurations of one backend bench independently while two consumers of one downed host
     /// share a bench — at the configured cooldown granularity, which composes on top either way.</summary>
-    private string CooldownKey(ILlmProvider provider, string? effectiveModel)
+    private string CooldownKey(IModelProvider provider, string? effectiveModel)
     {
         var identity = _configuration(provider)?.ToString() ?? provider.Id;
         return Policy.CooldownScope == CooldownScope.ProviderAndModel
@@ -414,7 +414,7 @@ public sealed class LlmRouter(
             : identity;
     }
 
-    private ILlmProvider? SelectLive(ProviderCandidate candidate, string? effectiveModel, bool soleCandidate, out string skipReason)
+    private IModelProvider? SelectLive(ProviderCandidate candidate, string? effectiveModel, bool soleCandidate, out string skipReason)
     {
         if (!_byId.Value.TryGetValue(candidate.ProviderId, out var provider))
         { skipReason = "no provider with this id registered"; return null; }

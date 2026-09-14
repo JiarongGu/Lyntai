@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
@@ -28,7 +29,7 @@ public class GenerationProviderWiringTests
             _ => new HttpClient(handler, disposeHandler: false)));
         using var sp = services.BuildServiceProvider();
 
-        var provider = Assert.Single(sp.GetServices<IGenerationProvider>());
+        var provider = Assert.Single(sp.GetServices<IModelProvider>());
         Assert.Equal("openai-images", provider.Id);
 
         var result = await provider.GenerateAsync(
@@ -48,7 +49,7 @@ public class GenerationProviderWiringTests
         services.AddLyntai(b => add(b));
         using var sp = services.BuildServiceProvider();
 
-        Assert.Equal(id, Assert.Single(sp.GetServices<IGenerationProvider>()).Id);
+        Assert.Equal(id, Assert.Single(sp.GetServices<IModelProvider>()).Id);
     }
 
     public static TheoryData<string, Action<LyntaiBuilder>> HttpBackends() => new()
@@ -90,7 +91,7 @@ public class GenerationProviderWiringTests
             o => { o.BaseUrl = "https://example.invalid/v1"; o.ApiKey = "k"; }, _ => mine));
         using var sp = services.BuildServiceProvider();
 
-        var provider = Assert.Single(sp.GetServices<IGenerationProvider>());
+        var provider = Assert.Single(sp.GetServices<IModelProvider>());
         var ask = new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" };
 
         Assert.Equal(GenerationVerdict.Ok, (await provider.GenerateAsync(ask)).Verdict);
@@ -134,7 +135,7 @@ public class GenerationProviderWiringTests
             .UseDefaultGenerationCandidates("fal", "a1111", "byo"));
         using var sp = services.BuildServiceProvider();
 
-        Assert.Equal(["fal", "a1111", "byo"], sp.GetServices<IGenerationProvider>().Select(p => p.Id));
+        Assert.Equal(["fal", "a1111", "byo"], sp.GetServices<IModelProvider>().Select(p => p.Id));
     }
 
     [Fact]
@@ -155,7 +156,7 @@ public class GenerationProviderWiringTests
         services.AddLyntai(b => b.AddLocalDiffusionProvider(o => { o.BinaryPath = exe; o.ModelPath = model; o.WorkDirectory = dir; }));
         using var sp = services.BuildServiceProvider();
 
-        var provider = Assert.Single(sp.GetServices<IGenerationProvider>());
+        var provider = Assert.Single(sp.GetServices<IModelProvider>());
         Assert.Equal("local-diffusion", provider.Id);
 
         await provider.GenerateAsync(new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "x" });

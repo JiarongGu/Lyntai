@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
@@ -24,9 +25,11 @@ public class ClaudeCliProbeTests
         // the version/self-update capability is a provider FAMILY trait (a CLI prints --version, a local
         // runtime knows its weights, a server has a version endpoint) — so a consumer finds it by
         // pattern-matching over the registered providers, not by referencing this adapter's type
-        ILlmProvider provider = Provider(new FakeProcessRunner());
+        IModelProvider provider = Provider(new FakeProcessRunner());
 
-        Assert.IsAssignableFrom<IProviderProbe>(provider);
+        // Probing is no longer a TYPE question — ProbeAsync is on IModelProvider with a default (D127), so
+        // assignability would pass for every backend and prove nothing. What this family actually
+        // claims is that the probe is OVERRIDDEN, which the version test below asserts by behaviour.
         Assert.IsAssignableFrom<IProviderUpdater>(provider);
     }
 
@@ -209,7 +212,7 @@ public class ClaudeCliProbeTests
     [Fact]
     public void The_pinned_install_capability_is_discoverable_through_the_core_seam()
     {
-        ILlmProvider provider = Provider(new FakeProcessRunner());
+        IModelProvider provider = Provider(new FakeProcessRunner());
 
         Assert.IsAssignableFrom<IProviderVersionInstaller>(provider);
     }

@@ -1,22 +1,33 @@
 using Lyntai.Generation;
+using Lyntai.Lifecycle;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>The seam is split by DELIVERY MODE, using the optional-capability pattern Core already uses for
-/// <c>IProviderAuth</c> / <c>IProviderVersionInstaller</c>: a backend implements the modes it has, and a
-/// caller pattern-matches. A backend that can't stream simply isn't an <see cref="IGenerationStreamProvider"/> — so
-/// "can you stream?" has a real answer rather than a runtime surprise.</summary>
+/// <summary>What a backend serves is answered TWO ways now, and the split is deliberate (D127).
+///
+/// <para>Request-to-result operations — complete, stream, embed — are declared in
+/// <see cref="ProviderCapabilities"/> and checked as DATA, because they differ by content type rather than
+/// by contract shape. The stateful JOB protocol keeps an interface of its own: submit/poll/fetch/cancel is
+/// keyed on a handle and is meaningless one method at a time, so "can you do jobs?" stays a type
+/// question.</para></summary>
 public class GenerationProviderSeamTests
 {
     [Fact]
-    public void An_inline_backend_is_a_media_provider_and_nothing_more()
+    public void An_inline_backend_declares_inline_and_nothing_more()
     {
         var provider = new FakeGenerationProvider();
 
-        Assert.IsAssignableFrom<IGenerationProvider>(provider);
+        Assert.IsAssignableFrom<IModelProvider>(provider);
+
+        // the JOB protocol is still a type question — it is a contract shape, not a content type
         Assert.IsNotAssignableFrom<IGenerationJobProvider>(provider);
-        Assert.IsNotAssignableFrom<IGenerationStreamProvider>(provider);
+
+        // …while streaming is now a DATA question. Asserting the absence this way is what the old
+        // type-based check bought, and it survives the fold that removed the interface it tested.
+        Assert.Contains(ProviderOperation.Complete, provider.Capabilities.Operations);
+        Assert.DoesNotContain(ProviderOperation.Stream, provider.Capabilities.Operations);
+        Assert.DoesNotContain(ProviderOperation.Job, provider.Capabilities.Operations);
     }
 
     [Fact]

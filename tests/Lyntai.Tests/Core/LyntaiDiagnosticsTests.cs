@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Lyntai;
@@ -14,7 +15,7 @@ public class LyntaiDiagnosticsTests
 {
     private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")] };
 
-    private static LlmRouter Router(params ILlmProvider[] providers) =>
+    private static LlmRouter Router(params IModelProvider[] providers) =>
         new(providers, new DeadHostTracker(), new LyntaiOptions());
 
     private static ActivityListener SpanListener(List<Activity> sink) => new()

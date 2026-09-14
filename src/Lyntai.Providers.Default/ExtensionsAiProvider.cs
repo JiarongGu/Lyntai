@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -11,7 +12,7 @@ namespace Lyntai.Providers.ExtensionsAi;
 
 /// <summary>
 /// Bridges any <see cref="IChatClient"/> (the whole Microsoft.Extensions.AI ecosystem — OpenAI,
-/// Azure, Ollama, Anthropic API, …) into a Lyntai <see cref="ILlmProvider"/>: request/option
+/// Azure, Ollama, Anthropic API, …) into a Lyntai <see cref="IModelProvider"/>: request/option
 /// mapping, streaming, usage, and verdict classification from exceptions/finish reasons.
 /// Native tool-calling is bridged: <see cref="LlmRequest.Tools"/> map to declaration-only
 /// <see cref="AIFunctionDeclaration"/>s on <see cref="ChatOptions.Tools"/>, the model's
@@ -33,12 +34,22 @@ public sealed class ExtensionsAiProvider(
     string id,
     IChatClient client,
     LyntaiOptions options,
-    ILogger<ExtensionsAiProvider>? logger = null) : ILlmProvider
+    ILogger<ExtensionsAiProvider>? logger = null) : IModelProvider
 {
     private readonly ILogger _logger = logger ?? NullLogger<ExtensionsAiProvider>.Instance;
 
     /// <inheritdoc/>
     public string Id => id;
+
+    /// <summary>What this backend serves — whatever the bridged IChatClient serves — text, buffered or streamed. Native tool calls reach
+    /// LlmReply.ToolCalls; the streaming half was never implemented here, and saying so is the point of the
+    /// two flags being independent.</summary>
+    public ProviderCapabilities Capabilities { get; } = new()
+    {
+        Kinds = [ProviderKinds.Text],
+        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
+        SupportsToolCalls = true,
+    };
 
     /// <summary>Always true: the client was supplied, so there is nothing cheap left to probe. Real
     /// availability shows up as a verdict on the first call, which is what the router acts on.</summary>
@@ -47,7 +58,6 @@ public sealed class ExtensionsAiProvider(
     /// <summary>Always true: the MEAI contract carries tool declarations and tool calls on every client, so
     /// the tool loop takes the NATIVE path here rather than the prompt protocol. A model that ignores the
     /// declared tools simply answers in prose, which the loop treats as a final answer.</summary>
-    public bool SupportsToolCalls => true;
 
     /// <inheritdoc/>
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)

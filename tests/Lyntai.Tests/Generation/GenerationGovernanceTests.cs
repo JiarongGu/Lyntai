@@ -516,11 +516,11 @@ public class GenerationGovernanceTests
 
     /// <summary>A router over <paramref name="backends"/> with cooldown enabled (threshold 1 unless a tracker
     /// is supplied — one failure benches, which is what makes the cooldown tests short).</summary>
-    private static GenerationRouter Router(IGenerationProvider[] backends, DeadHostTracker? deadHosts = null) =>
+    private static GenerationRouter Router(IModelProvider[] backends, DeadHostTracker? deadHosts = null) =>
         new(backends, null, deadHosts ?? new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5)));
 
     private static (IGenerationRouter Router, IUsageTracker Tracker) Budgeted(
-        IGenerationProvider backend, Action<LyntaiOptions> configure)
+        IModelProvider backend, Action<LyntaiOptions> configure)
     {
         var options = new LyntaiOptions();
         configure(options);
@@ -558,7 +558,7 @@ public class GenerationGovernanceTests
     }
 
     /// <summary>A job backend whose submissions always fail — the submit-path counterpart of a dead host.</summary>
-    private sealed class BrokenSubmitProvider : IGenerationProvider, IGenerationJobProvider
+    private sealed class BrokenSubmitProvider : IModelProvider, IGenerationJobProvider
     {
         public string Id { get; init; } = "broken";
         public int SubmitCalls { get; private set; }
@@ -569,8 +569,8 @@ public class GenerationGovernanceTests
             Operations = [ProviderOperation.Job],
         };
 
-        public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new GenerationProbeResult(true, "up"));
+        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+            Task.FromResult(new ProviderProbeResult(true, "up"));
 
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
             Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "job backend"));

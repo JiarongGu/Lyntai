@@ -152,6 +152,20 @@ export default {
       // question on the other. Generalized rather than copied. `Deliveries` became `Operations` because the
       // list now spans Embed as well as Inline/Job/Stream, and `Inline` became `Complete` for the same
       // reason: a chat completion and an inline render are the same operation on different KINDS.
+      // D127's collapse. FIVE seams became one: the two domain provider interfaces, the optional streaming
+      // one (streaming is an OPERATION now, declared in data), and the LLM probe seam with its own probe
+      // record — which had duplicated the generation one in a different field order, and was found only by
+      // a compile collision. `IGenerationJobProvider` deliberately SURVIVES and is not listed: a stateful
+      // submit/poll/fetch/cancel protocol is a contract shape, not a content type.
+      names: [
+        'ILlmProvider', 'IGenerationProvider', 'IGenerationStreamProvider',
+        'IProviderProbe', 'GenerationProbeResult',
+      ],
+      use: '`Lyntai.Lifecycle.IModelProvider` / `ProviderProbeResult`',
+      why: 'one backend seam for every domain, with what it serves declared in ProviderCapabilities rather '
+        + 'than encoded as a type — an embedder and a chat model are one interface apart only in data (D127)',
+    },
+    {
       names: ['GenerationCapabilities', 'GenerationDelivery', 'Deliveries'],
       use: '`Lyntai.Lifecycle.ProviderCapabilities` / `ProviderOperation` / `ProviderCapabilities.Operations`',
       why: 'capability belongs to every provider seam, not to one domain — and an operation list that '
@@ -388,6 +402,15 @@ export default {
       // same record in two namespaces, so a document naming either is describing a type that no longer
       // exists. Historical records (CHANGELOG below the Unreleased boundary, the task archive) are exempt
       // by file; a deliberate mention inside a maintained document takes `drift-ok` on its line.
+      // D127. The SURFACE half is in `retiredApiNames`; this is the prose half. A document naming any of
+      // these is describing a seam the tree no longer has. `IGenerationJobProvider` is deliberately NOT
+      // matched — it survives, and a pattern that swept it up would fire on every correct mention.
+      term: '\\bILlmProvider\\b|\\bIGenerationProvider\\b|\\bIGenerationStreamProvider\\b|\\bIProviderProbe\\b',
+      why: 'the domain provider seams collapsed into one IModelProvider (D127), with what a backend serves '
+        + 'declared in ProviderCapabilities rather than encoded as a type',
+      use: '`IModelProvider`',
+    },
+    {
       term: '\\b(?:Llm|Generation)Candidate\\b',
       why: 'the two per-domain candidate records were unified into one (D125) — naming either sends a '
         + 'reader to a type the tree no longer has',

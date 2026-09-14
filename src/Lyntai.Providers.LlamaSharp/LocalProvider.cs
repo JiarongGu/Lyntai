@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using System.Text;
 using LLama;
@@ -26,7 +27,7 @@ public sealed class LocalProvider(
     string id,
     LocalModelOptions options,
     LyntaiOptions lyntai,
-    ILogger<LocalProvider>? logger = null) : ILlmProvider, IDisposable
+    ILogger<LocalProvider>? logger = null) : IModelProvider, IDisposable
 {
     private readonly ILogger _logger = logger ?? NullLogger<LocalProvider>.Instance;
     // One local model, one generation at a time; also single-flights the lazy weight load.
@@ -42,6 +43,14 @@ public sealed class LocalProvider(
     private bool _disposed;
 
     public string Id => id;
+
+    /// <summary>What this backend serves — an in-process GGUF model: text in, text out, buffered or streamed. LLamaSharp exposes no native
+    /// tool-calling surface here, so neither tool flag is declared.</summary>
+    public ProviderCapabilities Capabilities { get; } = new()
+    {
+        Kinds = [ProviderKinds.Text],
+        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
+    };
 
     /// <summary>The model file must exist on disk. (Whether the native backend is present is only
     /// discoverable at load time — a missing backend surfaces as a Failed verdict on the first call,

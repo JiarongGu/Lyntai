@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -9,7 +10,7 @@ public class LlmRouterStreamTests
 {
     private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")] };
 
-    private static LlmRouter Router(params ILlmProvider[] providers) =>
+    private static LlmRouter Router(params IModelProvider[] providers) =>
         new(providers, new DeadHostTracker(), new LyntaiOptions());
 
     [Fact]
@@ -102,7 +103,7 @@ public class LlmRouterStreamTests
     public async Task Empty_first_content_chunk_does_not_commit_so_a_following_error_falls_over()
     {
         // the router is the trust boundary: an empty/role-only Content chunk must NOT disable fallback
-        // (shipped providers guard this, but a third-party ILlmProvider may yield an empty first chunk)
+        // (shipped providers guard this, but a third-party IModelProvider may yield an empty first chunk)
         var p1 = new FakeLlmProvider("p1")
         {
             StreamScript = _ => [LlmChunk.Content(""), LlmChunk.Error(LlmVerdict.Failed, "empty then died")],

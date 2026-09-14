@@ -1,7 +1,8 @@
+using Lyntai.Lifecycle;
 namespace Lyntai.Llm;
 
 /// <summary>
-/// OPTIONAL capability of an <see cref="ILlmProvider"/> whose backend can install a NAMED version of
+/// OPTIONAL capability of an <see cref="IModelProvider"/> whose backend can install a NAMED version of
 /// itself (a CLI with an <c>install &lt;version|channel&gt;</c> command, a runtime that can fetch a
 /// specific build). It is the difference between a host PINNING a known-good version and merely taking
 /// whatever <see cref="IProviderUpdater.UpdateAsync"/> hands it.
@@ -15,7 +16,7 @@ namespace Lyntai.Llm;
 /// Kept separate from <see cref="IProviderUpdater"/> rather than added to it: a backend can be
 /// self-updating without being able to pin, and callers discover the capability by pattern-matching
 /// (<c>provider is IProviderVersionInstaller i</c>) over the registered providers. Distinct from
-/// <see cref="IProviderProbe"/>, which only READS what is installed.
+/// <see cref="IModelProvider"/>, which only READS what is installed.
 /// </summary>
 public interface IProviderVersionInstaller
 {

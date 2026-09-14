@@ -5,7 +5,7 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>The stream door, added in 3.0. Before it, <c>IGenerationStreamProvider</c> was a seam the
+/// <summary>The stream door, added in 3.0. Before it, <c>IModelProvider</c> was a seam the
 /// platform could not reach: the capability pre-filter was only ever asked about
 /// <see cref="ProviderOperation.Complete"/> and <see cref="ProviderOperation.Job"/>, so a backend
 /// advertising <see cref="ProviderOperation.Stream"/> had to be driven directly and the contract shipped
@@ -18,12 +18,12 @@ namespace Lyntai.Tests.Generation;
 /// ended because the media finished or because the backend died.</para></summary>
 public class GenerationRouterStreamTests
 {
-    private static GenerationRouter Router(params IGenerationProvider[] providers) => new(providers);
+    private static GenerationRouter Router(params IModelProvider[] providers) => new(providers);
 
     private static GenerationRequest Speech() =>
         new() { Kind = GenerationKinds.Audio, Prompt = "read this aloud" };
 
-    private static ProviderCandidate[] Candidates(params IGenerationProvider[] providers) =>
+    private static ProviderCandidate[] Candidates(params IModelProvider[] providers) =>
         [.. providers.Select(p => new ProviderCandidate(p.Id))];
 
     private static async Task<List<GenerationChunk>> Collect(IAsyncEnumerable<GenerationChunk> stream)
@@ -304,7 +304,11 @@ public class GenerationRouterStreamTests
 
         var terminal = AssertOneTerminal(chunks);
         Assert.Equal(GenerationVerdict.Unsupported, terminal.Error);
-        Assert.Contains("does not implement", terminal.Detail);
+        // The reason now comes from the BACKEND's own default body rather than a router-synthesized
+        // sentence, and it names the contract a consumer can actually check (D127). Strictly better: the
+        // old text named an interface the caller had never heard of.
+        Assert.Contains("does not serve", terminal.Detail);
+        Assert.Contains("ProviderCapabilities", terminal.Detail);
     }
 
     // ---- policy and cancellation ---------------------------------------------------------------------

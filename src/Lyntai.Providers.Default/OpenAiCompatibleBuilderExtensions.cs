@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Providers.OpenAiCompatible;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -46,7 +47,7 @@ public static class OpenAiCompatibleBuilderExtensions
 
     // ---- pre-configured presets ------------------------------------------------------------------
     // Thin wrappers over AddOpenAiCompatibleProvider with sensible defaults for common endpoints. Apps
-    // that need something bespoke keep using AddOpenAiCompatibleProvider (or their own ILlmProvider via
+    // that need something bespoke keep using AddOpenAiCompatibleProvider (or their own IModelProvider via
     // builder.AddProvider). All presets accept a BYO httpClient like the base method.
 
     /// <summary>OpenAI (api.openai.com). Default id "openai".</summary>

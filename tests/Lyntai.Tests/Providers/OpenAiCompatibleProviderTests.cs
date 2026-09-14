@@ -149,7 +149,7 @@ public class OpenAiCompatibleProviderTests
     [Fact]
     public void Provider_advertises_native_tool_calls()
     {
-        Assert.True(Provider(new StubHttpHandler()).SupportsToolCalls);
+        Assert.True(Provider(new StubHttpHandler()).Capabilities.SupportsToolCalls);
     }
 
     [Fact]

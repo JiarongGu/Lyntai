@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +20,7 @@ public class AddClaudeCliProviderTests
                 .UseDefaultCandidates("claude-cli"));
             using var sp = services.BuildServiceProvider();
 
-            var provider = sp.GetServices<ILlmProvider>().Single();
+            var provider = sp.GetServices<IModelProvider>().Single();
             Assert.Equal("claude-cli", provider.Id);
 
             var router = sp.GetRequiredService<ILlmRouter>();

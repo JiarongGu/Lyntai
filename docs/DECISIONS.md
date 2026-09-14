@@ -70,7 +70,7 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 
 | # | Date | Decision |
 |---|---|---|
-| [D1](#d1--the-llm-seam-is-lyntais-own-illmprovider-with-a-microsoftextensionsai-bridge) | — | the LLM seam is Lyntai's own `ILlmProvider`, with a `Microsoft.Extensions.AI` bridge |
+| [D1](#d1--the-llm-seam-is-lyntais-own-illmprovider-with-a-microsoftextensionsai-bridge) | — | the LLM seam is Lyntai's own `IModelProvider`, with a `Microsoft.Extensions.AI` bridge |
 | [D2](#d2--storage-is-per-domain-interfaces-and-a-backend-implements-as-many-as-it-wants) | — | storage is per-domain interfaces, and a backend implements as many as it wants |
 | [D3](#d3--fallback-is-verdict-driven-through-one-shared-classifier-and-the-policy-is-replaceable) | — | fallback is verdict-driven, through one shared classifier, and the policy is REPLACEABLE |
 | [D4](#d4--streaming-no-fallback-after-the-first-token-and-the-timeout-is-an-inactivity-clock) | — | streaming: no fallback after the first token, and the timeout is an inactivity clock |
@@ -196,14 +196,15 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D124](#d124--the-transformer-embedder-ships-as-lyntaiprovidersonnx-managed-half-only-and-embedders-join-the-provider-family-2026-09-14) | 2026-09-14 | the TRANSFORMER embedder ships as Lyntai.Providers.Onnx, managed-half only, and embedders join th… |
 | [D125](#d125--one-providercandidate-routing-a-backend-and-model-pair-is-one-rule-not-one-per-domain-2026-09-14) | 2026-09-14 | one ProviderCandidate: routing a backend-and-model pair is ONE rule, not one per domain |
 | [D126](#d126--capability-is-data-providercapabilities-generalizes-the-model-the-generation-domain-already-had-2026-09-14) | 2026-09-14 | capability is DATA: ProviderCapabilities generalizes the model the generation domain already had |
+| [D127](#d127--one-provider-interface-imodelprovider-with-every-operation-defaulted-to-unsupported-2026-09-14) | 2026-09-14 | ONE provider interface: IModelProvider, with every operation defaulted to Unsupported |
 
-_All 126 entries are live decisions._
+_All 127 entries are live decisions._
 
 <!-- index:end -->
 
-## D1 — the LLM seam is Lyntai's own `ILlmProvider`, with a `Microsoft.Extensions.AI` bridge
+## D1 — the LLM seam is Lyntai's own `IModelProvider`, with a `Microsoft.Extensions.AI` bridge
 Consuming applications are split between spawning a vendor CLI and calling an HTTP or local API, so the
-seam has to span both. `ILlmProvider` is Lyntai's own contract; `Lyntai.Providers.ExtensionsAi` bridges any
+seam has to span both. `IModelProvider` is Lyntai's own contract; `Lyntai.Providers.ExtensionsAi` bridges any
 `Microsoft.Extensions.AI` `IChatClient` into it, in both directions. Adopting MEAI *as* the seam was
 rejected: it cannot express a spawned CLI's process lifetime, and the verdict taxonomy the router needs
 (D3) has no equivalent there.
@@ -1322,7 +1323,7 @@ invisible in telemetry, and the caller received a raw exception from a contract 
 value with a verdict, never a throw"*.
 
 **Why this is a decision and not merely a bug fix.** The alternative is defensible on its face and was the
-shipped behaviour: `IGenerationProvider` documents that a backend must fail safe, so a throw is a *bug*, and
+shipped behaviour: `IModelProvider` documents that a backend must fail safe, so a throw is a *bug*, and
 letting a bug surface loudly rather than degrading it into a verdict is a real position. It loses on one
 fact — **`AddGenerationProvider` is a documented BYO seam**, so the throwing party is frequently not this
 library and not the caller either. Punishing a caller for a third-party backend's defect by discarding every
@@ -1401,7 +1402,7 @@ a sibling.
 |---|---|---|
 | `MemoryCompositionOptions.AuthoritativeReserve` | `AuthoritativeCharacters` | the SAME identifier as `GraphMemoryOptions.AuthoritativeReserve`, same namespace, different UNITS — recall SLOTS there, prompt CHARACTERS here — and both reachable from one builder chain. Reading "reserve 2" as slots silently truncated every exact fact to two characters. |
 | `MemoryEngineBuilder.Reserve` | `ReserveCharacters` | the verb carried no unit at all, on the call that sets the above |
-| `IProviderInstallation` | `IProviderProbe` | declares one `ProbeAsync` and installs NOTHING, one word from `IProviderVersionInstaller`, which does. The documented use is a capability type-test, so the name IS the API for a reader choosing between them. |   <!-- drift-ok: a rename record NAMES the retired spelling -->
+| `IProviderInstallation` | `IModelProvider` | declares one `ProbeAsync` and installs NOTHING, one word from `IProviderVersionInstaller`, which does. The documented use is a capability type-test, so the name IS the API for a reader choosing between them. |   <!-- drift-ok: a rename record NAMES the retired spelling -->
 | `GraphMemoryEngine(policy:)`, `UseGraph(policy:)` | `retrievability:` | the one parameter of sixteen not named for its domain, surrounded by `agePolicies`, `saliencePolicies`, `ranking`, `annotation`, `verification` — and it is the forgetting curve, the subsystem's most consequential seam |
 | `CuratedMemorySections(task:)` | `taskKey:` | the only place on the whole surface that said `task`, against `taskKey` on twelve interfaces — and `CLAUDE.md` already records a README sample passing `task:` where the parameter was `taskKey` |
 | `EnsureEachBitIsSingleRealAndUnique` | `ValidateProvenanceBits` | an assertion-shaped, ungrammatical name beside siblings called `Fits`/`Pack`/`Unpack` |   <!-- drift-ok: a rename record NAMES the retired spelling -->
@@ -1452,7 +1453,7 @@ was the only way to SET the characters one.
 
 **The decision.** `IGenerationRouter` gains a third door, `StreamAsync`, and 3.0 ships the streaming path
 wired: capability pre-filter, verdict-driven fallback, dead-host cooldown, budget and rate limiting, all on
-the same terms as the inline and submit doors. `IGenerationStreamProvider` stays in `Lyntai.Core` under the
+the same terms as the inline and submit doors. `IModelProvider` stays in `Lyntai.Core` under the
 full SemVer promise.
 
 **The alternative, and why it lost.** The seam was heading into the freeze in the worst possible state: its
@@ -1601,7 +1602,7 @@ closed.** `README.md` stated three, and they are checkable one by one —
 |---|---|
 | "two of its backends were written from vendor documentation with no key to call" | **D69** — every mapping those backends could have got wrong is now a host option, so a mismatch is a configuration edit rather than a library release |
 | "a third's argv is ported rather than measured" | **D69** — `LocalDiffusionOptions.ArgvFlags` makes the whole `sd-cli` argv the host's, keyed by meaning rather than spelling |
-| "`IGenerationStreamProvider` has no implementation at all yet" | **D67** — the router's stream door, with fifteen tests over the handling |
+| "`IModelProvider` has no implementation at all yet" | **D67** — the router's stream door, with fifteen tests over the handling |
 
 **That is the argument for writing a reason clause into an exemption in the first place.** An exemption
 justified by "this is new" can only ever be retired by taste. One justified by three specific facts is
@@ -1832,7 +1833,7 @@ is installed on this machine (v2.1.220), so unlike the codex item this one was m
 what killed it.
 
 **What the flag actually means, and why turning it on would be a REGRESSION.**
-`ILlmProvider.SupportsToolCalls` means *"I return the model's calls on `LlmReply.ToolCalls` for YOUR loop to
+`IModelProvider.SupportsToolCalls` means *"I return the model's calls on `LlmReply.ToolCalls` for YOUR loop to
 execute"*. `ToolLoop` branches on it. Flipping it true on a backend that cannot do that makes the loop take
 the native path, send tool declarations the backend ignores, and wait for calls that never arrive — so every
 agentic turn silently degrades to "the model answered in prose" and **no tool ever runs**. The item as
@@ -3450,7 +3451,7 @@ would break every existing `IEmbedder` — the surface is frozen under **D70** w
 `IRoleAwareEmbedder` the engine type-tests was considered and refused: it splits one seam in two, and a
 consumer who implements the wrong half gets silence. The default body means an embedder written before this
 keeps working untouched, which is also the correct behaviour for a symmetric model, so the common case
-needs no action at all. `ILlmProvider.SupportsToolCalls` already established the pattern here.
+needs no action at all. `IModelProvider.SupportsToolCalls` already established the pattern here.
 
 **What it constrains.** `Document` is the enum's zero value, so anything landing on `default` is the
 STORING side — a corpus embedded consistently is still searchable, one embedded as queries is comparable to
@@ -3714,7 +3715,7 @@ ALONE — no bundle, no MCP — now carries 669,768 B they may never call. Under
 outright, which `docs/AOT.md` measures on exactly this assembly. That is the trade: a real cost to an
 untrimmed non-bundle consumer, against a package id for every consumer and every release.
 
-**And it belongs with the providers on its own terms.** The bridge produces an `ILlmProvider` the router
+**And it belongs with the providers on its own terms.** The bridge produces an `IModelProvider` the router
 selects and falls over between — it is a provider, not a neighbouring concern, and `Providers.*` is where a
 provider goes. The dependency argument is why the boundary could go; this is why `Providers.Default` is the
 destination rather than somewhere new.
@@ -3742,7 +3743,7 @@ referenced the failure is at load, and `AddOnnxEmbedder`'s doc names the three p
 effect worth stating — the same package serves the GPU cell, which was listed as unbuilt.
 
 **Embedders become PROVIDERS, additively.** `IEmbeddingProvider : IProviderIdentity, IEmbedder` gives an
-embedding backend the `Id` + `IsAvailable` that `ILlmProvider` and `IGenerationProvider` already have.
+embedding backend the `Id` + `IsAvailable` that `IModelProvider` and `IModelProvider` already have.
 **Changing `IEmbedder` itself was refused**: those two could adopt `IProviderIdentity` as a base because
 they already declared `Id`, and `IEmbedder` does not — adding it would introduce a REQUIRED member and
 break every bring-your-own embedder at compile. This is the optional-capability pattern Core already uses
@@ -3788,7 +3789,7 @@ which operations it serves, exactly as `GenerationCapabilities` already does —
 list, so `"text"` fits it today — and the router filters on that declaration before dispatching.
 
 **Two designs were considered and REJECTED on the way here, because both would have entrenched the split.**
-A third domain seam (`IEmbeddingProvider` as a peer of `ILlmProvider` and `IGenerationProvider`) makes
+A third domain seam (`IEmbeddingProvider` as a peer of `IModelProvider` and `IModelProvider`) makes
 embedding a parallel stack when an embedding model is a TEXT backend like a chat model. And splitting
 operations into types (`IChatProvider` / `IEmbeddingProvider`) encodes as a hierarchy what belongs in data:
 chat and embed are two operations on one content type, not two kinds of provider.
@@ -3830,3 +3831,40 @@ for a direct call.
 are `ProviderCapabilitiesTests` verbatim, and keeping both would be the duplication this decision removes.
 The one thing they covered that the generic tests cannot is the request→capability MAPPING, which now lives
 in `GenerationRouter.Capable` and gained its own router test there.
+
+## D127 — ONE provider interface: IModelProvider, with every operation defaulted to Unsupported (2026-09-14)
+
+`ILlmProvider`, `IGenerationProvider`, `IGenerationStreamProvider` and `IProviderProbe` are gone. <!-- drift-ok: the entry RETIRING these seams has to name them -->
+`Lyntai.Lifecycle.IModelProvider` is the single backend seam: `Id`, `IsAvailable`, `Capabilities`, and
+`CompleteAsync` / `StreamAsync` / `EmbedAsync` / `GenerateAsync` / `ProbeAsync` — **every operation with a
+default body reporting `Unsupported`**, so a backend implements only what it serves.
+
+**Named `IModelProvider`, not `IProvider`.** The bare word collides with `IServiceProvider` and every DI
+sense of "provider"; these are model backends and the name should say so, while staying inside the
+`Provider*` family (`IProviderPool`, `ProviderCandidate`, `ProviderCapabilities`, `ProviderKey`).
+
+**The fat-interface objection is answered by D126, not waved away.** A backend never sees an operation it
+does not serve: `Capabilities` declares the content `Kinds` and `Operations`, and a router filters BEFORE
+dispatching. Declining costs no code because the default body is already there. This is the contract every
+generation backend has lived under since the platform shipped; it is now the contract for all of them.
+
+**What is NOT folded in, and the line is content-type versus contract-shape.**
+`IGenerationJobProvider` keeps submit/poll/fetch/cancel: that is a stateful protocol keyed on a handle,
+meaningless one method at a time, and nothing about it is a content type. Streaming folded in because it
+IS an operation over a kind — which is exactly what `ProviderOperation.Stream` says.
+
+**`EmbedAsync` throws where its neighbours return a verdict**, and the asymmetry is deliberate: there is no
+vector meaning "I could not". A zero vector compares as real and would poison a store silently, which is
+the failure mode this library spends the most effort avoiding.
+
+**Two duplications surfaced only because the collapse forced them together.** The LLM domain had its own
+`IProviderProbe` + `ProviderProbeResult`, near-identical to generation's probe record in a DIFFERENT field <!-- drift-ok: the entry RETIRING these seams has to name them -->
+order — found by a compile collision, not by reading. Merging them needed one call site made explicit,
+because every field is a string and a positional call would still have compiled while assigning the wrong
+ones.
+
+**What it cost in tests, stated rather than buried:** three assertions that tested the OLD premise were
+rewritten, not deleted — an inline backend "is not an `IGenerationStreamProvider`" became "does not declare <!-- drift-ok: the entry RETIRING these seams has to name them -->
+`ProviderOperation.Stream`", and the router's synthesized *"does not implement IGenerationStreamProvider"* <!-- drift-ok: the entry RETIRING these seams has to name them -->
+became the backend's own *"does not serve StreamAsync — see its ProviderCapabilities"*, which names a
+contract the caller can actually check.

@@ -58,6 +58,20 @@ public sealed record ProviderCapabilities
     /// that accepts the call and ignores them returns a plausible, wrong result.</summary>
     public bool SupportsInputs { get; init; }
 
+    /// <summary>Whether the backend sends tools to the model and surfaces its calls on
+    /// <c>LlmReply.ToolCalls</c>. Coarse — provider-level, not per-model: a model that ignores tools just
+    /// answers in prose, which the tool loop treats as a final answer.</summary>
+    public bool SupportsToolCalls { get; init; }
+
+    /// <summary>Whether the backend's STREAM carries native tool calls.
+    ///
+    /// <para><b>Separate from <see cref="SupportsToolCalls"/> because the two are genuinely independent</b>:
+    /// a backend can surface calls on a buffered reply while its stream drops them, which is what every
+    /// provider here did before 3.0. Answering one for the other makes an agentic turn look like a plain
+    /// answer — the model asks for a tool, no call chunk arrives, and the loop reports the empty prose as
+    /// its final answer. That failure is silent, which is why it is its own flag.</para></summary>
+    public bool SupportsStreamingToolCalls { get; init; }
+
     /// <summary>Free-form declared limits — context window, maximum dimension, rate. Advisory: nothing here
     /// enforces them, they are for a caller or an agent tool deciding what to ask for.</summary>
     public IReadOnlyDictionary<string, string> Limits { get; init; } =

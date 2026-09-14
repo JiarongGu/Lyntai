@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
@@ -30,7 +31,7 @@ public class ClaudeCliAuthTests
     {
         // like the probe/update capabilities: a consumer pattern-matches over the registered providers
         // rather than referencing this adapter's type
-        ILlmProvider provider = Provider(new FakeProcessRunner());
+        IModelProvider provider = Provider(new FakeProcessRunner());
 
         Assert.IsAssignableFrom<IProviderAuth>(provider);
     }

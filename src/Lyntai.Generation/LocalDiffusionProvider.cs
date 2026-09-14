@@ -124,7 +124,7 @@ public enum DiffusionAccelerator
 }
 
 /// <summary>
-/// An <see cref="IGenerationProvider"/> over a locally-installed <b>stable-diffusion.cpp</b> (<c>sd-cli</c>):
+/// An <see cref="IModelProvider"/> over a locally-installed <b>stable-diffusion.cpp</b> (<c>sd-cli</c>):
 /// image generation entirely on the host's machine — no key, no network, no content policy in the path. INLINE
 /// delivery, because a local render blocks until the file exists; there is no operation id to resume.
 /// </summary>
@@ -150,7 +150,7 @@ public enum DiffusionAccelerator
 /// </remarks>
 /// <param name="options">Engine paths and sampling defaults.</param>
 /// <param name="runner">Process execution — BYO to sandbox or audit the spawn.</param>
-public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProcessRunner runner) : IGenerationProvider
+public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProcessRunner runner) : IModelProvider
 {
     /// <inheritdoc/>
     public string Id => options.Id;
@@ -192,17 +192,17 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
 
     /// <summary>Presence of the engine and its weights on disk — free, exact, and the only thing worth checking
     /// before a render that costs minutes of CPU.</summary>
-    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default)
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
     {
         if (options.BinaryPath is not { Length: > 0 } binary || !File.Exists(binary))
-            return Task.FromResult(new GenerationProbeResult(false,
+            return Task.FromResult(new ProviderProbeResult(false,
                 $"not configured: no sd-cli binary at '{options.BinaryPath}' (the host provisions it — D20)"));
 
         if (options.ModelPath is not { Length: > 0 } model || !File.Exists(model))
-            return Task.FromResult(new GenerationProbeResult(false,
+            return Task.FromResult(new ProviderProbeResult(false,
                 $"not configured: the engine is present but its model file is missing at '{options.ModelPath}'"));
 
-        return Task.FromResult(new GenerationProbeResult(true,
+        return Task.FromResult(new ProviderProbeResult(true,
             $"sd-cli at '{binary}' with model '{Path.GetFileName(model)}'"));
     }
 

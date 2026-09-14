@@ -15,7 +15,7 @@ namespace Lyntai.Tests.Generation;
 public abstract class GenerationProviderContractFacts
 {
     /// <summary>Build the backend. <paramref name="http"/> is ignored by a backend that speaks no HTTP.</summary>
-    protected abstract IGenerationProvider New(StubHttpHandler http);
+    protected abstract IModelProvider New(StubHttpHandler http);
 
     /// <summary>A request this backend would accept — the shape its own suite uses.</summary>
     protected abstract GenerationRequest Ask();
@@ -26,7 +26,7 @@ public abstract class GenerationProviderContractFacts
     /// for the wrong reason.</summary>
     protected virtual string OperationId => "some-operation-id";
 
-    protected IGenerationProvider Healthy() => New(new StubHttpHandler());
+    protected IModelProvider Healthy() => New(new StubHttpHandler());
 
     [Fact] public void Identity() => GenerationProviderContract.It_declares_a_usable_identity(Healthy());
 
@@ -44,14 +44,14 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
 {
     /// <summary>A 401 on every request, which is what an authenticating proxy in front of a local backend
     /// looks like — the reachable case, not a hypothetical.</summary>
-    private IGenerationProvider Rejecting()
+    private IModelProvider Rejecting()
     {
         var http = new StubHttpHandler();
         http.Enqueue(_ => GenerationProviderContract.Unauthorized());
         return New(http);
     }
 
-    private IGenerationProvider Refusing()
+    private IModelProvider Refusing()
     {
         var http = new StubHttpHandler();
         http.Enqueue(_ => throw new HttpRequestException("connection refused"));
@@ -136,13 +136,13 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
         var result = await jobs.FetchAsync(OperationId);
 
         GenerationProviderContract.An_authentication_failure_is_classified_rather_than_flattened(
-            "FetchAsync", ((IGenerationProvider)jobs).Id, result.Verdict);
+            "FetchAsync", ((IModelProvider)jobs).Id, result.Verdict);
     }
 }
 
 public class OpenAiImageProviderContractTests : HttpGenerationProviderContractFacts
 {
-    protected override IGenerationProvider New(StubHttpHandler http) =>
+    protected override IModelProvider New(StubHttpHandler http) =>
         new OpenAiImageProvider(
             new OpenAiImageOptions { ApiKey = "k" },
             () => new HttpClient(http, disposeHandler: false));
@@ -153,7 +153,7 @@ public class OpenAiImageProviderContractTests : HttpGenerationProviderContractFa
 
 public class Automatic1111ProviderContractTests : HttpGenerationProviderContractFacts
 {
-    protected override IGenerationProvider New(StubHttpHandler http) =>
+    protected override IModelProvider New(StubHttpHandler http) =>
         new Automatic1111Provider(
             new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" },
             () => new HttpClient(http, disposeHandler: false));
@@ -167,7 +167,7 @@ public class ComfyUiProviderContractTests : HttpGenerationProviderContractFacts
     private const string Workflow =
         """{"3":{"class_type":"KSampler","inputs":{"seed":0}},"6":{"class_type":"CLIPTextEncode","inputs":{"text":"placeholder"}}}""";
 
-    protected override IGenerationProvider New(StubHttpHandler http) =>
+    protected override IModelProvider New(StubHttpHandler http) =>
         new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188" },
             () => new HttpClient(http, disposeHandler: false));
@@ -186,7 +186,7 @@ public class ComfyUiProviderContractTests : HttpGenerationProviderContractFacts
 
 public class FalQueueProviderContractTests : HttpGenerationProviderContractFacts
 {
-    protected override IGenerationProvider New(StubHttpHandler http) =>
+    protected override IModelProvider New(StubHttpHandler http) =>
         new FalQueueProvider(
             new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" },
             () => new HttpClient(http, disposeHandler: false));
@@ -203,7 +203,7 @@ public class FalQueueProviderContractTests : HttpGenerationProviderContractFacts
 /// meaning for it and asserting one would be a fact that cannot fail.</summary>
 public class LocalDiffusionProviderContractTests : GenerationProviderContractFacts
 {
-    protected override IGenerationProvider New(StubHttpHandler http)
+    protected override IModelProvider New(StubHttpHandler http)
     {
         var dir = Path.Combine(TestPaths.TestScratchDir, $"sd-contract-{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);

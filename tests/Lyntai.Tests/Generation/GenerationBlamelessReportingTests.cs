@@ -162,7 +162,7 @@ public class GenerationBlamelessReportingTests
     /// <summary>A backend that answers with a fixed verdict and its OWN words — the words are the whole
     /// subject here, which is why <c>FakeGenerationProvider</c>'s synthesized <c>"fake {verdict}"</c> detail
     /// is not enough.</summary>
-    private sealed class SayingProvider : IGenerationProvider
+    private sealed class SayingProvider : IModelProvider
     {
         public string Id { get; init; } = "saying";
 
@@ -182,8 +182,8 @@ public class GenerationBlamelessReportingTests
             SupportsInputs = true,
         };
 
-        public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new GenerationProbeResult(true, "up"));
+        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+            Task.FromResult(new ProviderProbeResult(true, "up"));
 
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
         {
@@ -245,7 +245,7 @@ public class GenerationSubmitBlamelessReportingTests
     /// <summary>A job backend that always rejects the submission, with a detail the test chooses — the text
     /// the router classifies. Conclusive on purpose: an inconclusive rejection is decided BEFORE the verdict
     /// is, and is covered by <c>GenerationTimeoutTests</c>.</summary>
-    private sealed class RejectingJobBackend : IGenerationProvider, IGenerationJobProvider
+    private sealed class RejectingJobBackend : IModelProvider, IGenerationJobProvider
     {
         public string Id { get; init; } = "rejecting";
 
@@ -258,8 +258,8 @@ public class GenerationSubmitBlamelessReportingTests
             Operations = [ProviderOperation.Job],
         };
 
-        public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new GenerationProbeResult(true, "up"));
+        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+            Task.FromResult(new ProviderProbeResult(true, "up"));
 
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
             Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "job backend"));

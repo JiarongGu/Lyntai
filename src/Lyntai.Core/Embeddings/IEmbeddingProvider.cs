@@ -1,8 +1,8 @@
+using Lyntai.Lifecycle;
 namespace Lyntai.Embeddings;
 
 /// <summary>An embedding backend that carries provider IDENTITY — the same shape
-/// <see cref="Lyntai.Llm.ILlmProvider"/> and <see cref="Lyntai.Generation.IGenerationProvider"/> have, for
-/// the same reasons.
+/// <see cref="Lyntai.Lifecycle.IModelProvider"/> has, for the same reasons.
 ///
 /// <para><b>Why this is additive rather than a change to <see cref="IEmbedder"/>.</b> Those two seams could
 /// adopt <see cref="Lyntai.Lifecycle.IProviderIdentity"/> as a base because they already declared
@@ -27,6 +27,6 @@ public interface IEmbeddingProvider : Lyntai.Lifecycle.IProviderIdentity, IEmbed
     new string Id { get; }
 
     /// <summary>Cheap probe: is this backend usable right now — model loaded, endpoint configured? Must
-    /// return a value rather than throw, matching <see cref="Lyntai.Llm.ILlmProvider.IsAvailable"/>.</summary>
+    /// return a value rather than throw, matching <see cref="Lyntai.Lifecycle.IModelProvider.IsAvailable"/>.</summary>
     bool IsAvailable { get; }
 }

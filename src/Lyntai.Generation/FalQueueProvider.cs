@@ -97,7 +97,7 @@ public sealed class FalQueueOptions
 }
 
 /// <summary>
-/// An <see cref="IGenerationProvider"/> + <see cref="IGenerationJobProvider"/> over <b>fal.ai's queue API</b> —
+/// An <see cref="IModelProvider"/> + <see cref="IGenerationJobProvider"/> over <b>fal.ai's queue API</b> —
 /// the aggregator chosen as the first remote backend because one integration reaches the Wan/Kling/Veo-class
 /// models behind a single queue shape (submit → poll → fetch, or a webhook the app owns).
 ///
@@ -125,7 +125,7 @@ public sealed class FalQueueOptions
 /// <see cref="ObjectDisposedException"/>. <c>AddFalProvider</c> sets this for you.</param>
 public sealed class FalQueueProvider(
     FalQueueOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
-    : IGenerationProvider, IGenerationJobProvider
+    : IModelProvider, IGenerationJobProvider
 {
     /// <summary>Separates the model id from the queue's request id inside an operation id.</summary>
     private const char ModelSeparator = '#';
@@ -146,10 +146,10 @@ public sealed class FalQueueProvider(
     /// <summary>Credential presence only. The queue has no free "is this key good?" endpoint that doesn't
     /// enqueue work, and a probe must never spend a generation — so this reports what it can honestly know and
     /// says so.</summary>
-    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
         Task.FromResult(string.IsNullOrWhiteSpace(options.BaseUrl) || string.IsNullOrWhiteSpace(options.ApiKey)
-            ? new GenerationProbeResult(false, "not configured: BaseUrl and ApiKey are both required")
-            : new GenerationProbeResult(true,
+            ? new ProviderProbeResult(false, "not configured: BaseUrl and ApiKey are both required")
+            : new ProviderProbeResult(true,
                 "configured (credential presence only — the queue has no free validation endpoint, and a probe " +
                 "must not enqueue a billable request)"));
 

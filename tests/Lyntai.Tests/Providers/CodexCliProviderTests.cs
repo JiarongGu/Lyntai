@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
@@ -79,9 +80,11 @@ public class CodexCliProviderTests
     [Fact]
     public void It_claims_exactly_the_capabilities_the_codex_cli_actually_has()
     {
-        ILlmProvider provider = Provider(new FakeProcessRunner());
+        IModelProvider provider = Provider(new FakeProcessRunner());
 
-        Assert.IsAssignableFrom<IProviderProbe>(provider);   // codex --version
+        // Probing is no longer a TYPE question — ProbeAsync is on IModelProvider with a default (D127), so
+        // assignability would pass for every backend and prove nothing. What this family actually
+        // claims is that the probe is OVERRIDDEN, which the version test below asserts by behaviour.
         Assert.IsAssignableFrom<IProviderUpdater>(provider);        // codex update
         Assert.IsAssignableFrom<IProviderAuth>(provider);           // codex login status / login / logout
 
@@ -485,7 +488,7 @@ public class CodexCliProviderTests
         services.AddLyntai(cfg => cfg.AddCodexCliProvider(command: StubCommand).UseDefaultCandidates("codex-cli"));
         using var sp = services.BuildServiceProvider();
 
-        var providers = sp.GetServices<ILlmProvider>().ToList();
+        var providers = sp.GetServices<IModelProvider>().ToList();
 
         Assert.Contains(providers, p => p.Id == CodexCliProvider.ProviderId);
     }
@@ -500,7 +503,7 @@ public class CodexCliProviderTests
             environment: new Dictionary<string, string> { ["CODEX_HOME"] = "portable/home" }));
         using var sp = services.BuildServiceProvider();
 
-        var provider = sp.GetServices<ILlmProvider>().Single(p => p.Id == CodexCliProvider.ProviderId);
+        var provider = sp.GetServices<IModelProvider>().Single(p => p.Id == CodexCliProvider.ProviderId);
 
         Assert.True(provider.IsAvailable);   // resolves `node` (the stub's launcher), not a global codex
     }

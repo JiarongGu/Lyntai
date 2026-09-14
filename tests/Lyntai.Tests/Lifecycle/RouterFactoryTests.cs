@@ -24,17 +24,17 @@ public class RouterFactoryTests
 
     // every remaining constructor parameter is optional: no policy, no governance, no admission
     private static GenerationRouterFactory Factory(
-        IProviderPool<IGenerationProvider> pool, DeadHostTracker? tracker = null) =>
+        IProviderPool<IModelProvider> pool, DeadHostTracker? tracker = null) =>
         new(pool, tracker ?? new DeadHostTracker());
 
     [Fact]
     public async Task The_pooled_overload_routes_over_the_pooled_instance()
     {
-        var pool = new BoundedProviderPool<IGenerationProvider>();
+        var pool = new BoundedProviderPool<IModelProvider>();
         var factory = Factory(pool);
         var backend = new FakeGenerationProvider { Id = "a1111" };
 
-        var router = factory.For([new ProviderRegistration<IGenerationProvider>(Key("a"), () => backend)]);
+        var router = factory.For([new ProviderRegistration<IModelProvider>(Key("a"), () => backend)]);
         var result = await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
 
         Assert.True(result.IsOk);
@@ -44,12 +44,12 @@ public class RouterFactoryTests
     [Fact]
     public void The_pooled_overload_reuses_across_calls()
     {
-        var pool = new BoundedProviderPool<IGenerationProvider>();
+        var pool = new BoundedProviderPool<IModelProvider>();
         var factory = Factory(pool);
         var built = 0;
 
         for (var i = 0; i < 3; i++)
-            factory.For([new ProviderRegistration<IGenerationProvider>(Key("a"), () =>
+            factory.For([new ProviderRegistration<IModelProvider>(Key("a"), () =>
             {
                 built++;
                 return new FakeGenerationProvider { Id = "a1111" };
@@ -62,7 +62,7 @@ public class RouterFactoryTests
     [Fact]
     public async Task Cooldown_survives_a_router_rebuilt_on_every_call()
     {
-        var pool = new BoundedProviderPool<IGenerationProvider>();
+        var pool = new BoundedProviderPool<IModelProvider>();
         var tracker = new DeadHostTracker(threshold: 2);
         var factory = Factory(pool, tracker);
 
@@ -71,7 +71,7 @@ public class RouterFactoryTests
 
         for (var i = 0; i < 2; i++)
         {
-            var router = factory.For([new ProviderRegistration<IGenerationProvider>(Key("a"), () => failing)]);
+            var router = factory.For([new ProviderRegistration<IModelProvider>(Key("a"), () => failing)]);
             await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
         }
 
@@ -82,14 +82,14 @@ public class RouterFactoryTests
     [Fact]
     public async Task Two_configurations_of_one_backend_bench_independently()
     {
-        var pool = new BoundedProviderPool<IGenerationProvider>();
+        var pool = new BoundedProviderPool<IModelProvider>();
         var tracker = new DeadHostTracker(threshold: 1);
         var factory = Factory(pool, tracker);
 
         var failing = new FakeGenerationProvider { Id = "a1111" };
         failing.Verdicts.Enqueue(GenerationVerdict.RateLimited);
 
-        var router = factory.For([new ProviderRegistration<IGenerationProvider>(Key("cfg-a"), () => failing)]);
+        var router = factory.For([new ProviderRegistration<IModelProvider>(Key("cfg-a"), () => failing)]);
         await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
 
         Assert.True(tracker.IsDead($"generation::{Key("cfg-a")}"));
@@ -100,14 +100,14 @@ public class RouterFactoryTests
     [Fact]
     public async Task The_instance_overload_keys_cooldown_on_the_provider_id()
     {
-        var pool = new BoundedProviderPool<IGenerationProvider>();
+        var pool = new BoundedProviderPool<IModelProvider>();
         var tracker = new DeadHostTracker(threshold: 1);
         var factory = Factory(pool, tracker);
 
         var failing = new FakeGenerationProvider { Id = "a1111" };
         failing.Verdicts.Enqueue(GenerationVerdict.RateLimited);
 
-        var router = factory.For([(IGenerationProvider)failing]);
+        var router = factory.For([(IModelProvider)failing]);
         await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
 
         Assert.True(tracker.IsDead("generation::a1111"));
@@ -122,12 +122,12 @@ public class RouterFactoryTests
     [Fact]
     public void Two_registrations_sharing_a_slot_in_one_call_throw_and_name_it()
     {
-        var pool = new BoundedProviderPool<IGenerationProvider>();
+        var pool = new BoundedProviderPool<IModelProvider>();
         var factory = Factory(pool);
 
         var error = Assert.Throws<ArgumentException>(() => factory.For([
-            new ProviderRegistration<IGenerationProvider>(Key("cfg-a"), () => new FakeGenerationProvider { Id = "a1111" }),
-            new ProviderRegistration<IGenerationProvider>(Key("cfg-b"), () => new FakeGenerationProvider { Id = "a1111" }),
+            new ProviderRegistration<IModelProvider>(Key("cfg-a"), () => new FakeGenerationProvider { Id = "a1111" }),
+            new ProviderRegistration<IModelProvider>(Key("cfg-b"), () => new FakeGenerationProvider { Id = "a1111" }),
         ]));
 
         Assert.Contains("a1111", error.Message);
@@ -140,25 +140,25 @@ public class RouterFactoryTests
     [Fact]
     public void Slots_differing_only_in_case_are_the_same_backend_and_throw()
     {
-        var factory = Factory(new BoundedProviderPool<IGenerationProvider>());
+        var factory = Factory(new BoundedProviderPool<IModelProvider>());
 
         Assert.Throws<ArgumentException>(() => factory.For([
-            new ProviderRegistration<IGenerationProvider>(Key("cfg-a", "a1111"), () => new FakeGenerationProvider { Id = "a1111" }),
-            new ProviderRegistration<IGenerationProvider>(Key("cfg-b", "A1111"), () => new FakeGenerationProvider { Id = "A1111" }),
+            new ProviderRegistration<IModelProvider>(Key("cfg-a", "a1111"), () => new FakeGenerationProvider { Id = "a1111" }),
+            new ProviderRegistration<IModelProvider>(Key("cfg-b", "A1111"), () => new FakeGenerationProvider { Id = "A1111" }),
         ]));
     }
 
     [Fact]
     public async Task Distinct_slots_in_one_call_still_compose_normally()
     {
-        var pool = new BoundedProviderPool<IGenerationProvider>();
+        var pool = new BoundedProviderPool<IModelProvider>();
         var factory = Factory(pool);
         var primary = new FakeGenerationProvider { Id = "a1111" };
         var secondary = new FakeGenerationProvider { Id = "comfyui" };
 
         var router = factory.For([
-            new ProviderRegistration<IGenerationProvider>(Key("cfg", "a1111"), () => primary),
-            new ProviderRegistration<IGenerationProvider>(Key("cfg", "comfyui"), () => secondary),
+            new ProviderRegistration<IModelProvider>(Key("cfg", "a1111"), () => primary),
+            new ProviderRegistration<IModelProvider>(Key("cfg", "comfyui"), () => secondary),
         ]);
         var result = await router.GenerateAsync([new ProviderCandidate("comfyui")], Request());
 
@@ -172,10 +172,10 @@ public class RouterFactoryTests
     [Fact]
     public async Task A_single_registration_is_unaffected_by_the_duplicate_check()
     {
-        var pool = new BoundedProviderPool<IGenerationProvider>();
+        var pool = new BoundedProviderPool<IModelProvider>();
         var backend = new FakeGenerationProvider { Id = "a1111" };
 
-        var router = Factory(pool).For([new ProviderRegistration<IGenerationProvider>(Key("a"), () => backend)]);
+        var router = Factory(pool).For([new ProviderRegistration<IModelProvider>(Key("a"), () => backend)]);
         var result = await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
 
         Assert.True(result.IsOk);
@@ -191,7 +191,7 @@ public class RouterFactoryTests
         var first = new FakeGenerationProvider { Id = "a1111" };
         var second = new FakeGenerationProvider { Id = "a1111" };
 
-        var router = Factory(new BoundedProviderPool<IGenerationProvider>()).For([first, (IGenerationProvider)second]);
+        var router = Factory(new BoundedProviderPool<IModelProvider>()).For([first, (IModelProvider)second]);
         var result = await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
 
         Assert.True(result.IsOk);
@@ -206,13 +206,13 @@ public class RouterFactoryTests
     [Fact]
     public void The_llm_factory_rejects_two_registrations_sharing_a_slot()
     {
-        var pool = new BoundedProviderPool<ILlmProvider>();
+        var pool = new BoundedProviderPool<IModelProvider>();
         var factory = LlmFactory(pool, new DeadHostTracker());
 
         var error = Assert.Throws<ArgumentException>(() => factory.For([
-            new ProviderRegistration<ILlmProvider>(
+            new ProviderRegistration<IModelProvider>(
                 ProviderKey.For("openai").With("tenant", "a").Build(), () => new FakeLlmProvider("openai")),
-            new ProviderRegistration<ILlmProvider>(
+            new ProviderRegistration<IModelProvider>(
                 ProviderKey.For("OpenAI").With("tenant", "b").Build(), () => new FakeLlmProvider("OpenAI")),
         ]));
 
@@ -273,7 +273,7 @@ public class RouterFactoryTests
 
     // ---- the LLM factory ------------------------------------------------------------------------------
 
-    private static LlmRouterFactory LlmFactory(IProviderPool<ILlmProvider> pool, DeadHostTracker tracker) =>
+    private static LlmRouterFactory LlmFactory(IProviderPool<IModelProvider> pool, DeadHostTracker tracker) =>
         new(pool, tracker, new LyntaiOptions());
 
     private static LlmRequest Prompt() => new() { Messages = [LlmMessage.User("hi")] };
@@ -281,7 +281,7 @@ public class RouterFactoryTests
     [Fact]
     public async Task The_llm_pooled_overload_routes_over_the_pooled_instance_and_benches_its_configuration()
     {
-        var pool = new BoundedProviderPool<ILlmProvider>();
+        var pool = new BoundedProviderPool<IModelProvider>();
         var tracker = new DeadHostTracker(threshold: 1);
         var key = ProviderKey.For("openai").With("tenant", "a").Build();
 
@@ -289,7 +289,7 @@ public class RouterFactoryTests
         provider.Replies.Enqueue(new LlmReply("nope", LlmVerdict.RateLimited));
 
         var router = LlmFactory(pool, tracker)
-            .For([new ProviderRegistration<ILlmProvider>(key, () => provider)]);
+            .For([new ProviderRegistration<IModelProvider>(key, () => provider)]);
         await router.CompleteAsync([new ProviderCandidate("openai")], Prompt());
 
         Assert.Single(provider.Calls);
@@ -300,13 +300,13 @@ public class RouterFactoryTests
     [Fact]
     public async Task The_llm_instance_overload_keys_cooldown_on_the_provider_id()
     {
-        var pool = new BoundedProviderPool<ILlmProvider>();
+        var pool = new BoundedProviderPool<IModelProvider>();
         var tracker = new DeadHostTracker(threshold: 1);
 
         var provider = new FakeLlmProvider("openai");
         provider.Replies.Enqueue(new LlmReply("nope", LlmVerdict.RateLimited));
 
-        var router = LlmFactory(pool, tracker).For([(ILlmProvider)provider]);
+        var router = LlmFactory(pool, tracker).For([(IModelProvider)provider]);
         await router.CompleteAsync([new ProviderCandidate("openai")], Prompt());
 
         Assert.True(tracker.IsDead("openai"));

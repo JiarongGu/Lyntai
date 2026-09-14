@@ -20,7 +20,7 @@ namespace Lyntai.Tests.Generation;
 /// </summary>
 public class GenerationBackendsToolTests
 {
-    private static GenerationBackendsTool Tool(TimeSpan deadline, params IGenerationProvider[] providers)
+    private static GenerationBackendsTool Tool(TimeSpan deadline, params IModelProvider[] providers)
     {
         var options = new GenerationOptions { ProbeDeadline = deadline };
         return new GenerationBackendsTool(providers, options);
@@ -118,7 +118,7 @@ public class GenerationBackendsToolTests
         var peak = 0;
         var gate = new TaskCompletionSource();
 
-        IGenerationProvider Counting(string id) => new CountingProbeProvider(id, async ct =>
+        IModelProvider Counting(string id) => new CountingProbeProvider(id, async ct =>
         {
             var now = Interlocked.Increment(ref live);
             InterlockedMax(ref peak, now);
@@ -144,7 +144,7 @@ public class GenerationBackendsToolTests
     /// <summary>A backend whose probe runs a supplied body — for observing HOW the tool calls it rather than
     /// what it answers.</summary>
     private sealed class CountingProbeProvider(string id, Func<CancellationToken, Task> body)
-        : IGenerationProvider
+        : IModelProvider
     {
         public string Id => id;
 
@@ -154,10 +154,10 @@ public class GenerationBackendsToolTests
             Operations = [ProviderOperation.Complete],
         };
 
-        public async Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default)
+        public async Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
         {
             await body(ct).ConfigureAwait(false);
-            return new GenerationProbeResult(true, "counted");
+            return new ProviderProbeResult(true, "counted");
         }
 
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>

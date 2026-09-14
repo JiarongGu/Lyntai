@@ -55,7 +55,7 @@ namespace Lyntai.Generation.Routing;
 /// state.</para></param>
 /// <param name="admission">Bounds concurrent attempts per configuration — for a locally-run engine where
 /// simultaneous renders contend for one CPU or GPU. Null = unbounded. Applied HERE rather than by
-/// wrapping a provider, because a wrapper implementing only <see cref="IGenerationProvider"/> erases the
+/// wrapping a provider, because a wrapper implementing only <see cref="IModelProvider"/> erases the
 /// optional capability interfaces (<see cref="IGenerationJobProvider"/>) this router type-tests, which
 /// would silently stop every queued render from routing.
 ///
@@ -66,18 +66,18 @@ namespace Lyntai.Generation.Routing;
 /// finally disposed. Bounding a long-lived stream needs a lease the consumer cannot forget, which this is
 /// not.</para></param>
 public sealed class GenerationRouter(
-    IEnumerable<IGenerationProvider> providers,
+    IEnumerable<IModelProvider> providers,
     GenerationRoutingPolicy? policy = null,
     DeadHostTracker? deadHosts = null,
-    Func<IGenerationProvider, ProviderKey?>? configuration = null,
+    Func<IModelProvider, ProviderKey?>? configuration = null,
     IProviderAdmission? admission = null) : IGenerationRouter
 {
-    private readonly IReadOnlyList<IGenerationProvider> _providers = [.. providers];
+    private readonly IReadOnlyList<IModelProvider> _providers = [.. providers];
     private readonly GenerationRoutingPolicy _policy = policy ?? new GenerationRoutingPolicy();
 
     // resolved once: the no-delegate case must cost nothing per attempt, and a null-returning delegate must
     // be indistinguishable from no delegate at all
-    private readonly Func<IGenerationProvider, ProviderKey?> _configuration = configuration ?? (_ => null);
+    private readonly Func<IModelProvider, ProviderKey?> _configuration = configuration ?? (_ => null);
 
     /// <inheritdoc/>
     public async Task<GenerationResult> GenerateAsync(
@@ -274,11 +274,11 @@ public sealed class GenerationRouter(
 
             // Declaring Stream in Capabilities and not implementing the seam is a configuration fault, not a
             // crash: the router is the trust boundary for what a third-party backend claims about itself.
-            if (provider is not IGenerationStreamProvider streamer)
+            if (provider is not IModelProvider streamer)
             {
                 firstBlameless ??= GenerationChunk.Failure(GenerationVerdict.Unsupported,
                     $"{provider.Id}: advertises {ProviderOperation.Stream} delivery but does not implement " +
-                    $"{nameof(IGenerationStreamProvider)}");
+                    $"{nameof(IModelProvider)}");
                 continue;
             }
 
@@ -432,7 +432,7 @@ public sealed class GenerationRouter(
     /// <summary>One backend attempt, wrapped in a span + duration/cost metrics. Per ATTEMPT, not per request:
     /// a trace of a fallback run has to show the attempt that failed as well as the one that worked.</summary>
     private async Task<GenerationResult> AttemptAsync(
-        IGenerationProvider provider, GenerationRequest request, CancellationToken ct)
+        IModelProvider provider, GenerationRequest request, CancellationToken ct)
     {
         // the permit is taken BEFORE the clock starts, so a queued render's wait never inflates the
         // backend's reported latency
@@ -451,7 +451,7 @@ public sealed class GenerationRouter(
         }
         catch (Exception ex)
         {
-            // THE TRUST BOUNDARY. IGenerationProvider documents "a value with a verdict, never a throw", and
+            // THE TRUST BOUNDARY. IModelProvider documents "a value with a verdict, never a throw", and
             // AddGenerationProvider is a documented BYO seam — so a backend that breaks that contract is a
             // case this router HANDLES rather than a case that cannot happen. Without this, one throwing
             // backend killed the whole chain: the healthy candidate was never tried, RecordGeneration never
@@ -507,14 +507,14 @@ public sealed class GenerationRouter(
     /// disposing: a permit that is not returned pins its gate for the life of the process, so every call site
     /// scopes the result with <c>using</c> and lets success, failure, a throw and cancellation all release
     /// it the same way.</summary>
-    private async ValueTask<IDisposable?> EnterAdmissionAsync(IGenerationProvider provider, CancellationToken ct) =>
+    private async ValueTask<IDisposable?> EnterAdmissionAsync(IModelProvider provider, CancellationToken ct) =>
         admission is not null && _configuration(provider) is { } key
             ? await admission.EnterAsync(key, ct).ConfigureAwait(false)
             : null;
 
     /// <summary>Whether this backend is benched — honouring the sole-candidate exemption, so the only capable
     /// backend is always tried.</summary>
-    private bool IsBenched(IGenerationProvider provider, int capableCount) =>
+    private bool IsBenched(IModelProvider provider, int capableCount) =>
         deadHosts is not null &&
         !(capableCount == 1 && _policy.ExemptSoleCandidate) &&
         deadHosts.IsDead(CooldownKey(provider));
@@ -525,7 +525,7 @@ public sealed class GenerationRouter(
     /// <para>Within the domain the key is the CONFIGURATION when one is known, falling back to the backend id
     /// otherwise — the two configurations of one backend id that a pool keeps live must bench independently,
     /// while two consumers of one downed self-hosted host must share a bench.</para></summary>
-    private string CooldownKey(IGenerationProvider provider) =>
+    private string CooldownKey(IModelProvider provider) =>
         $"generation::{_configuration(provider)?.ToString() ?? provider.Id}";
 
     /// <summary>Candidates that exist, are registered, are DISTINCT, and DECLARE they can serve this
@@ -543,10 +543,10 @@ public sealed class GenerationRouter(
     ///
     /// <para>The dedup itself is the LLM router's (<see cref="CandidateDedup"/>) — first wins, order preserved
     /// — rather than a second copy of it here.</para></summary>
-    private List<(IGenerationProvider Provider, GenerationRequest Request)> Capable(
+    private List<(IModelProvider Provider, GenerationRequest Request)> Capable(
         IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, ProviderOperation delivery)
     {
-        var resolved = new List<(IGenerationProvider Provider, GenerationRequest Request)>();
+        var resolved = new List<(IModelProvider Provider, GenerationRequest Request)>();
         foreach (var candidate in candidates)
         {
             var provider = _providers.FirstOrDefault(p =>
@@ -559,7 +559,7 @@ public sealed class GenerationRouter(
 
         // capability LAST: a duplicate is dropped before it is asked, and the surviving count is the number
         // of distinct backends this request could actually reach
-        var capable = new List<(IGenerationProvider, GenerationRequest)>();
+        var capable = new List<(IModelProvider, GenerationRequest)>();
         foreach (var entry in CandidateDedup.Dedup(resolved, e => (e.Provider.Id, e.Request.Model)))
         {
             // Where a domain REQUEST becomes a generic capability query. The mapping is the whole of what

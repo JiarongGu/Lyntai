@@ -10,7 +10,7 @@ namespace Lyntai.Tests.Generation;
 /// spent — capability first, verdict-driven fallback second.</summary>
 public class GenerationRouterTests
 {
-    private static GenerationRouter Router(params IGenerationProvider[] providers) => new(providers);
+    private static GenerationRouter Router(params IModelProvider[] providers) => new(providers);
 
     private static GenerationRequest Image() => new() { Kind = GenerationKinds.Image, Prompt = "a red square" };
 

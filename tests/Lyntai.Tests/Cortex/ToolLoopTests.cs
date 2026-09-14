@@ -235,7 +235,7 @@ public class ToolLoopTests
         Assert.Equal(3, result.Usage.OutputTokens);
     }
 
-    // ---- native tool-calling path (client.SupportsToolCalls == true) ---------------------------------
+    // ---- native tool-calling path (client.Capabilities.SupportsToolCalls == true) ---------------------------------
 
     private static ToolLoop NativeLoop(FakeLlmClient client, params ITool[] tools)
     {

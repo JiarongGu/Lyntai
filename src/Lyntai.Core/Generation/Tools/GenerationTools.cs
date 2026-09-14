@@ -135,7 +135,7 @@ internal static class GenerationToolJson
     /// argument or an unknown backend in exactly the same words.</summary>
     public static bool TryReadOperation(
         JsonDocument args,
-        IEnumerable<IGenerationProvider> providers,
+        IEnumerable<IModelProvider> providers,
         [NotNullWhen(true)] out IGenerationJobProvider? backend,
         out string backendId,
         out string operationId,
@@ -185,7 +185,7 @@ internal static class GenerationToolJson
 /// whose count this type does not choose, so one slow backend would eat the budget of every backend after
 /// it — and which ones those are would depend on registration order.</para></remarks>
 public sealed class GenerationBackendsTool(
-    IEnumerable<IGenerationProvider> providers, GenerationOptions? options = null) : ITool
+    IEnumerable<IModelProvider> providers, GenerationOptions? options = null) : ITool
 {
     private readonly GenerationOptions _options = options ?? new GenerationOptions();
 
@@ -255,8 +255,8 @@ public sealed class GenerationBackendsTool(
     /// for a BYO backend that throws instead of returning a verdict, and this is a second reader of the same
     /// registered collection — it applied none of it, so one third-party defect discarded the listing of every
     /// other backend.</para></remarks>
-    private static async Task<(IGenerationProvider Provider, GenerationProbeResult Probe)> ProbeAsync(
-        IGenerationProvider provider, CancellationToken caller, CancellationToken budget)
+    private static async Task<(IModelProvider Provider, ProviderProbeResult Probe)> ProbeAsync(
+        IModelProvider provider, CancellationToken caller, CancellationToken budget)
     {
         try
         {
@@ -268,12 +268,12 @@ public sealed class GenerationBackendsTool(
         }
         catch (OperationCanceledException)
         {
-            return (provider, new GenerationProbeResult(false,
+            return (provider, new ProviderProbeResult(false,
                 "the probe did not answer within this listing's deadline (GenerationOptions.ProbeDeadline)"));
         }
         catch (Exception ex)
         {
-            return (provider, new GenerationProbeResult(false, $"the probe failed: {ex.Message}"));
+            return (provider, new ProviderProbeResult(false, $"the probe failed: {ex.Message}"));
         }
     }
 }
@@ -421,7 +421,7 @@ public sealed class GenerationSubmitTool(
 }
 
 /// <summary>Reports where a submitted generation is.</summary>
-public sealed class GenerationStatusTool(IEnumerable<IGenerationProvider> providers) : ITool
+public sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) : ITool
 {
     /// <inheritdoc/>
     public string Name => "generate_status";
@@ -474,7 +474,7 @@ public sealed class GenerationStatusTool(IEnumerable<IGenerationProvider> provid
 /// use, so one <c>Budget.PerConsumer["agent"]</c> entry binds every agent-driven render regardless of which
 /// delivery mode produced it.</param>
 public sealed class GenerationFetchTool(
-    IEnumerable<IGenerationProvider> providers,
+    IEnumerable<IModelProvider> providers,
     IGenerationArtifactSink? sink = null,
     Lyntai.Llm.Budgeting.IUsageTracker? usage = null,
     string consumer = LlmConsumers.Agent) : ITool
@@ -531,7 +531,7 @@ internal static class GenerationToolRegistry
 {
     /// <summary>The registered backend with this id, IF it is asynchronous. Null covers both "no such backend"
     /// and "that one is inline-only" — a model gets one clear message either way.</summary>
-    public static IGenerationJobProvider? JobBackend(IEnumerable<IGenerationProvider> providers, string id) =>
+    public static IGenerationJobProvider? JobBackend(IEnumerable<IModelProvider> providers, string id) =>
         providers.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase))
             as IGenerationJobProvider;
 }

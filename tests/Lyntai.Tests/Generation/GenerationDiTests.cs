@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;
@@ -19,7 +20,7 @@ public class GenerationDiTests
             .AddGenerationProvider(_ => new FakeGenerationJobProvider { Id = "b" }));
         using var sp = services.BuildServiceProvider();
 
-        var ids = sp.GetServices<IGenerationProvider>().Select(p => p.Id).ToList();
+        var ids = sp.GetServices<IModelProvider>().Select(p => p.Id).ToList();
 
         Assert.Contains("a", ids);
         Assert.Contains("b", ids);

@@ -41,7 +41,7 @@ public sealed class OpenAiImageOptions
 }
 
 /// <summary>
-/// An <see cref="IGenerationProvider"/> over an OpenAI-compatible images API — the cloud service, or any local
+/// An <see cref="IModelProvider"/> over an OpenAI-compatible images API — the cloud service, or any local
 /// server that speaks the same shape. INLINE delivery: one request, artifacts back.
 ///
 /// Two endpoints, chosen by whether the request carries inputs:
@@ -63,7 +63,7 @@ public sealed class OpenAiImageOptions
 /// client the HOST owns (a singleton, a Polly-decorated one): disposing that leaves the second call throwing
 /// <see cref="ObjectDisposedException"/>. <c>AddOpenAiImageProvider</c> sets this for you.</param>
 public sealed class OpenAiImageProvider(
-    OpenAiImageOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true) : IGenerationProvider
+    OpenAiImageOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true) : IModelProvider
 {
     /// <inheritdoc/>
     public string Id => options.Id;
@@ -82,14 +82,14 @@ public sealed class OpenAiImageProvider(
     /// nothing, instead of the generate-and-discard test this replaces. Bounded by
     /// <see cref="OpenAiImageOptions.Timeout"/>: the shim's client has no timeout of its own, so an
     /// unresponsive host would otherwise stall the probe indefinitely.</summary>
-    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct, ProbeCoreAsync,
-            reason => new GenerationProbeResult(false, $"probe {reason}"));
+            reason => new ProviderProbeResult(false, $"probe {reason}"));
 
-    private async Task<GenerationProbeResult> ProbeCoreAsync(CancellationToken ct)
+    private async Task<ProviderProbeResult> ProbeCoreAsync(CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
-            return new GenerationProbeResult(false, "not configured: no BaseUrl");
+            return new ProviderProbeResult(false, "not configured: no BaseUrl");
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
@@ -100,19 +100,19 @@ public sealed class OpenAiImageProvider(
             using var response = await http.SendAsync(request, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
-                return new GenerationProbeResult(true, "models endpoint answered");
+                return new ProviderProbeResult(true, "models endpoint answered");
             // the same distinction the generate path makes, so a probe's reason matches the verdict a render
             // would get: "not configured" reads as a setup step, "rejected" reads as a wrong key
             var unconfigured = GenerationVerdictClassifier.FromHttpFailure(response.StatusCode, body, HasCredentials)
                 == GenerationVerdict.NotConfigured;
-            return new GenerationProbeResult(false, unconfigured
+            return new ProviderProbeResult(false, unconfigured
                 ? $"not configured: the endpoint requires an ApiKey ({(int)response.StatusCode})"
                 : $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return new GenerationProbeResult(false, $"probe failed: {ex.Message}");
+            return new ProviderProbeResult(false, $"probe failed: {ex.Message}");
         }
     }
 

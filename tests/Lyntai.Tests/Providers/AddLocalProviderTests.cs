@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Providers.Local;
@@ -28,7 +29,7 @@ public class AddLocalProviderTests
         services.AddLyntai(b => b.AddLocalProvider(MissingModel(), id: "local"));
         using var sp = services.BuildServiceProvider();
 
-        Assert.Contains(sp.GetServices<ILlmProvider>(), p => p.Id == "local");
+        Assert.Contains(sp.GetServices<IModelProvider>(), p => p.Id == "local");
     }
 
     [Fact]
@@ -38,7 +39,7 @@ public class AddLocalProviderTests
         services.AddLyntai(b => b.AddLocalProvider(MissingModel(), o => o.GpuLayerCount = 20, id: "phi-local"));
         using var sp = services.BuildServiceProvider();
 
-        Assert.Contains(sp.GetServices<ILlmProvider>(), p => p.Id == "phi-local");
+        Assert.Contains(sp.GetServices<IModelProvider>(), p => p.Id == "phi-local");
     }
 
     [Fact]

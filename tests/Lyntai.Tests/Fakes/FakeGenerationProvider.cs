@@ -6,7 +6,7 @@ namespace Lyntai.Tests.Fakes;
 
 /// <summary>An INLINE media backend for exercising the platform without any real service. Scriptable per
 /// call so a router test can drive a specific verdict sequence.</summary>
-public sealed class FakeGenerationProvider : IGenerationProvider
+public sealed class FakeGenerationProvider : IModelProvider
 {
     public string Id { get; init; } = "fake-generation";
 
@@ -28,10 +28,10 @@ public sealed class FakeGenerationProvider : IGenerationProvider
     public int GenerateCalls { get; private set; }
     public int ProbeCalls { get; private set; }
 
-    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default)
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
     {
         ProbeCalls++;
-        return Task.FromResult(new GenerationProbeResult(ProbeAvailable,
+        return Task.FromResult(new ProviderProbeResult(ProbeAvailable,
             ProbeAvailable ? "fake ready" : "fake not configured"));
     }
 
@@ -55,7 +55,7 @@ public sealed class FakeGenerationProvider : IGenerationProvider
 }
 
 /// <summary>An ASYNC-JOB backend: submit → queued, first poll → succeeded, fetch → an mp4.</summary>
-public sealed class FakeGenerationJobProvider : IGenerationProvider, IGenerationJobProvider
+public sealed class FakeGenerationJobProvider : IModelProvider, IGenerationJobProvider
 {
     public string Id { get; init; } = "fake-video";
 
@@ -83,8 +83,8 @@ public sealed class FakeGenerationJobProvider : IGenerationProvider, IGeneration
     /// <summary>Detail carried on the polled operation (a failure reason, a queue position).</summary>
     public string? PollDetail { get; set; }
 
-    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
-        Task.FromResult(new GenerationProbeResult(true, "fake video ready"));
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        Task.FromResult(new ProviderProbeResult(true, "fake video ready"));
 
     /// <summary>Inline is NOT this backend's mode; the base seam must still answer honestly.</summary>
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
@@ -119,7 +119,7 @@ public sealed class FakeGenerationJobProvider : IGenerationProvider, IGeneration
 }
 
 /// <summary>A STREAMING backend: two content chunks, then a terminal completion.</summary>
-public sealed class FakeGenerationStreamProvider : IGenerationProvider, IGenerationStreamProvider
+public sealed class FakeGenerationStreamProvider : IModelProvider
 {
     public string Id { get; init; } = "fake-tts";
 
@@ -129,8 +129,8 @@ public sealed class FakeGenerationStreamProvider : IGenerationProvider, IGenerat
         Operations = [ProviderOperation.Stream, ProviderOperation.Complete],
     };
 
-    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
-        Task.FromResult(new GenerationProbeResult(true, "fake tts ready"));
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        Task.FromResult(new ProviderProbeResult(true, "fake tts ready"));
 
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
         Task.FromResult(GenerationResult.Success([new GenerationArtifact("audio/mpeg", Data: [1, 2, 3, 4])]));
@@ -149,7 +149,7 @@ public sealed class FakeGenerationStreamProvider : IGenerationProvider, IGenerat
 /// produces and the shapes the router has to survive: a failure before any data, a failure after data, a
 /// stream that simply stops, and a throw. <see cref="StreamCalls"/> is what proves a fallback did — or did
 /// NOT — reach the next candidate.</summary>
-public sealed class ScriptedStreamProvider : IGenerationProvider, IGenerationStreamProvider
+public sealed class ScriptedStreamProvider : IModelProvider
 {
     public string Id { get; init; } = "scripted";
 
@@ -168,8 +168,8 @@ public sealed class ScriptedStreamProvider : IGenerationProvider, IGenerationStr
         Operations = [ProviderOperation.Stream],
     };
 
-    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
-        Task.FromResult(new GenerationProbeResult(true, "scripted"));
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        Task.FromResult(new ProviderProbeResult(true, "scripted"));
 
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
         Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "streaming only"));
@@ -192,7 +192,7 @@ public sealed class ScriptedStreamProvider : IGenerationProvider, IGenerationStr
 /// shapes <c>generate_backends</c> has to survive: a probe is capped only by the backend's own
 /// <c>Timeout</c>, which is a RENDER budget (ten minutes on two shipped backends), and a BYO backend may
 /// throw where the seam says to return a result.</summary>
-public sealed class BadProbeProvider : IGenerationProvider
+public sealed class BadProbeProvider : IModelProvider
 {
     public string Id { get; init; } = "bad-probe";
 
@@ -205,11 +205,11 @@ public sealed class BadProbeProvider : IGenerationProvider
     /// <summary>Thrown from <see cref="ProbeAsync"/> instead of stalling, when set.</summary>
     public Exception? Throws { get; init; }
 
-    public async Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default)
+    public async Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
     {
         if (Throws is not null) throw Throws;
         await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);   // stalls until the listing's deadline
-        return new GenerationProbeResult(true, "unreachable");
+        return new ProviderProbeResult(true, "unreachable");
     }
 
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
@@ -217,9 +217,9 @@ public sealed class BadProbeProvider : IGenerationProvider
 }
 
 /// <summary>Advertises <see cref="ProviderOperation.Stream"/> and does NOT implement
-/// <see cref="IGenerationStreamProvider"/> — the shape a BYO backend can ship, and the reason the router
+/// <see cref="IModelProvider"/> — the shape a BYO backend can ship, and the reason the router
 /// re-checks a capability claim rather than casting on trust.</summary>
-public sealed class LyingStreamProvider : IGenerationProvider
+public sealed class LyingStreamProvider : IModelProvider
 {
     public string Id { get; init; } = "liar";
 
@@ -229,8 +229,8 @@ public sealed class LyingStreamProvider : IGenerationProvider
         Operations = [ProviderOperation.Stream],
     };
 
-    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
-        Task.FromResult(new GenerationProbeResult(true, "liar"));
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        Task.FromResult(new ProviderProbeResult(true, "liar"));
 
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
         Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "no"));

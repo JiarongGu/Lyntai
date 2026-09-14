@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.Json;
 using Lyntai;
 using Lyntai.Agents;
@@ -24,7 +25,7 @@ public class GenerationToolsTests
         }
     }
 
-    private static ServiceProvider Host(CollectingSink? sink = null, params IGenerationProvider[] backends)
+    private static ServiceProvider Host(CollectingSink? sink = null, params IModelProvider[] backends)
     {
         var services = new ServiceCollection();
         services.AddLyntai(cfg =>

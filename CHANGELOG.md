@@ -14,6 +14,21 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **ONE provider interface: `Lyntai.Lifecycle.IModelProvider`** (**D127**). It replaces `ILlmProvider`, <!-- drift-ok: the entry announcing a removal has to name what it removed -->
+  `IGenerationProvider`, `IGenerationStreamProvider` and `IProviderProbe`. <!-- drift-ok: the removal entry names what it removed --> A backend now declares `Id`,
+  `IsAvailable` and `Capabilities`, and overrides only the operations it serves — `CompleteAsync`,
+  `StreamAsync`, `EmbedAsync`, `GenerateAsync` and `ProbeAsync` all have default bodies reporting
+  `Unsupported`, and a router filters on the declaration before dispatching, so an unserved operation is
+  never called. **Migration** is the interface name, a `using Lyntai.Lifecycle;`, and adding a
+  `Capabilities` property; the tool-call flags move from ad-hoc properties into
+  `ProviderCapabilities.SupportsToolCalls` / `.SupportsStreamingToolCalls`.
+  <br>**Named `IModelProvider` rather than `IProvider`** because the bare word collides with
+  `IServiceProvider` and every DI sense of "provider", while these are specifically model backends.
+  <br>**`IGenerationJobProvider` SURVIVES** — submit/poll/fetch/cancel is a stateful protocol keyed on a
+  handle, which is a contract shape rather than a content type, and the whole point of this change is that
+  content type belongs in data. `GenerationProbeResult` merges into `ProviderProbeResult`, which the LLM
+  domain had been duplicating in a different field order.
+
 - **`GenerationCapabilities` and `GenerationDelivery` are replaced by `Lyntai.Lifecycle.ProviderCapabilities` <!-- drift-ok: the entry announcing a rename has to name what it renamed -->
   and `ProviderOperation`** (**D126**). Capability is DATA in every domain now, not just in generation: a
   backend declares which content `Kinds` it serves, which `Operations`, and which `Models`, and a router
@@ -83,8 +98,8 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   rather than guessed.
 
 - **`IEmbeddingProvider` — embedding backends join the provider family** (**D124**). `IProviderIdentity` +
-  `IEmbedder`, so an embedder carries the `Id` and `IsAvailable` that `ILlmProvider` and
-  `IGenerationProvider` already do: a deployment can register more than one and tell them apart, and a
+  `IEmbedder`, so an embedder carries the `Id` and `IsAvailable` that `IModelProvider` and
+  `IModelProvider` already do: a deployment can register more than one and tell them apart, and a
   diagnostic can say WHICH embedder produced a vector. **Additive on purpose** — `IEmbedder` is unchanged,
   because adding a base interface that introduces a required `Id` would break every BYO embedder at
   compile. `StaticEmbedder` and `OnnxEmbedder` both implement it; `StaticEmbedderOptions` gains `Id`.
@@ -879,7 +894,7 @@ order; the surface changes are:
   |---|---|
   | `MemoryCompositionOptions.AuthoritativeReserve` | `AuthoritativeCharacters` |
   | `MemoryEngineBuilder.Reserve(characters)` | `ReserveCharacters(characters)` |   <!-- drift-ok: a rename record NAMES the retired spelling -->
-  | `IProviderInstallation` | `IProviderProbe` |   <!-- drift-ok: a rename record NAMES the retired spelling -->
+  | `IProviderInstallation` | `IModelProvider` |   <!-- drift-ok: a rename record NAMES the retired spelling -->
   | `GraphMemoryEngine(policy:)` / `UseGraph(policy:)` | `retrievability:` |
   | `CuratedMemorySections(task:)` | `taskKey:` |
   | `MemoryProvenance.EnsureEachBitIsSingleRealAndUnique` | `ValidateProvenanceBits` |   <!-- drift-ok: a rename record NAMES the retired spelling -->
@@ -1085,7 +1100,7 @@ references to documents that no longer exist, and the migration guide's missing 
   application and are resolved **by name**, the way `IHttpClientFactory` resolves clients. Until now every
   memory surface was a single unnamed singleton, so an application wanting a *chat* memory and a *project*
   memory had to wrap all of it itself — the same wrapper in every consumer, and none of them able to share
-  it. Registration is a DI collection keyed by `Name`, the same variation-point shape as `ILlmProvider`
+  it. Registration is a DI collection keyed by `Name`, the same variation-point shape as `IModelProvider`
   keyed by `Id` and picked by `ILlmRouter`, so a fourth kind of memory is a class plus a registration.
   Thin engines adapt the three existing stores (`IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore`),
   and a **blend is itself an engine** (`CompositeMemoryEngine`), so naming, blending, remembering and
@@ -1435,7 +1450,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
 - **The cross-backend memory-recall guarantee is stated correctly.** `IMemoryStore.RecallAsync` and
   `ICuratedMemoryStore.SearchAsync` asserted a guarantee their own next sentence contradicted; it holds for a
   **single-token** query, and a multi-token query is per-token on SQLite and contiguous-substring elsewhere.
-- **`IGenerationStreamProvider` says that nothing implements it.** The seam is designed, not exercised: no
+- **`IModelProvider` says that nothing implements it.** The seam is designed, not exercised: no
   backend implements it and no router path consumes it, so a backend advertising streaming delivery is
   unreachable. Its chunk shape is modelled on the LLM contract rather than measured against a real TTS wire
   format, and the first real backend may reshape it.
@@ -1517,13 +1532,13 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   interfaces the generation router type-tests — which would silently stop every queued render from routing.
   Completion paths only: streams are deliberately not gated, since a stream would hold its permit for the
   whole response.
-- **`IProviderIdentity`** — the `string Id { get; }` both `ILlmProvider` and `IGenerationProvider` already
+- **`IProviderIdentity`** — the `string Id { get; }` both `IModelProvider` and `IModelProvider` already
   declared, now a shared base interface so the pool can be one generic type over either seam. **Both
   interfaces keep their own `Id` declaration** (as `new`), so this is binary-compatible for CALLERS as well
   as for implementors: adding a base interface is safe, but removing the member from the derived interface
   would throw `MissingMethodException` in every pre-compiled consumer that reads `provider.Id`, since member
   resolution does not walk base interfaces. The only caveat is source-level and rare — a consumer that
-  implemented `Id` *explicitly* (`string ILlmProvider.Id => …`) must now also implement
+  implemented `Id` *explicitly* (`string IModelProvider.Id => …`) must now also implement
   `IProviderIdentity.Id`; implicit implementation is unaffected.
 - **Call-site verdict predicates — `verdict.IsOk()` and `verdict.IsTransient()`** (`LlmVerdictExtensions`).
   They hang off `LlmVerdict` itself, not off `LlmReply`, so the five released types that carry a verdict
@@ -1813,7 +1828,7 @@ because the restructure was designed around keeping namespaces fixed.
   change had zero consumers to protect; after this release the same fix would cost a major bump.
 - **`Lyntai.Generation.*` ships EXPERIMENTAL, exempt from the SemVer promise** until GEN-VERIFY closes. The
   platform is complete and tested, but two backends were written from vendor docs with no key to call, one's argv
-  is ported rather than measured, and `IGenerationStreamProvider` has no implementation yet — so its shape is
+  is ported rather than measured, and `IModelProvider` has no implementation yet — so its shape is
   expected to change on contact with reality. Marking it costs nothing; freezing it would force either a major
   bump for a fix we already anticipate or a known-wrong API left in place. Every other domain carries the full
   promise.
@@ -1945,9 +1960,9 @@ because the restructure was designed around keeping namespaces fixed.
   semantics (a content `Refused` surfaces) but a host pairing a hosted backend with a permissive locally-run
   one can set `On(Refused, Advance)` — that is the host's call, not the library's. One capability-aware provider seam
   spanning image, video and audio (and any medium next — `Kind` is an open string, as 3D already ships on real
-  aggregators), with three delivery modes because real backends genuinely differ: inline (`IGenerationProvider`),
+  aggregators), with three delivery modes because real backends genuinely differ: inline (`IModelProvider`),
   async job (`IGenerationJobProvider` — submit → poll → fetch, universal for video and batch music) and streaming
-  (`IGenerationStreamProvider` — TTS starts playback before generation ends). Async operations expose their
+  (`IModelProvider` — TTS starts playback before generation ends). Async operations expose their
   **operation id**, so a render survives a restart, composes with `Lyntai.Jobs`, and works with a
   webhook-delivering backend (your app owns the endpoint and calls `FetchAsync`). Backends declare
   `GenerationCapabilities` and the router **pre-filters** on them — unlike chat models, a media backend often simply
@@ -1961,7 +1976,7 @@ because the restructure was designed around keeping namespaces fixed.
   Async-video/`Jobs` composition, governance parity, the tool bridge and pipelines follow in
   `docs/2026-08-04-generation-platform-plan.md` Plans 4–7.
 - **`Lyntai.Generation.Http`** — a NEW package with the first three backends, each an independently registered
-  `IGenerationProvider` over a BYO `HttpClient`:
+  `IModelProvider` over a BYO `HttpClient`:
   - **`OpenAiImageProvider`** (inline) — `/images/generations`, switching to `/images/edits` (multipart) when
     the request carries an input image. Both response variants are handled because both occur: inline
     `b64_json`, and a `url`, which is returned **as a URI artifact rather than downloaded** — the platform
@@ -2111,10 +2126,10 @@ the first implementer of a Core capability, not the shape of it.
 ### Added
 - **`IProviderInstallation` + `ProviderProbeResult`** (Core, `Lyntai.Llm`) — an OPTIONAL provider
   capability: `ProbeAsync` asks the backend what it is **without running a completion** (no tokens, no model
-  call) and reports `{ Available, Version, Model?, Detail }`. Stronger than `ILlmProvider.IsAvailable`,
+  call) and reports `{ Available, Version, Model?, Detail }`. Stronger than `IModelProvider.IsAvailable`,
   which is a cheap guess that never contacts anything. Fails safe — an absent/stalled/erroring backend is
   `Available: false` with the reason in `Detail`, never a throw. A separate interface rather than members on
-  `ILlmProvider`, so a provider that can't answer cheaply simply doesn't implement it and callers
+  `IModelProvider`, so a provider that can't answer cheaply simply doesn't implement it and callers
   pattern-match (`provider is IProviderInstallation p`) over the registered provider collection.
 - **`IProviderUpdater` + `ProviderUpdateResult`** (Core, `Lyntai.Llm`) — the sibling capability for a backend
   that ships its own updater: `UpdateAsync` runs it and reports `{ Succeeded, Updated, FromVersion,
@@ -2286,7 +2301,7 @@ a frozen column via SELECT aliases.
 - **`Lyntai.Llm.Streaming.GuardedStream` + `InactivityClock`**: the provider streaming read-loop
   (arm-the-inactivity-clock → read → stop-the-clock, caller-cancel rethrow, per-provider fault→terminal
   mapping) now lives once in Core — the hand-rolled copies in all five streaming providers were exactly
-  where the wall-clock timeout bug shipped twice. BYO `ILlmProvider` authors should iterate it instead
+  where the wall-clock timeout bug shipped twice. BYO `IModelProvider` authors should iterate it instead
   of hand-rolling the loop.
 
 ### Fixed
@@ -2757,7 +2772,7 @@ adoption tail + patch re-releases; consolidated here).
   an `AgentToolPolicy` (ReadOnly plan gate vs Write execute gate), an opaque `ResumeToken` (resume across a
   human gate), and `AgentSessionOptions`/`AgentSessionResult`. **Both consumption doors:**
   `StreamAsync` (live transcript) and the `RunAsync(onEvent)` extension (folds to `AgentSessionResult`),
-  mirroring `ILlmProvider.StreamAsync`/`CompleteAsync`. The `claude` adapter
+  mirroring `IModelProvider.StreamAsync`/`CompleteAsync`. The `claude` adapter
   (`Lyntai.Providers.ClaudeCli`): `ClaudeAgentSession` + `ClaudeAgentOptions` (`--settings` scope-guard
   hooks, `--mcp-config`/`--allowedTools` for an app-hosted MCP server, read-only/write tool policy,
   `--resume`), `ClaudeAgentArgs`, `ClaudeToolCalls.FilePathOf`, and `AddClaudeCliAgentSession()`. Prompt
@@ -3418,7 +3433,7 @@ existing `new LlmReply`/`LlmMessage` call site source-compatible.
   results feed back through the contract:
   - `LlmToolCall(Id, Name, ArgumentsJson)`; `LlmReply.ToolCalls`; `LlmMessage.ToolCalls` +
     `LlmMessage.ToolCallId` with factories `AssistantToolCalls(calls)` / `ToolResult(id, content)`.
-  - `ILlmProvider.SupportsToolCalls` (default-interface-method, default false),
+  - `IModelProvider.SupportsToolCalls` (default-interface-method, default false),
     `ILlmClient.SupportsToolCalls` / `ILlmRouter.SupportsToolCalls(candidates)` — the loop asks the
     front door whether native tool-calling is available for the default routing (first live candidate)
     without ever seeing the candidate list.
@@ -3516,7 +3531,7 @@ implementation; Lyntai provides the interface. All additive; the `ClaudeCliProvi
   `IDbConnectionFactory` overload (you own connection creation/pooling/lifecycle) and a `migrate: false`
   flag (you own the schema; Lyntai runs no migrations).
 - **Provider presets** — `AddOpenAiProvider`, `AddOllamaProvider`, `AddOpenRouterProvider`,
-  `AddAzureOpenAiProvider` — pre-configured defaults over the generic method. The BYO `ILlmProvider`
+  `AddAzureOpenAiProvider` — pre-configured defaults over the generic method. The BYO `IModelProvider`
   path (`AddProvider`) stays open for anything bespoke.
 
 ## 0.6.0 — 2026-07-17

@@ -42,7 +42,7 @@ public sealed record GenerationRenderJobOptions(TimeSpan? PollDelay = null)
 /// automatically when <c>AddGenerationUsageBudget()</c> is configured.</param>
 public sealed class GenerationRenderJobHandler(
     IGenerationRouter router,
-    IEnumerable<IGenerationProvider> providers,
+    IEnumerable<IModelProvider> providers,
     IGenerationArtifactSink sink,
     GenerationRenderJobOptions? options = null,
     IUsageTracker? usage = null) : IJobHandler

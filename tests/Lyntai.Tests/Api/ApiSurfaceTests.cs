@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Lyntai.Storage.InMemory;
 using Lyntai.Storage.Postgres;
@@ -41,7 +42,7 @@ public class ApiSurfaceTests
     // separate list would drift, and the assembly it stopped covering would be the silent one.
     internal static readonly Dictionary<string, System.Reflection.Assembly> Loaded = new()
     {
-        ["Lyntai.Core"] = typeof(ILlmProvider).Assembly,
+        ["Lyntai.Core"] = typeof(IModelProvider).Assembly,
         ["Lyntai.Providers.Default"] = typeof(Lyntai.Providers.ClaudeCli.ClaudeCliProvider).Assembly,
         ["Lyntai.Storage.Sqlite"] = typeof(SqliteConnectionFactory).Assembly,
         ["Lyntai.Storage.InMemory"] = typeof(InMemoryKeyValueStore).Assembly,

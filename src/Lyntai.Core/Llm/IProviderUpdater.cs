@@ -1,12 +1,13 @@
+using Lyntai.Lifecycle;
 namespace Lyntai.Llm;
 
 /// <summary>
-/// OPTIONAL capability of an <see cref="ILlmProvider"/> whose backend ships its OWN updater (a CLI with an
+/// OPTIONAL capability of an <see cref="IModelProvider"/> whose backend ships its OWN updater (a CLI with an
 /// <c>update</c> command, a runtime that can pull a newer build). It exists so a host can offer a guided
 /// upgrade instead of telling the user to open a terminal — Lyntai drives the backend's updater; it never
 /// provisions, downloads or pins a binary itself (that stays the host's concern).
 ///
-/// Usually implemented alongside <see cref="IProviderProbe"/> (the version readout is how "did it
+/// Usually implemented alongside <see cref="IModelProvider"/> (the version readout is how "did it
 /// change?" is answered), but kept separate: a backend can be probe-able without being self-updating.
 /// </summary>
 public interface IProviderUpdater

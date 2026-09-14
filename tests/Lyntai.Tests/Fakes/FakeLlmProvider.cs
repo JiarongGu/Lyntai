@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using Lyntai.Llm;
 
@@ -5,13 +6,27 @@ namespace Lyntai.Tests.Fakes;
 
 /// <summary>Scripted in-memory provider: queue replies for CompleteAsync, set a chunk script for
 /// StreamAsync; records every request it saw.</summary>
-public sealed class FakeLlmProvider(string id) : ILlmProvider
+public sealed class FakeLlmProvider(string id) : IModelProvider
 {
     public string Id { get; } = id;
 
+    public ProviderCapabilities Capabilities { get; set; } = new()
+    {
+        Kinds = [ProviderKinds.Text],
+        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
+    };
+
     public bool IsAvailable { get; set; } = true;
 
-    public bool SupportsToolCalls { get; set; }
+    /// <summary>Convenience setter that WRITES THROUGH to <see cref="Capabilities"/>, which is where the
+    /// router reads it since D127. A plain auto-property here would let a test set the flag, watch the
+    /// router ignore it, and pass for the wrong reason — which is exactly what happened when the flag
+    /// moved.</summary>
+    public bool SupportsToolCalls
+    {
+        get => Capabilities.SupportsToolCalls;
+        set => Capabilities = Capabilities with { SupportsToolCalls = value };
+    }
 
     public Queue<LlmReply> Replies { get; } = new();
 

@@ -19,8 +19,8 @@ namespace Lyntai.Llm.Routing;
 ///
 /// <para><b>An EMPTY set needs an explicit element type</b> — plausible for a tenant with nothing configured
 /// — because <c>For([])</c> matches both overloads equally and fails to compile (CS0121); write
-/// <c>For(Array.Empty&lt;ProviderRegistration&lt;ILlmProvider&gt;&gt;())</c> or
-/// <c>For(Array.Empty&lt;ILlmProvider&gt;())</c> to say which one you mean.</para></summary>
+/// <c>For(Array.Empty&lt;ProviderRegistration&lt;IModelProvider&gt;&gt;())</c> or
+/// <c>For(Array.Empty&lt;IModelProvider&gt;())</c> to say which one you mean.</para></summary>
 public interface ILlmRouterFactory
 {
     /// <summary>Route over POOLED backends: each registration is resolved through the pool, and each
@@ -33,11 +33,11 @@ public interface ILlmRouterFactory
     /// <param name="providers">The caller's backends, at most one per backend id.</param>
     /// <exception cref="ArgumentException">Two registrations share a <see cref="ProviderKey.Slot"/>
     /// (compared case-insensitively).</exception>
-    ILlmRouter For(IReadOnlyList<ProviderRegistration<ILlmProvider>> providers);
+    ILlmRouter For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers);
 
     /// <summary>Route over already-constructed backends — the container-composed path. No pool is
     /// involved and cooldown stays keyed on the provider id, exactly as it was before pooling existed.</summary>
-    ILlmRouter For(IReadOnlyList<ILlmProvider> providers);
+    ILlmRouter For(IReadOnlyList<IModelProvider> providers);
 }
 
 /// <inheritdoc cref="ILlmRouterFactory"/>
@@ -52,7 +52,7 @@ public interface ILlmRouterFactory
 /// tracker is. Null = unbounded. Applies to the pooled overload only, because it needs a configuration to
 /// key on — and to completions only, never to streaming (see <see cref="LlmRouter"/>).</param>
 public sealed class LlmRouterFactory(
-    IProviderPool<ILlmProvider> pool,
+    IProviderPool<IModelProvider> pool,
     DeadHostTracker deadHosts,
     LyntaiOptions options,
     ILoggerFactory? loggers = null,
@@ -60,13 +60,13 @@ public sealed class LlmRouterFactory(
     IProviderAdmission? admission = null) : ILlmRouterFactory
 {
     /// <inheritdoc/>
-    public ILlmRouter For(IReadOnlyList<ProviderRegistration<ILlmProvider>> providers)
+    public ILlmRouter For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers)
     {
         ArgumentNullException.ThrowIfNull(providers);
         // checked BEFORE anything is built, so a rejected call pools nothing
         ProviderPoolGuard.EnsureDistinctSlots(providers, nameof(providers));
 
-        var instances = new List<ILlmProvider>(providers.Count);
+        var instances = new List<IModelProvider>(providers.Count);
         // the caller's own delegate goes to the pool untouched: it runs under the pool's lock, so anything
         // added around it here would serialize every other key and caller behind it
         foreach (var registration in providers)
@@ -79,7 +79,7 @@ public sealed class LlmRouterFactory(
     }
 
     /// <inheritdoc/>
-    public ILlmRouter For(IReadOnlyList<ILlmProvider> providers)
+    public ILlmRouter For(IReadOnlyList<IModelProvider> providers)
     {
         ArgumentNullException.ThrowIfNull(providers);
         return new LlmRouter(providers, deadHosts, options, loggers?.CreateLogger<LlmRouter>(), modelRouting);

@@ -106,7 +106,7 @@ public static class LyntaiServiceCollectionExtensions
     /// would silently discard the configured threshold, cooldown and logger for BOTH domains.</para></summary>
     private static void RegisterProviderLifetime(IServiceCollection services)
     {
-        // Open generic: ONE registration serves every provider seam (ILlmProvider, IGenerationProvider).
+        // Open generic: ONE registration serves every provider seam (IModelProvider, IModelProvider).
         // Never a concrete backend type — IProviderPool<SomeProvider> would be a different pool that no
         // router consults.
         services.TryAddSingleton(typeof(Lyntai.Lifecycle.IProviderPool<>), typeof(Lyntai.Lifecycle.BoundedProviderPool<>));
@@ -130,7 +130,7 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton(sp => new DeadHostTracker(
             options.DeadHostThreshold, options.DeadHostCooldown, logger: sp.GetService<ILogger<DeadHostTracker>>()));
         services.TryAddSingleton<ILlmRouter>(sp => new LlmRouter(
-            sp.GetServices<ILlmProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
+            sp.GetServices<IModelProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
             sp.GetService<ILogger<LlmRouter>>(), modelRouting: sp.GetService<Lyntai.Llm.Routing.IModelRoutingStore>()));
         // The chat counterpart of IGenerationRouterFactory: a router per CALLER's provider set, over the
         // ONE tracker and the ONE admission table registered above — which is the bookkeeping a consumer
@@ -140,7 +140,7 @@ public static class LyntaiServiceCollectionExtensions
         // spend/caching/throttling live on the ILlmClient front door), so routing it through the factory
         // would change the wiring of every existing app to no end.
         services.TryAddSingleton<ILlmRouterFactory>(sp => new LlmRouterFactory(
-            sp.GetRequiredService<Lyntai.Lifecycle.IProviderPool<ILlmProvider>>(),
+            sp.GetRequiredService<Lyntai.Lifecycle.IProviderPool<IModelProvider>>(),
             sp.GetRequiredService<DeadHostTracker>(), options,
             sp.GetService<ILoggerFactory>(), sp.GetService<Lyntai.Llm.Routing.IModelRoutingStore>(),
             sp.GetService<Lyntai.Lifecycle.IProviderAdmission>()));
@@ -249,10 +249,10 @@ public static class LyntaiServiceCollectionExtensions
         // An id naming no registered provider THROWS rather than narrowing to whatever does exist: a
         // subsystem pointed at a backend this host never registered must fail loudly, because degrading to
         // the app's default is the outcome naming a client exists to prevent.
-        static IReadOnlyList<ILlmProvider> ProvidersFor(
+        static IReadOnlyList<IModelProvider> ProvidersFor(
             IServiceProvider sp, string clientName, IReadOnlyList<string> ids)
         {
-            var all = sp.GetServices<ILlmProvider>().ToList();
+            var all = sp.GetServices<IModelProvider>().ToList();
             if (ids.Count == 0) return all;
 
             var byId = all.ToDictionary(p => p.Id, StringComparer.OrdinalIgnoreCase);

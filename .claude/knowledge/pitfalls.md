@@ -1339,7 +1339,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   for the detail, not the reason.
 - **Re-implementing the CLI rules for a new CLI backend.** Everything above lives in <!-- trap: sub=cli shape=second-door -->
   `CliProviderEngine` (Core, `Lyntai.Llm.Cli`); a new CLI is an `ICliProviderDialect`, never a fresh
-  `ILlmProvider` (`docs/DECISIONS.md` D21). The reason these traps were fixable at all is that there is now
+  `IModelProvider` (`docs/DECISIONS.md` D21). The reason these traps were fixable at all is that there is now
   ONE copy.
 - **Assuming a non-zero exit means failure — a CLI can report failure IN BAND and exit 0.** Measured on <!-- trap: sub=cli shape=second-door,silent-loss -->
   codex-cli 0.146.0: a 401 turn prints `{"type":"turn.failed","error":{"message":"… 401 Unauthorized …"}}`
@@ -1443,14 +1443,14 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 - **Hoisting a member into a new BASE interface, and deleting it from the derived one, breaks every <!-- trap: sub=build,gates shape=scope-blind,wrong-subject -->
   pre-compiled caller.** Adding a base interface is binary-safe; removing the member from the interface that
   used to declare it is not, and the refactor that does both in one step reads as pure cleanup. A consumer
-  compiled against the old surface emits `callvirt ILlmProvider::get_Id`, and member resolution **does not
+  compiled against the old surface emits `callvirt IModelProvider::get_Id`, and member resolution **does not
   walk base interfaces** — so `provider.Id` throws `MissingMethodException` until that assembly is
   *recompiled*, which upgrading a package reference does not do. Nothing in this repository catches it:
   `check-warnings` is silent, the API baseline shows a line moving from one interface to another, and
   **`consumer-smoke` cannot see it at all** because it rebuilds its consumer from source every run. To test a
   binary-compatibility claim you must compile a probe against the OLD assembly and run it against the new one
   (a `callvirt` on a `null` argument is enough — `NullReferenceException` means the member resolved,
-  `MissingMethodException` means it did not). `ILlmProvider` and `IGenerationProvider` therefore keep their
+  `MissingMethodException` means it did not). `IModelProvider` and `IModelProvider` therefore keep their
   own `new string Id { get; }` next to `IProviderIdentity`; the declarations are the compatibility, and a
   test pins them. Implementors are unaffected either way — one implicit `public string Id` satisfies both
   slots — so an implementor-only compatibility check proves nothing about callers.
@@ -1497,7 +1497,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 - **Decorating a provider erases its optional capability interfaces.** The generation seam expresses <!-- trap: sub=lifetime,generation shape=silent-loss -->
   long-running and streaming delivery as *additional* interfaces the router type-tests:
   `if (provider is not IGenerationJobProvider job) continue;` (`GenerationRouter.SubmitAsync`). Any wrapper
-  implementing only `IGenerationProvider` makes a queue backend invisible, so **every video render stops
+  implementing only `IModelProvider` makes a queue backend invisible, so **every video render stops
   routing while every image render keeps working and every inline-only test stays green.** This is why
   admission is applied by the router rather than by a decorator — and the trap applies to *any* future
   wrapper (telemetry, retries, redaction), not just this one. If you must wrap, forward every optional

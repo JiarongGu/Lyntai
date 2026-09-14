@@ -1,4 +1,5 @@
 using Lyntai.Agents;
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
 using Lyntai.Processes;
@@ -17,7 +18,7 @@ namespace Lyntai.Providers.ClaudeCli;
 /// plus the declaration of which OPTIONAL capabilities the claude CLI actually has — which is why it is a
 /// dozen forwarding members rather than a second copy of the spawn/verdict/streaming rules.
 /// </summary>
-public sealed class ClaudeCliProvider : ILlmProvider, IProviderProbe, IProviderUpdater,
+public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
     IProviderVersionInstaller, IProviderAuth
 {
     /// <summary>The router-facing id this provider answers to — name it in a candidate list, or in
@@ -46,6 +47,14 @@ public sealed class ClaudeCliProvider : ILlmProvider, IProviderProbe, IProviderU
 
     /// <inheritdoc/>
     public string Id => ProviderId;
+
+    /// <summary>What this backend serves — the spawned claude CLI: text in, text out, buffered or streamed. Tool calls go through the
+    /// prompt protocol rather than a native tool API, so neither tool flag is declared.</summary>
+    public ProviderCapabilities Capabilities { get; } = new()
+    {
+        Kinds = [ProviderKinds.Text],
+        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
+    };
 
     /// <summary>Whether the <c>claude</c> CLI looks callable — the resolved command on the local PATH for the
     /// built-in runner, optimistically true for a BYO <see cref="IProcessRunner"/> (which resolves commands in

@@ -65,16 +65,16 @@ public sealed class LyntaiBuilder
     /// short-circuits without spending budget/rate-limit).</summary>
     public const int CacheDecoratorOrder = 20;
 
-    /// <summary>Register an <see cref="ILlmProvider"/> into the router's provider collection.</summary>
+    /// <summary>Register an <see cref="IModelProvider"/> into the router's provider collection.</summary>
     public LyntaiBuilder AddProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
-        where T : class, ILlmProvider
+        where T : class, IModelProvider
     {
-        Services.AddSingleton<ILlmProvider, T>();
+        Services.AddSingleton<IModelProvider, T>();
         return this;
     }
 
     /// <summary>Register a provider built from the service provider (for id/config-parameterized ones).</summary>
-    public LyntaiBuilder AddProvider(Func<IServiceProvider, ILlmProvider> factory)
+    public LyntaiBuilder AddProvider(Func<IServiceProvider, IModelProvider> factory)
     {
         Services.AddSingleton(factory);
         return this;

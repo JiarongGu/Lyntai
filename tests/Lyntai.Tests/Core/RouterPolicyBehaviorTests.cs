@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -11,7 +12,7 @@ public class RouterPolicyBehaviorTests
 {
     private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")] };
 
-    private static LlmRouter Router(LyntaiOptions options, DeadHostTracker? tracker, params ILlmProvider[] providers) =>
+    private static LlmRouter Router(LyntaiOptions options, DeadHostTracker? tracker, params IModelProvider[] providers) =>
         new(providers, tracker ?? new DeadHostTracker(), options);
 
     [Fact]

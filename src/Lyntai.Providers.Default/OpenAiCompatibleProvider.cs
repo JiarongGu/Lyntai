@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -22,25 +23,34 @@ public sealed class OpenAiCompatibleProvider(
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
     ILogger<OpenAiCompatibleProvider>? logger = null,
-    bool disposeHttpClient = true) : ILlmProvider
+    bool disposeHttpClient = true) : IModelProvider
 {
     private readonly ILogger _logger = logger ?? NullLogger<OpenAiCompatibleProvider>.Instance;
     private readonly OpenAiFlavor _flavor = OpenAiEndpoint.ResolveFlavor(config.Flavor, config.BaseUrl);
 
     public string Id => id;
 
+    /// <summary>What this backend serves — any OpenAI-compatible endpoint: text, buffered or streamed, with native tool calls on both
+    /// paths. Models are NOT enumerated — an aggregator fronts hundreds behind one id, which is exactly the
+    /// case an empty Models list means "any" for.</summary>
+    public ProviderCapabilities Capabilities { get; } = new()
+    {
+        Kinds = [ProviderKinds.Text],
+        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
+        SupportsToolCalls = true,
+        SupportsStreamingToolCalls = true,
+    };
+
     public bool IsAvailable => !string.IsNullOrWhiteSpace(config.BaseUrl);
 
     // OpenAI-compatible endpoints support native function-calling: we send req.Tools and surface the
     // model's tool_calls on the reply. Coarse — an Ollama MODEL that ignores tools just answers in prose.
-    public bool SupportsToolCalls => true;
 
     /// <inheritdoc/>
     /// <remarks>True since 3.0: the stream assembles a vendor's tool-call fragments and yields complete
     /// calls as <see cref="LlmChunkKind.ToolCall"/> chunks. Both dialects — OpenAI SSE, which fragments
     /// arguments across lines, and Ollama NDJSON, which sends them complete — go through the same
     /// accumulator.</remarks>
-    public bool SupportsStreamingToolCalls => true;
 
     /// <summary>Get the per-call HttpClient. Lyntai-created clients (from the named IHttpClientFactory
     /// client) are disposed after each call; an APP-supplied (BYO) client is NEVER disposed — the app

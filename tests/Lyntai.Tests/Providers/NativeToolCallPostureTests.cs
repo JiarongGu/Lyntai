@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
@@ -12,7 +13,7 @@ namespace Lyntai.Tests.Providers;
 /// <para><b>This exists because the roadmap asked for the opposite.</b> "Native tool-calling for the
 /// ClaudeCli/Local providers (both stay on the prompt fallback)" sat under §9 as a low-value deferral until
 /// 2026-08-16, when acting on it showed the request was misframed and would have made things WORSE.
-/// <c>ILlmProvider.SupportsToolCalls</c> means "I return the model's calls on <c>LlmReply.ToolCalls</c> for
+/// <c>IModelProvider.Capabilities.SupportsToolCalls</c> means "I return the model's calls on <c>LlmReply.ToolCalls</c> for
 /// YOUR loop to execute". Flipping it true on a provider that cannot do that makes <c>ToolLoop</c> take the
 /// native path, send tool declarations the backend ignores, and then wait for calls that never arrive — so
 /// every agentic turn silently degrades to "the model answered in prose" and no tool ever runs.</para>
@@ -50,7 +51,7 @@ public class NativeToolCallPostureTests
         // fallback here so much as the correct mechanism.
         var provider = new LocalProvider("local", new LocalModelOptions { ModelPath = "does-not-need-to-exist.gguf" }, new LyntaiOptions());
 
-        Assert.False(((ILlmProvider)provider).SupportsToolCalls);
+        Assert.False(((IModelProvider)provider).Capabilities.SupportsToolCalls);
     }
 
     [Fact]
@@ -61,6 +62,6 @@ public class NativeToolCallPostureTests
         // down its streaming native path to wait for chunks that never come.
         var local = new LocalProvider("local", new LocalModelOptions { ModelPath = "x.gguf" }, new LyntaiOptions());
 
-        Assert.False(((ILlmProvider)local).SupportsStreamingToolCalls);
+        Assert.False(((IModelProvider)local).Capabilities.SupportsStreamingToolCalls);
     }
 }

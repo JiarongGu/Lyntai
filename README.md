@@ -66,7 +66,7 @@ version you installed.
 > it was withdrawn in 3.0 (`docs/DECISIONS.md` **D70**). It named three reasons and each is closed: the two
 > backends written from vendor documentation now expose every mapping they could have got wrong as a host
 > option, so a mismatch is a configuration edit rather than a release (**D69**); the same is true of the
-> third's ported argv; and `IGenerationStreamProvider` is reachable through the router (**D67**). What a real
+> third's ported argv; and `IModelProvider` is reachable through the router (**D67**). What a real
 > run can still surprise is a wire format's SHAPE, not a value — and that is now a major-version risk taken
 > deliberately rather than a caveat carried indefinitely.
 > **The carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE:** the generation *contracts* in that
@@ -174,7 +174,7 @@ services.AddLyntai(cfg =>
 ```
 
 Then inject the front door. **To your app, Lyntai behaves like one LLM provider** — `ILlmClient` has
-`ILlmProvider`'s shape, and candidate order, fallback, and dead-host handling happen invisibly behind it:
+`IModelProvider`'s shape, and candidate order, fallback, and dead-host handling happen invisibly behind it:
 
 ```csharp
 public sealed class MyFeature(
@@ -839,17 +839,17 @@ want your own queryable trace timeline; reach for OTel for live tracing/metrics.
 Lyntai defines the interfaces; your app owns the resource lifecycle wherever that matters.
 
 <!-- compile-skip: a tour of BYO seams. compile-given was measured and rejected here: IProcessRunner
-     alone is two eight-parameter methods, and with MyCustomProvider (ILlmProvider, four members) and a
+     alone is two eight-parameter methods, and with MyCustomProvider (IModelProvider, four members) and a
      connection factory the context runs to ~26 lines for a 16-line sample — a whole program, not a few
      declarations. -->
 ```csharp
 services.AddLyntai(cfg =>
 {
-    // Provider presets (or the generic AddOpenAiCompatibleProvider, or your own ILlmProvider):
+    // Provider presets (or the generic AddOpenAiCompatibleProvider, or your own IModelProvider):
     cfg.AddOpenAiProvider(apiKey, defaultModel: "gpt-4o-mini");
     cfg.AddLlamaProvider(defaultModel: "gemma-3-4b");      // llama.cpp llama-server, :8080
     cfg.AddOllamaProvider(defaultModel: "llama3.2:3b");
-    cfg.AddProvider(_ => new MyCustomProvider());          // BYO ILlmProvider
+    cfg.AddProvider(_ => new MyCustomProvider());          // BYO IModelProvider
 
     // BYO HttpClient — your configured client (Polly, auth handlers, proxy, a named client):
     cfg.AddOpenRouterProvider(apiKey,
@@ -876,7 +876,7 @@ is itself an interface (`IKeyValueStore`, `IMemoryStore`, …) you can implement
 
 ### Backend self-maintenance: version · upgrade · pinned install · auth
 
-Four **optional** provider capabilities (`IProviderProbe`, `IProviderUpdater`,
+Four **optional** provider capabilities (`IModelProvider`, `IProviderUpdater`,
 `IProviderVersionInstaller`, `IProviderAuth`), so a host can show what its backend actually is, whether it
 is usable at all, and offer an upgrade — instead of hardcoding a version it will drift away from, or
 burning a turn to discover the backend isn't signed in. All are discovered by pattern-matching over the
@@ -884,9 +884,9 @@ registered providers, none runs a completion, and all **fail safe**: an absent, 
 is reported, never thrown.
 
 ```csharp
-foreach (var provider in serviceProvider.GetServices<ILlmProvider>())
+foreach (var provider in serviceProvider.GetServices<IModelProvider>())
 {
-    if (provider is not IProviderProbe installation) continue;
+    if (provider is not IModelProvider installation) continue;
 
     var probe = await installation.ProbeAsync(ct);   // NO completion is run: no tokens, no model call
     Console.WriteLine(probe.Available
@@ -1022,10 +1022,19 @@ has (`ClaudeCliProvider` is exactly this, and nothing else):
          public override CliOutputEvent ParseLine(string line) => CliOutputEvent.Ignored;
      } -->
 ```csharp
-public sealed class MyCliProvider(IProcessRunner runner, LyntaiOptions options) : ILlmProvider, IProviderUpdater
+public sealed class MyCliProvider(IProcessRunner runner, LyntaiOptions options) : IModelProvider, IProviderUpdater
 {
     private readonly CliProviderEngine _engine = new(new MyCliDialect(), runner, options);
     public string Id => "my-cli";
+
+    // What you serve is DATA the router checks before dispatching — declare it, and every operation you
+    // do NOT list stays on its default "I don't serve that" body rather than needing a stub.
+    public ProviderCapabilities Capabilities { get; } = new()
+    {
+        Kinds = [ProviderKinds.Text],
+        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
+    };
+
     public bool IsAvailable => _engine.IsAvailable;
     public Task<LlmReply> CompleteAsync(LlmRequest r, CancellationToken ct = default) => _engine.CompleteAsync(r, ct);
     public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest r, CancellationToken ct = default) => _engine.StreamAsync(r, ct);
@@ -1131,9 +1140,9 @@ force the others to lie:
 
 | Mode | Interface | Typical of |
 |---|---|---|
-| Inline | `IGenerationProvider.GenerateAsync` | image generation |
+| Inline | `IModelProvider.GenerateAsync` | image generation |
 | Async job | `IGenerationJobProvider` (submit → poll → fetch) | video, batch music — renders take minutes |
-| Streaming | `IGenerationStreamProvider` | text-to-speech, where playback starts before generation ends |
+| Streaming | `IModelProvider` | text-to-speech, where playback starts before generation ends |
 
 An async render exposes its **operation id**, so it survives a process restart and composes with
 `Lyntai.Jobs`; if your backend delivers by webhook, your app owns the endpoint and calls
@@ -1287,7 +1296,7 @@ services.AddLyntai(cfg =>
 ```
 
 The model loads lazily on first use and generations are serialized (one local model, one at a time).
-It's just another `ILlmProvider`, so it fits anywhere in a fallback candidate list — e.g. a hosted
+It's just another `IModelProvider`, so it fits anywhere in a fallback candidate list — e.g. a hosted
 model first, `"local"` as an offline backstop.
 
 ### Tool-calling (`Lyntai.Agents`)

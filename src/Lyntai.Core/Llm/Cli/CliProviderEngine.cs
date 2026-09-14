@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using Lyntai.Agents;
 using Lyntai.Llm.Streaming;
@@ -29,7 +30,7 @@ namespace Lyntai.Llm.Cli;
 /// <item>fail-safe on every maintenance path (a value, never a throw) except caller cancellation.</item>
 /// </list>
 ///
-/// A provider package therefore contains a dialect plus a thin <see cref="ILlmProvider"/> forwarding to this
+/// A provider package therefore contains a dialect plus a thin <see cref="IModelProvider"/> forwarding to this
 /// engine, declaring which OPTIONAL capability interfaces its backend actually has.
 /// </summary>
 /// <param name="dialect">The backend-specific vocabulary.</param>
@@ -317,7 +318,10 @@ public sealed class CliProviderEngine(
         var line = CliVersionLine.FirstLine(result.Process.StdOut);
         if (line.Length == 0) line = CliVersionLine.FirstLine(result.Process.StdErr);
         var (version, model) = dialect.ParseVersionLine(line);
-        return new ProviderProbeResult(true, version, model, line.Length > 0 ? line : null);
+        // NAMED, not positional: the merged record reorders what the LLM-side one declared, and every
+        // field here is a string — so a positional call would still COMPILE and assign the wrong ones.
+        return new ProviderProbeResult(
+            true, Detail: line.Length > 0 ? line : null, Version: version, Model: model);
     }
 
     /// <summary>Run the backend's own updater.</summary>

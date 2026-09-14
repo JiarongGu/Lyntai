@@ -1,5 +1,6 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
+using Lyntai.Lifecycle;
 using Lyntai.Processes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -131,9 +132,9 @@ public static class GenerationProviderBuilderExtensions
     /// (it outlives the call and is the host's to manage), while a client Lyntai created per call is. Getting
     /// this wrong is not a leak but an <see cref="ObjectDisposedException"/> on the SECOND render — the first
     /// one succeeds, which is what makes it worth centralising.</summary>
-    private static Func<IServiceProvider, IGenerationProvider> HttpBackend(
+    private static Func<IServiceProvider, IModelProvider> HttpBackend(
         LyntaiBuilder builder, string id, Func<IServiceProvider, HttpClient>? httpClient,
-        Func<Func<HttpClient>, bool, IGenerationProvider> create)
+        Func<Func<HttpClient>, bool, IModelProvider> create)
     {
         if (httpClient is not null)
             return sp => create(() => httpClient(sp), false);

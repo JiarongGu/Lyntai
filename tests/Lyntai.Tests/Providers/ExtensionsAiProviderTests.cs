@@ -227,7 +227,7 @@ public class ExtensionsAiProviderTests
     [Fact]
     public void Bridge_advertises_native_tool_calls()
     {
-        Assert.True(Provider(new FakeChatClient()).SupportsToolCalls);
+        Assert.True(Provider(new FakeChatClient()).Capabilities.SupportsToolCalls);
     }
 
     [Fact]

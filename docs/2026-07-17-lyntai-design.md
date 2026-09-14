@@ -23,7 +23,7 @@ part well and one part poorly:
   `IScorer`/`LlmScorerBase` scoring, run traces, MCP tools. **But the LLM layer is hardcoded to the
   `claude` CLI — no provider abstraction.**
 - **Vidora** (net10.0) — the **best provider abstraction**: `ICortexClient` (timeout + structured
-  output + language + vision), `ILlmProvider` with local (LLamaSharp) + OpenAI-compatible impls,
+  output + language + vision), `IModelProvider` with local (LLamaSharp) + OpenAI-compatible impls,
   `IPromptRegistry`, `LearnedScoring` (EMA).
 - **Sonora** (net10.0) — `LlmClient` with **verdict classification** (Ok/RateLimited/Refused/Failed)
   and rate-limit circuit-breaking, task-scoped `IAiMemoryStore` + `IPromptComposer`, and a real
@@ -66,7 +66,7 @@ Lyntai/
 │  ├─ Lyntai.Storage.Sqlite/           # Dapper + FluentMigrator + FTS5 impls of every store domain
 │  ├─ Lyntai.Providers.ClaudeCli/      # authenticated `claude` CLI spawn (family hygiene)
 │  ├─ Lyntai.Providers.OpenAiCompatible/  # HttpClient: OpenAI/Ollama/OpenRouter/…, URL-native detect
-│  └─ Lyntai.Providers.ExtensionsAi/   # bridge: Microsoft.Extensions.AI IChatClient → ILlmProvider
+│  └─ Lyntai.Providers.ExtensionsAi/   # bridge: Microsoft.Extensions.AI IChatClient → IModelProvider
 ├─ samples/
 │  └─ Lyntai.Playground/               # console app exercising the full stack (live smoke)
 ├─ tests/
@@ -116,10 +116,10 @@ only project that references several, which is what makes its membership a budge
 
 ## 4. Fork decisions (locked)
 
-**Fork 1 — LLM seam = Hybrid (own seam + MEAI bridge).** Lyntai's own `ILlmProvider` is the primary
+**Fork 1 — LLM seam = Hybrid (own seam + MEAI bridge).** Lyntai's own `IModelProvider` is the primary
 seam, so **CLI-first, `LlmVerdict` classification, and streaming-aware fallback are first-class**.
 `Lyntai.Providers.ExtensionsAi` ships a thin bridge that turns any `Microsoft.Extensions.AI`
-`IChatClient` into an `ILlmProvider`, giving the whole MEAI ecosystem (OpenAI, Azure, Ollama,
+`IChatClient` into an `IModelProvider`, giving the whole MEAI ecosystem (OpenAI, Azure, Ollama,
 Anthropic API, …) for free without shaping the public API around MEAI's types.
 
 **Fork 2 — storage = per-domain interfaces + one SQLite package.** Domain interfaces live in Core;
@@ -144,7 +144,7 @@ public sealed record LlmRequest {
 
 public sealed record LlmReply(string Text, LlmVerdict Verdict, LlmUsage? Usage = null, string? Detail = null);
 
-public interface ILlmProvider {
+public interface IModelProvider {
     string Id { get; }                             // "claude-cli" | "openai" | "ollama" | …
     bool IsAvailable { get; }
     Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default);
@@ -246,17 +246,17 @@ tools), **D31** (a verdict for "never set up", in both domains) and **D36** (the
 verdict taxonomies). The plan of record is `docs/2026-08-04-generation-platform-plan.md`.*
 
 ```csharp
-public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
+public interface IModelProvider : Lyntai.Lifecycle.IProviderIdentity {
     new string Id { get; }                            // "openai-images" | "a1111" | "local-diffusion" | …
     ProviderCapabilities Capabilities { get; }      // read by the router BEFORE spending anything
-    Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default);   // no-cost; never generates
+    Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default);   // no-cost; never generates
     Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default);
 }
 ```
 
 - **One capability-aware seam for image/video/audio/3d, with THREE delivery modes**, because real backends
-  genuinely differ: inline (`IGenerationProvider`), async job (`IGenerationJobProvider` — submit → poll →
-  fetch, universal for video), and streaming (`IGenerationStreamProvider`, TTS). A backend that cannot do
+  genuinely differ: inline (`IModelProvider`), async job (`IGenerationJobProvider` — submit → poll →
+  fetch, universal for video), and streaming (`IModelProvider`, TTS). A backend that cannot do
   something simply does not implement that interface and callers pattern-match over the registered
   collection — the same optional-capability shape Core already uses for `IProviderAuth` /
   `IProviderVersionInstaller`, rather than one fat interface whose methods throw.
@@ -274,7 +274,7 @@ public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
 - **The router has a door per delivery mode, and the third one is 3.0** (**D67**). `IGenerationRouter` gained
   `StreamAsync` — a required member, so a hand-written router must add it. Before that the capability
   pre-filter was only ever asked about `Inline` and `Job`, so a backend advertising `ProviderOperation.Stream`
-  was **unreachable through the platform**: `IGenerationStreamProvider` was a `Lyntai.Core` contract about to
+  was **unreachable through the platform**: `IModelProvider` was a `Lyntai.Core` contract about to
   freeze under the full SemVer promise having never been exercised. **Two of its invariants are INHERITED
   from the LLM router rather than invented** (§6, D4): fallback stops at the first chunk carrying real data,
   and only real data commits — a metadata-only opening chunk must not. They transfer because the failure
@@ -490,7 +490,7 @@ public interface IMemoryEngine {
 ```
 
 - **A DI collection keyed by `Name`, resolved through `IMemoryEngineFactory.Get(name)`** — the same
-  variation-point shape as `ILlmProvider` keyed by `Id`, and the same shape a consumer already knows from
+  variation-point shape as `IModelProvider` keyed by `Id`, and the same shape a consumer already knows from
   `IHttpClientFactory` (`Get`, not `Create`: engines are singletons). One application runs several engines at
   once for different purposes, which is the requirement that rules out a single unnamed singleton (**D39**).
 - **A blend IS an engine.** `CompositeMemoryEngine` implements the same interface as its members, so nothing
@@ -1050,5 +1050,5 @@ A new app adds package references to `Lyntai.Core` + the storage/provider packag
 `services.AddLyntai(...)`, and injects `ILlmClient` (the front door, D5 — `ILlmRouter` only for a
 call-site-specific candidate list), `IScoringService`, `IMemoryStore`, etc. No source
 copying, no rebuild of the substrate. Adding a storage backend = a new `Lyntai.Storage.X` package that
-implements the domain interfaces. Adding a provider = a new `ILlmProvider` or an MEAI `IChatClient`
+implements the domain interfaces. Adding a provider = a new `IModelProvider` or an MEAI `IChatClient`
 through the bridge.

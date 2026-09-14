@@ -1,9 +1,10 @@
+using Lyntai.Lifecycle;
 namespace Lyntai.Llm.Cli;
 
 /// <summary>
 /// Everything about a spawned-CLI backend that is SPECIFIC TO THAT CLI: what it's called, how you ask it
 /// for a completion, how to read what it prints back, and which self-maintenance commands it has. Hand one
-/// to <see cref="CliProviderEngine"/> and you have a working <see cref="ILlmProvider"/> — the engine owns
+/// to <see cref="CliProviderEngine"/> and you have a working <see cref="IModelProvider"/> — the engine owns
 /// every invariant that is NOT backend-specific (command resolution, timeouts as inactivity clocks, verdict
 /// classification, streaming order, empty-output-is-a-failure, probe → run → re-probe maintenance).
 ///
@@ -34,7 +35,7 @@ public interface ICliProviderDialect
     /// (<see cref="LlmRequest.Tools"/>). False for CLIs that expose tools their own way (e.g. over MCP via
     /// an <see cref="Agents.ICliToolProvisioner"/>) — the engine then warns rather than dropping them
     /// silently. That warning is ALL this flag drives: a dialect returning true must have its composing
-    /// <see cref="ILlmProvider"/> declare <c>SupportsToolCalls =&gt; true</c> itself (per <c>DECISIONS.md</c>
+    /// <see cref="IModelProvider"/> declare <c>SupportsToolCalls =&gt; true</c> itself (per <c>DECISIONS.md</c>
     /// D21 the provider is the capability declarer), or <see cref="ILlmRouter.SupportsToolCalls"/> answers
     /// false and the tool loop silently takes its prompt-based fallback.</summary>
     bool SupportsToolCalls { get; }

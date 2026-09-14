@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using Lyntai;
 using Lyntai.Llm;
@@ -8,7 +9,7 @@ namespace Lyntai.Tests.Providers;
 
 /// <summary>The pre-configured provider presets set the right endpoint/id defaults and route through
 /// the same OpenAI-compatible provider; a BYO-httpClient path lets each hit a scripted handler. Apps
-/// wanting bespoke config keep AddOpenAiCompatibleProvider or their own ILlmProvider via AddProvider.</summary>
+/// wanting bespoke config keep AddOpenAiCompatibleProvider or their own IModelProvider via AddProvider.</summary>
 public class ProviderPresetsTests
 {
     private const string OkBody = """
@@ -105,7 +106,7 @@ public class ProviderPresetsTests
     [Fact]
     public async Task Presets_compose_and_route_by_id_with_bring_your_own_provider()
     {
-        // several presets + a fully custom ILlmProvider, all behind one router — the BYO path stays open
+        // several presets + a fully custom IModelProvider, all behind one router — the BYO path stays open
         var custom = new FakeLlmProvider("custom");
         custom.Replies.Enqueue(new LlmReply("from a custom provider", LlmVerdict.Ok));
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
@@ -113,7 +114,7 @@ public class ProviderPresetsTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddOpenAiProvider("k", httpClient: _ => new HttpClient(handler))
-            .AddProvider(_ => custom)                 // BYO ILlmProvider
+            .AddProvider(_ => custom)                 // BYO IModelProvider
             .UseDefaultCandidates("custom", "openai"));  // custom first
         using var sp = services.BuildServiceProvider();
 

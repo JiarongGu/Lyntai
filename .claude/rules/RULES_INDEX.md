@@ -31,7 +31,7 @@ gone out of step with three of its own files before it was deleted.
 | [post-feature](../skills/post-feature/SKILL.md) | the implementation looks done — audit every layer it touched |
 | [fix-log](../skills/fix-log/SKILL.md) | after landing a non-trivial fix — record root cause, fix, verification |
 | [archive-task](../skills/archive-task/SKILL.md) | a `TASKS.md` item is complete and needs moving into the archive |
-| [add-provider](../skills/add-provider/SKILL.md) | a new `ILlmProvider`, or bridging an `Microsoft.Extensions.AI` `IChatClient` |
+| [add-provider](../skills/add-provider/SKILL.md) | a new `IModelProvider`, or bridging an `Microsoft.Extensions.AI` `IChatClient` |
 | [add-storage-backend](../skills/add-storage-backend/SKILL.md) | a `Lyntai.Storage.*` package over one or more domain interfaces |
 | [add-migration](../skills/add-migration/SKILL.md) | a schema change — numbering, SQLite constraints, the FTS trigger pattern |
 | [add-scorer](../skills/add-scorer/SKILL.md) | a new `IScorer`, deterministic or an LLM judge |

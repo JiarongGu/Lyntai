@@ -52,7 +52,7 @@ public sealed class MyCliDialect : CliProviderDialectBase
 ```
 
 Then a ~40-line provider that composes engine + dialect and declares which optional capabilities the
-backend *actually* has (`IProviderProbe` / `IProviderUpdater` / `IProviderVersionInstaller` /
+backend *actually* has (`IModelProvider` / `IProviderUpdater` / `IProviderVersionInstaller` /
 `IProviderAuth`) — copy `ClaudeCliProvider`, which is nothing but forwarding members. The engine owns:
 command resolution, neutral cwd, prompt delivery (stdin or trailing argument — set `PromptDelivery`),
 the inactivity clock (plus an absolute backstop on the BUFFERED path only — a streamed turn is bounded by
@@ -72,14 +72,14 @@ Rules specific to this path:
 - **Check what your CLI assumes about its working directory.** The engine spawns from a neutral temp dir; codex
   needs `--skip-git-repo-check` because of it.
 - **`SupportsToolCalls` on the dialect drives ONLY the engine's ignored-tools warning.** If your dialect
-  returns `true`, the composing `ILlmProvider` must declare `public bool SupportsToolCalls => true;` itself —
+  returns `true`, the composing `IModelProvider` must declare `public bool SupportsToolCalls => true;` itself —
   the provider is the capability declarer (D21), and the engine does not forward the dialect's answer.
   Otherwise `LlmRouter.SupportsToolCalls` reports false and `ToolLoop` silently takes the prompt-based
   fallback on a backend that can do native tool calls.
 - **Portable installs are free if you don't fight them** — the host passes `command` (+ `environment`) to your
   builder extension (D22); pass both straight through to the engine and don't read env vars yourself.
 
-**B. Native `ILlmProvider`** for anything else (like `OpenAiCompatibleProvider`). **Where it lives is a
+**B. Native `IModelProvider`** for anything else (like `OpenAiCompatibleProvider`). **Where it lives is a
 FOOTPRINT test, not one-package-per-backend** (`docs/DECISIONS.md` D25): a dialect or native provider that
 needs nothing beyond Core/BCL — or only managed `Microsoft.Extensions.Http` — is a class in
 `src/Lyntai.Providers.Default/`, where `ClaudeCliDialect`, `CodexCliDialect`, `ClaudeCliProvider`,
@@ -94,7 +94,7 @@ package id can never be freed (D23), so a needless one is permanent. Implement:
 
 <!-- compile-skip: a provider signature with its constructor parameters elided (`/* options, factory */`) -->
 ```csharp
-public sealed class MyProvider(string id, /* options, factory */, LyntaiOptions options) : ILlmProvider
+public sealed class MyProvider(string id, /* options, factory */, LyntaiOptions options) : IModelProvider
 {
     public string Id => id;                 // the candidate id the router selects on
     public bool IsAvailable => /* cheap check; real failures surface as verdicts, not here */;
@@ -136,7 +136,7 @@ Builder extension (in the adapter package, extending Core's `LyntaiBuilder`):
 ```csharp
 public static LyntaiBuilder AddMyProvider(this LyntaiBuilder b, string id, Action<MyOptions> cfg)
 {
-    // register the provider into the IEnumerable<ILlmProvider> collection; resolve deps from the container
+    // register the provider into the IEnumerable<IModelProvider> collection; resolve deps from the container
     b.AddProvider(sp => new MyProvider(id, /* … */, sp.GetRequiredService<LyntaiOptions>()));
     return b;
 }
@@ -156,7 +156,7 @@ one-line `builder.Add<Name>Provider(...)` shim over `AddGenerationProvider(sp =>
 
 **A generation backend needs a MAJOR to reshape, like everything else.** `Lyntai.Generation` was EXEMPT as a
 **PACKAGE** from 2.0.1 — the backends were written from vendor docs with no key to call, and
-`IGenerationStreamProvider` had no implementer — and 3.0 withdrew that once both were addressed
+`IModelProvider` had no implementer — and 3.0 withdrew that once both were addressed
 (`docs/DECISIONS.md` **D70**; the mappings became host options in **D69**, the stream seam was wired in
 **D67**). If you are adding a backend, the practical consequence is: **put anything you are unsure of behind
 an OPTION rather than a literal**, which is what makes a wrong guess a consumer's config edit instead of your
@@ -166,12 +166,12 @@ inside mandatory `Lyntai.Core` — a distinction worth keeping straight, since `
 verdict-translation fix and treated it as major-bump material.
 
 What a backend implements:
-- **`IGenerationProvider`** — `Id`, `Capabilities` (read by the router BEFORE spending anything),
+- **`IModelProvider`** — `Id`, `Capabilities` (read by the router BEFORE spending anything),
   `ProbeAsync` and inline `GenerateAsync`. Both must **FAIL SAFE**: a value with a verdict, never a throw
   (cancellation propagates). `ProbeAsync` must **never generate** to answer a setup question — the
   generate-and-discard pattern it replaces bills a render to find out whether a key works.
 - **Optional capability interfaces, only if the backend really has them:** `IGenerationJobProvider`
-  (submit → poll → fetch, for queued/long renders) and `IGenerationStreamProvider`. They are ADDITIONAL
+  (submit → poll → fetch, for queued/long renders) and `IModelProvider`. They are ADDITIONAL
   interfaces the router type-tests, not flags — which is exactly why nothing may wrap a provider in a
   decorator that implements only the base seam (see `pitfalls.md`).
 - **Classify through `GenerationVerdictClassifier.FromHttpFailure(status, body, hasCredentials)`** — the same

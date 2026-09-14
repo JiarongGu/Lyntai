@@ -193,7 +193,7 @@ public class GenerationSubmitFallbackTests
     /// <summary>A job backend that always REJECTS the submission, with a detail the test chooses — the thing
     /// the router now classifies. Conclusive on purpose: an inconclusive rejection is decided before the
     /// verdict is, and is already covered by <c>GenerationTimeoutTests</c>.</summary>
-    private sealed class RejectingJobProvider : IGenerationProvider, IGenerationJobProvider
+    private sealed class RejectingJobProvider : IModelProvider, IGenerationJobProvider
     {
         public string Id { get; init; } = "rejecting";
 
@@ -208,8 +208,8 @@ public class GenerationSubmitFallbackTests
             Operations = [ProviderOperation.Job],
         };
 
-        public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new GenerationProbeResult(true, "up"));
+        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+            Task.FromResult(new ProviderProbeResult(true, "up"));
 
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
             Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "job backend"));

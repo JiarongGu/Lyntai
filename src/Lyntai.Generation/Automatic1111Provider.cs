@@ -42,7 +42,7 @@ public sealed class Automatic1111Options
 }
 
 /// <summary>
-/// An <see cref="IGenerationProvider"/> over a locally-run Stable Diffusion WebUI (Automatic1111):
+/// An <see cref="IModelProvider"/> over a locally-run Stable Diffusion WebUI (Automatic1111):
 /// <c>POST /sdapi/v1/txt2img</c>, or <c>/sdapi/v1/img2img</c> when the request carries an input image.
 /// Responses are <c>{ images: [ "&lt;base64&gt;" ] }</c>, sometimes with a <c>data:</c> prefix — both decode.
 ///
@@ -68,7 +68,7 @@ public sealed class Automatic1111Options
 /// <see cref="ObjectDisposedException"/>. <c>AddAutomatic1111Provider</c> sets this for you.</param>
 public sealed class Automatic1111Provider(
     Automatic1111Options options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
-    : IGenerationProvider
+    : IModelProvider
 {
     /// <inheritdoc/>
     public string Id => options.Id;
@@ -85,14 +85,14 @@ public sealed class Automatic1111Provider(
     /// than "the port is open": a WebUI with no checkpoint is up but cannot generate, so that reports
     /// unavailable. Bounded by <see cref="Automatic1111Options.Timeout"/> — a WebUI that accepts the connection
     /// while it loads a checkpoint can otherwise stall the probe indefinitely.</summary>
-    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct, ProbeCoreAsync,
-            reason => new GenerationProbeResult(false, $"probe {reason}"));
+            reason => new ProviderProbeResult(false, $"probe {reason}"));
 
-    private async Task<GenerationProbeResult> ProbeCoreAsync(CancellationToken ct)
+    private async Task<ProviderProbeResult> ProbeCoreAsync(CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
-            return new GenerationProbeResult(false, "not configured: no BaseUrl");
+            return new ProviderProbeResult(false, "not configured: no BaseUrl");
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
@@ -101,17 +101,17 @@ public sealed class Automatic1111Provider(
             using var response = await http.GetAsync($"{Root}/sdapi/v1/sd-models", ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
-                return new GenerationProbeResult(false, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
+                return new ProviderProbeResult(false, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
 
             var first = FirstCheckpoint(body);
             return first is null
-                ? new GenerationProbeResult(false, "the WebUI answered but has no checkpoint loaded")
-                : new GenerationProbeResult(true, $"checkpoint: {first}", Version: first);
+                ? new ProviderProbeResult(false, "the WebUI answered but has no checkpoint loaded")
+                : new ProviderProbeResult(true, $"checkpoint: {first}", Version: first);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return new GenerationProbeResult(false, $"probe failed: {ex.Message}");
+            return new ProviderProbeResult(false, $"probe failed: {ex.Message}");
         }
     }
 

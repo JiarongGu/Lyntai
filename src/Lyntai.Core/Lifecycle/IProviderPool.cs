@@ -19,8 +19,8 @@ namespace Lyntai.Lifecycle;
 /// configuration under either. Implement this interface for anything else — a pool shared across
 /// processes, one reporting to the host's telemetry, or a lease-based one when a provider ever owns
 /// something needing prompt release (see the remarks on <see cref="Retire"/>).</para></summary>
-/// <typeparam name="TProvider">The provider seam being pooled — <see cref="Lyntai.Llm.ILlmProvider"/>,
-/// <see cref="Lyntai.Generation.IGenerationProvider"/>, or a concrete backend.</typeparam>
+/// <typeparam name="TProvider">The provider seam being pooled — <see cref="Lyntai.Lifecycle.IModelProvider"/>
+/// or a concrete backend.</typeparam>
 public interface IProviderPool<TProvider> where TProvider : class, IProviderIdentity
 {
     /// <summary>The instance for this configuration, building one through <paramref name="factory"/> when

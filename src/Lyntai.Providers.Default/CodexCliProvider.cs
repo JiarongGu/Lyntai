@@ -1,4 +1,5 @@
 using Lyntai.Agents;
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
 using Lyntai.Processes;
@@ -20,7 +21,7 @@ namespace Lyntai.Providers.CodexCli;
 /// version/channel argument — this backend cannot pin a version, so it doesn't claim to. That difference from
 /// the claude provider is the capability model working as intended.
 /// </summary>
-public sealed class CodexCliProvider : ILlmProvider, IProviderProbe, IProviderUpdater, IProviderAuth
+public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProviderAuth
 {
     public const string ProviderId = "codex-cli";
 
@@ -49,6 +50,14 @@ public sealed class CodexCliProvider : ILlmProvider, IProviderProbe, IProviderUp
 
     /// <inheritdoc/>
     public string Id => ProviderId;
+
+    /// <summary>What this backend serves — the spawned codex CLI: text in, text out, buffered or streamed. Its tool steps are surfaced by
+    /// the agent session rather than by this seam, so neither tool flag is declared.</summary>
+    public ProviderCapabilities Capabilities { get; } = new()
+    {
+        Kinds = [ProviderKinds.Text],
+        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
+    };
 
     /// <summary>Whether the <c>codex</c> CLI looks callable — see <see cref="CliProviderEngine.IsAvailable"/>
     /// (a portable copy is checked for presence; a BYO runner is trusted).</summary>

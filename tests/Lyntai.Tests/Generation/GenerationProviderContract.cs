@@ -6,7 +6,7 @@ using Lyntai.Generation;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>Backend-agnostic facts every <see cref="IGenerationProvider"/> satisfies.
+/// <summary>Backend-agnostic facts every <see cref="IModelProvider"/> satisfies.
 ///
 /// <para><b>Why this file exists.</b> The five shipped backends had no shared contract: <c>GenerationContractTests</c>
 /// pins the RECORD defaults and everything about BACKEND behaviour lived in per-backend files, which is the
@@ -25,7 +25,7 @@ public static class GenerationProviderContract
     /// <summary>A backend is addressable and says what it can do. An empty id cannot be named as a candidate;
     /// an empty kind or delivery list makes the router's capability pre-filter exclude it from everything, so
     /// it would be registered and permanently unreachable.</summary>
-    public static void It_declares_a_usable_identity(IGenerationProvider provider)
+    public static void It_declares_a_usable_identity(IModelProvider provider)
     {
         Assert.False(string.IsNullOrWhiteSpace(provider.Id));
         Assert.NotEmpty(provider.Capabilities.Kinds);
@@ -38,7 +38,7 @@ public static class GenerationProviderContract
     /// has been selected and every alternative discarded. <c>GenerationRouter</c> names this case explicitly
     /// on its stream door (<c>docs/DECISIONS.md</c> D67).</summary>
     public static void Its_declared_deliveries_are_backed_by_the_interfaces_it_implements(
-        IGenerationProvider provider)
+        IModelProvider provider)
     {
         foreach (var delivery in provider.Capabilities.Operations)
         {
@@ -49,11 +49,11 @@ public static class GenerationProviderContract
                         $"{provider.Id} declares Job delivery but does not implement IGenerationJobProvider");
                     break;
                 case ProviderOperation.Stream:
-                    Assert.True(provider is IGenerationStreamProvider,
-                        $"{provider.Id} declares Stream delivery but does not implement IGenerationStreamProvider");
+                    Assert.True(provider is IModelProvider,
+                        $"{provider.Id} declares Stream delivery but does not implement IModelProvider");
                     break;
                 case ProviderOperation.Complete:
-                    break;   // served by IGenerationProvider itself, which every backend implements
+                    break;   // served by IModelProvider itself, which every backend implements
             }
         }
     }
@@ -63,7 +63,7 @@ public static class GenerationProviderContract
     /// policy SURFACES rather than advancing on (<c>docs/DECISIONS.md</c> D3), because trying the next
     /// candidate cannot fix a capability mismatch.</summary>
     public static async Task An_inline_call_to_a_job_only_backend_is_Unsupported(
-        IGenerationProvider provider, GenerationRequest ask)
+        IModelProvider provider, GenerationRequest ask)
     {
         if (provider.Capabilities.Operations.Contains(ProviderOperation.Complete)) return;
 
@@ -79,7 +79,7 @@ public static class GenerationProviderContract
     /// So a shipped backend that throws where it could have answered costs the caller its whole candidate
     /// chain.</summary>
     public static async Task A_backend_failure_is_a_verdict_rather_than_a_throw(
-        IGenerationProvider provider, GenerationRequest ask)
+        IModelProvider provider, GenerationRequest ask)
     {
         var result = await provider.GenerateAsync(ask);
 
@@ -111,7 +111,7 @@ public static class GenerationProviderContract
     /// tell them apart would report a caller's deliberate stop as a backend timeout — and on the submit path
     /// that reads as "the backend may hold a billable render", which is the expensive direction.</summary>
     public static async Task Caller_cancellation_propagates_rather_than_becoming_a_verdict(
-        IGenerationProvider provider, GenerationRequest ask)
+        IModelProvider provider, GenerationRequest ask)
     {
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();

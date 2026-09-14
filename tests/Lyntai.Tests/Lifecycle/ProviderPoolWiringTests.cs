@@ -36,12 +36,12 @@ public class ProviderPoolWiringTests
         return services.BuildServiceProvider();
     }
 
-    private static IProviderPool<IGenerationProvider> PoolFrom(Action<LyntaiBuilder> configure)
+    private static IProviderPool<IModelProvider> PoolFrom(Action<LyntaiBuilder> configure)
     {
         // A pool is not IDisposable (it disposes nothing, ever), so it outlives the container that built
         // it — dispose the container anyway, so every test here leaves nothing behind.
         using var sp = Provider(configure);
-        return sp.GetRequiredService<IProviderPool<IGenerationProvider>>();
+        return sp.GetRequiredService<IProviderPool<IModelProvider>>();
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class ProviderPoolWiringTests
 
             var built = 0;
             for (var i = 0; i < 3; i++)
-                factory.For([new ProviderRegistration<IGenerationProvider>(Key("a"), () =>
+                factory.For([new ProviderRegistration<IModelProvider>(Key("a"), () =>
                 {
                     built++;
                     return new FakeGenerationProvider { Id = "a1111" };
@@ -139,8 +139,8 @@ public class ProviderPoolWiringTests
     {
         using var sp = Provider(_ => { });
 
-        Assert.Same(sp.GetRequiredService<IProviderPool<IGenerationProvider>>(),
-                    sp.GetRequiredService<IProviderPool<IGenerationProvider>>());
+        Assert.Same(sp.GetRequiredService<IProviderPool<IModelProvider>>(),
+                    sp.GetRequiredService<IProviderPool<IModelProvider>>());
     }
 
     // Registered as an OPEN generic, so the chat seam gets a pool from the same registration — and a
@@ -151,8 +151,8 @@ public class ProviderPoolWiringTests
     {
         using var sp = Provider(_ => { });
 
-        Assert.IsType<BoundedProviderPool<IGenerationProvider>>(sp.GetRequiredService<IProviderPool<IGenerationProvider>>());
-        Assert.IsType<BoundedProviderPool<ILlmProvider>>(sp.GetRequiredService<IProviderPool<ILlmProvider>>());
+        Assert.IsType<BoundedProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
+        Assert.IsType<BoundedProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
     }
 
     [Fact]
@@ -160,19 +160,19 @@ public class ProviderPoolWiringTests
     {
         using var sp = Provider(b => b.UseTransientProviders());
 
-        Assert.IsType<TransientProviderPool<IGenerationProvider>>(sp.GetRequiredService<IProviderPool<IGenerationProvider>>());
-        Assert.IsType<TransientProviderPool<ILlmProvider>>(sp.GetRequiredService<IProviderPool<ILlmProvider>>());
+        Assert.IsType<TransientProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
+        Assert.IsType<TransientProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
     }
 
     [Fact]
     public void A_host_registered_pool_wins()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<IProviderPool<IGenerationProvider>>(new TransientProviderPool<IGenerationProvider>());
+        services.AddSingleton<IProviderPool<IModelProvider>>(new TransientProviderPool<IModelProvider>());
         services.AddLyntai(_ => { });
 
         using var sp = services.BuildServiceProvider();
-        Assert.IsType<TransientProviderPool<IGenerationProvider>>(sp.GetRequiredService<IProviderPool<IGenerationProvider>>());
+        Assert.IsType<TransientProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
     }
 
     // A Use* method runs inside the configure callback, BEFORE AddLyntai's own TryAdd defaults — so the
@@ -185,7 +185,7 @@ public class ProviderPoolWiringTests
             .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a1111" })
             .UseTransientProviders());
 
-        Assert.IsType<TransientProviderPool<IGenerationProvider>>(sp.GetRequiredService<IProviderPool<IGenerationProvider>>());
+        Assert.IsType<TransientProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
     }
 
     [Fact]
@@ -253,7 +253,7 @@ public class ProviderPoolWiringTests
 
     /// <summary>Blocks inside GenerateAsync until released, and signals the moment TWO calls are inside at
     /// once — the observation an admission limit of one would make impossible.</summary>
-    private sealed class GatedGenerationProvider : IGenerationProvider
+    private sealed class GatedGenerationProvider : IModelProvider
     {
         private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _concurrent;
@@ -267,8 +267,8 @@ public class ProviderPoolWiringTests
             Operations = [ProviderOperation.Complete],
         };
 
-        public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new GenerationProbeResult(true, "ready"));
+        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+            Task.FromResult(new ProviderProbeResult(true, "ready"));
 
         public async Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
         {
@@ -367,7 +367,7 @@ public class ProviderPoolWiringTests
         var key = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var router = sp.GetRequiredService<ILlmRouterFactory>().For([
-            new ProviderRegistration<ILlmProvider>(key, () => new FakeLlmProvider("openai"))]);
+            new ProviderRegistration<IModelProvider>(key, () => new FakeLlmProvider("openai"))]);
         var reply = await router.CompleteAsync([new ProviderCandidate("openai")],
             new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
@@ -385,7 +385,7 @@ public class ProviderPoolWiringTests
         var key = Key("a");
 
         var router = sp.GetRequiredService<IGenerationRouterFactory>().For([
-            new ProviderRegistration<IGenerationProvider>(key, () => new FakeGenerationProvider { Id = "a1111" })]);
+            new ProviderRegistration<IModelProvider>(key, () => new FakeGenerationProvider { Id = "a1111" })]);
         var result = await router.GenerateAsync([new ProviderCandidate("a1111")],
             new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a cat" });
 
@@ -413,7 +413,7 @@ public class ProviderPoolWiringTests
         var provider = new FakeLlmProvider("openai");
 
         var router = sp.GetRequiredService<ILlmRouterFactory>().For([
-            new ProviderRegistration<ILlmProvider>(
+            new ProviderRegistration<IModelProvider>(
                 ProviderKey.For("openai").With("tenant", "a").Build(), () => provider)]);
         var reply = await router.CompleteAsync([new ProviderCandidate("openai")],
             new LlmRequest { Messages = [LlmMessage.User("hi")] });
@@ -436,6 +436,6 @@ public class ProviderPoolWiringTests
 
         Assert.True(result.IsOk);
         Assert.Equal(1, backend.GenerateCalls);
-        Assert.Equal(0, sp.GetRequiredService<IProviderPool<IGenerationProvider>>().Statistics.Created);
+        Assert.Equal(0, sp.GetRequiredService<IProviderPool<IModelProvider>>().Statistics.Created);
     }
 }

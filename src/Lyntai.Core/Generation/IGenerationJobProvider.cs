@@ -1,12 +1,13 @@
+using Lyntai.Lifecycle;
 namespace Lyntai.Generation;
 
 /// <summary>
-/// OPTIONAL capability of an <see cref="IGenerationProvider"/> whose backend generates ASYNCHRONOUSLY: submit a
+/// OPTIONAL capability of an <see cref="IModelProvider"/> whose backend generates ASYNCHRONOUSLY: submit a
 /// request, get an operation id, poll until terminal, then fetch. This is how essentially every video backend
 /// works (renders take minutes) and how batch music works.
 ///
 /// It is a separate interface, and separate CALLS, for a reason: folding "submit and wait" into
-/// <see cref="IGenerationProvider.GenerateAsync"/> would bury an unbounded poll loop inside one method — no
+/// <see cref="IModelProvider.GenerateAsync"/> would bury an unbounded poll loop inside one method — no
 /// progress, no cancellation of the remote job, and nothing left to resume after a process restart. With the
 /// operation id exposed, a render survives a restart (persist the id; poll again later) and composes with
 /// <c>Lyntai.Jobs</c>.

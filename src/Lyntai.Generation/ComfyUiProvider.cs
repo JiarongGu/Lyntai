@@ -83,7 +83,7 @@ public sealed class ComfyUiOptions
 }
 
 /// <summary>
-/// An <see cref="IGenerationProvider"/> + <see cref="IGenerationJobProvider"/> over a locally-run **ComfyUI**.
+/// An <see cref="IModelProvider"/> + <see cref="IGenerationJobProvider"/> over a locally-run **ComfyUI**.
 /// Three things make it unlike the other HTTP backends:
 ///
 /// <list type="number">
@@ -115,7 +115,7 @@ public sealed class ComfyUiOptions
 /// <see cref="ObjectDisposedException"/>. <c>AddComfyUiProvider</c> sets this for you.</param>
 public sealed class ComfyUiProvider(
     ComfyUiOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
-    : IGenerationProvider, IGenerationJobProvider
+    : IModelProvider, IGenerationJobProvider
 {
     /// <inheritdoc/>
     public string Id => options.Id;
@@ -132,14 +132,14 @@ public sealed class ComfyUiProvider(
 
     /// <summary>Reads server info — free, and it answers "is it up, and which build?" without generating.
     /// Bounded by <see cref="ComfyUiOptions.Timeout"/>.</summary>
-    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
+    public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct, ProbeCoreAsync,
-            reason => new GenerationProbeResult(false, $"probe {reason}"));
+            reason => new ProviderProbeResult(false, $"probe {reason}"));
 
-    private async Task<GenerationProbeResult> ProbeCoreAsync(CancellationToken ct)
+    private async Task<ProviderProbeResult> ProbeCoreAsync(CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
-            return new GenerationProbeResult(false, "not configured: no BaseUrl");
+            return new ProviderProbeResult(false, "not configured: no BaseUrl");
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
@@ -148,14 +148,14 @@ public sealed class ComfyUiProvider(
             using var response = await http.GetAsync(Url(options.SystemStatsPath), ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
-                return new GenerationProbeResult(false, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
+                return new ProviderProbeResult(false, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
 
-            return new GenerationProbeResult(true, "ComfyUI answered", Version: ComfyVersion(body));
+            return new ProviderProbeResult(true, "ComfyUI answered", Version: ComfyVersion(body));
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return new GenerationProbeResult(false, $"probe failed: {ex.Message}");
+            return new ProviderProbeResult(false, $"probe failed: {ex.Message}");
         }
     }
 

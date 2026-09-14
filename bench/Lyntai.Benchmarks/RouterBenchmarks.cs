@@ -43,9 +43,15 @@ public class RouterBenchmarks
         return last;
     }
 
-    private sealed class NoopProvider(string id, LlmVerdict verdict) : ILlmProvider
+    private sealed class NoopProvider(string id, LlmVerdict verdict) : IModelProvider
     {
         public string Id => id;
+
+        public ProviderCapabilities Capabilities { get; set; } = new()
+        {
+            Kinds = [ProviderKinds.Text],
+            Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
+        };
         public bool IsAvailable => true;
 
         public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>

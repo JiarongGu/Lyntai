@@ -10,6 +10,7 @@ sealed class Lyntai.Providers.Local.LocalModelOptions
     Temperature : Single
 sealed class Lyntai.Providers.Local.LocalProvider
     .ctor(String id, LocalModelOptions options, LyntaiOptions lyntai, ILogger<LocalProvider> logger = null)
+    Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Dispose() : Void
     Id : String

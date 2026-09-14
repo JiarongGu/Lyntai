@@ -872,7 +872,7 @@ Mechanical, and a compile error names every site — which is why it is last. No
 
 | 2.5 / early-3.0 name | 3.0 name | Affects you if |
 |---|---|---|
-| `IProviderInstallation` | `IProviderProbe` | you type-test a provider for probe support |   <!-- drift-ok: a rename table NAMES the retired spelling -->
+| `IProviderInstallation` | `IModelProvider` | you type-test a provider for probe support |   <!-- drift-ok: a rename table NAMES the retired spelling -->
 | `MemoryEngineBuilder.Reserve(n)` | `.ReserveCharacters(n)` | you set the prompt reserve on a blend |   <!-- drift-ok: a rename table NAMES the retired spelling -->
 | `MemoryCompositionOptions.AuthoritativeReserve` | `.AuthoritativeCharacters` | you construct that options record |
 | `GraphMemoryEngine(policy:)` / `UseGraph(policy:)` | `retrievability:` | you pass the curve by NAME |

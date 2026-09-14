@@ -62,6 +62,7 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeCliMcpDialect
     ProviderId : String
 sealed class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<ClaudeCliProvider> logger = null, String command = null, ICliToolProvisioner provisioner = null, IReadOnlyDictionary<String,String> environment = null)
+    Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Id : String
     InstallAsync(ProviderInstallRequest request = null, CancellationToken ct = default) : Task<ProviderUpdateResult>
@@ -103,6 +104,7 @@ sealed class Lyntai.Providers.CodexCli.CodexCliDialect
     UpdateArgs : IReadOnlyList<String>
 sealed class Lyntai.Providers.CodexCli.CodexCliProvider
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<CodexCliProvider> logger = null, String command = null, ICliToolProvisioner provisioner = null, IReadOnlyDictionary<String,String> environment = null, CodexCliDialect dialect = null)
+    Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean
@@ -115,11 +117,11 @@ sealed class Lyntai.Providers.CodexCli.CodexCliProvider
     UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
 sealed class Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider
     .ctor(String id, IChatClient client, LyntaiOptions options, ILogger<ExtensionsAiProvider> logger = null)
+    Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls : Boolean
 static class Lyntai.Providers.ExtensionsAi.LyntaiChatClientExtensions
     static AsChatClient(ILlmClient client) : IChatClient
 sealed class Lyntai.Providers.OpenAiCompatible.CrossEncoderVerificationOptions
@@ -153,12 +155,11 @@ sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleOptions
     OllamaContextSize : Nullable<Int32>
 sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider
     .ctor(String id, OpenAiCompatibleOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<OpenAiCompatibleProvider> logger = null, Boolean disposeHttpClient = true)
+    Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
-    SupportsStreamingToolCalls : Boolean
-    SupportsToolCalls : Boolean
 enum Lyntai.Providers.OpenAiCompatible.OpenAiFlavor
     Auto : OpenAiFlavor const
     AzureOpenAi : OpenAiFlavor const

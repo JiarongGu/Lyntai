@@ -10,12 +10,12 @@ public sealed class FakeLlmClient : ILlmClient
     public Queue<LlmReply> Replies { get; } = new();
     public List<LlmRequest> Calls { get; } = [];
 
-    /// <summary>Backs the <see cref="ILlmClient.SupportsToolCalls"/> method (a settable flag for tests).</summary>
+    /// <summary>Backs the <see cref="ILlmClient.Capabilities.SupportsToolCalls"/> method (a settable flag for tests).</summary>
     public bool SupportsToolCallsResult { get; set; }
 
     public bool SupportsToolCalls(LlmRequest req) => SupportsToolCallsResult;
 
-    /// <summary>Backs <see cref="ILlmClient.SupportsStreamingToolCalls"/>. SEPARATE from
+    /// <summary>Backs <see cref="ILlmClient.Capabilities.SupportsStreamingToolCalls"/>. SEPARATE from
     /// <see cref="SupportsToolCallsResult"/> on purpose — the two are independent in the contract, and a
     /// fake that conflated them could not express the case that matters most: a provider doing native
     /// tool-calling whose STREAM drops the calls.</summary>

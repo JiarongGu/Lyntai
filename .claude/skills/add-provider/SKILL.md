@@ -1,6 +1,6 @@
 ---
 name: add-provider
-description: Use when adding a new LLM provider to Lyntai (a new backend/model source behind ILlmProvider, or bridging an existing Microsoft.Extensions.AI IChatClient). Covers the correct pattern, the verdict/streaming/timeout invariants, and stub-based tests.
+description: Use when adding a new LLM provider to Lyntai (a new backend/model source behind IModelProvider, or bridging an existing Microsoft.Extensions.AI IChatClient). Covers the correct pattern, the verdict/streaming/timeout invariants, and stub-based tests.
 ---
 
 # Add an LLM provider to Lyntai
@@ -13,7 +13,7 @@ Read `.claude/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.claud
 2. **Is it a spawned CLI agent?** (`claude`, a sibling CLI) → write a **dialect**, not a provider. See the
    CLI checklist below — the spawn/verdict/streaming/maintenance invariants already live in
    `CliProviderEngine`, and a second copy of them is how they drifted before.
-3. Otherwise write a native `ILlmProvider`. WHERE it lives is the footprint test below, never a default.
+3. Otherwise write a native `IModelProvider`. WHERE it lives is the footprint test below, never a default.
 
 ## Where the code lives — the footprint test (`docs/DECISIONS.md` D25)
 
@@ -62,7 +62,7 @@ the csproj.
 - [ ] A class in `src/Lyntai.Providers.Default/` unless the backend drags a dependency a consumer might
       refuse — the footprint test above. `OpenAiCompatibleProvider` lives there (managed
       `Microsoft.Extensions.Http` only); `Lyntai.Providers.LlamaSharp` earned its own package.
-- [ ] `MyProvider : ILlmProvider` — `Id`, `IsAvailable`, `CompleteAsync`, `StreamAsync`.
+- [ ] `MyProvider : IModelProvider` — `Id`, `IsAvailable`, `CompleteAsync`, `StreamAsync`.
 - [ ] Failures classified via `LlmVerdictClassifier` (429→RateLimited, 401/403→AuthFailed, filter→Refused,
       too-big→ContextWindowExceeded, deadline→Timeout, else Failed). No local heuristics.
 - [ ] An HTTP backend classifies through the **three-argument** `FromHttpFailure(status, body,
@@ -79,7 +79,7 @@ the csproj.
       `Final`(usage) or `Error`.
 - [ ] Spawning a CLI → go through `ProcessRunner` (never shell out directly).
 - [ ] `AddMyProvider(this LyntaiBuilder, …)` extension in the adapter package; register into the
-      `IEnumerable<ILlmProvider>` collection, resolve deps from the container.
+      `IEnumerable<IModelProvider>` collection, resolve deps from the container.
 - [ ] Baselines/registries: same rule as the CLI checklist above — Core untouched, and a package only if
       the footprint test says so, scaffolded with `node devtools/dev.mjs new-package`, never by hand.
 - [ ] Tests against a stub only (stubbed `HttpMessageHandler`, or `provider-stub.mjs` via

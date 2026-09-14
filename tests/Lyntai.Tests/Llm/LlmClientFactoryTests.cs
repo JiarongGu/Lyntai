@@ -23,7 +23,7 @@ public class LlmClientFactoryTests
 
     private static LyntaiBuilder WithProviders(LyntaiBuilder b, params string[] ids)
     {
-        foreach (var id in ids) b.Services.AddSingleton<ILlmProvider>(new FakeLlmProvider(id));
+        foreach (var id in ids) b.Services.AddSingleton<IModelProvider>(new FakeLlmProvider(id));
         return b;
     }
 
@@ -153,7 +153,7 @@ public class LlmClientFactoryTests
         using var sp = Build(b => b
             .UseDefaultCandidates("claude-cli")
             .AddLlmClient("judge", c => c.UseProviders("ollama-chat"))
-            .Services.AddSingleton<ILlmProvider>(cli).AddSingleton<ILlmProvider>(ollama));
+            .Services.AddSingleton<IModelProvider>(cli).AddSingleton<IModelProvider>(ollama));
 
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
@@ -174,7 +174,7 @@ public class LlmClientFactoryTests
         using var sp = Build(b => b
             .UseDefaultCandidates("claude-cli")
             .AddLlmClient("judge", c => c.UseProviders("ollama-chat"))
-            .Services.AddSingleton<ILlmProvider>(cli).AddSingleton<ILlmProvider>(ollama));
+            .Services.AddSingleton<IModelProvider>(cli).AddSingleton<IModelProvider>(ollama));
 
         await sp.GetRequiredService<ILlmClient>()
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
@@ -192,8 +192,8 @@ public class LlmClientFactoryTests
         using var sp = Build(b => b
             .UseDefaultCandidates(new ProviderCandidate("hosted"), new ProviderCandidate("local", "qwen3:4b"))
             .AddLlmClient("judge", c => c.UseProviders("local"))
-            .Services.AddSingleton<ILlmProvider>(new FakeLlmProvider("hosted"))
-                     .AddSingleton<ILlmProvider>(small));
+            .Services.AddSingleton<IModelProvider>(new FakeLlmProvider("hosted"))
+                     .AddSingleton<IModelProvider>(small));
 
         await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
@@ -214,7 +214,7 @@ public class LlmClientFactoryTests
         using var sp = Build(b => b
             .UseDefaultCandidates("a", "b")                    // the GLOBAL order is a, then b
             .AddLlmClient("judge", c => c.UseProviders("b", "a"))
-            .Services.AddSingleton<ILlmProvider>(second).AddSingleton<ILlmProvider>(first));
+            .Services.AddSingleton<IModelProvider>(second).AddSingleton<IModelProvider>(first));
 
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
@@ -236,9 +236,9 @@ public class LlmClientFactoryTests
         using var sp = Build(b => b
             .UseDefaultCandidates("a", "b")
             .AddLlmClient("judge", c => c.UseProviders("a", "c"))
-            .Services.AddSingleton<ILlmProvider>(known)
-                     .AddSingleton<ILlmProvider>(new FakeLlmProvider("b"))
-                     .AddSingleton<ILlmProvider>(unlisted));
+            .Services.AddSingleton<IModelProvider>(known)
+                     .AddSingleton<IModelProvider>(new FakeLlmProvider("b"))
+                     .AddSingleton<IModelProvider>(unlisted));
 
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
@@ -258,7 +258,7 @@ public class LlmClientFactoryTests
         using var sp = Build(b => b
             .UseDefaultCandidates("a")
             .AddLlmClient("everything")
-            .Services.AddSingleton<ILlmProvider>(primary).AddSingleton<ILlmProvider>(other));
+            .Services.AddSingleton<IModelProvider>(primary).AddSingleton<IModelProvider>(other));
 
         await sp.GetRequiredService<ILlmClientFactory>().Get("everything")
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
@@ -277,7 +277,7 @@ public class LlmClientFactoryTests
         using var sp = Build(b => b
             .UseDefaultCandidates(new ProviderCandidate("local", "big"))
             .AddLlmClient("judge", c => c.UseCandidates(new ProviderCandidate("local", "small")))
-            .Services.AddSingleton<ILlmProvider>(backend));
+            .Services.AddSingleton<IModelProvider>(backend));
 
         await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });

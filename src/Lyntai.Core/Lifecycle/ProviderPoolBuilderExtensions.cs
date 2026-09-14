@@ -18,8 +18,7 @@ namespace Lyntai;
 /// <see cref="IProviderPool{TProvider}.GetOrAdd"/>.</para>
 ///
 /// <para>The pool is registered as an OPEN generic, so one registration serves every provider seam —
-/// <see cref="IProviderPool{TProvider}"/> of <see cref="Lyntai.Llm.ILlmProvider"/> and of
-/// <see cref="Lyntai.Generation.IGenerationProvider"/> both resolve from it. Register a CLOSED
+/// <see cref="IProviderPool{TProvider}"/> of <see cref="Lyntai.Lifecycle.IModelProvider"/> resolves from it. Register a CLOSED
 /// <c>IProviderPool&lt;T&gt;</c> before <c>AddLyntai</c> to override just one seam; the container prefers
 /// the closed registration.</para></summary>
 public static class ProviderPoolBuilderExtensions

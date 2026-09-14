@@ -307,7 +307,7 @@ public class RouterCooldownKeyTests
     }
 
     /// <summary>Blocks inside GenerateAsync so a second caller can be observed queueing at the gate.</summary>
-    private sealed class BlockingGenerationProvider : IGenerationProvider
+    private sealed class BlockingGenerationProvider : IModelProvider
     {
         private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _concurrent;
@@ -322,8 +322,8 @@ public class RouterCooldownKeyTests
             Operations = [ProviderOperation.Complete],
         };
 
-        public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new GenerationProbeResult(true, "ready"));
+        public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
+            Task.FromResult(new ProviderProbeResult(true, "ready"));
 
         public async Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
         {

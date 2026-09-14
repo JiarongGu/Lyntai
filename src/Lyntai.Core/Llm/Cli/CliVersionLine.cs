@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.RegularExpressions;
 
 namespace Lyntai.Llm.Cli;
