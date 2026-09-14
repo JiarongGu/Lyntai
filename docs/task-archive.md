@@ -3621,3 +3621,26 @@ their unmapped defaults differ — and none of that moved. `GenerationInputRoles
 says what an input IS TO a generation rather than what a backend produces, and it moved to its own file so
 the next reader is not deciding by proximity.
 
+---
+
+## Part 212 — the FuseVerdict constant: a review finding REFUTED, and the comment that invited it
+
+✅ closed 2026-09-15 as a **negative result**. `TASKS.md` Part 179's fourth item.
+
+- **`FuseVerdict` reads a fresh default, not the configured options.**
+
+**Outcome: NOT a defect — the code does exactly what its remark says.** The remark reads *"READ from
+`ReciprocalRankFusionOptions` … so the engine and the shipped ranking DEFAULT cannot drift apart"*, and
+`new ReciprocalRankFusionOptions().K` is the shipped default, read from the type rather than restated as
+`60`. Nothing drifts. No code changed.
+
+**And it should not track a consumer's configured `K` either.** This fuses the RANKING's order with the
+VERDICT's — a different pair of signals from the lexical/semantic ones a `ReciprocalRankFusionPolicy`
+combines — measured at the shipped constant, and the neighbouring `weight` states the same rule outright
+(*"deliberately not a knob, because no run has priced any other value"*).
+
+**What it cost, and what changed instead.** A careful reviewer read "READ from `ReciprocalRankFusionOptions`"
+as "read the configured instance", which is a fair reading of an ambiguous sentence sitting two lines above
+a `new` expression. The remark now says SHIPPED DEFAULT, says it is deliberately not the consumer's value,
+and says why. The finding was worth having: it cost one comment and bought the next reader the answer.
+

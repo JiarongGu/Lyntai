@@ -1399,8 +1399,13 @@ public sealed class GraphMemoryEngine(
     /// </summary>
     /// <param name="byPolicy">The ranking's own order.</param>
     /// <param name="byVerdict">The same items, endorsed-first — the page the partition would have built.</param>
-    /// <remarks>The fusion constant is READ from <see cref="ReciprocalRankFusionOptions"/> rather than
-    /// restated, so the engine and the shipped ranking default cannot drift apart.</remarks>
+    /// <remarks>The fusion constant is the SHIPPED DEFAULT of <see cref="ReciprocalRankFusionOptions.K"/>,
+    /// read from the type rather than restated as a literal, so changing that default moves both.
+    ///
+    /// <para><b>Deliberately not the consumer's configured value</b>, which a 2026-09-15 review read it as
+    /// and is worth stating outright. This fuses the RANKING's order with the VERDICT's — a different pair
+    /// of signals from the ones a <c>ReciprocalRankFusionPolicy</c> combines, measured at this constant, and
+    /// a knob nothing has priced. It is the same reasoning as <c>weight</c> just below.</para></remarks>
     private static List<RankedMemory> FuseVerdict(
         IReadOnlyList<RankedMemory> byPolicy, IReadOnlyList<RankedMemory> byVerdict)
     {

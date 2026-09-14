@@ -15,27 +15,26 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 14 across 8 Parts: 6 startable, 7 blocked, 1 watch
+## Open items — 13 across 8 Parts: 5 startable, 7 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 94 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 138 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 147 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 201 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 272 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 350 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 405 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 428 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 476 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
-| 735 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
-| 915 | 179 | `FuseVerdict` reads a fresh default, not the configured options | startable |  |
-| 922 | 179 | `CLAUDE.md`'s graph-memory roster says SEVEN domains and the tree has EIGHT | startable |  |
-| 928 | 179 | Pooling maths is `internal` to the ONNX package and re-implemented by hand … | startable |  |
-| 935 | 179 | `Lyntai.Tools.Mcp` and `Lyntai.Tools.Mcp.Hosting` isolate the same dependen… | startable |  |
+| 93 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 137 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 146 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 200 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 271 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 349 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 404 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 427 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 475 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
+| 734 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
+| 914 | 179 | `CLAUDE.md`'s graph-memory roster says SEVEN domains and the tree has EIGHT | startable |  |
+| 920 | 179 | Pooling maths is `internal` to the ONNX package and re-implemented by hand … | startable |  |
+| 927 | 179 | `Lyntai.Tools.Mcp` and `Lyntai.Tools.Mcp.Hosting` isolate the same dependen… | startable |  |
 
 <!-- open-items:end -->
 
@@ -50,11 +49,11 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is SIX items**, four of them
+longer drift apart. Edit the marker, never the table. **The startable set is FIVE items**, three of them
 Part 179's — a design REVIEW, which is the third route an item arrives by and the only one that can be
 scheduled on purpose. The other two are a ruling and a captured failure, and neither comes from re-reading
 the tree; a review does, which is why it produced seven at once after months of ones and twos, and why the
-first three closed the day they were filed.
+first four closed the day they were filed — one of them REFUTED, which is a close like any other.
 `decision-only` is still EMPTY. That sentence is hand-written on purpose and gated by `check-counts`:
 the banner it replaces advertised finished work **four** times, and nothing derived it.
 
@@ -911,13 +910,6 @@ with a backend is process logic and belongs in Core**. The thesis HOLDS in the m
 across 69 files `Lyntai.Core/Memory` names no `HttpClient`, no ONNX or storage type, no provider id and no
 model id, and duplicates no routing logic. Every finding below is the other direction, or a residue of the
 rename campaign. Items are ordered by the order they should be taken, not by severity alone.
-
-- [ ] **`FuseVerdict` reads a fresh default, not the configured options.** <!-- item: state=startable -->
-  Its own remark says otherwise. `GraphMemoryEngine.cs:1413` is `new ReciprocalRankFusionOptions().K` while the remark two
-  lines above states the constant is *"READ from `ReciprocalRankFusionOptions` … so the engine and the
-  shipped ranking default cannot drift apart"*. A consumer setting `K = 5` gets 5 in ranking and 60 in
-  verdict fusion, and `K` selects a regime rather than tuning one. `MemoryVerdictFusionTests` never varies
-  `K`, so it is invisible.
 
 - [ ] **`CLAUDE.md`'s graph-memory roster says SEVEN domains and the tree has EIGHT.** <!-- item: state=startable -->
   `Lyntai.Memory.Seeding` is omitted (`CLAUDE.md:78`) and is textbook domain shape under **D46**/**D48** —
