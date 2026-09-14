@@ -1031,7 +1031,8 @@ public sealed class MyCliProvider(IProcessRunner runner, LyntaiOptions options) 
     // do NOT list stays on its default "I don't serve that" body rather than needing a stub.
     public ProviderCapabilities Capabilities { get; } = new()
     {
-        Kinds = [ProviderKinds.Text],
+        Accepts = [ProviderKinds.Text],
+        Produces = [ProviderKinds.Text],
         Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
     };
 

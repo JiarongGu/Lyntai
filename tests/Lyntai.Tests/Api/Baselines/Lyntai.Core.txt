@@ -1076,14 +1076,15 @@ sealed class Lyntai.Lifecycle.ProviderCandidate
     ToString() : String
 sealed class Lyntai.Lifecycle.ProviderCapabilities
     .ctor()
+    Accepts : IReadOnlyList<String>
     Equals(Object obj) : Boolean
     Equals(ProviderCapabilities other) : Boolean
     GetHashCode() : Int32
-    Kinds : IReadOnlyList<String>
     Limits : IReadOnlyDictionary<String,String>
     Models : IReadOnlyList<String>
     Operations : IReadOnlyList<ProviderOperation>
-    Supports(String kind, ProviderOperation operation, String model = null, Boolean hasInputs = false) : Boolean
+    Produces : IReadOnlyList<String>
+    Supports(String produces, ProviderOperation operation, String accepts = null, String model = null, Boolean hasInputs = false) : Boolean
     SupportsInputs : Boolean
     SupportsStreamingToolCalls : Boolean
     SupportsToolCalls : Boolean
@@ -1110,10 +1111,10 @@ static class Lyntai.Lifecycle.ProviderKinds
     Image : String const
     Model3d : String const
     Text : String const
+    Vector : String const
     Video : String const
 enum Lyntai.Lifecycle.ProviderOperation
     Complete : ProviderOperation const
-    Embed : ProviderOperation const
     Job : ProviderOperation const
     Stream : ProviderOperation const
     value__ : Int32

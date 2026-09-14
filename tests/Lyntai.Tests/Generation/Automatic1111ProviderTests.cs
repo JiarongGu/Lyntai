@@ -32,7 +32,7 @@ public class Automatic1111ProviderTests
         var (provider, _) = Provider();
 
         Assert.Equal("a1111", provider.Id);
-        Assert.Equal([GenerationKinds.Image], provider.Capabilities.Kinds);
+        Assert.Equal([GenerationKinds.Image], provider.Capabilities.Produces);
         Assert.Equal([ProviderOperation.Complete], provider.Capabilities.Operations);
         Assert.True(provider.Capabilities.SupportsInputs);
     }

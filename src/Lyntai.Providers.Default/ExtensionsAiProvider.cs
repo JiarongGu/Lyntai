@@ -46,7 +46,8 @@ public sealed class ExtensionsAiProvider(
     /// two flags being independent.</summary>
     public ProviderCapabilities Capabilities { get; } = new()
     {
-        Kinds = [ProviderKinds.Text],
+        Accepts = [ProviderKinds.Text],
+        Produces = [ProviderKinds.Text],
         Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
         SupportsToolCalls = true,
     };

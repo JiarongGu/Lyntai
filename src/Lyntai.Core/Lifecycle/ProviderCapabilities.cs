@@ -4,10 +4,10 @@ namespace Lyntai.Lifecycle;
 ///
 /// <para>One entry per method a provider can serve, so a declaration maps to a dispatch with nothing in
 /// between. Chat completion and an inline image render are both <see cref="Complete"/> — they differ by
-/// <see cref="ProviderCapabilities.Kinds"/>, which is the CONTENT type, not by the operation.</para></summary>
+/// <see cref="ProviderCapabilities.Produces"/>, which is the CONTENT type, not by the operation.</para></summary>
 public enum ProviderOperation
 {
-    /// <summary>One request, one reply. Chat completion, an inline render.</summary>
+    /// <summary>One request, one reply. Chat completion, an inline render, a batch of vectors.</summary>
     Complete = 0,
 
     /// <summary>Incremental delivery — tokens, frames, audio.</summary>
@@ -15,14 +15,10 @@ public enum ProviderOperation
 
     /// <summary>Submit now, collect later: the backend returns a handle rather than a result.</summary>
     Job = 2,
-
-    /// <summary>Content to vector. The one operation that does not produce content of its own
-    /// <see cref="ProviderCapabilities.Kinds"/>; it CONSUMES that kind and returns numbers.</summary>
-    Embed = 3,
 }
 
 /// <summary>The content types this library routes over. Open by construction —
-/// <see cref="ProviderCapabilities.Kinds"/> is a string list — so an adapter may declare one that is not
+/// <see cref="ProviderCapabilities.Produces"/> is a string list — so an adapter may declare one that is not
 /// here; these are the names the library itself uses.</summary>
 public static class ProviderKinds
 {
@@ -31,6 +27,12 @@ public static class ProviderKinds
     public const string Video = "video";
     public const string Audio = "audio";
     public const string Model3d = "3d";
+
+    /// <summary>What an EMBEDDER produces. It is a kind rather than an operation, and that is the whole
+    /// correction: an embedder accepts text and produces vectors, exactly as an image backend accepts text
+    /// and produces an image. Treating it as its own operation made it the one member that had to be
+    /// explained away (<c>docs/DECISIONS.md</c> D130).</summary>
+    public const string Vector = "vector";
 }
 
 /// <summary>What a backend DECLARES it serves — read by a router BEFORE anything is spent.
@@ -40,15 +42,28 @@ public static class ProviderKinds
 /// combination and still could not answer "which of your models" (<c>docs/DECISIONS.md</c> D125).</para>
 ///
 /// <para><b>The two defaults point in OPPOSITE directions, on purpose.</b> An empty
-/// <see cref="Kinds"/> or <see cref="Operations"/> serves NOTHING — a backend that forgot to declare must
-/// be skipped rather than handed every request. An empty <see cref="Models"/> serves ANY — an aggregator
-/// fronts hundreds behind one id and cannot enumerate them.</para></summary>
+/// <see cref="Produces"/> or <see cref="Operations"/> serves NOTHING — a backend that forgot to declare
+/// must be skipped rather than handed every request. An empty <see cref="Models"/> serves ANY — an
+/// aggregator fronts hundreds behind one id and cannot enumerate them.</para>
+///
+/// <para><b><see cref="Produces"/> is a LIST, and that is load-bearing.</b> One backend can serve several
+/// output kinds: an OpenAI-compatible host answers <c>/chat/completions</c> AND <c>/embeddings</c>, so it
+/// declares <c>[text, vector]</c> and implements both methods off one configuration. Modelling embedding as
+/// its own operation made that inexpressible (<c>docs/DECISIONS.md</c> D130).</para></summary>
 public sealed record ProviderCapabilities
 {
-    /// <summary>The content types served (<see cref="ProviderKinds"/>). Matched case-insensitively.</summary>
-    public IReadOnlyList<string> Kinds { get; init; } = [];
+    /// <summary>The content types this backend takes IN (<see cref="ProviderKinds"/>), matched
+    /// case-insensitively. A chat model and an embedder both accept <c>text</c>; an image-to-video backend
+    /// accepts <c>text</c> and <c>image</c>.</summary>
+    public IReadOnlyList<string> Accepts { get; init; } = [];
 
-    /// <summary>The operations served. Empty serves nothing.</summary>
+    /// <summary>The content types this backend puts OUT. <b>This is the axis that separates the backend
+    /// classes</b>: text out is a chat model, <see cref="ProviderKinds.Image"/> out is a renderer,
+    /// <see cref="ProviderKinds.Vector"/> out is an embedder. Empty serves nothing.</summary>
+    public IReadOnlyList<string> Produces { get; init; } = [];
+
+    /// <summary>How a result is DELIVERED — inline, streamed, or as a job. Not what it is; that is
+    /// <see cref="Produces"/>. Empty serves nothing.</summary>
     public IReadOnlyList<ProviderOperation> Operations { get; init; } = [];
 
     /// <summary>The models served, or EMPTY for "any" — see the type's remarks on the opposite default.</summary>
@@ -78,15 +93,20 @@ public sealed record ProviderCapabilities
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Can this backend serve this request? Every clause fails CLOSED.</summary>
-    /// <param name="kind">The content type wanted (<see cref="ProviderKinds"/>).</param>
-    /// <param name="operation">The method that would be called.</param>
+    /// <param name="produces">The content type WANTED back (<see cref="ProviderKinds"/>) — the axis that
+    /// picks the backend class.</param>
+    /// <param name="operation">How it must be delivered.</param>
+    /// <param name="accepts">The content type going IN, when the caller needs to pin it. Null skips the
+    /// check, which is right for the common text-in case.</param>
     /// <param name="model">The model asked for, or null for the backend's default.</param>
     /// <param name="hasInputs">Whether the request carries input artifacts.</param>
     public bool Supports(
-        string kind, ProviderOperation operation, string? model = null, bool hasInputs = false)
+        string produces, ProviderOperation operation,
+        string? accepts = null, string? model = null, bool hasInputs = false)
     {
-        if (!Kinds.Contains(kind, StringComparer.OrdinalIgnoreCase)) return false;
+        if (!Produces.Contains(produces, StringComparer.OrdinalIgnoreCase)) return false;
         if (!Operations.Contains(operation)) return false;
+        if (accepts is { Length: > 0 } && !Accepts.Contains(accepts, StringComparer.OrdinalIgnoreCase)) return false;
         if (hasInputs && !SupportsInputs) return false;
         if (model is { Length: > 0 } && Models.Count > 0 &&
             !Models.Contains(model, StringComparer.OrdinalIgnoreCase)) return false;

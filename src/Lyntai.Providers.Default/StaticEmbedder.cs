@@ -57,13 +57,15 @@ public sealed class StaticEmbedder : IModelProvider
     /// <inheritdoc />
     public string Id { get; }
 
-    /// <summary>Text in, vectors out — and nothing else. Declaring only <see cref="ProviderOperation.Embed"/>
-    /// is how this backend tells a router never to send it a chat or a render; every other operation keeps
-    /// <see cref="IModelProvider"/>'s default "I do not serve that" body, so declining costs no code.</summary>
+    /// <summary>Text in, VECTORS out — which is the whole of what makes this an embedder. Producing only
+    /// <see cref="ProviderKinds.Vector"/> is how it tells a router never to send it a chat or a render;
+    /// every method it does not implement keeps <see cref="IModelProvider"/>'s default "I do not serve
+    /// that" body, so declining costs no code.</summary>
     public ProviderCapabilities Capabilities { get; } = new()
     {
-        Kinds = [ProviderKinds.Text],
-        Operations = [ProviderOperation.Embed],
+        Accepts = [ProviderKinds.Text],
+        Produces = [ProviderKinds.Vector],
+        Operations = [ProviderOperation.Complete],
     };
 
     /// <summary>Always true once constructed. The table is loaded EAGERLY, so a model that is missing or

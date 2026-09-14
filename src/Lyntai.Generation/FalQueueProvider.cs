@@ -31,7 +31,7 @@ public sealed class FalQueueOptions
 
     /// <summary>Media kinds this account's models cover. Declared rather than discovered — the catalogue is
     /// large and changes without us, so the host states what it actually uses.</summary>
-    public IReadOnlyList<string> Kinds { get; set; } =
+    public IReadOnlyList<string> Produces { get; set; } =
         [GenerationKinds.Video, GenerationKinds.Image, GenerationKinds.Audio];
 
     /// <summary>Path segment for a request's status, appended as
@@ -136,7 +136,8 @@ public sealed class FalQueueProvider(
     /// <inheritdoc/>
     public ProviderCapabilities Capabilities { get; } = new()
     {
-        Kinds = options.Kinds,
+        Accepts = [ProviderKinds.Text],
+        Produces = options.Produces,
         Operations = [ProviderOperation.Job],
         SupportsInputs = true,          // image→video, reference→video: the model decides
         // Models deliberately NOT enumerated: hundreds, changing without us, and an empty list means

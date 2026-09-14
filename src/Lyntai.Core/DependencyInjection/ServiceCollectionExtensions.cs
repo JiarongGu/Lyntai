@@ -316,7 +316,7 @@ public static class LyntaiServiceCollectionExtensions
 
     /// <summary>The embedding FRONT DOOR, mirroring <see cref="RegisterLlmFrontDoor"/>: an
     /// <see cref="Lyntai.Embeddings.IEmbedder"/> routing over every backend that declares
-    /// <see cref="Lyntai.Lifecycle.ProviderOperation.Embed"/>, with fallback.
+    /// <see cref="Lyntai.Lifecycle.ProviderKinds.Vector"/>, with fallback.
     ///
     /// <para><b>TryAdd, and the ORDER is what makes bring-your-own win.</b> <c>AddEmbeddings(…)</c>
     /// registers directly inside the configure callback, which runs before this — so an app-supplied

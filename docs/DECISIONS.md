@@ -199,8 +199,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D127](#d127--one-provider-interface-imodelprovider-with-every-operation-defaulted-to-unsupported-2026-09-14) | 2026-09-14 | ONE provider interface: IModelProvider, with every operation defaulted to Unsupported |
 | [D128](#d128--an-embedder-is-a-provider-iembeddingprovider-is-deleted-and-embedding-is-a-declared-operation-2026-09-14) | 2026-09-14 | an embedder is a provider: IEmbeddingProvider is deleted and embedding is a declared OPERATION |
 | [D129](#d129--iembedder-is-the-front-door-not-a-backend-contract-embeddings-get-routing-and-fallback-2026-09-14) | 2026-09-14 | IEmbedder is the FRONT DOOR, not a backend contract: embeddings get routing and fallback |
+| [D130](#d130--embedding-is-an-output-kind-not-an-operation-capabilities-become-accepts--produces-2026-09-14) | 2026-09-14 | embedding is an output KIND, not an operation: capabilities become accepts → produces |
 
-_All 129 entries are live decisions._
+_All 130 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3932,3 +3933,37 @@ backend cannot work out for itself, so a front door that flattened it would be i
 **What is now possible that was not:** two embedders registered together, told apart by id, with the second
 serving when the first fails — and a chat-only backend never asked to embed, because the capability filter
 runs before dispatch rather than the backend reporting `Unsupported` afterwards.
+
+## D130 — embedding is an output KIND, not an operation: capabilities become accepts → produces (2026-09-14)
+
+`ProviderOperation.Embed` is gone. `ProviderCapabilities.Kinds` splits into `Accepts` and `Produces`, and <!-- link-ok: names the member this entry RETIRES -->
+an embedder declares `Accepts: [text], Produces: [vector], Operations: [Complete]`. `ProviderOperation` is
+back to the DELIVERY axis it was — `Complete`, `Stream`, `Job`.
+
+**The tell was in the enum member's own documentation**, which read: *"Content to vector. The one operation
+that does not produce content of its own Kinds; it CONSUMES that kind and returns numbers."* A member that
+has to be explained away is not on the axis it was added to. **D126** widened the delivery list to hold
+`Embed`, and that widening — not the starting point — was the error.
+
+**Every backend is accepts → produces, delivered some way.** A chat model is text → text; a renderer is
+text → image; an embedder is text → vector. Once that is the model, an embedder and a chat model differ in
+exactly one field, which is what the whole series was reaching for.
+
+**`Produces` is a LIST, and that is what the previous shape could not express.** An OpenAI-compatible host
+answers `/chat/completions` AND `/embeddings`, so it declares `[text, vector]` and implements both methods
+off one configuration, one id and one HttpClient. Under an `Embed` operation that backend had to be split
+into two registrations pointed at the same endpoint — which is how `HttpEmbedder` came to exist beside
+`OpenAiCompatibleProvider` in the first place.
+
+**`Accepts` is checked only when a caller pins it**, because the common case is text in and pinning it
+everywhere would be noise. It earns its place on the image→video edge, where a text-only backend must not
+be handed an image.
+
+**What does NOT change is `EmbedAsync` the METHOD**, and the reason is a language constraint rather than a
+modelling one: its return type is `Task<IReadOnlyList<float[]>>` where chat's is `Task<LlmReply>`, so the
+two cannot be one member. What changed is that the method is now justified by `Produces: vector` instead of
+by a bespoke enum member that did not fit.
+
+**What this predicts, and is the reason to believe it:** a reranker is `Produces: [score]` — no new
+operation, no new interface, no new family. `TASKS.md` Part 177's cross-encoder had nowhere to sit under
+the old model and needs nothing new under this one.

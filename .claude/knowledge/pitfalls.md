@@ -1483,8 +1483,8 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   (`ProviderAdmission`) is the only shape that survives both strategies.
 - **A key derived from the options object is right for some backends and silently wrong for others.** Four of <!-- trap: sub=lifetime,di shape=wrong-subject -->
   the five generation options types are records with `init` members and compare structurally; but
-  `LocalDiffusionOptions` is a plain class and compares by **reference**, and `ComfyUiOptions.Kinds` /
-  `FalQueueOptions.Kinds` are `IReadOnlyList<string>` members that record equality also compares by reference
+  `LocalDiffusionOptions` is a plain class and compares by **reference**, and `ComfyUiOptions.Produces` /
+  `FalQueueOptions.Produces` are `IReadOnlyList<string>` members that record equality also compares by reference
   (both defaults are collection expressions evaluated per instance, so even two default-constructed options
   compare unequal). So automatic derivation reuses correctly for **two** backends and rebuilds-or-reuses
   arbitrarily for **three**. (The measured basis, so the next audit can re-check the tally without re-deriving

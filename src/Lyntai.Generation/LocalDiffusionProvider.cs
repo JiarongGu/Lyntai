@@ -167,7 +167,8 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     /// a captured advertisement is the same stale-limit defect one mutation later.</para></remarks>
     public ProviderCapabilities Capabilities => new()
     {
-        Kinds = [GenerationKinds.Image],
+        Accepts = [ProviderKinds.Text],
+        Produces = [GenerationKinds.Image],
         Operations = [ProviderOperation.Complete],
         SupportsInputs = true,   // img2img
         Limits = SizeLimits(options.EffectiveMaxDimension),

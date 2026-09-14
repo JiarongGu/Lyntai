@@ -318,7 +318,8 @@ public class RouterCooldownKeyTests
 
         public ProviderCapabilities Capabilities { get; } = new()
         {
-            Kinds = [GenerationKinds.Image],
+            Accepts = [ProviderKinds.Text],
+            Produces = [GenerationKinds.Image],
             Operations = [ProviderOperation.Complete],
         };
 

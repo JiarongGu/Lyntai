@@ -52,7 +52,8 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
     /// prompt protocol rather than a native tool API, so neither tool flag is declared.</summary>
     public ProviderCapabilities Capabilities { get; } = new()
     {
-        Kinds = [ProviderKinds.Text],
+        Accepts = [ProviderKinds.Text],
+        Produces = [ProviderKinds.Text],
         Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
     };
 

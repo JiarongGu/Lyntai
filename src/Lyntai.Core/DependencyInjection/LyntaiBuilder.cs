@@ -89,7 +89,7 @@ public sealed class LyntaiBuilder
     internal bool EmbeddingProviderRegistered { get; private set; }
 
     /// <summary>Register a backend that embeds — an <see cref="IModelProvider"/> declaring
-    /// <see cref="ProviderOperation.Embed"/>.
+    /// <see cref="ProviderKinds.Vector"/>.
     ///
     /// <para>The same collection as <see cref="AddProvider"/>; what this adds is the STATEMENT that
     /// something can embed, which the container needs before any provider is built. Use it from a

@@ -177,7 +177,8 @@ public class GenerationBlamelessReportingTests
 
         public ProviderCapabilities Capabilities { get; } = new()
         {
-            Kinds = [GenerationKinds.Image],
+            Accepts = [ProviderKinds.Text],
+            Produces = [GenerationKinds.Image],
             Operations = [ProviderOperation.Complete],
             SupportsInputs = true,
         };
@@ -254,7 +255,8 @@ public class GenerationSubmitBlamelessReportingTests
 
         public ProviderCapabilities Capabilities { get; } = new()
         {
-            Kinds = [GenerationKinds.Video],
+            Accepts = [ProviderKinds.Text],
+            Produces = [GenerationKinds.Video],
             Operations = [ProviderOperation.Job],
         };
 

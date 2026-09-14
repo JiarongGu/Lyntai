@@ -30,7 +30,7 @@ public class FalQueueProviderTests
 
         Assert.Equal("fal", provider.Id);
         Assert.Equal([ProviderOperation.Job], provider.Capabilities.Operations);
-        Assert.Contains(GenerationKinds.Video, provider.Capabilities.Kinds);
+        Assert.Contains(GenerationKinds.Video, provider.Capabilities.Produces);
         Assert.IsAssignableFrom<IGenerationJobProvider>(provider);
         Assert.Empty(provider.Capabilities.Models);   // hundreds, and they change without us
     }

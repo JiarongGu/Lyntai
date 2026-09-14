@@ -76,7 +76,8 @@ public sealed class Automatic1111Provider(
     /// <inheritdoc/>
     public ProviderCapabilities Capabilities { get; } = new()
     {
-        Kinds = [GenerationKinds.Image],
+        Accepts = [ProviderKinds.Text],
+        Produces = [GenerationKinds.Image],
         Operations = [ProviderOperation.Complete],
         SupportsInputs = true,          // img2img
     };

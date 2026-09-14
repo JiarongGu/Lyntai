@@ -112,7 +112,8 @@ public class GenerationRouterDedupTests
         Id = id,
         Capabilities = new ProviderCapabilities
         {
-            Kinds = [GenerationKinds.Image],
+            Accepts = [ProviderKinds.Text],
+            Produces = [GenerationKinds.Image],
             Operations = [ProviderOperation.Complete],
             Models = ["flux-1", "sdxl"],
         },

@@ -5,11 +5,11 @@ namespace Lyntai.Lifecycle;
 
 /// <summary>A backend. THE provider seam — one interface for every domain this library routes over.
 ///
-/// <para><b>What a provider serves is DATA, not a type.</b> <see cref="Capabilities"/> declares the content
-/// <c>Kinds</c> and the <c>Operations</c>, and a router checks that BEFORE dispatching — so an operation a
-/// backend does not serve is never called, and declining one costs it no code. That is why there is no
-/// chat-provider and no embedding-provider: chat and embedding are two operations on the same content type,
-/// which is a difference in data (<c>docs/DECISIONS.md</c> D126, D127).</para>
+/// <para><b>What a provider serves is DATA, not a type.</b> <see cref="Capabilities"/> declares what it
+/// <c>Accepts</c>, what it <c>Produces</c> and how it delivers, and a router checks that BEFORE dispatching
+/// — so a method a backend does not serve is never called, and declining one costs it no code. That is why
+/// there is no chat-provider and no embedding-provider: a chat model is text → text and an embedder is
+/// text → vector, which is a difference in a LIST (<c>docs/DECISIONS.md</c> D126, D127, D130).</para>
 ///
 /// <para><b>Every operation is DEFAULTED to <c>Unsupported</c></b>, so a backend implements only what it
 /// does. An embedder overrides
@@ -52,10 +52,11 @@ public interface IModelProvider : IProviderIdentity
     IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
         ProviderDefaults.One(LlmChunk.Error(LlmVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
 
-    /// <summary>Content in, vectors out — one per input, in order. The one operation that CONSUMES its
-    /// content kind rather than producing it.</summary>
+    /// <summary>Content in, vectors out — one per input, in order. Served by a backend declaring
+    /// <see cref="ProviderKinds.Vector"/> among what it <see cref="ProviderCapabilities.Produces"/>; it is a
+    /// separate METHOD only because its return type differs, not because it is a separate kind of call.</summary>
     /// <exception cref="NotSupportedException">This backend does not declare
-    /// <see cref="ProviderOperation.Embed"/>. It THROWS where the others return a verdict because there is
+    /// <see cref="ProviderKinds.Vector"/>. It THROWS where the others return a verdict because there is
     /// no vector that means "I could not": a zero vector compares as real and would poison a store.</exception>
     Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
         throw new NotSupportedException(ProviderDefaults.NotServed(Id, nameof(EmbedAsync)));

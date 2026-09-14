@@ -35,7 +35,8 @@ public sealed class OpenAiCompatibleProvider(
     /// case an empty Models list means "any" for.</summary>
     public ProviderCapabilities Capabilities { get; } = new()
     {
-        Kinds = [ProviderKinds.Text],
+        Accepts = [ProviderKinds.Text],
+        Produces = [ProviderKinds.Text],
         Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
         SupportsToolCalls = true,
         SupportsStreamingToolCalls = true,

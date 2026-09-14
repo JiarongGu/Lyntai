@@ -204,7 +204,8 @@ public class GenerationSubmitFallbackTests
 
         public ProviderCapabilities Capabilities { get; } = new()
         {
-            Kinds = [GenerationKinds.Video],
+            Accepts = [ProviderKinds.Text],
+            Produces = [GenerationKinds.Video],
             Operations = [ProviderOperation.Job],
         };
 

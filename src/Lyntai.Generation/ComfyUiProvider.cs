@@ -22,7 +22,7 @@ public sealed class ComfyUiOptions
 
     /// <summary>Media kinds this install can serve. Both by default: which one a run produces is decided by
     /// the WORKFLOW, not by the endpoint — so the host declares what its graphs cover.</summary>
-    public IReadOnlyList<string> Kinds { get; set; } = [GenerationKinds.Image, GenerationKinds.Video];
+    public IReadOnlyList<string> Produces { get; set; } = [GenerationKinds.Image, GenerationKinds.Video];
 
     /// <summary>Queue a workflow (returns a prompt id).</summary>
     public string SubmitPath { get; set; } = "prompt";
@@ -123,7 +123,8 @@ public sealed class ComfyUiProvider(
     /// <inheritdoc/>
     public ProviderCapabilities Capabilities { get; } = new()
     {
-        Kinds = options.Kinds,
+        Accepts = [ProviderKinds.Text],
+        Produces = options.Produces,
         Operations = [ProviderOperation.Job],
         // NOT SupportsInputs: a graph takes its init image from a node the CALLER authored, and the platform
         // cannot know which node that is — so GenerationRequest.Inputs has nowhere to go. Declaring it is an

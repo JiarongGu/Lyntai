@@ -65,8 +65,9 @@ public class StaticEmbedderTests : IDisposable
         // router dispatching a completion here and getting the default Unsupported back.
         var embedder = StaticEmbedder.FromDirectory(WriteModel(Vocabulary("alpha")));
 
-        Assert.Equal([ProviderKinds.Text], embedder.Capabilities.Kinds);
-        Assert.Equal([ProviderOperation.Embed], embedder.Capabilities.Operations);
+        Assert.Equal([ProviderKinds.Text], embedder.Capabilities.Accepts);
+        Assert.Equal([ProviderKinds.Vector], embedder.Capabilities.Produces);
+        Assert.Equal([ProviderOperation.Complete], embedder.Capabilities.Operations);
         Assert.Equal("static", embedder.Id);
         Assert.True(embedder.IsAvailable);
     }
@@ -83,7 +84,7 @@ public class StaticEmbedderTests : IDisposable
         Assert.NotNull(provider.GetService<IEmbedder>());
         var asProvider = Assert.Single(
             provider.GetServices<IModelProvider>().Where(p => p.Id == "static"));
-        Assert.Contains(ProviderOperation.Embed, asProvider.Capabilities.Operations);
+        Assert.Contains(ProviderKinds.Vector, asProvider.Capabilities.Produces);
     }
 
     [Fact]

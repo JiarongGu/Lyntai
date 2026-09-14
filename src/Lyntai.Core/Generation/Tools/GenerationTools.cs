@@ -223,7 +223,7 @@ public sealed class GenerationBackendsTool(
                 if (probe.Detail is { } detail) writer.WriteString("detail", detail);
 
                 writer.WriteStartArray("kinds");
-                foreach (var kind in provider.Capabilities.Kinds) writer.WriteStringValue(kind);
+                foreach (var kind in provider.Capabilities.Produces) writer.WriteStringValue(kind);
                 writer.WriteEndArray();
 
                 writer.WriteStartArray("delivery");

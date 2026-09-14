@@ -297,7 +297,8 @@ public class LlmRouterCompleteTests
 
         public ProviderCapabilities Capabilities { get; set; } = new()
         {
-            Kinds = [ProviderKinds.Text],
+            Accepts = [ProviderKinds.Text],
+            Produces = [ProviderKinds.Text],
             Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
         };
         public bool IsAvailable => true;

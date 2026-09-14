@@ -82,7 +82,7 @@ public class OpenAiImageProviderTests
         var (provider, _) = Provider();
 
         Assert.Equal("openai-images", provider.Id);
-        Assert.Equal([GenerationKinds.Image], provider.Capabilities.Kinds);
+        Assert.Equal([GenerationKinds.Image], provider.Capabilities.Produces);
         Assert.Equal([ProviderOperation.Complete], provider.Capabilities.Operations);
         Assert.True(provider.Capabilities.SupportsInputs);          // /images/edits
         Assert.Empty(provider.Capabilities.Models);                 // catalogue not mirrored

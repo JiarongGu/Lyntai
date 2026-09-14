@@ -43,8 +43,8 @@ public class ComfyUiProviderTests
         var (provider, _) = Provider();
 
         Assert.Equal("comfyui", provider.Id);
-        Assert.Contains(GenerationKinds.Image, provider.Capabilities.Kinds);
-        Assert.Contains(GenerationKinds.Video, provider.Capabilities.Kinds);   // local video via a workflow
+        Assert.Contains(GenerationKinds.Image, provider.Capabilities.Produces);
+        Assert.Contains(GenerationKinds.Video, provider.Capabilities.Produces);   // local video via a workflow
         Assert.Equal([ProviderOperation.Job], provider.Capabilities.Operations);
         Assert.IsAssignableFrom<IGenerationJobProvider>(provider);
     }

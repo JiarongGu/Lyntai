@@ -20,8 +20,9 @@ public class RoutedEmbedderTests
 
         public ProviderCapabilities Capabilities { get; set; } = new()
         {
-            Kinds = [ProviderKinds.Text],
-            Operations = [ProviderOperation.Embed],
+            Accepts = [ProviderKinds.Text],
+            Produces = [ProviderKinds.Vector],
+            Operations = [ProviderOperation.Complete],
         };
 
         public Task<IReadOnlyList<float[]>> EmbedAsync(
@@ -34,12 +35,13 @@ public class RoutedEmbedderTests
         }
     }
 
-    /// <summary>A chat-only backend: declares Text but NOT Embed.</summary>
+    /// <summary>A chat-only backend: it PRODUCES text, not vectors.</summary>
     private static FakeEmbeddingProvider ChatOnly(string id) => new(id)
     {
         Capabilities = new ProviderCapabilities
         {
-            Kinds = [ProviderKinds.Text],
+            Accepts = [ProviderKinds.Text],
+            Produces = [ProviderKinds.Text],
             Operations = [ProviderOperation.Complete],
         },
     };
@@ -106,7 +108,7 @@ public class RoutedEmbedderTests
         var error = await Assert.ThrowsAsync<InvalidOperationException>(
             () => Router(ChatOnly("chat")).EmbedAsync(["x"]));
 
-        Assert.Contains("ProviderOperation.Embed", error.Message, StringComparison.Ordinal);
+        Assert.Contains("ProviderKinds.Vector", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

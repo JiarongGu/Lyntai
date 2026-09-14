@@ -57,7 +57,7 @@ public class LocalDiffusionProviderTests
         var (provider, _, _) = Provider();
 
         Assert.Equal("local-diffusion", provider.Id);
-        Assert.Equal([GenerationKinds.Image], provider.Capabilities.Kinds);
+        Assert.Equal([GenerationKinds.Image], provider.Capabilities.Produces);
         Assert.Equal([ProviderOperation.Complete], provider.Capabilities.Operations);
         Assert.True(provider.Capabilities.SupportsInputs);
         Assert.IsNotAssignableFrom<IGenerationJobProvider>(provider);

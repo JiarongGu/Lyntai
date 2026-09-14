@@ -565,7 +565,10 @@ public sealed class GenerationRouter(
             // Where a domain REQUEST becomes a generic capability query. The mapping is the whole of what
             // the generation domain adds: its kind, its model, and whether it carries input artifacts.
             if (entry.Provider.Capabilities.Supports(
-                    entry.Request.Kind, delivery, entry.Request.Model, entry.Request.Inputs.Count > 0))
+                    entry.Request.Kind, delivery,
+                    accepts: ProviderKinds.Text,
+                    model: entry.Request.Model,
+                    hasInputs: entry.Request.Inputs.Count > 0))
                 capable.Add(entry);
         }
         return capable;

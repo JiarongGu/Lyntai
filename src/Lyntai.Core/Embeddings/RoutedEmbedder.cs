@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Embeddings;
 
 /// <summary>The embedding FRONT DOOR: an <see cref="IEmbedder"/> that routes over every registered backend
-/// declaring <see cref="ProviderOperation.Embed"/>, falling over to the next when one fails.
+/// producing <see cref="ProviderKinds.Vector"/>, falling over to the next when one fails.
 ///
 /// <para><b>This is the embedding analogue of <c>ILlmClient</c>, and its absence was a real gap.</b> Chat
 /// has always had a front door separate from its backends; embedding had ONE type doing both jobs, so a
@@ -35,12 +35,13 @@ internal sealed class RoutedEmbedder(
         // Availability is checked per call rather than cached: a backend can become usable between one
         // recall and the next, and a cached "unavailable" would outlive the outage that caused it.
         var capable = providers
-            .Where(p => p.IsAvailable && p.Capabilities.Supports(ProviderKinds.Text, ProviderOperation.Embed))
+            .Where(p => p.IsAvailable && p.Capabilities.Supports(
+                ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text))
             .ToList();
 
         if (capable.Count == 0)
             throw new InvalidOperationException(
-                "No registered backend declares ProviderOperation.Embed over text. Register one "
+                "No registered backend produces ProviderKinds.Vector from text. Register one "
                 + "(AddStaticEmbedder / AddOnnxEmbedder / AddOpenAiCompatibleEmbedder), or supply your own "
                 + "with AddEmbeddings.");
 

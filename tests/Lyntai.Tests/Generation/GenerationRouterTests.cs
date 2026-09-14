@@ -146,7 +146,8 @@ public class GenerationRouterTests
             Id = "no-inputs",
             Capabilities = new ProviderCapabilities
             {
-                Kinds = [GenerationKinds.Image],
+                Accepts = [ProviderKinds.Text],
+                Produces = [GenerationKinds.Image],
                 Operations = [ProviderOperation.Complete],
                 SupportsInputs = false,
             },
@@ -250,7 +251,8 @@ public class GenerationRouterTests
             Id = "aggregator",
             Capabilities = new ProviderCapabilities
             {
-                Kinds = [GenerationKinds.Image],
+                Accepts = [ProviderKinds.Text],
+                Produces = [GenerationKinds.Image],
                 Operations = [ProviderOperation.Complete],
                 Models = ["flux-1", "sdxl"],
             },

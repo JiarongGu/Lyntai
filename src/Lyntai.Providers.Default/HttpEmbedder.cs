@@ -36,13 +36,14 @@ public sealed class HttpEmbedder(
     /// <inheritdoc />
     public string Id => id;
 
-    /// <summary>Text in, vectors out. Declaring only <see cref="ProviderOperation.Embed"/> is what keeps a
+    /// <summary>Text in, vectors out. Declaring only <see cref="ProviderKinds.Vector"/> is what keeps a
     /// router from sending this endpoint a completion — the chat half of an OpenAI-compatible host is a
     /// SEPARATE provider with its own id and its own base URL.</summary>
     public ProviderCapabilities Capabilities { get; } = new()
     {
-        Kinds = [ProviderKinds.Text],
-        Operations = [ProviderOperation.Embed],
+        Accepts = [ProviderKinds.Text],
+        Produces = [ProviderKinds.Vector],
+        Operations = [ProviderOperation.Complete],
     };
     private readonly OpenAiFlavor _flavor = OpenAiEndpoint.ResolveFlavor(config.Flavor, config.BaseUrl);
 

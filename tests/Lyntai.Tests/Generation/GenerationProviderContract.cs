@@ -28,7 +28,7 @@ public static class GenerationProviderContract
     public static void It_declares_a_usable_identity(IModelProvider provider)
     {
         Assert.False(string.IsNullOrWhiteSpace(provider.Id));
-        Assert.NotEmpty(provider.Capabilities.Kinds);
+        Assert.NotEmpty(provider.Capabilities.Produces);
         Assert.NotEmpty(provider.Capabilities.Operations);
     }
 

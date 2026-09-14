@@ -11,28 +11,67 @@ public class ProviderCapabilitiesTests
 {
     private static ProviderCapabilities Text(params ProviderOperation[] operations) => new()
     {
-        Kinds = [ProviderKinds.Text],
+        Accepts = [ProviderKinds.Text],
+        Produces = [ProviderKinds.Text],
         Operations = operations,
     };
 
-    [Fact]
-    public void Serves_a_kind_and_operation_it_declares()
+    /// <summary>Text in, vectors out — an embedder, expressed as a KIND rather than an operation.</summary>
+    private static ProviderCapabilities Embedder() => new()
     {
-        var capabilities = Text(ProviderOperation.Complete, ProviderOperation.Embed);
+        Accepts = [ProviderKinds.Text],
+        Produces = [ProviderKinds.Vector],
+        Operations = [ProviderOperation.Complete],
+    };
+
+    [Fact]
+    public void Serves_a_kind_and_delivery_it_declares()
+    {
+        var capabilities = Text(ProviderOperation.Complete, ProviderOperation.Stream);
 
         Assert.True(capabilities.Supports(ProviderKinds.Text, ProviderOperation.Complete));
-        Assert.True(capabilities.Supports(ProviderKinds.Text, ProviderOperation.Embed));
+        Assert.True(capabilities.Supports(ProviderKinds.Text, ProviderOperation.Stream));
     }
 
     [Fact]
-    public void Refuses_an_operation_it_does_not_declare_which_is_how_an_embedder_declines_chat()
+    public void An_embedder_and_a_chat_model_differ_by_what_they_PRODUCE_not_by_operation()
     {
-        // The whole point of capabilities as DATA: an embed-only backend answers "not mine" without
-        // implementing a chat method that lies, and the router never dispatches to it.
-        var embedOnly = Text(ProviderOperation.Embed);
+        // The correction D130 makes. Both accept text and both deliver inline; the only difference is the
+        // output kind — which is why "embed" was never an operation, and why one backend can declare BOTH.
+        var chat = Text(ProviderOperation.Complete);
+        var embedder = Embedder();
 
-        Assert.False(embedOnly.Supports(ProviderKinds.Text, ProviderOperation.Complete));
-        Assert.False(embedOnly.Supports(ProviderKinds.Text, ProviderOperation.Stream));
+        Assert.True(chat.Supports(ProviderKinds.Text, ProviderOperation.Complete));
+        Assert.False(chat.Supports(ProviderKinds.Vector, ProviderOperation.Complete));
+
+        Assert.True(embedder.Supports(ProviderKinds.Vector, ProviderOperation.Complete));
+        Assert.False(embedder.Supports(ProviderKinds.Text, ProviderOperation.Complete));
+    }
+
+    [Fact]
+    public void ONE_backend_can_produce_several_kinds_which_is_what_an_OpenAI_host_actually_does()
+    {
+        // /chat/completions AND /embeddings behind one configuration. Modelling embedding as its own
+        // operation made this inexpressible; as an output kind it is one more list entry.
+        var both = new ProviderCapabilities
+        {
+            Accepts = [ProviderKinds.Text],
+            Produces = [ProviderKinds.Text, ProviderKinds.Vector],
+            Operations = [ProviderOperation.Complete],
+        };
+
+        Assert.True(both.Supports(ProviderKinds.Text, ProviderOperation.Complete));
+        Assert.True(both.Supports(ProviderKinds.Vector, ProviderOperation.Complete));
+    }
+
+    [Fact]
+    public void Refuses_an_INPUT_kind_it_does_not_accept()
+    {
+        // An image-to-video backend accepts image; a text-only one must not be handed one.
+        var textIn = Text(ProviderOperation.Complete);
+
+        Assert.True(textIn.Supports(ProviderKinds.Text, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+        Assert.False(textIn.Supports(ProviderKinds.Text, ProviderOperation.Complete, accepts: ProviderKinds.Image));
     }
 
     [Fact]
@@ -64,7 +103,7 @@ public class ProviderCapabilitiesTests
         // and cannot enumerate them, so silence there means "no restriction" rather than "none".
         var any = Text(ProviderOperation.Complete);
 
-        Assert.True(any.Supports(ProviderKinds.Text, ProviderOperation.Complete, "some-vendor-model-v3"));
+        Assert.True(any.Supports(ProviderKinds.Text, ProviderOperation.Complete, model: "some-vendor-model-v3"));
     }
 
     [Fact]
@@ -72,8 +111,8 @@ public class ProviderCapabilitiesTests
     {
         var pinned = Text(ProviderOperation.Complete) with { Models = ["gpt-4o", "gpt-4o-mini"] };
 
-        Assert.True(pinned.Supports(ProviderKinds.Text, ProviderOperation.Complete, "GPT-4o"));
-        Assert.False(pinned.Supports(ProviderKinds.Text, ProviderOperation.Complete, "claude-opus"));
+        Assert.True(pinned.Supports(ProviderKinds.Text, ProviderOperation.Complete, model: "GPT-4o"));
+        Assert.False(pinned.Supports(ProviderKinds.Text, ProviderOperation.Complete, model: "claude-opus"));
         Assert.True(pinned.Supports(ProviderKinds.Text, ProviderOperation.Complete));
     }
 

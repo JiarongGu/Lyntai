@@ -14,6 +14,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **Embedding is an output KIND, not an operation: `ProviderCapabilities.Kinds` becomes `Accepts` + <!-- link-ok: names the member this entry RETIRES -->
+  `Produces`** (**D130**). `ProviderOperation.Embed` is removed and the enum is back to the delivery axis
+  (`Complete` / `Stream` / `Job`). A backend now declares what it takes in and what it puts out: a chat
+  model is `text → text`, a renderer `text → image`, an embedder `text → vector`
+  (`ProviderKinds.Vector`). **`Produces` is a list**, so one backend can declare `[text, vector]` and serve
+  `/chat/completions` and `/embeddings` off one configuration — which the previous shape could not express
+  at all. `Supports(...)` becomes `Supports(produces, operation, accepts:, model:, hasInputs:)`, and the
+  `Kinds` property on `ComfyUiOptions` / `FalQueueOptions` is renamed `Produces`.
+
 - **`IEmbedder` is the embedding FRONT DOOR, and embeddings now have fallback** (**D129**). The `IEmbedder`
   a consumer resolves is a router over every backend declaring `ProviderOperation.Embed`, so registering two
   endpoints gives failover instead of the second silently replacing the first — which is what

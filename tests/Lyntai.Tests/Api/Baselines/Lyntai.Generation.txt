@@ -21,8 +21,8 @@ sealed class Lyntai.Generation.Providers.ComfyUiOptions
     HistoryPath : String
     Id : String
     InterruptPath : String
-    Kinds : IReadOnlyList<String>
     OutputsField : String
+    Produces : IReadOnlyList<String>
     PromptIdField : String
     PromptPathOption : String
     StatusField : String
@@ -52,8 +52,8 @@ sealed class Lyntai.Generation.Providers.FalQueueOptions
     CancelSegment : String
     CostFields : IList<String>
     Id : String
-    Kinds : IReadOnlyList<String>
     Model : String
+    Produces : IReadOnlyList<String>
     RequestsSegment : String
     StatusSegment : String
     StatusVocabulary : IDictionary<String,GenerationOperationStatus>
