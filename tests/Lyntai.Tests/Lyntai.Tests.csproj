@@ -19,7 +19,6 @@
     <ProjectReference Include="..\..\src\Lyntai.Storage.Postgres\Lyntai.Storage.Postgres.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.LlamaSharp\Lyntai.Providers.LlamaSharp.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Tools.Mcp\Lyntai.Tools.Mcp.csproj" />
-    <ProjectReference Include="..\..\src\Lyntai.Tools.Mcp.Hosting\Lyntai.Tools.Mcp.Hosting.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Secrets.Dpapi\Lyntai.Secrets.Dpapi.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.Onnx\Lyntai.Providers.Onnx.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Generation\Lyntai.Generation.csproj" />

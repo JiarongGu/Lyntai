@@ -1,5 +1,13 @@
 static class Lyntai.McpBuilderExtensions
     static AddMcpTools(LyntaiBuilder builder, IEnumerable<ITool> mcpTools) : LyntaiBuilder
     static AddMcpTools(LyntaiBuilder builder, ITool[] mcpTools) : LyntaiBuilder
+static class Lyntai.McpToolHostBuilderExtensions
+    static AddMcpToolHost(LyntaiBuilder builder, IMcpCliDialect dialect, Action<McpToolHostOptions> configure = null) : LyntaiBuilder
+sealed class Lyntai.Tools.Mcp.Hosting.McpToolHostOptions
+    .ctor()
+    BindAddress : String
+    DefaultBindAddress : String const
+    DefaultServerName : String const
+    ServerName : String
 static class Lyntai.Tools.Mcp.McpToolset
     static FromClientAsync(McpClient client, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>

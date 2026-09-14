@@ -3,7 +3,7 @@ namespace Lyntai.Providers;
 /// <summary>Writes a CLI config file that may carry a credential, and removes it again.
 ///
 /// <para><b>There is a deliberate twin, and it is not a mistake to be deduped away.</b>
-/// <c>McpToolHostProvisioner.WriteTemp</c> in <c>Lyntai.Tools.Mcp.Hosting</c> does the same thing for the
+/// <c>McpToolHostProvisioner.WriteTemp</c> in <c>Lyntai.Tools.Mcp</c> does the same thing for the
 /// in-process tool host. It cannot be shared: a provider package must never reference the hosting package
 /// (that is what keeps <c>ModelContextProtocol.Core</c> off the graph of apps using the plain provider —
 /// <c>docs/DECISIONS.md</c> D17), and the two have different lifetimes (the host's file lives as long as a

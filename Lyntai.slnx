@@ -8,8 +8,7 @@
     <Project Path="src/Lyntai.Storage.Postgres/Lyntai.Storage.Postgres.csproj" />
     <Project Path="src/Lyntai.Providers.LlamaSharp/Lyntai.Providers.LlamaSharp.csproj" />
     <Project Path="src/Lyntai.Tools.Mcp/Lyntai.Tools.Mcp.csproj" />
-    <Project Path="src/Lyntai.Tools.Mcp.Hosting/Lyntai.Tools.Mcp.Hosting.csproj" />
-    <Project Path="src/Lyntai.Secrets.Dpapi/Lyntai.Secrets.Dpapi.csproj" />
+      <Project Path="src/Lyntai.Secrets.Dpapi/Lyntai.Secrets.Dpapi.csproj" />
     <Project Path="src/Lyntai.Providers.Onnx/Lyntai.Providers.Onnx.csproj" />
     <Project Path="src/Lyntai.Generation/Lyntai.Generation.csproj" />
   </Folder>

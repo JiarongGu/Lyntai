@@ -43,13 +43,18 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
  * remembers them — so this is the only half of the roster maintained by hand. Add an id here whenever a
  * package is removed or folded into another.
  */
+// **These are PUBLISHED ids, not current type or package names.** A rename in the tree must never touch
+// them: two were silently rewritten by rename sweeps on 2026-09-15 — `Lyntai.Providers.OpenAiCompatible`
+// became `…Http` and `Lyntai.Providers.Local` became `…LlamaSharp`, the second turning a retired id into
+// the name of a LIVE package this would then have unlisted. Restored from the commit that wrote them.
 const RETIRED = [
   'Lyntai.Providers.ClaudeCli', //       folded into Lyntai.Providers.Default at 2.0.1
   'Lyntai.Providers.CodexCli', //        folded into Lyntai.Providers.Default at 2.0.1
-  'Lyntai.Providers.Http', // folded into Lyntai.Providers.Default at 2.0.1
+  'Lyntai.Providers.OpenAiCompatible', // folded into Lyntai.Providers.Default at 2.0.1
   'Lyntai.Providers.ClaudeCli.Mcp', //   removed at 1.1.0
-  'Lyntai.Providers.LlamaSharp', //           renamed to Lyntai.Providers.LlamaSharp (D122's naming pass)
+  'Lyntai.Providers.Local', //           renamed to Lyntai.Providers.LlamaSharp (D122's naming pass)
   'Lyntai.Providers.ExtensionsAi', //    folded into Lyntai.Providers.Default (D123)
+  'Lyntai.Tools.Mcp.Hosting', //         folded into Lyntai.Tools.Mcp (D142)
 ];
 
 /**

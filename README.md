@@ -105,8 +105,7 @@ version you installed.
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
 | `Lyntai.Storage.InMemory` | Zero-dependency in-memory storage — tests, ephemeral use, or mixed per-domain. |
-| `Lyntai.Tools.Mcp` | Expose an MCP server's tools as Lyntai `ITool`s. (The tool *contract* is in Core; this is the wire adapter.) |
-| `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. Runs on `HttpListener` — **no ASP.NET Core**. |
+| `Lyntai.Tools.Mcp` | MCP in BOTH directions: expose an MCP server's tools as Lyntai `ITool`s, and host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
 | `Lyntai.Providers.Onnx` | In-process **transformer** embedding via ONNX Runtime — `AddOnnxProvider(dir)`, no server, no port. Pooling, normalization and the sequence limit are read from the model's own files. References the **managed half only**: add one native backend yourself (`Microsoft.ML.OnnxRuntime` for CPU, `.DirectML` for any DX12 GPU, `.Gpu` for CUDA), because the library does not choose your hardware. |
 | `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D25). |
@@ -1361,7 +1360,7 @@ var mcpTools = await McpToolset.FromClientAsync(mcp);   // list + adapt the serv
 services.AddLyntai(b => b.AddClaudeCliProvider().AddMcpTools(mcpTools).UseDefaultCandidates("claude-cli"));
 ```
 
-**Hosting your tools for a CLI agent** (`Lyntai.Tools.Mcp.Hosting`) — the reverse direction. A CLI that
+**Hosting your tools for a CLI agent** (`Lyntai.Tools.Mcp`) — the reverse direction. A CLI that
 runs its own agent loop reaches custom tools only over MCP, so this package hosts your registered
 `ITool`s as an ephemeral, localhost-only HTTP MCP server (started/stopped per CLI call) and passes the
 CLI whatever flags point it there. Opt in and a completion routed to that CLI lets its agent call your

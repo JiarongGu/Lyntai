@@ -236,7 +236,7 @@ describe('wireJsonSerializerUses (D14)', () => {
     // against a correct tree.
     const r = fixture({
       'src/Lyntai.Storage.Sqlite/SqliteJson.cs': 'JsonSerializer.Serialize(value);',
-      'src/Lyntai.Tools.Mcp.Hosting/McpToolHost.cs': 'JsonSerializer.DeserializeAsync(s, info, ct);',
+      'src/Lyntai.Tools.Mcp/McpToolHost.cs': 'JsonSerializer.DeserializeAsync(s, info, ct);',
     });
     assert.deepEqual(wireJsonSerializerUses(r), []);
   });

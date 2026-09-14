@@ -42,7 +42,6 @@
     <ProjectReference Include="..\Lyntai.Providers.Default\Lyntai.Providers.Default.csproj" />
     <ProjectReference Include="..\Lyntai.Storage.InMemory\Lyntai.Storage.InMemory.csproj" />
     <ProjectReference Include="..\Lyntai.Tools.Mcp\Lyntai.Tools.Mcp.csproj" />
-    <ProjectReference Include="..\Lyntai.Tools.Mcp.Hosting\Lyntai.Tools.Mcp.Hosting.csproj" />
   </ItemGroup>
 
 </Project>

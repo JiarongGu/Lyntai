@@ -290,7 +290,7 @@ CLI at MCP servers the **app already runs or launches** — stdio as well as HTT
 by `ClaudeMcpConfig` / `CodexMcpConfig` rather than by an `IMcpCliDialect` (`docs/DECISIONS.md` **D38**). They
 compose: an app can do both in one turn. If you are adding a CLI, you may owe BOTH — a dialect here, and a
 rendering there.
-`Lyntai.Tools.Mcp.Hosting` already owns everything neutral: the ephemeral loopback MCP server, bearer
+`Lyntai.Tools.Mcp` already owns everything neutral: the ephemeral loopback MCP server, bearer
 token, temp-file writing, teardown, and the no-tools short-circuit. You supply only the flags and the
 config-file shape.
 
@@ -313,9 +313,9 @@ Load-bearing details:
   carries the bearer token) and registers the path for deletion when the session ends. A file you write
   yourself leaks a credential into temp.
 - **`IMcpCliDialect` lives in Core, deliberately** — so a *provider* package can ship its dialect without
-  referencing the hosting package. **Never make a provider package reference `Lyntai.Tools.Mcp.Hosting`**:
+  referencing the MCP package. **Never make a provider package reference `Lyntai.Tools.Mcp`**:
   it drags the MCP SDK (`ModelContextProtocol.Core`) into every app using the plain provider, and the
-  hosting package opts out of AOT for its dynamic-JSON tool marshaling — so the provider would lose
+  MCP package opts out of AOT for its dynamic-JSON tool marshaling — so the provider would lose
   `IsAotCompatible` too. That is the exact thing the `ICliToolProvisioner` seam exists to prevent
   (`docs/DECISIONS.md` D17). _The original cost was heavier — a framework reference on
   `Microsoft.AspNetCore.App` — until 2.0.1 moved the host onto `System.Net.HttpListener` (D25). The

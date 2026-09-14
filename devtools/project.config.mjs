@@ -43,7 +43,6 @@ export default {
     'src/Lyntai.Storage.Postgres',
     'src/Lyntai.Providers.LlamaSharp',
     'src/Lyntai.Tools.Mcp',
-    'src/Lyntai.Tools.Mcp.Hosting',
     'src/Lyntai.Secrets.Dpapi',
     'src/Lyntai.Providers.Onnx',
     'src/Lyntai.Generation',

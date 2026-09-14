@@ -211,8 +211,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D139](#d139--a-reranker-is-produces-score-and-the-memory-policy-that-uses-it-lives-in-core-2026-09-15) | 2026-09-15 | a reranker is `Produces: [score]`, and the memory policy that uses it lives in Core |
 | [D140](#d140--the-routing-action-and-the-media-kinds-join-the-taxonomy-they-were-copies-of-2026-09-15) | 2026-09-15 | the routing ACTION and the media KINDS join the taxonomy they were copies of |
 | [D141](#d141--vector-arithmetic-every-backend-shares-lives-in-core-not-in-each-adapter-2026-09-15) | 2026-09-15 | vector arithmetic every backend shares lives in Core, not in each adapter |
+| [D142](#d142--the-two-mcp-packages-fold-into-one-the-boundary-isolated-nothing-2026-09-15) | 2026-09-15 | the two MCP packages fold into one; the boundary isolated nothing |
 
-_All 141 entries are live decisions._
+_All 142 entries are live decisions._
 
 <!-- index:end -->
 
@@ -417,6 +418,11 @@ unchanged by that: the baselines still gate every surface change, and the relaxa
 number a disclosed break may ship under, never about letting one through unnoticed.
 
 ## D17 — MCP tool hosting is generic; the CLI dialect lives in the provider package (2026-07-29)
+
+> **The PACKAGE split is folded by D142**; the LAYERING this entry decided is untouched. The neutral host <!-- drift-ok: the amendment naming what it corrects -->
+> and the inbound toolset now ship as one `Lyntai.Tools.Mcp` — they pin the same dependency, so the
+> boundary isolated nothing — while the dialect stays in the provider package and `IMcpCliDialect` stays in
+> Core, which is what this entry was actually about. Namespaces are unchanged.
 The hosting machinery was named for one consumer while being almost entirely provider-neutral. It split:
 the neutral loopback host into `Lyntai.Tools.Mcp.Hosting`, the per-CLI vocabulary into a dialect in the
 provider package, and the dialect SEAM itself into Core. Adding a CLI that can host tools is a dialect,
@@ -4339,3 +4345,31 @@ have needed a flag, which is the shape `pitfalls.md` records as consolidating no
 **What the split copies cost, measured rather than asserted:** the zero-length guard was ARGUED in the ONNX
 copy (*"NaN compares false against everything and poisons a store silently rather than failing"*) and merely
 present in the other. One copy carried the reason; the one a reader was equally likely to open did not.
+
+## D142 — the two MCP packages fold into one; the boundary isolated nothing (2026-09-15)
+
+`Lyntai.Tools.Mcp.Hosting` is folded into `Lyntai.Tools.Mcp`. Twelve packages become eleven. Namespaces are <!-- drift-ok: this entry RETIRES the package id, so it has to say it -->
+UNCHANGED, so no consumer edits a `using` — only a package reference (**D25**).
+
+**It is D123's own fold test, applied where it had stopped being asked.** Both halves referenced exactly
+`Lyntai.Core` + `ModelContextProtocol.Core`, and both were bundle members: *"if a bundle member already pins
+it, the boundary buys nothing and costs a permanent id"*. The dependency that once made them differ —
+ASP.NET/Kestrel for the loopback server — was replaced by BCL `HttpListener`, and nothing took its place as
+the justification.
+
+**D17 is not reversed; only its packaging is.** That entry split the neutral host from the per-CLI
+vocabulary and put `IMcpCliDialect` in Core, which is what lets a provider package ship a dialect without
+dragging the MCP SDK. All of that stands — the dialect stays in `Lyntai.Providers.Default`, the seam stays
+in Core. Only the two-package boundary goes.
+
+**The counter-argument, named so it is not re-litigated: the two halves are opposite DIRECTIONS** —
+consuming a server's tools versus hosting yours as one — and a consumer typically wants one. That is a
+SIZE argument (604 lines against 120), and this repository's boundary test is dependency footprint, not
+assembly size. Judging a boundary by anything else is what put a memory policy in a provider package
+(**D115**, corrected by **D139**); the test exists because the other arguments are always available.
+
+**The fold surfaced a live hazard in the retirement roster.** `nuget-unlist.mjs`'s `RETIRED` array holds
+PUBLISHED ids — historical facts — and two had been silently rewritten by this session's rename sweeps: <!-- drift-ok: D142 names the published ids its own fix restored -->
+`Lyntai.Providers.OpenAiCompatible` → `…Http`, and `Lyntai.Providers.Local` → `…LlamaSharp`. The second <!-- drift-ok: D142 names the published ids its own fix restored -->
+turned a retired id into the name of a LIVE package, which the unlist workflow would then have unlisted.
+Both restored from the commit that wrote them, with the hazard stated in the file.

@@ -13,7 +13,7 @@ public static class ClaudeCliBuilderExtensions
     /// honors <c>LYNTAI_PROVIDER_CMD</c> / <c>CLAUDE_CMD</c> env overrides (tests/e2e point these at the
     /// deterministic provider stub), then falls back to <c>claude</c> on PATH. If an
     /// <see cref="ICliToolProvisioner"/> is registered — via <c>AddMcpToolHost(new ClaudeCliMcpDialect())</c>
-    /// from <c>Lyntai.Tools.Mcp.Hosting</c> — the CLI is given the app's registered tools over MCP;
+    /// from <c>Lyntai.Tools.Mcp</c> — the CLI is given the app's registered tools over MCP;
     /// otherwise it runs tool-free.</summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="command">A PORTABLE install: the path to a <c>claude</c> the app ships or unpacks itself

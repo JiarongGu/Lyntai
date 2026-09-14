@@ -47,6 +47,13 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **`Lyntai.Tools.Mcp.Hosting` is folded into `Lyntai.Tools.Mcp`** (**D142**). Both referenced exactly <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
+  `Lyntai.Core` + `ModelContextProtocol.Core` and both shipped in the bundle, so the boundary isolated
+  nothing — D123's fold test, applied where it had stopped being asked. **Namespaces are unchanged**:
+  `Lyntai.Tools.Mcp.Hosting` remains the namespace of `McpToolHost` and friends, so a consumer edits one
+  package reference and no `using`. The retired id is registered for unlisting.
+
+
 - **The routing ACTION and the media KINDS join the taxonomy they duplicated** (**D140**).
   `GenerationFallbackAction` becomes `Lyntai.Lifecycle.FallbackAction` — the same four members it always <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   had — and `GenerationKinds.Image/Video/Audio/Model3d` become `ProviderKinds.*`, which declared the same <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
