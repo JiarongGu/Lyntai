@@ -31,28 +31,32 @@ public sealed class OpenAiCompatibleProvider(
 
     public string Id => id;
 
-    /// <summary>What this backend serves — any OpenAI-compatible endpoint: text, buffered or streamed, with native tool calls on both
-    /// paths. Models are NOT enumerated — an aggregator fronts hundreds behind one id, which is exactly the
-    /// case an empty Models list means "any" for.
-    /// <para>Vector joins text when <see cref="OpenAiCompatibleOptions.Embeddings"/> is set, because the same
-    /// host answers both routes (D131). It is DERIVED from configuration rather than fixed by the type, so a
-    /// modality is a field to set, not a class to write.</para></summary>
+    /// <summary>What this backend serves, DERIVED from <see cref="OpenAiCompatibleOptions.Produces"/>: text
+    /// is buffered or streamed with native tool calls on both paths; vector is one batched call, since there
+    /// is no such thing as a partially delivered embedding.
+    /// <para>Models are NOT enumerated — an aggregator fronts hundreds behind one id, which is exactly the
+    /// case an empty Models list means "any" for.</para></summary>
     public ProviderCapabilities Capabilities { get; } = new()
     {
         Accepts = [ProviderKinds.Text],
-        Produces = config.Embeddings is null
-            ? [ProviderKinds.Text]
-            : [ProviderKinds.Text, ProviderKinds.Vector],
-        Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
-        SupportsToolCalls = true,
-        SupportsStreamingToolCalls = true,
+        Produces = [config.Produces],
+        Operations = ServesVectors(config)
+            ? [ProviderOperation.Complete]
+            : [ProviderOperation.Complete, ProviderOperation.Stream],
+        SupportsToolCalls = !ServesVectors(config),
+        SupportsStreamingToolCalls = !ServesVectors(config),
     };
 
-    /// <summary>The <c>/embeddings</c> half, or null when this host was configured for chat only. It is a
-    /// composed transport rather than inherited behaviour: the wire shape of an embeddings call has nothing
-    /// in common with a completion beyond the endpoint it is posted to.</summary>
-    private readonly HttpEmbedder? _embedder = config.Embeddings is null ? null
-        : new HttpEmbedder(id, config.Embeddings, httpFactory, options, logger, disposeHttpClient);
+    /// <summary>Does this registration post to <c>/embeddings</c> rather than <c>/chat/completions</c>? One
+    /// field decides the route, the wire shape, and which methods answer.</summary>
+    private static bool ServesVectors(OpenAiCompatibleOptions c) =>
+        string.Equals(c.Produces, ProviderKinds.Vector, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The <c>/embeddings</c> wire shape, or null when this backend produces something else. It is
+    /// composed rather than inherited: an embeddings call has nothing in common with a completion beyond the
+    /// host it is posted to.</summary>
+    private readonly OpenAiEmbeddingsTransport? _embeddings = !ServesVectors(config) ? null
+        : new OpenAiEmbeddingsTransport(id, config, httpFactory, options, logger, disposeHttpClient);
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(config.BaseUrl);
 
@@ -71,27 +75,27 @@ public sealed class OpenAiCompatibleProvider(
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
 
     /// <inheritdoc/>
-    /// <exception cref="NotSupportedException"><see cref="OpenAiCompatibleOptions.Embeddings"/> was not
-    /// configured, so this registration serves text only.</exception>
+    /// <exception cref="NotSupportedException">This registration does not produce vectors.</exception>
     public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
-        Embedder().EmbedAsync(texts, ct);
+        Vectors().EmbedAsync(texts, ct);
 
     /// <inheritdoc/>
-    /// <exception cref="NotSupportedException"><see cref="OpenAiCompatibleOptions.Embeddings"/> was not
-    /// configured, so this registration serves text only.</exception>
+    /// <exception cref="NotSupportedException">This registration does not produce vectors.</exception>
     public Task<IReadOnlyList<float[]>> EmbedAsync(
         IReadOnlyList<string> texts, EmbeddingRole role, CancellationToken ct = default) =>
-        Embedder().EmbedAsync(texts, role, ct);
+        Vectors().EmbedAsync(texts, role, ct);
 
-    /// <summary>The embedding half, or the same refusal <see cref="IModelProvider"/>'s own default gives.
+    /// <summary>The embeddings transport, or the refusal <see cref="IModelProvider"/>'s own default gives.
     /// Reached only by a caller that ignored <see cref="Capabilities"/>, since a router checks first.</summary>
-    private HttpEmbedder Embedder() => _embedder
+    private OpenAiEmbeddingsTransport Vectors() => _embeddings
         ?? throw new NotSupportedException(
-            $"{id} does not serve EmbedAsync — set OpenAiCompatibleOptions.Embeddings to serve vectors too.");
+            $"{id} produces {config.Produces}, not {ProviderKinds.Vector} — an embedding model is its own "
+            + "backend, registered with Produces = ProviderKinds.Vector.");
+
 
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
-        var model = req.Model ?? config.DefaultModel ?? "";
+        var model = req.Model ?? config.Model ?? "";
         var timeout = options.ResolveTimeout(req);
         using var owned = OwnedClient();       // disposed only when Lyntai owns it
         var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
@@ -154,7 +158,7 @@ public sealed class OpenAiCompatibleProvider(
 
     public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var model = req.Model ?? config.DefaultModel ?? "";
+        var model = req.Model ?? config.Model ?? "";
         var timeout = options.ResolveTimeout(req);
         using var owned = OwnedClient();       // disposed only when Lyntai owns it
         var http = owned ?? httpFactory();     // BYO client: fetched, not disposed

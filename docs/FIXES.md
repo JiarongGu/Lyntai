@@ -8,8 +8,8 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 ---
 
 ## 2026-09-14 — the static embedder's tokenizer silently DELETED text: newlines, `$ ^ + = | < >`, and every emoji
-
-**Symptom.** `StaticEmbedder` tokenized through `Microsoft.ML.Tokenizers`' `BertTokenizer`, which departs
+ <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
+**Symptom.** `StaticEmbedder` tokenized through `Microsoft.ML.Tokenizers`' `BertTokenizer`, which departs <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
 from the reference BERT pipeline in four ways — and every one of them LOSES text rather than mis-splitting
 it, so the vector is finite, plausible and wrong:
 
@@ -28,8 +28,8 @@ Unicode *symbols* (Sc/Sk/Sm) rather than punctuation. Testing only the categorie
 and the characters are then neither matched nor emitted. (4) is a plain default disagreement — the library
 leaves accents on; the model's own config asks for them off.
 
-**A fifth hazard that was not a defect, but was one edit away.** `BertTokenizer` shadows `EncodeToIds` with
-a `new` method that adds `[CLS]`/`[SEP]`; the base does not. `StaticEmbedder` held the field as `Tokenizer`,
+**A fifth hazard that was not a defect, but was one edit away.** `BertTokenizer` shadows `EncodeToIds` with <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
+a `new` method that adds `[CLS]`/`[SEP]`; the base does not. `StaticEmbedder` held the field as `Tokenizer`, <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
 so it got the base one — correct for a `model2vec` table, and correct **by the declared type of a private
 field**. Narrowing that field to `BertTokenizer`, which reads as a safe tidy-up, would have folded two rows
 into every vector (`.claude/knowledge/pitfalls.md`).
@@ -92,8 +92,8 @@ regressed — the promise was never true for a BYO implementation.
 ---
 
 ## 2026-09-12 — a malformed embedding element became a silent ZERO, and a zero is a legitimate component
-
-**Symptom.** `HttpEmbedder.ToFloats` <!-- link-ok: the PRE-RENAME name, which this entry exists to describe; the fix renamed it to TryToFloats --> read every element as
+ <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
+**Symptom.** `HttpEmbedder.ToFloats` <!-- link-ok: the PRE-RENAME name, which this entry exists to describe; the fix renamed it to TryToFloats --> read every element as <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
 `n.ValueKind == JsonValueKind.Number ? (float)n.GetDouble() : 0f`. A JSON `null`, a number sent as a
 string, or an object in an `embedding` array therefore became `0f` — indistinguishable from a real zero
 component — and the result was a plausible, wrong vector that got stored, indexed and compared by cosine

@@ -731,7 +731,7 @@ it is the largest recall-quality change in this release. Nothing happens unless 
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOllamaProvider(defaultModel: "qwen2.5-vl:7b")
+    .AddOllamaProvider(model: "qwen2.5-vl:7b")
     .UseDefaultCandidates("ollama")
     .AddMemoryVerification());
 ```

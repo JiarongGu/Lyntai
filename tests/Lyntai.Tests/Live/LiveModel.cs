@@ -94,7 +94,7 @@ public static class LiveModel
         builder.AddOpenAiCompatibleProvider(id, o =>
         {
             o.BaseUrl = BaseUrl;
-            o.DefaultModel = model;
+            o.Model = model;
             o.Flavor = Flavor;
         });
 

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Lyntai.Lifecycle;
 using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
@@ -61,10 +62,11 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
             .UseDefaultCandidates("ollama")
             // The chat provider does not register an embedder — that is its own seam, reached through the
             // OpenAI-compatible registration, which every backend here serves at /v1/embeddings.
-            .AddOpenAiCompatibleEmbedder("ollama-embed", o =>
+            .AddOpenAiCompatibleProvider("ollama-embed", o =>
             {
                 o.BaseUrl = BaseUrl;
                 o.Model = EmbedModel;
+                o.Produces = ProviderKinds.Vector;
             }));
         return services.BuildServiceProvider();
     }

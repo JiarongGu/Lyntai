@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Lyntai.Embeddings;
-using Lyntai.Embeddings.Static;
+using Lyntai.Embeddings.Model2Vec;
 using Lyntai.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Embeddings;
 /// written to a temp directory — so the suite needs no download and no server. That is also what makes the
 /// arithmetic checkable: with a table whose rows are known, a mean-pooled vector has one right answer.</para>
 /// </summary>
-public class StaticEmbedderTests : IDisposable
+public class Model2VecProviderTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("lyntai-static-").FullName;
 
@@ -63,7 +63,7 @@ public class StaticEmbedderTests : IDisposable
         // An embedder is a provider like any other now (D128) — what makes it an embedder is the DECLARATION,
         // not a separate interface. Asserting the absences is the half that matters: it is what stops the
         // router dispatching a completion here and getting the default Unsupported back.
-        var embedder = StaticEmbedder.FromDirectory(WriteModel(Vocabulary("alpha")));
+        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha")));
 
         Assert.Equal([ProviderKinds.Text], embedder.Capabilities.Accepts);
         Assert.Equal([ProviderKinds.Vector], embedder.Capabilities.Produces);
@@ -73,12 +73,12 @@ public class StaticEmbedderTests : IDisposable
     }
 
     [Fact]
-    public void AddStaticEmbedder_registers_it_as_a_PROVIDER_as_well_as_the_embedder_slot()
+    public void AddModel2VecProvider_registers_it_as_a_PROVIDER_as_well_as_the_embedder_slot()
     {
         // Both halves are load-bearing: the slot keeps the one-embedder deployment working untouched, and
         // the provider collection is what lets a second embedder be registered and told apart by id.
         var services = new ServiceCollection();
-        services.AddLyntai(cfg => cfg.AddStaticEmbedder(WriteModel(Vocabulary("alpha"))));
+        services.AddLyntai(cfg => cfg.AddModel2VecProvider(WriteModel(Vocabulary("alpha"))));
         var provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetService<IEmbedder>());
@@ -90,7 +90,7 @@ public class StaticEmbedderTests : IDisposable
     [Fact]
     public void Reads_the_table_and_reports_the_models_own_width()
     {
-        var embedder = StaticEmbedder.FromDirectory(WriteModel(Vocabulary("alpha", "beta"), dimensions: 7));
+        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta"), dimensions: 7));
 
         Assert.Equal(7, embedder.Dimensions);
     }
@@ -99,7 +99,7 @@ public class StaticEmbedderTests : IDisposable
     public async Task Mean_pools_the_rows_its_tokens_select()
     {
         // Rows are all-i, so "alpha beta" (ids 5 and 6) means exactly (5 + 6) / 2 = 5.5 in every dimension.
-        var embedder = StaticEmbedder.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
+        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
 
         var vector = (await embedder.EmbedAsync(["alpha beta"]))[0];
 
@@ -113,7 +113,7 @@ public class StaticEmbedderTests : IDisposable
         // pruned vocabulary produces; bracketing the input with [CLS]/[SEP] would fold two more rows into
         // every mean and shift each vector by an amount no test asserting "a vector came back" could see.
         // "alpha" alone must therefore be row 5 and nothing else.
-        var embedder = StaticEmbedder.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
+        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
 
         var vector = (await embedder.EmbedAsync(["alpha"]))[0];
 
@@ -123,8 +123,8 @@ public class StaticEmbedderTests : IDisposable
     [Fact]
     public async Task Normalizes_to_unit_length_when_the_model_says_so_and_not_when_it_does_not()
     {
-        var normalized = StaticEmbedder.FromDirectory(WriteModel(Vocabulary("alpha"), normalize: true));
-        var raw = StaticEmbedder.FromDirectory(WriteModel(Vocabulary("alpha"), normalize: false));
+        var normalized = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha"), normalize: true));
+        var raw = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha"), normalize: false));
 
         var unit = (await normalized.EmbedAsync(["alpha"]))[0];
         Assert.Equal(1.0, Math.Sqrt(unit.Sum(v => (double)v * v)), 3);
@@ -138,7 +138,7 @@ public class StaticEmbedderTests : IDisposable
     {
         // A store full of documents must not be refused over one empty one, and a zero vector is what an
         // empty string MEANS — maximally dissimilar to everything.
-        var embedder = StaticEmbedder.FromDirectory(WriteModel(Vocabulary("alpha")));
+        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha")));
 
         var vectors = await embedder.EmbedAsync(["", "   "]);
 
@@ -152,7 +152,7 @@ public class StaticEmbedderTests : IDisposable
         WriteModel(Vocabulary("alpha"));
         File.Delete(Path.Combine(_dir, "vocab.txt"));
 
-        var error = Assert.Throws<FileNotFoundException>(() => StaticEmbedder.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => Model2VecProvider.FromDirectory(_dir));
         Assert.Contains("vocab.txt", error.Message, StringComparison.Ordinal);
     }
 
@@ -164,7 +164,7 @@ public class StaticEmbedderTests : IDisposable
         WriteModel(Vocabulary("alpha"));
         File.WriteAllText(Path.Combine(_dir, "model.safetensors"), "this is not a tensor file at all");
 
-        Assert.Throws<InvalidDataException>(() => StaticEmbedder.FromDirectory(_dir));
+        Assert.Throws<InvalidDataException>(() => Model2VecProvider.FromDirectory(_dir));
     }
 
     [Fact]
@@ -172,7 +172,7 @@ public class StaticEmbedderTests : IDisposable
     {
         // Every sub-100 MB transformer embedder rejects an input past 512 tokens. A lookup table has no
         // positional embeddings, so a long document is just more rows to average.
-        var embedder = StaticEmbedder.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
+        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
 
         var vector = (await embedder.EmbedAsync([string.Join(" ", Enumerable.Repeat("alpha beta", 4000))]))[0];
 
@@ -186,7 +186,7 @@ public class StaticEmbedderTests : IDisposable
 /// an untraceable retrieval loss.
 /// <para>Skipped without <c>LYNTAI_STATIC_MODEL_DIR</c>. Point it at a `potion-*` or
 /// `static-retrieval-*` directory.</para></summary>
-public class StaticEmbedderLiveTests
+public class Model2VecProviderLiveTests
 {
     private static string? Directory => Environment.GetEnvironmentVariable("LYNTAI_STATIC_MODEL_DIR");
 
@@ -195,7 +195,7 @@ public class StaticEmbedderLiveTests
     {
         Skip.If(string.IsNullOrWhiteSpace(Directory), "set LYNTAI_STATIC_MODEL_DIR to a model2vec directory");
 
-        var embedder = StaticEmbedder.FromDirectory(Directory!);
+        var embedder = Model2VecProvider.FromDirectory(Directory!);
         var vectors = await embedder.EmbedAsync([
             "the weather forecast for tomorrow",
             "a stock market share price quote",

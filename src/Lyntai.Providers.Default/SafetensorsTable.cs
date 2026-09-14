@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Lyntai.Embeddings.Static;
+namespace Lyntai.Embeddings.Model2Vec;
 
 /// <summary>The embedding matrix of a <c>model.safetensors</c> file, read once into managed memory.
 ///

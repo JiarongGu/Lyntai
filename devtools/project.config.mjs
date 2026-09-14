@@ -137,6 +137,35 @@ export default {
 
   retiredApiNames: [
     {
+      // D130. `Kinds` and `Embed` are whole-identifier tokens, so `ProviderKinds`, `GenerationKinds` and
+      // every `EmbedAsync` stay live without an allowance — which is the point of the tokenizing rule.
+      names: ['Kinds', 'Embed'],
+      use: '`ProviderCapabilities.Accepts` / `.Produces`, and `ProviderKinds.Vector` for what an embedder '
+        + 'PUTS OUT',
+      why: 'a backend is accepts -> produces delivered some way; embedding was the one ProviderOperation '
+        + 'member whose own doc had to explain that it produced nothing of its Kinds (D130)',
+    },
+    {
+      names: [
+        'AddOpenAiCompatibleEmbedder', 'AddOpenAiCompatibleEmbeddings',
+        'OpenAiCompatibleEmbedderOptions', 'HttpEmbedder', 'EmbedderHttpClientName',
+      ],
+      use: '`AddOpenAiCompatibleProvider` with `OpenAiCompatibleOptions.Embeddings` set (and `Chat = null` '
+        + 'for a host that serves no chat); the wire shape is the internal `OpenAiEmbeddingsTransport`',
+      why: 'a second Add* method for the same backend IS the chat-vs-embedder split, re-entering through '
+        + 'the one surface a consumer types. One host, one registration, routes as configuration (D132)',
+    },
+    {
+      names: [
+        'AddStaticEmbedder', 'StaticEmbedder', 'StaticEmbedderOptions', 'StaticBuilderExtensions',
+        'AddOnnxEmbedder', 'AddLocalProvider',
+      ],
+      use: '`AddModel2VecProvider` / `Model2VecProvider`, `AddOnnxProvider`, `AddLlamaSharpProvider`',
+      why: 'every registration returns an IModelProvider, so an *Embedder suffix sorted backends by what '
+        + 'they produce — the taxonomy D130 deleted. "Static" also named a technique rather than the '
+        + 'model2vec format it loads, and "Local" named nothing at all (D132)',
+    },
+    {
       // D125's provider unification. These were two BYTE-IDENTICAL records — `(string ProviderId, string?
       // Model = null)` — one per domain, and the generation one's own XML doc admitted it behaved "exactly
       // as on the LLM side". Whole-identifier equality is what lets `UseDefaultGenerationCandidates` (a
@@ -156,7 +185,7 @@ export default {
       // gave embedders an Id by minting a THIRD provider family, when what they needed was one enum member
       // on the capability object they already had. An embedder is an IModelProvider declaring Embed.
       names: ['IEmbeddingProvider'],
-      use: '`Lyntai.Lifecycle.IModelProvider` declaring `ProviderOperation.Embed`',
+      use: '`Lyntai.Lifecycle.IModelProvider` declaring `ProviderKinds.Vector` in `Produces`',
       why: 'an embedding model is a TEXT backend like a chat model — giving it its own provider family '
         + 'splits by domain what belongs in data (D128)',
     },
@@ -177,8 +206,8 @@ export default {
     {
       names: ['GenerationCapabilities', 'GenerationDelivery', 'Deliveries'],
       use: '`Lyntai.Lifecycle.ProviderCapabilities` / `ProviderOperation` / `ProviderCapabilities.Operations`',
-      why: 'capability belongs to every provider seam, not to one domain — and an operation list that '
-        + 'cannot express Embed forces embedding into a parallel stack (D125)',
+      why: 'capability belongs to every provider seam, not to one domain — and a per-domain capability '
+        + 'type forces embedding into a parallel stack (D125)',
     },
     {
       // D76's naming sweep of the surface D67-D76 added. 'Flags' on an options object reads as boolean
@@ -406,6 +435,20 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    {
+      // D130/D132. The SURFACE half is in `retiredApiNames`; this is the prose half. A document naming any
+      // of these describes a registration or a type the tree no longer has. `StaticEmbedder` is matched but
+      // the WORD "static" is not — a lookup table is still correctly called static embeddings in prose,
+      // which is exactly why the type had to be renamed and the technique did not.
+      term: '\\bAddOpenAiCompatibleEmbedder\\b|\\bAddOpenAiCompatibleEmbeddings\\b'
+        + '|\\bOpenAiCompatibleEmbedderOptions\\b|\\bHttpEmbedder\\b'
+        + '|\\bAddStaticEmbedder\\b|\\bStaticEmbedderOptions\\b|\\bStaticEmbedder\\b'
+        + '|\\bAddOnnxEmbedder\\b|\\bAddLocalProvider\\b',
+      why: 'every registration returns an IModelProvider, so an *Embedder suffix sorted backends by what '
+        + 'they produce — the taxonomy D130 deleted from the types and D132 from the surface',
+      use: '`AddOpenAiCompatibleProvider` (with `Chat`/`Embeddings` saying which routes), '
+        + '`AddOnnxProvider`, `AddModel2VecProvider`, `AddLlamaSharpProvider`, `OpenAiEmbeddingsTransport`',
+    },
     {
       // D125. The SURFACE half is in `retiredApiNames`; this is the prose half. Both names described the
       // same record in two namespaces, so a document naming either is describing a type that no longer

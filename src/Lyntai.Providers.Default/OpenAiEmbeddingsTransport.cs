@@ -11,52 +11,38 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Providers.OpenAiCompatible;
 
 /// <summary>
-/// HttpClient-based <see cref="IEmbedder"/> for OpenAI-compatible embedding endpoints. Posts
+/// The <c>/embeddings</c> WIRE SHAPE, composed by <see cref="OpenAiCompatibleProvider"/> when a host
+/// declares that route. It is a transport rather than a backend — it has no id and no capabilities,
+/// because the provider that owns it is the backend (<c>docs/DECISIONS.md</c> D132). Posts
 /// <c>{model, input[]}</c> — batched — and extracts vectors tolerantly from either the OpenAI/LM-Studio
 /// <c>data[].embedding</c> shape or Ollama's <c>embeddings[[…]]</c> shape. Endpoint + flavor come from the
 /// same <see cref="ProviderDetect"/> the chat provider uses (Ollama → native <c>/api/embed</c>; a bare
 /// Azure resource → <c>/openai/v1/embeddings</c>; everything else → <c>/v1/embeddings</c>).
 /// <see cref="LyntaiOptions.ProviderTimeout"/> is the deadline for one HTTP REQUEST, so a call that
-/// <see cref="OpenAiCompatibleEmbedderOptions.BatchSize"/> splits is bounded by batches × that value rather
+/// <see cref="OpenAiCompatibleOptions.BatchSize"/> splits is bounded by batches × that value rather
 /// than by it once. Failures THROW (an embedding call has no verdict/fallback) —
 /// <see cref="Lyntai.Memory.ISemanticMemory.RecallAsync"/> is fail-open and swallows them, while
 /// <c>RememberAsync</c> surfaces them by design. Because there is no verdict, a 401 with no key supplied
 /// says so in the message instead: see <see cref="NotConfiguredHint"/>.
 /// </summary>
-public sealed class HttpEmbedder(
+internal sealed class OpenAiEmbeddingsTransport(
     string id,
-    OpenAiCompatibleEmbedderOptions config,
+    OpenAiCompatibleOptions config,
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
     ILogger? logger = null,
-    bool disposeHttpClient = true) : IModelProvider
+    bool disposeHttpClient = true)
 {
-    private readonly ILogger _logger = logger ?? NullLogger<HttpEmbedder>.Instance;
+    private readonly ILogger _logger = logger ?? NullLogger<OpenAiEmbeddingsTransport>.Instance;
 
-    /// <summary>Declared once so the flavor and the endpoint cannot disagree about which host this is.</summary>
-    private readonly string _baseUrl = config.BaseUrl ?? OpenAiCompatibleEmbedderOptions.DefaultBaseUrl;
-
-    /// <inheritdoc />
-    public string Id => id;
-
-    /// <summary>Text in, vectors out. Declaring only <see cref="ProviderKinds.Vector"/> is what keeps a
-    /// router from sending this endpoint a completion — the chat half of an OpenAI-compatible host is a
-    /// SEPARATE provider with its own id and its own base URL.</summary>
-    public ProviderCapabilities Capabilities { get; } = new()
-    {
-        Accepts = [ProviderKinds.Text],
-        Produces = [ProviderKinds.Vector],
-        Operations = [ProviderOperation.Complete],
-    };
-    private readonly OpenAiFlavor _flavor =
-        OpenAiEndpoint.ResolveFlavor(config.Flavor, config.BaseUrl ?? OpenAiCompatibleEmbedderOptions.DefaultBaseUrl);
+    private readonly OpenAiFlavor _flavor = OpenAiEndpoint.ResolveFlavor(config.Flavor, config.BaseUrl);
 
     /// <summary>Get the per-call HttpClient. Lyntai-created clients are disposed after each call; an
     /// APP-supplied (BYO) client is NEVER disposed — the app owns its lifetime.</summary>
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
 
     /// <summary>Embed <paramref name="texts"/>, returning one vector per input in the SAME order (batched
-    /// per <see cref="OpenAiCompatibleEmbedderOptions.BatchSize"/> and concatenated). An empty input returns
+    /// per <see cref="OpenAiCompatibleOptions.BatchSize"/> and concatenated). An empty input returns
     /// an empty list without any HTTP call. Failure THROWS (an embedding call has no verdict/fallback) — the
     /// caller decides whether to swallow it (recall is fail-open) or surface it (remember is not).</summary>
     /// <returns>One <c>float[]</c> per input text, in input order.</returns>
@@ -87,8 +73,8 @@ public sealed class HttpEmbedder(
     }
 
     /// <summary>Embed for a known <paramref name="role"/>, applying that side's configured prefix
-    /// (<see cref="OpenAiCompatibleEmbedderOptions.DocumentPrefix"/> /
-    /// <see cref="OpenAiCompatibleEmbedderOptions.QueryPrefix"/>) before the request, then continuing
+    /// (<see cref="OpenAiCompatibleOptions.DocumentPrefix"/> /
+    /// <see cref="OpenAiCompatibleOptions.QueryPrefix"/>) before the request, then continuing
     /// through the role-less path above — so batching, ordering and every failure mode are identical.
     /// With neither prefix set (the default, and every symmetric model) it forwards without allocating.
     /// </summary>
@@ -152,7 +138,7 @@ public sealed class HttpEmbedder(
     /// <summary>The embeddings endpoint — Ollama's native batched <c>/api/embed</c> (parallel to the chat
     /// provider's <c>/api/chat</c>), otherwise the OpenAI-compatible <c>embeddings</c> route.</summary>
     private Uri Endpoint() =>
-        OpenAiEndpoint.Build(_baseUrl, _flavor, ollamaNativePath: "/api/embed", openAiRoute: "embeddings");
+        OpenAiEndpoint.Build(config.BaseUrl, _flavor, ollamaNativePath: "/api/embed", openAiRoute: "embeddings");
 
     /// <summary>Tolerant extraction covering the two response shapes: OpenAI/LM-Studio
     /// <c>data[].embedding</c> (ordered by the authoritative <c>index</c>) and Ollama <c>embeddings[[…]]</c>

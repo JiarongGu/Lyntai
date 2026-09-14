@@ -380,7 +380,7 @@ services.AddLyntai(b => b.AddMemoryEngine("project", e => e.UseGraph()));
 
 // a local judge: one call, one line
 services.AddLyntai(b => b
-    .AddOllamaProvider(baseUrl: "http://localhost:11434", defaultModel: "gemma3:4b")
+    .AddOllamaProvider(baseUrl: "http://localhost:11434", model: "gemma3:4b")
     .UseDefaultCandidates("ollama")
     .AddMemoryEngine("project", e => e.UseGraph())
     .AddMemoryVerification(o => o.Model = "gemma3:4b"));
@@ -702,7 +702,7 @@ options below are what separates those outcomes. ~1.5 s and 3.3 GB of VRAM per r
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOllamaProvider(baseUrl: "http://localhost:11434", defaultModel: "gemma3:4b")
+    .AddOllamaProvider(baseUrl: "http://localhost:11434", model: "gemma3:4b")
     .UseDefaultCandidates("ollama")
     .AddMemoryEngine("project", e => e.UseGraph(new GraphMemoryOptions
     {

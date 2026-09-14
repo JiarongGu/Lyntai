@@ -2,10 +2,10 @@ using Lyntai.Lifecycle;
 using System.Text.Json;
 using Lyntai.Text;
 
-namespace Lyntai.Embeddings.Static;
+namespace Lyntai.Embeddings.Model2Vec;
 
-/// <summary>Knobs for <see cref="StaticEmbedder"/>.</summary>
-public sealed class StaticEmbedderOptions
+/// <summary>Knobs for <see cref="Model2VecProvider"/>.</summary>
+public sealed class Model2VecProviderOptions
 {
     /// <summary>Whether to L2-normalize each vector. Null reads the model's own <c>config.json</c>, which is
     /// what a <c>model2vec</c> export states and what its reference implementation honours — set this only
@@ -40,13 +40,13 @@ public sealed class StaticEmbedderOptions
 /// <para><b>No PCA or Zipf weighting is applied at inference.</b> A <c>model2vec</c> export bakes both into
 /// the table when it is built, so the runtime is a lookup and a mean. This reads <c>config.json</c> only for
 /// <c>normalize</c>.</para></summary>
-public sealed class StaticEmbedder : IModelProvider
+public sealed class Model2VecProvider : IModelProvider
 {
     private readonly WordPieceTokenizer _tokenizer;
     private readonly SafetensorsTable _table;
     private readonly bool _normalize;
 
-    private StaticEmbedder(WordPieceTokenizer tokenizer, SafetensorsTable table, bool normalize, string id)
+    private Model2VecProvider(WordPieceTokenizer tokenizer, SafetensorsTable table, bool normalize, string id)
     {
         _tokenizer = tokenizer;
         _table = table;
@@ -84,7 +84,7 @@ public sealed class StaticEmbedder : IModelProvider
     /// <exception cref="DirectoryNotFoundException">No such directory.</exception>
     /// <exception cref="FileNotFoundException">A required file is missing, named individually so the fix is
     /// obvious — a partial download is the common case and its symptom is otherwise a null reference.</exception>
-    public static StaticEmbedder FromDirectory(string directory, StaticEmbedderOptions? options = null)
+    public static Model2VecProvider FromDirectory(string directory, Model2VecProviderOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         if (!Directory.Exists(directory)) throw new DirectoryNotFoundException($"No model directory at '{directory}'.");
@@ -105,7 +105,7 @@ public sealed class StaticEmbedder : IModelProvider
         // from the model's own tokenizer_config.json for the same reason.
         var tokenizer = WordPieceTokenizer.FromModelDirectory(directory);
 
-        return new StaticEmbedder(
+        return new Model2VecProvider(
             tokenizer, table, options?.Normalize ?? NormalizeFromConfig(directory), options?.Id ?? "static");
     }
 

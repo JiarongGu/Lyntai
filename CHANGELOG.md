@@ -14,42 +14,50 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
-- **One OpenAI-compatible registration can serve BOTH `/chat/completions` and `/embeddings`** (**D131**).
-  Set `OpenAiCompatibleOptions.Embeddings` and the provider declares `Produces: [text, vector]`, serving
-  both routes off one id, one configuration and one `HttpClient` — where this previously needed
-  `AddOpenAiCompatibleProvider` *and* `AddOpenAiCompatibleEmbedder` aimed at the same server. Blank fields
-  in the section inherit the host's `BaseUrl` / `ApiKey` / `Flavor`; `Model` deliberately does not inherit
-  `DefaultModel`. `AddOpenAiCompatibleEmbedder` stays for a host that serves embeddings and no chat.
+- **An OpenAI-compatible backend declares what it `Produces`** (**D130**, **D131**, **D133**). One
+  registration is one backend: `o.Produces = ProviderKinds.Vector` posts to `/embeddings` instead of
+  `/chat/completions`, declares `Complete` alone (there is no partial embedding), and enters the routed
+  `IEmbedder`. A host answering BOTH routes is registered twice, under two ids, so a trace names the
+  backend that answered.
 
 ### Breaking
 
-- **`OpenAiCompatibleEmbedderOptions.BaseUrl` is now nullable**, resolving to the host it was declared on
-  or to `DefaultBaseUrl` standalone — the same endpoint as before for anyone who set it or left it alone.
-  `HttpEmbedder`'s logger parameter widens from `ILogger<HttpEmbedder>?` to `ILogger?`.
+- **There is one `Add*` per backend, and no route sub-objects** (**D132**, **D133**).
+  `AddOpenAiCompatibleEmbedder` is removed and `OpenAiCompatibleOptions` is flat — <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `BaseUrl`, `ApiKey`, `Flavor`, `Model`, `Produces`, plus the route-specific knobs. `DefaultModel` is
+  renamed `Model` and the presets' `defaultModel:` parameter `model:`. `HttpEmbedder` and <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `OpenAiCompatibleEmbedderOptions` are gone; the wire shape is the internal <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `OpenAiEmbeddingsTransport`.
+
+- **The `*Embedder` suffix is retired from every registration** (**D132**): `AddOnnxEmbedder` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `AddOnnxProvider`, `AddStaticEmbedder` → `AddModel2VecProvider` (with `StaticEmbedder` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `Model2VecProvider`, naming the export it loads rather than the technique), and `AddLocalProvider` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `AddLlamaSharpProvider`. Every one of them returns an `IModelProvider`; what it produces is a field to
+  read, not a suffix to guess.
 
 - **Embedding is an output KIND, not an operation: `ProviderCapabilities.Kinds` becomes `Accepts` + <!-- link-ok: names the member this entry RETIRES -->
   `Produces`** (**D130**). `ProviderOperation.Embed` is removed and the enum is back to the delivery axis
   (`Complete` / `Stream` / `Job`). A backend now declares what it takes in and what it puts out: a chat
   model is `text → text`, a renderer `text → image`, an embedder `text → vector`
-  (`ProviderKinds.Vector`). **`Produces` is a list**, so one backend can declare `[text, vector]` and serve
-  `/chat/completions` and `/embeddings` off one configuration — which the previous shape could not express
-  at all. `Supports(...)` becomes `Supports(produces, operation, accepts:, model:, hasInputs:)`, and the
+  (`ProviderKinds.Vector`). **`Produces` is a list**, so one backend can declare several kinds when a single
+  CALL returns them — a multimodal model emitting text and an image — which the previous shape could not
+  express at all. Two endpoints behind one hostname is not that: see **D133**. `Supports(...)` becomes `Supports(produces, operation, accepts:, model:, hasInputs:)`, and the
   `Kinds` property on `ComfyUiOptions` / `FalQueueOptions` is renamed `Produces`.
 
 - **`IEmbedder` is the embedding FRONT DOOR, and embeddings now have fallback** (**D129**). The `IEmbedder`
   a consumer resolves is a router over every backend that produces vectors, so registering two
   endpoints gives failover instead of the second silently replacing the first — which is what
-  `HttpEmbedder`'s own doc admitted: *"there is one embedder slot, so a later registration wins"*.
-  `StaticEmbedder`, `OnnxEmbedder` and `HttpEmbedder` **stop implementing `IEmbedder`** and are providers
+  `OpenAiEmbeddingsTransport`'s own doc admitted: *"there is one embedder slot, so a later registration wins"*.
+  `Model2VecProvider`, `OnnxEmbedder` and `OpenAiEmbeddingsTransport` **stop implementing `IEmbedder`** and are providers
   only; a chat-only backend is never asked to embed, because the capability filter runs before dispatch.
   **Bring-your-own is unchanged**: `AddEmbeddings(...)` registers inside the configure callback, which runs
   before the front door is seeded with `TryAdd`, so an app-supplied embedder still wins. New:
   `LyntaiBuilder.AddEmbeddingProvider(...)` — what a package's `Add…Embedder` calls — and a role-aware
   `IModelProvider.EmbedAsync` overload so routing cannot silently drop `EmbeddingRole`.
 
-- **An embedder is a PROVIDER: `IEmbeddingProvider` is removed** (**D128**). `StaticEmbedder` and
+- **An embedder is a PROVIDER: `IEmbeddingProvider` is removed** (**D128**). `Model2VecProvider` and
   `OnnxEmbedder` are `IModelProvider`s declaring `Kinds: ["text"], Operations: [Embed]`, and
-  `AddStaticEmbedder` / `AddOnnxEmbedder` now register them into the provider collection **as well as** the
+  `AddModel2VecProvider` / `AddOnnxProvider` now register them into the provider collection **as well as** the
   `IEmbedder` slot. Nothing moves for a deployment with exactly one embedder; what changes is that a second
   one is expressible and distinguishable by id. **`IEmbedder` stays** as the minimal bring-your-own seam —
   one method, implementable by a lambda — while `IModelProvider` is the routed one; the two `EmbedAsync`
@@ -101,7 +109,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   the dependency it ISOLATES, and "Local" stopped naming anything once the in-process static embedder
   landed — it described three things and identified none. **The namespace and every type name are
   unchanged**, deliberately, so the migration is one `PackageReference` and no `using` edit;
-  `AddLocalProvider(modelPath)` still registers it. `AddLlamaSharpProvider` was refused because
+  `AddLlamaSharpProvider(modelPath)` still registers it. `AddLlamaSharpProvider` was refused because
   `AddLlamaProvider` already exists next door for llama-server over HTTP, and two names that close meaning
   opposite things is worse than one imprecise one. The old id is unlisted (**D44**).
 
@@ -113,7 +121,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 ### Added
 
 - **An in-process embedder with NO server, GPU or port** (**D121**, **D122**).
-  `AddStaticEmbedder(modelDirectory)` over a `model2vec` lookup table, **in `Lyntai.Providers.Default`** —
+  `AddModel2VecProvider(modelDirectory)` over a `model2vec` lookup table, **in `Lyntai.Providers.Default`** —
   no new package and **no new dependency**, because its WordPiece tokenizer is owned rather than referenced
   (**D122**: `Microsoft.ML.Tokenizers` cost 812 KB of closure, with `Google.Protobuf`, for one call). Both
   packages keep their `✅` trim/AOT rows. **The case is operational, not quality or speed**:
@@ -127,7 +135,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   was dropped rather than `[UNK]`, and accents were not stripped though the model's config asks for it.
   Nothing released was affected; the defect arrived and left inside this release (`docs/FIXES.md`).
 
-- **`Lyntai.Providers.Onnx` — an in-process TRANSFORMER embedder** (**D124**). `AddOnnxEmbedder(dir)` runs
+- **`Lyntai.Providers.Onnx` — an in-process TRANSFORMER embedder** (**D124**). `AddOnnxProvider(dir)` runs
   a sentence-transformer through ONNX Runtime with no server and no port, completing the CPU column of the
   in-process 2×2 whose static half shipped as **D121**. Measured, it is worth roughly **+9.6 points** of
   tool-routing accuracy at three options over the static class at comparable model bytes — for ~16 MB of
@@ -143,7 +151,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `IModelProvider` already do: a deployment can register more than one and tell them apart, and a
   diagnostic can say WHICH embedder produced a vector. **Additive on purpose** — `IEmbedder` is unchanged,
   because adding a base interface that introduces a required `Id` would break every BYO embedder at
-  compile. `StaticEmbedder` and `OnnxEmbedder` both implement it; `StaticEmbedderOptions` gains `Id`.
+  compile. `Model2VecProvider` and `OnnxEmbedder` both implement it; `Model2VecProviderOptions` gains `Id`.
 
 - **`Lyntai.Text.WordPieceTokenizer` — a BERT tokenizer the library owns** (**D122**). `FromModelDirectory`
   takes its rules from the model's own `tokenizer_config.json` rather than a caller's guess, because the ids
@@ -503,7 +511,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   <br>**The write path was the worse half**: annotation runs before the entry is stored, so a slow
   annotator lost the FACT rather than its subject edges. A caller's own cancellation still propagates
   unchanged — the two are now told apart by whether the caller's token is actually cancelled, the same
-  distinction `HttpEmbedder` and the OpenAI-compatible provider already drew.
+  distinction `OpenAiEmbeddingsTransport` and the OpenAI-compatible provider already drew.
   <br>**Nothing changes for a deployment with no annotator or verifier registered**, which is the default:
   both seams are opt-in. The promise now lives on both seam CONTRACTS, so a BYO policy is held to it too.
 
@@ -517,7 +525,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   <br>**A behaviour change only for a BYO component that times out**, and only in the direction the docs
   already promised — a store, engine, embedder or vector store whose own deadline fires now degrades instead
   of throwing. A caller's cancellation propagates exactly as before, and a deployment on the shipped
-  SQLite/Postgres/InMemory stores and the shipped `HttpEmbedder` sees nothing change at all, because none of
+  SQLite/Postgres/InMemory stores and the shipped `OpenAiEmbeddingsTransport` sees nothing change at all, because none of
   those raise a cancellation they were not asked for.
   <br>**Four seam contracts said otherwise and were corrected**, since a fixed behaviour with a doc still
   asserting the old one is the worse half: `IMemoryEngine.RecallAsync` said *"Only
@@ -1767,7 +1775,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
     the guard `GenerationRouter` already had. **Unchanged:** which substantive failure wins (still the last
     one attempted), and `ContextWindowExceeded` still surfaces normally — "your prompt is too big" is a real
     answer. When every candidate is unconfigured you still get `NotConfigured`, not a generic error.
-  - **`HttpEmbedder` deliberately unchanged in behaviour:** an embedding call has no verdict and no
+  - **`OpenAiEmbeddingsTransport` deliberately unchanged in behaviour:** an embedding call has no verdict and no
     fallback — it throws — so there is nothing for it to route around. Its 401 message now says
     `(not configured: no ApiKey)` when no key was supplied, so a host can tell setup from a rejected key.
     Message only; the exception type is still `HttpRequestException`.
@@ -2232,7 +2240,7 @@ is the deferred-SemVer-strictness rule.
 
 ### Internal (no public surface change)
 - **OpenAI-compatible endpoint/auth rules deduped** into `OpenAiEndpoint`. `OpenAiCompatibleProvider` and
-  `HttpEmbedder` each carried their own copy of the flavor resolution, the Azure `/openai/v1` rule, the
+  `OpenAiEmbeddingsTransport` each carried their own copy of the flavor resolution, the Azure `/openai/v1` rule, the
   `/v1`-suffix logic and the `api-key` header block — differing only in route name. A drift between the two
   copies would have been silent (chat keeps working while embeddings 404, or the reverse).
 - **`LyntaiBuilder` qualification cleanup** — ~55 fully-qualified `Lyntai.Llm.Caching.…`-style references
@@ -2257,7 +2265,7 @@ migration ledger into clean per-domain baselines (the pre-release migration-fold
   `Lyntai.Providers.OpenAiCompatible.ProviderDetect` (incl. `Detect`), and
   `Lyntai.Providers.ExtensionsAi.LyntaiChatClient` → `internal`; FluentMigrator migration classes removed
   from the public surface; `LocalModelOptions.AntiPrompts` → `StopSequences`;
-  `OpenAiCompatibleOptions.Flavor`/`OpenAiCompatibleEmbedderOptions.Flavor` `string` → `OpenAiFlavor` enum;
+  `OpenAiCompatibleOptions.Flavor`/`OpenAiCompatibleOptions.Flavor` `string` → `OpenAiFlavor` enum;
   `IVectorStore` gains a required `DeleteAsync(collection, id)`.
 
 ### Added
@@ -2269,10 +2277,10 @@ migration ledger into clean per-domain baselines (the pre-release migration-fold
 - **`OpenAiFlavor` enum** (`Auto`/`OpenAi`/`Ollama`/`OpenRouter`/`AzureOpenAi`) — a typo-safe replacement
   for the old magic-string flavor; `Auto` = URL-detected.
 - Member-level XML docs on non-obvious frozen surface: `PostgresVectorStore` search/upsert/remove,
-  `HttpEmbedder.EmbedAsync` (throw contract), `DpapiSecretProtector` (all-input → `CryptographicException`),
+  `OpenAiEmbeddingsTransport.EmbedAsync` (throw contract), `DpapiSecretProtector` (all-input → `CryptographicException`),
   `ClaudeCliProvider.IsAvailable` (optimistic BYO-runner).
 - **Built-in `IEmbedder` for OpenAI-compatible endpoints** (EMB1): `Lyntai.Providers.OpenAiCompatible` now
-  ships `HttpEmbedder` + a `builder.AddOpenAiCompatibleEmbedder(id, o => { o.BaseUrl; o.Model; o.ApiKey; })`
+  ships `OpenAiEmbeddingsTransport` + a `builder.AddOpenAiCompatibleEmbedder(id, o => { o.BaseUrl; o.Model; o.ApiKey; })`
   method, so an app already talking to an OpenAI-compatible chat endpoint can turn on semantic memory
   (`ISemanticMemory`) **without a BYO embedder**. It POSTs the batched `{model, input[]}` body and extracts
   vectors tolerantly from either the OpenAI/LM-Studio `data[].embedding` shape (re-ordered by the
@@ -2280,7 +2288,7 @@ migration ledger into clean per-domain baselines (the pre-release migration-fold
   Azure, and local Ollama. Endpoint + flavor reuse the chat provider's `ProviderDetect` (Ollama → native
   `/api/embed`; a bare Azure resource → `/openai/v1/embeddings`; else `/v1/embeddings`, not double-prefixing a
   `/v1` base) and the same BYO-`HttpClient` seam; the per-call deadline is `LyntaiOptions.ProviderTimeout`.
-  `OpenAiCompatibleEmbedderOptions.BatchSize` splits an over-cap input list into several requests. Pairs with
+  `OpenAiCompatibleOptions.BatchSize` splits an over-cap input list into several requests. Pairs with
   the existing in-memory / `UseSqliteVectorStore` / pgvector vector stores. Additive — no breaking change.
   Live-gated Ollama coverage sits alongside the chat provider's (`LYNTAI_LIVE_OLLAMA`, embed model via
   `LYNTAI_OLLAMA_EMBED_MODEL`, default `nomic-embed-text`).
@@ -3523,7 +3531,7 @@ New provider package for in-process local inference. Additive — no changes to 
 
 ### Added
 - **`Lyntai.Providers.Local`** — runs a local GGUF model in-process via LLamaSharp (llama.cpp), wired
-  with `builder.AddLocalProvider(modelPath, …)`. No network, no API key, no external process; the
+  with `builder.AddLlamaSharpProvider(modelPath, …)`. No network, no API key, no external process; the
   model loads lazily and is reused, and generations are serialized (one local model, one at a time).
   It classifies to the same verdicts the router expects (produced answer → `Ok`; empty generation or
   a load/inference fault → `Failed` so the router falls over; inactivity → `Timeout`).

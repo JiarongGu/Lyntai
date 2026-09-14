@@ -22,7 +22,7 @@ public class ProviderPresetsTests
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOpenAiProvider("sk-test", defaultModel: "gpt-x", httpClient: _ => new HttpClient(handler))
+            .AddOpenAiProvider("sk-test", model: "gpt-x", httpClient: _ => new HttpClient(handler))
             .UseDefaultCandidates("openai"));
         using var sp = services.BuildServiceProvider();
 
@@ -41,7 +41,7 @@ public class ProviderPresetsTests
             """{"message":{"content":"ok"},"done":true}""");
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOllamaProvider(defaultModel: "llama3", httpClient: _ => new HttpClient(handler))
+            .AddOllamaProvider(model: "llama3", httpClient: _ => new HttpClient(handler))
             .UseDefaultCandidates("ollama"));
         using var sp = services.BuildServiceProvider();
 
@@ -59,7 +59,7 @@ public class ProviderPresetsTests
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddLlamaProvider(defaultModel: "gemma-3-4b", httpClient: _ => new HttpClient(handler))
+            .AddLlamaProvider(model: "gemma-3-4b", httpClient: _ => new HttpClient(handler))
             .UseDefaultCandidates("llama"));
         using var sp = services.BuildServiceProvider();
 

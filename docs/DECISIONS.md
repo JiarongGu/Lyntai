@@ -201,8 +201,10 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D129](#d129--iembedder-is-the-front-door-not-a-backend-contract-embeddings-get-routing-and-fallback-2026-09-14) | 2026-09-14 | IEmbedder is the FRONT DOOR, not a backend contract: embeddings get routing and fallback |
 | [D130](#d130--embedding-is-an-output-kind-not-an-operation-capabilities-become-accepts--produces-2026-09-14) | 2026-09-14 | embedding is an output KIND, not an operation: capabilities become accepts → produces |
 | [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) | 2026-09-14 | a backend's `Produces` is DERIVED from its configuration, so a modality is a field |
+| [D132](#d132--a-second-add-method-for-one-backend-is-the-split-routes-are-configuration-2026-09-14) | 2026-09-14 | a second `Add*` method for one backend IS the split: routes are configuration |
+| [D133](#d133--one-registration-is-one-backend-a-shared-hostname-does-not-merge-two-2026-09-14) | 2026-09-14 | one registration is one backend; a shared hostname does not merge two |
 
-_All 131 entries are live decisions._
+_All 133 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3420,7 +3422,7 @@ never `yes`.
 sub-500 MB cross-encoder captures 6.0 of the 7.0 points a perfect judge offers where a 4B instruct judge
 SPENDS 10.5. Until now the only code that could call a `/v1/rerank` endpoint was a bench harness, so the
 best-measured configuration in the subsystem was one no consumer could reach.
-`AddMemoryCrossEncoderVerification` ships it, in `Lyntai.Providers.Default` beside `HttpEmbedder` — the
+`AddMemoryCrossEncoderVerification` ships it, in `Lyntai.Providers.Default` beside `OpenAiEmbeddingsTransport` — the
 same footprint, no new dependency, and no new package.
 
 **The ranking seam was the obvious home and it is unusable.** `IMemoryRankingPolicy.Rank` is synchronous
@@ -3441,7 +3443,7 @@ than companions.
 
 `IEmbedder` gains a role-aware overload with a DEFAULT BODY forwarding to the role-less one, and every
 Lyntai call site passes `EmbeddingRole.Document` when storing and `Query` when searching. The library
-supplies no prefix and names no model; `OpenAiCompatibleEmbedderOptions.DocumentPrefix`/`QueryPrefix` let a
+supplies no prefix and names no model; `OpenAiCompatibleOptions.DocumentPrefix`/`QueryPrefix` let a
 deployment say what its own model wants, defaulting to nothing.
 
 **The gap was that no implementation could fix this from outside.** The E5, BGE, nomic and Arctic families
@@ -3614,10 +3616,10 @@ carries it under **Breaking** rather than under Added. An overload was refused f
 
 ## D121 — an IN-PROCESS embedder ships, and the case for it is OPERATIONAL rather than quality or speed (2026-09-13)
 
-`StaticEmbedder` over a `model2vec` lookup table, registered with `AddStaticEmbedder(modelDirectory)`. No
+`Model2VecProvider` over a `model2vec` lookup table, registered with `AddModel2VecProvider(modelDirectory)`. No
 HTTP endpoint, no GPU, no port, no second process.
 
-> **AMENDED — it is not a package.** This shipped as `Lyntai.Embeddings.Static`, an adapter package
+> **AMENDED — it is not a package.** This shipped as `Lyntai.Embeddings.Model2Vec`, an adapter package
 > isolating `Microsoft.ML.Tokenizers`. **D122** priced that dependency and wrote the tokenizer instead, so
 > the embedder now lives in `Lyntai.Providers.Default` and its tokenizer in Core. Everything below is
 > unchanged; only the packaging claim moved. The package was never published, so no id is burned.
@@ -3649,13 +3651,13 @@ is what an empty string means and a corpus must not be refused over one document
 
 **What the tests cannot cover and the live one does.** A real export ships a PRUNED vocabulary — 29,528
 rows against the base model's 30,522 — so a table and a tokenizer that disagree about which row an id names
-would still produce finite vectors. The synthetic fixture cannot see that; `StaticEmbedderLiveTests` ranks
+would still produce finite vectors. The synthetic fixture cannot see that; `Model2VecProviderLiveTests` ranks
 a related pair above an unrelated one on a real model and is skipped without one.
 
 ## D122 — a dependency you use 5% of is written, not isolated: the static embedder owns its tokenizer and needs no package (2026-09-14)
 
-`Lyntai.Embeddings.Static` is gone, its contents split by KIND: the adapter (`StaticEmbedder`,
-`SafetensorsTable`, `AddStaticEmbedder`) is in **`Lyntai.Providers.Default`** under its existing namespace;
+`Lyntai.Embeddings.Model2Vec` is gone, its contents split by KIND: the adapter (`Model2VecProvider`,
+`SafetensorsTable`, `AddModel2VecProvider`) is in **`Lyntai.Providers.Default`** under its existing namespace;
 the logic it needed, `WordPieceTokenizer`, is public in **`Lyntai.Core`** (`Lyntai.Text`) and replaces
 `Microsoft.ML.Tokenizers`. Never published, so no id is burned and no consumer edits a `using`.
 
@@ -3666,7 +3668,7 @@ the logic it needed, `WordPieceTokenizer`, is public in **`Lyntai.Core`** (`Lynt
 **Two rules decided it, and they answer different questions.** *A package boundary is worth what the
 dependency behind it costs*, so before isolating one, ask what fraction you use — at 5%, a WordPiece pass
 over a `vocab.txt`, the answer is ~250 lines and no boundary at all. That killed the package. Then
-*`Providers.*` holds the ADAPTER to something external, Core holds the LOGIC*: `StaticEmbedder` provides
+*`Providers.*` holds the ADAPTER to something external, Core holds the LOGIC*: `Model2VecProvider` provides
 embeddings from a specific model layout, so it stays a provider; a tokenizer is text logic any caller can
 use — a memory budget in tokens rather than characters, a future ONNX embedder — so it is public in Core.
 **Neither rule generalizes to the ONNX cell** (**D124**): the native runtime IS the feature, cannot be
@@ -3731,7 +3733,7 @@ is small too, and its native binary is refusable, so it stays.
 
 ## D124 — the TRANSFORMER embedder ships as Lyntai.Providers.Onnx, managed-half only, and embedders join the provider family (2026-09-14)
 
-`AddOnnxEmbedder(modelDirectory)` runs a sentence-transformer in process through ONNX Runtime — no server,
+`AddOnnxProvider(modelDirectory)` runs a sentence-transformer in process through ONNX Runtime — no server,
 no port. It completes the CPU column of `docs/deployment-shapes.md`'s 2×2, whose static half is **D121**.
 
 **It earns a package where the static embedder did not, and the test is D122's own.** That rule asks what
@@ -3743,7 +3745,7 @@ refuse. Same rule, opposite answer — which is what keeps it from reading as "n
 `.DirectML` (any DX12 GPU) or `.Gpu` (CUDA). That is `Lyntai.Providers.LlamaSharp`'s stance and what
 **D68** requires — a library that referenced one backend would choose the user's hardware and ship ~16 MB
 of the wrong native code to everyone else. **The cost is declared rather than hidden**: with no backend
-referenced the failure is at load, and `AddOnnxEmbedder`'s doc names the three packages that fix it. A side
+referenced the failure is at load, and `AddOnnxProvider`'s doc names the three packages that fix it. A side
 effect worth stating — the same package serves the GPU cell, which was listed as unbuilt.
 
 **Embedders become PROVIDERS, additively.** `IEmbeddingProvider : IProviderIdentity, IEmbedder` gives an
@@ -3751,7 +3753,7 @@ embedding backend the `Id` + `IsAvailable` that `IModelProvider` and `IModelProv
 **Changing `IEmbedder` itself was refused**: those two could adopt `IProviderIdentity` as a base because
 they already declared `Id`, and `IEmbedder` does not — adding it would introduce a REQUIRED member and
 break every bring-your-own embedder at compile. This is the optional-capability pattern Core already uses
-for `IGenerationJobProvider`. `StaticEmbedder` adopts it too, so the family is consistent rather than the
+for `IGenerationJobProvider`. `Model2VecProvider` adopts it too, so the family is consistent rather than the
 new arrival being special.
 
 **Registered through a FACTORY, not as an instance, and that is a resource decision rather than style.**
@@ -3875,7 +3877,7 @@ contract the caller can actually check.
 
 ## D128 — an embedder is a provider: IEmbeddingProvider is deleted and embedding is a declared OPERATION (2026-09-14)
 
-`StaticEmbedder` and `OnnxEmbedder` implement `IModelProvider` declaring
+`Model2VecProvider` and `OnnxEmbedder` implement `IModelProvider` declaring
 `Kinds: ["text"], Operations: [Embed]`, and register into the provider collection as well as the
 `IEmbedder` slot. `IEmbeddingProvider` — added earlier the same day — is gone.
 
@@ -3890,10 +3892,10 @@ capabilities and eight operations. A backend that wants routing implements the p
 an existing client keeps the one-method contract. **The two `EmbedAsync` signatures are identical**, so a
 class satisfies both with a single method and nothing is written twice.
 
-**Registration is ADDITIVE on purpose.** `AddStaticEmbedder` / `AddOnnxEmbedder` now call `AddProvider`
+**Registration is ADDITIVE on purpose.** `AddModel2VecProvider` / `AddOnnxProvider` now call `AddProvider`
 *and* keep the `TryAddSingleton<IEmbedder>` slot. Nothing moves for a deployment registering exactly one
 embedder; what changes is that a second one is now expressible and distinguishable by id, which the single
-slot cannot do — `HttpEmbedder`'s own shipped doc admits it: *"there is one embedder slot, so a later
+slot cannot do — `OpenAiEmbeddingsTransport`'s own shipped doc admits it: *"there is one embedder slot, so a later
 registration wins"*.
 
 **What this does NOT yet do**, stated so the gap is not mistaken for finished work: the `IEmbedder` a
@@ -3904,13 +3906,13 @@ second router, and that is exactly what minting a third family would have made i
 ## D129 — IEmbedder is the FRONT DOOR, not a backend contract: embeddings get routing and fallback (2026-09-14)
 
 `IEmbedder` is now implemented by `RoutedEmbedder` alone — a router over every `IModelProvider` declaring
-`ProviderOperation.Embed`. `StaticEmbedder`, `OnnxEmbedder` and `HttpEmbedder` stop implementing it and are
+`ProviderOperation.Embed`. `Model2VecProvider`, `OnnxEmbedder` and `OpenAiEmbeddingsTransport` stop implementing it and are
 providers only; `AddEmbeddingProvider` registers them and states, at composition time, that something can
 embed.
 
 **One type was doing two jobs, and that is why embeddings had no fallback.** Chat has always separated them
 — consumers resolve `ILlmClient`, backends implement the provider seam — while embedding had `IEmbedder` on
-both sides, so a consumer held a BACKEND directly. `HttpEmbedder`'s own shipped doc admitted the
+both sides, so a consumer held a BACKEND directly. `OpenAiEmbeddingsTransport`'s own shipped doc admitted the
 consequence: *"there is one embedder slot, so a later registration wins"*. Registering a second endpoint
 silently replaced the first instead of giving it a fallback.
 
@@ -3953,7 +3955,7 @@ exactly one field, which is what the whole series was reaching for.
 **`Produces` is a LIST, and that is what the previous shape could not express.** An OpenAI-compatible host
 answers `/chat/completions` AND `/embeddings`, so it declares `[text, vector]` and implements both methods
 off one configuration, one id and one HttpClient. Under an `Embed` operation that backend had to be split
-into two registrations pointed at the same endpoint — which is how `HttpEmbedder` came to exist beside
+into two registrations pointed at the same endpoint — which is how `OpenAiEmbeddingsTransport` came to exist beside
 `OpenAiCompatibleProvider` in the first place.
 
 **`Accepts` is checked only when a caller pins it**, because the common case is text in and pinning it
@@ -3979,8 +3981,8 @@ the old model and needs nothing new under this one.
 host should declare `[text, vector]`; nothing in the tree did, so the claim was untested. Declaring it
 required exactly the change above and no new type, which is the evidence the model is right.
 
-**The alternative was two registrations pointed at one server** — `AddOpenAiCompatibleProvider` plus
-`AddOpenAiCompatibleEmbedder`, as the tree did through 3.1.0. That costs two ids a router reports
+**The alternative was two registrations pointed at one server** — `AddOpenAiCompatibleProvider` plus <!-- drift-ok: D131/D132 name what they retire -->
+`AddOpenAiCompatibleEmbedder`, as the tree did through 3.1.0. That costs two ids a router reports <!-- drift-ok: D131/D132 name what they retire -->
 separately, two named `HttpClient`s, and a base URL written twice with nothing checking they agree. The
 duplication is invisible until the day one of them is edited.
 
@@ -3995,10 +3997,80 @@ the split-port deployment this repository's own benches use (chat on 8080, embed
 is the deliberate exception and does not inherit `DefaultModel`**: a chat model is not an embedding model,
 and defaulting one to the other posts a plausible request that returns nonsense rather than failing.
 
-**`AddOpenAiCompatibleEmbedder` stays** for a host that serves embeddings and no chat — a local embedding
-server is a real deployment, not a degenerate case. What is gone is having to use it for a host that serves
-both.
+> **SUPERSEDED by D133.** The premise below — that a host answering both routes is ONE backend — is wrong: <!-- drift-ok: the amendment naming what it corrects -->
+> those are two services sharing a hostname, and merging them cost the id that says which one answered. What
+> survives is `Produces` being a list, which means one CALL returning several kinds. D132's single
+> registration METHOD stands; only this entry's bundling of two backends into one options object does not.
 
 **Registration routes on the same fact:** a configured section makes it `AddEmbeddingProvider`, which is the
 same collection plus the statement that something can embed — the flag `AddSemanticMemory` and the routed
 `IEmbedder` front door read at composition time (**D129**), before any provider is built.
+
+## D132 — a second `Add*` method for one backend IS the split: routes are configuration (2026-09-14)
+
+`AddOpenAiCompatibleEmbedder` is gone. <!-- drift-ok: this entry RETIRES the name, so it has to say it -->
+`OpenAiCompatibleOptions` gains a `Chat` section beside `Embeddings`, both nullable, and a host declares
+which routes it serves by which sections it sets. `*Embedder` is retired from every registration name:
+`AddOnnxProvider`, `AddModel2VecProvider`, `AddLlamaSharpProvider`.
+
+**D131 fixed the type system and left the defect in the surface a consumer types.** One registration served
+a both-routes host, but an embeddings-only host still needed its own method — because chat's settings sat at
+the TOP level while embeddings had a section, so there was no way to say "this host serves no chat". The
+asymmetry in the options forced the asymmetry in the API.
+ <!-- drift-ok: D131/D132 name what they retire -->
+**The first attempt was to rename that method**, `AddOpenAiCompatibleEmbeddings`. That is the same split <!-- drift-ok: D131/D132 name what they retire -->
+wearing a better name, and it is worth recording because it was written and shipped nowhere: **a second
+`Add*` for one backend re-enters the chat-vs-embedder taxonomy through the one surface a consumer actually
+reads.** The test is not whether the name is good — it is whether the method exists.
+
+**So the sections are symmetric and nullable.** `Chat = null` is an embeddings-only host; `Embeddings = null`
+is a chat host; both set is the host that answers both. `Chat` defaults to non-null because a registration
+that says nothing is a chat host, and every existing call site keeps working.
+
+**The `*Embedder` suffix sorted backends by what they produce** — the taxonomy **D130** deleted from the
+type system, still alive in the roster: `AddOpenAiImageProvider` produced images and was a `Provider` while <!-- drift-ok: D131/D132 name what they retire -->
+`AddOnnxEmbedder` produced vectors and was an `Embedder`. There was no rule. Every one of them returns an <!-- drift-ok: D131/D132 name what they retire -->
+`IModelProvider`; what it produces is a field to read, not a suffix to guess.
+
+**`AddStaticProvider` is the name that could not be written, and it is what exposed the rest.** Every other
+method names a vendor, a runtime or a protocol; `Static` named a TECHNIQUE — static as opposed to
+contextual embeddings — which is why the suffix could not simply be swapped. The backend loads a `model2vec`
+export, its own doc said so six times, so `AddModel2VecProvider` names what it loads exactly as <!-- drift-ok: D131/D132 name what they retire -->
+`AddOnnxProvider` names the runtime. `AddLocalProvider` had the same illness with no cure in the old name at <!-- drift-ok: D131/D132 name what they retire -->
+all: it became `AddLlamaSharpProvider`, matching the package that ships it.
+ <!-- drift-ok: D131/D132 name what they retire -->
+**`HttpEmbedder` becomes the internal `OpenAiEmbeddingsTransport`**, with no id and no capabilities. It was <!-- drift-ok: D131/D132 name what they retire -->
+public because it used to be registered directly; now the provider composes it, and a transport that
+declares its own identity would be a second backend for one host.
+
+## D133 — one registration is one backend; a shared hostname does not merge two (2026-09-14)
+
+`OpenAiCompatibleOptions` has no route sections. It carries `BaseUrl`, `ApiKey`, `Flavor`, `Model` and one
+`Produces`, and a host answering both routes is registered TWICE, under two ids. This **supersedes D131's
+bundling**; **D130**'s model and **D132**'s single registration method both stand.
+
+**D131 read `Produces` being a list as "this host has two endpoints".** That is the wrong reading. A list
+means one CALL can return several kinds — a multimodal model emitting text and an image. `/chat/completions`
+and `/embeddings` are two services that share a hostname, and merging them made one provider report one id
+for two backends, so a trace could no longer say which answered.
+
+**The correction is that D127, D128 and D132 were fixing the OPPOSITE error, and the distinction is the
+whole decision.** Those three took ONE backend that had been split across two interfaces and two `Add*`
+methods and made it one. D131 took TWO backends and made them one object. Unifying the seam is right;
+unifying the instances is not. "It is still a split" was the wrong diagnosis and produced the wrong fix.
+
+**A chat model and an embedding model are different models, at different routes, with different wire
+shapes.** What they share is a base URL and a key — transport, not identity. Repeating five lines of
+transport config is the honest cost of that, and it is smaller than the cost D131 paid: a `Chat` section
+beside an `Embeddings` section is a hardcoded taxonomy of exactly two kinds, sitting inside the object whose
+premise is that `ProviderKinds` is an OPEN list. A reranking host would have grown a third section and a
+rendering host a fourth, which is the same failure `Produces` being a string was chosen to avoid.
+
+**`Produces` decides everything downstream**: the route posted to, the operations declared (vector serves
+`Complete` alone — there is no partially delivered embedding), whether tool calls are claimed, and which
+front door the registration enters. `AddEmbeddingProvider` is still what arms the routed `IEmbedder` and
+`AddSemanticMemory` (**D129**); what picks it is now one field rather than a section being non-null.
+
+**What this costs, stated plainly:** the base URL is written twice for a host that serves both, and nothing
+checks that the two agree. That was D131's argument against this shape and it is still true — it is simply
+worth less than an id that names one backend.

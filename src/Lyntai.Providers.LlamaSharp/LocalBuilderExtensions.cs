@@ -2,7 +2,7 @@ using Lyntai.Providers.Local;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// Lives in the Lyntai namespace so `AddLocalProvider` shows up right on the builder.
+// Lives in the Lyntai namespace so `AddLlamaSharpProvider` shows up right on the builder.
 namespace Lyntai;
 
 public static class LocalBuilderExtensions
@@ -14,7 +14,7 @@ public static class LocalBuilderExtensions
     /// as a Failed verdict on the first call (the router then falls over), not a startup crash.</para>
     /// <para>The model loads lazily on first use and is reused; generations are serialized (one local
     /// model, one at a time).</para></summary>
-    public static LyntaiBuilder AddLocalProvider(this LyntaiBuilder builder, string modelPath,
+    public static LyntaiBuilder AddLlamaSharpProvider(this LyntaiBuilder builder, string modelPath,
         Action<LocalModelOptions>? configure = null, string id = "local")
     {
         var config = new LocalModelOptions { ModelPath = modelPath };

@@ -100,15 +100,15 @@ version you installed.
 |---|---|
 | **`Lyntai`** | **The starting set (5 of 11)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage. Not the whole library: add `Lyntai.Storage.Sqlite` to persist and `Lyntai.Generation` for media. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI — plus `Lyntai.Text.WordPieceTokenizer`, a BERT tokenizer owned rather than depended on (**D122**), usable anywhere a token-aware step is wanted. Deps: DI + Logging abstractions only. |
-| `Lyntai.Providers.Default` | The dependency-free **LLM** backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddStaticEmbedder(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port; and the two-way `Microsoft.Extensions.AI` bridge (any `IChatClient` → a Lyntai provider, and `AsChatClient()` back). Media backends moved to `Lyntai.Generation`. |
-| `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLocalProvider(modelPath)` and every namespace are unchanged. |
+| `Lyntai.Providers.Default` | The dependency-free **LLM** backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port; and the two-way `Microsoft.Extensions.AI` bridge (any `IChatClient` → a Lyntai provider, and `AsChatClient()` back). Media backends moved to `Lyntai.Generation`. |
+| `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLlamaSharpProvider(modelPath)` and every namespace are unchanged. |
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
 | `Lyntai.Storage.InMemory` | Zero-dependency in-memory storage — tests, ephemeral use, or mixed per-domain. |
 | `Lyntai.Tools.Mcp` | Expose an MCP server's tools as Lyntai `ITool`s. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. Runs on `HttpListener` — **no ASP.NET Core**. |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
-| `Lyntai.Providers.Onnx` | In-process **transformer** embedding via ONNX Runtime — `AddOnnxEmbedder(dir)`, no server, no port. Pooling, normalization and the sequence limit are read from the model's own files. References the **managed half only**: add one native backend yourself (`Microsoft.ML.OnnxRuntime` for CPU, `.DirectML` for any DX12 GPU, `.Gpu` for CUDA), because the library does not choose your hardware. |
+| `Lyntai.Providers.Onnx` | In-process **transformer** embedding via ONNX Runtime — `AddOnnxProvider(dir)`, no server, no port. Pooling, normalization and the sequence limit are read from the model's own files. References the **managed half only**: add one native backend yourself (`Microsoft.ML.OnnxRuntime` for CPU, `.DirectML` for any DX12 GPU, `.Gpu` for CUDA), because the library does not choose your hardware. |
 | `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D25). |
 
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
@@ -692,18 +692,24 @@ The lexical memory store (`IMemoryStore`) recalls by keyword (FTS-trigram). For 
 an embedding model and use `ISemanticMemory` — facts are remembered by their embedding and recalled by
 cosine similarity, so a query finds relevant memories without sharing keywords.
 
-A host that answers both `/chat/completions` and `/embeddings` is ONE backend, so it is one registration —
-`Embeddings` adds `vector` to what it produces, and blank fields there inherit the host above them:
+An embedding model is its own backend — `Produces` says so, and that one field picks the route, the
+operations and which methods answer. A server that happens to host a chat model too is registered twice,
+under two ids, because they are two different models:
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOpenAiCompatibleProvider("local", o =>
+    .AddOpenAiCompatibleProvider("local-chat", o =>
     {
-        o.BaseUrl = "http://localhost:11434";        // e.g. local Ollama — chat AND embeddings
-        o.DefaultModel = "llama3.1";
-        o.Embeddings = new() { Model = "nomic-embed-text" };   // same URL, same key, same HttpClient
+        o.BaseUrl = "http://localhost:11434";
+        o.Model = "llama3.1";
     })
-    .AddSemanticMemory());                           // states the intent — see below
+    .AddOpenAiCompatibleProvider("local-embed", o =>
+    {
+        o.BaseUrl = "http://localhost:11434";     // same server, different backend
+        o.Model = "nomic-embed-text";
+        o.Produces = ProviderKinds.Vector;        // -> /embeddings, not /chat/completions
+    })
+    .AddSemanticMemory());                        // states the intent — see below
     // …or bring your own in one call: .AddSemanticMemory(myEmbedder)  // any IEmbedder
 
 var memory = sp.GetRequiredService<ISemanticMemory>();
@@ -712,20 +718,8 @@ var hits = await memory.RecallAsync("support", "faq", query: "how do I stop payi
 // hits ranked by similarity, each with a Content + cosine Score
 ```
 
-Embeddings served somewhere the chat model is not — a dedicated embedding server, or a different port — are
-their own registration instead, and `IEmbedder` routes over every backend that produces vectors, so two of
-them is failover rather than the second silently replacing the first:
-
-```csharp
-services.AddLyntai(cfg => cfg
-    .AddOpenAiProvider(apiKey: "…")
-    .AddOpenAiCompatibleEmbedder("embeddings", o =>
-    {
-        o.BaseUrl = "http://localhost:8081";
-        o.Model = "nomic-embed-text";
-    })
-    .AddSemanticMemory());
-```
+`IEmbedder` routes over every backend that produces vectors, so registering two of them is failover rather
+than the second silently replacing the first.
 
 `AddSemanticMemory()` is how you **say** you want semantic recall. Registering an embedder is what actually
 turns it on, so forgetting one used to be silent — no `ISemanticMemory` at all, and every recall path
@@ -863,9 +857,9 @@ Lyntai defines the interfaces; your app owns the resource lifecycle wherever tha
 services.AddLyntai(cfg =>
 {
     // Provider presets (or the generic AddOpenAiCompatibleProvider, or your own IModelProvider):
-    cfg.AddOpenAiProvider(apiKey, defaultModel: "gpt-4o-mini");
-    cfg.AddLlamaProvider(defaultModel: "gemma-3-4b");      // llama.cpp llama-server, :8080
-    cfg.AddOllamaProvider(defaultModel: "llama3.2:3b");
+    cfg.AddOpenAiProvider(apiKey, model: "gpt-4o-mini");
+    cfg.AddLlamaProvider(model: "gemma-3-4b");      // llama.cpp llama-server, :8080
+    cfg.AddOllamaProvider(model: "llama3.2:3b");
     cfg.AddProvider(_ => new MyCustomProvider());          // BYO IModelProvider
 
     // BYO HttpClient — your configured client (Polly, auth handlers, proxy, a named client):
@@ -1304,7 +1298,7 @@ Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess
 ```csharp
 services.AddLyntai(cfg =>
 {
-    cfg.AddLocalProvider("models/Phi-3-mini-4k-instruct-q4.gguf", o =>
+    cfg.AddLlamaSharpProvider("models/Phi-3-mini-4k-instruct-q4.gguf", o =>
     {
         o.GpuLayerCount = 0;      // 0 = CPU; raise to offload layers to the GPU
         o.ContextSize = 4096;     // null = the model's own trained maximum

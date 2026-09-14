@@ -1,5 +1,5 @@
 using Lyntai.Embeddings;
-using Lyntai.Embeddings.Static;
+using Lyntai.Embeddings.Model2Vec;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -7,8 +7,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Lyntai;
 
 /// <summary>DI entry point for the in-process static embedder. A consumer composes it through the builder
-/// (<c>services.AddLyntai(cfg =&gt; cfg.AddStaticEmbedder(…))</c>) and never constructs its types by hand.</summary>
-public static class StaticBuilderExtensions
+/// (<c>services.AddLyntai(cfg =&gt; cfg.AddModel2VecProvider(…))</c>) and never constructs its types by hand.</summary>
+public static class Model2VecBuilderExtensions
 {
     /// <summary>
     /// Embed IN PROCESS from a <c>model2vec</c> static table — no HTTP endpoint, no GPU, no port, and no
@@ -30,16 +30,16 @@ public static class StaticBuilderExtensions
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="modelDirectory">A directory holding <c>model.safetensors</c> and <c>vocab.txt</c>.</param>
     /// <param name="configure">Knobs; null takes the model's own configuration.</param>
-    public static LyntaiBuilder AddStaticEmbedder(this LyntaiBuilder builder, string modelDirectory,
-        Action<StaticEmbedderOptions>? configure = null)
+    public static LyntaiBuilder AddModel2VecProvider(this LyntaiBuilder builder, string modelDirectory,
+        Action<Model2VecProviderOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelDirectory);
 
-        var options = new StaticEmbedderOptions();
+        var options = new Model2VecProviderOptions();
         configure?.Invoke(options);
 
-        var embedder = StaticEmbedder.FromDirectory(modelDirectory, options);
+        var embedder = Model2VecProvider.FromDirectory(modelDirectory, options);
 
         // A PROVIDER, not the embedder slot. Declaring ProviderOperation.Embed puts this backend in the
         // same collection the router selects chat and media from, so several can be registered and told

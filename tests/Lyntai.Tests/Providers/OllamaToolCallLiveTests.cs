@@ -30,7 +30,7 @@ public class OllamaToolCallLiveTests
         var addCalls = 0;
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOllamaProvider(baseUrl: BaseUrl, defaultModel: Model)
+            .AddOllamaProvider(baseUrl: BaseUrl, model: Model)
             .AddTool(_ => new FunctionTool(
                 name: "add",
                 invoke: (argsJson, _) =>

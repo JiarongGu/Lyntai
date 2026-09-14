@@ -165,12 +165,12 @@ public class WordPieceTokenizerTests
         // BertTokenizer.Create leaves accents on; a BERT model's own tokenizer_config.json declares
         // strip_accents: null, which the reference pipeline reads as "follow do_lower_case" = ON. The two
         // disagree, so this test pins the PIPELINE by holding the options equal, and
-        // StaticEmbedderTests pins which options the model actually gets.
+        // Model2VecProviderTests pins which options the model actually gets.
         var ours = WordPieceTokenizer.FromVocabulary(vocabulary, stripAccents: false);
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(string.Join('\n', vocabulary)));
 
         // DECLARED as Tokenizer, not BertTokenizer, and that is not a style choice. BertTokenizer shadows
-        // EncodeToIds with a `new` method that adds [CLS]/[SEP]; the base one does not. StaticEmbedder held
+        // EncodeToIds with a `new` method that adds [CLS]/[SEP]; the base one does not. Model2VecProvider held
         // this exact base type, so the base call is the behaviour being reproduced — typing it BertTokenizer
         // here compares against a DIFFERENT tokenizer and every id shifts by two positions.
         Tokenizer theirs = BertTokenizer.Create(stream);

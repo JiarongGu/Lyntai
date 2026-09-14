@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Providers;
 /// resolve to a Failed verdict, which is exactly the router-fallback contract we want to pin. Real
 /// inference is covered by the opt-in <see cref="LocalProviderLiveTests"/>.
 /// </summary>
-public class AddLocalProviderTests
+public class AddLlamaSharpProviderTests
 {
     private static LlmRequest Ask(string prompt = "hi") => new() { Messages = [LlmMessage.User(prompt)] };
 
@@ -23,20 +23,20 @@ public class AddLocalProviderTests
     private static string MissingModel() => Path.Combine(ScratchDir(), $"does-not-exist-{Guid.NewGuid():N}.gguf");
 
     [Fact]
-    public void AddLocalProvider_registers_a_provider_under_the_id()
+    public void AddLlamaSharpProvider_registers_a_provider_under_the_id()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddLocalProvider(MissingModel(), id: "local"));
+        services.AddLyntai(b => b.AddLlamaSharpProvider(MissingModel(), id: "local"));
         using var sp = services.BuildServiceProvider();
 
         Assert.Contains(sp.GetServices<IModelProvider>(), p => p.Id == "local");
     }
 
     [Fact]
-    public void AddLocalProvider_honors_a_custom_id_and_options()
+    public void AddLlamaSharpProvider_honors_a_custom_id_and_options()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddLocalProvider(MissingModel(), o => o.GpuLayerCount = 20, id: "phi-local"));
+        services.AddLyntai(b => b.AddLlamaSharpProvider(MissingModel(), o => o.GpuLayerCount = 20, id: "phi-local"));
         using var sp = services.BuildServiceProvider();
 
         Assert.Contains(sp.GetServices<IModelProvider>(), p => p.Id == "phi-local");
@@ -81,7 +81,7 @@ public class AddLocalProviderTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddLocalProvider(MissingModel())    // IsAvailable false → skipped by the router
+            .AddLlamaSharpProvider(MissingModel())    // IsAvailable false → skipped by the router
             .UseDefaultCandidates("local"));
         using var sp = services.BuildServiceProvider();
 

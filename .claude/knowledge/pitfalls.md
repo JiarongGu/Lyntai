@@ -1290,7 +1290,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   bug in two providers; the buffered path shipped it too — both fixed.)
 - **A non-positive resolved budget means the OPPOSITE thing in the two domains — don't "unify" the idiom <!-- trap: sub=router,generation shape=cancellation -->
   casually.** The LLM sites arm the clock unconditionally (`OpenAiCompatibleProvider.CompleteAsync`,
-  `HttpEmbedder.EmbedBatchAsync`, `ExtensionsAiProvider` all `CancelAfter(timeout)`), and app-configured
+  `OpenAiEmbeddingsTransport.EmbedBatchAsync`, `ExtensionsAiProvider` all `CancelAfter(timeout)`), and app-configured
   values are trusted rather than clamped (`LyntaiOptions.ResolveTimeout`), so a `TimeoutByConsumer` entry of
   `TimeSpan.Zero` **cancels the call instantly**. `GenerationDeadline.GuardAsync` reads the same value as
   **no deadline at all** — the documented escape hatch for a host that owns its own clocks. Both are
@@ -2403,7 +2403,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 - **A `new`-SHADOWED method dispatches on the DECLARED TYPE, so narrowing a field's type — the safest-looking <!-- trap: sub=build shape=silent-loss,wrong-subject -->
   tidy-up there is — silently changes behaviour with no call site edited.** Found 2026-09-14 replacing the
   static embedder's tokenizer (**D122**). `Microsoft.ML.Tokenizers`' `BertTokenizer` shadows
-  `Tokenizer.EncodeToIds` with a `new` method that adds `[CLS]`/`[SEP]`; `StaticEmbedder` held
+  `Tokenizer.EncodeToIds` with a `new` method that adds `[CLS]`/`[SEP]`; `Model2VecProvider` held
   `private readonly Tokenizer _tokenizer` and therefore got the base one — correct for a `model2vec` table,
   which is a mean over CONTENT rows only. **Changing that field to `BertTokenizer` compiles, reads as an
   improvement, touches no caller, and folds two extra rows into every vector.**

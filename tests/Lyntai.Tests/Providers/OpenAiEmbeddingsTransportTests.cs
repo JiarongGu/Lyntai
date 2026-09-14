@@ -1,5 +1,6 @@
 using System.Net;
 using Lyntai;
+using Lyntai.Lifecycle;
 using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Providers.OpenAiCompatible;
@@ -8,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
 
-public class HttpEmbedderTests
+public class OpenAiEmbeddingsTransportTests
 {
     // OpenAI / LM Studio shape: { data: [ { index, embedding: [...] }, ... ] }. Integer-valued floats keep
     // the equality asserts exact (every value below is exactly representable in float32).
@@ -19,7 +20,7 @@ public class HttpEmbedderTests
         ],"model":"text-embedding-3-small","usage":{"prompt_tokens":4,"total_tokens":4}}
         """;
 
-    // The same shape carrying ONE vector. HttpEmbedder asserts the returned vector count matches the batch
+    // The same shape carrying ONE vector. OpenAiEmbeddingsTransport asserts the returned vector count matches the batch
     // size, so a single-input test scripted with the two-vector body above fails on that guard rather than
     // on what it meant to assert.
     private const string OpenAiBodyOne = """
@@ -28,16 +29,16 @@ public class HttpEmbedderTests
         ],"model":"text-embedding-3-small","usage":{"prompt_tokens":2,"total_tokens":2}}
         """;
 
-    private static HttpEmbedder Embedder(StubHttpHandler handler, Action<OpenAiCompatibleEmbedderOptions>? configure = null)
+    private static OpenAiEmbeddingsTransport Embedder(StubHttpHandler handler, Action<OpenAiCompatibleOptions>? configure = null)
     {
-        var config = new OpenAiCompatibleEmbedderOptions
+        var config = new OpenAiCompatibleOptions
         { BaseUrl = "https://api.openai.com", ApiKey = "test-key", Model = "text-embedding-3-small" };
         configure?.Invoke(config);
-        return new HttpEmbedder("openai", config, () => new HttpClient(handler, disposeHandler: false),
+        return new OpenAiEmbeddingsTransport("openai", config, () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
 
-    // An embedder has NO verdict and NO fallback — it throws (see the HttpEmbedder type doc), so there is no
+    // An embedder has NO verdict and NO fallback — it throws (see the OpenAiEmbeddingsTransport type doc), so there is no
     // "advance without blame" for it to reach and no verdict change to make. The only thing a host can act on
     // is the WORDING: "not configured" points at setup, while a bare 401 points at a key that was never
     // supplied. Message-only parity with the provider-side NotConfigured distinction.
@@ -296,15 +297,21 @@ public class HttpEmbedderTests
         Assert.Equal([3.0f], vectors[2]);
     }
 
-    [Fact] // the whole point: AddOpenAiCompatibleEmbedder wires IEmbedder → ISemanticMemory turns on
-    public async Task AddOpenAiCompatibleEmbedder_wires_the_embedder_and_enables_semantic_recall()
+    [Fact] // the whole point: declaring the embeddings route wires IEmbedder → ISemanticMemory turns on
+    public async Task Declaring_the_embeddings_route_wires_the_embedder_and_enables_semantic_recall()
     {
         // same vector for every input → the query embeds identically to the stored content (cosine 1.0),
         // so recall returns it. The stub repeats its last script, so one Enqueue covers both calls.
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """{"data":[{"index":0,"embedding":[1.0,0.0]}]}""");
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddOpenAiCompatibleEmbedder("test",
-            o => { o.BaseUrl = "https://api.openai.com"; o.Model = "text-embedding-3-small"; o.ApiKey = "k"; },
+        services.AddLyntai(b => b.AddOpenAiCompatibleProvider("test",
+            o =>
+            {
+                o.BaseUrl = "https://api.openai.com";
+                o.ApiKey = "k";
+                o.Model = "text-embedding-3-small";
+                o.Produces = ProviderKinds.Vector;
+            },
             httpClient: _ => new HttpClient(handler, disposeHandler: false)));
         using var sp = services.BuildServiceProvider();
 

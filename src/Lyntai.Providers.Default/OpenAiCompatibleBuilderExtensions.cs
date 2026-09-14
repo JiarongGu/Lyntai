@@ -21,15 +21,6 @@ public static class OpenAiCompatibleBuilderExtensions
         var config = new OpenAiCompatibleOptions();
         configure(config);
 
-        // Declaring embeddings on THIS host says they live on it: anything left blank is the host's own.
-        // Model is deliberately absent — DefaultModel names a chat model (OpenAiCompatibleOptions.Embeddings).
-        if (config.Embeddings is { } embeddings)
-        {
-            embeddings.BaseUrl ??= config.BaseUrl;
-            embeddings.ApiKey ??= config.ApiKey;
-            if (embeddings.Flavor == OpenAiFlavor.Auto) embeddings.Flavor = config.Flavor;
-        }
-
         Func<IServiceProvider, Func<HttpClient>> resolveClient;
         var byo = httpClient is not null;
         if (byo)
@@ -52,10 +43,13 @@ public static class OpenAiCompatibleBuilderExtensions
             sp.GetService<ILogger<OpenAiCompatibleProvider>>(),
             disposeHttpClient: !byo); // dispose only Lyntai-created clients
 
-        // A host serving both routes is ONE backend, and both front doors must see it. AddEmbeddingProvider
-        // also arms the routed IEmbedder (D129), which AddProvider alone does not.
-        if (config.Embeddings is null) builder.AddProvider(Build);
-        else builder.AddEmbeddingProvider(Build);
+        // What it PRODUCES picks the front door. AddEmbeddingProvider is the same collection plus the
+        // statement that something can embed, which AddSemanticMemory and the routed IEmbedder read at
+        // composition time, before any provider is built (D129).
+        if (string.Equals(config.Produces, ProviderKinds.Vector, StringComparison.OrdinalIgnoreCase))
+            builder.AddEmbeddingProvider(Build);
+        else
+            builder.AddProvider(Build);
         return builder;
     }
 
@@ -66,12 +60,12 @@ public static class OpenAiCompatibleBuilderExtensions
 
     /// <summary>OpenAI (api.openai.com). Default id "openai".</summary>
     public static LyntaiBuilder AddOpenAiProvider(this LyntaiBuilder builder, string apiKey,
-        string? defaultModel = null, string id = "openai", Func<IServiceProvider, HttpClient>? httpClient = null) =>
+        string? model = null, string id = "openai", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddOpenAiCompatibleProvider(id, o =>
         {
             o.BaseUrl = "https://api.openai.com";
             o.ApiKey = apiKey;
-            o.DefaultModel = defaultModel;
+            o.Model = model;
         }, httpClient);
 
     /// <summary>A local (or remote) Ollama endpoint, pinned to Ollama's NATIVE surface
@@ -86,18 +80,18 @@ public static class OpenAiCompatibleBuilderExtensions
     /// since <c>/api/chat</c> has no URL form; it is logged as undeliverable rather than dropped in
     /// silence.</para></summary>
     public static LyntaiBuilder AddOllamaProvider(this LyntaiBuilder builder, string? baseUrl = null,
-        string? defaultModel = null, string id = "ollama", Func<IServiceProvider, HttpClient>? httpClient = null) =>
+        string? model = null, string id = "ollama", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddOpenAiCompatibleProvider(id, o =>
         {
             o.BaseUrl = baseUrl ?? "http://localhost:11434";
-            o.DefaultModel = defaultModel;
+            o.Model = model;
             o.Flavor = OpenAiFlavor.Ollama;
         }, httpClient);
 
     /// <summary>A local (or remote) llama.cpp <c>llama-server</c>, which speaks the plain OpenAI schema off
     /// its ROOT (<see cref="OpenAiFlavor.OpenAi"/>). Default base "http://localhost:8080", id "llama",
     /// keyless.
-    /// <para><b>What <paramref name="defaultModel"/> means here is not what it means on a catalogue
+    /// <para><b>What <paramref name="model"/> means here is not what it means on a catalogue
     /// endpoint.</b> A <c>llama-server</c> started with <c>--model</c> serves exactly ONE model and answers
     /// to whatever <c>--alias</c> names it, so the model on a request is a LABEL and a wrong one is not an
     /// error — you get the loaded model either way. It selects only on a router server
@@ -108,22 +102,22 @@ public static class OpenAiCompatibleBuilderExtensions
     /// only the OpenAI-shaped one — so an attachment travels as an <c>image_url</c> part and a remote
     /// <c>Uri</c> attachment is deliverable, which Ollama's own schema cannot express.</para></summary>
     public static LyntaiBuilder AddLlamaProvider(this LyntaiBuilder builder, string? baseUrl = null,
-        string? defaultModel = null, string id = "llama", Func<IServiceProvider, HttpClient>? httpClient = null) =>
+        string? model = null, string id = "llama", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddOpenAiCompatibleProvider(id, o =>
         {
             o.BaseUrl = baseUrl ?? "http://localhost:8080";
-            o.DefaultModel = defaultModel;
+            o.Model = model;
             o.Flavor = OpenAiFlavor.OpenAi;
         }, httpClient);
 
     /// <summary>OpenRouter (openrouter.ai). Default id "openrouter".</summary>
     public static LyntaiBuilder AddOpenRouterProvider(this LyntaiBuilder builder, string apiKey,
-        string? defaultModel = null, string id = "openrouter", Func<IServiceProvider, HttpClient>? httpClient = null) =>
+        string? model = null, string id = "openrouter", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddOpenAiCompatibleProvider(id, o =>
         {
             o.BaseUrl = "https://openrouter.ai/api/v1";
             o.ApiKey = apiKey;
-            o.DefaultModel = defaultModel;
+            o.Model = model;
             o.Flavor = OpenAiFlavor.OpenRouter;
         }, httpClient);
 
@@ -132,58 +126,16 @@ public static class OpenAiCompatibleBuilderExtensions
     /// requests compose to <c>…/openai/v1/chat/completions</c>); <paramref name="apiKey"/> is sent as both
     /// the <c>api-key</c> header (Azure key auth) and a Bearer token. Default id "azure-openai".</summary>
     public static LyntaiBuilder AddAzureOpenAiProvider(this LyntaiBuilder builder, string endpoint, string apiKey,
-        string? defaultModel = null, string id = "azure-openai", Func<IServiceProvider, HttpClient>? httpClient = null) =>
+        string? model = null, string id = "azure-openai", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddOpenAiCompatibleProvider(id, o =>
         {
             o.BaseUrl = endpoint;
             o.ApiKey = apiKey;
-            o.DefaultModel = defaultModel;
+            o.Model = model;
             o.Flavor = OpenAiFlavor.AzureOpenAi;
         }, httpClient);
 
-    // ---- embeddings ------------------------------------------------------------------------------
-
-    /// <summary>Register an <see cref="Lyntai.Embeddings.IEmbedder"/> over an OpenAI-compatible
-    /// <c>/v1/embeddings</c> endpoint (OpenAI, LM Studio, OpenRouter, Azure) or Ollama's native batched
-    /// <c>/api/embed</c> — enabling semantic memory (<see cref="Lyntai.Memory.ISemanticMemory"/>) without a
-    /// BYO embedder. The flavor/endpoint is derived from <see cref="OpenAiCompatibleEmbedderOptions.BaseUrl"/>
-    /// via the same <see cref="ProviderDetect"/> the chat provider uses, and the BYO-HttpClient seam is
-    /// identical: pass <paramref name="httpClient"/> to own the client's lifecycle (else Lyntai registers a
-    /// named client with an infinite HttpClient timeout so the per-call
-    /// <see cref="LyntaiOptions.ProviderTimeout"/> owns deadlines). <paramref name="id"/> names the client
-    /// and appears in error/log messages; there is one embedder slot, so a later registration wins.</summary>
-    public static LyntaiBuilder AddOpenAiCompatibleEmbedder(this LyntaiBuilder builder, string id,
-        Action<OpenAiCompatibleEmbedderOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
-    {
-        var config = new OpenAiCompatibleEmbedderOptions();
-        configure(config);
-
-        Func<IServiceProvider, Func<HttpClient>> resolveClient;
-        var byo = httpClient is not null;
-        if (byo)
-        {
-            resolveClient = sp => () => httpClient!(sp); // app-owned client + lifecycle — never disposed by Lyntai
-        }
-        else
-        {
-            builder.Services.AddHttpClient(EmbedderHttpClientName(id))
-                .ConfigureHttpClient(c => c.Timeout = Timeout.InfiniteTimeSpan);
-            resolveClient = sp => () => sp.GetRequiredService<IHttpClientFactory>().CreateClient(EmbedderHttpClientName(id));
-        }
-
-        // A PROVIDER declaring ProviderOperation.Embed rather than the single embedder slot (D129): the
-        // IEmbedder a consumer resolves is the routing front door over every such backend, so registering
-        // two endpoints now gives fallback instead of the second silently winning.
-        builder.AddEmbeddingProvider(sp => new HttpEmbedder(
-            id,
-            config,
-            resolveClient(sp),
-            sp.GetRequiredService<LyntaiOptions>(),
-            sp.GetService<ILogger<HttpEmbedder>>(),
-            disposeHttpClient: !byo)); // dispose only Lyntai-created clients
-        return builder;
-    }
-
+    // One name, because there is one registration per host now — an embeddings-only host is a provider with
+    // Chat nulled, so it takes the provider client like any other (D132).
     internal static string HttpClientName(string id) => $"lyntai.provider.{id}";
-    internal static string EmbedderHttpClientName(string id) => $"lyntai.embedder.{id}";
 }

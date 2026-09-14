@@ -9,7 +9,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Providers.Onnx</PackageId>
-    <Description>In-process transformer embedding via ONNX Runtime. References the MANAGED half only — the consuming app adds one native backend (Microsoft.ML.OnnxRuntime for CPU, .DirectML for any DX12 GPU, .Gpu for CUDA), so the library never picks the user's hardware. Wired via builder.AddOnnxEmbedder(modelDirectory).</Description>
+    <Description>In-process transformer embedding via ONNX Runtime. References the MANAGED half only — the consuming app adds one native backend (Microsoft.ML.OnnxRuntime for CPU, .DirectML for any DX12 GPU, .Gpu for CUDA), so the library never picks the user's hardware. Wired via builder.AddOnnxProvider(modelDirectory).</Description>
     <!-- ONNX Runtime loads a native library dynamically and resolves its provider by name: this package
          cannot honestly claim trim/AOT compatibility. The analyzer stays ON for OUR code, which is what
          keeps the docs/AOT.md row true rather than merely written. -->
@@ -27,7 +27,7 @@
          to one runtime (CPU vs DirectML vs CUDA) and ship ~16 MB of native code to consumers who wanted a
          different one; the app references the backend matching its hardware and it flows in transitively.
          Same stance as Lyntai.Providers.LlamaSharp. The cost is declared rather than hidden: with no backend
-         referenced, the failure is at first use, and AddOnnxEmbedder's doc says which packages fix it. -->
+         referenced, the failure is at first use, and AddOnnxProvider's doc says which packages fix it. -->
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" />
   </ItemGroup>
 

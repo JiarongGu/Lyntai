@@ -1,4 +1,5 @@
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Interference;
@@ -63,7 +64,12 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
         services.AddLyntai(b => b
             .AddLiveProvider("nomic-embed-text")
             .UseDefaultCandidates("ollama")
-            .AddOpenAiCompatibleEmbedder("e", o => { o.BaseUrl = BaseUrl; o.Model = "nomic-embed-text"; }));
+            .AddOpenAiCompatibleProvider("e", o =>
+            {
+                o.BaseUrl = BaseUrl;
+                o.Model = "nomic-embed-text";
+                o.Produces = ProviderKinds.Vector;
+            }));
         return services.BuildServiceProvider();
     }
 

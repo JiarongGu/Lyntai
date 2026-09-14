@@ -54,7 +54,7 @@ services.AddLyntai(b => b
     .AddOpenAiCompatibleProvider("ollama", c =>
     {
         c.BaseUrl = Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL") ?? "http://localhost:11434";
-        c.DefaultModel = "llama3";
+        c.Model = "llama3";
     })
     .UseSqliteStorage(dbPath)
     .AddScorer<OutcomeScorer>()

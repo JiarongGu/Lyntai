@@ -1,45 +1,77 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Providers.OpenAiCompatible;
 
+/// <summary>One OpenAI-compatible BACKEND: an endpoint, a model, and what that model puts out.
+///
+/// <para><b>One registration is one backend, and a shared hostname does not make two of them one.</b> A
+/// chat model and an embedding model are different models at different routes with different wire shapes;
+/// the only thing they share is a base URL and a key, which is TRANSPORT rather than identity. A host
+/// serving both is registered twice, under two ids, so a trace can say which one answered
+/// (<c>docs/DECISIONS.md</c> D133).</para>
+///
+/// <para><b>There are no route sub-objects here on purpose.</b> A <c>Chat</c> section beside an
+/// <c>Embeddings</c> section is a hardcoded taxonomy of exactly two kinds, living inside the object whose
+/// whole premise is that <see cref="ProviderKinds"/> is an OPEN list — a reranking host would have grown a
+/// third, a rendering host a fourth. <see cref="Produces"/> is one field because a registration serves one
+/// kind.</para></summary>
 public sealed class OpenAiCompatibleOptions
 {
     /// <summary>Endpoint base, e.g. <c>https://api.openai.com</c>, <c>http://localhost:11434</c>,
     /// <c>https://openrouter.ai/api/v1</c>. The flavor is detected from this URL unless pinned.</summary>
     public string BaseUrl { get; set; } = "https://api.openai.com";
 
-    /// <summary>Bearer token; null for keyless endpoints (local Ollama).</summary>
+    /// <summary>Bearer token; null for keyless endpoints (local Ollama, LM Studio, llama-server).</summary>
     public string? ApiKey { get; set; }
 
-    /// <summary>Model used when neither the request nor the candidate pins one.</summary>
-    public string? DefaultModel { get; set; }
+    /// <summary>The model this backend serves, e.g. <c>gpt-4o</c>, <c>llama3.1</c>,
+    /// <c>text-embedding-3-small</c>. Used when neither the request nor the candidate pins one.</summary>
+    public string? Model { get; set; }
 
     /// <summary>Pin the payload flavor; <see cref="OpenAiFlavor.Auto"/> (default) detects it from BaseUrl.</summary>
     public OpenAiFlavor Flavor { get; set; } = OpenAiFlavor.Auto;
 
-    /// <summary>Context-window override for <see cref="OpenAiFlavor.Ollama"/> ONLY — it becomes Ollama's
-    /// <c>options.num_ctx</c> on the native <c>/api/chat</c> payload. **Every other flavor IGNORES it
-    /// silently**: the OpenAI-shaped payload has no equivalent knob (the context window is a property of
-    /// the deployed model there), and that includes Ollama's own OpenAI-COMPATIBLE <c>/v1</c> surface,
-    /// which resolves to <see cref="OpenAiFlavor.OpenAi"/>. The name carries the backend for exactly that
-    /// reason — a generic one read as a portable setting and was not one.</summary>
+    /// <summary>What this backend puts out — <see cref="ProviderKinds.Text"/> (default) posts to
+    /// <c>/chat/completions</c>, <see cref="ProviderKinds.Vector"/> to <c>/embeddings</c>. It is the field
+    /// that decides the route, the wire shape, and which methods the provider answers.
+    ///
+    /// <para>A single value rather than a list, because one registration is one backend. A LIST on
+    /// <see cref="ProviderCapabilities.Produces"/> means something else and still holds: one CALL returning
+    /// several kinds at once, as a multimodal model emitting text and an image does. Two endpoints behind
+    /// one hostname is not that.</para></summary>
+    public string Produces { get; set; } = ProviderKinds.Text;
+
+    /// <summary>Context-window override for <see cref="OpenAiFlavor.Ollama"/> serving
+    /// <see cref="ProviderKinds.Text"/> ONLY — it becomes Ollama's <c>options.num_ctx</c> on the native
+    /// <c>/api/chat</c> payload. **Every other flavor IGNORES it silently**: the OpenAI-shaped payload has
+    /// no equivalent knob (the context window is a property of the deployed model there), and that includes
+    /// Ollama's own OpenAI-COMPATIBLE <c>/v1</c> surface, which resolves to
+    /// <see cref="OpenAiFlavor.OpenAi"/>. The name carries the backend for exactly that reason — a generic
+    /// one read as a portable setting and was not one.</summary>
     public int? OllamaContextSize { get; set; }
 
-    /// <summary>Serve <c>/embeddings</c> from THIS registration as well as <c>/chat/completions</c>. Null
-    /// (the default) means text only.
+    /// <summary>Max inputs per HTTP request when serving <see cref="ProviderKinds.Vector"/>; a larger call
+    /// list is split into this many at a time (real endpoints cap input counts — OpenAI at 2048, Azure
+    /// historically at 16). <c>0</c> (default) sends the whole batch in a single request.</summary>
+    public int BatchSize { get; set; }
+
+    /// <summary>Prepended, VERBATIM, to text embedded as <see cref="Lyntai.Embeddings.EmbeddingRole.Document"/>
+    /// — the storing side. Null or empty (the default) sends the text unchanged.
     ///
-    /// <para><b>Setting it adds <see cref="Lyntai.Lifecycle.ProviderKinds.Vector"/> to what the provider
-    /// produces</b>, so one id, one configuration and one <see cref="HttpClient"/> serve both halves of a
-    /// host that answers both — which is what an OpenAI-compatible endpoint actually is
-    /// (<c>docs/DECISIONS.md</c> D131).</para>
+    /// <para><b>What this is for.</b> Asymmetric models want a different instruction per side and score
+    /// materially worse without it. <b>The library supplies no default and knows no model's spelling</b>:
+    /// which model you run, and what it wants prepended, is yours to set — <c>text-embedding-3-*</c> wants
+    /// nothing here, the E5 family wants <c>"passage: "</c>, nomic <c>"search_document: "</c>.</para>
     ///
-    /// <para><b>Blank fields INHERIT this object's.</b> <see cref="OpenAiCompatibleEmbedderOptions.BaseUrl"/>,
-    /// <see cref="OpenAiCompatibleEmbedderOptions.ApiKey"/> and
-    /// <see cref="OpenAiCompatibleEmbedderOptions.Flavor"/> left unset take the values above, because
-    /// declaring embeddings HERE says they live on the same host; setting one overrides it, which is the
-    /// split-port case (chat on 8080, embeddings on 8081). <see cref="OpenAiCompatibleEmbedderOptions.Model"/>
-    /// never inherits <see cref="DefaultModel"/> — a chat model is not an embedding model, and defaulting one
-    /// to the other sends a plausible request that returns nonsense.</para>
-    ///
-    /// <para>Embeddings on a host serving NO chat stay their own registration —
-    /// <c>AddOpenAiCompatibleEmbedder</c>.</para></summary>
-    public OpenAiCompatibleEmbedderOptions? Embeddings { get; set; }
+    /// <para><b>Including the trailing space, if the model wants one.</b> It is concatenated exactly as
+    /// given; <c>"search_document:"</c> and <c>"search_document: "</c> are different inputs to the model.
+    /// And changing either prefix changes every vector it produces, so a corpus embedded under one setting
+    /// is not comparable to one embedded under another — re-index rather than mixing.</para></summary>
+    public string? DocumentPrefix { get; set; }
+
+    /// <summary>Prepended, VERBATIM, to text embedded as <see cref="Lyntai.Embeddings.EmbeddingRole.Query"/>
+    /// — the searching side. Null or empty (the default) sends the text unchanged.
+    /// <para>Set independently of <see cref="DocumentPrefix"/>: a model may instruct one side only, which is
+    /// the BGE shape, and an unset side must stay verbatim rather than inherit the other.</para></summary>
+    public string? QueryPrefix { get; set; }
 }
