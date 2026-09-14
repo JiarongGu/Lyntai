@@ -21,6 +21,15 @@ public static class OpenAiCompatibleBuilderExtensions
         var config = new OpenAiCompatibleOptions();
         configure(config);
 
+        // Declaring embeddings on THIS host says they live on it: anything left blank is the host's own.
+        // Model is deliberately absent — DefaultModel names a chat model (OpenAiCompatibleOptions.Embeddings).
+        if (config.Embeddings is { } embeddings)
+        {
+            embeddings.BaseUrl ??= config.BaseUrl;
+            embeddings.ApiKey ??= config.ApiKey;
+            if (embeddings.Flavor == OpenAiFlavor.Auto) embeddings.Flavor = config.Flavor;
+        }
+
         Func<IServiceProvider, Func<HttpClient>> resolveClient;
         var byo = httpClient is not null;
         if (byo)
@@ -35,13 +44,18 @@ public static class OpenAiCompatibleBuilderExtensions
             resolveClient = sp => () => sp.GetRequiredService<IHttpClientFactory>().CreateClient(HttpClientName(id));
         }
 
-        builder.AddProvider(sp => new OpenAiCompatibleProvider(
+        OpenAiCompatibleProvider Build(IServiceProvider sp) => new(
             id,
             config,
             resolveClient(sp),
             sp.GetRequiredService<LyntaiOptions>(),
             sp.GetService<ILogger<OpenAiCompatibleProvider>>(),
-            disposeHttpClient: !byo)); // dispose only Lyntai-created clients
+            disposeHttpClient: !byo); // dispose only Lyntai-created clients
+
+        // A host serving both routes is ONE backend, and both front doors must see it. AddEmbeddingProvider
+        // also arms the routed IEmbedder (D129), which AddProvider alone does not.
+        if (config.Embeddings is null) builder.AddProvider(Build);
+        else builder.AddEmbeddingProvider(Build);
         return builder;
     }
 

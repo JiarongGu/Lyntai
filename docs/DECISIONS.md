@@ -200,8 +200,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D128](#d128--an-embedder-is-a-provider-iembeddingprovider-is-deleted-and-embedding-is-a-declared-operation-2026-09-14) | 2026-09-14 | an embedder is a provider: IEmbeddingProvider is deleted and embedding is a declared OPERATION |
 | [D129](#d129--iembedder-is-the-front-door-not-a-backend-contract-embeddings-get-routing-and-fallback-2026-09-14) | 2026-09-14 | IEmbedder is the FRONT DOOR, not a backend contract: embeddings get routing and fallback |
 | [D130](#d130--embedding-is-an-output-kind-not-an-operation-capabilities-become-accepts--produces-2026-09-14) | 2026-09-14 | embedding is an output KIND, not an operation: capabilities become accepts → produces |
+| [D131](#d131--a-backends-produces-is-derived-from-its-configuration-so-a-modality-is-a-field-2026-09-14) | 2026-09-14 | a backend's `Produces` is DERIVED from its configuration, so a modality is a field |
 
-_All 130 entries are live decisions._
+_All 131 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3967,3 +3968,37 @@ by a bespoke enum member that did not fit.
 **What this predicts, and is the reason to believe it:** a reranker is `Produces: [score]` — no new
 operation, no new interface, no new family. `TASKS.md` Part 177's cross-encoder had nowhere to sit under
 the old model and needs nothing new under this one.
+
+## D131 — a backend's `Produces` is DERIVED from its configuration, so a modality is a field (2026-09-14)
+
+`OpenAiCompatibleOptions.Embeddings` is a nullable section. Set it and the provider declares
+`Produces: [text, vector]` and serves `/embeddings` from the same registration that serves
+`/chat/completions` — one id, one configuration, one `HttpClient`, one entry in the provider collection.
+
+**This is D130 collecting its own payoff.** That entry made `Produces` a list and said an OpenAI-compatible
+host should declare `[text, vector]`; nothing in the tree did, so the claim was untested. Declaring it
+required exactly the change above and no new type, which is the evidence the model is right.
+
+**The alternative was two registrations pointed at one server** — `AddOpenAiCompatibleProvider` plus
+`AddOpenAiCompatibleEmbedder`, as the tree did through 3.1.0. That costs two ids a router reports
+separately, two named `HttpClient`s, and a base URL written twice with nothing checking they agree. The
+duplication is invisible until the day one of them is edited.
+
+**Capability is derived, never declared twice.** The provider computes `Produces` from whether `Embeddings`
+is null rather than taking it as a parameter, so a host cannot claim a route it has no configuration to
+call. The generalization: **adding a modality to an existing backend is a field to set, not a class to
+write** — which is what makes `Produces` being a list worth anything.
+
+**A blank field in the section INHERITS the host it was declared on** — `BaseUrl`, `ApiKey`, `Flavor` —
+because declaring embeddings *there* says they live on the same server. Setting one overrides it, which is
+the split-port deployment this repository's own benches use (chat on 8080, embeddings on 8081). **`Model`
+is the deliberate exception and does not inherit `DefaultModel`**: a chat model is not an embedding model,
+and defaulting one to the other posts a plausible request that returns nonsense rather than failing.
+
+**`AddOpenAiCompatibleEmbedder` stays** for a host that serves embeddings and no chat — a local embedding
+server is a real deployment, not a degenerate case. What is gone is having to use it for a host that serves
+both.
+
+**Registration routes on the same fact:** a configured section makes it `AddEmbeddingProvider`, which is the
+same collection plus the statement that something can embed — the flag `AddSemanticMemory` and the routed
+`IEmbedder` front door read at composition time (**D129**), before any provider is built.

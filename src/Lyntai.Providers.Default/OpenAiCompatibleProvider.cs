@@ -1,3 +1,4 @@
+using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using System.Net;
 using System.Runtime.CompilerServices;
@@ -32,15 +33,26 @@ public sealed class OpenAiCompatibleProvider(
 
     /// <summary>What this backend serves — any OpenAI-compatible endpoint: text, buffered or streamed, with native tool calls on both
     /// paths. Models are NOT enumerated — an aggregator fronts hundreds behind one id, which is exactly the
-    /// case an empty Models list means "any" for.</summary>
+    /// case an empty Models list means "any" for.
+    /// <para>Vector joins text when <see cref="OpenAiCompatibleOptions.Embeddings"/> is set, because the same
+    /// host answers both routes (D131). It is DERIVED from configuration rather than fixed by the type, so a
+    /// modality is a field to set, not a class to write.</para></summary>
     public ProviderCapabilities Capabilities { get; } = new()
     {
         Accepts = [ProviderKinds.Text],
-        Produces = [ProviderKinds.Text],
+        Produces = config.Embeddings is null
+            ? [ProviderKinds.Text]
+            : [ProviderKinds.Text, ProviderKinds.Vector],
         Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
         SupportsToolCalls = true,
         SupportsStreamingToolCalls = true,
     };
+
+    /// <summary>The <c>/embeddings</c> half, or null when this host was configured for chat only. It is a
+    /// composed transport rather than inherited behaviour: the wire shape of an embeddings call has nothing
+    /// in common with a completion beyond the endpoint it is posted to.</summary>
+    private readonly HttpEmbedder? _embedder = config.Embeddings is null ? null
+        : new HttpEmbedder(id, config.Embeddings, httpFactory, options, logger, disposeHttpClient);
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(config.BaseUrl);
 
@@ -57,6 +69,25 @@ public sealed class OpenAiCompatibleProvider(
     /// client) are disposed after each call; an APP-supplied (BYO) client is NEVER disposed — the app
     /// owns its lifetime, so disposing it would break every call after the first.</summary>
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
+
+    /// <inheritdoc/>
+    /// <exception cref="NotSupportedException"><see cref="OpenAiCompatibleOptions.Embeddings"/> was not
+    /// configured, so this registration serves text only.</exception>
+    public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
+        Embedder().EmbedAsync(texts, ct);
+
+    /// <inheritdoc/>
+    /// <exception cref="NotSupportedException"><see cref="OpenAiCompatibleOptions.Embeddings"/> was not
+    /// configured, so this registration serves text only.</exception>
+    public Task<IReadOnlyList<float[]>> EmbedAsync(
+        IReadOnlyList<string> texts, EmbeddingRole role, CancellationToken ct = default) =>
+        Embedder().EmbedAsync(texts, role, ct);
+
+    /// <summary>The embedding half, or the same refusal <see cref="IModelProvider"/>'s own default gives.
+    /// Reached only by a caller that ignored <see cref="Capabilities"/>, since a router checks first.</summary>
+    private HttpEmbedder Embedder() => _embedder
+        ?? throw new NotSupportedException(
+            $"{id} does not serve EmbedAsync — set OpenAiCompatibleOptions.Embeddings to serve vectors too.");
 
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {

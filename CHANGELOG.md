@@ -12,7 +12,20 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ## Unreleased
 
+### Added
+
+- **One OpenAI-compatible registration can serve BOTH `/chat/completions` and `/embeddings`** (**D131**).
+  Set `OpenAiCompatibleOptions.Embeddings` and the provider declares `Produces: [text, vector]`, serving
+  both routes off one id, one configuration and one `HttpClient` — where this previously needed
+  `AddOpenAiCompatibleProvider` *and* `AddOpenAiCompatibleEmbedder` aimed at the same server. Blank fields
+  in the section inherit the host's `BaseUrl` / `ApiKey` / `Flavor`; `Model` deliberately does not inherit
+  `DefaultModel`. `AddOpenAiCompatibleEmbedder` stays for a host that serves embeddings and no chat.
+
 ### Breaking
+
+- **`OpenAiCompatibleEmbedderOptions.BaseUrl` is now nullable**, resolving to the host it was declared on
+  or to `DefaultBaseUrl` standalone — the same endpoint as before for anyone who set it or left it alone.
+  `HttpEmbedder`'s logger parameter widens from `ILogger<HttpEmbedder>?` to `ILogger?`.
 
 - **Embedding is an output KIND, not an operation: `ProviderCapabilities.Kinds` becomes `Accepts` + <!-- link-ok: names the member this entry RETIRES -->
   `Produces`** (**D130**). `ProviderOperation.Embed` is removed and the enum is back to the delivery axis
@@ -24,7 +37,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `Kinds` property on `ComfyUiOptions` / `FalQueueOptions` is renamed `Produces`.
 
 - **`IEmbedder` is the embedding FRONT DOOR, and embeddings now have fallback** (**D129**). The `IEmbedder`
-  a consumer resolves is a router over every backend declaring `ProviderOperation.Embed`, so registering two
+  a consumer resolves is a router over every backend that produces vectors, so registering two
   endpoints gives failover instead of the second silently replacing the first — which is what
   `HttpEmbedder`'s own doc admitted: *"there is one embedder slot, so a later registration wins"*.
   `StaticEmbedder`, `OnnxEmbedder` and `HttpEmbedder` **stop implementing `IEmbedder`** and are providers

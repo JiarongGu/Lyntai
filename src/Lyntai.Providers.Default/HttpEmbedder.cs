@@ -28,10 +28,13 @@ public sealed class HttpEmbedder(
     OpenAiCompatibleEmbedderOptions config,
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
-    ILogger<HttpEmbedder>? logger = null,
+    ILogger? logger = null,
     bool disposeHttpClient = true) : IModelProvider
 {
     private readonly ILogger _logger = logger ?? NullLogger<HttpEmbedder>.Instance;
+
+    /// <summary>Declared once so the flavor and the endpoint cannot disagree about which host this is.</summary>
+    private readonly string _baseUrl = config.BaseUrl ?? OpenAiCompatibleEmbedderOptions.DefaultBaseUrl;
 
     /// <inheritdoc />
     public string Id => id;
@@ -45,7 +48,8 @@ public sealed class HttpEmbedder(
         Produces = [ProviderKinds.Vector],
         Operations = [ProviderOperation.Complete],
     };
-    private readonly OpenAiFlavor _flavor = OpenAiEndpoint.ResolveFlavor(config.Flavor, config.BaseUrl);
+    private readonly OpenAiFlavor _flavor =
+        OpenAiEndpoint.ResolveFlavor(config.Flavor, config.BaseUrl ?? OpenAiCompatibleEmbedderOptions.DefaultBaseUrl);
 
     /// <summary>Get the per-call HttpClient. Lyntai-created clients are disposed after each call; an
     /// APP-supplied (BYO) client is NEVER disposed — the app owns its lifetime.</summary>
@@ -148,7 +152,7 @@ public sealed class HttpEmbedder(
     /// <summary>The embeddings endpoint — Ollama's native batched <c>/api/embed</c> (parallel to the chat
     /// provider's <c>/api/chat</c>), otherwise the OpenAI-compatible <c>embeddings</c> route.</summary>
     private Uri Endpoint() =>
-        OpenAiEndpoint.Build(config.BaseUrl, _flavor, ollamaNativePath: "/api/embed", openAiRoute: "embeddings");
+        OpenAiEndpoint.Build(_baseUrl, _flavor, ollamaNativePath: "/api/embed", openAiRoute: "embeddings");
 
     /// <summary>Tolerant extraction covering the two response shapes: OpenAI/LM-Studio
     /// <c>data[].embedding</c> (ordered by the authoritative <c>index</c>) and Ollama <c>embeddings[[…]]</c>

@@ -692,22 +692,39 @@ The lexical memory store (`IMemoryStore`) recalls by keyword (FTS-trigram). For 
 an embedding model and use `ISemanticMemory` — facts are remembered by their embedding and recalled by
 cosine similarity, so a query finds relevant memories without sharing keywords.
 
+A host that answers both `/chat/completions` and `/embeddings` is ONE backend, so it is one registration —
+`Embeddings` adds `vector` to what it produces, and blank fields there inherit the host above them:
+
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOpenAiProvider(apiKey: "…")
-    // built-in embedder over any OpenAI-compatible /v1/embeddings (OpenAI, LM Studio, Ollama, Azure)
-    .AddOpenAiCompatibleEmbedder("embeddings", o =>
+    .AddOpenAiCompatibleProvider("local", o =>
     {
-        o.BaseUrl = "http://localhost:11434";   // e.g. local Ollama
-        o.Model = "nomic-embed-text";
+        o.BaseUrl = "http://localhost:11434";        // e.g. local Ollama — chat AND embeddings
+        o.DefaultModel = "llama3.1";
+        o.Embeddings = new() { Model = "nomic-embed-text" };   // same URL, same key, same HttpClient
     })
-    .AddSemanticMemory());                      // states the intent — see below
+    .AddSemanticMemory());                           // states the intent — see below
     // …or bring your own in one call: .AddSemanticMemory(myEmbedder)  // any IEmbedder
 
 var memory = sp.GetRequiredService<ISemanticMemory>();
 await memory.RememberAsync(taskKey: "support", scope: "faq", "You can cancel your subscription anytime.");
 var hits = await memory.RecallAsync("support", "faq", query: "how do I stop paying?", k: 5);
 // hits ranked by similarity, each with a Content + cosine Score
+```
+
+Embeddings served somewhere the chat model is not — a dedicated embedding server, or a different port — are
+their own registration instead, and `IEmbedder` routes over every backend that produces vectors, so two of
+them is failover rather than the second silently replacing the first:
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .AddOpenAiProvider(apiKey: "…")
+    .AddOpenAiCompatibleEmbedder("embeddings", o =>
+    {
+        o.BaseUrl = "http://localhost:8081";
+        o.Model = "nomic-embed-text";
+    })
+    .AddSemanticMemory());
 ```
 
 `AddSemanticMemory()` is how you **say** you want semantic recall. Registering an embedder is what actually

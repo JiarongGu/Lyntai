@@ -7,8 +7,14 @@ namespace Lyntai.Providers.OpenAiCompatible;
 public sealed class OpenAiCompatibleEmbedderOptions
 {
     /// <summary>Endpoint base, e.g. <c>https://api.openai.com</c>, <c>http://localhost:11434</c>,
-    /// <c>https://my-res.openai.azure.com</c>. The flavor is detected from this URL unless pinned.</summary>
-    public string BaseUrl { get; set; } = "https://api.openai.com";
+    /// <c>https://my-res.openai.azure.com</c>. The flavor is detected from this URL unless pinned.
+    /// <para>Null resolves to <see cref="DefaultBaseUrl"/> standalone, or to the host this was declared on
+    /// when it sits in <see cref="OpenAiCompatibleOptions.Embeddings"/> — so the common "same server" case
+    /// is written once.</para></summary>
+    public string? BaseUrl { get; set; }
+
+    /// <summary>Where a null <see cref="BaseUrl"/> points when nothing else supplies one.</summary>
+    public const string DefaultBaseUrl = "https://api.openai.com";
 
     /// <summary>The embedding model, e.g. <c>text-embedding-3-small</c> / <c>nomic-embed-text</c>. Sent as
     /// the <c>model</c> field; endpoints that serve one loaded model (some LM Studio setups) ignore it.</summary>
