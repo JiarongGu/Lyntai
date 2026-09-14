@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using Lyntai.Llm;
 using Microsoft.Extensions.AI;
 
-namespace Lyntai.Providers.ExtensionsAi;
+namespace Lyntai.ExtensionsAi;
 
 /// <summary>
 /// The reverse bridge: expose a whole Lyntai composition AS a <see cref="IChatClient"/>, so any
@@ -138,17 +138,4 @@ internal sealed class LyntaiChatClient(ILlmClient client) : IChatClient
             OutputTokenCount = usage.OutputTokens,
             CachedInputTokenCount = usage.CacheReadTokens,
         };
-}
-
-/// <summary>The entry point to the REVERSE bridge — Lyntai as a <see cref="IChatClient"/>, rather than an
-/// <see cref="IChatClient"/> as a Lyntai provider (<see cref="ExtensionsAiProvider"/> is that direction).
-/// Use it to adopt Lyntai underneath code that already speaks Microsoft.Extensions.AI: the MEAI surface is
-/// unchanged, and routing, fallback, dead-host cooldown and the ops layer come along underneath it.</summary>
-public static class LyntaiChatClientExtensions
-{
-    /// <summary>Expose this Lyntai composition as a Microsoft.Extensions.AI <see cref="IChatClient"/>.
-    /// A non-Ok outcome throws <see cref="LlmVerdictException"/> (an <see cref="InvalidOperationException"/>
-    /// carrying the <see cref="ProviderVerdict"/>), except <see cref="ProviderVerdict.Refused"/>, which comes back as a
-    /// <see cref="ChatFinishReason.ContentFilter"/> response rather than an exception.</summary>
-    public static IChatClient AsChatClient(this ILlmClient client) => new LyntaiChatClient(client);
 }

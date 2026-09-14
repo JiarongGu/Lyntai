@@ -15,6 +15,13 @@ sealed class Lyntai.Embeddings.Model2Vec.Model2VecProviderOptions
     .ctor()
     Id : String
     Normalize : Nullable<Boolean>
+sealed class Lyntai.ExtensionsAi.ExtensionsAiProvider
+    .ctor(String id, IChatClient client, LyntaiOptions options, ILogger<ExtensionsAiProvider> logger = null)
+    Capabilities : ProviderCapabilities
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    Id : String
+    IsAvailable : Boolean
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
 static class Lyntai.ExtensionsAiBuilderExtensions
     static AddExtensionsAiProvider(LyntaiBuilder builder, String id, Func<IServiceProvider,IChatClient> clientFactory) : LyntaiBuilder
     static AddExtensionsAiProvider(LyntaiBuilder builder, String id, IChatClient client) : LyntaiBuilder
@@ -25,6 +32,8 @@ static class Lyntai.HttpProviderBuilderExtensions
     static AddOllamaProvider(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "ollama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOpenAiProvider(LyntaiBuilder builder, String apiKey, String model = null, String id = "openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOpenRouterProvider(LyntaiBuilder builder, String apiKey, String model = null, String id = "openrouter", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+static class Lyntai.Llm.LyntaiChatClientExtensions
+    static AsChatClient(ILlmClient client) : IChatClient
 static class Lyntai.Model2VecBuilderExtensions
     static AddModel2VecProvider(LyntaiBuilder builder, String modelDirectory, Action<Model2VecProviderOptions> configure = null) : LyntaiBuilder
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
@@ -115,15 +124,6 @@ sealed class Lyntai.Providers.CodexCli.CodexCliProvider
     StatusAsync(CancellationToken ct = default) : Task<ProviderAuthStatus>
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
     UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
-sealed class Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider
-    .ctor(String id, IChatClient client, LyntaiOptions options, ILogger<ExtensionsAiProvider> logger = null)
-    Capabilities : ProviderCapabilities
-    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
-    Id : String
-    IsAvailable : Boolean
-    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
-static class Lyntai.Providers.ExtensionsAi.LyntaiChatClientExtensions
-    static AsChatClient(ILlmClient client) : IChatClient
 enum Lyntai.Providers.Http.HttpDialect
     Auto : HttpDialect const
     AzureOpenAi : HttpDialect const

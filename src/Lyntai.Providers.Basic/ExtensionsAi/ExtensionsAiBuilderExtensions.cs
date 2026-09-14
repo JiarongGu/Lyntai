@@ -1,4 +1,4 @@
-using Lyntai.Providers.ExtensionsAi;
+using Lyntai.ExtensionsAi;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

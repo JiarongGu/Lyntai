@@ -511,6 +511,12 @@ export default {
    */
   retiredTerms: [
     {
+      // D145. Prose + baseline are both covered by the namespace form; the TYPES kept their names.
+      term: '\\bLyntai[.]Providers[.]ExtensionsAi\\b',
+      why: 'the module is a two-way BRIDGE and three of its four types are not providers (D145)',
+      use: '`Lyntai.ExtensionsAi`, and `Lyntai.Llm` for `AsChatClient()`',
+    },
+    {
       // D144. Prose only — the package id, not a type name, so there is no baseline rule to pair with it.
       term: '\\bLyntai[.]Providers[.]Default\\b',
       why: 'Default named a position in a list rather than a property of the contents (D144)',

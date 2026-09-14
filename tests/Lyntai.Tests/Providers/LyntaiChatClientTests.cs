@@ -2,7 +2,7 @@ using Lyntai.Lifecycle;
 using System.Text.Json;
 using Lyntai;
 using Lyntai.Llm;
-using Lyntai.Providers.ExtensionsAi;
+using Lyntai.ExtensionsAi;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;

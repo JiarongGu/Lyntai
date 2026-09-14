@@ -2,7 +2,7 @@ using System.Text.Json;
 using Lyntai.Llm;
 using Microsoft.Extensions.AI;
 
-namespace Lyntai.Providers.ExtensionsAi;
+namespace Lyntai.ExtensionsAi;
 
 /// <summary>
 /// Bridges a Lyntai <see cref="LlmTool"/> to a Microsoft.Extensions.AI <see cref="AIFunctionDeclaration"/>

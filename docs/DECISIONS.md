@@ -214,14 +214,15 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D142](#d142--the-two-mcp-packages-fold-into-one-the-boundary-isolated-nothing-2026-09-15) | 2026-09-15 | the two MCP packages fold into one; the boundary isolated nothing |
 | [D143](#d143--a-file-is-filed-by-its-namespace-and-a-test-by-its-subjects-2026-09-15) | 2026-09-15 | a file is filed by its NAMESPACE, and a test by its subject's |
 | [D144](#d144--lyntaiprovidersbasic-and-a-provider-module-owns-its-own-registration-2026-09-15) | 2026-09-15 | `Lyntai.Providers.Basic`, and a provider module owns its own registration |
+| [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) | 2026-09-15 | the Microsoft.Extensions.AI module is a BRIDGE, not a provider |
 
-_All 144 entries are live decisions._
+_All 145 entries are live decisions._
 
 <!-- index:end -->
 
 ## D1 — the LLM seam is Lyntai's own `IModelProvider`, with a `Microsoft.Extensions.AI` bridge
 Consuming applications are split between spawning a vendor CLI and calling an HTTP or local API, so the
-seam has to span both. `IModelProvider` is Lyntai's own contract; `Lyntai.Providers.ExtensionsAi` bridges any
+seam has to span both. `IModelProvider` is Lyntai's own contract; `Lyntai.ExtensionsAi` bridges any
 `Microsoft.Extensions.AI` `IChatClient` into it, in both directions. Adopting MEAI *as* the seam was
 rejected: it cannot express a spawned CLI's process lifetime, and the verdict taxonomy the router needs
 (D3) has no equivalent there.
@@ -3723,7 +3724,7 @@ is not.
 
 ## D123 — a package boundary must isolate a dependency the consumer can REFUSE; the MEAI bridge folds into Providers.Default (2026-09-14)
 
-`Lyntai.Providers.ExtensionsAi` is gone. `ExtensionsAiProvider`, `LyntaiChatClient`,
+`Lyntai.ExtensionsAi` is gone. `ExtensionsAiProvider`, `LyntaiChatClient`,
 `LyntaiToolDeclaration` and `AddExtensionsAiProvider` are in `Lyntai.Providers.Basic` under their
 existing namespaces, so the migration is one `PackageReference` and no `using`. The old id is unlisted
 (**D44**).
@@ -4431,3 +4432,30 @@ arriving there is making a claim a reviewer can check: every CLI backend in this
 **The package id is burned** (**D23**) and registered in `nuget-unlist.mjs`'s `RETIRED` array (**D44**) —
 the fourth entry added this session, and the array itself had to be repaired first: two of its published
 ids had been silently rewritten by rename sweeps (**D142**).
+
+## D145 — the Microsoft.Extensions.AI module is a BRIDGE, not a provider (2026-09-15)
+
+`Lyntai.Providers.ExtensionsAi` becomes `Lyntai.ExtensionsAi`, and `AsChatClient()` moves to `Lyntai.Llm` <!-- drift-ok: this entry RETIRES the namespace, so it has to say it -->
+beside the `ILlmClient` it extends. The code stays in `Lyntai.Providers.Basic`; only the namespace moves.
+
+**Three of the module's four types are not providers.** `ExtensionsAiProvider` bridges an `IChatClient` INTO
+Lyntai; `LyntaiChatClient` exposes Lyntai AS an `IChatClient`; `LyntaiToolDeclaration` maps `LlmTool` to
+`AIFunctionDeclaration`. Every one of their docs opens with the word *"Bridges"*. Only the first satisfies
+`IModelProvider`, and even that one adapts another ABSTRACTION rather than a backend — the backend is
+whatever `IChatClient` the consumer hands in.
+
+**The false claim had a measurable cost.** `AsChatClient()` is an extension on `ILlmClient` — Core's front
+door, which `LlmVerdictException`'s own doc in Core calls "the reverse bridge". Living in
+`Lyntai.Providers.ExtensionsAi`, calling it required a consumer to import a PROVIDERS namespace for a <!-- drift-ok: names what this entry retires -->
+front-door call, and the README's sample never said so. It now sits in `Lyntai.Llm`, for the same reason the
+`Add*` extensions sit in `Lyntai`: a capability of a type belongs where that type is.
+
+**`check-samples` could not have caught it, and that is worth knowing about the gate.** Its scratch project
+opens EVERY `Lyntai.*` namespace, so a sample compiles wherever a member lives — the gate proves a sample is
+type-correct, never that a consumer could write it. The proof had to be a throwaway project importing
+`Lyntai.Llm` alone.
+
+**The package does NOT move, and the distinction is the point.** A namespace says what a thing IS; a package
+says which dependency it isolates. `Microsoft.Extensions.AI.Abstractions` is 669 KB and must stay out of
+Core (**D25**), and **D123** already priced keeping it in the merged package. Renaming the namespace fixes
+the claim without reopening a boundary that was decided on footprint.

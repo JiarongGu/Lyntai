@@ -47,6 +47,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **The Microsoft.Extensions.AI module is a bridge, not a provider** (**D145**).
+  `Lyntai.Providers.ExtensionsAi` becomes `Lyntai.ExtensionsAi`, and **`AsChatClient()` moves to <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
+  `Lyntai.Llm`** beside the `ILlmClient` it extends — so consuming Lyntai as an `IChatClient` no longer
+  needs an import from a providers namespace. Three of the module's four types never were providers: the
+  reverse bridge and the tool-declaration adapter do not implement `IModelProvider` at all. The code stays
+  in `Lyntai.Providers.Basic`; only the namespace moves.
+
+
 - **`Lyntai.Providers.Default` is renamed `Lyntai.Providers.Basic`** (**D144**). "Default" named a position <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
   in a list rather than a property of the contents; `Basic` states the membership rule D25 already used —
   the backends needing nothing beyond Core and the BCL. **Namespaces are unchanged**, so a consumer edits
@@ -183,7 +191,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   builder method, not the type. **This is the first step of unifying the provider layer**: one candidate,
   then one routing spine, then capabilities declared as data rather than as a type hierarchy.
 
-- **`Lyntai.Providers.ExtensionsAi` is folded into `Lyntai.Providers.Basic`** (**D123**). The migration is
+- **`Lyntai.ExtensionsAi` is folded into `Lyntai.Providers.Basic`** (**D123**). The migration is
   one `PackageReference` and no `using` — every namespace and type name is unchanged, and
   `AddExtensionsAiProvider(id, chatClient)` still registers it. **The boundary was isolating nothing**:
   `ModelContextProtocol.Core` pins `Microsoft.Extensions.AI.Abstractions` transitively and both MCP halves
