@@ -21,7 +21,7 @@ namespace Lyntai.Tests.Generation;
 [Collection("verdict-matchers")]
 public class GenerationSubmitFallbackTests
 {
-    private static GenerationRequest Video() => new() { Kind = GenerationKinds.Video, Prompt = "a cat surfing" };
+    private static GenerationRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
@@ -111,7 +111,7 @@ public class GenerationSubmitFallbackTests
     public async Task A_host_that_pairs_a_hosted_queue_with_a_permissive_one_can_override_the_refusal_rule()
     {
         // proof the policy is genuinely consulted rather than the Refused case being hardcoded here
-        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Refused, GenerationFallbackAction.Advance);
+        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Refused, FallbackAction.Advance);
         var refusing = new RejectingJobProvider { Id = "hosted", Detail = "content policy violation" };
         var permissive = new FakeGenerationJobProvider { Id = "local" };
 
@@ -205,7 +205,7 @@ public class GenerationSubmitFallbackTests
         public ProviderCapabilities Capabilities { get; } = new()
         {
             Accepts = [ProviderKinds.Text],
-            Produces = [GenerationKinds.Video],
+            Produces = [ProviderKinds.Video],
             Operations = [ProviderOperation.Job],
         };
 

@@ -75,7 +75,7 @@ public class GenerationDiTests
         var router = sp.GetRequiredService<IGenerationRouter>();
 
         var result = await router.GenerateAsync(options.DefaultCandidates,
-            new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "x" });
+            new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "x" });
 
         Assert.True(result.IsOk);
         Assert.Equal(["a"], options.DefaultCandidates.Select(c => c.ProviderId));

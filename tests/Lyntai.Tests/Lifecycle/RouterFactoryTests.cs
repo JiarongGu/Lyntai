@@ -17,7 +17,7 @@ namespace Lyntai.Tests.Lifecycle;
 /// and the instance overload pins that an app which never touches the pool behaves exactly as it did.</para></summary>
 public class RouterFactoryTests
 {
-    private static GenerationRequest Request() => new() { Kind = GenerationKinds.Image, Prompt = "a cat" };
+    private static GenerationRequest Request() => new() { Kind = ProviderKinds.Image, Prompt = "a cat" };
 
     private static ProviderKey Key(string value, string slot = "a1111") =>
         ProviderKey.For(slot).With("v", value).Build();

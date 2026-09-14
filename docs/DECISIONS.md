@@ -209,8 +209,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D137](#d137--a-registration-names-what-it-registers-so-every-backend-carries-provider-2026-09-14) | 2026-09-14 | a registration names what it REGISTERS, so every backend carries `Provider` |
 | [D138](#d138--the-type-layer-catches-up-llamasharpprovider-onnxprovider-and-a-namespace-that-agrees-2026-09-15) | 2026-09-15 | the type layer catches up: `LlamaSharpProvider`, `OnnxProvider`, and a namespace that agrees |
 | [D139](#d139--a-reranker-is-produces-score-and-the-memory-policy-that-uses-it-lives-in-core-2026-09-15) | 2026-09-15 | a reranker is `Produces: [score]`, and the memory policy that uses it lives in Core |
+| [D140](#d140--the-routing-action-and-the-media-kinds-join-the-taxonomy-they-were-copies-of-2026-09-15) | 2026-09-15 | the routing ACTION and the media KINDS join the taxonomy they were copies of |
 
-_All 139 entries are live decisions._
+_All 140 entries are live decisions._
 
 <!-- index:end -->
 
@@ -4285,3 +4286,30 @@ decided, and the swallowing was invisible to the only caller that might have wan
 scored and one silently absent from the verdict; the transport now rejects the whole answer. A backend
 returning an index nobody sent is malformed, and an unscored slot reads as `0.0`, which ranks as
 confidently as a real score.
+
+## D140 — the routing ACTION and the media KINDS join the taxonomy they were copies of (2026-09-15)
+
+`GenerationFallbackAction` and `GenerationKinds` are gone. `FallbackAction` moves to `Lyntai.Lifecycle` <!-- drift-ok: this entry RETIRES both names, so it has to say them -->
+beside `ProviderVerdict`, and the four media constants live on `ProviderKinds`.
+
+**Both are the shape D136 fixed, one layer out.** That entry merged the two verdict enums — the routing
+table's KEY — and left its VALUE duplicated: two enums of four identically-named, identically-meaning
+members, and `GenerationFallbackAction`'s own doc said so (*"the same four actions as the LLM router's <!-- drift-ok: names what this entry retires -->
+`FallbackAction`, because the question is the same one"*). The kinds were worse: `Image`/`Video`/`Audio`/
+`Model3d` matched by NAME AND VALUE, and every media backend set one in its request and the other in its
+capabilities — adjacent fields of one record, a coin-flip at each registration site.
+
+**The test that separates this from a real distinction is whether the DIFFERENCE is in the table or the
+vocabulary.** The two routing policies genuinely differ — `RoutingPolicy` surfaces `Unsupported` where
+`GenerationRoutingPolicy` advances on it, and their unmapped defaults differ too — and none of that moved.
+A policy is a table over a shared vocabulary, exactly as **D136** said of the verdicts.
+
+**What is NOT merged, and the reason it looks like it should be:** `GenerationInputRoles` sits in the same
+file and holds `init` / `first-frame` / `reference` / `voice`. Those are what an input IS TO a generation,
+not what a backend produces — the axis `ProviderCapabilities.Accepts` would pin if it ever needed that
+granularity. It keeps its own vocabulary and moves to its own file, so the next reader is not deciding by
+proximity.
+
+**The `Model3d` remark travelled with the constant**, because it is the load-bearing half: no image or video
+backend accepts a mesh, so a 3d→image edge is a RASTERIZATION rather than a generation, and a mesh backend's
+`image/*` artifact is usually a UV atlas that chains and renders and is wrong.

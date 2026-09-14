@@ -13,7 +13,7 @@ public sealed class FakeGenerationProvider : IModelProvider
     public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Accepts = [ProviderKinds.Text],
-        Produces = [GenerationKinds.Image],
+        Produces = [ProviderKinds.Image],
         Operations = [ProviderOperation.Complete],
         SupportsInputs = true,
     };
@@ -63,7 +63,7 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IGenerationJobPr
     public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Accepts = [ProviderKinds.Text],
-        Produces = [GenerationKinds.Video],
+        Produces = [ProviderKinds.Video],
         Operations = [ProviderOperation.Job],
         SupportsInputs = true,
     };
@@ -128,7 +128,7 @@ public sealed class FakeGenerationStreamProvider : IModelProvider
     public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Accepts = [ProviderKinds.Text],
-        Produces = [GenerationKinds.Audio],
+        Produces = [ProviderKinds.Audio],
         Operations = [ProviderOperation.Stream, ProviderOperation.Complete],
     };
 
@@ -168,7 +168,7 @@ public sealed class ScriptedStreamProvider : IModelProvider
     public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Accepts = [ProviderKinds.Text],
-        Produces = [GenerationKinds.Audio],
+        Produces = [ProviderKinds.Audio],
         Operations = [ProviderOperation.Stream],
     };
 
@@ -203,7 +203,7 @@ public sealed class BadProbeProvider : IModelProvider
     public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Accepts = [ProviderKinds.Text],
-        Produces = [GenerationKinds.Image],
+        Produces = [ProviderKinds.Image],
         Operations = [ProviderOperation.Complete],
     };
 
@@ -231,7 +231,7 @@ public sealed class LyingStreamProvider : IModelProvider
     public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Accepts = [ProviderKinds.Text],
-        Produces = [GenerationKinds.Audio],
+        Produces = [ProviderKinds.Audio],
         Operations = [ProviderOperation.Stream],
     };
 

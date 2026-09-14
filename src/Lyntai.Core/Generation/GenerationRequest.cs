@@ -9,7 +9,7 @@ namespace Lyntai.Generation;
 /// A platform that typed every backend's knobs would need a release per backend feature.</remarks>
 public sealed record GenerationRequest
 {
-    /// <summary>Which medium to produce — a <see cref="GenerationKinds"/> value, or any string a backend
+    /// <summary>Which medium to produce — a <see cref="ProviderKinds"/> value, or any string a backend
     /// advertises in <see cref="ProviderCapabilities.Produces"/>.</summary>
     public required string Kind { get; init; }
 

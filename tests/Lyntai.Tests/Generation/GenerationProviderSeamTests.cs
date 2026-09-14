@@ -35,7 +35,7 @@ public class GenerationProviderSeamTests
     {
         var provider = new FakeGenerationProvider();
 
-        var result = await provider.GenerateAsync(new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "x" });
+        var result = await provider.GenerateAsync(new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "x" });
 
         Assert.True(result.IsOk);
         Assert.Equal("image/png", result.Artifacts[0].MediaType);
@@ -57,7 +57,7 @@ public class GenerationProviderSeamTests
     {
         var provider = new FakeGenerationJobProvider();
 
-        var submitted = await provider.SubmitAsync(new GenerationRequest { Kind = GenerationKinds.Video, Prompt = "x" });
+        var submitted = await provider.SubmitAsync(new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "x" });
         var polled = await provider.PollAsync(submitted.Id);
         var fetched = await provider.FetchAsync(submitted.Id);
 
@@ -75,7 +75,7 @@ public class GenerationProviderSeamTests
         var provider = new FakeGenerationStreamProvider();
 
         var chunks = new List<GenerationChunk>();
-        await foreach (var chunk in provider.StreamAsync(new GenerationRequest { Kind = GenerationKinds.Audio, Prompt = "hi" }))
+        await foreach (var chunk in provider.StreamAsync(new GenerationRequest { Kind = ProviderKinds.Audio, Prompt = "hi" }))
             chunks.Add(chunk);
 
         Assert.Equal(2, chunks.Count(c => c.Data is { Length: > 0 }));

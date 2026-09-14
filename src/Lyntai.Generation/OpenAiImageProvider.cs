@@ -72,7 +72,7 @@ public sealed class OpenAiImageProvider(
     public ProviderCapabilities Capabilities { get; } = new()
     {
         Accepts = [ProviderKinds.Text],
-        Produces = [GenerationKinds.Image],
+        Produces = [ProviderKinds.Image],
         Operations = [ProviderOperation.Complete],
         SupportsInputs = true,          // /images/edits
         // Models deliberately NOT enumerated: the catalogue is the service's, changes without us, and an

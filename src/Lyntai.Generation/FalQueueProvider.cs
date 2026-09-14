@@ -32,7 +32,7 @@ public sealed class FalQueueOptions
     /// <summary>Media kinds this account's models cover. Declared rather than discovered — the catalogue is
     /// large and changes without us, so the host states what it actually uses.</summary>
     public IReadOnlyList<string> Produces { get; set; } =
-        [GenerationKinds.Video, GenerationKinds.Image, GenerationKinds.Audio];
+        [ProviderKinds.Video, ProviderKinds.Image, ProviderKinds.Audio];
 
     /// <summary>Path segment for a request's status, appended as
     /// <c>{BaseUrl}/{model}/{RequestsSegment}/{id}/{StatusSegment}</c>.</summary>

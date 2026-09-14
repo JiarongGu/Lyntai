@@ -121,8 +121,8 @@ describe('check-links — allowances cannot rot', () => {
 
   it('an allowance suppresses that document, and only that document', () => {
     const { code, out } = run({
-      'docs/plan.md': 'built into `src/Lyntai.Generation/GenerationKinds.cs`\n',
-      'docs/live.md': 'built into `src/Lyntai.Generation/GenerationKinds.cs`\n',
+      'docs/plan.md': 'built into `src/Lyntai.Generation/ProviderKinds.cs`\n',
+      'docs/live.md': 'built into `src/Lyntai.Generation/ProviderKinds.cs`\n',
     }, allowed);
 
     assert.equal(code, 1);

@@ -21,7 +21,7 @@ public class GenerationRouterStreamTests
     private static GenerationRouter Router(params IModelProvider[] providers) => new(providers);
 
     private static GenerationRequest Speech() =>
-        new() { Kind = GenerationKinds.Audio, Prompt = "read this aloud" };
+        new() { Kind = ProviderKinds.Audio, Prompt = "read this aloud" };
 
     private static ProviderCandidate[] Candidates(params IModelProvider[] providers) =>
         [.. providers.Select(p => new ProviderCandidate(p.Id))];

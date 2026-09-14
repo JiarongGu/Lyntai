@@ -42,6 +42,16 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **The routing ACTION and the media KINDS join the taxonomy they duplicated** (**D140**).
+  `GenerationFallbackAction` becomes `Lyntai.Lifecycle.FallbackAction` — the same four members it always <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  had — and `GenerationKinds.Image/Video/Audio/Model3d` become `ProviderKinds.*`, which declared the same <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  names with the same values. D136 merged the routing table's key and left its value duplicated; this is
+  that, one layer out. **The two routing POLICIES are untouched** — they differ on `Unsupported` and on
+  their unmapped defaults, and that is table content rather than vocabulary. `GenerationInputRoles`
+  (`init`/`first-frame`/`reference`/`voice`) is NOT merged: those say what an input IS to a generation, not
+  what a backend produces.
+
+
 - **The cross-encoder verification policy moves to `Lyntai.Core` and its transport becomes a provider**
   (**D139**). `AddMemoryCrossEncoderVerification(o => { o.BaseUrl = …; o.EndorseCount = … })` becomes <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
   `AddHttpProvider` for the endpoint plus `AddMemoryScoringVerification(o => o.EndorseCount = …)` for what
@@ -607,7 +617,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   failed for ComfyUI alone and passed for OpenAI, Automatic1111 and fal. `docs/FIXES.md`,
   `docs/task-archive.md` Part 124.
 
-- **`GenerationKinds.Model3d` documented a chain that does not exist.** Its XML doc claimed a 3D asset
+- **`ProviderKinds.Model3d` documented a chain that does not exist.** Its XML doc claimed a 3D asset
   "chains into `Image` and then `Video`". No image or video backend accepts a mesh, so the 3d→image edge is
   a rasterization rather than a generation and this platform performs none — and a mesh backend's own
   `image/*` artifacts are usually UV texture atlases, which chain mechanically and render as a flattened
@@ -1425,7 +1435,7 @@ this section is. (Storage and migration breaks remain major-bump material, uncon
   an unclassifiable one behaves exactly as before. **The one delta that can stop a fallback you were getting:**
   a rejection classifying as `Refused` (a content-policy body) now *surfaces* instead of being re-submitted to
   the next queue — matching the inline path. Restore the old behaviour with
-  `policy.On(GenerationVerdict.Refused, GenerationFallbackAction.Advance)`.
+  `policy.On(GenerationVerdict.Refused, FallbackAction.Advance)`.
 - **A failed submission now names the backend's reason.** The message keeps its `no capable media backend
   accepted a 'video' job among [...]` prefix (substring checks still hold) and gains
   `— 'fal' said: <the backend's own words>`. `GenerationSubmission.ProviderId` is deliberately still empty on

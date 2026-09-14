@@ -48,7 +48,7 @@ public class LocalDiffusionProviderTests
     {
         var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (size is not null) options["size"] = size;
-        return new GenerationRequest { Kind = GenerationKinds.Image, Prompt = prompt, Options = options };
+        return new GenerationRequest { Kind = ProviderKinds.Image, Prompt = prompt, Options = options };
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class LocalDiffusionProviderTests
         var (provider, _, _) = Provider();
 
         Assert.Equal("local-diffusion", provider.Id);
-        Assert.Equal([GenerationKinds.Image], provider.Capabilities.Produces);
+        Assert.Equal([ProviderKinds.Image], provider.Capabilities.Produces);
         Assert.Equal([ProviderOperation.Complete], provider.Capabilities.Operations);
         Assert.True(provider.Capabilities.SupportsInputs);
         Assert.IsNotAssignableFrom<IGenerationJobProvider>(provider);

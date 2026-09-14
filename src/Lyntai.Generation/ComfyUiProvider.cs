@@ -22,7 +22,7 @@ public sealed class ComfyUiOptions
 
     /// <summary>Media kinds this install can serve. Both by default: which one a run produces is decided by
     /// the WORKFLOW, not by the endpoint — so the host declares what its graphs cover.</summary>
-    public IReadOnlyList<string> Produces { get; set; } = [GenerationKinds.Image, GenerationKinds.Video];
+    public IReadOnlyList<string> Produces { get; set; } = [ProviderKinds.Image, ProviderKinds.Video];
 
     /// <summary>Queue a workflow (returns a prompt id).</summary>
     public string SubmitPath { get; set; } = "prompt";

@@ -575,11 +575,6 @@ static class Lyntai.Generation.GenerationInputRoles
     Init : String const
     Reference : String const
     Voice : String const
-static class Lyntai.Generation.GenerationKinds
-    Audio : String const
-    Image : String const
-    Model3d : String const
-    Video : String const
 sealed class Lyntai.Generation.GenerationOperation
     .ctor(String Id, GenerationOperationStatus Status, Nullable<Double> Progress = null, String Detail = null)
     Deconstruct(String& Id, GenerationOperationStatus& Status, Nullable`1& Progress, String& Detail) : Void
@@ -687,12 +682,6 @@ sealed class Lyntai.Generation.Routing.BudgetedGenerationRouter
     GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     StreamAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
     SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
-enum Lyntai.Generation.Routing.GenerationFallbackAction
-    Advance : GenerationFallbackAction const
-    CooldownAndAdvance : GenerationFallbackAction const
-    PenalizeAndAdvance : GenerationFallbackAction const
-    Surface : GenerationFallbackAction const
-    value__ : Int32
 static class Lyntai.Generation.Routing.GenerationPipeline
     static RunPipelineAsync(IGenerationRouter router, IReadOnlyList<GenerationStage> stages, CancellationToken ct = default) : Task<GenerationPipelineResult>
 sealed class Lyntai.Generation.Routing.GenerationPipelineResult
@@ -720,9 +709,9 @@ sealed class Lyntai.Generation.Routing.GenerationRouterFactory
     For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers) : IGenerationRouter
 sealed class Lyntai.Generation.Routing.GenerationRoutingPolicy
     .ctor()
-    ActionFor(ProviderVerdict verdict) : GenerationFallbackAction
+    ActionFor(ProviderVerdict verdict) : FallbackAction
     ExemptSoleCandidate : Boolean
-    On(ProviderVerdict verdict, GenerationFallbackAction action) : GenerationRoutingPolicy
+    On(ProviderVerdict verdict, FallbackAction action) : GenerationRoutingPolicy
 sealed class Lyntai.Generation.Routing.GenerationStage
     .ctor(GenerationRequest Request, IReadOnlyList<ProviderCandidate> Candidates)
     Candidates : IReadOnlyList<ProviderCandidate>
@@ -1022,6 +1011,12 @@ sealed class Lyntai.Lifecycle.BoundedProviderPool`1
     RetireSlot(String slot) : Int32
     Statistics : ProviderPoolStatistics
     TryGetKey(TProvider instance, ProviderKey& key) : Boolean
+enum Lyntai.Lifecycle.FallbackAction
+    Advance : FallbackAction const
+    CooldownAndAdvance : FallbackAction const
+    PenalizeAndAdvance : FallbackAction const
+    Surface : FallbackAction const
+    value__ : Int32
 interface Lyntai.Lifecycle.IModelProvider
     Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
@@ -1530,12 +1525,6 @@ sealed class Lyntai.Llm.Routing.DeadHostTracker
     MarkDead(String key) : Void
     RecordFailure(String key) : Void
     RecordSuccess(String key) : Void
-enum Lyntai.Llm.Routing.FallbackAction
-    Advance : FallbackAction const
-    CooldownAndAdvance : FallbackAction const
-    PenalizeAndAdvance : FallbackAction const
-    Surface : FallbackAction const
-    value__ : Int32
 interface Lyntai.Llm.Routing.ILlmRouterFactory
     For(IReadOnlyList<IModelProvider> providers) : ILlmRouter
     For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers) : ILlmRouter

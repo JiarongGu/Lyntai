@@ -21,7 +21,7 @@ public class FalQueueProviderTests
             () => new HttpClient(handler, disposeHandler: false)), handler);
     }
 
-    private static GenerationRequest Ask() => new() { Kind = GenerationKinds.Video, Prompt = "a cat surfing" };
+    private static GenerationRequest Ask() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     [Fact]
     public void It_declares_a_job_backend_across_the_kinds_the_host_configured()
@@ -30,7 +30,7 @@ public class FalQueueProviderTests
 
         Assert.Equal("fal", provider.Id);
         Assert.Equal([ProviderOperation.Job], provider.Capabilities.Operations);
-        Assert.Contains(GenerationKinds.Video, provider.Capabilities.Produces);
+        Assert.Contains(ProviderKinds.Video, provider.Capabilities.Produces);
         Assert.IsAssignableFrom<IGenerationJobProvider>(provider);
         Assert.Empty(provider.Capabilities.Models);   // hundreds, and they change without us
     }

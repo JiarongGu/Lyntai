@@ -102,7 +102,7 @@ internal static class GenerationToolJson
 
         return new GenerationRequest
         {
-            Kind = GenerationJson.Str(root, "kind") ?? GenerationKinds.Image,
+            Kind = GenerationJson.Str(root, "kind") ?? ProviderKinds.Image,
             Consumer = consumer,
             Prompt = GenerationJson.Str(root, "prompt"),
             Model = GenerationJson.Str(root, "model"),

@@ -2403,7 +2403,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 - **When a decision falsifies a claim, grep the CLAIM — not the file you happened to be reading.** Measured <!-- trap: sub=docs shape=stale-claim,second-door -->
   2026-08-30 (`docs/task-archive.md` Part 126). The 3D survey established that `3d → image → video` chains
-  nothing, and the false sentence was corrected in `GenerationKinds.Model3d`'s shipped XML doc — while the
+  nothing, and the false sentence was corrected in `ProviderKinds.Model3d`'s shipped XML doc — while the
   IDENTICAL claim in `README.md` survived two consecutive passes, because each fix was made where the defect
   was FOUND rather than everywhere the claim lived.
   <br>**No gate can catch this shape**: `check-docs` only knows vocabulary a decision RETIRED, and a claim

@@ -264,7 +264,7 @@ public class ProviderPoolWiringTests
         public ProviderCapabilities Capabilities { get; } = new()
         {
             Accepts = [ProviderKinds.Text],
-            Produces = [GenerationKinds.Image],
+            Produces = [ProviderKinds.Image],
             Operations = [ProviderOperation.Complete],
         };
 
@@ -295,7 +295,7 @@ public class ProviderPoolWiringTests
             .ConfigureProviderAdmission(o => o.BySlot["a1111"] = 1)
             .AddGenerationProvider(_ => backend));
         var router = sp.GetRequiredService<IGenerationRouter>();
-        var request = new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a cat" };
+        var request = new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a cat" };
 
         var first = router.GenerateAsync([new ProviderCandidate("a1111")], request);
         var second = router.GenerateAsync([new ProviderCandidate("a1111")], request);
@@ -388,7 +388,7 @@ public class ProviderPoolWiringTests
         var router = sp.GetRequiredService<IGenerationRouterFactory>().For([
             new ProviderRegistration<IModelProvider>(key, () => new FakeGenerationProvider { Id = "a1111" })]);
         var result = await router.GenerateAsync([new ProviderCandidate("a1111")],
-            new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a cat" });
+            new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a cat" });
 
         Assert.True(result.IsOk);
         Assert.Equal(key, Assert.Single(admission.Entered));
@@ -433,7 +433,7 @@ public class ProviderPoolWiringTests
 
         var result = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
             [new ProviderCandidate("a1111")],
-            new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a cat" });
+            new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a cat" });
 
         Assert.True(result.IsOk);
         Assert.Equal(1, backend.GenerateCalls);

@@ -14,10 +14,10 @@ namespace Lyntai.Tests.Generation;
 public class GenerationPipelineTests
 {
     private static readonly GenerationRequest Image =
-        new() { Kind = GenerationKinds.Image, Prompt = "a red square" };
+        new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
     private static readonly GenerationRequest Video =
-        new() { Kind = GenerationKinds.Video, Prompt = "pan across it" };
+        new() { Kind = ProviderKinds.Video, Prompt = "pan across it" };
 
     private static IReadOnlyList<ProviderCandidate> Order(params string[] ids) =>
         [.. ids.Select(id => new ProviderCandidate(id))];

@@ -157,7 +157,7 @@ if (sp.GetRequiredService<IKeyValueStore>() is null) throw new Exception("no IKe
 // verdict a host can act on rather than throwing or inventing an artifact
 var render = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
     [new GenerationCandidate("openai-images")],
-    new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" });
+    new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a red square" });
 if (render.Verdict != ProviderVerdict.NotConfigured)
     throw new Exception($"unconfigured image backend reported {render.Verdict}, expected NotConfigured");
 

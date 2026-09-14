@@ -17,7 +17,7 @@ namespace Lyntai.Tests.Generation;
 /// count is taken fixes only the first.</para></summary>
 public class GenerationRouterDedupTests
 {
-    private static GenerationRequest Image() => new() { Kind = GenerationKinds.Image, Prompt = "a red square" };
+    private static GenerationRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
     private static DeadHostTracker Benching() => new(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
 
@@ -113,7 +113,7 @@ public class GenerationRouterDedupTests
         Capabilities = new ProviderCapabilities
         {
             Accepts = [ProviderKinds.Text],
-            Produces = [GenerationKinds.Image],
+            Produces = [ProviderKinds.Image],
             Operations = [ProviderOperation.Complete],
             Models = ["flux-1", "sdxl"],
         },

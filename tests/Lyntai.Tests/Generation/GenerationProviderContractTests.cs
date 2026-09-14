@@ -148,7 +148,7 @@ public class OpenAiImageProviderContractTests : HttpGenerationProviderContractFa
             () => new HttpClient(http, disposeHandler: false));
 
     protected override GenerationRequest Ask() =>
-        new() { Kind = GenerationKinds.Image, Prompt = "a red square" };
+        new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 }
 
 public class Automatic1111ProviderContractTests : HttpGenerationProviderContractFacts
@@ -159,7 +159,7 @@ public class Automatic1111ProviderContractTests : HttpGenerationProviderContract
             () => new HttpClient(http, disposeHandler: false));
 
     protected override GenerationRequest Ask() =>
-        new() { Kind = GenerationKinds.Image, Prompt = "a red square" };
+        new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 }
 
 public class ComfyUiProviderContractTests : HttpGenerationProviderContractFacts
@@ -174,7 +174,7 @@ public class ComfyUiProviderContractTests : HttpGenerationProviderContractFacts
 
     protected override GenerationRequest Ask() => new()
     {
-        Kind = GenerationKinds.Image,
+        Kind = ProviderKinds.Image,
         Prompt = "a red square",
         Options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -192,7 +192,7 @@ public class FalQueueProviderContractTests : HttpGenerationProviderContractFacts
             () => new HttpClient(http, disposeHandler: false));
 
     protected override GenerationRequest Ask() =>
-        new() { Kind = GenerationKinds.Video, Prompt = "a cat surfing" };
+        new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     /// <summary>fal encodes the MODEL into the operation id, because the queue's status and result URLs need
     /// it while a resumed job hands back only an id. A bare id is rejected before any call is made.</summary>
@@ -218,5 +218,5 @@ public class LocalDiffusionProviderContractTests : GenerationProviderContractFac
     }
 
     protected override GenerationRequest Ask() =>
-        new() { Kind = GenerationKinds.Image, Prompt = "a red square" };
+        new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 }

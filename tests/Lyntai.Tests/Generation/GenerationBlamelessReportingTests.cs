@@ -24,7 +24,7 @@ namespace Lyntai.Tests.Generation;
 /// have swapped one cost for the other.</para></summary>
 public class GenerationBlamelessReportingTests
 {
-    private static GenerationRequest Image() => new() { Kind = GenerationKinds.Image, Prompt = "a red square" };
+    private static GenerationRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
     private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
@@ -183,7 +183,7 @@ public class GenerationBlamelessReportingTests
         public ProviderCapabilities Capabilities { get; } = new()
         {
             Accepts = [ProviderKinds.Text],
-            Produces = [GenerationKinds.Image],
+            Produces = [ProviderKinds.Image],
             Operations = [ProviderOperation.Complete],
             SupportsInputs = true,
         };
@@ -207,7 +207,7 @@ public class GenerationBlamelessReportingTests
 [Collection("verdict-matchers")]
 public class GenerationSubmitBlamelessReportingTests
 {
-    private static GenerationRequest Video() => new() { Kind = GenerationKinds.Video, Prompt = "a cat surfing" };
+    private static GenerationRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
@@ -261,7 +261,7 @@ public class GenerationSubmitBlamelessReportingTests
         public ProviderCapabilities Capabilities { get; } = new()
         {
             Accepts = [ProviderKinds.Text],
-            Produces = [GenerationKinds.Video],
+            Produces = [ProviderKinds.Video],
             Operations = [ProviderOperation.Job],
         };
 

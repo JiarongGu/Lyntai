@@ -24,7 +24,7 @@ public class Automatic1111ProviderTests
     }
 
     private static GenerationRequest Ask(string prompt = "a red square") =>
-        new() { Kind = GenerationKinds.Image, Prompt = prompt };
+        new() { Kind = ProviderKinds.Image, Prompt = prompt };
 
     [Fact]
     public void It_declares_only_what_it_can_do()
@@ -32,7 +32,7 @@ public class Automatic1111ProviderTests
         var (provider, _) = Provider();
 
         Assert.Equal("a1111", provider.Id);
-        Assert.Equal([GenerationKinds.Image], provider.Capabilities.Produces);
+        Assert.Equal([ProviderKinds.Image], provider.Capabilities.Produces);
         Assert.Equal([ProviderOperation.Complete], provider.Capabilities.Operations);
         Assert.True(provider.Capabilities.SupportsInputs);
     }

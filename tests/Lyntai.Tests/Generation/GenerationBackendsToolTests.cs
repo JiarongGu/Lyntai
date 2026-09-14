@@ -151,7 +151,7 @@ public class GenerationBackendsToolTests
         public ProviderCapabilities Capabilities { get; } = new()
         {
             Accepts = [ProviderKinds.Text],
-            Produces = [GenerationKinds.Image],
+            Produces = [ProviderKinds.Image],
             Operations = [ProviderOperation.Complete],
         };
 

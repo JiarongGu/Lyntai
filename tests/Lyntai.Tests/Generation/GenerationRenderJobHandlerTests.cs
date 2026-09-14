@@ -52,7 +52,7 @@ public class GenerationRenderJobHandlerTests
 
     private static string Payload() => new GenerationRenderJob(
         ["video"],
-        new GenerationRequest { Kind = GenerationKinds.Video, Prompt = "a cat surfing" }).ToJson();
+        new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "a cat surfing" }).ToJson();
 
     [Fact]
     public void It_handles_one_well_known_job_type()
@@ -143,7 +143,7 @@ public class GenerationRenderJobHandlerTests
         var handler = new GenerationRenderJobHandler(new GenerationRouter(providers), providers, new CollectingSink());
 
         var outcome = await handler.HandleAsync(new RecordingContext().Build(
-            new GenerationRenderJob(["image-only"], new GenerationRequest { Kind = GenerationKinds.Video }).ToJson()));
+            new GenerationRenderJob(["image-only"], new GenerationRequest { Kind = ProviderKinds.Video }).ToJson()));
 
         Assert.Equal(JobOutcome.Kind.Fail, outcome.Result);
         Assert.Contains("no capable", outcome.Error);
@@ -184,7 +184,7 @@ public class GenerationRenderJobHandlerTests
             ["fal:wan-t2v", "comfyui"],
             new GenerationRequest
             {
-                Kind = GenerationKinds.Video,
+                Kind = ProviderKinds.Video,
                 Prompt = "a cat surfing",
                 Model = "wan-t2v",
                 TimeoutSeconds = 600,
@@ -200,7 +200,7 @@ public class GenerationRenderJobHandlerTests
 
         Assert.NotNull(parsed);
         Assert.Equal(["fal:wan-t2v", "comfyui"], parsed.Candidates);
-        Assert.Equal(GenerationKinds.Video, parsed.Request.Kind);
+        Assert.Equal(ProviderKinds.Video, parsed.Request.Kind);
         Assert.Equal("a cat surfing", parsed.Request.Prompt);
         Assert.Equal("wan-t2v", parsed.Request.Model);
         Assert.Equal(600, parsed.Request.TimeoutSeconds);

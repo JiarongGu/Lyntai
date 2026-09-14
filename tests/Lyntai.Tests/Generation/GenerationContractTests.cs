@@ -10,7 +10,7 @@ public class GenerationContractTests
     [Fact]
     public void A_request_defaults_to_no_inputs_and_no_options()
     {
-        var request = new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" };
+        var request = new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
         Assert.Empty(request.Inputs);
         Assert.Empty(request.Options);
@@ -54,10 +54,10 @@ public class GenerationContractTests
     public void Well_known_kinds_are_open_strings_not_an_enum()
     {
         // 3D already exists on real aggregators; the next medium must not be a breaking change
-        Assert.Equal("image", GenerationKinds.Image);
-        Assert.Equal("video", GenerationKinds.Video);
-        Assert.Equal("audio", GenerationKinds.Audio);
-        Assert.Equal("3d", GenerationKinds.Model3d);
+        Assert.Equal("image", ProviderKinds.Image);
+        Assert.Equal("video", ProviderKinds.Video);
+        Assert.Equal("audio", ProviderKinds.Audio);
+        Assert.Equal("3d", ProviderKinds.Model3d);
     }
 
     [Fact]

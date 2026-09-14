@@ -21,8 +21,8 @@ namespace Lyntai.Tests.Generation;
 /// rate-limit buckets).</summary>
 public class GenerationGovernanceTests
 {
-    private static readonly GenerationRequest Image = new() { Kind = GenerationKinds.Image, Prompt = "a red square" };
-    private static readonly GenerationRequest Video = new() { Kind = GenerationKinds.Video, Prompt = "a cat surfing" };
+    private static readonly GenerationRequest Image = new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
+    private static readonly GenerationRequest Video = new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     // A FIXED instant, not the real clock: a burst-1 bucket refills at 1/s, so two `await`s on the real
     // clock are only reliably refused if the whole gap between them stays under a second — which a loaded
@@ -385,7 +385,7 @@ public class GenerationGovernanceTests
 
         await router.GenerateAsync(Order("metric-cost"), Image);
 
-        lock (costs) Assert.Contains((0.12, "metric-cost", GenerationKinds.Image), costs);
+        lock (costs) Assert.Contains((0.12, "metric-cost", ProviderKinds.Image), costs);
     }
 
     [Fact]
@@ -455,7 +455,7 @@ public class GenerationGovernanceTests
     }
 
     private static readonly GenerationRequest Speech =
-        new() { Kind = GenerationKinds.Audio, Prompt = "read this aloud" };
+        new() { Kind = ProviderKinds.Audio, Prompt = "read this aloud" };
 
     [Fact]
     public async Task A_stream_over_the_cost_cap_is_refused_without_reaching_a_backend()
@@ -566,7 +566,7 @@ public class GenerationGovernanceTests
         public ProviderCapabilities Capabilities { get; } = new()
         {
             Accepts = [ProviderKinds.Text],
-            Produces = [GenerationKinds.Video],
+            Produces = [ProviderKinds.Video],
             Operations = [ProviderOperation.Job],
         };
 

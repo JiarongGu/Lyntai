@@ -60,7 +60,7 @@ public class GenerationVerdictRoutingTests
         var verdict = ProviderVerdictClassifier.FromErrorText("maximum context length exceeded");
 
         Assert.Equal(ProviderVerdict.ContextWindowExceeded, verdict);
-        Assert.Equal(GenerationFallbackAction.Advance, new GenerationRoutingPolicy().ActionFor(verdict));
+        Assert.Equal(FallbackAction.Advance, new GenerationRoutingPolicy().ActionFor(verdict));
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class GenerationVerdictRoutingTests
 
         Assert.Equal(ProviderVerdict.Unsupported, verdict);
         // the mapping only matters because of what routing does with it
-        Assert.Equal(GenerationFallbackAction.Advance, new GenerationRoutingPolicy().ActionFor(verdict));
+        Assert.Equal(FallbackAction.Advance, new GenerationRoutingPolicy().ActionFor(verdict));
     }
 
     /// <summary>The mapping's POINT, end to end: a translated capability gap must not count toward the
@@ -121,7 +121,7 @@ public class GenerationVerdictRoutingTests
         var working = new FakeGenerationProvider { Id = "b" };
         var router = new GenerationRouter([gap, working], deadHosts: deadHosts);
         ProviderCandidate[] candidates = [new("a"), new("b")];
-        var request = new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" };
+        var request = new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
         var first = await router.GenerateAsync(candidates, request);
         var second = await router.GenerateAsync(candidates, request);

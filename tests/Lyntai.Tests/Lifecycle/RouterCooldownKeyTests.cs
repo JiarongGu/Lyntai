@@ -15,9 +15,9 @@ namespace Lyntai.Tests.Lifecycle;
 /// behave exactly as it did before this seam existed.</para></summary>
 public class RouterCooldownKeyTests
 {
-    private static GenerationRequest Request() => new() { Kind = GenerationKinds.Image, Prompt = "a cat" };
+    private static GenerationRequest Request() => new() { Kind = ProviderKinds.Image, Prompt = "a cat" };
 
-    private static GenerationRequest VideoRequest() => new() { Kind = GenerationKinds.Video, Prompt = "a cat" };
+    private static GenerationRequest VideoRequest() => new() { Kind = ProviderKinds.Video, Prompt = "a cat" };
 
     private static List<ProviderCandidate> Candidates(params string[] ids) =>
         [.. ids.Select(id => new ProviderCandidate(id))];
@@ -319,7 +319,7 @@ public class RouterCooldownKeyTests
         public ProviderCapabilities Capabilities { get; } = new()
         {
             Accepts = [ProviderKinds.Text],
-            Produces = [GenerationKinds.Image],
+            Produces = [ProviderKinds.Image],
             Operations = [ProviderOperation.Complete],
         };
 

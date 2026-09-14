@@ -41,7 +41,7 @@ public class GenerationTimeoutTests
     private static Func<HttpClient> Stalling() => () => new HttpClient(new StallingHandler()) { Timeout = Backstop };
 
     private static GenerationRequest Ask(int? timeoutSeconds = null) =>
-        new() { Kind = GenerationKinds.Image, Prompt = "a red square", TimeoutSeconds = timeoutSeconds };
+        new() { Kind = ProviderKinds.Image, Prompt = "a red square", TimeoutSeconds = timeoutSeconds };
 
     private static readonly TimeSpan Short = TimeSpan.FromMilliseconds(150);
 
@@ -146,14 +146,14 @@ public class GenerationTimeoutTests
     {
         var fal = await new FalQueueProvider(
             new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling())
-            .SubmitAsync(new GenerationRequest { Kind = GenerationKinds.Video, Prompt = "a wave" });
+            .SubmitAsync(new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "a wave" });
         Assert.Equal(GenerationOperationStatus.Failed, fal.Status);
 
         var comfy = await new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
             .SubmitAsync(new GenerationRequest
             {
-                Kind = GenerationKinds.Image,
+                Kind = ProviderKinds.Image,
                 Options = new Dictionary<string, string> { ["workflow"] = "{}" },
             });
         Assert.Equal(GenerationOperationStatus.Failed, comfy.Status);
@@ -212,7 +212,7 @@ public class GenerationTimeoutTests
         new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling());
 
     private static GenerationRequest Video() =>
-        new() { Kind = GenerationKinds.Video, Prompt = "a wave" };
+        new() { Kind = ProviderKinds.Video, Prompt = "a wave" };
 
     [Fact]
     public async Task A_timed_out_submit_is_INCONCLUSIVE_rather_than_a_plain_failure()

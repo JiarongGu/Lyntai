@@ -3601,3 +3601,23 @@ through a scripted HTTP handler; the policy's tests now use a fake provider and 
 only the wire-shape tests kept the handler. D115's placement argument was FOOTPRINT ("no new dependency, no
 new package"), which answers a packaging question — the layering question was never asked, and its entry
 now carries that correction at its head.
+
+---
+
+## Part 211 — the routing action and the media kinds join the taxonomy they were copies of
+
+✅ closed 2026-09-15. `TASKS.md` Part 179's third item, from the D125–D138 design review.
+
+- **Two more instances of the D136 class — one taxonomy under two names.**
+
+**Outcome (**D140**): `GenerationFallbackAction` → `Lyntai.Lifecycle.FallbackAction`, and
+`GenerationKinds.Image/Video/Audio/Model3d` → `ProviderKinds.*`.** D136 merged the routing table's KEY and
+left its VALUE duplicated; the kinds matched by name AND value, with backends setting one in a request and
+the other in their capabilities — adjacent fields of one record.
+
+**The test that separates this from a real distinction: is the difference in the TABLE or the VOCABULARY?**
+The two routing policies genuinely differ — `Unsupported` surfaces on one and advances on the other, and
+their unmapped defaults differ — and none of that moved. `GenerationInputRoles` is likewise NOT merged: it
+says what an input IS TO a generation rather than what a backend produces, and it moved to its own file so
+the next reader is not deciding by proximity.
+

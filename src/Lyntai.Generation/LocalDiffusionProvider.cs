@@ -168,7 +168,7 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     public ProviderCapabilities Capabilities => new()
     {
         Accepts = [ProviderKinds.Text],
-        Produces = [GenerationKinds.Image],
+        Produces = [ProviderKinds.Image],
         Operations = [ProviderOperation.Complete],
         SupportsInputs = true,   // img2img
         Limits = SizeLimits(options.EffectiveMaxDimension),

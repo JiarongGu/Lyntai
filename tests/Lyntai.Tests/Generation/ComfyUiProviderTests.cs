@@ -34,7 +34,7 @@ public class ComfyUiProviderTests
         var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (workflow is not null) options["workflow"] = workflow;
         options["prompt-path"] = "6.inputs.text";
-        return new GenerationRequest { Kind = GenerationKinds.Image, Prompt = prompt, Options = options };
+        return new GenerationRequest { Kind = ProviderKinds.Image, Prompt = prompt, Options = options };
     }
 
     [Fact]
@@ -43,8 +43,8 @@ public class ComfyUiProviderTests
         var (provider, _) = Provider();
 
         Assert.Equal("comfyui", provider.Id);
-        Assert.Contains(GenerationKinds.Image, provider.Capabilities.Produces);
-        Assert.Contains(GenerationKinds.Video, provider.Capabilities.Produces);   // local video via a workflow
+        Assert.Contains(ProviderKinds.Image, provider.Capabilities.Produces);
+        Assert.Contains(ProviderKinds.Video, provider.Capabilities.Produces);   // local video via a workflow
         Assert.Equal([ProviderOperation.Job], provider.Capabilities.Operations);
         Assert.IsAssignableFrom<IGenerationJobProvider>(provider);
     }

@@ -115,12 +115,12 @@ public sealed class GenerationRouter(
 
             switch (_policy.ActionFor(result.Verdict))
             {
-                case GenerationFallbackAction.Surface:
+                case FallbackAction.Surface:
                     return result;
-                case GenerationFallbackAction.CooldownAndAdvance:
+                case FallbackAction.CooldownAndAdvance:
                     deadHosts?.MarkDead(CooldownKey(provider));
                     break;
-                case GenerationFallbackAction.PenalizeAndAdvance:
+                case FallbackAction.PenalizeAndAdvance:
                     deadHosts?.RecordFailure(CooldownKey(provider));
                     break;
             }
@@ -231,16 +231,16 @@ public sealed class GenerationRouter(
 
                 switch (_policy.ActionFor(verdict))
                 {
-                    case GenerationFallbackAction.Surface:
+                    case FallbackAction.Surface:
                         // a content refusal is the backend judging the PROMPT, and re-submitting it to the
                         // next vendor is not a library's decision — the same rule the inline path follows,
                         // and overridable the same way (On(Refused, Advance)). ProviderId stays empty: it
                         // means "no candidate accepted", and a refusal is a refusal, not an acceptance.
                         return new GenerationSubmission("", operation);
-                    case GenerationFallbackAction.CooldownAndAdvance:
+                    case FallbackAction.CooldownAndAdvance:
                         deadHosts?.MarkDead(CooldownKey(provider));
                         break;
-                    case GenerationFallbackAction.PenalizeAndAdvance:
+                    case FallbackAction.PenalizeAndAdvance:
                         // a queue that won't take the job is exactly the dead-host case the LLM side benches
                         // for: the next submission a second later has no reason to fare better
                         deadHosts?.RecordFailure(CooldownKey(provider));
@@ -355,13 +355,13 @@ public sealed class GenerationRouter(
 
             switch (_policy.ActionFor(verdict))
             {
-                case GenerationFallbackAction.Surface:
+                case FallbackAction.Surface:
                     yield return failure;
                     yield break;
-                case GenerationFallbackAction.CooldownAndAdvance:
+                case FallbackAction.CooldownAndAdvance:
                     deadHosts?.MarkDead(CooldownKey(provider));
                     break;
-                case GenerationFallbackAction.PenalizeAndAdvance:
+                case FallbackAction.PenalizeAndAdvance:
                     deadHosts?.RecordFailure(CooldownKey(provider));
                     break;
             }

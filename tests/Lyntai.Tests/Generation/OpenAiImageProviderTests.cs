@@ -24,7 +24,7 @@ public class OpenAiImageProviderTests
     }
 
     private static GenerationRequest Ask(string prompt = "a red square") =>
-        new() { Kind = GenerationKinds.Image, Prompt = prompt };
+        new() { Kind = ProviderKinds.Image, Prompt = prompt };
 
     [Fact]
     public async Task A_401_with_NO_key_supplied_is_NotConfigured_so_routing_skips_rather_than_benching()
@@ -82,7 +82,7 @@ public class OpenAiImageProviderTests
         var (provider, _) = Provider();
 
         Assert.Equal("openai-images", provider.Id);
-        Assert.Equal([GenerationKinds.Image], provider.Capabilities.Produces);
+        Assert.Equal([ProviderKinds.Image], provider.Capabilities.Produces);
         Assert.Equal([ProviderOperation.Complete], provider.Capabilities.Operations);
         Assert.True(provider.Capabilities.SupportsInputs);          // /images/edits
         Assert.Empty(provider.Capabilities.Models);                 // catalogue not mirrored

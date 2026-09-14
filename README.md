@@ -1120,7 +1120,7 @@ factories**, never the positional constructor:
 ```csharp
 new GenerationRequest
 {
-    Kind = GenerationKinds.Image,
+    Kind = ProviderKinds.Image,
     Prompt = "the same room, at night",
     Inputs = [GenerationInput.Init(sourcePng, "image/png")],   // role baked in; it cannot be omitted
 }
@@ -1141,7 +1141,7 @@ ceilings, model catalogues):
 ```csharp
 var result = await router.GenerateAsync(candidates, new GenerationRequest
 {
-    Kind = GenerationKinds.Image,                 // open string: image / video / audio / 3d / whatever's next
+    Kind = ProviderKinds.Image,                 // open string: image / video / audio / 3d / whatever's next
     Prompt = "a red square on white",
     Options = new Dictionary<string, string> { ["size"] = "1024x1024" },
 });
@@ -1191,7 +1191,7 @@ texture atlas on a mesh backend; `GenerationStage.SelectInput` is where you stat
 
 **`3d → image → video` is not one of the chains you can build**, and the reason is worth knowing before you
 try: no image or video backend accepts a mesh, so that first edge is a *rasterization* rather than a
-generation and this platform performs none. `GenerationKinds.Model3d` exists so a backend serving it needs no
+generation and this platform performs none. `ProviderKinds.Model3d` exists so a backend serving it needs no
 contract change.
 
 Every backend answers **"are you usable?"** without generating anything (`ProbeAsync`), so a setup screen
@@ -1206,7 +1206,7 @@ is your call to change:
 
 ```csharp
 cfg.ConfigureGenerationRouting(p =>
-    p.On(ProviderVerdict.Refused, GenerationFallbackAction.Advance));   // local backend picks it up
+    p.On(ProviderVerdict.Refused, FallbackAction.Advance));   // local backend picks it up
 ```
 
 Backends come in the same three shapes as LLM providers — **remote** (HTTP), **spawned CLI**, and **local

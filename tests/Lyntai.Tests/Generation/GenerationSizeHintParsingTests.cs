@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
@@ -31,7 +32,7 @@ public class GenerationSizeHintParsingTests
 
     private static GenerationRequest Ask(string size) => new()
     {
-        Kind = GenerationKinds.Image,
+        Kind = ProviderKinds.Image,
         Prompt = "a red square",
         Options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["size"] = size },
     };

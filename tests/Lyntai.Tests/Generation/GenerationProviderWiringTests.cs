@@ -33,7 +33,7 @@ public class GenerationProviderWiringTests
         Assert.Equal("openai-images", provider.Id);
 
         var result = await provider.GenerateAsync(
-            new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" });
+            new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a red square" });
 
         Assert.Equal(ProviderVerdict.Ok, result.Verdict);
         Assert.StartsWith("https://example.invalid/v1", handler.Requests[0].Uri!.ToString());
@@ -92,7 +92,7 @@ public class GenerationProviderWiringTests
         using var sp = services.BuildServiceProvider();
 
         var provider = Assert.Single(sp.GetServices<IModelProvider>());
-        var ask = new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" };
+        var ask = new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
         Assert.Equal(ProviderVerdict.Ok, (await provider.GenerateAsync(ask)).Verdict);
         Assert.Equal(ProviderVerdict.Ok, (await provider.GenerateAsync(ask)).Verdict);
@@ -111,7 +111,7 @@ public class GenerationProviderWiringTests
             new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", ApiKey = "k" },
             () => made = new HttpClient(handler, disposeHandler: false));
 
-        await provider.GenerateAsync(new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "x" });
+        await provider.GenerateAsync(new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "x" });
 
         Assert.Throws<ObjectDisposedException>(() => made!.GetAsync("https://example.invalid/").GetAwaiter().GetResult());
     }
@@ -159,7 +159,7 @@ public class GenerationProviderWiringTests
         var provider = Assert.Single(sp.GetServices<IModelProvider>());
         Assert.Equal("local-diffusion", provider.Id);
 
-        await provider.GenerateAsync(new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "x" });
+        await provider.GenerateAsync(new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "x" });
 
         Assert.NotEmpty(runner.Calls);   // the host's runner did the spawning
     }

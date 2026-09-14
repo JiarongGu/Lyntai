@@ -19,13 +19,32 @@ public enum ProviderOperation
 
 /// <summary>The content types this library routes over. Open by construction —
 /// <see cref="ProviderCapabilities.Produces"/> is a string list — so an adapter may declare one that is not
-/// here; these are the names the library itself uses.</summary>
+/// here; these are the names the library itself uses.
+///
+/// <para>Deliberately CONSTANTS rather than an enum, so a backend offering a medium nobody has modelled yet
+/// fits without a breaking contract change — the same reasoning as the free-form <c>Method</c>/<c>Version</c>
+/// values in <c>docs/DECISIONS.md</c> D20. The media half was a SECOND copy of this list in
+/// <c>Lyntai.Generation</c> until <b>D140</b>, with backends setting one in a request and the other in their
+/// capabilities, adjacent fields of the same record.</para></summary>
 public static class ProviderKinds
 {
     public const string Text = "text";
+
+    /// <summary>A still image.</summary>
     public const string Image = "image";
+
+    /// <summary>Moving pictures, with or without an audio track.</summary>
     public const string Video = "video";
+
+    /// <summary>Speech, music or sound effects.</summary>
     public const string Audio = "audio";
+
+    /// <summary>A 3D asset (mesh/scene). <b>No shipped backend declares this kind, and a mesh does NOT chain
+    /// into <see cref="Image"/> or <see cref="Video"/>:</b> no image or video backend accepts a mesh, so the
+    /// 3d→image edge is a RASTERIZATION rather than a generation, and this platform performs none. A mesh
+    /// backend's own <c>image/*</c> artifacts are usually UV texture atlases — a flattened skin, not a view of
+    /// the object — so chaining one through <c>GenerationArtifact.ToInput</c> renders fine and is wrong. The
+    /// kind is declared so a backend serving it needs no contract change.</summary>
     public const string Model3d = "3d";
 
     /// <summary>What a RERANKER produces: a relevance score for a (query, document) pair. Unbounded and

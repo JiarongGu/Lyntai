@@ -12,9 +12,9 @@ public class GenerationRouterTests
 {
     private static GenerationRouter Router(params IModelProvider[] providers) => new(providers);
 
-    private static GenerationRequest Image() => new() { Kind = GenerationKinds.Image, Prompt = "a red square" };
+    private static GenerationRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
-    private static GenerationRequest Video() => new() { Kind = GenerationKinds.Video, Prompt = "a cat surfing" };
+    private static GenerationRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     [Fact]
     public async Task It_generates_through_the_first_capable_candidate()
@@ -147,7 +147,7 @@ public class GenerationRouterTests
             Capabilities = new ProviderCapabilities
             {
                 Accepts = [ProviderKinds.Text],
-                Produces = [GenerationKinds.Image],
+                Produces = [ProviderKinds.Image],
                 Operations = [ProviderOperation.Complete],
                 SupportsInputs = false,
             },
@@ -252,7 +252,7 @@ public class GenerationRouterTests
             Capabilities = new ProviderCapabilities
             {
                 Accepts = [ProviderKinds.Text],
-                Produces = [GenerationKinds.Image],
+                Produces = [ProviderKinds.Image],
                 Operations = [ProviderOperation.Complete],
                 Models = ["flux-1", "sdxl"],
             },
@@ -270,7 +270,7 @@ public class GenerationRouterTests
         var video = new FakeGenerationJobProvider { Id = "video-backend" };
 
         var submission = await Router(video).SubmitAsync(
-            [new ProviderCandidate("video-backend")], new GenerationRequest { Kind = GenerationKinds.Video, Prompt = "x" });
+            [new ProviderCandidate("video-backend")], new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "x" });
 
         Assert.Equal("video-backend", submission.ProviderId);
         Assert.Equal("op-1", submission.Operation.Id);
@@ -283,7 +283,7 @@ public class GenerationRouterTests
         var image = new FakeGenerationProvider { Id = "image-backend" };
 
         var submission = await Router(image).SubmitAsync(
-            [new ProviderCandidate("image-backend")], new GenerationRequest { Kind = GenerationKinds.Video, Prompt = "x" });
+            [new ProviderCandidate("image-backend")], new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "x" });
 
         Assert.Equal(GenerationOperationStatus.Failed, submission.Operation.Status);
         Assert.Contains("no capable", submission.Operation.Detail);

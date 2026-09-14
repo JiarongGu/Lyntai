@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Generation;
 /// ends the run or moves to the next candidate.</summary>
 public class GenerationRoutingPolicyTests
 {
-    private static GenerationRequest Image() => new() { Kind = GenerationKinds.Image, Prompt = "x" };
+    private static GenerationRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "x" };
 
     [Fact]
     public void The_defaults_mirror_the_LLM_router_so_one_mental_model_covers_both_domains()
@@ -22,13 +22,13 @@ public class GenerationRoutingPolicyTests
 
         // a content judgement ends the run; a capability gap is nobody's fault; a backend that told us to
         // back off gets benched; a maybe-transient fault counts toward the threshold
-        Assert.Equal(GenerationFallbackAction.Surface, policy.ActionFor(ProviderVerdict.Refused));
-        Assert.Equal(GenerationFallbackAction.Advance, policy.ActionFor(ProviderVerdict.NotConfigured));
-        Assert.Equal(GenerationFallbackAction.Advance, policy.ActionFor(ProviderVerdict.Unsupported));
-        Assert.Equal(GenerationFallbackAction.CooldownAndAdvance, policy.ActionFor(ProviderVerdict.RateLimited));
-        Assert.Equal(GenerationFallbackAction.CooldownAndAdvance, policy.ActionFor(ProviderVerdict.AuthFailed));
-        Assert.Equal(GenerationFallbackAction.PenalizeAndAdvance, policy.ActionFor(ProviderVerdict.Failed));
-        Assert.Equal(GenerationFallbackAction.PenalizeAndAdvance, policy.ActionFor(ProviderVerdict.Timeout));
+        Assert.Equal(FallbackAction.Surface, policy.ActionFor(ProviderVerdict.Refused));
+        Assert.Equal(FallbackAction.Advance, policy.ActionFor(ProviderVerdict.NotConfigured));
+        Assert.Equal(FallbackAction.Advance, policy.ActionFor(ProviderVerdict.Unsupported));
+        Assert.Equal(FallbackAction.CooldownAndAdvance, policy.ActionFor(ProviderVerdict.RateLimited));
+        Assert.Equal(FallbackAction.CooldownAndAdvance, policy.ActionFor(ProviderVerdict.AuthFailed));
+        Assert.Equal(FallbackAction.PenalizeAndAdvance, policy.ActionFor(ProviderVerdict.Failed));
+        Assert.Equal(FallbackAction.PenalizeAndAdvance, policy.ActionFor(ProviderVerdict.Timeout));
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class GenerationRoutingPolicyTests
         var refusing = new FakeGenerationProvider { Id = "hosted" };
         refusing.Verdicts.Enqueue(ProviderVerdict.Refused);
         var permissive = new FakeGenerationProvider { Id = "local" };
-        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Refused, GenerationFallbackAction.Advance);
+        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Refused, FallbackAction.Advance);
         var router = new GenerationRouter([refusing, permissive], policy);
 
         var result = await router.GenerateAsync(
@@ -58,7 +58,7 @@ public class GenerationRoutingPolicyTests
         first.Verdicts.Enqueue(ProviderVerdict.Refused);
         var second = new FakeGenerationProvider { Id = "b" };
         second.Verdicts.Enqueue(ProviderVerdict.Refused);
-        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Refused, GenerationFallbackAction.Advance);
+        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Refused, FallbackAction.Advance);
         var router = new GenerationRouter([first, second], policy);
 
         var result = await router.GenerateAsync(
@@ -75,7 +75,7 @@ public class GenerationRoutingPolicyTests
         var failing = new FakeGenerationProvider { Id = "a" };
         failing.Verdicts.Enqueue(ProviderVerdict.Failed);
         var working = new FakeGenerationProvider { Id = "b" };
-        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Failed, GenerationFallbackAction.Surface);
+        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Failed, FallbackAction.Surface);
         var router = new GenerationRouter([failing, working], policy);
 
         var result = await router.GenerateAsync(
@@ -97,7 +97,7 @@ public class GenerationRoutingPolicyTests
                 return refusing;
             })
             .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "local" })
-            .ConfigureGenerationRouting(p => p.On(ProviderVerdict.Refused, GenerationFallbackAction.Advance)));
+            .ConfigureGenerationRouting(p => p.On(ProviderVerdict.Refused, FallbackAction.Advance)));
         using var sp = services.BuildServiceProvider();
 
         var result = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(

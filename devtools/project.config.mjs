@@ -137,6 +137,17 @@ export default {
 
   retiredApiNames: [
     {
+      // D140. `GenerationInputRoles` is deliberately NOT here — a different vocabulary that happened to
+      // share a file, and whole-identifier equality keeps it live without an allowance.
+      names: [
+        'GenerationFallbackAction',
+        'GenerationKinds',
+      ],
+      use: '`Lyntai.Lifecycle.FallbackAction` and `Lyntai.Lifecycle.ProviderKinds`',
+      why: 'four identically-named, identically-meaning members each; D136 merged the routing table key '
+        + 'and left its value and its kinds duplicated (D140)',
+    },
+    {
       // D139. The cross-encoder is a provider producing ProviderKinds.Score; the memory policy that uses it
       // is ScoringVerificationPolicy in Core. `HttpRerankTransport` is internal and so never on a baseline.
       names: [
@@ -202,7 +213,7 @@ export default {
         + 'vendor for all four (D135)',
     },
     {
-      // D130. `Kinds` and `Embed` are whole-identifier tokens, so `ProviderKinds`, `GenerationKinds` and
+      // D130. `Kinds` and `Embed` are whole-identifier tokens, so `ProviderKinds`, `ProviderKinds` and
       // every `EmbedAsync` stay live without an allowance — which is the point of the tokenizing rule.
       names: ['Kinds', 'Embed'],
       use: '`ProviderCapabilities.Accepts` / `.Produces`, and `ProviderKinds.Vector` for what an embedder '
@@ -500,6 +511,12 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    {
+      // D140. The prose half; `GenerationInputRoles` absent for the reason on the surface rule above.
+      term: '\\bGenerationFallbackAction\\b|\\bGenerationKinds\\b',
+      why: 'the routing action and the media kinds are one vocabulary each, in Lyntai.Lifecycle (D140)',
+      use: '`FallbackAction` / `ProviderKinds`',
+    },
     {
       // D139. The prose half. "cross-encoder" the TECHNIQUE is not matched — it is still the right word for
       // what the model is, and only the type names moved.
