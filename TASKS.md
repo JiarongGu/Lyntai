@@ -15,23 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 7 Parts: 2 startable, 7 blocked, 1 watch
+## Open items — 10 across 7 Parts: 1 startable, 7 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 90 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 134 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 143 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 197 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 268 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 346 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 401 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 424 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 481 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
-| 740 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
+| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 482 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 751 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
 
 <!-- open-items:end -->
 
@@ -46,11 +46,12 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is TWO items**, Part 179's
+longer drift apart. Edit the marker, never the table. **The startable set is ONE item**, Part 179's
 seven having been filed and worked to completion on one day — a design REVIEW is the third route an item
 arrives by, and the only one that can be scheduled on purpose. The other two are a ruling and a captured
 failure, and neither comes from re-reading the tree; a review does, which is how it produced seven at
-once after months of ones and twos — two of them refuted, which is a close like any other.
+once after months of ones and twos — two of them refuted, which is a close like any other. A third
+refutation moved the SQLite dedup race to `watch`: its stated cause did not survive being read.
 `decision-only` is still EMPTY. That sentence is hand-written on purpose and gated by `check-counts`:
 the banner it replaces advertised finished work **four** times, and nothing derived it.
 
@@ -478,7 +479,7 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   not confirm or refute the `ProcessRunner` fix this item watches. The name was not captured; capture it if
   it recurs, which is the only thing that would make it actionable.
 
-- [ ] **`SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another caller is still using.** <!-- item: state=startable -->
+- [ ] **`SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another caller is still using.** <!-- item: state=watch kind=data needs="a recurrence with a full stack — the three hypotheses a reading can reach are refuted, so the next move needs the frame that raised it" -->
   **Captured 2026-09-14 — a name, an exception, and a reproduction, which is what the note above asked for
   and did not get.** `System.ObjectDisposedException: Cannot access a disposed object. Object name:
   'SQLitePCL.sqlite3'`, thrown inside `SqliteConnectionFactory.OpenAsync`
@@ -488,10 +489,20 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   class — so it is not `verify`-specific, not process-churn, and not the nine. Nothing here touches
   `ProcessRunner`.
   <br>**Startable, and the reproduction is the cheap part** — loop the single class until it fails. What
-  makes it worth doing rather than muting: the exception says a connection was DISPOSED while in use, which
-  is a lifetime defect in shipped storage code rather than a test-only race, and the same factory serves
-  every SQLite domain. A test that fails a third of the time is also a gate that passes two thirds of the
-  time for the wrong reason.
+  makes it worth doing rather than muting: the exception says a connection was DISPOSED while in use, and
+  the same factory serves every SQLite domain. A test that fails a third of the time is also a gate that
+  passes two thirds of the time for the wrong reason.
+  <br>**2026-09-15: did not reproduce in 8 consecutive runs, and the "shipped storage code" reading is
+  REFUTED — three hypotheses, each checked by reading rather than by re-running.** (1) A double dispose in
+  `SqliteCuratedMemoryStore.AddAsync`: no — connection and transaction are both `await using`, disposed in
+  the right order, and the factory builds a fresh `SqliteConnection` per call and disposes it on failure.
+  (2) `SqliteConnection.ClearAllPools()` evicting a concurrent test's handle: already fixed —
+  `TempDbPath.Dispose` clears only its OWN db's pool and `TempDb` delegates to it. The trap is now in
+  `pitfalls.md`, where it was not. (3) Work outliving the test method: no — every task in
+  `Dedup_add_race_settles_to_a_stable_id` is awaited through `Task.WhenAll`.
+  <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
+  BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
+  in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
 
 ## Part 109 — LoCoMo says the shipped ranking defaults lose to plain cosine on a uniform-history workload (2026-08-29)
 
