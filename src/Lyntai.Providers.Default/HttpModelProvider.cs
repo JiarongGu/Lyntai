@@ -46,23 +46,32 @@ public sealed class HttpModelProvider(
     {
         Accepts = [ProviderKinds.Text],
         Produces = [config.Produces],
-        Operations = ServesVectors(config)
-            ? [ProviderOperation.Complete]
-            : [ProviderOperation.Complete, ProviderOperation.Stream],
-        SupportsToolCalls = !ServesVectors(config),
-        SupportsStreamingToolCalls = !ServesVectors(config),
+        Operations = ServesText(config)
+            ? [ProviderOperation.Complete, ProviderOperation.Stream]
+            : [ProviderOperation.Complete],
+        SupportsToolCalls = ServesText(config),
+        SupportsStreamingToolCalls = ServesText(config),
     };
 
-    /// <summary>Does this registration post to <c>/embeddings</c> rather than <c>/chat/completions</c>? One
-    /// field decides the route, the wire shape, and which methods answer.</summary>
-    private static bool ServesVectors(HttpModelOptions c) =>
-        string.Equals(c.Produces, ProviderKinds.Vector, StringComparison.OrdinalIgnoreCase);
+    /// <summary>Which kind this registration serves — one field decides the route, the wire shape, and which
+    /// methods answer. Only text streams: there is no partially delivered embedding and no partial ranking,
+    /// so those two serve <see cref="ProviderOperation.Complete"/> alone.</summary>
+    private static bool Serves(HttpModelOptions c, string kind) =>
+        string.Equals(c.Produces, kind, StringComparison.OrdinalIgnoreCase);
+
+    private static bool ServesText(HttpModelOptions c) => Serves(c, ProviderKinds.Text);
+    private static bool ServesVectors(HttpModelOptions c) => Serves(c, ProviderKinds.Vector);
+    private static bool ServesScores(HttpModelOptions c) => Serves(c, ProviderKinds.Score);
 
     /// <summary>The <c>/embeddings</c> wire shape, or null when this backend produces something else. It is
     /// composed rather than inherited: an embeddings call has nothing in common with a completion beyond the
     /// host it is posted to.</summary>
     private readonly HttpEmbeddingsTransport? _embeddings = !ServesVectors(config) ? null
         : new HttpEmbeddingsTransport(id, config, httpFactory, options, logger, disposeHttpClient);
+
+    /// <summary>The <c>/v1/rerank</c> wire shape, or null when this backend produces something else.</summary>
+    private readonly HttpRerankTransport? _rerank = !ServesScores(config) ? null
+        : new HttpRerankTransport(id, config, httpFactory, options, logger, disposeHttpClient);
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(config.BaseUrl);
 
@@ -98,6 +107,15 @@ public sealed class HttpModelProvider(
             $"{id} produces {config.Produces}, not {ProviderKinds.Vector} — an embedding model is its own "
             + "backend, registered with Produces = ProviderKinds.Vector.");
 
+
+    /// <inheritdoc/>
+    /// <exception cref="NotSupportedException">This registration does not produce scores.</exception>
+    public Task<IReadOnlyList<double>> ScoreAsync(
+        string query, IReadOnlyList<string> documents, CancellationToken ct = default) =>
+        (_rerank ?? throw new NotSupportedException(
+            $"{id} produces {config.Produces}, not {ProviderKinds.Score} — a reranker is its own backend, "
+            + "registered with Produces = ProviderKinds.Score."))
+        .ScoreAsync(query, documents, ct);
 
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {

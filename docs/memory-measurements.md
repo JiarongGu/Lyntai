@@ -514,7 +514,7 @@ independent of the head defect: fixing #21729 would leave it true.
 a cross-encoder figure above.** The defect is architectural, so the first question it raises is whether it
 reaches the models this repository actually measured. It does not. Both rerankers behind every published
 cross-encoder number — `bge-reranker-v2-m3` Q8_0 (the +5.0 arm, `locomo-rerank-hl512-n200`, and what
-`AddMemoryCrossEncoderVerification` is documented against) and `LAMAR-600m` Q8_0 (`locomo-lamar600m-q8-n200`)
+`AddMemoryScoringVerification` is documented against) and `LAMAR-600m` Q8_0 (`locomo-lamar600m-q8-n200`)
 — declare `token_type_count = 1`, carry an intact `cls.weight [1024,1024]` pooler, and score **10/10**:
 
 | published arm | on disk | `token_type_count` | reference pair | spread |
@@ -557,7 +557,7 @@ produced, including why a `cls.output.weight` check cannot condemn a non-BERT ar
    established — but a model could reproduce it and still be poor, and the reference magnitude belongs to
    `ms-marco-MiniLM-L6-v2` rather than to every family.
 5. `ships=no`, and the seam it would fill takes a `/v1/rerank` endpoint through
-   `AddMemoryCrossEncoderVerification` (**D115**). Nothing here recommends a default.
+   `AddMemoryScoringVerification` (**D115**). Nothing here recommends a default.
 
 **The instrument defect this pass created and caught, because it is the reusable half.** The first
 reference run FAILED the known-good control, which is implausible — and the cause was the harness sending
@@ -601,7 +601,7 @@ recorded as the floor.
    rather than the runtime.
 3. **The 512-token ceiling is untouched.** It is a property of the model, not the converter, and D108's
    seam hands a verifier `Content`.
-4. **It was measured in Python, not through this library's seam.** `AddMemoryCrossEncoderVerification`
+4. **It was measured in Python, not through this library's seam.** `AddMemoryScoringVerification`
    (**D115**) takes a `/v1/rerank` HTTP endpoint; an ONNX model has no server. Reaching it needs either an
    in-process `IMemoryVerificationPolicy` or something to host it — that gap is real and is not costed
    here.
@@ -3912,11 +3912,11 @@ model in every cell.
 
 **The `rerank` arm ran a bench-local STAND-IN, not the shipped policy, and that is the one naming difference
 that matters here.** `CrossEncoderVerifier` is the harness's own class;
-`src/Lyntai.Providers.Default/CrossEncoderVerificationPolicy.cs` is what `AddMemoryCrossEncoderVerification`
+`src/Lyntai.Core/Memory/Verification/ScoringVerificationPolicy.cs` is what `AddMemoryScoringVerification`
 registers. The two are equivalent FOR A COST MEASUREMENT — the same POST to the same `/v1/rerank`
 endpoint against the same model, and the same fixed top-N endorsement rule, differing only in where N comes
 from (a constructor argument set to the recall limit, against
-`CrossEncoderVerificationOptions.EndorseCount`) — so the latency is dominated by an identical HTTP call and
+`ScoringVerificationOptions.EndorseCount`) — so the latency is dominated by an identical HTTP call and
 these figures carry — **except CLIENT LIFETIME.** The bench shares ONE `HttpClient` (`UseProxy = false`)
 across every call; the shipped policy's default (`disposeHttpClient = true`) creates and disposes one PER
 call via `httpFactory()`, which against a 94.5 ms mixed p50 is not noise. So the absolute `rerank` figures
@@ -3933,7 +3933,7 @@ was wrong.
 
 **Neither arm SHIPS**, which is why the row reads `ships=no` — and on the `rerank` side for two independent
 reasons, the stand-in above being the second. Verification is opt-in in full: a default engine registers no
-`IMemoryVerificationPolicy` at all, and both `AddMemoryVerification` and `AddMemoryCrossEncoderVerification`
+`IMemoryVerificationPolicy` at all, and both `AddMemoryVerification` and `AddMemoryScoringVerification`
 are calls a consumer makes deliberately. Each arm is a rung.
 
 **Instrument.** `node devtools/dev.mjs memory-contention --device both --verifier both --writes 50
@@ -4101,7 +4101,7 @@ other number in that file stands; only that one line does not.
 CONDITIONAL, not general.** `Partition` only costs anything when the endorsed set is larger than the page:
 everything unendorsed is pushed off however well it was ranked, so promotion REPLACES the ranking instead of
 refining it. This run's judge endorsed **33.6 for a 20-slot page**, which is the condition met.
-`CrossEncoderVerificationOptions.EndorseCount` — the shipped cross-encoder seam (**D115**) — is a **FIXED
+`ScoringVerificationOptions.EndorseCount` — the shipped cross-encoder seam (**D115**) — is a **FIXED
 count defaulting to 20**, so it endorses at most a page's worth by construction and **cannot reach the
 failure measured here at all**. Read the 3.5 points as the price of an instruct judge that floods, never as a
 property of `Partition` alone; on the seam a deployment is most likely to register, the two combination rules

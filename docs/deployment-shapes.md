@@ -46,8 +46,8 @@ infrastructure beside whatever the application's own model is doing.
   (`docs/task-archive.md` Part 190). Splitting beats shrinking.
 - **A cross-encoder is the measured way to spend under a gigabyte on that seam.** 468,393,760 B captures
   **6.0 of the 7.0 points** a perfect judge offers, where 806,058,240 B of instruct model captures **0.0**
-  and is inert. A 4B judge at the shipped depth SPENDS 10.5 points. `AddMemoryCrossEncoderVerification`
-  (**D115**) is the shipped route; set `CrossEncoderVerificationOptions.EndorseCount` to your recall limit,
+  and is inert. A 4B judge at the shipped depth SPENDS 10.5 points. `AddMemoryScoringVerification`
+  (**D115**) is the shipped route; set `ScoringVerificationOptions.EndorseCount` to your recall limit,
   because endorsing more than a page replaces the ranking instead of refining it.
 - **Annotation runs on EVERY write**, so it is the seam most worth pinning to a small fast backend —
   `LlmAnnotationOptions.ClientName` exists for exactly that.

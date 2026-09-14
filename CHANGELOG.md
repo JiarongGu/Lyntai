@@ -31,7 +31,26 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   write. Task isolation itself (`docs/memory.md` §7) is unchanged — it was the address that leaked, not the
   rule. Detail in `docs/FIXES.md`.
 
+### Added
+
+- **A reranker is a provider like any other: `ProviderKinds.Score`** (**D139**). `IModelProvider` gains
+  `ScoreAsync(query, documents)` — one score per document, in INPUT order — and an HTTP reranker is
+  `AddHttpProvider("rerank", o => { o.BaseUrl = …; o.Produces = ProviderKinds.Score; })`. No new
+  registration method, no new options type, no new package: `Produces` picks the `/v1/rerank` route exactly
+  as it picks `/embeddings`. This is D130's prediction collected, and it makes a cross-encoder reachable by
+  anything — a ranking policy, a scorer, a tool selector — rather than by memory alone.
+
 ### Breaking
+
+- **The cross-encoder verification policy moves to `Lyntai.Core` and its transport becomes a provider**
+  (**D139**). `AddMemoryCrossEncoderVerification(o => { o.BaseUrl = …; o.EndorseCount = … })` becomes <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
+  `AddHttpProvider` for the endpoint plus `AddMemoryScoringVerification(o => o.EndorseCount = …)` for what
+  memory does with the scores; `CrossEncoderVerificationPolicy`/`Options` become <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
+  `ScoringVerificationPolicy`/`ScoringVerificationOptions`. A memory policy no longer ships inside a
+  provider adapter, and any backend producing `ProviderKinds.Score` fills the seam.
+  <br>**One behaviour tightened:** a rerank answer carrying an index the caller never sent, or leaving a
+  document unscored, is now rejected whole rather than partially trusted — an unscored slot reads as `0.0`,
+  which ranks as confidently as a real score.
 
 - **The provider TYPES catch up with their registrations** (**D138**). `LocalProvider` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `LlamaSharpProvider`, `LocalModelOptions` → `LlamaSharpOptions`, and the namespace <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
@@ -218,7 +237,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   router's precedence is unchanged.
 
 - **`MemoryVerification.Scores` — a verification verdict now carries the score it judged on** (**D118**).
-  `CrossEncoderVerificationPolicy` computed a real-valued score per candidate and discarded all of it at the
+  `ScoringVerificationPolicy` computed a real-valued score per candidate and discarded all of it at the
   endorsement cut; no public type carried a per-option confidence out of a model-backed seam, which is what
   a decision system is usually built on. It covers EVERY candidate scored, not the endorsed subset — the
   rejected scores are the half a margin needs. **Null is not an empty map**: null means the policy reported
@@ -264,7 +283,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   does NOT cover: the tool loop forwards the CALLER's tag, so its iterations bill to whatever the caller
   set. That is deliberate — re-tagging would silently move spend out of a cap someone already configured.
 
-- **`AddMemoryCrossEncoderVerification` — fill the memory verification seam with a RERANKER instead of an
+- **`AddMemoryScoringVerification` — fill the memory verification seam with a RERANKER instead of an
   instruct model.** A cross-encoder over any OpenAI/Cohere-shaped `/v1/rerank` endpoint (llama.cpp's
   `--reranking` mode, Cohere, Jina, TEI). It scores `(query, candidate)` pairs and never generates, so it
   runs in a fraction of the memory an instruct model needs and pays none of generation's latency.
@@ -273,7 +292,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   code that could call a rerank endpoint was a bench harness, so that measurement described a configuration
   no consumer could actually reach. Both remain ladder rungs rather than defaults —
   `docs/memory-measurements.md` §5 owns the figures and their limits, and this seam still ships empty.
-  <br>**Set `CrossEncoderVerificationOptions.EndorseCount` to your recall limit.** It cannot be defaulted
+  <br>**Set `ScoringVerificationOptions.EndorseCount` to your recall limit.** It cannot be defaulted
   for you, because `MemoryVerificationRequest` deliberately does not carry the caller's limit. A fixed count
   keeps promotion a REFINEMENT of the ranking; endorsing more than a page replaces it, which is precisely
   how the instruct judge lost its points. Opt-in and fail-open like every model-backed memory seam: an

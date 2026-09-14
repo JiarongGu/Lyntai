@@ -3578,3 +3578,26 @@ source's copy); the third was an inline interpolation on the engine's own simila
 grepping for calls to the helper cannot see, because the sites that BYPASS an owner are the only ones that
 can drift. The tests caught it, and only because they were first confirmed to FAIL with the separator
 temporarily restored.
+
+---
+
+## Part 210 — the reranker becomes a provider, and the memory policy that uses it moves to Core
+
+✅ closed 2026-09-15. `TASKS.md` Part 179's second item, from the D125–D138 design review.
+
+- **A provider package implements a MEMORY seam, which is the thesis violation itself.**
+
+**Outcome: `ProviderKinds.Score` + `IModelProvider.ScoreAsync` (**D139**).** An HTTP reranker is
+`AddHttpProvider(id, o => o.Produces = ProviderKinds.Score)` — no new registration method, no new options
+type, no new package, because `Produces` picks the `/v1/rerank` route exactly as it picks `/embeddings`.
+The memory half is `ScoringVerificationPolicy` in `Lyntai.Core`, over any backend declaring that kind.
+
+**It collected D130's own prediction verbatim** — *"a reranker is `Produces: [score]` — no new operation,
+no new interface, no new family"* — which is the strongest evidence the capability model is right, since
+the shape was predicted three days before anything needed it.
+
+**The proof the split worked is in the tests.** The fused class's suite drove every POLICY assertion
+through a scripted HTTP handler; the policy's tests now use a fake provider and need no wire at all, and
+only the wire-shape tests kept the handler. D115's placement argument was FOOTPRINT ("no new dependency, no
+new package"), which answers a packaging question — the layering question was never asked, and its entry
+now carries that correction at its head.

@@ -1031,6 +1031,7 @@ interface Lyntai.Lifecycle.IModelProvider
     Id : String
     IsAvailable : Boolean
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
+    ScoreAsync(String query, IReadOnlyList<String> documents, CancellationToken ct = default) : Task<IReadOnlyList<Double>>
     StreamAsync(GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
 interface Lyntai.Lifecycle.IProviderAdmission
@@ -1095,6 +1096,7 @@ static class Lyntai.Lifecycle.ProviderKinds
     Audio : String const
     Image : String const
     Model3d : String const
+    Score : String const
     Text : String const
     Vector : String const
     Video : String const
@@ -2547,6 +2549,12 @@ sealed class Lyntai.Memory.Verification.MemoryVerificationRequest
     GetHashCode() : Int32
     Query : String
     ToString() : String
+sealed class Lyntai.Memory.Verification.ScoringVerificationOptions
+    .ctor()
+    EndorseCount : Int32
+sealed class Lyntai.Memory.Verification.ScoringVerificationPolicy
+    .ctor(IEnumerable<IModelProvider> providers, ScoringVerificationOptions config, ILogger<ScoringVerificationPolicy> logger = null)
+    VerifyAsync(MemoryVerificationRequest request, CancellationToken ct = default) : Task<MemoryVerification>
 static class Lyntai.MemoryAnnotationRegistration
     static AddMemoryAnnotation(LyntaiBuilder builder, Action<LlmAnnotationOptions> configure = null) : LyntaiBuilder
 static class Lyntai.MemoryEngineRegistration
@@ -2611,6 +2619,8 @@ sealed class Lyntai.RateLimitOptions
     MaxWait : TimeSpan
     PerConsumer : Dictionary<String,ConsumerRate>
     PermitsPerSecond : Double
+static class Lyntai.ScoringVerificationRegistration
+    static AddMemoryScoringVerification(LyntaiBuilder builder, Action<ScoringVerificationOptions> configure = null) : LyntaiBuilder
 static class Lyntai.SecretVaultBuilderExtensions
     static AddEnvelopeSecretVault(LyntaiBuilder builder, ISecretProtector machineProtector, ISecretAccessPolicy accessPolicy = null) : LyntaiBuilder
     static AddPlaintextSecretVault(LyntaiBuilder builder, ISecretAccessPolicy accessPolicy = null) : LyntaiBuilder

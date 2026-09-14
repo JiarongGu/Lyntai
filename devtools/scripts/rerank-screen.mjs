@@ -1,6 +1,6 @@
 // rerank-screen — does a candidate GGUF actually WORK as a reranker, before anybody spends a run on it?
 //
-// It fills the memory verification seam (**D115**, `AddMemoryCrossEncoderVerification`), where model SIZE
+// It fills the memory verification seam (**D115**, `AddMemoryScoringVerification`), where model SIZE
 // is a live question (`docs/model-tasks.md` §3). A survey alone is not enough: a community GGUF can load
 // and score garbage, or load and reject the inputs the benches actually send.
 //

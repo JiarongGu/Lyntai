@@ -28,6 +28,11 @@ public static class ProviderKinds
     public const string Audio = "audio";
     public const string Model3d = "3d";
 
+    /// <summary>What a RERANKER produces: a relevance score for a (query, document) pair. Unbounded and
+    /// comparable only WITHIN one call — a cross-encoder's logit is not a probability and two models do not
+    /// share a scale, so a caller ranks by it and must never threshold on it across backends.</summary>
+    public const string Score = "score";
+
     /// <summary>What an EMBEDDER produces. It is a kind rather than an operation, and that is the whole
     /// correction: an embedder accepts text and produces vectors, exactly as an image backend accepts text
     /// and produces an image. Treating it as its own operation made it the one member that had to be

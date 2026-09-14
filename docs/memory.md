@@ -387,7 +387,7 @@ services.AddLyntai(b => b
 ```
 
 **A cross-encoder is the other shipped way to fill this seam, and on the field benchmark it is the one that
-wins.** `AddMemoryCrossEncoderVerification` points the same seam at a `/v1/rerank` endpoint instead of an
+wins.** `AddMemoryScoringVerification` points the same seam at a `/v1/rerank` endpoint instead of an
 instruct model: it scores `(query, candidate)` pairs and never generates, so it needs a fraction of the
 memory and pays none of generation's latency. A sub-500 MB cross-encoder captured **6.0 of the 7.0 points**
 a perfect judge offers on LoCoMo, where the 4B instruct judge *spends* 10.5 at the shipped depth — figures

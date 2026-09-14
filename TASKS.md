@@ -15,29 +15,28 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 16 across 8 Parts: 8 startable, 7 blocked, 1 watch
+## Open items — 15 across 8 Parts: 7 startable, 7 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 96 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 140 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 149 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 203 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 274 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 352 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 407 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 430 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 478 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
-| 737 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
-| 917 | 179 | A provider package implements a MEMORY seam, which is the thesis violation … | startable |  |
-| 926 | 179 | Two more instances of the D136 class — one taxonomy under two names | startable |  |
-| 935 | 179 | `FuseVerdict` reads a fresh default, not the configured options | startable |  |
-| 942 | 179 | `CLAUDE.md`'s graph-memory roster says SEVEN domains and the tree has EIGHT | startable |  |
-| 948 | 179 | Pooling maths is `internal` to the ONNX package and re-implemented by hand … | startable |  |
-| 955 | 179 | `Lyntai.Tools.Mcp` and `Lyntai.Tools.Mcp.Hosting` isolate the same dependen… | startable |  |
+| 95 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 139 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 148 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 202 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 273 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 351 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 406 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 429 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 477 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
+| 736 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
+| 916 | 179 | Two more instances of the D136 class — one taxonomy under two names | startable |  |
+| 925 | 179 | `FuseVerdict` reads a fresh default, not the configured options | startable |  |
+| 932 | 179 | `CLAUDE.md`'s graph-memory roster says SEVEN domains and the tree has EIGHT | startable |  |
+| 938 | 179 | Pooling maths is `internal` to the ONNX package and re-implemented by hand … | startable |  |
+| 945 | 179 | `Lyntai.Tools.Mcp` and `Lyntai.Tools.Mcp.Hosting` isolate the same dependen… | startable |  |
 
 <!-- open-items:end -->
 
@@ -52,11 +51,11 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is EIGHT items**, six of them
+longer drift apart. Edit the marker, never the table. **The startable set is SEVEN items**, five of them
 Part 179's — a design REVIEW, which is the third route an item arrives by and the only one that can be
 scheduled on purpose. The other two are a ruling and a captured failure, and neither comes from re-reading
 the tree; a review does, which is why it produced seven at once after months of ones and twos, and why the
-first of them closed the day it was filed.
+first two closed the day they were filed.
 `decision-only` is still EMPTY. That sentence is hand-written on purpose and gated by `check-counts`:
 the banner it replaces advertised finished work **four** times, and nothing derived it.
 
@@ -747,7 +746,7 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   `docs/task-archive.md` Part 208) is an ONNX session, a WordPiece pass and a pooling step in this
   repository, so a cross-encoder head is a class beside `OnnxProvider` rather than a new package — the
   session plumbing and `Lyntai.Text.WordPieceTokenizer` are already shared.
-  <br>**Two pieces of real work remain.** REACHABILITY: `AddMemoryCrossEncoderVerification` (**D115**)
+  <br>**Two pieces of real work remain.** REACHABILITY: `AddMemoryScoringVerification` (**D115**)
   takes a `/v1/rerank` endpoint and an ONNX file has no server, so this needs an in-process
   `IMemoryVerificationPolicy` — a seam that exists, with no ONNX implementation behind it. And the
   tokenizer needs its PAIR overload: a cross-encoder's whole signal is `token_type_ids` 0 for the query
@@ -811,7 +810,7 @@ turned out to be two unrelated tasks, and `classify` overstated what this librar
 that doc's §3 before scoping the item above**: the only sub-500 MB evidence this repository holds tests
 the RERANKER role and is `ships=no`, so "which shapes survive at <500 MB" is still eight blanks and one
 qualified cell. (That note also said **the library ships no adapter that can call a rerank endpoint**,
-which **D115** made false the next day — `AddMemoryCrossEncoderVerification` is one.)_
+which **D115** made false the next day — `AddMemoryScoringVerification` is one.)_
 
 ---
 
@@ -844,7 +843,7 @@ model at three options and pulls AHEAD as the list grows. It is the only arm fla
 
 _**And a decision IS expressible through what ships** — `IMemoryVerificationPolicy` takes
 `(query, bounded candidate list)` and already separates *the seam did not answer* from *none of these*,
-while `CrossEncoderVerificationPolicy` with `EndorseCount = 1` IS the argmax. `docs/model-tasks.md` §6
+while `ScoringVerificationPolicy` with `EndorseCount = 1` IS the argmax. `docs/model-tasks.md` §6
 carries the comparison against the other four seams, so nobody re-walks them._
 
 _**The per-option-score item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 204** / **D118**:
@@ -913,15 +912,6 @@ with a backend is process logic and belongs in Core**. The thesis HOLDS in the m
 across 69 files `Lyntai.Core/Memory` names no `HttpClient`, no ONNX or storage type, no provider id and no
 model id, and duplicates no routing logic. Every finding below is the other direction, or a residue of the
 rename campaign. Items are ordered by the order they should be taken, not by severity alone.
-
-- [ ] **A provider package implements a MEMORY seam, which is the thesis violation itself.** <!-- item: state=startable -->
-  `src/Lyntai.Providers.Default/CrossEncoderVerificationPolicy.cs:32` is `: IMemoryVerificationPolicy`, one
-  class fusing the rerank HTTP transport with memory business logic — the `Content ?? Headline` choice
-  (**D108**) and the top-`EndorseCount` cut. Cost: nothing else in the tree can call a rerank endpoint, so a
-  scorer, a ranking policy or an `IToolSelector` wanting one rewrites the HTTP. **D130 already predicted the
-  shape**: *"a reranker is `Produces: [score]` — no new operation, no new interface, no new family."*
-  `ProviderKinds` has no `Score` member, and this class stands in for it. Closing this also unblocks
-  `TASKS.md` Part 177's second half.
 
 - [ ] **Two more instances of the D136 class — one taxonomy under two names.** <!-- item: state=startable -->
   `FallbackAction` (`Llm/Routing/FallbackAction.cs`) and `GenerationFallbackAction`

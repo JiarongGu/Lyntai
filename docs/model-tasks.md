@@ -24,7 +24,7 @@ does and does not cover, and a blank means *not yet shown to fit the budget*, ne
 | **select-from-list** | which members of a visible list qualify | `LlmVerificationOptions` (which notes answered) | per RECALL, one call for all candidates | option | no |
 | **select-from-list** (short) | pick one of two | `IPairwiseComparer` | 2 calls per pair, by default | composition root | no |
 | **select-from-list** (roster) | which tool to call, or none | `IToolLoop`, both paths | per loop iteration, up to `LyntaiOptions.ToolLoopMaxIterations` | composition root | **yes — §3.1** |
-| **score-a-pair** (cross-encoder) | how relevant is this document to this query | `CrossEncoderVerificationOptions` | per candidate | endpoint | **yes, one row** |
+| **score-a-pair** (cross-encoder) | how relevant is this document to this query | `ScoringVerificationOptions` | per candidate | endpoint | **yes, one row** |
 | **score-a-pair** (generative) | grade this output against this input, 0..1 | `LlmScorerBase`, and `RelevancyScorer` under it | per evaluation, per scorer | composition root | no |
 | **classify** | is this fact durable enough to keep verbatim | `LlmAnnotationOptions.SuggestGrade`, off by default | per WRITE, when on | option | no |
 | **affordance** | given these tools, what do you want | `MemoryTools`, the generation tools, an MCP-hosted toolset | per model tool call, unbounded by this library | no | **yes — §3.1** |
@@ -207,7 +207,7 @@ the measured floor, with sub-100 MB blocked by an unmerged patch rather than by 
 > convert one". **What survives untouched** is the multilingual half — the 250,002-token vocabulary is a
 > property of the model, not the runtime, so a Chinese-first deployment is still above 100 MB — and the
 > 512-token ceiling, likewise the model's. **What is NOT established** is any quality figure, and that the
-> library can reach an ONNX model at all: `AddMemoryCrossEncoderVerification` (**D115**) takes a
+> library can reach an ONNX model at all: `AddMemoryScoringVerification` (**D115**) takes a
 > `/v1/rerank` endpoint and an ONNX file has no server.
 
 **RE-AIMED 2026-09-12, and this paragraph read as more final than it is.** Everything above is about the
@@ -266,10 +266,10 @@ multilingual export, and the caveat in D122 is that those are usually SentencePi
 2. **`ships=no`.** It is a ladder rung, not a configuration recommendation. Reading a rung, a ceiling or an
    oracle as a default is the specific mistake `docs/memory-measurements.md` invites and its status index
    exists to prevent.
-3. **You can now reach it from configuration** — `AddMemoryCrossEncoderVerification` fills the verification
+3. **You can now reach it from configuration** — `AddMemoryScoringVerification` fills the verification
    seam from a `/v1/rerank` endpoint. Until it shipped, the only code that could call one was a bench
    harness, so this row's measurement described something a consumer could not have. **Set
-   `CrossEncoderVerificationOptions.EndorseCount` to your recall limit**: it is a fixed count so that
+   `ScoringVerificationOptions.EndorseCount` to your recall limit**: it is a fixed count so that
    promotion refines the ranking, and endorsing more than a page replaces it instead — which is exactly how
    an instruct model lost 10.5 points in the neighbouring row.
 
@@ -365,7 +365,7 @@ the fallback was the wrong answer for your model.
 
 ### 3.2 Cross-encoder candidates under 500 MB — a DESK survey, not a measurement
 
-**The candidate list for `AddMemoryCrossEncoderVerification` (D115).** Moved here from `TASKS.md` on
+**The candidate list for `AddMemoryScoringVerification` (D115).** Moved here from `TASKS.md` on
 2026-09-12 when the item holding it was retired — it is the candidate list for a SHIPPED seam, which is
 maintained state rather than open work.
 
@@ -526,8 +526,8 @@ surface (`TASKS.md` Part 178, `docs/task-archive.md` Part 193).
 carries an `Id`, a `Relevance` and — since **D108** — its whole `Content`. The reply distinguishes the two
 answers a decision seam must never conflate: `MemoryVerification.NoOpinion` is *the seam did not answer*
 (`Judged: false`), and `NothingRelevant` is a first-class *none of these* (`Judged: true`). And
-`CrossEncoderVerificationPolicy` with `CrossEncoderVerificationOptions.EndorseCount = 1` is argmax over N
-scorings in ONE round trip, reachable through `AddMemoryCrossEncoderVerification` (**D115**).
+`ScoringVerificationPolicy` with `ScoringVerificationOptions.EndorseCount = 1` is argmax over N
+scorings in ONE round trip, reachable through `AddMemoryScoringVerification` (**D115**).
 
 **What is missing is the MARGIN, not the ability to ask.** `MemoryVerification` is
 `(IReadOnlyList<string>, bool)`, so the cross-encoder's real-valued scores are computed and discarded at

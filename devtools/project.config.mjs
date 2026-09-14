@@ -137,6 +137,20 @@ export default {
 
   retiredApiNames: [
     {
+      // D139. The cross-encoder is a provider producing ProviderKinds.Score; the memory policy that uses it
+      // is ScoringVerificationPolicy in Core. `HttpRerankTransport` is internal and so never on a baseline.
+      names: [
+        'AddMemoryCrossEncoderVerification',
+        'CrossEncoderVerificationPolicy',
+        'CrossEncoderVerificationOptions',
+        'CrossEncoderVerificationRegistration',
+      ],
+      use: '`AddHttpProvider` with `Produces = ProviderKinds.Score`, plus '
+        + '`AddMemoryScoringVerification` / `ScoringVerificationPolicy` / `ScoringVerificationOptions`',
+      why: 'a memory seam implemented inside a provider package fused the engine decisions with the wire, '
+        + 'so nothing else in the tree could reach a rerank endpoint (D139)',
+    },
+    {
       // D138. `LocalDiffusionProvider` and `LocalDiffusionOptions` are deliberately NOT here: there "Local"
       // describes the DEPLOYMENT — a host-supplied sd-cli binary — rather than standing in for a vendor,
       // and whole-identifier equality keeps both live without an allowance.
@@ -486,6 +500,13 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    {
+      // D139. The prose half. "cross-encoder" the TECHNIQUE is not matched — it is still the right word for
+      // what the model is, and only the type names moved.
+      term: '\\bAddMemoryCrossEncoderVerification\\b|\\bCrossEncoderVerificationPolicy\\b|\\bCrossEncoderVerificationOptions\\b|\\bCrossEncoderVerificationRegistration\\b',
+      why: 'the reranker is a provider producing scores, and the policy that uses it lives in Core (D139)',
+      use: '`AddMemoryScoringVerification` / `ScoringVerificationPolicy` / `ScoringVerificationOptions`',
+    },
     {
       // D138. The prose half. LocalDiffusion* is absent for the reason on the surface rule above, and the
       // NAMESPACE is matched too — it was the last place `Lyntai.Providers.Local` survived.

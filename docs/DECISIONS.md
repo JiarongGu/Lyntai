@@ -208,8 +208,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D136](#d136--one-verdict-taxonomy-for-every-domain-the-translation-layer-is-deleted-2026-09-14) | 2026-09-14 | one verdict taxonomy for every domain; the translation layer is deleted |
 | [D137](#d137--a-registration-names-what-it-registers-so-every-backend-carries-provider-2026-09-14) | 2026-09-14 | a registration names what it REGISTERS, so every backend carries `Provider` |
 | [D138](#d138--the-type-layer-catches-up-llamasharpprovider-onnxprovider-and-a-namespace-that-agrees-2026-09-15) | 2026-09-15 | the type layer catches up: `LlamaSharpProvider`, `OnnxProvider`, and a namespace that agrees |
+| [D139](#d139--a-reranker-is-produces-score-and-the-memory-policy-that-uses-it-lives-in-core-2026-09-15) | 2026-09-15 | a reranker is `Produces: [score]`, and the memory policy that uses it lives in Core |
 
-_All 138 entries are live decisions._
+_All 139 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3423,11 +3424,18 @@ never `yes`.
 
 ## D115 — a model-backed RANKER fills the VERIFICATION seam, and endorses a fixed page's worth (2026-09-11)
 
+> **The PLACEMENT is superseded by D139.** What this entry decided — a reranker fills the verification seam, <!-- drift-ok: the amendment naming what it corrects -->
+> endorsing a fixed page's worth — all stands. Where the code LIVES does not: it argued the package by
+> footprint ("no new dependency, no new package"), which answers a packaging question and not a layering
+> one, and the result was a memory policy implemented inside a provider adapter. The policy is now
+> `ScoringVerificationPolicy` in `Lyntai.Core`, over any backend producing `ProviderKinds.Score`; the wire
+> shape is the HTTP provider's.
+
 `docs/memory-measurements.md` §5 prices the retrieval gap as ranking rather than retrieval, and a
 sub-500 MB cross-encoder captures 6.0 of the 7.0 points a perfect judge offers where a 4B instruct judge
 SPENDS 10.5. Until now the only code that could call a `/v1/rerank` endpoint was a bench harness, so the
-best-measured configuration in the subsystem was one no consumer could reach.
-`AddMemoryCrossEncoderVerification` ships it, in `Lyntai.Providers.Default` beside `HttpEmbeddingsTransport` — the
+best-measured configuration in the subsystem was one no consumer could reach. <!-- drift-ok: the name and package this entry decided; D139 moved both -->
+`AddMemoryCrossEncoderVerification` ships it, in `Lyntai.Providers.Default` beside `HttpEmbeddingsTransport` — the <!-- drift-ok: the name and package this entry decided; D139 moved both -->
 same footprint, no new dependency, and no new package.
 
 **The ranking seam was the obvious home and it is unusable.** `IMemoryRankingPolicy.Rank` is synchronous
@@ -3513,13 +3521,13 @@ this reads it from `RunAsync` instead.
 ## D118 — a verification verdict carries the SCORE it judged on, for every candidate it scored (2026-09-13)
 
 `MemoryVerification` gains `Scores` (`IReadOnlyDictionary<string, double>?`, keyed by candidate id) as an
-init-only property. `CrossEncoderVerificationPolicy` populates it; `LlmMemoryVerificationPolicy` leaves it
+init-only property. `CrossEncoderVerificationPolicy` populates it; `LlmMemoryVerificationPolicy` leaves it <!-- drift-ok: the name this entry was written under; D139 renamed it -->
 null, because a judge returns ids and has no per-candidate number to report.
 
 **The gap was that the seam threw the number away.** That policy already computed a real-valued score per
 candidate and discarded all of it at the endorsement cut, and no public type in the library carried a
 per-option score or confidence out of a model-backed seam — which is what a decision system is usually
-built on. `CrossEncoderVerificationPolicy` with `EndorseCount = 1` IS an argmax, and an argmax that cannot
+built on. `CrossEncoderVerificationPolicy` with `EndorseCount = 1` IS an argmax, and an argmax that cannot <!-- drift-ok: the name this entry was written under; D139 renamed it -->
 report its margin is the one shape a caller cannot reconstruct from outside.
 
 **Every candidate it scored, not the endorsed subset.** The rejected scores are the half a margin needs: an
@@ -4240,3 +4248,40 @@ amortized rather than added.
 describes the DEPLOYMENT — it drives an `sd-cli` binary the host supplies, engine-agnostic — rather than
 standing in for a vendor nobody named. Both registries exclude it by whole-identifier matching rather than
 by an allowance, which is the check that the distinction is real.
+
+## D139 — a reranker is `Produces: [score]`, and the memory policy that uses it lives in Core (2026-09-15)
+
+`ProviderKinds.Score` and `IModelProvider.ScoreAsync` join the seam; an HTTP reranker is
+`AddHttpProvider(id, o => { o.Produces = ProviderKinds.Score; })` with `HttpRerankTransport` behind it. The
+memory half becomes `ScoringVerificationPolicy` in `Lyntai.Core/Memory/Verification`, over ANY backend
+declaring that kind.
+
+**This is D130's own prediction, collected.** That entry said *"a reranker is `Produces: [score]` — no new
+operation, no new interface, no new family"*, and it holds literally: no new registration method, no new
+options type, no new package. `Produces` picks the route exactly as it does for vectors (**D133**), because
+a rerank server IS a separate backend — its own process, its own port, one model.
+
+**What it replaces was the layering violation the D125–D138 review was looking for.**
+`CrossEncoderVerificationPolicy` implemented a MEMORY seam inside a PROVIDER package, fusing the <!-- drift-ok: names what this entry retires -->
+`/v1/rerank` client with the engine's decisions — which field of a candidate to send (**D108**), how many to
+endorse (**D115**). **D115** justified the package by FOOTPRINT ("no new dependency, no new package"), which
+answers a packaging question; the layering question was never asked.
+
+**The cost of the fusion was that nothing else could rerank.** One class in `Lyntai.Providers.Default` was
+the only code in the tree that could call a rerank endpoint, so a ranking policy, a cortex scorer or an
+`IToolSelector` wanting one would have written the HTTP again — the second-door shape `pitfalls.md` records.
+
+**`ScoreAsync` is a separate METHOD for the reason `EmbedAsync` is**: its shape differs, not its kind of
+call. **Input order is the contract** — a rerank endpoint answers SORTED and carries its own indices, and
+mapping them back belongs to the backend, because the caller holds the documents and an index it never sent
+is unusable.
+
+**The provider THROWS and the policy FAILS OPEN, which the fused class could not express.** There is no
+score meaning "I could not", so a backend reports failure honestly; a missing opinion is a legitimate
+outcome for memory, so the policy catches and reports `NoOpinion`. Before, one class both swallowed and
+decided, and the swallowing was invisible to the only caller that might have wanted it otherwise.
+
+**One behaviour tightened.** An out-of-range index used to be dropped, leaving the remaining documents
+scored and one silently absent from the verdict; the transport now rejects the whole answer. A backend
+returning an index nobody sent is malformed, and an unscored slot reads as `0.0`, which ranks as
+confidently as a real score.
