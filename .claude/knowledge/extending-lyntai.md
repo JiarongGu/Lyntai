@@ -23,7 +23,7 @@ Three paths — pick the cheapest one that reaches your backend:
 
 **A. Bridge an existing `Microsoft.Extensions.AI` `IChatClient` (preferred).** OpenAI, Azure, Ollama,
 Anthropic-API, etc. already have MEAI clients. You do *nothing* but register:
-`builder.AddExtensionsAiProvider("my-id", theChatClient)`. `ExtensionsAiProvider` handles the mapping,
+`builder.AddExtensionsAi("my-id", theChatClient)`. `ExtensionsAiProvider` handles the mapping,
 streaming, usage, and verdict-from-exception. **Only write a native provider if MEAI can't reach it.**
 
 **A2. A SPAWNED CLI → write a DIALECT, not a provider.** If the backend is a command-line agent
@@ -134,7 +134,7 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
 Builder extension (in the adapter package, extending Core's `LyntaiBuilder`):
 <!-- compile-skip: an extension-method sketch with its registration arguments elided -->
 ```csharp
-public static LyntaiBuilder AddMyProvider(this LyntaiBuilder b, string id, Action<MyOptions> cfg)
+public static LyntaiBuilder AddMyBackend(this LyntaiBuilder b, string id, Action<MyOptions> cfg)
 {
     // register the provider into the IEnumerable<IModelProvider> collection; resolve deps from the container
     b.AddProvider(sp => new MyProvider(id, /* … */, sp.GetRequiredService<LyntaiOptions>()));
@@ -152,7 +152,8 @@ Tests: drive it against a stub, never a live endpoint — an HTTP provider gets 
 The media seam (image / video / audio / 3d) behind one capability-aware contract. Same shape as everything
 else: **the CONTRACTS are in `Lyntai.Core`** (namespaces `Lyntai.Generation`, `.Routing`, `.Jobs`, `.Tools`),
 the BACKENDS live in the `Lyntai.Generation` package under `Lyntai.Generation.Providers`, and each ships a
-one-line `builder.Add<Name>Provider(...)` shim over `AddGenerationProvider(sp => …)`.
+one-line `builder.Add<Name>(...)` shim over `AddGenerationProvider(sp => …)` — the backend method takes
+NO `Provider` suffix (D134); the factory primitive it wraps keeps one, because there `Provider` is the noun.
 
 **A generation backend needs a MAJOR to reshape, like everything else.** `Lyntai.Generation` was EXEMPT as a
 **PACKAGE** from 2.0.1 — the backends were written from vendor docs with no key to call, and

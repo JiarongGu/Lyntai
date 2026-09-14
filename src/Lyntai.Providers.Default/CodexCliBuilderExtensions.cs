@@ -4,7 +4,7 @@ using Lyntai.Providers.CodexCli;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// Lives in the Lyntai namespace so `AddCodexCliProvider` shows up right on the builder.
+// Lives in the Lyntai namespace so `AddCodexCli` shows up right on the builder.
 namespace Lyntai;
 
 public static class CodexCliBuilderExtensions
@@ -22,7 +22,7 @@ public static class CodexCliBuilderExtensions
     /// <param name="dialect">A pre-configured <see cref="CodexCliDialect"/> — e.g.
     /// <c>new CodexCliDialect { SandboxMode = "workspace-write" }</c> to let codex act on disk. Defaults to a
     /// read-only sandbox, which is what a text completion should need.</param>
-    public static LyntaiBuilder AddCodexCliProvider(
+    public static LyntaiBuilder AddCodexCli(
         this LyntaiBuilder builder,
         string? command = null,
         IReadOnlyDictionary<string, string>? environment = null,
@@ -59,7 +59,7 @@ public static class CodexCliBuilderExtensions
     /// explicitly because codex has no equivalent.</remarks>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="command">A PORTABLE <c>codex</c> path, as with
-    /// <see cref="AddCodexCliProvider"/> — pass the same value to both so a host's bundled CLI is used for
+    /// <see cref="AddCodexCli"/> — pass the same value to both so a host's bundled CLI is used for
     /// completions and agent sessions alike.</param>
     /// <param name="environment">Extra environment variables for the spawn; a portable install usually wants
     /// its own <c>CODEX_HOME</c>.</param>

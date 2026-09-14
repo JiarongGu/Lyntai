@@ -122,7 +122,7 @@ public sealed class FalQueueOptions
 /// <param name="disposeHttpClient">Whether this provider disposes what <paramref name="httpFactory"/> returns.
 /// Default true, for the usual factory that MAKES a client per call. Pass false when the factory hands back a
 /// client the HOST owns — disposing that leaves the second call throwing
-/// <see cref="ObjectDisposedException"/>. <c>AddFalProvider</c> sets this for you.</param>
+/// <see cref="ObjectDisposedException"/>. <c>AddFal</c> sets this for you.</param>
 public sealed class FalQueueProvider(
     FalQueueOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
     : IModelProvider, IGenerationJobProvider

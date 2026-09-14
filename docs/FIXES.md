@@ -1451,8 +1451,8 @@ already guarded the first.
 ---
 
 ## 2026-08-15 — MCP tool-host args landed in codex's PROMPT, where a swallowed flag is a spent turn
-
-**Symptom.** An app registering `AddCodexCliProvider()` together with `AddMcpToolHost(...)` spawned
+ <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
+**Symptom.** An app registering `AddCodexCliProvider()` together with `AddMcpToolHost(...)` spawned <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
 `codex exec … - -c mcp_servers.…`, with the config overrides AFTER the `-` stdin positional. Everything
 after `-` is read as prompt text, so the tools the provisioner exists to expose were absent and the turn was
 spent on a prompt made of config strings.

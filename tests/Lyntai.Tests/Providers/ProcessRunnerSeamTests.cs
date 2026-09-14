@@ -55,7 +55,7 @@ public class ProcessRunnerSeamTests
         var runner = CannedRunner();
         var services = new ServiceCollection();
         services.AddSingleton<IProcessRunner>(runner); // app registers its own BEFORE AddLyntai
-        services.AddLyntai(b => b.AddClaudeCliProvider().UseDefaultCandidates("claude-cli"));
+        services.AddLyntai(b => b.AddClaudeCli().UseDefaultCandidates("claude-cli"));
         using var sp = services.BuildServiceProvider();
 
         // the TryAdd default must not shadow the app's runner

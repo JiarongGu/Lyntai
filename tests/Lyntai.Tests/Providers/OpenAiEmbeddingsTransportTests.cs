@@ -304,7 +304,7 @@ public class OpenAiEmbeddingsTransportTests
         // so recall returns it. The stub repeats its last script, so one Enqueue covers both calls.
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """{"data":[{"index":0,"embedding":[1.0,0.0]}]}""");
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddOpenAiCompatibleProvider("test",
+        services.AddLyntai(b => b.AddOpenAiCompatible("test",
             o =>
             {
                 o.BaseUrl = "https://api.openai.com";

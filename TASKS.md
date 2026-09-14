@@ -435,7 +435,7 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   RouterEndToEndTests.Healthy_primary_cli_serves_and_http_is_never_called
   RouterEndToEndTests.Streaming_never_falls_back_after_the_first_token
   RouterEndToEndTests.Dead_host_cooldown_skips_then_retries_after_expiry
-  AddClaudeCliProviderTests.Registered_provider_serves_through_the_router_by_id
+  AddClaudeCliTests.Registered_provider_serves_through_the_router_by_id
   ClaudeCliProviderTests.Explicit_command_makes_the_provider_available
   CodexCliProviderTests.A_portable_install_is_wired_without_touching_the_process_environment
   ProcessRunnerTests.Resolve_command_path_finds_node_and_caches
@@ -714,7 +714,7 @@ might need to be multi tasking too". That is a different question from "which mo
 the library is already most of the way to answering it — **no new API is needed**. The seams exist:
 named `ILlmClient`s (**D87** — "reranking, salience judging … should not silently run on whatever backend
 happens to be default"), `LlmAnnotationOptions.ClientName` ("annotation runs on EVERY write, so it belongs
-on a small fast backend"), `LlmConsumers` for per-seam cost attribution, and `AddLlamaProvider`. What is
+on a small fast backend"), `LlmConsumers` for per-seam cost attribution, and `AddLlama`. What is
 missing is MEASUREMENT._
 
 _**Two findings already constrain this and should be read first.** A task-shape rule: a GENERATIVE task

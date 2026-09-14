@@ -3,7 +3,7 @@ using Lyntai.Providers.OpenAiCompatible;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// Lives in the Lyntai namespace so `AddOpenAiCompatibleProvider` shows up right on the builder.
+// Lives in the Lyntai namespace so `AddOpenAiCompatible` shows up right on the builder.
 namespace Lyntai;
 
 public static class OpenAiCompatibleBuilderExtensions
@@ -15,7 +15,7 @@ public static class OpenAiCompatibleBuilderExtensions
     /// <see cref="IHttpClientFactory"/> client — e.g. <c>sp =&gt; sp.GetRequiredService&lt;IHttpClientFactory&gt;().CreateClient("my")</c>).
     /// You then own its timeout/lifecycle. When null (default), Lyntai registers a named client with an
     /// infinite HttpClient timeout so the per-call <see cref="LyntaiOptions.ProviderTimeout"/> owns deadlines.</para></summary>
-    public static LyntaiBuilder AddOpenAiCompatibleProvider(this LyntaiBuilder builder, string id,
+    public static LyntaiBuilder AddOpenAiCompatible(this LyntaiBuilder builder, string id,
         Action<OpenAiCompatibleOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
         var config = new OpenAiCompatibleOptions();
@@ -54,14 +54,14 @@ public static class OpenAiCompatibleBuilderExtensions
     }
 
     // ---- pre-configured presets ------------------------------------------------------------------
-    // Thin wrappers over AddOpenAiCompatibleProvider with sensible defaults for common endpoints. Apps
-    // that need something bespoke keep using AddOpenAiCompatibleProvider (or their own IModelProvider via
+    // Thin wrappers over AddOpenAiCompatible with sensible defaults for common endpoints. Apps
+    // that need something bespoke keep using AddOpenAiCompatible (or their own IModelProvider via
     // builder.AddProvider). All presets accept a BYO httpClient like the base method.
 
     /// <summary>OpenAI (api.openai.com). Default id "openai".</summary>
-    public static LyntaiBuilder AddOpenAiProvider(this LyntaiBuilder builder, string apiKey,
+    public static LyntaiBuilder AddOpenAi(this LyntaiBuilder builder, string apiKey,
         string? model = null, string id = "openai", Func<IServiceProvider, HttpClient>? httpClient = null) =>
-        builder.AddOpenAiCompatibleProvider(id, o =>
+        builder.AddOpenAiCompatible(id, o =>
         {
             o.BaseUrl = "https://api.openai.com";
             o.ApiKey = apiKey;
@@ -73,15 +73,15 @@ public static class OpenAiCompatibleBuilderExtensions
     /// <para><paramref name="baseUrl"/> must be the server ROOT (e.g. <c>http://localhost:11434</c>), never
     /// its <c>/v1</c> OpenAI-compatible surface: the pin is applied over whatever URL you pass, so a
     /// <c>/v1</c> base composes to <c>…/v1/api/chat</c> and 404s on the first call. Send a <c>/v1</c> base
-    /// through <see cref="AddOpenAiCompatibleProvider"/> instead, whose detection resolves it correctly.</para>
+    /// through <see cref="AddOpenAiCompatible"/> instead, whose detection resolves it correctly.</para>
     /// <para>Attachments are carried: an <see cref="Lyntai.Llm.LlmAttachment"/> with <c>Data</c> travels in
     /// Ollama's own <c>images</c> array on a user turn (pair it with a vision model — <c>llava</c> and
     /// friends). An attachment carrying only a remote <c>Uri</c> is the one shape this endpoint cannot take,
     /// since <c>/api/chat</c> has no URL form; it is logged as undeliverable rather than dropped in
     /// silence.</para></summary>
-    public static LyntaiBuilder AddOllamaProvider(this LyntaiBuilder builder, string? baseUrl = null,
+    public static LyntaiBuilder AddOllama(this LyntaiBuilder builder, string? baseUrl = null,
         string? model = null, string id = "ollama", Func<IServiceProvider, HttpClient>? httpClient = null) =>
-        builder.AddOpenAiCompatibleProvider(id, o =>
+        builder.AddOpenAiCompatible(id, o =>
         {
             o.BaseUrl = baseUrl ?? "http://localhost:11434";
             o.Model = model;
@@ -98,12 +98,12 @@ public static class OpenAiCompatibleBuilderExtensions
     /// (<c>--models-dir</c>), where the name must match an entry. Pass <see langword="null"/> unless you run
     /// a router or want the label recorded on traces.</para>
     /// <para>Pass the server ROOT, not its <c>/v1</c>: requests compose to <c>…/v1/chat/completions</c>.
-    /// Unlike <see cref="AddOllamaProvider"/> there is no native surface to pin — <c>llama-server</c> has
+    /// Unlike <see cref="AddOllama"/> there is no native surface to pin — <c>llama-server</c> has
     /// only the OpenAI-shaped one — so an attachment travels as an <c>image_url</c> part and a remote
     /// <c>Uri</c> attachment is deliverable, which Ollama's own schema cannot express.</para></summary>
-    public static LyntaiBuilder AddLlamaProvider(this LyntaiBuilder builder, string? baseUrl = null,
+    public static LyntaiBuilder AddLlama(this LyntaiBuilder builder, string? baseUrl = null,
         string? model = null, string id = "llama", Func<IServiceProvider, HttpClient>? httpClient = null) =>
-        builder.AddOpenAiCompatibleProvider(id, o =>
+        builder.AddOpenAiCompatible(id, o =>
         {
             o.BaseUrl = baseUrl ?? "http://localhost:8080";
             o.Model = model;
@@ -111,9 +111,9 @@ public static class OpenAiCompatibleBuilderExtensions
         }, httpClient);
 
     /// <summary>OpenRouter (openrouter.ai). Default id "openrouter".</summary>
-    public static LyntaiBuilder AddOpenRouterProvider(this LyntaiBuilder builder, string apiKey,
+    public static LyntaiBuilder AddOpenRouter(this LyntaiBuilder builder, string apiKey,
         string? model = null, string id = "openrouter", Func<IServiceProvider, HttpClient>? httpClient = null) =>
-        builder.AddOpenAiCompatibleProvider(id, o =>
+        builder.AddOpenAiCompatible(id, o =>
         {
             o.BaseUrl = "https://openrouter.ai/api/v1";
             o.ApiKey = apiKey;
@@ -125,9 +125,9 @@ public static class OpenAiCompatibleBuilderExtensions
     /// <paramref name="endpoint"/> is your resource URL (e.g. <c>https://my-resource.openai.azure.com</c> —
     /// requests compose to <c>…/openai/v1/chat/completions</c>); <paramref name="apiKey"/> is sent as both
     /// the <c>api-key</c> header (Azure key auth) and a Bearer token. Default id "azure-openai".</summary>
-    public static LyntaiBuilder AddAzureOpenAiProvider(this LyntaiBuilder builder, string endpoint, string apiKey,
+    public static LyntaiBuilder AddAzureOpenAi(this LyntaiBuilder builder, string endpoint, string apiKey,
         string? model = null, string id = "azure-openai", Func<IServiceProvider, HttpClient>? httpClient = null) =>
-        builder.AddOpenAiCompatibleProvider(id, o =>
+        builder.AddOpenAiCompatible(id, o =>
         {
             o.BaseUrl = endpoint;
             o.ApiKey = apiKey;

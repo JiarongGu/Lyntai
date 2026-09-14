@@ -9,7 +9,7 @@ namespace Lyntai.Tests.Providers;
 
 /// <summary>The pre-configured provider presets set the right endpoint/id defaults and route through
 /// the same OpenAI-compatible provider; a BYO-httpClient path lets each hit a scripted handler. Apps
-/// wanting bespoke config keep AddOpenAiCompatibleProvider or their own IModelProvider via AddProvider.</summary>
+/// wanting bespoke config keep AddOpenAiCompatible or their own IModelProvider via AddProvider.</summary>
 public class ProviderPresetsTests
 {
     private const string OkBody = """
@@ -22,7 +22,7 @@ public class ProviderPresetsTests
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOpenAiProvider("sk-test", model: "gpt-x", httpClient: _ => new HttpClient(handler))
+            .AddOpenAi("sk-test", model: "gpt-x", httpClient: _ => new HttpClient(handler))
             .UseDefaultCandidates("openai"));
         using var sp = services.BuildServiceProvider();
 
@@ -41,7 +41,7 @@ public class ProviderPresetsTests
             """{"message":{"content":"ok"},"done":true}""");
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOllamaProvider(model: "llama3", httpClient: _ => new HttpClient(handler))
+            .AddOllama(model: "llama3", httpClient: _ => new HttpClient(handler))
             .UseDefaultCandidates("ollama"));
         using var sp = services.BuildServiceProvider();
 
@@ -59,7 +59,7 @@ public class ProviderPresetsTests
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddLlamaProvider(model: "gemma-3-4b", httpClient: _ => new HttpClient(handler))
+            .AddLlama(model: "gemma-3-4b", httpClient: _ => new HttpClient(handler))
             .UseDefaultCandidates("llama"));
         using var sp = services.BuildServiceProvider();
 
@@ -79,7 +79,7 @@ public class ProviderPresetsTests
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddLlamaProvider(baseUrl: "http://gpu-box:9001", httpClient: _ => new HttpClient(handler))
+            .AddLlama(baseUrl: "http://gpu-box:9001", httpClient: _ => new HttpClient(handler))
             .UseDefaultCandidates("llama"));
         using var sp = services.BuildServiceProvider();
 
@@ -94,7 +94,7 @@ public class ProviderPresetsTests
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOpenRouterProvider("or-key", httpClient: _ => new HttpClient(handler))
+            .AddOpenRouter("or-key", httpClient: _ => new HttpClient(handler))
             .UseDefaultCandidates("openrouter"));
         using var sp = services.BuildServiceProvider();
 
@@ -113,7 +113,7 @@ public class ProviderPresetsTests
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOpenAiProvider("k", httpClient: _ => new HttpClient(handler))
+            .AddOpenAi("k", httpClient: _ => new HttpClient(handler))
             .AddProvider(_ => custom)                 // BYO IModelProvider
             .UseDefaultCandidates("custom", "openai"));  // custom first
         using var sp = services.BuildServiceProvider();

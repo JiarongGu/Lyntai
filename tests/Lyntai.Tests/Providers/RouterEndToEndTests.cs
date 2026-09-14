@@ -32,8 +32,8 @@ public class RouterEndToEndTests : IDisposable
         var services = new ServiceCollection();
         services.AddLyntai(b =>
         {
-            b.AddClaudeCliProvider();
-            b.AddOpenAiCompatibleProvider("openai", c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; });
+            b.AddClaudeCli();
+            b.AddOpenAiCompatible("openai", c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; });
             b.UseDefaultCandidates("claude-cli", "openai");
             if (tune is not null) b.Configure(tune);
         });
@@ -129,8 +129,8 @@ public class RouterEndToEndTests : IDisposable
         services.AddSingleton(new DeadHostTracker(threshold: 1, cooldown, clock: () => now));
         services.AddLyntai(b =>
         {
-            b.AddClaudeCliProvider();
-            b.AddOpenAiCompatibleProvider("openai", c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; });
+            b.AddClaudeCli();
+            b.AddOpenAiCompatible("openai", c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; });
             b.UseDefaultCandidates("claude-cli", "openai");
         });
         services.AddHttpClient(OpenAiCompatibleBuilderExtensions.HttpClientName("openai"))

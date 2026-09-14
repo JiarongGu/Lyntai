@@ -157,7 +157,7 @@ convention about what to REACH FOR, not a constraint the code enforces.
   `LYNTAI_LIVE_MODEL_URL`; name the models with `LYNTAI_LIVE_EMBED_MODEL` / `LYNTAI_LIVE_CHAT_MODEL`. The
   legacy `LYNTAI_OLLAMA_*` names still work, and are legacy because a variable named after one vendor is a
   claim about the host that the code never makes. Every sweep prints the endpoint it used.
-- **The library supports both and prefers neither**: `AddLlamaProvider` beside `AddOllamaProvider`. Which
+- **The library supports both and prefers neither**: `AddLlama` beside `AddOllama`. Which
   one a deployment uses is its own choice (`.claude/knowledge/model-decoupling.md`).
 - **Run your OWN server on its own port; never borrow one that happens to be up, never kill one by image
   name, and never infer from a green run that the model you named is the model that answered.** The three

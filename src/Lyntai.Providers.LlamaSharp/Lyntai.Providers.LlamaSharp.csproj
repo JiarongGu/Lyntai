@@ -6,13 +6,13 @@
     Lyntai.Providers.Local — the old id is in devtools/nuget-unlist.mjs RETIRED (D44).
 
     The NAMESPACE and the type names are deliberately unchanged, so a consumer edits one PackageReference
-    and no `using`. AddLlamaSharpProvider was refused: AddLlamaProvider already exists next door for
+    and no `using`. AddLlamaSharp was refused: AddLlama already exists next door for
     llama-server over HTTP, and two names that close meaning opposite things is worse than an imprecise one.
   -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Providers.LlamaSharp</PackageId>
-    <Description>Lyntai LLM provider for in-process local inference of GGUF models via LLamaSharp (llama.cpp). References LLamaSharp managed only — the consuming app picks an LLamaSharp.Backend.* (Cpu/Cuda/Vulkan/Metal) matching its hardware. Wired via builder.AddLlamaSharpProvider(modelPath).</Description>
+    <Description>Lyntai LLM provider for in-process local inference of GGUF models via LLamaSharp (llama.cpp). References LLamaSharp managed only — the consuming app picks an LLamaSharp.Backend.* (Cpu/Cuda/Vulkan/Metal) matching its hardware. Wired via builder.AddLlamaSharp(modelPath).</Description>
     <!-- LLamaSharp is native interop + reflection-materialized options: this package cannot honestly
          claim trim/AOT compatibility (the native llama.cpp backend is loaded dynamically). Analyzer
          stays on for OUR code; consumers AOT-publishing need a rooted self-contained test. -->

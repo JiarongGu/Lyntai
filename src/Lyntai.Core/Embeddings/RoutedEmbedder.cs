@@ -42,7 +42,7 @@ internal sealed class RoutedEmbedder(
         if (capable.Count == 0)
             throw new InvalidOperationException(
                 "No registered backend produces ProviderKinds.Vector from text. Register one "
-                + "(AddModel2VecProvider / AddOnnxProvider / AddOpenAiCompatibleEmbedder), or supply your own "
+                + "(AddModel2Vec / AddOnnx / AddOpenAiCompatibleEmbedder), or supply your own "
                 + "with AddEmbeddings.");
 
         Exception? last = null;

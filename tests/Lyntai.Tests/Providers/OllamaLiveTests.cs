@@ -100,7 +100,7 @@ public class OllamaLiveTests
         // the whole point of the abstraction: a real HTTP provider behind the router/front door
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOpenAiCompatibleProvider("ollama", c => { c.BaseUrl = BaseUrl; c.Model = Model; })
+            .AddOpenAiCompatible("ollama", c => { c.BaseUrl = BaseUrl; c.Model = Model; })
             .UseDefaultCandidates("ollama")
             .Configure(o => o.ProviderTimeout = TimeSpan.FromMinutes(3)));
         using var sp = services.BuildServiceProvider();

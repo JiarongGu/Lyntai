@@ -137,6 +137,33 @@ export default {
 
   retiredApiNames: [
     {
+      // D134. `AddProvider`, `AddEmbeddingProvider` and `AddGenerationProvider` are deliberately NOT here:
+      // those take a FACTORY and are the generic primitives, where `Provider` is the noun rather than a
+      // suffix on a backend's name. Whole-identifier equality keeps them live without an allowance.
+      names: [
+        'AddAutomatic1111Provider',
+        'AddAzureOpenAiProvider',
+        'AddClaudeCliProvider',
+        'AddCodexCliProvider',
+        'AddComfyUiProvider',
+        'AddExtensionsAiProvider',
+        'AddFalProvider',
+        'AddLlamaProvider',
+        'AddLlamaSharpProvider',
+        'AddLocalDiffusionProvider',
+        'AddModel2VecProvider',
+        'AddOllamaProvider',
+        'AddOnnxProvider',
+        'AddOpenAiCompatibleProvider',
+        'AddOpenAiImageProvider',
+        'AddOpenAiProvider',
+        'AddOpenRouterProvider',
+      ],
+      use: 'the same name without the suffix — `AddOpenAiCompatible`, `AddOllama`, `AddOnnx`, `AddClaudeCli`',
+      why: 'every one of these returns an IModelProvider, so a suffix carried by all of them distinguishes '
+        + 'none of them — the objection that retired the name IProvider, one layer out (D134)',
+    },
+    {
       // D130. `Kinds` and `Embed` are whole-identifier tokens, so `ProviderKinds`, `GenerationKinds` and
       // every `EmbedAsync` stay live without an allowance — which is the point of the tokenizing rule.
       names: ['Kinds', 'Embed'],
@@ -150,7 +177,7 @@ export default {
         'AddOpenAiCompatibleEmbedder', 'AddOpenAiCompatibleEmbeddings',
         'OpenAiCompatibleEmbedderOptions', 'HttpEmbedder', 'EmbedderHttpClientName',
       ],
-      use: '`AddOpenAiCompatibleProvider` with `OpenAiCompatibleOptions.Embeddings` set (and `Chat = null` '
+      use: '`AddOpenAiCompatible` with `OpenAiCompatibleOptions.Embeddings` set (and `Chat = null` '
         + 'for a host that serves no chat); the wire shape is the internal `OpenAiEmbeddingsTransport`',
       why: 'a second Add* method for the same backend IS the chat-vs-embedder split, re-entering through '
         + 'the one surface a consumer types. One host, one registration, routes as configuration (D132)',
@@ -160,7 +187,7 @@ export default {
         'AddStaticEmbedder', 'StaticEmbedder', 'StaticEmbedderOptions', 'StaticBuilderExtensions',
         'AddOnnxEmbedder', 'AddLocalProvider',
       ],
-      use: '`AddModel2VecProvider` / `Model2VecProvider`, `AddOnnxProvider`, `AddLlamaSharpProvider`',
+      use: '`AddModel2Vec` / `Model2VecProvider`, `AddOnnx`, `AddLlamaSharp`',
       why: 'every registration returns an IModelProvider, so an *Embedder suffix sorted backends by what '
         + 'they produce — the taxonomy D130 deleted. "Static" also named a technique rather than the '
         + 'model2vec format it loads, and "Local" named nothing at all (D132)',
@@ -436,6 +463,13 @@ export default {
    */
   retiredTerms: [
     {
+      // D134. The prose half. The generic factory primitives are absent for the reason given on the
+      // surface rule above, and `AddProvider` would otherwise match inside every one of these.
+      term: '\\bAddAutomatic1111Provider\\b|\\bAddAzureOpenAiProvider\\b|\\bAddClaudeCliProvider\\b|\\bAddCodexCliProvider\\b|\\bAddComfyUiProvider\\b|\\bAddExtensionsAiProvider\\b|\\bAddFalProvider\\b|\\bAddLlamaProvider\\b|\\bAddLlamaSharpProvider\\b|\\bAddLocalDiffusionProvider\\b|\\bAddModel2VecProvider\\b|\\bAddOllamaProvider\\b|\\bAddOnnxProvider\\b|\\bAddOpenAiCompatibleProvider\\b|\\bAddOpenAiImageProvider\\b|\\bAddOpenAiProvider\\b|\\bAddOpenRouterProvider\\b',
+      why: 'a Provider suffix on every backend registration distinguishes none of them (D134)',
+      use: 'the same name without the suffix',
+    },
+    {
       // D130/D132. The SURFACE half is in `retiredApiNames`; this is the prose half. A document naming any
       // of these describes a registration or a type the tree no longer has. `StaticEmbedder` is matched but
       // the WORD "static" is not — a lookup table is still correctly called static embeddings in prose,
@@ -446,8 +480,8 @@ export default {
         + '|\\bAddOnnxEmbedder\\b|\\bAddLocalProvider\\b',
       why: 'every registration returns an IModelProvider, so an *Embedder suffix sorted backends by what '
         + 'they produce — the taxonomy D130 deleted from the types and D132 from the surface',
-      use: '`AddOpenAiCompatibleProvider` (with `Chat`/`Embeddings` saying which routes), '
-        + '`AddOnnxProvider`, `AddModel2VecProvider`, `AddLlamaSharpProvider`, `OpenAiEmbeddingsTransport`',
+      use: '`AddOpenAiCompatible` (with `Chat`/`Embeddings` saying which routes), '
+        + '`AddOnnx`, `AddModel2Vec`, `AddLlamaSharp`, `OpenAiEmbeddingsTransport`',
     },
     {
       // D125. The SURFACE half is in `retiredApiNames`; this is the prose half. Both names described the

@@ -95,13 +95,13 @@ public class TwoBackendsOneHostTests
             .Enqueue(HttpStatusCode.OK, EmbedBody);
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOpenAiCompatibleProvider("local-chat", o =>
+            .AddOpenAiCompatible("local-chat", o =>
             {
                 o.BaseUrl = Host;
                 o.Model = "llama3.1";
                 o.Flavor = OpenAiFlavor.OpenAi;
             }, httpClient: _ => new HttpClient(handler, disposeHandler: false))
-            .AddOpenAiCompatibleProvider("local-embed", o =>
+            .AddOpenAiCompatible("local-embed", o =>
             {
                 o.BaseUrl = Host;
                 o.Model = "nomic-embed-text";
@@ -130,7 +130,7 @@ public class TwoBackendsOneHostTests
     public void A_chat_only_deployment_gets_NO_embedder_rather_than_a_broken_one()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddOpenAiCompatibleProvider("chat", o => o.BaseUrl = Host));
+        services.AddLyntai(b => b.AddOpenAiCompatible("chat", o => o.BaseUrl = Host));
         using var sp = services.BuildServiceProvider();
 
         Assert.Null(sp.GetService<IEmbedder>());

@@ -20,7 +20,7 @@ namespace Lyntai.Providers.ExtensionsAi;
 /// turns map back to <see cref="FunctionResultContent"/> — Lyntai's tool loop drives execution.
 /// </summary>
 /// <param name="id">The router-facing provider id this bridge answers to — the same string the app passes
-/// to <c>AddExtensionsAiProvider</c> and names in its candidate list ("openai", "ollama", …). It is a LABEL
+/// to <c>AddExtensionsAi</c> and names in its candidate list ("openai", "ollama", …). It is a LABEL
 /// for one configured client, not a vendor name: two differently-configured clients from the same vendor are
 /// two providers with two ids.</param>
 /// <param name="client">The MEAI client to drive. BYO and app-owned — this bridge never creates or disposes

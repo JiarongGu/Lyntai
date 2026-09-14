@@ -317,7 +317,7 @@ public class OnnxRegistrationTests
     [Fact]
     public void A_singleton_registered_as_an_INSTANCE_is_NOT_disposed_by_the_container()
     {
-        // This is why AddOnnxProvider registers through a factory instead. OnnxEmbedder holds a native
+        // This is why AddOnnx registers through a factory instead. OnnxEmbedder holds a native
         // session, so "the container will clean it up" has to be true rather than assumed — and for the
         // instance overload it is not.
         var embedder = new TrackingEmbedder();

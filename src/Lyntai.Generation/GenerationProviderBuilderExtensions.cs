@@ -7,8 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 // Lives in the Lyntai namespace so the Add* methods appear on the builder, exactly like the LLM-side presets.
 namespace Lyntai;
 
-/// <summary>One-line registration per media backend — the generation counterpart of <c>AddOpenAiProvider()</c> /
-/// <c>AddOllamaProvider()</c>.
+/// <summary>One-line registration per media backend — the generation counterpart of <c>AddOpenAi()</c> /
+/// <c>AddOllama()</c>.
 ///
 /// <para><b>Options are configured by an <c>Action&lt;T&gt;</c> callback</b>, the same shape as the LLM
 /// presets and the memory engines. Every option carries a default — each backend's conventional local URL,
@@ -38,7 +38,7 @@ public static class GenerationProviderBuilderExtensions
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Endpoint, credential and defaults.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>
-    public static LyntaiBuilder AddOpenAiImageProvider(this LyntaiBuilder builder,
+    public static LyntaiBuilder AddOpenAiImage(this LyntaiBuilder builder,
         Action<OpenAiImageOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
         ArgumentNullException.ThrowIfNull(configure);
@@ -53,7 +53,7 @@ public static class GenerationProviderBuilderExtensions
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Endpoint and sampling defaults.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>
-    public static LyntaiBuilder AddAutomatic1111Provider(this LyntaiBuilder builder,
+    public static LyntaiBuilder AddAutomatic1111(this LyntaiBuilder builder,
         Action<Automatic1111Options> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
         ArgumentNullException.ThrowIfNull(configure);
@@ -69,7 +69,7 @@ public static class GenerationProviderBuilderExtensions
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Endpoint paths, declared kinds and option keys.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>
-    public static LyntaiBuilder AddComfyUiProvider(this LyntaiBuilder builder,
+    public static LyntaiBuilder AddComfyUi(this LyntaiBuilder builder,
         Action<ComfyUiOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
         ArgumentNullException.ThrowIfNull(configure);
@@ -85,7 +85,7 @@ public static class GenerationProviderBuilderExtensions
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Endpoint, credential and declared kinds.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>
-    public static LyntaiBuilder AddFalProvider(this LyntaiBuilder builder,
+    public static LyntaiBuilder AddFal(this LyntaiBuilder builder,
         Action<FalQueueOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
         ArgumentNullException.ThrowIfNull(configure);
@@ -106,12 +106,12 @@ public static class GenerationProviderBuilderExtensions
     ///
     /// <para><b>Late provisioning.</b> The registration keeps the very instance the callback configured, so
     /// paths that only exist after a setup step can be set afterwards — the next render reads the current
-    /// values: <c>LocalDiffusionOptions? opts = null; b.AddLocalDiffusionProvider(o =&gt; opts = o); …
+    /// values: <c>LocalDiffusionOptions? opts = null; b.AddLocalDiffusion(o =&gt; opts = o); …
     /// opts!.BinaryPath = downloaded;</c></para></summary>
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Engine paths and sampling defaults.</param>
     /// <param name="runner">BYO process runner. Null = the one registered in DI.</param>
-    public static LyntaiBuilder AddLocalDiffusionProvider(this LyntaiBuilder builder,
+    public static LyntaiBuilder AddLocalDiffusion(this LyntaiBuilder builder,
         Action<LocalDiffusionOptions> configure, Func<IServiceProvider, IProcessRunner>? runner = null)
     {
         ArgumentNullException.ThrowIfNull(configure);

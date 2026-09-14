@@ -485,7 +485,7 @@ public class CodexCliProviderTests
     public void The_builder_extension_registers_it_as_a_routable_provider()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(cfg => cfg.AddCodexCliProvider(command: StubCommand).UseDefaultCandidates("codex-cli"));
+        services.AddLyntai(cfg => cfg.AddCodexCli(command: StubCommand).UseDefaultCandidates("codex-cli"));
         using var sp = services.BuildServiceProvider();
 
         var providers = sp.GetServices<IModelProvider>().ToList();
@@ -498,7 +498,7 @@ public class CodexCliProviderTests
     {
         // the portable story end-to-end: a path + that install's own home dir, straight from app config
         var services = new ServiceCollection();
-        services.AddLyntai(cfg => cfg.AddCodexCliProvider(
+        services.AddLyntai(cfg => cfg.AddCodexCli(
             command: StubCommand,
             environment: new Dictionary<string, string> { ["CODEX_HOME"] = "portable/home" }));
         using var sp = services.BuildServiceProvider();

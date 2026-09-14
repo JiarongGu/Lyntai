@@ -1,5 +1,5 @@
 static class Lyntai.LocalBuilderExtensions
-    static AddLlamaSharpProvider(LyntaiBuilder builder, String modelPath, Action<LocalModelOptions> configure = null, String id = "local") : LyntaiBuilder
+    static AddLlamaSharp(LyntaiBuilder builder, String modelPath, Action<LocalModelOptions> configure = null, String id = "local") : LyntaiBuilder
 sealed class Lyntai.Providers.Local.LocalModelOptions
     .ctor()
     ContextSize : Nullable<Int32>

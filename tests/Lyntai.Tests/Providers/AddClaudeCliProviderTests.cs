@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Providers;
 
 [Collection("provider-cmd-env")] // serialized with other tests that set LYNTAI_PROVIDER_CMD
-public class AddClaudeCliProviderTests
+public class AddClaudeCliTests
 {
     [Fact]
     public async Task Registered_provider_serves_through_the_router_by_id()
@@ -16,7 +16,7 @@ public class AddClaudeCliProviderTests
         {
             var services = new ServiceCollection();
             services.AddLyntai(b => b
-                .AddClaudeCliProvider()
+                .AddClaudeCli()
                 .UseDefaultCandidates("claude-cli"));
             using var sp = services.BuildServiceProvider();
 

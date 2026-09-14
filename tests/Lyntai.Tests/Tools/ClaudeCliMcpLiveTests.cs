@@ -27,7 +27,7 @@ public class ClaudeCliMcpLiveTests
         var called = 0;
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddClaudeCliProvider()
+            .AddClaudeCli()
             .AddMcpToolHost(new ClaudeCliMcpDialect())
             .AddTool(_ => new FunctionTool("get_secret_word",
                 (_, _) => { Interlocked.Increment(ref called); return Task.FromResult("banana"); },

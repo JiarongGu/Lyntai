@@ -33,7 +33,7 @@ public sealed class LocalProvider(
     // One local model, one generation at a time; also single-flights the lazy weight load.
     //
     // The gate is per-INSTANCE, so it bounds nothing unless this provider is a singleton — which
-    // `AddLlamaSharpProvider` makes it. Build it per call (a transient registration, or `TransientProviderPool`)
+    // `AddLlamaSharp` makes it. Build it per call (a transient registration, or `TransientProviderPool`)
     // and every call gets its own gate, its own weight load, and no serialization at all: gigabytes of
     // native weights loaded concurrently and never disposed. The guard belongs to the shared instance, not
     // to the call. See `TransientProviderPool`'s own remarks.

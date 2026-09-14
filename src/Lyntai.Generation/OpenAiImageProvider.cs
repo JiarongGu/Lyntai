@@ -30,7 +30,7 @@ public sealed class OpenAiImageOptions
     public string DefaultSize { get; set; } = "1024x1024";
 
     /// <summary>Ceiling for ONE call to this backend — the render, and the probe. Generous because an image
-    /// render legitimately runs for minutes (which is why <c>AddOpenAiImageProvider</c> gives its client an
+    /// render legitimately runs for minutes (which is why <c>AddOpenAiImage</c> gives its client an
     /// infinite <see cref="HttpClient"/> timeout rather than the 100-second default), but bounded, because a
     /// backend that accepts the connection and then stalls would otherwise hang a background render forever.
     /// A request's own <see cref="GenerationRequest.TimeoutSeconds"/> overrides it.
@@ -61,7 +61,7 @@ public sealed class OpenAiImageOptions
 /// <param name="disposeHttpClient">Whether this provider disposes what <paramref name="httpFactory"/> returns.
 /// Default true, for the usual factory that MAKES a client per call. Pass false when the factory hands back a
 /// client the HOST owns (a singleton, a Polly-decorated one): disposing that leaves the second call throwing
-/// <see cref="ObjectDisposedException"/>. <c>AddOpenAiImageProvider</c> sets this for you.</param>
+/// <see cref="ObjectDisposedException"/>. <c>AddOpenAiImage</c> sets this for you.</param>
 public sealed class OpenAiImageProvider(
     OpenAiImageOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true) : IModelProvider
 {

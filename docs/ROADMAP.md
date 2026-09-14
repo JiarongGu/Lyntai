@@ -85,7 +85,7 @@ the full promise and these are confirmations rather than repairs. In priority or
    today's video backends), and it decides whether a 3D stage can feed the rest before the runner's shape can
    be designed at all.
 
-_Generation wiring helpers (`AddOpenAiImageProvider()` and friends) were item 4 here and **shipped in 2.1.0**
+_Generation wiring helpers (`AddOpenAiImage()` and friends) were item 4 here and **shipped in 2.1.0**
 — see `docs/task-archive.md` Part 36. Every remaining item above needs a real
 service or a vendor key, which is why none of them is codeable from the repository alone._
 

@@ -133,13 +133,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 var services = new ServiceCollection();
 services.AddLyntai(cfg => cfg
-    .AddOllamaProvider(defaultModel: "qwen3:4b")
+    .AddOllama(defaultModel: "qwen3:4b")
     .UseSqliteStorage(Path.Combine(Path.GetTempPath(), $"lyntai-smoke-{Guid.NewGuid():N}.db"))
     // the per-backend shim, through the PACKAGE — it registers a named HttpClient, which is what needs
     // Microsoft.Extensions.Http to have travelled with Lyntai.Generation's nuspec
     // BaseUrl blanked deliberately: the assertion below is that an UNCONFIGURED backend reports a verdict a
     // host can act on. The default is the vendor's API root, so it has to be cleared to reach that state.
-    .AddOpenAiImageProvider(o => { o.BaseUrl = ""; o.ApiKey = null; })
+    .AddOpenAiImage(o => { o.BaseUrl = ""; o.ApiKey = null; })
     .UseDefaultGenerationCandidates("openai-images"));
 using var sp = services.BuildServiceProvider();
 

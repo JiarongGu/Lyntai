@@ -76,7 +76,7 @@ mechanics. New capabilities last, because they need nothing from you at all.
 | 3b | `IJobStore` grew FOUR required members: `PollAgainAsync` and the three slot members | Anyone with a custom `IJobStore` | Mechanical |
 | 4 | **Three** registered defaults changed (including: a recall no longer lengthens a half-life); one curve deleted outright; authoritative facts now take slots within the limit | Every consumer, even one who configures nothing | **Decision** |
 | 5 | Age/salience plural; ranking selectable; review log runs | Nobody, unless you want it — or deconstruct `MemoryQuery` | No action needed |
-| 6 | Generation backends register with a configure callback | Anyone calling `AddOpenAiImageProvider` and friends | Mechanical |
+| 6 | Generation backends register with a configure callback | Anyone calling `AddOpenAiImage` and friends | Mechanical |
 | 7 | Eleven renames, two members made `internal`, three BYO seams grown | Anyone naming one of them, or implementing a CLI dialect / memory engine / job store | Mechanical (one silent case — read it) |
 | 8 | `IGenerationRouter` grew a third door, `StreamAsync` | Anyone with a custom `IGenerationRouter` — not users of the built-in one or its decorators | Mechanical |
 
@@ -731,7 +731,7 @@ it is the largest recall-quality change in this release. Nothing happens unless 
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOllamaProvider(model: "qwen2.5-vl:7b")
+    .AddOllama(model: "qwen2.5-vl:7b")
     .UseDefaultCandidates("ollama")
     .AddMemoryVerification());
 ```
@@ -839,17 +839,17 @@ new GraphMemoryOptions { LogReviews = false }
 
 Only for a consumer of the `Lyntai.Generation` package. Every `Add*Provider` now takes
 `Action<TOptions> configure` instead of a constructed options object, matching
-`AddOpenAiCompatibleProvider(id, o => …)` on the LLM side and `AddMemoryEngine(name, e => …)` above.
+`AddOpenAiCompatible(id, o => …)` on the LLM side and `AddMemoryEngine(name, e => …)` above.
 
 <!-- compile-skip: a before/after pair — the "before" is the 2.5 API and cannot compile here -->
 ```csharp
 // 2.5
-.AddOpenAiImageProvider(new OpenAiImageOptions { BaseUrl = "https://api.openai.com/v1", ApiKey = key })
-.AddAutomatic1111Provider(new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" })
+.AddOpenAiImage(new OpenAiImageOptions { BaseUrl = "https://api.openai.com/v1", ApiKey = key })
+.AddAutomatic1111(new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" })
 
 // 3.0 — every option has a sensible default, so set only what differs
-.AddOpenAiImageProvider(o => { o.ApiKey = key; })
-.AddAutomatic1111Provider(o => { })
+.AddOpenAiImage(o => { o.ApiKey = key; })
+.AddAutomatic1111(o => { })
 ```
 
 The compiler finds every site: the parameter type changed, so a 2.5 call fails with `CS1503` naming the
