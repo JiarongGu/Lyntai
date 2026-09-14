@@ -21,7 +21,7 @@ namespace Lyntai;
 /// <summary>
 /// Collects the composition of a Lyntai instance inside <c>services.AddLyntai(cfg => …)</c>.
 /// Provider/storage packages extend this with their own <c>Add*</c>/<c>Use*</c> extension methods
-/// (e.g. <c>AddClaudeCli()</c>, <c>UseSqliteStorage(path)</c>) — Core knows none of them.
+/// (e.g. <c>AddClaudeCliProvider()</c>, <c>UseSqliteStorage(path)</c>) — Core knows none of them.
 /// </summary>
 public sealed class LyntaiBuilder
 {

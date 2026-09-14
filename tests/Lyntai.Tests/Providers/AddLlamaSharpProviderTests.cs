@@ -26,7 +26,7 @@ public class AddLlamaSharpTests
     public void AddLlamaSharp_registers_a_provider_under_the_id()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddLlamaSharp(MissingModel(), id: "local"));
+        services.AddLyntai(b => b.AddLlamaSharpProvider(MissingModel(), id: "local"));
         using var sp = services.BuildServiceProvider();
 
         Assert.Contains(sp.GetServices<IModelProvider>(), p => p.Id == "local");
@@ -36,7 +36,7 @@ public class AddLlamaSharpTests
     public void AddLlamaSharp_honors_a_custom_id_and_options()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddLlamaSharp(MissingModel(), o => o.GpuLayerCount = 20, id: "phi-local"));
+        services.AddLyntai(b => b.AddLlamaSharpProvider(MissingModel(), o => o.GpuLayerCount = 20, id: "phi-local"));
         using var sp = services.BuildServiceProvider();
 
         Assert.Contains(sp.GetServices<IModelProvider>(), p => p.Id == "phi-local");
@@ -81,7 +81,7 @@ public class AddLlamaSharpTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddLlamaSharp(MissingModel())    // IsAvailable false → skipped by the router
+            .AddLlamaSharpProvider(MissingModel())    // IsAvailable false → skipped by the router
             .UseDefaultCandidates("local"));
         using var sp = services.BuildServiceProvider();
 

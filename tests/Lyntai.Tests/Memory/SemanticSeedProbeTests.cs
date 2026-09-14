@@ -62,7 +62,7 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddLive("nomic-embed-text")
+            .AddLiveProvider("nomic-embed-text")
             .UseDefaultCandidates("ollama")
             .AddHttpProvider("e", o =>
             {

@@ -58,7 +58,7 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddLive(EmbedModel)
+            .AddLiveProvider(EmbedModel)
             .UseDefaultCandidates("ollama")
             // The chat provider does not register an embedder — that is its own seam, reached through the
             // OpenAI-compatible registration, which every backend here serves at /v1/embeddings.

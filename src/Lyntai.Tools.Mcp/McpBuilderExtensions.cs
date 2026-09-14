@@ -19,7 +19,7 @@ public static class McpBuilderExtensions
     /// <code>
     /// await using var mcp = await McpClient.CreateAsync(transport);   // 1. the app owns the client
     /// var tools = await McpToolset.FromClientAsync(mcp);              // 2. adapt its tools once
-    /// services.AddLyntai(b => b.AddClaudeCli().AddMcpTools(tools).UseDefaultCandidates("claude-cli"));
+    /// services.AddLyntai(b => b.AddClaudeCliProvider().AddMcpTools(tools).UseDefaultCandidates("claude-cli"));
     /// </code>
     /// Call it once per connected server; several servers just call it several times (each tool is its own
     /// registration, so the sets merge rather than replace).</summary>

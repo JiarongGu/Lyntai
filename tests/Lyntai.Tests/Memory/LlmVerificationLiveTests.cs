@@ -115,12 +115,12 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
         var services = new ServiceCollection();
         if (UsesClaude)
             services.AddLyntai(b => b
-                .AddClaudeCli()
+                .AddClaudeCliProvider()
                 .UseDefaultCandidates("claude-cli")
                 .AddMemoryVerification(o => o.Model = ClaudeModel));
         else
             services.AddLyntai(b => b
-                .AddLive(Model)
+                .AddLiveProvider(Model)
                 .UseDefaultCandidates("ollama")
                 .AddMemoryVerification(o => o.Model = Model));
         return services.BuildServiceProvider();

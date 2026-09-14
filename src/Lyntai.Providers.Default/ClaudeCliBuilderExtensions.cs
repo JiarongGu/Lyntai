@@ -4,7 +4,7 @@ using Lyntai.Providers.ClaudeCli;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// Lives in the Lyntai namespace so `AddClaudeCli` shows up right on the builder.
+// Lives in the Lyntai namespace so `AddClaudeCliProvider` shows up right on the builder.
 namespace Lyntai;
 
 public static class ClaudeCliBuilderExtensions
@@ -21,7 +21,7 @@ public static class ClaudeCliBuilderExtensions
     /// here — no process-wide environment variable needed.</param>
     /// <param name="environment">Extra environment variables for every spawn; a portable install usually
     /// wants its own <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state.</param>
-    public static LyntaiBuilder AddClaudeCli(
+    public static LyntaiBuilder AddClaudeCliProvider(
         this LyntaiBuilder builder,
         string? command = null,
         IReadOnlyDictionary<string, string>? environment = null)
@@ -55,10 +55,10 @@ public static class ClaudeCliBuilderExtensions
     /// happened to be last.</para></summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="command">A PORTABLE <c>claude</c> path, as with
-    /// <see cref="AddClaudeCli"/> — pass the same value to both so a host's bundled CLI is used for
+    /// <see cref="AddClaudeCliProvider"/> — pass the same value to both so a host's bundled CLI is used for
     /// completions and agent sessions alike.</param>
     /// <param name="environment">Extra environment variables for every spawn — again, pass the SAME value
-    /// here as to <see cref="AddClaudeCli"/>. A portable install usually wants its own
+    /// here as to <see cref="AddClaudeCliProvider"/>. A portable install usually wants its own
     /// <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state, and until
     /// this parameter existed a host following that instruction had it honoured for completions and silently
     /// dropped for agent turns.</param>

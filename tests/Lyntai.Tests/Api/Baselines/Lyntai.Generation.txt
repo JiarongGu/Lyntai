@@ -106,9 +106,9 @@ sealed class Lyntai.Generation.Providers.OpenAiImageProvider
     Id : String
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
 static class Lyntai.GenerationProviderBuilderExtensions
-    static AddAutomatic1111(LyntaiBuilder builder, Action<Automatic1111Options> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddComfyUi(LyntaiBuilder builder, Action<ComfyUiOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddFal(LyntaiBuilder builder, Action<FalQueueOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddLocalDiffusion(LyntaiBuilder builder, Action<LocalDiffusionOptions> configure, Func<IServiceProvider,IProcessRunner> runner = null) : LyntaiBuilder
-    static AddOpenAiImage(LyntaiBuilder builder, Action<OpenAiImageOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddAutomatic1111Provider(LyntaiBuilder builder, Action<Automatic1111Options> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddComfyUiProvider(LyntaiBuilder builder, Action<ComfyUiOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddFalProvider(LyntaiBuilder builder, Action<FalQueueOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddLocalDiffusionProvider(LyntaiBuilder builder, Action<LocalDiffusionOptions> configure, Func<IServiceProvider,IProcessRunner> runner = null) : LyntaiBuilder
+    static AddOpenAiImageProvider(LyntaiBuilder builder, Action<OpenAiImageOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static HttpClientName(String id) : String

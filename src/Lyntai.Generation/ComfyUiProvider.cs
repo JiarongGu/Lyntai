@@ -112,7 +112,7 @@ public sealed class ComfyUiOptions
 /// <param name="disposeHttpClient">Whether this provider disposes what <paramref name="httpFactory"/> returns.
 /// Default true, for the usual factory that MAKES a client per call. Pass false when the factory hands back a
 /// client the HOST owns — disposing that leaves the second call throwing
-/// <see cref="ObjectDisposedException"/>. <c>AddComfyUi</c> sets this for you.</param>
+/// <see cref="ObjectDisposedException"/>. <c>AddComfyUiProvider</c> sets this for you.</param>
 public sealed class ComfyUiProvider(
     ComfyUiOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
     : IModelProvider, IGenerationJobProvider

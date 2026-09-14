@@ -226,9 +226,9 @@ public interface ITraceStore { /* run traces + steps */ }
      } -->
 ```csharp
 services.AddLyntai(cfg => {
-    cfg.AddClaudeCli();                          // family default, no API key
+    cfg.AddClaudeCliProvider();                          // family default, no API key
     cfg.AddHttpProvider("ollama", o => o.BaseUrl = "http://localhost:11434");
-    cfg.AddExtensionsAi("openai", chatClient);   // bridge any IChatClient
+    cfg.AddExtensionsAiProvider("openai", chatClient);   // bridge any IChatClient
     cfg.UseSqliteStorage(dbPath);
     cfg.AddScorer<MyScorer>();
     cfg.UseDefaultCandidates("claude-cli", "ollama");       // router fallback order

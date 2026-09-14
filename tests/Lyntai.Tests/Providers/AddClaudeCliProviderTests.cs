@@ -16,7 +16,7 @@ public class AddClaudeCliTests
         {
             var services = new ServiceCollection();
             services.AddLyntai(b => b
-                .AddClaudeCli()
+                .AddClaudeCliProvider()
                 .UseDefaultCandidates("claude-cli"));
             using var sp = services.BuildServiceProvider();
 

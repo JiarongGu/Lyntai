@@ -100,15 +100,15 @@ version you installed.
 |---|---|
 | **`Lyntai`** | **The starting set (5 of 11)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage. Not the whole library: add `Lyntai.Storage.Sqlite` to persist and `Lyntai.Generation` for media. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI — plus `Lyntai.Text.WordPieceTokenizer`, a BERT tokenizer owned rather than depended on (**D122**), usable anywhere a token-aware step is wanted. Deps: DI + Logging abstractions only. |
-| `Lyntai.Providers.Default` | The dependency-free **LLM** backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddModel2Vec(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port; and the two-way `Microsoft.Extensions.AI` bridge (any `IChatClient` → a Lyntai provider, and `AsChatClient()` back). Media backends moved to `Lyntai.Generation`. |
-| `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLlamaSharp(modelPath)` and every namespace are unchanged. |
+| `Lyntai.Providers.Default` | The dependency-free **LLM** backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port; and the two-way `Microsoft.Extensions.AI` bridge (any `IChatClient` → a Lyntai provider, and `AsChatClient()` back). Media backends moved to `Lyntai.Generation`. |
+| `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLlamaSharpProvider(modelPath)` and every namespace are unchanged. |
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
 | `Lyntai.Storage.InMemory` | Zero-dependency in-memory storage — tests, ephemeral use, or mixed per-domain. |
 | `Lyntai.Tools.Mcp` | Expose an MCP server's tools as Lyntai `ITool`s. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. Runs on `HttpListener` — **no ASP.NET Core**. |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
-| `Lyntai.Providers.Onnx` | In-process **transformer** embedding via ONNX Runtime — `AddOnnx(dir)`, no server, no port. Pooling, normalization and the sequence limit are read from the model's own files. References the **managed half only**: add one native backend yourself (`Microsoft.ML.OnnxRuntime` for CPU, `.DirectML` for any DX12 GPU, `.Gpu` for CUDA), because the library does not choose your hardware. |
+| `Lyntai.Providers.Onnx` | In-process **transformer** embedding via ONNX Runtime — `AddOnnxProvider(dir)`, no server, no port. Pooling, normalization and the sequence limit are read from the model's own files. References the **managed half only**: add one native backend yourself (`Microsoft.ML.OnnxRuntime` for CPU, `.DirectML` for any DX12 GPU, `.Gpu` for CUDA), because the library does not choose your hardware. |
 | `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D25). |
 
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
@@ -163,9 +163,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 services.AddLyntai(cfg =>
 {
-    cfg.AddClaudeCli();                          // spawns the authenticated `claude` CLI, no API key
+    cfg.AddClaudeCliProvider();                          // spawns the authenticated `claude` CLI, no API key
     cfg.AddHttpProvider("ollama", o => o.BaseUrl = "http://localhost:11434");
-    cfg.AddExtensionsAi("openai", myChatClient); // bridge any Microsoft.Extensions.AI IChatClient
+    cfg.AddExtensionsAiProvider("openai", myChatClient); // bridge any Microsoft.Extensions.AI IChatClient
     cfg.UseSqliteStorage("app.db");                      // all storage domains, migrated on startup
     cfg.AddScorer<OutcomeScorer>();                      // eval dimensions are DI registrations
     cfg.AddScorer<RelevancyScorer>();                    // (this one is an LLM judge through the router)
@@ -348,7 +348,7 @@ orchestrator, and scorers all read through it once enabled.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOpenAi(apiKey: "…")
+    .AddOpenAiProvider(apiKey: "…")
     .AddResponseCache(c => c.Ttl = TimeSpan.FromHours(6))); // defaults: 1h TTL, 1000 entries
 ```
 
@@ -750,7 +750,7 @@ reached — without hitting a provider.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOpenAi(apiKey: "…")
+    .AddOpenAiProvider(apiKey: "…")
     .AddUsageBudget(b =>
     {
         b.MaxCostUsd = 20.00;                              // global ceiling
@@ -777,7 +777,7 @@ is refused (`Verdict == RateLimited`) rather than hammering the provider.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOpenAi(apiKey: "…")
+    .AddOpenAiProvider(apiKey: "…")
     .AddRateLimit(r =>
     {
         r.PermitsPerSecond = 10;
@@ -858,13 +858,13 @@ Lyntai defines the interfaces; your app owns the resource lifecycle wherever tha
 services.AddLyntai(cfg =>
 {
     // Provider presets (or the generic AddHttpProvider, or your own IModelProvider):
-    cfg.AddOpenAi(apiKey, model: "gpt-4o-mini");
-    cfg.AddLlama(model: "gemma-3-4b");      // llama.cpp llama-server, :8080
-    cfg.AddOllama(model: "llama3.2:3b");
+    cfg.AddOpenAiProvider(apiKey, model: "gpt-4o-mini");
+    cfg.AddLlamaProvider(model: "gemma-3-4b");      // llama.cpp llama-server, :8080
+    cfg.AddOllamaProvider(model: "llama3.2:3b");
     cfg.AddProvider(_ => new MyCustomProvider());          // BYO IModelProvider
 
     // BYO HttpClient — your configured client (Polly, auth handlers, proxy, a named client):
-    cfg.AddOpenRouter(apiKey,
+    cfg.AddOpenRouterProvider(apiKey,
         httpClient: sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("resilient"));
 
     // BYO DB connection + schema ownership:
@@ -967,8 +967,8 @@ need to tell those apart.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddClaudeCli()                       // the authenticated `claude` CLI
-    .AddCodexCli()                        // the authenticated OpenAI `codex` CLI
+    .AddClaudeCliProvider()                       // the authenticated `claude` CLI
+    .AddCodexCliProvider()                        // the authenticated OpenAI `codex` CLI
     .UseDefaultCandidates("claude-cli", "codex-cli"));   // one falls over to the other
 ```
 
@@ -984,11 +984,11 @@ install's state:
 <!-- compile-given: string portableHome;
      string bundledClaudePath; -->
 ```csharp
-cfg.AddCodexCli(
+cfg.AddCodexCliProvider(
     command: Path.Combine(AppContext.BaseDirectory, "tools", "codex.exe"),
     environment: new Dictionary<string, string> { ["CODEX_HOME"] = portableHome });
 
-cfg.AddClaudeCli(command: bundledClaudePath);   // …and the same value for AddClaudeCliAgentSession
+cfg.AddClaudeCliProvider(command: bundledClaudePath);   // …and the same value for AddClaudeCliAgentSession
 ```
 
 `IsAvailable` then checks that the file is actually *there* (including an extensionless launcher rescued by
@@ -1070,20 +1070,20 @@ submit/poll/stream, capability and routing machinery.
 ```csharp
 services.AddLyntai(cfg => cfg
     // hosted: an OpenAI-compatible images API
-    .AddOpenAiImage(o => { o.ApiKey = key; o.Model = "gpt-image-1"; })
+    .AddOpenAiImageProvider(o => { o.ApiKey = key; o.Model = "gpt-image-1"; })
     // local: a Stable Diffusion WebUI on this machine
-    .AddAutomatic1111(o => { })
+    .AddAutomatic1111Provider(o => { })
     .UseDefaultGenerationCandidates("openai-images", "a1111"));
 ```
 
-Each backend has an `Add*` of its own — `AddOpenAiImage`, `AddAutomatic1111`,
-`AddComfyUi`, `AddFal`, `AddLocalDiffusion` — and each takes a **configure
+Each backend has an `Add*` of its own — `AddOpenAiImageProvider`, `AddAutomatic1111Provider`,
+`AddComfyUiProvider`, `AddFalProvider`, `AddLocalDiffusionProvider` — and each takes a **configure
 callback**, the same shape as `AddHttpProvider(id, o => …)` on the LLM side. Every option has a
 default (each backend's conventional local URL, or the vendor's API root), so a registration sets only what
 differs from it; a blank base URL reports `NotConfigured` rather than failing.
 `AddGenerationProvider(sp => …)` remains the BYO seam for a backend of your own.
 
-BYO `HttpClient` is optional on every one of the four HTTP backends — `AddLocalDiffusion` takes a BYO
+BYO `HttpClient` is optional on every one of the four HTTP backends — `AddLocalDiffusionProvider` takes a BYO
 `IProcessRunner` instead, because it spawns a binary and never makes a request — and Lyntai **never disposes a
 client you supply**: it is yours, and it may be carrying a Polly pipeline or an auth handler. Omit it and
 Lyntai registers a named client with an *infinite* `HttpClient` timeout, so the per-call deadline owns
@@ -1299,7 +1299,7 @@ Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess
 ```csharp
 services.AddLyntai(cfg =>
 {
-    cfg.AddLlamaSharp("models/Phi-3-mini-4k-instruct-q4.gguf", o =>
+    cfg.AddLlamaSharpProvider("models/Phi-3-mini-4k-instruct-q4.gguf", o =>
     {
         o.GpuLayerCount = 0;      // 0 = CPU; raise to offload layers to the GPU
         o.ContextSize = 4096;     // null = the model's own trained maximum
@@ -1320,7 +1320,7 @@ it works with **any** provider (CLI, HTTP, MEAI bridge, local) — no native too
 ```csharp
 services.AddLyntai(cfg =>
 {
-    cfg.AddClaudeCli().UseDefaultCandidates("claude-cli");
+    cfg.AddClaudeCliProvider().UseDefaultCandidates("claude-cli");
 
     // a tool from a class (DI-injectable) or inline from a delegate:
     cfg.AddTool(_ => new FunctionTool(
@@ -1358,7 +1358,7 @@ await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
     Command = "npx", Arguments = ["-y", "@modelcontextprotocol/server-everything"], Name = "everything",
 }));
 var mcpTools = await McpToolset.FromClientAsync(mcp);   // list + adapt the server's tools
-services.AddLyntai(b => b.AddClaudeCli().AddMcpTools(mcpTools).UseDefaultCandidates("claude-cli"));
+services.AddLyntai(b => b.AddClaudeCliProvider().AddMcpTools(mcpTools).UseDefaultCandidates("claude-cli"));
 ```
 
 **Hosting your tools for a CLI agent** (`Lyntai.Tools.Mcp.Hosting`) — the reverse direction. A CLI that
@@ -1369,7 +1369,7 @@ tools:
 
 ```csharp
 services.AddLyntai(b => b
-    .AddClaudeCli()
+    .AddClaudeCliProvider()
     .AddTool(_ => new FunctionTool("get_weather", (a, ct) => Task.FromResult("""{"tempC":21}"""), "Current weather"))
     .AddMcpToolHost(new ClaudeCliMcpDialect())   // hosts the tools over MCP for the CLI
     .UseDefaultCandidates("claude-cli"));
@@ -1460,7 +1460,7 @@ Three things worth knowing before you rely on it:
 <!-- compile-given: string cwd; -->
 ```csharp
 services.AddLyntai(b => b
-    .AddClaudeCli()
+    .AddClaudeCliProvider()
     .AddClaudeCliAgentSession()          // registers IAgentSession → ClaudeAgentSession
     .UseDefaultCandidates("claude-cli"));
 
@@ -1606,7 +1606,7 @@ await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunA
   once (record the recovery key), `RecoverAsync(key)` on migration.
 - **Vision** — `LlmMessage.UserWithImage(text, bytes, "image/png")` (or `UserWithImageUrl`); the
   OpenAI-compatible and MEAI-bridged providers send it as image content, and the **Ollama-native** flavour
-  (`AddOllama`, or any base URL detected as Ollama) sends it as `/api/chat`'s own `images` array.
+  (`AddOllamaProvider`, or any base URL detected as Ollama) sends it as `/api/chat`'s own `images` array.
   Pair it with a vision model (`llava` and friends). **One shape does not travel on the Ollama-native path:**
   an attachment carrying only a remote URL, because `/api/chat` has no URL form and Lyntai will not fetch
   the bytes for you — it is logged as undeliverable rather than dropped silently. Send bytes, or use

@@ -31,7 +31,7 @@ public sealed class Automatic1111Options
     public int DefaultHeight { get; set; } = 512;
 
     /// <summary>Ceiling for ONE call to this backend — the render, and the probe. Generous because a render on
-    /// the host's own GPU legitimately runs for minutes (which is why <c>AddAutomatic1111</c> gives its
+    /// the host's own GPU legitimately runs for minutes (which is why <c>AddAutomatic1111Provider</c> gives its
     /// client an infinite <see cref="HttpClient"/> timeout rather than the 100-second default), but bounded: a
     /// WebUI wedged mid-render answers nothing at all, and without a deadline that hangs a background render
     /// forever. A request's own <see cref="GenerationRequest.TimeoutSeconds"/> overrides it.
@@ -65,7 +65,7 @@ public sealed class Automatic1111Options
 /// <param name="disposeHttpClient">Whether this provider disposes what <paramref name="httpFactory"/> returns.
 /// Default true, for the usual factory that MAKES a client per call. Pass false when the factory hands back a
 /// client the HOST owns — disposing that leaves the second call throwing
-/// <see cref="ObjectDisposedException"/>. <c>AddAutomatic1111</c> sets this for you.</param>
+/// <see cref="ObjectDisposedException"/>. <c>AddAutomatic1111Provider</c> sets this for you.</param>
 public sealed class Automatic1111Provider(
     Automatic1111Options options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
     : IModelProvider

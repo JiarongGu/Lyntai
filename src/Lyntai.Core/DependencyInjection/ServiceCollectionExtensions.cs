@@ -71,7 +71,7 @@ public static class LyntaiServiceCollectionExtensions
                 "AddSemanticMemory was called, but nothing can embed: no IEmbedder and no embedding provider " +
                 "is registered, so ISemanticMemory would never be wired " +
                 "and semantic recall would silently do nothing. Pass one (AddSemanticMemory(myEmbedder)), register one " +
-                "(AddEmbeddings / AddModel2Vec / AddHttpProviderEmbedder), or drop the AddSemanticMemory call.");
+                "(AddEmbeddings / AddModel2VecProvider / AddHttpProviderEmbedder), or drop the AddSemanticMemory call.");
 
         // same contradiction for refusal screening: it wraps Lyntai's OWN client inside the factory below,
         // so with a pre-registered ILlmClient every AddRefusalMatcher registration would silently do nothing

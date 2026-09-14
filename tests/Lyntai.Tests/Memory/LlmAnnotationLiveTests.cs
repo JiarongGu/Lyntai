@@ -43,7 +43,7 @@ public class LlmAnnotationLiveTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddLive(Model)
+            .AddLiveProvider(Model)
             .UseDefaultCandidates("ollama")
             .AddMemoryAnnotation(o => o.Model = Model));
         return services.BuildServiceProvider();

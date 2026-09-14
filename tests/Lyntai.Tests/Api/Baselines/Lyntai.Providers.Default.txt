@@ -1,9 +1,9 @@
 static class Lyntai.ClaudeCliBuilderExtensions
-    static AddClaudeCli(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null) : LyntaiBuilder
     static AddClaudeCliAgentSession(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null) : LyntaiBuilder
+    static AddClaudeCliProvider(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null) : LyntaiBuilder
 static class Lyntai.CodexCliBuilderExtensions
-    static AddCodexCli(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, CodexCliDialect dialect = null) : LyntaiBuilder
     static AddCodexCliAgentSession(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null) : LyntaiBuilder
+    static AddCodexCliProvider(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, CodexCliDialect dialect = null) : LyntaiBuilder
 static class Lyntai.CrossEncoderVerificationRegistration
     static AddMemoryCrossEncoderVerification(LyntaiBuilder builder, Action<CrossEncoderVerificationOptions> configure = null, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
 sealed class Lyntai.Embeddings.Model2Vec.Model2VecProvider
@@ -18,17 +18,17 @@ sealed class Lyntai.Embeddings.Model2Vec.Model2VecProviderOptions
     Id : String
     Normalize : Nullable<Boolean>
 static class Lyntai.ExtensionsAiBuilderExtensions
-    static AddExtensionsAi(LyntaiBuilder builder, String id, Func<IServiceProvider,IChatClient> clientFactory) : LyntaiBuilder
-    static AddExtensionsAi(LyntaiBuilder builder, String id, IChatClient client) : LyntaiBuilder
+    static AddExtensionsAiProvider(LyntaiBuilder builder, String id, Func<IServiceProvider,IChatClient> clientFactory) : LyntaiBuilder
+    static AddExtensionsAiProvider(LyntaiBuilder builder, String id, IChatClient client) : LyntaiBuilder
 static class Lyntai.HttpProviderBuilderExtensions
-    static AddAzureOpenAi(LyntaiBuilder builder, String endpoint, String apiKey, String model = null, String id = "azure-openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddAzureOpenAiProvider(LyntaiBuilder builder, String endpoint, String apiKey, String model = null, String id = "azure-openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddHttpProvider(LyntaiBuilder builder, String id, Action<HttpModelOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddLlama(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "llama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddOllama(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "ollama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddOpenAi(LyntaiBuilder builder, String apiKey, String model = null, String id = "openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddOpenRouter(LyntaiBuilder builder, String apiKey, String model = null, String id = "openrouter", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddLlamaProvider(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "llama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddOllamaProvider(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "ollama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddOpenAiProvider(LyntaiBuilder builder, String apiKey, String model = null, String id = "openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddOpenRouterProvider(LyntaiBuilder builder, String apiKey, String model = null, String id = "openrouter", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
 static class Lyntai.Model2VecBuilderExtensions
-    static AddModel2Vec(LyntaiBuilder builder, String modelDirectory, Action<Model2VecProviderOptions> configure = null) : LyntaiBuilder
+    static AddModel2VecProvider(LyntaiBuilder builder, String modelDirectory, Action<Model2VecProviderOptions> configure = null) : LyntaiBuilder
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     .ctor()
     AllowedTools : IReadOnlyList<String>

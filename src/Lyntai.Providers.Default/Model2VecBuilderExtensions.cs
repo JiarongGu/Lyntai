@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Lyntai;
 
 /// <summary>DI entry point for the in-process static embedder. A consumer composes it through the builder
-/// (<c>services.AddLyntai(cfg =&gt; cfg.AddModel2Vec(…))</c>) and never constructs its types by hand.</summary>
+/// (<c>services.AddLyntai(cfg =&gt; cfg.AddModel2VecProvider(…))</c>) and never constructs its types by hand.</summary>
 public static class Model2VecBuilderExtensions
 {
     /// <summary>
@@ -30,7 +30,7 @@ public static class Model2VecBuilderExtensions
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="modelDirectory">A directory holding <c>model.safetensors</c> and <c>vocab.txt</c>.</param>
     /// <param name="configure">Knobs; null takes the model's own configuration.</param>
-    public static LyntaiBuilder AddModel2Vec(this LyntaiBuilder builder, string modelDirectory,
+    public static LyntaiBuilder AddModel2VecProvider(this LyntaiBuilder builder, string modelDirectory,
         Action<Model2VecProviderOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);

@@ -80,7 +80,7 @@ about cross-tenant cache behaviour. The contention figures are one box.
   (`affordance-static-embedders`) — **how much an embedder is worth is a property of the ARM**.
   <br>And turning semantic seeds ON is worth more than the embedder is: **+21.5** points over the shipped
   default even with the static model. Do not read "cannot afford a GPU embedder" as "cannot afford the
-  arm". **Both in-process embedders now ship** — `AddModel2Vec` (**D121**) and `AddOnnx`
+  arm". **Both in-process embedders now ship** — `AddModel2VecProvider` (**D121**) and `AddOnnxProvider`
   (**D124**) — so this is a configuration choice rather than a gap.
 
 **Not measured here:** anything on a device this repository does not have, and any frame-time impact — the
@@ -122,8 +122,8 @@ column turned out to need no separate build, for the reason under the table.
 
 | | CPU | GPU |
 |---|---|---|
-| **static** (lookup table, no matmul) | **SHIPS** in `Lyntai.Providers.Default` (**D121**, **D122**) — `AddModel2Vec(dir)`, needing NO package and NO dependency because its WordPiece tokenizer is owned and sits in Core; **0.5 points** behind on the memory default and ~12 on a selective task, and the only cell with NO context limit | n/a — there is nothing to accelerate |
-| **transformer** | **SHIPS** as `Lyntai.Providers.Onnx` (**D124**) — `AddOnnx(dir)`. A NATIVE dependency, so it opts OUT of the trim/AOT claim the static cell keeps, and it HAS a 512-token limit | **the SAME package**: it references ONNX Runtime's managed half only, so the app adding `.DirectML` (any DX12 device) or `.Gpu` (CUDA) instead of the CPU backend moves this cell with no library change |
+| **static** (lookup table, no matmul) | **SHIPS** in `Lyntai.Providers.Default` (**D121**, **D122**) — `AddModel2VecProvider(dir)`, needing NO package and NO dependency because its WordPiece tokenizer is owned and sits in Core; **0.5 points** behind on the memory default and ~12 on a selective task, and the only cell with NO context limit | n/a — there is nothing to accelerate |
+| **transformer** | **SHIPS** as `Lyntai.Providers.Onnx` (**D124**) — `AddOnnxProvider(dir)`. A NATIVE dependency, so it opts OUT of the trim/AOT claim the static cell keeps, and it HAS a 512-token limit | **the SAME package**: it references ONNX Runtime's managed half only, so the app adding `.DirectML` (any DX12 device) or `.Gpu` (CUDA) instead of the CPU backend moves this cell with no library change |
 
 **For a game, DirectML is the one worth noting**: it is vendor-neutral on any DX12 device and ships with
 Windows, where a CUDA backend requires the user to have an NVIDIA card and runtime. A library that

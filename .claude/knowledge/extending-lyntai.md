@@ -23,7 +23,7 @@ Three paths — pick the cheapest one that reaches your backend:
 
 **A. Bridge an existing `Microsoft.Extensions.AI` `IChatClient` (preferred).** OpenAI, Azure, Ollama,
 Anthropic-API, etc. already have MEAI clients. You do *nothing* but register:
-`builder.AddExtensionsAi("my-id", theChatClient)`. `ExtensionsAiProvider` handles the mapping,
+`builder.AddExtensionsAiProvider("my-id", theChatClient)`. `ExtensionsAiProvider` handles the mapping,
 streaming, usage, and verdict-from-exception. **Only write a native provider if MEAI can't reach it.**
 
 **A2. A SPAWNED CLI → write a DIALECT, not a provider.** If the backend is a command-line agent
@@ -152,8 +152,8 @@ Tests: drive it against a stub, never a live endpoint — an HTTP provider gets 
 The media seam (image / video / audio / 3d) behind one capability-aware contract. Same shape as everything
 else: **the CONTRACTS are in `Lyntai.Core`** (namespaces `Lyntai.Generation`, `.Routing`, `.Jobs`, `.Tools`),
 the BACKENDS live in the `Lyntai.Generation` package under `Lyntai.Generation.Providers`, and each ships a
-one-line `builder.Add<Name>(...)` shim over `AddGenerationProvider(sp => …)` — the backend method takes
-NO `Provider` suffix (D134); the factory primitive it wraps keeps one, because there `Provider` is the noun.
+one-line `builder.Add<Name>Provider(...)` shim over `AddGenerationProvider(sp => …)`. Every builder method
+names what it REGISTERS with the vendor as the qualifier (**D137**), so the suffix is on both.
 
 **A generation backend needs a MAJOR to reshape, like everything else.** `Lyntai.Generation` was EXEMPT as a
 **PACKAGE** from 2.0.1 — the backends were written from vendor docs with no key to call, and

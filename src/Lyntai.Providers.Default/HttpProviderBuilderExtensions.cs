@@ -15,7 +15,7 @@ public static class HttpProviderBuilderExtensions
     /// <para><b>This one KEEPS the <c>Provider</c> suffix</b> where a named backend drops it (<b>D134</b>):
     /// like <see cref="LyntaiBuilder.AddProvider(Func{IServiceProvider,Lyntai.Lifecycle.IModelProvider})"/>
     /// it is the GENERIC registration, so <c>Provider</c> is the noun it takes rather than a suffix on a
-    /// vendor's name. The vendor presets below — <see cref="AddOpenAi"/>, <see cref="AddOllama"/> — name a
+    /// vendor's name. The vendor presets below — <see cref="AddOpenAiProvider"/>, <see cref="AddOllamaProvider"/> — name a
     /// backend, so they do not carry it.</para>
     /// <para>BYO HttpClient: pass <paramref name="httpClient"/> to supply your own configured client
     /// (Polly resilience, auth handlers, a proxy, service discovery, or an existing named
@@ -66,7 +66,7 @@ public static class HttpProviderBuilderExtensions
     // builder.AddProvider). All presets accept a BYO httpClient like the base method.
 
     /// <summary>OpenAI (api.openai.com). Default id "openai".</summary>
-    public static LyntaiBuilder AddOpenAi(this LyntaiBuilder builder, string apiKey,
+    public static LyntaiBuilder AddOpenAiProvider(this LyntaiBuilder builder, string apiKey,
         string? model = null, string id = "openai", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddHttpProvider(id, o =>
         {
@@ -86,7 +86,7 @@ public static class HttpProviderBuilderExtensions
     /// friends). An attachment carrying only a remote <c>Uri</c> is the one shape this endpoint cannot take,
     /// since <c>/api/chat</c> has no URL form; it is logged as undeliverable rather than dropped in
     /// silence.</para></summary>
-    public static LyntaiBuilder AddOllama(this LyntaiBuilder builder, string? baseUrl = null,
+    public static LyntaiBuilder AddOllamaProvider(this LyntaiBuilder builder, string? baseUrl = null,
         string? model = null, string id = "ollama", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddHttpProvider(id, o =>
         {
@@ -105,10 +105,10 @@ public static class HttpProviderBuilderExtensions
     /// (<c>--models-dir</c>), where the name must match an entry. Pass <see langword="null"/> unless you run
     /// a router or want the label recorded on traces.</para>
     /// <para>Pass the server ROOT, not its <c>/v1</c>: requests compose to <c>…/v1/chat/completions</c>.
-    /// Unlike <see cref="AddOllama"/> there is no native surface to pin — <c>llama-server</c> has
+    /// Unlike <see cref="AddOllamaProvider"/> there is no native surface to pin — <c>llama-server</c> has
     /// only the OpenAI-shaped one — so an attachment travels as an <c>image_url</c> part and a remote
     /// <c>Uri</c> attachment is deliverable, which Ollama's own schema cannot express.</para></summary>
-    public static LyntaiBuilder AddLlama(this LyntaiBuilder builder, string? baseUrl = null,
+    public static LyntaiBuilder AddLlamaProvider(this LyntaiBuilder builder, string? baseUrl = null,
         string? model = null, string id = "llama", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddHttpProvider(id, o =>
         {
@@ -118,7 +118,7 @@ public static class HttpProviderBuilderExtensions
         }, httpClient);
 
     /// <summary>OpenRouter (openrouter.ai). Default id "openrouter".</summary>
-    public static LyntaiBuilder AddOpenRouter(this LyntaiBuilder builder, string apiKey,
+    public static LyntaiBuilder AddOpenRouterProvider(this LyntaiBuilder builder, string apiKey,
         string? model = null, string id = "openrouter", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddHttpProvider(id, o =>
         {
@@ -132,7 +132,7 @@ public static class HttpProviderBuilderExtensions
     /// <paramref name="endpoint"/> is your resource URL (e.g. <c>https://my-resource.openai.azure.com</c> —
     /// requests compose to <c>…/openai/v1/chat/completions</c>); <paramref name="apiKey"/> is sent as both
     /// the <c>api-key</c> header (Azure key auth) and a Bearer token. Default id "azure-openai".</summary>
-    public static LyntaiBuilder AddAzureOpenAi(this LyntaiBuilder builder, string endpoint, string apiKey,
+    public static LyntaiBuilder AddAzureOpenAiProvider(this LyntaiBuilder builder, string endpoint, string apiKey,
         string? model = null, string id = "azure-openai", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddHttpProvider(id, o =>
         {

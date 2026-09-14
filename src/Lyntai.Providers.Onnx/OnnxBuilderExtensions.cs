@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Lyntai;
 
 /// <summary>DI entry point for <c>Lyntai.Providers.Onnx</c>. A consumer composes this adapter through the
-/// builder (<c>services.AddLyntai(cfg =&gt; cfg.AddOnnx(…))</c>) and never constructs its types by
+/// builder (<c>services.AddLyntai(cfg =&gt; cfg.AddOnnxProvider(…))</c>) and never constructs its types by
 /// hand.</summary>
 public static class OnnxBuilderExtensions
 {
@@ -31,7 +31,7 @@ public static class OnnxBuilderExtensions
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="modelDirectory">A directory holding an ONNX graph and <c>vocab.txt</c>.</param>
     /// <param name="configure">Knobs; null takes the model's own configuration.</param>
-    public static LyntaiBuilder AddOnnx(this LyntaiBuilder builder, string modelDirectory,
+    public static LyntaiBuilder AddOnnxProvider(this LyntaiBuilder builder, string modelDirectory,
         Action<OnnxEmbedderOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);

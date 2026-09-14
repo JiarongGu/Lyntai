@@ -38,14 +38,8 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `Lyntai.Providers.Http` namespace. The old name was false for the `Ollama` dialect, which posts
   `/api/chat` and `/api/embed` — endpoints that vendor documents as distinct from its OpenAI-compatible
   `/v1` surface. `OpenAiPayload` and the `HttpDialect.OpenAi` member keep the name: they denote OpenAI's
-  actual schema. **`AddHttpProvider` keeps the `Provider` suffix** under D134's rule — it is the generic
-  registration, where `Provider` is the noun.
-
-- **The `Provider` suffix is dropped from every backend registration** (**D134**): `AddOpenAiProvider` → <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
-  `AddOpenAi`, `AddOllamaProvider` → `AddOllama`, `AddHttpProviderProvider` → `AddHttpProvider`, <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
-  and so through all seventeen. Once D132 had unified the roster onto one suffix, that suffix distinguished
-  nothing. **`AddProvider`, `AddEmbeddingProvider` and `AddGenerationProvider` keep theirs** — they take a
-  factory and are the generic primitives, where `Provider` is the noun rather than a suffix on a name.
+  actual schema. Like every builder method it names what it
+  REGISTERS, with the vendor as the qualifier (**D137**).
 
 - **There is one `Add*` per backend, and no route sub-objects** (**D132**, **D133**).
   `AddHttpProviderEmbedder` is removed and `HttpModelOptions` is flat — <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
@@ -55,9 +49,9 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `HttpEmbeddingsTransport`.
 
 - **The `*Embedder` suffix is retired from every registration** (**D132**): `AddOnnxEmbedder` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
-  `AddOnnx`, `AddStaticEmbedder` → `AddModel2Vec` (with `StaticEmbedder` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `AddOnnxProvider`, `AddStaticEmbedder` → `AddModel2VecProvider` (with `StaticEmbedder` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `Model2VecProvider`, naming the export it loads rather than the technique), and `AddLocalProvider` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
-  `AddLlamaSharp`. Every one of them returns an `IModelProvider`; what it produces is a field to
+  `AddLlamaSharpProvider`. Every one of them returns an `IModelProvider`; what it produces is a field to
   read, not a suffix to guess.
 
 - **Embedding is an output KIND, not an operation: `ProviderCapabilities.Kinds` becomes `Accepts` + <!-- link-ok: names the member this entry RETIRES -->
@@ -82,7 +76,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 - **An embedder is a PROVIDER: `IEmbeddingProvider` is removed** (**D128**). `Model2VecProvider` and
   `OnnxEmbedder` are `IModelProvider`s declaring `Kinds: ["text"], Operations: [Embed]`, and
-  `AddModel2Vec` / `AddOnnx` now register them into the provider collection **as well as** the
+  `AddModel2VecProvider` / `AddOnnxProvider` now register them into the provider collection **as well as** the
   `IEmbedder` slot. Nothing moves for a deployment with exactly one embedder; what changes is that a second
   one is expressible and distinguishable by id. **`IEmbedder` stays** as the minimal bring-your-own seam —
   one method, implementable by a lambda — while `IModelProvider` is the routed one; the two `EmbedAsync`
@@ -124,7 +118,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 - **`Lyntai.Providers.ExtensionsAi` is folded into `Lyntai.Providers.Default`** (**D123**). The migration is
   one `PackageReference` and no `using` — every namespace and type name is unchanged, and
-  `AddExtensionsAi(id, chatClient)` still registers it. **The boundary was isolating nothing**:
+  `AddExtensionsAiProvider(id, chatClient)` still registers it. **The boundary was isolating nothing**:
   `ModelContextProtocol.Core` pins `Microsoft.Extensions.AI.Abstractions` transitively and both MCP halves
   are bundle members, so a one-line-install consumer already carried that assembly and could not refuse it.
   **What changes for whom:** a consumer referencing `Lyntai.Providers.Default` alone, with no bundle and no
@@ -134,8 +128,8 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   the dependency it ISOLATES, and "Local" stopped naming anything once the in-process static embedder
   landed — it described three things and identified none. **The namespace and every type name are
   unchanged**, deliberately, so the migration is one `PackageReference` and no `using` edit;
-  `AddLlamaSharp(modelPath)` still registers it. `AddLlamaSharp` was refused because
-  `AddLlama` already exists next door for llama-server over HTTP, and two names that close meaning
+  `AddLlamaSharpProvider(modelPath)` still registers it. `AddLlamaSharpProvider` was refused because
+  `AddLlamaProvider` already exists next door for llama-server over HTTP, and two names that close meaning
   opposite things is worse than one imprecise one. The old id is unlisted (**D44**).
 
 - **`ToolLoop`'s constructor gains an optional trailing `IToolSelector? selector` parameter** (**D120**).
@@ -146,7 +140,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 ### Added
 
 - **An in-process embedder with NO server, GPU or port** (**D121**, **D122**).
-  `AddModel2Vec(modelDirectory)` over a `model2vec` lookup table, **in `Lyntai.Providers.Default`** —
+  `AddModel2VecProvider(modelDirectory)` over a `model2vec` lookup table, **in `Lyntai.Providers.Default`** —
   no new package and **no new dependency**, because its WordPiece tokenizer is owned rather than referenced
   (**D122**: `Microsoft.ML.Tokenizers` cost 812 KB of closure, with `Google.Protobuf`, for one call). Both
   packages keep their `✅` trim/AOT rows. **The case is operational, not quality or speed**:
@@ -160,7 +154,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   was dropped rather than `[UNK]`, and accents were not stripped though the model's config asks for it.
   Nothing released was affected; the defect arrived and left inside this release (`docs/FIXES.md`).
 
-- **`Lyntai.Providers.Onnx` — an in-process TRANSFORMER embedder** (**D124**). `AddOnnx(dir)` runs
+- **`Lyntai.Providers.Onnx` — an in-process TRANSFORMER embedder** (**D124**). `AddOnnxProvider(dir)` runs
   a sentence-transformer through ONNX Runtime with no server and no port, completing the CPU column of the
   in-process 2×2 whose static half shipped as **D121**. Measured, it is worth roughly **+9.6 points** of
   tool-routing accuracy at three options over the static class at comparable model bytes — for ~16 MB of
@@ -277,7 +271,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   headline, because a judge pays by the token and only the policy knows whether it is paying. `null` means
   nobody supplied one, which is distinct from a genuinely empty entry. `docs/DECISIONS.md` **D108**.
 
-- **`AddLlama` — a preset for llama.cpp's `llama-server`**, beside the existing `AddOllama`.
+- **`AddLlamaProvider` — a preset for llama.cpp's `llama-server`**, beside the existing `AddOllamaProvider`.
   Default base `http://localhost:8080` (llama-server's own port), id `"llama"`, keyless, plain OpenAI schema
   off the server ROOT — llama-server has no native surface to pin, so unlike Ollama it can take an
   attachment carrying only a remote `Uri`.
@@ -945,7 +939,7 @@ order; the surface changes are:
   `GenerateAsync`/`SubmitAsync` now receives a verdict instead. Inline ADVANCES; a thrown SUBMIT is
   `Inconclusive` and SURFACES, because submitting commits the spend and advancing would buy the same render
   twice. The caller's own cancellation still propagates.
-- **Every generation backend registers with a configure callback** — `AddOpenAiImage(o => …)` and its
+- **Every generation backend registers with a configure callback** — `AddOpenAiImageProvider(o => …)` and its
   four siblings, matching the rest of the library. The four HTTP options types became mutable classes, so
   `with` expressions and value equality on them no longer work, and the three `required BaseUrl` members
   gained the default their own documentation already named. *Upgrade: checklist 11.*
@@ -1758,7 +1752,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
     therefore owns the schema. Both follow one rule — the guard follows the selection, and the last selection
     decides — but each is reachable by reordering two lines you thought were independent.
 - **`AddClaudeCliAgentSession` now takes `environment`, so a portable install's `CLAUDE_CONFIG_DIR` reaches
-  agent turns too.** `AddClaudeCli`, `AddCodexCli` and `AddCodexCliAgentSession` all already
+  agent turns too.** `AddClaudeCliProvider`, `AddCodexCliProvider` and `AddCodexCliAgentSession` all already
   had it; the Claude agent session was the only one of the four without, and its sibling's docs instruct a
   host to "pass the same value to both". **What you observe:** a host that did exactly that had the variable
   honoured for completions and **silently dropped** for agent turns — so the portable CLI read and mutated
@@ -1821,9 +1815,9 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   with **no error anywhere**, the source image simply ignored. The factories make the role impossible to omit.
   Purely additive; the constructor is unchanged. See `docs/DECISIONS.md` — the named-factories rule, which also records why
   `GenerationArtifact` was checked and deliberately left alone.
-- **Per-backend `Add*` shims for `Lyntai.Generation`** — `AddOpenAiImage`, `AddAutomatic1111`,
-  `AddComfyUi`, `AddFal` and `AddLocalDiffusion`, the media counterpart of
-  `AddOpenAi()` / `AddOllama()`. Every backend previously had to be hand-constructed with its own
+- **Per-backend `Add*` shims for `Lyntai.Generation`** — `AddOpenAiImageProvider`, `AddAutomatic1111Provider`,
+  `AddComfyUiProvider`, `AddFalProvider` and `AddLocalDiffusionProvider`, the media counterpart of
+  `AddOpenAiProvider()` / `AddOllamaProvider()`. Every backend previously had to be hand-constructed with its own
   `Func<HttpClient>`. BYO stays optional on all of them; omit it and Lyntai registers a named client with an
   **infinite** `HttpClient` timeout so the per-call deadline owns cancellation (a render routinely outlives the
   100-second default). `GenerationProviderBuilderExtensions.HttpClientName(id)` is public so a host can decorate
@@ -2111,7 +2105,7 @@ the claude CLI is the first implementer, not the shape.
   never become an invented backend flag.
 
 - **`Lyntai.Providers.CodexCli`** — a NEW package: the authenticated OpenAI `codex` CLI as a provider
-  (`AddCodexCli()`, id `codex-cli`), so a fallback chain can span two independent CLI agents. It is
+  (`AddCodexCliProvider()`, id `codex-cli`), so a fallback chain can span two independent CLI agents. It is
   the second implementer of the shared CLI seam below, which is what proves that seam generic rather than
   claude-shaped. Every command, flag and event shape was **measured against codex-cli 0.146.0** — `--help` for
   the argv, plus one real successful turn (through the `--oss` local-model path, so no tokens were spent) and
@@ -2124,8 +2118,8 @@ the claude CLI is the first implementer, not the shape.
   `IProviderVersionInstaller`: `codex update` takes no target, so this backend genuinely cannot pin a version.
   Completions run `--sandbox read-only` by default (a text completion shouldn't edit your disk); raise it with
   `new CodexCliDialect { SandboxMode = "workspace-write" }`.
-- **Portable (non-global) CLI installs are a first-class wiring** — `AddClaudeCli(command, environment)`,
-  `AddClaudeCliAgentSession(command)` and `AddCodexCli(command, environment, dialect)` now take the
+- **Portable (non-global) CLI installs are a first-class wiring** — `AddClaudeCliProvider(command, environment)`,
+  `AddClaudeCliAgentSession(command)` and `AddCodexCliProvider(command, environment, dialect)` now take the
   path to a CLI your app ships or unpacks itself, plus extra environment variables for that install (its own
   `CODEX_HOME` / `CLAUDE_CONFIG_DIR`), so a bundled backend needs no process-wide environment variable. The
   environment applies to the maintenance spawns too, so a probe/auth check reports the PORTABLE install's
@@ -2159,7 +2153,7 @@ the claude CLI is the first implementer, not the shape.
   reproduction of the original failure and an unreadable-path check.
 
 ### Note on binary compatibility
-The optional parameters added to `ClaudeCliProvider`'s constructor and to the `AddClaudeCli*` extensions are
+The optional parameters added to `ClaudeCliProvider`'s constructor and to the `AddClaudeCliProvider*` extensions are
 **source**-compatible but not **binary**-compatible: recompile against this version rather than dropping the
 assembly in. Allowed in a minor by `docs/DECISIONS.md` — the deferred-SemVer-strictness rule (all consumers are first-party and build from
 source); no member or type was removed.
@@ -2357,7 +2351,7 @@ a frozen column via SELECT aliases.
 - **SourceLink / deterministic release builds** (`src/Directory.Build.props`): `PublishRepositoryUrl` +
   `ContinuousIntegrationBuild` under GitHub Actions (the manual `release.yml` pipeline) — stepping into
   Lyntai from a consuming app resolves sources from the repo.
-- **Azure OpenAI as a first-class dialect**: `AddAzureOpenAi(...)` preset,
+- **Azure OpenAI as a first-class dialect**: `AddAzureOpenAiProvider(...)` preset,
   `ProviderDetect.AzureOpenAi` (detects `*.openai.azure.com`), bare-resource endpoint completion to
   `/openai/v1/chat/completions`, and the `api-key` header sent alongside `Authorization: Bearer`.
 - **`IKeyValueStore.ListKeysAsync(prefix?)`** — enumerate stored keys (ordinal order, case-sensitive
@@ -3444,7 +3438,7 @@ Proper tool-calling for the **claude CLI** provider, plus a test-stability fix. 
   `ITool`s as an **in-process, localhost-only HTTP MCP server** (Kestrel, ephemeral port, started and
   torn down per CLI call) and points `claude -p` at it via a temp `--mcp-config` + a `--settings`
   allow-list (`mcp__lyntai__*`, so only our tools run, non-interactively). Opt-in:
-  `builder.AddClaudeCli().AddTool(...).AddClaudeCliMcpTools()`; a completion routed to the CLI
+  `builder.AddClaudeCliProvider().AddTool(...).AddClaudeCliMcpTools()`; a completion routed to the CLI
   then lets its agent call the app's tools and returns the tool-informed answer.
   - A small Core seam (`ICliToolProvisioner` / `CliToolSession` in `Lyntai.Agents`) keeps the
     host/ASP.NET dependency out of the base `ClaudeCli` provider — the provider gains an optional
@@ -3556,7 +3550,7 @@ New provider package for in-process local inference. Additive — no changes to 
 
 ### Added
 - **`Lyntai.Providers.Local`** — runs a local GGUF model in-process via LLamaSharp (llama.cpp), wired
-  with `builder.AddLlamaSharp(modelPath, …)`. No network, no API key, no external process; the
+  with `builder.AddLlamaSharpProvider(modelPath, …)`. No network, no API key, no external process; the
   model loads lazily and is reused, and generations are serialized (one local model, one at a time).
   It classifies to the same verdicts the router expects (produced answer → `Ok`; empty generation or
   a load/inference fault → `Failed` so the router falls over; inactivity → `Timeout`).
@@ -3604,8 +3598,8 @@ implementation; Lyntai provides the interface. All additive; the `ClaudeCliProvi
 - **BYO DB connection + schema** — `UseSqliteStorage`/`UsePostgresStorage` gain an
   `IDbConnectionFactory` overload (you own connection creation/pooling/lifecycle) and a `migrate: false`
   flag (you own the schema; Lyntai runs no migrations).
-- **Provider presets** — `AddOpenAi`, `AddOllama`, `AddOpenRouter`,
-  `AddAzureOpenAi` — pre-configured defaults over the generic method. The BYO `IModelProvider`
+- **Provider presets** — `AddOpenAiProvider`, `AddOllamaProvider`, `AddOpenRouterProvider`,
+  `AddAzureOpenAiProvider` — pre-configured defaults over the generic method. The BYO `IModelProvider`
   path (`AddProvider`) stays open for anything bespoke.
 
 ## 0.6.0 — 2026-07-17

@@ -78,7 +78,7 @@ public class Model2VecProviderTests : IDisposable
         // Both halves are load-bearing: the slot keeps the one-embedder deployment working untouched, and
         // the provider collection is what lets a second embedder be registered and told apart by id.
         var services = new ServiceCollection();
-        services.AddLyntai(cfg => cfg.AddModel2Vec(WriteModel(Vocabulary("alpha"))));
+        services.AddLyntai(cfg => cfg.AddModel2VecProvider(WriteModel(Vocabulary("alpha"))));
         var provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetService<IEmbedder>());

@@ -9,7 +9,7 @@ Read `.claude/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.claud
 
 ## Decide the path
 1. **Can `Microsoft.Extensions.AI` reach it?** (OpenAI/Azure/Ollama/Anthropic-API/…) → don't write a
-   provider. The consumer calls `builder.AddExtensionsAi("id", chatClient)`. Done.
+   provider. The consumer calls `builder.AddExtensionsAiProvider("id", chatClient)`. Done.
 2. **Is it a spawned CLI agent?** (`claude`, a sibling CLI) → write a **dialect**, not a provider. See the
    CLI checklist below — the spawn/verdict/streaming/maintenance invariants already live in
    `CliProviderEngine`, and a second copy of them is how they drifted before.
@@ -45,8 +45,8 @@ the csproj.
       Refuse unknown free-form values (`FlagShaped`) instead of forwarding them into argv.
 - [ ] `<Name>CliProvider` — forwards to `CliProviderEngine` and implements exactly the capability interfaces
       that dialect supports. Copy `ClaudeCliProvider` (pure forwarding, no logic).
-- [ ] `Add<Name>Cli(this LyntaiBuilder)` extension — no `Provider` suffix (D134); keyed
-      `ICliToolProvisioner` lookup by provider id.
+- [ ] `Add<Name>CliProvider(this LyntaiBuilder)` extension; keyed `ICliToolProvisioner` lookup by provider
+      id. A builder method names what it REGISTERS, with the vendor qualifying it (**D137**).
 - [ ] Tests: the parsing/argv-building unit-tested through `FakeProcessRunner` (never a real binary — and
       NEVER `login`/`logout`/`install` against one, which mutate a developer's machine), plus a real-spawn
       test against `provider-stub.mjs`. Add the CLI's shapes to the stub as needed.
@@ -79,8 +79,8 @@ the csproj.
       — copy `HttpModelProvider.StreamAsync`. Yield `Content` only for non-empty text; end with one
       `Final`(usage) or `Error`.
 - [ ] Spawning a CLI → go through `ProcessRunner` (never shell out directly).
-- [ ] `Add<Name>(this LyntaiBuilder, …)` extension in the adapter package — NO `Provider` suffix, which
-      D134 retired from every backend registration; register into the
+- [ ] `Add<Name>Provider(this LyntaiBuilder, …)` extension in the adapter package — a builder method names
+      what it REGISTERS, with the vendor qualifying it (**D137**); register into the
       `IEnumerable<IModelProvider>` collection, resolve deps from the container.
 - [ ] Baselines/registries: same rule as the CLI checklist above — Core untouched, and a package only if
       the footprint test says so, scaffolded with `node devtools/dev.mjs new-package`, never by hand.

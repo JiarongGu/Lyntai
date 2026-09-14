@@ -9,7 +9,7 @@ namespace Lyntai.Providers.ClaudeCli;
 ///
 /// Public so it can be composed directly (a host wiring its own <see cref="CliProviderEngine"/>, a test
 /// asserting the vocabulary) — but the normal entry point is
-/// <see cref="ClaudeCliBuilderExtensions.AddClaudeCli"/>.</summary>
+/// <see cref="ClaudeCliBuilderExtensions.AddClaudeCliProvider"/>.</summary>
 /// <remarks>Every maintenance command here was verified against a live CLI (<c>--help</c> on v2.1.220)
 /// before being named. That matters more than usual for this backend: it treats an unrecognized token as a
 /// PROMPT and answers it, so a guessed subcommand costs tokens on every call while the build stays green.</remarks>

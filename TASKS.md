@@ -714,7 +714,7 @@ might need to be multi tasking too". That is a different question from "which mo
 the library is already most of the way to answering it — **no new API is needed**. The seams exist:
 named `ILlmClient`s (**D87** — "reranking, salience judging … should not silently run on whatever backend
 happens to be default"), `LlmAnnotationOptions.ClientName` ("annotation runs on EVERY write, so it belongs
-on a small fast backend"), `LlmConsumers` for per-seam cost attribution, and `AddLlama`. What is
+on a small fast backend"), `LlmConsumers` for per-seam cost attribution, and `AddLlamaProvider`. What is
 missing is MEASUREMENT._
 
 _**Two findings already constrain this and should be read first.** A task-shape rule: a GENERATIVE task

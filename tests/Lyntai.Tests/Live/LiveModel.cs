@@ -90,7 +90,7 @@ public static class LiveModel
     /// <param name="builder">The builder to register into.</param>
     /// <param name="model">The model to default to.</param>
     /// <param name="id">The provider id; the default matches what these suites already used.</param>
-    public static LyntaiBuilder AddLive(this LyntaiBuilder builder, string model, string id = "ollama") =>
+    public static LyntaiBuilder AddLiveProvider(this LyntaiBuilder builder, string model, string id = "ollama") =>
         builder.AddHttpProvider(id, o =>
         {
             o.BaseUrl = BaseUrl;

@@ -51,7 +51,7 @@ using var meterListener = tel.CreateMeterListener();
 
 var services = new ServiceCollection();
 services.AddLyntai(b => b
-    .AddClaudeCli()
+    .AddClaudeCliProvider()
     .AddHttpProvider("ollama", c =>
     {
         c.BaseUrl = Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL") ?? "http://localhost:11434";
@@ -269,7 +269,7 @@ static class GovernanceDemo
         using var meter = ResultCounter("lyntai.cache.requests", "lyntai.cache.result", "hit", () => Interlocked.Increment(ref hits));
 
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddClaudeCli().AddResponseCache().UseDefaultCandidates("claude-cli"));
+        services.AddLyntai(b => b.AddClaudeCliProvider().AddResponseCache().UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();
         var llm = sp.GetRequiredService<ILlmClient>();
         var req = new LlmRequest { Messages = [LlmMessage.User("cache me please")], Consumer = "gov" };
@@ -284,7 +284,7 @@ static class GovernanceDemo
     private static async Task<bool> BudgetScenario()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddClaudeCli().AddUsageBudget(o => o.MaxCostUsd = 0.01).UseDefaultCandidates("claude-cli"));
+        services.AddLyntai(b => b.AddClaudeCliProvider().AddUsageBudget(o => o.MaxCostUsd = 0.01).UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();
         var llm = sp.GetRequiredService<ILlmClient>();
 
@@ -299,7 +299,7 @@ static class GovernanceDemo
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddClaudeCli()
+            .AddClaudeCliProvider()
             .AddRateLimit(o => { o.PermitsPerSecond = 0.0001; o.Burst = 1; o.MaxWait = TimeSpan.Zero; })
             .UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();
@@ -315,7 +315,7 @@ static class GovernanceDemo
     private static async Task<bool> SemanticScenario(string dbPath)
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddClaudeCli().UseSqliteStorage(dbPath).AddEmbeddings(new DemoEmbedder()).UseDefaultCandidates("claude-cli"));
+        services.AddLyntai(b => b.AddClaudeCliProvider().UseSqliteStorage(dbPath).AddEmbeddings(new DemoEmbedder()).UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();
         var mem = sp.GetRequiredService<ISemanticMemory>();
 
@@ -333,7 +333,7 @@ static class GovernanceDemo
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddClaudeCli().UseSqliteStorage(dbPath)
+            .AddClaudeCliProvider().UseSqliteStorage(dbPath)
             .AddJobSchedule("demo-sched", "sched-lane", "sched-type", "{}", TimeSpan.FromMilliseconds(5))
             .UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();
@@ -371,7 +371,7 @@ static class AgentSessionDemo
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddClaudeCli()
+            .AddClaudeCliProvider()
             .AddClaudeCliAgentSession()
             .UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();

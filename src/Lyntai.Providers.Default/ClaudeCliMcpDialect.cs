@@ -16,7 +16,7 @@ namespace Lyntai.Providers.ClaudeCli;
 /// provider.</para>
 ///
 /// <para>Wire it with <c>AddMcpToolHost(new ClaudeCliMcpDialect())</c> from
-/// <c>Lyntai.Tools.Mcp.Hosting</c>, alongside <c>AddClaudeCli()</c> and your tool
+/// <c>Lyntai.Tools.Mcp.Hosting</c>, alongside <c>AddClaudeCliProvider()</c> and your tool
 /// registrations.</para>
 /// </summary>
 public sealed class ClaudeCliMcpDialect : IMcpCliDialect

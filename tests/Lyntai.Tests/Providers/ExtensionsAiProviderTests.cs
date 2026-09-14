@@ -300,7 +300,7 @@ public class ExtensionsAiProviderTests
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddExtensionsAi("meai", client)
+            .AddExtensionsAiProvider("meai", client)
             .AddTool(_ => new FunctionTool("shout", (args, _) => Task.FromResult(args.ToUpperInvariant())))
             .UseDefaultCandidates("meai"));
         using var sp = services.BuildServiceProvider();
@@ -325,7 +325,7 @@ public class ExtensionsAiProviderTests
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddExtensionsAi("my-meai", client)
+            .AddExtensionsAiProvider("my-meai", client)
             .UseDefaultCandidates("my-meai"));
         using var sp = services.BuildServiceProvider();
 

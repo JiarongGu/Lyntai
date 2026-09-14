@@ -14,7 +14,7 @@ public static class McpToolHostBuilderExtensions
     /// the provider registration and your <c>AddTool(...)</c>/<c>AddMcpTools(...)</c> registrations:
     /// <code>
     /// services.AddLyntai(b => b
-    ///     .AddClaudeCli()
+    ///     .AddClaudeCliProvider()
     ///     .AddMcpToolHost(new ClaudeCliMcpDialect())
     ///     .AddTool(_ => new FunctionTool("get_status", …)));
     /// </code>

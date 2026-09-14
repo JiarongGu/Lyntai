@@ -23,7 +23,7 @@ public class CortexIntegrationTests : IDisposable
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddClaudeCli()
+            .AddClaudeCliProvider()
             .UseSqliteStorage(_db.Path)
             .AddScorer<OutcomeScorer>()
             .AddScorer<RelevancyScorer>()
