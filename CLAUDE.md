@@ -76,7 +76,9 @@ Namespace map (Core): `Lyntai.Llm` (+ `.Cli` — a new CLI backend is a DIALECT,
 `.Tools`; the CONTRACTS are in Core, the BACKENDS are the separate `Lyntai.Generation` package, split by
 dependency footprint) / `Lyntai.Embeddings` / `Lyntai.Memory` (semantic memory + vector store; the
 graph-memory DOMAINS are SEVEN: `.Interference` / `.Forgetting` / `.Modulation` / `.Salience` /
-`.Ranking` / `.Annotation` / `.Verification`, each one seam plus its implementations AND its options —
+`.Ranking` / `.Annotation` / `.Verification`, each an `IMemory*Policy` seam plus its implementations AND its
+options — `.Seeding` has that shape and is NOT one, because `IMemorySeedSource` PRODUCES candidates rather
+than deciding about them, and the count is derived from the seam's name —
 placement is by OWNERSHIP, not consumption, so only a type no domain owns (`MemoryDecayState`) sits at the
 root) / `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` / `Lyntai.Jobs` /
 `Lyntai.Guards` / `Lyntai.Secrets` / `Lyntai.Lifecycle` / `Lyntai.Storage` / `Lyntai.Processes` /

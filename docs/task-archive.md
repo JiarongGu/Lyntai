@@ -3644,3 +3644,25 @@ as "read the configured instance", which is a fair reading of an ambiguous sente
 a `new` expression. The remark now says SHIPPED DEFAULT, says it is deliberately not the consumer's value,
 and says why. The finding was worth having: it cost one comment and bought the next reader the answer.
 
+---
+
+## Part 213 — the memory domain roster: a second review finding REFUTED, by the gate that derives it
+
+✅ closed 2026-09-15 as a **negative result**. `TASKS.md` Part 179's fifth item.
+
+- **`CLAUDE.md`'s graph-memory roster says SEVEN domains and the tree has EIGHT.**
+
+**Outcome: SEVEN is correct, and `check-counts` is why we know.** That claim is gated by a counter derived
+from the tree whose rule is explicit — *"the seam is what makes a sub-namespace a DOMAIN — `IMemory<X>Policy`
+declared in it"* — and `Lyntai.Memory.Seeding`'s seam is `IMemorySeedSource`. Editing the roster to EIGHT
+turned the gate RED within a minute, which is the whole argument for having counted claims at all.
+
+**The distinction is real, not bookkeeping.** The seven are pluggable DECISION rules over what the engine
+already holds; a seed source PRODUCES the candidates they then decide about. `.Seeding` has the same
+file shape — one seam, three implementations, its own options — which is exactly why a careful reader
+looking only at the tree concluded it belonged.
+
+**What changed: the sentence, not the number.** It now says the seven are `IMemory*Policy` seams and names
+`.Seeding` as deliberately outside, with the reason. Two of Part 179's seven findings were refutations, and
+both came from prose that was true and misreadable — the same shape as Part 212.
+
