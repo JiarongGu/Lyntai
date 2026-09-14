@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
@@ -28,7 +29,7 @@ public class FalQueueProviderTests
         var (provider, _) = Provider();
 
         Assert.Equal("fal", provider.Id);
-        Assert.Equal([GenerationDelivery.Job], provider.Capabilities.Deliveries);
+        Assert.Equal([ProviderOperation.Job], provider.Capabilities.Operations);
         Assert.Contains(GenerationKinds.Video, provider.Capabilities.Kinds);
         Assert.IsAssignableFrom<IGenerationJobProvider>(provider);
         Assert.Empty(provider.Capabilities.Models);   // hundreds, and they change without us

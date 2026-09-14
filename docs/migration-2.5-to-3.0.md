@@ -938,7 +938,7 @@ with `AddGenerationUsageBudget()` / `AddGenerationRateLimit()`, needs nothing �
 
 `IGenerationRouter.StreamAsync` is a required member with no default body, so a hand-written router stops
 compiling until it has one. That is deliberate: a default body would have let a BYO router silently keep the
-old behaviour, and the old behaviour is the defect — a backend advertising `GenerationDelivery.Stream` was
+old behaviour, and the old behaviour is the defect — a backend advertising `ProviderOperation.Stream` was
 unreachable through the platform, because the capability pre-filter was only ever asked about `Inline` and
 `Job`.
 

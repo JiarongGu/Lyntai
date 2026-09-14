@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using System.Text;
 
@@ -61,7 +62,7 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
     public async Task A_transport_failure_is_a_verdict_rather_than_a_throw()
     {
         var provider = Refusing();
-        if (!provider.Capabilities.Deliveries.Contains(GenerationDelivery.Inline)) return;
+        if (!provider.Capabilities.Operations.Contains(ProviderOperation.Complete)) return;
 
         await GenerationProviderContract.A_backend_failure_is_a_verdict_rather_than_a_throw(provider, Ask());
     }
@@ -78,7 +79,7 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
         var http = new StubHttpHandler();
         http.Enqueue(_ => throw new OperationCanceledException());
         var provider = New(http);
-        if (!provider.Capabilities.Deliveries.Contains(GenerationDelivery.Inline)) return;
+        if (!provider.Capabilities.Operations.Contains(ProviderOperation.Complete)) return;
 
         await GenerationProviderContract.Caller_cancellation_propagates_rather_than_becoming_a_verdict(
             provider, Ask());
@@ -99,7 +100,7 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
         var marker = Encoding.ASCII.GetBytes("LYNTAI-INPUT-MARKER-7F3A");
         var ask = Ask() with { Inputs = [GenerationInput.FirstFrame(marker, "image/png")] };
 
-        if (provider.Capabilities.Deliveries.Contains(GenerationDelivery.Inline))
+        if (provider.Capabilities.Operations.Contains(ProviderOperation.Complete))
             await provider.GenerateAsync(ask);
         else if (provider is IGenerationJobProvider jobs)
             await jobs.SubmitAsync(ask);
@@ -113,7 +114,7 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
     public async Task An_inline_401_is_classified()
     {
         var provider = Rejecting();
-        if (!provider.Capabilities.Deliveries.Contains(GenerationDelivery.Inline)) return;
+        if (!provider.Capabilities.Operations.Contains(ProviderOperation.Complete)) return;
 
         var result = await provider.GenerateAsync(Ask());
 

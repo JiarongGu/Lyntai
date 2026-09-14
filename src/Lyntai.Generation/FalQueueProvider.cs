@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -133,13 +134,13 @@ public sealed class FalQueueProvider(
     public string Id => options.Id;
 
     /// <inheritdoc/>
-    public GenerationCapabilities Capabilities { get; } = new()
+    public ProviderCapabilities Capabilities { get; } = new()
     {
         Kinds = options.Kinds,
-        Deliveries = [GenerationDelivery.Job],
+        Operations = [ProviderOperation.Job],
         SupportsInputs = true,          // image→video, reference→video: the model decides
         // Models deliberately NOT enumerated: hundreds, changing without us, and an empty list means
-        // "unknown" rather than "serves nothing" (GenerationCapabilities.Models).
+        // "unknown" rather than "serves nothing" (ProviderCapabilities.Models).
     };
 
     /// <summary>Credential presence only. The queue has no free "is this key good?" endpoint that doesn't

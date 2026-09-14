@@ -10,7 +10,7 @@ sealed class Lyntai.Generation.Providers.Automatic1111Options
     Timeout : TimeSpan
 sealed class Lyntai.Generation.Providers.Automatic1111Provider
     .ctor(Automatic1111Options options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
-    Capabilities : GenerationCapabilities
+    Capabilities : ProviderCapabilities
     GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
     ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
@@ -34,7 +34,7 @@ sealed class Lyntai.Generation.Providers.ComfyUiOptions
 sealed class Lyntai.Generation.Providers.ComfyUiProvider
     .ctor(ComfyUiOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     CancelAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
-    Capabilities : GenerationCapabilities
+    Capabilities : ProviderCapabilities
     FetchAsync(String operationId, CancellationToken ct = default) : Task<GenerationResult>
     GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
@@ -62,7 +62,7 @@ sealed class Lyntai.Generation.Providers.FalQueueOptions
 sealed class Lyntai.Generation.Providers.FalQueueProvider
     .ctor(FalQueueOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     CancelAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
-    Capabilities : GenerationCapabilities
+    Capabilities : ProviderCapabilities
     FetchAsync(String operationId, CancellationToken ct = default) : Task<GenerationResult>
     GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
@@ -87,7 +87,7 @@ sealed class Lyntai.Generation.Providers.LocalDiffusionOptions
     WorkDirectory : String
 sealed class Lyntai.Generation.Providers.LocalDiffusionProvider
     .ctor(LocalDiffusionOptions options, IProcessRunner runner)
-    Capabilities : GenerationCapabilities
+    Capabilities : ProviderCapabilities
     GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
     ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
@@ -101,7 +101,7 @@ sealed class Lyntai.Generation.Providers.OpenAiImageOptions
     Timeout : TimeSpan
 sealed class Lyntai.Generation.Providers.OpenAiImageProvider
     .ctor(OpenAiImageOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
-    Capabilities : GenerationCapabilities
+    Capabilities : ProviderCapabilities
     GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
     ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>

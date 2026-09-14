@@ -38,9 +38,9 @@ public interface IGenerationRouter
     Task<GenerationSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
 
-    /// <summary>Stream through the first capable <see cref="GenerationDelivery.Stream"/> candidate, emitting
+    /// <summary>Stream through the first capable <see cref="ProviderOperation.Stream"/> candidate, emitting
     /// media as it is produced. The third door, added in 3.0 — before it, a backend advertising
-    /// <see cref="GenerationDelivery.Stream"/> was unreachable through the platform and had to be driven
+    /// <see cref="ProviderOperation.Stream"/> was unreachable through the platform and had to be driven
     /// directly, which made <see cref="IGenerationStreamProvider"/> a seam nothing could use.</summary>
     /// <remarks><b>Fallback stops at the first byte, and that is the whole contract.</b> This path inherits
     /// the two invariants the LLM router measured rather than inventing its own

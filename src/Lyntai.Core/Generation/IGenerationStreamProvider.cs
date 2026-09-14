@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 namespace Lyntai.Generation;
 
 /// <summary>
@@ -7,9 +8,9 @@ namespace Lyntai.Generation;
 /// </summary>
 /// <remarks><b>Reachable through the platform since 3.0.</b>
 /// <see cref="Lyntai.Generation.Routing.IGenerationRouter.StreamAsync"/> is the third door, so a backend
-/// advertising <see cref="GenerationDelivery.Stream"/> is selected, fallen over, governed and throttled on the
+/// advertising <see cref="ProviderOperation.Stream"/> is selected, fallen over, governed and throttled on the
 /// same terms as an inline one. Until then the capability pre-filter was only ever asked about
-/// <see cref="GenerationDelivery.Inline"/> and <see cref="GenerationDelivery.Job"/>, and this seam could only
+/// <see cref="ProviderOperation.Complete"/> and <see cref="ProviderOperation.Job"/>, and this seam could only
 /// be driven by hand — which is how it stayed unexercised long enough to be about to freeze that way.
 /// <para><b>Two of the three rules below are the router's, not a backend's.</b> A backend need not be careful
 /// about them: fallback stops at the first chunk carrying real data, and the router closes any stream that

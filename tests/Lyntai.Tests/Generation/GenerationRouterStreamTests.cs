@@ -7,8 +7,8 @@ namespace Lyntai.Tests.Generation;
 
 /// <summary>The stream door, added in 3.0. Before it, <c>IGenerationStreamProvider</c> was a seam the
 /// platform could not reach: the capability pre-filter was only ever asked about
-/// <see cref="GenerationDelivery.Inline"/> and <see cref="GenerationDelivery.Job"/>, so a backend
-/// advertising <see cref="GenerationDelivery.Stream"/> had to be driven directly and the contract shipped
+/// <see cref="ProviderOperation.Complete"/> and <see cref="ProviderOperation.Job"/>, so a backend
+/// advertising <see cref="ProviderOperation.Stream"/> had to be driven directly and the contract shipped
 /// unexercised.
 ///
 /// <para>The invariants under test are NOT invented here — they are the two the LLM router measured

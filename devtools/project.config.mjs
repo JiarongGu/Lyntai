@@ -147,6 +147,17 @@ export default {
         + 'it drift and a single type cannot (D125)',
     },
     {
+      // D125's capability half. The generation domain had the right model — capability as DATA — and the
+      // LLM domain had none, so "can this backend serve this" was a data question on one side and a type
+      // question on the other. Generalized rather than copied. `Deliveries` became `Operations` because the
+      // list now spans Embed as well as Inline/Job/Stream, and `Inline` became `Complete` for the same
+      // reason: a chat completion and an inline render are the same operation on different KINDS.
+      names: ['GenerationCapabilities', 'GenerationDelivery', 'Deliveries'],
+      use: '`Lyntai.Lifecycle.ProviderCapabilities` / `ProviderOperation` / `ProviderCapabilities.Operations`',
+      why: 'capability belongs to every provider seam, not to one domain — and an operation list that '
+        + 'cannot express Embed forces embedding into a parallel stack (D125)',
+    },
+    {
       // D76's naming sweep of the surface D67-D76 added. 'Flags' on an options object reads as boolean
       // feature flags or a [Flags] enum in .NET, not as 'the argv token for each argument' - so it is a
       // name that MISLEADS, which is the only kind D66 spends a rename on. Whole-identifier, so the

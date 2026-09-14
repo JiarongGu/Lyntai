@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 namespace Lyntai.Generation;
 
 /// <summary>One generation request, for ANY medium. The medium is <see cref="Kind"/>; everything a specific
@@ -9,7 +10,7 @@ namespace Lyntai.Generation;
 public sealed record GenerationRequest
 {
     /// <summary>Which medium to produce — a <see cref="GenerationKinds"/> value, or any string a backend
-    /// advertises in <see cref="GenerationCapabilities.Kinds"/>.</summary>
+    /// advertises in <see cref="ProviderCapabilities.Kinds"/>.</summary>
     public required string Kind { get; init; }
 
     /// <summary>The text prompt, where the backend takes one. Null for a backend driven entirely by

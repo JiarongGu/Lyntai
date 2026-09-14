@@ -316,10 +316,10 @@ public class RouterCooldownKeyTests
         public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public int Concurrent => Volatile.Read(ref _concurrent);
 
-        public GenerationCapabilities Capabilities { get; } = new()
+        public ProviderCapabilities Capabilities { get; } = new()
         {
             Kinds = [GenerationKinds.Image],
-            Deliveries = [GenerationDelivery.Inline],
+            Operations = [ProviderOperation.Complete],
         };
 
         public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>

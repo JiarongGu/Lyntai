@@ -261,10 +261,10 @@ public class ProviderPoolWiringTests
         public string Id { get; init; } = "a1111";
         public TaskCompletionSource BothInside { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public GenerationCapabilities Capabilities { get; } = new()
+        public ProviderCapabilities Capabilities { get; } = new()
         {
             Kinds = [GenerationKinds.Image],
-            Deliveries = [GenerationDelivery.Inline],
+            Operations = [ProviderOperation.Complete],
         };
 
         public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>

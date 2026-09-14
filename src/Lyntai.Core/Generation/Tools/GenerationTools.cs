@@ -227,7 +227,7 @@ public sealed class GenerationBackendsTool(
                 writer.WriteEndArray();
 
                 writer.WriteStartArray("delivery");
-                foreach (var delivery in provider.Capabilities.Deliveries)
+                foreach (var delivery in provider.Capabilities.Operations)
                     writer.WriteStringValue(delivery.ToString().ToLowerInvariant());
                 writer.WriteEndArray();
 

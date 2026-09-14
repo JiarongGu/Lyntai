@@ -248,7 +248,7 @@ verdict taxonomies). The plan of record is `docs/2026-08-04-generation-platform-
 ```csharp
 public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
     new string Id { get; }                            // "openai-images" | "a1111" | "local-diffusion" | …
-    GenerationCapabilities Capabilities { get; }      // read by the router BEFORE spending anything
+    ProviderCapabilities Capabilities { get; }      // read by the router BEFORE spending anything
     Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default);   // no-cost; never generates
     Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default);
 }
@@ -273,7 +273,7 @@ public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
   the exemption and is still worth knowing, because it is what the exemption was repeatedly mistaken for.
 - **The router has a door per delivery mode, and the third one is 3.0** (**D67**). `IGenerationRouter` gained
   `StreamAsync` — a required member, so a hand-written router must add it. Before that the capability
-  pre-filter was only ever asked about `Inline` and `Job`, so a backend advertising `GenerationDelivery.Stream`
+  pre-filter was only ever asked about `Inline` and `Job`, so a backend advertising `ProviderOperation.Stream`
   was **unreachable through the platform**: `IGenerationStreamProvider` was a `Lyntai.Core` contract about to
   freeze under the full SemVer promise having never been exercised. **Two of its invariants are INHERITED
   from the LLM router rather than invented** (§6, D4): fallback stops at the first chunk carrying real data,

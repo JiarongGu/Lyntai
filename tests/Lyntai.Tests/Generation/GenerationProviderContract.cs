@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using System.Text;
 
@@ -28,30 +29,30 @@ public static class GenerationProviderContract
     {
         Assert.False(string.IsNullOrWhiteSpace(provider.Id));
         Assert.NotEmpty(provider.Capabilities.Kinds);
-        Assert.NotEmpty(provider.Capabilities.Deliveries);
+        Assert.NotEmpty(provider.Capabilities.Operations);
     }
 
     /// <summary><b>A declared delivery mode must be backed by the interface that serves it.</b> The router
-    /// pre-filters on <see cref="GenerationCapabilities.Deliveries"/> and then casts, so declaring a mode the
+    /// pre-filters on <see cref="ProviderCapabilities.Operations"/> and then casts, so declaring a mode the
     /// type does not implement is a configuration fault that surfaces at the worst moment — after a candidate
     /// has been selected and every alternative discarded. <c>GenerationRouter</c> names this case explicitly
     /// on its stream door (<c>docs/DECISIONS.md</c> D67).</summary>
     public static void Its_declared_deliveries_are_backed_by_the_interfaces_it_implements(
         IGenerationProvider provider)
     {
-        foreach (var delivery in provider.Capabilities.Deliveries)
+        foreach (var delivery in provider.Capabilities.Operations)
         {
             switch (delivery)
             {
-                case GenerationDelivery.Job:
+                case ProviderOperation.Job:
                     Assert.True(provider is IGenerationJobProvider,
                         $"{provider.Id} declares Job delivery but does not implement IGenerationJobProvider");
                     break;
-                case GenerationDelivery.Stream:
+                case ProviderOperation.Stream:
                     Assert.True(provider is IGenerationStreamProvider,
                         $"{provider.Id} declares Stream delivery but does not implement IGenerationStreamProvider");
                     break;
-                case GenerationDelivery.Inline:
+                case ProviderOperation.Complete:
                     break;   // served by IGenerationProvider itself, which every backend implements
             }
         }
@@ -64,7 +65,7 @@ public static class GenerationProviderContract
     public static async Task An_inline_call_to_a_job_only_backend_is_Unsupported(
         IGenerationProvider provider, GenerationRequest ask)
     {
-        if (provider.Capabilities.Deliveries.Contains(GenerationDelivery.Inline)) return;
+        if (provider.Capabilities.Operations.Contains(ProviderOperation.Complete)) return;
 
         var result = await provider.GenerateAsync(ask);
 
@@ -121,8 +122,8 @@ public static class GenerationProviderContract
 
     /// <summary><b>A declared INPUT capability must be backed by code that CONSUMES it.</b> The sibling of
     /// <see cref="Its_declared_deliveries_are_backed_by_the_interfaces_it_implements"/>, one axis over:
-    /// <see cref="GenerationCapabilities.SupportsInputs"/> is not advisory, because
-    /// <see cref="GenerationCapabilities.Supports"/> uses it as an ADMISSION filter. Declaring it is a promise
+    /// <see cref="ProviderCapabilities.SupportsInputs"/> is not advisory, because
+    /// <see cref="ProviderCapabilities.Supports"/> uses it as an ADMISSION filter. Declaring it is a promise
     /// to the router that this backend reads <see cref="GenerationRequest.Inputs"/>, so a backend that
     /// declares it and ignores them is handed the chained artifact and drops it in silence.
     /// <para>Two answers are acceptable and one is not. SENDING NOTHING is honest — that is a refusal, and

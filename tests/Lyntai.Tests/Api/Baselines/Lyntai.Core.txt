@@ -536,18 +536,6 @@ sealed class Lyntai.Generation.GenerationArtifact
     ToInput(String role = null) : GenerationInput
     ToString() : String
     Uri : String
-sealed class Lyntai.Generation.GenerationCapabilities
-    .ctor()
-    Deliveries : IReadOnlyList<GenerationDelivery>
-    Equals(GenerationCapabilities other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    Kinds : IReadOnlyList<String>
-    Limits : IReadOnlyDictionary<String,String>
-    Models : IReadOnlyList<String>
-    Supports(GenerationRequest request, GenerationDelivery delivery) : Boolean
-    SupportsInputs : Boolean
-    ToString() : String
 sealed class Lyntai.Generation.GenerationChunk
     .ctor(Byte[] Data = null, String MediaType = null, Nullable<GenerationVerdict> Error = null, String Detail = null, Boolean Final = false, GenerationUsage Usage = null)
     Data : Byte[]
@@ -564,11 +552,6 @@ sealed class Lyntai.Generation.GenerationChunk
     static Completed(GenerationUsage usage = null) : GenerationChunk
     static Content(Byte[] data, String mediaType = null) : GenerationChunk
     static Failure(GenerationVerdict verdict, String detail = null) : GenerationChunk
-enum Lyntai.Generation.GenerationDelivery
-    Inline : GenerationDelivery const
-    Job : GenerationDelivery const
-    Stream : GenerationDelivery const
-    value__ : Int32
 sealed class Lyntai.Generation.GenerationInput
     .ctor(String MediaType, Byte[] Data = null, String Uri = null, String Role = null)
     Data : Byte[]
@@ -689,7 +672,7 @@ interface Lyntai.Generation.IGenerationJobProvider
     PollAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
     SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationOperation>
 interface Lyntai.Generation.IGenerationProvider
-    Capabilities : GenerationCapabilities
+    Capabilities : ProviderCapabilities
     GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
     ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
@@ -1100,6 +1083,18 @@ sealed class Lyntai.Lifecycle.ProviderCandidate
     Model : String
     ProviderId : String
     ToString() : String
+sealed class Lyntai.Lifecycle.ProviderCapabilities
+    .ctor()
+    Equals(Object obj) : Boolean
+    Equals(ProviderCapabilities other) : Boolean
+    GetHashCode() : Int32
+    Kinds : IReadOnlyList<String>
+    Limits : IReadOnlyDictionary<String,String>
+    Models : IReadOnlyList<String>
+    Operations : IReadOnlyList<ProviderOperation>
+    Supports(String kind, ProviderOperation operation, String model = null, Boolean hasInputs = false) : Boolean
+    SupportsInputs : Boolean
+    ToString() : String
 struct Lyntai.Lifecycle.ProviderKey
     .ctor(String Slot, String Fingerprint)
     Deconstruct(String& Slot, String& Fingerprint) : Void
@@ -1117,6 +1112,18 @@ sealed class Lyntai.Lifecycle.ProviderKeyBuilder
     With(String name, Int32 value) : ProviderKeyBuilder
     With(String name, String value) : ProviderKeyBuilder
     WithSecret(String name, String value) : ProviderKeyBuilder
+static class Lyntai.Lifecycle.ProviderKinds
+    Audio : String const
+    Image : String const
+    Model3d : String const
+    Text : String const
+    Video : String const
+enum Lyntai.Lifecycle.ProviderOperation
+    Complete : ProviderOperation const
+    Embed : ProviderOperation const
+    Job : ProviderOperation const
+    Stream : ProviderOperation const
+    value__ : Int32
 sealed class Lyntai.Lifecycle.ProviderPoolOptions
     .ctor()
     IdleTimeout : Nullable<TimeSpan>

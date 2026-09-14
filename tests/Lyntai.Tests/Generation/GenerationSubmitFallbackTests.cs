@@ -202,10 +202,10 @@ public class GenerationSubmitFallbackTests
 
         public int SubmitCalls { get; private set; }
 
-        public GenerationCapabilities Capabilities { get; } = new()
+        public ProviderCapabilities Capabilities { get; } = new()
         {
             Kinds = [GenerationKinds.Video],
-            Deliveries = [GenerationDelivery.Job],
+            Operations = [ProviderOperation.Job],
         };
 
         public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>

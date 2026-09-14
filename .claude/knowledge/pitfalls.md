@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 201 traps, indexed two ways
+## Facets — 202 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (36) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 499 · 584 · 593 · 603 · 657 · 671 · 741 · 755 · 1061 · 1188 · 1443 · 2409 · 2419 · 2445 · 2456 · 2493 · 2864 · 2894 · 2903
-- **`encoding`** (7) — 75 · 95 · 100 · 610 · 618 · 884 · 2493
-- **`git`** (7) — 227 · 252 · 283 · 308 · 618 · 640 · 889
-- **`build`** (9) — 100 · 584 · 593 · 603 · 657 · 1053 · 1443 · 2394 · 2428
+- **`gates`** (37) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 499 · 584 · 593 · 603 · 657 · 671 · 741 · 755 · 1061 · 1188 · 1443 · 2394 · 2418 · 2428 · 2454 · 2465 · 2502 · 2873 · 2903 · 2912
+- **`encoding`** (7) — 75 · 95 · 100 · 610 · 618 · 884 · 2502
+- **`git`** (8) — 227 · 252 · 283 · 308 · 618 · 640 · 889 · 2394
+- **`build`** (9) — 100 · 584 · 593 · 603 · 657 · 1053 · 1443 · 2403 · 2437
 - **`router`** (6) — 1286 · 1291 · 1300 · 1302 · 1305 · 1435
 - **`cli`** (19) — 75 · 770 · 884 · 1286 · 1307 · 1315 · 1324 · 1328 · 1340 · 1344 · 1351 · 1355 · 1362 · 1366 · 1399 · 1418 · 1422 · 1427 · 2264
 - **`lifetime`** (6) — 1465 · 1474 · 1479 · 1484 · 1497 · 1505
-- **`storage`** (17) — 1378 · 1514 · 1616 · 1644 · 1646 · 1647 · 1649 · 1651 · 1669 · 1680 · 1909 · 1921 · 2177 · 2294 · 2475 · 2657 · 2841
-- **`memory`** (39) — 407 · 442 · 570 · 1136 · 1378 · 1548 · 1567 · 1578 · 1604 · 1616 · 1631 · 1652 · 1669 · 1680 · 1719 · 1734 · 1741 · 1760 · 1771 · 1789 · 1802 · 1815 · 1873 · 1928 · 1948 · 1984 · 2020 · 2038 · 2045 · 2076 · 2098 · 2126 · 2198 · 2273 · 2294 · 2550 · 2709 · 2737 · 2820
+- **`storage`** (17) — 1378 · 1514 · 1616 · 1644 · 1646 · 1647 · 1649 · 1651 · 1669 · 1680 · 1909 · 1921 · 2177 · 2294 · 2484 · 2666 · 2850
+- **`memory`** (39) — 407 · 442 · 570 · 1136 · 1378 · 1548 · 1567 · 1578 · 1604 · 1616 · 1631 · 1652 · 1669 · 1680 · 1719 · 1734 · 1741 · 1760 · 1771 · 1789 · 1802 · 1815 · 1873 · 1928 · 1948 · 1984 · 2020 · 2038 · 2045 · 2076 · 2098 · 2126 · 2198 · 2273 · 2294 · 2559 · 2718 · 2746 · 2829
 - **`generation`** (11) — 1121 · 1181 · 1264 · 1291 · 1497 · 2020 · 2211 · 2223 · 2247 · 2354 · 2379
 - **`di`** (12) — 1484 · 1734 · 1760 · 1940 · 1942 · 1945 · 1948 · 1966 · 2045 · 2076 · 2223 · 2273
-- **`measurement`** (65) — 131 · 392 · 407 · 425 · 442 · 483 · 513 · 529 · 548 · 560 · 570 · 691 · 770 · 777 · 782 · 788 · 815 · 828 · 839 · 847 · 863 · 870 · 907 · 917 · 937 · 948 · 982 · 1009 · 1015 · 1031 · 1048 · 1053 · 1092 · 1121 · 1136 · 1166 · 1181 · 1196 · 1214 · 1229 · 1246 · 1264 · 1315 · 1514 · 1533 · 1604 · 1771 · 1802 · 1829 · 1840 · 1855 · 1873 · 1928 · 1984 · 2445 · 2526 · 2577 · 2592 · 2616 · 2636 · 2657 · 2687 · 2724 · 2788 · 2820
-- **`docs`** (23) — 144 · 172 · 195 · 316 · 640 · 671 · 691 · 741 · 1061 · 1072 · 1077 · 1084 · 1188 · 1578 · 2098 · 2165 · 2329 · 2339 · 2409 · 2419 · 2456 · 2475 · 2746
-- **`tests`** (21) — 1399 · 1590 · 1631 · 1652 · 1719 · 1741 · 1909 · 1921 · 2177 · 2539 · 2550 · 2561 · 2737 · 2759 · 2841 · 2849 · 2857 · 2861 · 2864 · 2876 · 2889
+- **`measurement`** (65) — 131 · 392 · 407 · 425 · 442 · 483 · 513 · 529 · 548 · 560 · 570 · 691 · 770 · 777 · 782 · 788 · 815 · 828 · 839 · 847 · 863 · 870 · 907 · 917 · 937 · 948 · 982 · 1009 · 1015 · 1031 · 1048 · 1053 · 1092 · 1121 · 1136 · 1166 · 1181 · 1196 · 1214 · 1229 · 1246 · 1264 · 1315 · 1514 · 1533 · 1604 · 1771 · 1802 · 1829 · 1840 · 1855 · 1873 · 1928 · 1984 · 2454 · 2535 · 2586 · 2601 · 2625 · 2645 · 2666 · 2696 · 2733 · 2797 · 2829
+- **`docs`** (23) — 144 · 172 · 195 · 316 · 640 · 671 · 691 · 741 · 1061 · 1072 · 1077 · 1084 · 1188 · 1578 · 2098 · 2165 · 2329 · 2339 · 2418 · 2428 · 2465 · 2484 · 2755
+- **`tests`** (21) — 1399 · 1590 · 1631 · 1652 · 1719 · 1741 · 1909 · 1921 · 2177 · 2548 · 2559 · 2570 · 2746 · 2768 · 2850 · 2858 · 2866 · 2870 · 2873 · 2885 · 2898
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (21) — 227 · 407 · 442 · 671 · 782 · 1092 · 1264 · 1300 · 1305 · 1324 · 1399 · 1479 · 1567 · 1815 · 1948 · 1984 · 2211 · 2223 · 2273 · 2379 · 2709
+- **`fail-open`** (21) — 227 · 407 · 442 · 671 · 782 · 1092 · 1264 · 1300 · 1305 · 1324 · 1399 · 1479 · 1567 · 1815 · 1948 · 1984 · 2211 · 2223 · 2273 · 2379 · 2718
 - **`cancellation`** (5) — 1286 · 1291 · 1548 · 1567 · 1590
-- **`vacuous`** (43) — 131 · 205 · 212 · 392 · 425 · 483 · 513 · 593 · 788 · 828 · 847 · 937 · 1121 · 1136 · 1166 · 1181 · 1214 · 1355 · 1418 · 1435 · 1590 · 1631 · 1652 · 1719 · 1741 · 1829 · 1840 · 1873 · 1984 · 2098 · 2475 · 2550 · 2561 · 2592 · 2724 · 2737 · 2759 · 2788 · 2841 · 2864 · 2876 · 2894 · 2903
-- **`scope-blind`** (36) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 618 · 741 · 755 · 1229 · 1443 · 1734 · 1802 · 1909 · 1921 · 2098 · 2126 · 2177 · 2294 · 2409 · 2419 · 2428 · 2445 · 2456 · 2475 · 2561 · 2724 · 2737 · 2861 · 2894 · 2903
+- **`vacuous`** (43) — 131 · 205 · 212 · 392 · 425 · 483 · 513 · 593 · 788 · 828 · 847 · 937 · 1121 · 1136 · 1166 · 1181 · 1214 · 1355 · 1418 · 1435 · 1590 · 1631 · 1652 · 1719 · 1741 · 1829 · 1840 · 1873 · 1984 · 2098 · 2484 · 2559 · 2570 · 2601 · 2733 · 2746 · 2768 · 2797 · 2850 · 2873 · 2885 · 2903 · 2912
+- **`scope-blind`** (36) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 618 · 741 · 755 · 1229 · 1443 · 1734 · 1802 · 1909 · 1921 · 2098 · 2126 · 2177 · 2294 · 2418 · 2428 · 2437 · 2454 · 2465 · 2484 · 2570 · 2733 · 2746 · 2870 · 2903 · 2912
 - **`second-door`** (20) — 1302 · 1340 · 1344 · 1355 · 1362 · 1422 · 1427 · 1505 · 1647 · 1669 · 1948 · 2076 · 2177 · 2198 · 2211 · 2223 · 2247 · 2294 · 2329 · 2354
-- **`stale-claim`** (18) — 57 · 172 · 252 · 316 · 691 · 839 · 870 · 889 · 1061 · 1077 · 1578 · 1945 · 2165 · 2198 · 2247 · 2329 · 2456 · 2746
-- **`silent-loss`** (55) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 560 · 610 · 657 · 671 · 770 · 828 · 884 · 917 · 948 · 982 · 1048 · 1092 · 1181 · 1188 · 1196 · 1264 · 1328 · 1344 · 1378 · 1465 · 1497 · 1533 · 1604 · 1644 · 1646 · 1647 · 1649 · 1669 · 1680 · 1719 · 1855 · 1928 · 1940 · 1945 · 1966 · 2038 · 2076 · 2126 · 2264 · 2354 · 2394 · 2409 · 2419 · 2493 · 2577 · 2657 · 2788
-- **`wrong-subject`** (62) — 57 · 111 · 131 · 308 · 392 · 425 · 442 · 499 · 513 · 529 · 548 · 560 · 570 · 584 · 603 · 788 · 815 · 847 · 863 · 870 · 917 · 948 · 982 · 1009 · 1015 · 1072 · 1084 · 1121 · 1136 · 1166 · 1196 · 1214 · 1229 · 1246 · 1302 · 1351 · 1443 · 1474 · 1484 · 1514 · 1604 · 1652 · 1760 · 1771 · 1789 · 1802 · 1829 · 1840 · 1873 · 2020 · 2045 · 2379 · 2394 · 2526 · 2577 · 2592 · 2616 · 2636 · 2657 · 2759 · 2820 · 2864
-- **`unmeasured`** (17) — 529 · 570 · 640 · 691 · 741 · 777 · 1031 · 1053 · 1307 · 1315 · 1324 · 1366 · 1418 · 1789 · 2020 · 2339 · 2746
-- **`ordering`** (10) — 603 · 1328 · 1427 · 1616 · 1651 · 1966 · 2264 · 2273 · 2539 · 2687
-- **`resource`** (14) — 584 · 618 · 657 · 907 · 1015 · 1246 · 1307 · 1399 · 1505 · 1514 · 1942 · 2849 · 2857 · 2889
+- **`stale-claim`** (18) — 57 · 172 · 252 · 316 · 691 · 839 · 870 · 889 · 1061 · 1077 · 1578 · 1945 · 2165 · 2198 · 2247 · 2329 · 2465 · 2755
+- **`silent-loss`** (55) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 560 · 610 · 657 · 671 · 770 · 828 · 884 · 917 · 948 · 982 · 1048 · 1092 · 1181 · 1188 · 1196 · 1264 · 1328 · 1344 · 1378 · 1465 · 1497 · 1533 · 1604 · 1644 · 1646 · 1647 · 1649 · 1669 · 1680 · 1719 · 1855 · 1928 · 1940 · 1945 · 1966 · 2038 · 2076 · 2126 · 2264 · 2354 · 2403 · 2418 · 2428 · 2502 · 2586 · 2666 · 2797
+- **`wrong-subject`** (63) — 57 · 111 · 131 · 308 · 392 · 425 · 442 · 499 · 513 · 529 · 548 · 560 · 570 · 584 · 603 · 788 · 815 · 847 · 863 · 870 · 917 · 948 · 982 · 1009 · 1015 · 1072 · 1084 · 1121 · 1136 · 1166 · 1196 · 1214 · 1229 · 1246 · 1302 · 1351 · 1443 · 1474 · 1484 · 1514 · 1604 · 1652 · 1760 · 1771 · 1789 · 1802 · 1829 · 1840 · 1873 · 2020 · 2045 · 2379 · 2394 · 2403 · 2535 · 2586 · 2601 · 2625 · 2645 · 2666 · 2768 · 2829 · 2873
+- **`unmeasured`** (17) — 529 · 570 · 640 · 691 · 741 · 777 · 1031 · 1053 · 1307 · 1315 · 1324 · 1366 · 1418 · 1789 · 2020 · 2339 · 2755
+- **`ordering`** (10) — 603 · 1328 · 1427 · 1616 · 1651 · 1966 · 2264 · 2273 · 2548 · 2696
+- **`resource`** (14) — 584 · 618 · 657 · 907 · 1015 · 1246 · 1307 · 1399 · 1505 · 1514 · 1942 · 2858 · 2866 · 2898
 
 <!-- facets:end -->
 
@@ -2250,7 +2250,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   way. The **scale** was obvious. The **rounding** re-clamped through a second copy, so raising the cap would
   have moved the scale and left every result pinned at 768 by the rounder — a knob that appears to work and
   cannot exceed its old value; found only by writing the test at 1024 *because* that is above the old
-  constant. The **advertisement** — `GenerationCapabilities.Limits["max-width"]` — was found by a human
+  constant. The **advertisement** — `ProviderCapabilities.Limits["max-width"]` — was found by a human
   reading the diff and asking where the number came from.
   <br>**The third is the general lesson.** `Limits` is documented as informational: *"the platform does not
   enforce them (only the backend knows the real rule)"*. So a stale value there fails no test, trips no gate,
@@ -2339,7 +2339,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 - **A grep with context shows you a method's BODY, and inferring its NAME from the lines around it is how a <!-- trap: sub=docs shape=unmeasured -->
   member that does not exist gets into prose.** Measured 2026-08-30: a `-C 4` hit displayed
   `if (request.Inputs.Count > 0 && !SupportsInputs) return false;` with the signature just above the window,
-  and the method was cited as `GenerationCapabilities.CanServe` <!-- link-ok: the WRONG name, quoted --> in an archive Part and in `TASKS.md` — two
+  and the method was cited as `ProviderCapabilities.CanServe` <!-- link-ok: the WRONG name, quoted --> in an archive Part and in `TASKS.md` — two
   commits — before an unrelated test failed to compile. The real name is `Supports`.
   <br>**Read the DECLARATION before citing a member**, not the body: one `Read` at the right offset, or
   `grep -n "\(public\|internal\).*MemberName"`. A body tells you what a method does and never what it is
@@ -2355,7 +2355,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   missing feature.** Measured 2026-08-30 (`docs/FIXES.md`, `docs/task-archive.md` Part 124).
   `ComfyUiProvider` declared `SupportsInputs = true` and never read `request.Inputs` — the identifier
   occurred once in the whole file, in the declaration. **What makes this expensive is that the flag is an
-  ADMISSION filter**: `GenerationCapabilities.Supports` returns false for an input-carrying request when the
+  ADMISSION filter**: `ProviderCapabilities.Supports` returns false for an input-carrying request when the
   flag is unset, so declaring it does not merely describe the backend, it makes the router *choose* it for
   exactly the work it cannot do. The input was dropped, the graph ran as authored, and the render came back
   plausible and billed. Wrong from the commit that added the backend; it survived 26 days after the
@@ -2391,6 +2391,15 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Refactoring & namespace moves
 
+- **Deleting a tracked source file with `rm` instead of `git rm` breaks the GUARD TESTS, and the error <!-- trap: sub=gates,git shape=wrong-subject -->
+  names a path that is plainly gone — which sends you looking at the wrong thing.** Several guard tests
+  enumerate sources through git rather than the filesystem, so an unstaged deletion leaves the file in the
+  listing and the next `readFileSync` throws `ENOENT` on a path you deleted on purpose. Hit twice in one
+  session (2026-09-14), by `check-comments`' real-tree tests both times.
+  <br>**The fix is `git add -A` (or `git rm`), not a code change**, and the tell is that the failure is an
+  ENOENT rather than an assertion: a guard test asserting about a missing file has found a defect, one
+  CRASHING on it has been handed a stale listing. `verify` runs `test-devtools` FIRST, so this presents as
+  the whole gate suite failing immediately after a refactor that was actually fine.
 - **A `new`-SHADOWED method dispatches on the DECLARED TYPE, so narrowing a field's type — the safest-looking <!-- trap: sub=build shape=silent-loss,wrong-subject -->
   tidy-up there is — silently changes behaviour with no call site edited.** Found 2026-09-14 replacing the
   static embedder's tokenizer (**D122**). `Microsoft.ML.Tokenizers`' `BertTokenizer` shadows

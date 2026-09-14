@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 namespace Lyntai.Generation;
 
 /// <summary>
@@ -26,7 +27,7 @@ public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity
     new string Id { get; }
 
     /// <summary>What this backend can serve. Read by the router BEFORE spending anything.</summary>
-    GenerationCapabilities Capabilities { get; }
+    ProviderCapabilities Capabilities { get; }
 
     /// <summary>Is this backend usable right now — configured, reachable, provisioned — WITHOUT generating
     /// anything? Implementations must FAIL SAFE (a value, never a throw) except for caller cancellation.</summary>

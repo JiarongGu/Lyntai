@@ -14,6 +14,17 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **`GenerationCapabilities` and `GenerationDelivery` are replaced by `Lyntai.Lifecycle.ProviderCapabilities` <!-- drift-ok: the entry announcing a rename has to name what it renamed -->
+  and `ProviderOperation`** (**D126**). Capability is DATA in every domain now, not just in generation: a
+  backend declares which content `Kinds` it serves, which `Operations`, and which `Models`, and a router
+  asks before spending anything. **Two renames inside it are not cosmetic** — `Deliveries` became
+  `Operations` because the list must now hold `Embed`, which is a different ask rather than a third way of
+  delivering the same one; and `Inline` became `Complete` because a chat completion and an inline image
+  render are the same operation over different `Kinds`. `GenerationProbeResult` is unmoved. Migration is
+  the type names plus `using Lyntai.Lifecycle;`, and `Supports(request, delivery)` becomes
+  `Supports(kind, operation, model, hasInputs)` — the request-shaped overload is gone, because the mapping
+  from a domain request to a capability query belongs to the domain's router.
+
 - **`LlmCandidate` and `GenerationCandidate` are replaced by `Lyntai.Lifecycle.ProviderCandidate`** <!-- drift-ok: the entry announcing a rename has to name what it renamed -->
   (**D125**). The two were byte-identical records — `(string ProviderId, string? Model = null)` — one per
   domain, and the generation one's own doc said the pair was the routing unit "exactly as on the LLM side".

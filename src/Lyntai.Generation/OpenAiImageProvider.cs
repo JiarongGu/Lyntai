@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -68,13 +69,13 @@ public sealed class OpenAiImageProvider(
     public string Id => options.Id;
 
     /// <inheritdoc/>
-    public GenerationCapabilities Capabilities { get; } = new()
+    public ProviderCapabilities Capabilities { get; } = new()
     {
         Kinds = [GenerationKinds.Image],
-        Deliveries = [GenerationDelivery.Inline],
+        Operations = [ProviderOperation.Complete],
         SupportsInputs = true,          // /images/edits
         // Models deliberately NOT enumerated: the catalogue is the service's, changes without us, and an
-        // empty list means "unknown" rather than "serves nothing" (see GenerationCapabilities.Models).
+        // empty list means "unknown" rather than "serves nothing" (see ProviderCapabilities.Models).
     };
 
     /// <summary>Lists models (<c>GET {BaseUrl}/models</c>) — a real answer to "is this usable?" that costs

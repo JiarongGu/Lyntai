@@ -1,5 +1,6 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
+using Lyntai.Lifecycle;
 using Lyntai.Processes;
 using Lyntai.Tests.Fakes;
 
@@ -57,7 +58,7 @@ public class LocalDiffusionProviderTests
 
         Assert.Equal("local-diffusion", provider.Id);
         Assert.Equal([GenerationKinds.Image], provider.Capabilities.Kinds);
-        Assert.Equal([GenerationDelivery.Inline], provider.Capabilities.Deliveries);
+        Assert.Equal([ProviderOperation.Complete], provider.Capabilities.Operations);
         Assert.True(provider.Capabilities.SupportsInputs);
         Assert.IsNotAssignableFrom<IGenerationJobProvider>(provider);
     }

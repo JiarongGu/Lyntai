@@ -83,7 +83,7 @@ public sealed class GenerationRouter(
     public async Task<GenerationResult> GenerateAsync(
         IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
     {
-        var capable = Capable(candidates, request, GenerationDelivery.Inline);
+        var capable = Capable(candidates, request, ProviderOperation.Complete);
         GenerationResult? firstFailure = null;     // the first SUBSTANTIVE failure — what the caller is told
         GenerationResult? firstBlameless = null;   // …kept apart, so it answers only when nothing really failed
         var tried = 0;
@@ -132,7 +132,7 @@ public sealed class GenerationRouter(
                 benched > 0
                     ? $"every capable media backend for kind '{request.Kind}' is on dead-host cooldown " +
                       $"({benched} of [{string.Join(", ", candidates.Select(c => c.ProviderId))}])"
-                    : $"no capable media backend for kind '{request.Kind}' via {GenerationDelivery.Inline} " +
+                    : $"no capable media backend for kind '{request.Kind}' via {ProviderOperation.Complete} " +
                       $"among [{string.Join(", ", candidates.Select(c => c.ProviderId))}]");
 
         // a real failure outranks a blameless reason; with no real failure the blameless backend's own words
@@ -147,7 +147,7 @@ public sealed class GenerationRouter(
     public async Task<GenerationSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
     {
-        var capable = Capable(candidates, request, GenerationDelivery.Job);
+        var capable = Capable(candidates, request, ProviderOperation.Job);
         var benched = 0;
 
         // the FIRST substantive rejection, kept the way GenerateAsync keeps its firstFailure: the backend
@@ -262,7 +262,7 @@ public sealed class GenerationRouter(
         IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var capable = Capable(candidates, request, GenerationDelivery.Stream);
+        var capable = Capable(candidates, request, ProviderOperation.Stream);
         GenerationChunk? firstFailure = null;     // the first SUBSTANTIVE failure — the same two-slot rule
         GenerationChunk? firstBlameless = null;   // …GenerateAsync follows, so all three doors answer alike
         var tried = 0;
@@ -277,7 +277,7 @@ public sealed class GenerationRouter(
             if (provider is not IGenerationStreamProvider streamer)
             {
                 firstBlameless ??= GenerationChunk.Failure(GenerationVerdict.Unsupported,
-                    $"{provider.Id}: advertises {GenerationDelivery.Stream} delivery but does not implement " +
+                    $"{provider.Id}: advertises {ProviderOperation.Stream} delivery but does not implement " +
                     $"{nameof(IGenerationStreamProvider)}");
                 continue;
             }
@@ -381,7 +381,7 @@ public sealed class GenerationRouter(
                 benched > 0
                     ? $"every capable media backend for kind '{request.Kind}' is on dead-host cooldown " +
                       $"({benched} of [{string.Join(", ", candidates.Select(c => c.ProviderId))}])"
-                    : $"no capable media backend for kind '{request.Kind}' via {GenerationDelivery.Stream} " +
+                    : $"no capable media backend for kind '{request.Kind}' via {ProviderOperation.Stream} " +
                       $"among [{string.Join(", ", candidates.Select(c => c.ProviderId))}]")
             : GenerationChunk.Failure(GenerationVerdict.NotConfigured,
                 "every capable backend reported it is not configured"));
@@ -544,7 +544,7 @@ public sealed class GenerationRouter(
     /// <para>The dedup itself is the LLM router's (<see cref="CandidateDedup"/>) — first wins, order preserved
     /// — rather than a second copy of it here.</para></summary>
     private List<(IGenerationProvider Provider, GenerationRequest Request)> Capable(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, GenerationDelivery delivery)
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, ProviderOperation delivery)
     {
         var resolved = new List<(IGenerationProvider Provider, GenerationRequest Request)>();
         foreach (var candidate in candidates)
@@ -562,7 +562,11 @@ public sealed class GenerationRouter(
         var capable = new List<(IGenerationProvider, GenerationRequest)>();
         foreach (var entry in CandidateDedup.Dedup(resolved, e => (e.Provider.Id, e.Request.Model)))
         {
-            if (entry.Provider.Capabilities.Supports(entry.Request, delivery)) capable.Add(entry);
+            // Where a domain REQUEST becomes a generic capability query. The mapping is the whole of what
+            // the generation domain adds: its kind, its model, and whether it carries input artifacts.
+            if (entry.Provider.Capabilities.Supports(
+                    entry.Request.Kind, delivery, entry.Request.Model, entry.Request.Inputs.Count > 0))
+                capable.Add(entry);
         }
         return capable;
     }

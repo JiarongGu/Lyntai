@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Processes;
 
 namespace Lyntai.Generation.Providers;
@@ -159,21 +160,21 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     /// alongside the clamp, so once the ceiling became the host's
     /// (<see cref="LocalDiffusionOptions.Accelerator"/>) this would have gone on telling callers 768 while
     /// the backend accepted whatever a GPU host asked for — a limit a consumer reads and plans against, and
-    /// the third site the cap had to reach. <see cref="GenerationCapabilities.Limits"/> is informational, so
+    /// the third site the cap had to reach. <see cref="ProviderCapabilities.Limits"/> is informational, so
     /// nothing would have failed; it would simply have been false.
     /// <para>Derived PER ACCESS, never captured at construction: the registration doc advertises late
     /// provisioning ("the next render reads the current values") and enforcement reads the options live, so
     /// a captured advertisement is the same stale-limit defect one mutation later.</para></remarks>
-    public GenerationCapabilities Capabilities => new()
+    public ProviderCapabilities Capabilities => new()
     {
         Kinds = [GenerationKinds.Image],
-        Deliveries = [GenerationDelivery.Inline],
+        Operations = [ProviderOperation.Complete],
         SupportsInputs = true,   // img2img
         Limits = SizeLimits(options.EffectiveMaxDimension),
     };
 
     /// <summary>The size limits to advertise. With no ceiling the dimension keys are OMITTED rather than set
-    /// to some large number: <see cref="GenerationCapabilities"/> reads an absent key as "not enumerated",
+    /// to some large number: <see cref="ProviderCapabilities"/> reads an absent key as "not enumerated",
     /// which is exactly true here, while any number would be a ceiling nobody measured.</summary>
     private static IReadOnlyDictionary<string, string> SizeLimits(int? maxDimension)
     {

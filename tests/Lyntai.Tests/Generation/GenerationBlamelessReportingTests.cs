@@ -175,10 +175,10 @@ public class GenerationBlamelessReportingTests
 
         public int GenerateCalls { get; private set; }
 
-        public GenerationCapabilities Capabilities { get; } = new()
+        public ProviderCapabilities Capabilities { get; } = new()
         {
             Kinds = [GenerationKinds.Image],
-            Deliveries = [GenerationDelivery.Inline],
+            Operations = [ProviderOperation.Complete],
             SupportsInputs = true,
         };
 
@@ -252,10 +252,10 @@ public class GenerationSubmitBlamelessReportingTests
         /// <summary>What the rejected submission reports as its reason.</summary>
         public string? Detail { get; init; }
 
-        public GenerationCapabilities Capabilities { get; } = new()
+        public ProviderCapabilities Capabilities { get; } = new()
         {
             Kinds = [GenerationKinds.Video],
-            Deliveries = [GenerationDelivery.Job],
+            Operations = [ProviderOperation.Job],
         };
 
         public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>

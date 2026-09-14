@@ -446,7 +446,7 @@ video backends (`docs/task-archive.md` Part 124), not from a report.
 
 **Root cause.** The backend declared `SupportsInputs = true` and never read `request.Inputs` — the
 identifier occurred exactly once in the file, in the declaration. **The flag is not advisory:**
-`GenerationCapabilities.Supports` uses it as an ADMISSION filter
+`GenerationCapabilities.Supports` uses it as an ADMISSION filter <!-- drift-ok: a dated entry naming the type AS IT WAS; D125 renamed it afterwards -->
 (`if (request.Inputs.Count > 0 && !SupportsInputs) return false;`), so declaring it is a promise to the
 router that this backend consumes inputs, and the router acts on it by SELECTING this backend for
 input-carrying work. The submit path substitutes the prompt into the graph and posts it; there is no

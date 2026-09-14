@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.Json;
 
 using Lyntai.Generation;
@@ -147,10 +148,10 @@ public class GenerationBackendsToolTests
     {
         public string Id => id;
 
-        public GenerationCapabilities Capabilities { get; } = new()
+        public ProviderCapabilities Capabilities { get; } = new()
         {
             Kinds = [GenerationKinds.Image],
-            Deliveries = [GenerationDelivery.Inline],
+            Operations = [ProviderOperation.Complete],
         };
 
         public async Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default)

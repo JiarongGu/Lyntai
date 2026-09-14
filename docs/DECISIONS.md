@@ -195,8 +195,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D123](#d123--a-package-boundary-must-isolate-a-dependency-the-consumer-can-refuse-the-meai-bridge-folds-into-providersdefault-2026-09-14) | 2026-09-14 | a package boundary must isolate a dependency the consumer can REFUSE; the MEAI bridge folds into… |
 | [D124](#d124--the-transformer-embedder-ships-as-lyntaiprovidersonnx-managed-half-only-and-embedders-join-the-provider-family-2026-09-14) | 2026-09-14 | the TRANSFORMER embedder ships as Lyntai.Providers.Onnx, managed-half only, and embedders join th… |
 | [D125](#d125--one-providercandidate-routing-a-backend-and-model-pair-is-one-rule-not-one-per-domain-2026-09-14) | 2026-09-14 | one ProviderCandidate: routing a backend-and-model pair is ONE rule, not one per domain |
+| [D126](#d126--capability-is-data-providercapabilities-generalizes-the-model-the-generation-domain-already-had-2026-09-14) | 2026-09-14 | capability is DATA: ProviderCapabilities generalizes the model the generation domain already had |
 
-_All 125 entries are live decisions._
+_All 126 entries are live decisions._
 
 <!-- index:end -->
 
@@ -1529,7 +1530,7 @@ entry: a constant does not sit in one place just because it was written once.
    `Gpu` host would have accepted any size while still telling callers its ceiling was 768. Found by the
    owner reading the diff and asking where the number came from — not by a test, and not by a gate.
 
-The third is the one worth generalizing. `GenerationCapabilities.Limits` is documented as informational —
+The third is the one worth generalizing. `GenerationCapabilities.Limits` is documented as informational — <!-- drift-ok: a dated entry naming the type AS IT WAS; D125 renamed it afterwards -->
 *"the platform does not enforce them"* — so nothing would have failed, no test would have reddened, and the
 backend would simply have been **lying to consumers who plan against a published ceiling**. A limit nobody
 enforces is exactly the kind of value that goes stale silently, because the only thing that reads it is a
@@ -3797,3 +3798,35 @@ implement `CompleteAsync` without faking it. It can — `LlmVerdict.Unsupported`
 capability/transport gap", `LlmVerdict.NotConfigured`'s own doc says it mirrors `GenerationVerdict`'s, and
 every generation backend already lives under exactly that contract. A declared capability plus a verdict is
 how a provider says "not mine", and the vocabulary for it shipped long ago.
+
+## D126 — capability is DATA: ProviderCapabilities generalizes the model the generation domain already had (2026-09-14)
+
+`Lyntai.Lifecycle.ProviderCapabilities` replaces `GenerationCapabilities`, and `ProviderOperation` replaces
+`GenerationDelivery`. A backend declares which content `Kinds` it serves, which `Operations`, and which
+`Models`; a router asks `Supports(kind, operation, model, hasInputs)` before spending anything.
+
+**The generation domain had the right model in the wrong place.** It shipped a capability RECORD from the
+start; the LLM domain never got one, so "can this backend serve this request" was a data question on one
+side and a type question on the other — which is why adding embedding looked like it needed a new
+interface. It needed a new enum member.
+
+**`Deliveries` became `Operations` because the list now has to hold `Embed`.** Inline/Job/Stream describe
+how a result arrives; embedding is not a third delivery of the same thing, it is a different ask.
+`Inline` became `Complete` for the matching reason: a chat completion and an inline image render are the
+SAME operation over different `Kinds`, and naming it for the generation domain's delivery hid that.
+
+**The two defaults point in OPPOSITE directions, and that asymmetry is deliberate.** Empty `Kinds` or
+`Operations` serves NOTHING — a backend that forgot to declare must be skipped, not handed every request.
+Empty `Models` serves ANY — an aggregator fronts hundreds behind one id and cannot enumerate them. Both
+were inherited from the generation record rather than invented, and both are now pinned by tests.
+
+**What this makes possible, stated so the next step is not re-argued:** an embedder declares
+`Kinds: ["text"], Operations: [Embed]` and is a provider like any other. The objection that it would have
+to fake `CompleteAsync` is answered by the same mechanism that already answers it for every generation
+backend — the router filters on the declaration and never dispatches, and `LlmVerdict.Unsupported` exists
+for a direct call.
+
+**Cost, declared rather than buried:** `GenerationCapabilitiesTests` is deleted, not ported — its six cases
+are `ProviderCapabilitiesTests` verbatim, and keeping both would be the duplication this decision removes.
+The one thing they covered that the generic tests cannot is the request→capability MAPPING, which now lives
+in `GenerationRouter.Capable` and gained its own router test there.

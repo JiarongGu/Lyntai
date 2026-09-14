@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
@@ -44,22 +45,21 @@ public class ComfyUiProviderTests
         Assert.Equal("comfyui", provider.Id);
         Assert.Contains(GenerationKinds.Image, provider.Capabilities.Kinds);
         Assert.Contains(GenerationKinds.Video, provider.Capabilities.Kinds);   // local video via a workflow
-        Assert.Equal([GenerationDelivery.Job], provider.Capabilities.Deliveries);
+        Assert.Equal([ProviderOperation.Job], provider.Capabilities.Operations);
         Assert.IsAssignableFrom<IGenerationJobProvider>(provider);
     }
 
     [Fact]
     public void It_does_not_declare_SupportsInputs_because_the_graph_owns_the_init_image()
     {
-        // SupportsInputs is an ADMISSION filter in GenerationCapabilities.Supports, so declaring it promises
+        // SupportsInputs is an ADMISSION filter in ProviderCapabilities.Supports, so declaring it promises
         // the router this backend reads GenerationRequest.Inputs. It cannot: the init image is a node the
         // caller authored and the platform cannot know which one.
         var (provider, _) = Provider();
 
         Assert.False(provider.Capabilities.SupportsInputs);
         Assert.False(provider.Capabilities.Supports(
-            Ask() with { Inputs = [GenerationInput.FirstFrame(new byte[] { 1, 2, 3 }, "image/png")] },
-            GenerationDelivery.Job));
+            Ask().Kind, ProviderOperation.Job, Ask().Model, hasInputs: true));
     }
 
     [Fact]

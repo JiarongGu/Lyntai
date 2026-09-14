@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
@@ -32,7 +33,7 @@ public class Automatic1111ProviderTests
 
         Assert.Equal("a1111", provider.Id);
         Assert.Equal([GenerationKinds.Image], provider.Capabilities.Kinds);
-        Assert.Equal([GenerationDelivery.Inline], provider.Capabilities.Deliveries);
+        Assert.Equal([ProviderOperation.Complete], provider.Capabilities.Operations);
         Assert.True(provider.Capabilities.SupportsInputs);
     }
 

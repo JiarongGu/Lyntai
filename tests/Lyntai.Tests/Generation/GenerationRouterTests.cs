@@ -135,6 +135,32 @@ public class GenerationRouterTests
     }
 
     [Fact]
+    public async Task A_request_carrying_INPUTS_skips_a_backend_that_cannot_read_them()
+    {
+        // The router is where a domain REQUEST becomes a generic capability query (D125), and
+        // `request.Inputs.Count > 0` is the one part of that mapping no other test exercises through the
+        // router. It matters because a backend that accepts the call and ignores the inputs returns a
+        // plausible, WRONG artifact — the defect found in ComfyUiProvider (docs/task-archive.md Part 125).
+        var blind = new FakeGenerationProvider
+        {
+            Id = "no-inputs",
+            Capabilities = new ProviderCapabilities
+            {
+                Kinds = [GenerationKinds.Image],
+                Operations = [ProviderOperation.Complete],
+                SupportsInputs = false,
+            },
+        };
+
+        var result = await Router(blind).GenerateAsync(
+            [new ProviderCandidate("no-inputs")],
+            Image() with { Inputs = [GenerationInput.Init(new byte[] { 1, 2, 3 }, "image/png")] });
+
+        Assert.False(result.IsOk);
+        Assert.Equal(0, blind.GenerateCalls);
+    }
+
+    [Fact]
     public async Task A_transient_failure_advances_to_the_next_candidate()
     {
         var failing = new FakeGenerationProvider { Id = "a" };
@@ -222,10 +248,10 @@ public class GenerationRouterTests
         var aggregator = new FakeGenerationProvider
         {
             Id = "aggregator",
-            Capabilities = new GenerationCapabilities
+            Capabilities = new ProviderCapabilities
             {
                 Kinds = [GenerationKinds.Image],
-                Deliveries = [GenerationDelivery.Inline],
+                Operations = [ProviderOperation.Complete],
                 Models = ["flux-1", "sdxl"],
             },
         };

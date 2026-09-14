@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -73,10 +74,10 @@ public sealed class Automatic1111Provider(
     public string Id => options.Id;
 
     /// <inheritdoc/>
-    public GenerationCapabilities Capabilities { get; } = new()
+    public ProviderCapabilities Capabilities { get; } = new()
     {
         Kinds = [GenerationKinds.Image],
-        Deliveries = [GenerationDelivery.Inline],
+        Operations = [ProviderOperation.Complete],
         SupportsInputs = true,          // img2img
     };
 

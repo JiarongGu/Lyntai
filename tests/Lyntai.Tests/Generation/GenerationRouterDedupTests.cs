@@ -110,10 +110,10 @@ public class GenerationRouterDedupTests
     private static FakeGenerationProvider Aggregator(string id) => new()
     {
         Id = id,
-        Capabilities = new GenerationCapabilities
+        Capabilities = new ProviderCapabilities
         {
             Kinds = [GenerationKinds.Image],
-            Deliveries = [GenerationDelivery.Inline],
+            Operations = [ProviderOperation.Complete],
             Models = ["flux-1", "sdxl"],
         },
     };

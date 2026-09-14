@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using Lyntai.Generation;
 
@@ -9,10 +10,10 @@ public sealed class FakeGenerationProvider : IGenerationProvider
 {
     public string Id { get; init; } = "fake-generation";
 
-    public GenerationCapabilities Capabilities { get; init; } = new()
+    public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Kinds = [GenerationKinds.Image],
-        Deliveries = [GenerationDelivery.Inline],
+        Operations = [ProviderOperation.Complete],
         SupportsInputs = true,
     };
 
@@ -58,10 +59,10 @@ public sealed class FakeGenerationJobProvider : IGenerationProvider, IGeneration
 {
     public string Id { get; init; } = "fake-video";
 
-    public GenerationCapabilities Capabilities { get; init; } = new()
+    public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Kinds = [GenerationKinds.Video],
-        Deliveries = [GenerationDelivery.Job],
+        Operations = [ProviderOperation.Job],
         SupportsInputs = true,
     };
 
@@ -122,10 +123,10 @@ public sealed class FakeGenerationStreamProvider : IGenerationProvider, IGenerat
 {
     public string Id { get; init; } = "fake-tts";
 
-    public GenerationCapabilities Capabilities { get; init; } = new()
+    public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Kinds = [GenerationKinds.Audio],
-        Deliveries = [GenerationDelivery.Stream, GenerationDelivery.Inline],
+        Operations = [ProviderOperation.Stream, ProviderOperation.Complete],
     };
 
     public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
@@ -161,10 +162,10 @@ public sealed class ScriptedStreamProvider : IGenerationProvider, IGenerationStr
     /// <summary>Thrown from the enumerator AFTER <see cref="Script"/> is exhausted.</summary>
     public Exception? Throws { get; init; }
 
-    public GenerationCapabilities Capabilities { get; init; } = new()
+    public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Kinds = [GenerationKinds.Audio],
-        Deliveries = [GenerationDelivery.Stream],
+        Operations = [ProviderOperation.Stream],
     };
 
     public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
@@ -195,10 +196,10 @@ public sealed class BadProbeProvider : IGenerationProvider
 {
     public string Id { get; init; } = "bad-probe";
 
-    public GenerationCapabilities Capabilities { get; init; } = new()
+    public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Kinds = [GenerationKinds.Image],
-        Deliveries = [GenerationDelivery.Inline],
+        Operations = [ProviderOperation.Complete],
     };
 
     /// <summary>Thrown from <see cref="ProbeAsync"/> instead of stalling, when set.</summary>
@@ -215,17 +216,17 @@ public sealed class BadProbeProvider : IGenerationProvider
         Task.FromResult(GenerationResult.Failure(GenerationVerdict.Failed, "not used"));
 }
 
-/// <summary>Advertises <see cref="GenerationDelivery.Stream"/> and does NOT implement
+/// <summary>Advertises <see cref="ProviderOperation.Stream"/> and does NOT implement
 /// <see cref="IGenerationStreamProvider"/> — the shape a BYO backend can ship, and the reason the router
 /// re-checks a capability claim rather than casting on trust.</summary>
 public sealed class LyingStreamProvider : IGenerationProvider
 {
     public string Id { get; init; } = "liar";
 
-    public GenerationCapabilities Capabilities { get; init; } = new()
+    public ProviderCapabilities Capabilities { get; init; } = new()
     {
         Kinds = [GenerationKinds.Audio],
-        Deliveries = [GenerationDelivery.Stream],
+        Operations = [ProviderOperation.Stream],
     };
 
     public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
