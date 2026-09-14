@@ -12,8 +12,10 @@ namespace Lyntai.Lifecycle;
 /// which is a difference in data (<c>docs/DECISIONS.md</c> D126, D127).</para>
 ///
 /// <para><b>Every operation is DEFAULTED to <c>Unsupported</c></b>, so a backend implements only what it
-/// does. An embedder overrides <see cref="EmbedAsync"/> and nothing else; a CLI chat backend overrides
-/// <see cref="CompleteAsync"/> and <see cref="StreamAsync(LlmRequest,CancellationToken)"/>.</para>
+/// does. An embedder overrides
+/// <see cref="EmbedAsync(IReadOnlyList{string},Lyntai.Embeddings.EmbeddingRole,CancellationToken)"/> and
+/// nothing else; a CLI chat backend overrides <see cref="CompleteAsync"/> and
+/// <see cref="StreamAsync(LlmRequest,CancellationToken)"/>.</para>
 ///
 /// <para><b>The stateful JOB protocol is NOT here</b> — <see cref="IGenerationJobProvider"/> keeps
 /// submit/poll/fetch/cancel, because that is an operation SHAPE keyed on a handle rather than a content
@@ -57,6 +59,17 @@ public interface IModelProvider : IProviderIdentity
     /// no vector that means "I could not": a zero vector compares as real and would poison a store.</exception>
     Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
         throw new NotSupportedException(ProviderDefaults.NotServed(Id, nameof(EmbedAsync)));
+
+    /// <summary>Embed for a known <see cref="Lyntai.Embeddings.EmbeddingRole"/>. Defaults to forwarding to
+    /// the role-less overload, exactly as <see cref="Lyntai.Embeddings.IEmbedder"/> does.
+    ///
+    /// <para><b>It exists so the front door cannot silently drop the role.</b> Asymmetric models — E5, BGE,
+    /// nomic, Arctic — are trained with a distinct instruction per side and score materially worse when
+    /// both sides are embedded identically. A router that only knew the role-less overload would quietly
+    /// erase the one fact a backend cannot work out for itself.</para></summary>
+    Task<IReadOnlyList<float[]>> EmbedAsync(
+        IReadOnlyList<string> texts, Lyntai.Embeddings.EmbeddingRole role, CancellationToken ct = default) =>
+        EmbedAsync(texts, ct);
 
     /// <summary>Media in, media out — one request, artifacts back.</summary>
     Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>

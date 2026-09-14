@@ -40,7 +40,7 @@ public sealed class StaticEmbedderOptions
 /// <para><b>No PCA or Zipf weighting is applied at inference.</b> A <c>model2vec</c> export bakes both into
 /// the table when it is built, so the runtime is a lookup and a mean. This reads <c>config.json</c> only for
 /// <c>normalize</c>.</para></summary>
-public sealed class StaticEmbedder : IModelProvider, IEmbedder
+public sealed class StaticEmbedder : IModelProvider
 {
     private readonly WordPieceTokenizer _tokenizer;
     private readonly SafetensorsTable _table;

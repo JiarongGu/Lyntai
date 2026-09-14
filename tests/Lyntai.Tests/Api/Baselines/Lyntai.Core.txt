@@ -1041,6 +1041,7 @@ interface Lyntai.Lifecycle.IModelProvider
     Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
+    EmbedAsync(IReadOnlyList<String> texts, EmbeddingRole role, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
     GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
     IsAvailable : Boolean
@@ -1597,6 +1598,7 @@ sealed class Lyntai.LyntaiBuilder
     AddConversationEnricher(Func<IServiceProvider,IConversationEnricher> factory) : LyntaiBuilder
     AddConversationEnricher<T>() : LyntaiBuilder
     AddCronSchedule(String name, String lane, String type, String payload, String cron, Int32 priority = 0) : LyntaiBuilder
+    AddEmbeddingProvider(Func<IServiceProvider,IModelProvider> factory) : LyntaiBuilder
     AddEmbeddings(Func<IServiceProvider,IEmbedder> factory) : LyntaiBuilder
     AddEmbeddings(IEmbedder embedder) : LyntaiBuilder
     AddEmbeddings<TEmbedder>() : LyntaiBuilder

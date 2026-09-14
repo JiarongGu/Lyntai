@@ -61,11 +61,17 @@ public static class LyntaiServiceCollectionExtensions
         // AddSemanticMemory states an intent the wiring below can only honor when an embedder exists —
         // otherwise ISemanticMemory is never registered and every recall path skips it in silence. The
         // whole point of naming the feature is to turn that quiet degradation into a startup failure.
-        if (builder.SemanticMemoryRequested && !services.Any(d => d.ServiceType == typeof(Lyntai.Embeddings.IEmbedder)))
+        // A registered embedding PROVIDER satisfies this too — the front door routes over them. It is a
+        // STATED fact rather than an inferred one (LyntaiBuilder.EmbeddingProviderRegistered), because
+        // capability is only knowable once a provider is built and this has to decide before that.
+        if (builder.SemanticMemoryRequested
+            && !services.Any(d => d.ServiceType == typeof(Lyntai.Embeddings.IEmbedder))
+            && !builder.EmbeddingProviderRegistered)
             throw new InvalidOperationException(
-                "AddSemanticMemory was called, but no IEmbedder is registered — ISemanticMemory would never be wired " +
+                "AddSemanticMemory was called, but nothing can embed: no IEmbedder and no embedding provider " +
+                "is registered, so ISemanticMemory would never be wired " +
                 "and semantic recall would silently do nothing. Pass one (AddSemanticMemory(myEmbedder)), register one " +
-                "(AddEmbeddings / a provider package's AddOpenAiCompatibleEmbedder), or drop the AddSemanticMemory call.");
+                "(AddEmbeddings / AddStaticEmbedder / AddOpenAiCompatibleEmbedder), or drop the AddSemanticMemory call.");
 
         // same contradiction for refusal screening: it wraps Lyntai's OWN client inside the factory below,
         // so with a pre-registered ILlmClient every AddRefusalMatcher registration would silently do nothing
@@ -81,6 +87,7 @@ public static class LyntaiServiceCollectionExtensions
         services.AddSingleton(options);
         RegisterProviderLifetime(services);
         RegisterLlmFrontDoor(services, builder, options);
+        RegisterEmbeddingFrontDoor(services, builder);
         RegisterCortex(services, options);
         RegisterConversationEnrichment(services);
         RegisterSemanticMemory(services);
@@ -307,12 +314,28 @@ public static class LyntaiServiceCollectionExtensions
         }, backend.Lifetime));
     }
 
+    /// <summary>The embedding FRONT DOOR, mirroring <see cref="RegisterLlmFrontDoor"/>: an
+    /// <see cref="Lyntai.Embeddings.IEmbedder"/> routing over every backend that declares
+    /// <see cref="Lyntai.Lifecycle.ProviderOperation.Embed"/>, with fallback.
+    ///
+    /// <para><b>TryAdd, and the ORDER is what makes bring-your-own win.</b> <c>AddEmbeddings(…)</c>
+    /// registers directly inside the configure callback, which runs before this — so an app-supplied
+    /// embedder is already in the collection and this call does nothing. That is the mirror image of the
+    /// trap <c>pitfalls.md</c> records about seeding a <c>TryAdd</c> inside a builder callback, and it is
+    /// deliberate here for the same reason <c>RegisterProviderLifetime</c> is all <c>TryAdd</c>: everything
+    /// seeded at this point is meant to LOSE to a host registration.</para></summary>
+    private static void RegisterEmbeddingFrontDoor(IServiceCollection services, LyntaiBuilder builder)
+    {
+        if (!builder.EmbeddingProviderRegistered) return;
+        services.TryAddSingleton<Lyntai.Embeddings.IEmbedder, Lyntai.Embeddings.RoutedEmbedder>();
+    }
+
     /// <summary>Semantic memory — wired ONLY when an embedder is registered (AddEmbeddings /
-    /// AddSemanticMemory). Composes the app's IEmbedder with a vector store (in-memory default; register
-    /// your own IVectorStore for pgvector/etc.). Absent an embedder it isn't registered, so the
-    /// composer/orchestrator resolve null and skip it — no accidental throws on every turn. An app that
-    /// MEANT to have it says so with AddSemanticMemory, and the guard above turns the silent skip into a
-    /// composition-time throw.</summary>
+    /// AddSemanticMemory / any <c>Add…Embedder</c>, which seeds the front door above). Composes that
+    /// IEmbedder with a vector store (in-memory default; register your own IVectorStore for pgvector/etc.).
+    /// Absent one it isn't registered, so the composer/orchestrator resolve null and skip it — no accidental
+    /// throws on every turn. An app that MEANT to have it says so with AddSemanticMemory, and the guard
+    /// above turns the silent skip into a composition-time throw.</summary>
     private static void RegisterSemanticMemory(IServiceCollection services)
     {
         if (!services.Any(d => d.ServiceType == typeof(Lyntai.Embeddings.IEmbedder))) return;

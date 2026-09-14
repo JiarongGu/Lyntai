@@ -157,7 +157,10 @@ public static class OpenAiCompatibleBuilderExtensions
             resolveClient = sp => () => sp.GetRequiredService<IHttpClientFactory>().CreateClient(EmbedderHttpClientName(id));
         }
 
-        builder.AddEmbeddings(sp => new HttpEmbedder(
+        // A PROVIDER declaring ProviderOperation.Embed rather than the single embedder slot (D129): the
+        // IEmbedder a consumer resolves is the routing front door over every such backend, so registering
+        // two endpoints now gives fallback instead of the second silently winning.
+        builder.AddEmbeddingProvider(sp => new HttpEmbedder(
             id,
             config,
             resolveClient(sp),

@@ -14,6 +14,17 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **`IEmbedder` is the embedding FRONT DOOR, and embeddings now have fallback** (**D129**). The `IEmbedder`
+  a consumer resolves is a router over every backend declaring `ProviderOperation.Embed`, so registering two
+  endpoints gives failover instead of the second silently replacing the first — which is what
+  `HttpEmbedder`'s own doc admitted: *"there is one embedder slot, so a later registration wins"*.
+  `StaticEmbedder`, `OnnxEmbedder` and `HttpEmbedder` **stop implementing `IEmbedder`** and are providers
+  only; a chat-only backend is never asked to embed, because the capability filter runs before dispatch.
+  **Bring-your-own is unchanged**: `AddEmbeddings(...)` registers inside the configure callback, which runs
+  before the front door is seeded with `TryAdd`, so an app-supplied embedder still wins. New:
+  `LyntaiBuilder.AddEmbeddingProvider(...)` — what a package's `Add…Embedder` calls — and a role-aware
+  `IModelProvider.EmbedAsync` overload so routing cannot silently drop `EmbeddingRole`.
+
 - **An embedder is a PROVIDER: `IEmbeddingProvider` is removed** (**D128**). `StaticEmbedder` and
   `OnnxEmbedder` are `IModelProvider`s declaring `Kinds: ["text"], Operations: [Embed]`, and
   `AddStaticEmbedder` / `AddOnnxEmbedder` now register them into the provider collection **as well as** the

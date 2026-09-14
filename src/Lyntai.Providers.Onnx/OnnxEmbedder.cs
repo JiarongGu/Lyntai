@@ -20,7 +20,7 @@ namespace Lyntai.Providers.Onnx;
 /// <para><b>Inference runs on the calling thread.</b> The async signature is the seam's, not a promise to
 /// yield — a batch of long documents is CPU-bound for tens of milliseconds. Wrap the call if that matters
 /// to your scheduler.</para></summary>
-public sealed class OnnxEmbedder : IModelProvider, IEmbedder, IDisposable
+public sealed class OnnxEmbedder : IModelProvider, IDisposable
 {
     private readonly InferenceSession _session;
     private readonly WordPieceTokenizer _tokenizer;

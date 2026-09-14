@@ -136,8 +136,10 @@ sealed class Lyntai.Providers.OpenAiCompatible.CrossEncoderVerificationPolicy
     VerifyAsync(MemoryVerificationRequest request, CancellationToken ct = default) : Task<MemoryVerification>
 sealed class Lyntai.Providers.OpenAiCompatible.HttpEmbedder
     .ctor(String id, OpenAiCompatibleEmbedderOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<HttpEmbedder> logger = null, Boolean disposeHttpClient = true)
+    Capabilities : ProviderCapabilities
     EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
     EmbedAsync(IReadOnlyList<String> texts, EmbeddingRole role, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
+    Id : String
 sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleEmbedderOptions
     .ctor()
     ApiKey : String

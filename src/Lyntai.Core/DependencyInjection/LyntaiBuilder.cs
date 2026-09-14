@@ -80,6 +80,26 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Set by <see cref="AddEmbeddingProvider"/>: at least one backend that EMBEDS was registered.
+    ///
+    /// <para>It exists because capability is only knowable once a provider is BUILT, and the wiring below
+    /// has to decide at composition time — whether to seed the routing front door at all, and whether
+    /// <c>AddSemanticMemory</c> can be honoured. Inferring it from "any provider is registered" would wire
+    /// semantic memory for a chat-only deployment and turn a clean startup failure into a runtime one.</para></summary>
+    internal bool EmbeddingProviderRegistered { get; private set; }
+
+    /// <summary>Register a backend that embeds — an <see cref="IModelProvider"/> declaring
+    /// <see cref="ProviderOperation.Embed"/>.
+    ///
+    /// <para>The same collection as <see cref="AddProvider"/>; what this adds is the STATEMENT that
+    /// something can embed, which the container needs before any provider is built. Use it from a
+    /// package's <c>Add…Embedder</c> extension rather than <see cref="AddProvider"/>.</para></summary>
+    public LyntaiBuilder AddEmbeddingProvider(Func<IServiceProvider, IModelProvider> factory)
+    {
+        EmbeddingProviderRegistered = true;
+        return AddProvider(factory);
+    }
+
     /// <summary>Register an eval dimension into the scoring collection.</summary>
     public LyntaiBuilder AddScorer<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
         where T : class, IScorer

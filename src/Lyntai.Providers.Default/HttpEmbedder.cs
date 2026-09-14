@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -28,9 +29,21 @@ public sealed class HttpEmbedder(
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
     ILogger<HttpEmbedder>? logger = null,
-    bool disposeHttpClient = true) : IEmbedder
+    bool disposeHttpClient = true) : IModelProvider
 {
     private readonly ILogger _logger = logger ?? NullLogger<HttpEmbedder>.Instance;
+
+    /// <inheritdoc />
+    public string Id => id;
+
+    /// <summary>Text in, vectors out. Declaring only <see cref="ProviderOperation.Embed"/> is what keeps a
+    /// router from sending this endpoint a completion — the chat half of an OpenAI-compatible host is a
+    /// SEPARATE provider with its own id and its own base URL.</summary>
+    public ProviderCapabilities Capabilities { get; } = new()
+    {
+        Kinds = [ProviderKinds.Text],
+        Operations = [ProviderOperation.Embed],
+    };
     private readonly OpenAiFlavor _flavor = OpenAiEndpoint.ResolveFlavor(config.Flavor, config.BaseUrl);
 
     /// <summary>Get the per-call HttpClient. Lyntai-created clients are disposed after each call; an

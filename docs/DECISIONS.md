@@ -198,8 +198,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D126](#d126--capability-is-data-providercapabilities-generalizes-the-model-the-generation-domain-already-had-2026-09-14) | 2026-09-14 | capability is DATA: ProviderCapabilities generalizes the model the generation domain already had |
 | [D127](#d127--one-provider-interface-imodelprovider-with-every-operation-defaulted-to-unsupported-2026-09-14) | 2026-09-14 | ONE provider interface: IModelProvider, with every operation defaulted to Unsupported |
 | [D128](#d128--an-embedder-is-a-provider-iembeddingprovider-is-deleted-and-embedding-is-a-declared-operation-2026-09-14) | 2026-09-14 | an embedder is a provider: IEmbeddingProvider is deleted and embedding is a declared OPERATION |
+| [D129](#d129--iembedder-is-the-front-door-not-a-backend-contract-embeddings-get-routing-and-fallback-2026-09-14) | 2026-09-14 | IEmbedder is the FRONT DOOR, not a backend contract: embeddings get routing and fallback |
 
-_All 128 entries are live decisions._
+_All 129 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3897,3 +3898,37 @@ registration wins"*.
 consumer resolves is still that slot, so embedding has no FALLBACK. The providers are now routable and the
 router already owns candidates, cooldown and admission — the remaining step is an embed door on it, not a
 second router, and that is exactly what minting a third family would have made impossible.
+
+## D129 — IEmbedder is the FRONT DOOR, not a backend contract: embeddings get routing and fallback (2026-09-14)
+
+`IEmbedder` is now implemented by `RoutedEmbedder` alone — a router over every `IModelProvider` declaring
+`ProviderOperation.Embed`. `StaticEmbedder`, `OnnxEmbedder` and `HttpEmbedder` stop implementing it and are
+providers only; `AddEmbeddingProvider` registers them and states, at composition time, that something can
+embed.
+
+**One type was doing two jobs, and that is why embeddings had no fallback.** Chat has always separated them
+— consumers resolve `ILlmClient`, backends implement the provider seam — while embedding had `IEmbedder` on
+both sides, so a consumer held a BACKEND directly. `HttpEmbedder`'s own shipped doc admitted the
+consequence: *"there is one embedder slot, so a later registration wins"*. Registering a second endpoint
+silently replaced the first instead of giving it a fallback.
+
+**Bring-your-own survives on ORDER, not on a second interface.** `AddEmbeddings(…)` registers directly
+inside the configure callback, which runs before the front door is seeded with `TryAdd` — so an
+app-supplied embedder always wins. That is the deliberate mirror of the trap `pitfalls.md` records about
+seeding a `TryAdd` inside a builder callback, and it is the same reason `RegisterProviderLifetime` is all
+`TryAdd`: everything seeded there is meant to lose to a host.
+
+**`EmbeddingProviderRegistered` is a STATED fact rather than an inferred one**, and it has to be: capability
+lives in `ProviderCapabilities` and is only knowable once a provider is BUILT, while the wiring must decide
+earlier — whether to seed the front door at all, and whether `AddSemanticMemory` can be honoured. Inferring
+it from "any provider is registered" would wire semantic memory for a chat-only deployment and turn a clean
+startup failure into a runtime one.
+
+**`IModelProvider` gained the role-aware `EmbedAsync` overload** so the router cannot silently drop
+`EmbeddingRole`. Asymmetric models — E5, BGE, nomic, Arctic — are trained with a distinct instruction per
+side and score materially worse when both sides are embedded identically; the role is the one thing a
+backend cannot work out for itself, so a front door that flattened it would be invisible and wrong.
+
+**What is now possible that was not:** two embedders registered together, told apart by id, with the second
+serving when the first fails — and a chat-only backend never asked to embed, because the capability filter
+runs before dispatch rather than the backend reporting `Unsupported` afterwards.
