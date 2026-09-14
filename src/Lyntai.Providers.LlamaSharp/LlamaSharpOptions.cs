@@ -1,10 +1,10 @@
-namespace Lyntai.Providers.Local;
+namespace Lyntai.Providers.LlamaSharp;
 
 /// <summary>
-/// Configuration for the in-process <see cref="LocalProvider"/>. The only required field is
+/// Configuration for the in-process <see cref="LlamaSharpProvider"/>. The only required field is
 /// <see cref="ModelPath"/> (a GGUF file on disk); the rest mirror the common llama.cpp knobs.
 /// </summary>
-public sealed class LocalModelOptions
+public sealed class LlamaSharpOptions
 {
     /// <summary>Absolute (or app-relative) path to the GGUF model file to load.</summary>
     public string ModelPath { get; set; } = "";

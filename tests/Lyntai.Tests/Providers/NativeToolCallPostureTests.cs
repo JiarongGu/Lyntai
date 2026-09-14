@@ -4,7 +4,7 @@ using Lyntai.Llm;
 using Lyntai.Llm.Cli;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Providers.CodexCli;
-using Lyntai.Providers.Local;
+using Lyntai.Providers.LlamaSharp;
 
 namespace Lyntai.Tests.Providers;
 
@@ -43,13 +43,13 @@ public class NativeToolCallPostureTests
     [Fact]
     public void A_local_GGUF_model_does_NOT_declare_native_tool_calls_because_NATIVE_is_not_one_format()
     {
-        // LocalProvider runs an arbitrary GGUF through llama.cpp, and tool-call syntax is per model FAMILY —
+        // LlamaSharpProvider runs an arbitrary GGUF through llama.cpp, and tool-call syntax is per model FAMILY —
         // Llama's python_tag, Qwen's tool_call XML, Mistral's TOOL_CALLS, and more. There is no single
         // native format to parse, so declaring support would mean either picking one family (breaking every
         // other model a host might load) or shipping a per-family registry nobody can measure without
         // downloading each one. The prompt protocol is the model-AGNOSTIC answer, which is why it is not a
         // fallback here so much as the correct mechanism.
-        var provider = new LocalProvider("local", new LocalModelOptions { ModelPath = "does-not-need-to-exist.gguf" }, new LyntaiOptions());
+        var provider = new LlamaSharpProvider("local", new LlamaSharpOptions { ModelPath = "does-not-need-to-exist.gguf" }, new LyntaiOptions());
 
         Assert.False(((IModelProvider)provider).Capabilities.SupportsToolCalls);
     }
@@ -60,7 +60,7 @@ public class NativeToolCallPostureTests
         // The 3.0 streaming capability (D71) is separate and defaults false. A provider that cannot deliver
         // calls at all certainly cannot deliver them mid-stream, and answering yes here would send ToolLoop
         // down its streaming native path to wait for chunks that never come.
-        var local = new LocalProvider("local", new LocalModelOptions { ModelPath = "x.gguf" }, new LyntaiOptions());
+        var local = new LlamaSharpProvider("local", new LlamaSharpOptions { ModelPath = "x.gguf" }, new LyntaiOptions());
 
         Assert.False(((IModelProvider)local).Capabilities.SupportsStreamingToolCalls);
     }

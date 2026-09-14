@@ -78,7 +78,7 @@ Lyntai/
 └─ .gitignore
 ```
 
-`Lyntai.Providers.Local` (LLamaSharp, in-process) is a **later** package, not first-cut.
+`Lyntai.Providers.LlamaSharp` (LLamaSharp, in-process) is a **later** package, not first-cut.
 *(2026-07 note: shipped in v0.8.0. It earns its own package by the rule below — LLamaSharp drags a native
 runtime, which is exactly the footprint a consumer might refuse.)*
 
@@ -89,7 +89,7 @@ runtime, which is exactly the footprint a consumer might refuse.)*
 > has to answer *which dependency does this isolate?* and those two isolated nothing: process spawn plus
 > `HttpClient`, both dependency-free, and the CLIs share one `CliProviderEngine` (`docs/DECISIONS.md` **D25**;
 > a new CLI backend is an `ICliProviderDialect` in that package, D21/D22). Today: `Lyntai.Core`,
-> `Lyntai.Providers.Default`, `Lyntai.Providers.ExtensionsAi`, `Lyntai.Providers.Local`,
+> `Lyntai.Providers.Default`, `Lyntai.Providers.ExtensionsAi`, `Lyntai.Providers.LlamaSharp`,
 > `Lyntai.Storage.Sqlite`, `Lyntai.Storage.Postgres`, `Lyntai.Storage.InMemory`, `Lyntai.Secrets.Dpapi`,
 > `Lyntai.Tools.Mcp`, `Lyntai.Tools.Mcp.Hosting`, `Lyntai.Generation`, and the `Lyntai` starting bundle
 > (`src/Lyntai.Bundle/`, which ships no assembly).
@@ -951,11 +951,11 @@ path — are `.claude/rules/repo-mechanics.md` §Dev loop.)*
 
 Two-gate chat orchestration · scope-guard/jail hooks · tool/MCP registry · durable jobs (lanes +
 checkpoint/resume) · security/access-gate + secret vault · server/host/launcher + auto-update ·
-vision/multimodal · `Lyntai.Providers.Local` (LLamaSharp). The domain interfaces are shaped to admit
+vision/multimodal · `Lyntai.Providers.LlamaSharp` (LLamaSharp). The domain interfaces are shaped to admit
 these later without breaking changes.
 
 > **Amendment (2026-07-18): the platform kit is now SHIPPED** (v0.8–v0.15), exactly as §9 promised —
-> additively, no breaking changes to the substrate. `Lyntai.Providers.Local` (v0.8); the tool/MCP
+> additively, no breaking changes to the substrate. `Lyntai.Providers.LlamaSharp` (v0.8); the tool/MCP
 > registry as the agentic tool loop + native tool-calling + an MCP-client tool source + CLI tool-hosting
 > (v0.9–v0.13, `Lyntai.Agents` / `Lyntai.Tools.Mcp` / `Lyntai.Tools.Mcp.Hosting`); durable jobs
 > (v0.14, `Lyntai.Jobs` + `IJobStore`); then guards (`Lyntai.Guards`), two-gate `IChatOrchestrator`,

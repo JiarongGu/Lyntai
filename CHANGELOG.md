@@ -22,6 +22,13 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **The provider TYPES catch up with their registrations** (**D138**). `LocalProvider` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `LlamaSharpProvider`, `LocalModelOptions` → `LlamaSharpOptions`, and the namespace <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `Lyntai.Providers.Local` → `Lyntai.Providers.LlamaSharp` so it agrees with the package again; <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `OnnxEmbedder` / `OnnxEmbedderOptions` → `OnnxProvider` / `OnnxProviderOptions`. D132 renamed the <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  registrations and left these behind. `LocalDiffusionProvider` keeps its name — there "Local" describes a
+  host-supplied binary rather than standing in for a vendor.
+
 - **One verdict taxonomy for every domain** (**D136**). `LlmVerdict` and `GenerationVerdict` become <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `Lyntai.Lifecycle.ProviderVerdict`; `LlmVerdictClassifier` and `GenerationVerdictClassifier` become <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `ProviderVerdictClassifier`, and the 101-line translation layer between the two enums is deleted.
@@ -42,7 +49,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   REGISTERS, with the vendor as the qualifier (**D137**).
 
 - **There is one `Add*` per backend, and no route sub-objects** (**D132**, **D133**).
-  `AddHttpProviderEmbedder` is removed and `HttpModelOptions` is flat — <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `AddOpenAiCompatibleEmbedder` is removed and `HttpModelOptions` is flat — <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `BaseUrl`, `ApiKey`, `Dialect`, `Model`, `Produces`, plus the route-specific knobs. `DefaultModel` is
   renamed `Model` and the presets' `defaultModel:` parameter `model:`. `HttpEmbedder` and <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `OpenAiCompatibleEmbedderOptions` are gone; the wire shape is the internal <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
@@ -67,7 +74,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   a consumer resolves is a router over every backend that produces vectors, so registering two
   endpoints gives failover instead of the second silently replacing the first — which is what
   `HttpEmbeddingsTransport`'s own doc admitted: *"there is one embedder slot, so a later registration wins"*.
-  `Model2VecProvider`, `OnnxEmbedder` and `HttpEmbeddingsTransport` **stop implementing `IEmbedder`** and are providers
+  `Model2VecProvider`, `OnnxProvider` and `HttpEmbeddingsTransport` **stop implementing `IEmbedder`** and are providers
   only; a chat-only backend is never asked to embed, because the capability filter runs before dispatch.
   **Bring-your-own is unchanged**: `AddEmbeddings(...)` registers inside the configure callback, which runs
   before the front door is seeded with `TryAdd`, so an app-supplied embedder still wins. New:
@@ -75,7 +82,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `IModelProvider.EmbedAsync` overload so routing cannot silently drop `EmbeddingRole`.
 
 - **An embedder is a PROVIDER: `IEmbeddingProvider` is removed** (**D128**). `Model2VecProvider` and
-  `OnnxEmbedder` are `IModelProvider`s declaring `Kinds: ["text"], Operations: [Embed]`, and
+  `OnnxProvider` are `IModelProvider`s declaring `Kinds: ["text"], Operations: [Embed]`, and
   `AddModel2VecProvider` / `AddOnnxProvider` now register them into the provider collection **as well as** the
   `IEmbedder` slot. Nothing moves for a deployment with exactly one embedder; what changes is that a second
   one is expressible and distinguishable by id. **`IEmbedder` stays** as the minimal bring-your-own seam —
@@ -124,7 +131,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   **What changes for whom:** a consumer referencing `Lyntai.Providers.Default` alone, with no bundle and no
   MCP, now carries 669,768 B it may never call — removed outright under trimming. The old id is unlisted.
 
-- **`Lyntai.Providers.Local` is renamed `Lyntai.Providers.LlamaSharp`.** Every package here is named for
+- **`Lyntai.Providers.LlamaSharp` is renamed `Lyntai.Providers.LlamaSharp`.** Every package here is named for
   the dependency it ISOLATES, and "Local" stopped naming anything once the in-process static embedder
   landed — it described three things and identified none. **The namespace and every type name are
   unchanged**, deliberately, so the migration is one `PackageReference` and no `using` edit;
@@ -170,7 +177,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `IModelProvider` already do: a deployment can register more than one and tell them apart, and a
   diagnostic can say WHICH embedder produced a vector. **Additive on purpose** — `IEmbedder` is unchanged,
   because adding a base interface that introduces a required `Id` would break every BYO embedder at
-  compile. `Model2VecProvider` and `OnnxEmbedder` both implement it; `Model2VecProviderOptions` gains `Id`.
+  compile. `Model2VecProvider` and `OnnxProvider` both implement it; `Model2VecProviderOptions` gains `Id`.
 
 - **`Lyntai.Text.WordPieceTokenizer` — a BERT tokenizer the library owns** (**D122**). `FromModelDirectory`
   takes its rules from the model's own `tokenizer_config.json` rather than a caller's guess, because the ids
@@ -1648,7 +1655,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
 - **`b.AddSemanticMemory(…)`** — the wiring seam for semantic recall, so an app enabling it composes with
   builder calls instead of hand-constructing a vector store, a connection factory and an embedder. Overloads
   mirror `AddEmbeddings` (instance / factory / by type), plus a no-argument one for when the embedder arrives
-  from elsewhere (`AddHttpProviderEmbedder`, or a host registration made before `AddLyntai`). Its real
+  from elsewhere (`AddOpenAiCompatibleEmbedder`, or a host registration made before `AddLyntai`). Its real
   value is that it **states the intent**: semantic memory was previously enabled purely as a side effect of
   an `IEmbedder` being registered, so forgetting one registered no `ISemanticMemory` at all and every recall
   path skipped it in silence. `AddLyntai` now throws at composition instead. Everything stays substitutable —
@@ -1886,7 +1893,7 @@ because the restructure was designed around keeping namespaces fixed.
 - **NEW PACKAGE `Lyntai.Generation`** — the five media backends move out of `Lyntai.Providers.Default` into
   their own package, and their namespaces are corrected to `Lyntai.Generation.Providers`. The old names were
   wrong: `Lyntai.Generation.Http` contained `LocalDiffusionProvider`, a *subprocess* backend, whose own namespace
-  `Lyntai.Generation.Local` read as the unrelated package `Lyntai.Providers.Local` (GGUF inference). The
+  `Lyntai.Generation.Local` read as the unrelated package `Lyntai.Providers.LlamaSharp` (GGUF inference). The
   generation *contracts* stay in Core; this is the backend set, and it has **zero third-party dependencies**.
   `dotnet add package Lyntai.Generation` pulls Core with it. **It is deliberately NOT in the `Lyntai` bundle** —
   an experimental domain most consumers don't use should not arrive with the one-line install (the bundle dependency budget). Justified by
@@ -2283,7 +2290,7 @@ migration ledger into clean per-domain baselines (the pre-release migration-fold
 - **Public-surface shrink/settle** (pre-freeze): `Lyntai.Tools.Mcp.McpTool`,
   `Lyntai.Providers.Http.ProviderDetect` (incl. `Detect`), and
   `Lyntai.Providers.ExtensionsAi.LyntaiChatClient` → `internal`; FluentMigrator migration classes removed
-  from the public surface; `LocalModelOptions.AntiPrompts` → `StopSequences`;
+  from the public surface; `LlamaSharpOptions.AntiPrompts` → `StopSequences`;
   `HttpModelOptions.Dialect`/`HttpModelOptions.Dialect` `string` → `HttpDialect` enum;
   `IVectorStore` gains a required `DeleteAsync(collection, id)`.
 
@@ -2299,7 +2306,7 @@ migration ledger into clean per-domain baselines (the pre-release migration-fold
   `HttpEmbeddingsTransport.EmbedAsync` (throw contract), `DpapiSecretProtector` (all-input → `CryptographicException`),
   `ClaudeCliProvider.IsAvailable` (optimistic BYO-runner).
 - **Built-in `IEmbedder` for OpenAI-compatible endpoints** (EMB1): `Lyntai.Providers.Http` now
-  ships `HttpEmbeddingsTransport` + a `builder.AddHttpProviderEmbedder(id, o => { o.BaseUrl; o.Model; o.ApiKey; })`
+  ships `HttpEmbeddingsTransport` + a `builder.AddOpenAiCompatibleEmbedder(id, o => { o.BaseUrl; o.Model; o.ApiKey; })`
   method, so an app already talking to an OpenAI-compatible chat endpoint can turn on semantic memory
   (`ISemanticMemory`) **without a BYO embedder**. It POSTs the batched `{model, input[]}` body and extracts
   vectors tolerantly from either the OpenAI/LM-Studio `data[].embedding` shape (re-ordered by the
@@ -2403,7 +2410,7 @@ a frozen column via SELECT aliases.
   computed property and `Success` still excludes timeouts.
 - **Renames for what things ARE:** `CuratedMemory.Task` → `TaskKey` (a scoping key, not a
   `System.Threading.Tasks.Task` — DB column unchanged, aliased in SELECTs);
-  `HttpModelOptions.NumCtx` → `ContextSize` (`int?`; `LocalModelOptions.ContextSize`
+  `HttpModelOptions.NumCtx` → `ContextSize` (`int?`; `LlamaSharpOptions.ContextSize`
   `uint?` → `int?` to match); `UsageLive`/`UsageFinal` members gained the `*Tokens` suffix
   (`InputTokens`, `OutputTokens`, `CacheReadTokens`, + `CacheCreateTokens` on final).
 - **Wire-format internals are now `internal`:** `ClaudeArgs`, `ClaudeAgentArgs`, `StreamJsonParser`,
@@ -3549,7 +3556,7 @@ First "platform kit" (design §9) capability: agentic tool-calling. Additive, al
 New provider package for in-process local inference. Additive — no changes to existing packages.
 
 ### Added
-- **`Lyntai.Providers.Local`** — runs a local GGUF model in-process via LLamaSharp (llama.cpp), wired
+- **`Lyntai.Providers.LlamaSharp`** — runs a local GGUF model in-process via LLamaSharp (llama.cpp), wired
   with `builder.AddLlamaSharpProvider(modelPath, …)`. No network, no API key, no external process; the
   model loads lazily and is reused, and generations are serialized (one local model, one at a time).
   It classifies to the same verdicts the router expects (produced answer → `Ok`; empty generation or

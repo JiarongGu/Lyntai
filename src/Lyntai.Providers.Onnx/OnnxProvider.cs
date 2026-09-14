@@ -15,12 +15,12 @@ namespace Lyntai.Providers.Onnx;
 /// trim/AOT claim.</para>
 ///
 /// <para><b>It HAS a context limit</b>, which the static class does not: a BERT encoder has positional
-/// embeddings, so input past <see cref="OnnxEmbedderOptions.MaxTokens"/> is truncated.</para>
+/// embeddings, so input past <see cref="OnnxProviderOptions.MaxTokens"/> is truncated.</para>
 ///
 /// <para><b>Inference runs on the calling thread.</b> The async signature is the seam's, not a promise to
 /// yield — a batch of long documents is CPU-bound for tens of milliseconds. Wrap the call if that matters
 /// to your scheduler.</para></summary>
-public sealed class OnnxEmbedder : IModelProvider, IDisposable
+public sealed class OnnxProvider : IModelProvider, IDisposable
 {
     private readonly InferenceSession _session;
     private readonly WordPieceTokenizer _tokenizer;
@@ -30,8 +30,8 @@ public sealed class OnnxEmbedder : IModelProvider, IDisposable
     private readonly int _maxTokens;
     private readonly string _outputName;
 
-    private OnnxEmbedder(InferenceSession session, WordPieceTokenizer tokenizer,
-        SentenceTransformerConfig config, OnnxEmbedderOptions options)
+    private OnnxProvider(InferenceSession session, WordPieceTokenizer tokenizer,
+        SentenceTransformerConfig config, OnnxProviderOptions options)
     {
         _session = session;
         _tokenizer = tokenizer;
@@ -71,17 +71,17 @@ public sealed class OnnxEmbedder : IModelProvider, IDisposable
     /// <exception cref="DirectoryNotFoundException">No such directory.</exception>
     /// <exception cref="FileNotFoundException">No ONNX graph, or no <c>vocab.txt</c> — named individually,
     /// because a partial download is the common case and its unguarded symptom is far away.</exception>
-    public static OnnxEmbedder FromDirectory(string directory, OnnxEmbedderOptions? options = null)
+    public static OnnxProvider FromDirectory(string directory, OnnxProviderOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         if (!Directory.Exists(directory)) throw new DirectoryNotFoundException($"No model directory at '{directory}'.");
 
-        options ??= new OnnxEmbedderOptions();
+        options ??= new OnnxProviderOptions();
         var model = ResolveModel(directory, options.ModelFile);
         var tokenizer = WordPieceTokenizer.FromModelDirectory(directory);
         var config = SentenceTransformerConfig.FromDirectory(directory);
 
-        return new OnnxEmbedder(new InferenceSession(model), tokenizer, config, options);
+        return new OnnxProvider(new InferenceSession(model), tokenizer, config, options);
     }
 
     /// <inheritdoc />
@@ -183,7 +183,7 @@ public sealed class OnnxEmbedder : IModelProvider, IDisposable
 
         throw new FileNotFoundException(
             $"No ONNX graph in '{directory}' — looked for onnx/model.onnx and model.onnx. Set "
-            + $"{nameof(OnnxEmbedderOptions)}.{nameof(OnnxEmbedderOptions.ModelFile)} to name one directly.",
+            + $"{nameof(OnnxProviderOptions)}.{nameof(OnnxProviderOptions.ModelFile)} to name one directly.",
             Path.Combine(directory, "onnx", "model.onnx"));
     }
 

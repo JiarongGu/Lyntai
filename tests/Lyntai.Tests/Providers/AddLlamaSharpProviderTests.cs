@@ -1,7 +1,7 @@
 using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
-using Lyntai.Providers.Local;
+using Lyntai.Providers.LlamaSharp;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -45,7 +45,7 @@ public class AddLlamaSharpTests
     [Fact]
     public void IsAvailable_is_false_when_the_model_file_is_missing()
     {
-        using var provider = new LocalProvider("local", new LocalModelOptions { ModelPath = MissingModel() }, new LyntaiOptions());
+        using var provider = new LlamaSharpProvider("local", new LlamaSharpOptions { ModelPath = MissingModel() }, new LyntaiOptions());
         Assert.False(provider.IsAvailable);
     }
 
@@ -56,7 +56,7 @@ public class AddLlamaSharpTests
         File.WriteAllText(path, "placeholder — presence is all IsAvailable checks");
         try
         {
-            using var provider = new LocalProvider("local", new LocalModelOptions { ModelPath = path }, new LyntaiOptions());
+            using var provider = new LlamaSharpProvider("local", new LlamaSharpOptions { ModelPath = path }, new LyntaiOptions());
             Assert.True(provider.IsAvailable);
         }
         finally { File.Delete(path); }
@@ -67,7 +67,7 @@ public class AddLlamaSharpTests
     {
         // an absent model (and/or no native backend in the test run) must degrade to a Failed verdict,
         // never an escaping exception — that's what lets the router fall over to the next candidate
-        using var provider = new LocalProvider("local", new LocalModelOptions { ModelPath = MissingModel() },
+        using var provider = new LlamaSharpProvider("local", new LlamaSharpOptions { ModelPath = MissingModel() },
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(5) });
 
         var reply = await provider.CompleteAsync(Ask());

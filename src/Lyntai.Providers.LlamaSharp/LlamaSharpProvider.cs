@@ -9,7 +9,7 @@ using Lyntai.Llm.Streaming;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Lyntai.Providers.Local;
+namespace Lyntai.Providers.LlamaSharp;
 
 /// <summary>
 /// In-process provider that runs a GGUF model locally through LLamaSharp (llama.cpp) — no network,
@@ -23,13 +23,13 @@ namespace Lyntai.Providers.Local;
 /// rate-limit or content-filter notion for a local model. Token accounting is not reported (local
 /// inference has no billing and exact counts need model-specific tokenization).
 /// </summary>
-public sealed class LocalProvider(
+public sealed class LlamaSharpProvider(
     string id,
-    LocalModelOptions options,
+    LlamaSharpOptions options,
     LyntaiOptions lyntai,
-    ILogger<LocalProvider>? logger = null) : IModelProvider, IDisposable
+    ILogger<LlamaSharpProvider>? logger = null) : IModelProvider, IDisposable
 {
-    private readonly ILogger _logger = logger ?? NullLogger<LocalProvider>.Instance;
+    private readonly ILogger _logger = logger ?? NullLogger<LlamaSharpProvider>.Instance;
     // One local model, one generation at a time; also single-flights the lazy weight load.
     //
     // The gate is per-INSTANCE, so it bounds nothing unless this provider is a singleton — which

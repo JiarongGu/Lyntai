@@ -36,7 +36,7 @@ per-version design record, where one exists, is indexed in `docs/superpowers/IND
 ## Planned
 
 ### The platform kit (design §9) — SHIPPED pre-1.0, final deferrals closed before the freeze
-Delivered additively on the existing seams: `Lyntai.Providers.Local` · the agentic tool loop + native
+Delivered additively on the existing seams: `Lyntai.Providers.LlamaSharp` · the agentic tool loop + native
 tool-calling (HTTP/MEAI/CLI) + MCP-client tool source · durable jobs · guards · two-gate chat orchestration
 · secret vault · vision/multimodal. The job deferrals subsequently shipped too — priorities + dead-letter
 queue, recurring scheduling, cron expressions, running-job cancellation. **After 3.0 exactly ONE item below

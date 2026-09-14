@@ -1,6 +1,6 @@
-static class Lyntai.LocalBuilderExtensions
-    static AddLlamaSharpProvider(LyntaiBuilder builder, String modelPath, Action<LocalModelOptions> configure = null, String id = "local") : LyntaiBuilder
-sealed class Lyntai.Providers.Local.LocalModelOptions
+static class Lyntai.LlamaSharpBuilderExtensions
+    static AddLlamaSharpProvider(LyntaiBuilder builder, String modelPath, Action<LlamaSharpOptions> configure = null, String id = "local") : LyntaiBuilder
+sealed class Lyntai.Providers.LlamaSharp.LlamaSharpOptions
     .ctor()
     ContextSize : Nullable<Int32>
     GpuLayerCount : Int32
@@ -8,8 +8,8 @@ sealed class Lyntai.Providers.Local.LocalModelOptions
     ModelPath : String
     StopSequences : IReadOnlyList<String>
     Temperature : Single
-sealed class Lyntai.Providers.Local.LocalProvider
-    .ctor(String id, LocalModelOptions options, LyntaiOptions lyntai, ILogger<LocalProvider> logger = null)
+sealed class Lyntai.Providers.LlamaSharp.LlamaSharpProvider
+    .ctor(String id, LlamaSharpOptions options, LyntaiOptions lyntai, ILogger<LlamaSharpProvider> logger = null)
     Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Dispose() : Void

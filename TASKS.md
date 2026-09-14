@@ -739,7 +739,7 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   <br>**What is left is therefore the two things the old framing never reached, and the first is now
   STARTABLE.** The prerequisite landed the same day: `Lyntai.Providers.Onnx` (**D124**,
   `docs/task-archive.md` Part 208) is an ONNX session, a WordPiece pass and a pooling step in this
-  repository, so a cross-encoder head is a class beside `OnnxEmbedder` rather than a new package — the
+  repository, so a cross-encoder head is a class beside `OnnxProvider` rather than a new package — the
   session plumbing and `Lyntai.Text.WordPieceTokenizer` are already shared.
   <br>**Two pieces of real work remain.** REACHABILITY: `AddMemoryCrossEncoderVerification` (**D115**)
   takes a `/v1/rerank` endpoint and an ONNX file has no server, so this needs an in-process

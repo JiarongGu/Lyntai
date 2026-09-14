@@ -154,13 +154,13 @@ public class OnnxEmbedderCompositionTests : IDisposable
     public void A_MISSING_directory_says_so_rather_than_null_referencing()
     {
         Assert.Throws<DirectoryNotFoundException>(
-            () => OnnxEmbedder.FromDirectory(Path.Combine(_dir, "nope")));
+            () => OnnxProvider.FromDirectory(Path.Combine(_dir, "nope")));
     }
 
     [Fact]
     public void No_GRAPH_names_both_layouts_it_looked_for()
     {
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxEmbedder.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(_dir));
 
         Assert.Contains("onnx/model.onnx", error.Message, StringComparison.Ordinal);
     }
@@ -169,7 +169,7 @@ public class OnnxEmbedderCompositionTests : IDisposable
     public void An_EXPLICIT_model_file_that_is_absent_names_that_file_not_the_default()
     {
         var error = Assert.Throws<FileNotFoundException>(
-            () => OnnxEmbedder.FromDirectory(_dir, new OnnxEmbedderOptions { ModelFile = "onnx/model_qint8.onnx" }));
+            () => OnnxProvider.FromDirectory(_dir, new OnnxProviderOptions { ModelFile = "onnx/model_qint8.onnx" }));
 
         Assert.Contains("model_qint8.onnx", error.Message, StringComparison.Ordinal);
     }
@@ -182,7 +182,7 @@ public class OnnxEmbedderCompositionTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_dir, "onnx"));
         File.WriteAllText(Path.Combine(_dir, "onnx", "model.onnx"), "not really a graph");
 
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxEmbedder.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(_dir));
 
         Assert.Contains("vocab.txt", error.Message, StringComparison.Ordinal);
     }
@@ -198,14 +198,14 @@ public class OnnxEmbedderCompositionTests : IDisposable
 ///
 /// <para>Skipped without <c>LYNTAI_ONNX_MODEL_DIR</c>. Point it at a sentence-transformers export such as
 /// <c>all-MiniLM-L6-v2</c>.</para></summary>
-public class OnnxEmbedderLiveTests
+public class OnnxProviderLiveTests
 {
     private static string? ModelDirectory => Environment.GetEnvironmentVariable("LYNTAI_ONNX_MODEL_DIR");
 
-    private static OnnxEmbedder Load()
+    private static OnnxProvider Load()
     {
         Skip.If(string.IsNullOrWhiteSpace(ModelDirectory), "set LYNTAI_ONNX_MODEL_DIR to an ONNX export");
-        return OnnxEmbedder.FromDirectory(ModelDirectory!);
+        return OnnxProvider.FromDirectory(ModelDirectory!);
     }
 
     [SkippableFact]
@@ -317,7 +317,7 @@ public class OnnxRegistrationTests
     [Fact]
     public void A_singleton_registered_as_an_INSTANCE_is_NOT_disposed_by_the_container()
     {
-        // This is why AddOnnxProvider registers through a factory instead. OnnxEmbedder holds a native
+        // This is why AddOnnxProvider registers through a factory instead. OnnxProvider holds a native
         // session, so "the container will clean it up" has to be true rather than assumed — and for the
         // instance overload it is not.
         var embedder = new TrackingEmbedder();

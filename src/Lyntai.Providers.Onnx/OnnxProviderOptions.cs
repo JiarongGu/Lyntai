@@ -11,10 +11,10 @@ public enum OnnxPooling
     Cls = 1,
 }
 
-/// <summary>Knobs for <see cref="OnnxEmbedder"/>. <b>Every one defaults to reading the model</b>, because
+/// <summary>Knobs for <see cref="OnnxProvider"/>. <b>Every one defaults to reading the model</b>, because
 /// pooling, normalization and the position limit are properties of how it was trained rather than caller
 /// preferences — set one only to override a model that ships a wrong or missing declaration.</summary>
-public sealed class OnnxEmbedderOptions
+public sealed class OnnxProviderOptions
 {
     /// <summary>The provider id this backend reports as
     /// <see cref="Lyntai.Lifecycle.IModelProvider.Id"/>.</summary>

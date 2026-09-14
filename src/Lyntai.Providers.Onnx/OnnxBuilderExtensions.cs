@@ -32,15 +32,15 @@ public static class OnnxBuilderExtensions
     /// <param name="modelDirectory">A directory holding an ONNX graph and <c>vocab.txt</c>.</param>
     /// <param name="configure">Knobs; null takes the model's own configuration.</param>
     public static LyntaiBuilder AddOnnxProvider(this LyntaiBuilder builder, string modelDirectory,
-        Action<OnnxEmbedderOptions>? configure = null)
+        Action<OnnxProviderOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelDirectory);
 
-        var options = new OnnxEmbedderOptions();
+        var options = new OnnxProviderOptions();
         configure?.Invoke(options);
 
-        var embedder = OnnxEmbedder.FromDirectory(modelDirectory, options);
+        var embedder = OnnxProvider.FromDirectory(modelDirectory, options);
 
         // A PROVIDER declaring ProviderOperation.Embed, so the routing front door can select it by id
         // alongside every other backend (D129) — and a FACTORY returning the already-built instance, which

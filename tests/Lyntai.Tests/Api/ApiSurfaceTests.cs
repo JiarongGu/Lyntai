@@ -47,9 +47,10 @@ public class ApiSurfaceTests
         ["Lyntai.Storage.Sqlite"] = typeof(SqliteConnectionFactory).Assembly,
         ["Lyntai.Storage.InMemory"] = typeof(InMemoryKeyValueStore).Assembly,
         ["Lyntai.Storage.Postgres"] = typeof(PostgresConnectionFactory).Assembly,
-        // The namespace stays `Lyntai.Providers.Local` on purpose — only the PACKAGE was renamed, so no
-        // consumer edits a `using`. The key is the ASSEMBLY name, which follows the project.
-        ["Lyntai.Providers.LlamaSharp"] = typeof(Lyntai.Providers.Local.LocalProvider).Assembly,
+        // Namespace and package agree again since D138. It had been left as `Lyntai.Providers.Local` when  // drift-ok: the note names the namespace D138 retired
+        // only the PACKAGE was renamed, so that no consumer edited a `using` — right for a rename that was
+        // collateral, wrong once "Local" was the defect. The key is the ASSEMBLY name, which follows the project.
+        ["Lyntai.Providers.LlamaSharp"] = typeof(Lyntai.Providers.LlamaSharp.LlamaSharpProvider).Assembly,
         ["Lyntai.Tools.Mcp"] = typeof(Lyntai.Tools.Mcp.McpToolset).Assembly,
         ["Lyntai.Tools.Mcp.Hosting"] = typeof(Lyntai.McpToolHostBuilderExtensions).Assembly,
         ["Lyntai.Secrets.Dpapi"] = typeof(Lyntai.Secrets.DpapiSecretProtector).Assembly,

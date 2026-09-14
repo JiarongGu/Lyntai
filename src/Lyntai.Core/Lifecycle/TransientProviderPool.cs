@@ -20,7 +20,7 @@ namespace Lyntai.Lifecycle;
 ///
 /// <para>Two things break, and the second is the one that surprises. Anything a provider serializes with
 /// its OWN field stops serializing, because each call gets a new field —
-/// <c>LocalProvider</c>'s one-generation-at-a-time gate is exactly this shape. And anything it loads LAZILY
+/// <c>LlamaSharpProvider</c>'s one-generation-at-a-time gate is exactly this shape. And anything it loads LAZILY
 /// under that field is reloaded per call: for a local GGUF backend that is multiple gigabytes of native
 /// weights, loaded concurrently and never freed.</para>
 ///

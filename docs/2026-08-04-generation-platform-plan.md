@@ -1715,13 +1715,13 @@ one corpus of "what does a 429 mean", per D21's rule against a second copy of th
 
 - [ ] **Step 4: Add the README section**
 
-Add this row to the packages table, after the `Lyntai.Providers.Local` row:
+Add this row to the packages table, after the `Lyntai.Providers.LlamaSharp` row:
 
 ```markdown
 | `Lyntai.Generation` | Media generation platform — image/video/audio backends behind one capability-aware seam, with routing, probes and a tool bridge. |
 ```
 
-…and this section immediately before `### Local in-process inference (`Lyntai.Providers.Local`)`:
+…and this section immediately before `### Local in-process inference (`Lyntai.Providers.LlamaSharp`)`:
 
 ````markdown
 ### Media generation (`Lyntai.Generation`)

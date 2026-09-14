@@ -137,6 +137,22 @@ export default {
 
   retiredApiNames: [
     {
+      // D138. `LocalDiffusionProvider` and `LocalDiffusionOptions` are deliberately NOT here: there "Local"
+      // describes the DEPLOYMENT — a host-supplied sd-cli binary — rather than standing in for a vendor,
+      // and whole-identifier equality keeps both live without an allowance.
+      names: [
+        'LocalProvider',
+        'LocalModelOptions',
+        'LocalBuilderExtensions',
+        'OnnxEmbedder',
+        'OnnxEmbedderOptions',
+      ],
+      use: '`LlamaSharpProvider` / `LlamaSharpOptions` / `LlamaSharpBuilderExtensions` in '
+        + '`Lyntai.Providers.LlamaSharp`, and `OnnxProvider` / `OnnxProviderOptions`',
+      why: 'Local named no backend, and an *Embedder type is the taxonomy D132 retired — both survived that '
+        + 'sweep because it registered the METHOD names and not their type siblings (D138)',
+    },
+    {
       // D136. `LlmVerdictException` is deliberately absent: it survives, being the LLM front door's own
       // exception type, and whole-identifier matching keeps it live without an allowance.
       names: [
@@ -182,7 +198,7 @@ export default {
     },
     {
       names: [
-        'AddHttpProviderEmbedder', 'AddHttpProviderEmbeddings',
+        'AddOpenAiCompatibleEmbedder', 'AddOpenAiCompatibleEmbeddings',
         'OpenAiCompatibleEmbedderOptions', 'HttpEmbedder', 'EmbedderHttpClientName',
       ],
       use: '`AddHttpProvider` with `HttpModelOptions.Embeddings` set (and `Chat = null` '
@@ -471,6 +487,14 @@ export default {
    */
   retiredTerms: [
     {
+      // D138. The prose half. LocalDiffusion* is absent for the reason on the surface rule above, and the
+      // NAMESPACE is matched too — it was the last place `Lyntai.Providers.Local` survived.
+      term: '\\bLocalProvider\\b|\\bLocalModelOptions\\b|\\bLocalBuilderExtensions\\b|\\bOnnxEmbedder\\b|\\bOnnxEmbedderOptions\\b|\\bLyntai[.]Providers[.]Local\\b',
+      why: 'Local named no backend and an *Embedder type is a retired taxonomy; the namespace agrees with '
+        + 'the package again (D138)',
+      use: '`Lyntai.Providers.LlamaSharp` and the `LlamaSharp*` / `Onnx*` type names',
+    },
+    {
       // D136. The prose half. `LlmVerdictException` is absent for the reason on the surface rule above.
       term: '\\bLlmVerdict\\b|\\bGenerationVerdict\\b|\\bLlmVerdictClassifier\\b|\\bGenerationVerdictClassifier\\b|\\bLlmVerdictExtensions\\b',
       why: 'one verdict taxonomy serves every domain; the two enums and the translation between them are '
@@ -491,7 +515,7 @@ export default {
       // of these describes a registration or a type the tree no longer has. `StaticEmbedder` is matched but
       // the WORD "static" is not — a lookup table is still correctly called static embeddings in prose,
       // which is exactly why the type had to be renamed and the technique did not.
-      term: '\\bAddHttpProviderEmbedder\\b|\\bAddHttpProviderEmbeddings\\b'
+      term: '\\bAddOpenAiCompatibleEmbedder\\b|\\bAddOpenAiCompatibleEmbeddings\\b'
         + '|\\bOpenAiCompatibleEmbedderOptions\\b|\\bHttpEmbedder\\b'
         + '|\\bAddStaticEmbedder\\b|\\bStaticEmbedderOptions\\b|\\bStaticEmbedder\\b'
         + '|\\bAddOnnxEmbedder\\b|\\bAddLocalProvider\\b',

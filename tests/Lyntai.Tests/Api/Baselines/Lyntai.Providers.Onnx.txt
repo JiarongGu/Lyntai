@@ -1,21 +1,21 @@
 static class Lyntai.OnnxBuilderExtensions
-    static AddOnnxProvider(LyntaiBuilder builder, String modelDirectory, Action<OnnxEmbedderOptions> configure = null) : LyntaiBuilder
-sealed class Lyntai.Providers.Onnx.OnnxEmbedder
+    static AddOnnxProvider(LyntaiBuilder builder, String modelDirectory, Action<OnnxProviderOptions> configure = null) : LyntaiBuilder
+enum Lyntai.Providers.Onnx.OnnxPooling
+    Cls : OnnxPooling const
+    Mean : OnnxPooling const
+    value__ : Int32
+sealed class Lyntai.Providers.Onnx.OnnxProvider
     Capabilities : ProviderCapabilities
     Dispose() : Void
     EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
     Id : String
     IsAvailable : Boolean
     MaxTokens : Int32
-    static FromDirectory(String directory, OnnxEmbedderOptions options = null) : OnnxEmbedder
-sealed class Lyntai.Providers.Onnx.OnnxEmbedderOptions
+    static FromDirectory(String directory, OnnxProviderOptions options = null) : OnnxProvider
+sealed class Lyntai.Providers.Onnx.OnnxProviderOptions
     .ctor()
     Id : String
     MaxTokens : Nullable<Int32>
     ModelFile : String
     Normalize : Nullable<Boolean>
     Pooling : Nullable<OnnxPooling>
-enum Lyntai.Providers.Onnx.OnnxPooling
-    Cls : OnnxPooling const
-    Mean : OnnxPooling const
-    value__ : Int32

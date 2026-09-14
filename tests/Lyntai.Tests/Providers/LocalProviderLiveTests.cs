@@ -1,6 +1,6 @@
 using Lyntai.Lifecycle;
 using Lyntai.Llm;
-using Lyntai.Providers.Local;
+using Lyntai.Providers.LlamaSharp;
 
 namespace Lyntai.Tests.Providers;
 
@@ -25,8 +25,8 @@ public class LocalProviderLiveTests
         !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LYNTAI_LIVE_LLAMA"))
         && !string.IsNullOrEmpty(ModelPath) && File.Exists(ModelPath);
 
-    private static LocalProvider Provider() => new("local",
-        new LocalModelOptions { ModelPath = ModelPath!, ContextSize = 2048, MaxTokens = 48 },
+    private static LlamaSharpProvider Provider() => new("local",
+        new LlamaSharpOptions { ModelPath = ModelPath!, ContextSize = 2048, MaxTokens = 48 },
         new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(5) }); // CPU generation can be slow
 
     private static LlmRequest Ask(string prompt) => new()

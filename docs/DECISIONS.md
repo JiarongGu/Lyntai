@@ -207,8 +207,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D135](#d135--the-http-family-is-named-for-the-transport-and-its-dialects-not-for-openai-2026-09-14) | 2026-09-14 | the HTTP family is named for the TRANSPORT and its dialects, not for OpenAI |
 | [D136](#d136--one-verdict-taxonomy-for-every-domain-the-translation-layer-is-deleted-2026-09-14) | 2026-09-14 | one verdict taxonomy for every domain; the translation layer is deleted |
 | [D137](#d137--a-registration-names-what-it-registers-so-every-backend-carries-provider-2026-09-14) | 2026-09-14 | a registration names what it REGISTERS, so every backend carries `Provider` |
+| [D138](#d138--the-type-layer-catches-up-llamasharpprovider-onnxprovider-and-a-namespace-that-agrees-2026-09-15) | 2026-09-15 | the type layer catches up: `LlamaSharpProvider`, `OnnxProvider`, and a namespace that agrees |
 
-_All 137 entries are live decisions._
+_All 138 entries are live decisions._
 
 <!-- index:end -->
 
@@ -1862,7 +1863,7 @@ along: *"a CLI-spawning provider whose model runs its OWN agent loop … which c
 the caller and reaches custom tools only over MCP."* The roadmap line and that summary had contradicted each
 other since 1.1; nobody reconciled them because nobody tried to do the work.
 
-**For a local GGUF, "native" is not one thing.** `LocalProvider` runs an arbitrary model through
+**For a local GGUF, "native" is not one thing.** `LlamaSharpProvider` runs an arbitrary model through
 llama.cpp, and tool-call syntax is per model FAMILY — Llama's `python_tag`, Qwen's `tool_call` XML,
 Mistral's `[TOOL_CALLS]`, and others. Supporting "native" would mean picking one family and breaking every
 other model a host might load, or shipping a per-family registry unmeasurable without downloading each one.
@@ -3881,7 +3882,7 @@ contract the caller can actually check.
 
 ## D128 — an embedder is a provider: IEmbeddingProvider is deleted and embedding is a declared OPERATION (2026-09-14)
 
-`Model2VecProvider` and `OnnxEmbedder` implement `IModelProvider` declaring
+`Model2VecProvider` and `OnnxProvider` implement `IModelProvider` declaring
 `Kinds: ["text"], Operations: [Embed]`, and register into the provider collection as well as the
 `IEmbedder` slot. `IEmbeddingProvider` — added earlier the same day — is gone.
 
@@ -3910,7 +3911,7 @@ second router, and that is exactly what minting a third family would have made i
 ## D129 — IEmbedder is the FRONT DOOR, not a backend contract: embeddings get routing and fallback (2026-09-14)
 
 `IEmbedder` is now implemented by `RoutedEmbedder` alone — a router over every `IModelProvider` declaring
-`ProviderOperation.Embed`. `Model2VecProvider`, `OnnxEmbedder` and `HttpEmbeddingsTransport` stop implementing it and are
+`ProviderOperation.Embed`. `Model2VecProvider`, `OnnxProvider` and `HttpEmbeddingsTransport` stop implementing it and are
 providers only; `AddEmbeddingProvider` registers them and states, at composition time, that something can
 embed.
 
@@ -3986,7 +3987,7 @@ host should declare `[text, vector]`; nothing in the tree did, so the claim was 
 required exactly the change above and no new type, which is the evidence the model is right.
 
 **The alternative was two registrations pointed at one server** — `AddHttpProvider` plus <!-- drift-ok: D131/D132 name what they retire -->
-`AddHttpProviderEmbedder`, as the tree did through 3.1.0. That costs two ids a router reports <!-- drift-ok: D131/D132 name what they retire -->
+`AddOpenAiCompatibleEmbedder`, as the tree did through 3.1.0. That costs two ids a router reports <!-- drift-ok: D131/D132 name what they retire -->
 separately, two named `HttpClient`s, and a base URL written twice with nothing checking they agree. The
 duplication is invisible until the day one of them is edited.
 
@@ -4012,7 +4013,7 @@ same collection plus the statement that something can embed — the flag `AddSem
 
 ## D132 — a second `Add*` method for one backend IS the split: routes are configuration (2026-09-14)
 
-`AddHttpProviderEmbedder` is gone. <!-- drift-ok: this entry RETIRES the name, so it has to say it -->
+`AddOpenAiCompatibleEmbedder` is gone. <!-- drift-ok: this entry RETIRES the name, so it has to say it -->
 `HttpModelOptions` gains a `Chat` section beside `Embeddings`, both nullable, and a host declares
 which routes it serves by which sections it sets. `*Embedder` is retired from every registration name:
 `AddOnnxProvider`, `AddModel2VecProvider`, `AddLlamaSharpProvider`.
@@ -4022,7 +4023,7 @@ a both-routes host, but an embeddings-only host still needed its own method — 
 the TOP level while embeddings had a section, so there was no way to say "this host serves no chat". The
 asymmetry in the options forced the asymmetry in the API.
  <!-- drift-ok: D131/D132 name what they retire -->
-**The first attempt was to rename that method**, `AddHttpProviderEmbeddings`. That is the same split <!-- drift-ok: D131/D132 name what they retire -->
+**The first attempt was to rename that method**, `AddOpenAiCompatibleEmbeddings`. That is the same split <!-- drift-ok: D131/D132 name what they retire -->
 wearing a better name, and it is worth recording because it was written and shipped nowhere: **a second
 `Add*` for one backend re-enters the chat-vs-embedder taxonomy through the one surface a consumer actually
 reads.** The test is not whether the name is good — it is whether the method exists.
@@ -4211,3 +4212,31 @@ have no vendor to qualify it with.
 and never shipped in between; what would have cost something is leaving the reasoning unexamined, because
 "a suffix on all of them distinguishes none of them" is a correct-sounding rule that silently assumes the
 set you are comparing within is the set that matters.
+
+## D138 — the type layer catches up: `LlamaSharpProvider`, `OnnxProvider`, and a namespace that agrees (2026-09-15)
+
+`Lyntai.Providers.Local.LocalProvider` becomes `Lyntai.Providers.LlamaSharp.LlamaSharpProvider`, with <!-- drift-ok: this entry RETIRES the old names, so it has to say them -->
+`LocalModelOptions` → `LlamaSharpOptions`; `OnnxEmbedder` / `OnnxEmbedderOptions` become `OnnxProvider` / <!-- drift-ok: names what this entry retires -->
+`OnnxProviderOptions`.
+
+**The renames that produced these names were already taken; only half of each landed.** **D132** retired <!-- drift-ok: D138 names what it retires -->
+`AddLocalProvider` and `AddOnnxEmbedder` for naming nothing and for carrying a retired taxonomy — and left <!-- drift-ok: D138 names what it retires -->
+`LocalProvider` and `OnnxEmbedder` sitting behind them, so `AddLlamaSharpProvider` constructed a <!-- drift-ok: D138 names what it retires -->
+`LocalProvider` and `AddOnnxProvider` an `OnnxEmbedder`. Both are consumer-visible through their OPTIONS <!-- drift-ok: D138 names what it retires -->
+types, which is what a caller configures.
+
+**The gates could not see it, and that is the reusable part.** A retirement is registered by NAME, and both
+sweeps registered the METHOD names. `check-api-vocabulary` then holds exactly half the vocabulary a rename
+retires and reports a clean run, which is how a half-landed rename looks identical to a finished one.
+`pitfalls.md` carries the general form.
+ <!-- drift-ok: D138 names what it retires -->
+**The namespace moved too, reversing a note that had been right.** `Lyntai.Providers.Local` was kept when <!-- drift-ok: D138 names what it retires -->
+the PACKAGE was renamed to `Lyntai.Providers.LlamaSharp`, citing the rule that a package move must not force
+a consumer to edit a `using` — correct for a rename that was COLLATERAL. It stops applying once the name
+itself is the defect, and this release already carries a dozen deliberate renames, so the one-line edit is
+amortized rather than added.
+
+**`LocalDiffusionProvider` is NOT renamed, and the distinction is the test for the next one.** There "Local"
+describes the DEPLOYMENT — it drives an `sd-cli` binary the host supplies, engine-agnostic — rather than
+standing in for a vendor nobody named. Both registries exclude it by whole-identifier matching rather than
+by an allowance, which is the check that the distinction is real.

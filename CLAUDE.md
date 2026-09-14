@@ -13,7 +13,7 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 ## Current state
 
 **Released: v3.1.0 (2026-08-23).** Twelve packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D137** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D138** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
@@ -25,7 +25,7 @@ a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg w
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
 easily breaks. All 29 skips were enumerated and every one is live-backend gated (a live model, embedder,
 reranker, Ollama, MCP or CLI), so nothing is skipping for another reason. **It is 29 rather than 24 because
-`OnnxEmbedderLiveTests` is FIVE** — they arrived with **D124**, gated on a model directory like
+`OnnxProviderLiveTests` is FIVE** — they arrived with **D124**, gated on a model directory like
 `WordPieceTokenizerLiveTests` (**D122**) and `Model2VecProviderLiveTests` (**D121**) before them.
 **Run with `LYNTAI_ONNX_MODEL_DIR` and `LYNTAI_STATIC_MODEL_DIR` set and the count reads 22, not 29** — a
 LOWER skip count is the live suites running, which is the one direction that needs no investigation.
