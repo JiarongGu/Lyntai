@@ -55,6 +55,7 @@ const RETIRED = [
   'Lyntai.Providers.Local', //           renamed to Lyntai.Providers.LlamaSharp (D122's naming pass)
   'Lyntai.Providers.ExtensionsAi', //    folded into Lyntai.Providers.Default (D123)
   'Lyntai.Tools.Mcp.Hosting', //         folded into Lyntai.Tools.Mcp (D142)
+  'Lyntai.Providers.Default', //         renamed to Lyntai.Providers.Basic (D144)
 ];
 
 /**

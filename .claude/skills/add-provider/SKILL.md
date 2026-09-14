@@ -19,7 +19,7 @@ Read `.claude/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.claud
 
 **A package boundary must answer "which dependency does this isolate?"** A dialect or a native provider
 that needs nothing beyond Core/BCL — or only managed `Microsoft.Extensions.Http` — is **a class in
-`src/Lyntai.Providers.Default/`**, next to `ClaudeCliDialect`, `CodexCliDialect` and
+`src/Lyntai.Providers.Basic/`**, next to `ClaudeCliDialect`, `CodexCliDialect` and
 `HttpModelProvider`, which is where 2.0.1 merged them. Namespaces stay `Lyntai.Providers.<Name>`
 inside that one assembly (D25: consolidating packages must not force a consumer to edit a `using`).
 
@@ -31,7 +31,7 @@ id is permanent. If it does earn a package, scaffold it — see the Baselines bu
 the csproj.
 
 ## CLI-backend checklist (the dialect path)
-- [ ] A class in `src/Lyntai.Providers.Default/` (footprint test above) — a dialect adds no dependency of
+- [ ] A class in `src/Lyntai.Providers.Basic/` (footprint test above) — a dialect adds no dependency of
       its own, so it essentially never earns a package. `ClaudeCliDialect` and `CodexCliDialect` live there.
 - [ ] **MEASURE the CLI first** — `<cmd> --help`, `--version`, and `--help` on each subcommand you intend to
       drive. Record what you measured (version + date) in the dialect's XML docs. **Never name a command you
@@ -50,7 +50,7 @@ the csproj.
 - [ ] Tests: the parsing/argv-building unit-tested through `FakeProcessRunner` (never a real binary — and
       NEVER `login`/`logout`/`install` against one, which mutate a developer's machine), plus a real-spawn
       test against `provider-stub.mjs`. Add the CLI's shapes to the stub as needed.
-- [ ] Baselines: confirm Core's own baseline is untouched. A class added to `Lyntai.Providers.Default`
+- [ ] Baselines: confirm Core's own baseline is untouched. A class added to `Lyntai.Providers.Basic`
       needs only Core's and Default's baselines reviewed. **Only if the backend earns its own package**
       (footprint test above): scaffold with `node devtools/dev.mjs new-package Lyntai.Providers.<Name>` —
       it registers all NINE registries `check-packages` gates (`packableProjects`, the solution,
@@ -60,7 +60,7 @@ the csproj.
 - [ ] `node devtools/dev.mjs verify` green.
 
 ## Native provider checklist (non-CLI)
-- [ ] A class in `src/Lyntai.Providers.Default/` unless the backend drags a dependency a consumer might
+- [ ] A class in `src/Lyntai.Providers.Basic/` unless the backend drags a dependency a consumer might
       refuse — the footprint test above. `HttpModelProvider` lives there (managed
       `Microsoft.Extensions.Http` only); `Lyntai.Providers.LlamaSharp` earned its own package.
 - [ ] `MyProvider : IModelProvider` — `Id`, `IsAvailable`, `CompleteAsync`, `StreamAsync`.

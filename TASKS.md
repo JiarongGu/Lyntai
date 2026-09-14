@@ -196,7 +196,7 @@ provisional and only its payload is reliable (the item below is the consequence)
 measurement, and measurement only — nothing here is codeable without a real codex run._
 
 - [ ] **CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping.** <!-- item: state=blocked kind=env needs="a codex-cli reinstall on this machine, then one real turn that runs tools" -->
-  `src/Lyntai.Providers.Default/CodexCli/CodexAgentReader.cs`. The capture behind this backend (codex-cli 0.146.0,
+  `src/Lyntai.Providers.Basic/CodexCli/CodexAgentReader.cs`. The capture behind this backend (codex-cli 0.146.0,
   2026-08-04) ran a trivial `--oss` turn with **no tools**, so the entire tool-step half is inferred and
   marked as such in the XML docs.
 

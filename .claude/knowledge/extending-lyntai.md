@@ -82,7 +82,7 @@ Rules specific to this path:
 **B. Native `IModelProvider`** for anything else (like `HttpModelProvider`). **Where it lives is a
 FOOTPRINT test, not one-package-per-backend** (`docs/DECISIONS.md` D25): a dialect or native provider that
 needs nothing beyond Core/BCL — or only managed `Microsoft.Extensions.Http` — is a class in
-`src/Lyntai.Providers.Default/`, where `ClaudeCliDialect`, `CodexCliDialect`, `ClaudeCliProvider`,
+`src/Lyntai.Providers.Basic/`, where `ClaudeCliDialect`, `CodexCliDialect`, `ClaudeCliProvider`,
 `CodexCliProvider` and `HttpModelProvider` already live; namespaces stay `Lyntai.Providers.<Name>`
 inside the one assembly (D25), so nothing an author writes changes. It earns its own
 `src/Lyntai.Providers.<Name>/` package (ref Core only, never adapter→adapter) only when it drags a native

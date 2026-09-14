@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Text;
 /// <para><b>Why the library writes its own.</b> <c>Microsoft.ML.Tokenizers</c> costs 325,896 B and drags
 /// <c>Google.Protobuf</c> (489,568 B) for the SentencePiece models this embedder never loads — 812 KB of
 /// closure for one WordPiece call. Owning it lets the static embedder live in the dependency-free
-/// <c>Lyntai.Providers.Default</c> and keep that package's trim/AOT claim.</para>
+/// <c>Lyntai.Providers.Basic</c> and keep that package's trim/AOT claim.</para>
 ///
 /// <para><b>The risk that buys, and how it is pinned.</b> A tokenizer that disagrees by one rule produces
 /// finite, plausible, WRONG vectors — the failure mode no smoke test sees. So the load-bearing test here is

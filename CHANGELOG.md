@@ -47,6 +47,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **`Lyntai.Providers.Default` is renamed `Lyntai.Providers.Basic`** (**D144**). "Default" named a position <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
+  in a list rather than a property of the contents; `Basic` states the membership rule D25 already used —
+  the backends needing nothing beyond Core and the BCL. **Namespaces are unchanged**, so a consumer edits
+  one package reference and no `using`. Each backend's `Add*` extension also moves into that backend's
+  folder, so a provider module is self-contained; only genuinely shared CLI helpers remain at the package
+  root.
+
+
 - **`Lyntai.Tools.Mcp.Hosting` is folded into `Lyntai.Tools.Mcp`** (**D142**). Both referenced exactly <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
   `Lyntai.Core` + `ModelContextProtocol.Core` and both shipped in the bundle, so the boundary isolated
   nothing — D123's fold test, applied where it had stopped being asked. **Namespaces are unchanged**:
@@ -175,12 +183,12 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   builder method, not the type. **This is the first step of unifying the provider layer**: one candidate,
   then one routing spine, then capabilities declared as data rather than as a type hierarchy.
 
-- **`Lyntai.Providers.ExtensionsAi` is folded into `Lyntai.Providers.Default`** (**D123**). The migration is
+- **`Lyntai.Providers.ExtensionsAi` is folded into `Lyntai.Providers.Basic`** (**D123**). The migration is
   one `PackageReference` and no `using` — every namespace and type name is unchanged, and
   `AddExtensionsAiProvider(id, chatClient)` still registers it. **The boundary was isolating nothing**:
   `ModelContextProtocol.Core` pins `Microsoft.Extensions.AI.Abstractions` transitively and both MCP halves
   are bundle members, so a one-line-install consumer already carried that assembly and could not refuse it.
-  **What changes for whom:** a consumer referencing `Lyntai.Providers.Default` alone, with no bundle and no
+  **What changes for whom:** a consumer referencing `Lyntai.Providers.Basic` alone, with no bundle and no
   MCP, now carries 669,768 B it may never call — removed outright under trimming. The old id is unlisted.
 
 - **`Lyntai.Providers.LlamaSharp` is renamed `Lyntai.Providers.LlamaSharp`.** Every package here is named for
@@ -199,7 +207,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 ### Added
 
 - **An in-process embedder with NO server, GPU or port** (**D121**, **D122**).
-  `AddModel2VecProvider(modelDirectory)` over a `model2vec` lookup table, **in `Lyntai.Providers.Default`** —
+  `AddModel2VecProvider(modelDirectory)` over a `model2vec` lookup table, **in `Lyntai.Providers.Basic`** —
   no new package and **no new dependency**, because its WordPiece tokenizer is owned rather than referenced
   (**D122**: `Microsoft.ML.Tokenizers` cost 812 KB of closure, with `Google.Protobuf`, for one call). Both
   packages keep their `✅` trim/AOT rows. **The case is operational, not quality or speed**:

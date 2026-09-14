@@ -39,7 +39,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
-    <ProjectReference Include="..\Lyntai.Providers.Default\Lyntai.Providers.Default.csproj" />
+    <ProjectReference Include="..\Lyntai.Providers.Basic\Lyntai.Providers.Basic.csproj" />
     <ProjectReference Include="..\Lyntai.Storage.InMemory\Lyntai.Storage.InMemory.csproj" />
     <ProjectReference Include="..\Lyntai.Tools.Mcp\Lyntai.Tools.Mcp.csproj" />
   </ItemGroup>

@@ -16,7 +16,7 @@
   -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>Lyntai.Providers.Default</PackageId>
+    <PackageId>Lyntai.Providers.Basic</PackageId>
     <Description>The default Lyntai LLM backend set: the authenticated `claude` and `codex` CLIs, any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat + embeddings, an in-process model2vec embedder, and the two-way Microsoft.Extensions.AI bridge — bundled because none of them ships a native payload. Media backends live in Lyntai.Generation; local GGUF inference is Lyntai.Providers.LlamaSharp.</Description>
   </PropertyGroup>
 

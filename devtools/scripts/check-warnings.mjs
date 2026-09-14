@@ -3,7 +3,7 @@
 // Not style policing: `IsAotCompatible=true` stamps `IsTrimmable` into the assembly, telling a consumer's
 // trimmer "safe to trim", and the ONLY thing that catches code breaking that promise is an IL2026/IL3050
 // warning — a warning nobody fails on is a warning nobody reads, and four of them shipped into
-// Lyntai.Providers.Default exactly that way. Doc-comment warnings matter for the same reason: an unresolved
+// Lyntai.Providers.Basic exactly that way. Doc-comment warnings matter for the same reason: an unresolved
 // cref ships inside the XML docs consumers read in IntelliSense. Scoped to `src/` — tests and samples are
 // free to warn. `--list` prints them all instead of the first 15.
 //

@@ -209,9 +209,9 @@ describe('missingReleasedMigrations (D9)', () => {
 describe('wireJsonSerializerUses (D14)', () => {
   it('finds a real USE in a wire path — the RED case the claim exists for', () => {
     const r = fixture({
-      'src/Lyntai.Providers.Default/HttpBody.cs': 'var x = JsonSerializer.Deserialize<Reply>(body);',
+      'src/Lyntai.Providers.Basic/HttpBody.cs': 'var x = JsonSerializer.Deserialize<Reply>(body);',
     });
-    assert.deepEqual(wireJsonSerializerUses(r), ['src/Lyntai.Providers.Default/HttpBody.cs']);
+    assert.deepEqual(wireJsonSerializerUses(r), ['src/Lyntai.Providers.Basic/HttpBody.cs']);
   });
 
   it('IGNORES the word in a comment, which is what the first run got wrong', () => {
@@ -221,7 +221,7 @@ describe('wireJsonSerializerUses (D14)', () => {
       // Must be a path the predicate actually WALKS, or this passes by scanning nothing rather than by
       // ignoring the comment — the vacuous-filter shape. It named a package that has since been folded
       // away (D123), which would have left it green and meaningless.
-      'src/Lyntai.Providers.Default/Decl.cs':
+      'src/Lyntai.Providers.Basic/Decl.cs':
         '// JsonDocument.Parse (not JsonSerializer) so the package stays trim/AOT-clean\n'
         + '/// Uses <see cref="JsonNode"/>, not reflection-based <c>JsonSerializer</c>.\n'
         + '/* JsonSerializer.Deserialize would be wrong here */\n'

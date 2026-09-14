@@ -122,7 +122,7 @@ column turned out to need no separate build, for the reason under the table.
 
 | | CPU | GPU |
 |---|---|---|
-| **static** (lookup table, no matmul) | **SHIPS** in `Lyntai.Providers.Default` (**D121**, **D122**) — `AddModel2VecProvider(dir)`, needing NO package and NO dependency because its WordPiece tokenizer is owned and sits in Core; **0.5 points** behind on the memory default and ~12 on a selective task, and the only cell with NO context limit | n/a — there is nothing to accelerate |
+| **static** (lookup table, no matmul) | **SHIPS** in `Lyntai.Providers.Basic` (**D121**, **D122**) — `AddModel2VecProvider(dir)`, needing NO package and NO dependency because its WordPiece tokenizer is owned and sits in Core; **0.5 points** behind on the memory default and ~12 on a selective task, and the only cell with NO context limit | n/a — there is nothing to accelerate |
 | **transformer** | **SHIPS** as `Lyntai.Providers.Onnx` (**D124**) — `AddOnnxProvider(dir)`. A NATIVE dependency, so it opts OUT of the trim/AOT claim the static cell keeps, and it HAS a 512-token limit | **the SAME package**: it references ONNX Runtime's managed half only, so the app adding `.DirectML` (any DX12 device) or `.Gpu` (CUDA) instead of the CPU backend moves this cell with no library change |
 
 **For a game, DirectML is the one worth noting**: it is vendor-neutral on any DX12 device and ships with
@@ -140,7 +140,7 @@ one they cannot.
 It was briefly `Lyntai.Embeddings.Model2Vec`, isolating `Microsoft.ML.Tokenizers` — until that dependency was
 measured at **812 KB** of closure (325,896 B, plus `Google.Protobuf`'s 489,568 B for the SentencePiece
 models it never loads) for one WordPiece call. Owning the tokenizer is ~250 lines, so the embedder folded
-into the dependency-free `Lyntai.Providers.Default` and kept that package's `✅` trim/AOT row. **A package
+into the dependency-free `Lyntai.Providers.Basic` and kept that package's `✅` trim/AOT row. **A package
 boundary is worth what the dependency behind it costs, and a dependency you use 5% of can be written
 instead of isolated** — which does not transfer to the ONNX cell, where the native runtime IS the feature.
 

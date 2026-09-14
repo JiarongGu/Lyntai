@@ -25,7 +25,7 @@ public class ApiSurfaceTests
     public static TheoryData<string> Assemblies() =>
     [
         "Lyntai.Core",
-        "Lyntai.Providers.Default",
+        "Lyntai.Providers.Basic",
         "Lyntai.Storage.Sqlite",
         "Lyntai.Storage.InMemory",
         "Lyntai.Storage.Postgres",
@@ -42,7 +42,7 @@ public class ApiSurfaceTests
     internal static readonly Dictionary<string, System.Reflection.Assembly> Loaded = new()
     {
         ["Lyntai.Core"] = typeof(IModelProvider).Assembly,
-        ["Lyntai.Providers.Default"] = typeof(Lyntai.Providers.ClaudeCli.ClaudeCliProvider).Assembly,
+        ["Lyntai.Providers.Basic"] = typeof(Lyntai.Providers.ClaudeCli.ClaudeCliProvider).Assembly,
         ["Lyntai.Storage.Sqlite"] = typeof(SqliteConnectionFactory).Assembly,
         ["Lyntai.Storage.InMemory"] = typeof(InMemoryKeyValueStore).Assembly,
         ["Lyntai.Storage.Postgres"] = typeof(PostgresConnectionFactory).Assembly,

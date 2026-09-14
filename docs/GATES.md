@@ -621,7 +621,7 @@ one; the tool redacts the key from its own error output.
 Unlisting hides a version from search and from *range* resolution but never breaks a pinned consumer, and
 never frees the number. Everything below 2.0.1 is unlisted (`docs/DECISIONS.md` D44), so
 `Lyntai.Providers.ClaudeCli`, `.CodexCli` and `.OpenAiCompatible` have no listed version at all — they were
-folded into `Lyntai.Providers.Default` at 2.0.1.
+folded into `Lyntai.Providers.Basic` at 2.0.1.
 
 **The roster is derived from `src/*/*.csproj`**, not hand-listed — only retired ids are hand-kept, in the
 script's `RETIRED` array. Add an id there whenever a package is removed or folded, because that is the one

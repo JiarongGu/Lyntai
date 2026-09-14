@@ -213,8 +213,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D141](#d141--vector-arithmetic-every-backend-shares-lives-in-core-not-in-each-adapter-2026-09-15) | 2026-09-15 | vector arithmetic every backend shares lives in Core, not in each adapter |
 | [D142](#d142--the-two-mcp-packages-fold-into-one-the-boundary-isolated-nothing-2026-09-15) | 2026-09-15 | the two MCP packages fold into one; the boundary isolated nothing |
 | [D143](#d143--a-file-is-filed-by-its-namespace-and-a-test-by-its-subjects-2026-09-15) | 2026-09-15 | a file is filed by its NAMESPACE, and a test by its subject's |
+| [D144](#d144--lyntaiprovidersbasic-and-a-provider-module-owns-its-own-registration-2026-09-15) | 2026-09-15 | `Lyntai.Providers.Basic`, and a provider module owns its own registration |
 
-_All 143 entries are live decisions._
+_All 144 entries are live decisions._
 
 <!-- index:end -->
 
@@ -560,7 +561,7 @@ the same shape the LLM side uses (D3).
 
 ## D25 — packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size (2026-08-04)
 Lyntai had one package per backend, which read as "a package per vendor". The test is instead: *which
-dependency does this isolate?* Backends needing nothing extra share `Lyntai.Providers.Default`; one earns
+dependency does this isolate?* Backends needing nothing extra share `Lyntai.Providers.Basic`; one earns
 its own package the moment it drags a native runtime, a platform-specific API, or a dependency a consumer
 might refuse.
 
@@ -582,7 +583,7 @@ the DI and Logging abstractions, and a DI-first entry point cannot exist without
 consumers want X" makes something a bundle member (D26), never a Core dependency.
 
 **Measured, not asserted — the rule resolved two live questions in OPPOSITE directions.**
-`Lyntai.Providers.Default` exists because ClaudeCli, CodexCli and OpenAiCompatible isolated nothing: the two
+`Lyntai.Providers.Basic` exists because ClaudeCli, CodexCli and OpenAiCompatible isolated nothing: the two
 CLIs are dependency-free and share `CliProviderEngine`, and the HTTP one adds only managed
 `Microsoft.Extensions.Http`. `Lyntai.Tools.Mcp` was proposed FOR Core on "most consumers use it" and was
 rejected on measurement — `ModelContextProtocol.Core` drags a *different* pinned version of the
@@ -3444,7 +3445,7 @@ never `yes`.
 sub-500 MB cross-encoder captures 6.0 of the 7.0 points a perfect judge offers where a 4B instruct judge
 SPENDS 10.5. Until now the only code that could call a `/v1/rerank` endpoint was a bench harness, so the
 best-measured configuration in the subsystem was one no consumer could reach. <!-- drift-ok: the name and package this entry decided; D139 moved both -->
-`AddMemoryCrossEncoderVerification` ships it, in `Lyntai.Providers.Default` beside `HttpEmbeddingsTransport` — the <!-- drift-ok: the name and package this entry decided; D139 moved both -->
+`AddMemoryCrossEncoderVerification` ships it, in `Lyntai.Providers.Basic` beside `HttpEmbeddingsTransport` — the <!-- drift-ok: the name and package this entry decided; D139 moved both -->
 same footprint, no new dependency, and no new package.
 
 **The ranking seam was the obvious home and it is unusable.** `IMemoryRankingPolicy.Rank` is synchronous
@@ -3643,7 +3644,7 @@ HTTP endpoint, no GPU, no port, no second process.
 
 > **AMENDED — it is not a package.** This shipped as `Lyntai.Embeddings.Model2Vec`, an adapter package
 > isolating `Microsoft.ML.Tokenizers`. **D122** priced that dependency and wrote the tokenizer instead, so
-> the embedder now lives in `Lyntai.Providers.Default` and its tokenizer in Core. Everything below is
+> the embedder now lives in `Lyntai.Providers.Basic` and its tokenizer in Core. Everything below is
 > unchanged; only the packaging claim moved. The package was never published, so no id is burned.
 
 **Neither quality nor latency argues for it, and saying so narrows the decision usefully.** Encode-only
@@ -3679,7 +3680,7 @@ a related pair above an unrelated one on a real model and is skipped without one
 ## D122 — a dependency you use 5% of is written, not isolated: the static embedder owns its tokenizer and needs no package (2026-09-14)
 
 `Lyntai.Embeddings.Model2Vec` is gone, its contents split by KIND: the adapter (`Model2VecProvider`,
-`SafetensorsTable`, `AddModel2VecProvider`) is in **`Lyntai.Providers.Default`** under its existing namespace;
+`SafetensorsTable`, `AddModel2VecProvider`) is in **`Lyntai.Providers.Basic`** under its existing namespace;
 the logic it needed, `WordPieceTokenizer`, is public in **`Lyntai.Core`** (`Lyntai.Text`) and replaces
 `Microsoft.ML.Tokenizers`. Never published, so no id is burned and no consumer edits a `using`.
 
@@ -3723,7 +3724,7 @@ is not.
 ## D123 — a package boundary must isolate a dependency the consumer can REFUSE; the MEAI bridge folds into Providers.Default (2026-09-14)
 
 `Lyntai.Providers.ExtensionsAi` is gone. `ExtensionsAiProvider`, `LyntaiChatClient`,
-`LyntaiToolDeclaration` and `AddExtensionsAiProvider` are in `Lyntai.Providers.Default` under their
+`LyntaiToolDeclaration` and `AddExtensionsAiProvider` are in `Lyntai.Providers.Basic` under their
 existing namespaces, so the migration is one `PackageReference` and no `using`. The old id is unlisted
 (**D44**).
 
@@ -3738,7 +3739,7 @@ dependency. A dependency the consumer cannot refuse is not one a package boundar
 **37,376 B** of code — the same accounting **D122** applied to the static embedder, reached from the other
 direction: there the dependency was removable, here it was already unavoidable.
 
-**Who actually pays, stated rather than waved past.** A consumer referencing `Lyntai.Providers.Default`
+**Who actually pays, stated rather than waved past.** A consumer referencing `Lyntai.Providers.Basic`
 ALONE — no bundle, no MCP — now carries 669,768 B they may never call. Under trimming it is removed
 outright, which `docs/AOT.md` measures on exactly this assembly. That is the trade: a real cost to an
 untrimmed non-bundle consumer, against a package id for every consumer and every release.
@@ -4276,7 +4277,7 @@ a rerank server IS a separate backend — its own process, its own port, one mod
 endorse (**D115**). **D115** justified the package by FOOTPRINT ("no new dependency, no new package"), which
 answers a packaging question; the layering question was never asked.
 
-**The cost of the fusion was that nothing else could rerank.** One class in `Lyntai.Providers.Default` was
+**The cost of the fusion was that nothing else could rerank.** One class in `Lyntai.Providers.Basic` was
 the only code in the tree that could call a rerank endpoint, so a ranking policy, a cortex scorer or an
 `IToolSelector` wanting one would have written the HTTP again — the second-door shape `pitfalls.md` records.
 
@@ -4328,7 +4329,7 @@ backend accepts a mesh, so a 3d→image edge is a RASTERIZATION rather than a ge
 carried their own L2-normalize; both now call it.
 
 **Core was the only place either could reach.** They ship in different packages
-(`Lyntai.Providers.Onnx`, `Lyntai.Providers.Default`) and adapters never reference each other (**D25**), so
+(`Lyntai.Providers.Onnx`, `Lyntai.Providers.Basic`) and adapters never reference each other (**D25**), so
 a shared helper had exactly one possible home. That is the general rule this instance illustrates: **an
 adapter holding runtime-INDEPENDENT arithmetic has put it one layer too low**, and the tell is a second
 adapter doing the same arithmetic by hand.
@@ -4360,7 +4361,7 @@ the justification.
 
 **D17 is not reversed; only its packaging is.** That entry split the neutral host from the per-CLI
 vocabulary and put `IMcpCliDialect` in Core, which is what lets a provider package ship a dialect without
-dragging the MCP SDK. All of that stands — the dialect stays in `Lyntai.Providers.Default`, the seam stays
+dragging the MCP SDK. All of that stands — the dialect stays in `Lyntai.Providers.Basic`, the seam stays
 in Core. Only the two-package boundary goes.
 
 **The counter-argument, named so it is not re-litigated: the two halves are opposite DIRECTIONS** —
@@ -4377,7 +4378,7 @@ Both restored from the commit that wrote them, with the hazard stated in the fil
 
 ## D143 — a file is filed by its NAMESPACE, and a test by its subject's (2026-09-15)
 
-`Lyntai.Providers.Default`'s 49 flat files move into `ClaudeCli/`, `CodexCli/`, `Http/` (+ `Http/Payloads/`),
+`Lyntai.Providers.Basic`'s 49 flat files move into `ClaudeCli/`, `CodexCli/`, `Http/` (+ `Http/Payloads/`),
 `ExtensionsAi/` and `Model2Vec/`; `tests/Lyntai.Tests/Core/` is dissolved into the domain folders that
 already existed.
 
@@ -4403,3 +4404,30 @@ gate that cries wolf on a deliberate placement gets an exclusion added and then 
 `OnnxEmbedderTests` (D138), `LocalProviderLiveTests` (D138). **A file NAME is not prose and no gate reads <!-- drift-ok: names what those files were called -->
 one**, so the retirement registries cannot see them; the check is a scan of base names against
 `retiredApiNames`, run by hand, and it over-reports on whole-identifier retirements like `Embed`.
+
+## D144 — `Lyntai.Providers.Basic`, and a provider module owns its own registration (2026-09-15)
+
+`Lyntai.Providers.Default` becomes `Lyntai.Providers.Basic`, and each backend's `Add*` extension moves into <!-- drift-ok: this entry RETIRES the package id, so it has to say it -->
+that backend's folder. Namespaces are unchanged; the old id joins the retirement roster.
+
+**"Default" named a POSITION in a list, not a property of the contents.** Default compared to what — and
+default for whom? A consumer reading the package list cannot tell whether it is the one they get
+automatically, the one that is recommended, or the one holding fallbacks. **`Basic` says the actual
+membership rule**, which **D25** already states and this name now carries: the backends needing nothing
+beyond Core and the BCL — CLI dialects, HTTP, model2vec, the MEAI bridge — as against LlamaSharp and Onnx,
+which each drag a native runtime and earn their own package.
+
+**A provider MODULE is everything that makes one backend work, including how it is registered.**
+`ClaudeCli/` now holds the dialect, the provider, the options AND `ClaudeCliBuilderExtensions`. **This
+narrows D143's root exception rather than contradicting it**: that entry kept builder extensions at the
+package root because they are not domains, which is right in a single-backend package where the root IS the
+module. In a package holding five backends it put five unrelated registrations in one place and made the
+root the only folder a reader had to scan to answer "what is in here".
+
+**What stays at the root is what is genuinely SHARED** — `AgentMcpServers`, `CliAgentTerminal`,
+`CliTempFile`, `WireJson`, in namespace `Lyntai.Providers`. That is now the root's whole meaning, so a file
+arriving there is making a claim a reviewer can check: every CLI backend in this package uses it.
+
+**The package id is burned** (**D23**) and registered in `nuget-unlist.mjs`'s `RETIRED` array (**D44**) —
+the fourth entry added this session, and the array itself had to be repaired first: two of its published
+ids had been silently rewritten by rename sweeps (**D142**).

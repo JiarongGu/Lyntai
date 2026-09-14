@@ -50,7 +50,7 @@
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
     <!-- TEST-ONLY. It was the static embedder's tokenizer until that tokenizer was brought in-house: at
          325,896 B plus Google.Protobuf's 489,568 B it cost 812 KB of closure for one WordPiece call, and
-         it kept the embedder out of the dependency-free Lyntai.Providers.Default. It stays here as the
+         it kept the embedder out of the dependency-free Lyntai.Providers.Basic. It stays here as the
          reference WordPieceTokenizerTests asserts id-for-id equality against — which is also what found
          the two rules it gets wrong (tab/newline/CR are not word separators; accents are not stripped). -->
     <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.0" />

@@ -7,7 +7,7 @@ packable project, which turns on the trim, single-file, and AOT analyzers. Per-p
 |---|---|---|
 | `Lyntai.Core` | ✅ compatible | Pure abstractions + router + cortex + the generation platform + `Lyntai.Text`'s WordPiece tokenizer; `System.Text.Json` used with `JsonDocument`/`JsonNode`/`Utf8JsonWriter` (no reflection-based (de)serialization). DI generic registrations carry `DynamicallyAccessedMembers` annotations. The tokenizer is OWNED rather than referenced (**D122**) — which is what made it eligible for Core at all, since Core takes no third-party dependency. |
 | `Lyntai.Storage.InMemory` | ✅ compatible | Zero dependencies beyond Core; no reflection. |
-| `Lyntai.Providers.Default` | ✅ compatible | Process spawn + `HttpClient`, responses parsed with `JsonDocument`, request bodies built with `JsonNode`/`Utf8JsonWriter`. The `claude`/`codex` CLIs and OpenAI-compatible chat/embeddings, the in-process static embedder (its table read over a header and a `Buffer.BlockCopy`, so nothing reflects over types), and the two-way `Microsoft.Extensions.AI` bridge — abstractions only, and trim-clean. |
+| `Lyntai.Providers.Basic` | ✅ compatible | Process spawn + `HttpClient`, responses parsed with `JsonDocument`, request bodies built with `JsonNode`/`Utf8JsonWriter`. The `claude`/`codex` CLIs and OpenAI-compatible chat/embeddings, the in-process static embedder (its table read over a header and a `Buffer.BlockCopy`, so nothing reflects over types), and the two-way `Microsoft.Extensions.AI` bridge — abstractions only, and trim-clean. |
 | `Lyntai.Secrets.Dpapi` | ✅ compatible | P/Invoke to the Windows DPAPI; no reflection. |
 | `Lyntai.Storage.Sqlite` | ⚠️ **opts out** | `IsAotCompatible=false; IsTrimmable=false; EnableTrimAnalyzer=true`. Dapper and FluentMigrator materialize via reflection/IL-emit, which the project-level analyzer can't see through — claiming compatibility would be dishonest. The analyzer stays on for *our* code in this package. |
 | `Lyntai.Storage.Postgres` | ⚠️ **opts out** | Same as Sqlite — Npgsql + Dapper + FluentMigrator reflection. Analyzer on for our code. |
@@ -25,7 +25,7 @@ promise is an **IL2026 / IL3050** warning, so:
 
 - **`verify` fails on any warning in a published project** (`node devtools/dev.mjs check-warnings`). That gate
   exists because four reflection-serialization calls — `JsonSerializer.Serialize(new { … })` on anonymous types,
-  in three generation backends — reached `Lyntai.Providers.Default` while it advertised the opposite. The
+  in three generation backends — reached `Lyntai.Providers.Basic` while it advertised the opposite. The
   warnings were there the whole time; nothing failed on them.
 - **Build a request body with `JsonObject` or `Utf8JsonWriter`, never an anonymous type.** The reflection
   serializer is what breaks under trimming; `Payloads/OpenAiPayload.cs` is the pattern to copy.
@@ -51,7 +51,7 @@ you actually AOT-publish an app that uses `Lyntai.Storage.Sqlite`.
   | | Plain `publish` | `PublishTrimmed=true` |
   |---|---|---|
   | `Lyntai.Core.dll` | 528 KB | **40 KB** |
-  | `Lyntai.Providers.Default.dll` | 158 KB | **11 KB** |
+  | `Lyntai.Providers.Basic.dll` | 158 KB | **11 KB** |
   | `Microsoft.Extensions.AI.Abstractions.dll` | 656 KB | **removed** |
   | `ModelContextProtocol.Core.dll` | 1188 KB | **removed** |
   | `Lyntai.Tools.Mcp` + `.Hosting`, `Storage.InMemory` | 90 KB | **removed** |

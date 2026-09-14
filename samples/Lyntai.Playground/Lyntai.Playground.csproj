@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Lyntai.Core\Lyntai.Core.csproj" />
-    <ProjectReference Include="..\..\src\Lyntai.Providers.Default\Lyntai.Providers.Default.csproj" />
+    <ProjectReference Include="..\..\src\Lyntai.Providers.Basic\Lyntai.Providers.Basic.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Storage.Sqlite\Lyntai.Storage.Sqlite.csproj" />
   </ItemGroup>
 

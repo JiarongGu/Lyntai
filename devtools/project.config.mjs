@@ -37,7 +37,7 @@ export default {
   packableProjects: [
     'src/Lyntai.Core',
     'src/Lyntai.Bundle',
-    'src/Lyntai.Providers.Default',
+    'src/Lyntai.Providers.Basic',
     'src/Lyntai.Storage.Sqlite',
     'src/Lyntai.Storage.InMemory',
     'src/Lyntai.Storage.Postgres',
@@ -510,6 +510,12 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    {
+      // D144. Prose only — the package id, not a type name, so there is no baseline rule to pair with it.
+      term: '\\bLyntai[.]Providers[.]Default\\b',
+      why: 'Default named a position in a list rather than a property of the contents (D144)',
+      use: '`Lyntai.Providers.Basic`',
+    },
     {
       // D140. The prose half; `GenerationInputRoles` absent for the reason on the surface rule above.
       term: '\\bGenerationFallbackAction\\b|\\bGenerationKinds\\b',

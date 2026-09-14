@@ -40,7 +40,7 @@ switch (cmd) {
   // it's how a shipped claim stops rotting silently. `IsAotCompatible=true` stamps IsTrimmable into the
   // assembly, telling a consumer's trimmer "safe to trim"; the only thing that catches code which breaks
   // that promise is an IL2026/IL3050 warning, and a warning nobody fails on is a warning nobody reads
-  // (four of them shipped into Lyntai.Providers.Default this way). Doc-comment warnings matter for the same
+  // (four of them shipped into Lyntai.Providers.Basic this way). Doc-comment warnings matter for the same
   // reason: unresolved crefs ship inside the XML docs consumers read in IntelliSense.
   // Scoped to src/ — tests and samples are free to warn. Pass --list to see them all.
   //
