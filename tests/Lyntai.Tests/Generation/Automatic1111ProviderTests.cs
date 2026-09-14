@@ -111,7 +111,7 @@ public class Automatic1111ProviderTests
             Inputs = [new GenerationInput("image/png", Uri: "https://example.invalid/in.png")],
         });
 
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
         Assert.Empty(http.Requests);
     }
 
@@ -127,7 +127,7 @@ public class Automatic1111ProviderTests
 
         var result = await provider.GenerateAsync(Ask());
 
-        Assert.Equal(GenerationVerdict.NotConfigured, result.Verdict);
+        Assert.Equal(ProviderVerdict.NotConfigured, result.Verdict);
         Assert.Contains("connection refused", result.Detail);
     }
 
@@ -139,7 +139,7 @@ public class Automatic1111ProviderTests
 
         var result = await provider.GenerateAsync(Ask());
 
-        Assert.Equal(GenerationVerdict.Failed, result.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, result.Verdict);
         Assert.Contains("OutOfMemory", result.Detail);
     }
 

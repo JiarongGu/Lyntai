@@ -27,7 +27,7 @@ public class LlmClientTests
     public async Task Complete_routes_over_default_candidates_without_passing_them()
     {
         var p = new FakeLlmProvider("only");
-        p.Replies.Enqueue(new LlmReply("front door", LlmVerdict.Ok));
+        p.Replies.Enqueue(new LlmReply("front door", ProviderVerdict.Ok));
         using var sp = Build(p);
 
         var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Req);
@@ -39,9 +39,9 @@ public class LlmClientTests
     public async Task Fallback_happens_invisibly_behind_the_facade()
     {
         var p1 = new FakeLlmProvider("p1");
-        p1.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "down"));
+        p1.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down"));
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("second served", LlmVerdict.Ok));
+        p2.Replies.Enqueue(new LlmReply("second served", ProviderVerdict.Ok));
         using var sp = Build(p1, p2);
 
         var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Req);
@@ -74,7 +74,7 @@ public class LlmClientTests
 
         var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Failed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
     }
 
     [Fact]

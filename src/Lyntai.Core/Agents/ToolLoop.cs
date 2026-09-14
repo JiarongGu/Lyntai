@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -42,7 +43,7 @@ public sealed class ToolLoop(
         await foreach (var e in RunCoreAsync(req, maxIterations, steps, usage, transport, ct).ConfigureAwait(false))
             if (e is SessionEnded se) end = se; // the core always terminates with exactly one SessionEnded
 
-        var verdict = end?.Verdict ?? LlmVerdict.Failed;
+        var verdict = end?.Verdict ?? ProviderVerdict.Failed;
         return new ToolLoopResult(end?.FinalText ?? "", verdict, steps, end?.Diagnostic)
         {
             Usage = usage.Value,
@@ -123,12 +124,12 @@ public sealed class ToolLoop(
 
         // The single terminal: a UsageFinal (when any usage was reported) then the SessionEnded. A local
         // iterator so every exit site emits it identically (re-yielded via `foreach … yield return`).
-        IEnumerable<AgentStreamEvent> Finish(string mode, LlmVerdict verdict, string? finalText, string? detail)
+        IEnumerable<AgentStreamEvent> Finish(string mode, ProviderVerdict verdict, string? finalText, string? detail)
         {
             if (usage.Value is { } u)
                 yield return new UsageFinal(u.InputTokens, u.OutputTokens, u.CacheReadTokens, 0, null);
             LyntaiDiagnostics.EndToolLoop(activity, mode, steps.Count, verdict);
-            yield return new SessionEnded(verdict, verdict != LlmVerdict.Ok, null, null, finalText, detail);
+            yield return new SessionEnded(verdict, verdict != ProviderVerdict.Ok, null, null, finalText, detail);
         }
 
         // No tools registered → a single plain completion (forcing the JSON protocol would be pointless
@@ -139,7 +140,7 @@ public sealed class ToolLoop(
             transport.Choose(ToolTransport.None);
             var direct = await client.CompleteAsync(req, ct).ConfigureAwait(false);
             usage.Add(direct.Usage);
-            var ok = direct.Verdict == LlmVerdict.Ok;
+            var ok = direct.Verdict == ProviderVerdict.Ok;
             if (ok && direct.Text.Length > 0) yield return new TextDelta(direct.Text);
             foreach (var ev in Finish(Tag(ToolTransport.None), direct.Verdict, ok ? direct.Text : "", direct.Detail)) yield return ev;
             yield break;
@@ -172,7 +173,7 @@ public sealed class ToolLoop(
 
                 string text;
                 IReadOnlyList<LlmToolCall> calls;
-                LlmVerdict verdict;
+                ProviderVerdict verdict;
                 string? detail;
 
                 if (streaming)
@@ -180,7 +181,7 @@ public sealed class ToolLoop(
                     var prose = new System.Text.StringBuilder();
                     var streamed = new List<LlmToolCall>();
                     LlmUsage? turnUsage = null;
-                    verdict = LlmVerdict.Ok;
+                    verdict = ProviderVerdict.Ok;
                     detail = null;
 
                     await foreach (var chunk in client.StreamAsync(turn, ct).ConfigureAwait(false))
@@ -222,7 +223,7 @@ public sealed class ToolLoop(
                     detail = reply.Detail;
                 }
 
-                if (verdict != LlmVerdict.Ok)
+                if (verdict != ProviderVerdict.Ok)
                 {
                     foreach (var ev in Finish(mode, verdict, null, detail)) yield return ev;
                     yield break;
@@ -233,7 +234,7 @@ public sealed class ToolLoop(
                     // On the streaming path the prose has ALREADY been delivered chunk by chunk; re-emitting
                     // the accumulated text here would duplicate the whole answer.
                     if (!streaming && text.Length > 0) yield return new TextDelta(text);
-                    foreach (var ev in Finish(mode, LlmVerdict.Ok, text, null)) yield return ev; // no calls → answered
+                    foreach (var ev in Finish(mode, ProviderVerdict.Ok, text, null)) yield return ev; // no calls → answered
                     yield break;
                 }
 
@@ -249,7 +250,7 @@ public sealed class ToolLoop(
                     if (gated.Blocked)
                     {
                         yield return new ToolResult(call.Id, gated.Reason ?? "", true);
-                        foreach (var ev in Finish(mode, LlmVerdict.Refused, null, gated.Reason)) yield return ev;
+                        foreach (var ev in Finish(mode, ProviderVerdict.Refused, null, gated.Reason)) yield return ev;
                         yield break;
                     }
                     steps.Add(new ToolStep(call.Name, gated.Args, gated.Observation));
@@ -276,7 +277,7 @@ public sealed class ToolLoop(
                 Enter();
                 var reply = await client.CompleteJsonAsync(req with { Messages = [.. messages], Tools = null }, ct).ConfigureAwait(false);
                 usage.Add(reply.Usage);
-                if (reply.Verdict != LlmVerdict.Ok)
+                if (reply.Verdict != ProviderVerdict.Ok)
                 {
                     foreach (var ev in Finish(mode, reply.Verdict, null, reply.Detail)) yield return ev; // surface refusal / all-down
                     yield break;
@@ -284,14 +285,14 @@ public sealed class ToolLoop(
                 if (!TryParseTurn(reply.Text, out var call))
                 {
                     yield return new TextDelta(reply.Text); // no recognized key → a direct answer
-                    foreach (var ev in Finish(mode, LlmVerdict.Ok, reply.Text, null)) yield return ev;
+                    foreach (var ev in Finish(mode, ProviderVerdict.Ok, reply.Text, null)) yield return ev;
                     yield break;
                 }
                 if (call.IsFinal)
                 {
                     _logger.LogDebug("tool-loop: final answer after {Steps} tool step(s)", steps.Count);
                     yield return new TextDelta(call.FinalAnswer);
-                    foreach (var ev in Finish(mode, LlmVerdict.Ok, call.FinalAnswer, null)) yield return ev;
+                    foreach (var ev in Finish(mode, ProviderVerdict.Ok, call.FinalAnswer, null)) yield return ev;
                     yield break;
                 }
 
@@ -301,7 +302,7 @@ public sealed class ToolLoop(
                 if (gated.Blocked)
                 {
                     yield return new ToolResult(null, gated.Reason ?? "", true);
-                    foreach (var ev in Finish(mode, LlmVerdict.Refused, null, gated.Reason)) yield return ev;
+                    foreach (var ev in Finish(mode, ProviderVerdict.Refused, null, gated.Reason)) yield return ev;
                     yield break;
                 }
                 steps.Add(new ToolStep(call.ToolName, gated.Args, gated.Observation));
@@ -315,7 +316,7 @@ public sealed class ToolLoop(
 
         // both paths exhaust their budget identically — ONE shared non-convergence terminal
         _logger.LogWarning("tool-loop ({Mode}): no final answer within {Budget} iterations", mode, budget);
-        foreach (var ev in Finish(mode, LlmVerdict.Failed, null, $"tool loop did not converge within {budget} iterations")) yield return ev;
+        foreach (var ev in Finish(mode, ProviderVerdict.Failed, null, $"tool loop did not converge within {budget} iterations")) yield return ev;
     }
 
     // A tool observation carrying an unknown-tool / threw-exception marker (see InvokeAsync) is flagged as an

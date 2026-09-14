@@ -117,7 +117,7 @@ public class TwoBackendsOneHostTests
         var reply = await chat.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
         var vectors = await sp.GetRequiredService<IEmbedder>().EmbedAsync(["a"]);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal([1f, 2f, 3f], Assert.Single(vectors));
         Assert.Equal(
             [$"{Host}/v1/chat/completions", $"{Host}/v1/embeddings"],

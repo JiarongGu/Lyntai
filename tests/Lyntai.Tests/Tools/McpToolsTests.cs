@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Llm;
@@ -48,8 +49,8 @@ public class McpToolsTests
 
         // FakeLlmProvider (no native tools) → the loop takes the prompt path; script its protocol turns
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("""{"tool":"shout","arguments":{"s":"hi"}}""", LlmVerdict.Ok));
-        provider.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("""{"final":"done"}""", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b.AddProvider(_ => provider).AddMcpTools(mcpTools).UseDefaultCandidates("p"));

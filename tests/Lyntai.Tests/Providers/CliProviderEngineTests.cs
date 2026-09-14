@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
@@ -106,7 +107,7 @@ public class CliProviderEngineTests
 
         var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("the answer", reply.Text);
         Assert.NotNull(reply.Usage);
     }
@@ -118,7 +119,7 @@ public class CliProviderEngineTests
 
         var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("only assistant text", reply.Text);
     }
 
@@ -130,7 +131,7 @@ public class CliProviderEngineTests
 
         var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.Failed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
     }
 
     [Fact]
@@ -141,7 +142,7 @@ public class CliProviderEngineTests
 
         var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.RateLimited, reply.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict);
     }
 
     [Fact]
@@ -151,7 +152,7 @@ public class CliProviderEngineTests
 
         var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.Timeout, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, reply.Verdict);
     }
 
     [Fact]
@@ -193,7 +194,7 @@ public class CliProviderEngineTests
 
         var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.AuthFailed, reply.Verdict);
         Assert.Contains("401 Unauthorized", reply.Detail);
     }
 
@@ -206,7 +207,7 @@ public class CliProviderEngineTests
 
         var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.RateLimited, reply.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict);
     }
 
     [Fact]
@@ -227,7 +228,7 @@ public class CliProviderEngineTests
 
         var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.AuthFailed, reply.Verdict);
         Assert.Contains("401 Unauthorized", reply.Detail);
     }
 
@@ -241,7 +242,7 @@ public class CliProviderEngineTests
 
         var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.Failed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
         Assert.Contains("exit 9", reply.Detail);
         Assert.Contains("segfault", reply.Detail);
     }
@@ -257,7 +258,7 @@ public class CliProviderEngineTests
 
         Assert.Equal(LlmChunkKind.Content, chunks[0].Kind);   // already delivered — can't be unsent
         Assert.Equal(LlmChunkKind.Error, chunks[^1].Kind);
-        Assert.Equal(LlmVerdict.RateLimited, chunks[^1].Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, chunks[^1].Verdict);
         Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Final);
     }
 

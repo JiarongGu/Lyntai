@@ -137,6 +137,21 @@ export default {
 
   retiredApiNames: [
     {
+      // D136. `LlmVerdictException` is deliberately absent: it survives, being the LLM front door's own
+      // exception type, and whole-identifier matching keeps it live without an allowance.
+      names: [
+        'LlmVerdict',
+        'GenerationVerdict',
+        'LlmVerdictClassifier',
+        'GenerationVerdictClassifier',
+        'LlmVerdictExtensions',
+      ],
+      use: '`Lyntai.Lifecycle.ProviderVerdict` / `ProviderVerdictClassifier` / `ProviderVerdictExtensions`',
+      why: 'the media enum was the LLM one minus ContextWindowExceeded, member for member, with a 101-line '
+        + 'translation between them whose missing arm reported a capability gap as a hard failure for a '
+        + 'whole release (D136)',
+    },
+    {
       // D135. `OpenAiPayload` and the `HttpDialect.OpenAi` MEMBER are deliberately absent: they name
       // OpenAI's actual schema, which is one of four dialects and correctly called that.
       names: [
@@ -482,6 +497,13 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    {
+      // D136. The prose half. `LlmVerdictException` is absent for the reason on the surface rule above.
+      term: '\\bLlmVerdict\\b|\\bGenerationVerdict\\b|\\bLlmVerdictClassifier\\b|\\bGenerationVerdictClassifier\\b|\\bLlmVerdictExtensions\\b',
+      why: 'one verdict taxonomy serves every domain; the two enums and the translation between them are '
+        + 'gone (D136)',
+      use: '`ProviderVerdict` / `ProviderVerdictClassifier` / `ProviderVerdictExtensions`',
+    },
     {
       // D135. The prose half. `OpenAiPayload` and `OpenAiFlavor.OpenAi`'s member name are absent for the
       // reason on the surface rule above; so is the PHRASE "OpenAI-compatible", which stays correct about

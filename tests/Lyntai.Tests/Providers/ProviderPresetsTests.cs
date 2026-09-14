@@ -29,7 +29,7 @@ public class ProviderPresetsTests
         var reply = await sp.GetRequiredService<ILlmClient>()
             .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.StartsWith("https://api.openai.com", handler.Requests[0].Uri!.ToString());
         Assert.Equal("Bearer sk-test", handler.Requests[0].Auth);
     }
@@ -48,7 +48,7 @@ public class ProviderPresetsTests
         var reply = await sp.GetRequiredService<ILlmClient>()
             .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("http://localhost:11434/api/chat", handler.Requests[0].Uri!.ToString()); // Ollama dialect
         Assert.Null(handler.Requests[0].Auth); // keyless
     }
@@ -66,7 +66,7 @@ public class ProviderPresetsTests
         var reply = await sp.GetRequiredService<ILlmClient>()
             .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         // llama-server speaks the OpenAI schema off its ROOT — never Ollama's native /api/chat, which is
         // the mistake a "local model server" preset invites
         Assert.Equal("http://localhost:8080/v1/chat/completions", handler.Requests[0].Uri!.ToString());
@@ -108,7 +108,7 @@ public class ProviderPresetsTests
     {
         // several presets + a fully custom IModelProvider, all behind one router — the BYO path stays open
         var custom = new FakeLlmProvider("custom");
-        custom.Replies.Enqueue(new LlmReply("from a custom provider", LlmVerdict.Ok));
+        custom.Replies.Enqueue(new LlmReply("from a custom provider", ProviderVerdict.Ok));
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
 
         var services = new ServiceCollection();

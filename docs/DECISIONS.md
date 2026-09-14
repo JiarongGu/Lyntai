@@ -205,8 +205,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D133](#d133--one-registration-is-one-backend-a-shared-hostname-does-not-merge-two-2026-09-14) | 2026-09-14 | one registration is one backend; a shared hostname does not merge two |
 | [D134](#d134--a-registration-names-the-backend-the-provider-suffix-is-gone-from-all-seventeen-2026-09-14) | 2026-09-14 | a registration names the BACKEND; the `Provider` suffix is gone from all seventeen |
 | [D135](#d135--the-http-family-is-named-for-the-transport-and-its-dialects-not-for-openai-2026-09-14) | 2026-09-14 | the HTTP family is named for the TRANSPORT and its dialects, not for OpenAI |
+| [D136](#d136--one-verdict-taxonomy-for-every-domain-the-translation-layer-is-deleted-2026-09-14) | 2026-09-14 | one verdict taxonomy for every domain; the translation layer is deleted |
 
-_All 135 entries are live decisions._
+_All 136 entries are live decisions._
 
 <!-- index:end -->
 
@@ -228,8 +229,8 @@ thirteen such interfaces today and three shipped backends (SQLite, Postgres, InM
 package" this entry originally described was the starting point, not the constraint. Don't couple domains.
 
 ## D3 — fallback is verdict-driven, through one shared classifier, and the policy is REPLACEABLE
-One `LlmVerdict` enum drives router behaviour, and every provider routes through the shared
-`LlmVerdictClassifier` rather than hand-rolling its own heuristics. Per-adapter classification drifts, and
+One `ProviderVerdict` enum drives router behaviour, and every provider routes through the shared
+`ProviderVerdictClassifier` rather than hand-rolling its own heuristics. Per-adapter classification drifts, and
 the drift is invisible until a healthy host gets benched by a stray "429" in a stack frame. The semantics
 are design §6, amended 2026-07-17.
 
@@ -525,7 +526,7 @@ precisely because of that it can never tell you a publish was skipped.
 
 ## D24 — generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)
 Image, video, audio and 3D generation live behind one seam with their own contracts and their own
-`GenerationVerdict` — not as an extension of the chat provider. The two domains meet only where a model can
+`ProviderVerdict` — not as an extension of the chat provider. The two domains meet only where a model can
 *call* generation as a tool. The contracts sit in `Lyntai.Core`; the backends are the separate
 `Lyntai.Generation` package (D25). **Named `Generation`, not `Media`** — an owner's call taken while the
 core was still uncommitted to consumers.
@@ -677,7 +678,7 @@ because it had been written only as a "why this is not a field on the provider" 
 comment.
 
 ## D31 — "never set up" is its own verdict in BOTH domains, and a blameless verdict never masks a real one (2026-08-05)
-`LlmVerdict.NotConfigured` and its generation twin distinguish "this backend was never configured" from
+`ProviderVerdict.NotConfigured` and its generation twin distinguish "this backend was never configured" from
 "this backend failed". A router keeps the two apart: a real failure outranks a blameless one, so
 `[downHost → Failed, neverConfigured → NotConfigured]` reports the outage rather than sending the caller to
 set up a key. `NotConfigured` and `Unsupported` are the blameless pair in both domains.
@@ -689,7 +690,7 @@ than a reuse.
 
 **The accepted cost, which is consumer-visible.** Adding an enum member is binary-compatible — it is
 appended last, so no existing value shifts — but a consumer's non-exhaustive `switch` *expression* over
-`LlmVerdict` now raises **CS8509** in their build. That is a warning in someone else's code, accepted
+`ProviderVerdict` now raises **CS8509** in their build. That is a warning in someone else's code, accepted
 because the alternative is a verdict that lies.
 
 **The enum and the policy move together.** `RoutingPolicy.ActionFor` decides what each verdict does, so a
@@ -748,7 +749,7 @@ arrive once at the end); and **carried by a backend with nowhere to go**, which 
 folded into a neighbouring field where it would read as something it is not.
 
 ## D36 — a translation between two verdict taxonomies gets one arm per member, gated by a TEST (2026-08-05)
-Translating between `LlmVerdict` and `GenerationVerdict` by falling back to a default silently mapped a
+Translating between `ProviderVerdict` and `ProviderVerdict` by falling back to a default silently mapped a
 meaningful verdict onto `Failed`. Every member gets an explicit arm, and because the compiler cannot force
 exhaustiveness over an enum, a **test** enumerates both and fails when either grows. The gate is the test,
 not the switch — the catch-all is what hid the defect, so it now holds nothing.
@@ -776,7 +777,7 @@ Found while relocating a comment that cited this entry.
 **Two rules, from items that stayed open until each got a decision.** An identity collision — two
 registrations claiming the same slot — is REFUSED at composition rather than resolved by a silent
 last-wins or first-wins, because either resolution makes one registration unreachable with nothing
-reporting it. And an exception raised inside Core may carry an `LlmVerdict`, so a throw and a returned
+reporting it. And an exception raised inside Core may carry an `ProviderVerdict`, so a throw and a returned
 reply classify the same way and the router applies one fallback policy to both.
 
 **On the blameless-reason half** (stated in D31): the router gained a SECOND reporting slot rather than a
@@ -1348,7 +1349,7 @@ route. The cost is stated rather than hidden: a BYO backend whose `SubmitAsync` 
 plain bug, no request sent) also stops the chain. Spending a caller's money to avoid that is the worse
 trade, and the operator is told which backend to check.
 
-**`Refused` is clamped to `Failed` on the thrown path**, the same clamp `LlmRouter.ClassifyThrown` makes: a
+**`Refused` is clamped to `Failed` on the thrown path**, the same clamp `ProviderVerdictClassifier.FromThrown` makes: a
 throw is transport-layer — an error page mentioning "content filter" at a proxy or CDN — and `Refused` is
 terminal under the routing policy, so a keyword match in an exception message must never stop the router
 from trying a healthy candidate. Backends signal a real refusal with a verdict RESULT.
@@ -1883,7 +1884,7 @@ terminal one. That asymmetry is documented as intended. What is fixed is the SIG
 a block the way `ToolLoop` already did.
 
 **The backlog item was half right, and finding out which half is the point.** It read: *"`ToolLoop` ends the
-turn with `LlmVerdict.Refused`; `ToolFunction` returns a refusal string, so the model may retry with
+turn with `ProviderVerdict.Refused`; `ToolFunction` returns a refusal string, so the model may retry with
 perturbed arguments, unbounded, and the host gets no signal (that path has no logger) … Needs a decision
 about what a hosted refusal should DO."* Investigating it split the complaint in two, and the halves have
 opposite answers.
@@ -3803,8 +3804,8 @@ operations into types (`IChatProvider` / `IEmbeddingProvider`) encodes as a hier
 chat and embed are two operations on one content type, not two kinds of provider.
 
 **The objection that blocked this for one round, recorded because it was WRONG:** that an embedder cannot
-implement `CompleteAsync` without faking it. It can — `LlmVerdict.Unsupported` already exists for "a
-capability/transport gap", `LlmVerdict.NotConfigured`'s own doc says it mirrors `GenerationVerdict`'s, and
+implement `CompleteAsync` without faking it. It can — `ProviderVerdict.Unsupported` already exists for "a
+capability/transport gap", `ProviderVerdict.NotConfigured`'s own doc says it mirrors `ProviderVerdict`'s, and
 every generation backend already lives under exactly that contract. A declared capability plus a verdict is
 how a provider says "not mine", and the vocabulary for it shipped long ago.
 
@@ -3832,7 +3833,7 @@ were inherited from the generation record rather than invented, and both are now
 **What this makes possible, stated so the next step is not re-argued:** an embedder declares
 `Kinds: ["text"], Operations: [Embed]` and is a provider like any other. The objection that it would have
 to fake `CompleteAsync` is answered by the same mechanism that already answers it for every generation
-backend — the router filters on the declaration and never dispatches, and `LlmVerdict.Unsupported` exists
+backend — the router filters on the declaration and never dispatches, and `ProviderVerdict.Unsupported` exists
 for a direct call.
 
 **Cost, declared rather than buried:** `GenerationCapabilitiesTests` is deleted, not ported — its six cases
@@ -4131,3 +4132,44 @@ to it: the generic registration is where `Provider` is the NOUN, exactly as in `
 **What keeps the OpenAI name, because it earns it:** `OpenAiPayload` builds OpenAI's actual schema, and
 `HttpDialect.OpenAi` is the member for it. The PHRASE "OpenAI-compatible" also stays wherever it describes
 those three dialects — it is a true statement about a route, and only a false one about the family.
+
+## D136 — one verdict taxonomy for every domain; the translation layer is deleted (2026-09-14)
+
+`Lyntai.Lifecycle.ProviderVerdict` replaces `LlmVerdict` and `GenerationVerdict`. <!-- drift-ok: this entry RETIRES both names, so it has to say them -->
+`ProviderVerdictClassifier` replaces both classifiers, and `GenerationVerdictClassifier` — 101 lines of pure <!-- drift-ok: names what this entry retires -->
+translation — is gone.
+
+**They were the same taxonomy under two names.** Media's enum was the LLM one minus
+`ContextWindowExceeded`, member for member, with the same meanings: `Unsupported` a capability gap,
+`NotConfigured` never set up, `Refused` a content judgement. The code half-admitted it — the media
+classifier already DELEGATED its whole pattern corpus to the LLM one and then translated the answer back.
+
+**The duplication had already shipped a bug, which is the argument.** A switch over an enum cannot be
+exhaustive in C#, so the translation table needed a discard arm, and a member added without an arm fell
+through it: `Unsupported` was reported as `Failed` for a whole release. As `Failed` it took
+`PenalizeAndAdvance`, so repeated capability gaps benched a healthy backend. That failure needs a
+translation table to exist at all.
+
+**D21 rejected this once, and its reason was sound at the time**: media should not adopt LLM-named types,
+because it is a separate domain. That argument is answered by a name belonging to NEITHER domain — the same <!-- drift-ok: D21's argument, named by the entry that answers it -->
+move **D127**/**D128** made for `ILlmProvider`/`IGenerationProvider` → `IModelProvider`. The third option <!-- drift-ok: D21's argument, named by the entry that answers it -->
+was not visible then because the shared provider vocabulary did not exist yet.
+
+**What a verdict MEANS is now shared; what a router DOES about it is still per-domain, and that is the
+distinction that makes this safe.** `LlmRoutingPolicy` surfaces `Unsupported` where `GenerationRoutingPolicy`
+advances on it; `LlmRouter` keeps the LAST substantive failure where `GenerationRouter` keeps the FIRST.
+None of that moved. A policy is a table over the enum, not a second enum.
+
+**What collapsed for free:** `IsBlameless` became `ProviderVerdict.IsBlameless()` — both private copies
+carried a docblock saying *"It cannot be ONE function: the two domains have separate verdict enums"*, which
+is the duplication naming its own cost — and `ClassifyThrown` became
+`ProviderVerdictClassifier.FromThrown`. **`EnterAdmissionAsync` stays duplicated on purpose**: it is four
+lines closing over two per-router fields, and threading them through a shared helper makes every call site
+longer. `pitfalls.md` records the general form — a shared helper that consolidates nothing but the line
+count.
+
+**The one behaviour change a consumer can see:** a media backend reporting an oversized prompt now yields
+`ContextWindowExceeded` rather than the translated `Unsupported`, and it is SUBSTANTIVE rather than
+blameless, so it reaches the caller through `firstFailure`. It still advances without a dead-host penalty —
+`GenerationRoutingPolicy` now says so with an explicit entry rather than leaving it to the unmapped default,
+because a silent default is how the benching bug happened the first time.

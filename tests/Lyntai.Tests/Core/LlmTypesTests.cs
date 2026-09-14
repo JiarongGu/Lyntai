@@ -31,16 +31,16 @@ public class LlmTypesTests
         Assert.Equal(new ProviderCandidate("p", "m"), new ProviderCandidate("p", "m"));
         Assert.NotEqual(new ProviderCandidate("p", "m"), new ProviderCandidate("p", null));
         Assert.Equal(new LlmUsage(1, 2, 3, 0.5), new LlmUsage(1, 2, 3, 0.5));
-        Assert.Equal(new LlmReply("t", LlmVerdict.Ok), new LlmReply("t", LlmVerdict.Ok));
+        Assert.Equal(new LlmReply("t", ProviderVerdict.Ok), new LlmReply("t", ProviderVerdict.Ok));
         // adding tool-call surface must not change equality of tool-call-less replies
-        Assert.Equal(new LlmReply("t", LlmVerdict.Ok) { ToolCalls = null }, new LlmReply("t", LlmVerdict.Ok));
+        Assert.Equal(new LlmReply("t", ProviderVerdict.Ok) { ToolCalls = null }, new LlmReply("t", ProviderVerdict.Ok));
         Assert.Equal(new LlmToolCall("id", "t", "{}"), new LlmToolCall("id", "t", "{}"));
     }
 
     [Fact]
     public void Reply_carries_tool_calls_without_disturbing_the_positional_ctor()
     {
-        var reply = new LlmReply("", LlmVerdict.Ok) { ToolCalls = [new LlmToolCall("call_1", "get_weather", """{"city":"Paris"}""")] };
+        var reply = new LlmReply("", ProviderVerdict.Ok) { ToolCalls = [new LlmToolCall("call_1", "get_weather", """{"city":"Paris"}""")] };
         var call = Assert.Single(reply.ToolCalls!);
         Assert.Equal("call_1", call.Id);
         Assert.Equal("get_weather", call.Name);
@@ -69,10 +69,10 @@ public class LlmTypesTests
         Assert.Equal(LlmChunkKind.Content, LlmChunk.Content("x").Kind);
         Assert.Equal("x", LlmChunk.Content("x").Text);
         Assert.Equal(LlmChunkKind.Final, LlmChunk.Final().Kind);
-        Assert.Equal(LlmVerdict.Ok, LlmChunk.Final().Verdict);
-        var err = LlmChunk.Error(LlmVerdict.Timeout, "slow");
+        Assert.Equal(ProviderVerdict.Ok, LlmChunk.Final().Verdict);
+        var err = LlmChunk.Error(ProviderVerdict.Timeout, "slow");
         Assert.Equal(LlmChunkKind.Error, err.Kind);
-        Assert.Equal(LlmVerdict.Timeout, err.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, err.Verdict);
         Assert.Equal("slow", err.Detail);
     }
 }

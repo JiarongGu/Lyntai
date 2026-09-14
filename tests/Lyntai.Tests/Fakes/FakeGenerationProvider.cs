@@ -19,7 +19,7 @@ public sealed class FakeGenerationProvider : IModelProvider
     };
 
     /// <summary>Verdicts to return, in order; the last one repeats. Ok produces a 1-byte PNG artifact.</summary>
-    public Queue<GenerationVerdict> Verdicts { get; } = new();
+    public Queue<ProviderVerdict> Verdicts { get; } = new();
 
     public bool ProbeAvailable { get; set; } = true;
 
@@ -47,8 +47,8 @@ public sealed class FakeGenerationProvider : IModelProvider
         if (Throws is not null) throw Throws;
         var verdict = Verdicts.Count > 1 ? Verdicts.Dequeue()
             : Verdicts.Count == 1 ? Verdicts.Peek()
-            : GenerationVerdict.Ok;
-        return Task.FromResult(verdict == GenerationVerdict.Ok
+            : ProviderVerdict.Ok;
+        return Task.FromResult(verdict == ProviderVerdict.Ok
             ? GenerationResult.Success([new GenerationArtifact("image/png", Data: [0x89])],
                 new GenerationUsage(Count: 1, CostUsd: CostUsd))
             : GenerationResult.Failure(verdict, $"fake {verdict}"));
@@ -90,7 +90,7 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IGenerationJobPr
 
     /// <summary>Inline is NOT this backend's mode; the base seam must still answer honestly.</summary>
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "this backend generates via submit/poll"));
+        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "this backend generates via submit/poll"));
 
     /// <summary>When set, <see cref="SubmitAsync"/> THROWS it — a backend violating the fail-safe contract on
     /// the one path where a throw may or may not already have committed money.</summary>
@@ -176,7 +176,7 @@ public sealed class ScriptedStreamProvider : IModelProvider
         Task.FromResult(new ProviderProbeResult(true, "scripted"));
 
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "streaming only"));
+        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "streaming only"));
 
     public async IAsyncEnumerable<GenerationChunk> StreamAsync(
         GenerationRequest request, [EnumeratorCancellation] CancellationToken ct = default)
@@ -218,7 +218,7 @@ public sealed class BadProbeProvider : IModelProvider
     }
 
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(GenerationVerdict.Failed, "not used"));
+        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "not used"));
 }
 
 /// <summary>Advertises <see cref="ProviderOperation.Stream"/> and does NOT implement
@@ -239,5 +239,5 @@ public sealed class LyingStreamProvider : IModelProvider
         Task.FromResult(new ProviderProbeResult(true, "liar"));
 
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "no"));
+        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "no"));
 }

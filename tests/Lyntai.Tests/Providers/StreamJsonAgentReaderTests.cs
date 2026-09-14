@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Agents;
 using Lyntai.Llm;
 using Lyntai.Providers.ClaudeCli;
@@ -191,7 +192,7 @@ public class StreamJsonAgentReaderTests
         Assert.Equal(10, final.CacheCreateTokens);
 
         var ended = Assert.IsType<SessionEnded>(events[1]);
-        Assert.Equal(LlmVerdict.Ok, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
         Assert.False(ended.IsError);
         Assert.Equal("success", ended.Subtype);
         Assert.Equal("abc-123", ended.SessionId);
@@ -218,7 +219,7 @@ public class StreamJsonAgentReaderTests
         Assert.Equal(5, final.CacheCreateTokens);
 
         var ended = Assert.IsType<SessionEnded>(events[1]);
-        Assert.Equal(LlmVerdict.Failed, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, ended.Verdict);
         Assert.True(ended.IsError);
         Assert.Equal("error_max_turns", ended.Subtype);
         Assert.Equal("sess-9", ended.SessionId);
@@ -252,7 +253,7 @@ public class StreamJsonAgentReaderTests
 
     /// <summary>A failed turn's verdict is CLASSIFIED from the backend's own words, not hard-coded.
     /// <para>Through 2.5.0 this was a bare <c>isError ? Failed : Ok</c> — the only in-band failure path in
-    /// either agent session that skipped <c>LlmVerdictClassifier</c>, so an expired login reported
+    /// either agent session that skipped <c>ProviderVerdictClassifier</c>, so an expired login reported
     /// <c>Failed</c> and a host switching on the verdict retried immediately instead of prompting to
     /// re-authenticate. <c>AuthFailed</c> cools the host; <c>Failed</c> merely advances.</para></summary>
     [Fact]
@@ -265,7 +266,7 @@ public class StreamJsonAgentReaderTests
             .ToList();
 
         var ended = Assert.IsType<SessionEnded>(events.Last());
-        Assert.Equal(LlmVerdict.AuthFailed, ended.Verdict);
+        Assert.Equal(ProviderVerdict.AuthFailed, ended.Verdict);
     }
 
     [Fact]

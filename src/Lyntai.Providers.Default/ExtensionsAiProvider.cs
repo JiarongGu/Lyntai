@@ -74,25 +74,25 @@ public sealed class ExtensionsAiProvider(
             var text = response.Text;
             var usage = MapUsage(response.Usage);
             if (response.FinishReason == ChatFinishReason.ContentFilter)
-                return new LlmReply(text, LlmVerdict.Refused, usage, $"{id}: content filter");
+                return new LlmReply(text, ProviderVerdict.Refused, usage, $"{id}: content filter");
             // a tool-call turn is a SUCCESSFUL reply with (usually) empty text — surface it before the
             // empty→Failed branch (the tool loop drives the next turn)
             var toolCalls = ExtractToolCalls(response);
             if (toolCalls is { Count: > 0 })
-                return new LlmReply(text, LlmVerdict.Ok, usage) { ToolCalls = toolCalls };
+                return new LlmReply(text, ProviderVerdict.Ok, usage) { ToolCalls = toolCalls };
             if (string.IsNullOrEmpty(text))
-                return new LlmReply("", LlmVerdict.Failed, usage, $"{id}: empty response");
-            return new LlmReply(text, LlmVerdict.Ok, usage);
+                return new LlmReply("", ProviderVerdict.Failed, usage, $"{id}: empty response");
+            return new LlmReply(text, ProviderVerdict.Ok, usage);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
         {
-            return new LlmReply("", LlmVerdict.Timeout, Detail: $"{id}: no response within {timeout}");
+            return new LlmReply("", ProviderVerdict.Timeout, Detail: $"{id}: no response within {timeout}");
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "{Id}: chat client faulted", id);
-            return new LlmReply("", LlmVerdictClassifier.FromException(ex), Detail: $"{id}: {ex.Message}");
+            return new LlmReply("", ProviderVerdictClassifier.FromException(ex), Detail: $"{id}: {ex.Message}");
         }
     }
 
@@ -118,8 +118,8 @@ public sealed class ExtensionsAiProvider(
             var guarded = GuardedStream.ReadAll<ChatResponseUpdate, LlmChunk>(
                 async () => await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null,
                 ex => ex is OperationCanceledException
-                    ? LlmChunk.Error(LlmVerdict.Timeout, $"{id}: no response within {timeout}")
-                    : LlmChunk.Error(LlmVerdictClassifier.FromException(ex), $"{id}: {ex.Message}"),
+                    ? LlmChunk.Error(ProviderVerdict.Timeout, $"{id}: no response within {timeout}")
+                    : LlmChunk.Error(ProviderVerdictClassifier.FromException(ex), $"{id}: {ex.Message}"),
                 ct, new InactivityClock(timeoutCts, timeout));
             await foreach (var (update, terminal) in guarded.ConfigureAwait(false))
             {
@@ -148,10 +148,10 @@ public sealed class ExtensionsAiProvider(
             // just can't carry tool calls (deferred). Surface Unsupported (a capability gap — no fallback/
             // cooldown), not Failed.
             yield return sawToolCall
-                ? LlmChunk.Error(LlmVerdict.Unsupported, $"{id}: streaming does not deliver native tool calls — use CompleteAsync for tool-calling")
+                ? LlmChunk.Error(ProviderVerdict.Unsupported, $"{id}: streaming does not deliver native tool calls — use CompleteAsync for tool-calling")
                 // the streaming twin of CompleteAsync's empty→Failed: a genuinely empty stream must surface
                 // an error the router can fall over on, not end as a clean empty Final
-                : LlmChunk.Error(LlmVerdict.Failed, $"{id}: empty response");
+                : LlmChunk.Error(ProviderVerdict.Failed, $"{id}: empty response");
         }
         else
             yield return LlmChunk.Final(usage);

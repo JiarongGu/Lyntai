@@ -18,7 +18,7 @@ public class LlmRouterStreamTests
     {
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Error(LlmVerdict.Failed, "cold start")],
+            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Failed, "cold start")],
         };
         var p2 = new FakeLlmProvider("p2")
         {
@@ -40,7 +40,7 @@ public class LlmRouterStreamTests
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var unset = new FakeLlmProvider("unset")
         {
-            StreamScript = _ => [LlmChunk.Error(LlmVerdict.NotConfigured, "no api key")],
+            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.NotConfigured, "no api key")],
         };
         var configured = new FakeLlmProvider("configured")
         {
@@ -60,30 +60,30 @@ public class LlmRouterStreamTests
         // same masking trap as the non-streaming path, and its own lastError accumulation to get wrong
         var down = new FakeLlmProvider("down")
         {
-            StreamScript = _ => [LlmChunk.Error(LlmVerdict.Failed, "connection refused")],
+            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Failed, "connection refused")],
         };
         var unset = new FakeLlmProvider("unset")
         {
-            StreamScript = _ => [LlmChunk.Error(LlmVerdict.NotConfigured, "no api key")],
+            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.NotConfigured, "no api key")],
         };
 
         var chunks = await Router(down, unset).StreamAsync([new("down"), new("unset")], Req).ToListAsync();
 
         var error = chunks.Single(c => c.Kind == LlmChunkKind.Error);
-        Assert.Equal(LlmVerdict.Failed, error.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, error.Verdict);
         Assert.Equal("connection refused", error.Detail);
     }
 
     [Fact]
     public async Task Every_streamed_candidate_unconfigured_still_reports_not_configured()
     {
-        var a = new FakeLlmProvider("a") { StreamScript = _ => [LlmChunk.Error(LlmVerdict.NotConfigured, "a: no api key")] };
-        var b = new FakeLlmProvider("b") { StreamScript = _ => [LlmChunk.Error(LlmVerdict.NotConfigured, "b: no api key")] };
+        var a = new FakeLlmProvider("a") { StreamScript = _ => [LlmChunk.Error(ProviderVerdict.NotConfigured, "a: no api key")] };
+        var b = new FakeLlmProvider("b") { StreamScript = _ => [LlmChunk.Error(ProviderVerdict.NotConfigured, "b: no api key")] };
 
         var chunks = await Router(a, b).StreamAsync([new("a"), new("b")], Req).ToListAsync();
 
         var error = chunks.Single(c => c.Kind == LlmChunkKind.Error);
-        Assert.Equal(LlmVerdict.NotConfigured, error.Verdict); // not swallowed into a generic "no live candidate"
+        Assert.Equal(ProviderVerdict.NotConfigured, error.Verdict); // not swallowed into a generic "no live candidate"
     }
 
     [Fact] // T8: a PROVIDER's own OperationCanceledException (caller ct not cancelled) falls over, not aborts
@@ -106,7 +106,7 @@ public class LlmRouterStreamTests
         // (shipped providers guard this, but a third-party IModelProvider may yield an empty first chunk)
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Content(""), LlmChunk.Error(LlmVerdict.Failed, "empty then died")],
+            StreamScript = _ => [LlmChunk.Content(""), LlmChunk.Error(ProviderVerdict.Failed, "empty then died")],
         };
         var p2 = new FakeLlmProvider("p2")
         {
@@ -141,7 +141,7 @@ public class LlmRouterStreamTests
 
         var only = Assert.Single(chunks);
         Assert.Equal(LlmChunkKind.Error, only.Kind);
-        Assert.Equal(LlmVerdict.Failed, only.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, only.Verdict);
     }
 
     [Fact] // L4: a Final with NO preceding content is the empty-reply trap at the trust boundary → falls over
@@ -161,7 +161,7 @@ public class LlmRouterStreamTests
     {
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Content("partial"), LlmChunk.Error(LlmVerdict.Failed, "died mid-stream")],
+            StreamScript = _ => [LlmChunk.Content("partial"), LlmChunk.Error(ProviderVerdict.Failed, "died mid-stream")],
         };
         var p2 = new FakeLlmProvider("p2");
 
@@ -220,7 +220,7 @@ public class LlmRouterStreamTests
         // amended §6: RateLimited advances like Failed/Timeout (the host cools, the fleet serves)
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Error(LlmVerdict.RateLimited, "429")],
+            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.RateLimited, "429")],
         };
         var p2 = new FakeLlmProvider("p2")
         {
@@ -239,27 +239,27 @@ public class LlmRouterStreamTests
     {
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Error(LlmVerdict.Refused, "content policy")],
+            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Refused, "content policy")],
         };
         var p2 = new FakeLlmProvider("p2");
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Single(chunks);
-        Assert.Equal(LlmVerdict.Refused, chunks[0].Verdict);
+        Assert.Equal(ProviderVerdict.Refused, chunks[0].Verdict);
         Assert.Equal(0, p2.StreamCalls); // a refused prompt must never be re-submitted elsewhere
     }
 
     [Fact]
     public async Task All_candidates_fail_pre_content_yields_last_error()
     {
-        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [LlmChunk.Error(LlmVerdict.Failed, "one")] };
-        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Error(LlmVerdict.Timeout, "two")] };
+        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Failed, "one")] };
+        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Timeout, "two")] };
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Single(chunks);
-        Assert.Equal(LlmVerdict.Timeout, chunks[0].Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, chunks[0].Verdict);
         Assert.Equal("two", chunks[0].Detail);
     }
 }

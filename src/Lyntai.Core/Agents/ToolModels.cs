@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 
 namespace Lyntai.Agents;
@@ -40,11 +41,11 @@ public enum ToolTransport
 /// taken along the way (for tracing/debugging).</summary>
 public sealed record ToolLoopResult(
     string Answer,
-    LlmVerdict Verdict,
+    ProviderVerdict Verdict,
     IReadOnlyList<ToolStep> Steps,
     string? Detail = null)
 {
-    public bool Ok => Verdict == LlmVerdict.Ok;
+    public bool Ok => Verdict == ProviderVerdict.Ok;
 
     /// <summary>Aggregate token/cost usage across EVERY front-door call the loop made (summed
     /// input/output/cache-read tokens; <see cref="LlmUsage.CostUsd"/> summed when any call reported one, else

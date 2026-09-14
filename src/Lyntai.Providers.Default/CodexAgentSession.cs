@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using Lyntai.Agents;
 using Lyntai.Llm;
@@ -66,7 +67,7 @@ public sealed class CodexAgentSession : IAgentSession
     /// real subcommand of <c>exec</c>, the id is its first POSITIONAL, and the <c>-</c> stdin marker takes
     /// the PROMPT position after it — see
     /// <see cref="CodexExecArgs.TryBuildResume"/>). The one token shape still REFUSED without spawning — a
-    /// single <see cref="SessionEnded"/> with <see cref="LlmVerdict.Unsupported"/> — is one the CLI would read
+    /// single <see cref="SessionEnded"/> with <see cref="ProviderVerdict.Unsupported"/> — is one the CLI would read
     /// as an OPTION rather than as an id (blank, or starting with <c>-</c> such as its own <c>--last</c>),
     /// because forwarding it would silently resume the WRONG thread.
     /// <para>Whether codex re-announces <c>thread.started</c> on a resumed turn is NOT measured, so a resumed
@@ -80,13 +81,13 @@ public sealed class CodexAgentSession : IAgentSession
     {
         if (!AgentMcpServers.TryValidate(options.McpServers, out var mcpRefusal))
         {
-            yield return new SessionEnded(LlmVerdict.Unsupported, true, "mcp-server-invalid", null, null, mcpRefusal);
+            yield return new SessionEnded(ProviderVerdict.Unsupported, true, "mcp-server-invalid", null, null, mcpRefusal);
             yield break;
         }
 
         if (!CodexAgentArgs.TryBuild(options, out var agentArgs, out var mcpEnvironment, out var refusal))
         {
-            yield return new SessionEnded(LlmVerdict.Unsupported, true, "resume-token-invalid", null, null, refusal);
+            yield return new SessionEnded(ProviderVerdict.Unsupported, true, "resume-token-invalid", null, null, refusal);
             yield break;
         }
 
@@ -161,7 +162,7 @@ public sealed class CodexAgentSession : IAgentSession
                 : "no output produced (no terminal result)";
             _logger.LogWarning("CodexAgentSession produced no terminal event ({Diagnostic}); session={SessionId}",
                 diagnostic, reader.ThreadId);
-            yield return new SessionEnded(LlmVerdict.Failed, true, null, reader.ThreadId, null, diagnostic);
+            yield return new SessionEnded(ProviderVerdict.Failed, true, null, reader.ThreadId, null, diagnostic);
         }
     }
 

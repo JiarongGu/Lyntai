@@ -56,7 +56,7 @@ backend *actually* has (`IModelProvider` / `IProviderUpdater` / `IProviderVersio
 `IProviderAuth`) — copy `ClaudeCliProvider`, which is nothing but forwarding members. The engine owns:
 command resolution, neutral cwd, prompt delivery (stdin or trailing argument — set `PromptDelivery`),
 the inactivity clock (plus an absolute backstop on the BUFFERED path only — a streamed turn is bounded by
-provider inactivity and the caller's token, nothing else), `LlmVerdictClassifier`, empty→`Failed`,
+provider inactivity and the caller's token, nothing else), `ProviderVerdictClassifier`, empty→`Failed`,
 streaming order, and probe → run → re-probe maintenance.
 
 Rules specific to this path:
@@ -104,12 +104,12 @@ public sealed class MyProvider(string id, /* options, factory */, LyntaiOptions 
 ```
 
 Non-negotiables (see `llm-and-router.md` for why — the router trusts every provider to honor these):
-- **Classify failures with `LlmVerdictClassifier`** — never hand-roll substring heuristics (they drift;
+- **Classify failures with `ProviderVerdictClassifier`** — never hand-roll substring heuristics (they drift;
   three copies were consolidated into one for exactly this reason). Map transport → verdict:
   429→`RateLimited`, 401/403→`AuthFailed`, content-filter→`Refused`, too-big→`ContextWindowExceeded`,
   deadline→`Timeout`, else→`Failed`.
   **An HTTP backend classifies through the THREE-argument overload**,
-  `LlmVerdictClassifier.FromHttpFailure(status, body, hasCredentials)` (see
+  `ProviderVerdictClassifier.FromHttpFailure(status, body, hasCredentials)` (see
   `HttpModelProvider`, which passes `HasCredentials`). A 401/403 answered to a call that carried NO
   credentials is `NotConfigured`, not `AuthFailed` — and the difference is not cosmetic, because routing acts
   on it: `AuthFailed` BENCHES the provider for the cooldown window, so a backend the consumer merely listed
@@ -119,7 +119,7 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
   legitimately needs none, so "no key" cannot mean unconfigured on its own — only "no key AND the server
   demanded one" does. A CLI/session-authenticated dialect has no `hasCredentials` fact at all and correctly
   stays on the two-argument overload. The generation domain states the same rule over its own vocabulary
-  (`GenerationVerdictClassifier.FromHttpFailure`); change one and check the other.
+  (`ProviderVerdictClassifier.FromHttpFailure`); change one and check the other.
 - **Empty/no output is `Failed`, not `Ok`** — both in `CompleteAsync` and as a terminal `Error` chunk in
   `StreamAsync` (a zero-content stream must let the router fall over, not report a clean empty answer).
 - **Streaming timeout is an INACTIVITY clock**, never a single `CancelAfter` over the whole stream:
@@ -162,7 +162,7 @@ NO `Provider` suffix (D134); the factory primitive it wraps keeps one, because t
 **D67**). If you are adding a backend, the practical consequence is: **put anything you are unsure of behind
 an OPTION rather than a literal**, which is what makes a wrong guess a consumer's config edit instead of your
 major bump. The `Lyntai.Generation` **NAMESPACE** is still a different thing from the package:
-`GenerationResult`, `GenerationVerdictClassifier`, the routing policy and the rest of the contracts ship
+`GenerationResult`, `ProviderVerdictClassifier`, the routing policy and the rest of the contracts ship
 inside mandatory `Lyntai.Core` — a distinction worth keeping straight, since `docs/DECISIONS.md` D36 did
 verdict-translation fix and treated it as major-bump material.
 
@@ -175,10 +175,10 @@ What a backend implements:
   (submit → poll → fetch, for queued/long renders) and `IModelProvider`. They are ADDITIONAL
   interfaces the router type-tests, not flags — which is exactly why nothing may wrap a provider in a
   decorator that implements only the base seam (see `pitfalls.md`).
-- **Classify through `GenerationVerdictClassifier.FromHttpFailure(status, body, hasCredentials)`** — the same
+- **Classify through `ProviderVerdictClassifier.FromHttpFailure(status, body, hasCredentials)`** — the same
   two-term promotion as the LLM side: a 401/403 to a call that carried no credentials is `NotConfigured`, not
   `AuthFailed`, because `AuthFailed` benches the backend for the cooldown window. The classifier DELEGATES its
-  pattern corpus to `LlmVerdictClassifier` and translates; never carry a second copy of "what does a 429 look
+  pattern corpus to `ProviderVerdictClassifier` and translates; never carry a second copy of "what does a 429 look
   like".
 - **A submit whose outcome is UNKNOWN is `GenerationOperation.Inconclusive`, and is never re-submitted.** A
   backend that ANSWERS "no" can be retried elsewhere for free; a backend that never answered may already hold

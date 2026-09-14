@@ -1,14 +1,14 @@
 using System.Net;
 using System.Text.RegularExpressions;
 
-namespace Lyntai.Llm;
+namespace Lyntai.Lifecycle;
 
 /// <summary>
 /// The ONE place failure text/exceptions are classified into verdicts. The verdict taxonomy drives
 /// router-wide behavior (RateLimited cools the host and advances; Refused surfaces with no fallback),
 /// so every adapter must share this instead of hand-rolling substring heuristics that drift.
 /// </summary>
-public static partial class LlmVerdictClassifier
+public static partial class ProviderVerdictClassifier
 {
     /// <summary>Classify an error message / stderr tail. Conservative on purpose: "429" alone is NOT
     /// enough (a stack frame like <c>cli.js:429</c> must stay Failed) — it needs rate-limit phrasing,
@@ -18,10 +18,10 @@ public static partial class LlmVerdictClassifier
     // process-wide extension point (set at startup); AddErrorTextMatcher returns an IDisposable so a test
     // can scope its registration.
     private static readonly Lock _matchersLock = new();
-    private static readonly List<Func<string, LlmVerdict?>> _customMatchers = [];
+    private static readonly List<Func<string, ProviderVerdict?>> _customMatchers = [];
     // copy-on-write snapshot rebuilt on register/unregister (rare) so the classify path — which runs on
     // EVERY failure — reads it lock-free and allocation-free instead of lock+copy per call
-    private static volatile Func<string, LlmVerdict?>[] _matcherSnapshot = [];
+    private static volatile Func<string, ProviderVerdict?>[] _matcherSnapshot = [];
 
     /// <summary>Register a custom error-text matcher (returns a verdict, or null to defer). Consulted before
     /// the built-in patterns, first non-null wins. Dispose the returned handle to unregister (an app
@@ -29,9 +29,9 @@ public static partial class LlmVerdictClassifier
     /// <para>A matcher MUST NOT throw. Classification runs inside the router's own <c>catch</c>, so a throw
     /// PROPAGATES out of <c>ILlmClient.CompleteAsync</c>/<c>StreamAsync</c> and aborts the whole routing
     /// attempt — the remaining candidates included. This deliberately differs from
-    /// <see cref="IRefusalMatcher"/>, whose seam logs a throwing matcher and fails open: this class is static
+    /// <see cref="Lyntai.Llm.IRefusalMatcher"/>, whose seam logs a throwing matcher and fails open: this class is static
     /// and has no logger, so swallowing here would hide the bug rather than report it.</para></summary>
-    public static IDisposable AddErrorTextMatcher(Func<string, LlmVerdict?> matcher)
+    public static IDisposable AddErrorTextMatcher(Func<string, ProviderVerdict?> matcher)
     {
         ArgumentNullException.ThrowIfNull(matcher);
         lock (_matchersLock)
@@ -42,21 +42,21 @@ public static partial class LlmVerdictClassifier
         return new MatcherRegistration(matcher);
     }
 
-    public static LlmVerdict FromErrorText(string? text, LlmVerdict fallback = LlmVerdict.Failed)
+    public static ProviderVerdict FromErrorText(string? text, ProviderVerdict fallback = ProviderVerdict.Failed)
     {
         if (string.IsNullOrWhiteSpace(text)) return fallback;
 
         foreach (var matcher in _matcherSnapshot)
             if (matcher(text) is { } verdict) return verdict; // consumer patterns win over the built-ins
 
-        if (RateLimitPattern().IsMatch(text)) return LlmVerdict.RateLimited;
-        if (ContextWindowPattern().IsMatch(text)) return LlmVerdict.ContextWindowExceeded;
-        if (AuthPattern().IsMatch(text)) return LlmVerdict.AuthFailed;
-        if (RefusalPattern().IsMatch(text)) return LlmVerdict.Refused;
+        if (RateLimitPattern().IsMatch(text)) return ProviderVerdict.RateLimited;
+        if (ContextWindowPattern().IsMatch(text)) return ProviderVerdict.ContextWindowExceeded;
+        if (AuthPattern().IsMatch(text)) return ProviderVerdict.AuthFailed;
+        if (RefusalPattern().IsMatch(text)) return ProviderVerdict.Refused;
         return fallback;
     }
 
-    private sealed class MatcherRegistration(Func<string, LlmVerdict?> matcher) : IDisposable
+    private sealed class MatcherRegistration(Func<string, ProviderVerdict?> matcher) : IDisposable
     {
         public void Dispose()
         {
@@ -70,11 +70,11 @@ public static partial class LlmVerdictClassifier
 
     /// <summary>Classify a caught exception: the typed HTTP status wins over message heuristics
     /// (a 429 surfaced as "Too Many Requests" carries no "429" text at all).</summary>
-    public static LlmVerdict FromException(Exception ex) => ex switch
+    public static ProviderVerdict FromException(Exception ex) => ex switch
     {
-        HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } => LlmVerdict.RateLimited,
-        HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden } => LlmVerdict.AuthFailed,
-        OperationCanceledException => LlmVerdict.Timeout,
+        HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } => ProviderVerdict.RateLimited,
+        HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden } => ProviderVerdict.AuthFailed,
+        OperationCanceledException => ProviderVerdict.Timeout,
         // scan the FULL inner-exception chain, not just ex.Message — a typed provider exception (e.g. an
         // MEAI "prompt too long") often wraps the real context-window/rate-limit detail in an inner
         // exception, so classifying only the outer message would flatten it to Failed.
@@ -89,16 +89,16 @@ public static partial class LlmVerdictClassifier
     }
 
     /// <summary>Classify a failed HTTP status + response body (typed status wins over body text).</summary>
-    public static LlmVerdict FromHttpFailure(HttpStatusCode status, string? body) => status switch
+    public static ProviderVerdict FromHttpFailure(HttpStatusCode status, string? body) => status switch
     {
-        HttpStatusCode.TooManyRequests => LlmVerdict.RateLimited,
-        HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => LlmVerdict.AuthFailed,
+        HttpStatusCode.TooManyRequests => ProviderVerdict.RateLimited,
+        HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => ProviderVerdict.AuthFailed,
         _ => FromErrorText(body),
     };
 
     /// <summary>Classify a failed HTTP response, distinguishing "no credentials were SUPPLIED" from "the
     /// credentials were REJECTED". An auth failure with nothing to authenticate with is
-    /// <see cref="LlmVerdict.NotConfigured"/>, not <see cref="LlmVerdict.AuthFailed"/> — and the difference
+    /// <see cref="ProviderVerdict.NotConfigured"/>, not <see cref="ProviderVerdict.AuthFailed"/> — and the difference
     /// is not cosmetic, because routing acts on it: NotConfigured skips the candidate blamelessly and lets a
     /// host offer setup, whereas AuthFailed BENCHES the provider for the cooldown window. A backend a
     /// consumer merely listed without configuring would otherwise be penalised on every first attempt.
@@ -106,7 +106,7 @@ public static partial class LlmVerdictClassifier
     /// vLLM, Ollama) legitimately needs none, so "no key" cannot mean unconfigured on its own — only "no key
     /// AND the server demanded one" does.</para>
     /// <para>The generation domain states the SAME rule over its own vocabulary
-    /// (<c>Lyntai.Generation.GenerationVerdictClassifier.FromHttpFailure</c>). The two are deliberately
+    /// (<c>Lyntai.Lifecycle.ProviderVerdictClassifier.FromHttpFailure</c>). The two are deliberately
     /// stated separately rather than shared: the pattern CORPUS ("what does a 429 look like") is single-sourced
     /// here, but this two-term promotion reaches different populations — every LLM backend that authenticates
     /// by login SESSION rather than a supplied key (the CLI dialects) classifies from error text and has no
@@ -114,10 +114,10 @@ public static partial class LlmVerdictClassifier
     /// <param name="status">The failed response's status.</param>
     /// <param name="body">The response body, for text-based classification.</param>
     /// <param name="hasCredentials">Whether this call actually carried credentials.</param>
-    public static LlmVerdict FromHttpFailure(HttpStatusCode status, string? body, bool hasCredentials)
+    public static ProviderVerdict FromHttpFailure(HttpStatusCode status, string? body, bool hasCredentials)
     {
         var verdict = FromHttpFailure(status, body);
-        return verdict == LlmVerdict.AuthFailed && !hasCredentials ? LlmVerdict.NotConfigured : verdict;
+        return verdict == ProviderVerdict.AuthFailed && !hasCredentials ? ProviderVerdict.NotConfigured : verdict;
     }
 
     [GeneratedRegex(@"rate[\s_-]?limit|too\s+many\s+requests|quota\s+exceeded|resource[\s_-]?exhausted|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*429\b", RegexOptions.IgnoreCase)]
@@ -134,4 +134,18 @@ public static partial class LlmVerdictClassifier
 
     [GeneratedRegex(@"content[\s_-]?(?:filter|policy)|policy\s+violation", RegexOptions.IgnoreCase)]
     private static partial Regex RefusalPattern();
+
+    /// <summary>Classify a THROWN exception for a router, which is <see cref="FromException"/> with one
+    /// extra rule: never <see cref="ProviderVerdict.Refused"/>.
+    ///
+    /// <para>A refusal is a judgement the backend made about the CONTENT and returned in a reply; an
+    /// exception is the transport failing. Letting a thrown exception classify as Refused would surface it
+    /// with no fallback, so a transport fault that happens to carry policy-shaped words would end the whole
+    /// run. Both routers applied this rule from their own private copies until <b>D136</b> merged the
+    /// taxonomy that had kept them apart.</para></summary>
+    internal static ProviderVerdict FromThrown(Exception ex)
+    {
+        var verdict = FromException(ex);
+        return verdict == ProviderVerdict.Refused ? ProviderVerdict.Failed : verdict;
+    }
 }

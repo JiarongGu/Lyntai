@@ -1,9 +1,11 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Llm;
 
-/// <summary>A typed, app-registered check that decides whether an otherwise-<see cref="LlmVerdict.Ok"/>
+/// <summary>A typed, app-registered check that decides whether an otherwise-<see cref="ProviderVerdict.Ok"/>
 /// reply is actually a refusal. Registered into a DI collection (<c>AddRefusalMatcher</c>); the
 /// refusal-screening front door runs every matcher — after the central patterns and the per-request
-/// <see cref="LlmRequest.RefusalPattern"/> — and surfaces the reply as <see cref="LlmVerdict.Refused"/>
+/// <see cref="LlmRequest.RefusalPattern"/> — and surfaces the reply as <see cref="ProviderVerdict.Refused"/>
 /// (no fallback) if any returns true. This is the structured alternative to the stringly-typed
 /// <see cref="LlmRequest.RefusalPattern"/> regex: a matcher can key off the request (consumer, model,
 /// language) as well as the text, and encode logic a single regex can't. A matcher that throws is logged

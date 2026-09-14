@@ -39,7 +39,7 @@ public class GenerationGovernanceTests
     {
         // a 429 is the backend telling us to stop; re-asking inside the window is always wasted
         var limited = new FakeGenerationProvider { Id = "hosted" };
-        limited.Verdicts.Enqueue(GenerationVerdict.RateLimited);
+        limited.Verdicts.Enqueue(ProviderVerdict.RateLimited);
         var healthy = new FakeGenerationProvider { Id = "local" };
         var router = Router([limited, healthy]);
 
@@ -57,7 +57,7 @@ public class GenerationGovernanceTests
     {
         // one dropped connection is not a dead host — the threshold is what distinguishes them
         var flaky = new FakeGenerationProvider { Id = "flaky" };
-        flaky.Verdicts.Enqueue(GenerationVerdict.Failed);
+        flaky.Verdicts.Enqueue(ProviderVerdict.Failed);
         var healthy = new FakeGenerationProvider { Id = "local" };
         var router = Router([flaky, healthy], new DeadHostTracker(threshold: 2, cooldown: TimeSpan.FromMinutes(5)));
 
@@ -70,8 +70,8 @@ public class GenerationGovernanceTests
     public async Task A_success_clears_the_penalty_so_an_occasional_blip_never_accumulates()
     {
         var blippy = new FakeGenerationProvider { Id = "blippy" };
-        blippy.Verdicts.Enqueue(GenerationVerdict.Failed);
-        blippy.Verdicts.Enqueue(GenerationVerdict.Ok);
+        blippy.Verdicts.Enqueue(ProviderVerdict.Failed);
+        blippy.Verdicts.Enqueue(ProviderVerdict.Ok);
         var router = Router([blippy, new FakeGenerationProvider { Id = "local" }],
             new DeadHostTracker(threshold: 2, cooldown: TimeSpan.FromMinutes(5)));
 
@@ -88,7 +88,7 @@ public class GenerationGovernanceTests
         // "not configured" / "not for me" are not faults: benching for them would take a backend out of
         // rotation for being honest about what it is
         var unconfigured = new FakeGenerationProvider { Id = "needs-setup" };
-        unconfigured.Verdicts.Enqueue(GenerationVerdict.NotConfigured);
+        unconfigured.Verdicts.Enqueue(ProviderVerdict.NotConfigured);
         var router = Router([unconfigured, new FakeGenerationProvider { Id = "local" }],
             new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5)));
 
@@ -104,14 +104,14 @@ public class GenerationGovernanceTests
         // benching the sole option just converts a real error into a synthetic one, and the host can't act
         // on "no capable backend" the way it can act on "rate limited"
         var sole = new FakeGenerationProvider { Id = "sole" };
-        sole.Verdicts.Enqueue(GenerationVerdict.RateLimited);
+        sole.Verdicts.Enqueue(ProviderVerdict.RateLimited);
         var router = Router([sole]);
 
         var first = await router.GenerateAsync(Order("sole"), Image);
         var second = await router.GenerateAsync(Order("sole"), Image);
 
-        Assert.Equal(GenerationVerdict.RateLimited, first.Verdict);
-        Assert.Equal(GenerationVerdict.RateLimited, second.Verdict);   // a real verdict, not a fabricated one
+        Assert.Equal(ProviderVerdict.RateLimited, first.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, second.Verdict);   // a real verdict, not a fabricated one
         Assert.Equal(2, sole.GenerateCalls);
     }
 
@@ -135,9 +135,9 @@ public class GenerationGovernanceTests
     public async Task When_every_capable_backend_is_benched_the_reason_says_so()
     {
         var a = new FakeGenerationProvider { Id = "a" };
-        a.Verdicts.Enqueue(GenerationVerdict.RateLimited);
+        a.Verdicts.Enqueue(ProviderVerdict.RateLimited);
         var b = new FakeGenerationProvider { Id = "b" };
-        b.Verdicts.Enqueue(GenerationVerdict.RateLimited);
+        b.Verdicts.Enqueue(ProviderVerdict.RateLimited);
         var router = Router([a, b]);
 
         await router.GenerateAsync(Order("a", "b"), Image);
@@ -152,7 +152,7 @@ public class GenerationGovernanceTests
     {
         var now = DateTimeOffset.UnixEpoch;
         var limited = new FakeGenerationProvider { Id = "hosted" };
-        limited.Verdicts.Enqueue(GenerationVerdict.RateLimited);
+        limited.Verdicts.Enqueue(ProviderVerdict.RateLimited);
         var router = Router([limited, new FakeGenerationProvider { Id = "local" }],
             new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromSeconds(30), clock: () => now));
 
@@ -194,7 +194,7 @@ public class GenerationGovernanceTests
 
         Assert.True(first.IsOk);
         Assert.True(second.IsOk);                                          // soft ceiling: the crossing call runs
-        Assert.Equal(GenerationVerdict.Refused, third.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, third.Verdict);
         Assert.Contains("cost budget", third.Detail);
         Assert.Equal(2, backend.GenerateCalls);                            // the refusal never reached it
     }
@@ -241,7 +241,7 @@ public class GenerationGovernanceTests
         var ui = await router.GenerateAsync(Order("hosted"), Image with { Consumer = "ui" });
 
         Assert.True(agent.IsOk);
-        Assert.Equal(GenerationVerdict.Refused, agentAgain.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, agentAgain.Verdict);
         Assert.Contains("agent", agentAgain.Detail);
         Assert.True(ui.IsOk);
     }
@@ -273,7 +273,7 @@ public class GenerationGovernanceTests
         var second = await router.GenerateAsync(Order("hosted"), Image);
 
         Assert.True(first.IsOk);
-        Assert.Equal(GenerationVerdict.RateLimited, second.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, second.Verdict);
         Assert.Equal(1, backend.GenerateCalls);
     }
 
@@ -310,7 +310,7 @@ public class GenerationGovernanceTests
         var second = await router.GenerateAsync(Order("hosted"), Image);
 
         Assert.True(first.IsOk);
-        Assert.Equal(GenerationVerdict.Refused, second.Verdict);          // the budget decorator is in the chain
+        Assert.Equal(ProviderVerdict.Refused, second.Verdict);          // the budget decorator is in the chain
         Assert.Equal(5.0, (await sp.GetRequiredService<IUsageTracker>().TotalAsync()).CostUsd, 6);
     }
 
@@ -340,7 +340,7 @@ public class GenerationGovernanceTests
         using var listener = SpanListener(spans);
         ActivitySource.AddActivityListener(listener);
         var failing = new FakeGenerationProvider { Id = "tel-fail" };
-        failing.Verdicts.Enqueue(GenerationVerdict.Timeout);
+        failing.Verdicts.Enqueue(ProviderVerdict.Timeout);
         var router = Router([failing, new FakeGenerationProvider { Id = "tel-backup" }]);
 
         await router.GenerateAsync(Order("tel-fail", "tel-backup"), Image);
@@ -403,7 +403,7 @@ public class GenerationGovernanceTests
             lock (samples) samples.Add((backend, error));
         });
         var failing = new FakeGenerationProvider { Id = "metric-fail" };
-        failing.Verdicts.Enqueue(GenerationVerdict.Failed);
+        failing.Verdicts.Enqueue(ProviderVerdict.Failed);
         var router = Router([failing, new FakeGenerationProvider { Id = "metric-ok" }]);
 
         await router.GenerateAsync(Order("metric-fail", "metric-ok"), Image);
@@ -471,7 +471,7 @@ public class GenerationGovernanceTests
         var chunks = await Collect(router.StreamAsync(Order("tts"), Speech));
 
         var terminal = Assert.Single(chunks);
-        Assert.Equal(GenerationVerdict.Refused, terminal.Error);
+        Assert.Equal(ProviderVerdict.Refused, terminal.Error);
         Assert.Contains("cost budget", terminal.Detail);
         Assert.Equal(0, backend.StreamCalls);
     }
@@ -508,7 +508,7 @@ public class GenerationGovernanceTests
         var second = await Collect(router.StreamAsync(Order("tts"), Speech));
 
         Assert.True(first[^1].Final);
-        Assert.Equal(GenerationVerdict.RateLimited, Assert.Single(second).Error);
+        Assert.Equal(ProviderVerdict.RateLimited, Assert.Single(second).Error);
         Assert.Equal(1, backend.StreamCalls);
     }
 
@@ -574,7 +574,7 @@ public class GenerationGovernanceTests
             Task.FromResult(new ProviderProbeResult(true, "up"));
 
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "job backend"));
+            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "job backend"));
 
         public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
         {
@@ -586,7 +586,7 @@ public class GenerationGovernanceTests
             Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Failed));
 
         public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(GenerationVerdict.Failed, "nothing"));
+            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "nothing"));
 
         public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Cancelled));

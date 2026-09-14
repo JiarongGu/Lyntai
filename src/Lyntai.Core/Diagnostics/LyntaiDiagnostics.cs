@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Lyntai.Generation;
@@ -49,9 +50,9 @@ public static class LyntaiDiagnostics
     }
 
     internal static void RecordOutcome(Activity? activity, string providerId, string? model,
-        LlmVerdict verdict, LlmUsage? usage, double elapsedSeconds, string? detail = null)
+        ProviderVerdict verdict, LlmUsage? usage, double elapsedSeconds, string? detail = null)
     {
-        var errorType = verdict == LlmVerdict.Ok ? null : verdict.ToString();
+        var errorType = verdict == ProviderVerdict.Ok ? null : verdict.ToString();
 
         if (activity is not null)
         {
@@ -136,12 +137,12 @@ public static class LyntaiDiagnostics
         return a;
     }
 
-    internal static void EndToolLoop(Activity? a, string mode, int steps, LlmVerdict verdict)
+    internal static void EndToolLoop(Activity? a, string mode, int steps, ProviderVerdict verdict)
     {
         if (a is null) return;
         a.SetTag("lyntai.tool_loop.mode", mode);
         a.SetTag("lyntai.tool_loop.steps", steps);
-        if (verdict != LlmVerdict.Ok) a.SetStatus(ActivityStatusCode.Error, verdict.ToString());
+        if (verdict != ProviderVerdict.Ok) a.SetStatus(ActivityStatusCode.Error, verdict.ToString());
     }
 
     internal static Activity? StartToolCall(string name)
@@ -259,9 +260,9 @@ public static class LyntaiDiagnostics
     }
 
     internal static void RecordGeneration(Activity? activity, string backend, string kind,
-        GenerationVerdict verdict, GenerationUsage? usage, double elapsedSeconds, string? detail = null)
+        ProviderVerdict verdict, GenerationUsage? usage, double elapsedSeconds, string? detail = null)
     {
-        var errorType = verdict == GenerationVerdict.Ok ? null : verdict.ToString();
+        var errorType = verdict == ProviderVerdict.Ok ? null : verdict.ToString();
 
         if (activity is not null)
         {

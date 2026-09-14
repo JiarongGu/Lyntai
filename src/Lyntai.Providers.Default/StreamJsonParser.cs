@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.Json;
 using Lyntai.Llm;
 
@@ -85,7 +86,7 @@ internal static class StreamJsonParser
         var isError = root.TryGetProperty("is_error", out var e) && e.ValueKind == JsonValueKind.True;
         if (!isError) return new StreamJsonEvent(StreamJsonEventKind.Result, text, usage);
 
-        // Carry the CLI's OWN words so LlmVerdictClassifier can see them; `subtype` is the machine-readable
+        // Carry the CLI's OWN words so ProviderVerdictClassifier can see them; `subtype` is the machine-readable
         // reason and is included when `result` is empty, so the message is never blank (an empty failure
         // message is what makes the engine fall back to the stderr tail).
         var subtype = root.TryGetProperty("subtype", out var s) && s.ValueKind == JsonValueKind.String

@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using System.Text.Json.Nodes;
 using Lyntai;
@@ -32,7 +33,7 @@ public class OllamaContextSizeTests
 
         var reply = await provider.CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         var body = JsonNode.Parse(handler.Requests[0].Body)!;
         Assert.Equal(Distinctive, (int)body["options"]!["num_ctx"]!);
     }
@@ -52,7 +53,7 @@ public class OllamaContextSizeTests
 
         var reply = await provider.CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         var body = handler.Requests[0].Body;
         Assert.Null(JsonNode.Parse(body)!["options"]);       // no Ollama options bag to hang a knob off…
         Assert.DoesNotContain("num_ctx", body);              // …no knob anywhere else either…

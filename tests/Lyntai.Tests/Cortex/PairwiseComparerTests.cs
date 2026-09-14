@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Cortex;
 using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
@@ -7,7 +8,7 @@ namespace Lyntai.Tests.Cortex;
 public class PairwiseComparerTests
 {
     private static LlmReply Json(string winner) =>
-        new($$"""{"winner":"{{winner}}","reason":"because"}""", LlmVerdict.Ok);
+        new($$"""{"winner":"{{winner}}","reason":"because"}""", ProviderVerdict.Ok);
 
     [Fact]
     public void Parse_reads_the_winner_and_reason()
@@ -67,7 +68,7 @@ public class PairwiseComparerTests
     public async Task A_failed_judge_verdict_is_a_tie()
     {
         var llm = new FakeLlmClient();
-        llm.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "down"));
+        llm.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down"));
         var comparer = new LlmPairwiseComparer(llm, mitigatePositionBias: false);
 
         var result = await comparer.CompareAsync("q", "a", "b");
@@ -85,7 +86,7 @@ public class PairwiseComparerTests
     public async Task An_unparseable_reply_is_NOT_a_judgement_even_though_the_call_succeeded()
     {
         var llm = new FakeLlmClient();
-        llm.Replies.Enqueue(new LlmReply("I'd rather not pick, sorry.", LlmVerdict.Ok));
+        llm.Replies.Enqueue(new LlmReply("I'd rather not pick, sorry.", ProviderVerdict.Ok));
         var comparer = new LlmPairwiseComparer(llm, mitigatePositionBias: false);
 
         var result = await comparer.CompareAsync("q", "a", "b");
@@ -134,7 +135,7 @@ public class PairwiseComparerTests
     {
         var llm = new FakeLlmClient();
         llm.Replies.Enqueue(Json("a"));
-        llm.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "down"));
+        llm.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down"));
         var comparer = new LlmPairwiseComparer(llm);
 
         var result = await comparer.CompareAsync("q", "answer A", "answer B");

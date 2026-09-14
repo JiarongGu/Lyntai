@@ -10,7 +10,7 @@ namespace Lyntai.Generation.Routing;
 /// with dead-host cooldown, plus a span and metrics per attempt.
 ///
 /// <para>Per-verdict fallback semantics are <see cref="GenerationRoutingPolicy"/>'s, including where they
-/// deliberately diverge from the LLM router's on <see cref="GenerationVerdict.Unsupported"/>.</para>
+/// deliberately diverge from the LLM router's on <see cref="ProviderVerdict.Unsupported"/>.</para>
 ///
 /// <para><b>Reporting keeps TWO slots, and a blameless one never outranks a real failure.</b> The first
 /// substantive failure is what the caller is told; the first BLAMELESS result that explained itself is kept
@@ -104,7 +104,7 @@ public sealed class GenerationRouter(
             // not-configured / unsupported aren't faults worth reporting over a real failure — but every
             // other verdict is remembered BEFORE the surface check, so advancing past one (a host that
             // configured Refused -> Advance) still reports it when nothing else succeeds
-            if (!IsBlameless(result.Verdict))
+            if (!result.Verdict.IsBlameless())
                 firstFailure ??= result;
             // …and a blameless backend that EXPLAINED itself goes in the other slot. It can never mask a real
             // failure (the return below settles that), but "your prompt is too long for me" beats a synthetic
@@ -128,7 +128,7 @@ public sealed class GenerationRouter(
 
         if (tried == 0)
             return GenerationResult.Failure(
-                benched > 0 ? GenerationVerdict.RateLimited : GenerationVerdict.Unsupported,
+                benched > 0 ? ProviderVerdict.RateLimited : ProviderVerdict.Unsupported,
                 benched > 0
                     ? $"every capable media backend for kind '{request.Kind}' is on dead-host cooldown " +
                       $"({benched} of [{string.Join(", ", candidates.Select(c => c.ProviderId))}])"
@@ -139,7 +139,7 @@ public sealed class GenerationRouter(
         // are the honest answer (a host turns "not configured" into a setup prompt, and "too long" into a
         // shorter prompt), and only a run in which nothing said anything at all falls through to the
         // synthetic reply. Same three-slot rule as LlmRouter.CompleteAsync's last ?? lastBlameless ?? …
-        return firstFailure ?? firstBlameless ?? GenerationResult.Failure(GenerationVerdict.NotConfigured,
+        return firstFailure ?? firstBlameless ?? GenerationResult.Failure(ProviderVerdict.NotConfigured,
             "every capable backend reported it is not configured");
     }
 
@@ -219,12 +219,12 @@ public sealed class GenerationRouter(
                 // introduced to prevent (docs/DECISIONS.md D31). An operation carries a STATUS, not a verdict,
                 // so the verdict comes from classifying the backend's own words through the shared corpus;
                 // an unclassifiable rejection still lands on Failed, which is what it did before.
-                var verdict = GenerationVerdictClassifier.FromErrorText(operation.Detail);
+                var verdict = ProviderVerdictClassifier.FromErrorText(operation.Detail);
 
                 // blameless verdicts do not outrank reasons — remembered apart, exactly as GenerateAsync does,
                 // so "nothing is set up" never masks "the one you configured refused the job", while a
                 // blameless rejection that explained itself is still better than a list of ids
-                if (!IsBlameless(verdict))
+                if (!verdict.IsBlameless())
                     firstFailure ??= (provider.Id, operation.Detail);
                 else if (!string.IsNullOrWhiteSpace(operation.Detail))
                     firstBlameless ??= (provider.Id, operation.Detail);
@@ -276,7 +276,7 @@ public sealed class GenerationRouter(
             // crash: the router is the trust boundary for what a third-party backend claims about itself.
             if (provider is not IModelProvider streamer)
             {
-                firstBlameless ??= GenerationChunk.Failure(GenerationVerdict.Unsupported,
+                firstBlameless ??= GenerationChunk.Failure(ProviderVerdict.Unsupported,
                     $"{provider.Id}: advertises {ProviderOperation.Stream} delivery but does not implement " +
                     $"{nameof(IModelProvider)}");
                 continue;
@@ -304,7 +304,7 @@ public sealed class GenerationRouter(
                     // Unconditional on purpose — NeverReachedTheBackend is the SUBMIT door's billing rule.
                     // Here nothing is charged by the act of asking, so a refused connection before the first
                     // byte is the ordinary pre-commit failure the contract says advances.
-                    failure = GenerationChunk.Failure(ClassifyThrown(ex), $"{provider.Id}: {ex.Message}");
+                    failure = GenerationChunk.Failure(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
                     break;
                 }
 
@@ -341,7 +341,7 @@ public sealed class GenerationRouter(
                     yield return GenerationChunk.Completed();
                     yield break;
                 }
-                failure = GenerationChunk.Failure(GenerationVerdict.Failed,
+                failure = GenerationChunk.Failure(ProviderVerdict.Failed,
                     $"{provider.Id}: the stream ended without producing data or a terminal chunk");
             }
 
@@ -349,8 +349,8 @@ public sealed class GenerationRouter(
             // fallback policy says about the verdict.
             if (committed) { yield return failure!; yield break; }
 
-            var verdict = failure!.Error ?? GenerationVerdict.Failed;
-            if (!IsBlameless(verdict)) firstFailure ??= failure;
+            var verdict = failure!.Error ?? ProviderVerdict.Failed;
+            if (!verdict.IsBlameless()) firstFailure ??= failure;
             else if (!string.IsNullOrWhiteSpace(failure.Detail)) firstBlameless ??= failure;
 
             switch (_policy.ActionFor(verdict))
@@ -377,34 +377,15 @@ public sealed class GenerationRouter(
         // in the run that names the actual problem — from being replaced by "no capable media backend".
         yield return firstFailure ?? firstBlameless ?? (tried == 0
             ? GenerationChunk.Failure(
-                benched > 0 ? GenerationVerdict.RateLimited : GenerationVerdict.Unsupported,
+                benched > 0 ? ProviderVerdict.RateLimited : ProviderVerdict.Unsupported,
                 benched > 0
                     ? $"every capable media backend for kind '{request.Kind}' is on dead-host cooldown " +
                       $"({benched} of [{string.Join(", ", candidates.Select(c => c.ProviderId))}])"
                     : $"no capable media backend for kind '{request.Kind}' via {ProviderOperation.Stream} " +
                       $"among [{string.Join(", ", candidates.Select(c => c.ProviderId))}]")
-            : GenerationChunk.Failure(GenerationVerdict.NotConfigured,
+            : GenerationChunk.Failure(ProviderVerdict.NotConfigured,
                 "every capable backend reported it is not configured"));
     }
-
-    /// <summary>Verdicts that are not FAULTS — the backend simply wasn't the one for this request, so it is
-    /// remembered apart from real failures and reported only when nothing really failed.
-    ///
-    /// <para>Without it, <c>[configuredBackendRefusedTheJob, neverConfigured]</c> tells the caller "nothing is
-    /// configured" and sends them to set up a key, while the backend they HAD configured is the one that
-    /// declined.</para>
-    ///
-    /// <para><b>Deliberately the same two verdicts as <c>LlmRouter.IsBlameless</c></b> — one answer per
-    /// situation across both domains. It cannot be one shared function, because the two domains have
-    /// separate verdict enums, so it is the same NAMED predicate on each side instead. Keep it named on
-    /// both: inlined at the call sites, the parity is anchored to nothing a reader or a rename can
-    /// follow.</para>
-    ///
-    /// <para>Note this is about ELIGIBILITY only, never about which failure wins: this router keeps the FIRST
-    /// substantive failure where <c>LlmRouter</c> keeps the LAST, and that difference is untouched.</para>
-    /// </summary>
-    private static bool IsBlameless(GenerationVerdict verdict) =>
-        verdict is GenerationVerdict.NotConfigured or GenerationVerdict.Unsupported;
 
     /// <summary>The first rejecting backend's own words, folded onto the synthesized "nobody took it" message
     /// — the first SUBSTANTIVE rejection where there was one, otherwise the first blameless rejection that
@@ -458,7 +439,7 @@ public sealed class GenerationRouter(
             // fired so the attempt was invisible in telemetry, and the caller got a raw exception.
             // Classified through the shared taxonomy for the same reason the LLM side gives — hand-rolling
             // Failed here would hammer a rate-limited host instead of cooling it.
-            result = GenerationResult.Failure(ClassifyThrown(ex), $"{provider.Id}: {ex.Message}");
+            result = GenerationResult.Failure(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
         }
         LyntaiDiagnostics.RecordGeneration(span, provider.Id, request.Kind, result.Verdict,
             // an Ok result always has artifacts (GenerationResult.Success enforces it), so the count is
@@ -489,18 +470,6 @@ public sealed class GenerationRouter(
         // may have been delivered, and the expensive mistake is assuming it was not.
         _ => false,
     };
-
-    /// <summary>Classify a THROWN backend exception, with <see cref="GenerationVerdict.Refused"/> clamped to
-    /// <see cref="GenerationVerdict.Failed"/> — the same clamp <c>LlmRouter.ClassifyThrown</c> makes, for the
-    /// same reason. A throw is transport-layer (an error page mentioning "content filter" at a proxy or CDN,
-    /// not the model declining), and Refused is TERMINAL under the routing policy — it Surfaces, with no
-    /// fallback. A keyword match in an exception message must never stop this router from trying a healthy
-    /// candidate. Backends signal a real refusal with a verdict RESULT, never an exception.</summary>
-    private static GenerationVerdict ClassifyThrown(Exception ex)
-    {
-        var verdict = GenerationVerdictClassifier.FromException(ex);
-        return verdict == GenerationVerdict.Refused ? GenerationVerdict.Failed : verdict;
-    }
 
     /// <summary>Take a concurrency permit for this provider's CONFIGURATION, or nothing at all when no
     /// admission is wired or the configuration is unknown. Never returns a handle the caller may skip

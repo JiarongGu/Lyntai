@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.Json;
 using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
@@ -146,7 +147,7 @@ public sealed class LlmMemoryAnnotationPolicy(
                 Reasoning = LlmReasoning.Suppress,
             }, ct).ConfigureAwait(false);
 
-            if (reply.Verdict != LlmVerdict.Ok || string.IsNullOrWhiteSpace(reply.Text))
+            if (reply.Verdict != ProviderVerdict.Ok || string.IsNullOrWhiteSpace(reply.Text))
             {
                 _logger.LogDebug("annotation returned {Verdict}; storing without subjects", reply.Verdict);
                 return MemoryAnnotation.None;

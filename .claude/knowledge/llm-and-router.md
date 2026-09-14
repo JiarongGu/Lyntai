@@ -1,7 +1,7 @@
 ---
 name: llm-and-router
 applies_when: touching the router, a provider, the front door, streaming, dead-host cooldown, admission, or the CLI process runner
-enforces: classify through the one LlmVerdictClassifier; a blameless verdict never masks a real failure; no fallback after the first content token; timeouts are inactivity clocks, never wall-clock; the CLI rules live once in CliProviderEngine
+enforces: classify through the one ProviderVerdictClassifier; a blameless verdict never masks a real failure; no fallback after the first content token; timeouts are inactivity clocks, never wall-clock; the CLI rules live once in CliProviderEngine
 ---
 
 # LLM & router internals
@@ -10,9 +10,15 @@ The load-bearing correctness rules for `Lyntai.Core/Llm/**`. These are invariant
 subtly violating them, so hold them in mind when touching the router or a provider. Reference:
 design spec §6 (amended 2026-07-17).
 
-## Verdict taxonomy (`LlmVerdict`)
+## Verdict taxonomy (`ProviderVerdict`)
 
-One enum drives all router behavior. Classify through the **one** `LlmVerdictClassifier` (typed HTTP
+**`ProviderVerdict` is ONE enum for every domain, in `Lyntai.Lifecycle`** (**D136**). Chat and media carried
+separate enums with the same members plus a translation layer between them, and a missing arm in that table
+reported a capability gap as a hard failure for a whole release. **What a verdict MEANS is shared; what a
+router DOES about it is not** — each domain keeps its own action table, and they differ on purpose
+(`LlmRoutingPolicy` surfaces `Unsupported`, `GenerationRoutingPolicy` advances on it).
+
+One enum drives all router behavior. Classify through the **one** `ProviderVerdictClassifier` (typed HTTP
 status wins over text; text heuristics are deliberately conservative — "429" in a stack frame stays
 `Failed`; bare "unauthorized" without auth context stays `Failed` because `AuthFailed` now cools the
 host).
@@ -41,16 +47,15 @@ because treating them alike leads to either bloating a consuming story or wrongl
 
 | Site | What it is | Obligation when a verdict is added |
 |---|---|---|
-| `LlmVerdict.cs` | the CANONICAL statement, and the IntelliSense a consumer reads | the member, with its own doc |
+| `Lifecycle/ProviderVerdict.cs` | the CANONICAL statement, and the IntelliSense a consumer reads | the member, with its own doc |
 | `ILlmRouter.cs`'s XML doc | the contract a consumer reads — genuinely ENUMERATES all nine | add it to the enumeration |
 | design §5.1 + §6 | the frozen v0.1 record | a DATED amendment, never a rewrite (§5.1 already carries the "now nine members" note) |
 | `README.md` §The semantics you're getting | a consuming-story SUMMARY, deliberately not an enumeration — it names six of nine and omits `Unsupported`/`ContextWindowExceeded` on purpose | only if the new verdict changes what a consumer must DO; silence here is not drift |
 
-**A consumer can teach the classifier its own error phrasing** — `LlmVerdictClassifier.AddErrorTextMatcher(text
+**A consumer can teach the classifier its own error phrasing** — `ProviderVerdictClassifier.AddErrorTextMatcher(text
 => verdict?)` registers a process-wide matcher consulted BEFORE the built-in (English) patterns, first non-null
 wins, and returns an `IDisposable` so a test can scope its registration (an app registers once at startup and
-never disposes). It teaches BOTH domains at once, since `GenerationVerdictClassifier` delegates its corpus
-here. **A matcher MUST NOT throw.** Classification runs inside the router's own `catch`, so a throw propagates
+never disposes). It teaches every domain at once, there being one classifier. **A matcher MUST NOT throw.** Classification runs inside the router's own `catch`, so a throw propagates
 out of `ILlmClient.CompleteAsync`/`StreamAsync` and aborts the whole routing attempt — the remaining candidates
 included. That deliberately differs from `IRefusalMatcher` (below), whose seam logs a throwing matcher and
 fails open: the classifier is static and has no logger, so swallowing there would hide the bug rather than
@@ -80,9 +85,9 @@ Three properties of that split are load-bearing:
 - **Only ELIGIBILITY is decided there.** Which substantive failure wins is untouched and the two domains
   differ on purpose: this router keeps the LAST (`last = reply` each time), `GenerationRouter` keeps the FIRST
   (`firstFailure ??= result`) — the first backend's error explains a media run better than the last one's.
-- **`GenerationRouter` applies the same two verdicts** (`GenerationVerdict.NotConfigured or Unsupported`
-  excluded from `firstFailure`, falling through to a `NotConfigured` "every capable backend reported it is not
-  configured"). One answer per situation across both domains is the point; change one and check the other.
+- **It is ONE function since D136** — `ProviderVerdict.IsBlameless()` in `Lyntai.Lifecycle`, called by both
+  routers. Each carried a private copy whose docblock pointed at the other for parity, because the two domains
+  had separate verdict enums; that is precisely the cost a duplicated taxonomy imposes downstream.
 
 ## Routing recipes
 
@@ -91,7 +96,7 @@ Three properties of that split are load-bearing:
   candidate `ExemptSoleCandidate=true` (the default) even *retries* the cooled sole host. To surface the
   429 to the caller immediately with no cooldown/retry:
   ```csharp
-  builder.ConfigureRouting(p => p.On(LlmVerdict.RateLimited, FallbackAction.Surface));
+  builder.ConfigureRouting(p => p.On(ProviderVerdict.RateLimited, FallbackAction.Surface));
   ```
   `Surface` returns the reply as-is (no host penalty, no fallback), so the app sees `RateLimited` and can
   back off on its own schedule. (Leave `ExemptSoleCandidate` alone — it only matters for cooldown/advance

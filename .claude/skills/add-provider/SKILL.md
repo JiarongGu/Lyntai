@@ -64,7 +64,7 @@ the csproj.
       refuse — the footprint test above. `HttpModelProvider` lives there (managed
       `Microsoft.Extensions.Http` only); `Lyntai.Providers.LlamaSharp` earned its own package.
 - [ ] `MyProvider : IModelProvider` — `Id`, `IsAvailable`, `CompleteAsync`, `StreamAsync`.
-- [ ] Failures classified via `LlmVerdictClassifier` (429→RateLimited, 401/403→AuthFailed, filter→Refused,
+- [ ] Failures classified via `ProviderVerdictClassifier` (429→RateLimited, 401/403→AuthFailed, filter→Refused,
       too-big→ContextWindowExceeded, deadline→Timeout, else Failed). No local heuristics.
 - [ ] An HTTP backend classifies through the **three-argument** `FromHttpFailure(status, body,
       hasCredentials)` — copy `HttpModelProvider`. A 401/403 answered to a call that carried NO

@@ -45,7 +45,7 @@ public sealed class BudgetedGenerationRouter(
         IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
-            return GenerationResult.Failure(GenerationVerdict.Refused, reason);
+            return GenerationResult.Failure(ProviderVerdict.Refused, reason);
 
         var result = await inner.GenerateAsync(candidates, request, ct).ConfigureAwait(false);
         await RecordAsync(request.Consumer, result.Usage, ct).ConfigureAwait(false);
@@ -84,7 +84,7 @@ public sealed class BudgetedGenerationRouter(
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
         {
-            yield return GenerationChunk.Failure(GenerationVerdict.Refused, reason);
+            yield return GenerationChunk.Failure(ProviderVerdict.Refused, reason);
             yield break;
         }
 

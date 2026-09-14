@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Lyntai;
@@ -38,8 +39,8 @@ public class AgentDiagnosticsTests
         ActivitySource.AddActivityListener(listener);
 
         var client = new FakeLlmClient();
-        client.Replies.Enqueue(new LlmReply("""{"tool":"echo-tl","arguments":{}}""", LlmVerdict.Ok));
-        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok));
+        client.Replies.Enqueue(new LlmReply("""{"tool":"echo-tl","arguments":{}}""", ProviderVerdict.Ok));
+        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", ProviderVerdict.Ok));
         var tool = new FunctionTool("echo-tl", (a, _) => Task.FromResult($"observed:{a}"), "echoes");
         var loop = new ToolLoop(client, new ToolRegistry([tool]), new LyntaiOptions());
 
@@ -73,8 +74,8 @@ public class AgentDiagnosticsTests
         });
 
         var client = new FakeLlmClient();
-        client.Replies.Enqueue(new LlmReply("""{"tool":"boom-tl","arguments":{}}""", LlmVerdict.Ok));
-        client.Replies.Enqueue(new LlmReply("""{"final":"handled"}""", LlmVerdict.Ok));
+        client.Replies.Enqueue(new LlmReply("""{"tool":"boom-tl","arguments":{}}""", ProviderVerdict.Ok));
+        client.Replies.Enqueue(new LlmReply("""{"final":"handled"}""", ProviderVerdict.Ok));
         var tool = new FunctionTool("boom-tl", (_, _) => throw new InvalidOperationException("kaboom"));
         await new ToolLoop(client, new ToolRegistry([tool]), new LyntaiOptions())
             .RunAsync(new LlmRequest { Messages = [LlmMessage.User("go")] });

@@ -10,7 +10,7 @@ namespace Lyntai.Generation.Providers;
 /// and a background render with no cancel waits forever.</para>
 ///
 /// <para><b>The subtle part is telling the two clocks apart.</b> A fired deadline must surface as a
-/// <see cref="GenerationVerdict.Timeout"/> RESULT, because <see cref="IModelProvider"/> is contractually
+/// <see cref="ProviderVerdict.Timeout"/> RESULT, because <see cref="IModelProvider"/> is contractually
 /// fail-safe (a transport or backend failure is a verdict, never a throw), while the CALLER's cancellation must
 /// still propagate as an <see cref="OperationCanceledException"/>. Both arrive here as the same exception type,
 /// so the discriminator is the caller's own token: if <c>ct</c> is cancelled the caller asked to stop and the

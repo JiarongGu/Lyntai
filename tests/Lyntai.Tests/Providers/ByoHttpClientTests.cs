@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using Lyntai;
 using Lyntai.Llm;
@@ -36,8 +37,8 @@ public class ByoHttpClientTests
         var first = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("one")], Model = "gpt-x" });
         var second = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("two")], Model = "gpt-x" });
 
-        Assert.Equal(LlmVerdict.Ok, first.Verdict);
-        Assert.Equal(LlmVerdict.Ok, second.Verdict);      // client was NOT disposed after the first call
+        Assert.Equal(ProviderVerdict.Ok, first.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, second.Verdict);      // client was NOT disposed after the first call
         Assert.Equal(2, handler.Requests.Count);
         Assert.Equal("Bearer k", handler.Requests[1].Auth);
     }
@@ -59,7 +60,7 @@ public class ByoHttpClientTests
         // EITHER verdict proves the claim: DI resolved a real client and it TRIED. Pinning `Failed` alone
         // races the timeout — on a loaded machine the connect to a closed port can outlast the 5s budget,
         // and `Timeout` is then the correct answer. Only `Ok` would refute this test.
-        Assert.True(reply.Verdict is LlmVerdict.Failed or LlmVerdict.Timeout,
+        Assert.True(reply.Verdict is ProviderVerdict.Failed or ProviderVerdict.Timeout,
             $"expected a connection failure of some kind, got {reply.Verdict}");
     }
 }

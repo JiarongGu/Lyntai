@@ -25,11 +25,11 @@ public class LlmStructuredExtensionsTests
     public async Task Json_is_extracted_from_prose_and_fences()
     {
         var p = new FakeLlmProvider("p");
-        p.Replies.Enqueue(new LlmReply("Sure! Here you go:\n```json\n{\"ok\": true}\n```\nAnything else?", LlmVerdict.Ok));
+        p.Replies.Enqueue(new LlmReply("Sure! Here you go:\n```json\n{\"ok\": true}\n```\nAnything else?", ProviderVerdict.Ok));
 
         var reply = await Client(p).CompleteJsonAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("{\"ok\": true}", reply.Text); // Text IS the parseable object, prose stripped
     }
 
@@ -37,12 +37,12 @@ public class LlmStructuredExtensionsTests
     public async Task One_retry_on_unparseable_then_ok()
     {
         var p = new FakeLlmProvider("p");
-        p.Replies.Enqueue(new LlmReply("no json here at all", LlmVerdict.Ok));
-        p.Replies.Enqueue(new LlmReply("""{"second": "try"}""", LlmVerdict.Ok));
+        p.Replies.Enqueue(new LlmReply("no json here at all", ProviderVerdict.Ok));
+        p.Replies.Enqueue(new LlmReply("""{"second": "try"}""", ProviderVerdict.Ok));
 
         var reply = await Client(p).CompleteJsonAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Contains("second", reply.Text);
         Assert.Equal(2, p.Calls.Count);
     }
@@ -51,12 +51,12 @@ public class LlmStructuredExtensionsTests
     public async Task Unparseable_after_retry_is_failed()
     {
         var p = new FakeLlmProvider("p");
-        p.Replies.Enqueue(new LlmReply("still prose", LlmVerdict.Ok));
-        p.Replies.Enqueue(new LlmReply("{broken json", LlmVerdict.Ok));
+        p.Replies.Enqueue(new LlmReply("still prose", ProviderVerdict.Ok));
+        p.Replies.Enqueue(new LlmReply("{broken json", ProviderVerdict.Ok));
 
         var reply = await Client(p).CompleteJsonAsync(Req);
 
-        Assert.Equal(LlmVerdict.Failed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
         Assert.Equal(2, p.Calls.Count); // exactly one retry (design §6)
     }
 
@@ -66,8 +66,8 @@ public class LlmStructuredExtensionsTests
         // a deterministic provider re-sent the IDENTICAL request just repeats its prose — the retry
         // must feed back the bad reply + a JSON-only instruction so the second attempt can differ
         var p = new FakeLlmProvider("p");
-        p.Replies.Enqueue(new LlmReply("just prose, sorry", LlmVerdict.Ok));
-        p.Replies.Enqueue(new LlmReply("""{"ok":1}""", LlmVerdict.Ok));
+        p.Replies.Enqueue(new LlmReply("just prose, sorry", ProviderVerdict.Ok));
+        p.Replies.Enqueue(new LlmReply("""{"ok":1}""", ProviderVerdict.Ok));
 
         await Client(p).CompleteJsonAsync(Req);
 
@@ -82,11 +82,11 @@ public class LlmStructuredExtensionsTests
     public async Task Non_ok_verdicts_pass_through_without_retry()
     {
         var p = new FakeLlmProvider("p");
-        p.Replies.Enqueue(new LlmReply("", LlmVerdict.Refused, Detail: "policy"));
+        p.Replies.Enqueue(new LlmReply("", ProviderVerdict.Refused, Detail: "policy"));
 
         var reply = await Client(p).CompleteJsonAsync(Req);
 
-        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
         Assert.Single(p.Calls);
     }
 }

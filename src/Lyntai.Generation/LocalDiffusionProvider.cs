@@ -9,7 +9,7 @@ namespace Lyntai.Generation.Providers;
 public sealed class LocalDiffusionOptions
 {
     /// <summary>Path to the <c>sd-cli</c> executable. Absent → the backend reports
-    /// <see cref="GenerationVerdict.NotConfigured"/>.</summary>
+    /// <see cref="ProviderVerdict.NotConfigured"/>.</summary>
     public string? BinaryPath { get; set; }
 
     /// <summary>Path to the model weights (a GGUF/safetensors file the engine accepts).</summary>
@@ -212,12 +212,12 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     {
         if (options.BinaryPath is not { Length: > 0 } binary || !File.Exists(binary) ||
             options.ModelPath is not { Length: > 0 } model || !File.Exists(model))
-            return GenerationResult.Failure(GenerationVerdict.NotConfigured,
+            return GenerationResult.Failure(ProviderVerdict.NotConfigured,
                 "the local engine or its model is not present on disk");
 
         var source = request.Inputs.FirstOrDefault();
         if (source is not null && source.Data is not { Length: > 0 })
-            return GenerationResult.Failure(GenerationVerdict.Unsupported,
+            return GenerationResult.Failure(ProviderVerdict.Unsupported,
                 "the engine reads its source image from DISK; supply GenerationInput.Data rather than a URI");
 
         var work = Path.Combine(options.WorkDirectory ?? Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -252,11 +252,11 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                return GenerationResult.Failure(GenerationVerdict.Failed, $"spawn failed: {ex.Message}");
+                return GenerationResult.Failure(ProviderVerdict.Failed, $"spawn failed: {ex.Message}");
             }
 
             if (result.TimedOut)
-                return GenerationResult.Failure(GenerationVerdict.Timeout,
+                return GenerationResult.Failure(ProviderVerdict.Timeout,
                     result.TimeoutKind == ProcessTimeoutKind.MaxDuration
                         ? $"the render exceeded {maxDuration}"
                         : $"the engine went silent for {inactivity}");
@@ -264,7 +264,7 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
             if (!File.Exists(output))
             {
                 var stderr = Tail(result.StdErr);
-                return GenerationResult.Failure(GenerationVerdict.Failed,
+                return GenerationResult.Failure(ProviderVerdict.Failed,
                     result.ExitCode != 0
                         ? $"exit {result.ExitCode}: {stderr}"
                         : $"no image produced{(stderr.Length > 0 ? $": {stderr}" : "")}");
@@ -277,7 +277,7 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return GenerationResult.Failure(GenerationVerdict.Failed, ex.Message);
+            return GenerationResult.Failure(ProviderVerdict.Failed, ex.Message);
         }
         finally
         {

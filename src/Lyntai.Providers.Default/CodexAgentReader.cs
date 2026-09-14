@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text;
 using System.Text.Json;
 using Lyntai.Agents;
@@ -82,7 +83,7 @@ internal sealed class CodexAgentReader
                 case CodexEnvelope.TurnFailed:
                     var message = CodexEnvelope.FailureMessage(root);
                     yield return new SessionEnded(
-                        Verdict: LlmVerdictClassifier.FromErrorText(message),
+                        Verdict: ProviderVerdictClassifier.FromErrorText(message),
                         IsError: true,
                         Subtype: null,                 // codex reports no failure subtype
                         SessionId: _threadId,
@@ -111,7 +112,7 @@ internal sealed class CodexAgentReader
         }
 
         yield return new SessionEnded(
-            Verdict: LlmVerdict.Ok,
+            Verdict: ProviderVerdict.Ok,
             IsError: false,
             Subtype: null,
             SessionId: _threadId,

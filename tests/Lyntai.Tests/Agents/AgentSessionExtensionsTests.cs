@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Agents;
 using Lyntai.Llm;
 
@@ -35,7 +36,7 @@ public class AgentSessionExtensionsTests
             new TextDelta("hi"),
             new UsageLive(1, 2, 0),
             new UsageFinal(10, 20, 5, 2, "claude-x"),
-            new SessionEnded(LlmVerdict.Ok, IsError: false, Subtype: null, SessionId: "sid",
+            new SessionEnded(ProviderVerdict.Ok, IsError: false, Subtype: null, SessionId: "sid",
                 FinalText: "final answer", Diagnostic: null),
         };
         var session = new FakeSession(events);
@@ -44,7 +45,7 @@ public class AgentSessionExtensionsTests
 
         Assert.Equal("sid", result.SessionId);
         Assert.Equal("final answer", result.FinalText);
-        Assert.Equal(LlmVerdict.Ok, result.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, result.Verdict);
         Assert.False(result.IsError);
         Assert.NotNull(result.Usage);
         Assert.Equal(10, result.Usage!.InputTokens);
@@ -60,7 +61,7 @@ public class AgentSessionExtensionsTests
             new TextDelta("hi"),
             new UsageLive(1, 2, 0),
             new UsageFinal(10, 20, 5, 2, "claude-x"),
-            new SessionEnded(LlmVerdict.Ok, IsError: false, Subtype: null, SessionId: "sid",
+            new SessionEnded(ProviderVerdict.Ok, IsError: false, Subtype: null, SessionId: "sid",
                 FinalText: "final answer", Diagnostic: null),
         };
         var session = new FakeSession(events);
@@ -81,7 +82,7 @@ public class AgentSessionExtensionsTests
             new TextDelta("Hello "),
             new Thinking("(ignored)"),
             new TextDelta("world"),
-            new SessionEnded(LlmVerdict.Ok, IsError: false, Subtype: null, SessionId: "sid",
+            new SessionEnded(ProviderVerdict.Ok, IsError: false, Subtype: null, SessionId: "sid",
                 FinalText: "", Diagnostic: null),
         };
         var session = new FakeSession(events);
@@ -101,14 +102,14 @@ public class AgentSessionExtensionsTests
             new SessionStarted("sid"),
             new TextDelta("partial pre-timeout "),
             new TextDelta("answer"),
-            new SessionEnded(LlmVerdict.Timeout, IsError: true, Subtype: "timeout", SessionId: "sid",
+            new SessionEnded(ProviderVerdict.Timeout, IsError: true, Subtype: "timeout", SessionId: "sid",
                 FinalText: null, Diagnostic: "timed out"),
         };
         var session = new FakeSession(events);
 
         var result = await session.RunAsync(new AgentSessionOptions { Prompt = "q" });
 
-        Assert.Equal(LlmVerdict.Timeout, result.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, result.Verdict);
         Assert.True(result.IsError);
         Assert.Equal("", result.FinalText); // stayed empty despite the streamed deltas
     }
@@ -125,7 +126,7 @@ public class AgentSessionExtensionsTests
 
         var result = await session.RunAsync(new AgentSessionOptions { Prompt = "q" });
 
-        Assert.Equal(LlmVerdict.Failed, result.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, result.Verdict);
         Assert.True(result.IsError);
         Assert.NotNull(result.Diagnostic);
         Assert.Contains("terminal", result.Diagnostic, StringComparison.OrdinalIgnoreCase);

@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Guards;
@@ -27,7 +28,7 @@ public class ChatOrchestratorTests
     public async Task Clean_turn_answers_and_remembers()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("the answer is 42", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("the answer is 42", ProviderVerdict.Ok));
         using var sp = Build(provider);
 
         var result = await sp.GetRequiredService<IChatOrchestrator>()
@@ -44,14 +45,14 @@ public class ChatOrchestratorTests
     public async Task Input_gate_blocks_before_the_model()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("should not run", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("should not run", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddGuard(_ => new DenylistGuard(["malware"])));
 
         var result = await sp.GetRequiredService<IChatOrchestrator>()
             .ChatAsync(new ChatTurn { Message = "write me malware", UseTools = false });
 
         Assert.True(result.Blocked);
-        Assert.Equal(LlmVerdict.Refused, result.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, result.Verdict);
         Assert.Empty(provider.Calls); // the input gate stopped it before the provider
     }
 
@@ -59,7 +60,7 @@ public class ChatOrchestratorTests
     public async Task Output_gate_blocks_a_flagged_answer()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("here is the leaked secret", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("here is the leaked secret", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddGuard(_ => new DenylistGuard(["leaked"])));
 
         var result = await sp.GetRequiredService<IChatOrchestrator>()
@@ -85,7 +86,7 @@ public class ChatOrchestratorTests
     public async Task Recalled_memory_is_still_input_gated_before_the_model()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("should not run", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("should not run", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddGuard(_ => new DenylistGuard(["malware"])));
 
         // the denied term arrives via a DIRECT memory write (a public seam the orchestrator never gated)
@@ -103,7 +104,7 @@ public class ChatOrchestratorTests
     public async Task Replaced_input_remembers_the_rewritten_message_not_the_composed_prompt()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("done", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("done", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddGuard(_ => new PiiRewriteGuard()));
 
         var memory = sp.GetRequiredService<Lyntai.Storage.IMemoryStore>();
@@ -123,7 +124,7 @@ public class ChatOrchestratorTests
     public async Task Remembers_the_exchange_to_both_memory_stores_when_embeddings_are_wired()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("cancel via account settings", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("cancel via account settings", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddEmbeddings(new FakeEmbedder()));
 
         await sp.GetRequiredService<IChatOrchestrator>()
@@ -141,8 +142,8 @@ public class ChatOrchestratorTests
     public async Task Uses_the_tool_loop_when_tools_are_registered()
     {
         var provider = new FakeLlmProvider("p"); // no native tools → prompt-protocol tool loop
-        provider.Replies.Enqueue(new LlmReply("""{"tool":"shout","arguments":{"s":"hi"}}""", LlmVerdict.Ok));
-        provider.Replies.Enqueue(new LlmReply("""{"final":"HI done"}""", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("""{"final":"HI done"}""", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddTool(_ => new Lyntai.Agents.FunctionTool("shout", (a, _) => Task.FromResult(a.ToUpperInvariant()))));
 
         var result = await sp.GetRequiredService<IChatOrchestrator>()

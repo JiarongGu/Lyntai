@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Agents;
 using Lyntai.Llm;
 using Lyntai.Providers.ClaudeCli;
@@ -40,7 +41,7 @@ public class ClaudeAgentSessionTerminalTests
         var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
 
         var ended = Assert.Single(events.OfType<SessionEnded>());
-        Assert.Equal(LlmVerdict.Ok, ended.Verdict);   // the FIRST terminal wins
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);   // the FIRST terminal wins
         Assert.False(ended.IsError);
         Assert.Equal("Done", ended.FinalText);
     }
@@ -54,7 +55,7 @@ public class ClaudeAgentSessionTerminalTests
 
         var result = await Session(runner).RunAsync(Ask());
 
-        Assert.Equal(LlmVerdict.Ok, result.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, result.Verdict);
         Assert.False(result.IsError);
         Assert.Equal("Done", result.FinalText);
         Assert.Null(result.Subtype);                  // not "error_during_execution"
@@ -88,7 +89,7 @@ public class ClaudeAgentSessionTerminalTests
 
         var ended = Assert.Single(events.OfType<SessionEnded>());
         Assert.Equal("sess-1", ended.SessionId);
-        Assert.Equal(LlmVerdict.Ok, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
         Assert.Single(events.OfType<UsageFinal>());
     }
 }

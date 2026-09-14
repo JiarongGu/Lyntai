@@ -1313,7 +1313,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
 - **Committing a stream on an empty content chunk** — disables fallback for a zero-content first chunk. <!-- trap: sub=router shape=fail-open -->
   Gate the commit on `Text.Length > 0`.
 - **Hand-rolled verdict heuristics** in a provider — they drift. Always route through <!-- trap: sub=router shape=wrong-subject,second-door -->
-  `LlmVerdictClassifier`. And keep it conservative: a bare word like "unauthorized" or a "429" in a
+  `ProviderVerdictClassifier`. And keep it conservative: a bare word like "unauthorized" or a "429" in a
   stack frame must not trip a verdict that benches a healthy host.
 - **Empty provider output as `Ok`** — must be `Failed` (and a terminal `Error` chunk when streaming) so <!-- trap: sub=router shape=fail-open -->
   the router can fall over.
@@ -2560,7 +2560,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 - **Asserting a specific FAILURE MODE when the claim is only "it tried" makes a test race the clock.** <!-- trap: sub=tests shape=ordering -->
   Measured 2026-09-04: `ByoHttpClientTests.Default_path_still_creates_a_lyntai_client` points at a closed
-  local port and pinned `LlmVerdict.Failed`, whose own comment says it is proving *the client existed and
+  local port and pinned `ProviderVerdict.Failed`, whose own comment says it is proving *the client existed and
   tried*. Under load — a session that had been driving a local model server for an hour — the connect
   outlasted the 5 s `ProviderTimeout` and the verdict was `Timeout`: **a different correct answer, and a red
   `verify`.** It passed standalone immediately afterwards, which is what makes this class expensive to
@@ -2769,7 +2769,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   the two as the same.** Twice in two days (2026-08-17): `TASKS.md`'s then-`Startable` section (closed as
   `docs/task-archive.md` Part 87) recorded a divergence as
   "ComfyUI hardcodes `Failed` while `FalQueueProvider` routes the same class through
-  `GenerationVerdictClassifier`" — so fal was believed correct, and the item was filed as coverage work
+  `ProviderVerdictClassifier`" — so fal was believed correct, and the item was filed as coverage work
   rather than a bug fix. Measured with the first contract test that reached it: **fal reports `Failed` too**,
   because it classifies the failure TEXT and a `"401: …"` status line is not vocabulary `FromErrorText`
   matches on. The other was a `CHANGELOG.md` entry asserting "neither shipped curve sets anything beyond

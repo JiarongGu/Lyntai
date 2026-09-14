@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -6,7 +7,7 @@ namespace Lyntai.Llm;
 
 /// <summary>
 /// Front-door decorator that screens an otherwise-<c>Ok</c> completion for a refusal — surfacing it as
-/// <see cref="LlmVerdict.Refused"/> — via two layers: the request's optional
+/// <see cref="ProviderVerdict.Refused"/> — via two layers: the request's optional
 /// <see cref="LlmRequest.RefusalPattern"/> regex, then every registered <see cref="IRefusalMatcher"/> (the
 /// typed seam an app registers with <c>AddRefusalMatcher</c>). These are the caller-supplied refusal checks
 /// (e.g. an app's own per-language "I can't help" phrasing) layered on the central patterns. It sits OUTERMOST
@@ -27,7 +28,7 @@ public sealed class RefusalScreeningLlmClient(
     public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
         var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
-        if (reply.Verdict != LlmVerdict.Ok || string.IsNullOrEmpty(reply.Text))
+        if (reply.Verdict != ProviderVerdict.Ok || string.IsNullOrEmpty(reply.Text))
             return reply;
 
         if (!string.IsNullOrEmpty(req.RefusalPattern))
@@ -35,7 +36,7 @@ public sealed class RefusalScreeningLlmClient(
             try
             {
                 if (Regex.IsMatch(reply.Text, req.RefusalPattern, RegexOptions.IgnoreCase, MatchTimeout))
-                    return reply with { Verdict = LlmVerdict.Refused, Detail = "matched the request's refusal pattern" };
+                    return reply with { Verdict = ProviderVerdict.Refused, Detail = "matched the request's refusal pattern" };
             }
             catch (RegexParseException ex)
             {
@@ -52,7 +53,7 @@ public sealed class RefusalScreeningLlmClient(
             try
             {
                 if (matcher.IsRefusal(req, reply.Text))
-                    return reply with { Verdict = LlmVerdict.Refused, Detail = $"flagged by {matcher.GetType().Name}" };
+                    return reply with { Verdict = ProviderVerdict.Refused, Detail = $"flagged by {matcher.GetType().Name}" };
             }
             catch (Exception ex)
             {

@@ -972,7 +972,7 @@ public sealed class MyRouter : IGenerationRouter
     {
         await Task.CompletedTask;
         yield return GenerationChunk.Failure(
-            GenerationVerdict.Unsupported, "this router does not serve streaming delivery");
+            ProviderVerdict.Unsupported, "this router does not serve streaming delivery");
     }
 }
 ```

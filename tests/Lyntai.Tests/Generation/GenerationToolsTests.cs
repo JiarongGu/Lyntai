@@ -167,7 +167,7 @@ public class GenerationToolsTests
     public async Task Generate_surfaces_a_refusal_verdict_instead_of_a_bare_failure()
     {
         var refusing = new FakeGenerationProvider { Id = "image" };
-        refusing.Verdicts.Enqueue(GenerationVerdict.Refused);
+        refusing.Verdicts.Enqueue(ProviderVerdict.Refused);
         using var sp = Host(null, refusing);
 
         var observation = Json(await Tool(sp, "generate").InvokeAsync("""{"prompt":"x"}"""));
@@ -228,7 +228,7 @@ public class GenerationToolsTests
     public async Task A_model_can_name_the_backends_it_wants_in_preference_order()
     {
         var first = new FakeGenerationProvider { Id = "a" };
-        first.Verdicts.Enqueue(GenerationVerdict.Failed);
+        first.Verdicts.Enqueue(ProviderVerdict.Failed);
         var second = new FakeGenerationProvider { Id = "b" };
         using var sp = Host(null, first, second);
 

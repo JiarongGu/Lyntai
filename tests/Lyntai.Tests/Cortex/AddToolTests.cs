@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Llm;
@@ -25,8 +26,8 @@ public class AddToolTests
     public async Task AddTool_registers_tools_the_loop_can_call_end_to_end()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("""{"tool":"shout","arguments":{"s":"hi"}}""", LlmVerdict.Ok));
-        provider.Replies.Enqueue(new LlmReply("""{"final":"HI"}""", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("""{"final":"HI"}""", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b

@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Diagnostics.Metrics;
 using Lyntai;
 using Lyntai.Diagnostics;
@@ -151,7 +152,7 @@ public class RateLimitTests
     public async Task Over_the_rate_the_decorator_refuses_without_calling_the_provider()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("first", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("first", ProviderVerdict.Ok));
         // fixed clock → no refill between the two calls, MaxWait 0 → the 2nd refuses immediately
         var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.Zero; });
         var client = new RateLimitedLlmClient(inner, limiter);
@@ -160,7 +161,7 @@ public class RateLimitTests
         var second = await client.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("b")] });
 
         Assert.Equal("first", first.Text);
-        Assert.Equal(LlmVerdict.RateLimited, second.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, second.Verdict);
         Assert.Single(inner.Calls); // the refused call never reached the provider
     }
 
@@ -177,7 +178,7 @@ public class RateLimitTests
 
         var only = Assert.Single(chunks);
         Assert.Equal(LlmChunkKind.Error, only.Kind);
-        Assert.Equal(LlmVerdict.RateLimited, only.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, only.Verdict);
     }
 
     // The COUNT is why both doors build their refusal through the same helper: a hand-rolled chunk on the
@@ -255,9 +256,9 @@ public class RateLimitTests
         var client = sp.GetRequiredService<ILlmClient>();
         var req = new LlmRequest { Messages = [LlmMessage.User("q")] };
 
-        Assert.Equal(LlmVerdict.Ok, (await client.CompleteAsync(req)).Verdict);          // burst 2 → 1 left
-        Assert.Equal(LlmVerdict.Ok, (await client.CompleteAsync(req)).Verdict);          // 1 → 0 (only if single limiter)
-        Assert.Equal(LlmVerdict.RateLimited, (await client.CompleteAsync(req)).Verdict); // now exhausted
+        Assert.Equal(ProviderVerdict.Ok, (await client.CompleteAsync(req)).Verdict);          // burst 2 → 1 left
+        Assert.Equal(ProviderVerdict.Ok, (await client.CompleteAsync(req)).Verdict);          // 1 → 0 (only if single limiter)
+        Assert.Equal(ProviderVerdict.RateLimited, (await client.CompleteAsync(req)).Verdict); // now exhausted
     }
 
     [Fact]
@@ -301,7 +302,7 @@ public class RateLimitTests
         var client = sp.GetRequiredService<ILlmClient>(); // resolution folds the decorators → warning fires here
         var reply = await client.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("q")] });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict); // still serves (a no-op passthrough, not a hard failure)
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict); // still serves (a no-op passthrough, not a hard failure)
         Assert.Contains(logs, l => l.Contains("no effective limit", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -342,7 +343,7 @@ public class RateLimitTests
     public async Task A_cached_hit_does_not_spend_a_rate_limit_permit()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("answer", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("answer", ProviderVerdict.Ok));
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => provider)
@@ -358,7 +359,7 @@ public class RateLimitTests
 
         Assert.Equal("answer", a1.Text);
         Assert.Equal("answer", a2.Text);                    // served from cache
-        Assert.Equal(LlmVerdict.RateLimited, b.Verdict);    // the only real-call budget went to 'a'
+        Assert.Equal(ProviderVerdict.RateLimited, b.Verdict);    // the only real-call budget went to 'a'
         Assert.Single(provider.Calls);                       // exactly one provider call across all three
     }
 }

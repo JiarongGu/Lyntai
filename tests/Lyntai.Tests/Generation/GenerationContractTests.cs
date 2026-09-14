@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Generation;
 
 namespace Lyntai.Tests.Generation;
@@ -31,11 +32,11 @@ public class GenerationContractTests
     [Fact]
     public void A_failed_result_is_not_ok_and_carries_no_artifacts()
     {
-        var result = GenerationResult.Failure(GenerationVerdict.NotConfigured, "no endpoint configured");
+        var result = GenerationResult.Failure(ProviderVerdict.NotConfigured, "no endpoint configured");
 
         Assert.False(result.IsOk);
         Assert.Empty(result.Artifacts);
-        Assert.Equal(GenerationVerdict.NotConfigured, result.Verdict);
+        Assert.Equal(ProviderVerdict.NotConfigured, result.Verdict);
         Assert.Contains("no endpoint", result.Detail);
     }
 

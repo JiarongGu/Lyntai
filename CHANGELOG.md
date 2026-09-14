@@ -22,6 +22,16 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **One verdict taxonomy for every domain** (**D136**). `LlmVerdict` and `GenerationVerdict` become <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `Lyntai.Lifecycle.ProviderVerdict`; `LlmVerdictClassifier` and `GenerationVerdictClassifier` become <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `ProviderVerdictClassifier`, and the 101-line translation layer between the two enums is deleted.
+  `LlmVerdictExtensions` becomes `ProviderVerdictExtensions` and gains `IsBlameless()`, which both routers <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  now share. **What a verdict MEANS is shared; what a router DOES about it is still per-domain policy** —
+  the two action tables and the last-vs-first failure rule are untouched.
+  <br>**One visible behaviour change:** a media backend reporting an oversized prompt now yields
+  `ContextWindowExceeded` rather than a translated `Unsupported`, and it is substantive rather than
+  blameless. It still advances without a dead-host penalty, now via an explicit policy entry.
+
 - **The HTTP backend is named for the transport, not for OpenAI** (**D135**). `AddOpenAiCompatible` → <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
   `AddHttpProvider`, `OpenAiCompatibleProvider` → `HttpModelProvider`, `OpenAiCompatibleOptions` → <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
   `HttpModelOptions`, `OpenAiFlavor` → `HttpDialect` (and the `Flavor` property → `Dialect`), in the new <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
@@ -1384,7 +1394,7 @@ this section is. (Storage and migration breaks remain major-bump material, uncon
   an unclassifiable one behaves exactly as before. **The one delta that can stop a fallback you were getting:**
   a rejection classifying as `Refused` (a content-policy body) now *surfaces* instead of being re-submitted to
   the next queue — matching the inline path. Restore the old behaviour with
-  `policy.On(GenerationVerdict.Refused, GenerationFallbackAction.Advance)`.
+  `policy.On(ProviderVerdict.Refused, GenerationFallbackAction.Advance)`.
 - **A failed submission now names the backend's reason.** The message keeps its `no capable media backend
   accepted a 'video' job among [...]` prefix (substring checks still hold) and gains
   `— 'fal' said: <the backend's own words>`. `GenerationSubmission.ProviderId` is deliberately still empty on
@@ -1456,7 +1466,7 @@ Same the deferred-SemVer-strictness rule disclosure rule: each names what a call
   wins** — that guard is untouched. Affects anyone switching on the router's verdict or displaying its detail,
   notably the generation agent tools and the durable-render job's failure message.
 - **`ContextWindowExceeded` from a media backend no longer benches it.** It now translates to
-  `GenerationVerdict.Unsupported` (Advance) rather than `Failed` (PenalizeAndAdvance), so a few oversized
+  `ProviderVerdict.Unsupported` (Advance) rather than `Failed` (PenalizeAndAdvance), so a few oversized
   prompts in a row stop counting toward the dead-host threshold and stop routing unrelated later requests
   away from a perfectly healthy backend. Nothing is lost from the report: "your prompt is too long" is still
   the run's stated reason, now carried by the blameless slot above. **These two are one change in two halves**
@@ -1478,9 +1488,9 @@ Same the deferred-SemVer-strictness rule disclosure rule: each names what a call
 
 ### Added — small surface, from the same pass (2026-08-05)
 
-- **`Lyntai.Llm.LlmVerdictException`** — carries the `LlmVerdict` on the seams that must throw rather than
+- **`Lyntai.Llm.LlmVerdictException`** — carries the `ProviderVerdict` on the seams that must throw rather than
   return an `LlmReply`. It lives in Core beside the taxonomy it carries, not in the bridge that first needed
-  it, so the next seam that has to throw does not mint a second near-identical type. `LlmVerdict.NotConfigured`
+  it, so the next seam that has to throw does not mint a second near-identical type. `ProviderVerdict.NotConfigured`
   exists so a host can offer *setup* instead of reporting an error; through the `Microsoft.Extensions.AI`
   bridge that was previously recoverable only by string-parsing an exception message.
 
@@ -1508,8 +1518,8 @@ No API changed. These were all sentences a consumer or a maintainer would have a
 - **Sibling application names are gone from the shipped XML docs** — `IPromptComposer` described "the Sonora
   pattern", and two other types named siblings, all of which shipped in the NuGet `.xml` and appeared in
   consumer IntelliSense. Each now states the pattern instead of naming a stranger's app.
-- **`LlmVerdict.Unsupported` appears in the taxonomy lists a consumer reads.** It surfaces with no fallback
-  and no host penalty, and was missing from `ILlmRouter`'s summary, `LlmVerdict`'s own list, and the internal
+- **`ProviderVerdict.Unsupported` appears in the taxonomy lists a consumer reads.** It surfaces with no fallback
+  and no host penalty, and was missing from `ILlmRouter`'s summary, `ProviderVerdict`'s own list, and the internal
   routing table that is meant to be kept in sync with them.
 - **The cross-backend memory-recall guarantee is stated correctly.** `IMemoryStore.RecallAsync` and
   `ICuratedMemoryStore.SearchAsync` asserted a guarantee their own next sentence contradicted; it holds for a
@@ -1555,7 +1565,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   as reliable**, and switch on `ToolCall.Name`. Not
   emitted, because codex has no analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`, and
   token-level text deltas (a `TextDelta` is one whole assistant message). `ResumeToken` is **refused** with
-  `LlmVerdict.Unsupported` and no spawn rather than guessed — `codex [OPTIONS] [PROMPT]` reads an unrecognized
+  `ProviderVerdict.Unsupported` and no spawn rather than guessed — `codex [OPTIONS] [PROMPT]` reads an unrecognized
   subcommand as a prompt, so a wrong guess would silently spend a turn; `DisallowedTools` is logged as
   unhonoured (codex's gate is the sandbox); `SystemPrompt` travels as a leading block of the prompt.
   Internally both codex paths now build argv from one source, so `--skip-git-repo-check` — the flag whose
@@ -1605,11 +1615,11 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   implemented `Id` *explicitly* (`string IModelProvider.Id => …`) must now also implement
   `IProviderIdentity.Id`; implicit implementation is unaffected.
 - **Call-site verdict predicates — `verdict.IsOk()` and `verdict.IsTransient()`** (`LlmVerdictExtensions`).
-  They hang off `LlmVerdict` itself, not off `LlmReply`, so the five released types that carry a verdict
+  They hang off `ProviderVerdict` itself, not off `LlmReply`, so the five released types that carry a verdict
   (`LlmReply`, `LlmChunk`, `SessionEnded`, `AgentSessionResult`, `ToolLoopResult`) share one definition.
   Deliberately **categories, not one method per member**: the enum grows (`NotConfigured` was appended after
   the 1.0 freeze), so an `IsRateLimited`/`IsRefused`/… set would make every future verdict a public-surface
-  addition and leave the newest one as the only member without a helper — while `verdict == LlmVerdict.RateLimited`
+  addition and leave the newest one as the only member without a helper — while `verdict == ProviderVerdict.RateLimited`
   already expresses a single member perfectly. `IsTransient()` answers "may the SAME request succeed later?"
   — true for `Failed`/`Timeout`/`RateLimited`, false for everything terminal as sent (and for an unknown
   value, so an unrecognized verdict can never provoke a retry loop). **Known over-report, documented on the
@@ -1655,30 +1665,30 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   `docs/DECISIONS.md` — the named semantic-memory registration.
 
 ### Fixed
-- **A capability gap no longer benches a healthy media backend.** `GenerationVerdictClassifier` translated
-  `LlmVerdict.Unsupported` — "this backend cannot do THIS request" — into `GenerationVerdict.Failed`, even
-  though `GenerationVerdict.Unsupported` exists and means the same thing. Since `GenerationRoutingPolicy` maps
+- **A capability gap no longer benches a healthy media backend.** `ProviderVerdictClassifier` translated
+  `ProviderVerdict.Unsupported` — "this backend cannot do THIS request" — into `ProviderVerdict.Failed`, even
+  though `ProviderVerdict.Unsupported` exists and means the same thing. Since `GenerationRoutingPolicy` maps
   `Failed` to `PenalizeAndAdvance` and `Unsupported` to `Advance`, a capability gap counted toward the
   dead-host threshold, and a few of them in a row put a perfectly healthy backend on cooldown. **Who is
   affected:** anyone whose media backend reports a capability gap through the shared corpus — a
-  consumer-registered `LlmVerdictClassifier.AddErrorTextMatcher` returning `Unsupported`, or an exception that
-  classifies into it. **What you observe:** such a result now carries `GenerationVerdict.Unsupported` instead
-  of `GenerationVerdict.Failed`, so routing advances without blame — and, consistently with every other
+  consumer-registered `ProviderVerdictClassifier.AddErrorTextMatcher` returning `Unsupported`, or an exception that
+  classifies into it. **What you observe:** such a result now carries `ProviderVerdict.Unsupported` instead
+  of `ProviderVerdict.Failed`, so routing advances without blame — and, consistently with every other
   blameless verdict, `GenerationRouter` no longer reports it as the run's failure reason when a real failure
-  also occurred. A `switch` on `GenerationVerdict.Failed` that was catching these needs an `Unsupported` arm.
+  also occurred. A `switch` on `ProviderVerdict.Failed` that was catching these needs an `Unsupported` arm.
   **Read this before choosing the version to release it in.** This is a `Lyntai.Core` type, so it carries the
   full SemVer promise rather than the `Lyntai.Generation` experimental carve-out — and it is precisely the shape
   `docs/DECISIONS.md` — the deferred-SemVer-strictness rule declines to license in a minor: *"Does NOT: silent behavior changes … or anything
   a consumer can't detect at compile time. Those stay major-bump material regardless."* No API member changed,
-  so nothing here breaks a build; a consumer's `switch` on `GenerationVerdict.Failed` keeps compiling and simply
+  so nothing here breaks a build; a consumer's `switch` on `ProviderVerdict.Failed` keeps compiling and simply
   stops matching these results. **Treat it as major-bump material** — it is recorded under `## Unreleased`,
   which fixes no version, so whoever cuts the release makes that call deliberately.
-  `LlmVerdict.ContextWindowExceeded` still collapses to `Failed`, now deliberately and with its reason written
+  `ProviderVerdict.ContextWindowExceeded` still collapses to `Failed`, now deliberately and with its reason written
   down — **at a stated price**: `Failed` means `PenalizeAndAdvance`, so repeated oversized prompts can still
   bench a healthy backend, and the LLM domain maps that verdict to `Advance`, so the two now disagree about it.
   Keeping it reportable was judged worth that, because the alternative silently loses "your prompt is too long"
   — the one message a caller can act on. The remedy needs a router change and is filed as `TASKS.md` Part 40.
-  The catch-all that hid all this is gone: every `LlmVerdict` member has its own arm, and a test fails until a
+  The catch-all that hid all this is gone: every `ProviderVerdict` member has its own arm, and a test fails until a
   newly added one has both a translation and an arm. See `docs/DECISIONS.md` — the one-arm-per-verdict translation rule.
 - **The HTTP generation backends now have the per-call deadline their infinite `HttpClient` timeout was already
   resting on** (`TASKS.md` GEN11). 2.1.0's `Add*` shims register a client with `Timeout.InfiniteTimeSpan`
@@ -1689,7 +1699,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   `Automatic1111Options`, `ComfyUiOptions` and `FalQueueOptions` now carries a **`Timeout`** — 10 minutes for the
   inline render backends, 2 minutes for the queue ones — overridden per call by `GenerationRequest.TimeoutSeconds`
   where a request exists, and opted out of with `Timeout.InfiniteTimeSpan`. A fired deadline is a
-  **`GenerationVerdict.Timeout` result, not a throw** (these backends are contractually fail-safe), while the
+  **`ProviderVerdict.Timeout` result, not a throw** (these backends are contractually fail-safe), while the
   caller's own cancellation still propagates as `OperationCanceledException` — the two are told apart by the
   caller's token, the same discriminator `HttpModelProvider` uses on the LLM side. A BYO client's own
   `HttpClient.Timeout` now also surfaces as that verdict instead of escaping as `TaskCanceledException`.
@@ -1762,9 +1772,9 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   when there is something to evict. LRU overflow eviction likewise finds its victim by a linear minimum scan
   rather than sorting every entry to take one of them. Behaviour — including which entry is evicted — is
   identical.
-- **An unconfigured LLM backend is skipped, not benched — `LlmVerdict.NotConfigured`.** When an
+- **An unconfigured LLM backend is skipped, not benched — `ProviderVerdict.NotConfigured`.** When an
   OpenAI-compatible endpoint answers 401/403 to a call that carried **no** credentials,
-  `HttpModelProvider` now reports the new `LlmVerdict.NotConfigured` instead of `AuthFailed`, and the
+  `HttpModelProvider` now reports the new `ProviderVerdict.NotConfigured` instead of `AuthFailed`, and the
   default `RoutingPolicy` maps it to `FallbackAction.Advance`. **What you observe:** a candidate you listed
   but never configured is skipped with no cooldown and no dead-host penalty, where it previously benched that
   provider for the whole cooldown window on every first attempt; when everything is unconfigured, the
@@ -1773,12 +1783,12 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   It is deliberately not "a key is required": a locally-run OpenAI-compatible server (LM Studio, vLLM,
   Ollama) legitimately needs none, so only the server *demanding* one makes a missing key a configuration
   gap. This closes the asymmetry with the generation domain, which already drew the same distinction
-  (`GenerationVerdict.NotConfigured`, 2.0.1); both domains now answer the same situation the same way.
-  Also exposed as `LlmVerdictClassifier.FromHttpFailure(status, body, hasCredentials)` for a custom provider,
-  and `GenerationVerdictClassifier` no longer flattens a `NotConfigured` from the shared corpus to `Failed`.
-  - **If you switch on `LlmVerdict`:** the enum gained a member (appended last, so existing members keep
+  (`ProviderVerdict.NotConfigured`, 2.0.1); both domains now answer the same situation the same way.
+  Also exposed as `ProviderVerdictClassifier.FromHttpFailure(status, body, hasCredentials)` for a custom provider,
+  and `ProviderVerdictClassifier` no longer flattens a `NotConfigured` from the shared corpus to `Failed`.
+  - **If you switch on `ProviderVerdict`:** the enum gained a member (appended last, so existing members keep
     their numeric values — binary-compatible, and a compiled consumer keeps working). A **non-exhaustive
-    `switch` expression** over `LlmVerdict` will now raise **CS8509** in your build — a warning, not an
+    `switch` expression** over `ProviderVerdict` will now raise **CS8509** in your build — a warning, not an
     error. Code that treated the old `AuthFailed` as "check your API key" should handle `NotConfigured` as
     "no API key is set" rather than falling into its default branch.
   - **A blameless verdict no longer masks a real failure in the reported reply.** Introducing a verdict that
@@ -1929,7 +1939,7 @@ because the restructure was designed around keeping namespaces fixed.
   `ApiKey`, so with no key it made a live call, got a 401 and reported `AuthFailed`, which (with the new GEN5
   cooldown) benched the backend for the cooldown window on every first attempt. It now reports `NotConfigured` —
   routing skips the candidate blamelessly and a host can offer setup. The distinction lives in Core as
-  `GenerationVerdictClassifier.FromHttpFailure(status, body, hasCredentials)`: an auth failure with nothing to
+  `ProviderVerdictClassifier.FromHttpFailure(status, body, hasCredentials)`: an auth failure with nothing to
   authenticate WITH is a configuration gap, while a REJECTED key stays `AuthFailed`. It is not simply "require a
   key", because an OpenAI-compatible endpoint run locally (LM Studio, vLLM, Ollama) legitimately has none — only
   the server *demanding* one makes a missing key a config problem.
@@ -2033,8 +2043,8 @@ because the restructure was designed around keeping namespaces fixed.
   cannot serve a request, and that is a skip rather than a failure. Every backend answers "are you usable?"
   via `ProbeAsync` **without generating anything**, replacing the generate-and-discard test that pattern
   otherwise requires. Chaining is first-class (`artifact.ToInput(role)` → 3d → image → video). Media keeps its
-  own `GenerationVerdict` vocabulary but **shares the failure corpus** (`GenerationVerdictClassifier` delegates to
-  `LlmVerdictClassifier`), so there is one definition of what a 429 or a content refusal means. Lyntai
+  own `ProviderVerdict` vocabulary but **shares the failure corpus** (`ProviderVerdictClassifier` delegates to
+  `ProviderVerdictClassifier`), so there is one definition of what a 429 or a content refusal means. Lyntai
   generates nothing itself: no inference, no engine/weights provisioning, no webhook host, no artifact storage
   (`docs/DECISIONS.md` — the backend self-maintenance boundary, the generation-as-its-own-platform decision). The LLM stack gains **zero** dependency on media — the bridge is `ITool`/MCP.
   Async-video/`Jobs` composition, governance parity, the tool bridge and pipelines follow in
@@ -2128,7 +2138,7 @@ the claude CLI is the first implementer, not the shape.
   backend, so adding one is a **dialect class plus a forwarding provider**, not a second copy of the rules.
   The engine owns everything that isn't backend-specific: command resolution (explicit override → the
   dialect's env vars → its default exe), spawn hygiene (no shell, neutral cwd, Windows launcher shims),
-  timeouts as an inactivity clock with an absolute backstop, `LlmVerdictClassifier` verdicts, empty output as
+  timeouts as an inactivity clock with an absolute backstop, `ProviderVerdictClassifier` verdicts, empty output as
   `Failed`, streaming order (content chunks then exactly one `Final`/`Error`), and probe → run → re-probe
   self-maintenance. A dialect supplies the vocabulary: argv, prompt delivery (stdin **or** a trailing
   argument), line parsing, and only those maintenance commands the backend verifiably has —
@@ -2425,7 +2435,7 @@ pass's own diff). No new migration. **Breaking changes below (pre-1.0 minor-bump
 
 ### Changed / Fixed — foundation-hardening pass
 **Correctness (behavior fixes):**
-- **Router:** thrown provider errors now classify through `LlmVerdictClassifier` (a thrown 429 cools the
+- **Router:** thrown provider errors now classify through `ProviderVerdictClassifier` (a thrown 429 cools the
   host instead of hammering it); an EMPTY provider stream (zero chunks, or Final with no content) is a
   failure that falls over / ends with a terminal Error chunk — never a silent end.
 - **Rate limiter:** per-consumer buckets are case-insensitive like their options map ("Chat"/"chat" no
@@ -2756,7 +2766,7 @@ toggles) + Part 10 (actor/mailbox durable jobs).
   decorators — instead of pre-registering a whole `ILlmClient` (which trips the governance guard). The
   built-in fold orders are exposed as public consts (`RateLimitDecoratorOrder`=5, `BudgetDecoratorOrder`=10,
   `CacheDecoratorOrder`=20) so a custom decorator can position relative to them.
-- **`LlmVerdict.Unsupported` (Part 8 · R9)** — a distinct verdict for a capability/transport gap (e.g. a
+- **`ProviderVerdict.Unsupported` (Part 8 · R9)** — a distinct verdict for a capability/transport gap (e.g. a
   native tool call that streaming can't carry — use `CompleteAsync`), previously overloaded onto `Refused`.
   It surfaces like `Refused` (no fallback/cooldown — another candidate has the same limitation; mapped to
   `FallbackAction.Surface` in the default `RoutingPolicy`), but is distinct so telemetry/scorers don't
@@ -2791,10 +2801,10 @@ toggles) + Part 10 (actor/mailbox durable jobs).
   this closes the same window for the longer-lived DEK). It now `CryptographicOperations.ZeroMemory`s the
   DEK at the single `BuildInner` choke point every unwrap path funnels through.
 - **Verdict classifier: extensible + reaches `ContextWindowExceeded` on typed exceptions (Part 8 · R8)** —
-  `LlmVerdictClassifier.FromException` now scans the full inner-exception chain, so a typed provider
+  `ProviderVerdictClassifier.FromException` now scans the full inner-exception chain, so a typed provider
   exception (e.g. an MEAI "prompt too long") that wraps the real detail in an inner exception classifies as
   `ContextWindowExceeded` (was flattened to `Failed`, defeating the big-context fallback). Added a
-  consumer-extensibility seam `AddErrorTextMatcher(Func<string, LlmVerdict?>)` (returns a disposable
+  consumer-extensibility seam `AddErrorTextMatcher(Func<string, ProviderVerdict?>)` (returns a disposable
   registration) consulted before the built-in English patterns — so an app can teach the classifier a
   non-English provider's phrasing or a bespoke error code without editing Core.
 - **SQLite memory dedup is now atomic (Part 8 · R6)** — `SqliteMemoryStore.RememberAsync` did
@@ -3690,7 +3700,7 @@ adversarial reviewers over the router, providers, storage, and cortex) — findi
 - **`CompleteJsonAsync`'s retry now differs from the first attempt** (feeds back the bad reply + a
   JSON-only instruction) instead of re-sending the identical request.
 - **`AddLyntai` throws on a second call** instead of shadowing `LyntaiOptions` + duplicating providers.
-- **`LlmVerdictClassifier` no longer treats a bare "unauthorized" as `AuthFailed`** (which cools the
+- **`ProviderVerdictClassifier` no longer treats a bare "unauthorized" as `AuthFailed`** (which cools the
   host) — it needs auth context, mirroring the 429 guard.
 - **`MigrationRunnerService`** builds its connection string via `SqliteConnectionStringBuilder` (was raw
   interpolation) and sets WAL + `busy_timeout` before migrating.
@@ -3711,10 +3721,10 @@ Production-hardening release: everything surfaced by the multi-agent code review
   `Microsoft.Extensions.AI.IChatClient`.
 - **`CompleteJsonAsync`** — structured output per design §6: schema-constrained call, tolerant JSON
   extraction from prose/fences, one retry, else `Failed`. `LlmScorerBase` now builds on it.
-- **`LlmVerdictClassifier`** — the one shared failure classifier (typed HTTP status first, then
+- **`ProviderVerdictClassifier`** — the one shared failure classifier (typed HTTP status first, then
   conservative text heuristics); replaces three drifting per-adapter copies.
-- **`LlmVerdict.ContextWindowExceeded`** (advance without penalizing the host — the remedy is a
-  larger-context candidate) and **`LlmVerdict.AuthFailed`** (immediate host cooldown + advance).
+- **`ProviderVerdict.ContextWindowExceeded`** (advance without penalizing the host — the remedy is a
+  larger-context candidate) and **`ProviderVerdict.AuthFailed`** (immediate host cooldown + advance).
 - **OpenTelemetry GenAI telemetry** — `ActivitySource`/`Meter` "Lyntai.Llm": `chat {model}` client
   spans with `gen_ai.*` attributes, `gen_ai.client.operation.duration`, `gen_ai.client.token.usage`,
   and `gen_ai.client.operation.time_to_first_chunk` (the streaming fallback point of no return).

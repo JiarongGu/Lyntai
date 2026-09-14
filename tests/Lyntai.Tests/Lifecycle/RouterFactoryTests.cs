@@ -67,7 +67,7 @@ public class RouterFactoryTests
         var factory = Factory(pool, tracker);
 
         var failing = new FakeGenerationProvider { Id = "a1111" };
-        failing.Verdicts.Enqueue(GenerationVerdict.Failed);
+        failing.Verdicts.Enqueue(ProviderVerdict.Failed);
 
         for (var i = 0; i < 2; i++)
         {
@@ -87,7 +87,7 @@ public class RouterFactoryTests
         var factory = Factory(pool, tracker);
 
         var failing = new FakeGenerationProvider { Id = "a1111" };
-        failing.Verdicts.Enqueue(GenerationVerdict.RateLimited);
+        failing.Verdicts.Enqueue(ProviderVerdict.RateLimited);
 
         var router = factory.For([new ProviderRegistration<IModelProvider>(Key("cfg-a"), () => failing)]);
         await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
@@ -105,7 +105,7 @@ public class RouterFactoryTests
         var factory = Factory(pool, tracker);
 
         var failing = new FakeGenerationProvider { Id = "a1111" };
-        failing.Verdicts.Enqueue(GenerationVerdict.RateLimited);
+        failing.Verdicts.Enqueue(ProviderVerdict.RateLimited);
 
         var router = factory.For([(IModelProvider)failing]);
         await router.GenerateAsync([new ProviderCandidate("a1111")], Request());
@@ -246,7 +246,7 @@ public class RouterFactoryTests
         var second = await router.GenerateAsync([new ProviderCandidate("hosted")], Request());
 
         Assert.True(first.IsOk);                                     // spent the only permit, and 5.0
-        Assert.Equal(GenerationVerdict.Refused, second.Verdict);     // NOT RateLimited — the budget refused first
+        Assert.Equal(ProviderVerdict.Refused, second.Verdict);     // NOT RateLimited — the budget refused first
         Assert.Contains("cost budget", second.Detail);
         Assert.Equal(1, backend.GenerateCalls);
     }
@@ -286,7 +286,7 @@ public class RouterFactoryTests
         var key = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("nope", LlmVerdict.RateLimited));
+        provider.Replies.Enqueue(new LlmReply("nope", ProviderVerdict.RateLimited));
 
         var router = LlmFactory(pool, tracker)
             .For([new ProviderRegistration<IModelProvider>(key, () => provider)]);
@@ -304,7 +304,7 @@ public class RouterFactoryTests
         var tracker = new DeadHostTracker(threshold: 1);
 
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("nope", LlmVerdict.RateLimited));
+        provider.Replies.Enqueue(new LlmReply("nope", ProviderVerdict.RateLimited));
 
         var router = LlmFactory(pool, tracker).For([(IModelProvider)provider]);
         await router.CompleteAsync([new ProviderCandidate("openai")], Prompt());

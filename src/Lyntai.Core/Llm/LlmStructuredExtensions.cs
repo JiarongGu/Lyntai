@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Text;
 
 namespace Lyntai.Llm;
@@ -21,14 +22,14 @@ public static class LlmStructuredExtensions
         for (var attempt = 0; ; attempt++)
         {
             var reply = await client.CompleteAsync(current, ct).ConfigureAwait(false);
-            if (reply.Verdict != LlmVerdict.Ok) return reply;
+            if (reply.Verdict != ProviderVerdict.Ok) return reply;
 
             var json = JsonExtract.ExtractObject(reply.Text);
             if (JsonExtract.IsValid(json))
                 return reply with { Text = json! };
 
             if (attempt > 0)
-                return new LlmReply("", LlmVerdict.Failed, reply.Usage,
+                return new LlmReply("", ProviderVerdict.Failed, reply.Usage,
                     "no parseable JSON object in the reply after one retry");
 
             // the retry must DIFFER from the first shot, or a deterministic (temperature-0) provider

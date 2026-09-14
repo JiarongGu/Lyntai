@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using Lyntai.Llm;
 using Microsoft.Extensions.AI;
@@ -9,7 +10,7 @@ namespace Lyntai.Providers.ExtensionsAi;
 /// MEAI-speaking application can adopt Lyntai as its chat provider and silently gain routing,
 /// fallback, dead-host cooldown, and the ops layer. Non-Ok verdicts surface as an
 /// <see cref="LlmVerdictException"/> (MEAI's failure idiom, with the verdict still readable — an
-/// <see cref="ChatResponse"/> has nowhere to carry one), except <see cref="LlmVerdict.Refused"/> which
+/// <see cref="ChatResponse"/> has nowhere to carry one), except <see cref="ProviderVerdict.Refused"/> which
 /// maps to a <see cref="ChatFinishReason.ContentFilter"/> response.
 /// </summary>
 internal sealed class LyntaiChatClient(ILlmClient client) : IChatClient
@@ -20,12 +21,12 @@ internal sealed class LyntaiChatClient(ILlmClient client) : IChatClient
         var reply = await client.CompleteAsync(MapRequest(messages, options), cancellationToken).ConfigureAwait(false);
         return reply.Verdict switch
         {
-            LlmVerdict.Ok => new ChatResponse(AssistantMessage(reply))
+            ProviderVerdict.Ok => new ChatResponse(AssistantMessage(reply))
             {
                 Usage = MapUsage(reply.Usage),
                 FinishReason = reply.ToolCalls is { Count: > 0 } ? ChatFinishReason.ToolCalls : null,
             },
-            LlmVerdict.Refused => new ChatResponse(new ChatMessage(ChatRole.Assistant, reply.Text))
+            ProviderVerdict.Refused => new ChatResponse(new ChatMessage(ChatRole.Assistant, reply.Text))
             {
                 FinishReason = ChatFinishReason.ContentFilter,
                 Usage = MapUsage(reply.Usage),
@@ -147,7 +148,7 @@ public static class LyntaiChatClientExtensions
 {
     /// <summary>Expose this Lyntai composition as a Microsoft.Extensions.AI <see cref="IChatClient"/>.
     /// A non-Ok outcome throws <see cref="LlmVerdictException"/> (an <see cref="InvalidOperationException"/>
-    /// carrying the <see cref="LlmVerdict"/>), except <see cref="LlmVerdict.Refused"/>, which comes back as a
+    /// carrying the <see cref="ProviderVerdict"/>), except <see cref="ProviderVerdict.Refused"/>, which comes back as a
     /// <see cref="ChatFinishReason.ContentFilter"/> response rather than an exception.</summary>
     public static IChatClient AsChatClient(this ILlmClient client) => new LyntaiChatClient(client);
 }

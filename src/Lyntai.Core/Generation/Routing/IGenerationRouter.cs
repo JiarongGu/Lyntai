@@ -9,7 +9,7 @@ public interface IGenerationRouter
 {
     /// <summary>Generate inline through the first capable candidate, advancing on a fallible verdict.</summary>
     /// <remarks>When no candidate succeeds, the reported result is the first SUBSTANTIVE failure — a blameless
-    /// verdict (<see cref="GenerationVerdict.NotConfigured"/>, <see cref="GenerationVerdict.Unsupported"/>)
+    /// verdict (<see cref="ProviderVerdict.NotConfigured"/>, <see cref="ProviderVerdict.Unsupported"/>)
     /// never masks a real one, or a caller would be sent off to set up a key while the backend they HAD
     /// configured is the one that is down. Failing that, it is the first blameless result that gave a REASON:
     /// "this backend cannot take an input image" and "your prompt is too long for me" are answers a caller can

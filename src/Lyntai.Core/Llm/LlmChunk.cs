@@ -1,3 +1,5 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Llm;
 
 public enum LlmChunkKind
@@ -27,7 +29,7 @@ public sealed record LlmChunk
     public string Text { get; init; } = "";
 
     /// <summary>Meaningful on <see cref="LlmChunkKind.Error"/> (and Ok on Final).</summary>
-    public LlmVerdict Verdict { get; init; } = LlmVerdict.Ok;
+    public ProviderVerdict Verdict { get; init; } = ProviderVerdict.Ok;
 
     public LlmUsage? Usage { get; init; }
 
@@ -53,6 +55,6 @@ public sealed record LlmChunk
     public static LlmChunk Final(LlmUsage? usage = null, string? detail = null) =>
         new() { Kind = LlmChunkKind.Final, Usage = usage, Detail = detail };
 
-    public static LlmChunk Error(LlmVerdict verdict, string? detail = null) =>
+    public static LlmChunk Error(ProviderVerdict verdict, string? detail = null) =>
         new() { Kind = LlmChunkKind.Error, Verdict = verdict, Detail = detail };
 }

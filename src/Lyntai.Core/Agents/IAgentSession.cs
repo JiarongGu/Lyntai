@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 
 namespace Lyntai.Agents;
@@ -56,7 +57,7 @@ public static class AgentSessionExtensions
         }
 
         if (ended is null)
-            return new AgentSessionResult(sessionId, "", LlmVerdict.Failed, IsError: true, Subtype: null,
+            return new AgentSessionResult(sessionId, "", ProviderVerdict.Failed, IsError: true, Subtype: null,
                 Diagnostic: "stream ended without a terminal SessionEnded event", usage);
 
         // Fall back to the streamed assistant text when a SUCCESSFUL terminal carried no final text — an

@@ -3,6 +3,7 @@
 // completion via the router → scoring (incl. an LLM judge) → trace persist/read → memory recall.
 // Honors LYNTAI_PROVIDER_CMD (the devtools e2e harness points it at the deterministic stub, so a
 // run spends no real tokens) and LYNTAI_DATA (isolated data folder).
+using Lyntai.Lifecycle;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Lyntai;
@@ -102,7 +103,7 @@ recorder.Record(new TraceStep
 
 Console.WriteLine($"playground: verdict={reply.Verdict}");
 Console.WriteLine($"playground: reply={reply.Text}");
-if (reply.Verdict != LlmVerdict.Ok)
+if (reply.Verdict != ProviderVerdict.Ok)
 {
     Console.Error.WriteLine($"playground: completion failed — {reply.Detail}");
     await recorder.CompleteAsync();
@@ -275,7 +276,7 @@ static class GovernanceDemo
 
         var first = await llm.CompleteAsync(req);
         var second = await llm.CompleteAsync(req); // identical → cache hit, no provider call
-        return first.Verdict == LlmVerdict.Ok && second.Verdict == LlmVerdict.Ok && second.Text == first.Text && hits >= 1;
+        return first.Verdict == ProviderVerdict.Ok && second.Verdict == ProviderVerdict.Ok && second.Text == first.Text && hits >= 1;
     }
 
     // usage budget: the stub reports cost per call, so a tiny cap lets the first call through (recording
@@ -290,7 +291,7 @@ static class GovernanceDemo
         var first = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("spend one")] });
         var second = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("spend two")] });
         var spent = (await sp.GetRequiredService<IUsageTracker>().TotalAsync()).CostUsd;
-        return first.Verdict == LlmVerdict.Ok && second.Verdict == LlmVerdict.Refused && spent > 0;
+        return first.Verdict == ProviderVerdict.Ok && second.Verdict == ProviderVerdict.Refused && spent > 0;
     }
 
     // rate limit: burst 1 + a negligible refill rate + no wait → the second immediate call is refused.
@@ -306,7 +307,7 @@ static class GovernanceDemo
 
         var first = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("a")] });
         var second = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("b")] });
-        return first.Verdict == LlmVerdict.Ok && second.Verdict == LlmVerdict.RateLimited;
+        return first.Verdict == ProviderVerdict.Ok && second.Verdict == ProviderVerdict.RateLimited;
     }
 
     // semantic memory: remember two facts, recall by a query that overlaps the relevant one — it must rank
@@ -378,7 +379,7 @@ static class AgentSessionDemo
         var cwd = Directory.GetCurrentDirectory();
 
         // Session 1 — read-only PLAN gate, STREAMING door.
-        string? id1 = null; var events1 = 0; var tools = 0; LlmVerdict? v1 = null;
+        string? id1 = null; var events1 = 0; var tools = 0; ProviderVerdict? v1 = null;
         await foreach (var e in session.StreamAsync(new ClaudeAgentOptions {
             Prompt = "Plan the change. AGENT_SESSION", ToolPolicy = AgentToolPolicy.ReadOnly, WorkingDirectory = cwd }))
         {
@@ -397,8 +398,8 @@ static class AgentSessionDemo
         var resumed = result.SessionId == id1;
         Console.WriteLine($"agent: session2 id={result.SessionId} events={events2} resumed={resumed} verdict={result.Verdict} text={result.FinalText}");
 
-        var ok = id1 is not null && tools > 0 && v1 == LlmVerdict.Ok
-            && result.Verdict == LlmVerdict.Ok && resumed && events2 > 0;
+        var ok = id1 is not null && tools > 0 && v1 == ProviderVerdict.Ok
+            && result.Verdict == ProviderVerdict.Ok && resumed && events2 > 0;
         Console.WriteLine(ok ? "agent: OK" : "agent: INCOMPLETE");
         return ok ? 0 : 1;
     }

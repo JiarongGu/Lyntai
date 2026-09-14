@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Budgeting;
@@ -22,14 +23,14 @@ public class SqliteGovernanceStoreTests : IDisposable
     public async Task ResponseCache_persists_a_reply_across_store_instances()
     {
         var options = new LyntaiOptions();
-        var reply = new LlmReply("cached answer", LlmVerdict.Ok, new LlmUsage(10, 5, CostUsd: 0.02));
+        var reply = new LlmReply("cached answer", ProviderVerdict.Ok, new LlmUsage(10, 5, CostUsd: 0.02));
         await new SqliteResponseCache(_db.Factory, options).SetAsync("k", reply);
 
         // a FRESH store over the same db reads it back — proves it's on disk, not in the store instance
         var got = await new SqliteResponseCache(_db.Factory, options).GetAsync("k");
         Assert.NotNull(got);
         Assert.Equal("cached answer", got!.Text);
-        Assert.Equal(LlmVerdict.Ok, got.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, got.Verdict);
         Assert.Equal(0.02, got.Usage!.CostUsd);
         Assert.Null(await new SqliteResponseCache(_db.Factory, options).GetAsync("missing"));
     }
@@ -39,7 +40,7 @@ public class SqliteGovernanceStoreTests : IDisposable
     {
         var clock = new MutableClock();
         var cache = new SqliteResponseCache(_db.Factory, new LyntaiOptions(), clock.Get);
-        await cache.SetAsync("k", new LlmReply("x", LlmVerdict.Ok), TimeSpan.FromMinutes(5));
+        await cache.SetAsync("k", new LlmReply("x", ProviderVerdict.Ok), TimeSpan.FromMinutes(5));
         clock.Advance(TimeSpan.FromMinutes(4));
         Assert.NotNull(await cache.GetAsync("k")); // still fresh
         clock.Advance(TimeSpan.FromMinutes(2));       // past 5m
@@ -53,9 +54,9 @@ public class SqliteGovernanceStoreTests : IDisposable
         options.Cache.MaxEntries = 2;
         var clock = new MutableClock();
         var cache = new SqliteResponseCache(_db.Factory, options, clock.Get);
-        await cache.SetAsync("a", new LlmReply("a", LlmVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
-        await cache.SetAsync("b", new LlmReply("b", LlmVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
-        await cache.SetAsync("c", new LlmReply("c", LlmVerdict.Ok)); // over cap → oldest ("a") trimmed
+        await cache.SetAsync("a", new LlmReply("a", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
+        await cache.SetAsync("b", new LlmReply("b", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
+        await cache.SetAsync("c", new LlmReply("c", ProviderVerdict.Ok)); // over cap → oldest ("a") trimmed
 
         Assert.Null(await cache.GetAsync("a"));
         Assert.NotNull(await cache.GetAsync("b"));
@@ -67,8 +68,8 @@ public class SqliteGovernanceStoreTests : IDisposable
     {
         var options = new LyntaiOptions();
         var cache = new SqliteResponseCache(_db.Factory, options);
-        await cache.SetAsync("keep", new LlmReply("keep", LlmVerdict.Ok));
-        await cache.SetAsync("poisoned", new LlmReply("bad", LlmVerdict.Ok));
+        await cache.SetAsync("keep", new LlmReply("keep", ProviderVerdict.Ok));
+        await cache.SetAsync("poisoned", new LlmReply("bad", ProviderVerdict.Ok));
 
         await cache.RemoveAsync("poisoned");
         await cache.RemoveAsync("never-set"); // no-op, no throw

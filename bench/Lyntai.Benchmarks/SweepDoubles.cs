@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.Http.Json;
@@ -727,8 +728,8 @@ internal static class SweepDoubles
                 var text = await chat.AskAsync(prompt, ct, maxTokens: 256).ConfigureAwait(false);
 
                 return text is null
-                    ? new LlmReply("", LlmVerdict.Failed, Detail: "bench chat returned nothing")
-                    : new LlmReply(text, LlmVerdict.Ok);
+                    ? new LlmReply("", ProviderVerdict.Failed, Detail: "bench chat returned nothing")
+                    : new LlmReply(text, ProviderVerdict.Ok);
             }
 
             /// <summary>The verification policy never streams — it asks one bounded question and parses the

@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
@@ -90,7 +91,7 @@ public class CliProviderEngineStreamBoundsTests
 
         Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Content);
         Assert.Equal(LlmChunkKind.Error, Assert.Single(chunks).Kind);
-        Assert.Equal(LlmVerdict.Failed, chunks[^1].Verdict);
+        Assert.Equal(ProviderVerdict.Failed, chunks[^1].Verdict);
     }
 
     [Fact]

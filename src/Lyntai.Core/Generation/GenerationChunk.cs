@@ -1,3 +1,5 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Generation;
 
 /// <summary>One piece of a streamed generation, or its terminal marker. Modelled ON the LLM side's chunk
@@ -13,7 +15,7 @@ namespace Lyntai.Generation;
 public sealed record GenerationChunk(
     byte[]? Data = null,
     string? MediaType = null,
-    GenerationVerdict? Error = null,
+    ProviderVerdict? Error = null,
     string? Detail = null,
     bool Final = false,
     GenerationUsage? Usage = null)
@@ -25,6 +27,6 @@ public sealed record GenerationChunk(
     public static GenerationChunk Completed(GenerationUsage? usage = null) => new(Final: true, Usage: usage);
 
     /// <summary>The terminal failure marker.</summary>
-    public static GenerationChunk Failure(GenerationVerdict verdict, string? detail = null) =>
+    public static GenerationChunk Failure(ProviderVerdict verdict, string? detail = null) =>
         new(Error: verdict, Detail: detail);
 }

@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Diagnostics;
 using Lyntai.Llm.Routing;
 using Microsoft.Extensions.Logging;
@@ -42,7 +43,7 @@ public sealed class CachingLlmClient(
         LyntaiDiagnostics.RecordCacheAccess(hit: false);
         var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
         // cache only clean successes — never an error (transient) or a tool-call reply (stateful/deferred)
-        if (reply.Verdict == LlmVerdict.Ok && reply.ToolCalls is null or { Count: 0 })
+        if (reply.Verdict == ProviderVerdict.Ok && reply.ToolCalls is null or { Count: 0 })
             await cache.SetAsync(key, reply, options.Cache.Ttl, ct).ConfigureAwait(false);
         return reply;
     }

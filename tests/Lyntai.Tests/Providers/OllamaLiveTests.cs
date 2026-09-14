@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Providers.Http;
@@ -49,7 +50,7 @@ public class OllamaLiveTests
 
         var reply = await Provider().CompleteAsync(Ask("Reply with exactly one word: pong"));
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.False(string.IsNullOrWhiteSpace(reply.Text));
         Assert.NotNull(reply.Usage);
         Assert.True(reply.Usage!.InputTokens > 0, "expected a prompt-eval token count from Ollama");
@@ -107,7 +108,7 @@ public class OllamaLiveTests
 
         var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Ask("Say hi in one word."));
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.False(string.IsNullOrWhiteSpace(reply.Text));
     }
 }

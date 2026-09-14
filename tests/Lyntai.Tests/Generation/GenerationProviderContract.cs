@@ -58,7 +58,7 @@ public static class GenerationProviderContract
         }
     }
 
-    /// <summary>A backend that cannot serve inline says so with <see cref="GenerationVerdict.Unsupported"/>
+    /// <summary>A backend that cannot serve inline says so with <see cref="ProviderVerdict.Unsupported"/>
     /// rather than hiding a poll loop behind <c>GenerateAsync</c>. Unsupported is the one verdict the routing
     /// policy SURFACES rather than advancing on (<c>docs/DECISIONS.md</c> D3), because trying the next
     /// candidate cannot fix a capability mismatch.</summary>
@@ -69,7 +69,7 @@ public static class GenerationProviderContract
 
         var result = await provider.GenerateAsync(ask);
 
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
     }
 
     /// <summary><b>Contractually FAIL-SAFE: a backend failure is a verdict, never a throw.</b> The router's
@@ -83,26 +83,26 @@ public static class GenerationProviderContract
     {
         var result = await provider.GenerateAsync(ask);
 
-        Assert.NotEqual(GenerationVerdict.Ok, result.Verdict);
+        Assert.NotEqual(ProviderVerdict.Ok, result.Verdict);
         Assert.False(string.IsNullOrWhiteSpace(result.Detail),
             $"{provider.Id} reported {result.Verdict} with no detail — the caller is told nothing actionable");
     }
 
     /// <summary><b>An authentication rejection is CLASSIFIED, never flattened to
-    /// <see cref="GenerationVerdict.Failed"/>.</b> The two acceptable answers are
-    /// <see cref="GenerationVerdict.AuthFailed"/> (credentials were rejected) and
-    /// <see cref="GenerationVerdict.NotConfigured"/> (none were supplied — a backend nobody has set up yet
+    /// <see cref="ProviderVerdict.Failed"/>.</b> The two acceptable answers are
+    /// <see cref="ProviderVerdict.AuthFailed"/> (credentials were rejected) and
+    /// <see cref="ProviderVerdict.NotConfigured"/> (none were supplied — a backend nobody has set up yet
     /// must not be penalised on every attempt for a fact known before the call). <c>Failed</c> is neither: it
     /// makes the router advance AND take a dead-host strike, benching a backend whose only problem is a
     /// missing key, and it tells a host nothing it can act on.
     /// <para>This is the fact the divergence that prompted this contract would have failed:
     /// <c>ComfyUiProvider.FetchCoreAsync</c> hardcoded <c>Failed</c> for every failed history read while
-    /// <c>FalQueueProvider</c> routed the same class through <c>GenerationVerdictClassifier</c>, so the same
+    /// <c>FalQueueProvider</c> routed the same class through <c>ProviderVerdictClassifier</c>, so the same
     /// authenticating proxy in front of each produced different verdicts.</para></summary>
     public static void An_authentication_failure_is_classified_rather_than_flattened(
-        string door, string providerId, GenerationVerdict verdict) =>
+        string door, string providerId, ProviderVerdict verdict) =>
         Assert.True(
-            verdict is GenerationVerdict.AuthFailed or GenerationVerdict.NotConfigured,
+            verdict is ProviderVerdict.AuthFailed or ProviderVerdict.NotConfigured,
             $"{providerId}'s {door} reported {verdict} for a 401 — expected AuthFailed (rejected) or "
             + "NotConfigured (never supplied). Failed both benches the backend and tells the host nothing.");
 

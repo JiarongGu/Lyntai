@@ -144,7 +144,7 @@ public static class GenerationBuilderExtensions
     /// <summary>Tune per-verdict fallback for generation routing. The defaults follow the SHAPE of the LLM
     /// router's §6 semantics and deliberately differ on <c>Unsupported</c> (which advances here rather than
     /// surfacing — see <see cref="GenerationRoutingPolicy"/>); the override that matters in practice is
-    /// <c>p.On(GenerationVerdict.Refused, GenerationFallbackAction.Advance)</c>, for a host that deliberately
+    /// <c>p.On(ProviderVerdict.Refused, GenerationFallbackAction.Advance)</c>, for a host that deliberately
     /// pairs a hosted backend (which refuses some content) with a locally-run one (which doesn't) — that is
     /// the host's policy call, not the library's.</summary>
     public static LyntaiBuilder ConfigureGenerationRouting(

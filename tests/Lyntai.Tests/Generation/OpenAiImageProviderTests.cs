@@ -37,7 +37,7 @@ public class OpenAiImageProviderTests
 
         var result = await provider.GenerateAsync(Ask());
 
-        Assert.Equal(GenerationVerdict.NotConfigured, result.Verdict);
+        Assert.Equal(ProviderVerdict.NotConfigured, result.Verdict);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class OpenAiImageProviderTests
 
         var result = await provider.GenerateAsync(Ask());
 
-        Assert.Equal(GenerationVerdict.AuthFailed, result.Verdict);
+        Assert.Equal(ProviderVerdict.AuthFailed, result.Verdict);
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public class OpenAiImageProviderTests
             Inputs = [new GenerationInput("image/png", Uri: "https://example.invalid/in.png")],
         });
 
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
         Assert.Empty(http.Requests);
     }
 
@@ -178,15 +178,15 @@ public class OpenAiImageProviderTests
 
         var result = await provider.GenerateAsync(Ask());
 
-        Assert.Equal(GenerationVerdict.NotConfigured, result.Verdict);
+        Assert.Equal(ProviderVerdict.NotConfigured, result.Verdict);
         Assert.Empty(http.Requests);
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.TooManyRequests, GenerationVerdict.RateLimited)]
-    [InlineData(HttpStatusCode.Unauthorized, GenerationVerdict.AuthFailed)]
-    [InlineData(HttpStatusCode.InternalServerError, GenerationVerdict.Failed)]
-    public async Task A_transport_failure_is_classified_not_swallowed(HttpStatusCode status, GenerationVerdict expected)
+    [InlineData(HttpStatusCode.TooManyRequests, ProviderVerdict.RateLimited)]
+    [InlineData(HttpStatusCode.Unauthorized, ProviderVerdict.AuthFailed)]
+    [InlineData(HttpStatusCode.InternalServerError, ProviderVerdict.Failed)]
+    public async Task A_transport_failure_is_classified_not_swallowed(HttpStatusCode status, ProviderVerdict expected)
     {
         var (provider, http) = Provider();
         http.Enqueue(status, "{\"error\":{\"message\":\"nope\"}}");
@@ -207,7 +207,7 @@ public class OpenAiImageProviderTests
 
         var result = await provider.GenerateAsync(Ask());
 
-        Assert.Equal(GenerationVerdict.Refused, result.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, result.Verdict);
     }
 
     [Fact]
@@ -219,7 +219,7 @@ public class OpenAiImageProviderTests
         var result = await provider.GenerateAsync(Ask());
 
         Assert.False(result.IsOk);
-        Assert.Equal(GenerationVerdict.Failed, result.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, result.Verdict);
     }
 
     [Fact]

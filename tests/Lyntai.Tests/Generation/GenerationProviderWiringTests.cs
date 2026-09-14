@@ -35,7 +35,7 @@ public class GenerationProviderWiringTests
         var result = await provider.GenerateAsync(
             new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" });
 
-        Assert.Equal(GenerationVerdict.Ok, result.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, result.Verdict);
         Assert.StartsWith("https://example.invalid/v1", handler.Requests[0].Uri!.ToString());
     }
 
@@ -94,8 +94,8 @@ public class GenerationProviderWiringTests
         var provider = Assert.Single(sp.GetServices<IModelProvider>());
         var ask = new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" };
 
-        Assert.Equal(GenerationVerdict.Ok, (await provider.GenerateAsync(ask)).Verdict);
-        Assert.Equal(GenerationVerdict.Ok, (await provider.GenerateAsync(ask)).Verdict);
+        Assert.Equal(ProviderVerdict.Ok, (await provider.GenerateAsync(ask)).Verdict);
+        Assert.Equal(ProviderVerdict.Ok, (await provider.GenerateAsync(ask)).Verdict);
     }
 
     [Fact]

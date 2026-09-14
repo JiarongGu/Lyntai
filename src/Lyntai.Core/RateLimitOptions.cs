@@ -1,9 +1,11 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai;
 
 /// <summary>Client-side throttling for the opt-in rate limiter (<c>AddRateLimit</c>). A token bucket per
 /// scope: <see cref="PermitsPerSecond"/> is the sustained rate, <see cref="Burst"/> the bucket capacity
 /// (how many can go at once after idle). Over the rate, a call waits up to <see cref="MaxWait"/>, then is
-/// refused (a <see cref="Lyntai.Llm.LlmVerdict.RateLimited"/> reply). Read at runtime, so
+/// refused (a <see cref="Lyntai.Lifecycle.ProviderVerdict.RateLimited"/> reply). Read at runtime, so
 /// <c>LYNTAI_RATELIMIT_*</c> env overrides applied after configuration take effect.</summary>
 public sealed class RateLimitOptions
 {

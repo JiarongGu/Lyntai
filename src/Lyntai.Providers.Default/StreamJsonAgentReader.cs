@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text;
 using System.Text.Json;
 using Lyntai.Agents;
@@ -237,15 +238,15 @@ internal sealed class StreamJsonAgentReader
 
         yield return new SessionEnded(
             // Classified, never hand-rolled: this was the only in-band failure path in either agent session
-            // that skipped LlmVerdictClassifier, so an expired login or a 429 reported a bare Failed and a
+            // that skipped ProviderVerdictClassifier, so an expired login or a 429 reported a bare Failed and a
             // host switching on Verdict retried immediately instead of prompting to re-authenticate or
             // backing off. The codex twin has always classified. Falls back to Failed when the CLI gives no
             // words to read, which is what the bare value used to assume unconditionally.
             Verdict: isError
                 ? (string.IsNullOrWhiteSpace(finalText ?? subtype)
-                    ? LlmVerdict.Failed
-                    : LlmVerdictClassifier.FromErrorText(finalText ?? subtype!))
-                : LlmVerdict.Ok,
+                    ? ProviderVerdict.Failed
+                    : ProviderVerdictClassifier.FromErrorText(finalText ?? subtype!))
+                : ProviderVerdict.Ok,
             IsError: isError,
             Subtype: subtype,
             SessionId: sessionId,

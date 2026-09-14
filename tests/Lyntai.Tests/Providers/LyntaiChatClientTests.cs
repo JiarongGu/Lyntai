@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.Json;
 using Lyntai;
 using Lyntai.Llm;
@@ -24,7 +25,7 @@ public class LyntaiChatClientTests
     public async Task Chat_response_round_trips_text_and_usage()
     {
         var (chat, provider) = Build();
-        provider.Replies.Enqueue(new LlmReply("lyntai as a provider", LlmVerdict.Ok, new LlmUsage(20, 5)));
+        provider.Replies.Enqueue(new LlmReply("lyntai as a provider", ProviderVerdict.Ok, new LlmUsage(20, 5)));
 
         var response = await chat.GetResponseAsync(
             [new ChatMessage(ChatRole.User, "hello")],
@@ -43,7 +44,7 @@ public class LyntaiChatClientTests
     public async Task Failed_verdict_surfaces_as_exception_meai_idiom()
     {
         var (chat, provider) = Build();
-        provider.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "all candidates down"));
+        provider.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "all candidates down"));
 
         // ThrowsAny, not Throws: what flies is the DERIVED LlmVerdictException and xUnit's Throws<T> is an
         // EXACT type match. A consumer's `catch (InvalidOperationException)` still catches it — that is the
@@ -58,7 +59,7 @@ public class LyntaiChatClientTests
     public async Task Refused_maps_to_content_filter_finish_reason()
     {
         var (chat, provider) = Build();
-        provider.Replies.Enqueue(new LlmReply("", LlmVerdict.Refused, Detail: "policy"));
+        provider.Replies.Enqueue(new LlmReply("", ProviderVerdict.Refused, Detail: "policy"));
 
         var response = await chat.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
 
@@ -88,7 +89,7 @@ public class LyntaiChatClientTests
     public async Task Streaming_error_chunk_surfaces_as_exception()
     {
         var (chat, provider) = Build();
-        provider.StreamScript = _ => [LlmChunk.Error(LlmVerdict.Timeout, "too slow")];
+        provider.StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Timeout, "too slow")];
 
         // ThrowsAny for the same reason as the non-streaming twin: the derived type flies, the catch clause
         // a consumer already wrote still catches it.
@@ -104,13 +105,13 @@ public class LyntaiChatClientTests
     {
         var (chat, provider) = Build();
         // NotConfigured is the case that motivated this: "never set up" is not a fault, and a host is meant
-        // to answer it with a setup prompt rather than an error report (LlmVerdict.NotConfigured, D31).
-        provider.Replies.Enqueue(new LlmReply("", LlmVerdict.NotConfigured, Detail: "no api key"));
+        // to answer it with a setup prompt rather than an error report (ProviderVerdict.NotConfigured, D31).
+        provider.Replies.Enqueue(new LlmReply("", ProviderVerdict.NotConfigured, Detail: "no api key"));
 
         var ex = await Assert.ThrowsAsync<LlmVerdictException>(() =>
             chat.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]));
 
-        Assert.Equal(LlmVerdict.NotConfigured, ex.Verdict);
+        Assert.Equal(ProviderVerdict.NotConfigured, ex.Verdict);
         Assert.Equal("no api key", ex.Detail);
         // The acceptance criterion: the message is BYTE-IDENTICAL to what the bridge threw before, because
         // parsing it was the only way to recover the verdict — so it is the likeliest thing anyone wrote.
@@ -122,14 +123,14 @@ public class LyntaiChatClientTests
     public async Task Streaming_error_chunk_carries_the_verdict_on_the_exception()
     {
         var (chat, provider) = Build();
-        provider.StreamScript = _ => [LlmChunk.Error(LlmVerdict.Timeout, "too slow")];
+        provider.StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Timeout, "too slow")];
 
         var ex = await Assert.ThrowsAsync<LlmVerdictException>(async () =>
         {
             await foreach (var _ in chat.GetStreamingResponseAsync([new ChatMessage(ChatRole.User, "hi")])) { }
         });
 
-        Assert.Equal(LlmVerdict.Timeout, ex.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, ex.Verdict);
         Assert.Equal("too slow", ex.Detail);
         Assert.Equal("lyntai: Timeout — too slow", ex.Message);
     }
@@ -138,7 +139,7 @@ public class LyntaiChatClientTests
     public async Task Request_maps_tools_json_schema_multimodal_and_tool_turns()
     {
         var (chat, provider) = Build();
-        provider.Replies.Enqueue(new LlmReply("ok", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("ok", ProviderVerdict.Ok));
 
         var addTool = AIFunctionFactory.Create((int a, int b) => a + b, "add", "adds two ints");
         var options = new ChatOptions
@@ -178,7 +179,7 @@ public class LyntaiChatClientTests
     public async Task Response_surfaces_reply_tool_calls_as_function_call_content()
     {
         var (chat, provider) = Build();
-        provider.Replies.Enqueue(new LlmReply("", LlmVerdict.Ok)
+        provider.Replies.Enqueue(new LlmReply("", ProviderVerdict.Ok)
         {
             ToolCalls = [new LlmToolCall("c1", "add", """{"a":1,"b":2}""")],
         });

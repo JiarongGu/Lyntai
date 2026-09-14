@@ -22,8 +22,8 @@ public class RouterBenchmarks
     public void Setup()
     {
         var options = new LyntaiOptions();
-        var ok = new NoopProvider("ok", LlmVerdict.Ok);
-        var down = new NoopProvider("down", LlmVerdict.Failed);
+        var ok = new NoopProvider("ok", ProviderVerdict.Ok);
+        var down = new NoopProvider("down", ProviderVerdict.Failed);
         _router = new LlmRouter([ok], new DeadHostTracker(), options);
         _routerFallover = new LlmRouter([down, ok], new DeadHostTracker(), options);
     }
@@ -43,7 +43,7 @@ public class RouterBenchmarks
         return last;
     }
 
-    private sealed class NoopProvider(string id, LlmVerdict verdict) : IModelProvider
+    private sealed class NoopProvider(string id, ProviderVerdict verdict) : IModelProvider
     {
         public string Id => id;
 
@@ -56,13 +56,13 @@ public class RouterBenchmarks
         public bool IsAvailable => true;
 
         public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
-            Task.FromResult(verdict == LlmVerdict.Ok
-                ? new LlmReply("ok", LlmVerdict.Ok, new LlmUsage(10, 5))
+            Task.FromResult(verdict == ProviderVerdict.Ok
+                ? new LlmReply("ok", ProviderVerdict.Ok, new LlmUsage(10, 5))
                 : new LlmReply("", verdict, Detail: "noop-down"));
 
         public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
         {
-            if (verdict != LlmVerdict.Ok) { yield return LlmChunk.Error(verdict, "noop-down"); yield break; }
+            if (verdict != ProviderVerdict.Ok) { yield return LlmChunk.Error(verdict, "noop-down"); yield break; }
             yield return LlmChunk.Content("chunk");
             yield return LlmChunk.Final(new LlmUsage(10, 5));
             await Task.CompletedTask;

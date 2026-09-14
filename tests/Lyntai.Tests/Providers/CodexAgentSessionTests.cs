@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Agents;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
@@ -195,7 +196,7 @@ public class CodexAgentSessionTests
         Assert.Contains(events, e => e is SessionStarted { SessionId: "019fc935-704c-75b2-a660-a85c89a67514" });
         Assert.Contains(events, e => e is TextDelta { Text: "ok" });
         var ended = events.OfType<SessionEnded>().Single();
-        Assert.Equal(LlmVerdict.Ok, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
         Assert.False(ended.IsError);
         Assert.Equal("ok", ended.FinalText);
         Assert.Equal("019fc935-704c-75b2-a660-a85c89a67514", ended.SessionId);
@@ -207,7 +208,7 @@ public class CodexAgentSessionTests
         var events = await Session(new FakeProcessRunner(MeasuredNoisyButSuccessful)).StreamAsync(Ask()).ToListAsync();
 
         var ended = events.OfType<SessionEnded>().Single();
-        Assert.Equal(LlmVerdict.Ok, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
         Assert.False(ended.IsError);
         Assert.Equal("ok", ended.FinalText);
     }
@@ -224,7 +225,7 @@ public class CodexAgentSessionTests
 
         var ended = events.OfType<SessionEnded>().Single();
         Assert.True(ended.IsError);
-        Assert.Equal(LlmVerdict.AuthFailed, ended.Verdict);   // not a bare Failed
+        Assert.Equal(ProviderVerdict.AuthFailed, ended.Verdict);   // not a bare Failed
         Assert.Contains("401", ended.Diagnostic);
         Assert.Equal("thread-fail", ended.SessionId);
     }
@@ -257,7 +258,7 @@ public class CodexAgentSessionTests
 
         Assert.Equal("ok", result.FinalText);
         Assert.Equal("019fc935-704c-75b2-a660-a85c89a67514", result.SessionId);
-        Assert.Equal(LlmVerdict.Ok, result.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, result.Verdict);
         Assert.Equal(6489, result.Usage?.InputTokens);
     }
 
@@ -376,7 +377,7 @@ public class CodexAgentSessionTests
         var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
 
         var ended = events.OfType<SessionEnded>().Single();
-        Assert.Equal(LlmVerdict.Ok, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
         Assert.Equal("final", ended.FinalText);          // the partial update was NOT double-counted
         Assert.Single(events.OfType<TextDelta>());
     }
@@ -431,7 +432,7 @@ public class CodexAgentSessionTests
             .StreamAsync(Ask() with { ResumeToken = "an-older-thread" }).ToListAsync();
 
         var ended = events.OfType<SessionEnded>().Single();
-        Assert.Equal(LlmVerdict.Ok, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
         Assert.Equal("ok", ended.FinalText);
         // the id is read from codex's own thread.started; echoing the requested token back would report a
         // REQUEST as an observation (and codex may fork a resumed thread onto a new id).
@@ -453,7 +454,7 @@ public class CodexAgentSessionTests
 
         var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
         Assert.True(ended.IsError);
-        Assert.Equal(LlmVerdict.Unsupported, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
         Assert.Equal("resume-token-invalid", ended.Subtype);   // the TOKEN is bad, not the capability
         Assert.Contains("session id", ended.Diagnostic, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(runner.Calls);   // never spawned: no turn is billed to find out
@@ -593,7 +594,7 @@ public class CodexAgentSessionTests
         var events = await Session(runner).StreamAsync(Ask() with { McpServers = [server] }).ToListAsync();
 
         var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
-        Assert.Equal(LlmVerdict.Unsupported, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
         Assert.Equal("mcp-server-invalid", ended.Subtype);
         Assert.Empty(runner.Calls);
     }
@@ -691,7 +692,7 @@ public class CodexAgentSessionTests
         var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
 
         var ended = events.OfType<SessionEnded>().Single();
-        Assert.Equal(LlmVerdict.Timeout, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, ended.Verdict);
         Assert.True(ended.IsError);
     }
 
@@ -701,7 +702,7 @@ public class CodexAgentSessionTests
         var events = await Session(new FakeProcessRunner([])).StreamAsync(Ask()).ToListAsync();
 
         var ended = events.OfType<SessionEnded>().Single();
-        Assert.Equal(LlmVerdict.Failed, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, ended.Verdict);
         Assert.Contains("no output", ended.Diagnostic, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -717,7 +718,7 @@ public class CodexAgentSessionTests
         var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
 
         var ended = events.OfType<SessionEnded>().Single();
-        Assert.Equal(LlmVerdict.Failed, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, ended.Verdict);
         Assert.True(ended.IsError);
         Assert.Contains("never terminated", ended.Diagnostic, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("no output produced", ended.Diagnostic);
@@ -739,7 +740,7 @@ public class CodexAgentSessionTests
         var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
 
         var ended = Assert.Single(events.OfType<SessionEnded>());
-        Assert.Equal(LlmVerdict.Ok, ended.Verdict);   // the FIRST terminal wins
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);   // the FIRST terminal wins
         Assert.False(ended.IsError);
         Assert.Equal("done", ended.FinalText);
     }
@@ -753,7 +754,7 @@ public class CodexAgentSessionTests
 
         var terminals = events.OfType<SessionEnded>().ToList();
         Assert.Single(terminals);
-        Assert.Equal(LlmVerdict.Ok, terminals[0].Verdict);
+        Assert.Equal(ProviderVerdict.Ok, terminals[0].Verdict);
     }
 
     [Fact]
@@ -782,7 +783,7 @@ public class CodexAgentSessionTests
     {
         var result = await StubSession().RunAsync(new AgentSessionOptions { Prompt = "hello codex" });
 
-        Assert.Equal(LlmVerdict.Ok, result.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, result.Verdict);
         Assert.Equal("codex stub reply: hello codex", result.FinalText);
         Assert.Equal(6489, result.Usage?.InputTokens);
         Assert.Equal(12, result.Usage?.CacheReadTokens);
@@ -794,7 +795,7 @@ public class CodexAgentSessionTests
     {
         var result = await StubSession().RunAsync(new AgentSessionOptions { Prompt = "AUTH_ERROR" });
 
-        Assert.Equal(LlmVerdict.AuthFailed, result.Verdict);
+        Assert.Equal(ProviderVerdict.AuthFailed, result.Verdict);
         Assert.True(result.IsError);
     }
 
@@ -803,7 +804,7 @@ public class CodexAgentSessionTests
     {
         var result = await StubSession().RunAsync(new AgentSessionOptions { Prompt = "NOISY please answer" });
 
-        Assert.Equal(LlmVerdict.Ok, result.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, result.Verdict);
         Assert.Contains("codex stub reply", result.FinalText);
     }
 

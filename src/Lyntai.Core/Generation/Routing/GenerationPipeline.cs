@@ -21,7 +21,7 @@ public sealed record GenerationStage(
 
     /// <summary>Which of the previous stage's artifacts chain into this one. Null takes the default: the
     /// single artifact when the previous stage produced exactly one, and a REFUSAL
-    /// (<see cref="GenerationVerdict.Unsupported"/>, without calling a backend) when it produced none or
+    /// (<see cref="ProviderVerdict.Unsupported"/>, without calling a backend) when it produced none or
     /// several.
     /// <para>There is deliberately no cleverer default. A media type cannot be branched on — a mesh backend
     /// reports a GLB as <c>application/octet-stream</c> — and "the first <c>image/*</c>" picks a UV texture
@@ -54,8 +54,8 @@ public sealed record GenerationPipelineResult(
     public IReadOnlyList<GenerationArtifact> Artifacts =>
         IsOk && Stages.Count > 0 ? Stages[^1].Artifacts : [];
 
-    /// <summary>The failing stage's verdict, or <see cref="GenerationVerdict.Ok"/>.</summary>
-    public GenerationVerdict Verdict => FailedAt is { } at ? Stages[at].Verdict : GenerationVerdict.Ok;
+    /// <summary>The failing stage's verdict, or <see cref="ProviderVerdict.Ok"/>.</summary>
+    public ProviderVerdict Verdict => FailedAt is { } at ? Stages[at].Verdict : ProviderVerdict.Ok;
 
     /// <summary>The failing stage's own words, or null.</summary>
     public string? Detail => FailedAt is { } at ? Stages[at].Detail : null;
@@ -148,10 +148,10 @@ public static class GenerationPipeline
         return chosen is { Count: > 0 } ? [.. chosen.Select(a => a.ToInput(stage.InputRole))] : null;
     }
 
-    /// <summary><see cref="GenerationVerdict.Unsupported"/> because the pipeline cannot serve the request as
+    /// <summary><see cref="ProviderVerdict.Unsupported"/> because the pipeline cannot serve the request as
     /// posed and no backend is at fault — <c>Failed</c> would say something broke.</summary>
     private static GenerationResult Refuse(GenerationStage stage, GenerationResult previous, int index) =>
-        GenerationResult.Failure(GenerationVerdict.Unsupported, stage.SelectInput is null
+        GenerationResult.Failure(ProviderVerdict.Unsupported, stage.SelectInput is null
             ? $"stage {index + 1} cannot choose among stage {index}'s {previous.Artifacts.Count} artifacts; " +
               $"set {nameof(GenerationStage)}.{nameof(GenerationStage.SelectInput)} to say which one chains forward"
             : $"stage {index + 1}'s {nameof(GenerationStage.SelectInput)} chose nothing from stage {index}'s " +

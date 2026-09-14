@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Llm;
@@ -56,7 +57,7 @@ public class OllamaToolCallLiveTests
             Temperature = 0,
         });
 
-        Assert.Equal(LlmVerdict.Ok, result.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, result.Verdict);
         Assert.True(addCalls > 0, "the model should have called the add tool");
         Assert.Contains("add", result.Steps.Select(s => s.Tool));
         Assert.Contains("42", result.Answer); // 17 + 25, surfaced back through the tool result

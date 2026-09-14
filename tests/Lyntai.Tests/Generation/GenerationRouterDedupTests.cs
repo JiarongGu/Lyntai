@@ -26,7 +26,7 @@ public class GenerationRouterDedupTests
     {
         // a list that re-prepends the primary is a configuration mistake, not an instruction to retry
         var failing = new FakeGenerationProvider { Id = "a" };
-        failing.Verdicts.Enqueue(GenerationVerdict.Failed);
+        failing.Verdicts.Enqueue(ProviderVerdict.Failed);
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await new GenerationRouter([failing, working]).GenerateAsync(
@@ -43,7 +43,7 @@ public class GenerationRouterDedupTests
         // ONE backend listed twice is still one backend. Counting it as two benches the only option there is,
         // and the caller is told "everything is on cooldown" instead of the rate limit it could act on.
         var sole = new FakeGenerationProvider { Id = "sole" };
-        sole.Verdicts.Enqueue(GenerationVerdict.RateLimited);
+        sole.Verdicts.Enqueue(ProviderVerdict.RateLimited);
         var router = new GenerationRouter([sole], deadHosts: Benching());
         ProviderCandidate[] listedTwice = [new("sole"), new("sole")];
 
@@ -51,7 +51,7 @@ public class GenerationRouterDedupTests
         var second = await router.GenerateAsync(listedTwice, Image());
 
         Assert.Equal(2, sole.GenerateCalls);                       // still asked: it is the only candidate
-        Assert.Equal(GenerationVerdict.RateLimited, second.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, second.Verdict);
         Assert.DoesNotContain("cooldown", second.Detail);          // a real verdict, not a fabricated one
     }
 
@@ -61,7 +61,7 @@ public class GenerationRouterDedupTests
         // the router already resolves ids case-insensitively, so "a1111" and "A1111" select the same instance —
         // deduping on the SPEC rather than on what it resolved to would let this pair through as two
         var failing = new FakeGenerationProvider { Id = "a1111" };
-        failing.Verdicts.Enqueue(GenerationVerdict.Failed);
+        failing.Verdicts.Enqueue(ProviderVerdict.Failed);
         var working = new FakeGenerationProvider { Id = "local" };
 
         var result = await new GenerationRouter([failing, working]).GenerateAsync(
@@ -78,7 +78,7 @@ public class GenerationRouterDedupTests
         // the other half of "resolved": the candidate's model is applied to the request, so pinning the model
         // the request already carries produces byte-for-byte the same call as pinning nothing
         var aggregator = Aggregator("aggregator");
-        aggregator.Verdicts.Enqueue(GenerationVerdict.Failed);
+        aggregator.Verdicts.Enqueue(ProviderVerdict.Failed);
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await new GenerationRouter([aggregator, working]).GenerateAsync(
@@ -96,8 +96,8 @@ public class GenerationRouterDedupTests
         // the counterweight, and the reason the key is a PAIR: an aggregator serves hundreds of models behind
         // one id, and falling over from one of them to another is exactly what a fallback list is for
         var aggregator = Aggregator("aggregator");
-        aggregator.Verdicts.Enqueue(GenerationVerdict.Failed);
-        aggregator.Verdicts.Enqueue(GenerationVerdict.Ok);
+        aggregator.Verdicts.Enqueue(ProviderVerdict.Failed);
+        aggregator.Verdicts.Enqueue(ProviderVerdict.Ok);
 
         var result = await new GenerationRouter([aggregator]).GenerateAsync(
             [new ProviderCandidate("aggregator", "flux-1"), new ProviderCandidate("aggregator", "sdxl")],

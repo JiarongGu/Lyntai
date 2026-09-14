@@ -229,9 +229,9 @@ public sealed class LyntaiOptions
 
         // routing policy knobs (design §6 is the default; these tune it without code)
         if (TryEnvInt(getEnv, "LYNTAI_RETRY_FAILED", out var rf) && rf >= 0)
-            Routing.Retry(LlmVerdict.Failed, rf);
+            Routing.Retry(ProviderVerdict.Failed, rf);
         if (TryEnvInt(getEnv, "LYNTAI_RETRY_TIMEOUT", out var rt) && rt >= 0)
-            Routing.Retry(LlmVerdict.Timeout, rt);
+            Routing.Retry(ProviderVerdict.Timeout, rt);
         if (TryEnvDouble(getEnv, "LYNTAI_RETRY_BACKOFF_SECONDS", out var rb) && rb >= 0)
             Routing.RetryBackoff = TimeSpan.FromSeconds(rb);
         var scope = getEnv("LYNTAI_COOLDOWN_SCOPE");

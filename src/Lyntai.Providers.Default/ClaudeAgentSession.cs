@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using Lyntai.Agents;
 using Lyntai.Llm;
@@ -53,7 +54,7 @@ public sealed class ClaudeAgentSession : IAgentSession
     /// <c>--mcp-config</c> document written to an owner-only temp file and DELETED when the turn ends —
     /// alongside a <c>ClaudeAgentOptions.McpConfigPath</c> the caller supplied, never instead of it. An
     /// entry that cannot be rendered REFUSES the turn (a single <see cref="SessionEnded"/> with
-    /// <see cref="LlmVerdict.Unsupported"/>) rather than being dropped, because an agent that silently lost
+    /// <see cref="ProviderVerdict.Unsupported"/>) rather than being dropped, because an agent that silently lost
     /// the tools it exists to use looks like a working agent.</param>
     /// <param name="ct">Cancels the turn and kills the process tree.</param>
     public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
@@ -71,7 +72,7 @@ public sealed class ClaudeAgentSession : IAgentSession
 
         if (!AgentMcpServers.TryValidate(options.McpServers, out var refusal))
         {
-            yield return new SessionEnded(LlmVerdict.Unsupported, true, "mcp-server-invalid", null, null, refusal);
+            yield return new SessionEnded(ProviderVerdict.Unsupported, true, "mcp-server-invalid", null, null, refusal);
             yield break;
         }
 
@@ -145,7 +146,7 @@ public sealed class ClaudeAgentSession : IAgentSession
         if (!sawTerminal)
         {
             _logger.LogWarning("ClaudeAgentSession produced no terminal event; session={SessionId}", lastSessionId);
-            yield return new SessionEnded(LlmVerdict.Failed, true, null, lastSessionId, null,
+            yield return new SessionEnded(ProviderVerdict.Failed, true, null, lastSessionId, null,
                 "no output produced (no terminal result)");
         }
     }

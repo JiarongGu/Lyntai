@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using System.Text;
 using Lyntai;
@@ -140,11 +141,11 @@ public class PerRequestTimeoutTests
         // test); and the never-completing call can only exit via its own timeout.
         var timedOut = await Http(delay: Timeout.InfiniteTimeSpan, global: TimeSpan.FromMilliseconds(200))
             .CompleteAsync(Req());                                             // no override → global → Timeout
-        Assert.Equal(LlmVerdict.Timeout, timedOut.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, timedOut.Verdict);
 
         var ok = await Http(delay: TimeSpan.FromSeconds(1), global: TimeSpan.FromMilliseconds(200))
             .CompleteAsync(Req(timeoutSeconds: 60));                           // override extends past the global
-        Assert.Equal(LlmVerdict.Ok, ok.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, ok.Verdict);
     }
 
     [Fact]
@@ -155,6 +156,6 @@ public class PerRequestTimeoutTests
         var provider = Http(delay: Timeout.InfiniteTimeSpan, global: TimeSpan.FromSeconds(30));
 
         var reply = await provider.CompleteAsync(Req(timeoutSeconds: 1));
-        Assert.Equal(LlmVerdict.Timeout, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, reply.Verdict);
     }
 }

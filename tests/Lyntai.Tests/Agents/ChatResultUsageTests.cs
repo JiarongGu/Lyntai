@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Guards;
@@ -31,8 +32,8 @@ public class ChatResultUsageTests
     public async Task Tool_loop_usage_is_surfaced_on_the_chat_result()
     {
         var provider = new FakeLlmProvider("p"); // no native tools → prompt-protocol tool loop, two turns
-        provider.Replies.Enqueue(new LlmReply("""{"tool":"shout","arguments":{"s":"hi"}}""", LlmVerdict.Ok, new LlmUsage(10, 5)));
-        provider.Replies.Enqueue(new LlmReply("""{"final":"HI done"}""", LlmVerdict.Ok, new LlmUsage(7, 3, 2, 0.25)));
+        provider.Replies.Enqueue(new LlmReply("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok, new LlmUsage(10, 5)));
+        provider.Replies.Enqueue(new LlmReply("""{"final":"HI done"}""", ProviderVerdict.Ok, new LlmUsage(7, 3, 2, 0.25)));
         using var sp = Build(provider, b => b.AddTool(_ => new FunctionTool("shout", (a, _) => Task.FromResult(a.ToUpperInvariant()))));
 
         var result = await sp.GetRequiredService<IChatOrchestrator>()
@@ -50,7 +51,7 @@ public class ChatResultUsageTests
     public async Task Plain_completion_usage_is_surfaced_on_the_chat_result()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("the answer is 42", LlmVerdict.Ok, new LlmUsage(12, 4)));
+        provider.Replies.Enqueue(new LlmReply("the answer is 42", ProviderVerdict.Ok, new LlmUsage(12, 4)));
         using var sp = Build(provider);
 
         var result = await sp.GetRequiredService<IChatOrchestrator>()
@@ -65,7 +66,7 @@ public class ChatResultUsageTests
     public async Task Usage_stays_null_when_no_provider_reported_any()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("no tokens here", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("no tokens here", ProviderVerdict.Ok));
         using var sp = Build(provider);
 
         var result = await sp.GetRequiredService<IChatOrchestrator>()
@@ -81,14 +82,14 @@ public class ChatResultUsageTests
         var provider = new FakeLlmProvider("p");
         // Refused is FallbackAction.Surface under the default RoutingPolicy — no retry, no next candidate —
         // so the reply the orchestrator sees is exactly this one, usage and all.
-        provider.Replies.Enqueue(new LlmReply("", LlmVerdict.Refused, new LlmUsage(9, 0), "policy"));
+        provider.Replies.Enqueue(new LlmReply("", ProviderVerdict.Refused, new LlmUsage(9, 0), "policy"));
         using var sp = Build(provider);
 
         var result = await sp.GetRequiredService<IChatOrchestrator>()
             .ChatAsync(new ChatTurn { Message = "something disallowed", UseTools = false });
 
         Assert.False(result.Ok);
-        Assert.Equal(LlmVerdict.Refused, result.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, result.Verdict);
         Assert.Equal(9, result.Usage!.InputTokens);
     }
 
@@ -96,7 +97,7 @@ public class ChatResultUsageTests
     public async Task Usage_stays_null_when_the_input_gate_blocked_before_the_model()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("should not run", LlmVerdict.Ok, new LlmUsage(99, 99)));
+        provider.Replies.Enqueue(new LlmReply("should not run", ProviderVerdict.Ok, new LlmUsage(99, 99)));
         using var sp = Build(provider, b => b.AddGuard(_ => new DenylistGuard(["malware"])));
 
         var result = await sp.GetRequiredService<IChatOrchestrator>()
@@ -111,7 +112,7 @@ public class ChatResultUsageTests
     public async Task Usage_is_surfaced_when_the_output_gate_blocked_the_answer()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("here is the leaked secret", LlmVerdict.Ok, new LlmUsage(6, 11)));
+        provider.Replies.Enqueue(new LlmReply("here is the leaked secret", ProviderVerdict.Ok, new LlmUsage(6, 11)));
         using var sp = Build(provider, b => b.AddGuard(_ => new DenylistGuard(["leaked"])));
 
         var result = await sp.GetRequiredService<IChatOrchestrator>()

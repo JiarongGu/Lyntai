@@ -15,7 +15,7 @@ namespace Lyntai.Tests.Generation;
 /// Every rejection therefore advanced AND took a dead-host strike — including one from a backend that answered
 /// "not configured" before it opened a socket, which is exactly the penalty-for-a-known-fact that
 /// <c>NotConfigured</c> was introduced to prevent (<c>docs/DECISIONS.md</c> D31).</para></summary>
-// serialized with every other class that registers a matcher: LlmVerdictClassifier.AddErrorTextMatcher mutates
+// serialized with every other class that registers a matcher: ProviderVerdictClassifier.AddErrorTextMatcher mutates
 // a PROCESS-WIDE list. It does NOT protect the rest of the suite, so the matcher below answers for its own
 // probe token and nothing else.
 [Collection("verdict-matchers")]
@@ -55,8 +55,8 @@ public class GenerationSubmitFallbackTests
     {
         // the shipped case: a queue backend that answers "not configured" before it opens a socket is not ill,
         // and benching it takes it out of rotation for being honest about a fact known before the call
-        using var _ = LlmVerdictClassifier.AddErrorTextMatcher(t =>
-            t.Contains("queue-unconfigured-probe", StringComparison.Ordinal) ? LlmVerdict.NotConfigured : null);
+        using var _ = ProviderVerdictClassifier.AddErrorTextMatcher(t =>
+            t.Contains("queue-unconfigured-probe", StringComparison.Ordinal) ? ProviderVerdict.NotConfigured : null);
 
         var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
         var unconfigured = new RejectingJobProvider
@@ -111,7 +111,7 @@ public class GenerationSubmitFallbackTests
     public async Task A_host_that_pairs_a_hosted_queue_with_a_permissive_one_can_override_the_refusal_rule()
     {
         // proof the policy is genuinely consulted rather than the Refused case being hardcoded here
-        var policy = new GenerationRoutingPolicy().On(GenerationVerdict.Refused, GenerationFallbackAction.Advance);
+        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Refused, GenerationFallbackAction.Advance);
         var refusing = new RejectingJobProvider { Id = "hosted", Detail = "content policy violation" };
         var permissive = new FakeGenerationJobProvider { Id = "local" };
 
@@ -213,7 +213,7 @@ public class GenerationSubmitFallbackTests
             Task.FromResult(new ProviderProbeResult(true, "up"));
 
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "job backend"));
+            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "job backend"));
 
         public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
         {
@@ -225,7 +225,7 @@ public class GenerationSubmitFallbackTests
             Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Failed));
 
         public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(GenerationVerdict.Failed, "nothing"));
+            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "nothing"));
 
         public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Cancelled));

@@ -22,13 +22,13 @@ public class GenerationRoutingPolicyTests
 
         // a content judgement ends the run; a capability gap is nobody's fault; a backend that told us to
         // back off gets benched; a maybe-transient fault counts toward the threshold
-        Assert.Equal(GenerationFallbackAction.Surface, policy.ActionFor(GenerationVerdict.Refused));
-        Assert.Equal(GenerationFallbackAction.Advance, policy.ActionFor(GenerationVerdict.NotConfigured));
-        Assert.Equal(GenerationFallbackAction.Advance, policy.ActionFor(GenerationVerdict.Unsupported));
-        Assert.Equal(GenerationFallbackAction.CooldownAndAdvance, policy.ActionFor(GenerationVerdict.RateLimited));
-        Assert.Equal(GenerationFallbackAction.CooldownAndAdvance, policy.ActionFor(GenerationVerdict.AuthFailed));
-        Assert.Equal(GenerationFallbackAction.PenalizeAndAdvance, policy.ActionFor(GenerationVerdict.Failed));
-        Assert.Equal(GenerationFallbackAction.PenalizeAndAdvance, policy.ActionFor(GenerationVerdict.Timeout));
+        Assert.Equal(GenerationFallbackAction.Surface, policy.ActionFor(ProviderVerdict.Refused));
+        Assert.Equal(GenerationFallbackAction.Advance, policy.ActionFor(ProviderVerdict.NotConfigured));
+        Assert.Equal(GenerationFallbackAction.Advance, policy.ActionFor(ProviderVerdict.Unsupported));
+        Assert.Equal(GenerationFallbackAction.CooldownAndAdvance, policy.ActionFor(ProviderVerdict.RateLimited));
+        Assert.Equal(GenerationFallbackAction.CooldownAndAdvance, policy.ActionFor(ProviderVerdict.AuthFailed));
+        Assert.Equal(GenerationFallbackAction.PenalizeAndAdvance, policy.ActionFor(ProviderVerdict.Failed));
+        Assert.Equal(GenerationFallbackAction.PenalizeAndAdvance, policy.ActionFor(ProviderVerdict.Timeout));
     }
 
     [Fact]
@@ -37,9 +37,9 @@ public class GenerationRoutingPolicyTests
         // the case that forced this seam: a hosted backend refuses on content policy, a locally-run one has no
         // such policy, and the host has deliberately listed both
         var refusing = new FakeGenerationProvider { Id = "hosted" };
-        refusing.Verdicts.Enqueue(GenerationVerdict.Refused);
+        refusing.Verdicts.Enqueue(ProviderVerdict.Refused);
         var permissive = new FakeGenerationProvider { Id = "local" };
-        var policy = new GenerationRoutingPolicy().On(GenerationVerdict.Refused, GenerationFallbackAction.Advance);
+        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Refused, GenerationFallbackAction.Advance);
         var router = new GenerationRouter([refusing, permissive], policy);
 
         var result = await router.GenerateAsync(
@@ -55,16 +55,16 @@ public class GenerationRoutingPolicyTests
         // advancing past a refusal must not lose it: if nothing succeeds, the caller needs to know it was
         // refused rather than "not configured"
         var first = new FakeGenerationProvider { Id = "a" };
-        first.Verdicts.Enqueue(GenerationVerdict.Refused);
+        first.Verdicts.Enqueue(ProviderVerdict.Refused);
         var second = new FakeGenerationProvider { Id = "b" };
-        second.Verdicts.Enqueue(GenerationVerdict.Refused);
-        var policy = new GenerationRoutingPolicy().On(GenerationVerdict.Refused, GenerationFallbackAction.Advance);
+        second.Verdicts.Enqueue(ProviderVerdict.Refused);
+        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Refused, GenerationFallbackAction.Advance);
         var router = new GenerationRouter([first, second], policy);
 
         var result = await router.GenerateAsync(
             [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
-        Assert.Equal(GenerationVerdict.Refused, result.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, result.Verdict);
         Assert.Equal(1, second.GenerateCalls);   // it did try the second one
     }
 
@@ -73,15 +73,15 @@ public class GenerationRoutingPolicyTests
     {
         // the reverse knob: a host that would rather see a hard failure than silently pay a second backend
         var failing = new FakeGenerationProvider { Id = "a" };
-        failing.Verdicts.Enqueue(GenerationVerdict.Failed);
+        failing.Verdicts.Enqueue(ProviderVerdict.Failed);
         var working = new FakeGenerationProvider { Id = "b" };
-        var policy = new GenerationRoutingPolicy().On(GenerationVerdict.Failed, GenerationFallbackAction.Surface);
+        var policy = new GenerationRoutingPolicy().On(ProviderVerdict.Failed, GenerationFallbackAction.Surface);
         var router = new GenerationRouter([failing, working], policy);
 
         var result = await router.GenerateAsync(
             [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
-        Assert.Equal(GenerationVerdict.Failed, result.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, result.Verdict);
         Assert.Equal(0, working.GenerateCalls);
     }
 
@@ -93,11 +93,11 @@ public class GenerationRoutingPolicyTests
             .AddGenerationProvider(_ =>
             {
                 var refusing = new FakeGenerationProvider { Id = "hosted" };
-                refusing.Verdicts.Enqueue(GenerationVerdict.Refused);
+                refusing.Verdicts.Enqueue(ProviderVerdict.Refused);
                 return refusing;
             })
             .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "local" })
-            .ConfigureGenerationRouting(p => p.On(GenerationVerdict.Refused, GenerationFallbackAction.Advance)));
+            .ConfigureGenerationRouting(p => p.On(ProviderVerdict.Refused, GenerationFallbackAction.Advance)));
         using var sp = services.BuildServiceProvider();
 
         var result = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
@@ -111,14 +111,14 @@ public class GenerationRoutingPolicyTests
     {
         // a router built without a policy must behave exactly as before this seam existed
         var refusing = new FakeGenerationProvider { Id = "a" };
-        refusing.Verdicts.Enqueue(GenerationVerdict.Refused);
+        refusing.Verdicts.Enqueue(ProviderVerdict.Refused);
         var working = new FakeGenerationProvider { Id = "b" };
         var router = new GenerationRouter([refusing, working]);
 
         var result = await router.GenerateAsync(
             [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
-        Assert.Equal(GenerationVerdict.Refused, result.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, result.Verdict);
         Assert.Equal(0, working.GenerateCalls);
     }
 }

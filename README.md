@@ -70,7 +70,7 @@ version you installed.
 > run can still surprise is a wire format's SHAPE, not a value — and that is now a major-version risk taken
 > deliberately rather than a caveat carried indefinitely.
 > **The carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE:** the generation *contracts* in that
-> namespace (`GenerationResult`, the routing policy, `GenerationVerdictClassifier`, …) ship inside the mandatory
+> namespace (`GenerationResult`, the routing policy, `ProviderVerdictClassifier`, …) ship inside the mandatory
 > `Lyntai.Core` and carry the FULL promise — which is why `docs/DECISIONS.md` D36 treated a verdict-translation
 > fix in one of them as major-bump material rather than claiming the exemption. Everything
 > else (LLM routing, storage, cortex, jobs, guards, secrets, memory, tools) carries the full promise. **Upgrading 0.31 → 1.0:** the 0.x migrations were collapsed
@@ -197,10 +197,11 @@ public sealed class MyFeature(
 
 (`ILlmRouter` stays available for call sites that genuinely need their own candidate list.)
 
-`LlmVerdict` also carries two call-site predicates — `IsOk()` and `IsTransient()` ("may the same request
-succeed later?", true for `Failed`/`Timeout`/`RateLimited`). They are categories rather than one method per
+`ProviderVerdict` also carries three call-site predicates — `IsOk()`, `IsTransient()` ("may the same request
+succeed later?", true for `Failed`/`Timeout`/`RateLimited`) and `IsBlameless()` (the backend declined without
+anything being wrong with it). They are categories rather than one method per
 verdict, on purpose: the enum grows, and a single member is already best expressed as
-`verdict == LlmVerdict.RateLimited`. They hang off the enum, so they read the same off `LlmReply`,
+`verdict == ProviderVerdict.RateLimited`. They hang off the enum, so they read the same off `LlmReply`,
 `LlmChunk`, `SessionEnded`, `AgentSessionResult` and `ToolLoopResult`.
 
 And if your app already speaks `Microsoft.Extensions.AI`, consume Lyntai **as** an `IChatClient` —
@@ -220,7 +221,7 @@ the message text.
      void ShowSetup(string? detail) { } -->
 ```csharp
 try { var response = await chat.GetResponseAsync(messages, cancellationToken: ct); }
-catch (LlmVerdictException ex) when (ex.Verdict == LlmVerdict.NotConfigured) { ShowSetup(ex.Detail); }
+catch (LlmVerdictException ex) when (ex.Verdict == ProviderVerdict.NotConfigured) { ShowSetup(ex.Detail); }
 ```
 
 ### The semantics you're getting (design §6)
@@ -251,9 +252,9 @@ catch (LlmVerdictException ex) when (ex.Verdict == LlmVerdict.NotConfigured) { S
   ```csharp
   cfg.ConfigureRouting(r =>
   {
-      r.Retry(LlmVerdict.Failed, 1);                     // one retry before advancing
+      r.Retry(ProviderVerdict.Failed, 1);                     // one retry before advancing
       r.CooldownScope = CooldownScope.ProviderAndModel;  // per-model rate-limit cooldown
-      r.On(LlmVerdict.RateLimited, FallbackAction.Surface); // e.g. don't fall back on 429
+      r.On(ProviderVerdict.RateLimited, FallbackAction.Surface); // e.g. don't fall back on 429
   });
   ```
 - **Prompt overrides** live in the key-value store under `lyntai.prompt.<name>`; an override that
@@ -1101,7 +1102,7 @@ for the queue ones (`ComfyUiOptions`, `FalQueueOptions`, whose calls are submit/
 than renders), and 15 minutes for `LocalDiffusionOptions`, paired there with a 2-minute `InactivityTimeout`:
 a CPU render is legitimately slow but never *silent*, so silence rather than elapsed time is what marks it
 wedged — and a request's own `TimeoutSeconds` overrides it where a request exists. A fired deadline is a
-`GenerationVerdict.Timeout` **result**, not a throw; your own `CancellationToken` keeps its own meaning and
+`ProviderVerdict.Timeout` **result**, not a throw; your own `CancellationToken` keeps its own meaning and
 still surfaces as cancellation. Set `Timeout = System.Threading.Timeout.InfiniteTimeSpan` to drop the backend's
 own deadline — a request that names its own `TimeoutSeconds` still gets one, since the more specific
 instruction wins either way.
@@ -1205,7 +1206,7 @@ is your call to change:
 
 ```csharp
 cfg.ConfigureGenerationRouting(p =>
-    p.On(GenerationVerdict.Refused, GenerationFallbackAction.Advance));   // local backend picks it up
+    p.On(ProviderVerdict.Refused, GenerationFallbackAction.Advance));   // local backend picks it up
 ```
 
 Backends come in the same three shapes as LLM providers — **remote** (HTTP), **spawned CLI**, and **local
@@ -1446,7 +1447,7 @@ Three things worth knowing before you rely on it:
 - **Naming a server makes its tools reachable, not approved.** claude still needs
   `ClaudeAgentOptions.AllowedTools` (or `SkipAllPermissions`) for a headless run; codex still gates on
   `--sandbox`. Auto-approving your servers would be a silent change of security posture, so it stays yours.
-- **A server that cannot be rendered refuses the turn** — one `SessionEnded` with `LlmVerdict.Unsupported`
+- **A server that cannot be rendered refuses the turn** — one `SessionEnded` with `ProviderVerdict.Unsupported`
   and no process spawned — rather than being dropped. A dropped server is an agent that runs and silently
   cannot do its job. Names are letters/digits/`_`/`-` (they become configuration keys), stdio needs a
   `Command`, HTTP needs an absolute `Url`, and duplicate names are rejected.

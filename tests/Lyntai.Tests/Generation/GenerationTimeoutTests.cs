@@ -14,7 +14,7 @@ namespace Lyntai.Tests.Generation;
 /// cancellation" — so a deadline has to exist, or a backend that accepts the connection and then stalls hangs
 /// until the caller's token fires, and a background render with no cancel waits forever.
 ///
-/// <para>Two things are pinned here beyond "it stops": a fired deadline is a <see cref="GenerationVerdict.Timeout"/>
+/// <para>Two things are pinned here beyond "it stops": a fired deadline is a <see cref="ProviderVerdict.Timeout"/>
 /// RESULT (these backends are contractually fail-safe — a transport failure is a verdict, not a throw), while the
 /// CALLER's own cancellation still propagates as an <see cref="OperationCanceledException"/>. A naive linked-token
 /// implementation reports one as the other.</para></summary>
@@ -103,7 +103,7 @@ public class GenerationTimeoutTests
 
         var result = await provider.GenerateAsync(Ask(timeoutSeconds: 1));
 
-        Assert.Equal(GenerationVerdict.Timeout, result.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, result.Verdict);
         // and say WHICH clock ended it: the request's 1s budget, not the fixture client's backstop. Without
         // this the same assertion passes if request-budget precedence regresses — just five seconds later.
         Assert.Contains("timed out after 00:00:01", result.Detail);
@@ -117,7 +117,7 @@ public class GenerationTimeoutTests
 
         var result = await provider.GenerateAsync(Ask());
 
-        Assert.Equal(GenerationVerdict.Timeout, result.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, result.Verdict);
     }
 
     [Fact]
@@ -181,12 +181,12 @@ public class GenerationTimeoutTests
         var fal = await new FalQueueProvider(
             new FalQueueOptions { ApiKey = "k", Timeout = Short }, Stalling())
             .FetchAsync("fal-ai/wan-t2v#abc");
-        Assert.Equal(GenerationVerdict.Timeout, fal.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, fal.Verdict);
 
         var comfy = await new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
             .FetchAsync("prompt-1");
-        Assert.Equal(GenerationVerdict.Timeout, comfy.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, comfy.Verdict);
     }
 
     [Fact]
@@ -202,7 +202,7 @@ public class GenerationTimeoutTests
 
         var result = await provider.GenerateAsync(Ask());      // no caller cancellation anywhere
 
-        Assert.Equal(GenerationVerdict.Timeout, result.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, result.Verdict);
         Assert.Contains("HttpClient", result.Detail);          // says WHICH clock fired: the fix differs
     }
 

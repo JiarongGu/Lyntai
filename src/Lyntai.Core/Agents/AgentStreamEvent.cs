@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 
 namespace Lyntai.Agents;
@@ -33,5 +34,5 @@ public sealed record UsageFinal(long InputTokens, long OutputTokens, long CacheR
 /// diagnosable via Verdict/Subtype/Diagnostic (never silent). Diagnostic is where a CLI adapter packs its
 /// stderr tail.</summary>
 public sealed record SessionEnded(
-    LlmVerdict Verdict, bool IsError, string? Subtype, string? SessionId,
+    ProviderVerdict Verdict, bool IsError, string? Subtype, string? SessionId,
     string? FinalText, string? Diagnostic) : AgentStreamEvent;

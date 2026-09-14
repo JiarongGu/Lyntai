@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -8,7 +9,7 @@ namespace Lyntai.Llm.RateLimiting;
 /// <summary>
 /// Decorates the front door with client-side throttling: before each call it acquires a permit from the
 /// <see cref="IRateLimiter"/>, waiting up to the configured max wait; if no permit frees in time the call
-/// is refused (a <see cref="LlmVerdict.RateLimited"/> reply / an Error stream chunk) without hitting a
+/// is refused (a <see cref="ProviderVerdict.RateLimited"/> reply / an Error stream chunk) without hitting a
 /// provider. Wired by <c>AddRateLimit()</c>. Sits inside the response cache, so a cached hit doesn't spend
 /// a permit — only real provider calls are throttled.
 /// </summary>
@@ -44,6 +45,6 @@ public sealed class RateLimitedLlmClient(
     {
         _logger.LogInformation("{Reason} for consumer {Consumer}", Reason, consumer);
         LyntaiDiagnostics.RecordRateLimitRefusal(consumer);
-        return new LlmReply("", LlmVerdict.RateLimited, Detail: Reason);
+        return new LlmReply("", ProviderVerdict.RateLimited, Detail: Reason);
     }
 }

@@ -55,7 +55,7 @@ public class RouterEndToEndTests : IDisposable
         // FORCE_ERROR makes the CLI stub produce no content → Failed → advance
         var reply = await router.CompleteAsync([new("claude-cli"), new("openai")], Req("FORCE_ERROR now"));
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("served by http", reply.Text);
         Assert.Single(_http.Requests);
     }

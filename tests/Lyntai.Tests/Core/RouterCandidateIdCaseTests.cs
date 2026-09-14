@@ -29,11 +29,11 @@ public class RouterCandidateIdCaseTests
     public async Task A_candidate_cased_differently_from_the_providers_own_Id_still_selects_it()
     {
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("served", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("served", ProviderVerdict.Ok));
 
         var reply = await Router(provider).CompleteAsync([new ProviderCandidate("OpenAI")], Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("served", reply.Text);
         Assert.Single(provider.Calls);
     }
@@ -47,7 +47,7 @@ public class RouterCandidateIdCaseTests
 
         var reply = await Router(provider).CompleteAsync([new ProviderCandidate("ollama")], Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.DoesNotContain("no live candidate", reply.Detail ?? "");
     }
 
@@ -95,8 +95,8 @@ public class RouterCandidateIdCaseTests
         // sole-candidate exemption from being silently withdrawn by a duplicate spelling
         var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "boom"));
-        provider.Replies.Enqueue(new LlmReply("recovered", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "boom"));
+        provider.Replies.Enqueue(new LlmReply("recovered", ProviderVerdict.Ok));
         var router = new LlmRouter([provider], tracker, new LyntaiOptions());
         ProviderCandidate[] listedTwice = [new("openai"), new("OpenAI")];
 

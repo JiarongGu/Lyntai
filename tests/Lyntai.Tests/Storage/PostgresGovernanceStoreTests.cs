@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Budgeting;
@@ -26,7 +27,7 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         var clock = new MutableClock();
         var key = Uid();
         var cache = new PostgresResponseCache(pg.Factory, options, clock.Get);
-        await cache.SetAsync(key, new LlmReply("pg cached", LlmVerdict.Ok, new LlmUsage(3, 4, CostUsd: 0.05)), TimeSpan.FromMinutes(5));
+        await cache.SetAsync(key, new LlmReply("pg cached", ProviderVerdict.Ok, new LlmUsage(3, 4, CostUsd: 0.05)), TimeSpan.FromMinutes(5));
 
         var got = await new PostgresResponseCache(pg.Factory, options, clock.Get).GetAsync(key); // fresh instance
         Assert.NotNull(got);
@@ -45,8 +46,8 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         var cache = new PostgresResponseCache(pg.Factory, options);
         var keep = Uid();
         var poisoned = Uid();
-        await cache.SetAsync(keep, new LlmReply("keep", LlmVerdict.Ok));
-        await cache.SetAsync(poisoned, new LlmReply("bad", LlmVerdict.Ok));
+        await cache.SetAsync(keep, new LlmReply("keep", ProviderVerdict.Ok));
+        await cache.SetAsync(poisoned, new LlmReply("bad", ProviderVerdict.Ok));
 
         await cache.RemoveAsync(poisoned);
         await cache.RemoveAsync(Uid()); // no-op, no throw
@@ -68,9 +69,9 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         var cache = new PostgresResponseCache(pg.Factory, options, clock.Get);
         var (a, b, c) = (Uid(), Uid(), Uid());
 
-        await cache.SetAsync(a, new LlmReply("a", LlmVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
-        await cache.SetAsync(b, new LlmReply("b", LlmVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
-        await cache.SetAsync(c, new LlmReply("c", LlmVerdict.Ok)); // over cap → oldest (a) trimmed
+        await cache.SetAsync(a, new LlmReply("a", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
+        await cache.SetAsync(b, new LlmReply("b", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
+        await cache.SetAsync(c, new LlmReply("c", ProviderVerdict.Ok)); // over cap → oldest (a) trimmed
 
         Assert.Null(await cache.GetAsync(a));
         Assert.NotNull(await cache.GetAsync(b));

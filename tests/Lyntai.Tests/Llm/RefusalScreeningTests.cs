@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
@@ -17,12 +18,12 @@ public class RefusalScreeningTests
     public async Task Reply_matching_the_per_request_pattern_is_refused()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("Lo siento, no puedo ayudar con eso.", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("Lo siento, no puedo ayudar con eso.", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "no puedo ayudar"));
 
-        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
         Assert.Contains("refusal pattern", reply.Detail);
     }
 
@@ -30,51 +31,51 @@ public class RefusalScreeningTests
     public async Task Reply_not_matching_stays_ok()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("Sure, here is the answer.", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("Sure, here is the answer.", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "no puedo ayudar"));
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
     }
 
     [Fact]
     public async Task No_pattern_passes_through()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("no puedo ayudar", LlmVerdict.Ok)); // would match, but no pattern set
+        inner.Replies.Enqueue(new LlmReply("no puedo ayudar", ProviderVerdict.Ok)); // would match, but no pattern set
         var screened = new RefusalScreeningLlmClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: null));
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
     }
 
     [Fact]
     public async Task Malformed_pattern_is_ignored_fail_open()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("anything", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("anything", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "(unclosed[")); // invalid regex
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);                                   // passes through, no throw
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);                                   // passes through, no throw
     }
 
     [Fact]
     public async Task A_non_ok_reply_is_left_untouched()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("", LlmVerdict.RateLimited, Detail: "429"));
+        inner.Replies.Enqueue(new LlmReply("", ProviderVerdict.RateLimited, Detail: "429"));
         var screened = new RefusalScreeningLlmClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "429"));
-        Assert.Equal(LlmVerdict.RateLimited, reply.Verdict); // screening only downgrades Ok replies
+        Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict); // screening only downgrades Ok replies
     }
 
     [Fact]
     public async Task Wired_through_AddLyntai_the_front_door_screens_the_reply()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("I cannot help with that request.", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("I cannot help with that request.", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b.AddProvider(_ => provider).UseDefaultCandidates("p"));
@@ -82,7 +83,7 @@ public class RefusalScreeningTests
         var client = sp.GetRequiredService<ILlmClient>();
 
         var reply = await client.CompleteAsync(Req(refusalPattern: "cannot help"));
-        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
 
     // --- typed IRefusalMatcher seam (R21b) -------------------------------------------------------
@@ -101,33 +102,33 @@ public class RefusalScreeningTests
     public async Task A_registered_matcher_downgrades_an_ok_reply_to_refused()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("well, NOPE, not doing that", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("well, NOPE, not doing that", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner, [new ContainsMatcher("NOPE")]);
 
         var reply = await screened.CompleteAsync(Req());
-        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
 
     [Fact]
     public async Task A_matcher_that_does_not_match_leaves_the_reply_ok()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("sure thing", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("sure thing", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner, [new ContainsMatcher("NOPE")]);
 
         var reply = await screened.CompleteAsync(Req());
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
     }
 
     [Fact]
     public async Task A_throwing_matcher_fails_open()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("anything", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("anything", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner, [new ThrowingMatcher()]);
 
         var reply = await screened.CompleteAsync(Req());
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict); // matcher blew up → reply passes through unchanged
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict); // matcher blew up → reply passes through unchanged
     }
 
     [Fact] // I3: a matcher registered against a PRE-REGISTERED ILlmClient would be silently ignored — guard it
@@ -144,7 +145,7 @@ public class RefusalScreeningTests
     public async Task Matchers_registered_via_AddRefusalMatcher_screen_at_the_front_door()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("here is my NOPE answer", LlmVerdict.Ok));
+        provider.Replies.Enqueue(new LlmReply("here is my NOPE answer", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
@@ -154,6 +155,6 @@ public class RefusalScreeningTests
         var client = sp.GetRequiredService<ILlmClient>();
 
         var reply = await client.CompleteAsync(Req());
-        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
 }

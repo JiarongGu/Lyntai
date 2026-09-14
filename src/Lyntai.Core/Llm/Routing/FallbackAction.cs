@@ -1,7 +1,9 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Llm.Routing;
 
 /// <summary>What the router does with a candidate's non-Ok outcome (design §6). The mapping from
-/// <see cref="LlmVerdict"/> to one of these is the <see cref="RoutingPolicy"/> — the hard-coded
+/// <see cref="ProviderVerdict"/> to one of these is the <see cref="RoutingPolicy"/> — the hard-coded
 /// defaults become just the default policy, overridable per consumer.</summary>
 public enum FallbackAction
 {

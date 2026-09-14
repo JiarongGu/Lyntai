@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -172,7 +173,7 @@ public class OllamaAttachmentTests
             Model = "llava",
         });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal(new Uri("http://localhost:11434/api/chat"), handler.Requests[0].Uri);
         Assert.Contains("\"images\"", handler.Requests[0].Body, StringComparison.Ordinal);
         Assert.Contains(Base64, handler.Requests[0].Body, StringComparison.Ordinal);

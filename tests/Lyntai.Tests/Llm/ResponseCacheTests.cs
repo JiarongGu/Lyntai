@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Reflection;
 using Lyntai;
 using Lyntai.Llm;
@@ -100,8 +101,8 @@ public class ResponseCacheTests
     public async Task Cache_does_not_cross_serve_consumers_with_different_default_models()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("answer-for-a", LlmVerdict.Ok));
-        inner.Replies.Enqueue(new LlmReply("answer-for-b", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("answer-for-a", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("answer-for-b", ProviderVerdict.Ok));
         var options = new LyntaiOptions();
         options.DefaultModelByConsumer["a"] = "model-a";
         options.DefaultModelByConsumer["b"] = "model-b";
@@ -139,7 +140,7 @@ public class ResponseCacheTests
     public async Task Stores_and_returns_a_reply_misses_on_unknown_key()
     {
         var (cache, _) = NewCache();
-        var reply = new LlmReply("cached", LlmVerdict.Ok);
+        var reply = new LlmReply("cached", ProviderVerdict.Ok);
         await cache.SetAsync("k", reply);
         Assert.Same(reply, await cache.GetAsync("k"));
         Assert.Null(await cache.GetAsync("missing"));
@@ -149,7 +150,7 @@ public class ResponseCacheTests
     public async Task Entry_expires_after_its_ttl()
     {
         var (cache, clock) = NewCache();
-        await cache.SetAsync("k", new LlmReply("x", LlmVerdict.Ok), TimeSpan.FromMinutes(5));
+        await cache.SetAsync("k", new LlmReply("x", ProviderVerdict.Ok), TimeSpan.FromMinutes(5));
         clock.Advance(TimeSpan.FromMinutes(4));
         Assert.NotNull(await cache.GetAsync("k")); // still fresh
         clock.Advance(TimeSpan.FromMinutes(2));       // now past 5m
@@ -160,7 +161,7 @@ public class ResponseCacheTests
     public async Task Non_positive_ttl_disables_caching()
     {
         var (cache, _) = NewCache(c => c.Ttl = TimeSpan.Zero);
-        await cache.SetAsync("k", new LlmReply("x", LlmVerdict.Ok)); // uses default ttl = Zero
+        await cache.SetAsync("k", new LlmReply("x", ProviderVerdict.Ok)); // uses default ttl = Zero
         Assert.Null(await cache.GetAsync("k"));
     }
 
@@ -168,8 +169,8 @@ public class ResponseCacheTests
     public async Task Remove_evicts_one_entry_and_a_missing_key_is_a_no_op()
     {
         var (cache, _) = NewCache();
-        await cache.SetAsync("keep", new LlmReply("keep", LlmVerdict.Ok));
-        await cache.SetAsync("poisoned", new LlmReply("bad", LlmVerdict.Ok));
+        await cache.SetAsync("keep", new LlmReply("keep", ProviderVerdict.Ok));
+        await cache.SetAsync("poisoned", new LlmReply("bad", ProviderVerdict.Ok));
 
         await cache.RemoveAsync("poisoned");
         await cache.RemoveAsync("never-set"); // no-op, no throw
@@ -182,9 +183,9 @@ public class ResponseCacheTests
     public async Task Evicts_the_oldest_beyond_the_size_cap()
     {
         var (cache, _) = NewCache(c => c.MaxEntries = 2);
-        await cache.SetAsync("a", new LlmReply("a", LlmVerdict.Ok));
-        await cache.SetAsync("b", new LlmReply("b", LlmVerdict.Ok));
-        await cache.SetAsync("c", new LlmReply("c", LlmVerdict.Ok)); // over cap → shed the oldest ("a")
+        await cache.SetAsync("a", new LlmReply("a", ProviderVerdict.Ok));
+        await cache.SetAsync("b", new LlmReply("b", ProviderVerdict.Ok));
+        await cache.SetAsync("c", new LlmReply("c", ProviderVerdict.Ok)); // over cap → shed the oldest ("a")
         Assert.Null(await cache.GetAsync("a"));
         Assert.NotNull(await cache.GetAsync("b"));
         Assert.NotNull(await cache.GetAsync("c"));
@@ -203,7 +204,7 @@ public class ResponseCacheTests
     public async Task Second_identical_completion_is_served_from_cache()
     {
         var (client, inner) = Decorated();
-        inner.Replies.Enqueue(new LlmReply("answer", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("answer", ProviderVerdict.Ok));
         var req = Req(LlmMessage.User("q"));
 
         var first = await client.CompleteAsync(req);
@@ -218,14 +219,14 @@ public class ResponseCacheTests
     public async Task A_non_Ok_reply_is_not_cached()
     {
         var (client, inner) = Decorated();
-        inner.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "boom"));
-        inner.Replies.Enqueue(new LlmReply("recovered", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "boom"));
+        inner.Replies.Enqueue(new LlmReply("recovered", ProviderVerdict.Ok));
         var req = Req(LlmMessage.User("q"));
 
         var first = await client.CompleteAsync(req);
         var second = await client.CompleteAsync(req);
 
-        Assert.Equal(LlmVerdict.Failed, first.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, first.Verdict);
         Assert.Equal("recovered", second.Text); // retried the provider, not a cached failure
         Assert.Equal(2, inner.Calls.Count);
     }
@@ -234,8 +235,8 @@ public class ResponseCacheTests
     public async Task Native_tool_requests_bypass_the_cache()
     {
         var (client, inner) = Decorated();
-        inner.Replies.Enqueue(new LlmReply("a", LlmVerdict.Ok));
-        inner.Replies.Enqueue(new LlmReply("b", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("a", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("b", ProviderVerdict.Ok));
         var req = new LlmRequest { Messages = [LlmMessage.User("q")], Tools = [new LlmTool("echo")] };
 
         var first = await client.CompleteAsync(req);
@@ -270,7 +271,7 @@ public class ResponseCacheTests
     public async Task AddResponseCache_wires_a_caching_front_door()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("once", LlmVerdict.Ok)); // exactly one scripted reply
+        provider.Replies.Enqueue(new LlmReply("once", ProviderVerdict.Ok)); // exactly one scripted reply
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => provider)

@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Lyntai.Memory.Verification;
 
@@ -21,7 +22,7 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class LlmMemoryVerificationPolicyTests
 {
-    private sealed class ScriptedClient(string text, LlmVerdict verdict = LlmVerdict.Ok) : ILlmClient
+    private sealed class ScriptedClient(string text, ProviderVerdict verdict = ProviderVerdict.Ok) : ILlmClient
     {
         public LlmRequest? Last { get; private set; }
 
@@ -52,7 +53,7 @@ public class LlmMemoryVerificationPolicyTests
         public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
-            return Task.FromResult(new LlmReply("""{"relevant":[1]}""", LlmVerdict.Ok));
+            return Task.FromResult(new LlmReply("""{"relevant":[1]}""", ProviderVerdict.Ok));
         }
 
         public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
@@ -198,7 +199,7 @@ public class LlmMemoryVerificationPolicyTests
     [Fact]
     public async Task A_refused_reply_is_no_opinion()
     {
-        var verdict = await VerifyAsync(new ScriptedClient("""{"relevant":[1]}""", LlmVerdict.Refused));
+        var verdict = await VerifyAsync(new ScriptedClient("""{"relevant":[1]}""", ProviderVerdict.Refused));
 
         Assert.False(verdict.Judged);
     }

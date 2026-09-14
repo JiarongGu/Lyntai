@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Runtime.CompilerServices;
 using Lyntai.Llm;
 
@@ -28,7 +29,7 @@ public sealed class FakeLlmClient : ILlmClient
     public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
         Calls.Add(req);
-        return Task.FromResult(Replies.Count > 0 ? Replies.Dequeue() : new LlmReply("fake", LlmVerdict.Ok));
+        return Task.FromResult(Replies.Count > 0 ? Replies.Dequeue() : new LlmReply("fake", ProviderVerdict.Ok));
     }
 
     public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)

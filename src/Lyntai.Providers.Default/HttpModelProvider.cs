@@ -127,11 +127,11 @@ public sealed class HttpModelProvider(
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (OperationCanceledException)
             {
-                return new LlmReply("", LlmVerdict.Timeout, Detail: $"{id}: no response within {timeout}");
+                return new LlmReply("", ProviderVerdict.Timeout, Detail: $"{id}: no response within {timeout}");
             }
             catch (HttpRequestException ex)
             {
-                return new LlmReply("", LlmVerdict.Failed, Detail: $"{id}: {ex.Message}");
+                return new LlmReply("", ProviderVerdict.Failed, Detail: $"{id}: {ex.Message}");
             }
 
             if (TryExtract(body, out var text, out var usage, out var finishReason, out var toolCalls))
@@ -139,13 +139,13 @@ public sealed class HttpModelProvider(
                 // a content filter often arrives as HTTP 200 + finish_reason with EMPTY content —
                 // it must classify as Refused (no fallback) before any empty-text handling
                 if (finishReason == "content_filter")
-                    return new LlmReply(text, LlmVerdict.Refused, usage, $"{id}: content filter");
+                    return new LlmReply(text, ProviderVerdict.Refused, usage, $"{id}: content filter");
                 // a tool-call turn is a SUCCESSFUL reply with empty text — surface it before the
                 // empty-text→Failed/retry path (the tool loop drives the next turn)
                 if (toolCalls is { Count: > 0 })
-                    return new LlmReply(text, LlmVerdict.Ok, usage) { ToolCalls = toolCalls };
+                    return new LlmReply(text, ProviderVerdict.Ok, usage) { ToolCalls = toolCalls };
                 if (text.Length > 0)
-                    return new LlmReply(text, LlmVerdict.Ok, usage);
+                    return new LlmReply(text, ProviderVerdict.Ok, usage);
                 // well-formed but empty and not filtered — same retry-once as a malformed body
             }
 
@@ -158,7 +158,7 @@ public sealed class HttpModelProvider(
                 _logger.LogWarning("{Id}: malformed or empty response body; retrying once", id);
                 continue; // one retry on a malformed/empty body
             }
-            return new LlmReply("", LlmVerdict.Failed, Detail: $"{id}: malformed or empty response after retry");
+            return new LlmReply("", ProviderVerdict.Failed, Detail: $"{id}: malformed or empty response after retry");
         }
     }
 
@@ -191,11 +191,11 @@ public sealed class HttpModelProvider(
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
         {
-            startupError = LlmChunk.Error(LlmVerdict.Timeout, $"{id}: no response within {timeout}");
+            startupError = LlmChunk.Error(ProviderVerdict.Timeout, $"{id}: no response within {timeout}");
         }
         catch (HttpRequestException ex)
         {
-            startupError = LlmChunk.Error(LlmVerdict.Failed, $"{id}: {ex.Message}");
+            startupError = LlmChunk.Error(ProviderVerdict.Failed, $"{id}: {ex.Message}");
         }
 
         if (startupError is not null)
@@ -225,7 +225,7 @@ public sealed class HttpModelProvider(
         var guarded = GuardedStream.ReadAll<string, LlmChunk>(
             async () => await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false),
             ex => LlmChunk.Error(
-                timeoutCts.IsCancellationRequested ? LlmVerdict.Timeout : LlmVerdict.Failed,
+                timeoutCts.IsCancellationRequested ? ProviderVerdict.Timeout : ProviderVerdict.Failed,
                 $"{id}: stream broke — {ex.Message}"),
             ct, new InactivityClock(timeoutCts, timeout));
         await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
@@ -262,7 +262,7 @@ public sealed class HttpModelProvider(
         // non-streaming path gives the identical finish_reason
         if (finishReason == "content_filter")
         {
-            yield return LlmChunk.Error(LlmVerdict.Refused, $"{id}: content filter");
+            yield return LlmChunk.Error(ProviderVerdict.Refused, $"{id}: content filter");
             yield break;
         }
         // TOOL CALLS, assembled from their fragments and delivered before the terminal chunk (3.0). Until
@@ -291,7 +291,7 @@ public sealed class HttpModelProvider(
         // terminal chunk, which the router passes through unchanged post-commit.
         if (finishReason == "tool_calls")
         {
-            yield return LlmChunk.Error(LlmVerdict.Failed,
+            yield return LlmChunk.Error(ProviderVerdict.Failed,
                 $"{id}: the stream finished for tool calls but none could be assembled from its deltas");
             yield break;
         }
@@ -303,7 +303,7 @@ public sealed class HttpModelProvider(
         {
             var reply = inBandError is not null
                 ? InBandFailure(inBandError)
-                : new LlmReply("", LlmVerdict.Failed, Detail: $"{id}: no output produced");
+                : new LlmReply("", ProviderVerdict.Failed, Detail: $"{id}: no output produced");
             yield return LlmChunk.Error(reply.Verdict, reply.Detail);
             yield break;
         }
@@ -338,15 +338,15 @@ public sealed class HttpModelProvider(
     /// <summary>Classify an error the backend reported IN BAND under a 2xx status. The status carries no
     /// information here — it said success — so the verdict comes from the backend's own words through the
     /// ONE shared corpus, never a local heuristic.
-    /// <para>The <see cref="LlmVerdict.AuthFailed"/> → <see cref="LlmVerdict.NotConfigured"/> promotion is
-    /// the same two-term rule <see cref="LlmVerdictClassifier.FromHttpFailure(HttpStatusCode, string, bool)"/>
+    /// <para>The <see cref="ProviderVerdict.AuthFailed"/> → <see cref="ProviderVerdict.NotConfigured"/> promotion is
+    /// the same two-term rule <see cref="ProviderVerdictClassifier.FromHttpFailure(HttpStatusCode, string, bool)"/>
     /// applies on the status path, restated here because that overload needs a FAILED status to key on and
     /// this path has none. Keeping the two in step matters: NotConfigured skips a candidate blamelessly and
     /// lets a host offer setup, while AuthFailed benches it for the cooldown window.</para></summary>
     private LlmReply InBandFailure(string error)
     {
-        var verdict = LlmVerdictClassifier.FromErrorText(error);
-        if (verdict == LlmVerdict.AuthFailed && !HasCredentials) verdict = LlmVerdict.NotConfigured;
+        var verdict = ProviderVerdictClassifier.FromErrorText(error);
+        if (verdict == ProviderVerdict.AuthFailed && !HasCredentials) verdict = ProviderVerdict.NotConfigured;
         return new LlmReply("", verdict, Detail: $"{id}: {HttpBody.Head(error)}");
     }
 
@@ -357,7 +357,7 @@ public sealed class HttpModelProvider(
         // hasCredentials separates "never set up" (NotConfigured — skipped blamelessly) from "your key was
         // rejected" (AuthFailed — benched for the cooldown window). A local OpenAI-compatible server needs no
         // key, so the missing key only means unconfigured once the server has actually demanded one.
-        return new LlmReply("", LlmVerdictClassifier.FromHttpFailure(status, body, HasCredentials), Detail: detail);
+        return new LlmReply("", ProviderVerdictClassifier.FromHttpFailure(status, body, HasCredentials), Detail: detail);
     }
 
     /// <summary>Tolerant extraction covering both response shapes:

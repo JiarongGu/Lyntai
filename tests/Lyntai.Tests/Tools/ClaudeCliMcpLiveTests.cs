@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Llm;
@@ -42,7 +43,7 @@ public class ClaudeCliMcpLiveTests
             Messages = [LlmMessage.User("Call the get_secret_word tool, then tell me the secret word.")],
         });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.True(called > 0, "the CLI's agent should have called the hosted tool");
         Assert.Contains("banana", reply.Text, StringComparison.OrdinalIgnoreCase);
     }

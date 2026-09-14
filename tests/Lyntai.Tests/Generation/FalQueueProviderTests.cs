@@ -324,7 +324,7 @@ public class FalQueueProviderTests
 
         var result = await provider.GenerateAsync(Ask());
 
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
     }
 
     [Fact]

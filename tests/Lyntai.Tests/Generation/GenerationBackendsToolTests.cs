@@ -162,7 +162,7 @@ public class GenerationBackendsToolTests
         }
 
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(GenerationVerdict.Failed, "not used"));
+            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "not used"));
     }
 
     /// <summary>The CALLER's own cancellation still propagates. The listing's deadline is this tool's clock;

@@ -72,7 +72,7 @@ public class AddLlamaSharpTests
 
         var reply = await provider.CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.Failed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
         Assert.Equal("", reply.Text);
     }
 
@@ -87,6 +87,6 @@ public class AddLlamaSharpTests
 
         var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Ask());
 
-        Assert.NotEqual(LlmVerdict.Ok, reply.Verdict); // no live candidate remained
+        Assert.NotEqual(ProviderVerdict.Ok, reply.Verdict); // no live candidate remained
     }
 }

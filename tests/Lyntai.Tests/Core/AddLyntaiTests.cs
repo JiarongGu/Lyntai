@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Cortex;
 using Lyntai.Llm;
@@ -14,7 +15,7 @@ public class AddLyntaiTests
     public async Task Minimal_setup_resolves_router_and_round_trips_a_completion()
     {
         var fake = new FakeLlmProvider("fake");
-        fake.Replies.Enqueue(new LlmReply("routed!", LlmVerdict.Ok));
+        fake.Replies.Enqueue(new LlmReply("routed!", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
@@ -28,7 +29,7 @@ public class AddLyntaiTests
             new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
         Assert.Equal("routed!", reply.Text);
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
     }
 
     [Fact]

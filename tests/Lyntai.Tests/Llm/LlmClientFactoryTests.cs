@@ -115,7 +115,7 @@ public class LlmClientFactoryTests
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("memory")
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
 
-        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
 
     /// <summary><b>The other half of that promise, and the half nothing asserted.</b>
@@ -137,7 +137,7 @@ public class LlmClientFactoryTests
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("memory")
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
 
-        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
 
     /// <summary><b>The wiring the docs recommend has to ROUTE.</b> A client narrowed to one backend, on a host
@@ -158,7 +158,7 @@ public class LlmClientFactoryTests
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Single(ollama.Calls);
         Assert.Empty(cli.Calls);          // and the client it was NARROWED away from stays untouched
     }
@@ -209,7 +209,7 @@ public class LlmClientFactoryTests
     public async Task A_named_clients_fallback_order_is_the_order_it_declared()
     {
         var first = new FakeLlmProvider("b");
-        first.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "down"));
+        first.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down"));
         var second = new FakeLlmProvider("a");
         using var sp = Build(b => b
             .UseDefaultCandidates("a", "b")                    // the GLOBAL order is a, then b
@@ -219,7 +219,7 @@ public class LlmClientFactoryTests
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Single(first.Calls);       // tried first, failed
         Assert.Single(second.Calls);      // …then fell over to the one declared second
     }
@@ -231,7 +231,7 @@ public class LlmClientFactoryTests
     public async Task A_pooled_backend_absent_from_the_default_list_is_still_reachable()
     {
         var known = new FakeLlmProvider("a");
-        known.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "down"));
+        known.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down"));
         var unlisted = new FakeLlmProvider("c");
         using var sp = Build(b => b
             .UseDefaultCandidates("a", "b")
@@ -243,7 +243,7 @@ public class LlmClientFactoryTests
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
             .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Single(unlisted.Calls);
     }
 

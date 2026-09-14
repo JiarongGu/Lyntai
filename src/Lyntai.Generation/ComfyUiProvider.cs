@@ -163,7 +163,7 @@ public sealed class ComfyUiProvider(
     /// <summary>Inline delivery is not this backend's mode — say so rather than hiding a poll loop inside one
     /// call (which would lose progress, cancellation and restart-survival).</summary>
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported,
+        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported,
             "ComfyUI generates asynchronously: use submit → poll → fetch (IGenerationJobProvider)"));
 
     /// <inheritdoc/>
@@ -263,11 +263,11 @@ public sealed class ComfyUiProvider(
 
     /// <inheritdoc/>
     /// <remarks>Bounded by <see cref="ComfyUiOptions.Timeout"/>; a fired deadline is a
-    /// <see cref="GenerationVerdict.Timeout"/> result, and the operation can simply be fetched again.</remarks>
+    /// <see cref="ProviderVerdict.Timeout"/> result, and the operation can simply be fetched again.</remarks>
     public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,
             token => FetchCoreAsync(operationId, token),
-            reason => GenerationResult.Failure(GenerationVerdict.Timeout, $"the result fetch {reason}"));
+            reason => GenerationResult.Failure(ProviderVerdict.Timeout, $"the result fetch {reason}"));
 
     private async Task<GenerationResult> FetchCoreAsync(string operationId, CancellationToken ct)
     {
@@ -281,18 +281,18 @@ public sealed class ComfyUiProvider(
         if (failure is not null)
             return GenerationResult.Failure(
                 status is { } code
-                    ? GenerationVerdictClassifier.FromHttpFailure(code, failure, hasCredentials: false)
-                    : GenerationVerdictClassifier.FromErrorText(failure),
+                    ? ProviderVerdictClassifier.FromHttpFailure(code, failure, hasCredentials: false)
+                    : ProviderVerdictClassifier.FromErrorText(failure),
                 failure);
 
         if (Entry(body!, operationId) is not { } entry || !Completed(entry))
-            return GenerationResult.Failure(GenerationVerdict.Failed,
+            return GenerationResult.Failure(ProviderVerdict.Failed,
                 $"operation {operationId} is not finished — poll until Succeeded before fetching");
 
         var artifacts = OutputArtifacts(entry);
         return artifacts.Count > 0
             ? GenerationResult.Success(artifacts, new GenerationUsage(Count: artifacts.Count))
-            : GenerationResult.Failure(GenerationVerdict.Failed,
+            : GenerationResult.Failure(ProviderVerdict.Failed,
                 $"operation {operationId} completed with no recognised outputs");
     }
 
@@ -339,7 +339,7 @@ public sealed class ComfyUiProvider(
     /// 4xx saying the id (or the guessed <see cref="ComfyUiOptions.HistoryPath"/>) is wrong. Only the poll cares,
     /// and it is the difference between waiting and giving up.
     /// <para><c>Status</c> carries the TYPED status back rather than only its rendering inside the failure
-    /// text: <c>GenerationVerdictClassifier</c> documents that a typed status wins over body text, and a
+    /// text: <c>ProviderVerdictClassifier</c> documents that a typed status wins over body text, and a
     /// caller holding only the string cannot reach the better entry point.</para></summary>
     private async Task<(string? Body, string? Failure, bool Transport, HttpStatusCode? Status)> HistoryAsync(
         string operationId, CancellationToken ct)

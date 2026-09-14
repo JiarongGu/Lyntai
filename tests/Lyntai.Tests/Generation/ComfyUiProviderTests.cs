@@ -88,7 +88,7 @@ public class ComfyUiProviderTests
 
         var result = await provider.GenerateAsync(Ask());
 
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
         Assert.Contains("submit", result.Detail);
         Assert.Empty(http.Requests);
     }

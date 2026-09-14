@@ -78,7 +78,7 @@ public class GenerationRouterStreamTests
         var broken = new ScriptedStreamProvider
         {
             Id = "broken",
-            Script = [GenerationChunk.Failure(GenerationVerdict.Failed, "backend fell over")],
+            Script = [GenerationChunk.Failure(ProviderVerdict.Failed, "backend fell over")],
         };
         var healthy = new ScriptedStreamProvider
         {
@@ -103,7 +103,7 @@ public class GenerationRouterStreamTests
             Script =
             [
                 GenerationChunk.Content([1, 2], "audio/mpeg"),
-                GenerationChunk.Failure(GenerationVerdict.Failed, "died mid-render"),
+                GenerationChunk.Failure(ProviderVerdict.Failed, "died mid-render"),
             ],
         };
         var healthy = new ScriptedStreamProvider
@@ -115,7 +115,7 @@ public class GenerationRouterStreamTests
         var chunks = await Collect(Router(half, healthy).StreamAsync(Candidates(half, healthy), Speech()));
 
         var terminal = AssertOneTerminal(chunks);
-        Assert.Equal(GenerationVerdict.Failed, terminal.Error);
+        Assert.Equal(ProviderVerdict.Failed, terminal.Error);
         Assert.Equal("died mid-render", terminal.Detail);
         Assert.Equal(0, healthy.StreamCalls);
         Assert.Equal([1, 2], chunks[0].Data);
@@ -181,7 +181,7 @@ public class GenerationRouterStreamTests
             Script =
             [
                 new GenerationChunk(MediaType: "audio/mpeg"),
-                GenerationChunk.Failure(GenerationVerdict.Failed, "never got going"),
+                GenerationChunk.Failure(ProviderVerdict.Failed, "never got going"),
             ],
         };
         var healthy = new ScriptedStreamProvider
@@ -203,7 +203,7 @@ public class GenerationRouterStreamTests
         var empty = new ScriptedStreamProvider
         {
             Id = "empty",
-            Script = [GenerationChunk.Content([]), GenerationChunk.Failure(GenerationVerdict.Failed, "nothing")],
+            Script = [GenerationChunk.Content([]), GenerationChunk.Failure(ProviderVerdict.Failed, "nothing")],
         };
         var healthy = new ScriptedStreamProvider
         {
@@ -253,13 +253,13 @@ public class GenerationRouterStreamTests
     [Fact]
     public async Task Every_candidate_failing_still_yields_exactly_one_terminal_chunk()
     {
-        var a = new ScriptedStreamProvider { Id = "a", Script = [GenerationChunk.Failure(GenerationVerdict.Failed, "a died")] };
-        var b = new ScriptedStreamProvider { Id = "b", Script = [GenerationChunk.Failure(GenerationVerdict.Failed, "b died")] };
+        var a = new ScriptedStreamProvider { Id = "a", Script = [GenerationChunk.Failure(ProviderVerdict.Failed, "a died")] };
+        var b = new ScriptedStreamProvider { Id = "b", Script = [GenerationChunk.Failure(ProviderVerdict.Failed, "b died")] };
 
         var chunks = await Collect(Router(a, b).StreamAsync(Candidates(a, b), Speech()));
 
         var terminal = AssertOneTerminal(chunks);
-        Assert.Equal(GenerationVerdict.Failed, terminal.Error);
+        Assert.Equal(ProviderVerdict.Failed, terminal.Error);
         Assert.Equal("a died", terminal.Detail);   // the FIRST substantive failure, as the inline door reports
     }
 
@@ -271,7 +271,7 @@ public class GenerationRouterStreamTests
         var chunks = await Collect(Router(image).StreamAsync(Candidates(image), Speech()));
 
         var terminal = AssertOneTerminal(chunks);
-        Assert.Equal(GenerationVerdict.Unsupported, terminal.Error);
+        Assert.Equal(ProviderVerdict.Unsupported, terminal.Error);
         Assert.Contains("Stream", terminal.Detail);
     }
 
@@ -303,7 +303,7 @@ public class GenerationRouterStreamTests
         var chunks = await Collect(Router(liar).StreamAsync(Candidates(liar), Speech()));
 
         var terminal = AssertOneTerminal(chunks);
-        Assert.Equal(GenerationVerdict.Unsupported, terminal.Error);
+        Assert.Equal(ProviderVerdict.Unsupported, terminal.Error);
         // The reason now comes from the BACKEND's own default body rather than a router-synthesized
         // sentence, and it names the contract a consumer can actually check (D127). Strictly better: the
         // old text named an interface the caller had never heard of.
@@ -321,7 +321,7 @@ public class GenerationRouterStreamTests
         var refuser = new ScriptedStreamProvider
         {
             Id = "refuser",
-            Script = [GenerationChunk.Failure(GenerationVerdict.Refused, "content policy")],
+            Script = [GenerationChunk.Failure(ProviderVerdict.Refused, "content policy")],
         };
         var healthy = new ScriptedStreamProvider
         {
@@ -332,7 +332,7 @@ public class GenerationRouterStreamTests
         var chunks = await Collect(Router(refuser, healthy).StreamAsync(
             Candidates(refuser, healthy), Speech()));
 
-        Assert.Equal(GenerationVerdict.Refused, AssertOneTerminal(chunks).Error);
+        Assert.Equal(ProviderVerdict.Refused, AssertOneTerminal(chunks).Error);
         Assert.Equal(0, healthy.StreamCalls);
     }
 

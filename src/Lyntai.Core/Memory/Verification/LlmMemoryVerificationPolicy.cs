@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Globalization;
 using System.Text.Json;
 using Lyntai.Llm;
@@ -135,7 +136,7 @@ public sealed class LlmMemoryVerificationPolicy(
                 Reasoning = LlmReasoning.Suppress,
             }, ct).ConfigureAwait(false);
 
-            if (reply.Verdict != LlmVerdict.Ok || string.IsNullOrWhiteSpace(reply.Text))
+            if (reply.Verdict != ProviderVerdict.Ok || string.IsNullOrWhiteSpace(reply.Text))
             {
                 _logger.LogDebug("verification returned {Verdict}; leaving the ranking alone", reply.Verdict);
                 return MemoryVerification.NoOpinion;

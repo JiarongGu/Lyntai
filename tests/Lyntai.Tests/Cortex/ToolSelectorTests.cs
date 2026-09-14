@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Agents;
 using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
@@ -94,7 +95,7 @@ public class ToolSelectorTests
     private static FakeLlmClient Answering()
     {
         var client = new FakeLlmClient();
-        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok));
+        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", ProviderVerdict.Ok));
         return client;
     }
 

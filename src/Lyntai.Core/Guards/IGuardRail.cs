@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Diagnostics;
 using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
@@ -31,7 +32,7 @@ public interface IGuardRail
     /// exfiltrated through a tool result. Modelled as an inbound reply, so existing response guards inspect
     /// it. Block to withhold it; Replace to substitute redacted text.</summary>
     Task<GuardOutcome> InspectToolResultAsync(string toolName, string result, CancellationToken ct = default) =>
-        InspectResponseAsync(new LlmReply(result, LlmVerdict.Ok), ct);
+        InspectResponseAsync(new LlmReply(result, ProviderVerdict.Ok), ct);
 }
 
 /// <inheritdoc/>

@@ -46,11 +46,11 @@ public interface IModelProvider : IProviderIdentity
 
     /// <summary>Text in, text out — one request, one reply.</summary>
     Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
-        Task.FromResult(new LlmReply("", LlmVerdict.Unsupported, Detail: ProviderDefaults.NotServed(Id, nameof(CompleteAsync))));
+        Task.FromResult(new LlmReply("", ProviderVerdict.Unsupported, Detail: ProviderDefaults.NotServed(Id, nameof(CompleteAsync))));
 
     /// <summary>Text in, text out incrementally. Ends with exactly one terminal chunk either way.</summary>
     IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
-        ProviderDefaults.One(LlmChunk.Error(LlmVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
+        ProviderDefaults.One(LlmChunk.Error(ProviderVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
 
     /// <summary>Content in, vectors out — one per input, in order. Served by a backend declaring
     /// <see cref="ProviderKinds.Vector"/> among what it <see cref="ProviderCapabilities.Produces"/>; it is a
@@ -74,11 +74,11 @@ public interface IModelProvider : IProviderIdentity
 
     /// <summary>Media in, media out — one request, artifacts back.</summary>
     Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(new GenerationResult(GenerationVerdict.Unsupported, [], Detail: ProviderDefaults.NotServed(Id, nameof(GenerateAsync))));
+        Task.FromResult(new GenerationResult(ProviderVerdict.Unsupported, [], Detail: ProviderDefaults.NotServed(Id, nameof(GenerateAsync))));
 
     /// <summary>Media out incrementally. Ends with exactly one terminal chunk either way.</summary>
     IAsyncEnumerable<GenerationChunk> StreamAsync(GenerationRequest request, CancellationToken ct = default) =>
-        ProviderDefaults.One(GenerationChunk.Failure(GenerationVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
+        ProviderDefaults.One(GenerationChunk.Failure(ProviderVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
 }
 
 /// <summary>The bodies <see cref="IModelProvider"/>'s defaults delegate to — an interface cannot hold an

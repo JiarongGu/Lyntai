@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Agents;
 using Lyntai.Llm;
 
@@ -84,18 +85,18 @@ public class AgentStreamEventTests
     [Fact]
     public void SessionEnded_round_trips()
     {
-        var ok = new SessionEnded(LlmVerdict.Ok, IsError: false, Subtype: null, SessionId: "sid",
+        var ok = new SessionEnded(ProviderVerdict.Ok, IsError: false, Subtype: null, SessionId: "sid",
             FinalText: "hi", Diagnostic: null);
-        Assert.Equal(LlmVerdict.Ok, ok.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, ok.Verdict);
         Assert.False(ok.IsError);
         Assert.Null(ok.Subtype);
         Assert.Equal("sid", ok.SessionId);
         Assert.Equal("hi", ok.FinalText);
         Assert.Null(ok.Diagnostic);
 
-        var err = new SessionEnded(LlmVerdict.Failed, IsError: true, Subtype: "timeout",
+        var err = new SessionEnded(ProviderVerdict.Failed, IsError: true, Subtype: "timeout",
             SessionId: null, FinalText: null, Diagnostic: "stderr tail here");
-        Assert.Equal(LlmVerdict.Failed, err.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, err.Verdict);
         Assert.True(err.IsError);
         Assert.Equal("timeout", err.Subtype);
         Assert.Null(err.SessionId);
@@ -134,7 +135,7 @@ public class AgentStreamEventTests
             new ToolResult(null, "c", false),
             new UsageLive(1, 2, 3),
             new UsageFinal(1, 2, 3, 4, null),
-            new SessionEnded(LlmVerdict.Ok, false, null, null, null, null),
+            new SessionEnded(ProviderVerdict.Ok, false, null, null, null, null),
         ];
 
         var labels = events.Select(Label).ToArray();
@@ -150,7 +151,7 @@ public class AgentStreamEventTests
     public void Switch_returns_correct_specific_labels()
     {
         Assert.Equal("session-started", Label(new SessionStarted("x")));
-        Assert.Equal("session-ended",   Label(new SessionEnded(LlmVerdict.Ok, false, null, "sid", "hi", null)));
+        Assert.Equal("session-ended",   Label(new SessionEnded(ProviderVerdict.Ok, false, null, "sid", "hi", null)));
         Assert.Equal("tool-call",       Label(new ToolCall("Edit", "{}", "cid")));
         Assert.Equal("usage-final",     Label(new UsageFinal(0, 0, 0, 0, null)));
     }

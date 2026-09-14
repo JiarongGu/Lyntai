@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Cortex;
 using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
@@ -24,7 +25,7 @@ public class LlmScorerBaseTests
     private static FakeLlmClient ClientReturning(double score)
     {
         var llm = new FakeLlmClient();
-        llm.Replies.Enqueue(new LlmReply($$"""{"score":{{score}}}""", LlmVerdict.Ok));
+        llm.Replies.Enqueue(new LlmReply($$"""{"score":{{score}}}""", ProviderVerdict.Ok));
         return llm;
     }
 

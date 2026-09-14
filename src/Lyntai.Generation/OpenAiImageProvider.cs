@@ -12,7 +12,7 @@ namespace Lyntai.Generation.Providers;
 public sealed class OpenAiImageOptions
 {
     /// <summary>The API root, including any version segment (<c>https://api.openai.com/v1</c>). Blank means
-    /// "not configured", which the provider reports as <see cref="GenerationVerdict.NotConfigured"/> rather
+    /// "not configured", which the provider reports as <see cref="ProviderVerdict.NotConfigured"/> rather
     /// than failing.</summary>
     public string BaseUrl { get; set; } = "https://api.openai.com/v1";
 
@@ -104,8 +104,8 @@ public sealed class OpenAiImageProvider(
                 return new ProviderProbeResult(true, "models endpoint answered");
             // the same distinction the generate path makes, so a probe's reason matches the verdict a render
             // would get: "not configured" reads as a setup step, "rejected" reads as a wrong key
-            var unconfigured = GenerationVerdictClassifier.FromHttpFailure(response.StatusCode, body, HasCredentials)
-                == GenerationVerdict.NotConfigured;
+            var unconfigured = ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, body, HasCredentials)
+                == ProviderVerdict.NotConfigured;
             return new ProviderProbeResult(false, unconfigured
                 ? $"not configured: the endpoint requires an ApiKey ({(int)response.StatusCode})"
                 : $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
@@ -120,22 +120,22 @@ public sealed class OpenAiImageProvider(
     /// <inheritdoc/>
     /// <remarks>Runs under a deadline: the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it
     /// carries one, else <see cref="OpenAiImageOptions.Timeout"/>. A fired deadline is a
-    /// <see cref="GenerationVerdict.Timeout"/> result; <paramref name="ct"/> keeps its own meaning and still
+    /// <see cref="ProviderVerdict.Timeout"/> result; <paramref name="ct"/> keeps its own meaning and still
     /// propagates as cancellation.</remarks>
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
             token => GenerateCoreAsync(request, token),
-            reason => GenerationResult.Failure(GenerationVerdict.Timeout, $"the render {reason}"));
+            reason => GenerationResult.Failure(ProviderVerdict.Timeout, $"the render {reason}"));
 
     private async Task<GenerationResult> GenerateCoreAsync(GenerationRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
-            return GenerationResult.Failure(GenerationVerdict.NotConfigured, "no BaseUrl configured");
+            return GenerationResult.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
 
         var edit = request.Inputs.FirstOrDefault();
         if (edit is not null && edit.Data is not { Length: > 0 })
-            return GenerationResult.Failure(GenerationVerdict.Unsupported,
+            return GenerationResult.Failure(ProviderVerdict.Unsupported,
                 "this endpoint edits BYTES; supply GenerationInput.Data (a URI-only input would mean the " +
                 "platform downloading it for you, and guessing at auth for that host)");
 
@@ -152,19 +152,19 @@ public sealed class OpenAiImageProvider(
                 // not AUTH_FAILED (bench the backend for the cooldown window). An OpenAI-compatible endpoint run
                 // locally needs no key at all, so only the server DEMANDING one makes "no key" a config problem.
                 return GenerationResult.Failure(
-                    GenerationVerdictClassifier.FromHttpFailure(response.StatusCode, body, HasCredentials),
+                    ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, body, HasCredentials),
                     HttpArtifacts.FailureDetail(body));
 
             var artifacts = HttpArtifacts.FromOpenAiEnvelope(body);
             return artifacts.Count > 0
                 ? GenerationResult.Success(artifacts, new GenerationUsage(Count: artifacts.Count))
-                : GenerationResult.Failure(GenerationVerdict.Failed,
+                : GenerationResult.Failure(ProviderVerdict.Failed,
                     $"no image in the response: {HttpArtifacts.FailureDetail(body, 200)}");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return GenerationResult.Failure(GenerationVerdictClassifier.FromException(ex), ex.Message);
+            return GenerationResult.Failure(ProviderVerdictClassifier.FromException(ex), ex.Message);
         }
     }
 

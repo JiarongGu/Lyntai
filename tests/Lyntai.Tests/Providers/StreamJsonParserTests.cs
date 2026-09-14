@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Providers.ClaudeCli;
 
 namespace Lyntai.Tests.Providers;
@@ -54,7 +55,7 @@ public class StreamJsonParserTests
     /// <para>Present in the released 2.5.0 and every version before it: <c>StreamJsonEventKind</c> had no
     /// failure member at all, so no claude line could ever produce <c>CliOutputEventKind.Failure</c> and the
     /// engine's whole in-band-failure precedence was dead code for this backend — only codex reached it.
-    /// A run that printed partial assistant text and then failed returned <c>LlmVerdict.Ok</c> with a
+    /// A run that printed partial assistant text and then failed returned <c>ProviderVerdict.Ok</c> with a
     /// truncated answer labelled complete; with error prose in <c>result</c>, that prose WAS the answer. Even
     /// on a non-zero exit the verdict came from the stderr tail instead of the backend's own words, so
     /// <c>AuthFailed</c>/<c>RateLimited</c> degraded to bare <c>Failed</c> — advance instead of cool, the

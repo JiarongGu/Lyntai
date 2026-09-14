@@ -350,7 +350,7 @@ public class LocalDiffusionProviderTests
         var result = await provider.GenerateAsync(Ask());
         var probe = await provider.ProbeAsync();
 
-        Assert.Equal(GenerationVerdict.NotConfigured, result.Verdict);
+        Assert.Equal(ProviderVerdict.NotConfigured, result.Verdict);
         Assert.False(probe.Available);
         Assert.Contains("not configured", probe.Detail);
         Assert.Empty(runner.Calls);
@@ -411,7 +411,7 @@ public class LocalDiffusionProviderTests
 
         var result = await provider.GenerateAsync(Ask());
 
-        Assert.Equal(GenerationVerdict.Timeout, result.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, result.Verdict);
     }
 
     [Fact]
@@ -439,7 +439,7 @@ public class LocalDiffusionProviderTests
             Inputs = [new GenerationInput("image/png", Uri: "https://example.invalid/in.png")],
         });
 
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
         Assert.Empty(runner.Calls);
     }
 

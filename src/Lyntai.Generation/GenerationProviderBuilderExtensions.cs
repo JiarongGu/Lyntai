@@ -13,7 +13,7 @@ namespace Lyntai;
 /// <para><b>Options are configured by an <c>Action&lt;T&gt;</c> callback</b>, the same shape as the LLM
 /// presets and the memory engines. Every option carries a default — each backend's conventional local URL,
 /// or the vendor's API root — so a registration sets only what differs, and a blank base URL is the
-/// documented <see cref="GenerationVerdict.NotConfigured"/> verdict rather than a failure.</para>
+/// documented <see cref="ProviderVerdict.NotConfigured"/> verdict rather than a failure.</para>
 ///
 /// <para><b>The registration keeps the instance the callback configured</b>, so a host whose engine paths
 /// only exist after some setup step can capture it and set them later; the next render reads the current
@@ -28,7 +28,7 @@ namespace Lyntai;
 /// <para><b>Infinite there does not mean unbounded.</b> Every backend enforces its own per-call deadline —
 /// each options record carries a <c>Timeout</c>, overridden per call by
 /// <see cref="Generation.GenerationRequest.TimeoutSeconds"/> — and a fired deadline is a
-/// <see cref="GenerationVerdict.Timeout"/> result rather than a throw. That deadline is what makes the
+/// <see cref="ProviderVerdict.Timeout"/> result rather than a throw. That deadline is what makes the
 /// infinite client timeout safe. A BYO client keeps its own <see cref="HttpClient.Timeout"/> too;
 /// whichever fires first, the caller sees the same verdict.</para></summary>
 public static class GenerationProviderBuilderExtensions

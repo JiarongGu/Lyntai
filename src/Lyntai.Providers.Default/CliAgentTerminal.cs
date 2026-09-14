@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Agents;
 using Lyntai.Llm;
 using Lyntai.Processes;
@@ -21,10 +22,10 @@ internal static class CliAgentTerminal
     internal static SessionEnded? FromFault(Exception ex, string? sessionId) => ex switch
     {
         OperationCanceledException => null,
-        ProcessTimeoutException => new SessionEnded(LlmVerdict.Timeout, true, "timeout", sessionId, null, ex.Message),
+        ProcessTimeoutException => new SessionEnded(ProviderVerdict.Timeout, true, "timeout", sessionId, null, ex.Message),
         ProcessRunException pre => new SessionEnded(
-            LlmVerdictClassifier.FromErrorText(pre.StdErrTail), true, null,
+            ProviderVerdictClassifier.FromErrorText(pre.StdErrTail), true, null,
             sessionId, null, $"exit {pre.ExitCode}: {pre.StdErrTail}"),
-        _ => new SessionEnded(LlmVerdict.Failed, true, null, sessionId, null, $"spawn failed: {ex.Message}"),
+        _ => new SessionEnded(ProviderVerdict.Failed, true, null, sessionId, null, $"spawn failed: {ex.Message}"),
     };
 }

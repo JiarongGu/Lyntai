@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Llm;
@@ -306,7 +307,7 @@ public class ClaudeAgentSessionTests
         var events = await session.StreamAsync(opts).ToListAsync();
 
         var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
-        Assert.Equal(LlmVerdict.Unsupported, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, ended.Verdict);
         Assert.Equal("mcp-server-invalid", ended.Subtype);
         Assert.Empty(runner.Calls);
     }
@@ -429,7 +430,7 @@ public class ClaudeAgentSessionTests
         Assert.Contains(events, e => e is ToolResult);
         var ended = events.OfType<SessionEnded>().Single();
         Assert.Equal("sess-abc123", ended.SessionId);
-        Assert.Equal(LlmVerdict.Ok, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
         Assert.False(ended.IsError);
     }
 
@@ -486,7 +487,7 @@ public class ClaudeAgentSessionTests
 
         Assert.Equal("Done", result.FinalText);
         Assert.Equal("sess-abc123", result.SessionId);
-        Assert.Equal(LlmVerdict.Ok, result.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, result.Verdict);
     }
 
     [Fact]
@@ -514,7 +515,7 @@ public class ClaudeAgentSessionTests
 
         var ended = events.OfType<SessionEnded>().Single();
         Assert.True(ended.IsError);
-        Assert.Equal(LlmVerdict.Timeout, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, ended.Verdict);
     }
 
     [Fact]
@@ -528,7 +529,7 @@ public class ClaudeAgentSessionTests
 
         var ended = events.OfType<SessionEnded>().Single();
         Assert.True(ended.IsError);
-        Assert.Equal(LlmVerdict.Failed, ended.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, ended.Verdict);
         Assert.Contains("no output", ended.Diagnostic, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -547,7 +548,7 @@ public class ClaudeAgentSessionTests
 
         var terminals = events.OfType<SessionEnded>().ToList();
         Assert.Single(terminals);
-        Assert.Equal(LlmVerdict.Ok, terminals[0].Verdict);
+        Assert.Equal(ProviderVerdict.Ok, terminals[0].Verdict);
         Assert.False(terminals[0].IsError);
     }
 

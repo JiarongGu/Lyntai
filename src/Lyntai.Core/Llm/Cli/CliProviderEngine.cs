@@ -21,8 +21,8 @@ namespace Lyntai.Llm.Cli;
 /// <item>timeouts as an INACTIVITY clock, never one wall clock over a whole call, plus an absolute
 ///   <see cref="LyntaiOptions.MaxProviderTimeout"/> backstop on BOTH completion paths (a long-running AGENT
 ///   turn is a different seam: it drives <see cref="IProcessRunner"/> directly and has no ceiling),</item>
-/// <item>verdict classification through <see cref="LlmVerdictClassifier"/> — no per-provider heuristics,</item>
-/// <item>empty output is a <see cref="LlmVerdict.Failed"/>, never an empty Ok, so the router can fall over,</item>
+/// <item>verdict classification through <see cref="ProviderVerdictClassifier"/> — no per-provider heuristics,</item>
+/// <item>empty output is a <see cref="ProviderVerdict.Failed"/>, never an empty Ok, so the router can fall over,</item>
 /// <item>streaming order: content chunks, then exactly one terminal <c>Final</c> or <c>Error</c> — where
 ///   "content" is the router's gate, <c>Kind == Content &amp;&amp; Text.Length &gt; 0</c>, so an EMPTY event
 ///   neither reaches the caller nor commits the stream,</item>
@@ -75,7 +75,7 @@ public sealed class CliProviderEngine(
     /// <para>OPTIMISTIC for a BYO <see cref="IProcessRunner"/>: a custom runner (sandbox / remote / audited
     /// execution) resolves the command in ITS OWN environment, not the host's local PATH — so this returns
     /// true without probing rather than skip the provider and never reach the runner. A truly missing binary
-    /// then surfaces as a <see cref="LlmVerdict.Failed"/> verdict on the actual call, and the router falls
+    /// then surfaces as a <see cref="ProviderVerdict.Failed"/> verdict on the actual call, and the router falls
     /// over to the next candidate.</para>
     /// <para>An explicit command is CHECKED rather than trusted: a host that ships its own CLI copy wants a
     /// deleted/never-unpacked binary to make this candidate unavailable — the router then skips it, instead of
@@ -114,11 +114,11 @@ public sealed class CliProviderEngine(
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return new LlmReply("", LlmVerdict.Failed, Detail: $"spawn failed: {ex.Message}");
+            return new LlmReply("", ProviderVerdict.Failed, Detail: $"spawn failed: {ex.Message}");
         }
 
         if (result.TimedOut)
-            return new LlmReply("", LlmVerdict.Timeout,
+            return new LlmReply("", ProviderVerdict.Timeout,
                 Detail: result.TimeoutKind == ProcessTimeoutKind.MaxDuration
                     ? $"{dialect.Id} exceeded max duration {maxDuration}"
                     : $"{dialect.Id} stalled — no output for {timeout}");
@@ -160,22 +160,22 @@ public sealed class CliProviderEngine(
         // advances instead of cooling the host and the caller is told the CLI is broken when the remedy is
         // to log in again. The exit code is kept in the detail — it is context, not the reason.
         if (failure is { Length: > 0 })
-            return new LlmReply("", LlmVerdictClassifier.FromErrorText(failure),
+            return new LlmReply("", ProviderVerdictClassifier.FromErrorText(failure),
                 Detail: result.ExitCode != 0 ? $"exit {result.ExitCode}: {failure}" : failure);
 
         // No in-band account of the failure: the exit code and stderr are all there is. (A backend that
         // exits non-zero after printing a complete answer is still a failed run — a truncated answer
         // labelled complete is the outcome this prevents.)
         if (result.ExitCode != 0)
-            return new LlmReply("", LlmVerdictClassifier.FromErrorText(stderrTail), Detail: $"exit {result.ExitCode}: {stderrTail}");
+            return new LlmReply("", ProviderVerdictClassifier.FromErrorText(stderrTail), Detail: $"exit {result.ExitCode}: {stderrTail}");
 
         if (text.Length == 0)
         {
             _logger.LogWarning("{Provider} produced no content ({SawResult}); stderr: {Tail}", dialect.Id, sawResult, stderrTail);
-            return new LlmReply("", LlmVerdict.Failed,
+            return new LlmReply("", ProviderVerdict.Failed,
                 Detail: stderrTail.Length > 0 ? stderrTail : "no output produced");
         }
-        return new LlmReply(text, LlmVerdict.Ok, usage);
+        return new LlmReply(text, ProviderVerdict.Ok, usage);
     }
 
     /// <summary>Stream one completion. Content chunks arrive as the CLI prints them, followed by exactly one
@@ -222,10 +222,10 @@ public sealed class CliProviderEngine(
                 ex => ex switch
                 {
                     OperationCanceledException => null,
-                    ProcessTimeoutException => LlmChunk.Error(LlmVerdict.Timeout, ex.Message),
+                    ProcessTimeoutException => LlmChunk.Error(ProviderVerdict.Timeout, ex.Message),
                     ProcessRunException pre => LlmChunk.Error(
-                        LlmVerdictClassifier.FromErrorText(pre.StdErrTail), $"exit {pre.ExitCode}: {pre.StdErrTail}"),
-                    _ => LlmChunk.Error(LlmVerdict.Failed, $"spawn failed: {ex.Message}"),
+                        ProviderVerdictClassifier.FromErrorText(pre.StdErrTail), $"exit {pre.ExitCode}: {pre.StdErrTail}"),
+                    _ => LlmChunk.Error(ProviderVerdict.Failed, $"spawn failed: {ex.Message}"),
                 },
                 ct);
             await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
@@ -262,7 +262,7 @@ public sealed class CliProviderEngine(
                     // delivered (it can't be unsent — and per design §6 the router won't fall back after the
                     // first token anyway), but the stream must END as an Error so the consumer isn't handed a
                     // truncated answer labelled complete.
-                    yield return LlmChunk.Error(LlmVerdictClassifier.FromErrorText(evt.Text), evt.Text);
+                    yield return LlmChunk.Error(ProviderVerdictClassifier.FromErrorText(evt.Text), evt.Text);
                     yield break;
                 }
             }
@@ -279,7 +279,7 @@ public sealed class CliProviderEngine(
         if (sawContent)
             yield return LlmChunk.Final(usage);
         else
-            yield return LlmChunk.Error(LlmVerdict.Failed, "no output produced");
+            yield return LlmChunk.Error(ProviderVerdict.Failed, "no output produced");
     }
 
     /// <summary>Assemble argv + stdin for one call: prefix args, the dialect's completion args, any tool-host

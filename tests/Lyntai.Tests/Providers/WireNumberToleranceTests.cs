@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using System.Text.Json;
 using Lyntai.Agents;
@@ -33,7 +34,7 @@ public class WireNumberToleranceTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);   // was: FormatException thrown out of CompleteAsync
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);   // was: FormatException thrown out of CompleteAsync
         Assert.Equal("hello", reply.Text);
         Assert.Equal(0, reply.Usage!.InputTokens);    // unreadable → 0, never a guess
         Assert.Equal(4, reply.Usage.OutputTokens);    // the sibling field is unaffected
@@ -49,7 +50,7 @@ public class WireNumberToleranceTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal(0, reply.Usage!.InputTokens);
     }
 
@@ -63,7 +64,7 @@ public class WireNumberToleranceTests
         var reply = await Provider(handler, c => { c.BaseUrl = "http://localhost:11434"; c.ApiKey = null; })
             .CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal(7, reply.Usage!.InputTokens);
         Assert.Equal(0, reply.Usage.OutputTokens);
     }

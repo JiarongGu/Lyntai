@@ -27,7 +27,7 @@ public class AddClaudeCliTests
             var reply = await router.CompleteAsync([new("claude-cli")],
                 new LlmRequest { Messages = [LlmMessage.User("via router")] });
 
-            Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+            Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
             Assert.Equal("stub reply: via router", reply.Text);
         }
         finally

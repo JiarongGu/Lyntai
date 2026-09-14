@@ -34,8 +34,8 @@ public class LyntaiOptionsTests
 
         options.ApplyEnvOverrides(k => env.GetValueOrDefault(k));
 
-        Assert.Equal(2, options.Routing.RetriesFor(LlmVerdict.Failed));
-        Assert.Equal(1, options.Routing.RetriesFor(LlmVerdict.Timeout));
+        Assert.Equal(2, options.Routing.RetriesFor(ProviderVerdict.Failed));
+        Assert.Equal(1, options.Routing.RetriesFor(ProviderVerdict.Timeout));
         Assert.Equal(TimeSpan.FromSeconds(0.25), options.Routing.RetryBackoff);
         Assert.Equal(CooldownScope.ProviderAndModel, options.Routing.CooldownScope);
     }

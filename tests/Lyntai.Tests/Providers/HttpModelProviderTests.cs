@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Net;
 using Lyntai;
 using Lyntai.Llm;
@@ -17,7 +18,7 @@ public class HttpModelProviderTests
 
         var reply = await provider.CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal(new Uri("https://my-res.openai.azure.com/openai/v1/chat/completions"), handler.Requests[0].Uri);
         Assert.Equal("azure-key", handler.Requests[0].ApiKeyHeader); // Azure key auth
         Assert.Equal("Bearer azure-key", handler.Requests[0].Auth);  // Entra-style Bearer kept too
@@ -68,7 +69,7 @@ public class HttpModelProviderTests
 
         var reply = await provider.CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.NotConfigured, reply.Verdict);
+        Assert.Equal(ProviderVerdict.NotConfigured, reply.Verdict);
     }
 
     [Fact]
@@ -79,7 +80,7 @@ public class HttpModelProviderTests
 
         var reply = await provider.CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict); // the key IS the problem — bench it
+        Assert.Equal(ProviderVerdict.AuthFailed, reply.Verdict); // the key IS the problem — bench it
     }
 
     [Fact] // the streaming path shares MapHttpFailure; assert it so a future split can't regress one half
@@ -92,7 +93,7 @@ public class HttpModelProviderTests
         await foreach (var c in provider.StreamAsync(Req)) chunks.Add(c);
 
         var error = chunks.Single(c => c.Kind == LlmChunkKind.Error);
-        Assert.Equal(LlmVerdict.NotConfigured, error.Verdict);
+        Assert.Equal(ProviderVerdict.NotConfigured, error.Verdict);
     }
 
     private const string OkBody = """
@@ -117,7 +118,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("hello from http", reply.Text);
         Assert.Equal(10, reply.Usage!.InputTokens);
         Assert.Equal(4, reply.Usage.OutputTokens);
@@ -132,7 +133,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.RateLimited, reply.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict);
         Assert.Contains("429", reply.Detail);
     }
 
@@ -143,7 +144,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Failed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
     }
 
     [Fact]
@@ -164,7 +165,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict); // empty text + tool calls is NOT a failure
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict); // empty text + tool calls is NOT a failure
         Assert.Equal("", reply.Text);
         var call = Assert.Single(reply.ToolCalls!);
         Assert.Equal("call_1", call.Id);
@@ -184,7 +185,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         var call = Assert.Single(reply.ToolCalls!);
         Assert.Equal("get_weather", call.Name);
         Assert.False(string.IsNullOrEmpty(call.Id));                 // synthesized (Ollama gives none)
@@ -199,7 +200,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
 
     [Fact]
@@ -211,7 +212,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Failed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
         Assert.Equal(2, handler.Requests.Count); // exactly one retry
         Assert.Contains("malformed", reply.Detail);
     }
@@ -229,7 +230,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.RateLimited, reply.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict);
         Assert.Single(handler.Requests);              // the request is NOT re-sent
         Assert.Contains("Rate limit exceeded", reply.Detail);
     }
@@ -245,7 +246,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler, c => c.ApiKey = null).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.NotConfigured, reply.Verdict);
+        Assert.Equal(ProviderVerdict.NotConfigured, reply.Verdict);
     }
 
     [Fact]
@@ -258,7 +259,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler, c => c.ApiKey = "wrong-key").CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.AuthFailed, reply.Verdict);
     }
 
     [Fact]
@@ -279,7 +280,7 @@ public class HttpModelProviderTests
 
         var terminal = chunks[^1];
         Assert.Equal(LlmChunkKind.Error, terminal.Kind);
-        Assert.Equal(LlmVerdict.RateLimited, terminal.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, terminal.Verdict);
     }
 
     [Fact]
@@ -314,7 +315,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("hello from http", reply.Text);
     }
 
@@ -329,7 +330,7 @@ public class HttpModelProviderTests
         var provider = Provider(handler, c => { c.BaseUrl = "http://localhost:11434"; c.ApiKey = null; });
         var reply = await provider.CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("from ollama", reply.Text);
         Assert.Equal(7, reply.Usage!.InputTokens);
         Assert.Equal(new Uri("http://localhost:11434/api/chat"), handler.Requests[0].Uri);
@@ -553,7 +554,7 @@ public class HttpModelProviderTests
 
         Assert.Single(chunks);
         Assert.Equal(LlmChunkKind.Error, chunks[0].Kind);
-        Assert.Equal(LlmVerdict.Failed, chunks[0].Verdict);
+        Assert.Equal(ProviderVerdict.Failed, chunks[0].Verdict);
     }
 
     [Fact]
@@ -567,7 +568,7 @@ public class HttpModelProviderTests
 
         var reply = await Provider(handler).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
         Assert.Single(handler.Requests); // a refused prompt is never re-sent
     }
 
@@ -588,7 +589,7 @@ public class HttpModelProviderTests
         await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
 
         Assert.Equal(LlmChunkKind.Error, chunks[^1].Kind);
-        Assert.Equal(LlmVerdict.Refused, chunks[^1].Verdict); // same verdict the non-streaming path gives
+        Assert.Equal(ProviderVerdict.Refused, chunks[^1].Verdict); // same verdict the non-streaming path gives
     }
 
     [Fact]
@@ -603,7 +604,7 @@ public class HttpModelProviderTests
 
         Assert.Single(chunks);
         Assert.Equal(LlmChunkKind.Error, chunks[0].Kind);
-        Assert.Equal(LlmVerdict.Failed, chunks[0].Verdict);
+        Assert.Equal(ProviderVerdict.Failed, chunks[0].Verdict);
     }
 
     [Fact]

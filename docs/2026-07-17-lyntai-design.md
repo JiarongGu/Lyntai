@@ -117,7 +117,7 @@ only project that references several, which is what makes its membership a budge
 ## 4. Fork decisions (locked)
 
 **Fork 1 — LLM seam = Hybrid (own seam + MEAI bridge).** Lyntai's own `IModelProvider` is the primary
-seam, so **CLI-first, `LlmVerdict` classification, and streaming-aware fallback are first-class**.
+seam, so **CLI-first, `ProviderVerdict` classification, and streaming-aware fallback are first-class**.
 `Lyntai.Providers.ExtensionsAi` ships a thin bridge that turns any `Microsoft.Extensions.AI`
 `IChatClient` into an `IModelProvider`, giving the whole MEAI ecosystem (OpenAI, Azure, Ollama,
 Anthropic API, …) for free without shaping the public API around MEAI's types.
@@ -130,7 +130,7 @@ store* (route each domain to a different backend) can be layered on later withou
 
 ### 5.1 LLM
 ```csharp
-public enum LlmVerdict { Ok, RateLimited, Refused, Failed, Timeout }
+public enum ProviderVerdict { Ok, RateLimited, Refused, Failed, Timeout }
 
 public sealed record LlmRequest {
     public required IReadOnlyList<LlmMessage> Messages { get; init; }
@@ -142,7 +142,7 @@ public sealed record LlmRequest {
     public string Consumer { get; init; } = "default";  // per-feature routing/telemetry tag
 }
 
-public sealed record LlmReply(string Text, LlmVerdict Verdict, LlmUsage? Usage = null, string? Detail = null);
+public sealed record LlmReply(string Text, ProviderVerdict Verdict, LlmUsage? Usage = null, string? Detail = null);
 
 public interface IModelProvider {
     string Id { get; }                             // "claude-cli" | "openai" | "ollama" | …
@@ -158,10 +158,15 @@ public interface ILlmRouter {
 }
 public sealed record ProviderCandidate(string ProviderId, string? Model = null);
 ```
-*(2026-08-05: `LlmVerdict` now has **nine** members — the five above plus `ContextWindowExceeded`,
-`AuthFailed`, `Unsupported` and `NotConfigured`. **`src/Lyntai.Core/Llm/LlmVerdict.cs` is the canonical
-statement**; §9's 2026-07-26 amendment lists the additions and §6 gives each one's routing action. The block
-above is the v0.1 seed, kept for its semantic commentary per the reading note at the top of this doc.)*
+*(2026-08-05: `ProviderVerdict` now has **nine** members — the five above plus `ContextWindowExceeded`,
+`AuthFailed`, `Unsupported` and `NotConfigured`. §9's 2026-07-26 amendment lists the additions and §6 gives
+each one's routing action. The block above is the v0.1 seed, kept for its semantic commentary per the reading
+note at the top of this doc.)*
+
+*(2026-09-14: the enum is named `ProviderVerdict` and **`src/Lyntai.Core/Lifecycle/ProviderVerdict.cs` is the
+canonical statement**. It was `Lyntai.Llm.LlmVerdict`, with `Lyntai.Generation.GenerationVerdict` carrying the <!-- drift-ok: the amendment naming what it renames -->
+same members under a second name and a translation layer between them; one taxonomy serves every domain now,
+and what a router DOES about a verdict stays per-domain policy — `docs/DECISIONS.md` **D136**.)*
 
 ### 5.2 Prompt registry
 ```csharp
@@ -882,14 +887,14 @@ retry on parse failure, else `Failed` verdict.
 > **PenalizeAndAdvance**. Two divergences, both deliberate and both easy to "fix" back into a bug:
 > - **`Unsupported` ADVANCES here and SURFACES on the LLM side.** A second chat candidate shares the same
 >   capability gap, so surfacing is the useful answer; media backends differ widely in what they accept, so
->   advancing is. `GenerationVerdictClassifier` carries the reason.
+>   advancing is. `ProviderVerdictClassifier` carries the reason.
 > - **An UNMAPPED verdict advances here and is PENALIZED there** (`GenerationRoutingPolicy.ActionFor` returns
 >   `Advance`; `RoutingPolicy.ActionFor` returns `PenalizeAndAdvance`). A verdict a policy has never heard of
 >   should not silently end a run another candidate could serve — but on the LLM side an unclassified fault is
 >   more likely to be a real one. The divergence is flagged in the source and, until now, nowhere else.
 >
 > **A verdict that crosses the boundary keeps its MEANING and changes its ACTION** (**D36**).
-> `GenerationVerdictClassifier.Translate` therefore gets one arm per `LlmVerdict` member and no catch-all: a
+> `ProviderVerdictClassifier.Translate` therefore gets one arm per `ProviderVerdict` member and no catch-all: a
 > discard over a taxonomy expected to GROW converts every future addition into a silent misclassification, and
 > that is exactly how `Unsupported` shipped a release reported as `Failed` — benching healthy backends on
 > capability gaps. The growth gate is a TEST, not the compiler (C# has no exhaustive switch over an enum, and
@@ -984,7 +989,7 @@ these later without breaking changes.
 > **agent session + streaming loop** (`IAgentSession`/`AgentStreamEvent`, `IToolLoop.StreamAsync`,
 > `ToolLoopResult.Usage`) · **BYO resources** (v0.7: `IProcessRunner`, BYO `HttpClient`, BYO
 > `IDbConnectionFactory` + `migrate:false`, provider presets).
-> **§5 additive shape drift** (current shape = the baselines): `LlmVerdict` +`ContextWindowExceeded`/
+> **§5 additive shape drift** (current shape = the baselines): `ProviderVerdict` +`ContextWindowExceeded`/
 > `AuthFailed`/`Unsupported`/`NotConfigured`; `LlmRequest` +`TimeoutSeconds`/`RefusalPattern`; `LlmReply` +`ToolCalls`;
 > `LlmMessage` tool turns + `Attachments`; `IPromptRegistry.ValidateOverride`; `IScoringService`
 > read/aggregate/export members; new storage domains `IJobStore`/`IPromptVersionStore`/`ICuratedMemoryStore`;

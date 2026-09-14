@@ -1,3 +1,5 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Llm.Cli;
 
 /// <summary>What one line of a CLI's output turned out to be.</summary>
@@ -16,7 +18,7 @@ public enum CliOutputEventKind
     /// <summary>The backend reported that the turn FAILED, in its own output stream. Needed because a CLI can
     /// report failure in-band and still exit 0 — codex prints
     /// <c>{"type":"turn.failed","error":{"message":"… 401 Unauthorized …"}}</c> and exits cleanly. Without
-    /// this the engine would see "no content" and report a bare <see cref="LlmVerdict.Failed"/>, losing both
+    /// this the engine would see "no content" and report a bare <see cref="ProviderVerdict.Failed"/>, losing both
     /// the reason and the verdict the router acts on.
     ///
     /// Reserve it for a TERMINAL failure. Transient noise a backend logs mid-run (codex's
@@ -47,7 +49,7 @@ public sealed record CliOutputEvent(CliOutputEventKind Kind, string Text = "", L
         new(CliOutputEventKind.Result, text, usage);
 
     /// <summary>The backend reported a TERMINAL turn failure. <paramref name="message"/> is classified by
-    /// <see cref="LlmVerdictClassifier"/> and surfaced as the reply's detail — pass the backend's own
+    /// <see cref="ProviderVerdictClassifier"/> and surfaced as the reply's detail — pass the backend's own
     /// wording, not a paraphrase.</summary>
     public static CliOutputEvent Failure(string message) => new(CliOutputEventKind.Failure, message);
 }

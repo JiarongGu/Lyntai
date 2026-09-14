@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Globalization;
 using System.Text.Json;
 using Lyntai;
@@ -870,8 +871,8 @@ internal static class ToolAffordanceSweep
             if (Calls == 1) FirstReply = text ?? "(null)";
 
             return text is null
-                ? new LlmReply("", LlmVerdict.Failed, Detail: "bench chat returned nothing")
-                : new LlmReply(text, LlmVerdict.Ok);
+                ? new LlmReply("", ProviderVerdict.Failed, Detail: "bench chat returned nothing")
+                : new LlmReply(text, ProviderVerdict.Ok);
         }
 
         public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
@@ -931,13 +932,13 @@ internal static class ToolAffordanceSweep
                 {
                     Errors++;
                     if (Calls == 1) FirstReply = "(no answer)";
-                    return new LlmReply("", LlmVerdict.Failed, Detail: "bench native chat returned nothing");
+                    return new LlmReply("", ProviderVerdict.Failed, Detail: "bench native chat returned nothing");
                 }
                 if (Calls == 1)
                     FirstReply = calls.Count > 0
                         ? string.Join("; ", calls.Select(c => $"{c.Name} {c.ArgumentsJson}"))
                         : content ?? "";
-                return new LlmReply(content ?? "", LlmVerdict.Ok) { ToolCalls = calls };
+                return new LlmReply(content ?? "", ProviderVerdict.Ok) { ToolCalls = calls };
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException
                                            && !ct.IsCancellationRequested)
@@ -945,7 +946,7 @@ internal static class ToolAffordanceSweep
                 // Never swallow the CALLER's cancellation — that belongs to whoever asked to stop.
                 Errors++;
                 if (Calls == 1) FirstReply = "(no answer)";
-                return new LlmReply("", LlmVerdict.Failed, Detail: "bench native chat returned nothing");
+                return new LlmReply("", ProviderVerdict.Failed, Detail: "bench native chat returned nothing");
             }
         }
 
@@ -969,7 +970,7 @@ internal static class ToolAffordanceSweep
             var text = _calls++ == 0
                 ? $"{{\"tool\":\"{choice.Name}\",\"arguments\":{SampleArguments(choice)}}}"
                 : "{\"final\":\"done\"}";
-            return Task.FromResult(new LlmReply(text, LlmVerdict.Ok));
+            return Task.FromResult(new LlmReply(text, ProviderVerdict.Ok));
         }
 
         public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>

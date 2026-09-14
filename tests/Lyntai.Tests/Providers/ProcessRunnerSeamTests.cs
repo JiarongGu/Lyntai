@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Processes;
@@ -33,7 +34,7 @@ public class ProcessRunnerSeamTests
 
         var reply = await provider.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("served by a custom runner", reply.Text);
         Assert.Equal(5, reply.Usage!.InputTokens);
         Assert.Single(runner.Calls);

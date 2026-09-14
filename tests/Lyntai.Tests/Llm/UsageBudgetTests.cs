@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Budgeting;
@@ -16,7 +17,7 @@ public class UsageBudgetTests
         new() { Messages = [LlmMessage.User("q")], Consumer = consumer };
 
     private static LlmReply Ok(double cost, long tokens = 0) =>
-        new("ok", LlmVerdict.Ok, new LlmUsage(tokens, 0, CostUsd: cost));
+        new("ok", ProviderVerdict.Ok, new LlmUsage(tokens, 0, CostUsd: cost));
 
     // ---- tracker -------------------------------------------------------------------------------------
 
@@ -84,8 +85,8 @@ public class UsageBudgetTests
         var first = await client.CompleteAsync(Ask());
         var second = await client.CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.Ok, first.Verdict);       // the crossing call still ran
-        Assert.Equal(LlmVerdict.Refused, second.Verdict); // the next is refused
+        Assert.Equal(ProviderVerdict.Ok, first.Verdict);       // the crossing call still ran
+        Assert.Equal(ProviderVerdict.Refused, second.Verdict); // the next is refused
         Assert.Contains("cost budget", second.Detail);
         Assert.Single(inner.Calls);                        // the provider was NOT hit for the refused call
     }
@@ -94,12 +95,12 @@ public class UsageBudgetTests
     public async Task Refuses_once_the_global_token_cap_is_reached()
     {
         var (client, inner, _) = Budgeted(b => b.MaxTokens = 100);
-        inner.Replies.Enqueue(new LlmReply("ok", LlmVerdict.Ok, new LlmUsage(80, 40))); // 120 > 100
+        inner.Replies.Enqueue(new LlmReply("ok", ProviderVerdict.Ok, new LlmUsage(80, 40))); // 120 > 100
 
         await client.CompleteAsync(Ask());
         var second = await client.CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.Refused, second.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, second.Verdict);
         Assert.Contains("token budget", second.Detail);
     }
 
@@ -114,8 +115,8 @@ public class UsageBudgetTests
         var greedy = await client.CompleteAsync(Ask("greedy"));
         var thrifty = await client.CompleteAsync(Ask("thrifty"));
 
-        Assert.Equal(LlmVerdict.Refused, greedy.Verdict);  // greedy is capped
-        Assert.Equal(LlmVerdict.Ok, thrifty.Verdict);      // a different consumer is unaffected
+        Assert.Equal(ProviderVerdict.Refused, greedy.Verdict);  // greedy is capped
+        Assert.Equal(ProviderVerdict.Ok, thrifty.Verdict);      // a different consumer is unaffected
     }
 
     [Fact]
@@ -134,7 +135,7 @@ public class UsageBudgetTests
         await foreach (var c in client.StreamAsync(Ask())) over.Add(c);
         var only = Assert.Single(over);
         Assert.Equal(LlmChunkKind.Error, only.Kind);
-        Assert.Equal(LlmVerdict.Refused, only.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, only.Verdict);
     }
 
     [Fact]

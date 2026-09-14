@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.Json;
 using Lyntai.Llm;
 using Lyntai.Text;
@@ -106,7 +107,7 @@ public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBia
         };
 
         var reply = await llm.CompleteJsonAsync(req, ct).ConfigureAwait(false);
-        if (reply.Verdict != LlmVerdict.Ok || !TryParse(reply.Text, out var result))
+        if (reply.Verdict != ProviderVerdict.Ok || !TryParse(reply.Text, out var result))
             return PairwiseResult.NoOpinion("judge produced no usable verdict");
         return result;
     }

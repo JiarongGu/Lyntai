@@ -165,8 +165,8 @@ public class GenerationRouterTests
     public async Task A_transient_failure_advances_to_the_next_candidate()
     {
         var failing = new FakeGenerationProvider { Id = "a" };
-        failing.Verdicts.Enqueue(GenerationVerdict.Failed);
-        failing.Verdicts.Enqueue(GenerationVerdict.Failed);
+        failing.Verdicts.Enqueue(ProviderVerdict.Failed);
+        failing.Verdicts.Enqueue(ProviderVerdict.Failed);
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await Router(failing, working).GenerateAsync(
@@ -181,13 +181,13 @@ public class GenerationRouterTests
     public async Task A_refusal_SURFACES_instead_of_shopping_the_prompt_around()
     {
         var refusing = new FakeGenerationProvider { Id = "a" };
-        refusing.Verdicts.Enqueue(GenerationVerdict.Refused);
+        refusing.Verdicts.Enqueue(ProviderVerdict.Refused);
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await Router(refusing, working).GenerateAsync(
             [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
-        Assert.Equal(GenerationVerdict.Refused, result.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, result.Verdict);
         Assert.Equal(0, working.GenerateCalls);   // the whole point
     }
 
@@ -195,7 +195,7 @@ public class GenerationRouterTests
     public async Task An_unconfigured_backend_is_skipped_like_an_incapable_one()
     {
         var unconfigured = new FakeGenerationProvider { Id = "a" };
-        unconfigured.Verdicts.Enqueue(GenerationVerdict.NotConfigured);
+        unconfigured.Verdicts.Enqueue(ProviderVerdict.NotConfigured);
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await Router(unconfigured, working).GenerateAsync(
@@ -210,14 +210,14 @@ public class GenerationRouterTests
     {
         // "b is not set up" is a worse explanation of the run than "a actually failed"
         var failing = new FakeGenerationProvider { Id = "a" };
-        failing.Verdicts.Enqueue(GenerationVerdict.RateLimited);
+        failing.Verdicts.Enqueue(ProviderVerdict.RateLimited);
         var unconfigured = new FakeGenerationProvider { Id = "b" };
-        unconfigured.Verdicts.Enqueue(GenerationVerdict.NotConfigured);
+        unconfigured.Verdicts.Enqueue(ProviderVerdict.NotConfigured);
 
         var result = await Router(failing, unconfigured).GenerateAsync(
             [new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
-        Assert.Equal(GenerationVerdict.RateLimited, result.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, result.Verdict);
     }
 
     [Fact]
@@ -228,7 +228,7 @@ public class GenerationRouterTests
 
         var result = await Router(video).GenerateAsync([new ProviderCandidate("video-backend")], Image());
 
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
         Assert.Contains("no capable", result.Detail);
     }
 

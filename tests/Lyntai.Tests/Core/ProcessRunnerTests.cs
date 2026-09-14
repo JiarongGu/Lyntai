@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Diagnostics;
 using Lyntai.Processes;
 using Lyntai.Tests.Fakes;
@@ -533,7 +534,7 @@ public class ProcessRunnerTests
     // RunAsync tested only the cancellation flag — so the buffered path reported a TIMEOUT for a child that
     // had exited 0, discarding the complete stdout it was holding. CliProviderEngine.CompleteAsync branches
     // on TimedOut BEFORE it parses stdout, so that turned an already-billed CLI turn into
-    // LlmVerdict.Timeout and made the router pay for a second one.
+    // ProviderVerdict.Timeout and made the router pay for a second one.
     //
     // The race itself cannot be driven deterministically from outside the class — which is exactly why the
     // guard that DID exist had no test either. Extracting the decision is what makes it observable: one

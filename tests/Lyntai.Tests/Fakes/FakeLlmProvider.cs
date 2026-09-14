@@ -49,7 +49,7 @@ public sealed class FakeLlmProvider(string id) : IModelProvider
         if (CompleteThrow is not null) throw CompleteThrow;
         return Task.FromResult(Replies.Count > 0
             ? Replies.Dequeue()
-            : new LlmReply($"{Id} default reply", LlmVerdict.Ok));
+            : new LlmReply($"{Id} default reply", ProviderVerdict.Ok));
     }
 
     public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)

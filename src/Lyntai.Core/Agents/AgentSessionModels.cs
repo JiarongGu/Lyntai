@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 
 namespace Lyntai.Agents;
@@ -59,5 +60,5 @@ public record AgentSessionOptions
 
 /// <summary>The caller-facing outcome of a session (the fold of the event stream).</summary>
 public sealed record AgentSessionResult(
-    string? SessionId, string FinalText, LlmVerdict Verdict, bool IsError,
+    string? SessionId, string FinalText, ProviderVerdict Verdict, bool IsError,
     string? Subtype, string? Diagnostic, UsageFinal? Usage);

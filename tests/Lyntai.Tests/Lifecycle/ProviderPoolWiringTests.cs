@@ -372,7 +372,7 @@ public class ProviderPoolWiringTests
         var reply = await router.CompleteAsync([new ProviderCandidate("openai")],
             new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal(key, Assert.Single(admission.Entered));
         Assert.Equal(1, admission.Released);
     }
@@ -419,7 +419,7 @@ public class ProviderPoolWiringTests
         var reply = await router.CompleteAsync([new ProviderCandidate("openai")],
             new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Single(provider.Calls);
     }
 

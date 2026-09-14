@@ -58,7 +58,7 @@ public sealed class Automatic1111Options
 /// model?" differently: ComfyUI's is the workflow, the local engine's its model path, this one's the server.
 /// </summary>
 /// <remarks>Wire shapes ported from a sibling app's production implementation. A server that simply isn't
-/// running reports <see cref="GenerationVerdict.NotConfigured"/> rather than a failure — on a fresh machine
+/// running reports <see cref="ProviderVerdict.NotConfigured"/> rather than a failure — on a fresh machine
 /// that is the normal state, and routing should skip it without penalising it.</remarks>
 /// <param name="options">Endpoint and sampling defaults.</param>
 /// <param name="httpFactory">Supplies the <see cref="HttpClient"/> — BYO (design §7).</param>
@@ -119,22 +119,22 @@ public sealed class Automatic1111Provider(
     /// <inheritdoc/>
     /// <remarks>Runs under a deadline: the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it
     /// carries one, else <see cref="Automatic1111Options.Timeout"/>. A fired deadline is a
-    /// <see cref="GenerationVerdict.Timeout"/> result; <paramref name="ct"/> keeps its own meaning and still
+    /// <see cref="ProviderVerdict.Timeout"/> result; <paramref name="ct"/> keeps its own meaning and still
     /// propagates as cancellation.</remarks>
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
             token => GenerateCoreAsync(request, token),
-            reason => GenerationResult.Failure(GenerationVerdict.Timeout, $"the render {reason}"));
+            reason => GenerationResult.Failure(ProviderVerdict.Timeout, $"the render {reason}"));
 
     private async Task<GenerationResult> GenerateCoreAsync(GenerationRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
-            return GenerationResult.Failure(GenerationVerdict.NotConfigured, "no BaseUrl configured");
+            return GenerationResult.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
 
         var source = request.Inputs.FirstOrDefault();
         if (source is not null && source.Data is not { Length: > 0 })
-            return GenerationResult.Failure(GenerationVerdict.Unsupported,
+            return GenerationResult.Failure(ProviderVerdict.Unsupported,
                 "img2img needs the source BYTES; supply GenerationInput.Data rather than a URI");
 
         var (width, height) = Size(request);
@@ -175,25 +175,25 @@ public sealed class Automatic1111Provider(
             // already has its own two routes here: no BaseUrl, and the not-reachable arm below.
             if (!response.IsSuccessStatusCode)
                 return GenerationResult.Failure(
-                    GenerationVerdictClassifier.FromHttpFailure(response.StatusCode, body),
+                    ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, body),
                     HttpArtifacts.FailureDetail(body));
 
             var artifacts = HttpArtifacts.FromWebUiEnvelope(body);
             return artifacts.Count > 0
                 ? GenerationResult.Success(artifacts, new GenerationUsage(Count: artifacts.Count))
-                : GenerationResult.Failure(GenerationVerdict.Failed,
+                : GenerationResult.Failure(ProviderVerdict.Failed,
                     $"no image in the response: {HttpArtifacts.FailureDetail(body, 200)}");
         }
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException ex)
         {
             // a local server that isn't running is NOT a fault to penalise — it's an unconfigured candidate
-            return GenerationResult.Failure(GenerationVerdict.NotConfigured,
+            return GenerationResult.Failure(ProviderVerdict.NotConfigured,
                 $"the WebUI at {Root} is not reachable: {ex.Message}");
         }
         catch (Exception ex)
         {
-            return GenerationResult.Failure(GenerationVerdictClassifier.FromException(ex), ex.Message);
+            return GenerationResult.Failure(ProviderVerdictClassifier.FromException(ex), ex.Message);
         }
     }
 

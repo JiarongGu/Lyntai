@@ -218,7 +218,7 @@ public class CodexCliProviderTests
 
         var reply = await Provider(runner).CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);   // not a bare Failed — the router cools the host
+        Assert.Equal(ProviderVerdict.AuthFailed, reply.Verdict);   // not a bare Failed — the router cools the host
         Assert.Contains("401", reply.Detail);
     }
 
@@ -243,7 +243,7 @@ public class CodexCliProviderTests
 
         var reply = await Provider(runner).CompleteAsync(Ask());
 
-        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.AuthFailed, reply.Verdict);
         Assert.Contains("401 Unauthorized", reply.Detail);
         // ONE failure, not two: the stderr chatter must not be reported underneath the real reason
         Assert.DoesNotContain("Reading prompt from stdin", reply.Detail);
@@ -411,7 +411,7 @@ public class CodexCliProviderTests
     {
         var reply = await StubProvider().CompleteAsync(Ask("hello codex"));
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("codex stub reply: hello codex", reply.Text);
         Assert.Equal(6489, reply.Usage?.InputTokens);
         Assert.Equal(12, reply.Usage?.CacheReadTokens);
@@ -433,7 +433,7 @@ public class CodexCliProviderTests
     {
         var reply = await StubProvider().CompleteAsync(Ask("NOISY please answer"));
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Contains("codex stub reply", reply.Text);
     }
 
@@ -442,7 +442,7 @@ public class CodexCliProviderTests
     {
         var reply = await StubProvider().CompleteAsync(Ask("AUTH_ERROR"));
 
-        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.AuthFailed, reply.Verdict);
     }
 
     [Fact]
@@ -452,7 +452,7 @@ public class CodexCliProviderTests
         // ordering is pinned against an actual exit code and an actual stderr, not a hand-built ProcessResult
         var reply = await StubProvider().CompleteAsync(Ask("AUTH_ERROR_EXIT"));
 
-        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.AuthFailed, reply.Verdict);
         Assert.Contains("401", reply.Detail);
     }
 

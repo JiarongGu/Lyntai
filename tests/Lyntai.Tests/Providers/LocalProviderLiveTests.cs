@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Lyntai.Providers.Local;
 
@@ -43,7 +44,7 @@ public class LocalProviderLiveTests
         using var provider = Provider();
         var reply = await provider.CompleteAsync(Ask("Reply with exactly one word: pong"));
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.NotEqual("", reply.Text);
     }
 

@@ -17,9 +17,9 @@ namespace Lyntai.Providers.Local;
 /// reused; because there is one local model on finite hardware, generations are <b>serialized</b>
 /// (one at a time) rather than run concurrently — concurrent calls queue on an internal gate.
 ///
-/// Verdicts are simple: a produced answer is <see cref="LlmVerdict.Ok"/>, an empty generation or a
-/// load/inference fault is <see cref="LlmVerdict.Failed"/> (so the router falls over to the next
-/// candidate), and the inactivity deadline is <see cref="LlmVerdict.Timeout"/>. There is no
+/// Verdicts are simple: a produced answer is <see cref="ProviderVerdict.Ok"/>, an empty generation or a
+/// load/inference fault is <see cref="ProviderVerdict.Failed"/> (so the router falls over to the next
+/// candidate), and the inactivity deadline is <see cref="ProviderVerdict.Timeout"/>. There is no
 /// rate-limit or content-filter notion for a local model. Token accounting is not reported (local
 /// inference has no billing and exact counts need model-specific tokenization).
 /// </summary>
@@ -74,8 +74,8 @@ public sealed class LocalProvider(
         // the empty-as-Ok trap, enforced locally: if the stream contract ever broke (a Final with no
         // content), an empty aggregate must fall over at the router, not report a clean empty answer
         if (text.Length == 0)
-            return new LlmReply("", LlmVerdict.Failed, Detail: $"{Id}: empty response");
-        return new LlmReply(text.ToString(), LlmVerdict.Ok, usage);
+            return new LlmReply("", ProviderVerdict.Failed, Detail: $"{Id}: empty response");
+        return new LlmReply(text.ToString(), ProviderVerdict.Ok, usage);
     }
 
     public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
@@ -94,7 +94,7 @@ public sealed class LocalProvider(
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "{Id}: local model load failed", Id);
-                startupError = LlmChunk.Error(LlmVerdict.Failed, $"{Id}: model load failed — {ex.Message}");
+                startupError = LlmChunk.Error(ProviderVerdict.Failed, $"{Id}: model load failed — {ex.Message}");
                 executor = null!;
                 prompt = "";
             }
@@ -121,7 +121,7 @@ public sealed class LocalProvider(
                     ex =>
                     {
                         var timedOut = timeoutCts.IsCancellationRequested;
-                        return LlmChunk.Error(timedOut ? LlmVerdict.Timeout : LlmVerdict.Failed,
+                        return LlmChunk.Error(timedOut ? ProviderVerdict.Timeout : ProviderVerdict.Failed,
                             timedOut ? $"{Id}: no token within {timeout}" : $"{Id}: generation broke — {ex.Message}");
                     },
                     ct, new InactivityClock(timeoutCts, timeout));
@@ -142,7 +142,7 @@ public sealed class LocalProvider(
             // can fall over pre-content instead of reporting a clean empty answer
             if (!sawContent)
             {
-                yield return LlmChunk.Error(LlmVerdict.Failed, $"{Id}: no output produced");
+                yield return LlmChunk.Error(ProviderVerdict.Failed, $"{Id}: no output produced");
                 yield break;
             }
             yield return LlmChunk.Final();

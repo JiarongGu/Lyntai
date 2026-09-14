@@ -26,7 +26,7 @@ public class GenerationPipelineTests
     /// than <see cref="GenerationResult.Success"/> so zero is expressible — that shape is what a BYO router
     /// can return, and the runner has to refuse it rather than chain nothing.</summary>
     private static GenerationResult Produced(int artifacts, GenerationUsage? usage = null) =>
-        new(GenerationVerdict.Ok,
+        new(ProviderVerdict.Ok,
             [.. Enumerable.Range(0, artifacts)
                 .Select(i => new GenerationArtifact("image/png", Uri: $"https://example.invalid/{i}.png"))],
             usage ?? new GenerationUsage(Count: artifacts));
@@ -42,7 +42,7 @@ public class GenerationPipelineTests
         Assert.Null(result.FailedAt);
         Assert.Equal(1, router.Calls);
         Assert.Single(result.Artifacts);
-        Assert.Equal(GenerationVerdict.Ok, result.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, result.Verdict);
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class GenerationPipelineTests
         ]);
 
         Assert.Equal(1, result.FailedAt);
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
         Assert.Contains("4", result.Detail);
         Assert.Contains(nameof(GenerationStage.SelectInput), result.Detail);
         Assert.Equal(1, router.Calls);            // the refusal never reached a backend
@@ -140,7 +140,7 @@ public class GenerationPipelineTests
             [new GenerationStage(Image, Order("sd")), new GenerationStage(Video, Order("fal"))]);
 
         Assert.Equal(1, result.FailedAt);
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
         Assert.Equal(1, router.Calls);
     }
 
@@ -176,7 +176,7 @@ public class GenerationPipelineTests
         ]);
 
         Assert.Equal(1, result.FailedAt);
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
         Assert.Equal(1, router.Calls);
     }
 
@@ -186,7 +186,7 @@ public class GenerationPipelineTests
         // the plan's requirement, asserted as a CALL COUNT rather than left as a comment
         var router = new ScriptedRouter(
             Produced(1),
-            GenerationResult.Failure(GenerationVerdict.Refused, "content policy"),
+            GenerationResult.Failure(ProviderVerdict.Refused, "content policy"),
             Produced(1));
 
         var result = await router.RunPipelineAsync(
@@ -198,7 +198,7 @@ public class GenerationPipelineTests
 
         Assert.Equal(2, router.Calls);                      // stage 3 never ran, stage 1 never re-ran
         Assert.Equal(1, result.FailedAt);
-        Assert.Equal(GenerationVerdict.Refused, result.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, result.Verdict);
         Assert.Equal("content policy", result.Detail);
     }
 
@@ -207,7 +207,7 @@ public class GenerationPipelineTests
     {
         // stage 1's render is already billed; throwing it away is destroying something the caller paid for
         var router = new ScriptedRouter(
-            Produced(1), GenerationResult.Failure(GenerationVerdict.Timeout, "too slow"));
+            Produced(1), GenerationResult.Failure(ProviderVerdict.Timeout, "too slow"));
 
         var result = await router.RunPipelineAsync(
         [
@@ -243,7 +243,7 @@ public class GenerationPipelineTests
     [Fact]
     public async Task Usage_a_backend_never_reported_is_null_rather_than_an_invented_zero()
     {
-        var router = new ScriptedRouter(new GenerationResult(GenerationVerdict.Ok,
+        var router = new ScriptedRouter(new GenerationResult(ProviderVerdict.Ok,
             [new GenerationArtifact("image/png", Uri: "https://example.invalid/0.png")]));
 
         var result = await router.RunPipelineAsync([new GenerationStage(Image, Order("sd"))]);
@@ -326,7 +326,7 @@ public class GenerationPipelineTests
         ]);
 
         Assert.Equal(1, result.FailedAt);
-        Assert.Equal(GenerationVerdict.Refused, result.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, result.Verdict);
         Assert.Contains("cost budget", result.Detail);
         Assert.Equal(1, backend.GenerateCalls);            // stage 1 ran and spent; stage 2 never reached it
         Assert.Equal(0.40, result.Usage!.CostUsd!.Value, 6);
@@ -355,7 +355,7 @@ public class GenerationPipelineTests
             Candidates.Add(candidates);
             return Task.FromResult(_script.Count > 0
                 ? _script.Dequeue()
-                : GenerationResult.Failure(GenerationVerdict.Failed, "the script ran out"));
+                : GenerationResult.Failure(ProviderVerdict.Failed, "the script ran out"));
         }
 
         public Task<GenerationSubmission> SubmitAsync(

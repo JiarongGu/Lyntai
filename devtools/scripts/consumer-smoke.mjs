@@ -158,7 +158,7 @@ if (sp.GetRequiredService<IKeyValueStore>() is null) throw new Exception("no IKe
 var render = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
     [new GenerationCandidate("openai-images")],
     new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" });
-if (render.Verdict != GenerationVerdict.NotConfigured)
+if (render.Verdict != ProviderVerdict.NotConfigured)
     throw new Exception($"unconfigured image backend reported {render.Verdict}, expected NotConfigured");
 
 // the named factories are reachable from the package and bake the role in (D28)

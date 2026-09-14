@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
@@ -31,7 +32,7 @@ public class ClaudeCliProviderTests
     {
         var reply = await Provider().CompleteAsync(Req("hello from the tests"));
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("stub reply: hello from the tests", reply.Text);
         Assert.NotNull(reply.Usage);
         Assert.Equal(1200, reply.Usage.InputTokens);
@@ -43,7 +44,7 @@ public class ClaudeCliProviderTests
     {
         var reply = await Provider().CompleteAsync(Req("FORCE_ERROR please"));
 
-        Assert.Equal(LlmVerdict.Failed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
         Assert.Equal("", reply.Text);
     }
 
@@ -52,7 +53,7 @@ public class ClaudeCliProviderTests
     {
         var reply = await Provider(timeout: TimeSpan.FromSeconds(2)).CompleteAsync(Req("SLOW down"));
 
-        Assert.Equal(LlmVerdict.Timeout, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, reply.Verdict);
     }
 
     [Fact]
@@ -92,7 +93,7 @@ public class ClaudeCliProviderTests
             chunks.Add(c);
 
         Assert.Equal(LlmChunkKind.Error, chunks[^1].Kind);
-        Assert.Equal(LlmVerdict.Timeout, chunks[^1].Verdict);
+        Assert.Equal(ProviderVerdict.Timeout, chunks[^1].Verdict);
     }
 
     [Fact]

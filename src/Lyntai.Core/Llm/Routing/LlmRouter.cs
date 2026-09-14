@@ -87,9 +87,9 @@ public sealed class LlmRouter(
                 var reply = await TryCompleteAsync(provider, effectiveModel, req, ct).ConfigureAwait(false);
                 _logger.LogInformation("router: {Provider} (model {Model}) → {Verdict}{Detail}",
                     provider.Id, effectiveModel ?? "(default)", reply.Verdict,
-                    reply.Verdict == LlmVerdict.Ok ? "" : $" — {reply.Detail}");
+                    reply.Verdict == ProviderVerdict.Ok ? "" : $" — {reply.Detail}");
 
-                if (reply.Verdict == LlmVerdict.Ok)
+                if (reply.Verdict == ProviderVerdict.Ok)
                 {
                     deadHosts.RecordSuccess(key);
                     return reply;
@@ -100,7 +100,7 @@ public sealed class LlmRouter(
                     return reply; // content policy follows the prompt, not the host — surface as-is
 
                 // a blameless verdict must never MASK a real one — see IsBlameless
-                if (IsBlameless(reply.Verdict)) lastBlameless = reply; else last = reply;
+                if (reply.Verdict.IsBlameless()) lastBlameless = reply; else last = reply;
                 if (action == FallbackAction.CooldownAndAdvance)
                 {
                     deadHosts.MarkDead(key); // §6 amended: terminal for this host, advance to the next
@@ -128,26 +128,8 @@ public sealed class LlmRouter(
         // honest answer (a host turns "not configured" into a setup prompt), and only a candidate list that
         // produced nothing at all falls through to the synthetic reply
         return last ?? lastBlameless
-            ?? new LlmReply("", LlmVerdict.Failed, Detail: "no live candidate (all skipped: unknown, unavailable, or dead)");
+            ?? new LlmReply("", ProviderVerdict.Failed, Detail: "no live candidate (all skipped: unknown, unavailable, or dead)");
     }
-
-    /// <summary>Verdicts that are not FAULTS — the candidate simply wasn't the one for this request, so it is
-    /// remembered apart from real failures and reported only when there was no real failure at all.
-    ///
-    /// Without this, <c>[downHost → Failed, neverConfigured → NotConfigured]</c> tells the caller "not
-    /// configured" and sends them to set up a key, while the backend they HAD configured is the one that is
-    /// down. Matches <c>GenerationRouter.IsBlameless</c> exactly — the same two verdicts, and since 3.0 the
-    /// same NAMED predicate rather than an inline pattern over there — which is the point: one answer per
-    /// situation across both domains. It cannot be ONE function: the two domains have separate verdict
-    /// enums, so the parity is carried by the pair of names and by each one's docblock pointing at the
-    /// other.
-    ///
-    /// Deliberately keyed on the VERDICT, not on <see cref="FallbackAction.Advance"/>: that would also
-    /// swallow <see cref="LlmVerdict.ContextWindowExceeded"/>, and "your prompt is too big" is a real,
-    /// actionable answer that must still surface. Which substantive failure wins (this router keeps the LAST,
-    /// generation the FIRST) is untouched — only ELIGIBILITY is decided here.</summary>
-    private static bool IsBlameless(LlmVerdict verdict) =>
-        verdict is LlmVerdict.NotConfigured or LlmVerdict.Unsupported;
 
     public async IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req,
         [EnumeratorCancellation] CancellationToken ct = default)
@@ -167,11 +149,11 @@ public sealed class LlmRouter(
             while (!advance)
             {
                 var committed = false;   // once real content is yielded, no fallback — pass everything through
-                var retryVerdict = LlmVerdict.Ok;
+                var retryVerdict = ProviderVerdict.Ok;
 
                 var activity = LyntaiDiagnostics.StartChat(provider.Id, effective.Model);
                 var start = Stopwatch.GetTimestamp();
-                LlmVerdict outcome = LlmVerdict.Ok;
+                ProviderVerdict outcome = ProviderVerdict.Ok;
                 LlmUsage? usage = null;
                 string? outcomeDetail = null;
                 try
@@ -193,7 +175,7 @@ public sealed class LlmRouter(
                             {
                                 // a mid-iteration throw becomes an Error chunk, classified through the shared
                                 // taxonomy (thrown 429→RateLimited, provider-internal OCE→Timeout, …)
-                                chunk = LlmChunk.Error(ClassifyThrown(ex), ex.Message);
+                                chunk = LlmChunk.Error(ProviderVerdictClassifier.FromThrown(ex), ex.Message);
                             }
                             if (chunk is null) break;
 
@@ -201,7 +183,7 @@ public sealed class LlmRouter(
                             // stream form (pitfalls: empty output must be fall-over-able, never a clean end) —
                             // convert it to an Error so the pre-content fallback path below handles it.
                             if (chunk.Kind == LlmChunkKind.Final && !committed)
-                                chunk = LlmChunk.Error(LlmVerdict.Failed, $"{provider.Id}: empty stream (Final with no content)");
+                                chunk = LlmChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (Final with no content)");
 
                             if (chunk.Kind == LlmChunkKind.Error)
                             {
@@ -212,7 +194,7 @@ public sealed class LlmRouter(
 
                             if (chunk.Kind == LlmChunkKind.Error && !committed)
                             {
-                                if (IsBlameless(chunk.Verdict)) lastBlameless = chunk; else lastError = chunk;
+                                if (chunk.Verdict.IsBlameless()) lastBlameless = chunk; else lastError = chunk;
                                 var action = Policy.ActionFor(chunk.Verdict);
                                 if (action == FallbackAction.Surface)
                                 {
@@ -262,16 +244,16 @@ public sealed class LlmRouter(
                     }
 
                     if (committed) yield break; // ended after content — done
-                    if (retryVerdict == LlmVerdict.Ok)
+                    if (retryVerdict == ProviderVerdict.Ok)
                     {
                         // the enumerator ended with NO chunks at all — a contract-violating empty stream
                         // (providers must end with exactly one Final or Error). Same trust-boundary rule as
                         // an empty reply: treat as Failed and retry/advance rather than ending the router's
                         // own stream silently with no terminal chunk.
-                        retryVerdict = LlmVerdict.Failed;
-                        outcome = LlmVerdict.Failed;
+                        retryVerdict = ProviderVerdict.Failed;
+                        outcome = ProviderVerdict.Failed;
                         outcomeDetail = "empty stream (no chunks)";
-                        lastError = LlmChunk.Error(LlmVerdict.Failed, $"{provider.Id}: empty stream (no chunks)");
+                        lastError = LlmChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (no chunks)");
                         _logger.LogWarning("router: {Provider} produced an empty stream (no chunks); treating as Failed", provider.Id);
                     }
                 }
@@ -298,7 +280,7 @@ public sealed class LlmRouter(
         }
 
         yield return lastError ?? lastBlameless
-            ?? LlmChunk.Error(LlmVerdict.Failed, "no live candidate (all skipped: unknown, unavailable, or dead)");
+            ?? LlmChunk.Error(ProviderVerdict.Failed, "no live candidate (all skipped: unknown, unavailable, or dead)");
     }
 
     /// <summary>Native tool support for a candidate list: the first live candidate (registered,
@@ -369,22 +351,11 @@ public sealed class LlmRouter(
             // OCE→Timeout, …) — a provider that THROWS must get the same fallback policy as one that
             // returns a verdict reply; hand-rolling Failed here would hammer a rate-limited host
             // instead of cooling it (see llm-and-router.md).
-            reply = new LlmReply("", ClassifyThrown(ex), Detail: $"{provider.Id}: {ex.Message}");
+            reply = new LlmReply("", ProviderVerdictClassifier.FromThrown(ex), Detail: $"{provider.Id}: {ex.Message}");
         }
         LyntaiDiagnostics.RecordOutcome(activity, provider.Id, effective.Model, reply.Verdict, reply.Usage,
             Stopwatch.GetElapsedTime(start).TotalSeconds, reply.Detail);
         return reply;
-    }
-
-    /// <summary>Classify a THROWN provider exception, with Refused clamped to Failed: a throw is
-    /// transport-layer (an error page mentioning "content filter" at a proxy/CDN, not the model
-    /// declining), and Refused is TERMINAL under §6 (Surface, no fallback) — a keyword match in an
-    /// exception message must never stop the router from trying a healthy candidate. Providers signal
-    /// real refusals with a verdict REPLY, never an exception.</summary>
-    private static LlmVerdict ClassifyThrown(Exception ex)
-    {
-        var verdict = LlmVerdictClassifier.FromException(ex);
-        return verdict == LlmVerdict.Refused ? LlmVerdict.Failed : verdict;
     }
 
     /// <summary>The live per-consumer model override (null when live routing isn't wired) — read once per

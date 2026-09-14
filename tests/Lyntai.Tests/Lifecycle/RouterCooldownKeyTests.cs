@@ -40,7 +40,7 @@ public class RouterCooldownKeyTests
     {
         var tracker = new DeadHostTracker(threshold: 1);
         var failing = new FakeGenerationProvider { Id = "a1111" };
-        failing.Verdicts.Enqueue(GenerationVerdict.Failed);
+        failing.Verdicts.Enqueue(ProviderVerdict.Failed);
         var spare = new FakeGenerationProvider { Id = "comfyui" };
         var router = new GenerationRouter([failing, spare], null, tracker);
 
@@ -59,7 +59,7 @@ public class RouterCooldownKeyTests
         var cfgB = ProviderKey.For("openai-images").With("tenant", "b").Build();
 
         var tenantA = new FakeGenerationProvider { Id = "openai-images" };
-        tenantA.Verdicts.Enqueue(GenerationVerdict.RateLimited);
+        tenantA.Verdicts.Enqueue(ProviderVerdict.RateLimited);
 
         var router = new GenerationRouter([tenantA], null, tracker, _ => cfgA);
         await router.GenerateAsync(Candidates("openai-images"), Request());
@@ -75,7 +75,7 @@ public class RouterCooldownKeyTests
     {
         var tracker = new DeadHostTracker(threshold: 1);
         var failing = new FakeGenerationProvider { Id = "a1111" };
-        failing.Verdicts.Enqueue(GenerationVerdict.RateLimited);
+        failing.Verdicts.Enqueue(ProviderVerdict.RateLimited);
 
         var router = new GenerationRouter([failing], null, tracker, _ => null);
         await router.GenerateAsync(Candidates("a1111"), Request());
@@ -120,7 +120,7 @@ public class RouterCooldownKeyTests
         var key = ProviderKey.For("a1111").With("v", "a").Build();
 
         var failing = new FakeGenerationProvider { Id = "a1111" };
-        failing.Verdicts.Enqueue(GenerationVerdict.Refused);       // Surface: returns from mid-attempt
+        failing.Verdicts.Enqueue(ProviderVerdict.Refused);       // Surface: returns from mid-attempt
         var router = new GenerationRouter([failing], null, new DeadHostTracker(), _ => key, admission);
 
         await router.GenerateAsync(Candidates("a1111"), Request());
@@ -217,7 +217,7 @@ public class RouterCooldownKeyTests
     {
         var tracker = new DeadHostTracker(threshold: 1);
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("nope", LlmVerdict.RateLimited));
+        provider.Replies.Enqueue(new LlmReply("nope", ProviderVerdict.RateLimited));
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var router = new LlmRouter([provider], tracker, new LyntaiOptions(), configuration: _ => cfg);
@@ -244,7 +244,7 @@ public class RouterCooldownKeyTests
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("nope", LlmVerdict.RateLimited));
+        provider.Replies.Enqueue(new LlmReply("nope", ProviderVerdict.RateLimited));
 
         var router = new LlmRouter([provider], tracker, options, configuration: _ => cfg);
 
@@ -268,7 +268,7 @@ public class RouterCooldownKeyTests
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("nope", LlmVerdict.RateLimited));
+        provider.Replies.Enqueue(new LlmReply("nope", ProviderVerdict.RateLimited));
 
         var router = new LlmRouter([provider], new DeadHostTracker(), new LyntaiOptions(),
             configuration: _ => cfg, admission: admission);

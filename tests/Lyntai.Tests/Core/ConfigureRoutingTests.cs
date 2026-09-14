@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -16,14 +17,14 @@ public class ConfigureRoutingTests
             .AddProvider(_ => new FakeLlmProvider("p"))
             .ConfigureRouting(r =>
             {
-                r.Retry(LlmVerdict.Failed, 3);
+                r.Retry(ProviderVerdict.Failed, 3);
                 r.CooldownScope = CooldownScope.ProviderAndModel;
                 r.ExemptSoleCandidate = false;
             }));
         using var sp = services.BuildServiceProvider();
 
         var options = sp.GetRequiredService<LyntaiOptions>();
-        Assert.Equal(3, options.Routing.RetriesFor(LlmVerdict.Failed));
+        Assert.Equal(3, options.Routing.RetriesFor(ProviderVerdict.Failed));
         Assert.Equal(CooldownScope.ProviderAndModel, options.Routing.CooldownScope);
         Assert.False(options.Routing.ExemptSoleCandidate);
     }
@@ -32,14 +33,14 @@ public class ConfigureRoutingTests
     public async Task ConfigureRouting_retry_takes_effect_end_to_end()
     {
         var flaky = new FakeLlmProvider("flaky");
-        flaky.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "blip"));
-        flaky.Replies.Enqueue(new LlmReply("recovered", LlmVerdict.Ok));
+        flaky.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "blip"));
+        flaky.Replies.Enqueue(new LlmReply("recovered", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => flaky)
             .UseDefaultCandidates("flaky")
-            .ConfigureRouting(r => r.Retry(LlmVerdict.Failed, 1)));
+            .ConfigureRouting(r => r.Retry(ProviderVerdict.Failed, 1)));
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>()

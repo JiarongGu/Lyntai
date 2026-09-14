@@ -10,7 +10,7 @@ namespace Lyntai.Generation.Routing;
 /// <summary>
 /// Wraps generation routing in client-side throttling: before a render (or a submission) it acquires a permit,
 /// waiting up to the configured max wait; if none frees in time the call is refused with
-/// <see cref="GenerationVerdict.RateLimited"/> rather than hitting a backend. Wired by
+/// <see cref="ProviderVerdict.RateLimited"/> rather than hitting a backend. Wired by
 /// <c>AddGenerationRateLimit()</c>.
 ///
 /// <para>It uses its OWN limiter with its own rate — NOT the LLM front door's. A render and a chat turn hit
@@ -39,7 +39,7 @@ public sealed class RateLimitedGenerationRouter(
         if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
         {
             Throttled(request.Consumer);
-            return GenerationResult.Failure(GenerationVerdict.RateLimited, Reason);
+            return GenerationResult.Failure(ProviderVerdict.RateLimited, Reason);
         }
         return await inner.GenerateAsync(candidates, request, ct).ConfigureAwait(false);
     }
@@ -70,7 +70,7 @@ public sealed class RateLimitedGenerationRouter(
         if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
         {
             Throttled(request.Consumer);
-            yield return GenerationChunk.Failure(GenerationVerdict.RateLimited, Reason);
+            yield return GenerationChunk.Failure(ProviderVerdict.RateLimited, Reason);
             yield break;
         }
 

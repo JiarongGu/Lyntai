@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Text.Json;
 using Lyntai.Llm;
 using Lyntai.Text;
@@ -72,7 +73,7 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
         };
 
         var reply = await llm.CompleteJsonAsync(req, ct).ConfigureAwait(false);
-        if (reply.Verdict != LlmVerdict.Ok) return null;
+        if (reply.Verdict != ProviderVerdict.Ok) return null;
         return TryParseVerdict(reply.Text, out var result) ? result : null;
     }
 

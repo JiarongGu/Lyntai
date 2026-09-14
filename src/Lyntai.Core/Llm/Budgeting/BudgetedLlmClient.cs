@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using System.Globalization;
 using Lyntai.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -8,7 +9,7 @@ namespace Lyntai.Llm.Budgeting;
 /// <summary>
 /// Decorates the front door with token/cost governance: before each call it checks the applicable
 /// accumulated total against the configured caps and, if a cap is reached, REFUSES without hitting a
-/// provider (a <see cref="LlmVerdict.Refused"/> reply / an Error stream chunk). After a call it records the
+/// provider (a <see cref="ProviderVerdict.Refused"/> reply / an Error stream chunk). After a call it records the
 /// reported usage. Wired by <c>AddUsageBudget()</c>. The ceiling is soft — the call that crosses a cap
 /// still runs (its cost isn't known until it returns); the next one is refused.
 /// <para>The check-and-record is deliberately NOT atomic across a call, so under concurrency the cap can
@@ -25,7 +26,7 @@ public sealed class BudgetedLlmClient(
     public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
         if (await OverBudgetAsync(req.Consumer, ct).ConfigureAwait(false) is { } reason)
-            return new LlmReply("", LlmVerdict.Refused, Detail: reason);
+            return new LlmReply("", ProviderVerdict.Refused, Detail: reason);
 
         var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
         if (reply.Usage is not null) await tracker.RecordAsync(req.Consumer, reply.Usage, ct).ConfigureAwait(false);
@@ -37,7 +38,7 @@ public sealed class BudgetedLlmClient(
     {
         if (await OverBudgetAsync(req.Consumer, ct).ConfigureAwait(false) is { } reason)
         {
-            yield return LlmChunk.Error(LlmVerdict.Refused, reason);
+            yield return LlmChunk.Error(ProviderVerdict.Refused, reason);
             yield break;
         }
 

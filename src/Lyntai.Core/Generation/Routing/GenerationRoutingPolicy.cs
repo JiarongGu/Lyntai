@@ -1,3 +1,5 @@
+using Lyntai.Lifecycle;
+
 namespace Lyntai.Generation.Routing;
 
 /// <summary>What the router does with a candidate's failure. The same four actions as the LLM router's
@@ -25,12 +27,12 @@ public enum GenerationFallbackAction
 /// <summary>Per-verdict fallback behaviour for <see cref="GenerationRouter"/> — a POLICY, not a law.
 ///
 /// The defaults follow the SHAPE of the LLM router's (design §6), so one mental model carries across most of
-/// both domains: a <see cref="GenerationVerdict.Refused"/> SURFACES (a content refusal is the backend's
+/// both domains: a <see cref="ProviderVerdict.Refused"/> SURFACES (a content refusal is the backend's
 /// judgement, and quietly re-submitting the same prompt to another vendor is not a library's decision to make),
 /// a rate limit or a rejected key BENCHES the backend, a transient fault counts toward the threshold, and a
 /// backend that was never set up advances without blame. The deliberate divergence is
-/// <see cref="GenerationVerdict.Unsupported"/>: a capability gap ADVANCES here, where the LLM policy surfaces
-/// it. <see cref="GenerationVerdictClassifier"/> carries the reason — chat candidates share a capability gap,
+/// <see cref="ProviderVerdict.Unsupported"/>: a capability gap ADVANCES here, where the LLM policy surfaces
+/// it. <see cref="ProviderVerdictClassifier"/> carries the reason — chat candidates share a capability gap,
 /// media backends differ widely in what they accept.
 ///
 /// It is configurable because that Refused default is wrong for at least one real setup: a host that
@@ -40,19 +42,22 @@ public enum GenerationFallbackAction
 /// (<c>docs/DECISIONS.md</c> D3).</summary>
 public sealed class GenerationRoutingPolicy
 {
-    private readonly Dictionary<GenerationVerdict, GenerationFallbackAction> _actions = new()
+    private readonly Dictionary<ProviderVerdict, GenerationFallbackAction> _actions = new()
     {
         // the backend judged the CONTENT, not the transport — surface it
-        [GenerationVerdict.Refused] = GenerationFallbackAction.Surface,
+        [ProviderVerdict.Refused] = GenerationFallbackAction.Surface,
         // "not for me" — advance without blame
-        [GenerationVerdict.NotConfigured] = GenerationFallbackAction.Advance,
-        [GenerationVerdict.Unsupported] = GenerationFallbackAction.Advance,
+        [ProviderVerdict.NotConfigured] = GenerationFallbackAction.Advance,
+        [ProviderVerdict.Unsupported] = GenerationFallbackAction.Advance,
+        // too big for THIS backend is a capability gap, not ill health — explicit rather than left to the
+        // unmapped default, since a silent default is how it came to PENALIZE a healthy backend before
+        [ProviderVerdict.ContextWindowExceeded] = GenerationFallbackAction.Advance,
         // the backend told us to stop: benching is the only response that doesn't waste a request
-        [GenerationVerdict.RateLimited] = GenerationFallbackAction.CooldownAndAdvance,
-        [GenerationVerdict.AuthFailed] = GenerationFallbackAction.CooldownAndAdvance,
+        [ProviderVerdict.RateLimited] = GenerationFallbackAction.CooldownAndAdvance,
+        [ProviderVerdict.AuthFailed] = GenerationFallbackAction.CooldownAndAdvance,
         // might be transient — one is noise, several in a row is a dead backend
-        [GenerationVerdict.Timeout] = GenerationFallbackAction.PenalizeAndAdvance,
-        [GenerationVerdict.Failed] = GenerationFallbackAction.PenalizeAndAdvance,
+        [ProviderVerdict.Timeout] = GenerationFallbackAction.PenalizeAndAdvance,
+        [ProviderVerdict.Failed] = GenerationFallbackAction.PenalizeAndAdvance,
     };
 
     /// <summary>Never skip the ONLY capable candidate for being benched (default true). Benching the sole
@@ -63,11 +68,11 @@ public sealed class GenerationRoutingPolicy
 
     /// <summary>What to do about <paramref name="verdict"/>. Unknown verdicts advance — a verdict this policy
     /// has never heard of should not silently end a run that another candidate could serve.</summary>
-    public GenerationFallbackAction ActionFor(GenerationVerdict verdict) =>
+    public GenerationFallbackAction ActionFor(ProviderVerdict verdict) =>
         _actions.TryGetValue(verdict, out var action) ? action : GenerationFallbackAction.Advance;
 
     /// <summary>Set the action for a verdict. Fluent, so a host can chain a couple of overrides.</summary>
-    public GenerationRoutingPolicy On(GenerationVerdict verdict, GenerationFallbackAction action)
+    public GenerationRoutingPolicy On(ProviderVerdict verdict, GenerationFallbackAction action)
     {
         _actions[verdict] = action;
         return this;

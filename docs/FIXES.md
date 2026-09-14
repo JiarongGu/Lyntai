@@ -895,14 +895,14 @@ missing credential, so a deployment one config line from working benches itself 
 
 **Root cause.** The typed status was thrown away before anyone could classify it. Both
 `ComfyUiProvider.HistoryAsync` and `FalQueueProvider.GetAsync` collapse a failed response into
-`$"{(int)StatusCode}: {body}"` and return it as a string, so their fetch paths could not call
-`GenerationVerdictClassifier.FromHttpFailure` — the entry point the classifier's own doc names as better
-("typed status wins over body text"). ComfyUI then hardcoded `GenerationVerdict.Failed`; fal called
+`$"{(int)StatusCode}: {body}"` and return it as a string, so their fetch paths could not call <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
+`GenerationVerdictClassifier.FromHttpFailure` — the entry point the classifier's own doc names as better <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
+("typed status wins over body text"). ComfyUI then hardcoded `GenerationVerdict.Failed`; fal called <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
 `FromErrorText`, which reads a `"401: …"` status line as ordinary prose and also answers `Failed`.
 
 **Why nothing caught it, and the interesting half.** The divergence was already WRITTEN DOWN, in `TASKS.md`'s
-then-`Startable` section (closed as `docs/task-archive.md` Part 87) — and its description was wrong. It recorded ComfyUI as hardcoding `Failed` "while
-`FalQueueProvider` routes the same class of failure through `GenerationVerdictClassifier`", i.e. fal was
+then-`Startable` section (closed as `docs/task-archive.md` Part 87) — and its description was wrong. It recorded ComfyUI as hardcoding `Failed` "while <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
+`FalQueueProvider` routes the same class of failure through `GenerationVerdictClassifier`", i.e. fal was <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
 believed correct. Nobody had run it. This is the second time in two days that a claim recorded in a
 maintained file, by someone who had read the code, turned out false when measured.
 
@@ -1481,8 +1481,8 @@ dialect a say in where its args go.
 
 ## 2026-08-15 — an OpenAI-compatible backend that reported its failure at HTTP 200 was re-sent the same request, then blamed for a malformed body
 
-**Symptom.** A gateway answering `200` with `{"error":{"code":429,"message":"Rate limit exceeded"}}` — the
-shape aggregators and proxies use — produced `LlmVerdict.Failed` with the detail *"malformed or empty
+**Symptom.** A gateway answering `200` with `{"error":{"code":429,"message":"Rate limit exceeded"}}` — the <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
+shape aggregators and proxies use — produced `LlmVerdict.Failed` with the detail *"malformed or empty <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
 response after retry"*, after the identical request had been sent a second time to the host that had just
 said it was rate-limited. The operator was pointed at the response shape; the actual problem was quota.
 
@@ -1502,8 +1502,8 @@ shipped in `CliProviderEngine.CompleteAsync` (2026-08-05, this log) and again on
 (`8dac87f`). Both sweeps checked the CLI seams; neither checked the HTTP provider.
  <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
 **Fix.** `OpenAiHttp.InBandError(body)` — one reader of the in-band channel for every OpenAI-compatible <!-- drift-ok: the PRE-RENAME name this incident was recorded under -->
-surface in the package — consulted BEFORE the retry on the buffered path, and on the zero-content path when
-streaming. The verdict comes from the shared corpus (`LlmVerdictClassifier.FromErrorText`), never a local
+surface in the package — consulted BEFORE the retry on the buffered path, and on the zero-content path when <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
+streaming. The verdict comes from the shared corpus (`LlmVerdictClassifier.FromErrorText`), never a local <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
 heuristic, and carries the same `AuthFailed → NotConfigured` promotion `FromHttpFailure` makes, restated
 because that overload needs a failed status to key on and this path has none.
 <br>Deliberately narrow: it reports only that an `error` member is present and what it says. It does not
@@ -1564,8 +1564,8 @@ wire format and needed no key to settle.
 
 **Symptom.** A buffered `ProcessRunner.RunAsync` whose child exited `0` at the instant its inactivity (or
 max-duration) clock fired returned `ProcessResult(-1, <the complete stdout>, …, Inactivity)`. Because
-`CliProviderEngine.CompleteAsync` branches on `result.TimedOut` BEFORE it parses stdout, a complete,
-successful, already-billed CLI turn was discarded as `LlmVerdict.Timeout` — *"stalled, no output for …"* —
+`CliProviderEngine.CompleteAsync` branches on `result.TimedOut` BEFORE it parses stdout, a complete, <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
+successful, already-billed CLI turn was discarded as `LlmVerdict.Timeout` — *"stalled, no output for …"* — <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
 and the router fell over to the next candidate and paid for a second turn.
 
 **Root cause.** The buffered path decided on the cancellation flag alone
@@ -2012,8 +2012,8 @@ this fix.)*
 
 ## 2026-08-05 — a non-zero exit code masked a CLI backend's own account of a failed turn
 
-**Symptom (reported by a consuming app, filed as `TASKS.md` CLI15).** A `codex` turn run against an account
-whose login had expired came back as a bare `LlmVerdict.Failed` whose detail was
+**Symptom (reported by a consuming app, filed as `TASKS.md` CLI15).** A `codex` turn run against an account <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
+whose login had expired came back as a bare `LlmVerdict.Failed` whose detail was <!-- drift-ok: the PRE-MERGE name this incident was recorded under -->
 `exit 1: Reading prompt from stdin...`. The actual failure — a 401 — appeared nowhere, so the app told its
 user the CLI was missing or not on PATH. The right remedy was "log in again".
 

@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Lyntai.Memory;
 using Lyntai.Memory.Annotation;
@@ -13,7 +14,7 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class LlmMemoryAnnotationPolicyTests
 {
-    private sealed class ScriptedClient(string text, LlmVerdict verdict = LlmVerdict.Ok) : ILlmClient
+    private sealed class ScriptedClient(string text, ProviderVerdict verdict = ProviderVerdict.Ok) : ILlmClient
     {
         public LlmRequest? Last { get; private set; }
 
@@ -44,7 +45,7 @@ public class LlmMemoryAnnotationPolicyTests
         public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
-            return Task.FromResult(new LlmReply("""{"subjects":["spouse"]}""", LlmVerdict.Ok));
+            return Task.FromResult(new LlmReply("""{"subjects":["spouse"]}""", ProviderVerdict.Ok));
         }
 
         public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
@@ -151,7 +152,7 @@ public class LlmMemoryAnnotationPolicyTests
     public async Task A_refused_reply_yields_no_opinion()
     {
         var annotation = await AnnotateAsync(
-            new ScriptedClient("""{"subjects":["spouse"]}""", LlmVerdict.Refused));
+            new ScriptedClient("""{"subjects":["spouse"]}""", ProviderVerdict.Refused));
 
         Assert.Empty(annotation.Subjects);
     }

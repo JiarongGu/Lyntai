@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Llm;
@@ -34,7 +35,7 @@ public class ExtensionsAiProviderTests
 
         var reply = await Provider(client).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("bridged!", reply.Text);
         Assert.Equal(11, reply.Usage!.InputTokens);
         Assert.Equal(3, reply.Usage.OutputTokens);
@@ -83,7 +84,7 @@ public class ExtensionsAiProviderTests
     public async Task Reverse_bridge_carries_a_declaration_only_tools_schema()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("ok", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("ok", ProviderVerdict.Ok));
         var chat = inner.AsChatClient();
 
         await chat.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")],
@@ -124,7 +125,7 @@ public class ExtensionsAiProviderTests
 
         var only = Assert.Single(chunks);
         Assert.Equal(LlmChunkKind.Error, only.Kind);
-        Assert.Equal(LlmVerdict.Unsupported, only.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, only.Verdict);
     }
 
     [Fact]
@@ -134,7 +135,7 @@ public class ExtensionsAiProviderTests
 
         var reply = await Provider(client).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Failed, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
         Assert.Contains("backend down", reply.Detail);
     }
 
@@ -145,7 +146,7 @@ public class ExtensionsAiProviderTests
 
         var reply = await Provider(client).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.RateLimited, reply.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict);
     }
 
     [Fact]
@@ -161,7 +162,7 @@ public class ExtensionsAiProviderTests
 
         var reply = await Provider(client).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
 
     [Fact]
@@ -193,7 +194,7 @@ public class ExtensionsAiProviderTests
 
         Assert.Single(chunks);
         Assert.Equal(LlmChunkKind.Error, chunks[0].Kind);
-        Assert.Equal(LlmVerdict.Failed, chunks[0].Verdict);
+        Assert.Equal(ProviderVerdict.Failed, chunks[0].Verdict);
     }
 
     [Fact]
@@ -208,7 +209,7 @@ public class ExtensionsAiProviderTests
 
         var reply = await Provider(client).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.RateLimited, reply.Verdict);
+        Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict);
     }
 
     [Fact]
@@ -221,7 +222,7 @@ public class ExtensionsAiProviderTests
 
         Assert.Single(chunks);
         Assert.Equal(LlmChunkKind.Error, chunks[0].Kind);
-        Assert.Equal(LlmVerdict.Failed, chunks[0].Verdict);
+        Assert.Equal(ProviderVerdict.Failed, chunks[0].Verdict);
     }
 
     [Fact]
@@ -244,7 +245,7 @@ public class ExtensionsAiProviderTests
 
         var reply = await Provider(client).CompleteAsync(Req);
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict); // empty text + tool calls is NOT a failure
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict); // empty text + tool calls is NOT a failure
         var call = Assert.Single(reply.ToolCalls!);
         Assert.Equal("call_1", call.Id);
         Assert.Equal("get_weather", call.Name);
@@ -331,7 +332,7 @@ public class ExtensionsAiProviderTests
         var reply = await sp.GetRequiredService<ILlmRouter>()
             .CompleteAsync([new("my-meai")], new LlmRequest { Messages = [LlmMessage.User("hi")] });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("via the bridge", reply.Text);
     }
 }

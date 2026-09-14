@@ -15,11 +15,11 @@ namespace Lyntai.Tests.Generation;
 /// backend they HAD configured is the one that is down (D31). What was missing is the OTHER half — when
 /// nothing substantive failed at all, the blameless backend's own words are the honest answer, and the
 /// synthetic "every capable backend reported it is not configured" was not even accurate for a run in which
-/// every candidate said <see cref="GenerationVerdict.Unsupported"/>.</para>
+/// every candidate said <see cref="ProviderVerdict.Unsupported"/>.</para>
 ///
 /// <para>So the router keeps a second slot, exactly as <c>LlmRouter.CompleteAsync</c> already did
 /// (<c>last ?? lastBlameless ?? synthetic</c>) — and only once that was in place could
-/// <see cref="LlmVerdict.ContextWindowExceeded"/> become <see cref="GenerationVerdict.Unsupported"/>, which is
+/// <see cref="ProviderVerdict.ContextWindowExceeded"/> become <see cref="ProviderVerdict.Unsupported"/>, which is
 /// what stops repeated oversized prompts from benching a healthy backend. Doing the mapping first would just
 /// have swapped one cost for the other.</para></summary>
 public class GenerationBlamelessReportingTests
@@ -37,16 +37,16 @@ public class GenerationBlamelessReportingTests
         // "not configured" — which is neither what happened nor something they can act on
         var first = new SayingProvider
         {
-            Id = "a", Verdict = GenerationVerdict.Unsupported, Detail = "prompt is too long: 210000 tokens",
+            Id = "a", Verdict = ProviderVerdict.Unsupported, Detail = "prompt is too long: 210000 tokens",
         };
         var second = new SayingProvider
         {
-            Id = "b", Verdict = GenerationVerdict.Unsupported, Detail = "1024x1792 is past this model's limit",
+            Id = "b", Verdict = ProviderVerdict.Unsupported, Detail = "1024x1792 is past this model's limit",
         };
 
         var result = await new GenerationRouter([first, second]).GenerateAsync(Order("a", "b"), Image());
 
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
         Assert.Contains("prompt is too long", result.Detail);
         // the FIRST one, like firstFailure — the first backend's answer explains a media run better than the
         // last one's, and the two slots must not disagree about that
@@ -61,16 +61,16 @@ public class GenerationBlamelessReportingTests
         // "remember whatever spoke first" implementation would get wrong.
         var gap = new SayingProvider
         {
-            Id = "a", Verdict = GenerationVerdict.Unsupported, Detail = "cannot take an image input",
+            Id = "a", Verdict = ProviderVerdict.Unsupported, Detail = "cannot take an image input",
         };
         var broken = new SayingProvider
         {
-            Id = "b", Verdict = GenerationVerdict.Failed, Detail = "connection reset by peer",
+            Id = "b", Verdict = ProviderVerdict.Failed, Detail = "connection reset by peer",
         };
 
         var result = await new GenerationRouter([gap, broken]).GenerateAsync(Order("a", "b"), Image());
 
-        Assert.Equal(GenerationVerdict.Failed, result.Verdict);
+        Assert.Equal(ProviderVerdict.Failed, result.Verdict);
         Assert.Contains("connection reset", result.Detail);
         Assert.DoesNotContain("cannot take an image input", result.Detail);
     }
@@ -80,11 +80,11 @@ public class GenerationBlamelessReportingTests
     {
         // an empty detail is not a reason, and the synthetic sentence says strictly more than it does — so
         // the blameless slot takes only a result that actually explained itself
-        var silent = new SayingProvider { Id = "a", Verdict = GenerationVerdict.NotConfigured, Detail = null };
+        var silent = new SayingProvider { Id = "a", Verdict = ProviderVerdict.NotConfigured, Detail = null };
 
         var result = await new GenerationRouter([silent]).GenerateAsync(Order("a"), Image());
 
-        Assert.Equal(GenerationVerdict.NotConfigured, result.Verdict);
+        Assert.Equal(ProviderVerdict.NotConfigured, result.Verdict);
         Assert.Contains("every capable backend reported it is not configured", result.Detail);
     }
 
@@ -96,11 +96,11 @@ public class GenerationBlamelessReportingTests
         var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
         var gap = new SayingProvider
         {
-            Id = "a", Verdict = GenerationVerdict.Unsupported, Detail = "this model takes no image input",
+            Id = "a", Verdict = ProviderVerdict.Unsupported, Detail = "this model takes no image input",
         };
         var unconfigured = new SayingProvider
         {
-            Id = "b", Verdict = GenerationVerdict.NotConfigured, Detail = "no BaseUrl configured",
+            Id = "b", Verdict = ProviderVerdict.NotConfigured, Detail = "no BaseUrl configured",
         };
         var router = new GenerationRouter([gap, unconfigured], deadHosts: tracker);
 
@@ -118,16 +118,18 @@ public class GenerationBlamelessReportingTests
     [Fact]
     public async Task An_oversized_prompt_no_longer_benches_a_perfectly_healthy_backend()
     {
-        // an image backend that answers "prompt is too long" is not ill — but as GenerationVerdict.Failed it
+        // an image backend that answers "prompt is too long" is not ill — but as ProviderVerdict.Failed it
         // took PenalizeAndAdvance, so a few oversized prompts in a row put it on dead-host cooldown and
-        // UNRELATED later requests were routed away from it
-        var translated = GenerationVerdictClassifier.FromErrorText("prompt is too long: 210000 tokens");
-        Assert.Equal(GenerationVerdict.Unsupported, translated);
+        // UNRELATED later requests were routed away from it. Through 3.1.0 media reached this via a
+        // translation to Unsupported; D136 merged the taxonomy, so the precise member survives and the
+        // policy carries an explicit entry for it. What must NOT change is the penalty: still none.
+        var oversizedVerdict = ProviderVerdictClassifier.FromErrorText("prompt is too long: 210000 tokens");
+        Assert.Equal(ProviderVerdict.ContextWindowExceeded, oversizedVerdict);
 
         var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
         var oversized = new SayingProvider
         {
-            Id = "hosted", Verdict = translated, Detail = "prompt is too long: 210000 tokens",
+            Id = "hosted", Verdict = oversizedVerdict, Detail = "prompt is too long: 210000 tokens",
         };
         var working = new FakeGenerationProvider { Id = "local" };
         var router = new GenerationRouter([oversized, working], deadHosts: tracker);
@@ -149,13 +151,16 @@ public class GenerationBlamelessReportingTests
         var oversized = new SayingProvider
         {
             Id = "hosted",
-            Verdict = GenerationVerdictClassifier.FromErrorText("prompt is too long: 210000 tokens"),
+            Verdict = ProviderVerdictClassifier.FromErrorText("prompt is too long: 210000 tokens"),
             Detail = "prompt is too long: 210000 tokens",
         };
 
         var result = await new GenerationRouter([oversized]).GenerateAsync(Order("hosted"), Image());
 
-        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
+        // the member itself now, where a translation used to flatten it to Unsupported — and it is
+        // SUBSTANTIVE rather than blameless, which is right: "too big for this backend" is actionable,
+        // so it reaches the caller through firstFailure instead of the blameless slot
+        Assert.Equal(ProviderVerdict.ContextWindowExceeded, result.Verdict);
         Assert.Contains("prompt is too long", result.Detail);
     }
 
@@ -168,7 +173,7 @@ public class GenerationBlamelessReportingTests
 
         /// <summary>What every render reports; Ok is deliberately not supported — this fake exists for the
         /// failure paths.</summary>
-        public GenerationVerdict Verdict { get; init; } = GenerationVerdict.Unsupported;
+        public ProviderVerdict Verdict { get; init; } = ProviderVerdict.Unsupported;
 
         /// <summary>The backend's own words; null = a verdict with nothing to say.</summary>
         public string? Detail { get; init; }
@@ -211,8 +216,8 @@ public class GenerationSubmitBlamelessReportingTests
     {
         // the same hole as the inline path: the reason was dropped for being blameless, leaving the durable
         // job handler and the agent tool with a list of candidate ids nobody can act on
-        using var _ = LlmVerdictClassifier.AddErrorTextMatcher(t =>
-            t.Contains("queue-blameless-probe", StringComparison.Ordinal) ? LlmVerdict.NotConfigured : null);
+        using var _ = ProviderVerdictClassifier.AddErrorTextMatcher(t =>
+            t.Contains("queue-blameless-probe", StringComparison.Ordinal) ? ProviderVerdict.NotConfigured : null);
 
         var unconfigured = new RejectingJobBackend
         {
@@ -230,8 +235,8 @@ public class GenerationSubmitBlamelessReportingTests
     public async Task A_substantive_rejection_still_outranks_a_blameless_one_in_the_report()
     {
         // blameless FIRST, so a slot that simply remembered whichever spoke first would report the wrong one
-        using var _ = LlmVerdictClassifier.AddErrorTextMatcher(t =>
-            t.Contains("queue-blameless-probe", StringComparison.Ordinal) ? LlmVerdict.NotConfigured : null);
+        using var _ = ProviderVerdictClassifier.AddErrorTextMatcher(t =>
+            t.Contains("queue-blameless-probe", StringComparison.Ordinal) ? ProviderVerdict.NotConfigured : null);
 
         var unconfigured = new RejectingJobBackend { Id = "needs-setup", Detail = "queue-blameless-probe: no key" };
         var broken = new RejectingJobBackend { Id = "broken", Detail = "queue is full" };
@@ -264,7 +269,7 @@ public class GenerationSubmitBlamelessReportingTests
             Task.FromResult(new ProviderProbeResult(true, "up"));
 
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "job backend"));
+            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "job backend"));
 
         public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
             Task.FromResult(new GenerationOperation("", GenerationOperationStatus.Failed, Detail: Detail));
@@ -273,7 +278,7 @@ public class GenerationSubmitBlamelessReportingTests
             Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Failed));
 
         public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(GenerationVerdict.Failed, "nothing"));
+            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "nothing"));
 
         public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Cancelled));

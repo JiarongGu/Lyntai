@@ -156,7 +156,7 @@ public sealed class FalQueueProvider(
 
     /// <summary>Inline delivery is not this backend's mode — the queue is asynchronous by design.</summary>
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported,
+        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported,
             "fal's queue is asynchronous: use submit → poll → fetch (IGenerationJobProvider), or the durable " +
             "GenerationRenderJobHandler"));
 
@@ -267,17 +267,17 @@ public sealed class FalQueueProvider(
 
     /// <inheritdoc/>
     /// <remarks>Bounded by <see cref="FalQueueOptions.Timeout"/>; a fired deadline is a
-    /// <see cref="GenerationVerdict.Timeout"/> result, and the operation can simply be fetched again.</remarks>
+    /// <see cref="ProviderVerdict.Timeout"/> result, and the operation can simply be fetched again.</remarks>
     public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,
             token => FetchCoreAsync(operationId, token),
-            reason => GenerationResult.Failure(GenerationVerdict.Timeout, $"the result fetch {reason}"));
+            reason => GenerationResult.Failure(ProviderVerdict.Timeout, $"the result fetch {reason}"));
 
     private async Task<GenerationResult> FetchCoreAsync(string operationId, CancellationToken ct)
     {
         var (model, requestId) = Split(operationId);
         if (requestId is null)
-            return GenerationResult.Failure(GenerationVerdict.Failed, $"malformed operation id '{operationId}'");
+            return GenerationResult.Failure(ProviderVerdict.Failed, $"malformed operation id '{operationId}'");
 
         // the fetch path classifies the failure rather than branching on transport: a fetch that cannot be
         // completed is a result the caller acts on now, where a poll is a question that can be asked again
@@ -289,14 +289,14 @@ public sealed class FalQueueProvider(
         if (failure is not null)
             return GenerationResult.Failure(
                 status is { } code
-                    ? GenerationVerdictClassifier.FromHttpFailure(code, failure, hasCredentials: true)
-                    : GenerationVerdictClassifier.FromErrorText(failure),
+                    ? ProviderVerdictClassifier.FromHttpFailure(code, failure, hasCredentials: true)
+                    : ProviderVerdictClassifier.FromErrorText(failure),
                 failure);
 
         var artifacts = ReadArtifacts(body!);
         return artifacts.Count > 0
             ? GenerationResult.Success(artifacts, new GenerationUsage(Count: artifacts.Count, CostUsd: Cost(body!)))
-            : GenerationResult.Failure(GenerationVerdict.Failed,
+            : GenerationResult.Failure(ProviderVerdict.Failed,
                 $"no artifacts in the result: {HttpArtifacts.FailureDetail(body!, 200)}");
     }
 
@@ -382,7 +382,7 @@ public sealed class FalQueueProvider(
     /// because the id is simply unknown.</para>
     ///
     /// <para><c>Status</c> carries the TYPED status back rather than only its rendering inside the failure
-    /// text: <see cref="GenerationVerdictClassifier"/> documents that a typed status wins over body text, and
+    /// text: <see cref="ProviderVerdictClassifier"/> documents that a typed status wins over body text, and
     /// a caller holding only the string cannot reach the better entry point.</para></summary>
     private async Task<(string? Body, string? Failure, bool Transport, System.Net.HttpStatusCode? Status)>
         GetAsync(string url, CancellationToken ct)

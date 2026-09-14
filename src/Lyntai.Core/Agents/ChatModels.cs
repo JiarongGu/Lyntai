@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 
 namespace Lyntai.Agents;
@@ -33,12 +34,12 @@ public sealed record ChatTurn
 /// (Renamed from <c>BlockReason</c>, which lied for every non-Ok, non-blocked outcome.)</summary>
 public sealed record ChatResult(
     string Answer,
-    LlmVerdict Verdict,
+    ProviderVerdict Verdict,
     bool Blocked,
     string? Detail,
     IReadOnlyList<ToolStep> ToolSteps)
 {
-    public bool Ok => Verdict == LlmVerdict.Ok && !Blocked;
+    public bool Ok => Verdict == ProviderVerdict.Ok && !Blocked;
 
     /// <summary>Aggregate token/cost usage for the turn — <see cref="ToolLoopResult.Usage"/> when the turn
     /// went through the tool loop (already summed across every call the loop made), else the single

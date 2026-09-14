@@ -53,7 +53,7 @@ public class LyntaiDiagnosticsTests
         ActivitySource.AddActivityListener(listener);
 
         var p = new FakeLlmProvider("p1");
-        p.Replies.Enqueue(new LlmReply("hi", LlmVerdict.Ok, new LlmUsage(100, 20)));
+        p.Replies.Enqueue(new LlmReply("hi", ProviderVerdict.Ok, new LlmUsage(100, 20)));
         await Router(p).CompleteAsync([new("p1", "m-span-ok")], Req);
 
         var span = Assert.Single(SpansFor(spans, "m-span-ok"));
@@ -73,7 +73,7 @@ public class LyntaiDiagnosticsTests
         ActivitySource.AddActivityListener(listener);
 
         var p = new FakeLlmProvider("p1");
-        p.Replies.Enqueue(new LlmReply("", LlmVerdict.Timeout, Detail: "too slow"));
+        p.Replies.Enqueue(new LlmReply("", ProviderVerdict.Timeout, Detail: "too slow"));
         await Router(p).CompleteAsync([new("p1", "m-span-err")], Req);
 
         var span = Assert.Single(SpansFor(spans, "m-span-err"));
@@ -106,7 +106,7 @@ public class LyntaiDiagnosticsTests
         meterListener.Start();
 
         var p = new FakeLlmProvider("p1");
-        p.Replies.Enqueue(new LlmReply("hi", LlmVerdict.Ok, new LlmUsage(7, 3)));
+        p.Replies.Enqueue(new LlmReply("hi", ProviderVerdict.Ok, new LlmUsage(7, 3)));
         await Router(p).CompleteAsync([new("p1", "m-metrics")], Req);
 
         Assert.Equal(1, durations);
