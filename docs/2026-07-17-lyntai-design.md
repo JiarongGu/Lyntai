@@ -23,7 +23,7 @@ part well and one part poorly:
   `IScorer`/`LlmScorerBase` scoring, run traces, MCP tools. **But the LLM layer is hardcoded to the
   `claude` CLI — no provider abstraction.**
 - **Vidora** (net10.0) — the **best provider abstraction**: `ICortexClient` (timeout + structured
-  output + language + vision), `IModelProvider` with local (LLamaSharp) + OpenAI-compatible impls,
+  output + language + vision), `ILlmProvider` with local (LLamaSharp) + OpenAI-compatible impls,
   `IPromptRegistry`, `LearnedScoring` (EMA).
 - **Sonora** (net10.0) — `LlmClient` with **verdict classification** (Ok/RateLimited/Refused/Failed)
   and rate-limit circuit-breaking, task-scoped `IAiMemoryStore` + `IPromptComposer`, and a real
@@ -65,8 +65,8 @@ Lyntai/
 │  ├─ Lyntai.Core/                     # interfaces + router/fallback + cortex + DI. No heavy deps.
 │  ├─ Lyntai.Storage.Sqlite/           # Dapper + FluentMigrator + FTS5 impls of every store domain
 │  ├─ Lyntai.Providers.ClaudeCli/      # authenticated `claude` CLI spawn (family hygiene)
-│  ├─ Lyntai.Providers.Http/  # HttpClient: OpenAI/Ollama/OpenRouter/…, URL-native detect
-│  └─ Lyntai.Providers.ExtensionsAi/   # bridge: Microsoft.Extensions.AI IChatClient → IModelProvider
+│  ├─ Lyntai.Providers.OpenAiCompatible/  # HttpClient: OpenAI/Ollama/OpenRouter/…, URL-native detect
+│  └─ Lyntai.Providers.ExtensionsAi/   # bridge: Microsoft.Extensions.AI IChatClient → ILlmProvider
 ├─ samples/
 │  └─ Lyntai.Playground/               # console app exercising the full stack (live smoke)
 ├─ tests/
@@ -78,18 +78,18 @@ Lyntai/
 └─ .gitignore
 ```
 
-`Lyntai.Providers.LlamaSharp` (LLamaSharp, in-process) is a **later** package, not first-cut.
+`Lyntai.Providers.Local` (LLamaSharp, in-process) is a **later** package, not first-cut.
 *(2026-07 note: shipped in v0.8.0. It earns its own package by the rule below — LLamaSharp drags a native
 runtime, which is exactly the footprint a consumer might refuse.)*
 
 > **Amendment (2026-08-05): the tree above is the v0.1 cut; `src/` now holds TWELVE packable projects.**
 > The RULE it illustrates is unchanged and still verified — every adapter references `Lyntai.Core` only, never
 > another adapter — but two of the names are gone. `Lyntai.Providers.ClaudeCli` and
-> `Lyntai.Providers.Http` merged into **`Lyntai.Providers.Default`** at 2.0.1, because a boundary
+> `Lyntai.Providers.OpenAiCompatible` merged into **`Lyntai.Providers.Default`** at 2.0.1, because a boundary
 > has to answer *which dependency does this isolate?* and those two isolated nothing: process spawn plus
 > `HttpClient`, both dependency-free, and the CLIs share one `CliProviderEngine` (`docs/DECISIONS.md` **D25**;
 > a new CLI backend is an `ICliProviderDialect` in that package, D21/D22). Today: `Lyntai.Core`,
-> `Lyntai.Providers.Default`, `Lyntai.Providers.ExtensionsAi`, `Lyntai.Providers.LlamaSharp`,
+> `Lyntai.Providers.Default`, `Lyntai.Providers.ExtensionsAi`, `Lyntai.Providers.Local`,
 > `Lyntai.Storage.Sqlite`, `Lyntai.Storage.Postgres`, `Lyntai.Storage.InMemory`, `Lyntai.Secrets.Dpapi`,
 > `Lyntai.Tools.Mcp`, `Lyntai.Tools.Mcp.Hosting`, `Lyntai.Generation`, and the `Lyntai` starting bundle
 > (`src/Lyntai.Bundle/`, which ships no assembly).
@@ -116,10 +116,10 @@ only project that references several, which is what makes its membership a budge
 
 ## 4. Fork decisions (locked)
 
-**Fork 1 — LLM seam = Hybrid (own seam + MEAI bridge).** Lyntai's own `IModelProvider` is the primary
-seam, so **CLI-first, `ProviderVerdict` classification, and streaming-aware fallback are first-class**.
+**Fork 1 — LLM seam = Hybrid (own seam + MEAI bridge).** Lyntai's own `ILlmProvider` is the primary
+seam, so **CLI-first, `LlmVerdict` classification, and streaming-aware fallback are first-class**.
 `Lyntai.Providers.ExtensionsAi` ships a thin bridge that turns any `Microsoft.Extensions.AI`
-`IChatClient` into an `IModelProvider`, giving the whole MEAI ecosystem (OpenAI, Azure, Ollama,
+`IChatClient` into an `ILlmProvider`, giving the whole MEAI ecosystem (OpenAI, Azure, Ollama,
 Anthropic API, …) for free without shaping the public API around MEAI's types.
 
 **Fork 2 — storage = per-domain interfaces + one SQLite package.** Domain interfaces live in Core;
@@ -130,7 +130,7 @@ store* (route each domain to a different backend) can be layered on later withou
 
 ### 5.1 LLM
 ```csharp
-public enum ProviderVerdict { Ok, RateLimited, Refused, Failed, Timeout }
+public enum LlmVerdict { Ok, RateLimited, Refused, Failed, Timeout }
 
 public sealed record LlmRequest {
     public required IReadOnlyList<LlmMessage> Messages { get; init; }
@@ -142,9 +142,9 @@ public sealed record LlmRequest {
     public string Consumer { get; init; } = "default";  // per-feature routing/telemetry tag
 }
 
-public sealed record LlmReply(string Text, ProviderVerdict Verdict, LlmUsage? Usage = null, string? Detail = null);
+public sealed record LlmReply(string Text, LlmVerdict Verdict, LlmUsage? Usage = null, string? Detail = null);
 
-public interface IModelProvider {
+public interface ILlmProvider {
     string Id { get; }                             // "claude-cli" | "openai" | "ollama" | …
     bool IsAvailable { get; }
     Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default);
@@ -153,20 +153,22 @@ public interface IModelProvider {
 
 // Ordered candidates → fallback. See §6 for the routing semantics.
 public interface ILlmRouter {
-    Task<LlmReply> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default);
-    IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default);
+    Task<LlmReply> CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default);
+    IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default);
 }
-public sealed record ProviderCandidate(string ProviderId, string? Model = null);
+public sealed record LlmCandidate(string ProviderId, string? Model = null);
 ```
-*(2026-08-05: `ProviderVerdict` now has **nine** members — the five above plus `ContextWindowExceeded`,
-`AuthFailed`, `Unsupported` and `NotConfigured`. §9's 2026-07-26 amendment lists the additions and §6 gives
-each one's routing action. The block above is the v0.1 seed, kept for its semantic commentary per the reading
-note at the top of this doc.)*
+*(2026-08-05: `LlmVerdict` now has **nine** members — the five above plus `ContextWindowExceeded`,
+`AuthFailed`, `Unsupported` and `NotConfigured`. **`src/Lyntai.Core/Llm/LlmVerdict.cs` is the canonical
+statement**; §9's 2026-07-26 amendment lists the additions and §6 gives each one's routing action. The block
+above is the v0.1 seed, kept for its semantic commentary per the reading note at the top of this doc.)*
 
-*(2026-09-14: the enum is named `ProviderVerdict` and **`src/Lyntai.Core/Lifecycle/ProviderVerdict.cs` is the
-canonical statement**. It was `Lyntai.Llm.LlmVerdict`, with `Lyntai.Generation.GenerationVerdict` carrying the <!-- drift-ok: the amendment naming what it renames -->
-same members under a second name and a translation layer between them; one taxonomy serves every domain now,
-and what a router DOES about a verdict stays per-domain policy — `docs/DECISIONS.md` **D136**.)*
+*(2026-09-15: the enum is `Lyntai.Lifecycle.ProviderVerdict` and **`src/Lyntai.Core/Lifecycle/ProviderVerdict.cs`
+is the canonical statement**, superseding the path named above. It was `Lyntai.Llm.LlmVerdict`, with
+`Lyntai.Generation.GenerationVerdict` carrying the same members under a second name and a translation layer
+between them; one taxonomy serves every domain, and what a router DOES about a verdict stays per-domain
+policy — `docs/DECISIONS.md` **D136**. Every block above keeps its ORIGINAL spelling, as this record's
+reading note requires.)*
 
 ### 5.2 Prompt registry
 ```csharp
@@ -227,7 +229,7 @@ public interface ITraceStore { /* run traces + steps */ }
 ```csharp
 services.AddLyntai(cfg => {
     cfg.AddClaudeCliProvider();                          // family default, no API key
-    cfg.AddHttpProvider("ollama", o => o.BaseUrl = "http://localhost:11434");
+    cfg.AddOpenAiCompatibleProvider("ollama", o => o.BaseUrl = "http://localhost:11434");
     cfg.AddExtensionsAiProvider("openai", chatClient);   // bridge any IChatClient
     cfg.UseSqliteStorage(dbPath);
     cfg.AddScorer<MyScorer>();
@@ -251,17 +253,17 @@ tools), **D31** (a verdict for "never set up", in both domains) and **D36** (the
 verdict taxonomies). The plan of record is `docs/2026-08-04-generation-platform-plan.md`.*
 
 ```csharp
-public interface IModelProvider : Lyntai.Lifecycle.IProviderIdentity {
+public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
     new string Id { get; }                            // "openai-images" | "a1111" | "local-diffusion" | …
-    ProviderCapabilities Capabilities { get; }      // read by the router BEFORE spending anything
-    Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default);   // no-cost; never generates
+    GenerationCapabilities Capabilities { get; }      // read by the router BEFORE spending anything
+    Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default);   // no-cost; never generates
     Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default);
 }
 ```
 
 - **One capability-aware seam for image/video/audio/3d, with THREE delivery modes**, because real backends
-  genuinely differ: inline (`IModelProvider`), async job (`IGenerationJobProvider` — submit → poll →
-  fetch, universal for video), and streaming (`IModelProvider`, TTS). A backend that cannot do
+  genuinely differ: inline (`IGenerationProvider`), async job (`IGenerationJobProvider` — submit → poll →
+  fetch, universal for video), and streaming (`IGenerationStreamProvider`, TTS). A backend that cannot do
   something simply does not implement that interface and callers pattern-match over the registered
   collection — the same optional-capability shape Core already uses for `IProviderAuth` /
   `IProviderVersionInstaller`, rather than one fat interface whose methods throw.
@@ -278,8 +280,8 @@ public interface IModelProvider : Lyntai.Lifecycle.IProviderIdentity {
   the exemption and is still worth knowing, because it is what the exemption was repeatedly mistaken for.
 - **The router has a door per delivery mode, and the third one is 3.0** (**D67**). `IGenerationRouter` gained
   `StreamAsync` — a required member, so a hand-written router must add it. Before that the capability
-  pre-filter was only ever asked about `Inline` and `Job`, so a backend advertising `ProviderOperation.Stream`
-  was **unreachable through the platform**: `IModelProvider` was a `Lyntai.Core` contract about to
+  pre-filter was only ever asked about `Inline` and `Job`, so a backend advertising `GenerationDelivery.Stream`
+  was **unreachable through the platform**: `IGenerationStreamProvider` was a `Lyntai.Core` contract about to
   freeze under the full SemVer promise having never been exercised. **Two of its invariants are INHERITED
   from the LLM router rather than invented** (§6, D4): fallback stops at the first chunk carrying real data,
   and only real data commits — a metadata-only opening chunk must not. They transfer because the failure
@@ -495,7 +497,7 @@ public interface IMemoryEngine {
 ```
 
 - **A DI collection keyed by `Name`, resolved through `IMemoryEngineFactory.Get(name)`** — the same
-  variation-point shape as `IModelProvider` keyed by `Id`, and the same shape a consumer already knows from
+  variation-point shape as `ILlmProvider` keyed by `Id`, and the same shape a consumer already knows from
   `IHttpClientFactory` (`Get`, not `Create`: engines are singletons). One application runs several engines at
   once for different purposes, which is the requirement that rules out a single unnamed singleton (**D39**).
 - **A blend IS an engine.** `CompositeMemoryEngine` implements the same interface as its members, so nothing
@@ -887,14 +889,14 @@ retry on parse failure, else `Failed` verdict.
 > **PenalizeAndAdvance**. Two divergences, both deliberate and both easy to "fix" back into a bug:
 > - **`Unsupported` ADVANCES here and SURFACES on the LLM side.** A second chat candidate shares the same
 >   capability gap, so surfacing is the useful answer; media backends differ widely in what they accept, so
->   advancing is. `ProviderVerdictClassifier` carries the reason.
+>   advancing is. `GenerationVerdictClassifier` carries the reason.
 > - **An UNMAPPED verdict advances here and is PENALIZED there** (`GenerationRoutingPolicy.ActionFor` returns
 >   `Advance`; `RoutingPolicy.ActionFor` returns `PenalizeAndAdvance`). A verdict a policy has never heard of
 >   should not silently end a run another candidate could serve — but on the LLM side an unclassified fault is
 >   more likely to be a real one. The divergence is flagged in the source and, until now, nowhere else.
 >
 > **A verdict that crosses the boundary keeps its MEANING and changes its ACTION** (**D36**).
-> `ProviderVerdictClassifier.Translate` therefore gets one arm per `ProviderVerdict` member and no catch-all: a
+> `GenerationVerdictClassifier.Translate` therefore gets one arm per `LlmVerdict` member and no catch-all: a
 > discard over a taxonomy expected to GROW converts every future addition into a silent misclassification, and
 > that is exactly how `Unsupported` shipped a release reported as `Failed` — benching healthy backends on
 > capability gaps. The growth gate is a TEST, not the compiler (C# has no exhaustive switch over an enum, and
@@ -951,11 +953,11 @@ path — are `.claude/rules/repo-mechanics.md` §Dev loop.)*
 
 Two-gate chat orchestration · scope-guard/jail hooks · tool/MCP registry · durable jobs (lanes +
 checkpoint/resume) · security/access-gate + secret vault · server/host/launcher + auto-update ·
-vision/multimodal · `Lyntai.Providers.LlamaSharp` (LLamaSharp). The domain interfaces are shaped to admit
+vision/multimodal · `Lyntai.Providers.Local` (LLamaSharp). The domain interfaces are shaped to admit
 these later without breaking changes.
 
 > **Amendment (2026-07-18): the platform kit is now SHIPPED** (v0.8–v0.15), exactly as §9 promised —
-> additively, no breaking changes to the substrate. `Lyntai.Providers.LlamaSharp` (v0.8); the tool/MCP
+> additively, no breaking changes to the substrate. `Lyntai.Providers.Local` (v0.8); the tool/MCP
 > registry as the agentic tool loop + native tool-calling + an MCP-client tool source + CLI tool-hosting
 > (v0.9–v0.13, `Lyntai.Agents` / `Lyntai.Tools.Mcp` / `Lyntai.Tools.Mcp.Hosting`); durable jobs
 > (v0.14, `Lyntai.Jobs` + `IJobStore`); then guards (`Lyntai.Guards`), two-gate `IChatOrchestrator`,
@@ -989,7 +991,7 @@ these later without breaking changes.
 > **agent session + streaming loop** (`IAgentSession`/`AgentStreamEvent`, `IToolLoop.StreamAsync`,
 > `ToolLoopResult.Usage`) · **BYO resources** (v0.7: `IProcessRunner`, BYO `HttpClient`, BYO
 > `IDbConnectionFactory` + `migrate:false`, provider presets).
-> **§5 additive shape drift** (current shape = the baselines): `ProviderVerdict` +`ContextWindowExceeded`/
+> **§5 additive shape drift** (current shape = the baselines): `LlmVerdict` +`ContextWindowExceeded`/
 > `AuthFailed`/`Unsupported`/`NotConfigured`; `LlmRequest` +`TimeoutSeconds`/`RefusalPattern`; `LlmReply` +`ToolCalls`;
 > `LlmMessage` tool turns + `Attachments`; `IPromptRegistry.ValidateOverride`; `IScoringService`
 > read/aggregate/export members; new storage domains `IJobStore`/`IPromptVersionStore`/`ICuratedMemoryStore`;
@@ -1055,5 +1057,5 @@ A new app adds package references to `Lyntai.Core` + the storage/provider packag
 `services.AddLyntai(...)`, and injects `ILlmClient` (the front door, D5 — `ILlmRouter` only for a
 call-site-specific candidate list), `IScoringService`, `IMemoryStore`, etc. No source
 copying, no rebuild of the substrate. Adding a storage backend = a new `Lyntai.Storage.X` package that
-implements the domain interfaces. Adding a provider = a new `IModelProvider` or an MEAI `IChatClient`
+implements the domain interfaces. Adding a provider = a new `ILlmProvider` or an MEAI `IChatClient`
 through the bridge.

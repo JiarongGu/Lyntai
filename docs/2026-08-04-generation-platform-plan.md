@@ -44,13 +44,13 @@ audio (and whatever medium is next), with capability-aware routing, the three de
 actually use, and a loose LLM coupling through tools/MCP. Lyntai never generates anything itself.
 
 **Architecture:** a new `Lyntai.Generation` package holding its own contracts (its own verdict vocabulary — it does
-NOT borrow `ProviderVerdict`), plus optional per-delivery capability interfaces in the pattern Core already uses for
+NOT borrow `LlmVerdict`), plus optional per-delivery capability interfaces in the pattern Core already uses for
 `IProviderAuth` / `IProviderVersionInstaller`. Backends are separate packages resolved as a DI collection.
 Long renders compose with the existing `Lyntai.Jobs` durable-job machinery rather than hiding poll loops.
 The LLM side gains **zero** dependency on media; the bridge is `ITool` (usable by the in-process tool loop and,
 via `Lyntai.Tools.Mcp.Hosting`, by a CLI agent).
 
-**Tech Stack:** .NET 10, `Lyntai.Core` (DI builder, `IProcessRunner`, `ITool`, `ProviderVerdictClassifier` for
+**Tech Stack:** .NET 10, `Lyntai.Core` (DI builder, `IProcessRunner`, `ITool`, `LlmVerdictClassifier` for
 transport→verdict mapping), xUnit + `FakeProcessRunner`/stubbed `HttpMessageHandler`, `ApiSurfaceTests`
 baselines.
 
@@ -122,12 +122,12 @@ the contract for every medium.
 | `GenerationKinds.cs` | Well-known open `Kind` constants (`image`/`video`/`audio`/`3d`) |
 | `GenerationRequest.cs` | `GenerationRequest`, `GenerationInput` (+ `GenerationInputRoles`) |
 | `GenerationArtifact.cs` | `GenerationArtifact`, `GenerationUsage` |
-| `GenerationResult.cs` | `ProviderVerdict`, `GenerationResult` |
+| `GenerationResult.cs` | `GenerationVerdict`, `GenerationResult` |
 | `GenerationCapabilities.cs` | `GenerationDelivery`, `GenerationCapabilities`, `GenerationProbeResult` |
 | `IGenerationProvider.cs` | `IGenerationProvider` (inline) + the capability doc contract |
 | `IGenerationJobProvider.cs` | `IGenerationJobProvider`, `GenerationOperation`, `GenerationOperationStatus` |
 | `IGenerationStreamProvider.cs` | `IGenerationStreamProvider`, `GenerationChunk` |
-| `ProviderVerdictClassifier.cs` | transport/text → `ProviderVerdict`, delegating to Core's `ProviderVerdictClassifier` |
+| `GenerationVerdictClassifier.cs` | transport/text → `GenerationVerdict`, delegating to Core's `LlmVerdictClassifier` |
 | `Routing/GenerationCandidate.cs` | `GenerationCandidate` (provider id + optional model) |
 | `Routing/IGenerationRouter.cs` | `IGenerationRouter` |
 | `Routing/GenerationRouter.cs` | capability pre-filter + verdict-driven fallback |
@@ -243,11 +243,11 @@ public class GenerationContractTests
     [Fact]
     public void A_failed_result_is_not_ok_and_carries_no_artifacts()
     {
-        var result = GenerationResult.Failure(ProviderVerdict.NotConfigured, "no endpoint configured");
+        var result = GenerationResult.Failure(GenerationVerdict.NotConfigured, "no endpoint configured");
 
         Assert.False(result.IsOk);
         Assert.Empty(result.Artifacts);
-        Assert.Equal(ProviderVerdict.NotConfigured, result.Verdict);
+        Assert.Equal(GenerationVerdict.NotConfigured, result.Verdict);
         Assert.Contains("no endpoint", result.Detail);
     }
 
@@ -443,10 +443,10 @@ public sealed record GenerationUsage(int? Count = null, double? Seconds = null, 
 namespace Lyntai.Generation;
 
 /// <summary>Why a media call ended the way it did. The platform's OWN vocabulary — deliberately not
-/// <c>ProviderVerdict</c>: media is a separate domain, and its results are consumed by media routing.
-/// (The transport-to-verdict PATTERNS are still shared — see <see cref="ProviderVerdictClassifier"/> — so there
+/// <c>LlmVerdict</c>: media is a separate domain, and its results are consumed by media routing.
+/// (The transport-to-verdict PATTERNS are still shared — see <see cref="GenerationVerdictClassifier"/> — so there
 /// is one corpus of "what does a 429 mean", not two.)</summary>
-public enum ProviderVerdict
+public enum GenerationVerdict
 {
     /// <summary>Artifacts were produced.</summary>
     Ok,
@@ -479,18 +479,18 @@ public enum ProviderVerdict
 /// <summary>The outcome of a media generation.</summary>
 /// <param name="Verdict">Why it ended this way.</param>
 /// <param name="Artifacts">What was produced — empty unless <paramref name="Verdict"/> is
-/// <see cref="ProviderVerdict.Ok"/>.</param>
+/// <see cref="GenerationVerdict.Ok"/>.</param>
 /// <param name="Usage">What the backend said it cost, when it says.</param>
 /// <param name="Detail">The backend's own words, or the failure reason. Surface verbatim rather than parsing:
 /// the wording belongs to the backend and changes.</param>
 public sealed record GenerationResult(
-    ProviderVerdict Verdict,
+    GenerationVerdict Verdict,
     IReadOnlyList<GenerationArtifact> Artifacts,
     GenerationUsage? Usage = null,
     string? Detail = null)
 {
     /// <summary>Whether the call produced media.</summary>
-    public bool IsOk => Verdict == ProviderVerdict.Ok;
+    public bool IsOk => Verdict == GenerationVerdict.Ok;
 
     /// <summary>A successful result. Throws for an EMPTY artifact list: an "Ok" carrying nothing is the
     /// empty-Ok mistake the LLM side already paid for (`.claude/knowledge/pitfalls.md`) — it robs routing of
@@ -499,11 +499,11 @@ public sealed record GenerationResult(
     {
         if (artifacts.Count == 0)
             throw new ArgumentException("a successful media result needs at least one artifact", nameof(artifacts));
-        return new GenerationResult(ProviderVerdict.Ok, artifacts, usage, detail);
+        return new GenerationResult(GenerationVerdict.Ok, artifacts, usage, detail);
     }
 
     /// <summary>A failed result — no artifacts, a reason, and a verdict routing can act on.</summary>
-    public static GenerationResult Failure(ProviderVerdict verdict, string? detail = null) =>
+    public static GenerationResult Failure(GenerationVerdict verdict, string? detail = null) =>
         new(verdict, [], null, detail);
 }
 ```
@@ -935,7 +935,7 @@ public interface IGenerationStreamProvider
 public sealed record GenerationChunk(
     byte[]? Data = null,
     string? MediaType = null,
-    ProviderVerdict? Error = null,
+    GenerationVerdict? Error = null,
     string? Detail = null,
     bool Final = false,
     GenerationUsage? Usage = null)
@@ -947,7 +947,7 @@ public sealed record GenerationChunk(
     public static GenerationChunk Completed(GenerationUsage? usage = null) => new(Final: true, Usage: usage);
 
     /// <summary>The terminal failure marker.</summary>
-    public static GenerationChunk Failure(ProviderVerdict verdict, string? detail = null) =>
+    public static GenerationChunk Failure(GenerationVerdict verdict, string? detail = null) =>
         new(Error: verdict, Detail: detail);
 }
 ```
@@ -975,7 +975,7 @@ public sealed class FakeGenerationProvider : IGenerationProvider
     };
 
     /// <summary>Verdicts to return, in order; the last one repeats. Ok produces a 1-byte PNG artifact.</summary>
-    public Queue<ProviderVerdict> Verdicts { get; } = new();
+    public Queue<GenerationVerdict> Verdicts { get; } = new();
 
     public bool ProbeAvailable { get; set; } = true;
     public int GenerateCalls { get; private set; }
@@ -990,8 +990,8 @@ public sealed class FakeGenerationProvider : IGenerationProvider
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
     {
         GenerateCalls++;
-        var verdict = Verdicts.Count > 1 ? Verdicts.Dequeue() : Verdicts.Count == 1 ? Verdicts.Peek() : ProviderVerdict.Ok;
-        return Task.FromResult(verdict == ProviderVerdict.Ok
+        var verdict = Verdicts.Count > 1 ? Verdicts.Dequeue() : Verdicts.Count == 1 ? Verdicts.Peek() : GenerationVerdict.Ok;
+        return Task.FromResult(verdict == GenerationVerdict.Ok
             ? GenerationResult.Success([new GenerationArtifact("image/png", Data: [0x89])], new GenerationUsage(Count: 1))
             : GenerationResult.Failure(verdict, $"fake {verdict}"));
     }
@@ -1016,7 +1016,7 @@ public sealed class FakeGenerationJobProvider : IGenerationProvider, IGeneration
 
     /// <summary>Inline is NOT this backend's mode; the base seam must still answer honestly.</summary>
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "this backend generates via submit/poll"));
+        Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "this backend generates via submit/poll"));
 
     public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
         Task.FromResult(new GenerationOperation($"op-{++_submits}", GenerationOperationStatus.Queued));
@@ -1079,7 +1079,7 @@ git commit -m "feat(media): inline/job/stream provider seams as optional capabil
 ## Task 5: Verdict classification, shared with the LLM corpus
 
 **Files:**
-- Create: `src/Lyntai.Generation/ProviderVerdictClassifier.cs`
+- Create: `src/Lyntai.Generation/GenerationVerdictClassifier.cs`
 - Test: `tests/Lyntai.Tests/Media/GenerationVerdictClassifierTests.cs`
 
 - [ ] **Step 1: Write the failing test**
@@ -1096,41 +1096,41 @@ namespace Lyntai.Tests.Generation;
 public class GenerationVerdictClassifierTests
 {
     [Theory]
-    [InlineData(HttpStatusCode.TooManyRequests, ProviderVerdict.RateLimited)]
-    [InlineData(HttpStatusCode.Unauthorized, ProviderVerdict.AuthFailed)]
-    [InlineData(HttpStatusCode.Forbidden, ProviderVerdict.AuthFailed)]
-    [InlineData(HttpStatusCode.InternalServerError, ProviderVerdict.Failed)]
-    public void An_http_failure_maps_to_a_media_verdict(HttpStatusCode status, ProviderVerdict expected)
+    [InlineData(HttpStatusCode.TooManyRequests, GenerationVerdict.RateLimited)]
+    [InlineData(HttpStatusCode.Unauthorized, GenerationVerdict.AuthFailed)]
+    [InlineData(HttpStatusCode.Forbidden, GenerationVerdict.AuthFailed)]
+    [InlineData(HttpStatusCode.InternalServerError, GenerationVerdict.Failed)]
+    public void An_http_failure_maps_to_a_media_verdict(HttpStatusCode status, GenerationVerdict expected)
     {
-        Assert.Equal(expected, ProviderVerdictClassifier.FromHttpFailure(status, body: null));
+        Assert.Equal(expected, GenerationVerdictClassifier.FromHttpFailure(status, body: null));
     }
 
     [Fact]
     public void A_content_policy_refusal_surfaces_as_refused()
     {
         // image backends refuse prompts; shopping a refused prompt around backends is not the platform's call
-        var verdict = ProviderVerdictClassifier.FromErrorText("Your request was rejected by our content policy");
+        var verdict = GenerationVerdictClassifier.FromErrorText("Your request was rejected by our content policy");
 
-        Assert.Equal(ProviderVerdict.Refused, verdict);
+        Assert.Equal(GenerationVerdict.Refused, verdict);
     }
 
     [Fact]
     public void A_rate_limit_phrased_in_prose_is_recognized()
     {
-        Assert.Equal(ProviderVerdict.RateLimited, ProviderVerdictClassifier.FromErrorText("quota exceeded, try later"));
+        Assert.Equal(GenerationVerdict.RateLimited, GenerationVerdictClassifier.FromErrorText("quota exceeded, try later"));
     }
 
     [Fact]
     public void An_unrecognized_failure_is_plain_Failed()
     {
-        Assert.Equal(ProviderVerdict.Failed, ProviderVerdictClassifier.FromErrorText("something odd happened"));
+        Assert.Equal(GenerationVerdict.Failed, GenerationVerdictClassifier.FromErrorText("something odd happened"));
     }
 
     [Fact]
     public void A_context_window_verdict_has_no_media_meaning_and_becomes_Failed()
     {
         // the LLM taxonomy has verdicts media cannot have; they must not leak through as a media verdict
-        Assert.Equal(ProviderVerdict.Failed, ProviderVerdictClassifier.FromErrorText("maximum context length exceeded"));
+        Assert.Equal(GenerationVerdict.Failed, GenerationVerdictClassifier.FromErrorText("maximum context length exceeded"));
     }
 }
 ```
@@ -1138,7 +1138,7 @@ public class GenerationVerdictClassifierTests
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~GenerationVerdictClassifierTests"`
-Expected: FAIL — `ProviderVerdictClassifier` not found.
+Expected: FAIL — `GenerationVerdictClassifier` not found.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -1148,39 +1148,39 @@ using Lyntai.Llm;
 
 namespace Lyntai.Generation;
 
-/// <summary>Turns a transport failure or an error message into a <see cref="ProviderVerdict"/>.
+/// <summary>Turns a transport failure or an error message into a <see cref="GenerationVerdict"/>.
 ///
-/// It DELEGATES the pattern matching to Core's <see cref="ProviderVerdictClassifier"/> and translates the answer
+/// It DELEGATES the pattern matching to Core's <see cref="LlmVerdictClassifier"/> and translates the answer
 /// into media's vocabulary. That is the deliberate middle path between the two bad options: media does not
 /// adopt LLM-named types (it is a separate domain), and it does not carry a second copy of the "what does a
 /// 429 / a content-policy refusal look like" corpus, which would drift out of sync
 /// (<c>DECISIONS.md</c> D21). Consumer-registered matchers on the shared classifier therefore teach BOTH
 /// domains at once.</summary>
-public static class ProviderVerdictClassifier
+public static class GenerationVerdictClassifier
 {
     /// <summary>Classify a failed HTTP response (typed status wins over body text).</summary>
-    public static ProviderVerdict FromHttpFailure(HttpStatusCode status, string? body) =>
-        Translate(ProviderVerdictClassifier.FromHttpFailure(status, body));
+    public static GenerationVerdict FromHttpFailure(HttpStatusCode status, string? body) =>
+        Translate(LlmVerdictClassifier.FromHttpFailure(status, body));
 
     /// <summary>Classify an error message / response body.</summary>
-    public static ProviderVerdict FromErrorText(string? text) =>
-        Translate(ProviderVerdictClassifier.FromErrorText(text));
+    public static GenerationVerdict FromErrorText(string? text) =>
+        Translate(LlmVerdictClassifier.FromErrorText(text));
 
     /// <summary>Classify a caught exception.</summary>
-    public static ProviderVerdict FromException(Exception ex) =>
-        Translate(ProviderVerdictClassifier.FromException(ex));
+    public static GenerationVerdict FromException(Exception ex) =>
+        Translate(LlmVerdictClassifier.FromException(ex));
 
     /// <summary>Map the shared taxonomy onto media's. Verdicts with no media meaning
-    /// (<see cref="ProviderVerdict.ContextWindowExceeded"/>) collapse to <see cref="ProviderVerdict.Failed"/> rather
+    /// (<see cref="LlmVerdict.ContextWindowExceeded"/>) collapse to <see cref="GenerationVerdict.Failed"/> rather
     /// than being surfaced as something a media caller cannot act on.</summary>
-    private static ProviderVerdict Translate(ProviderVerdict verdict) => verdict switch
+    private static GenerationVerdict Translate(LlmVerdict verdict) => verdict switch
     {
-        ProviderVerdict.Ok => ProviderVerdict.Ok,
-        ProviderVerdict.RateLimited => ProviderVerdict.RateLimited,
-        ProviderVerdict.AuthFailed => ProviderVerdict.AuthFailed,
-        ProviderVerdict.Refused => ProviderVerdict.Refused,
-        ProviderVerdict.Timeout => ProviderVerdict.Timeout,
-        _ => ProviderVerdict.Failed,
+        LlmVerdict.Ok => GenerationVerdict.Ok,
+        LlmVerdict.RateLimited => GenerationVerdict.RateLimited,
+        LlmVerdict.AuthFailed => GenerationVerdict.AuthFailed,
+        LlmVerdict.Refused => GenerationVerdict.Refused,
+        LlmVerdict.Timeout => GenerationVerdict.Timeout,
+        _ => GenerationVerdict.Failed,
     };
 }
 ```
@@ -1193,7 +1193,7 @@ Expected: PASS, 8 tests (4 theory cases + 4 facts).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/Lyntai.Generation/ProviderVerdictClassifier.cs tests/Lyntai.Tests/Media/GenerationVerdictClassifierTests.cs
+git add src/Lyntai.Generation/GenerationVerdictClassifier.cs tests/Lyntai.Tests/Media/GenerationVerdictClassifierTests.cs
 git commit -m "feat(media): verdict classification reusing the shared failure corpus"
 ```
 
@@ -1255,8 +1255,8 @@ public class GenerationRouterTests
     public async Task A_transient_failure_advances_to_the_next_candidate()
     {
         var failing = new FakeGenerationProvider { Id = "a" };
-        failing.Verdicts.Enqueue(ProviderVerdict.Failed);
-        failing.Verdicts.Enqueue(ProviderVerdict.Failed);
+        failing.Verdicts.Enqueue(GenerationVerdict.Failed);
+        failing.Verdicts.Enqueue(GenerationVerdict.Failed);
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await Router(failing, working).GenerateAsync([new GenerationCandidate("a"), new GenerationCandidate("b")], Image());
@@ -1270,12 +1270,12 @@ public class GenerationRouterTests
     public async Task A_refusal_SURFACES_instead_of_shopping_the_prompt_around()
     {
         var refusing = new FakeGenerationProvider { Id = "a" };
-        refusing.Verdicts.Enqueue(ProviderVerdict.Refused);
+        refusing.Verdicts.Enqueue(GenerationVerdict.Refused);
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await Router(refusing, working).GenerateAsync([new GenerationCandidate("a"), new GenerationCandidate("b")], Image());
 
-        Assert.Equal(ProviderVerdict.Refused, result.Verdict);
+        Assert.Equal(GenerationVerdict.Refused, result.Verdict);
         Assert.Equal(0, working.GenerateCalls);   // the whole point
     }
 
@@ -1283,7 +1283,7 @@ public class GenerationRouterTests
     public async Task An_unconfigured_backend_is_skipped_like_an_incapable_one()
     {
         var unconfigured = new FakeGenerationProvider { Id = "a" };
-        unconfigured.Verdicts.Enqueue(ProviderVerdict.NotConfigured);
+        unconfigured.Verdicts.Enqueue(GenerationVerdict.NotConfigured);
         var working = new FakeGenerationProvider { Id = "b" };
 
         var result = await Router(unconfigured, working).GenerateAsync([new GenerationCandidate("a"), new GenerationCandidate("b")], Image());
@@ -1300,7 +1300,7 @@ public class GenerationRouterTests
 
         var result = await Router(video).GenerateAsync([new GenerationCandidate("video-backend")], Image());
 
-        Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
+        Assert.Equal(GenerationVerdict.Unsupported, result.Verdict);
         Assert.Contains("no capable", result.Detail);
     }
 
@@ -1393,9 +1393,9 @@ namespace Lyntai.Generation.Routing;
 ///
 /// Fallback semantics deliberately mirror the LLM router's (design §6) so one mental model covers both:
 /// <list type="bullet">
-/// <item><see cref="ProviderVerdict.Refused"/> SURFACES — a content refusal is not a transport fault, and
+/// <item><see cref="GenerationVerdict.Refused"/> SURFACES — a content refusal is not a transport fault, and
 ///   quietly re-submitting a refused prompt to another vendor is not a library's decision.</item>
-/// <item><see cref="ProviderVerdict.NotConfigured"/> and <see cref="ProviderVerdict.Unsupported"/> ADVANCE without
+/// <item><see cref="GenerationVerdict.NotConfigured"/> and <see cref="GenerationVerdict.Unsupported"/> ADVANCE without
 ///   blame — the backend isn't broken, it just isn't the one for this request.</item>
 /// <item>everything else advances, keeping the FIRST substantive failure as the reported reason: the first
 ///   backend's error explains the run better than the last one's.</item>
@@ -1419,19 +1419,19 @@ public sealed class GenerationRouter(IEnumerable<IGenerationProvider> providers)
             if (result.IsOk) return result;
 
             // a refusal is the backend's judgement on the CONTENT — surface it rather than shopping around
-            if (result.Verdict == ProviderVerdict.Refused) return result;
+            if (result.Verdict == GenerationVerdict.Refused) return result;
 
             // not-configured / unsupported aren't faults worth reporting over a real failure
-            if (result.Verdict is not (ProviderVerdict.NotConfigured or ProviderVerdict.Unsupported))
+            if (result.Verdict is not (GenerationVerdict.NotConfigured or GenerationVerdict.Unsupported))
                 firstFailure ??= result;
         }
 
         if (tried == 0)
-            return GenerationResult.Failure(ProviderVerdict.Unsupported,
+            return GenerationResult.Failure(GenerationVerdict.Unsupported,
                 $"no capable media backend for kind '{request.Kind}' via {GenerationDelivery.Inline} " +
                 $"among [{string.Join(", ", candidates.Select(c => c.ProviderId))}]");
 
-        return firstFailure ?? GenerationResult.Failure(ProviderVerdict.NotConfigured,
+        return firstFailure ?? GenerationResult.Failure(GenerationVerdict.NotConfigured,
             "every capable backend reported it is not configured");
     }
 
@@ -1688,7 +1688,7 @@ only the intended public surface (no accidental leakage of a helper).
 
 ```markdown
 ## D24 — media generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)
-`Lyntai.Generation` is a separate domain package with its own contracts and its own `ProviderVerdict`, not an
+`Lyntai.Generation` is a separate domain package with its own contracts and its own `GenerationVerdict`, not an
 extension of the LLM stack. Three findings forced the shape, and a future session must not "simplify" them
 away:
 
@@ -1709,19 +1709,19 @@ handed in, never owned.
 
 **Not a generation engine (per D20):** no inference, no ffmpeg pipeline authoring, no engine/weights
 provisioning, no webhook hosting (the app owns its endpoint and calls `FetchAsync`), no artifact storage.
-Failure PATTERNS are still shared — `ProviderVerdictClassifier` delegates to `ProviderVerdictClassifier` — so there is
+Failure PATTERNS are still shared — `GenerationVerdictClassifier` delegates to `LlmVerdictClassifier` — so there is
 one corpus of "what does a 429 mean", per D21's rule against a second copy of the rules.
 ```
 
 - [ ] **Step 4: Add the README section**
 
-Add this row to the packages table, after the `Lyntai.Providers.LlamaSharp` row:
+Add this row to the packages table, after the `Lyntai.Providers.Local` row:
 
 ```markdown
 | `Lyntai.Generation` | Media generation platform — image/video/audio backends behind one capability-aware seam, with routing, probes and a tool bridge. |
 ```
 
-…and this section immediately before `### Local in-process inference (`Lyntai.Providers.LlamaSharp`)`:
+…and this section immediately before `### Local in-process inference (`Lyntai.Providers.Local`)`:
 
 ````markdown
 ### Media generation (`Lyntai.Generation`)
@@ -1787,8 +1787,8 @@ Under `## Unreleased` (create the heading if absent — and NEVER stamp it with 
   `GenerationCapabilities` and the router **pre-filters** on them — unlike chat models, a media backend often simply
   cannot serve a request, and that is a skip rather than a failure. Every backend answers "are you usable?"
   via `ProbeAsync` **without generating anything**, replacing the generate-and-discard test that pattern
-  otherwise requires. Media keeps its own `ProviderVerdict` vocabulary but **shares the failure corpus**
-  (`ProviderVerdictClassifier` delegates to `ProviderVerdictClassifier`), so there is one definition of what a 429 or a
+  otherwise requires. Media keeps its own `GenerationVerdict` vocabulary but **shares the failure corpus**
+  (`GenerationVerdictClassifier` delegates to `LlmVerdictClassifier`), so there is one definition of what a 429 or a
   content refusal means. Lyntai generates nothing itself: no inference, no engine/weights provisioning, no
   webhook host, no artifact storage (`docs/DECISIONS.md` D20, D24). The LLM stack gains **zero** dependency on
   media — the bridge is `ITool`/MCP.

@@ -731,7 +731,7 @@ it is the largest recall-quality change in this release. Nothing happens unless 
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOllamaProvider(model: "qwen2.5-vl:7b")
+    .AddOllamaProvider(defaultModel: "qwen2.5-vl:7b")
     .UseDefaultCandidates("ollama")
     .AddMemoryVerification());
 ```
@@ -839,7 +839,7 @@ new GraphMemoryOptions { LogReviews = false }
 
 Only for a consumer of the `Lyntai.Generation` package. Every `Add*Provider` now takes
 `Action<TOptions> configure` instead of a constructed options object, matching
-`AddHttpProvider(id, o => …)` on the LLM side and `AddMemoryEngine(name, e => …)` above.
+`AddOpenAiCompatibleProvider(id, o => …)` on the LLM side and `AddMemoryEngine(name, e => …)` above.
 
 <!-- compile-skip: a before/after pair — the "before" is the 2.5 API and cannot compile here -->
 ```csharp
@@ -872,7 +872,7 @@ Mechanical, and a compile error names every site — which is why it is last. No
 
 | 2.5 / early-3.0 name | 3.0 name | Affects you if |
 |---|---|---|
-| `IProviderInstallation` | `IModelProvider` | you type-test a provider for probe support |   <!-- drift-ok: a rename table NAMES the retired spelling -->
+| `IProviderInstallation` | `IProviderProbe` | you type-test a provider for probe support |   <!-- drift-ok: a rename table NAMES the retired spelling -->
 | `MemoryEngineBuilder.Reserve(n)` | `.ReserveCharacters(n)` | you set the prompt reserve on a blend |   <!-- drift-ok: a rename table NAMES the retired spelling -->
 | `MemoryCompositionOptions.AuthoritativeReserve` | `.AuthoritativeCharacters` | you construct that options record |
 | `GraphMemoryEngine(policy:)` / `UseGraph(policy:)` | `retrievability:` | you pass the curve by NAME |
@@ -938,14 +938,14 @@ with `AddGenerationUsageBudget()` / `AddGenerationRateLimit()`, needs nothing �
 
 `IGenerationRouter.StreamAsync` is a required member with no default body, so a hand-written router stops
 compiling until it has one. That is deliberate: a default body would have let a BYO router silently keep the
-old behaviour, and the old behaviour is the defect — a backend advertising `ProviderOperation.Stream` was
+old behaviour, and the old behaviour is the defect — a backend advertising `GenerationDelivery.Stream` was
 unreachable through the platform, because the capability pre-filter was only ever asked about `Inline` and
 `Job`.
 
 <!-- compile-skip: the member as it appears on the interface — a partial signature, not a standalone unit -->
 ```csharp
 IAsyncEnumerable<GenerationChunk> StreamAsync(
-    IReadOnlyList<ProviderCandidate> candidates,
+    IReadOnlyList<GenerationCandidate> candidates,
     GenerationRequest request,
     CancellationToken ct = default);
 ```
@@ -959,20 +959,20 @@ refusal:
 public sealed class MyRouter : IGenerationRouter
 {
     public Task<GenerationResult> GenerateAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
         CancellationToken ct = default) => throw new NotImplementedException("your inline door");
 
     public Task<GenerationSubmission> SubmitAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
         CancellationToken ct = default) => throw new NotImplementedException("your submit door");
 
     public async IAsyncEnumerable<GenerationChunk> StreamAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         await Task.CompletedTask;
         yield return GenerationChunk.Failure(
-            ProviderVerdict.Unsupported, "this router does not serve streaming delivery");
+            GenerationVerdict.Unsupported, "this router does not serve streaming delivery");
     }
 }
 ```

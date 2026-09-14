@@ -37,6 +37,17 @@ export const HISTORICAL = [
   // D125 unified the two candidate records and produced 45 hits in this one file, every one naming a path
   // or a snippet exactly as it stood that day.
   /^docs\/2026-08-04-generation-platform-plan\.md$/,
+  // The 2.5->3.0 migration guide, which carries a HISTORY banner and exists to tell someone on 2.5 what to
+  // TYPE. Its names must be 3.0's, so every rename since makes it inaccurate to rewrite.
+  /^docs\/migration-2\.5-to-3\.0\.md$/,
+  // The frozen v0.1 design record. Its §5 blocks are SEEDS kept verbatim and its amendments are DATED, so
+  // "out of date" is its normal and intended state — the amendment log is what carries the present tense.
+  // Added 2026-09-15 after this gate did the damage it exists to prevent: under the pressure to stay green,
+  // a rename sweep rewrote the v0.1 blocks and the dated amendments alike, collapsing `IGenerationProvider`
+  // and `IGenerationStreamProvider` to one name in a sentence that CONTRASTED them, and restating a 2.0.1
+  // package merge under a name that package never had. A gate checking CURRENT vocabulary against a record
+  // of its own day does not find drift; it manufactures it.
+  /^docs\/2026-07-17-lyntai-design\.md$/,
 ];
 
 /**

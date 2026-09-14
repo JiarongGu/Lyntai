@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 204 traps, indexed two ways
+## Facets — 205 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (39) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 499 · 584 · 593 · 603 · 657 · 671 · 741 · 755 · 1061 · 1188 · 1284 · 1297 · 1483 · 2434 · 2458 · 2468 · 2494 · 2505 · 2542 · 2913 · 2943 · 2952
-- **`encoding`** (7) — 75 · 95 · 100 · 610 · 618 · 884 · 2542
-- **`git`** (8) — 227 · 252 · 283 · 308 · 618 · 640 · 889 · 2434
-- **`build`** (9) — 100 · 584 · 593 · 603 · 657 · 1053 · 1483 · 2443 · 2477
-- **`router`** (6) — 1326 · 1331 · 1340 · 1342 · 1345 · 1475
-- **`cli`** (19) — 75 · 770 · 884 · 1326 · 1347 · 1355 · 1364 · 1368 · 1380 · 1384 · 1391 · 1395 · 1402 · 1406 · 1439 · 1458 · 1462 · 1467 · 2304
-- **`lifetime`** (6) — 1505 · 1514 · 1519 · 1524 · 1537 · 1545
-- **`storage`** (17) — 1418 · 1554 · 1656 · 1684 · 1686 · 1687 · 1689 · 1691 · 1709 · 1720 · 1949 · 1961 · 2217 · 2334 · 2524 · 2706 · 2890
-- **`memory`** (39) — 407 · 442 · 570 · 1136 · 1418 · 1588 · 1607 · 1618 · 1644 · 1656 · 1671 · 1692 · 1709 · 1720 · 1759 · 1774 · 1781 · 1800 · 1811 · 1829 · 1842 · 1855 · 1913 · 1968 · 1988 · 2024 · 2060 · 2078 · 2085 · 2116 · 2138 · 2166 · 2238 · 2313 · 2334 · 2599 · 2758 · 2786 · 2869
-- **`generation`** (11) — 1121 · 1181 · 1264 · 1331 · 1537 · 2060 · 2251 · 2263 · 2287 · 2394 · 2419
-- **`di`** (12) — 1524 · 1774 · 1800 · 1980 · 1982 · 1985 · 1988 · 2006 · 2085 · 2116 · 2263 · 2313
-- **`measurement`** (65) — 131 · 392 · 407 · 425 · 442 · 483 · 513 · 529 · 548 · 560 · 570 · 691 · 770 · 777 · 782 · 788 · 815 · 828 · 839 · 847 · 863 · 870 · 907 · 917 · 937 · 948 · 982 · 1009 · 1015 · 1031 · 1048 · 1053 · 1092 · 1121 · 1136 · 1166 · 1181 · 1196 · 1214 · 1229 · 1246 · 1264 · 1355 · 1554 · 1573 · 1644 · 1811 · 1842 · 1869 · 1880 · 1895 · 1913 · 1968 · 2024 · 2494 · 2575 · 2626 · 2641 · 2665 · 2685 · 2706 · 2736 · 2773 · 2837 · 2869
-- **`docs`** (24) — 144 · 172 · 195 · 316 · 640 · 671 · 691 · 741 · 1061 · 1072 · 1077 · 1084 · 1188 · 1297 · 1618 · 2138 · 2205 · 2369 · 2379 · 2458 · 2468 · 2505 · 2524 · 2795
-- **`tests`** (21) — 1439 · 1630 · 1671 · 1692 · 1759 · 1781 · 1949 · 1961 · 2217 · 2588 · 2599 · 2610 · 2786 · 2808 · 2890 · 2898 · 2906 · 2910 · 2913 · 2925 · 2938
+- **`gates`** (40) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 499 · 584 · 593 · 603 · 657 · 671 · 741 · 755 · 1061 · 1188 · 1284 · 1297 · 1324 · 1504 · 2455 · 2479 · 2489 · 2515 · 2526 · 2563 · 2934 · 2964 · 2973
+- **`encoding`** (7) — 75 · 95 · 100 · 610 · 618 · 884 · 2563
+- **`git`** (8) — 227 · 252 · 283 · 308 · 618 · 640 · 889 · 2455
+- **`build`** (9) — 100 · 584 · 593 · 603 · 657 · 1053 · 1504 · 2464 · 2498
+- **`router`** (6) — 1347 · 1352 · 1361 · 1363 · 1366 · 1496
+- **`cli`** (19) — 75 · 770 · 884 · 1347 · 1368 · 1376 · 1385 · 1389 · 1401 · 1405 · 1412 · 1416 · 1423 · 1427 · 1460 · 1479 · 1483 · 1488 · 2325
+- **`lifetime`** (6) — 1526 · 1535 · 1540 · 1545 · 1558 · 1566
+- **`storage`** (17) — 1439 · 1575 · 1677 · 1705 · 1707 · 1708 · 1710 · 1712 · 1730 · 1741 · 1970 · 1982 · 2238 · 2355 · 2545 · 2727 · 2911
+- **`memory`** (39) — 407 · 442 · 570 · 1136 · 1439 · 1609 · 1628 · 1639 · 1665 · 1677 · 1692 · 1713 · 1730 · 1741 · 1780 · 1795 · 1802 · 1821 · 1832 · 1850 · 1863 · 1876 · 1934 · 1989 · 2009 · 2045 · 2081 · 2099 · 2106 · 2137 · 2159 · 2187 · 2259 · 2334 · 2355 · 2620 · 2779 · 2807 · 2890
+- **`generation`** (11) — 1121 · 1181 · 1264 · 1352 · 1558 · 2081 · 2272 · 2284 · 2308 · 2415 · 2440
+- **`di`** (12) — 1545 · 1795 · 1821 · 2001 · 2003 · 2006 · 2009 · 2027 · 2106 · 2137 · 2284 · 2334
+- **`measurement`** (65) — 131 · 392 · 407 · 425 · 442 · 483 · 513 · 529 · 548 · 560 · 570 · 691 · 770 · 777 · 782 · 788 · 815 · 828 · 839 · 847 · 863 · 870 · 907 · 917 · 937 · 948 · 982 · 1009 · 1015 · 1031 · 1048 · 1053 · 1092 · 1121 · 1136 · 1166 · 1181 · 1196 · 1214 · 1229 · 1246 · 1264 · 1376 · 1575 · 1594 · 1665 · 1832 · 1863 · 1890 · 1901 · 1916 · 1934 · 1989 · 2045 · 2515 · 2596 · 2647 · 2662 · 2686 · 2706 · 2727 · 2757 · 2794 · 2858 · 2890
+- **`docs`** (25) — 144 · 172 · 195 · 316 · 640 · 671 · 691 · 741 · 1061 · 1072 · 1077 · 1084 · 1188 · 1297 · 1324 · 1639 · 2159 · 2226 · 2390 · 2400 · 2479 · 2489 · 2526 · 2545 · 2816
+- **`tests`** (21) — 1460 · 1651 · 1692 · 1713 · 1780 · 1802 · 1970 · 1982 · 2238 · 2609 · 2620 · 2631 · 2807 · 2829 · 2911 · 2919 · 2927 · 2931 · 2934 · 2946 · 2959
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (21) — 227 · 407 · 442 · 671 · 782 · 1092 · 1264 · 1340 · 1345 · 1364 · 1439 · 1519 · 1607 · 1855 · 1988 · 2024 · 2251 · 2263 · 2313 · 2419 · 2758
-- **`cancellation`** (5) — 1326 · 1331 · 1588 · 1607 · 1630
-- **`vacuous`** (45) — 131 · 205 · 212 · 392 · 425 · 483 · 513 · 593 · 788 · 828 · 847 · 937 · 1121 · 1136 · 1166 · 1181 · 1214 · 1284 · 1297 · 1395 · 1458 · 1475 · 1630 · 1671 · 1692 · 1759 · 1781 · 1869 · 1880 · 1913 · 2024 · 2138 · 2524 · 2599 · 2610 · 2641 · 2773 · 2786 · 2808 · 2837 · 2890 · 2913 · 2925 · 2943 · 2952
-- **`scope-blind`** (37) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 618 · 741 · 755 · 1229 · 1297 · 1483 · 1774 · 1842 · 1949 · 1961 · 2138 · 2166 · 2217 · 2334 · 2458 · 2468 · 2477 · 2494 · 2505 · 2524 · 2610 · 2773 · 2786 · 2910 · 2943 · 2952
-- **`second-door`** (20) — 1342 · 1380 · 1384 · 1395 · 1402 · 1462 · 1467 · 1545 · 1687 · 1709 · 1988 · 2116 · 2217 · 2238 · 2251 · 2263 · 2287 · 2334 · 2369 · 2394
-- **`stale-claim`** (18) — 57 · 172 · 252 · 316 · 691 · 839 · 870 · 889 · 1061 · 1077 · 1618 · 1985 · 2205 · 2238 · 2287 · 2369 · 2505 · 2795
-- **`silent-loss`** (55) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 560 · 610 · 657 · 671 · 770 · 828 · 884 · 917 · 948 · 982 · 1048 · 1092 · 1181 · 1188 · 1196 · 1264 · 1368 · 1384 · 1418 · 1505 · 1537 · 1573 · 1644 · 1684 · 1686 · 1687 · 1689 · 1709 · 1720 · 1759 · 1895 · 1968 · 1980 · 1985 · 2006 · 2078 · 2116 · 2166 · 2304 · 2394 · 2443 · 2458 · 2468 · 2542 · 2626 · 2706 · 2837
-- **`wrong-subject`** (63) — 57 · 111 · 131 · 308 · 392 · 425 · 442 · 499 · 513 · 529 · 548 · 560 · 570 · 584 · 603 · 788 · 815 · 847 · 863 · 870 · 917 · 948 · 982 · 1009 · 1015 · 1072 · 1084 · 1121 · 1136 · 1166 · 1196 · 1214 · 1229 · 1246 · 1342 · 1391 · 1483 · 1514 · 1524 · 1554 · 1644 · 1692 · 1800 · 1811 · 1829 · 1842 · 1869 · 1880 · 1913 · 2060 · 2085 · 2419 · 2434 · 2443 · 2575 · 2626 · 2641 · 2665 · 2685 · 2706 · 2808 · 2869 · 2913
-- **`unmeasured`** (17) — 529 · 570 · 640 · 691 · 741 · 777 · 1031 · 1053 · 1347 · 1355 · 1364 · 1406 · 1458 · 1829 · 2060 · 2379 · 2795
-- **`ordering`** (10) — 603 · 1368 · 1467 · 1656 · 1691 · 2006 · 2304 · 2313 · 2588 · 2736
-- **`resource`** (14) — 584 · 618 · 657 · 907 · 1015 · 1246 · 1347 · 1439 · 1545 · 1554 · 1982 · 2898 · 2906 · 2938
+- **`fail-open`** (21) — 227 · 407 · 442 · 671 · 782 · 1092 · 1264 · 1361 · 1366 · 1385 · 1460 · 1540 · 1628 · 1876 · 2009 · 2045 · 2272 · 2284 · 2334 · 2440 · 2779
+- **`cancellation`** (5) — 1347 · 1352 · 1609 · 1628 · 1651
+- **`vacuous`** (45) — 131 · 205 · 212 · 392 · 425 · 483 · 513 · 593 · 788 · 828 · 847 · 937 · 1121 · 1136 · 1166 · 1181 · 1214 · 1284 · 1297 · 1416 · 1479 · 1496 · 1651 · 1692 · 1713 · 1780 · 1802 · 1890 · 1901 · 1934 · 2045 · 2159 · 2545 · 2620 · 2631 · 2662 · 2794 · 2807 · 2829 · 2858 · 2911 · 2934 · 2946 · 2964 · 2973
+- **`scope-blind`** (37) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 618 · 741 · 755 · 1229 · 1297 · 1504 · 1795 · 1863 · 1970 · 1982 · 2159 · 2187 · 2238 · 2355 · 2479 · 2489 · 2498 · 2515 · 2526 · 2545 · 2631 · 2794 · 2807 · 2931 · 2964 · 2973
+- **`second-door`** (20) — 1363 · 1401 · 1405 · 1416 · 1423 · 1483 · 1488 · 1566 · 1708 · 1730 · 2009 · 2137 · 2238 · 2259 · 2272 · 2284 · 2308 · 2355 · 2390 · 2415
+- **`stale-claim`** (18) — 57 · 172 · 252 · 316 · 691 · 839 · 870 · 889 · 1061 · 1077 · 1639 · 2006 · 2226 · 2259 · 2308 · 2390 · 2526 · 2816
+- **`silent-loss`** (56) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 560 · 610 · 657 · 671 · 770 · 828 · 884 · 917 · 948 · 982 · 1048 · 1092 · 1181 · 1188 · 1196 · 1264 · 1324 · 1389 · 1405 · 1439 · 1526 · 1558 · 1594 · 1665 · 1705 · 1707 · 1708 · 1710 · 1730 · 1741 · 1780 · 1916 · 1989 · 2001 · 2006 · 2027 · 2099 · 2137 · 2187 · 2325 · 2415 · 2464 · 2479 · 2489 · 2563 · 2647 · 2727 · 2858
+- **`wrong-subject`** (64) — 57 · 111 · 131 · 308 · 392 · 425 · 442 · 499 · 513 · 529 · 548 · 560 · 570 · 584 · 603 · 788 · 815 · 847 · 863 · 870 · 917 · 948 · 982 · 1009 · 1015 · 1072 · 1084 · 1121 · 1136 · 1166 · 1196 · 1214 · 1229 · 1246 · 1324 · 1363 · 1412 · 1504 · 1535 · 1545 · 1575 · 1665 · 1713 · 1821 · 1832 · 1850 · 1863 · 1890 · 1901 · 1934 · 2081 · 2106 · 2440 · 2455 · 2464 · 2596 · 2647 · 2662 · 2686 · 2706 · 2727 · 2829 · 2890 · 2934
+- **`unmeasured`** (17) — 529 · 570 · 640 · 691 · 741 · 777 · 1031 · 1053 · 1368 · 1376 · 1385 · 1427 · 1479 · 1850 · 2081 · 2400 · 2816
+- **`ordering`** (10) — 603 · 1389 · 1488 · 1677 · 1712 · 2027 · 2325 · 2334 · 2609 · 2757
+- **`resource`** (14) — 584 · 618 · 657 · 907 · 1015 · 1246 · 1368 · 1460 · 1566 · 1575 · 2003 · 2919 · 2927 · 2959
 
 <!-- facets:end -->
 
@@ -1320,6 +1320,27 @@ of the two: most of these traps recur in a subsystem that had never met them.
   `git grep -hoE "\\b<NewName>[A-Za-z0-9]+\\b"` over the tree returns the damage directly, and returns
   nothing when there is none. A longer identifier that merely CONTAINS the one you are renaming is the
   normal case, not the exotic one: it is exactly what a family of related names looks like.
+
+- <!-- trap: sub=gates,docs shape=wrong-subject,silent-loss -->**A vocabulary gate pointed at a FROZEN record
+  does not find drift — it manufactures it, because the cheapest way to make it green is to rewrite the
+  record.** Found 2026-09-15 auditing the D125–D138 rename campaign. A sweep that renamed identifiers across
+  every `.md` rewrote `CHANGELOG.md` **below** its released headings (162 lines: a 3.0.x entry came to read
+  `HttpModelOptions.ContextSize` when that release shipped `OpenAiCompatibleOptions`, and a rename table's <!-- drift-ok: the corrupted spellings are this entry's subject -->
+  TARGET column silently changed), and rewrote the frozen v0.1 design record — collapsing
+  `IGenerationProvider` and `IGenerationStreamProvider` to one name inside a sentence that CONTRASTED them, <!-- drift-ok: as above -->
+  and restating a 2.0.1 package merge under a name that package never had.
+  <br>**Every gate stayed green the whole time**, because a record rewritten to current vocabulary is
+  exactly what a vocabulary gate wants. The damage is invisible until someone reads the old entry and finds
+  it describes a version that never existed.
+  <br>**`check-docs` and `check-samples` share `HISTORICAL` for this**, and `LIVE_PREFIX` splits a
+  half-historical file at its boundary heading — which is why the CHANGELOG's Unreleased section stays
+  checked while its released history does not. **Add the file to `HISTORICAL` rather than annotating it**;
+  the project had already learned this once, when D125 produced 45 hits in one dated plan.
+  <br>**The tell, and the audit:** a rename touching `*.md` should change ONLY maintained state. Diff every
+  historical document against the pre-sweep commit —
+  `git diff <base> -- docs/<record>.md` — and expect zero. A record earns a DATED amendment, never an edit
+  to its body. Exempting it costs the sample check on its blocks, and that is the right trade: those blocks
+  document an older API, so compiling them against HEAD is what forced the rewrite.
 
 ## LLM / router (details in `llm-and-router.md`)
 
