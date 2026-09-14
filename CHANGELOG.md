@@ -40,6 +40,11 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   as it picks `/embeddings`. This is D130's prediction collected, and it makes a cross-encoder reachable by
   anything — a ranking policy, a scorer, a tool selector — rather than by memory alone.
 
+- **`VectorMath.NormalizeInPlace`** (**D141**) — the L2-normalization every embedder backend needs, in the
+  one package both can reach. The ONNX and model2vec adapters each carried a copy; a BYO `IEmbedder` that
+  normalizes should use this one, for the same reason `VectorMath.Cosine` exists: two backends that
+  normalize differently do not rank identically.
+
 ### Breaking
 
 - **The routing ACTION and the media KINDS join the taxonomy they duplicated** (**D140**).

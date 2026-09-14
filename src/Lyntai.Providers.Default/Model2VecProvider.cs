@@ -1,4 +1,5 @@
 using Lyntai.Lifecycle;
+using Lyntai.Memory;
 using System.Text.Json;
 using Lyntai.Text;
 
@@ -137,12 +138,7 @@ public sealed class Model2VecProvider : IModelProvider
         if (counted == 0) return vector;
         for (var i = 0; i < vector.Length; i++) vector[i] /= counted;
 
-        if (!_normalize) return vector;
-        double sum = 0;
-        foreach (var v in vector) sum += (double)v * v;
-        var length = Math.Sqrt(sum);
-        if (length > 0)
-            for (var i = 0; i < vector.Length; i++) vector[i] = (float)(vector[i] / length);
+        if (_normalize) VectorMath.NormalizeInPlace(vector);
         return vector;
     }
 

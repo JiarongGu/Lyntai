@@ -210,8 +210,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D138](#d138--the-type-layer-catches-up-llamasharpprovider-onnxprovider-and-a-namespace-that-agrees-2026-09-15) | 2026-09-15 | the type layer catches up: `LlamaSharpProvider`, `OnnxProvider`, and a namespace that agrees |
 | [D139](#d139--a-reranker-is-produces-score-and-the-memory-policy-that-uses-it-lives-in-core-2026-09-15) | 2026-09-15 | a reranker is `Produces: [score]`, and the memory policy that uses it lives in Core |
 | [D140](#d140--the-routing-action-and-the-media-kinds-join-the-taxonomy-they-were-copies-of-2026-09-15) | 2026-09-15 | the routing ACTION and the media KINDS join the taxonomy they were copies of |
+| [D141](#d141--vector-arithmetic-every-backend-shares-lives-in-core-not-in-each-adapter-2026-09-15) | 2026-09-15 | vector arithmetic every backend shares lives in Core, not in each adapter |
 
-_All 140 entries are live decisions._
+_All 141 entries are live decisions._
 
 <!-- index:end -->
 
@@ -4313,3 +4314,28 @@ proximity.
 **The `Model3d` remark travelled with the constant**, because it is the load-bearing half: no image or video
 backend accepts a mesh, so a 3d→image edge is a RASTERIZATION rather than a generation, and a mesh backend's
 `image/*` artifact is usually a UV atlas that chains and renders and is wrong.
+
+## D141 — vector arithmetic every backend shares lives in Core, not in each adapter (2026-09-15)
+
+`VectorMath.NormalizeInPlace` joins `VectorMath.Cosine`. The ONNX adapter and the model2vec one each
+carried their own L2-normalize; both now call it.
+
+**Core was the only place either could reach.** They ship in different packages
+(`Lyntai.Providers.Onnx`, `Lyntai.Providers.Default`) and adapters never reference each other (**D25**), so
+a shared helper had exactly one possible home. That is the general rule this instance illustrates: **an
+adapter holding runtime-INDEPENDENT arithmetic has put it one layer too low**, and the tell is a second
+adapter doing the same arithmetic by hand.
+
+**It is the same argument `VectorMath` already shipped for.** That type exists so brute-force stores "rank
+identically"; two backends that normalize differently do not, and a store's cosine only agrees with a
+backend's normalization if both compute it the same way. The type was answering half its own question.
+
+**The other half of the review finding is REFUTED, and the distinction is worth keeping.** The two MEANS
+are not duplicates: the ONNX one pools a `[token, width]` tensor over an attention mask, where including
+padding shifts every vector by how long the longest text in the batch happened to be; model2vec accumulates
+lookup-table rows by id with no mask and no tensor. Same word, different arithmetic — merging them would
+have needed a flag, which is the shape `pitfalls.md` records as consolidating nothing but the line count.
+
+**What the split copies cost, measured rather than asserted:** the zero-length guard was ARGUED in the ONNX
+copy (*"NaN compares false against everything and poisons a store silently rather than failing"*) and merely
+present in the other. One copy carried the reason; the one a reader was equally likely to open did not.

@@ -15,25 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 8 Parts: 4 startable, 7 blocked, 1 watch
+## Open items — 11 across 8 Parts: 3 startable, 7 blocked, 1 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 92 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 136 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 145 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 199 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 270 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 348 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 403 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 426 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 474 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
-| 733 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
-| 913 | 179 | Pooling maths is `internal` to the ONNX package and re-implemented by hand … | startable |  |
-| 920 | 179 | `Lyntai.Tools.Mcp` and `Lyntai.Tools.Mcp.Hosting` isolate the same dependen… | startable |  |
+| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 473 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
+| 732 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
+| 912 | 179 | `Lyntai.Tools.Mcp` and `Lyntai.Tools.Mcp.Hosting` isolate the same dependen… | startable |  |
 
 <!-- open-items:end -->
 
@@ -48,11 +47,11 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is FOUR items**, two of them
+longer drift apart. Edit the marker, never the table. **The startable set is THREE items**, one of them
 Part 179's — a design REVIEW, which is the third route an item arrives by and the only one that can be
 scheduled on purpose. The other two are a ruling and a captured failure, and neither comes from re-reading
 the tree; a review does, which is why it produced seven at once after months of ones and twos, and why the
-first five closed the day they were filed — TWO of them refuted, which is a close like any other.
+first six closed the day they were filed — TWO of them refuted, which is a close like any other.
 `decision-only` is still EMPTY. That sentence is hand-written on purpose and gated by `check-counts`:
 the banner it replaces advertised finished work **four** times, and nothing derived it.
 
@@ -909,13 +908,6 @@ with a backend is process logic and belongs in Core**. The thesis HOLDS in the m
 across 69 files `Lyntai.Core/Memory` names no `HttpClient`, no ONNX or storage type, no provider id and no
 model id, and duplicates no routing logic. Every finding below is the other direction, or a residue of the
 rename campaign. Items are ordered by the order they should be taken, not by severity alone.
-
-- [ ] **Pooling maths is `internal` to the ONNX package and re-implemented by hand next door.** <!-- item: state=startable -->
-  `Providers.Onnx/EmbeddingPooling.cs` holds mean-pool + L2-normalize; `Providers.Default/Model2VecProvider.cs`
-  does both again inline. It is runtime-independent vector maths every embedder backend wants, and
-  `Core/Memory/VectorMath.cs` is the precedent for sharing exactly this. The padding-mask correctness
-  argument is documented in only one of the two copies — and it is the half that can be WRONG without
-  failing.
 
 - [ ] **`Lyntai.Tools.Mcp` and `Lyntai.Tools.Mcp.Hosting` isolate the same dependency.** <!-- item: state=startable -->
   Both reference exactly `Lyntai.Core` + `ModelContextProtocol.Core`, and both are bundle members. The

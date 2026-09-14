@@ -47,7 +47,18 @@ public class SecretKeyEnvelopeTests
     public void Tampered_recovery_wrap_throws()
     {
         var (envelope, _, recoveryKey) = SecretKeyEnvelope.Create(Machine());
-        var tampered = envelope with { RecoveryWrappedDek = envelope.RecoveryWrappedDek[..^2] + "AA" };
+
+        // Derived from the original rather than a FIXED "AA": the wrap is random per run, so a constant
+        // replacement silently tampers with NOTHING on the runs where the value already ended that way —
+        // the test then asserts that an untouched envelope throws, and fails. Observed intermittently
+        // (TASKS.md Part 99). Flipping the last character guarantees a different string every time.
+        var last = envelope.RecoveryWrappedDek[^1];
+        var tampered = envelope with
+        {
+            RecoveryWrappedDek = envelope.RecoveryWrappedDek[..^1] + (last == 'A' ? 'B' : 'A'),
+        };
+
+        Assert.NotEqual(envelope.RecoveryWrappedDek, tampered.RecoveryWrappedDek);   // the control
         Assert.ThrowsAny<CryptographicException>(() => tampered.UnwrapWithRecoveryKey(recoveryKey));
     }
 

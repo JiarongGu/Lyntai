@@ -3666,3 +3666,29 @@ looking only at the tree concluded it belonged.
 `.Seeding` as deliberately outside, with the reason. Two of Part 179's seven findings were refutations, and
 both came from prose that was true and misreadable — the same shape as Part 212.
 
+---
+
+## Part 214 — shared vector arithmetic moves to Core, and a tamper test that tampered with nothing
+
+✅ closed 2026-09-15. `TASKS.md` Part 179's sixth item.
+
+- **Pooling maths is `internal` to the ONNX package and re-implemented by hand next door.**
+
+**Outcome (**D141**): `VectorMath.NormalizeInPlace` in `Lyntai.Core`**, called by both the ONNX adapter and
+the model2vec one. The two ship in different packages and adapters never reference each other (**D25**), so
+Core was the only home either could reach — the general rule being that an adapter holding
+runtime-INDEPENDENT arithmetic has put it one layer too low.
+
+**Half the finding was REFUTED.** The two MEANS are not duplicates: ONNX pools a `[token, width]` tensor
+over an attention mask, where including padding shifts every vector by how long the batch's longest text
+happened to be; model2vec accumulates lookup-table rows by id, with no mask and no tensor. Merging them
+would have needed a flag. Only the L2-normalize was genuinely one function twice, and the split copies had
+already cost something measurable: the zero-length NaN guard was ARGUED in one and merely present in the
+other.
+
+**A separate defect surfaced on the way and was fixed.** `Tampered_recovery_wrap_throws` replaced the last
+two base64 characters of a RANDOM wrap with a constant `"AA"`, so on the runs where the wrap already ended
+that way it tampered with nothing and asserted that an untouched envelope throws. It presents as flakiness
+and is not — an instance of `TASKS.md` Part 99's watch item with a real root cause. The mutation is now
+derived from the input with an `Assert.NotEqual` control; the trap is in `pitfalls.md`.
+

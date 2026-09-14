@@ -1,3 +1,5 @@
+using Lyntai.Memory;
+
 namespace Lyntai.Providers.Onnx;
 
 /// <summary>Reduces a transformer's per-token output to one vector.
@@ -17,7 +19,7 @@ internal static class EmbeddingPooling
         ReadOnlySpan<float> tokens, int width, ReadOnlySpan<int> mask, OnnxPooling pooling, bool normalize)
     {
         var vector = pooling == OnnxPooling.Cls ? Cls(tokens, width) : Mean(tokens, width, mask);
-        if (normalize) Normalize(vector);
+        if (normalize) VectorMath.NormalizeInPlace(vector);
         return vector;
     }
 
@@ -47,12 +49,4 @@ internal static class EmbeddingPooling
         return vector;
     }
 
-    private static void Normalize(float[] vector)
-    {
-        double sum = 0;
-        foreach (var v in vector) sum += (double)v * v;
-        var length = Math.Sqrt(sum);
-        if (length <= 0) return;
-        for (var i = 0; i < vector.Length; i++) vector[i] = (float)(vector[i] / length);
-    }
 }
