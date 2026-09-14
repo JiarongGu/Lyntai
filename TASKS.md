@@ -30,8 +30,8 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 346 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
 | 401 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 424 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 472 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
-| 731 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
+| 481 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | startable |  |
+| 740 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
 
 <!-- open-items:end -->
 
@@ -195,7 +195,7 @@ provisional and only its payload is reliable (the item below is the consequence)
 measurement, and measurement only — nothing here is codeable without a real codex run._
 
 - [ ] **CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping.** <!-- item: state=blocked kind=env needs="a codex-cli reinstall on this machine, then one real turn that runs tools" -->
-  `src/Lyntai.Providers.Default/CodexAgentReader.cs`. The capture behind this backend (codex-cli 0.146.0,
+  `src/Lyntai.Providers.Default/CodexCli/CodexAgentReader.cs`. The capture behind this backend (codex-cli 0.146.0,
   2026-08-04) ran a trivial `--oss` turn with **no tools**, so the entire tool-step half is inferred and
   marked as such in the XML docs.
 
@@ -446,6 +446,15 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   through `LYNTAI_PROVIDER_CMD`, which is `node`. If `ProcessRunner` cannot resolve `node`, all nine fall
   together — one cause, nine symptoms, and a constant count is exactly what that predicts.
   <br>**Why only under `verify`** is then the question worth asking, and the shape of an answer is already
+  <br>**RECURRED 2026-09-15, and ALONE — which narrows the hypothesis rather than confirming it.** One of
+  the nine failed by itself under `verify`
+  (`CodexCliProviderTests.A_portable_install_is_wired_without_touching_the_process_environment`,
+  `Assert.True` on `IsAvailable`), passed 3/3 standalone immediately after, and the very next `verify` was
+  green with the same tree. So the "one cause, nine symptoms, constant count" reading is too strong: a
+  resolution can fail for ONE caller without taking the other eight, which an all-or-nothing PATH outage
+  would not do. A per-entry cache race fits; a global `node`-not-on-PATH window does not.
+  <br>**The count is therefore NOT the signature** — nine was one observation of it, not its shape, and a
+  future single-test failure in this list is the same bug rather than a new one.
   in `.claude/rules/windows-machine.md`: `verify` runs `test-devtools`, `build` and nine gates before the
   test step, `check-samples` spawning Roslyn over ~78 samples, so the test step starts after heavy process
   churn. Look at `ProcessRunner.ResolveLauncher`'s CACHE first — the failing test is named

@@ -212,8 +212,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D140](#d140--the-routing-action-and-the-media-kinds-join-the-taxonomy-they-were-copies-of-2026-09-15) | 2026-09-15 | the routing ACTION and the media KINDS join the taxonomy they were copies of |
 | [D141](#d141--vector-arithmetic-every-backend-shares-lives-in-core-not-in-each-adapter-2026-09-15) | 2026-09-15 | vector arithmetic every backend shares lives in Core, not in each adapter |
 | [D142](#d142--the-two-mcp-packages-fold-into-one-the-boundary-isolated-nothing-2026-09-15) | 2026-09-15 | the two MCP packages fold into one; the boundary isolated nothing |
+| [D143](#d143--a-file-is-filed-by-its-namespace-and-a-test-by-its-subjects-2026-09-15) | 2026-09-15 | a file is filed by its NAMESPACE, and a test by its subject's |
 
-_All 142 entries are live decisions._
+_All 143 entries are live decisions._
 
 <!-- index:end -->
 
@@ -4373,3 +4374,32 @@ PUBLISHED ids — historical facts — and two had been silently rewritten by th
 `Lyntai.Providers.OpenAiCompatible` → `…Http`, and `Lyntai.Providers.Local` → `…LlamaSharp`. The second <!-- drift-ok: D142 names the published ids its own fix restored -->
 turned a retired id into the name of a LIVE package, which the unlist workflow would then have unlisted.
 Both restored from the commit that wrote them, with the hazard stated in the file.
+
+## D143 — a file is filed by its NAMESPACE, and a test by its subject's (2026-09-15)
+
+`Lyntai.Providers.Default`'s 49 flat files move into `ClaudeCli/`, `CodexCli/`, `Http/` (+ `Http/Payloads/`),
+`ExtensionsAi/` and `Model2Vec/`; `tests/Lyntai.Tests/Core/` is dissolved into the domain folders that
+already existed.
+
+**The rule, stated so a new file has one obvious home.** A source file goes in the folder matching its
+namespace below the package root; the two exceptions stay at the root and are exceptions because they are
+not domains — `Lyntai` (the `Add*`/`Use*` builder extensions a consumer reaches for) and
+`Lyntai.Providers` (helpers every CLI backend in the package shares). A TEST goes in the folder matching
+the namespace of what it TESTS, which is why the tokenizer's tests moved from `Embeddings/` to `Text/`:
+they had been filed by what USES the type rather than by what it is.
+
+**Both halves had drifted the same way, from opposite directions.** The provider package accreted 49 files
+in one folder while already having a `Payloads/` subfolder — so the pattern was intended and simply stopped
+being followed. `tests/Core/` was the mirror image: a bucket named for a PACKAGE while every other test
+folder is named for a NAMESPACE, holding tests for `Lyntai.Storage`, `Lyntai.Llm.Routing`, `Lyntai.Cortex`,
+`Lyntai.Prompts` and `Lyntai.Processes` — each of which has had its own folder for some time.
+
+**Nothing about this is gated, and that is why it drifted.** Folder placement compiles either way, and C#
+does not tie a namespace to a path; `check-links` sees a moved file only if a document named it. The rule
+is written here rather than enforced because a gate would have to encode the two root exceptions, and a
+gate that cries wolf on a deliberate placement gets an exclusion added and then rots.
+ <!-- drift-ok: D143 names the retired spellings its own scan found -->
+**Three test files also carried names a decision had retired** — `LlmVerdict*Tests` (D136), <!-- drift-ok: D143 names the retired spellings its own scan found -->
+`OnnxEmbedderTests` (D138), `LocalProviderLiveTests` (D138). **A file NAME is not prose and no gate reads <!-- drift-ok: names what those files were called -->
+one**, so the retirement registries cannot see them; the check is a scan of base names against
+`retiredApiNames`, run by hand, and it over-reports on whole-identifier retirements like `Embed`.

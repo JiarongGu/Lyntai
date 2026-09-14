@@ -1,0 +1,141 @@
+using Lyntai.Lifecycle;
+using Lyntai;
+using Lyntai.Llm;
+using Lyntai.Llm.Routing;
+
+namespace Lyntai.Tests;
+
+public class LyntaiOptionsTests
+{
+    [Fact]
+    public void Defaults_applied()
+    {
+        var options = new LyntaiOptions();
+
+        Assert.Equal(TimeSpan.FromMinutes(2), options.ProviderTimeout);
+        Assert.Equal(3, options.DeadHostThreshold);
+        Assert.Equal(TimeSpan.FromSeconds(30), options.DeadHostCooldown);
+        Assert.Empty(options.DefaultCandidates);
+        Assert.True(options.MemoryCapPerScope > 0);
+        Assert.NotNull(options.Routing); // §6-default policy present out of the box
+    }
+
+    [Fact]
+    public void Routing_env_overrides_tune_the_policy()
+    {
+        var options = new LyntaiOptions();
+        var env = new Dictionary<string, string?>
+        {
+            ["LYNTAI_RETRY_FAILED"] = "2",
+            ["LYNTAI_RETRY_TIMEOUT"] = "1",
+            ["LYNTAI_RETRY_BACKOFF_SECONDS"] = "0.25",
+            ["LYNTAI_COOLDOWN_SCOPE"] = "ProviderAndModel",
+        };
+
+        options.ApplyEnvOverrides(k => env.GetValueOrDefault(k));
+
+        Assert.Equal(2, options.Routing.RetriesFor(ProviderVerdict.Failed));
+        Assert.Equal(1, options.Routing.RetriesFor(ProviderVerdict.Timeout));
+        Assert.Equal(TimeSpan.FromSeconds(0.25), options.Routing.RetryBackoff);
+        Assert.Equal(CooldownScope.ProviderAndModel, options.Routing.CooldownScope);
+    }
+
+    [Fact]
+    public void Env_override_beats_code_config()
+    {
+        var options = new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(100), DeadHostThreshold = 9 };
+        var env = new Dictionary<string, string?>
+        {
+            ["LYNTAI_TIMEOUT_SECONDS"] = "7",
+            ["LYNTAI_DEADHOST_THRESHOLD"] = "2",
+            ["LYNTAI_DEADHOST_COOLDOWN_SECONDS"] = "45",
+        };
+
+        options.ApplyEnvOverrides(k => env.GetValueOrDefault(k));
+
+        Assert.Equal(TimeSpan.FromSeconds(7), options.ProviderTimeout);
+        Assert.Equal(2, options.DeadHostThreshold);
+        Assert.Equal(TimeSpan.FromSeconds(45), options.DeadHostCooldown);
+    }
+
+    [Fact]
+    public void Absent_env_leaves_config_untouched()
+    {
+        var options = new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(100) };
+
+        options.ApplyEnvOverrides(_ => null);
+
+        Assert.Equal(TimeSpan.FromSeconds(100), options.ProviderTimeout);
+    }
+
+    [Fact]
+    public void Candidates_env_parses_provider_and_model_pairs()
+    {
+        var options = new LyntaiOptions();
+        options.DefaultCandidates.Add(new ProviderCandidate("code-configured"));
+
+        options.ApplyEnvOverrides(k => k == "LYNTAI_DEFAULT_CANDIDATES" ? "claude-cli:sonnet, ollama" : null);
+
+        Assert.Equal([new ProviderCandidate("claude-cli", "sonnet"), new ProviderCandidate("ollama")],
+            options.DefaultCandidates);
+    }
+
+    [Fact]
+    public void Per_consumer_model_env_override_resolves()
+    {
+        var options = new LyntaiOptions();
+        var env = new Dictionary<string, string>
+        {
+            ["LYNTAI_MODEL_SCORING"] = "judge-x",
+            ["LYNTAI_MODEL_DEFAULT"] = "base-x",
+            ["UNRELATED"] = "ignore-me",
+        };
+
+        options.ApplyEnvOverrides(k => env.GetValueOrDefault(k), env);
+
+        Assert.Equal("judge-x", options.ResolveModel("scoring", null)); // upper-cased suffix → lower-cased tag
+        Assert.Equal("base-x", options.ResolveModel("chat", null));     // falls through to "default"
+    }
+
+    [Fact] // I1: env numbers parse INVARIANT — a comma-decimal locale must not read "1.5" as 15
+    public void Numeric_env_overrides_parse_invariant_regardless_of_culture()
+    {
+        var original = Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+            var options = new LyntaiOptions();
+            options.ApplyEnvOverrides(k => k switch
+            {
+                "LYNTAI_TIMEOUT_SECONDS" => "1.5",
+                "LYNTAI_DEADHOST_COOLDOWN_SECONDS" => "2.5",
+                _ => null,
+            });
+            Assert.Equal(TimeSpan.FromSeconds(1.5), options.ProviderTimeout);
+            Assert.Equal(TimeSpan.FromSeconds(2.5), options.DeadHostCooldown);
+        }
+        finally { Thread.CurrentThread.CurrentCulture = original; }
+    }
+
+    [Fact]
+    public void Injected_env_getter_without_allEnv_does_not_scan_the_real_machine()
+    {
+        // a test passing only getEnv must be deterministic — the real machine env is NOT enumerated
+        var options = new LyntaiOptions();
+        options.ApplyEnvOverrides(_ => null);
+        Assert.Empty(options.DefaultModelByConsumer);
+    }
+
+    [Fact]
+    public void Model_resolution_request_beats_consumer_beats_default()
+    {
+        var options = new LyntaiOptions();
+        options.DefaultModelByConsumer["default"] = "base-model";
+        options.DefaultModelByConsumer["scoring"] = "judge-model";
+
+        Assert.Equal("explicit", options.ResolveModel("scoring", "explicit"));
+        Assert.Equal("judge-model", options.ResolveModel("scoring", null));
+        Assert.Equal("base-model", options.ResolveModel("chat", null));
+        Assert.Null(new LyntaiOptions().ResolveModel("chat", null));
+    }
+}
