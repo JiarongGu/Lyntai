@@ -58,6 +58,9 @@ if (args.Contains("--language"))
 // `node devtools/dev.mjs memory-annotation` → --annotation. Cluster recall sits at the no-graph floor and is
 // unreachable by any ranking policy; subject annotation is the only mechanism that addresses it. Measures
 // the MECHANISM'S CEILING with a perfect annotator, never a model's accuracy. See MemoryAnnotationSweep.
+if (args.Contains("--annotation-drift"))
+    return await MemoryAnnotationDriftSweep.RunAsync(args);
+
 if (args.Contains("--annotation"))
     return await MemoryAnnotationSweep.RunAsync();
 

@@ -256,6 +256,19 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--annotation', ...args]);
     break;
 
+  // memory-annotation-drift — the complement to the line above, and the question it cannot ask. That sweep
+  // reports the mechanism's CEILING with a perfect annotator; this reports how much of it a real model
+  // reaches, as a RATE rather than the anecdote the live test asserts (TASKS.md Part 65). Needs no engine,
+  // no store and no recall: drift is a property of IMemoryAnnotationPolicy alone. Three columns, because
+  // DRIFT ALONE IS VACUOUS — a model answering one handle for everything drifts 0% and links everything,
+  // one answering nothing drifts 0% and links nothing, so collapse and empty are printed beside it.
+  // `--english-only` halves the run; the Chinese half is there because the argument for a model in this
+  // seam is that the judgement is language-independent.
+  case 'memory-annotation-drift':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--annotation-drift', ...args]);
+    break;
+
   // memory-verification — the only mechanism aimed at PollutionRate, and the only 3.0 seam that had no sweep
   // (added 2026-08-15). Every OTHER recall-quality figure this repository publishes is MODEL-FREE: the policy
   // sweep wires no verifier and no annotator, so its numbers are the lexical floor rather than what a

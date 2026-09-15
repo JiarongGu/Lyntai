@@ -290,6 +290,17 @@ multilingual export, and the caveat in D122 is that those are usually SentencePi
    promotion refines the ranking, and endorsing more than a page replaces it instead — which is exactly how
    an instruct model lost 10.5 points in the neighbouring row.
 
+**ANNOTATION is no longer a blank cell, and its answer is the sharpest warning here after §3.1**
+(2026-09-15, `annotation-drift-three-models`). The seam links two facts when their subjects MATCH, and
+three local models — **491,400,032 B**, **806,058,240 B** and **2,489,757,856 B** — invented a new handle on
+**41.7% to 87.5%** of the facts where the right one was already on offer. **Size is not the lever**: 5× the
+bytes made English worse (62.5% → 87.5%) and Chinese better (70.8% → 41.7%), with no monotone relationship
+and the best English model the worst Chinese one. The failure modes are OPPOSITE and the handle count names
+them — the small model answers a near-unique handle per fact (too specific to match), the larger one
+topic-level handles spanning unrelated clusters (too generic to distinguish) — so **a prompt fix aimed at
+one moves the other the wrong way**, which is the third time this document has had to say wording is not
+the lever. The practical rule is `docs/memory.md`'s: screen the annotator you intend to ship.
+
 **Every other shape is unmeasured under 500 MB, and that is a statement about this repository rather than
 about the models.** The smallest model called in the JUDGE role here is **806,058,240 B**
 (`gemma-3-1b-it` Q4_K_M, `locomo-judge-1b-n200`) — and it was **inert**, with a ceiling of zero, which is a

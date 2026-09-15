@@ -1790,8 +1790,8 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   a consumer's own expectation) for any rank-lifting signal over this store needs a result set large enough
   that the position-based gap it is fighting is smaller than the boost it is proving** — two candidates is
   the WORST case, not a representative one. `docs/task-archive.md` Part 53 item 1 (the ranking-policy seam
-  itself, shipped 2026-08-09) is where this was found; the salience-measurement residue is `TASKS.md`
-  Part 65.
+  itself, shipped 2026-08-09) is where this was found; the salience-measurement residue is
+  `docs/task-archive.md` Part 216.
 - **One stored value read at N sites grows N coercion rules, and the divergence is silent.** Found <!-- trap: sub=memory,storage shape=second-door,silent-loss -->
   2026-08-09 in the same work: `salience` was read at FOUR sites with THREE rules — both SQL stores coerced
   `IsFinite ? Math.Max(1, x) : 1` into their promoted column, the in-process store ordered the raw bag value,
@@ -2017,7 +2017,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   promise, the fix is the instrument, and the cost of not fixing it is bounded only by how important the
   unmeasured promise happens to be.
   <br>**Sequel, 2026-08-21, and it is the trap on the OTHER side of that advice.** "Build the instrument" was
-  about to be applied to `TASKS.md` Part 65's `many-candidates` item by sweeping
+  about to be applied to `docs/task-archive.md` Part 216's `many-candidates` item by sweeping
   `ReciprocalRankFusionOptions.SalienceWeight` — a knob that already exists, over a corpus that already
   exists, mirroring `MemorySpacingSweep` almost line for line. It would have returned a **perfectly flat
   curve**, and the flatness would have been an artifact end to end. Two facts compose, and neither is visible
@@ -2123,8 +2123,8 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   treatment."* That incident is why `NeutralSaliencePolicy` exists at all; its own note says a trap that
   costs a measurement its control belongs fixed in the library rather than in one file. By 2026-08-30 the
   rule was written down in **four** places — that type, a test pinning it
-  (`An_empty_policy_collection_leaves_salience_ON_and_only_the_neutral_policy_turns_it_off`), `TASKS.md` Part
-  65 verbatim ("registering an empty collection does NOT — that takes the shipped default"), and two sibling
+  (`An_empty_policy_collection_leaves_salience_ON_and_only_the_neutral_policy_turns_it_off`), `docs/task-archive.md` Part 216
+  verbatim ("registering an empty collection does NOT — that takes the shipped default"), and two sibling
   sweeps doing it correctly — and a harness written afterwards still did it wrong.
   <br>**What separated the two incidents was not knowledge, it was the CONTROL.** The test tier caught its
   version in one run because it reports `SalientWrites` per arm and asserts the control's is zero; the bench

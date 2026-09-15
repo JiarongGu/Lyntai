@@ -692,7 +692,7 @@ public interface IMemoryEngine {
   `MultiplicativeRankingPolicy` on the corpus's `topical` class in all six measured shapes, across two
   independent runs; `MultiplicativeRankingPolicy` stays shipped, unchanged, and registerable in one line.
   (The salience-measurement work is unrelated to which ranking policy is the default, and is tracked
-  separately — `TASKS.md` Part 65, and `docs/task-archive.md` Part 69, which closed 2026-08-15.)
+  separately — `docs/task-archive.md` Part 216, and `docs/task-archive.md` Part 69, which closed 2026-08-15.)
 - **Ranking is scoped per named engine, and a single call can override it BY NAME (memory-policy-seams
   plan, Task 6).** `MemoryEngineBuilder.UseGraph` takes an explicit `ranking` argument — that named engine's
   own choice, ahead of whatever `IMemoryRankingPolicy` the container has registered; omitted, the container

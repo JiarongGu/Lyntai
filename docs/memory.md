@@ -300,6 +300,16 @@ annotation extracts handles out of free text, verification selects from a visibl
 of those takes a budget from its prompt. `docs/model-tasks.md` is the inventory: every model-backed seam in
 the library by shape, what is measured about each, and why list LENGTH is the variable to watch here.
 
+**SCREEN YOUR ANNOTATOR, because a real one DRIFTS** (2026-09-15,
+`docs/memory-measurements.md` §5, `annotation-drift-three-models`). Two facts link because their subjects
+MATCH, and three local models invented a new handle on **41.7% to 87.5%** of the facts where the right one
+was already on offer. **Size does not fix it** — 5× the bytes made English worse and Chinese better — and
+the failure modes are opposite: a small model answers a near-unique handle per fact, too specific to match;
+a larger one answers topic-level handles that span unrelated entities, too generic to distinguish. So the
+figures the annotation mechanism reports with a PERFECT annotator are a ceiling to be read with a discount,
+not a result a deployment inherits. `node devtools/dev.mjs memory-annotation-drift` prints the rate for a
+candidate model, with a self-check that fails the table if the scorer is wrong.
+
 #### What it costs you NOT to use a judge
 
 The model-free floor is supported, and it is also where the single largest measured gain sits. From the

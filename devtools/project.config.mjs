@@ -1090,6 +1090,7 @@ export default {
     'memory-density': 'a REFUTATION: does a CORRECTION separate from a RECURRENCE?',
     'memory-enrichment': 'why an embedder costs recall quality. Calls a REAL model',
     'memory-annotation': "subject linking with a PERFECT annotator — the CEILING, not a model",
+    'memory-annotation-drift': "how much of that ceiling a REAL annotator reaches — a rate, plus two controls",
     'memory-verification': 'the judge seam — what a model in the loop is worth',
     'memory-fan': "ACT-R's fan effect, measured and REFUSED (D62)",
     'memory-support': 'rule × θ × clock × `ConnectionBoost`; `--screen` = the model ladder',
@@ -1195,6 +1196,7 @@ export default {
     'regime-picks',       // which regime a gist-support rule selects
     'forced-choice-accuracy', // pick ONE of N options, exactly one of which is right — never an endorsed subset
     'false-call-rate',    // given a roster and a request NOTHING on it serves, how often a tool is invoked anyway
+    'drift-rate',         // annotation: how often a model invents a new handle past one it was shown
     // SIGNALS AND THEIR SEPARABILITY — is the number the engine computes worth anything.
     'separability-auc',
     'similar-count',

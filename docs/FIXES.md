@@ -462,7 +462,7 @@ inert — 65.6% multi-hop against `+forget0`'s 51.4% — so the arm was not repa
 
 **Symptom.** `node devtools/dev.mjs memory-salience` (and both its ladders) reports a paired difference
 against an arm labelled `SalienceOff`. Nothing failed, every control was green, and the tables have been
-quoted in `docs/memory-measurements.md` §5 and cited by `TASKS.md` Part 65 since 2026-08-28. The defect surfaced only
+quoted in `docs/memory-measurements.md` §5 and cited by `docs/task-archive.md` Part 216 since 2026-08-28. The defect surfaced only
 when the `--novelty` ladder was widened from two corpus shapes to six on 2026-08-30: the `NW0` arm — which
 provably emits no salience at all, `0/51330` writes judged and 0 distinct values — came back
 **significantly worse** than `SalienceOff` on `high-reuse` (+0.0401 [0.0145, 0.0656]) and `high-noise`
@@ -471,7 +471,7 @@ the arms they were being used to rank.
 
 **Root cause.** The off arm passed `saliencePolicies: null`, and
 `GraphMemoryEngine.NormalizeSaliencePolicies` substitutes a fresh shipped `StructuralSaliencePolicy` for a
-null OR empty collection — the deliberate "empty does NOT mean off" contract, which `TASKS.md` Part 65
+null OR empty collection — the deliberate "empty does NOT mean off" contract, which `docs/task-archive.md` Part 216
 states in as many words ("registering an empty collection does NOT — that takes the shipped default"). So
 the off arm judged every write at the shipped `NoveltyWeight = 1.5` and wrote the salience signal that store
 admission reads. What actually differed between the arms was the **retention policy alone**, with salience's
@@ -484,7 +484,7 @@ Wrong from this sweep's first run; never a regression.
 salient and got 255 — the 'control' was a second copy of the treatment"*, and concludes that a trap costing a
 measurement its control belongs fixed in the library. By 2026-08-30 the rule was written in four places —
 that type, the test `An_empty_policy_collection_leaves_salience_ON_and_only_the_neutral_policy_turns_it_off`,
-`TASKS.md` Part 65 verbatim, and two sibling sweeps that build their off arm correctly
+`docs/task-archive.md` Part 216 verbatim, and two sibling sweeps that build their off arm correctly
 (`MemoryEnrichmentSweep`, `MemoryImportanceSweep`) — and a harness written after all of them still got it
 wrong. **What differed was the control, not the knowledge:** the test tier reports `SalientWrites` per arm
 and asserts the control's is zero, so it caught its version in one run; the sweep counted salient writes on

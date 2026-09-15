@@ -15,22 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 6 Parts: 1 startable, 6 blocked, 2 watch
+## Open items — 8 across 5 Parts: 6 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 93 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB … |
-| 144 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 153 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 207 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 281 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | startable |  |
-| 370 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 425 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 448 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 505 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 92 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB … |
+| 143 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 152 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 206 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 261 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 316 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 339 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 396 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -45,17 +44,17 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is ONE item** — Part 177's last
-one closed as `docs/task-archive.md` Part 215 taking the count to zero, and a sweep of the `env` blockers
-the same day put it back to one. **That is a FOURTH route an item arrives by, and the cheapest: an `env`
-blocker EXPIRES SILENTLY.** Part 65 had read "this machine holds exactly one chat model" since 2026-08-28
-and the machine now holds three, from two families, which other measurements here were already using —
-nothing failed when the environment grew, so nothing announced it. **Re-check every `env` item before
-concluding there is no work**; it costs one command. The other three routes are a ruling, a captured
-failure, and a design REVIEW — the only one schedulable on purpose, which is how Part 179 produced seven at
-once after months of ones and twos. `decision-only` is still EMPTY. That sentence is hand-written on
-purpose and gated by `check-counts`: the banner it replaces advertised finished work **four** times, and
-nothing derived it.
+longer drift apart. Edit the marker, never the table. **The startable set is ZERO items**, and the route it
+took to get there is the thing to carry: Part 177 closing took it to zero, a sweep of the `env` blockers
+put it back to one, and working that item closed it the same day (`docs/task-archive.md` Parts 215 and
+216). **An `env` blocker EXPIRES SILENTLY** — Part 65 had read "this machine holds exactly one chat model"
+since 2026-08-28 while three sat on disk, every one already used by other measurements here. Nothing fails
+when an environment GROWS, so nothing announces it. **Re-check every `env` item before concluding there is
+no work**; it costs one command, and here it produced the only startable item of the day.
+The other three routes are a ruling, a captured failure, and a design REVIEW — the only one schedulable on
+purpose, which is how Part 179 produced seven at once after months of ones and twos. `decision-only` is
+still EMPTY. That sentence is hand-written on purpose and gated by `check-counts`: the banner it replaces
+advertised finished work **four** times, and nothing derived it.
 
 **Where things stand is NOT summarized here, deliberately.** `docs/memory-measurements.md` §5 is the measurement record,
 `docs/task-archive.md` holds one Part per closed task, `docs/DECISIONS.md` holds what was decided and why,
@@ -251,114 +250,6 @@ _**CLI15** (a measured `turn.failed` shape, filed by `Aurelia` 2026-08-05) close
 `docs/task-archive.md` **Part 45**. Three of its four claims were already handled and are now pinned; the
 fourth found a real defect in `CliProviderEngine.CompleteAsync` (a non-zero exit masked the backend's own
 in-band failure), fixed and recorded in `docs/FIXES.md`._
-
----
-
-## Part 65 — memory optimization: the goal is now stated, so this is optimization rather than exploration (2026-08-12)
-
-_Design §5.7.0 states what the memory engine is FOR — a lexicographic objective, the constraints an
-optimization may not spend, the explicit non-goals, and the instrument's three known blind spots. It was
-written because five studies in one day produced numbers nobody could act on: every one reported `MissRate`
-and `PollutionRate` with no recorded priority between them, so each result had to be argued from first
-principles instead of checked against a target. **Read §5.7.0 before starting anything below.**_
-
-_**THE CLUSTER CASE IS CLOSED — see `docs/task-archive.md` Part 67 for the whole sequence.** The owner's
-case ("my wife is Alice — even if I don't mention my wife, this entire relationship of mine should stay
-relevant") is what `CorpusShape.AttributeCount` encodes, and `miss = 1 − 1/AttributeCount = 0.667` is the
-no-graph floor by construction. Subject annotation took Chinese to **0.0000** on three shapes and improved
-overall recall at the same time._
-
-_**Two corrections that shaped everything after them, kept because the reasoning was wrong in an instructive
-way.** The 2026-08-12 reading of this part — "the graph works, most shapes sit clearly BELOW the floor" —
-did not survive the edge census: English had managed **2 of 3** cluster pairs and Chinese **0**, so the
-below-floor result rested on a single lucky co-activation edge rather than on the mechanism working. And the
-"obvious optimization target" named here (`many-candidates`, swamped spreading activation, salience the only
-lever) was the wrong target: co-activation cannot link an entity cluster at all, in either language, so
-strengthening it was a trap and annotation replaced it._
-
-_What remains below is genuinely open._
-
-- [ ] **Subject drift is bounded but not eliminated, and nothing measures how often a MODEL drifts.** The <!-- item: state=startable -->
-  live test asserts only that SOME handle is shared by two of three facts, which is the threshold linking
-  actually needs. It does not measure how often a model still invents past a perfectly good existing subject.
-  That needs many live annotations across models to be worth anything — a rate, not an anecdote.
-  <br>**UNBLOCKED 2026-09-15 — the blocker was STALE, not cleared, and the difference matters.** This line
-  read *"this machine holds exactly one chat model (`gemma3:4b`), so 'across models' is unreachable without
-  pulling more"* since 2026-08-28. Re-checked against the machine, which is where an `env` blocker is
-  refuted: three chat models sit on disk from TWO families — `gemma-3-1b-it` Q4_K_M (806,058,240 B),
-  `gemma-3-4b-it` Q4_K_M (2,489,757,856 B) and `qwen2.5-0.5b-instruct` q4_k_m (491,400,032 B) — with more
-  in the HuggingFace cache.
-  <br>**Nobody pulled anything for this item; those three are the models other measurements here were
-  already using**, which is how the staleness hid: every byte count above is quoted in
-  `docs/model-tasks.md` §3 already. **An `env` blocker can expire silently, because nothing fails when the
-  environment grows** — the check is cheap and is the one to run first on any `env` item.
-  <br>**What is NOT yet established** is the harness: `LlmAnnotationLiveTests` proves the seam runs against
-  a live model and `memory-annotation` measures a PERFECT annotator's ceiling, so the rate across models
-  has no instrument yet. That is work this repository can simply do, which the lifecycle rule says is a
-  first step rather than a blocker.
-  _**The OVERFLOW half of this item is closed (2026-08-13).** What happens once `AnnotationKnownSubjects`
-  is exceeded is now measured and pinned by
-  `MemorySubjectLinkingTests.The_reuse_list_evicts_the_least_used_handle_first_so_a_hub_cluster_cannot_be_broken`:
-  the list evicts least-used-first, so a hub handle shared by many facts survives while singletons are cut.
-  **That ordering is correct, not merely current** — most-recent-first would evict a long-standing hub the
-  moment a burst of new subjects arrived, orphaning the largest cluster in the store. The failure is confined
-  to the smallest clusters: a singleton may fail to grow, a large cluster cannot be broken. That is the cheap
-  direction, which is why this is a bound rather than a defect. (The first draft of that test recorded
-  subjects against nonexistent node ids and read back an empty list — `RecordSubjectsAsync` inserts by
-  SELECTing from the node table, so it silently drops a subject for a node that is not there.)_
-
-_**Re-measured 2026-08-13 against the 3.0 engine, and it is still there.** Single-seed replay at
-`CandidateCount = 40`: miss **+0.0808**, pollution **+0.1532** (334 writes judged salient against 0 in the
-control, so the arms are provably distinct). That is a different statistic from the +0.0169 below — a
-30-seed mean of paired differences versus one draw — so the larger figure is NOT evidence the cost grew.
-What both agree on is the direction and the mechanism, and the pollution column names it: in dense-candidate
-conditions salience admits substantially more junk into the same slots.
-<br>**A supported lever now exists that did not when this was filed**: `NeutralSaliencePolicy` turns salience
-off for a deployment that does not want the trade (registering an empty collection does NOT — that takes the
-shipped default). So the item is no longer "a shipped default with a cost and no escape"; it is a shipped
-default with a measured cost and a one-line opt-out. Pinned by
-`MemorySalienceInversionTests.The_many_candidates_cost_of_salience_is_bounded_on_the_current_engine`, whose
-bounds are regression guards at the measured values rather than targets.
-<br>**The paired sweep RAN on 2026-08-28, twice, through two real embedders** (`docs/memory-measurements.md` §5). It
-settles two things and reframes the item.
-<br>**One: the premise of "a bounded-admission RULE" was wrong.** That wording asked for a rule keeping
-"salience's gains on the other five shapes". **There are no gains on the other five** — combined Δ miss is
-positive and significant on all six shapes under `nomic-embed-text` and on five of six under
-`embeddinggemma:300m`. `many-candidates` is the largest cell under the first (+0.0786) and among the largest
-under the second (+0.0374), so the cost this item was filed about is real and replicates; what does not
-exist is the gain it was supposed to be traded against.
-<br>**Two: the rule is a NUMBER that already ships, not a mechanism to design.**
-`SalienceOptions.MaxSalience` (default 4) is the ceiling on reported salience and therefore on both
-consumers that ship ON — `ModulatedRetrievability` widens `CandidateCutoff` by exactly it. Its own XML doc
-says **"Unmeasured — a starting point"**, and so does `NoveltyWeight`'s. At `MaxSalience = 1` the clamp
-makes `StructuralSaliencePolicy` return `MemorySignals.Empty`, i.e. an option-level neutral that leaves both
-registration sites untouched — the DI collection in `MemoryEngineRegistration` and
-`GraphMemoryEngine.NormalizeSaliencePolicies`' "empty does NOT mean off" contract. That is **D89**'s exact
-shape: move a documented-but-unmeasured constant, change no registration.
-<br>**That sweep RAN the same day (`memory-salience --ceiling`) and refuted the guess.** `MaxSalience` is a
-SWITCH, not a dial: `Max2`, `Max3` and `Max4` are identical in every cell, because salience is
-`Clamp(1 + NoveltyWeight × novelty, 1, MaxSalience)` with `NoveltyWeight = 1.5` and `novelty ∈ [0,1]`, so the
-unclamped value cannot exceed **2.5** and the shipped `MaxSalience = 4` can never bind. The self-check held:
-`Max1` is indistinguishable from `Off` on all four cells while still registering a retention policy, which is
-the measured form of an option-level neutral.
-<br>**The `NoveltyWeight` sweep that this note named as the remaining one RAN the same day** (`memory-salience
---novelty`, 30 seeds × 2 shapes; `docs/memory-measurements.md` §5). It is a real dial where `MaxSalience` is a switch, and
-turning it UP makes recall worse monotonically where it matters (`many-candidates` +0.0786 → +0.0954). It
-also refuted a shipped XML claim rather than a value: a NEGATIVE weight is inert, not inverting, because the
-clamp floors at 1 — corrected in `SalienceOptions` on 2026-08-29. **Whether any default MOVES is still the
-owner's call, not a sweep's**: the cost is embedder-dependent by ~2.5× and `high-noise` reverses sign between
-the two embedders, so no single figure is *the* cost. **Nothing in this note is startable work any more**,
-and the one live thread it left — the defaults question — closed on 2026-08-30 (see below)._
-
-_**The defaults question CLOSED 2026-08-30** as `docs/task-archive.md` **Part 127**: measured on both
-embedders at the owner's direction, they pick opposite ends of the ladder (`NW0.5` under `nomic-embed-text`,
-`NW3` under `embeddinggemma:300m`), so no best weight exists and neither default moved. Getting there fixed
-two instrument defects — a verdict that read miss alone, and an off arm that was never off
-(`docs/FIXES.md`). **Every "salience costs recall" figure quoted above was taken through that off arm**, so
-it prices RETENTION with admission live in both arms; the between-rung comparisons survive untouched because
-every rung shared that same baseline. `docs/memory-measurements.md` §5 carries the correction and the re-measurement._
-
----
 
 ## Part 56 — complete FSRS: `DsrRetrievability` is a PARTIAL, UNFITTED model, and that gap is measured (2026-08-10)
 

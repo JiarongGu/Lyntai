@@ -3718,3 +3718,31 @@ correctly") was llama.cpp's converter rather than the model class.
 pre-U+001F vector-collection address and reported `vectors=0` over a full store. At the head of its own fix
 (`docs/FIXES.md`), with the trap that a harness asserting against an internal address IS a spelling of it;
 the Windows symlink byte-count trap it also surfaced is in `pitfalls.md`.
+
+## Part 216 — a real annotator DRIFTS, and size is not the lever
+
+✅ closed 2026-09-15. `TASKS.md` Part 65's last item, opened 2026-08-12.
+
+- **Subject drift is bounded but not eliminated, and nothing measures how often a MODEL drifts.**
+
+**Outcome (`docs/memory-measurements.md` §5, `annotation-drift-three-models`): drift is 41.7%-87.5% across
+three local models, and it does NOT fall with size.** 5× the bytes made English worse and Chinese better,
+with no monotone relationship and the best English model the worst Chinese one. The failure modes are
+OPPOSITE — a small model answers a near-unique handle per fact, a larger one topic-level handles spanning
+unrelated clusters — so a prompt fix aimed at one moves the other the wrong way. The instrument is
+`node devtools/dev.mjs memory-annotation-drift`; the practical rule landed in `docs/memory.md` (screen the
+annotator you intend to ship) and `docs/model-tasks.md` §3 (annotation is no longer a blank cell).
+
+**The item was UNBLOCKED by a re-check, not by anyone acting on it.** It had read "this machine holds
+exactly one chat model" since 2026-08-28 while three sat on disk, every one of them already quoted by other
+measurements here. **An `env` blocker expires silently**, because nothing fails when an environment grows;
+that is now the banner's fourth route an item arrives by.
+
+**What the published CEILING now needs.** `memory-annotation` reports the mechanism with a PERFECT
+annotator, and this says a real one reaches a fraction of it — so that figure is a ceiling to read with a
+discount rather than a result a deployment inherits.
+
+**The instrument gates itself**, which is the reusable half: drift alone is vacuous (a model answering one
+handle for everything drifts 0%), so collapse and empty are reported beside it and a PERFECT self-check arm
+must score 0/0/0 or the table is declared broken. It needs no engine, store or recall — drift is a property
+of `IMemoryAnnotationPolicy` alone.
