@@ -15,21 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 5 Parts: 6 blocked, 2 watch
+## Open items — 10 across 6 Parts: 2 startable, 6 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 96 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB … |
-| 147 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 156 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 210 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 265 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 320 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 343 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 400 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 98 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB … |
+| 149 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 158 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 212 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 267 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 322 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 345 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 402 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 735 | 233 | BL1 — retire the four Parts that hold no open work, and repoint what cites … | startable |  |
+| 748 | 233 | BL2 — `check-backlog` must fail a `## Part` that holds no open checkbox | startable |  |
 
 <!-- open-items:end -->
 
@@ -44,10 +46,10 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is ZERO items** — a STATE, not an
-achievement: everything open is blocked or watching, so the next work has to be FOUND. Two review passes
-have now emptied it and refilled it (`docs/task-archive.md` Parts 221–229, then 230–232), and the second
-widened past the one-day diff the first was scoped to.
+longer drift apart. Edit the marker, never the table. **The startable set is TWO items — Part 233, this
+file's own accumulation.** Three passes have now emptied and refilled it (`docs/task-archive.md` Parts
+221–229, then 230–232, then this), and the third arrived by a READER asking why 736 lines held 8 items —
+which is the one route none of the other four can be scheduled into.
 **An `env` blocker EXPIRES
 SILENTLY** — Part 65 read "this machine holds exactly one chat model" for two weeks while three sat on
 disk, every one already used by other measurements here. Nothing fails when an environment GROWS, so
@@ -714,6 +716,41 @@ where a warning would have shipped a roster-size threshold taken from one model 
 Nullable because `None` (no tools registered) and "a BYO loop never said" are different claims._
 
 ---
+
+---
+
+## Part 233 — the backlog summarizes the archive again, one level below the gate (2026-09-15)
+
+_Found by the owner asking why 736 lines hold 8 items. **295 of them — four Parts — hold ZERO open
+checkboxes**: 109 (49), 116 (36), 128 (138), 178 (72). Every line is a "CLOSED as archive Part N" note,
+which is the thing `task-lifecycle.md` forbids in as many words: "never let the backlog SUMMARIZE the
+archive … unbounded, answering a question the archive already answers, pushing the open items down."_
+
+_**This is the SAME defect this file already fixed once, regrown where the gate cannot reach.** The
+`## Active backlog` preamble hit 478 lines carrying zero checkboxes and `check-backlog` was built to bound
+it — but `PREAMBLE_END` stops at the first `## Part`, so the per-Part bodies were never bounded and the
+accumulation moved down a level. The file's own conclusion applies to itself: a rule that keeps being
+violated is a missing gate._
+
+- [ ] **BL1 — retire the four Parts that hold no open work, and repoint what cites them.** <!-- item: state=startable -->
+  **Not a delete — RELOCATE first**, and two constraints make this more than a cut. (1) **19+ inbound
+  references** name these Parts from `docs/memory-measurements.md`, `docs/model-tasks.md`,
+  `docs/deployment-shapes.md` and the archive; `check-links` fails the moment a `TASKS.md Part N` resolves
+  to neither record. (2) **The numbers COLLIDE** — archive Parts 109/116/128/178 already exist and are
+  unrelated tasks — so these cannot move into the archive under their own numbers, which is precisely the
+  ambiguity `task-lifecycle.md` §`TASKS.md` Part N warns about. Decide the destination before cutting:
+  a fresh archive number per Part with every citation repointed, or a single entry that absorbs all four.
+  <br>**Two STALE claims are already reachable because of this**, and they close with it: `model-tasks.md`
+  says the `Model`-precedence question is "still open (`TASKS.md` Part 128)" when **D119** settled it by
+  KEEPING the precedence, and `memory-measurements.md` calls a second reader "Part 109's remaining half"
+  when that closed as `docs/task-archive.md` Part 200 with both halves run. An empty Part reads as a live
+  home for a question, so other records keep citing it as one.
+- [ ] **BL2 — `check-backlog` must fail a `## Part` that holds no open checkbox.** <!-- item: state=startable -->
+  The gate already owns the right subject and stops one line short of it: it bounds the preamble, counts
+  open items and generates the roster from their markers, but says nothing about a Part heading with zero
+  of them. One predicate over the parse it already performs. Fail-closed on the SOURCE list, per the rule
+  `check-docs`/`check-encoding` follow — and write the both-directions test at the same time, since a gate
+  that over-fires on a legitimately-empty Part is the kind someone deletes.
 
 ---
 
