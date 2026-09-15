@@ -4482,10 +4482,20 @@ failure is a better starting point than a speculative one". Code frozen under Se
 bet, paid by every consumer, and it is worse: a backlog item costs a line in a file nobody ships.
 
 **The trigger, concretely:** a backend worth using whose wire format is NOT OpenAI-compatible and which
-ships an `IChatClient` — Anthropic's native Messages API, Gemini native, Bedrock. Then the bridge returns as
-`Lyntai.ExtensionsAi`, its OWN opt-in package, which is where the dependency belonged; folding it into a
-providers package (**D123**) is what let it tax four backends that never referenced it. The code is in git
-history at this commit's parent.
+ships an `IChatClient` — Anthropic's native Messages API, Gemini native, Bedrock.
+
+**What comes back then is NOT this package.** Two things are separate that shipped together. Only the <!-- drift-ok: D146 names the surface it deleted -->
+INBOUND half answers that trigger (`ExtensionsAiProvider` + the tool declaration + the registration, 311 of <!-- drift-ok: D146 names the surface it deleted -->
+the 473 lines); `AsChatClient()` is an adoption ramp with its own, independent trigger — an MEAI application <!-- drift-ok: D146 names the surface it deleted -->
+adopting Lyntai — which has never fired and should not ride back in on the other one.
+
+**And ask first whether it belongs in the library at all.** `IModelProvider` requires exactly TWO members,
+`Id` and `Capabilities`; the other eight default, which is what **D127**/**D130** bought. A consumer
+bridging ONE vendor writes a small adapter in their own code and needs none of the streaming, tool-calling,
+multimodal and usage mapping that made the deleted version 311 lines. The library owns that mapping only
+when several consumers need the SAME one — `library-api-design.md`'s rule, which says to answer an
+app-specific request with the seam rather than the shape. The code is in git history at this commit's
+parent; taking it back wholesale is the option to justify, not the default.
 
 **`LlmVerdictException` goes with it** because it existed only for the reverse bridge — its own doc said so <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 ("Today that seam is the Microsoft.Extensions.AI reverse bridge"). A type serving one caller dies with that
