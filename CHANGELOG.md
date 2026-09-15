@@ -45,6 +45,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   normalizes should use this one, for the same reason `VectorMath.Cosine` exists: two backends that
   normalize differently do not rank identically.
 
+### Added
+
+- **`AddBridgeProvider(id, complete, stream?, capabilities?)`** (**D147**) — register a backend from a
+  FUNCTION. Whatever can already answer (a vendor SDK, an in-house service, a `Microsoft.Extensions.AI`
+  `IChatClient`), you write the few lines of mapping you need and routing, fallback, dead-host cooldown,
+  admission and the ops layer come along. **It costs no dependency**, which is why it lives in `Lyntai.Core`
+  where the ecosystem-specific bridge D146 deleted never could. A bridge declares only the operations it was
+  handed a delegate for; pass `capabilities` to declare anything other than text in, text out.
+
 ### Breaking
 
 - **The Microsoft.Extensions.AI bridge is removed** (**D146**). `AddExtensionsAiProvider`, <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->

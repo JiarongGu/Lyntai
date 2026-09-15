@@ -216,8 +216,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D144](#d144--lyntaiprovidersbasic-and-a-provider-module-owns-its-own-registration-2026-09-15) | 2026-09-15 | `Lyntai.Providers.Basic`, and a provider module owns its own registration |
 | [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) | 2026-09-15 | the Microsoft.Extensions.AI module is a BRIDGE, not a provider |
 | [D146](#d146--the-microsoftextensionsai-bridge-is-deleted-and-the-trigger-to-rebuild-it-is-written-down-2026-09-15) | 2026-09-15 | the Microsoft.Extensions.AI bridge is DELETED, and the trigger to rebuild it is written down |
+| [D147](#d147--a-bridge-is-a-function-so-it-costs-no-dependency-and-belongs-in-core-2026-09-15) | 2026-09-15 | a BRIDGE is a function, so it costs no dependency and belongs in Core |
 
-_All 146 entries are live decisions._
+_All 147 entries are live decisions._
 
 <!-- index:end -->
 
@@ -4501,3 +4502,33 @@ parent; taking it back wholesale is the option to justify, not the default.
 ("Today that seam is the Microsoft.Extensions.AI reverse bridge"). A type serving one caller dies with that
 caller. **MEAI stays in `Directory.Packages.props`**: `Lyntai.Tools.Mcp` genuinely uses it, which is also
 why a bundle consumer's dependency graph is unchanged.
+
+## D147 — a BRIDGE is a function, so it costs no dependency and belongs in Core (2026-09-15)
+
+`LyntaiBuilder.AddBridgeProvider(id, complete, stream?, capabilities?)` — a backend built from a delegate.
+It is what **D146** deleted, generalized: the same capability with the vendor taken out of it.
+
+**The deleted adapter named an ECOSYSTEM where the capability names a shape.** Bridging
+`Microsoft.Extensions.AI` needed `IChatClient`, which is why it dragged 654 KB and could not live in Core
+(**D25**). But nothing about "wrap something that already answers" requires that type — or any type a
+consumer does not already have. Take the vendor out and the dependency goes with it, which is the whole
+reason this can sit beside `IModelProvider` instead of in an adapter package.
+
+**It also reaches further than the thing it replaces.** The old bridge served one ecosystem; a delegate
+serves a vendor SDK, an in-house service, a test double, or an `IChatClient` — the consumer writes the few
+lines of mapping they actually need rather than inheriting 473 lines of mapping for cases they do not have.
+That is `library-api-design.md`'s rule applied to a deletion rather than a request: ship the general
+capability, never the caller's shape.
+
+**`AddProvider` could not already do this**, which is why it is a new member rather than an overload of
+intent: it takes a factory that must RETURN an `IModelProvider`, so bridging still meant writing a class.
+Two members were required (`Id`, `Capabilities`) and eight defaulted — cheap, but not a lambda.
+
+**Nothing is inferred, and the default is the only inference.** A bridge declares exactly the operations it
+was handed a delegate for, so one with no stream function reports no `ProviderOperation.Stream` and a router
+never offers it one. The optional `capabilities` is how a caller says anything else — a score-producing
+bridge, tool calls, a model list — and text-in/text-out is a default rather than a constraint.
+
+**The delegate returns a VERDICT rather than throwing**, because the router can only advance on something it
+can read. That is what makes a bridge a first-class candidate — it cools down, it falls over, it is admitted
+— rather than a leaf that either works or blows up.

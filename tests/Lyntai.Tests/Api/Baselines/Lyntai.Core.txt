@@ -1569,6 +1569,7 @@ sealed class Lyntai.LlmClientBuilder
 static class Lyntai.LlmClientRegistration
     static AddLlmClient(LyntaiBuilder builder, String name, Action<LlmClientBuilder> configure = null) : LyntaiBuilder
 sealed class Lyntai.LyntaiBuilder
+    AddBridgeProvider(String id, Func<LlmRequest,CancellationToken,Task<LlmReply>> complete, Func<LlmRequest,CancellationToken,IAsyncEnumerable<LlmChunk>> stream = null, ProviderCapabilities capabilities = null) : LyntaiBuilder
     AddConversationEnricher(Func<IServiceProvider,IConversationEnricher> factory) : LyntaiBuilder
     AddConversationEnricher<T>() : LyntaiBuilder
     AddCronSchedule(String name, String lane, String type, String payload, String cron, Int32 priority = 0) : LyntaiBuilder

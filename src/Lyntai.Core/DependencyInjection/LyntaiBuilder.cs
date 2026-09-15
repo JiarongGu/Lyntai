@@ -80,6 +80,49 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Register a backend from a FUNCTION — the general form of bridging something that can
+    /// already answer into this library.
+    ///
+    /// <para><b>Use it when a backend is reachable but has no provider here</b>: a vendor SDK, an in-house
+    /// service, a <c>Microsoft.Extensions.AI</c> <c>IChatClient</c>. You write the mapping you actually
+    /// need — usually a few lines — and routing, fallback, dead-host cooldown, admission and the ops layer
+    /// come along. Nothing about the caller's ecosystem reaches this library, which is why a bridge costs no
+    /// dependency (<c>docs/DECISIONS.md</c> D147).</para>
+    ///
+    /// <para><b>For an OpenAI-compatible endpoint, use <c>AddHttpProvider</c> instead</b> — most vendors
+    /// ship one, and it already handles verdicts, streaming, usage, tool calls and the dialect
+    /// differences.</para></summary>
+    /// <param name="id">The router-facing id, as on any backend: a LABEL for one configured client, so two
+    /// configurations of the same vendor are two bridges with two ids.</param>
+    /// <param name="complete">Answers one request. Report failure as a non-Ok <see cref="ProviderVerdict"/>
+    /// on the reply rather than by throwing, so the router can fall over to the next candidate — a throw is
+    /// classified, but a verdict says what happened.</param>
+    /// <param name="stream">Optional. Supplied, the bridge declares <see cref="ProviderOperation.Stream"/>;
+    /// omitted, it declares only <see cref="ProviderOperation.Complete"/> and a router never asks it to
+    /// stream.</param>
+    /// <param name="capabilities">Optional. Defaults to text in, text out, with the operations implied by
+    /// which delegates were supplied. Pass one to declare something else — tool calls, another
+    /// <see cref="ProviderKinds"/>, a model list, declared limits.</param>
+    public LyntaiBuilder AddBridgeProvider(
+        string id,
+        Func<Llm.LlmRequest, CancellationToken, Task<Llm.LlmReply>> complete,
+        Func<Llm.LlmRequest, CancellationToken, IAsyncEnumerable<Llm.LlmChunk>>? stream = null,
+        ProviderCapabilities? capabilities = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        ArgumentNullException.ThrowIfNull(complete);
+
+        var declared = capabilities ?? new ProviderCapabilities
+        {
+            Accepts = [ProviderKinds.Text],
+            Produces = [ProviderKinds.Text],
+            Operations = stream is null
+                ? [ProviderOperation.Complete]
+                : [ProviderOperation.Complete, ProviderOperation.Stream],
+        };
+        return AddProvider(_ => new BridgeProvider(id, declared, complete, stream));
+    }
+
     /// <summary>Set by <see cref="AddEmbeddingProvider"/>: at least one backend that EMBEDS was registered.
     ///
     /// <para>It exists because capability is only knowable once a provider is BUILT, and the wiring below
