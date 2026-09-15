@@ -52,8 +52,26 @@ public interface IPairwiseComparer
 /// </summary>
 public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBias = true) : IPairwiseComparer
 {
+    /// <summary>The verdict CODE can reach, so the judge is not asked for it.
+    ///
+    /// <para><b>It is a correctness fix before it is a saving.</b> On identical text there is no signal for
+    /// a judge to overcome its position bias with, so it can answer "a" — a false verdict the two-pass
+    /// check cannot catch, because both passes see the same two strings. Code answers it certainly and for
+    /// free, which is the standing rule that a model is not better at exact comparison
+    /// (<c>.claude/knowledge/model-decoupling.md</c>).</para>
+    ///
+    /// <para><b>ORDINAL equality and deliberately nothing looser.</b> Whether trailing whitespace or casing
+    /// matters is a judgement about the caller's domain — a formatting eval would say it does — so the
+    /// model is still asked about anything short of identical.</para></summary>
+    private static readonly PairwiseResult Identical =
+        new(PairwiseWinner.Tie, "outputs are identical — no judge was asked");
+
     public async Task<PairwiseResult> CompareAsync(string input, string outputA, string outputB, CancellationToken ct = default)
     {
+        // Judged stays TRUE: "neither is better" is the CORRECT answer here, not an absent one, and
+        // reporting it as no-opinion would make a certainty read like a judge outage.
+        if (string.Equals(outputA, outputB, StringComparison.Ordinal)) return Identical;
+
         if (!mitigatePositionBias)
             return await JudgeAsync(input, outputA, outputB, ct).ConfigureAwait(false);
 

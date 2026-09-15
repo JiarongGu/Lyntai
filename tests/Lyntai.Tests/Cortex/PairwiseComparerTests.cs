@@ -21,6 +21,66 @@ public class PairwiseComparerTests
         Assert.Equal(PairwiseWinner.Tie, t.Winner); // case-insensitive, fence-tolerant
     }
 
+    // ---- what code decides, so the judge is never asked ----------------------------------------------
+
+    [Fact]
+    public async Task IDENTICAL_outputs_tie_without_asking_the_judge_at_all()
+    {
+        // "Give the model only what it is genuinely better at. It is not better at exact comparison"
+        // (`.claude/knowledge/model-decoupling.md`). Two identical strings are a string comparison, and
+        // asking costs TWO calls under the default position-bias mitigation.
+        var llm = new FakeLlmClient();
+        var comparer = new LlmPairwiseComparer(llm);
+
+        var result = await comparer.CompareAsync("q", "the same answer", "the same answer");
+
+        Assert.Equal(PairwiseWinner.Tie, result.Winner);
+        Assert.Empty(llm.Calls);
+    }
+
+    [Fact]
+    public async Task An_identical_pair_is_JUDGED_because_a_tie_is_the_CORRECT_verdict_not_an_absent_one()
+    {
+        // Judged=false means "no verdict was available". Here one is, and it is certain — collapsing the
+        // two would make a deterministic answer read as a judge outage.
+        var llm = new FakeLlmClient();
+
+        var result = await new LlmPairwiseComparer(llm).CompareAsync("q", "same", "same");
+
+        Assert.True(result.Judged);
+    }
+
+    [Fact]
+    public async Task A_judge_asked_about_identical_outputs_can_pick_a_WINNER_which_is_simply_wrong()
+    {
+        // The reason this is a correctness fix and not only a saving. Position bias is a documented failure
+        // mode, and on identical text there is no signal to overcome it: a judge that answers "a" has
+        // returned a false verdict, and the two-pass check cannot catch it because BOTH passes see the same
+        // two strings. Wired through the single-pass path so the fake's scripted "a" would be believed.
+        var llm = new FakeLlmClient();
+        llm.Replies.Enqueue(Json("a"));
+
+        var result = await new LlmPairwiseComparer(llm, mitigatePositionBias: false)
+            .CompareAsync("q", "identical", "identical");
+
+        Assert.Equal(PairwiseWinner.Tie, result.Winner);   // code, not the scripted "a"
+        Assert.Empty(llm.Calls);
+    }
+
+    [Fact]
+    public async Task Outputs_differing_only_in_WHITESPACE_still_ask_the_judge()
+    {
+        // The short-circuit is ORDINAL equality and deliberately nothing looser. Whether trailing space
+        // matters is a judgement about the caller's domain — a formatting eval would say it does — so code
+        // refuses to make it and the model is still asked.
+        var llm = new FakeLlmClient();
+        llm.Replies.Enqueue(Json("a"));
+
+        await new LlmPairwiseComparer(llm, mitigatePositionBias: false).CompareAsync("q", "answer", "answer ");
+
+        Assert.Single(llm.Calls);
+    }
+
     [Fact]
     public async Task Single_pass_returns_the_judge_pick()
     {

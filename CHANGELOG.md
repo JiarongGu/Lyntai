@@ -74,6 +74,13 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`LlmPairwiseComparer` answers an IDENTICAL pair itself, and asks no judge.** Two identical outputs
+  cost two model calls under the default position-bias mitigation — and could come back WRONG: on identical
+  text there is no signal for a judge to overcome its position bias with, so it can answer "a", and the
+  two-pass check cannot catch it because both passes see the same two strings. It is now a `Tie`, `Judged`,
+  with no call. **Ordinal equality only** — whether trailing whitespace or casing matters is a judgement
+  about the caller's domain, so anything short of identical still reaches the model.
+
 - **`JsonExtract.TryReadObject` — CODE repairs the punctuation a model gets wrong, instead of paying a
   second call for it.** `CompleteJsonAsync` extracted the object out of prose and then asked the model to
   try again whenever what it found did not parse STRICTLY — so a trailing comma or a stray `//` comment
