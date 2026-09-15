@@ -17,18 +17,19 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D147** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3740 passed / 3773 total, 33 skipped` (the skips are
+**The baseline a green run should match:** `3746 passed / 3779 total, 33 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 811/811, doc samples 58/58. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-15 at `c1a62871`** — read off that run's own output, never
+**MEASURED with Docker up, re-attested 2026-09-15 at `f3a663d6`** — read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
 easily breaks. Every skip is live-backend gated (a live model, embedder, reranker, Ollama, MCP or CLI), so
 nothing is skipping for another reason. **The gated-on-a-model-DIRECTORY suites are now four**:
 `OnnxProviderLiveTests` is FIVE (**D124**), `OnnxCrossEncoderLiveTests` four, beside
 `WordPieceTokenizerLiveTests` (**D122**) and `Model2VecProviderLiveTests` (**D121**).
 **Run with `LYNTAI_ONNX_MODEL_DIR`, `LYNTAI_STATIC_MODEL_DIR` and `LYNTAI_ONNX_RERANK_MODEL_DIR` set and
-the count reads `3751 passed / 22 skipped`** — also measured, at the same commit, not derived. A
+the count reads 22 skipped** — measured at `c1a62871`, where the passing total was 3751; the
+SKIP count is the durable half and the total moves with the tree. A
 LOWER skip count is the live suites running, which is the one direction that needs no investigation.
 **Re-attest the COMMIT alongside the figures whenever they move**: a dated claim left standing over a
 changed number cannot be told from an extrapolated one, and that is how it read to a cold reader.
