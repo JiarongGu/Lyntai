@@ -51,4 +51,42 @@ public static class OnnxBuilderExtensions
         builder.AddEmbeddingProvider(_ => embedder);
         return builder;
     }
+
+    /// <summary>
+    /// Score <c>(query, document)</c> pairs IN PROCESS with a cross-encoder through ONNX Runtime — the
+    /// reranker half of this package, and a different backend from
+    /// <see cref="AddOnnxProvider"/> rather than a mode of it.
+    ///
+    /// <para><b>Registering it is all that reaching it takes.</b> It declares
+    /// <see cref="Lyntai.Lifecycle.ProviderKinds.Score"/>, so
+    /// <c>AddMemoryScoringVerification()</c> selects it with no endpoint and no second seam
+    /// (<c>docs/DECISIONS.md</c> D139) — that call decides what memory DOES with the scores, this one says
+    /// what produces them.</para>
+    ///
+    /// <para><b>The same native-backend requirement as <see cref="AddOnnxProvider"/> applies</b>: this
+    /// package references the MANAGED half of ONNX Runtime only, so the application adds exactly one native
+    /// backend. <b>Loaded EAGERLY</b> too, so a bad model directory is heard at startup.</para>
+    ///
+    /// <para><b>Registered as a plain provider, not an embedding one</b> — it produces scores, so it must not
+    /// be what makes a deployment think it can embed.</para>
+    /// </summary>
+    /// <param name="builder">The Lyntai builder.</param>
+    /// <param name="modelDirectory">A directory holding a cross-encoder ONNX graph and <c>vocab.txt</c>.</param>
+    /// <param name="configure">Knobs; null takes the model's own configuration.</param>
+    public static LyntaiBuilder AddOnnxCrossEncoder(this LyntaiBuilder builder, string modelDirectory,
+        Action<OnnxCrossEncoderOptions>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelDirectory);
+
+        var options = new OnnxCrossEncoderOptions();
+        configure?.Invoke(options);
+
+        var reranker = OnnxCrossEncoder.FromDirectory(modelDirectory, options);
+
+        // A FACTORY returning the already-built instance, for the reason AddOnnxProvider states: the
+        // container disposes what it CREATED, and this holds a native session.
+        builder.AddProvider(_ => reranker);
+        return builder;
+    }
 }

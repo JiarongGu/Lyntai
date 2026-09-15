@@ -54,6 +54,24 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   where the ecosystem-specific bridge D146 deleted never could. A bridge declares only the operations it was
   handed a delegate for; pass `capabilities` to declare anything other than text in, text out.
 
+### Added
+
+- **`AddOnnxCrossEncoder(dir)` — an in-process RERANKER.** A cross-encoder export runs through ONNX Runtime
+  beside the embedder `AddOnnxProvider` already registers: `[CLS] query [SEP] document [SEP]` in, one
+  relevance logit out, declaring `ProviderKinds.Score`. **That declaration is the whole of the wiring** —
+  `AddMemoryScoringVerification()` selects any backend producing scores (**D139**), so a recall is reranked
+  by a local file with no server, no port and no `/v1/rerank` endpoint. A multi-label head is REFUSED rather
+  than read at column 0: which label means relevance is the model's own convention, and guessing returns
+  well-formed numbers in the wrong order. **No quality figure is claimed** — the shipped assertion is that
+  it reproduces a published reference pair, which is a screen rather than a measurement.
+
+- **`WordPieceTokenizer.Encode(a, b, maxTokens)` — a PAIR, which is what a cross-encoder scores.** Emits
+  `token_type_ids` 0 across `[CLS] a [SEP]` and 1 across `b [SEP]` — the segment signal telling a query from
+  a document, and precisely what llama.cpp's GGUF conversion zeroes. **The truncation budget is spent on
+  `b`**, and `a` is shortened only when it cannot fit alone: losing a long document's tail costs some
+  evidence, while losing the query's changes the question being asked. The reference implementation
+  truncates longest-first; this states the rule a reranker actually wants rather than inheriting one.
+
 ### Breaking
 
 - **The Microsoft.Extensions.AI bridge is removed** (**D146**). `AddExtensionsAiProvider`, <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->

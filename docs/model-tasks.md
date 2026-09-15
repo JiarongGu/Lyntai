@@ -209,6 +209,13 @@ the measured floor, with sub-100 MB blocked by an unmerged patch rather than by 
 > 512-token ceiling, likewise the model's. **What is NOT established** is any quality figure, and that the
 > library can reach an ONNX model at all: `AddMemoryScoringVerification` (**D115**) takes a
 > `/v1/rerank` endpoint and an ONNX file has no server.
+>
+> **REACHABILITY CLOSED 2026-09-15, and it needed no new seam.** `AddOnnxCrossEncoder` loads a
+> cross-encoder export in process and declares `ProviderKinds.Score` — which is what
+> `AddMemoryScoringVerification` already selects on, D115's endpoint-shaped reading having been replaced by
+> **D139**. So the sentence above is now half true: the QUALITY figure is still missing, and that is the
+> whole of what is left. This library's own pair encoding reproduces the published reference pair through
+> its own session, so the segment signal survives the .NET path and not only Python's.
 
 **RE-AIMED 2026-09-12, and this paragraph read as more final than it is.** Everything above is about the
 **cross-encoder** role, and #21729's two defects are role-specific: zeroed `token_type_ids` costs a model
@@ -267,7 +274,9 @@ multilingual export, and the caveat in D122 is that those are usually SentencePi
    oracle as a default is the specific mistake `docs/memory-measurements.md` invites and its status index
    exists to prevent.
 3. **You can now reach it from configuration** — `AddMemoryScoringVerification` fills the verification
-   seam from a `/v1/rerank` endpoint. Until it shipped, the only code that could call one was a bench
+   seam from ANY backend producing `ProviderKinds.Score`: a `/v1/rerank` endpoint through
+   `AddHttpProvider`, or an in-process ONNX cross-encoder through `AddOnnxCrossEncoder`, which needs no
+   server at all. Until it shipped, the only code that could call one was a bench
    harness, so this row's measurement described something a consumer could not have. **Set
    `ScoringVerificationOptions.EndorseCount` to your recall limit**: it is a fixed count so that
    promotion refines the ranking, and endorsing more than a page replaces it instead — which is exactly how

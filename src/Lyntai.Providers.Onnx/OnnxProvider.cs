@@ -2,7 +2,6 @@ using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Lyntai.Text;
 using Microsoft.ML.OnnxRuntime;
-using Microsoft.ML.OnnxRuntime.Tensors;
 
 namespace Lyntai.Providers.Onnx;
 
@@ -77,7 +76,8 @@ public sealed class OnnxProvider : IModelProvider, IDisposable
         if (!Directory.Exists(directory)) throw new DirectoryNotFoundException($"No model directory at '{directory}'.");
 
         options ??= new OnnxProviderOptions();
-        var model = ResolveModel(directory, options.ModelFile);
+        var model = OnnxGraph.Resolve(directory, options.ModelFile,
+            $"{nameof(OnnxProviderOptions)}.{nameof(OnnxProviderOptions.ModelFile)}");
         var tokenizer = WordPieceTokenizer.FromModelDirectory(directory);
         var config = SentenceTransformerConfig.FromDirectory(directory);
 
@@ -99,14 +99,7 @@ public sealed class OnnxProvider : IModelProvider, IDisposable
         for (var i = 0; i < texts.Count; i++) encodings[i] = _tokenizer.Encode(texts[i] ?? string.Empty, _maxTokens);
 
         var width = encodings.Max(e => e.Ids.Length);
-        var inputs = new List<NamedOnnxValue>(3);
-        foreach (var (name, select) in TensorSources)
-        {
-            if (!_session.InputMetadata.ContainsKey(name)) continue;
-            inputs.Add(NamedOnnxValue.CreateFromTensor(name, Pad(encodings, select, width)));
-        }
-
-        using var results = _session.Run(inputs, [_outputName]);
+        using var results = _session.Run(OnnxGraph.Feed(_session, encodings, width), [_outputName]);
         var hidden = results[0].AsTensor<float>();
         var hiddenSize = hidden.Dimensions[2];
         var flat = hidden.ToArray();
@@ -120,29 +113,6 @@ public sealed class OnnxProvider : IModelProvider, IDisposable
         }
 
         return vectors;
-    }
-
-    /// <summary>The three tensors a BERT graph takes, and how to read each from an encoding. Emitted only
-    /// when the graph declares them — a distilled export may drop <c>token_type_ids</c>, and passing an
-    /// input it does not declare is an error rather than a no-op.</summary>
-    private static readonly (string Name, Func<WordPieceEncoding, int[]> Select)[] TensorSources =
-    [
-        ("input_ids", e => e.Ids),
-        ("attention_mask", e => e.AttentionMask),
-        ("token_type_ids", e => e.TokenTypeIds),
-    ];
-
-    private static DenseTensor<long> Pad(
-        WordPieceEncoding[] encodings, Func<WordPieceEncoding, int[]> select, int width)
-    {
-        var tensor = new DenseTensor<long>([encodings.Length, width]);
-        for (var i = 0; i < encodings.Length; i++)
-        {
-            var values = select(encodings[i]);
-            for (var t = 0; t < values.Length; t++) tensor[i, t] = values[t];
-        }
-
-        return tensor;
     }
 
     /// <summary>The attention mask widened to the batch, zero over the padding — which is what tells
@@ -162,29 +132,6 @@ public sealed class OnnxProvider : IModelProvider, IDisposable
         foreach (var candidate in new[] { "last_hidden_state", "token_embeddings" })
             if (session.OutputMetadata.ContainsKey(candidate)) return candidate;
         return session.OutputMetadata.Keys.First();
-    }
-
-    /// <summary>The graph, in the two layouts a downloaded export actually uses.</summary>
-    private static string ResolveModel(string directory, string? modelFile)
-    {
-        if (!string.IsNullOrWhiteSpace(modelFile))
-        {
-            var chosen = Path.Combine(directory, modelFile);
-            return File.Exists(chosen)
-                ? chosen
-                : throw new FileNotFoundException($"'{modelFile}' is missing from '{directory}'.", chosen);
-        }
-
-        foreach (var candidate in new[] { Path.Combine("onnx", "model.onnx"), "model.onnx" })
-        {
-            var probed = Path.Combine(directory, candidate);
-            if (File.Exists(probed)) return probed;
-        }
-
-        throw new FileNotFoundException(
-            $"No ONNX graph in '{directory}' — looked for onnx/model.onnx and model.onnx. Set "
-            + $"{nameof(OnnxProviderOptions)}.{nameof(OnnxProviderOptions.ModelFile)} to name one directly.",
-            Path.Combine(directory, "onnx", "model.onnx"));
     }
 
     /// <summary>Releases the native session. Held for the container's life in normal use.</summary>

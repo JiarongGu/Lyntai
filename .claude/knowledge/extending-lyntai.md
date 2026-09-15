@@ -155,6 +155,22 @@ Tests: drive it against a stub, never a live endpoint — an HTTP provider gets 
 `HttpMessageHandler` (`Fakes/StubHttpHandler`); a CLI provider gets the `provider-stub.mjs` via
 `LYNTAI_PROVIDER_CMD`. Cover each verdict, streaming order, and empty→Failed.
 
+**C. NOT a chat backend? Then most of B does not apply, and what replaces it is one LIST.** Every rule above
+is about a verdict, and an embedder or a reranker returns neither — `EmbedAsync` and `ScoreAsync` THROW
+instead, because there is no vector and no score meaning "I could not" and a zero ranks as confidently as a
+real number (`IModelProvider`'s own remarks). What you write is the method plus
+`Produces = [ProviderKinds.Vector]` or `[ProviderKinds.Score]`, and **the declaration is the wiring**: a
+seam that consumes the kind finds you, so a cross-encoder needs no reranker-shaped registration and no
+policy of its own — `AddMemoryScoringVerification` already selects on `Score` (**D139**), and
+`OnnxCrossEncoder` is the worked example. Register with `AddProvider`, reserving `AddEmbeddingProvider` for
+something that genuinely embeds; it sets a composition-time flag and a non-embedder must not.
+
+**And a second backend in an EXISTING adapter package changes no registry** — that is the whole payoff of
+the footprint test. `check-packages` gates the nine a new package must enter; a class beside one that
+already isolates the same dependency enters none of them, and the only generated artifact to refresh is the
+API-surface baseline (run the test, promote the emitted `.actual`, and read the diff: purely additive lines
+are a minor, a changed or missing line is a break).
+
 ---
 
 ## Add a generation backend

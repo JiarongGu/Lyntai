@@ -761,17 +761,18 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   `docs/task-archive.md` Part 208) is an ONNX session, a WordPiece pass and a pooling step in this
   repository, so a cross-encoder head is a class beside `OnnxProvider` rather than a new package — the
   session plumbing and `Lyntai.Text.WordPieceTokenizer` are already shared.
-  <br>**Both PREREQUISITES are now done, and only the measurement is left (2026-09-15).** Reachability
-  needs no new seam: **D139** made `AddMemoryScoringVerification` take any backend declaring
-  `ProviderKinds.Score`, so an in-process cross-encoder is an `IModelProvider` implementing `ScoreAsync`
-  beside `OnnxProvider` — not the bespoke `IMemoryVerificationPolicy` this item assumed. And the tokenizer's
-  PAIR overload shipped: `WordPieceTokenizer.Encode(a, b, maxTokens)` emits `token_type_ids` 0 for the query
-  and 1 for the document — the signal llama.cpp zeroes — spending the truncation budget on the DOCUMENT so a
-  long document never shortens the question being asked.
-  <br>**What is left is the ONNX cross-encoder class and then the measurement**: a session over
-  `[CLS] q [SEP] d [SEP]`, taking the single logit, declaring `Produces: [score]`.
-  <br>Then QUALITY, which is the point: no sub-100 MB reranker has an evidence-hit figure through ANY
-  runtime, and `LAMAR-600m`'s +6.0 at 468,393,760 B is the number to beat. A screen is not a measurement.
+  <br>**EVERY PREREQUISITE IS DONE AND ONLY THE MEASUREMENT IS LEFT (2026-09-15).** Reachability needed no
+  new seam: **D139** made `AddMemoryScoringVerification` take any backend declaring `ProviderKinds.Score`,
+  so `AddOnnxCrossEncoder` is an `IModelProvider` implementing `ScoreAsync` beside `OnnxProvider` — not the
+  bespoke `IMemoryVerificationPolicy` this item assumed. The tokenizer's PAIR overload shipped
+  (`WordPieceTokenizer.Encode(a, b, maxTokens)`, segment 0 for the query and 1 for the document, budget
+  spent on the DOCUMENT), and the class over `[CLS] q [SEP] d [SEP]` now runs it: **this library's own
+  encoding and session reproduce the published reference pair**, so the segment signal survives the .NET
+  path and not only Python's (`OnnxCrossEncoderLiveTests`, gated on `LYNTAI_ONNX_RERANK_MODEL_DIR`).
+  <br>**What is left is QUALITY, which is the point, and it is the WHOLE of what is left**: no sub-100 MB
+  reranker has an evidence-hit figure through ANY runtime, and `LAMAR-600m`'s +6.0 at 468,393,760 B is the
+  number to beat. A screen is not a measurement — reproducing one published pair says nothing about
+  evidence-hit, and that sentence has now been true of this candidate through two runtimes.
   <br>**Two things the refutation does NOT touch**, stated so they are not swept along: the multilingual
   half below still holds (a 250,002-token vocabulary is the model's, not the runtime's, so Chinese-first is
   still above 100 MB), and so does the 512-token ceiling.
