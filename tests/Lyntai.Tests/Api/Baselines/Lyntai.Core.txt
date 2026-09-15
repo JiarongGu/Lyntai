@@ -3157,6 +3157,7 @@ static class Lyntai.Text.JsonExtract
     static ExtractObject(String text) : String
     static IsValid(String text) : Boolean
     static TryParseObject(String text, JsonDocument& doc) : Boolean
+    static TryReadObject(String text, String& json) : Boolean
 struct Lyntai.Text.WordPieceEncoding
     .ctor(Int32[] Ids, Int32[] AttentionMask, Int32[] TokenTypeIds)
     AttentionMask : Int32[]

@@ -72,6 +72,21 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   evidence, while losing the query's changes the question being asked. The reference implementation
   truncates longest-first; this states the rule a reranker actually wants rather than inheriting one.
 
+### Added
+
+- **`JsonExtract.TryReadObject` — CODE repairs the punctuation a model gets wrong, instead of paying a
+  second call for it.** `CompleteJsonAsync` extracted the object out of prose and then asked the model to
+  try again whenever what it found did not parse STRICTLY — so a trailing comma or a stray `//` comment
+  cost a whole repair round trip, which is fail-closed where every other seam is fail-open, spends a second
+  usage-budget and rate-limit charge, and never returns a cached hit. Those are punctuation, not missing
+  meaning. The read now tolerates them and **re-serializes**, so the standing guarantee that an `Ok` verdict
+  means `JsonDocument.Parse(reply.Text)` succeeds is unchanged — an already-strict object is handed back
+  byte for byte, and only a repaired one is reformatted.
+  <br>**A TRUNCATED object still retries**, deliberately: it is missing content rather than commas, and only
+  the model can supply it. And `JsonExtract.IsValid` stays STRICT — `StructureScorer` uses it to GRADE
+  whether a model emitted well-formed JSON, so a grader that accepted a trailing comma would score
+  malformed output as perfect. One helper, two questions, kept apart.
+
 ### Breaking
 
 - **The Microsoft.Extensions.AI bridge is removed** (**D146**). `AddExtensionsAiProvider`, <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->

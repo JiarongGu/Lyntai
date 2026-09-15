@@ -24,9 +24,11 @@ public static class LlmStructuredExtensions
             var reply = await client.CompleteAsync(current, ct).ConfigureAwait(false);
             if (reply.Verdict != ProviderVerdict.Ok) return reply;
 
-            var json = JsonExtract.ExtractObject(reply.Text);
-            if (JsonExtract.IsValid(json))
-                return reply with { Text = json! };
+            // CODE first: extract the object out of prose, and repair the punctuation a model gets wrong
+            // (a trailing comma, a stray comment) rather than spending a second call on it. What comes back
+            // is strictly valid either way, so the guarantee above still holds.
+            if (JsonExtract.TryReadObject(reply.Text, out var json))
+                return reply with { Text = json };
 
             if (attempt > 0)
                 return new LlmReply("", ProviderVerdict.Failed, reply.Usage,

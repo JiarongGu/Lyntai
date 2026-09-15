@@ -36,7 +36,13 @@ does and does not cover, and a blank means *not yet shown to fit the budget*, ne
 about content — it asks the model to restate its own answer in a format — but it is a real second call, it
 is fail-closed where every other seam here is fail-open, and it *"spends a second usage-budget/rate-limit
 charge and never returns a cached hit"*. A pair comparison with position-bias mitigation on is therefore
-worst-case **four** model calls for one logical decision. *Delegate a run* hands a whole task to a model
+worst-case **four** model calls for one logical decision.
+
+**And it is the one row where reading this table produced a code change (2026-09-15).** Being the shape with
+no judgement in it at all, *repair* is the shape code should own — so the read now tolerates a trailing
+comma and a stray comment and re-serializes, and those replies cost no call. What still reaches the model is
+a TRUNCATED object, which is missing content rather than punctuation. **The negative space in §4 is not
+fixed** — a shape can move into it, and this is the exercise that moves one. *Delegate a run* hands a whole task to a model
 running its own loop out of process, so **the budget, rate-limit and cache advice in this document does not
 reach it**, and the size question is a choice of CLI rather than of a weight file.
 

@@ -3,6 +3,7 @@ using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
+using Lyntai.Text;
 
 namespace Lyntai.Tests.Llm;
 
@@ -76,6 +77,61 @@ public class LlmStructuredExtensionsTests
         Assert.True(retry.Count > Req.Messages.Count);                                        // strictly more than shot 1
         Assert.Contains(retry, m => m.Role == "assistant" && m.Content == "just prose, sorry"); // bad reply fed back
         Assert.Contains(retry, m => m.Role == "user" && m.Content.Contains("ONLY a single JSON object")); // corrective
+    }
+
+    // ---- repairs CODE can make, so the model is not asked to make them --------------------------------
+    // `docs/model-tasks.md` §1 files `repair` as a real second call that is fail-CLOSED where every other
+    // seam is fail-open, spends a second usage-budget/rate-limit charge, and never returns a cached hit.
+    // Every one of these would have cost one.
+
+    [Theory]
+    [InlineData("""{"ok": true,}""", "a trailing comma")]
+    [InlineData("""{"a": [1, 2,], "b": 2,}""", "trailing commas nested in an array")]
+    [InlineData("{\"ok\": true // yes\n}", "a line comment")]
+    [InlineData("{/* note */\"ok\": true}", "a block comment")]
+    public async Task A_reply_CODE_can_repair_costs_no_second_call(string text, string why)
+    {
+        var p = new FakeLlmProvider("p");
+        p.Replies.Enqueue(new LlmReply(text, ProviderVerdict.Ok));
+
+        var reply = await Client(p).CompleteJsonAsync(Req);
+
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Single(p.Calls);                                     // the point: no repair round trip
+        Assert.True(JsonExtract.IsValid(reply.Text), $"{why}: Text must be STRICTLY valid");
+    }
+
+    [Fact]
+    public async Task What_it_hands_back_is_RE_SERIALIZED_so_the_strict_guarantee_still_holds()
+    {
+        // The contract is "an Ok verdict guarantees JsonDocument.Parse(reply.Text) succeeds". Accepting a
+        // trailing comma leniently and handing the RAW text back would keep the model call and break that
+        // promise for every consumer — which is worse than the round trip it saves.
+        var p = new FakeLlmProvider("p");
+        p.Replies.Enqueue(new LlmReply("""Here: {"b": 2, "a": [1,2,],}""", ProviderVerdict.Ok));
+
+        var reply = await Client(p).CompleteJsonAsync(Req);
+
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.DoesNotContain(",}", reply.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain(",]", reply.Text, StringComparison.Ordinal);
+        using var doc = System.Text.Json.JsonDocument.Parse(reply.Text);   // a STRICT parser, as a consumer has
+        Assert.Equal(2, doc.RootElement.GetProperty("b").GetInt32());
+    }
+
+    [Fact]
+    public async Task A_reply_code_canNOT_repair_still_retries_exactly_once()
+    {
+        // Truncation is the case leniency must NOT paper over: an unbalanced object is missing content, not
+        // punctuation, so asking the model again is the only thing that can produce it.
+        var p = new FakeLlmProvider("p");
+        p.Replies.Enqueue(new LlmReply("""{"cut": "of""", ProviderVerdict.Ok));
+        p.Replies.Enqueue(new LlmReply("""{"whole": true}""", ProviderVerdict.Ok));
+
+        var reply = await Client(p).CompleteJsonAsync(Req);
+
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Equal(2, p.Calls.Count);
     }
 
     [Fact]
