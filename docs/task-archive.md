@@ -3692,3 +3692,29 @@ that way it tampered with nothing and asserted that an untouched envelope throws
 and is not — an instance of `TASKS.md` Part 99's watch item with a real root cause. The mutation is now
 derived from the input with an `Assert.NotEqual` control; the trap is in `pitfalls.md`.
 
+## Part 215 — ONE small model doing MANY jobs: the sub-100 MB cross-encoder, reached and priced
+
+✅ closed 2026-09-15. `TASKS.md` Part 177, both halves.
+
+- **MEASURE the sub-100 MB cross-encoder that now exists — and give the library a way to reach it.**
+
+**Outcome, reaching it: `AddOnnxCrossEncoder`** (`Lyntai.Providers.Onnx`, commit `c1a62871`) — an
+`IModelProvider` producing `ProviderKinds.Score` over `[CLS] q [SEP] d [SEP]`. **It needed no new seam**,
+which is the reusable half: `AddMemoryScoringVerification` already selects on that kind (**D139**), so the
+bespoke `IMemoryVerificationPolicy` the item assumed was never required. A multi-label head is refused
+rather than read at column 0.
+
+**Outcome, pricing it (`docs/memory-measurements.md` §5, `locomo-onnx-sub100mb-n200`): it WORKS and is a
+THIRD as good.** +3.0 evidence-hit at 23,200,716 B against `LAMAR-600m`'s +9.0 at 468,393,760 B, of 9.5
+reachable, same tree and embedder. The fp32 sibling is identical in every cell, so precision is not the
+lever; the 512-token window never bit (0 of 16,000 pairs), so the pre-registered confound is ruled out; it
+regresses multi-hop by 5.4 points, which is the row a deployment should read rather than the overall.
+
+**What the item got WRONG**, both already-fixed premises rather than open questions: it assumed a bespoke
+policy after opening with "no new API is needed", and its blocker ("no sub-100 MB reranker scores
+correctly") was llama.cpp's converter rather than the model class.
+
+**A stale bench control nearly made it unreadable** — the locomo semantic probe still spelled the
+pre-U+001F vector-collection address and reported `vectors=0` over a full store. At the head of its own fix
+(`docs/FIXES.md`), with the trap that a harness asserting against an internal address IS a spelling of it;
+the Windows symlink byte-count trap it also surfaced is in `pitfalls.md`.

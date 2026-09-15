@@ -15,23 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 7 Parts: 1 startable, 7 blocked, 2 watch
+## Open items — 9 across 6 Parts: 7 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 91 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
-| 135 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 144 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 198 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 269 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
-| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 482 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 751 | 177 | MEASURE the sub-100 MB cross-encoder that now exists — and give the library… | startable |  |
+| 90 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key, and a ~1.7 GB model download for one sd-cli render |
+| 134 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 143 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 197 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 268 | 65 | Subject drift is bounded but not eliminated, and nothing measures how often… | blocked · env | a second chat model on this machine — a drift RATE across models, not an an… |
+| 346 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 401 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 424 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 481 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -46,14 +45,14 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is ONE item**, Part 179's
-seven having been filed and worked to completion on one day — a design REVIEW is the third route an item
-arrives by, and the only one that can be scheduled on purpose. The other two are a ruling and a captured
-failure, and neither comes from re-reading the tree; a review does, which is how it produced seven at
-once after months of ones and twos — two of them refuted, which is a close like any other. A third
-refutation moved the SQLite dedup race to `watch`: its stated cause did not survive being read.
-`decision-only` is still EMPTY. That sentence is hand-written on purpose and gated by `check-counts`:
-the banner it replaces advertised finished work **four** times, and nothing derived it.
+longer drift apart. Edit the marker, never the table. **The startable set is ZERO items**, Part 177's last
+one having closed as `docs/task-archive.md` Part 215 — so every remaining item is `blocked` or `watch`, and
+nothing here can be picked up today without first clearing a blocker. **Read that as a prompt to look
+elsewhere for work, not as "there is none":** a design REVIEW is the third route an item arrives by and the
+only one that can be scheduled on purpose, which is how Part 179 produced seven at once after months of
+ones and twos. The other two routes are a ruling and a captured failure, and neither comes from re-reading
+the tree. `decision-only` is still EMPTY. That sentence is hand-written on purpose and gated by
+`check-counts`: the banner it replaces advertised finished work **four** times, and nothing derived it.
 
 **Where things stand is NOT summarized here, deliberately.** `docs/memory-measurements.md` §5 is the measurement record,
 `docs/task-archive.md` holds one Part per closed task, `docs/DECISIONS.md` holds what was decided and why,
@@ -724,113 +723,6 @@ moving it.** `RetrievabilityWeight` stays at 1, and this is no longer an open qu
 default's (87.1%) while its `stale@k` rises 62.9 → 87.1. Removing forgetting's vote does not change what
 the engine FINDS, it destroys what it BURIES — so LoCoMo, which only scores finding, cannot see the cost.
 **Any future arm that wins on LoCoMo owes this table a visit before it is proposed as a default.**_
-
----
-
-## Part 177 — ONE small model doing MANY jobs: the shape a heavy application actually needs (2026-09-10)
-
-_Opened at the owner's direction: "there will be a heavy application using a small model to perform, and it
-might need to be multi tasking too". That is a different question from "which model is best at task X", and
-the library is already most of the way to answering it — **no new API is needed**. The seams exist:
-named `ILlmClient`s (**D87** — "reranking, salience judging … should not silently run on whatever backend
-happens to be default"), `LlmAnnotationOptions.ClientName` ("annotation runs on EVERY write, so it belongs
-on a small fast backend"), `LlmConsumers` for per-seam cost attribution, and `AddLlamaProvider`. What is
-missing is MEASUREMENT._
-
-_**Two findings already constrain this and should be read first.** A task-shape rule: a GENERATIVE task
-takes a budget (the extractor went 7.1 → 2.1 facts/turn when told "at most 2") while a SELECTIVE task over
-a visible list does not (the judge asked for ≤20 of 80 endorsed MORE, 34.9 against 29.1) — so the fix for a
-selective task is a structural constraint, never a prompt. And **D110**: on a judge whose endorsements are
-97.7% noise, no promotion rule over them helps, so model choice and calibration are the levers rather than
-the plumbing._
-
-_**What is already measured** (`docs/memory-measurements.md` §5, archive Parts 175–176): a 468 MB cross-encoder captures
-6.0 of the 7.0 points a perfect judge offers, and a model 28 months newer at the same architecture and size
-is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come down 26%._
-
-- [ ] **MEASURE the sub-100 MB cross-encoder that now exists — and give the library a way to reach it.** <!-- item: state=startable -->
-  **THE BLOCKER BELOW IS REFUTED (2026-09-14), by a route neither of its two stated unblockers
-  anticipated** — not #21729 merging, not a small RoBERTa: a runtime that does not convert at all.
-  `docs/memory-measurements.md` §5 (`rerank-screen-onnx-runtime`); the probe is
-  `devtools/onnx/rerank-screen.py`. The SAME `ms-marco-MiniLM-L6-v2` whose GGUF ranks the reference pair
-  **backwards** reproduces its own model card to **four decimal places** through ONNX Runtime, and its int8
-  export is **23,200,716 B**, correctly ordered, still logit-scaled — **20.2× below** the floor recorded
-  below. Quantisation costs 1.4% of spread. **So the floor was llama.cpp's, never the model class's.**
-  <br>**What is left is therefore the two things the old framing never reached, and the first is now
-  STARTABLE.** The prerequisite landed the same day: `Lyntai.Providers.Onnx` (**D124**,
-  `docs/task-archive.md` Part 208) is an ONNX session, a WordPiece pass and a pooling step in this
-  repository, so a cross-encoder head is a class beside `OnnxProvider` rather than a new package — the
-  session plumbing and `Lyntai.Text.WordPieceTokenizer` are already shared.
-  <br>**EVERY PREREQUISITE IS DONE AND ONLY THE MEASUREMENT IS LEFT (2026-09-15).** Reachability needed no
-  new seam: **D139** made `AddMemoryScoringVerification` take any backend declaring `ProviderKinds.Score`,
-  so `AddOnnxCrossEncoder` is an `IModelProvider` implementing `ScoreAsync` beside `OnnxProvider` — not the
-  bespoke `IMemoryVerificationPolicy` this item assumed. The tokenizer's PAIR overload shipped
-  (`WordPieceTokenizer.Encode(a, b, maxTokens)`, segment 0 for the query and 1 for the document, budget
-  spent on the DOCUMENT), and the class over `[CLS] q [SEP] d [SEP]` now runs it: **this library's own
-  encoding and session reproduce the published reference pair**, so the segment signal survives the .NET
-  path and not only Python's (`OnnxCrossEncoderLiveTests`, gated on `LYNTAI_ONNX_RERANK_MODEL_DIR`).
-  <br>**What is left is QUALITY, which is the point, and it is the WHOLE of what is left**: no sub-100 MB
-  reranker has an evidence-hit figure through ANY runtime, and `LAMAR-600m`'s +6.0 at 468,393,760 B is the
-  number to beat. A screen is not a measurement — reproducing one published pair says nothing about
-  evidence-hit, and that sentence has now been true of this candidate through two runtimes.
-  <br>**Two things the refutation does NOT touch**, stated so they are not swept along: the multilingual
-  half below still holds (a 250,002-token vocabulary is the model's, not the runtime's, so Chinese-first is
-  still above 100 MB), and so does the 512-token ceiling.
-
-  _Everything from here down is the 2026-09-12 reading, kept because its mechanism is still correct about
-  GGUFs and because the way it generalised one runtime's defect into a property of the model class is the
-  reusable lesson._
-  **THE SIZING HALF IS ANSWERED, AND THE ANSWER IS NO — the blocker is UPSTREAM (2026-09-12).**
-  `docs/memory-measurements.md` §5 (`rerank-screen-reference-pair`); the instrument is
-  `node devtools/dev.mjs rerank-screen`. **No sub-100 MB reranker scores correctly on llama.cpp today.**
-  A first pass claimed one did — 8/8 at 33,257,824 B — and it was **retracted within the hour**: that screen
-  used a fixture of one answer plus unrelated distractors, which a broken head passes. On a pair with a
-  published reference score, `ms-marco-MiniLM-L6-v2` ranks **backwards** and `jina-reranker-v1-tiny-en`
-  orders correctly with **137.8×** too little spread.
-  <br>**The cause is llama.cpp PR #21729, `open` and unmerged**: token_type_ids hardcoded to zero, pooling
-  layers dropped during conversion. A BERT cross-encoder therefore loses its pooler in the file and its
-  segment signal at runtime — and it needs segments to tell the query from the document.
-  **`tokenizer.ggml.token_type_count` predicts every result**: `2` wants a signal it will not get, `1` is
-  the RoBERTa/XLM-R family, which never had segment embeddings and is immune. So **a correct reranker must
-  today be RoBERTa-family**, that family cannot fit under 100 MB, and **468,393,760 B remains the floor**.
-  Not startable as a survey — re-surveying finds more BERT models with the same defect. What would change
-  it: #21729 merging, or a RoBERTa-family reranker small enough to fit.
-  <br>**And it is ENGLISH-ONLY anyway, with multilingual not fitting — structurally, not for want of
-  looking.**
-  The best-architected multilingual candidate (`mmarco-mMiniLMv2-L12-H384-v1`, 117,641,603 params,
-  `XLMRobertaForSequenceClassification`, `zh`+`ja` and **no `ko`**) bottoms out at **124,925,504 B** (Q4_K_M)
-  against **132,584,000 B** (Q8_0) — **6.1% apart**, because XLM-R's 250,002-token vocabulary is 81.6% of the
-  parameters. **Quantisation is not a lever on a model whose bulk is its embedding table**, so no quant of
-  this architecture reaches 104,857,600 B. **Sub-100 MB and Chinese-first are incompatible on today's
-  candidates** — that is a finding for the owner, not a task, and it lives in `docs/model-tasks.md` §3.
-  <br>**And NO QUALITY WAS MEASURED, on any candidate.** A screen reproduces one published pair; it says
-  nothing about evidence-hit. Since nothing sub-100 MB scores correctly, there is currently nothing worth
-  spending a workload run on — which is why this item points at the upstream blocker rather than at a
-  measurement.
-  <br>_**What the screen killed, recorded so it is not re-walked.** `ms-marco-MiniLM-L6-v2` Q8_0
-  (25,281,216 B) is also a 512-token BERT, so `--ctx-size` is silently ignored and a 1,221-token document
-  returns `400 … larger than the max context size` — independent of the head defect, and disqualifying on
-  its own for a seam that hands a verifier `Content` (**D108**). `cstr`'s conversions are **2 for 2 dead**,
-  both refusing to load with `bert model needs to define token type count`. And a `cls.output.weight` check
-  CANNOT condemn a non-BERT architecture: it read ABSENT on all three conversions of `jina-bert-v2`, which
-  names its head `cls.weight`. `.claude/knowledge/pitfalls.md` carries all of these._
-  <br>**Still true and still the discipline**: SCORING only, never instruct models (806,058,240 B was inert
-  with a ceiling of zero); and **state exact bytes**, never MB or MiB alone.
-
-_**The contention item CLOSED 2026-09-11** as `docs/task-archive.md` **Part 190**
-(`docs/memory-measurements.md` §5): moving verification off the shared instruct model is worth most of the
-mixed-workload recall p50, and **only the first 2x of that is the smaller model** — the rest is what the judge
-pays for SHARING the chat server with annotation. Its scope was wrong before it ran: there are THREE
-model-backed seams, not four, because `IMemoryVerificationPolicy` is a SINGULAR slot (**D115**)._
-
-_**The taxonomy item CLOSED 2026-09-10** as `docs/task-archive.md` **Part 185**: `docs/model-tasks.md`,
-reached from `CLAUDE.md`, `README.md`, `docs/memory.md` and `.claude/knowledge/model-decoupling.md`. **Its
-four proposed shapes were not the set** — a sweep found four more the list could not name, `score-a-pair`
-turned out to be two unrelated tasks, and `classify` overstated what this library hands a model. **Read
-that doc's §3 before scoping the item above**: the only sub-500 MB evidence this repository holds tests
-the RERANKER role and is `ships=no`, so "which shapes survive at <500 MB" is still eight blanks and one
-qualified cell. (That note also said **the library ships no adapter that can call a rerank endpoint**,
-which **D115** made false the next day — `AddMemoryScoringVerification` is one.)_
 
 ---
 

@@ -13,6 +13,12 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Lyntai.Tests" />
+    <!-- The benches assert against INTERNAL addresses the engine composes — the similarity-index collection
+         above all. A harness that spells one itself is a second spelling of an address whose whole point is
+         having one, and it rots silently: the locomo semantic CONTROL held `locomo|conv|scope` after the
+         engine moved to U+001F and reported "vectors=0" for a store that was fully populated, which reads as
+         a dead channel rather than as a stale probe (docs/FIXES.md, 2026-09-15). -->
+    <InternalsVisibleTo Include="Lyntai.Benchmarks" />
   </ItemGroup>
 
 </Project>

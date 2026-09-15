@@ -51,9 +51,13 @@ infrastructure beside whatever the application's own model is doing.
   because endorsing more than a page replaces the ranking instead of refining it.
   <br>**On a contended device that seam can now hold NO server at all** — `AddOnnxCrossEncoder` runs the
   cross-encoder in process, so the un-sharing above costs a port and a process on a shared host and costs
-  neither here. **No quality figure exists for it**, which is the whole of what is unmeasured: the smallest
-  correctly-scoring export screened is **23,200,716 B** and a screen is not an evidence-hit measurement,
-  so the 468,393,760 B row above remains the only quality evidence in this role.
+  neither here. **Priced 2026-09-15** (`locomo-onnx-sub100mb-n200`): a **23,200,716 B** export captures
+  **+3.0** of the 9.5 reachable evidence-hit points where **468,393,760 B** captures **+9.0**. So the trade
+  on this axis is explicit — **20× the bytes and a server for 3× the gain** — and which way it falls is the
+  deployment's, which is why this document rather than a default. Two things to carry with it: its fp32
+  sibling at 91,011,230 B is identical in every cell, so do not pay for precision; and it **regresses
+  multi-hop by 5.4 points**, so a deployment whose questions need several evidence turns should not take
+  the overall figure.
 - **Annotation runs on EVERY write**, so it is the seam most worth pinning to a small fast backend —
   `LlmAnnotationOptions.ClientName` exists for exactly that.
 - **Pin with `ClientName`, never with `Model`.** A candidate's own model wins over the request's, so on any

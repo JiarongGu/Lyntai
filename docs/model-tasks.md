@@ -170,8 +170,12 @@ candidate count, how much text each candidate carries.
 > instruct model at three options (72.0% against 71.5%), pulls AHEAD as the list grows (67.4% against
 > 63.6% at seven), and is the only arm flat in N.
 
-**THREE quality measurements of a sub-500 MB model now exist, in three different roles**, and the first is
-still the narrowest. `docs/memory-measurements.md` §5 owns all of them: the RERANKER
+**FOUR quality measurements of a sub-500 MB model now exist, and the fourth is the first SUB-100 MB one in
+any role** (2026-09-15, `locomo-onnx-sub100mb-n200`): a **23,200,716-byte** cross-encoder running in
+process captures **+3.0** of the 9.5 evidence-hit points a perfect judge offers, where a 468,393,760-byte
+one captures **+9.0**. It works and it is a third as good — and its fp32 sibling at 91,011,230 B scores
+**identically in every cell**, so within this family the extra bytes are not a lever. The other three, and
+the first is still the narrowest. `docs/memory-measurements.md` §5 owns all of them: the RERANKER
 (`locomo-lamar600m-q8-n200`, n = 200, `ships=no`) — a **468,393,760-byte** cross-encoder captures **6.0 of
 the 7.0 points** a perfect judge offers on that workload, at 74% of the incumbent's bytes, and a model 28
 months newer at the same architecture and size scores identically; the EMBEDDER (§3.3, `ships=no`) — a
@@ -210,12 +214,16 @@ the measured floor, with sub-100 MB blocked by an unmerged patch rather than by 
 > library can reach an ONNX model at all: `AddMemoryScoringVerification` (**D115**) takes a
 > `/v1/rerank` endpoint and an ONNX file has no server.
 >
-> **REACHABILITY CLOSED 2026-09-15, and it needed no new seam.** `AddOnnxCrossEncoder` loads a
-> cross-encoder export in process and declares `ProviderKinds.Score` — which is what
-> `AddMemoryScoringVerification` already selects on, D115's endpoint-shaped reading having been replaced by
-> **D139**. So the sentence above is now half true: the QUALITY figure is still missing, and that is the
-> whole of what is left. This library's own pair encoding reproduces the published reference pair through
-> its own session, so the segment signal survives the .NET path and not only Python's.
+> **BOTH CLOSED 2026-09-15, so the sentence above is fully spent.** Reachability needed no new seam —
+> `AddOnnxCrossEncoder` loads a cross-encoder in process and declares `ProviderKinds.Score`, which
+> `AddMemoryScoringVerification` already selects on (**D139** replaced D115's endpoint-shaped reading).
+> <br>**And the quality figure now exists** (`locomo-onnx-sub100mb-n200`): **+3.0** evidence-hit at
+> 23,200,716 B against `LAMAR-600m`'s **+9.0** at 468,393,760 B on the same tree and embedder, of 9.5
+> points reachable. **So sub-100 MB WORKS and is a THIRD as good** — the size class is answered rather
+> than merely available. Two things that answer settles and one it does not: the fp32 export is
+> **identical in every cell**, so the extra 67,810,514 B is not the lever; the 512-token window
+> **never bit** (0 of 16,000 pairs truncated), so it is not the cause either; and the comparison stacks
+> size against architecture against runtime, which it does not separate.
 
 **RE-AIMED 2026-09-12, and this paragraph read as more final than it is.** Everything above is about the
 **cross-encoder** role, and #21729's two defects are role-specific: zeroed `token_type_ids` costs a model
@@ -467,7 +475,7 @@ suspect the neighbour before the model — the tell is a *non-monotone* curve as
 since a genuinely wrong setting degrades smoothly and contention does not.
 
 **Where a shortlist of small models exists at all it is a DESK survey** — sizes and capabilities read from
-model cards, never called (`TASKS.md` Part 177). Two things make that tier worth distrusting here rather
+model cards, never called (`docs/task-archive.md` Part 215). Two things make that tier worth distrusting here rather
 than merely unconfirmed: a community conversion of a reranker can be missing its classification head, in
 which case it still loads and still returns scores that are simply wrong; and one such quant differs from a
 working one only by a tensor count. **Smoke-test a reranker before trusting a run** — score a known answer

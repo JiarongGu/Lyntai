@@ -3994,8 +3994,9 @@ two cannot be one member. What changed is that the method is now justified by `P
 by a bespoke enum member that did not fit.
 
 **What this predicts, and is the reason to believe it:** a reranker is `Produces: [score]` — no new
-operation, no new interface, no new family. `TASKS.md` Part 177's cross-encoder had nowhere to sit under
-the old model and needs nothing new under this one.
+operation, no new interface, no new family. `docs/task-archive.md` Part 215's cross-encoder had nowhere to
+sit under the old model and needed nothing new under this one — which is how it shipped, as
+`AddOnnxCrossEncoder` plus one capability declaration.
 
 ## D131 — a backend's `Produces` is DERIVED from its configuration, so a modality is a field (2026-09-14)
 

@@ -54,10 +54,11 @@
          reference WordPieceTokenizerTests asserts id-for-id equality against — which is also what found
          the two rules it gets wrong (tab/newline/CR are not word separators; accents are not stripped). -->
     <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
-    <!-- TEST-ONLY, and it is the CONSUMER's step being exercised: Lyntai.Providers.Onnx references the
-         managed half only, so something has to supply the native backend. The test project adds the CPU one
-         exactly as an application would — which is also why a missing backend cannot hide behind a green
-         suite. Never move this to src/: that would choose the user's hardware (D68). -->
+    <!-- OUTSIDE src/ ONLY, and it is the CONSUMER's step being exercised: Lyntai.Providers.Onnx references
+         the managed half only, so something has to supply the native backend. The test project and the
+         bench each add the CPU one exactly as an application would — which is also why a missing backend
+         cannot hide behind a green suite. Never move this to src/: that would choose the user's hardware
+         (D68). -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.29.0" />
     <!-- TRANSITIVE PIN, not a dependency this repository uses. Testcontainers 4.13.0 drags SSH.NET 2025.1.0,
          which carries a known HIGH-severity advisory (GHSA-q939-rpr3-3284) and so makes every restore of the

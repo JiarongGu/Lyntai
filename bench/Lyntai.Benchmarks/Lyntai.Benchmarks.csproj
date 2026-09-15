@@ -22,10 +22,15 @@
          subject IS ranking). Zero-dependency and Core-only, so it adds nothing to the build graph — the
          footprint that matters here, given what the comment below records about build-log size. -->
     <ProjectReference Include="..\..\src\Lyntai.Storage.InMemory\Lyntai.Storage.InMemory.csproj" />
+    <!-- The IN-PROCESS arm of the cross-encoder study (TASKS.md Part 177). Every published reranker figure
+         here was scored over HTTP against a llama-server, which cannot reach an ONNX file at all — so
+         measuring one needs the adapter, and the adapter needs the native backend the app supplies. -->
+    <ProjectReference Include="..\..\src\Lyntai.Providers.Onnx\Lyntai.Providers.Onnx.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
   </ItemGroup>
 
   <!-- MemoryPolicySweep.cs reuses these two files VERBATIM (compile-time link, not a second copy) rather

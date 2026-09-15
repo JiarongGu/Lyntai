@@ -7,7 +7,26 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
-## 2026-09-15 — a graph engine's vector collections could be forgotten ACROSS a task boundary
+## 2026-09-15 — a graph engine's vector collections could be forgotten ACROSS a task boundary <!-- keeps: the collision, the U+001F fix and the three-spellings lesson all stand; only "one spelling" was too strong -->
+
+> **CORRECTED the same day: there was a FOURTH spelling, and it was outside `src/`.** The
+> `memory-locomo --retrieval` semantic CONTROL composed `locomo|{conv}|session` by hand and prefix-swept
+> `locomo|{conv}|`. After the fix it matched nothing and printed
+> *"collections=0 [] vectors=0 of 369 turns; semantic top-20 returned 0"* over a store holding all 369 —
+> **a false zero, and one that reads as a dead retrieval channel rather than as a stale probe.** It is the
+> more dangerous direction than the bug it was watching for: the control exists to prove semantic seeding
+> runs, and it now disproved it. Caught only because a cross-encoder measurement needed that arm as its
+> base (`docs/task-archive.md` Part 215).
+> <br>**Why the tests could not catch it.** `MemoryVectorCollectionTests` asserts write-side/read-side
+> agreement inside `Lyntai.Core`, and the bench is neither side — it is a third party asserting against an
+> internal address, and nothing gated it because `bench/` has no API surface to gate.
+> <br>**Fix.** `Lyntai.Core` now grants `InternalsVisibleTo` to `Lyntai.Benchmarks`, and the control calls
+> `MemoryVectorCollection.For` / `PrefixFor` like everything else — so the owner really is the only
+> spelling. The control now reads `collections=1 … vectors=369 of 369 turns; semantic top-20 returned 20`.
+> <br>**The lesson below gets stronger, not weaker.** Grepping for the SHAPE rather than the helper's name
+> is right and still would not have found this one, because the shape search was run over `src/`. **A
+> harness that asserts against an internal address is a spelling of it**, and the search has to cover
+> every tree that can compose one.
 
 **Symptom.** `GraphMemoryEngine` addressed a similarity-index collection as `{engine}|{taskKey}|{scope}`.
 Because `|` is an ordinary character a caller may put in either component, two different triples composed to

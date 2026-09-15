@@ -205,12 +205,21 @@ internal static class MemoryLocomoBench
         var reranker = args.Contains("--retrieval") && !args.Contains("--no-rerank")
             ? new CrossEncoderReranker(http, CrossEncoderReranker.BaseUrl, CrossEncoderReranker.Model)
             : null;
-        if (reranker is not null && !await reranker.ReachableAsync())
+        // IN PROCESS when a model directory is named — the arm llama.cpp cannot serve, because its
+        // conversion zeroes the segment ids a BERT cross-encoder needs. Everything downstream is identical,
+        // so the row this produces is comparable to the HTTP ones cell for cell.
+        var local = reranker?.UseLocalOnnx();
+        if (reranker is not null && local is not null)
+        {
+            Console.WriteLine($"memory-locomo rerank: {local}");
+        }
+        else if (reranker is not null && !await reranker.ReachableAsync())
         {
             Console.WriteLine($"  SKIPPED: no reranker answered at {CrossEncoderReranker.BaseUrl} "
                 + $"({CrossEncoderReranker.Model}); the +rerank arm is absent from this run.");
             Console.WriteLine($"    llama-server -m <bge-reranker*.gguf> --reranking --port 8081, then set "
-                + $"{CrossEncoderReranker.UrlVariable}.");
+                + $"{CrossEncoderReranker.UrlVariable} — or point {CrossEncoderReranker.OnnxDirectoryVariable} "
+                + "at an ONNX export and it runs with no server at all.");
             reranker = null;
         }
         else if (reranker is not null)
@@ -991,11 +1000,15 @@ internal static class MemoryLocomoBench
                     // against the template would hand every question below a store it had already read
                     using var probeDb = template.Clone();
                     var engine = Fresh(probeDb);
-                    var collection = $"locomo|{convId}|session";
+                    // The ENGINE's own spelling, not a copy of it. This control held `locomo|{conv}|session`
+                    // after the address moved to a U+001F separator and reported vectors=0 over a fully
+                    // populated store — a false zero that reads as a dead channel (docs/FIXES.md).
+                    var collection = MemoryVectorCollection.For("locomo", convId, "session");
                     var probeVector = await embedder.EmbedAsync(mine[0].Text);
                     var all = await vectors.SearchAsync(collection, probeVector, 100_000);
                     var topK = await vectors.SearchAsync(collection, probeVector, RecallLimit);
-                    var collections = await vectors.ListCollectionsAsync($"locomo|{convId}|");
+                    var collections = await vectors.ListCollectionsAsync(
+                        MemoryVectorCollection.PrefixFor("locomo", convId));
                     Console.WriteLine($"  CONTROL {arm}/{convId}: collections={collections.Count} "
                         + $"[{string.Join(",", collections)}] vectors={all.Count} of {texts.Count} turns; "
                         + $"semantic top-{RecallLimit} returned {topK.Count}, "
@@ -1352,6 +1365,13 @@ internal static class MemoryLocomoBench
             if (calls > 0 && distinct <= 1)
                 Console.WriteLine("  ! ONE distinct score across every pair - it discriminated nothing, so "
                     + "this arm's row is the instrument, not a result.");
+            // The CONFOUND control, and only the in-process path can know it: every reranker measured here
+            // over HTTP has an 8192-token window and a sub-100 MB BERT has 512, so a deficit cannot be told
+            // from the model never having seen the evidence. Printed at zero too - a silent control is
+            // indistinguishable from one that was never wired.
+            if (CrossEncoderReranker.OnnxDirectory is { Length: > 0 })
+                Console.WriteLine($"  pairs whose DOCUMENT did not fit the window: {reranker.Truncated} of "
+                    + $"{scored}" + (scored > 0 ? $" ({100.0 * reranker.Truncated / scored:F1}%)" : ""));
         }
 
         // `--dump` was parsed and read by NOTHING until 2026-09-01 — a flag the usage advertised and the
