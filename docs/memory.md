@@ -412,6 +412,9 @@ a perfect judge offers on LoCoMo, where the 4B instruct judge *spends* 10.5 at t
 and their limits in `docs/memory-measurements.md` §5, and both are ladder rungs rather than defaults, since
 this seam still ships empty. **Set `EndorseCount` to your recall limit**: a fixed count keeps promotion a
 refinement, and endorsing more than a page is what made the instruct judge replace the ranking instead.
+**And set `ProviderId` the moment a SECOND backend produces that kind** (**D148**) — unset, the seam takes
+whichever was registered first, which is registration order deciding what verifies memory and saying so
+nowhere. A cross-encoder registered for a tool selector is enough to make that reachable.
 
 Because it is a policy rather than a mode, a consumer who disagrees with every judgement above implements
 `IMemoryVerificationPolicy` themselves — a hosted reranker, a different model, a hand-written rule — and

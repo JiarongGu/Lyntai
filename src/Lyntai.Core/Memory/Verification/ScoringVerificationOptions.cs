@@ -13,16 +13,31 @@ namespace Lyntai.Memory.Verification;
 /// LLM judge; a reranker is the other half of the same choice.</para></summary>
 public sealed class ScoringVerificationOptions
 {
-    /// <summary>How many of the backend's own best candidates to endorse. **Set this to the recall limit
-    /// you ask for**, which is what every published figure used.
+    /// <summary>WHICH registered backend scores, by <see cref="Lyntai.Lifecycle.IModelProvider.Id"/>. Null —
+    /// the default — takes the first registered one that produces <see cref="Lyntai.Lifecycle.ProviderKinds.Score"/>, which
+    /// is what a deployment with exactly one wants and what this seam did before the option existed.
     ///
-    /// <para><b>It is a fixed count on purpose, and the size is the whole design.</b> Under the shipped
-    /// <c>Partition</c> combination an endorsed set is promoted ahead of everything unendorsed and then cut
-    /// at the caller's limit — so endorsing exactly a page's worth makes the returned page BE the backend's
-    /// choice of the pool, and promotion REFINES the ranking. Endorsing more than a page REPLACES it
-    /// instead, which is the measured failure of an LLM judge that endorsed 29.1 of 80.</para>
+    /// <para><b>Name it as soon as a second scoring backend exists for ANY reason.</b> Under the default,
+    /// registration ORDER decides what verifies memory and nothing reports the choice — so a backend added
+    /// for a tool selector or a ranking policy silently becomes the memory verifier too. The two
+    /// model-backed sibling seams say it with
+    /// <see cref="LlmVerificationOptions.ClientName"/>; this is the same lever over a provider id rather
+    /// than a client name, because a scoring backend is selected by what it PRODUCES and never routed.</para>
     ///
-    /// <para>The library cannot default this for you: <see cref="MemoryVerificationRequest"/> carries the
-    /// query and the candidates and deliberately not the caller's limit, so a policy cannot read it.</para></summary>
+    /// <para>An id naming no registered backend — or one that does not declare
+    /// <see cref="Lyntai.Lifecycle.ProviderKinds.Score"/> — THROWS when the policy is composed, rather than reporting
+    /// <c>NoOpinion</c> on every recall, which is the silent degradation this option exists to remove.
+    /// Matched case-insensitively, like every other id lookup here.</para></summary>
+    public string? ProviderId { get; set; }
+
+    /// <summary>How many of the backend's own best candidates to endorse. <b>Set it to the recall limit you
+    /// ask for</b>, which is what every published figure used.
+    ///
+    /// <para>A fixed count is the design: endorsing a page's worth makes promotion REFINE the ranking, and
+    /// endorsing more REPLACES it — the measured failure of an LLM judge that endorsed 29.1 of 80.
+    /// <c>docs/memory.md</c> carries the mechanism.</para>
+    ///
+    /// <para>The library cannot default it for you: <see cref="MemoryVerificationRequest"/> deliberately
+    /// does not carry the caller's limit, so a policy cannot read it.</para></summary>
     public int EndorseCount { get; set; } = 20;
 }

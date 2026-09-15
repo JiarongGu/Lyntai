@@ -3796,3 +3796,187 @@ co-occurrence, recency, and the shape. `docs/memory.md` and `docs/model-tasks.md
 use yet is an ABSORBING STATE — an out-of-range pick is dropped, so no handle is recorded, so the list never
 grows: 32 of 32 unlabelled, presenting as "this model cannot do the shape". A selective seam must bootstrap
 generatively. In `pitfalls.md`; the figures above are from after the fix.
+
+## Part 221 — full code review of the 2026-09-15 line
+
+✅ closed 2026-09-15. `TASKS.md` Part 221, scheduled by the owner and run before anything else.
+
+- **Review `bfd49190..ca670dd4`, the whole 2026-09-15 line.**
+
+**Outcome: seven findings, all startable, filed as `TASKS.md` Part 222.** Two are defects of SILENCE rather
+than of logic — a loud refusal placed under a fail-open consumer (RV1), and a seam whose backend is chosen
+by DI registration order while both its siblings can be told (RV2). The rest are a shipped internals door
+with a cheaper alternative already in the same csproj, a test whose citation overstates it, an undocumented
+divergence between three duplicate-name policies, a judging seam with no cheap-backend lever, and five
+one-sentence documentation gaps.
+
+**The six judgement calls it was asked to second-read all stand**, one with a correction: the label-count
+check must ALSO run at composition, because `ScoringVerificationPolicy` swallows the exception the refusal
+raises. The `JsonExtract` split, the ordinal short-circuit, and omitting `BatchSize` were endorsed as
+written. The `SelectingAnnotator` prompt needed nothing — `docs/memory-measurements.md` §5 already carries
+the "ONE selective prompt, not a prompt search" disclosure, in the record that owns the measurement rather
+than in the archive entry.
+
+**What the review did NOT find, which bounds what the findings mean.** No adapter→adapter edge, no
+namespace/folder divergence outside the documented exceptions, no public-surface break (the API baseline
+delta is purely additive), and no DI captive dependency. The four observations judged not worth an item are
+recorded in Part 229 so they are not re-derived.
+
+## Part 223 — a cross-encoder refused a multi-label export where nothing was listening
+
+✅ closed 2026-09-15. `TASKS.md` Part 222, RV1.
+
+- **RV1 — a multi-label head must be refused at COMPOSITION, where the refusal survives.**
+
+**Outcome: the refusal moved to composition and the shape rule now has ONE spelling.**
+`CrossEncoderLogits.ShapeProblem` states it; `CrossEncoderLogits.Read` and the new
+`CrossEncoderLogits.ScoreOutput` both ask it, so a graph cannot be refused at one time and accepted at the
+other. `OnnxCrossEncoder.FromDirectory` resolves its output through `ScoreOutput` against the graph's
+DECLARED `OutputMetadata`. A dynamic label axis states too little to refuse on and is still judged at read
+time. Root cause and the mutation check are `docs/FIXES.md`; the reusable trap — **a guard's audibility is a
+property of its CALLER** — is `.claude/knowledge/pitfalls.md` §Second doors.
+
+**The sub-question it carried was answered by KEEPING fail-open.** A backend declaring `ProviderKinds.Score`
+without serving it stays `NoOpinion`, because that is the seam's contract and is pinned separately; only the
+LOG LEVEL moved, to Warning, since a mis-declaration is permanent where a transport blip is not. Audibility
+was the defect, never the verdict.
+
+**What it got wrong on the first pass, and the reason the fix is shaped as it is.** The composition check was
+written against `InferenceSession` directly — unreachable by any test, so deleting it left the suite green.
+That is the same defect the review filed as RV4 against `OnnxRegistrationTests`, reproduced by the hand that
+filed it. Taking the DECLARATION rather than the session is what made the mutation check possible.
+
+## Part 224 — the scoring verification seam can name its backend
+
+✅ closed 2026-09-15. `TASKS.md` Part 222, RV2.
+
+- **RV2 — the scoring verification seam cannot NAME its backend, and both its siblings can.**
+
+**Outcome: `ScoringVerificationOptions.ProviderId`, and the reasoning is `docs/DECISIONS.md` D148.**
+Additive and defaulted to null, which reproduces today's first-registered-wins exactly, so no existing
+deployment moves. A name matching no registered backend — or one that does not declare
+`ProviderKinds.Score` — throws where the policy is composed, because reporting `NoOpinion` instead is
+indistinguishable from a reranker that simply had no opinion.
+
+**A provider id rather than a `ClientName`, which is the part worth carrying.** The two sibling seams name
+an `ILlmClientFactory` client because a judge is ROUTED and inherits candidates, fallback and governance. A
+scoring backend is not routed at all — it is picked by what it `Produces` and called directly — so the only
+thing to name is `IModelProvider.Id`, and reusing `ClientName` would have implied a routing story that does
+not exist.
+
+**Why it was reachable at all is D139**, not an oversight: *the declaration is the wiring*, so a
+cross-encoder registered for a tool selector or a ranking policy became the memory verifier as a side effect
+of existing. The option is the cost of that design, not a correction to it.
+
+## Part 225 — the bench reaches one internal address by a compile-LINK, not an internals door
+
+✅ closed 2026-09-15. `TASKS.md` Part 222, RV3.
+
+- **RV3 — `InternalsVisibleTo(Lyntai.Benchmarks)` ships on a published assembly for two static methods.**
+
+**Outcome: the grant is removed and `bench/Lyntai.Benchmarks` compile-links `MemoryVectorCollection.cs`.**
+Same source file, so the one-spelling guarantee that motivated the door is untouched; the door is not. That
+csproj already linked three files for this exact reason, so the mechanism was sitting four lines away.
+`Lyntai.Tests` keeps its grant — it must reach what it gates, and that trade is worth making once.
+
+**What made it worth undoing rather than tolerating.** `Lyntai.Core` is published and NOT strong-named, so
+`InternalsVisibleTo` matches on assembly NAME alone and ships in the nupkg: anything built under that name
+reads every internal in Core. Bought for two static string-composing methods. The correction is written at
+the HEAD of the `docs/FIXES.md` entry that introduced it, because a reader arrives inside that entry from a
+grep and its **Fix.** paragraph now describes a mechanism that is gone.
+
+**No changelog line, deliberately.** It changes no public API and no runtime behaviour — a consumer could
+only have depended on it by naming their assembly `Lyntai.Benchmarks`. Recorded so the omission is not read
+as one.
+
+## Part 226 — the ONNX registration is ONE call site, and therefore testable
+
+✅ closed 2026-09-15. `TASKS.md` Part 222, RV4.
+
+- **RV4 — `OnnxRegistrationTests` pins the RULE; the comment citing it claims the CALL SITE.**
+
+**Outcome: both builder calls go through `OnnxBuilderExtensions.RegisterOwned`, and `OnnxOwnershipTests`
+asserts the registration they really perform.** A tracking fake plus a real container, so it needs no model
+on disk; a theory covers both the embedding and the plain path. Mutation-checked — rewriting `RegisterOwned`
+to `AddSingleton(instance)`, the "tidy-up" the doc warns about, fails both theory cases.
+
+**The two fixes are the same fix, which is the part worth carrying.** `pitfalls.md` already prescribes ONE
+call site for a decision that was copied (the `MemoryEngineBuilder` entry), on the grounds that a second
+copy drifts. Collapsing the copies is also what made the decision reachable by a test — the comment had
+been citing `OnnxRegistrationTests`, which proves the DI premise against a hand-rolled fake and could not
+see either builder call. That claim is now corrected in place rather than deleted, since the premise is
+still worth pinning.
+
+**The review filed this and then reproduced it**, hours later, writing the composition check of Part 223
+against `InferenceSession`. Recorded because the lesson is not "remember to test the call site" — it is that
+a decision welded to a native handle is unreachable by construction, and the tell is that you are about to
+assert the rule beside the code instead of on it.
+
+## Part 227 — a duplicate NAME follows two rules, and now says which
+
+✅ closed 2026-09-15. `TASKS.md` Part 222, RV5.
+
+- **RV5 — one hazard, three duplicate-name policies, and the divergence is written down nowhere.**
+
+**Outcome: documentation only — `.claude/knowledge/extending-lyntai.md` opens with the two rules and a
+table of which seams are under each.** THROW where the name is an address a caller uses
+(`CompositeMemoryEngine` members, `AddLlmClient` names); first-wins where the collection is a fallback list
+the router walks (`IModelProvider` ids, `ITool` names, `IJobHandler` types). Both were correct; what was
+missing is that all five justified themselves with the SAME sentence and reached opposite conclusions, so a
+reader who learned the rule from one seam got the other wrong.
+
+**Nothing was changed in code, deliberately.** `LlmRouter`'s first-wins is load-bearing — the lookup folds
+case on purpose, and the pooling and cooldown paths key on the same id — so refusing a duplicate would
+reject registrations that are already merged one step earlier. The entry says so, to stop the next reader
+"fixing" it.
+
+**The concrete cost is named rather than left general**: give every `*Options.Id` a distinct value per
+registration. Two `AddOnnxCrossEncoder` calls on the default id load two models, and the second is invisible
+to the router and a coin-flip for `AddMemoryScoringVerification` unless `ProviderId` names one (**D148**).
+
+## Part 228 — REFUTED: the pairwise judge CAN be pointed at a cheap backend, and always could
+
+✅ closed 2026-09-15. `TASKS.md` Part 222, RV6.
+
+- **RV6 — `IPairwiseComparer` is the one judging seam with no way to name a cheap backend.**
+
+**Outcome: the premise was WRONG and no API was added.** `docs/model-tasks.md` §5 already prescribes the
+route — resolve `ILlmClientFactory`, ask it for the name you want, hand the client to
+`LlmPairwiseComparer`'s public constructor; the container registration is try-add, so yours wins. The
+asymmetry with the two `ClientName` seams is deliberate and §5 names the distinguishing property: those two
+also suppress reasoning on the request, worth ~25 s against ~1.5 s per judgement.
+
+**What was actually missing was evidence and a pointer, and both shipped.** §5's claim had no test, which is
+how a documented path stops being wired (`pitfalls.md`); there is now one driving it end to end through a
+real container, with a positive control proving the unconfigured case really does run on the app's default
+backend. The type's own doc had no reference to §5, so a reader of `LlmPairwiseComparer` could not find the
+answer from where the question arises.
+
+**Worth carrying: the review read the CODE and not the model-task inventory.** A finding of the form "seam X
+cannot be configured" is answerable from `docs/model-tasks.md` §1's *named client* column, which had this
+one filed as `composition root` the whole time. Check that table before filing another.
+
+## Part 229 — the five documentation gaps, and the four observations the review REFUSED to file
+
+✅ closed 2026-09-15. `TASKS.md` Part 222, RV7 — the last of that Part, which is now empty and removed.
+
+- **RV7 — five documentation gaps the review found, each a sentence or two.**
+
+**Outcome: all five landed.** The batched ceiling on `IModelProvider.ScoreAsync` and `OnnxCrossEncoder`
+(the caller owns the list size; no `BatchSize` knob, deliberately); `JsonExtract`'s lenient/strict postures
+stated where the frozen NAMES cannot carry them; that scan's comment-blindness; `EndorseCount` trimmed to
+the rule with `docs/memory.md` holding the mechanism; and `CLAUDE.md`'s namespace map admitting the one
+namespace Core does not own alone.
+
+**One of the five became a test instead of a sentence.** The claim that a block comment containing `}` ends
+extraction early was written, then pinned in `JsonExtractTests` with the no-brace control beside it — an
+unverified caveat is worth no more than an absent one, and this one was inferred from reading rather than
+observed.
+
+**The four observations Part 222 judged NOT worth an item**, relocated here so Part 221's pointer resolves
+and nobody re-derives them: `OnnxGraph.Pad` is unreachable without a model but the tokenizer guarantees its
+three arrays are one length, so there is no route in; `SentenceTransformerConfig` is a bi-encoder name
+serving a cross-encoder for one field, and its call site already says why; `Model2VecProvider` ships publicly
+from `Lyntai.Providers.Basic` into Core's `Lyntai.Embeddings`, a real inconsistency frozen by **D70** and
+now merely findable; and the eager `InferenceSession` leaks if a LATER composition step throws, which is
+named on the builder doc because loading lazily would trade a loud startup failure for a quiet one.

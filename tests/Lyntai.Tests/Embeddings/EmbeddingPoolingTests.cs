@@ -314,12 +314,16 @@ public class OnnxRegistrationTests
         public void Dispose() => WasDisposed = true;
     }
 
+    // These two pin the DI PREMISE and nothing else — that MS.DI disposes what a factory produced and not
+    // what it was handed. They say nothing about which form `AddOnnxProvider` uses, and for a while their
+    // own comment claimed they did: rewriting that call to `AddSingleton(instance)` left both green.
+    // `OnnxOwnershipTests` asserts the registration those builder calls actually perform.
+
     [Fact]
     public void A_singleton_registered_as_an_INSTANCE_is_NOT_disposed_by_the_container()
     {
-        // This is why AddOnnxProvider registers through a factory instead. OnnxProvider holds a native
-        // session, so "the container will clean it up" has to be true rather than assumed — and for the
-        // instance overload it is not.
+        // The premise behind registering through a factory: a provider holds a native session, so "the
+        // container will clean it up" has to be true rather than assumed — and for this overload it is not.
         var embedder = new TrackingEmbedder();
         var services = new ServiceCollection();
         services.AddSingleton<IEmbedder>(embedder);

@@ -8,10 +8,15 @@ namespace Lyntai.Text;
 /// first balanced <c>{…}</c> object, and parses it — via <see cref="TryParseObject"/> for a document, or
 /// <see cref="TryReadObject"/> for strictly valid TEXT.
 ///
-/// <para><b>Three entry points, and the difference between them is which question is being asked.</b> The
-/// two reads TOLERATE the punctuation a model gets wrong, because repairing it in code is cheaper than a
-/// second call; <see cref="IsValid"/> is STRICT because its caller is grading whether the model got it
-/// right.</para></summary>
+/// <para><b>Three entry points, and the NAMES do not tell you which is which — this paragraph is the only
+/// place that does.</b> <see cref="TryParseObject"/> and <see cref="TryReadObject"/> are LENIENT: they
+/// tolerate the punctuation a model gets wrong, because repairing it in code is cheaper than a second call.
+/// <see cref="IsValid"/> is STRICT, because its caller is grading whether the model got it right. The
+/// surface is frozen (<b>D70</b>), so the postures cannot move into the names.</para>
+///
+/// <para><b>The scan tracks strings but not COMMENTS</b>, so a block comment containing <c>}</c> ends it
+/// early and the fragment fails to parse. Leniency and extraction disagree there, and the direction is the
+/// safe one — a caller retries rather than receiving a truncated object.</para></summary>
 public static class JsonExtract
 {
     public static string? ExtractObject(string? text)

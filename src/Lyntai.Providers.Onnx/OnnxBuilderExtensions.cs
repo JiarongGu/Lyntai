@@ -1,4 +1,5 @@
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Providers.Onnx;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -22,8 +23,11 @@ public static class OnnxBuilderExtensions
     /// them, which is what <c>docs/DECISIONS.md</c> D68 refuses.</para>
     ///
     /// <para><b>Loaded EAGERLY</b>, so a missing, truncated or non-ONNX model is a composition error heard
-    /// at startup rather than on the first recall. Pooling, normalization and the sequence limit come from
-    /// the model's own files unless <paramref name="configure"/> overrides them.</para>
+    /// at startup rather than on the first recall. The native session therefore exists before the container
+    /// does, and a composition step that throws AFTER this call strands one — kept deliberately, because
+    /// loading lazily trades a loud startup failure for a quiet first-recall one. Pooling, normalization and
+    /// the sequence limit come from the model's own files unless <paramref name="configure"/> overrides
+    /// them.</para>
     ///
     /// <para>Registered with <c>TryAdd</c>, so an <see cref="IEmbedder"/> registered before this call
     /// wins — the BYO story every seam here has.</para>
@@ -40,17 +44,28 @@ public static class OnnxBuilderExtensions
         var options = new OnnxProviderOptions();
         configure?.Invoke(options);
 
-        var embedder = OnnxProvider.FromDirectory(modelDirectory, options);
-
-        // A PROVIDER declaring ProviderOperation.Embed, so the routing front door can select it by id
-        // alongside every other backend (D129) — and a FACTORY returning the already-built instance, which
-        // is the half that matters for resources. Building it above is what makes a bad model fail at
-        // composition; registering through a factory rather than as an instance is what makes the container
-        // OWN it, because `AddSingleton(instance)` does not dispose what it did not create and this holds a
-        // native session. Pinned by `OnnxRegistrationTests` — collapsing it to an instance reads as a tidy-up.
-        builder.AddEmbeddingProvider(_ => embedder);
-        return builder;
+        return RegisterOwned(builder, OnnxProvider.FromDirectory(modelDirectory, options), embeds: true);
     }
+
+    /// <summary>Hands the container a built backend it will DISPOSE — the one registration site both calls
+    /// above share.
+    ///
+    /// <para><b>A FACTORY returning the already-built instance, and the distinction is the whole point.</b>
+    /// Building eagerly is what makes a bad model directory fail at composition; registering through a
+    /// factory rather than as an instance is what makes the container OWN the result, because
+    /// <c>AddSingleton(instance)</c> does not dispose what it did not create and these hold a native session.
+    /// Collapsing it reads as a tidy-up and leaks one per container.</para>
+    ///
+    /// <para><b>One site rather than a copy in each call</b>, so the rule cannot be applied on one path and
+    /// missed on the other — and so `OnnxOwnershipTests` can assert the registration these methods really
+    /// perform instead of restating the DI rule beside them.</para>
+    ///
+    /// <para><paramref name="embeds"/> picks the collection: an embedding provider sets a composition-time
+    /// flag that decides whether <c>AddSemanticMemory</c> can be honoured, and a cross-encoder must not set
+    /// it — it produces scores, and claiming otherwise turns a clean composition failure into a runtime
+    /// one.</para></summary>
+    internal static LyntaiBuilder RegisterOwned(LyntaiBuilder builder, IModelProvider provider, bool embeds) =>
+        embeds ? builder.AddEmbeddingProvider(_ => provider) : builder.AddProvider(_ => provider);
 
     /// <summary>
     /// Score <c>(query, document)</c> pairs IN PROCESS with a cross-encoder through ONNX Runtime — the
@@ -65,7 +80,12 @@ public static class OnnxBuilderExtensions
     ///
     /// <para><b>The same native-backend requirement as <see cref="AddOnnxProvider"/> applies</b>: this
     /// package references the MANAGED half of ONNX Runtime only, so the application adds exactly one native
-    /// backend. <b>Loaded EAGERLY</b> too, so a bad model directory is heard at startup.</para>
+    /// backend. <b>Loaded EAGERLY</b> too, with the same trade recorded there.</para>
+    ///
+    /// <para><b>An export whose head cannot carry one score per pair is refused HERE</b>, not on the first
+    /// recall — a multi-label (NLI) model above all, which otherwise loads, scores, and ranks backwards.
+    /// It has to be composition: the seam below is fail-open, so the same refusal raised later arrives as a
+    /// recall that is silently never verified.</para>
     ///
     /// <para><b>Registered as a plain provider, not an embedding one</b> — it produces scores, so it must not
     /// be what makes a deployment think it can embed.</para>
@@ -82,11 +102,7 @@ public static class OnnxBuilderExtensions
         var options = new OnnxCrossEncoderOptions();
         configure?.Invoke(options);
 
-        var reranker = OnnxCrossEncoder.FromDirectory(modelDirectory, options);
-
-        // A FACTORY returning the already-built instance, for the reason AddOnnxProvider states: the
-        // container disposes what it CREATED, and this holds a native session.
-        builder.AddProvider(_ => reranker);
-        return builder;
+        return RegisterOwned(
+            builder, OnnxCrossEncoder.FromDirectory(modelDirectory, options), embeds: false);
     }
 }

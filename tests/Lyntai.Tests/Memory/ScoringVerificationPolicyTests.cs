@@ -1,5 +1,6 @@
 using Lyntai.Lifecycle;
 using Lyntai.Memory.Verification;
+using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Tests.Memory;
 
@@ -18,9 +19,10 @@ namespace Lyntai.Tests.Memory;
 public class ScoringVerificationPolicyTests
 {
     /// <summary>A backend that produces scores and records what it was asked to score.</summary>
-    private sealed class FakeScorer(Func<IReadOnlyList<string>, IReadOnlyList<double>> score) : IModelProvider
+    private sealed class FakeScorer(
+        Func<IReadOnlyList<string>, IReadOnlyList<double>> score, string id = "scorer") : IModelProvider
     {
-        public string Id => "scorer";
+        public string Id => id;
         public List<IReadOnlyList<string>> Sent { get; } = [];
 
         public ProviderCapabilities Capabilities { get; } = new()
@@ -124,6 +126,68 @@ public class ScoringVerificationPolicyTests
         Assert.Equal(0.5, verdict.Scores["c"]);
     }
 
+    // ---- WHICH backend, when more than one produces scores -------------------------------------------
+    // Registering a second Score backend for any reason at all used to change what verified memory, decided
+    // by DI registration order and reported nowhere. Both sibling seams (LlmVerificationOptions.ClientName,
+    // LlmAnnotationOptions.ClientName) have always been able to say; this one could not.
+
+    private static ScoringVerificationPolicy Policy(IReadOnlyList<IModelProvider> backends, string? providerId) =>
+        new(backends, new ScoringVerificationOptions { EndorseCount = 1, ProviderId = providerId });
+
+    [Fact]
+    public async Task A_NAMED_backend_is_the_one_asked_even_when_another_was_registered_FIRST()
+    {
+        var first = new FakeScorer(d => [.. d.Select(_ => 1.0)], "fast");
+        var named = new FakeScorer(d => [.. d.Select(_ => 1.0)], "accurate");
+
+        await Policy([first, named], "accurate").VerifyAsync(Request("a", "b"));
+
+        Assert.Empty(first.Sent);                       // registration order no longer decides
+        Assert.Single(named.Sent);
+    }
+
+    [Fact]
+    public async Task Naming_NOTHING_keeps_first_registered_wins_so_an_existing_deployment_is_untouched()
+    {
+        var first = new FakeScorer(d => [.. d.Select(_ => 1.0)], "fast");
+        var second = new FakeScorer(d => [.. d.Select(_ => 1.0)], "accurate");
+
+        await Policy([first, second], providerId: null).VerifyAsync(Request("a", "b"));
+
+        Assert.Single(first.Sent);
+        Assert.Empty(second.Sent);
+    }
+
+    [Fact]
+    public void Naming_a_backend_NOBODY_REGISTERED_throws_where_it_is_composed()
+    {
+        // It must not be a NoOpinion at first recall: that is the silent degradation the option exists to
+        // remove, and it would read as "the reranker had no opinion" rather than "you named a typo".
+        var error = Assert.Throws<InvalidOperationException>(
+            () => Policy([new FakeScorer(_ => [1.0], "accurate")], "acurate"));
+
+        Assert.Contains("acurate", error.Message, StringComparison.Ordinal);
+        Assert.Contains("accurate", error.Message, StringComparison.Ordinal);   // says what IS registered
+    }
+
+    [Fact]
+    public void Naming_a_backend_that_does_NOT_produce_scores_throws_too()
+    {
+        // The likelier typo of the two: a real id that happens to be the chat model. The Supports filter
+        // would skip it and report NoOpinion forever.
+        var error = Assert.Throws<InvalidOperationException>(() => Policy([new ChatOnly()], "chat"));
+
+        Assert.Contains(ProviderKinds.Score, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_named_backend_is_matched_case_insensitively_like_every_other_id_lookup_here()
+    {
+        // LlmRouter, GenerationRouter, IToolRegistry and BoundedProviderPool all fold case; an ordinal
+        // table here would make a backend reachable by the router and invisible to this seam.
+        _ = Policy([new FakeScorer(_ => [1.0], "Accurate")], "accurate");
+    }
+
     // ---- fail-open, and the one case that must NOT ---------------------------------------------------
 
     [Fact]
@@ -145,6 +209,47 @@ public class ScoringVerificationPolicyTests
         // Judged=false is the load-bearing half: an EMPTY endorsement means "none of these answered",
         // which is a real judgement and would let the engine drop results under VerificationFilters.
         Assert.False(verdict.Judged);
+    }
+
+    /// <summary>Records the LEVEL each line was written at, which is the whole subject of the pair below.</summary>
+    private sealed class CapturingLogger : ILogger<ScoringVerificationPolicy>
+    {
+        public List<LogLevel> Levels { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? error,
+            Func<TState, Exception?, string> formatter) => Levels.Add(level);
+    }
+
+    private static async Task<List<LogLevel>> LevelsFrom(Exception thrown)
+    {
+        var logger = new CapturingLogger();
+        var policy = new ScoringVerificationPolicy(
+            [new FakeScorer(_ => throw thrown)], new ScoringVerificationOptions(), logger);
+
+        await policy.VerifyAsync(Request("a"));
+        return logger.Levels;
+    }
+
+    [Fact]
+    public async Task A_backend_that_DECLARED_Score_and_does_not_serve_it_is_AUDIBLE_not_debug_only()
+    {
+        // Fail-open stays — the verdict is still NoOpinion, pinned above. What changes is audibility: a
+        // backend declaring a kind it does not implement is a WIRING defect, identical on every recall
+        // forever, and at debug level nothing ever tells the deployment its recalls are unverified.
+        Assert.Contains(LogLevel.Warning, await LevelsFrom(new NotSupportedException("no ScoreAsync here")));
+    }
+
+    [Fact]
+    public async Task A_TRANSIENT_failure_stays_at_debug_so_the_warning_above_still_means_something()
+    {
+        // The positive control. Without it, an implementation that logged everything at Warning would pass
+        // the test above and turn a per-recall transport blip into per-recall noise.
+        Assert.DoesNotContain(LogLevel.Warning, await LevelsFrom(new HttpRequestException("connection reset")));
+        Assert.DoesNotContain(LogLevel.Warning, await LevelsFrom(new InvalidOperationException("malformed")));
     }
 
     [Fact]

@@ -13,7 +13,7 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 ## Current state
 
 **Released: v3.1.0 (2026-08-23).** Eleven packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D147** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D148** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
@@ -85,6 +85,9 @@ placement is by OWNERSHIP, not consumption, so only a type no domain owns (`Memo
 root) / `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` / `Lyntai.Jobs` /
 `Lyntai.Guards` / `Lyntai.Secrets` / `Lyntai.Lifecycle` / `Lyntai.Storage` / `Lyntai.Processes` /
 `Lyntai.Text`; builder + `Add*`/`Use*` extensions live in the `Lyntai` namespace.
+**One namespace above is not Core's alone**: `Lyntai.Providers.Basic` ships `Model2VecProvider` publicly
+into `Lyntai.Embeddings.Model2Vec`, while the other in-process embedder sits in `Lyntai.Providers.Onnx`. An
+inconsistency, frozen by **D70** — recorded so a reader does not conclude the tree disagrees with this map.
 
 **The records, and what each is for:** `docs/2026-07-17-lyntai-design.md` — the contract (interfaces,
 semantics); read it first · `docs/DECISIONS.md` §How to read it — the rationale log, present tense,

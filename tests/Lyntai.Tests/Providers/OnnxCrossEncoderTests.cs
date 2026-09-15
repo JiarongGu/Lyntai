@@ -1,6 +1,7 @@
 using Lyntai.Lifecycle;
 using Lyntai.Memory.Verification;
 using Lyntai.Providers.Onnx;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
 
@@ -56,6 +57,118 @@ public class CrossEncoderLogitsTests
         // class at a bi-encoder is the likeliest misconfiguration, and it must not average into a "score".
         Assert.Throws<InvalidOperationException>(
             () => CrossEncoderLogits.Read([1f, 2f, 3f, 4f], [2, 2, 1], rows: 2));
+    }
+}
+
+/// <summary>The same shape judgement, asked of what the EXPORT DECLARES rather than of a tensor it
+/// returned — which is the only place the refusal is actually heard.
+///
+/// <para><b>Refusing at read time is refusing where nothing is listening.</b> The seam this backend exists
+/// for (<c>ScoringVerificationPolicy</c>, D139) is FAIL-OPEN by contract and catches every exception at
+/// debug level — pinned one file over by
+/// <c>ScoringVerificationPolicyTests.A_backend_that_THROWS_is_no_opinion_rather_than_a_failed_recall</c>. So
+/// a multi-label export reaches a deployment as "every recall silently unverified", indistinguishable from
+/// having registered no scoring backend at all. Composition is where a throw still stops something.</para>
+///
+/// <para>Shapes here carry a <c>-1</c> batch axis because that is how ONNX declares a DYNAMIC dimension;
+/// a returned tensor never does, which is the whole difference between this and the tests above.</para></summary>
+public class CrossEncoderShapeDeclarationTests
+{
+    [Fact]
+    public void A_single_logit_head_with_a_DYNAMIC_batch_axis_is_what_a_cross_encoder_declares()
+    {
+        Assert.Null(CrossEncoderLogits.ShapeProblem([-1, 1]));
+        Assert.Null(CrossEncoderLogits.ShapeProblem([-1]));      // the squeezed export, declared
+    }
+
+    [Fact]
+    public void A_MULTI_LABEL_head_is_refused_from_its_DECLARATION_before_a_single_pair_is_scored()
+    {
+        // The finding this test exists for: an NLI-shaped export loads, scores, and returns well-formed
+        // numbers in the wrong order — and the fail-open seam turns the resulting throw into silence.
+        var problem = CrossEncoderLogits.ShapeProblem([-1, 3]);
+
+        Assert.NotNull(problem);
+        Assert.Contains("3 labels", problem, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_DYNAMIC_label_axis_declares_too_little_to_refuse_on_and_is_DEFERRED_not_rejected()
+    {
+        // An exporter may leave both axes open. Refusing that would reject working models over a shape the
+        // graph simply declined to state — the tensor it actually returns is judged instead.
+        Assert.Null(CrossEncoderLogits.ShapeProblem([-1, -1]));
+    }
+
+    [Fact]
+    public void A_per_TOKEN_rank_is_refused_from_the_declaration_too()
+    {
+        Assert.NotNull(CrossEncoderLogits.ShapeProblem([-1, -1, 384]));
+    }
+
+    [Theory]
+    [InlineData(new[] { 2, 1 })]
+    [InlineData(new[] { 2 })]
+    [InlineData(new[] { 2, 2 })]
+    [InlineData(new[] { 2, 2, 1 })]
+    public void The_declaration_check_and_READ_judge_a_shape_the_SAME_way(int[] dimensions)
+    {
+        // One spelling of "can this carry one score per pair", asked at two times. Two spellings is how a
+        // graph gets refused at composition and accepted at read, or the reverse — and the reverse is the
+        // one that ships wrong numbers.
+        var declared = CrossEncoderLogits.ShapeProblem(dimensions) is null;
+        var read = Record.Exception(
+            () => CrossEncoderLogits.Read([0.1f, 0.2f, 0.3f, 0.4f], dimensions, rows: 2)) is null;
+
+        Assert.Equal(declared, read);
+    }
+
+    // ---- the COMPOSITION call site, not merely the rule it applies -----------------------------------
+    // `ScoreOutput` takes the graph's output names and a shape lookup rather than an InferenceSession,
+    // for the reason `EmbeddingPooling` and `ShapeProblem` above are separated at all: a decision welded to
+    // a native session is a decision no test can reach, so deleting it leaves the suite green. Pinning the
+    // RULE and leaving the CALL unpinned is the defect this repository records against `OnnxRegistrationTests`.
+
+    private static string Resolve(params (string Name, int[] Shape)[] outputs) =>
+        CrossEncoderLogits.ScoreOutput(
+            [.. outputs.Select(o => o.Name)], n => outputs.First(o => o.Name == n).Shape);
+
+    [Fact]
+    public void Takes_the_output_named_logits_where_the_export_gives_one()
+    {
+        Assert.Equal("logits", Resolve(("last_hidden_state", [-1, -1, 384]), ("logits", [-1, 1])));
+    }
+
+    [Fact]
+    public void Takes_the_SOLE_output_when_the_export_named_it_something_else()
+    {
+        Assert.Equal("score", Resolve(("score", [-1, 1])));
+    }
+
+    [Fact]
+    public void REFUSES_a_graph_with_several_outputs_and_no_logits_among_them()
+    {
+        var error = Assert.Throws<InvalidOperationException>(
+            () => Resolve(("last_hidden_state", [-1, -1, 384]), ("pooler_output", [-1, 384])));
+
+        Assert.Contains(nameof(OnnxProvider), error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void REFUSES_a_MULTI_LABEL_export_HERE_where_the_fail_open_seam_cannot_swallow_it()
+    {
+        // The mutation this must kill: dropping the shape check from composition. Everything else about
+        // such an export is healthy — it loads, it scores, and it returns finite numbers in the wrong order.
+        var error = Assert.Throws<InvalidOperationException>(() => Resolve(("logits", [-1, 3])));
+
+        Assert.Contains("3 labels", error.Message, StringComparison.Ordinal);
+        Assert.Contains("-1, 3", error.Message, StringComparison.Ordinal);   // says what it read
+    }
+
+    [Fact]
+    public void ACCEPTS_an_export_that_declared_neither_axis_rather_than_refusing_what_it_cannot_judge()
+    {
+        Assert.Equal("logits", Resolve(("logits", [-1, -1])));
     }
 }
 
@@ -143,6 +256,60 @@ public class OnnxCrossEncoderReachabilityTests
         Assert.Equal([ProviderKinds.Score], OnnxCrossEncoder.Declared.Produces);
         Assert.Equal([ProviderKinds.Text], OnnxCrossEncoder.Declared.Accepts);
         Assert.Equal([ProviderOperation.Complete], OnnxCrossEncoder.Declared.Operations);
+    }
+}
+
+/// <summary>That both <c>AddOnnx*</c> calls hand the container something it will DISPOSE — asserted against
+/// the registration they actually perform, not against a restatement of the rule.
+///
+/// <para><b>`OnnxRegistrationTests` proves the DI premise and cannot prove this.</b> It shows that MS.DI
+/// disposes a factory-registered singleton and not an instance-registered one, against a hand-rolled fake —
+/// so rewriting either builder call to <c>AddSingleton(instance)</c>, the "tidy-up" its comment warns about,
+/// left the whole suite green. Pinning a RULE while the CALL SITE stays unreachable is the shape this
+/// repository records in `pitfalls.md`; the fix it prescribes for two copies of one decision is ONE call
+/// site, which is also what makes it reachable here.</para></summary>
+public class OnnxOwnershipTests
+{
+    private sealed class TrackingProvider : IModelProvider, IDisposable
+    {
+        public string Id => "tracked";
+        public ProviderCapabilities Capabilities => OnnxCrossEncoder.Declared;
+        public bool WasDisposed { get; private set; }
+        public void Dispose() => WasDisposed = true;
+    }
+
+    [Theory]
+    [InlineData(true)]   // AddOnnxProvider's path — an embedding provider
+    [InlineData(false)]  // AddOnnxCrossEncoder's path — a plain one
+    public void The_CONTAINER_owns_what_either_builder_call_registers(bool embeds)
+    {
+        // Both hold a native InferenceSession, so "the container will clean it up" has to be true rather
+        // than assumed — and for the instance overload it is not.
+        var provider = new TrackingProvider();
+        var services = new ServiceCollection();
+
+        services.AddLyntai(b => OnnxBuilderExtensions.RegisterOwned(b, provider, embeds));
+        using (var built = services.BuildServiceProvider())
+            Assert.Contains(provider, built.GetServices<IModelProvider>());
+
+        Assert.True(provider.WasDisposed, "the container disposed nothing — it was handed an instance");
+    }
+
+    [Fact]
+    public void Registering_the_CROSS_ENCODER_does_not_claim_the_deployment_can_embed()
+    {
+        // It produces scores. Claiming otherwise would let AddSemanticMemory compose over a backend that
+        // cannot embed, turning a clean composition failure into a runtime one.
+        var services = new ServiceCollection();
+
+        services.AddLyntai(b => OnnxBuilderExtensions.RegisterOwned(b, new TrackingProvider(), embeds: false));
+
+        Assert.Throws<InvalidOperationException>(
+            () => new ServiceCollection().AddLyntai(b =>
+            {
+                OnnxBuilderExtensions.RegisterOwned(b, new TrackingProvider(), embeds: false);
+                b.AddSemanticMemory();
+            }));
     }
 }
 

@@ -7,7 +7,60 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
-## 2026-09-15 — a graph engine's vector collections could be forgotten ACROSS a task boundary <!-- keeps: the collision, the U+001F fix and the three-spellings lesson all stand; only "one spelling" was too strong -->
+## 2026-09-15 — a cross-encoder refused a multi-label export where nothing was listening
+
+**Symptom.** None visible, which IS the defect. `AddOnnxCrossEncoder` pointed at an NLI-shaped export —
+three labels per pair rather than one — loads cleanly, and every recall through
+`AddMemoryScoringVerification` comes back exactly as the engine ranked it. That is indistinguishable from
+having registered no scoring backend at all, and nothing above debug level says otherwise.
+
+**Root cause.** `CrossEncoderLogits.Read` refuses such a head rather than reading column 0, and its own
+comment calls that *"safe and LOUD"*. It is loud only for a DIRECT caller. The seam it was built to serve
+(**D139**) is `ScoringVerificationPolicy`, which is fail-open by contract: it catches every exception, logs
+at `LogDebug` and returns `NoOpinion`. **The refusal was raised into the one consumer designed to swallow
+it.** The asymmetry sat inside a single method — `OnnxCrossEncoder` already ran one shape check at
+composition (an output it cannot name) and left the sibling label-count check to run time.
+
+**Fix.** `CrossEncoderLogits.ShapeProblem` states the rule once, and both `CrossEncoderLogits.Read` and the
+new `CrossEncoderLogits.ScoreOutput` ask it — so a graph cannot be refused at one time and accepted at the
+other. `OnnxCrossEncoder.FromDirectory` now resolves its output through `ScoreOutput`, against the graph's
+DECLARED `OutputMetadata`, so a multi-label head throws at composition. A graph declaring a dynamic label
+axis (`-1`) states too little to refuse on and is deferred to `Read` and the tensor it really returns.
+`ScoringVerificationPolicy` keeps failing open — that is its contract and is pinned separately — but a
+`NotSupportedException` now logs at **Warning**, because a backend declaring a kind it does not serve is a
+permanent wiring defect and not a transient failure.
+
+**`ScoreOutput` takes the declaration, not the session, and that is the load-bearing half of the fix.** A
+check welded to a native `InferenceSession` is one no test can reach, so deleting it leaves the suite green
+— the defect this repository records against `OnnxRegistrationTests` (`docs/task-archive.md` Part 226).
+Passing the output names plus a shape lookup is the same separation `EmbeddingPooling` and
+`CrossEncoderLogits` already make for the same reason.
+
+**Verify.** `CrossEncoderShapeDeclarationTests` — the declared happy path, the multi-label refusal naming
+what it read, a dynamic axis DEFERRED rather than rejected, and a theory asserting the declaration check and
+`Read` judge four shapes identically. **The composition refusal was mutation-checked**: disabling the
+`ShapeProblem` call in `ScoreOutput` failed exactly one test, the multi-label one, and nothing else. The log
+level is pinned by a pair — a `NotSupportedException` reaching Warning, with a transient failure asserted
+NOT to, so an implementation that warned about everything cannot pass.
+
+**Introduced by.** `c1a62871`, the commit that added the cross-encoder — the refusal and the fail-open
+consumer arrived together, so no window existed in which it behaved differently.
+
+---
+
+## 2026-09-15 — a graph engine's vector collections could be forgotten ACROSS a task boundary <!-- keeps: the collision, the U+001F fix and the three-spellings lesson all stand; "one spelling" was too strong, and the MECHANISM below is superseded -->
+
+> **SUPERSEDED the same day, MECHANISM only: the bench reaches that one spelling by a compile-LINK, not by
+> `InternalsVisibleTo`.** The correction below is right that a harness asserting against an internal address
+> is a spelling of it, and right that the locomo control had to call the owner. What it reached for was too
+> big: `Lyntai.Core` is published and NOT strong-named, so an `InternalsVisibleTo` is matched on assembly
+> NAME alone, ships inside the nupkg, and hands every internal in Core to anything built under that name —
+> bought for two static string methods.
+> <br>**The bench now links `MemoryVectorCollection.cs` as a source file** (`<Compile Include=… Link=…>`),
+> which the same csproj already did three times over for exactly this reason. It is the SAME source, so the
+> one-spelling guarantee is unchanged; only the door is gone. `Lyntai.Tests` keeps its grant — it has to
+> reach what it gates, and that trade is worth making once. Found by the Part 221 review
+> (`docs/task-archive.md` Part 225).
 
 > **CORRECTED the same day: there was a FOURTH spelling, and it was outside `src/`.** The
 > `memory-locomo --retrieval` semantic CONTROL composed `locomo|{conv}|session` by hand and prefix-swept

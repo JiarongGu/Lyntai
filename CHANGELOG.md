@@ -14,6 +14,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`ScoringVerificationOptions.ProviderId` names WHICH backend verifies a recall** (**D148**). Unset it
+  still takes the first registered backend that produces `ProviderKinds.Score`, so nothing moves for a
+  deployment with one — but with two, that was registration ORDER deciding what verifies memory, reported
+  nowhere. D139 makes a second one likely rather than hypothetical: a cross-encoder registered for a tool
+  selector became the memory verifier as a side effect of existing. A name matching no registered backend,
+  or one that does not declare `Score`, throws where the policy is composed rather than reporting
+  `NoOpinion` on every recall.
+
 - **An OpenAI-compatible backend declares what it `Produces`** (**D130**, **D131**, **D133**). One
   registration is one backend: `o.Produces = ProviderKinds.Vector` posts to `/embeddings` instead of
   `/chat/completions`, declares `Complete` alone (there is no partial embedding), and enters the routed
@@ -21,6 +29,16 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   backend that answered.
 
 ### Fixed
+
+- **A cross-encoder export whose head cannot carry one score per pair is now refused at COMPOSITION.**
+  `AddOnnxCrossEncoder` pointed at a multi-label (NLI) model used to load cleanly and refuse on the first
+  score — into `AddMemoryScoringVerification`, which is fail-open and reported `NoOpinion`, so every recall
+  came back silently unverified and looked exactly like having no scoring backend registered.
+  `OnnxCrossEncoder.FromDirectory` now reads the label axis the graph itself declares and throws there. An
+  export that declares a DYNAMIC label axis is unaffected — it states too little to refuse on and is still
+  judged against the tensor it returns. Separately, `ScoringVerificationPolicy` still fails open but now
+  logs a backend that declares `ProviderKinds.Score` without serving it at **Warning** rather than Debug: it
+  is a permanent wiring defect, not a transient failure. Detail in `docs/FIXES.md`.
 
 - **A graph engine's vector collections could be forgotten ACROSS a task boundary.** The similarity-index
   address was `{engine}|{taskKey}|{scope}`, so two different triples composed to one collection — task `a` +

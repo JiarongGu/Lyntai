@@ -15,6 +15,28 @@ Lyntai's whole value is being extended without forking. Every extension is **an 
 `Lyntai.Core` + an implementation in an adapter package that depends only on Core** (never adapter →
 adapter) + **a `LyntaiBuilder` extension method** so the consumer wires it with one line.
 
+## A duplicate NAME: two rules, and which one you are under is not guessable
+
+Every seam here keys its members by a string, and a duplicate makes one of the two unreachable. **Half of
+them THROW and half take first-wins silently** — the same one-sentence justification ("one of the two would
+be unreachable") reaching opposite conclusions, which is why it is written down rather than left to be
+inferred from whichever seam you happened to read.
+
+| seam | a duplicate | why |
+|---|---|---|
+| `CompositeMemoryEngine` members, `AddLlmClient` names | **throws** | the name is an ADDRESS a caller uses — an entry's `MemoryRef` must name one owner, and a client name must resolve to one client |
+| `IModelProvider` ids (`LlmRouter`), `ITool` names, `IJobHandler` types | **first-wins, silent** | the collection is a FALLBACK LIST the router walks; it also folds case, so refusing would reject registrations that differ only in case and are already merged one step earlier |
+
+**Do not "fix" the second row.** `LlmRouter` builds its lookup with `TryAdd` over a case-insensitive
+dictionary deliberately (see its own comment on why an ordinal table was worse), and the pooling and
+cooldown paths key on the same id.
+
+**What this costs you when adding a backend: give every `*Options.Id` a distinct value per registration.**
+Two `AddOnnxCrossEncoder` calls left on the default id are two backends where the second is invisible to the
+router — and, since **D139** makes a capability declaration the wiring, it also decides which one
+`AddMemoryScoringVerification` picks unless `ScoringVerificationOptions.ProviderId` names one (**D148**).
+Nothing warns; the second model simply loads, occupies memory, and is never called.
+
 ---
 
 ## Add an LLM provider

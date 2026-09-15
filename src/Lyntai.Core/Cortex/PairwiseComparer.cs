@@ -54,6 +54,14 @@ public interface IPairwiseComparer
 /// than an optimization: on identical text a judge has no signal to overcome its position bias with, and
 /// the two-pass check cannot catch the resulting false winner because both passes see the same two
 /// strings.</para>
+///
+/// <para><b>To judge on a CHEAP backend, hand this one.</b> It takes an <see cref="ILlmClient"/> on a public
+/// constructor and the container registration is try-add, so
+/// <c>services.AddSingleton&lt;IPairwiseComparer&gt;(sp =&gt; new LlmPairwiseComparer(
+/// sp.GetRequiredService&lt;ILlmClientFactory&gt;().Get("judge")))</c> wins over the default. That is the
+/// composition-root route <c>docs/model-tasks.md</c> §5 prescribes for every seam without a
+/// <c>ClientName</c> option, and it matters here because the default mitigation costs TWO calls per
+/// comparison.</para>
 /// </summary>
 public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBias = true) : IPairwiseComparer
 {

@@ -13,6 +13,11 @@ namespace Lyntai.Providers.Onnx;
 /// this query" once per PAIR, so the two produce different <see cref="ProviderKinds"/> and cost differently:
 /// n documents are n forward passes here, against one each.</para>
 ///
+/// <para><b>Those n passes run as ONE batch, and there is no size knob</b> — peak allocation therefore
+/// scales with the list, padded to its longest pair. That is deliberate: a chunk size nobody has measured
+/// here would be a permanent promise, and adding one later breaks nothing. Bound the list instead, as the
+/// memory seam does at <c>GraphMemoryOptions.VerificationDepth</c>.</para>
+///
 /// <para><b>What reaching it takes is a registration, not a seam</b> —
 /// <c>AddMemoryScoringVerification</c> selects any backend declaring <see cref="ProviderKinds.Score"/>
 /// (<c>docs/DECISIONS.md</c> D139), so this serves the memory verification seam without speaking HTTP.</para>
@@ -66,7 +71,9 @@ public sealed class OnnxCrossEncoder : IModelProvider, IDisposable
     /// <exception cref="DirectoryNotFoundException">No such directory.</exception>
     /// <exception cref="FileNotFoundException">No ONNX graph, or no <c>vocab.txt</c> — named individually,
     /// because a partial download is the common case and its unguarded symptom is far away.</exception>
-    /// <exception cref="InvalidOperationException">The graph has no output this can read a score from.</exception>
+    /// <exception cref="InvalidOperationException">The graph has no output this can read a score from, or
+    /// the one it has DECLARES a shape that cannot carry one score per pair — a multi-label (NLI) head above
+    /// all, which otherwise loads, scores, and ranks backwards.</exception>
     public static OnnxCrossEncoder FromDirectory(string directory, OnnxCrossEncoderOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
@@ -113,18 +120,16 @@ public sealed class OnnxCrossEncoder : IModelProvider, IDisposable
         return CrossEncoderLogits.Read(head.ToArray(), head.Dimensions, documents.Count);
     }
 
-    /// <summary>The classification head's output — <c>logits</c> by name where the export gives one, and
-    /// otherwise the single output it has.</summary>
-    private static string ScoreOutputName(InferenceSession session)
-    {
-        if (session.OutputMetadata.ContainsKey("logits")) return "logits";
-        if (session.OutputMetadata.Count == 1) return session.OutputMetadata.Keys.First();
-
-        throw new InvalidOperationException(
-            $"This graph has no 'logits' output and {session.OutputMetadata.Count} others to choose from "
-            + $"({string.Join(", ", session.OutputMetadata.Keys)}). A bi-encoder is the likeliest cause — it "
-            + $"embeds rather than scores, so load it with {nameof(OnnxProvider)} instead.");
-    }
+    /// <summary>The classification head's output, refused at COMPOSITION when the graph's own declaration
+    /// says it cannot carry one score per pair.
+    ///
+    /// <para><b>Composition is the only place such a refusal is heard.</b> <c>ScoringVerificationPolicy</c>
+    /// is fail-open by contract, so the same objection raised from <see cref="ScoreAsync"/> reaches a
+    /// deployment as a recall that is quietly never verified. A graph that declared a dynamic label axis
+    /// says too little to refuse on and is judged by <see cref="CrossEncoderLogits.Read"/> instead, against
+    /// the tensor it actually returns.</para></summary>
+    private static string ScoreOutputName(InferenceSession session) => CrossEncoderLogits.ScoreOutput(
+        [.. session.OutputMetadata.Keys], name => session.OutputMetadata[name].Dimensions);
 
     /// <summary>Releases the native session. Held for the container's life in normal use.</summary>
     public void Dispose() => _session.Dispose();

@@ -217,8 +217,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) | 2026-09-15 | the Microsoft.Extensions.AI module is a BRIDGE, not a provider |
 | [D146](#d146--the-microsoftextensionsai-bridge-is-deleted-and-the-trigger-to-rebuild-it-is-written-down-2026-09-15) | 2026-09-15 | the Microsoft.Extensions.AI bridge is DELETED, and the trigger to rebuild it is written down |
 | [D147](#d147--a-bridge-is-a-function-so-it-costs-no-dependency-and-belongs-in-core-2026-09-15) | 2026-09-15 | a BRIDGE is a function, so it costs no dependency and belongs in Core |
+| [D148](#d148--a-seam-that-selects-a-backend-by-capability-must-also-be-able-to-name-one-2026-09-15) | 2026-09-15 | a seam that SELECTS a backend by capability must also be able to NAME one |
 
-_All 147 entries are live decisions._
+_All 148 entries are live decisions._
 
 <!-- index:end -->
 
@@ -4533,3 +4534,32 @@ bridge, tool calls, a model list — and text-in/text-out is a default rather th
 **The delegate returns a VERDICT rather than throwing**, because the router can only advance on something it
 can read. That is what makes a bridge a first-class candidate — it cools down, it falls over, it is admitted
 — rather than a leaf that either works or blows up.
+
+## D148 — a seam that SELECTS a backend by capability must also be able to NAME one (2026-09-15)
+
+`ScoringVerificationOptions.ProviderId` names which registered backend verifies a recall. Null — the default
+— keeps first-registered-wins, so nothing moves for a deployment that has one.
+
+**The alternative was leaving it, and what that costs is a choice nobody makes.** `ScoringVerificationPolicy`
+took the first registered backend declaring `ProviderKinds.Score`. With one that is unambiguous; with two,
+**DI registration order decides what verifies memory and nothing reports it**. **D139** is what makes the
+second one likely rather than hypothetical: *the declaration is the wiring*, so a cross-encoder registered
+for a tool selector or a ranking policy becomes the memory verifier as a side effect of existing.
+
+**It is `generic-library.md`'s rule 7, arriving from the library's own side rather than a consumer's.**
+Which reranker serves memory is a fact only the deployment has — two honest applications
+answer differently and both are right — so the library must not answer it by an accident of ordering. The
+two model-backed sibling seams had always been able to say (`LlmVerificationOptions.ClientName`,
+`LlmAnnotationOptions.ClientName`); this one was the odd seam out.
+
+**A provider id rather than a client name, because the two select differently.** A judge is ROUTED, so it
+names an `ILlmClientFactory` client and inherits candidates, fallback and governance. A scoring backend is
+not routed at all — it is picked by what it `Produces` and called directly — so the only thing there is to
+name is `IModelProvider.Id`. Reusing `ClientName` here would have implied a routing story that does not
+exist.
+
+**It THROWS at composition, and that is most of the value.** A name matching nothing, or matching a backend
+that does not declare `ProviderKinds.Score`, fails where the policy is built. Reporting `NoOpinion` instead
+would be indistinguishable from a reranker that had no opinion — the same silent-degradation shape
+**D119** refused for a seam that pinned an unreachable model, and the shape the fail-open contract makes
+unavoidable everywhere else in this seam.

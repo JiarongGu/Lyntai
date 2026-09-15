@@ -79,7 +79,12 @@ public interface IModelProvider : IProviderIdentity
     /// <para><b>Input order is the contract, not the ranking.</b> A rerank endpoint answers sorted and
     /// carries its own indices; putting the scores back in input order is the backend's job, because the
     /// caller holds the documents and an index it did not send is unusable. A caller ranks by sorting what
-    /// it gets back.</para></summary>
+    /// it gets back.</para>
+    ///
+    /// <para><b>The caller owns the SIZE of the list, and nothing here bounds it.</b> A backend may serve
+    /// the whole set in one request or one forward pass, so cost — a payload, a context window, an
+    /// activation buffer — scales with what you send. Bound it before calling; the memory seam does, at
+    /// <c>GraphMemoryOptions.VerificationDepth</c>.</para></summary>
     /// <exception cref="NotSupportedException">This backend does not declare
     /// <see cref="ProviderKinds.Score"/>. It THROWS rather than returning a verdict for the same reason
     /// <see cref="EmbedAsync(IReadOnlyList{string},CancellationToken)"/> does: there is no score meaning

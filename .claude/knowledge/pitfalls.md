@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 213 traps, indexed two ways
+## Facets — 214 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (42) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 528 · 613 · 622 · 632 · 686 · 700 · 770 · 784 · 1099 · 1226 · 1322 · 1335 · 1362 · 1383 · 1425 · 1598 · 2549 · 2573 · 2583 · 2609 · 2620 · 2657 · 3028 · 3058 · 3067
-- **`encoding`** (7) — 75 · 95 · 100 · 639 · 647 · 922 · 2657
-- **`git`** (8) — 227 · 252 · 283 · 308 · 647 · 669 · 927 · 2549
-- **`build`** (9) — 100 · 613 · 622 · 632 · 686 · 1091 · 1598 · 2558 · 2592
+- **`gates`** (42) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 528 · 613 · 622 · 632 · 686 · 700 · 770 · 784 · 1099 · 1226 · 1322 · 1335 · 1362 · 1383 · 1425 · 1598 · 2573 · 2597 · 2607 · 2633 · 2644 · 2681 · 3052 · 3082 · 3091
+- **`encoding`** (7) — 75 · 95 · 100 · 639 · 647 · 922 · 2681
+- **`git`** (8) — 227 · 252 · 283 · 308 · 647 · 669 · 927 · 2573
+- **`build`** (9) — 100 · 613 · 622 · 632 · 686 · 1091 · 1598 · 2582 · 2616
 - **`router`** (6) — 1441 · 1446 · 1455 · 1457 · 1460 · 1590
 - **`cli`** (19) — 75 · 799 · 922 · 1441 · 1462 · 1470 · 1479 · 1483 · 1495 · 1499 · 1506 · 1510 · 1517 · 1521 · 1554 · 1573 · 1577 · 1582 · 2419
 - **`lifetime`** (6) — 1620 · 1629 · 1634 · 1639 · 1652 · 1660
-- **`storage`** (18) — 1411 · 1533 · 1669 · 1771 · 1799 · 1801 · 1802 · 1804 · 1806 · 1824 · 1835 · 2064 · 2076 · 2332 · 2449 · 2639 · 2821 · 3005
-- **`memory`** (40) — 407 · 440 · 471 · 599 · 1174 · 1533 · 1703 · 1722 · 1733 · 1759 · 1771 · 1786 · 1807 · 1824 · 1835 · 1874 · 1889 · 1896 · 1915 · 1926 · 1944 · 1957 · 1970 · 2028 · 2083 · 2103 · 2139 · 2175 · 2193 · 2200 · 2231 · 2253 · 2281 · 2353 · 2428 · 2449 · 2714 · 2873 · 2901 · 2984
+- **`storage`** (18) — 1411 · 1533 · 1669 · 1771 · 1799 · 1801 · 1802 · 1804 · 1806 · 1824 · 1835 · 2064 · 2076 · 2332 · 2449 · 2663 · 2845 · 3029
+- **`memory`** (41) — 407 · 440 · 471 · 599 · 1174 · 1533 · 1703 · 1722 · 1733 · 1759 · 1771 · 1786 · 1807 · 1824 · 1835 · 1874 · 1889 · 1896 · 1915 · 1926 · 1944 · 1957 · 1970 · 2028 · 2083 · 2103 · 2139 · 2175 · 2193 · 2200 · 2231 · 2253 · 2281 · 2353 · 2428 · 2449 · 2547 · 2738 · 2897 · 2925 · 3008
 - **`generation`** (11) — 1159 · 1219 · 1302 · 1446 · 1652 · 2175 · 2366 · 2378 · 2402 · 2509 · 2534
 - **`di`** (12) — 1639 · 1889 · 1915 · 2095 · 2097 · 2100 · 2103 · 2121 · 2200 · 2231 · 2378 · 2428
-- **`measurement`** (69) — 131 · 392 · 407 · 425 · 440 · 448 · 454 · 471 · 512 · 542 · 558 · 577 · 589 · 599 · 720 · 799 · 806 · 811 · 820 · 826 · 853 · 866 · 877 · 885 · 901 · 908 · 945 · 955 · 975 · 986 · 1020 · 1047 · 1053 · 1069 · 1086 · 1091 · 1130 · 1159 · 1174 · 1204 · 1219 · 1234 · 1252 · 1267 · 1284 · 1302 · 1470 · 1669 · 1688 · 1759 · 1926 · 1957 · 1984 · 1995 · 2010 · 2028 · 2083 · 2139 · 2609 · 2690 · 2741 · 2756 · 2780 · 2800 · 2821 · 2851 · 2888 · 2952 · 2984
-- **`docs`** (26) — 144 · 172 · 195 · 316 · 669 · 700 · 720 · 770 · 1099 · 1110 · 1115 · 1122 · 1226 · 1335 · 1362 · 1425 · 1733 · 2253 · 2320 · 2484 · 2494 · 2573 · 2583 · 2620 · 2639 · 2910
-- **`tests`** (24) — 1383 · 1397 · 1411 · 1554 · 1745 · 1786 · 1807 · 1874 · 1896 · 2064 · 2076 · 2332 · 2703 · 2714 · 2725 · 2901 · 2923 · 3005 · 3013 · 3021 · 3025 · 3028 · 3040 · 3053
+- **`measurement`** (69) — 131 · 392 · 407 · 425 · 440 · 448 · 454 · 471 · 512 · 542 · 558 · 577 · 589 · 599 · 720 · 799 · 806 · 811 · 820 · 826 · 853 · 866 · 877 · 885 · 901 · 908 · 945 · 955 · 975 · 986 · 1020 · 1047 · 1053 · 1069 · 1086 · 1091 · 1130 · 1159 · 1174 · 1204 · 1219 · 1234 · 1252 · 1267 · 1284 · 1302 · 1470 · 1669 · 1688 · 1759 · 1926 · 1957 · 1984 · 1995 · 2010 · 2028 · 2083 · 2139 · 2633 · 2714 · 2765 · 2780 · 2804 · 2824 · 2845 · 2875 · 2912 · 2976 · 3008
+- **`docs`** (26) — 144 · 172 · 195 · 316 · 669 · 700 · 720 · 770 · 1099 · 1110 · 1115 · 1122 · 1226 · 1335 · 1362 · 1425 · 1733 · 2253 · 2320 · 2484 · 2494 · 2597 · 2607 · 2644 · 2663 · 2934
+- **`tests`** (24) — 1383 · 1397 · 1411 · 1554 · 1745 · 1786 · 1807 · 1874 · 1896 · 2064 · 2076 · 2332 · 2727 · 2738 · 2749 · 2925 · 2947 · 3029 · 3037 · 3045 · 3049 · 3052 · 3064 · 3077
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (22) — 227 · 407 · 440 · 471 · 700 · 820 · 1130 · 1302 · 1455 · 1460 · 1479 · 1554 · 1634 · 1722 · 1970 · 2103 · 2139 · 2366 · 2378 · 2428 · 2534 · 2873
+- **`fail-open`** (23) — 227 · 407 · 440 · 471 · 700 · 820 · 1130 · 1302 · 1455 · 1460 · 1479 · 1554 · 1634 · 1722 · 1970 · 2103 · 2139 · 2366 · 2378 · 2428 · 2534 · 2547 · 2897
 - **`cancellation`** (5) — 1441 · 1446 · 1703 · 1722 · 1745
-- **`vacuous`** (47) — 131 · 205 · 212 · 392 · 448 · 454 · 512 · 542 · 622 · 826 · 866 · 885 · 975 · 1159 · 1174 · 1204 · 1219 · 1252 · 1322 · 1335 · 1397 · 1510 · 1573 · 1590 · 1745 · 1786 · 1807 · 1874 · 1896 · 1984 · 1995 · 2028 · 2139 · 2253 · 2639 · 2714 · 2725 · 2756 · 2888 · 2901 · 2923 · 2952 · 3005 · 3028 · 3040 · 3058 · 3067
-- **`scope-blind`** (38) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 647 · 770 · 784 · 1267 · 1335 · 1425 · 1598 · 1889 · 1957 · 2064 · 2076 · 2253 · 2281 · 2332 · 2449 · 2573 · 2583 · 2592 · 2609 · 2620 · 2639 · 2725 · 2888 · 2901 · 3025 · 3058 · 3067
+- **`vacuous`** (47) — 131 · 205 · 212 · 392 · 448 · 454 · 512 · 542 · 622 · 826 · 866 · 885 · 975 · 1159 · 1174 · 1204 · 1219 · 1252 · 1322 · 1335 · 1397 · 1510 · 1573 · 1590 · 1745 · 1786 · 1807 · 1874 · 1896 · 1984 · 1995 · 2028 · 2139 · 2253 · 2663 · 2738 · 2749 · 2780 · 2912 · 2925 · 2947 · 2976 · 3029 · 3052 · 3064 · 3082 · 3091
+- **`scope-blind`** (38) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 647 · 770 · 784 · 1267 · 1335 · 1425 · 1598 · 1889 · 1957 · 2064 · 2076 · 2253 · 2281 · 2332 · 2449 · 2597 · 2607 · 2616 · 2633 · 2644 · 2663 · 2749 · 2912 · 2925 · 3049 · 3082 · 3091
 - **`second-door`** (20) — 1457 · 1495 · 1499 · 1510 · 1517 · 1577 · 1582 · 1660 · 1802 · 1824 · 2103 · 2231 · 2332 · 2353 · 2366 · 2378 · 2402 · 2449 · 2484 · 2509
-- **`stale-claim`** (18) — 57 · 172 · 252 · 316 · 720 · 877 · 908 · 927 · 1099 · 1115 · 1733 · 2100 · 2320 · 2353 · 2402 · 2484 · 2620 · 2910
-- **`silent-loss`** (60) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 425 · 440 · 589 · 639 · 686 · 700 · 799 · 811 · 866 · 922 · 955 · 986 · 1020 · 1086 · 1130 · 1219 · 1226 · 1234 · 1302 · 1362 · 1383 · 1483 · 1499 · 1533 · 1620 · 1652 · 1688 · 1759 · 1799 · 1801 · 1802 · 1804 · 1824 · 1835 · 1874 · 2010 · 2083 · 2095 · 2100 · 2121 · 2193 · 2231 · 2281 · 2419 · 2509 · 2558 · 2573 · 2583 · 2657 · 2741 · 2821 · 2952
-- **`wrong-subject`** (66) — 57 · 111 · 131 · 308 · 392 · 425 · 454 · 471 · 528 · 542 · 558 · 577 · 589 · 599 · 613 · 632 · 826 · 853 · 885 · 901 · 908 · 955 · 986 · 1020 · 1047 · 1053 · 1110 · 1122 · 1159 · 1174 · 1204 · 1234 · 1252 · 1267 · 1284 · 1362 · 1411 · 1457 · 1506 · 1598 · 1629 · 1639 · 1669 · 1759 · 1807 · 1915 · 1926 · 1944 · 1957 · 1984 · 1995 · 2028 · 2175 · 2200 · 2534 · 2549 · 2558 · 2690 · 2741 · 2756 · 2780 · 2800 · 2821 · 2923 · 2984 · 3028
-- **`unmeasured`** (17) — 558 · 599 · 669 · 720 · 770 · 806 · 1069 · 1091 · 1462 · 1470 · 1479 · 1521 · 1573 · 1944 · 2175 · 2494 · 2910
-- **`ordering`** (10) — 632 · 1483 · 1582 · 1771 · 1806 · 2121 · 2419 · 2428 · 2703 · 2851
-- **`resource`** (14) — 613 · 647 · 686 · 945 · 1053 · 1284 · 1462 · 1554 · 1660 · 1669 · 2097 · 3013 · 3021 · 3053
+- **`stale-claim`** (18) — 57 · 172 · 252 · 316 · 720 · 877 · 908 · 927 · 1099 · 1115 · 1733 · 2100 · 2320 · 2353 · 2402 · 2484 · 2644 · 2934
+- **`silent-loss`** (61) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 425 · 440 · 589 · 639 · 686 · 700 · 799 · 811 · 866 · 922 · 955 · 986 · 1020 · 1086 · 1130 · 1219 · 1226 · 1234 · 1302 · 1362 · 1383 · 1483 · 1499 · 1533 · 1620 · 1652 · 1688 · 1759 · 1799 · 1801 · 1802 · 1804 · 1824 · 1835 · 1874 · 2010 · 2083 · 2095 · 2100 · 2121 · 2193 · 2231 · 2281 · 2419 · 2509 · 2547 · 2582 · 2597 · 2607 · 2681 · 2765 · 2845 · 2976
+- **`wrong-subject`** (66) — 57 · 111 · 131 · 308 · 392 · 425 · 454 · 471 · 528 · 542 · 558 · 577 · 589 · 599 · 613 · 632 · 826 · 853 · 885 · 901 · 908 · 955 · 986 · 1020 · 1047 · 1053 · 1110 · 1122 · 1159 · 1174 · 1204 · 1234 · 1252 · 1267 · 1284 · 1362 · 1411 · 1457 · 1506 · 1598 · 1629 · 1639 · 1669 · 1759 · 1807 · 1915 · 1926 · 1944 · 1957 · 1984 · 1995 · 2028 · 2175 · 2200 · 2534 · 2573 · 2582 · 2714 · 2765 · 2780 · 2804 · 2824 · 2845 · 2947 · 3008 · 3052
+- **`unmeasured`** (17) — 558 · 599 · 669 · 720 · 770 · 806 · 1069 · 1091 · 1462 · 1470 · 1479 · 1521 · 1573 · 1944 · 2175 · 2494 · 2934
+- **`ordering`** (10) — 632 · 1483 · 1582 · 1771 · 1806 · 2121 · 2419 · 2428 · 2727 · 2875
+- **`resource`** (14) — 613 · 647 · 686 · 945 · 1053 · 1284 · 1462 · 1554 · 1660 · 1669 · 2097 · 3037 · 3045 · 3077
 
 <!-- facets:end -->
 
@@ -2543,6 +2543,30 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   where the decision matters. **A stage that cannot positively identify a chainable artifact must REFUSE
   rather than fall back** — the fallback is the bug, and it is invisible from the contract, which is why
   `GenerationArtifact.ToInput(role)` takes an explicit role.
+
+- **A loud refusal raised into a FAIL-OPEN consumer is a silent one, and the code that raises it cannot <!-- trap: sub=memory shape=fail-open,silent-loss -->
+  tell.** Measured 2026-09-15 (`docs/FIXES.md`). `CrossEncoderLogits.Read` refuses a multi-label (NLI) head
+  rather than reading column 0, because relevance need not be the first of several labels — and its own
+  comment called that *"safe and LOUD"*. It is loud for a DIRECT caller. The seam the class exists to serve,
+  `ScoringVerificationPolicy` (**D139**), is fail-open by contract: it catches every exception, logs at
+  `LogDebug`, returns `NoOpinion`. So the one guard protecting against a backwards-ranking model raised its
+  objection into the one consumer built to swallow objections, and a deployment saw **every recall silently
+  unverified** — which reads identically to having registered no backend at all.
+  <br>**Fail-open is not the defect; it is the correct contract for that seam and is separately pinned.**
+  The defect is WHERE the check ran. **A guard's audibility is a property of its CALLER, not of the guard**,
+  so before writing one, name who catches it: if the answer is a best-effort seam, the check has to move
+  somewhere a throw still stops something — here composition, where the export's `OutputMetadata` already
+  declares the label count.
+  <br>**The tell is a PERMANENT condition reported through a channel built for TRANSIENT ones.** A refused
+  connection should fail open; a model of the wrong class never becomes the right class, so it will fail
+  identically on every call forever and nothing accumulates evidence that it did. Where the permanent case
+  cannot be lifted to composition — a BYO implementation whose declaration and code disagree — the minimum
+  is to separate it by LOG LEVEL, which changes no behaviour and is testable with a level-recording logger.
+  <br>**And check-before-you-throw does not survive a native handle.** The composition check was first
+  written against `InferenceSession` directly, which made it unreachable by any test — deleting it left the
+  suite green, exactly the defect this repository records against `OnnxRegistrationTests`. Taking the
+  DECLARATION (output names plus a shape lookup) rather than the session is what made a mutation check
+  possible, and it is the same separation `EmbeddingPooling` and `CrossEncoderLogits` already make.
 
 ## Refactoring & namespace moves
 

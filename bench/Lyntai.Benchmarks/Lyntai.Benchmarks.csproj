@@ -53,6 +53,14 @@
          above — and it is the right file rather than a bench-local copy precisely because a second embedder
          would make "novel" mean something different here than it does in the tests. -->
     <Compile Include="..\..\tests\Lyntai.Tests\Fakes\FakeEmbedder.cs" Link="Fakes\FakeEmbedder.cs" />
+    <!-- The similarity-index ADDRESS, linked for the same one-spelling reason and NOT reached through an
+         InternalsVisibleTo. The locomo semantic control spelled it by hand, held `locomo|conv|scope` after
+         the engine moved to U+001F, and reported "vectors=0" over a fully populated store — which reads as a
+         dead retrieval channel rather than a stale probe (docs/FIXES.md, 2026-09-15). Linking the file gives
+         the harness the owner's own source; granting the bench Core's internals would have given it every
+         other one too, on an assembly that is published and not strong-named. -->
+    <Compile Include="..\..\src\Lyntai.Core\Memory\MemoryVectorCollection.cs"
+             Link="Memory\MemoryVectorCollection.cs" />
   </ItemGroup>
 
 </Project>

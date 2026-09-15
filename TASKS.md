@@ -15,7 +15,7 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 6 Parts: 1 startable, 6 blocked, 2 watch
+## Open items — 8 across 5 Parts: 6 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
@@ -30,7 +30,6 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 319 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 342 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
 | 399 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 726 | 221 | Review `bfd49190..ca670dd4`, the whole 2026-09-15 line | startable |  |
 
 <!-- open-items:end -->
 
@@ -45,17 +44,18 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is ONE item — Part 221, a code
-review the owner scheduled**, after a day that opened and closed SIX Parts (`docs/task-archive.md` 215–220)
-in one chain: closing one took the count to zero, an `env` sweep put it back to one, working that closed
-it, and each refutation named the next candidate until the fourth ran out. **An `env` blocker EXPIRES
+longer drift apart. Edit the marker, never the table. **The startable set is ZERO items**, which is a
+STATE and not an achievement: everything open is blocked or watching, so the next work has to be FOUND
+rather than picked up. The review archived as `docs/task-archive.md` Part 221 is how the last seven
+arrived, and Parts 223–229 are where they went. **An `env` blocker EXPIRES
 SILENTLY** — Part 65 read "this machine holds exactly one chat model" for two weeks while three sat on
 disk, every one already used by other measurements here. Nothing fails when an environment GROWS, so
 nothing announces it; **re-check every `env` item before concluding there is no work.**
 **A REFUTATION is the fifth route an item arrives by, and the most reliable**: disproving the obvious answer
 names the next candidate, which is how Part 217 arrived narrowed to one signal of three. The others are a
-ruling, a captured failure, and a design REVIEW — the only one schedulable on purpose, which is how Part
-179 produced seven at once after months of ones and twos, and what Part 221 is. `decision-only` is still
+ruling, a captured failure, and a design REVIEW — the only one schedulable on purpose, and the only one
+that has twice filled a whole Part in one pass (Part 179, then Part 221) where every other route yields
+ones and twos. `decision-only` is still
 EMPTY. That sentence is hand-written on purpose and gated by `check-counts`: the banner it replaces
 advertised finished work **four** times, and nothing derived it.
 
@@ -711,41 +711,6 @@ _**The fallback-visibility item CLOSED 2026-09-13** as `docs/task-archive.md` **
 rather than a warning, because reporting which transport ran is a FACT about the run and needs no evidence,
 where a warning would have shipped a roster-size threshold taken from one model on a synthetic corpus.
 Nullable because `None` (no tools registered) and "a BYO loop never said" are different claims._
----
-
----
-
----
-
-## Part 221 — full code review of the 2026-09-15 line (2026-09-15)
-
-_Scheduled by the owner at the end of the session that produced it: **run `/code-review` next session,
-before anything else.** A design REVIEW is the one route new work arrives by that can be scheduled on
-purpose (this file's own banner), and ten commits landed in a day with no second reader on any of them._
-
-- [ ] **Review `bfd49190..ca670dd4`, the whole 2026-09-15 line.** <!-- item: state=startable -->
-  The ONNX cross-encoder, the two code-over-model changes, and the bench every measurement was taken on.
-  Start with `/code-review`; the diff is ten commits and touches
-  `Lyntai.Core`, `Lyntai.Providers.Onnx`, `bench/` and eleven records.
-  <br>**Six judgement calls to put a second pair of eyes on**, listed because a reviewer cannot know which
-  lines were decided rather than written:
-  1. `CrossEncoderLogits.Read` REFUSES a multi-label head instead of reading column 0. Refusing is safe and
-     loud; the alternative silently ranks backwards on an NLI-shaped model. Is the exception type right, and
-     should the check also run at composition where the export declares its label count?
-  2. `JsonExtract` leniency is scoped to trailing commas and comments, and `IsValid` stays strict for
-     `StructureScorer`. Is the split in the right place — two methods on one type, against two types?
-  3. `LlmPairwiseComparer`'s short-circuit is ORDINAL equality only. Deliberate, but a reviewer may think
-     trimming is obviously safe; the reason it is not is in the type doc.
-  4. `OnnxCrossEncoder` scores a whole candidate list in ONE batch with no `BatchSize` knob — omitted
-     because an unmeasured option is a permanent promise, and adding one later is not breaking.
-  5. `Lyntai.Core` now grants `InternalsVisibleTo` to `Lyntai.Benchmarks`. It buys one spelling of the
-     vector-collection address; it also widens an internals door on a published assembly.
-  6. The bench's `SelectingAnnotator` prompt is ONE prompt, not a prompt search — which is what the
-     refutation in `docs/task-archive.md` Part 220 rests on.
-  <br>_**Also worth a reviewer's eye**: `check-comments` passes, but several XML docs written today are long,
-  and this repository's rule is that a comment must be smaller than what it explains._
-  <br>_**Not a measurement task**, so it names no YES/NO: its output is findings, and each one routes by
-  kind — a defect to a fix, a trap to `pitfalls.md`, a real choice to `docs/DECISIONS.md`._
 
 ---
 

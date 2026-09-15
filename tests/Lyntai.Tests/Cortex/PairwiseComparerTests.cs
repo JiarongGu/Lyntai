@@ -2,6 +2,7 @@ using Lyntai.Lifecycle;
 using Lyntai.Cortex;
 using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Cortex;
 
@@ -211,5 +212,60 @@ public class PairwiseComparerTests
     {
         Assert.True(new PairwiseResult(PairwiseWinner.A).Judged);
         Assert.True(new PairwiseResult(PairwiseWinner.Tie, "close call").Judged);
+    }
+
+    /// <summary>The COMPOSITION-ROOT route to a cheap judge, end to end.
+    ///
+    /// <para><b>It exists to pin a claim `docs/model-tasks.md` §5 makes and nothing tested.</b> This seam
+    /// has no `ClientName` option — unlike the two memory seams, which have one because they also suppress
+    /// reasoning on the request — and §5 says that is deliberate rather than a gap: "the shipped scorer,
+    /// comparer and tool loop each take a client on a public constructor, and the container registrations
+    /// are try-add, so registering your own instance first wins." A documented path with no test is the
+    /// shape `pitfalls.md` records as how a documented knob stops being wired.</para></summary>
+    [Fact]
+    public async Task A_cheap_judge_is_reached_by_registering_one_over_a_NAMED_client()
+    {
+        var asked = new List<string>();
+        LlmReply Verdict(string id) { asked.Add(id); return Json("a"); }
+
+        var services = new ServiceCollection();
+        services.AddLyntai(b =>
+        {
+            b.AddBridgeProvider("big", (_, _) => Task.FromResult(Verdict("big")));
+            b.AddBridgeProvider("cheap", (_, _) => Task.FromResult(Verdict("cheap")));
+            b.UseDefaultCandidates("big");
+            b.AddLlmClient("judge", c => c.UseProviders("cheap"));
+
+            // The documented route: resolve the factory, ask it for the name you want, hand it in. TryAdd in
+            // RegisterCortex means this registration — made inside the callback, which runs first — wins.
+            b.Services.AddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(
+                sp.GetRequiredService<ILlmClientFactory>().Get("judge"), mitigatePositionBias: false));
+        });
+
+        using var provider = services.BuildServiceProvider();
+        var result = await provider.GetRequiredService<IPairwiseComparer>().CompareAsync("q", "a", "b");
+
+        Assert.Equal(PairwiseWinner.A, result.Winner);
+        Assert.Equal(["cheap"], asked);   // the app's default backend was never asked to judge
+    }
+
+    /// <summary>The positive control: WITHOUT that registration the comparer runs on the default client, so
+    /// the test above is measuring the named client rather than a fixture that could only ever answer once.</summary>
+    [Fact]
+    public async Task Registering_NOTHING_leaves_the_judge_on_the_applications_default_backend()
+    {
+        var asked = new List<string>();
+        var services = new ServiceCollection();
+        services.AddLyntai(b =>
+        {
+            b.AddBridgeProvider("big", (_, _) => { asked.Add("big"); return Task.FromResult(Json("a")); });
+            b.AddBridgeProvider("cheap", (_, _) => { asked.Add("cheap"); return Task.FromResult(Json("a")); });
+            b.UseDefaultCandidates("big");
+        });
+
+        using var provider = services.BuildServiceProvider();
+        await provider.GetRequiredService<IPairwiseComparer>().CompareAsync("q", "a", "b");
+
+        Assert.All(asked, id => Assert.Equal("big", id));
     }
 }
