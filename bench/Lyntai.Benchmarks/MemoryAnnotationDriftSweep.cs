@@ -33,6 +33,15 @@ internal static class MemoryAnnotationDriftSweep
     private sealed record Score(string Model, string Language, int Eligible, int Drifted, int Collapsed,
         int Empty, int DistinctHandles, int Clusters);
 
+    /// <summary>One fact's answer, kept so the reconciler ladder can be scored on IDENTICAL model output —
+    /// re-asking the model per rung would price its sampling noise as a reconciler difference.</summary>
+    private sealed record Answer(string Cluster, int Index, IReadOnlyList<string> Subjects);
+
+    /// <summary>Set by <c>--dump</c>. What the model ACTUALLY answered, per cluster — the only way to tell a
+    /// drift that CODE could reconcile ("spouse" against "my spouse") from one it could not ("Alice"
+    /// against "Kyoto"), which is the question that decides whether a normalizer is worth building.</summary>
+    private static bool _dump;
+
     /// <summary>Eight entities per language, four facts each. The first fact NAMES the entity and the rest
     /// refer to it obliquely, so reuse cannot be had from surface tokens — the whole argument for a model
     /// here is that the judgement is semantic and language-independent.</summary>
@@ -86,6 +95,7 @@ internal static class MemoryAnnotationDriftSweep
     public static async Task<int> RunAsync(string[] args)
     {
         var stopwatch = Stopwatch.StartNew();
+        _dump = args.Contains("--dump");
         using var http = new HttpClient();
 
         var chat = await SweepDoubles.TryRealChatAsync(http, "memory-annotation-drift");
@@ -114,10 +124,15 @@ internal static class MemoryAnnotationDriftSweep
             // The self-check FIRST, so a broken scorer is seen before any model time is spent on it.
             var perfect = fixture.SelectMany(c => c.Facts.Select(f => (f, c.Key)))
                 .ToDictionary(x => x.f, x => x.Key, StringComparer.Ordinal);
-            scores.Add(await ScoreAsync("PERFECT (self-check)", name, fixture, new PerfectAnnotator(perfect)));
+            scores.Add(ScoreAnswers("PERFECT (self-check)", name,
+                await AskAsync(fixture, new PerfectAnnotator(perfect)), Reconciler.Exact));
 
-            scores.Add(await ScoreAsync(label, name, fixture,
-                new LlmMemoryAnnotationPolicy(new SweepDoubles.BenchClientFactory(chat))));
+            // ONE model pass, scored by every rung — the ladder prices CODE, so the model's answers must be
+            // the same bytes under each. Re-asking would price its sampling noise as a reconciler gain.
+            var answers = await AskAsync(fixture,
+                new LlmMemoryAnnotationPolicy(new SweepDoubles.BenchClientFactory(chat)));
+            foreach (var mode in new[] { Reconciler.Exact, Reconciler.Containment, Reconciler.Fragment })
+                scores.Add(ScoreAnswers($"{label} +{mode}", name, answers, mode));
         }
 
         PrintTable(scores);
@@ -126,51 +141,87 @@ internal static class MemoryAnnotationDriftSweep
         return 0;
     }
 
-    /// <summary>One language: replay every cluster through the annotator with <c>Known</c> accumulating
-    /// exactly as the engine accumulates it, then count.</summary>
-    private static async Task<Score> ScoreAsync(
-        string model, string language, IReadOnlyList<Cluster> clusters, IMemoryAnnotationPolicy annotator)
+    /// <summary>One model pass: every cluster through the annotator with <c>Known</c> accumulating exactly
+    /// as the engine accumulates it. Kept SEPARATE from scoring so the reconciler ladder is scored on
+    /// identical answers — re-asking per rung would price the model's sampling noise as a code difference.
+    ///
+    /// <para><b>`Known` accumulates the RAW answers</b>, because that is what the engine stores today: the
+    /// reconciler is being evaluated as a change to LINKING, not as a change to what the model is shown.</para></summary>
+    private static async Task<IReadOnlyList<Answer>> AskAsync(
+        IReadOnlyList<Cluster> clusters, IMemoryAnnotationPolicy annotator)
     {
-        // Handle → how many facts used it, which is both the `Known` ordering the contract promises
-        // ("most-used first") and the collapse control's raw material.
+        var answers = new List<Answer>();
         var uses = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var owners = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
-        int eligible = 0, drifted = 0, empty = 0;
 
         foreach (var cluster in clusters)
         {
             var recent = new List<string>();
-            HashSet<string>? anchor = null;          // what the cluster's FIRST answered fact was labelled
-
-            foreach (var fact in cluster.Facts)
+            for (var i = 0; i < cluster.Facts.Count; i++)
             {
                 var known = uses.OrderByDescending(k => k.Value).Select(k => k.Key).ToList();
-                var annotation = await annotator.AnnotateAsync(
-                    new MemoryAnnotationRequest(new MemoryWrite("drift", "session", fact), recent, known));
+                var annotation = await annotator.AnnotateAsync(new MemoryAnnotationRequest(
+                    new MemoryWrite("drift", "session", cluster.Facts[i]), recent, known));
 
                 var subjects = annotation.Subjects
                     .Where(s => !string.IsNullOrWhiteSpace(s))
                     .Select(s => s.Trim())
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
-                if (subjects.Count == 0) empty++;
-                else if (anchor is null) anchor = subjects;       // the handle later facts should reuse
-                else
-                {
-                    // ELIGIBLE means the anchor was on offer: it is in `known`, so reusing it was available
-                    // and choosing otherwise is drift rather than ignorance.
-                    eligible++;
-                    if (!subjects.Overlaps(anchor)) drifted++;
-                }
+                answers.Add(new Answer(cluster.Key, i, subjects));
+                foreach (var s in subjects) uses[s] = uses.GetValueOrDefault(s) + 1;
+                recent.Insert(0, cluster.Facts[i]);
+            }
+        }
 
-                foreach (var s in subjects)
-                {
-                    uses[s] = uses.GetValueOrDefault(s) + 1;
-                    (owners.TryGetValue(s, out var set) ? set : owners[s] = new(StringComparer.Ordinal))
-                        .Add(cluster.Key);
-                }
+        return answers;
+    }
 
-                recent.Insert(0, fact);
+    /// <summary>Score one model pass under one reconciler.</summary>
+    private static Score ScoreAnswers(
+        string model, string language, IReadOnlyList<Answer> answers, Reconciler mode)
+    {
+        var uses = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var owners = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var anchors = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var clusters = new HashSet<string>(StringComparer.Ordinal);
+        int eligible = 0, drifted = 0, empty = 0;
+
+        foreach (var answer in answers)
+        {
+            clusters.Add(answer.Cluster);
+            var known = uses.OrderByDescending(k => k.Value).Select(k => k.Key).ToList();
+            var subjects = Reconcile(
+                answer.Subjects.ToHashSet(StringComparer.OrdinalIgnoreCase), known, mode);
+            var anchor = anchors.GetValueOrDefault(answer.Cluster);
+
+            if (subjects.Count == 0)
+            {
+                empty++;
+                if (_dump) Console.WriteLine($"    empty   [{answer.Cluster}]");
+            }
+            else if (anchor is null)
+            {
+                anchors[answer.Cluster] = subjects;               // the handle later facts should reuse
+                if (_dump) Console.WriteLine($"    anchor  [{answer.Cluster}] {{{Join(subjects)}}}");
+            }
+            else
+            {
+                // ELIGIBLE means the anchor was on offer: it is in `known`, so reusing it was available
+                // and choosing otherwise is drift rather than ignorance.
+                eligible++;
+                var drift = !subjects.Overlaps(anchor);
+                if (drift) drifted++;
+                if (_dump)
+                    Console.WriteLine($"    {(drift ? "DRIFT " : "reuse ")} [{answer.Cluster}] "
+                        + $"anchor={{{Join(anchor)}}} got={{{Join(subjects)}}}");
+            }
+
+            foreach (var s in subjects)
+            {
+                uses[s] = uses.GetValueOrDefault(s) + 1;
+                (owners.TryGetValue(s, out var set) ? set : owners[s] = new(StringComparer.Ordinal))
+                    .Add(answer.Cluster);
             }
         }
 
@@ -178,6 +229,70 @@ internal static class MemoryAnnotationDriftSweep
         // drift column readable — "owner" for everything scores a perfect 0% drift and is worthless.
         var collapsed = owners.Count(o => o.Value.Count > 1);
         return new Score(model, language, eligible, drifted, collapsed, empty, uses.Count, clusters.Count);
+    }
+
+    private static string Join(IEnumerable<string> handles) => string.Join(" | ", handles);
+
+    /// <summary>How hard CODE tries to reconcile a handle the model invented against one already in use.
+    /// A ladder, because each rung links strictly more than the one above it and the question is where the
+    /// gain stops paying for the over-linking.</summary>
+    private enum Reconciler
+    {
+        /// <summary>What the engine does today: equality on the normalized handle.</summary>
+        Exact,
+
+        /// <summary>…plus CONTAINMENT either way, by the script-aware rule
+        /// <see cref="MemorySubject.Matches"/> already applies on the RECALL side — a spaceless script
+        /// matches as a plain substring, a spaced one only on a word boundary.</summary>
+        Containment,
+
+        /// <summary>…plus a shared FRAGMENT where neither contains the other — a shared word in a spaced
+        /// script, a shared 2-gram or longer in a spaceless one.</summary>
+        Fragment,
+    }
+
+    /// <summary>The handles a fact should be indexed under once code has done what it can: what the model
+    /// returned, PLUS any known handle this reconciler can tie one of them to.
+    ///
+    /// <para><b>Additive, never replacing.</b> The invented handle is usually a true statement about the
+    /// fact ("parking", "reception") and deleting it would lose a real subject; what is missing is the LINK,
+    /// so the reconciler only ever adds one.</para></summary>
+    private static HashSet<string> Reconcile(
+        HashSet<string> subjects, IReadOnlyCollection<string> known, Reconciler mode)
+    {
+        if (mode == Reconciler.Exact || known.Count == 0) return subjects;
+
+        var result = new HashSet<string>(subjects, StringComparer.OrdinalIgnoreCase);
+        foreach (var handle in subjects)
+            foreach (var candidate in known)
+            {
+                if (result.Contains(candidate)) continue;
+                if (Ties(handle, candidate, mode)) result.Add(candidate);
+            }
+
+        return result;
+    }
+
+    private static bool Ties(string handle, string candidate, Reconciler mode)
+    {
+        // The recall side's own rule, asked in both directions: "水文学论文" contains the known "水文学",
+        // and a known "父亲的原声吉他" contains the handle "原声吉他".
+        if (MemorySubject.Matches(handle, candidate) || MemorySubject.Matches(candidate, handle)) return true;
+        if (mode != Reconciler.Fragment) return false;
+
+        var a = MemorySubject.Normalize(handle);
+        var b = MemorySubject.Normalize(candidate);
+        if (Lyntai.Storage.SearchTerms.ProfileOf(a).ExpandsIntoGrams)
+        {
+            // A spaceless script: any shared run of 2+ characters. One character is a radical-level
+            // coincidence and would tie almost anything to anything.
+            for (var i = 0; i + 2 <= a.Length; i++)
+                if (b.Contains(a.AsSpan(i, 2), StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        var words = b.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);
+        return a.Split(' ', StringSplitOptions.RemoveEmptyEntries).Any(w => w.Length > 2 && words.Contains(w));
     }
 
     private static void PrintPreamble(string model, int languages)
@@ -202,15 +317,15 @@ internal static class MemoryAnnotationDriftSweep
 
     private static void PrintTable(IReadOnlyList<Score> scores)
     {
-        Console.WriteLine($"{"model",-26} {"lang",-9} {"drift",-18} {"collapse",-20} {"empty",-7}");
-        Console.WriteLine(new string('-', 86));
+        Console.WriteLine($"{"model / reconciler",-40} {"lang",-9} {"drift",-18} {"collapse",-20} {"empty",-7}");
+        Console.WriteLine(new string('-', 100));
         foreach (var s in scores)
         {
             var drift = s.Eligible > 0
                 ? $"{100.0 * s.Drifted / s.Eligible:F1}% ({s.Drifted}/{s.Eligible})"
                 : "n/a";
             var collapse = $"{s.Collapsed} of {s.DistinctHandles} handles";
-            Console.WriteLine($"{s.Model,-26} {s.Language,-9} {drift,-18} {collapse,-20} {s.Empty,-7}");
+            Console.WriteLine($"{s.Model,-40} {s.Language,-9} {drift,-18} {collapse,-20} {s.Empty,-7}");
         }
 
         Console.WriteLine();

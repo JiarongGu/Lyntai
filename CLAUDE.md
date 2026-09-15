@@ -167,7 +167,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `memory-locomo` |  | the FIELD's benchmark; rewards a perfect archive, so read it differentially |
 | `memory-language` |  | one factor: `CorpusLanguage`, structurally identical corpora |
 | `memory-annotation` |  | subject linking with a PERFECT annotator — the CEILING, not a model |
-| `memory-annotation-drift` |  | how much of that ceiling a REAL annotator reaches — a rate, plus two controls |
+| `memory-annotation-drift` |  | how much of that ceiling a REAL annotator reaches, and whether CODE can close it |
 | `memory-verification` |  | the judge seam — what a model in the loop is worth |
 | `memory-fan` |  | ACT-R's fan effect, measured and REFUSED (D62) |
 | `memory-enrichment` |  | why an embedder costs recall quality. Calls a REAL model |
