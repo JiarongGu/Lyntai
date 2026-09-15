@@ -17,14 +17,16 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D148** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3780 passed / 3813 total, 33 skipped` (the skips are
+**The baseline a green run should match:** `3817 passed / 3850 total, 33 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 812/812, doc samples 58/58. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-15 at `db80fc4b`** — read off that run's own output, never
+**MEASURED with Docker up, re-attested 2026-09-15 at `856b6f1b`** — read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
-easily breaks. **+30 on the previous attestation** (3750/3783/33 at `593958b8`), every one a test the Part
-221 review's follow-through added and none of them live-gated, which is why the skip roster did not move. Every skip is live-backend gated (a live model, embedder, reranker, Ollama, MCP or CLI), so
+easily breaks. **+37 on the previous attestation** (3780/3813/33 at `db80fc4b`): 28 cross-backend contract
+facts on InMemory+SQLite and 9 net on Postgres, none live-gated, which is why the skip roster did not move.
+**Two review passes moved this line 3750 → 3780 → 3817 in one day** and the skip count never changed once —
+that invariance is the half worth checking, since it is what a Docker-down run would break first. Every skip is live-backend gated (a live model, embedder, reranker, Ollama, MCP or CLI), so
 nothing is skipping for another reason. **The gated-on-a-model-DIRECTORY suites are now four**:
 `OnnxProviderLiveTests` is FIVE (**D124**), `OnnxCrossEncoderLiveTests` four, beside
 `WordPieceTokenizerLiveTests` (**D122**) and `Model2VecProviderLiveTests` (**D121**).
