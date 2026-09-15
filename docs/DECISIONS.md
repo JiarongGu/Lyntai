@@ -215,8 +215,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D143](#d143--a-file-is-filed-by-its-namespace-and-a-test-by-its-subjects-2026-09-15) | 2026-09-15 | a file is filed by its NAMESPACE, and a test by its subject's |
 | [D144](#d144--lyntaiprovidersbasic-and-a-provider-module-owns-its-own-registration-2026-09-15) | 2026-09-15 | `Lyntai.Providers.Basic`, and a provider module owns its own registration |
 | [D145](#d145--the-microsoftextensionsai-module-is-a-bridge-not-a-provider-2026-09-15) | 2026-09-15 | the Microsoft.Extensions.AI module is a BRIDGE, not a provider |
+| [D146](#d146--the-microsoftextensionsai-bridge-is-deleted-and-the-trigger-to-rebuild-it-is-written-down-2026-09-15) | 2026-09-15 | the Microsoft.Extensions.AI bridge is DELETED, and the trigger to rebuild it is written down |
 
-_All 145 entries are live decisions._
+_All 146 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3724,8 +3725,8 @@ is not.
 
 ## D123 — a package boundary must isolate a dependency the consumer can REFUSE; the MEAI bridge folds into Providers.Default (2026-09-14)
 
-`Lyntai.ExtensionsAi` is gone. `ExtensionsAiProvider`, `LyntaiChatClient`,
-`LyntaiToolDeclaration` and `AddExtensionsAiProvider` are in `Lyntai.Providers.Basic` under their
+`Lyntai.ExtensionsAi` is gone. `ExtensionsAiProvider`, `LyntaiChatClient`, <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
+`LyntaiToolDeclaration` and `AddExtensionsAiProvider` are in `Lyntai.Providers.Basic` under their <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 existing namespaces, so the migration is one `PackageReference` and no `using`. The old id is unlisted
 (**D44**).
 
@@ -4438,14 +4439,14 @@ ids had been silently rewritten by rename sweeps (**D142**).
 `Lyntai.Providers.ExtensionsAi` becomes `Lyntai.ExtensionsAi`, and `AsChatClient()` moves to `Lyntai.Llm` <!-- drift-ok: this entry RETIRES the namespace, so it has to say it -->
 beside the `ILlmClient` it extends. The code stays in `Lyntai.Providers.Basic`; only the namespace moves.
 
-**Three of the module's four types are not providers.** `ExtensionsAiProvider` bridges an `IChatClient` INTO
-Lyntai; `LyntaiChatClient` exposes Lyntai AS an `IChatClient`; `LyntaiToolDeclaration` maps `LlmTool` to
+**Three of the module's four types are not providers.** `ExtensionsAiProvider` bridges an `IChatClient` INTO <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
+Lyntai; `LyntaiChatClient` exposes Lyntai AS an `IChatClient`; `LyntaiToolDeclaration` maps `LlmTool` to <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 `AIFunctionDeclaration`. Every one of their docs opens with the word *"Bridges"*. Only the first satisfies
 `IModelProvider`, and even that one adapts another ABSTRACTION rather than a backend — the backend is
 whatever `IChatClient` the consumer hands in.
 
-**The false claim had a measurable cost.** `AsChatClient()` is an extension on `ILlmClient` — Core's front
-door, which `LlmVerdictException`'s own doc in Core calls "the reverse bridge". Living in
+**The false claim had a measurable cost.** `AsChatClient()` is an extension on `ILlmClient` — Core's front <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
+door, which `LlmVerdictException`'s own doc in Core calls "the reverse bridge". Living in <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 `Lyntai.Providers.ExtensionsAi`, calling it required a consumer to import a PROVIDERS namespace for a <!-- drift-ok: names what this entry retires -->
 front-door call, and the README's sample never said so. It now sits in `Lyntai.Llm`, for the same reason the
 `Add*` extensions sit in `Lyntai`: a capability of a type belongs where that type is.
@@ -4459,3 +4460,34 @@ type-correct, never that a consumer could write it. The proof had to be a throwa
 says which dependency it isolates. `Microsoft.Extensions.AI.Abstractions` is 669 KB and must stay out of
 Core (**D25**), and **D123** already priced keeping it in the merged package. Renaming the namespace fixes
 the claim without reopening a boundary that was decided on footprint.
+
+## D146 — the Microsoft.Extensions.AI bridge is DELETED, and the trigger to rebuild it is written down (2026-09-15)
+
+`ExtensionsAiProvider`, `AddExtensionsAiProvider`, `AsChatClient()`, `LyntaiChatClient`, <!-- drift-ok: this entry RETIRES these names, so it has to say them -->
+`LyntaiToolDeclaration` and `LlmVerdictException` are gone — 473 lines of source, 532 of tests, six frozen <!-- drift-ok: names what this entry retires -->
+public members, and a 654 KB dependency every consumer of `Lyntai.Providers.Basic` carried.
+
+**No provider used it: 0 of 43 files across the four real backends.** The only code touching
+`Microsoft.Extensions.AI` was the bridge itself, and **D145** had just established the bridge is not a
+provider. Nothing in `src/`, `samples/` or `bench/` called it either — only its own two test files.
+
+**What it bought, measured against what the library already reaches.** Inbound, it adapted an `IChatClient`
+into a provider — but `AddHttpProvider` already serves anything OpenAI-compatible, which is most vendors,
+and `AddClaudeCliProvider` covers Claude. Outbound, `AsChatClient()` let an MEAI app adopt Lyntai without <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
+editing itself: an adoption ramp rather than a capability, for a library with one consumer.
+
+**Speculative PUBLIC SURFACE is the expensive form of a speculative backlog item.**
+`repo-mechanics.md` already refuses an entry "whose trigger has not occurred", on the grounds that "a real
+failure is a better starting point than a speculative one". Code frozen under SemVer (**D70**) is that same
+bet, paid by every consumer, and it is worse: a backlog item costs a line in a file nobody ships.
+
+**The trigger, concretely:** a backend worth using whose wire format is NOT OpenAI-compatible and which
+ships an `IChatClient` — Anthropic's native Messages API, Gemini native, Bedrock. Then the bridge returns as
+`Lyntai.ExtensionsAi`, its OWN opt-in package, which is where the dependency belonged; folding it into a
+providers package (**D123**) is what let it tax four backends that never referenced it. The code is in git
+history at this commit's parent.
+
+**`LlmVerdictException` goes with it** because it existed only for the reverse bridge — its own doc said so <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
+("Today that seam is the Microsoft.Extensions.AI reverse bridge"). A type serving one caller dies with that
+caller. **MEAI stays in `Directory.Packages.props`**: `Lyntai.Tools.Mcp` genuinely uses it, which is also
+why a bundle consumer's dependency graph is unchanged.

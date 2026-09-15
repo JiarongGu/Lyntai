@@ -1407,7 +1407,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   bug in two providers; the buffered path shipped it too — both fixed.)
 - **A non-positive resolved budget means the OPPOSITE thing in the two domains — don't "unify" the idiom <!-- trap: sub=router,generation shape=cancellation -->
   casually.** The LLM sites arm the clock unconditionally (`HttpModelProvider.CompleteAsync`,
-  `HttpEmbeddingsTransport.EmbedBatchAsync`, `ExtensionsAiProvider` all `CancelAfter(timeout)`), and app-configured
+  `HttpEmbeddingsTransport.EmbedBatchAsync` and `HttpRerankTransport.ScoreAsync` all `CancelAfter(timeout)`), and app-configured
   values are trusted rather than clamped (`LyntaiOptions.ResolveTimeout`), so a `TimeoutByConsumer` entry of
   `TimeSpan.Zero` **cancels the call instantly**. `GenerationDeadline.GuardAsync` reads the same value as
   **no deadline at all** — the documented escape hatch for a host that owns its own clocks. Both are

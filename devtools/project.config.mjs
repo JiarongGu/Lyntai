@@ -136,6 +136,22 @@ export default {
 
   retiredApiNames: [
     {
+      names: [
+        'ExtensionsAiProvider',
+        'AddExtensionsAiProvider',
+        'ExtensionsAiBuilderExtensions',
+        'LyntaiChatClient',
+        'LyntaiChatClientExtensions',
+        'AsChatClient',
+        'LyntaiToolDeclaration',
+        'LlmVerdictException',
+      ],
+      use: 'nothing — the Microsoft.Extensions.AI bridge is deleted; reach an OpenAI-compatible backend '
+        + 'with `AddHttpProvider`',
+      why: 'no provider used it (0 of 43 files), and a bridge is not a provider — speculative public '
+        + 'surface frozen under SemVer, paid for by every consumer, for a case nobody hit (D146)',
+    },
+    {
       // D140. `GenerationInputRoles` is deliberately NOT here — a different vocabulary that happened to
       // share a file, and whole-identifier equality keeps it live without an allowance.
       names: [
@@ -510,6 +526,12 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    {
+      // D146. `Lyntai.ExtensionsAi` the NAMESPACE is absent: it is the name the bridge would return under.
+      term: '\\bExtensionsAiProvider\\b|\\bAddExtensionsAiProvider\\b|\\bExtensionsAiBuilderExtensions\\b|\\bLyntaiChatClient\\b|\\bLyntaiChatClientExtensions\\b|\\bAsChatClient\\b|\\bLyntaiToolDeclaration\\b|\\bLlmVerdictException\\b',
+      why: 'the Microsoft.Extensions.AI bridge is deleted; its trigger to return is in D146',
+      use: '`AddHttpProvider` for any OpenAI-compatible backend',
+    },
     {
       // D145. Prose + baseline are both covered by the namespace form; the TYPES kept their names.
       term: '\\bLyntai[.]Providers[.]ExtensionsAi\\b',

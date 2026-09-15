@@ -47,6 +47,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **The Microsoft.Extensions.AI bridge is removed** (**D146**). `AddExtensionsAiProvider`, <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `ExtensionsAiProvider`, `AsChatClient()` and `LlmVerdictException` are gone. No provider used it — 0 of <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  43 files across the four real backends — and `AddHttpProvider` already reaches anything OpenAI-compatible,
+  which is most vendors. **`Lyntai.Providers.Basic` now needs nothing beyond `Lyntai.Core` and the BCL**,
+  dropping a 654 KB dependency every consumer of it carried. If you bridge a vendor that is not
+  OpenAI-compatible, say so — the trigger and the plan (its own opt-in package) are recorded in D146, and
+  the code is in git history.
+
+
 - **The Microsoft.Extensions.AI module is a bridge, not a provider** (**D145**).
   `Lyntai.Providers.ExtensionsAi` becomes `Lyntai.ExtensionsAi`, and **`AsChatClient()` moves to <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
   `Lyntai.Llm`** beside the `ILlmClient` it extends — so consuming Lyntai as an `IChatClient` no longer
@@ -191,13 +200,9 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   builder method, not the type. **This is the first step of unifying the provider layer**: one candidate,
   then one routing spine, then capabilities declared as data rather than as a type hierarchy.
 
-- **`Lyntai.ExtensionsAi` is folded into `Lyntai.Providers.Basic`** (**D123**). The migration is
-  one `PackageReference` and no `using` — every namespace and type name is unchanged, and
-  `AddExtensionsAiProvider(id, chatClient)` still registers it. **The boundary was isolating nothing**:
-  `ModelContextProtocol.Core` pins `Microsoft.Extensions.AI.Abstractions` transitively and both MCP halves
-  are bundle members, so a one-line-install consumer already carried that assembly and could not refuse it.
-  **What changes for whom:** a consumer referencing `Lyntai.Providers.Basic` alone, with no bundle and no
-  MCP, now carries 669,768 B it may never call — removed outright under trimming. The old id is unlisted.
+- **`Lyntai.Providers.ExtensionsAi` folded into the basic provider package** (**D123**) — and then <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  removed outright by **D146**, which found no provider used it. The fold is kept in this list because it
+  explains the dependency's route through the release; the bridge itself is gone.
 
 - **`Lyntai.Providers.LlamaSharp` is renamed `Lyntai.Providers.LlamaSharp`.** Every package here is named for
   the dependency it ISOLATES, and "Local" stopped naming anything once the in-process static embedder

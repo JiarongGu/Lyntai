@@ -217,5 +217,5 @@ CLI via `LYNTAI_PROVIDER_CMD`.
 
 To a consumer, Lyntai behaves like **one** provider: `ILlmClient` wraps the router with the default
 candidate list so callers don't thread candidates through. New consumer-facing surface (structured
-output, etc.) hangs off the front door, not the raw router. `AsChatClient()` is the reverse bridge
-(Lyntai consumed *as* an MEAI `IChatClient`).
+output, etc.) hangs off the front door, not the raw router. There is no MEAI bridge in either direction since **D146** deleted it; an OpenAI-compatible backend is
+reached with `AddHttpProvider`.

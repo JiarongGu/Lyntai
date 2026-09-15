@@ -8,8 +8,9 @@ description: Use when adding a new LLM provider to Lyntai (a new backend/model s
 Read `.claude/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.claude/knowledge/llm-and-router.md` first.
 
 ## Decide the path
-1. **Can `Microsoft.Extensions.AI` reach it?** (OpenAI/Azure/Ollama/Anthropic-API/…) → don't write a
-   provider. The consumer calls `builder.AddExtensionsAiProvider("id", chatClient)`. Done.
+1. **Is it OpenAI-COMPATIBLE?** (OpenAI/Azure/Ollama/OpenRouter/vLLM/llama-server/Groq/DeepSeek/…) → don't
+   write a provider. The consumer calls `builder.AddHttpProvider("id", o => o.BaseUrl = …)`, picking a
+   dialect. Most vendors ship such an endpoint, so this is the answer far more often than not (**D146**).
 2. **Is it a spawned CLI agent?** (`claude`, a sibling CLI) → write a **dialect**, not a provider. See the
    CLI checklist below — the spawn/verdict/streaming/maintenance invariants already live in
    `CliProviderEngine`, and a second copy of them is how they drifted before.

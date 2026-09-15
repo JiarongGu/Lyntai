@@ -100,7 +100,7 @@ version you installed.
 |---|---|
 | **`Lyntai`** | **The starting set (5 of 11)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage. Not the whole library: add `Lyntai.Storage.Sqlite` to persist and `Lyntai.Generation` for media. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI — plus `Lyntai.Text.WordPieceTokenizer`, a BERT tokenizer owned rather than depended on (**D122**), usable anywhere a token-aware step is wanted. Deps: DI + Logging abstractions only. |
-| `Lyntai.Providers.Basic` | The dependency-free **LLM** backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port; and the two-way `Microsoft.Extensions.AI` bridge (any `IChatClient` → a Lyntai provider, and `AsChatClient()` back). Media backends moved to `Lyntai.Generation`. |
+| `Lyntai.Providers.Basic` | The dependency-free **LLM** backends — Core and the BCL, nothing else: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port. Media backends moved to `Lyntai.Generation`. |
 | `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLlamaSharpProvider(modelPath)` and every namespace are unchanged. |
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
@@ -164,7 +164,6 @@ services.AddLyntai(cfg =>
 {
     cfg.AddClaudeCliProvider();                          // spawns the authenticated `claude` CLI, no API key
     cfg.AddHttpProvider("ollama", o => o.BaseUrl = "http://localhost:11434");
-    cfg.AddExtensionsAiProvider("openai", myChatClient); // bridge any Microsoft.Extensions.AI IChatClient
     cfg.UseSqliteStorage("app.db");                      // all storage domains, migrated on startup
     cfg.AddScorer<OutcomeScorer>();                      // eval dimensions are DI registrations
     cfg.AddScorer<RelevancyScorer>();                    // (this one is an LLM judge through the router)
@@ -202,26 +201,6 @@ anything being wrong with it). They are categories rather than one method per
 verdict, on purpose: the enum grows, and a single member is already best expressed as
 `verdict == ProviderVerdict.RateLimited`. They hang off the enum, so they read the same off `LlmReply`,
 `LlmChunk`, `SessionEnded`, `AgentSessionResult` and `ToolLoopResult`.
-
-And if your app already speaks `Microsoft.Extensions.AI`, consume Lyntai **as** an `IChatClient` —
-routing, fallback, and the ops layer come along silently:
-
-```csharp
-IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient();
-```
-
-`IChatClient` has no verdict — it returns a response or throws — so the bridge throws
-**`LlmVerdictException`** (deriving from `InvalidOperationException`) carrying the `Verdict` that caused it.
-That matters for one verdict in particular: `NotConfigured` means *never set up*, so a host can offer setup
-instead of reporting an error, and through this bridge that would otherwise be recoverable only by parsing
-the message text.
-
-<!-- compile-given: List<Microsoft.Extensions.AI.ChatMessage> messages;
-     void ShowSetup(string? detail) { } -->
-```csharp
-try { var response = await chat.GetResponseAsync(messages, cancellationToken: ct); }
-catch (LlmVerdictException ex) when (ex.Verdict == ProviderVerdict.NotConfigured) { ShowSetup(ex.Detail); }
-```
 
 ### The semantics you're getting (design §6)
 

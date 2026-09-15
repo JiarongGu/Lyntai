@@ -17,7 +17,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Providers.Basic</PackageId>
-    <Description>The default Lyntai LLM backend set: the authenticated `claude` and `codex` CLIs, any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat + embeddings, an in-process model2vec embedder, and the two-way Microsoft.Extensions.AI bridge — bundled because none of them ships a native payload. Media backends live in Lyntai.Generation; local GGUF inference is Lyntai.Providers.LlamaSharp.</Description>
+    <Description>The default Lyntai LLM backend set: the authenticated `claude` and `codex` CLIs, any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat + embeddings, and an in-process model2vec embedder — bundled because none of them ships a native payload, so this package needs nothing beyond Lyntai.Core and the BCL. Media backends live in Lyntai.Generation; local GGUF inference is Lyntai.Providers.LlamaSharp.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,7 +30,6 @@
          transitively through ModelContextProtocol.Core, and both MCP halves are in the bundle, so every
          one-line-install consumer already carries this assembly. The MEAI bridge folded in here rather
          than holding a package id for 37,376 B of code that adapts a type the bundle already has. -->
-    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

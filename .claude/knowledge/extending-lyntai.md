@@ -21,10 +21,12 @@ adapter) + **a `LyntaiBuilder` extension method** so the consumer wires it with 
 
 Three paths — pick the cheapest one that reaches your backend:
 
-**A. Bridge an existing `Microsoft.Extensions.AI` `IChatClient` (preferred).** OpenAI, Azure, Ollama,
-Anthropic-API, etc. already have MEAI clients. You do *nothing* but register:
-`builder.AddExtensionsAiProvider("my-id", theChatClient)`. `ExtensionsAiProvider` handles the mapping,
-streaming, usage, and verdict-from-exception. **Only write a native provider if MEAI can't reach it.**
+**A. Is the backend OpenAI-COMPATIBLE? Then it is already supported (preferred).** OpenAI, Azure, Ollama,
+OpenRouter, vLLM, llama-server, Groq, DeepSeek and most of the rest ship such an endpoint. You do *nothing*
+but register: `builder.AddHttpProvider("my-id", o => { o.BaseUrl = …; o.Dialect = …; })`, and one
+registration serves chat, embeddings or reranking depending on `Produces`. **Only write a native provider if
+no dialect reaches it** — which, since **D146** deleted the Microsoft.Extensions.AI bridge, means a vendor
+whose wire format is genuinely its own.
 
 **A2. A SPAWNED CLI → write a DIALECT, not a provider.** If the backend is a command-line agent
 (`claude`, `codex`, or a sibling), do NOT re-implement the spawn/verdict/streaming rules — they are already in

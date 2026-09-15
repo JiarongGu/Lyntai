@@ -1,10 +1,8 @@
 using System.Text;
 using Lyntai;
 using Lyntai.Llm;
-using Lyntai.ExtensionsAi;
 using Lyntai.Providers.Http.Payloads;
 using Lyntai.Tests.Fakes;
-using Microsoft.Extensions.AI;
 
 namespace Lyntai.Tests.Providers;
 
@@ -61,18 +59,5 @@ public class MultimodalTests
         };
         var content = OpenAiPayload.Build(req, "m", stream: false)["messages"]!.AsArray()[0]!["content"];
         Assert.Equal("sure", (string)content!); // a plain string, not a parts array
-    }
-
-    [Fact]
-    public async Task Meai_bridge_maps_attachments_to_image_content()
-    {
-        var client = new FakeChatClient();
-        var provider = new ExtensionsAiProvider("meai", client, new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
-
-        await provider.CompleteAsync(new LlmRequest { Messages = [LlmMessage.UserWithImage("hi", Png, "image/png")] });
-
-        var contents = client.Calls.Single().Messages.Single().Contents;
-        Assert.Contains(contents, c => c is TextContent);
-        Assert.Contains(contents, c => c is DataContent);
     }
 }

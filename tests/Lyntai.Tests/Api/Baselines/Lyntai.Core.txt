@@ -1446,10 +1446,6 @@ sealed class Lyntai.Llm.LlmUsage
     InputTokens : Int64
     OutputTokens : Int64
     ToString() : String
-sealed class Lyntai.Llm.LlmVerdictException
-    .ctor(ProviderVerdict verdict, String detail = null)
-    Detail : String
-    Verdict : ProviderVerdict
 sealed class Lyntai.Llm.ProviderAuthResult
     .ctor(Boolean Succeeded, ProviderAuthStatus Status = null, String Detail = null)
     Deconstruct(Boolean& Succeeded, ProviderAuthStatus& Status, String& Detail) : Void

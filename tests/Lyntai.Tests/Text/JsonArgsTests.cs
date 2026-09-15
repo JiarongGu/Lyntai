@@ -5,7 +5,7 @@ using Lyntai.Text;
 namespace Lyntai.Tests.Text;
 
 /// <summary>The shared reflection-free tool-argument serializer — the boxed-primitive/JsonElement/JsonNode
-/// → JSON switch that ToolFunction (MCP) and ExtensionsAiProvider (MEAI) both need. Pins that primitives
+/// → JSON switch ToolFunction (MCP) needs. It served the MEAI bridge too until D146 deleted that. Pins that primitives
 /// keep their JSON type (a 3 stays a number, not "3").</summary>
 public class JsonArgsTests
 {
