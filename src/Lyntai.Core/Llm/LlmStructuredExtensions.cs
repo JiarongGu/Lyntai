@@ -5,7 +5,10 @@ namespace Lyntai.Llm;
 
 /// <summary>
 /// Structured output over the front door (design §6): schema-constrained call, tolerant JSON
-/// extraction from prose/code fences, one retry on parse failure, else a Failed verdict.
+/// extraction from prose/code fences, one retry on what code CANNOT repair, else a Failed verdict.
+/// <para><b>Punctuation is repaired here rather than asked about</b> — a trailing comma or a stray comment
+/// is read and re-serialized, so it costs no round trip. A TRUNCATED object still retries: it is missing
+/// content rather than commas.</para>
 /// </summary>
 public static class LlmStructuredExtensions
 {

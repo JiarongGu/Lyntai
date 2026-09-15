@@ -5,7 +5,13 @@ using System.Text.Json;
 namespace Lyntai.Text;
 
 /// <summary>Tolerant JSON extraction from LLM prose (design §6): strips code fences, finds the
-/// first balanced <c>{…}</c> object, and (via <see cref="TryParseObject"/>) parses it.</summary>
+/// first balanced <c>{…}</c> object, and parses it — via <see cref="TryParseObject"/> for a document, or
+/// <see cref="TryReadObject"/> for strictly valid TEXT.
+///
+/// <para><b>Three entry points, and the difference between them is which question is being asked.</b> The
+/// two reads TOLERATE the punctuation a model gets wrong, because repairing it in code is cheaper than a
+/// second call; <see cref="IsValid"/> is STRICT because its caller is grading whether the model got it
+/// right.</para></summary>
 public static class JsonExtract
 {
     public static string? ExtractObject(string? text)

@@ -887,6 +887,18 @@ cancel, per-call timeout. Cheap utility calls run from a **neutral cwd** (no pro
 **Structured output:** schema-constrained call, tolerant JSON extraction from prose/code-fences, one
 retry on parse failure, else `Failed` verdict.
 
+> **Amendment (2026-09-15): the retry now fires only on what CODE cannot repair.** "Parse failure" above
+> was read strictly, so a trailing comma or a stray comment cost a full corrective round trip — which is
+> fail-closed where every other seam is fail-open, spends a second usage-budget/rate-limit charge and never
+> returns a cached hit (`docs/model-tasks.md` §1). `JsonExtract.TryReadObject` now tolerates that
+> punctuation and RE-SERIALIZES, so the guarantee this section states — an `Ok` verdict means
+> `JsonDocument.Parse(reply.Text)` succeeds — is unchanged rather than weakened. An already-strict object is
+> returned byte for byte; only a repaired one is reformatted.
+> <br>**A TRUNCATED object still retries**, and that is the line: it is missing content rather than
+> punctuation, so only the model can supply it. `JsonExtract.IsValid` stays STRICT for the same reason —
+> `StructureScorer` uses it to GRADE whether a model emitted well-formed JSON, and a lenient grader would
+> score malformed output as perfect.
+
 > **Amendment (2026-08-04, verdict-translation half 2026-08-05): the generation router (§5.6) has its own
 > policy, and it is deliberately NOT identical to the rules above.** `GenerationRoutingPolicy` maps the media
 > verdicts onto the same four

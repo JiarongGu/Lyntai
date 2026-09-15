@@ -49,20 +49,18 @@ public interface IPairwiseComparer
 /// a winner when the two passes agree on the same actual output — a disagreement is reported as a
 /// <see cref="PairwiseWinner.Tie"/> (the judge isn't discriminating reliably). Set
 /// <paramref name="mitigatePositionBias"/> false for a cheaper single pass.
+///
+/// <para><b>An IDENTICAL pair is answered without a call at all</b>, and that is a correctness rule rather
+/// than an optimization: on identical text a judge has no signal to overcome its position bias with, and
+/// the two-pass check cannot catch the resulting false winner because both passes see the same two
+/// strings.</para>
 /// </summary>
 public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBias = true) : IPairwiseComparer
 {
-    /// <summary>The verdict CODE can reach, so the judge is not asked for it.
-    ///
-    /// <para><b>It is a correctness fix before it is a saving.</b> On identical text there is no signal for
-    /// a judge to overcome its position bias with, so it can answer "a" — a false verdict the two-pass
-    /// check cannot catch, because both passes see the same two strings. Code answers it certainly and for
-    /// free, which is the standing rule that a model is not better at exact comparison
-    /// (<c>.claude/knowledge/model-decoupling.md</c>).</para>
-    ///
-    /// <para><b>ORDINAL equality and deliberately nothing looser.</b> Whether trailing whitespace or casing
-    /// matters is a judgement about the caller's domain — a formatting eval would say it does — so the
-    /// model is still asked about anything short of identical.</para></summary>
+    /// <summary>The verdict for an identical pair, reached without a judge — see the type's own remarks for
+    /// why that is correctness rather than thrift. <b>Matched ORDINALLY and deliberately nothing looser</b>:
+    /// whether trailing whitespace or casing matters is a judgement about the caller's domain, so anything
+    /// short of identical still reaches the model.</summary>
     private static readonly PairwiseResult Identical =
         new(PairwiseWinner.Tie, "outputs are identical — no judge was asked");
 

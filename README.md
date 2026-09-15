@@ -315,7 +315,8 @@ var reply = await llm.CompleteJsonAsync(new LlmRequest
     JsonSchema = """{"type":"object","properties":{"summary":{"type":"string"}}}""",
 });
 // reply.Verdict == Ok guarantees reply.Text parses as a single JSON object
-// (tolerant extraction from prose/fences, one retry, else Failed — design §6)
+// (tolerant extraction from prose/fences; a trailing comma or stray comment is repaired in CODE,
+//  so only what code cannot fix costs a retry — a truncated object — else Failed. Design §6.)
 ```
 
 ### Response caching

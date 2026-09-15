@@ -105,10 +105,12 @@ one's outcome. The `major-bump-or-never` framing on the third was also wrong on 
 entry records._
 
 ## Standing maintenance policies
-- **MEAI churn watch**: Microsoft.Extensions.AI ships roughly monthly with breaks in
-  experimental/tool-content surfaces; review release notes on each bump. The bridge references
-  only `Microsoft.Extensions.AI.Abstractions` (the stable core) on purpose.
-- **OTel GenAI semconv watch**: the conventions are experimental and moved to a standalone repo;
-  match whatever MEAI's `OpenTelemetryChatClient` currently emits rather than pinning a version.
+- ~~**MEAI churn watch**~~ — **RETIRED 2026-09-15: there is nothing left to watch.** **D146** deleted the
+  Microsoft.Extensions.AI bridge and its package reference, so this library no longer tracks that release
+  cadence at all. Reaching such a backend is now `AddBridgeProvider`, a lambda the CONSUMER owns (**D147**),
+  which is precisely what moves the churn to their side of the seam.
+- **OTel GenAI semconv watch**: the conventions are experimental and moved to a standalone repo, so pin
+  nothing and follow the spec. _This read "match whatever MEAI's `OpenTelemetryChatClient` currently emits"
+  until 2026-09-15 — a reasonable reference while the bridge existed, and a dangling one after D146._
 - **Dependency refresh**: quarterly `Directory.Packages.props` review; provider-stub keeps every
   test/e2e run at zero real tokens.
