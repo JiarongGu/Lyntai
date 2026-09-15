@@ -18,7 +18,7 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3780 passed / 3813 total, 33 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 811/811, doc samples 58/58. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 812/812, doc samples 58/58. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED with Docker up, re-attested 2026-09-15 at `db80fc4b`** — read off that run's own output, never
@@ -83,7 +83,11 @@ graph-memory DOMAINS are SEVEN: `.Interference` / `.Forgetting` / `.Modulation` 
 options — `.Seeding` has that shape and is NOT one, because `IMemorySeedSource` PRODUCES candidates rather
 than deciding about them, and the count is derived from the seam's name —
 placement is by OWNERSHIP, not consumption, so only a type no domain owns (`MemoryDecayState`) sits at the
-root) / `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` / `Lyntai.Jobs` /
+root. **`IMemoryRemovalPolicy` is the ONE seam that reads as a missing eighth domain and is not**: it is a
+BLEND concern, asked by `CompositeMemoryEngine` which MEMBERS a forget or prune visits (**D75**), never a
+stage of the decay pipeline the seven describe — and its namespace is frozen
+either way. A root-level `IMemory*Policy` without a recorded reason now RAISES the count and fails
+`check-counts`, which it previously could not see at all) / `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` / `Lyntai.Jobs` /
 `Lyntai.Guards` / `Lyntai.Secrets` / `Lyntai.Lifecycle` / `Lyntai.Storage` / `Lyntai.Processes` /
 `Lyntai.Text`; builder + `Add*`/`Use*` extensions live in the `Lyntai` namespace.
 **One namespace above is not Core's alone**: `Lyntai.Providers.Basic` ships `Model2VecProvider` publicly

@@ -3980,3 +3980,50 @@ serving a cross-encoder for one field, and its call site already says why; `Mode
 from `Lyntai.Providers.Basic` into Core's `Lyntai.Embeddings`, a real inconsistency frozen by **D70** and
 now merely findable; and the eager `InferenceSession` leaks if a LATER composition step throws, which is
 named on the builder doc because loading lazily would trade a loud startup failure for a quiet one.
+
+## Part 231 — the two governance domains get the cross-backend contract every other domain had
+
+✅ closed 2026-09-15. `TASKS.md` Part 230, GOV1.
+
+- **GOV1 — the two GOVERNANCE domains have three implementations each and no cross-backend contract.**
+
+**Outcome: `UsageTrackerContract` (9 facts) and `ResponseCacheContract` (5), wired to InMemory, SQLite and
+Postgres, and both added to `PostgresContractCoverageTests`'s roster** so the Postgres leg is structural
+rather than remembered. Two table-wide usage facts — the global total and reset-everything — are excluded
+there by name with the reason, because on a shared container they read and delete other tests' rows.
+
+**The tracker half found a real asymmetry; the cache half found none.** Postgres asserted a strict SUBSET of
+SQLite's tracker behaviour: no global total, no unrecorded-consumer read, and — the sharp one — nothing
+checking that `ResetAsync(consumer)` leaves the OTHER consumers intact, so a reset that dropped the whole
+table would have passed. `PostgresUsageTracker` scopes its `DELETE` correctly, so this was LATENT; what was
+missing was the mechanism keeping it that way on a domain where drift means a budget cap stops binding and
+`BudgetedLlmClient` stops refusing. The cache, by contrast, already covered the same four behaviours on all
+three backends — recorded so this is not read as evidence it had drifted.
+
+**Mutation-checked on the gate, not just the facts**: deleting one Postgres delegator failed
+`PostgresContractCoverageTests` naming the exact missing fact.
+
+**What stayed per-backend, and why that is the boundary**: the cache's size-cap trim is set at CONSTRUCTION
+and needs a far-future clock on the shared container, and "a fresh handle reads what another wrote" is
+meaningless where there is only one handle. Neither is portable, so each suite states its own.
+
+## Part 232 — a policy seam at the memory ROOT is no longer invisible to the gate that counts domains
+
+✅ closed 2026-09-15. `TASKS.md` Part 230, DOM1.
+
+- **DOM1 — the memory-domain RULE and the gate that counts domains disagree about the root.**
+
+**Outcome: `countMemoryDomains` now counts an UNEXEMPTED root-level `IMemory*Policy`**, so one raises the
+number and fails `check-counts` against every document saying seven. Proven by probe: a throwaway root seam
+took the count to 8 and the gate named the claim. `IMemoryRemovalPolicy` is the one recorded exemption, in
+`ROOT_MEMORY_POLICY_EXEMPTIONS` with its reason, and a guard test fails if that entry stops matching.
+
+**The two rules had agreed by accident.** `CLAUDE.md` derives a domain from the seam's NAME; the counter
+derived it from a seam in a SUB-namespace, and a policy declared at the root matched neither. This gate's
+own reason for existing is that "two public seams sat outside the documented domain list on the eve of the
+3.0 freeze" — it was built for this defect class and was blind to this variant.
+
+**No namespace moved, and could not have.** Removal is a BLEND concern — which members a forget or prune
+visits (**D75**) — rather than a stage of the decay pipeline the seven describe, and the namespace is public
+and frozen (**D70**) either way. `CLAUDE.md` now says that where the SEVEN claim is made, so the seam stops
+reading as a missing eighth domain.

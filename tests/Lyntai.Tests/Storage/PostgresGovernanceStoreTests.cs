@@ -2,6 +2,7 @@ using Lyntai.Lifecycle;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Budgeting;
+using Lyntai.Llm.Caching;
 using Lyntai.Memory;
 using Lyntai.Storage.Postgres;
 using Lyntai.Tests.Fakes;
@@ -19,41 +20,39 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
 {
     private static string Uid() => Guid.NewGuid().ToString("N");
 
+    // The cross-backend ResponseCacheContract, Uid-scoped for the shared container. The size-cap trim stays
+    // per-backend below: it is set at construction and needs a far-future clock here, neither of which a
+    // portable fact can express.
+    private async Task CachePg(Func<IResponseCache, string, Action<TimeSpan>, Task> body)
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var clock = new MutableClock();
+        await body(new PostgresResponseCache(pg.Factory, new LyntaiOptions(), clock.Get), Uid(), clock.Advance);
+    }
+
+    [SkippableFact] public Task Cache_round_trip() => CachePg(ResponseCacheContract.A_stored_reply_round_trips_with_its_usage);
+    [SkippableFact] public Task Cache_miss() => CachePg(ResponseCacheContract.A_key_that_was_never_set_is_a_MISS);
+    [SkippableFact] public Task Cache_ttl() => CachePg(ResponseCacheContract.An_entry_past_its_TTL_is_a_MISS);
+    [SkippableFact] public Task Cache_remove_one() => CachePg(ResponseCacheContract.Remove_evicts_ONE_entry_and_leaves_the_others);
+    [SkippableFact] public Task Cache_remove_absent() => CachePg(ResponseCacheContract.Removing_a_key_that_is_not_there_is_a_NO_OP);
+
+    /// <summary>A reply survives the INSTANCE that cached it — what a persistent backend is for, and the one
+    /// property the portable contract cannot state, since only a persistent cache has two handles over one
+    /// store.</summary>
     [SkippableFact]
-    public async Task ResponseCache_persists_across_instances_and_expires()
+    public async Task ResponseCache_persists_a_reply_across_store_instances()
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var options = new LyntaiOptions();
-        var clock = new MutableClock();
         var key = Uid();
-        var cache = new PostgresResponseCache(pg.Factory, options, clock.Get);
-        await cache.SetAsync(key, new LlmReply("pg cached", ProviderVerdict.Ok, new LlmUsage(3, 4, CostUsd: 0.05)), TimeSpan.FromMinutes(5));
+        await new PostgresResponseCache(pg.Factory, options)
+            .SetAsync(key, new LlmReply("pg cached", ProviderVerdict.Ok, new LlmUsage(3, 4, CostUsd: 0.05)));
 
-        var got = await new PostgresResponseCache(pg.Factory, options, clock.Get).GetAsync(key); // fresh instance
+        var got = await new PostgresResponseCache(pg.Factory, options).GetAsync(key); // fresh instance
+
         Assert.NotNull(got);
         Assert.Equal("pg cached", got!.Text);
         Assert.Equal(0.05, got.Usage!.CostUsd);
-
-        clock.Advance(TimeSpan.FromMinutes(6));
-        Assert.Null(await cache.GetAsync(key)); // expired
-    }
-
-    [SkippableFact]
-    public async Task ResponseCache_remove_evicts_one_entry_and_a_missing_key_is_a_no_op()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var options = new LyntaiOptions();
-        var cache = new PostgresResponseCache(pg.Factory, options);
-        var keep = Uid();
-        var poisoned = Uid();
-        await cache.SetAsync(keep, new LlmReply("keep", ProviderVerdict.Ok));
-        await cache.SetAsync(poisoned, new LlmReply("bad", ProviderVerdict.Ok));
-
-        await cache.RemoveAsync(poisoned);
-        await cache.RemoveAsync(Uid()); // no-op, no throw
-
-        Assert.Null(await new PostgresResponseCache(pg.Factory, options).GetAsync(poisoned));
-        Assert.NotNull(await new PostgresResponseCache(pg.Factory, options).GetAsync(keep));
     }
 
     [SkippableFact]
@@ -82,35 +81,35 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         await cache.RemoveAsync(c);
     }
 
-    [SkippableFact] // R6's Postgres leg: totals AGGREGATE across consumer casings (lower(consumer) SUM)
-    public async Task UsageTracker_consumer_totals_aggregate_across_casings()
+    // The cross-backend UsageTrackerContract. It replaces two hand-written facts that asserted a STRICT
+    // SUBSET of the SQLite suite's — the global total, an unrecorded consumer, and a scoped reset leaving
+    // the other consumers intact were all missing, so a ResetAsync(consumer) that dropped the whole table
+    // would have passed here. The two TABLE-WIDE facts still cannot run on a shared container and are
+    // excluded by name in PostgresContractCoverageTests, which fails if an exclusion stops matching.
+    private async Task UsagePg(Func<IUsageTracker, string, Task> body)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var t = new PostgresUsageTracker(pg.Factory);
-        var seed = Uid();
-        await t.RecordAsync("App-" + seed, new LlmUsage(10, 0, CostUsd: 0.10));
-        await t.RecordAsync("app-" + seed, new LlmUsage(20, 0, CostUsd: 0.20));
-
-        Assert.Equal(2, (await t.TotalAsync("APP-" + seed)).Calls);       // ONE consumer identity, any casing
-        Assert.Equal(30, (await t.TotalAsync("app-" + seed)).InputTokens);
-        Assert.Equal(0.30, (await t.TotalAsync("App-" + seed)).CostUsd, 5);
+        await body(new PostgresUsageTracker(pg.Factory), Uid());
     }
 
+    [SkippableFact] public Task Usage_accumulates() => UsagePg(UsageTrackerContract.Records_accumulate_per_consumer);
+    [SkippableFact] public Task Usage_unrecorded() => UsagePg(UsageTrackerContract.An_unrecorded_consumer_is_Empty);
+    [SkippableFact] public Task Usage_casings() => UsagePg(UsageTrackerContract.Consumer_identity_aggregates_across_casings);
+    [SkippableFact] public Task Usage_reset_one() => UsagePg(UsageTrackerContract.Resetting_a_consumer_clears_it);
+    [SkippableFact] public Task Usage_reset_scoped() => UsagePg(UsageTrackerContract.Resetting_ONE_consumer_leaves_the_others_intact);
+    [SkippableFact] public Task Usage_reset_casing() => UsagePg(UsageTrackerContract.Resetting_is_case_insensitive_like_the_totals);
+
+    /// <summary>Totals survive the instance that recorded them — the property the replaced fact carried
+    /// inline ("fresh instance reads persisted totals") and the one thing a shared contract cannot express,
+    /// since only a persistent backend has two handles over one store.</summary>
     [SkippableFact]
-    public async Task UsageTracker_accumulates_per_consumer_and_resets()
+    public async Task UsageTracker_totals_are_read_back_by_a_FRESH_handle_over_the_same_store()
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var a = Uid();
-        await new PostgresUsageTracker(pg.Factory).RecordAsync(a, new LlmUsage(10, 5, CostUsd: 0.10));
-        await new PostgresUsageTracker(pg.Factory).RecordAsync(a, new LlmUsage(20, 5, CostUsd: 0.20));
+        var consumer = Uid();
+        await new PostgresUsageTracker(pg.Factory).RecordAsync(consumer, new LlmUsage(10, 5, CostUsd: 0.10));
 
-        var ta = (await new PostgresUsageTracker(pg.Factory).TotalAsync(a)); // fresh instance reads persisted totals
-        Assert.Equal(30, ta.InputTokens);
-        Assert.Equal(0.30, ta.CostUsd, 5);
-        Assert.Equal(2, ta.Calls);
-
-        await new PostgresUsageTracker(pg.Factory).ResetAsync(a);
-        Assert.Equal(UsageTotals.Empty, (await new PostgresUsageTracker(pg.Factory).TotalAsync(a)));
+        Assert.Equal(15, (await new PostgresUsageTracker(pg.Factory).TotalAsync(consumer)).TotalTokens);
     }
 
     // The cross-backend VectorStoreContract, wired here because this class owns the container lifetime and

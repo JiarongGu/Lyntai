@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  COUNTED_CLAIMS, checkCounts, countBareCancellationCatches, countDecisions, countGoldenShapes, countGuardTests, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countStartableItems, countVerifyGates,
+  COUNTED_CLAIMS, ROOT_MEMORY_POLICY_EXEMPTIONS, checkCounts, countBareCancellationCatches, countDecisions, countGoldenShapes, countGuardTests, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countStartableItems, countVerifyGates, unexemptedRootMemoryPolicies,
   parseCount,
 } from '../check-counts.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
@@ -187,6 +187,28 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     assert.ok(seamOwners.has('Annotation') && seamOwners.has('Verification'),
       'the two model-in-the-loop domains must be counted — they defaulted to none and were missed for that reason');
     assert.ok(!seamOwners.has('Engines'), 'Engines holds engines, not a policy seam, and is not a domain');
+  });
+
+  it('a ROOT-level policy seam is exempted by name or it raises the count', () => {
+    // The blind spot this closed: the written rule derives a domain from the seam's NAME, the counter
+    // derived it from a seam in a SUB-namespace, and they agreed on the tree by accident.
+    // IMemoryRemovalPolicy is an IMemory*Policy with a shipped implementation living at the root.
+    const memory = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
+    const rootSeams = fs.readdirSync(memory, { withFileTypes: true })
+      .filter((e) => e.isFile() && e.name.endsWith('.cs'))
+      .map((e) => fs.readFileSync(path.join(memory, e.name), 'utf8'))
+      .filter((t) => /^namespace Lyntai\.Memory;/m.test(t))
+      .flatMap((t) => [...t.matchAll(/^\s*public interface (IMemory\w+Policy)\b/gm)].map((m) => m[1]));
+
+    assert.ok(rootSeams.includes('IMemoryRemovalPolicy'),
+      'the exemption below is about a seam that must actually be at the root; if it moved, delete it');
+    assert.deepEqual(unexemptedRootMemoryPolicies(repo), [],
+      'a root-level IMemory*Policy with no recorded reason is a domain nobody filed — add it to a '
+      + 'sub-namespace, or record why it is not a graph-memory domain in ROOT_MEMORY_POLICY_EXEMPTIONS');
+
+    // …and the exemption list may not rot: every entry names a seam that is still there.
+    for (const name of Object.keys(ROOT_MEMORY_POLICY_EXEMPTIONS))
+      assert.ok(rootSeams.includes(name), `${name} is exempted but no longer declared at the memory root`);
   });
 
   it('the option-guard counter counts CALL SITES, and matches the files D78 names', () => {

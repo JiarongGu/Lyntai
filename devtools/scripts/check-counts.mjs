@@ -235,12 +235,47 @@ export function countDecisions(repo) {
 }
 
 /**
+ * Root-level `IMemory<X>Policy` seams that are deliberately NOT graph-memory domains, each with the reason.
+ *
+ * An entry that stops matching FAILS (`check-counts.test.mjs`), the same rule every other allowance in this
+ * repository carries: an exemption nobody can see expire is how a blind spot becomes permanent.
+ */
+export const ROOT_MEMORY_POLICY_EXEMPTIONS = {
+  IMemoryRemovalPolicy:
+    'a BLEND concern — consulted by CompositeMemoryEngine to decide which MEMBERS a forget or prune visits '
+    + '(D75) — rather than a stage of the graph engine\'s decay pipeline, which is what the seven domains '
+    + 'describe. Its namespace is public and frozen (D70), so it cannot move even if that changed.',
+};
+
+/** Root-level `IMemory<X>Policy` seams with no recorded exemption — each one a domain nobody filed. */
+export function unexemptedRootMemoryPolicies(repo) {
+  const dir = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
+  if (!fs.existsSync(dir)) return [];
+  const found = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!e.isFile() || !e.name.endsWith('.cs')) continue;
+    const text = fs.readFileSync(path.join(dir, e.name), 'utf8');
+    if (!/^namespace Lyntai\.Memory;/m.test(text)) continue;
+    for (const m of text.matchAll(/^\s*public interface (IMemory\w+Policy)\b/gm))
+      if (!Object.hasOwn(ROOT_MEMORY_POLICY_EXEMPTIONS, m[1])) found.push(m[1]);
+  }
+  return found;
+}
+
+/**
  * Memory POLICY domains — a `Lyntai.Memory.*` sub-namespace whose job is to hold one `IMemory<X>Policy`
  * seam plus its implementations (design §5.7 / D47).
  *
  * Derived from the seams, not from a directory listing: `.Engines` is a sub-namespace and is NOT a domain
  * (it holds the engines), so counting folders would be wrong by one in the direction that looks right.
  * The test asserts the NAMES, not just the total — the lesson from the `verify`-gate counter above.
+ *
+ * **It also counts an UNEXEMPTED root-level seam, which is the blind spot it used to have.** The written
+ * rule derives a domain from the seam's NAME; this function derived it from a seam in a SUB-namespace, so a
+ * policy declared at the root (`namespace Lyntai.Memory;`) matched neither the regex nor anyone's attention
+ * — and this gate's own reason for existing is that "two public seams sat outside the documented domain
+ * list on the eve of the 3.0 freeze". Counting one makes the number disagree with every document that says
+ * seven, which is the loud failure; the fix is then to file it as a domain or record why it is not.
  */
 export function countMemoryDomains(repo) {
   const dir = path.join(repo, 'src', 'Lyntai.Core', 'Memory');
@@ -258,7 +293,7 @@ export function countMemoryDomains(repo) {
     }
   };
   walk(dir);
-  return domains.size;
+  return domains.size + unexemptedRootMemoryPolicies(repo).length;
 }
 
 /**

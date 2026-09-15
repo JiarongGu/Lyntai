@@ -34,7 +34,8 @@ public class PostgresContractCoverageTests
     [
         nameof(ConversationStoreContract), nameof(CuratedMemoryStoreContract), nameof(KeyValueStoreContract),
         nameof(MemoryStoreContract), nameof(PromptVersionStoreContract), nameof(ScoreStoreContract),
-        nameof(TraceStoreContract), nameof(VectorStoreContract),
+        nameof(TraceStoreContract), nameof(VectorStoreContract), nameof(UsageTrackerContract),
+        nameof(ResponseCacheContract),
     ];
 
     /// <summary>Facts deliberately NOT run against Postgres, each with the reason. An entry that stops
@@ -47,6 +48,12 @@ public class PostgresContractCoverageTests
             + "assertion cannot be made deterministic without giving Postgres its own database per test",
         ["ScoreStoreContract.Export_dumps_every_session_scorer_score"] =
             "same shared-container reason as the aggregate above — the export is table-wide too",
+        ["UsageTrackerContract.The_global_total_sums_across_consumers"] =
+            "a null consumer SUMs the whole table, so other tests' rows fall inside it on the shared "
+            + "container; the per-consumer totals it is built from are covered above",
+        ["UsageTrackerContract.Resetting_everything_clears_every_consumer"] =
+            "a null consumer DELETEs the whole table — it would erase the rows other tests are mid-way "
+            + "through asserting on, which is worse than not running it",
     };
 
     private static string SuiteSource(string file) =>

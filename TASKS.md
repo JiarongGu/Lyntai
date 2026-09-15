@@ -22,14 +22,14 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 95 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB … |
-| 146 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 155 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 209 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 264 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 319 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 342 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 399 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 96 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB … |
+| 147 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 156 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 210 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 265 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 320 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 343 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 400 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -44,10 +44,11 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is ZERO items**, which is a
-STATE and not an achievement: everything open is blocked or watching, so the next work has to be FOUND
-rather than picked up. The review archived as `docs/task-archive.md` Part 221 is how the last seven
-arrived, and Parts 223–229 are where they went. **An `env` blocker EXPIRES
+longer drift apart. Edit the marker, never the table. **The startable set is ZERO items** — a STATE, not an
+achievement: everything open is blocked or watching, so the next work has to be FOUND. Two review passes
+have now emptied it and refilled it (`docs/task-archive.md` Parts 221–229, then 230–232), and the second
+widened past the one-day diff the first was scoped to.
+**An `env` blocker EXPIRES
 SILENTLY** — Part 65 read "this machine holds exactly one chat model" for two weeks while three sat on
 disk, every one already used by other measurements here. Nothing fails when an environment GROWS, so
 nothing announces it; **re-check every `env` item before concluding there is no work.**
@@ -711,6 +712,8 @@ _**The fallback-visibility item CLOSED 2026-09-13** as `docs/task-archive.md` **
 rather than a warning, because reporting which transport ran is a FACT about the run and needs no evidence,
 where a warning would have shipped a roster-size threshold taken from one model on a synthetic corpus.
 Nullable because `None` (no tools registered) and "a BYO loop never said" are different claims._
+
+---
 
 ---
 
