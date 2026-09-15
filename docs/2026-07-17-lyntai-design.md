@@ -122,6 +122,12 @@ seam, so **CLI-first, `LlmVerdict` classification, and streaming-aware fallback 
 `IChatClient` into an `ILlmProvider`, giving the whole MEAI ecosystem (OpenAI, Azure, Ollama,
 Anthropic API, …) for free without shaping the public API around MEAI's types.
 
+*(2026-09-15: the MEAI bridge is DELETED — no provider used it, and most of the ecosystem it was for ships
+an OpenAI-compatible endpoint that `AddHttpProvider` already reaches (`docs/DECISIONS.md` **D146**). The
+fork's REASONING stands and is now served better: `AddBridgeProvider` takes a lambda, so bridging any client
+— MEAI's or anyone's — costs the library no dependency at all, which is what "without shaping the public API
+around MEAI's types" was reaching for (**D147**).)*
+
 **Fork 2 — storage = per-domain interfaces + one SQLite package.** Domain interfaces live in Core;
 `Lyntai.Storage.Sqlite` implements all of them. Interfaces are designed so a mastra-style *composite
 store* (route each domain to a different backend) can be layered on later without breaking consumers.

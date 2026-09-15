@@ -18,7 +18,7 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3724 passed / 3753 total, 29 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 811/811, doc samples 57/57. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 811/811, doc samples 58/58. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED with Docker up, re-attested 2026-09-15 at `90877b09`** — read off that run's own output, never
@@ -35,7 +35,7 @@ changed number cannot be told from an extrapolated one, and that is how it read 
 `ApiSurfaceRendererTests` are theories over the packable roster, so **retiring a package costs two tests**:
 **D122** and **D123** took thirteen packages to eleven (−4) while the tokenizer added 18, and 3688 − 4 + 18
 = 3702. Everything else reads back identically off each run's own output — the skip roster, e2e 3/3, doc
-samples 57/57 — and the guard count is derived from the tree by `check-counts`, so it cannot go stale
+samples 58/58 — and the guard count is derived from the tree by `check-counts`, so it cannot go stale
 unseen. **Movement that reconciles against a NAMED cause on both sides is the only kind needing no
 investigation; any other is a finding**, and "+n new tests" is no longer the whole of that rule.
 **The Postgres leg is 195 tests**, measured on an EARLIER tree of 3,644 total (the daemon down read

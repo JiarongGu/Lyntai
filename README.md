@@ -1264,6 +1264,42 @@ in-flight calls finish normally (`docs/DECISIONS.md` D30).
 services.AddLyntai(b => b.ConfigureProviderAdmission(a => a.BySlot["sd-local"] = 1));  // one render at a time
 ```
 
+### Bridging a backend Lyntai has no provider for (`AddBridgeProvider`)
+
+Most vendors ship an OpenAI-compatible endpoint, so `AddHttpProvider` reaches them. When one does not — its
+own wire format, an in-house service, an SDK you already use — **a bridge is a lambda**, and the library
+takes no dependency on whatever you wrapped:
+
+<!-- compile-given: static class Vendor { public static System.Threading.Tasks.Task<string> AskAsync(string prompt, System.Threading.CancellationToken ct) => System.Threading.Tasks.Task.FromResult(""); } -->
+```csharp
+services.AddLyntai(cfg => cfg
+    .AddBridgeProvider("vendor", async (req, ct) =>
+    {
+        try
+        {
+            var text = await Vendor.AskAsync(req.Messages[^1].Content, ct);
+            return new LlmReply(text, ProviderVerdict.Ok);
+        }
+        catch (HttpRequestException ex)
+        {
+            // a VERDICT, not a throw — it is what lets the router advance to the next candidate
+            return new LlmReply("", ProviderVerdict.Failed, Detail: ex.Message);
+        }
+    })
+    .UseDefaultCandidates("vendor"));
+```
+
+It is a backend like any other from there: routing, fallback, dead-host cooldown, admission, budgets and
+traces all apply. Two things to know:
+
+- **Return a verdict rather than throwing.** A throw is classified conservatively; a verdict says what
+  happened, and `RateLimited` or `AuthFailed` cool the backend while `Failed` counts toward the dead-host
+  threshold. `ProviderVerdictClassifier.FromHttpFailure(status, body, hasCredentials)` maps a response for
+  you.
+- **A bridge declares only what you hand it a delegate for.** Omit the optional `stream` and no router will
+  ask it to stream. Pass `capabilities` to declare anything other than text in, text out — a
+  `Produces: [ProviderKinds.Vector]` bridge is an embedder, `[ProviderKinds.Score]` a reranker.
+
 ### Local in-process inference (`Lyntai.Providers.LlamaSharp`)
 
 Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess. Reference the

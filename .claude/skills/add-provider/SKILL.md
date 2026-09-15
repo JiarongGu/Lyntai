@@ -14,7 +14,11 @@ Read `.claude/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.claud
 2. **Is it a spawned CLI agent?** (`claude`, a sibling CLI) → write a **dialect**, not a provider. See the
    CLI checklist below — the spawn/verdict/streaming/maintenance invariants already live in
    `CliProviderEngine`, and a second copy of them is how they drifted before.
-3. Otherwise write a native `IModelProvider`. WHERE it lives is the footprint test below, never a default.
+3. **Reachable, but its own wire format?** → a **BRIDGE**, not a provider:
+   `builder.AddBridgeProvider("id", (req, ct) => …)` wraps any client that already answers — a vendor SDK,
+   an in-house service, an MEAI `IChatClient` — in the few lines of mapping you actually need, and costs the
+   library no dependency (**D147**). Return a non-Ok `ProviderVerdict` rather than throwing.
+4. Otherwise write a native `IModelProvider`. WHERE it lives is the footprint test below, never a default.
 
 ## Where the code lives — the footprint test (`docs/DECISIONS.md` D25)
 

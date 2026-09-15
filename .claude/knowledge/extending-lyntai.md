@@ -19,7 +19,7 @@ adapter) + **a `LyntaiBuilder` extension method** so the consumer wires it with 
 
 ## Add an LLM provider
 
-Three paths — pick the cheapest one that reaches your backend:
+Four paths — pick the cheapest one that reaches your backend:
 
 **A. Is the backend OpenAI-COMPATIBLE? Then it is already supported (preferred).** OpenAI, Azure, Ollama,
 OpenRouter, vLLM, llama-server, Groq, DeepSeek and most of the rest ship such an endpoint. You do *nothing*
@@ -27,6 +27,14 @@ but register: `builder.AddHttpProvider("my-id", o => { o.BaseUrl = …; o.Dialec
 registration serves chat, embeddings or reranking depending on `Produces`. **Only write a native provider if
 no dialect reaches it** — which, since **D146** deleted the Microsoft.Extensions.AI bridge, means a vendor
 whose wire format is genuinely its own.
+
+**A3. Reachable but its OWN wire format → a BRIDGE, which is a lambda.**
+`builder.AddBridgeProvider("my-id", (req, ct) => …)` turns anything that already answers into a routed
+backend — a vendor SDK, an in-house service, a `Microsoft.Extensions.AI` `IChatClient`. You write only the
+mapping you need; routing, fallback, cooldown, admission and the ops layer come along, and the library takes
+no dependency on whatever you wrapped (**D147**). **Return a non-Ok `ProviderVerdict` rather than throwing**,
+so the router can advance to the next candidate. A bridge declares only the operations you hand it a
+delegate for — omit `stream` and no router will ask it to stream.
 
 **A2. A SPAWNED CLI → write a DIALECT, not a provider.** If the backend is a command-line agent
 (`claude`, `codex`, or a sibling), do NOT re-implement the spawn/verdict/streaming rules — they are already in
