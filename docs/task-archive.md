@@ -3772,3 +3772,27 @@ assembling a cleaner one — `Recent` per-cluster and unbounded against the engi
 unbounded against 24. Drift is worse in five of six cells, and because the bias was worth +24.5 points to
 the smallest model and −4.2 to the largest it **inverted the ranking**: "size is not the lever" became "the
 2.49 GB model is best in both languages". Both traps are in `pitfalls.md`.
+
+## Part 220 — annotation as `select-from-list`: the fourth and last lever, refused
+
+✅ closed 2026-09-15. `TASKS.md` Part 219, opened and closed the same day.
+
+- **Price annotation as `select-from-list` instead of `extract`.**
+
+**Outcome (`docs/memory-measurements.md` §5, `annotation-shape-select-from-list`): REFUTED, and the shipped
+generative shape stands.** Making reuse structural rather than instructed does not reduce drift — it trades
+drift for COLLAPSE. `gemma-3-4b-it` answered ONE handle for eight unrelated entities (0.0% drift, 1 of 1
+handles collapsed, 8 of 32 facts declined); `qwen2.5-0.5b-instruct` managed four to six handles, three to
+five of them spanning clusters, and did not beat the shipped shape. A shorter list does not rescue it.
+
+**The mechanism reproduces a finding this repository already had.** Offered a list and a "none of these",
+both models take the list — §3.1's constant-emitter, one seam over.
+
+**This closes the question the owner asked** ("improve by CODE rather than purely rely on the model") for
+this seam: all four alternatives to a bigger annotator are now measured and refused — name similarity,
+co-occurrence, recency, and the shape. `docs/memory.md` and `docs/model-tasks.md` §3 say so.
+
+**One harness bug, and it is a design rule for any selective seam.** Offering the list when nothing is in
+use yet is an ABSORBING STATE — an out-of-range pick is dropped, so no handle is recorded, so the list never
+grows: 32 of 32 unlabelled, presenting as "this model cannot do the shape". A selective seam must bootstrap
+generatively. In `pitfalls.md`; the figures above are from after the fix.

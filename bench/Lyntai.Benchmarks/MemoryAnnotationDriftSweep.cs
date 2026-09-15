@@ -92,6 +92,78 @@ internal static class MemoryAnnotationDriftSweep
                 : MemoryAnnotation.None);
     }
 
+    /// <summary>The CANDIDATE shape: annotation as `select-from-list` rather than `extract`.
+    ///
+    /// <para><b>Bench-local ON PURPOSE, which is the opposite of the rule elsewhere here.</b> Every other
+    /// arm drives the SHIPPED policy because it prices what a consumer inherits; this one prices a PROPOSED
+    /// change to that policy, so it has to be written here before it can earn its way in.</para>
+    ///
+    /// <para><b>Why the shape and not the wording.</b> The shipped prompt already says "REUSE an existing
+    /// subject … Copy it EXACTLY", and every model drifts 58-90% regardless. Selection makes invention
+    /// STRUCTURALLY impossible instead of discouraged — which is the fix `docs/model-tasks.md` §1
+    /// prescribes for a generative task that must reuse. The <c>new</c> escape is required for a genuinely
+    /// new entity and is also the hole drift can return through, which is the thing being measured.</para></summary>
+    private sealed class SelectingAnnotator(SweepDoubles.OpenAiCompatibleChat chat, int listLimit)
+        : IMemoryAnnotationPolicy
+    {
+        public async Task<MemoryAnnotation> AnnotateAsync(
+            MemoryAnnotationRequest request, CancellationToken ct = default)
+        {
+            var known = request.Known.Take(listLimit).ToList();
+            var numbered = string.Join("\n", known.Select((k, i) => $"{i + 1}. {k}"));
+            var recent = request.Recent.Count == 0
+                ? ""
+                : "\nEarlier facts, newest first:\n" + string.Join("\n", request.Recent.Select(r => "- " + r));
+
+            // With NOTHING in use yet there is no list to select from, and offering one is an ABSORBING
+            // STATE: the model answers {"pick": 1} against an empty list, the pick is out of range and
+            // dropped, so no handle is ever recorded and the list can never grow. Measured 2026-09-15 as
+            // 32 of 32 facts unlabelled. A selective seam has to bootstrap generatively.
+            var prompt = known.Count == 0
+                ? $$"""
+                    A memory system connects facts that are about the same thing.
+
+                    Fact: {{request.Write.Content}}
+                    {{recent}}
+                    Give this fact a SHORT, STABLE handle for the one entity or topic it is about — the same
+                    handle you would produce again for any other fact about that same thing. Prefer the
+                    enduring thing over the passing detail: a fact about a person's job is about the PERSON.
+                    Write it in the fact's own language. Answer with ONLY: {"new": "<handle>"}
+                    """
+                : $$"""
+                    A memory system connects facts that are about the same thing.
+
+                    Fact: {{request.Write.Content}}
+                    {{recent}}
+                    Subjects already in use:
+                    {{numbered}}
+
+                    Which ONE of the numbered subjects is this fact about? Answer with ONLY a JSON object.
+                    If one of them is the thing this fact concerns: {"pick": <number>}
+                    If none of them is: {"new": "<a short stable handle, in the fact's own language>"}
+                    Prefer the enduring thing over the passing detail: a fact about a person's job is about
+                    the PERSON. Resolve pronouns using the earlier facts.
+                    """;
+
+            var reply = await chat.AskAsync(prompt, ct, maxTokens: 64).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(reply))
+            {
+                if (_dump) Console.WriteLine("    select: NULL/EMPTY reply from the endpoint");
+                return MemoryAnnotation.None;
+            }
+
+            var pick = System.Text.RegularExpressions.Regex.Match(reply, "\"pick\"\\s*:\\s*(\\d+)");
+            if (pick.Success && int.TryParse(pick.Groups[1].Value, out var n) && n >= 1 && n <= known.Count)
+                return new MemoryAnnotation([known[n - 1]]);
+
+            var fresh = System.Text.RegularExpressions.Regex.Match(reply, "\"new\"\\s*:\\s*\"([^\"]+)\"");
+            if (fresh.Success) return new MemoryAnnotation([fresh.Groups[1].Value.Trim()]);
+
+            if (_dump) Console.WriteLine($"    select: UNPARSED {reply.Replace("\n", "\\n")}");
+            return MemoryAnnotation.None;
+        }
+    }
+
     public static async Task<int> RunAsync(string[] args)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -140,7 +212,16 @@ internal static class MemoryAnnotationDriftSweep
                     new LlmMemoryAnnotationPolicy(new SweepDoubles.BenchClientFactory(chat)), gap);
                 foreach (var mode in new[]
                          { Reconciler.Exact, Reconciler.Fragment, Reconciler.Recency })
-                    scores.Add(ScoreAnswers($"{label} gap{gap} +{mode}", name, answers, mode));
+                    scores.Add(ScoreAnswers($"{label} gap{gap} extract +{mode}", name, answers, mode));
+
+                // The SHAPE arm, at the shipped list length and a short one — §2's selective measurements
+                // degrade hard with length, so a single length could not tell the shape from the list.
+                foreach (var limit in new[] { KnownWindow, 8 })
+                {
+                    var picked = await AskAsync(fixture, new SelectingAnnotator(chat, limit), gap);
+                    scores.Add(ScoreAnswers(
+                        $"{label} gap{gap} select@{limit}", name, picked, Reconciler.Exact));
+                }
             }
         }
 

@@ -45,12 +45,12 @@ history rather than context (`repo-mechanics.md`)._
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
 longer drift apart. Edit the marker, never the table. **The startable set is ZERO items**, after a day that
-opened and closed four Parts (`docs/task-archive.md` 215–218) and is worth reading as a sequence: closing
-one took the count to zero, an `env` sweep put it back to one, working that closed it, its refutation
-opened the next, and working THAT closed it too. **An `env` blocker EXPIRES SILENTLY** — Part 65 read "this
-machine holds exactly one chat model" for two weeks while three sat on disk, every one already used by
-other measurements here. Nothing fails when an environment GROWS, so nothing announces it; **re-check every
-`env` item before concluding there is no work.**
+opened and closed SIX Parts (`docs/task-archive.md` 215–220) in one chain: closing one took the count to
+zero, an `env` sweep put it back to one, working that closed it, and each refutation named the next
+candidate until the fourth ran out. **An `env` blocker EXPIRES SILENTLY** — Part 65 read "this machine holds
+exactly one chat model" for two weeks while three sat on disk, every one already used by other measurements
+here. Nothing fails when an environment GROWS, so nothing announces it; **re-check every `env` item before
+concluding there is no work.**
 **A REFUTATION is the fifth route an item arrives by, and the most reliable**: disproving the obvious answer
 names the next candidate, which is how Part 217 arrived narrowed to one signal of three. The others are a
 ruling, a captured failure, and a design REVIEW — the only one schedulable on purpose, which is how Part
@@ -710,6 +710,8 @@ _**The fallback-visibility item CLOSED 2026-09-13** as `docs/task-archive.md` **
 rather than a warning, because reporting which transport ran is a FACT about the run and needs no evidence,
 where a warning would have shipped a roster-size threshold taken from one model on a synthetic corpus.
 Nullable because `None` (no tools registered) and "a BYO loop never said" are different claims._
+---
+
 ---
 
 ---

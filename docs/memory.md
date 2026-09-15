@@ -308,12 +308,14 @@ annotation mechanism reports with a PERFECT annotator are a ceiling to read with
 deployment inherits. `node devtools/dev.mjs memory-annotation-drift` prints the rate for a candidate model,
 with a self-check that fails the table if the scorer is wrong.
 
-**A BIGGER annotator is the lever, and code over its output is not.** The 2,489,757,856 B model drifts
-least in both languages; the two sub-gigabyte ones sit within a few points of each other above it. Three
-pure-code repairs were priced and all three failed — name similarity and shared fragments recover drift in
-1 of 6 cells, co-occurrence cannot reach it, and a recency rule that looks like a 52-point win on
-consecutively-written facts collapses half the handle space once a real stream interleaves them. **Spend on
-the model, not on reconciling it.**
+**A BIGGER annotator is the lever, and FOUR alternatives to it have been measured and refused.** The
+2,489,757,856 B model drifts least in both languages; the two sub-gigabyte ones sit within a few points of
+each other above it. What does not work: name similarity and shared fragments (1 of 6 cells),
+co-occurrence (cannot reach a drifted handle at all), a recency rule (a 52-point win on consecutively
+written facts, and half the handle space collapsed once a real stream interleaves them), and reshaping the
+question to `select-from-list` (the 2.49 GB model answers ONE handle for eight unrelated entities). **Spend
+on the model, not on repairing or re-asking it** — and if you cannot afford one, know that the mechanism's
+published ceiling is not what you will get.
 
 #### What it costs you NOT to use a judge
 

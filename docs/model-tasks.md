@@ -296,12 +296,16 @@ three local models — **491,400,032 B**, **806,058,240 B** and **2,489,757,856 
 **58.3% to 90.5%** of the facts where the right one was already on offer. **This is the one cell where SIZE
 buys something**: the 2.49 GB model drifts least in both languages (83.3% English, 58.3% Chinese) and the
 two sub-gigabyte ones sit within a few points of each other above it.
-<br>**And it is the cell where CODE buys nothing** — all three of the cheap entity-resolution signals were
-priced and all three failed: name similarity and shared fragments move 1 of 6 cells, co-occurrence cannot
-reach a drifted handle at all, and recency is a write-order artifact that collapses half the handle space
-on an interleaved stream. Read that beside §3's reranker row, where a 468 MB purpose-built model beat a
-5.3× larger instruct one: **the shape decides whether size or code is the lever, and here it is neither
-code nor a small model.** The practical rule is `docs/memory.md`'s: screen the annotator you intend to ship.
+<br>**And it is the cell where nothing ELSE buys anything** — four alternatives to a bigger model were
+priced and all four failed: name similarity and shared fragments move 1 of 6 cells, co-occurrence cannot
+reach a drifted handle at all, recency is a write-order artifact that collapses half the handle space on an
+interleaved stream, and **reshaping the seam to `select-from-list` makes the 2.49 GB model answer ONE handle
+for eight unrelated entities**. That last one matters most here, because it is this document's own
+prescription for a generative task that must reuse — and one seam over it reproduces §3.1's constant-emitter
+exactly: offered a list and a "none of these", both models take the list. Read it beside §3's reranker row,
+where a 468 MB purpose-built model beat a 5.3× larger instruct one: **the shape decides whether size, code
+or re-asking is the lever, and annotation is the cell where only size is.** The practical rule is
+`docs/memory.md`'s: screen the annotator you intend to ship.
 <br>_An earlier reading of this run said the opposite — "size is not the lever", with the best English
 model the worst Chinese one. It was RETRACTED the same day: the harness built the annotator's context
 itself and built a cleaner one than the engine passes, which flattered the small models by up to 24.5
