@@ -334,6 +334,69 @@ public class WordPieceEncodeTests
         // Silently returning [CLS][SEP] for maxTokens: 2 would embed every document identically.
         Assert.Throws<ArgumentOutOfRangeException>(() => Tokenizer("alpha").Encode("alpha", maxTokens: 2));
     }
+
+    // ---- the PAIR overload: what a cross-encoder scores -----------------------------------------------
+    // Vocabulary() puts the specials first, so [CLS] is 2 and [SEP] is 3 — the same literals the
+    // single-text tests above assert with.
+
+    [Fact]
+    public void A_pair_is_CLS_a_SEP_b_SEP_with_the_segments_distinguishable()
+    {
+        var encoding = Tokenizer("red", "blue").Encode("red", "blue");
+
+        Assert.Equal([2, 5, 3, 6, 3], encoding.Ids);
+        // segment 0 covers [CLS] a [SEP]; segment 1 covers b [SEP] — the whole signal a cross-encoder reads,
+        // and exactly what llama.cpp's GGUF conversion zeroes (TASKS.md Part 177)
+        Assert.Equal([0, 0, 0, 1, 1], encoding.TokenTypeIds);
+        Assert.All(encoding.AttentionMask, m => Assert.Equal(1, m));
+    }
+
+    [Fact]
+    public void The_single_text_overload_still_emits_ALL_ZERO_segments()
+    {
+        // The control: a pair's segment ids mean nothing unless the single-text case is genuinely all zero.
+        Assert.All(Tokenizer("red").Encode("red").TokenTypeIds, id => Assert.Equal(0, id));
+    }
+
+    [Fact]
+    public void Truncation_takes_from_the_DOCUMENT_and_leaves_the_query_whole()
+    {
+        // Losing the tail of a long document costs some evidence; losing the tail of the query changes the
+        // question. So b yields first — the asymmetric rule a reranker wants, stated rather than inherited.
+        var document = string.Join(' ', Enumerable.Repeat("blue", 40));
+
+        var encoding = Tokenizer("red", "blue").Encode("red", document, maxTokens: 8);
+
+        Assert.Equal(8, encoding.Ids.Length);
+        Assert.Equal([2, 5, 3, 6, 6, 6, 6, 3], encoding.Ids);   // the query survives intact
+        Assert.Equal([0, 0, 0, 1, 1, 1, 1, 1], encoding.TokenTypeIds);
+    }
+
+    [Fact]
+    public void A_query_too_long_for_the_budget_is_shortened_and_the_document_gets_nothing()
+    {
+        var query = string.Join(' ', Enumerable.Repeat("red", 40));
+
+        var encoding = Tokenizer("red", "blue").Encode(query, "blue", maxTokens: 6);
+
+        Assert.Equal([2, 5, 5, 5, 3, 3], encoding.Ids);          // both separators adjacent: b kept nothing
+        Assert.Equal([0, 0, 0, 0, 0, 1], encoding.TokenTypeIds);
+    }
+
+    [Fact]
+    public void An_empty_side_still_yields_a_valid_pair()
+    {
+        var encoding = Tokenizer("red").Encode("", "");
+
+        Assert.Equal([2, 3, 3], encoding.Ids);
+        Assert.Equal([0, 0, 1], encoding.TokenTypeIds);
+    }
+
+    [Fact]
+    public void A_budget_with_no_room_for_content_is_refused()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Tokenizer("red").Encode("a", "b", maxTokens: 3));
+    }
 }
 
 /// <summary><see cref="WordPieceTokenizer.FromModelDirectory"/> — the entry point that takes its rules from
@@ -446,4 +509,5 @@ public class WordPieceTokenizerLiveTests
 
         Assert.True(divergences.Count == 0, string.Join(Environment.NewLine, divergences));
     }
+
 }

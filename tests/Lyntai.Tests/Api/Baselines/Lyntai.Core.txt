@@ -3168,6 +3168,7 @@ struct Lyntai.Text.WordPieceEncoding
     ToString() : String
     TokenTypeIds : Int32[]
 sealed class Lyntai.Text.WordPieceTokenizer
+    Encode(String a, String b, Int32 maxTokens = 512) : WordPieceEncoding
     Encode(String text, Int32 maxTokens = 512) : WordPieceEncoding
     EncodeToIds(String text) : IReadOnlyList<Int32>
     static FromModelDirectory(String directory) : WordPieceTokenizer

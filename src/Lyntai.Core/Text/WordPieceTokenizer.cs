@@ -64,8 +64,8 @@ public sealed class WordPieceTokenizer
     /// <param name="stripAccents">Drop combining marks (<c>strip_accents</c>; null follows
     /// <paramref name="lowercase"/>, which is what the reference does).</param>
     /// <param name="tokenizeChineseCharacters">Give each CJK character its own token.</param>
-    /// <param name="classificationToken">Opens a sequence in <see cref="Encode"/> (<c>cls_token</c>).</param>
-    /// <param name="separatorToken">Closes a sequence in <see cref="Encode"/> (<c>sep_token</c>).</param>
+    /// <param name="classificationToken">Opens a sequence in <see cref="Encode(string,int)"/> (<c>cls_token</c>).</param>
+    /// <param name="separatorToken">Closes a sequence in <see cref="Encode(string,int)"/> (<c>sep_token</c>).</param>
     /// <exception cref="InvalidDataException"><paramref name="unknownToken"/> is not in the vocabulary —
     /// without it an unmatchable word has no id to fall back to, and every such word would vanish.</exception>
     public static WordPieceTokenizer FromVocabulary(
@@ -165,6 +165,59 @@ public sealed class WordPieceTokenizer
         var mask = new int[ids.Length];
         Array.Fill(mask, 1);
         return new WordPieceEncoding(ids, mask, new int[ids.Length]);
+    }
+
+    /// <summary>Encode a PAIR as <c>[CLS] a [SEP] b [SEP]</c> — the shape a cross-encoder scores, where the
+    /// whole signal is that the two sides are distinguishable.
+    ///
+    /// <para><b><see cref="WordPieceEncoding.TokenTypeIds"/> is the point of this overload.</b> Segment 0
+    /// covers <c>[CLS] a [SEP]</c> and segment 1 covers <c>b [SEP]</c>, which is what a cross-encoder's
+    /// segment embedding reads to tell a query from a document. A runtime that zeroes them scores the pair
+    /// as one undifferentiated string, which is how a reranker can return well-formed numbers in the WRONG
+    /// order (<c>docs/memory-measurements.md</c> §5).</para>
+    ///
+    /// <para><b>The BUDGET is spent on the second text, deliberately.</b> Truncation takes from
+    /// <paramref name="b"/> first and only shortens <paramref name="a"/> if <paramref name="a"/> alone
+    /// cannot fit — because a is the QUERY and b the document: losing the tail of a long document costs
+    /// some evidence, while losing the tail of the query changes the question being asked. The reference
+    /// implementation offers longest-first truncation as a default; this is the asymmetric rule a reranker
+    /// actually wants, and it is stated rather than inherited.</para></summary>
+    /// <param name="a">The first segment — the QUERY, for a reranker. Truncated last.</param>
+    /// <param name="b">The second segment — the DOCUMENT. Truncated first.</param>
+    /// <param name="maxTokens">Total sequence length INCLUDING all three special tokens, so a 512-position
+    /// model takes 509 content tokens across both sides.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Under 4 — no room for content on either side.</exception>
+    /// <exception cref="InvalidOperationException">The vocabulary has no classification or separator token.</exception>
+    public WordPieceEncoding Encode(string a, string b, int maxTokens = 512)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxTokens, 4);
+        if (_classificationId is not { } cls || _separatorId is not { } sep)
+            throw new InvalidOperationException(
+                "This vocabulary carries no classification/separator token, so it cannot be encoded for a "
+                + "transformer. A model2vec table is the usual reason — use EncodeToIds for that class.");
+
+        var first = EncodeToIds(a ?? string.Empty);
+        var second = EncodeToIds(b ?? string.Empty);
+        var budget = maxTokens - 3;                       // [CLS] … [SEP] … [SEP]
+
+        // b yields first; a is shortened only when it cannot fit on its own.
+        var keptA = Math.Min(first.Count, budget);
+        var keptB = Math.Min(second.Count, budget - keptA);
+
+        var ids = new int[keptA + keptB + 3];
+        var types = new int[ids.Length];
+        var at = 0;
+        ids[at++] = cls;
+        for (var i = 0; i < keptA; i++) ids[at++] = first[i];
+        ids[at++] = sep;
+        var secondStarts = at;                            // segment 1 begins AFTER the first separator
+        for (var i = 0; i < keptB; i++) ids[at++] = second[i];
+        ids[at] = sep;
+        for (var i = secondStarts; i < ids.Length; i++) types[i] = 1;
+
+        var mask = new int[ids.Length];
+        Array.Fill(mask, 1);
+        return new WordPieceEncoding(ids, mask, types);
     }
 
     /// <summary>Clean, pad CJK, split on whitespace, normalize each word, then split off punctuation —

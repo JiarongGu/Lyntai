@@ -761,11 +761,15 @@ is IDENTICAL — so in the RERANKER role, recency buys nothing and size can come
   `docs/task-archive.md` Part 208) is an ONNX session, a WordPiece pass and a pooling step in this
   repository, so a cross-encoder head is a class beside `OnnxProvider` rather than a new package — the
   session plumbing and `Lyntai.Text.WordPieceTokenizer` are already shared.
-  <br>**Two pieces of real work remain.** REACHABILITY: `AddMemoryScoringVerification` (**D115**)
-  takes a `/v1/rerank` endpoint and an ONNX file has no server, so this needs an in-process
-  `IMemoryVerificationPolicy` — a seam that exists, with no ONNX implementation behind it. And the
-  tokenizer needs its PAIR overload: a cross-encoder's whole signal is `token_type_ids` 0 for the query
-  and 1 for the document, which `Encode` does not emit today and which is exactly what llama.cpp zeroes.
+  <br>**Both PREREQUISITES are now done, and only the measurement is left (2026-09-15).** Reachability
+  needs no new seam: **D139** made `AddMemoryScoringVerification` take any backend declaring
+  `ProviderKinds.Score`, so an in-process cross-encoder is an `IModelProvider` implementing `ScoreAsync`
+  beside `OnnxProvider` — not the bespoke `IMemoryVerificationPolicy` this item assumed. And the tokenizer's
+  PAIR overload shipped: `WordPieceTokenizer.Encode(a, b, maxTokens)` emits `token_type_ids` 0 for the query
+  and 1 for the document — the signal llama.cpp zeroes — spending the truncation budget on the DOCUMENT so a
+  long document never shortens the question being asked.
+  <br>**What is left is the ONNX cross-encoder class and then the measurement**: a session over
+  `[CLS] q [SEP] d [SEP]`, taking the single logit, declaring `Produces: [score]`.
   <br>Then QUALITY, which is the point: no sub-100 MB reranker has an evidence-hit figure through ANY
   runtime, and `LAMAR-600m`'s +6.0 at 468,393,760 B is the number to beat. A screen is not a measurement.
   <br>**Two things the refutation does NOT touch**, stated so they are not swept along: the multilingual
