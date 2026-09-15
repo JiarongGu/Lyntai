@@ -17,11 +17,11 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D147** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3746 passed / 3779 total, 33 skipped` (the skips are
+**The baseline a green run should match:** `3750 passed / 3783 total, 33 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 811/811, doc samples 58/58. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-15 at `f3a663d6`** — read off that run's own output, never
+**MEASURED with Docker up, re-attested 2026-09-15 at `593958b8`** — read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
 easily breaks. Every skip is live-backend gated (a live model, embedder, reranker, Ollama, MCP or CLI), so
 nothing is skipping for another reason. **The gated-on-a-model-DIRECTORY suites are now four**:
