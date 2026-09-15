@@ -35,7 +35,7 @@ internal static class MemoryAnnotationDriftSweep
 
     /// <summary>One fact's answer, kept so the reconciler ladder can be scored on IDENTICAL model output —
     /// re-asking the model per rung would price its sampling noise as a reconciler difference.</summary>
-    private sealed record Answer(string Cluster, int Index, IReadOnlyList<string> Subjects);
+    private sealed record Answer(string Cluster, int Index, string Fact, IReadOnlyList<string> Subjects);
 
     /// <summary>Set by <c>--dump</c>. What the model ACTUALLY answered, per cluster — the only way to tell a
     /// drift that CODE could reconcile ("spouse" against "my spouse") from one it could not ("Alice"
@@ -110,6 +110,11 @@ internal static class MemoryAnnotationDriftSweep
         }
 
         var label = SweepDoubles.ChatModel;
+        // The GAP ladder. 0 is the consecutive fixture every figure before 2026-09-15 was taken on; 7 is a
+        // full round-robin over the eight clusters, which is what a real interleaved stream looks like.
+        var gaps = ArgValue(args, "--gap") is { } g && int.TryParse(g, out var one)
+            ? [one]
+            : new[] { 0, 1, 7 };
         var languages = args.Contains("--english-only")
             ? new[] { (Name: "english", Chinese: false) }
             : [(Name: "english", Chinese: false), (Name: "chinese", Chinese: true)];
@@ -125,14 +130,18 @@ internal static class MemoryAnnotationDriftSweep
             var perfect = fixture.SelectMany(c => c.Facts.Select(f => (f, c.Key)))
                 .ToDictionary(x => x.f, x => x.Key, StringComparer.Ordinal);
             scores.Add(ScoreAnswers("PERFECT (self-check)", name,
-                await AskAsync(fixture, new PerfectAnnotator(perfect)), Reconciler.Exact));
+                await AskAsync(fixture, new PerfectAnnotator(perfect), 0), Reconciler.Exact));
 
-            // ONE model pass, scored by every rung — the ladder prices CODE, so the model's answers must be
-            // the same bytes under each. Re-asking would price its sampling noise as a reconciler gain.
-            var answers = await AskAsync(fixture,
-                new LlmMemoryAnnotationPolicy(new SweepDoubles.BenchClientFactory(chat)));
-            foreach (var mode in new[] { Reconciler.Exact, Reconciler.Containment, Reconciler.Fragment })
-                scores.Add(ScoreAnswers($"{label} +{mode}", name, answers, mode));
+            foreach (var gap in gaps)
+            {
+                // ONE model pass per GAP, scored by every reconciler — the reconcilers price CODE, so the
+                // model's answers must be the same bytes under each. Re-asking would price sampling noise.
+                var answers = await AskAsync(fixture,
+                    new LlmMemoryAnnotationPolicy(new SweepDoubles.BenchClientFactory(chat)), gap);
+                foreach (var mode in new[]
+                         { Reconciler.Exact, Reconciler.Fragment, Reconciler.Recency })
+                    scores.Add(ScoreAnswers($"{label} gap{gap} +{mode}", name, answers, mode));
+            }
         }
 
         PrintTable(scores);
@@ -141,37 +150,65 @@ internal static class MemoryAnnotationDriftSweep
         return 0;
     }
 
-    /// <summary>One model pass: every cluster through the annotator with <c>Known</c> accumulating exactly
-    /// as the engine accumulates it. Kept SEPARATE from scoring so the reconciler ladder is scored on
-    /// identical answers — re-asking per rung would price the model's sampling noise as a code difference.
+    /// <summary>The engine's own context bounds (`GraphMemoryOptions`), so the fixture asks the model what
+    /// a deployment would ask it. <b>Getting these wrong flatters the model</b>: `Recent` scoped per cluster
+    /// and unbounded hands it a cleaner pronoun context than it will ever have.</summary>
+    private const int RecentWindow = 8;
+
+    private const int KnownWindow = 24;
+
+    /// <summary>The write ORDER. <paramref name="gap"/> is how many other clusters' facts fall between two
+    /// consecutive facts of one cluster: 0 reproduces the consecutive fixture, and a full round-robin over
+    /// eight clusters is 7.
+    ///
+    /// <para><b>The consecutive order is the unrealistic one</b>, and it is the one every number before
+    /// 2026-09-15 was taken on. A real stream interleaves, which both makes the model's pronoun harder and
+    /// is the only condition under which a RECENCY rule can be honestly priced — at gap 0 an adjacency rule
+    /// is handed the answer.</para></summary>
+    private static IReadOnlyList<(string Cluster, int Index, string Fact)> Order(
+        IReadOnlyList<Cluster> clusters, int gap)
+    {
+        var order = new List<(string, int, string)>();
+        var size = Math.Max(1, gap + 1);
+        for (var start = 0; start < clusters.Count; start += size)
+        {
+            var group = clusters.Skip(start).Take(size).ToList();
+            for (var i = 0; i < group.Max(c => c.Facts.Count); i++)
+                foreach (var c in group)
+                    if (i < c.Facts.Count) order.Add((c.Key, i, c.Facts[i]));
+        }
+
+        return order;
+    }
+
+    /// <summary>One model pass, in the given write order. Kept SEPARATE from scoring so the reconciler
+    /// ladder is scored on identical answers — re-asking per rung would price the model's sampling noise as
+    /// a code difference.
     ///
     /// <para><b>`Known` accumulates the RAW answers</b>, because that is what the engine stores today: the
-    /// reconciler is being evaluated as a change to LINKING, not as a change to what the model is shown.</para></summary>
+    /// reconciler is being evaluated as a change to LINKING, not to what the model is shown.</para></summary>
     private static async Task<IReadOnlyList<Answer>> AskAsync(
-        IReadOnlyList<Cluster> clusters, IMemoryAnnotationPolicy annotator)
+        IReadOnlyList<Cluster> clusters, IMemoryAnnotationPolicy annotator, int gap)
     {
         var answers = new List<Answer>();
         var uses = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var recent = new List<string>();                  // GLOBAL to the task/scope, as the engine's is
 
-        foreach (var cluster in clusters)
+        foreach (var (cluster, index, fact) in Order(clusters, gap))
         {
-            var recent = new List<string>();
-            for (var i = 0; i < cluster.Facts.Count; i++)
-            {
-                var known = uses.OrderByDescending(k => k.Value).Select(k => k.Key).ToList();
-                var annotation = await annotator.AnnotateAsync(new MemoryAnnotationRequest(
-                    new MemoryWrite("drift", "session", cluster.Facts[i]), recent, known));
+            var known = uses.OrderByDescending(k => k.Value).Take(KnownWindow).Select(k => k.Key).ToList();
+            var annotation = await annotator.AnnotateAsync(new MemoryAnnotationRequest(
+                new MemoryWrite("drift", "session", fact), recent.Take(RecentWindow).ToList(), known));
 
-                var subjects = annotation.Subjects
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .Select(s => s.Trim())
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+            var subjects = annotation.Subjects
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-                answers.Add(new Answer(cluster.Key, i, subjects));
-                foreach (var s in subjects) uses[s] = uses.GetValueOrDefault(s) + 1;
-                recent.Insert(0, cluster.Facts[i]);
-            }
+            answers.Add(new Answer(cluster, index, fact, subjects));
+            foreach (var s in subjects) uses[s] = uses.GetValueOrDefault(s) + 1;
+            recent.Insert(0, fact);
         }
 
         return answers;
@@ -186,13 +223,16 @@ internal static class MemoryAnnotationDriftSweep
         var anchors = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         var clusters = new HashSet<string>(StringComparer.Ordinal);
         int eligible = 0, drifted = 0, empty = 0;
+        IReadOnlyCollection<string> previous = [];        // the PRIOR write's subjects, whatever cluster
 
         foreach (var answer in answers)
         {
             clusters.Add(answer.Cluster);
-            var known = uses.OrderByDescending(k => k.Value).Select(k => k.Key).ToList();
+            var known = uses.OrderByDescending(k => k.Value).Take(KnownWindow).Select(k => k.Key).ToList();
             var subjects = Reconcile(
-                answer.Subjects.ToHashSet(StringComparer.OrdinalIgnoreCase), known, mode);
+                answer.Subjects.ToHashSet(StringComparer.OrdinalIgnoreCase), known, mode,
+                answer.Fact, previous);
+            previous = subjects;
             var anchor = anchors.GetValueOrDefault(answer.Cluster);
 
             if (subjects.Count == 0)
@@ -233,6 +273,12 @@ internal static class MemoryAnnotationDriftSweep
 
     private static string Join(IEnumerable<string> handles) => string.Join(" | ", handles);
 
+    private static string? ArgValue(string[] args, string name)
+    {
+        var i = Array.IndexOf(args, name);
+        return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+    }
+
     /// <summary>How hard CODE tries to reconcile a handle the model invented against one already in use.
     /// A ladder, because each rung links strictly more than the one above it and the question is where the
     /// gain stops paying for the over-linking.</summary>
@@ -249,6 +295,36 @@ internal static class MemoryAnnotationDriftSweep
         /// <summary>…plus a shared FRAGMENT where neither contains the other — a shared word in a spaced
         /// script, a shared 2-gram or longer in a spaceless one.</summary>
         Fragment,
+
+        /// <summary>A DIFFERENT axis, not a rung on the three above: Exact plus carrying the PREVIOUS
+        /// write's subjects onto a fact that refers to its entity only by pronoun and tied to nothing
+        /// already known. The last of the three signals entity resolution uses, and the only pure-code one
+        /// the dumped answers do not already rule out.
+        ///
+        /// <para><b>Scored against `--gap` or it is meaningless.</b> At gap 0 the previous write is always
+        /// the same cluster, so this is handed the answer; the question is what it does once a real stream
+        /// puts other entities in between, and the price is paid in COLLAPSE.</para></summary>
+        Recency,
+    }
+
+    /// <summary>Third-person and possessive references, the closed vocabulary that makes a fact's subject
+    /// unrecoverable from its own words. Deliberately small and language-specific — this is the cheap,
+    /// inspectable half of coreference, not a resolver.
+    ///
+    /// <para><b>Chinese is PRO-DROP</b>, so a Chinese fact often names no pronoun at all and this signal
+    /// simply is not there to read — a limitation of the language, not of the list.</para></summary>
+    private static readonly string[] EnglishPronouns =
+        ["he", "she", "it", "him", "her", "his", "hers", "its", "they", "them", "their"];
+
+    private static readonly string[] ChinesePronouns = ["他", "她", "它", "其"];
+
+    private static bool RefersByPronoun(string fact)
+    {
+        var text = MemorySubject.Normalize(fact);
+        if (ChinesePronouns.Any(p => text.Contains(p, StringComparison.Ordinal))) return true;
+
+        var words = text.Split([' ', ',', '.', ';', ':', '!', '?'], StringSplitOptions.RemoveEmptyEntries);
+        return words.Any(w => EnglishPronouns.Contains(w, StringComparer.Ordinal));
     }
 
     /// <summary>The handles a fact should be indexed under once code has done what it can: what the model
@@ -258,8 +334,18 @@ internal static class MemoryAnnotationDriftSweep
     /// fact ("parking", "reception") and deleting it would lose a real subject; what is missing is the LINK,
     /// so the reconciler only ever adds one.</para></summary>
     private static HashSet<string> Reconcile(
-        HashSet<string> subjects, IReadOnlyCollection<string> known, Reconciler mode)
+        HashSet<string> subjects, IReadOnlyCollection<string> known, Reconciler mode,
+        string fact, IReadOnlyCollection<string> previous)
     {
+        if (mode == Reconciler.Recency)
+        {
+            // Carry only when the fact cannot name its own subject AND the model tied it to nothing already
+            // in use — otherwise a fact that linked perfectly well would also inherit its neighbour.
+            if (subjects.Count == 0 || previous.Count == 0) return subjects;
+            if (subjects.Any(known.Contains) || !RefersByPronoun(fact)) return subjects;
+            return [.. subjects, .. previous];
+        }
+
         if (mode == Reconciler.Exact || known.Count == 0) return subjects;
 
         var result = new HashSet<string>(subjects, StringComparer.OrdinalIgnoreCase);

@@ -3746,3 +3746,29 @@ discount rather than a result a deployment inherits.
 handle for everything drifts 0%), so collapse and empty are reported beside it and a PERFECT self-check arm
 must score 0/0/0 or the table is declared broken. It needs no engine, store or recall — drift is a property
 of `IMemoryAnnotationPolicy` alone.
+
+## Part 218 — the code-side half of subject linking: all three signals refuted, and a retraction
+
+✅ closed 2026-09-15. `TASKS.md` Part 217, opened and closed the same day, at the owner's direction:
+"find a way to improve by CODE rather than purely rely on the model".
+
+- **Price a RECENCY/adjacency channel for subject linking.**
+
+**Outcome: subject linking is MODEL-BOUND.** All three signals entity resolution uses are now priced and
+all three fail (`docs/memory-measurements.md` §5). Name similarity and shared fragments move 1 of 6 cells
+(`annotation-drift-code-reconciler`); co-occurrence cannot reach a drifted handle, which never appears
+alongside its anchor; and recency is `annotation-drift-recency-gap`. **Spend on the annotator, not on
+reconciling its output** — now in `docs/memory.md` and `docs/model-tasks.md` §3.
+
+**The recency result is the one to remember, because the naive version of it was spectacular.** Scored on
+the consecutive fixture it reads 87.0% → 34.8% drift at no collapse cost, the largest single win in the
+memory record. Interleaved one fact apart it buys 8 points and collapses HALF the handle space; seven apart
+it makes one model worse. The item was opened refusing to measure it without an interleaved fixture, and
+that refusal is what stopped an artifact shipping as a finding.
+
+**It also RETRACTED a headline published hours earlier.** Building the interleaved fixture meant reading
+the engine's own call site, which showed the harness had been assembling the annotator's context itself and
+assembling a cleaner one — `Recent` per-cluster and unbounded against the engine's global 8, `Known`
+unbounded against 24. Drift is worse in five of six cells, and because the bias was worth +24.5 points to
+the smallest model and −4.2 to the largest it **inverted the ranking**: "size is not the lever" became "the
+2.49 GB model is best in both languages". Both traps are in `pitfalls.md`.

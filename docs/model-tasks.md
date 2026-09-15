@@ -291,15 +291,21 @@ multilingual export, and the caveat in D122 is that those are usually SentencePi
    an instruct model lost 10.5 points in the neighbouring row.
 
 **ANNOTATION is no longer a blank cell, and its answer is the sharpest warning here after §3.1**
-(2026-09-15, `annotation-drift-three-models`). The seam links two facts when their subjects MATCH, and
+(2026-09-15, `annotation-drift-corrected-context`). The seam links two facts when their subjects MATCH, and
 three local models — **491,400,032 B**, **806,058,240 B** and **2,489,757,856 B** — invented a new handle on
-**41.7% to 87.5%** of the facts where the right one was already on offer. **Size is not the lever**: 5× the
-bytes made English worse (62.5% → 87.5%) and Chinese better (70.8% → 41.7%), with no monotone relationship
-and the best English model the worst Chinese one. The failure modes are OPPOSITE and the handle count names
-them — the small model answers a near-unique handle per fact (too specific to match), the larger one
-topic-level handles spanning unrelated clusters (too generic to distinguish) — so **a prompt fix aimed at
-one moves the other the wrong way**, which is the third time this document has had to say wording is not
-the lever. The practical rule is `docs/memory.md`'s: screen the annotator you intend to ship.
+**58.3% to 90.5%** of the facts where the right one was already on offer. **This is the one cell where SIZE
+buys something**: the 2.49 GB model drifts least in both languages (83.3% English, 58.3% Chinese) and the
+two sub-gigabyte ones sit within a few points of each other above it.
+<br>**And it is the cell where CODE buys nothing** — all three of the cheap entity-resolution signals were
+priced and all three failed: name similarity and shared fragments move 1 of 6 cells, co-occurrence cannot
+reach a drifted handle at all, and recency is a write-order artifact that collapses half the handle space
+on an interleaved stream. Read that beside §3's reranker row, where a 468 MB purpose-built model beat a
+5.3× larger instruct one: **the shape decides whether size or code is the lever, and here it is neither
+code nor a small model.** The practical rule is `docs/memory.md`'s: screen the annotator you intend to ship.
+<br>_An earlier reading of this run said the opposite — "size is not the lever", with the best English
+model the worst Chinese one. It was RETRACTED the same day: the harness built the annotator's context
+itself and built a cleaner one than the engine passes, which flattered the small models by up to 24.5
+points and inverted the ranking._
 
 **Every other shape is unmeasured under 500 MB, and that is a statement about this repository rather than
 about the models.** The smallest model called in the JUDGE role here is **806,058,240 B**

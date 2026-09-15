@@ -15,22 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 6 Parts: 1 startable, 6 blocked, 2 watch
+## Open items — 8 across 5 Parts: 6 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 95 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB … |
-| 146 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 155 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 209 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 264 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 319 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 342 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 399 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 731 | 217 | Price a RECENCY/adjacency channel for subject linking | startable |  |
+| 94 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB … |
+| 145 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 154 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 208 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 263 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 318 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 341 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 398 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -45,19 +44,19 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is ONE item**, and the day it
-came from is worth carrying: Part 177 closing took the count to zero, a sweep of the `env` blockers put it
-back to one, working that item closed it the same day, and its REFUTATION opened Part 217 (
-`docs/task-archive.md` Parts 215 and 216). **An `env` blocker EXPIRES SILENTLY** — Part 65 had read "this
-machine holds exactly one chat model" since 2026-08-28 while three sat on disk, every one already used by
-other measurements here. Nothing fails when an environment GROWS, so nothing announces it. **Re-check every
-`env` item before concluding there is no work**; it costs one command.
-**A refutation is the fifth route, and the most reliable**: closing a question by disproving the obvious
-answer names the next candidate, which is how Part 217 arrived already narrowed to one signal of three.
-The others are a ruling, a captured failure, and a design REVIEW — the only one schedulable on purpose,
-which is how Part 179 produced seven at once after months of ones and twos. `decision-only` is still
-EMPTY. That sentence is hand-written on purpose and gated by `check-counts`: the banner it replaces
-advertised finished work **four** times, and nothing derived it.
+longer drift apart. Edit the marker, never the table. **The startable set is ZERO items**, after a day that
+opened and closed four Parts (`docs/task-archive.md` 215–218) and is worth reading as a sequence: closing
+one took the count to zero, an `env` sweep put it back to one, working that closed it, its refutation
+opened the next, and working THAT closed it too. **An `env` blocker EXPIRES SILENTLY** — Part 65 read "this
+machine holds exactly one chat model" for two weeks while three sat on disk, every one already used by
+other measurements here. Nothing fails when an environment GROWS, so nothing announces it; **re-check every
+`env` item before concluding there is no work.**
+**A REFUTATION is the fifth route an item arrives by, and the most reliable**: disproving the obvious answer
+names the next candidate, which is how Part 217 arrived narrowed to one signal of three. The others are a
+ruling, a captured failure, and a design REVIEW — the only one schedulable on purpose, which is how Part
+179 produced seven at once after months of ones and twos. `decision-only` is still EMPTY. That sentence is
+hand-written on purpose and gated by `check-counts`: the banner it replaces advertised finished work
+**four** times, and nothing derived it.
 
 **Where things stand is NOT summarized here, deliberately.** `docs/memory-measurements.md` §5 is the measurement record,
 `docs/task-archive.md` holds one Part per closed task, `docs/DECISIONS.md` holds what was decided and why,
@@ -712,42 +711,6 @@ rather than a warning, because reporting which transport ran is a FACT about the
 where a warning would have shipped a roster-size threshold taken from one model on a synthetic corpus.
 Nullable because `None` (no tools registered) and "a BYO loop never said" are different claims._
 ---
-
----
-
-## Part 217 — the code-side half of subject linking: RECENCY is the one signal left untested (2026-09-15)
-
-_Opened at the owner's direction — "find a way to improve by CODE rather than purely rely on the model" —
-and narrowed by what that question has already cost. `docs/task-archive.md` Part 216 measured a real
-annotator drifting on 42-88% of facts; `annotation-drift-code-reconciler` then REFUTED the obvious code
-answer. Read both before starting here, because two of the three signals the field uses are already spent._
-
-_**What is already refuted, so nobody re-walks it.** String reconciliation of the annotator's output —
-containment and shared-fragment matching over `Known` — changed nothing in 5 of 6 model x language cells
-and raised collapse in the sixth. The drift is SEMANTIC: against `{Mr Chen}` a model answers `{standup}`,
-`{bank}`, `{email}`, and there is nothing for a matcher to match. CO-OCCURRENCE is refuted on the same
-data for the same reason: a drifted handle never appears in the same answer as the anchor._
-
-- [ ] **Price a RECENCY/adjacency channel for subject linking.** <!-- item: state=startable -->
-  Building the interleaved fixture that can honestly measure one IS most of the work.
-  The remaining signal from the entity-resolution literature, and the only one the
-  dumped answers do not already rule out: a fact written close behind another, in the same task and scope,
-  that carries a pronoun and no proper noun, plausibly concerns the same entity. **It is pure code** — a
-  pronoun list is a small closed vocabulary per language.
-  <br>**THE FIXTURE IS THE WORK, and it is why this is not already measured.** `memory-annotation-drift`
-  writes each cluster's four facts CONSECUTIVELY, so any adjacency rule scores brilliantly on it and could
-  over-link badly on a real interleaved stream. **A number from the current fixture would be an artifact**,
-  so the first step is an interleaved variant with a tunable gap, and the rule has to be priced against
-  COLLAPSE at every gap rather than on drift alone.
-  <br>_**What it changes.** YES → a code-side channel that links what the annotator missed, at no model
-  cost, and `docs/memory.md` gains it beside the screening rule. NO → subject linking is model-bound, which
-  retires the whole "fix it in code" direction for this seam and makes the annotator's own quality the only
-  lever — a conclusion worth having explicitly, since it is the third signal and the last cheap one._
-  <br>_**The OTHER direction, and it is not code**: the seam currently asks an `extract` question ("what is
-  this about"), which is the shape the model answers locally and badly. Asking a `select-from-list`
-  question over `Known` instead ("which of these, or none") is a different shape this repository measures
-  separately — `docs/model-tasks.md` §1 — and list length governs it. That is a model-side experiment and
-  belongs beside this one rather than inside it._
 
 ---
 
