@@ -937,17 +937,18 @@ internal static class MemoryLongMemEvalBench
         // compete for the same ten slots. More competition should crowd the superseded fact out. It needs
         // the knowledge-update pair, so it overrides `--temporal` rather than combining with it.
         // `--multi` is the multi-session class on the SAME metric as temporal, and that sharing is measured
-        // rather than assumed (`TASKS.md` Part 116, 2026-09-04): its evidence spans several sessions in 91%
-        // of questions and it carries no current/stale split, so knowledge-update's preference metric is
-        // structurally inapplicable and all-evidence recall is what the class asks for.
+        // rather than assumed (docs/task-archive.md Part 234, 2026-09-04): its evidence spans several
+        // sessions in 91% of questions and it carries no current/stale split, so knowledge-update's
+        // preference metric is structurally inapplicable and all-evidence recall is what the class asks for.
         var ranks = args.Contains("--ranks");
         var temporal = args.Contains("--temporal") && !ranks;
         var multi = args.Contains("--multi") && !ranks && !temporal;
 
         // `--class` reaches the THREE SINGLE-SESSION classes, which had no switch at all until 2026-09-11
-        // (`TASKS.md` Part 116). They score on all-evidence recall like temporal and multi-session, and that
-        // sharing was MEASURED rather than assumed: they span more than one session 0% of the time, so
-        // knowledge-update's preference metric needs a current/stale split they structurally cannot supply.
+        // (docs/task-archive.md Part 234). They score on all-evidence recall like temporal and
+        // multi-session, and that sharing was MEASURED rather than assumed: they span more than one session
+        // 0% of the time, so knowledge-update's preference metric needs a current/stale split they
+        // structurally cannot supply.
         //
         // Expect `single-session-assistant` to be flat or unmeasurable even here — 63% of its questions fit
         // entirely inside k = 10 on the ORACLE, so the first recall returns the whole conversation and a
@@ -1140,10 +1141,11 @@ internal static class MemoryLongMemEvalBench
                 Console.WriteLine();
                 Console.WriteLine("These classes span more than one session 0% of the time, which is what makes");
                 Console.WriteLine("knowledge-update's preference metric structurally inapplicable and leaves");
-                Console.WriteLine("all-evidence recall (Part 116). Read a FLAT shot curve here as a property of");
-                Console.WriteLine("the class rather than of expansion: on the oracle the store is comparable to");
-                Console.WriteLine("or smaller than the page, so the first recall already returns everything and");
-                Console.WriteLine("there is nothing for a second shot to reach. That is what --haystack is for.");
+                Console.WriteLine("all-evidence recall (docs/task-archive.md Part 234). Read a FLAT shot curve");
+                Console.WriteLine("here as a property of the class rather than of expansion: on the oracle the");
+                Console.WriteLine("store is comparable to or smaller than the page, so the first recall already");
+                Console.WriteLine("returns everything and there is nothing for a second shot to reach. That is");
+                Console.WriteLine("what --haystack is for.");
             }
             else
             {
@@ -1152,7 +1154,8 @@ internal static class MemoryLongMemEvalBench
                 Console.WriteLine("2.5 flagged turns per question and 91% of them spanning more than one session,");
                 Console.WriteLine("so a question is answered only by gathering evidence the conversation never put");
                 Console.WriteLine("side by side. Same metric as temporal - all-evidence recall - because the class");
-                Console.WriteLine("has no current/stale split for a preference metric to read (Part 116).");
+                Console.WriteLine("has no current/stale split for a preference metric to read");
+                Console.WriteLine("(docs/task-archive.md Part 234).");
             }
 
             Console.WriteLine();
@@ -1797,7 +1800,7 @@ internal static class MemoryLongMemEvalBench
     /// <paramref name="score"/> after each step with the cumulative context.
     /// <para><b>Shared by both shot curves on purpose</b>, so "shot 2" cannot quietly mean two things. The
     /// loop itself used to live here AND in <c>MemoryLocomoBench</c>, which is the duplication
-    /// <c>TASKS.md</c> Part 116 cited when it asked for this surface.</para>
+    /// <c>docs/task-archive.md</c> Part 234 cited when it asked for this surface.</para>
     /// <para>Shots 2 and 3 come from ONE walk because three is a strict superset of two, so the arms stay
     /// exactly nested and any difference between them is the extra shot and nothing else.</para>
     /// <para><b><c>MaxEntries</c> is passed EXPLICITLY.</b> The library derives twice what step 1 returned,

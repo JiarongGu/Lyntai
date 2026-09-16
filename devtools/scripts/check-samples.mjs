@@ -193,7 +193,8 @@ const DECLARATION_START =
  * a ````markdown block can quote ```csharp blocks whole. Matching a bare three did both halves wrong here —
  * it read the four-backtick opener's info string as `` `markdown ``, then failed to recognise the
  * four-backtick CLOSER, leaving the scanner "inside" a block for the rest of the file. Measured
- * 2026-08-11 on `docs/2026-08-04-generation-platform-plan.md`, where it lost one real block and silently
+ * 2026-08-11 on the 2026-08-04 generation plan (`local/` since D149), where it lost one real block and silently <!-- link-ok: names where a measurement was taken, not a live path -->
+ *
  * stopped scanning the remaining 140 lines.
  */
 export function extractBlocks(text, file) {

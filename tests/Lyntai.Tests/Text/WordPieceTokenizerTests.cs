@@ -297,7 +297,7 @@ public class WordPieceEncodeTests
     public void Marks_every_token_as_SEGMENT_ZERO_because_one_text_is_one_segment()
     {
         // Segment ids are what a cross-encoder uses to tell a query from a document, and what llama.cpp's
-        // GGUF conversion zeroes (TASKS.md Part 177). A single-sequence embedder legitimately sends zeros;
+        // GGUF conversion zeroes (docs/task-archive.md Part 215). A single-sequence embedder legitimately sends zeros;
         // the point of emitting the tensor at all is that the graph asks for it.
         var encoding = Tokenizer("alpha", "beta").Encode("alpha beta");
 
@@ -346,7 +346,7 @@ public class WordPieceEncodeTests
 
         Assert.Equal([2, 5, 3, 6, 3], encoding.Ids);
         // segment 0 covers [CLS] a [SEP]; segment 1 covers b [SEP] — the whole signal a cross-encoder reads,
-        // and exactly what llama.cpp's GGUF conversion zeroes (TASKS.md Part 177)
+        // and exactly what llama.cpp's GGUF conversion zeroes (docs/task-archive.md Part 215)
         Assert.Equal([0, 0, 0, 1, 1], encoding.TokenTypeIds);
         Assert.All(encoding.AttentionMask, m => Assert.Equal(1, m));
     }

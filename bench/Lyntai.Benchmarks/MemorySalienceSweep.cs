@@ -16,7 +16,7 @@ namespace Lyntai.Benchmarks;
 
 /// <summary>
 /// <b>Salience ships ON and has never been measured once. Does it help?</b>
-/// (<c>TASKS.md</c> Part 53.)
+/// (<c>docs/task-archive.md</c> Part 53.)
 ///
 /// <para>Salience ships ON for two of its three consumers — decay resistance and store admission priority;
 /// only the rank boost is opt-in (<c>docs/DECISIONS.md</c> D45). It was invisible to every earlier study for
@@ -103,7 +103,7 @@ internal static class MemorySalienceSweep
         // The CEILING ladder, added 2026-08-28. `SalienceOptions.MaxSalience` is the ceiling on reported
         // salience and therefore on BOTH consumers that ship ON — `ModulatedRetrievability` widens
         // `CandidateCutoff` by exactly it — and its own XML doc says "Unmeasured — a starting point". So the
-        // "bounded-admission rule" `TASKS.md` Part 65 asks someone to design is this NUMBER, and sweeping it
+        // "bounded-admission rule" `docs/task-archive.md` Part 127 settled is this NUMBER, and sweeping it
         // needs no library change and no registration change: at `MaxSalience = 1` the clamp makes
         // StructuralSaliencePolicy return MemorySignals.Empty while it stays registered.
         //
@@ -181,9 +181,10 @@ internal static class MemorySalienceSweep
             // The off arm is an explicit NeutralSaliencePolicy and passing `null` here is WRONG — a defect
             // this sweep shipped from its first run until 2026-08-30. `GraphMemoryEngine
             // .NormalizeSaliencePolicies` substitutes the shipped `StructuralSaliencePolicy` for a null or
-            // empty collection ("empty does NOT mean off", the contract `TASKS.md` Part 65 names), so the
-            // OFF arm judged every write at the shipped NoveltyWeight and wrote the signal store admission
-            // reads. It therefore compared retention-on against retention-off with salience's admission
+            // empty collection ("empty does NOT mean off", the contract `docs/task-archive.md` Part 71
+            // names), so the OFF arm judged every write at the shipped NoveltyWeight and wrote the signal
+            // store admission reads. It therefore compared retention-on against retention-off with the
+            // admission
             // consumer ON IN BOTH, while reporting itself as measuring both consumers. See `docs/FIXES.md`.
             var counting = new SweepDoubles.CountingSaliencePolicy(
                 on ? new StructuralSaliencePolicy(armOpts) : new NeutralSaliencePolicy());
@@ -279,7 +280,7 @@ internal static class MemorySalienceSweep
 
     private static void PrintPreamble(IReadOnlyList<Shape> shapes, IReadOnlyList<string> arms)
     {
-        Console.WriteLine("=== Salience: measured for the first time (TASKS.md Part 53) ===");
+        Console.WriteLine("=== Salience: measured for the first time (docs/task-archive.md Part 53) ===");
         Console.WriteLine();
         Console.WriteLine("Salience ships ON for two of its three consumers - decay resistance and store");
         Console.WriteLine("admission priority - and no measurement this repository has ever taken included it.");

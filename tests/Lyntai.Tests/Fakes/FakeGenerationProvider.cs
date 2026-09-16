@@ -221,9 +221,14 @@ public sealed class BadProbeProvider : IModelProvider
         Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "not used"));
 }
 
-/// <summary>Advertises <see cref="ProviderOperation.Stream"/> and does NOT implement
-/// <see cref="IModelProvider"/> — the shape a BYO backend can ship, and the reason the router
-/// re-checks a capability claim rather than casting on trust.</summary>
+/// <summary>Advertises <see cref="ProviderOperation.Stream"/> and never overrides
+/// <c>StreamAsync(GenerationRequest, …)</c>, so every call answers
+/// <see cref="ProviderVerdict.Unsupported"/> from <see cref="IModelProvider"/>'s default member — the shape
+/// a BYO backend can ship, and the reason a declared delivery is checked against the code behind it.
+/// <para>It was built for a router branch that type-tested a separate streaming interface. <b>D127</b>
+/// deleted that interface, which made the branch unreachable and left this fake used by NOTHING for a
+/// release — the build and the suite stayed green throughout. It is now the negative fixture for
+/// <c>GenerationProviderContract.ServesMediaStream</c>.</para></summary>
 public sealed class LyingStreamProvider : IModelProvider
 {
     public string Id { get; init; } = "liar";

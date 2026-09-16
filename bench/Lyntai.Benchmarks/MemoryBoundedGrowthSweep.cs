@@ -15,7 +15,7 @@ namespace Lyntai.Benchmarks;
 /// <summary>
 /// <b>Is BOUNDED growth better than both compounding growth and no growth at all?</b> The question the
 /// preceding four studies converge on, and the one that decides whether 3.0 should change a shipped default
-/// (<c>TASKS.md</c> Part 64, <c>docs/DECISIONS.md</c> D53).
+/// (<c>docs/task-archive.md</c> Part 64, <c>docs/DECISIONS.md</c> D53).
 ///
 /// <para><b>The prediction being tested, stated before the run.</b> Three retrievability-raising mechanisms
 /// were measured on 2026-08-12: salience (clamped) HELPS, the age reset a recall performs (age → 0, no
@@ -248,7 +248,7 @@ internal static class MemoryBoundedGrowthSweep
         Console.WriteLine();
         Console.WriteLine("  * = the 95% interval excludes zero.");
         Console.WriteLine();
-        Console.WriteLine($"=== Verdict for TASKS.md Part 64 ===");
+        Console.WriteLine($"=== Verdict for docs/task-archive.md Part 64 ===");
         Console.WriteLine($"Mean COMBINED MissRate Δ vs {NoGrowthLabel} (negative = beats not growing):");
         foreach (var (arm, values) in combined.OrderBy(kv => kv.Value.Average()))
             Console.WriteLine($"  {arm,-14} {values.Average(),8:F4}");

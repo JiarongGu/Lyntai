@@ -179,7 +179,8 @@ internal abstract class CorpusLexicon
     ///
     /// <para><b>Why the corpus needs them.</b> Every other class here defines relevance LEXICALLY — the
     /// query names the id or shares a word — so a semantic neighbour is wrong BY CONSTRUCTION, and an
-    /// embedder can only ever be measured costing slots it never earns back (`TASKS.md` Part 69, where
+    /// embedder can only ever be measured costing slots it never earns back (`docs/task-archive.md` Part 69,
+    /// where
     /// enabling one raised the miss rate from 0.5357 to 0.8357). This is the one class that asks a question
     /// the lexical path cannot answer at all, so it is the only place the enrichment can show an upside.</para>
     ///

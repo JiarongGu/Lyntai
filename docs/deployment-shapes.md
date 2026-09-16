@@ -62,7 +62,8 @@ infrastructure beside whatever the application's own model is doing.
   `LlmAnnotationOptions.ClientName` exists for exactly that.
 - **Pin with `ClientName`, never with `Model`.** A candidate's own model wins over the request's, so on any
   deployment whose default candidates pin models, setting a seam's `Model` does nothing and both memory
-  seams are fail-open — they run on another model and nothing reports it (**D87**; `TASKS.md` Part 128).
+  seams are fail-open — they run on another model and nothing reports it (**D87**;
+  `docs/task-archive.md` Part 235).
 
 **Not measured here:** concurrency beyond 4 workers per loop, more than one tenant's corpus, and anything
 about cross-tenant cache behaviour. The contention figures are one box.

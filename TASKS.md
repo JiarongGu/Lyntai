@@ -8,30 +8,28 @@
 > sequence is `docs/ROADMAP.md`.
 
 **Goal:** a NuGet-packable, DI-first .NET 10 library — an LLM provider abstraction (routing + fallback
-across CLI / API / MEAI-bridged providers), pluggable storage (SQLite / InMemory / Postgres), and the
+across CLI / HTTP / lambda-bridged providers), pluggable storage (SQLite / InMemory / Postgres), and the
 LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and go.
 
 ---
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 6 Parts: 2 startable, 6 blocked, 2 watch
+## Open items — 8 across 5 Parts: 6 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 98 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB … |
-| 149 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 158 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 212 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 267 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 322 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 345 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 402 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 735 | 233 | BL1 — retire the four Parts that hold no open work, and repoint what cites … | startable |  |
-| 748 | 233 | BL2 — `check-backlog` must fail a `## Part` that holds no open checkbox | startable |  |
+| 103 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB … |
+| 154 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
+| 163 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 217 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
+| 272 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 327 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 350 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 407 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -46,10 +44,12 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is TWO items — Part 233, this
-file's own accumulation.** Three passes have now emptied and refilled it (`docs/task-archive.md` Parts
-221–229, then 230–232, then this), and the third arrived by a READER asking why 736 lines held 8 items —
-which is the one route none of the other four can be scheduled into.
+longer drift apart. Edit the marker, never the table. **The startable set is EMPTY, and that is a
+legitimate state** — every open item is `blocked` or `watch`, each naming what would clear it. Four passes
+have now emptied it (`docs/task-archive.md` Parts 221–229, then 230–232, then 233–236, then 238), and the
+fourth arrived by a READER asking why 736 lines held 8 items — which is the one route none of the other
+four can be scheduled into. **That accumulation is now GATED rather than watched for**: `check-backlog`
+fails a `## Part` holding no open checkbox, so the Parts that reached 295 empty lines cannot do it again.
 **An `env` blocker EXPIRES
 SILENTLY** — Part 65 read "this machine holds exactly one chat model" for two weeks while three sat on
 disk, every one already used by other measurements here. Nothing fails when an environment GROWS, so
@@ -86,8 +86,13 @@ were being counted as startable work.
 
 _Part 32 (MED1: the generation platform + the 2.0.1 package restructure) landed 2026-08-04 — see
 `docs/task-archive.md` Part 32, `docs/DECISIONS.md` D24/D25, and the plans of record
-`docs/2026-08-04-generation-platform-plan.md` + `local/superpowers/plans/2026-08-04-restructure-2.0.1-plan.md`. What remains are
-that plan's Plans 3–7, each a separate pass because each needs its own measurement._
+`local/superpowers/plans/2026-08-04-generation-platform-plan.md` +
+`local/superpowers/plans/2026-08-04-restructure-2.0.1-plan.md`. What remains are
+that plan's Plans 3–7, each a separate pass because each needs its own measurement.
+<br>**Nothing below EXECUTES from that plan any more, which is why it left `docs/` (D149).** Its Plan 6
+still names a streaming interface **D127** deleted and its Plan 7 predates the 2026-08-30 3D survey and
+GEN7a shipping, so the three item bodies below are the current framing and the plan is the record of how
+the core was built._
 
 _GEN3 (local `sd-cli`), GEN4 (durable renders + the fal.ai queue backend), GEN6's tool/MCP bridge half and
 GEN5 (governance + telemetry parity) all landed 2026-08-04 — see `docs/task-archive.md` Part 33. GEN3/GEN4 carry
@@ -424,333 +429,29 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
 
-## Part 109 — LoCoMo says the shipped ranking defaults lose to plain cosine on a uniform-history workload (2026-08-29)
+## Retired — five Parts that outlived their open work (2026-09-16)
 
-_Opened by `docs/task-archive.md` Part 110; the first item CLOSED as **D97** (`docs/task-archive.md`
-Part 111) and the LongMemEval half closed as **Part 112**. `node devtools/dev.mjs memory-locomo --retrieval`
-is the first measurement this repository has taken on an instrument it did not build: evidence-hit@20,
-model-free, 200 LoCoMo questions. Defaults went **11.0% → 31.0%** on D97 and plain cosine is **80.5%** at the
-same k, so a real gap remains. Tables and the two harness defects that had to be fixed first are
-`docs/memory-measurements.md` §5.
-<br>**A THIRD harness defect landed 2026-08-29 (`docs/task-archive.md` Part 118) and moved every figure in
-this paragraph**: questions shared a store, and isolating them puts defaults at **54.5%**, not 31.0%. Cosine
-is unchanged at 80.5% — it never touches the graph store — so the gap is **−26.0** rather than −49.5._
+_Parts 109, 116, 128 and 178 held **295 lines and zero open checkboxes** between them: every line was a
+"CLOSED as archive Part N" note, which is what `.claude/rules/task-lifecycle.md` forbids in as many words.
+They are `docs/task-archive.md` **Parts 233–236** respectively, one per thread, each naming where its
+halves landed and what it leaves standing. **Part 233, which filed the retirement, went with them** —
+`docs/task-archive.md` **Part 238**, both items._
 
-_**The ranking half of this Part is CLOSED — `docs/task-archive.md` Part 113.** The ladder it asked for ran
-in the same commit that reframed the item, and refuted both misallocation hypotheses plus the pre-committed
-seeding fallback: `HopWeight = 0` costs 23.0 points on the isolated re-run and 24.5 before it (either way,
-traversal carries the arm), more semantic seeds make it worse, and the pool provably contains the evidence.
-The residual gap is the design, not a defect._
+_**The rule is now a gate**: `check-backlog` fails a `## Part` heading holding no open checkbox, so this
+cannot regrow unnoticed a third time. A heading that is not `## Part <n>` — this one — is invisible to it,
+which is what lets a retirement leave a pointer behind without tripping the rule it just satisfied._
 
-_**The QA half RAN — `docs/task-archive.md` Part 115.** LoCoMo, 100 questions, token-F1 primary with the LLM
-judge beside it, plus a `--shots` diagnostic for the multi-shot mode the one-shot tables could not see. It
-found **D98** and four harness defects. What is left of the item is below: more of it, not the first of
-it._
+_**They are numbered 233–236 in the ARCHIVE and were 109/116/128/178 HERE** — the two files number
+independently, so a Part keeps its backlog number until it closes and the archive allocates in LANDING
+order. Name the file in every citation._
 
-_**The QA-widening item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 200**. Both halves ran: a
-second EMBEDDER moved no arm (Part 199), and a second and third READER — `gemma-3-1b-it` 806,058,240 B and
-`qwen2.5-0.5b-instruct` 491,400,032 B, both already on disk — were measured on the same four arms and the
-same seeded questions. **The arm ORDERING broadly holds and the SPREAD collapses**: `lyntai-fused` is last
-under all three readers and `vector` first or second, while the spread across arms falls 14.7 → 8.8 → 4.7
-points down the size ladder. So a smaller reader registers the memory layer less, which bounds what memory
-work can be worth to a small consumer. `docs/memory-measurements.md` §5 owns the figures._
-
-_**The centering item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 201**, by REFUTATION — the
-outcome the item itself named as the more useful one. The direction that looked consistent on the hard
-fixture (**+8 / +6 / +3** for the static model) becomes **−1 / 0 / −2** on the easy one, where that arm had
-room to move, so it was a property of the FIXTURE rather than of the model class. **Do not re-derive it.**
-`docs/memory-measurements.md` §5 (`affordance-centering-refuted`) owns the figures and the one half that
-stays untested — the claimed harm to a transformer sits under a 94-97% ceiling there._
-
-_**The completeness item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 202**, and it closed by
-refuting the blocker it was filed with. The class is scored by a turn TAG, not by the fact's text, so the
-confound named here could not reach it — and an unbudgeted run is therefore VACUOUS rather than confounded.
-The measurable arrangement is a CHARACTER CAP, where whole items become fewer items: **−11.4** points of
-`clean` at 1,200, **+8.6** at 5,400, **exactly 0.0** at 20,000 where the cap binds on neither arm and the
-`full` arm reproduces `shot-1` to the decimal. `docs/memory-measurements.md` §5
-(`longmemeval-ku-completeness-budget`) owns the figures; `docs/deployment-shapes.md` carries the caveat.
-**Still unmeasured and named rather than implied**: completeness for a READER on this class._
-
----
-
-## Part 116 — the n-shot WALK: what D100 opens, and the surface it does not have yet (2026-08-29)
-
-_**Start here.** `docs/DECISIONS.md` **D100** changed what this engine is evaluated as: a walk, not a single
-top-k. The instruments exist — `node devtools/dev.mjs memory-locomo --shots` and
-`memory-longmemeval --shots [--haystack] [--expand-floor w]` — and the tables are `docs/memory-measurements.md` §5.
-Closed alongside it: **D98** (expansion had no vote from forgetting) and **D99** (co-activation is one store
-call). The session that produced all three is `docs/task-archive.md` Parts 112–115.
-<br>**This Part held five items and now holds ONE** — the shot curves for LongMemEval's four unmeasured
-classes, whose hard half is deciding what a shot BUYS on a single-session question rather than running it.
-The expansion-floor sweep closed 2026-08-30 as `docs/task-archive.md` **Part 123**. The write-back
-collapse closed as `docs/task-archive.md` **Part 117** (**D101** — the whole write-back is one store call,
-not just the co-activation half D99 did), the LoCoMo contamination as **Part 118**, two thirds of the
-shot-curve item as **Part 119**, **the n-shot SURFACE itself as Part 120** (**D102** —
-`MemoryWalk.WalkAsync`, an extension over the two seams that already existed, with both harnesses moved onto
-it and every published table reproduced cell for cell), and **its naming pass as Part 121** — filed blocked
-on the TREE and unblocked by Part 120's own commit, which is the kind of blocker a commit discharges.
-<br>**Read this before trusting any number below.** Those two measurement passes moved published figures
-three times: every LoCoMo arm by 20–25 points, D100's *"search wants two shots"* withdrawn outright, and
-knowledge-update's level down 6–9 points off a small sample. **None was a library defect — all three were
-the instrument.** So treat the remaining measurement items as RE-measurements: they were scoped against
-figures that have since moved._
-
-_**The last three classes RAN 2026-09-11** and this item CLOSED as `docs/task-archive.md` **Part 188**.
-All six LongMemEval classes now have a shot curve. **Shot 3 is worth exactly zero on all three**, so
-*expand once* holds a sixth time; `single-session-user` is FLAT outright (82.8% at every shot while the walk
-returns 7× the characters), which is a sharper negative than a diminishing return. The class this item
-predicted unmeasurable — `single-session-assistant` — moved cleanly on the haystack (85.7 → 89.3), so the
-prediction was right about the ORACLE and the haystack is what fixed it.
-<br>**The finding worth carrying forward is not the curve.** Plain cosine wins all three, and
-`single-session-preference` is the widest gap this record holds: **30.0% against 73.3%** at the same k.
-Preference questions are where this engine is furthest behind a flat retriever, and no judge or reranker
-was in the loop for any cell — the seam measured as worth more than any ranking constant is absent from the
-whole table. `docs/memory-measurements.md` §5._
-
----
-
-## Part 128 — the retrieval gap is RANKING OUT candidates the engine already holds (2026-08-31)
-
-_Opened by three LoCoMo ladders run at the owner's direction after "the memory system performance is not
-good enough". Tables and the full reading are `docs/memory-measurements.md` §5; this Part carries only what is still to
-do. **Two hypotheses died in those runs and are recorded so nobody re-runs them**: the edges are not the
-problem (**D59** decomposed it — 100% of misses reachable-but-outranked, 0% unreachable), and preserving the
-cosine MAGNITUDE is not the fix (`MultiplicativeRankingPolicy` nets +1.5 overall, and `+sem80+mult`
-collapsed to 21.5% at the time)._
-
-_**`+sem80+mult` is now 57.0%, not 21.5%** — a direct side effect of per-source fusion: `SemanticSeedSource`
-now sets `Matched = true` carrying an honest cosine, and `MultiplicativeRankingPolicy` reads
-`Matched is null ? 1 : Relevance`, so a semantic seed stopped acting as an implicit neutral multiplier
-(`docs/memory-measurements.md` §5, `docs/task-archive.md` **Part 131**). **The conclusion above is UNCHANGED, only its
-supporting figure moved**: 57.0% is still far below `+sem+rel-only`'s 83.0%, so magnitude preservation is
-still not the fix._
-
-_**The uncomfortable summary, stated once so it is not softened later:** plain cosine scores **80.5%**, this
-engine's best mechanical arm **61.5%**, and the engine WITH A PERFECT JUDGE **77.5%**. On a uniform-history
-search workload the graph is not paying for itself, and no arm measured so far makes it._
-
-_**61.5% above is superseded, not retracted — it is quoted as written on 2026-08-31.** Per-source fusion
-later moved the best mechanical arm to **83.0%** (`+sem+rel-only`; see the closure note below and
-`docs/memory-measurements.md` §5). The rest of that paragraph's claim — cosine beating the engine even WITH a perfect
-judge — is untouched by that later change: neither `vector` (80.5%) nor `+forget0+oracle` (77.5%) uses
-semantic seeds._
-
-_**The mixed-scale hypothesis was TESTED on 2026-08-31 and CONFIRMED, on a prediction registered in the
-source before the run.** `+sem+rel-only` — semantic seeds present, every other vote off, so relevance alone
-orders a pool provably holding cosine's entire top-20 — scored **63.5%**, not the ~80% that would have meant
-the weights were diluting a good ordering. **Weight-tuning is therefore retired as a direction.** The
-mechanism is in the harness's own control output: lexical hits carry a rank POSITION (0.963, 0.900) and
-semantic seeds a COSINE (0.742, 0.732), compared on one field, so a semantic candidate is outranked by
-construction however similar it is — which is also why ADDING semantic seeds makes the arm worse.
-`docs/memory-measurements.md` §5 carries the table._
-
-_**This item CLOSED 2026-08-31 as `docs/task-archive.md` Part 131.** Per-source fusion —
-`IMemorySeedSource` plus `ReciprocalRankFusionPolicy` fusing each source's own ranked list instead of one
-pooled `Relevance` field (`docs/DECISIONS.md` **D103**) — is what the 63.5% two paragraphs up now
-predates: the SAME arm, same name, reads **83.0%** under the fused engine, above plain cosine's 80.5%. That
-makes `+sem+rel-only`, not `+sem+fuse`, the current best mechanical arm. `docs/memory-measurements.md` §5 carries the
-current table; the 61.5%/63.5% figures above are the PRE-fusion measurement that opened this Part and stay
-for that reason._
-
-_**The real-judge item CLOSED 2026-09-03** as `docs/task-archive.md` **Part 143**, and the answer is the
-branch nobody wanted: `+sem+rel-only+judge` reads **72.5%** against the arm's unjudged 83.0% and the oracle's
-92.5%, so a 4B judge SPENDS 10.5 points where a perfect one gains 9.5. The audit says why — 29.1
-endorsements per recall out of 80 shown, at 2.6% precision, which is an endorsement set larger than the
-20-slot page, so promotion replaces the ranking instead of refining it. **The seam has a capability FLOOR**,
-now stated in `LlmVerificationOptions.ClientName`'s shipped XML doc. `docs/memory-measurements.md` §5 carries the table
-and the four things it does not say._
-
-- ~~**Decide what TEXT a verifier may read — today it is a 120-character truncation, and that costs a
-  cross-encoder 13 points.**~~ **DECIDED AND SHIPPED 2026-09-08** (`docs/task-archive.md` **Part 170**,
-  **D108**): the candidate carries `Content`. Additive, engine-supplied, no extra query — `SeedAsync`
-  already read the column. Validated rather than argued: the reranked arm goes **78.0% → 91.0%** at the
-  SHIPPED `HeadlineChars`, landing exactly on the arm that bought the same text with +24% of storage.
-  The shipped judge still reads the headline, so nothing changes for an existing consumer. _Kept here with
-  its three options rather than deleted, because the two that lost are the reasons the winner is right._ `MemoryVerificationCandidate` carries `Headline` and never `Content`, and
-  `GraphMemoryOptions.HeadlineChars` ships at 120. Measured 2026-09-08 (`docs/task-archive.md` **Part
-  168**): the same reranker on the same arm reads **78.0%** on truncated headlines and **91.0%** on whole
-  turns. The headline-only contract is not an oversight — it keeps an LLM judge cheap, and it is what a
-  caller would see without paying to expand — so this is a real trade rather than a defect.
-  <br>**Three options, each a different promise, and the storage one is now PRICED.** Leave it and document
-  that a reranking deployment raises `HeadlineChars`: it works today, but 120 → 512 costs **+24% of the
-  corpus's content bytes** — measured on both field corpora independently (LoCoMo +24.2%, LongMemEval
-  +23.8%), taking the headline column from 11.5% of content to 35% — and it changes what every recall
-  returns to callers, not just what the verifier sees. Add `Content` to the candidate record, which is
-  additive, costs no storage and leaves recall untouched — but hands an LLM judge a far bigger prompt
-  unless it is opt-in, which is the cost that made the seam headline-only in the first place. Or an option
-  selecting which text the seam passes, the explicit form of the same choice.
-  <br>_The knowledge-update run (`docs/task-archive.md` **Part 169**) says what the reranker does with the
-  fuller text once it has it: finds more (`current@k` +8.5) and discriminates no better between a fact and
-  its replacement (`stale@k` +51.4). So this decision buys RECALL, and whoever takes it should want that._
-  <br>_Not startable as a code change until that is settled — the fix is a decision, not an edit._
-
-_**The cancellation thread is CLOSED** — `docs/task-archive.md` **Parts 173–174**, `docs/FIXES.md`. Every
-fail-open handler in `Lyntai.Core/Memory` now distinguishes the caller's cancel from a component's own
-timeout, and four seam contracts that stated the false premise were corrected with the code. **One shape
-survives OUTSIDE memory and is deliberately not swept**: `JobRunner`'s heartbeat loop
-(`catch (OperationCanceledException) { return; }` over `_store.HeartbeatSlotsAsync`), where per **D73** a
-lost heartbeat is a lost cross-process job slot. Different subsystem, different promise, its own answer._
-
-_**The seam-`Model` item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 205** / **D119**: the
-router's precedence STAYS (a candidate is a provider-and-model pair), and the provably-inert case now
-throws at composition instead of running silently on another model. **Narrow on purpose** — every candidate
-pinned AND none matching — so a partly-pinned list still composes and a deployment that set only one of the
-two values is untouched._
-
-_**The fusion item CLOSED 2026-09-04** as `docs/task-archive.md` **Part 151** / **D105**:
-`GraphMemoryOptions.VerdictCombination` ships the choice with `Partition` — today's behaviour — as the
-default, so nothing moves for anyone who does not set it. The surface question it was blocked on was decided
-additively: changing the default would be a silent reordering no consumer can detect at compile time (D18's
-shape), bought on one model and one workload. **The reader-facing check it did NOT get has since run** — the
-note below._
-
-_**The reader-facing item CLOSED 2026-09-11** as `docs/task-archive.md` **Part 191**, and it closed by
-REFUTING its own prediction. It expected the option not to move the score; both paired bounds exclude zero —
-the shipped **partition** costs a reader real token-F1 and `+enginefuse` gives most of it back
-(`docs/memory-measurements.md` §5, which owns every figure). **The default is not re-opened**: one
-workload, one reader, and **D105** decided it on a different metric. What must not be carried forward is
-"fusing costs nothing a reader notices", which is the sentence the run killed._
-
-_**The frontier item CLOSED 2026-09-11** as `docs/task-archive.md` **Part 187**, and the answer is the
-second branch it offered: **there is no knee, so it is not worth walking**. A six-point ladder
-(`docs/memory-measurements.md` §5) lands every rung within ±1.0 point of a straight line — measured slope
-**−6.8** per unit of weight against a predicted −7.0 — with all three published anchors reproducing cell for
-cell. So the exchange rate is CONSTANT: every weight buys suppression at the same price and none is a
-bargain, which is what a knee would have been. `RetrievabilityWeight` stays at 1.
-<br>**The suppression half was deliberately NOT spent**, per a decision rule fixed before the run: a
-straight search axis settles the question without it. So the four new rungs have no knowledge-update figure
-and none is implied — that is a live gap if anyone reopens this, not an oversight._
-
-_**The ingestion-cost item CLOSED 2026-09-03** (`docs/task-archive.md` **Part 141**): the retrieval path
-honours `--arms` when dropping configs, so a three-arm ladder ingests 2 rather than 13 and n = 200 runs in
-755s rather than 4,706s, on byte-identical cells. Its follow-on was a defect the fix exposed rather than
-caused: the ladder's arm names lived in THREE lists, adding an arm to two of them failed two runs ten
-minutes apart, and the report list and the ladder are now asserted equal before a run starts._
-
-_**The multi-hop item CLOSED 2026-09-02** as `docs/task-archive.md` **Part 139**, and it closed by REFUTING
-its own premise twice over. It read *"64.9% even with a PERFECT judge against cosine's 81.1%, so multi-hop
-evidence sits outside `VerificationDepth` — a depth or seeding question"*. That 64.9% is a PRE-FUSION arm
-which **D103** had already superseded the same day, and at full sample the best mechanical arm reads
-**79.8% against cosine's 83.0%** — a 3.2-point category deficit, not a 16-point one, and no depth question
-follows from it. Nobody should sweep `VerificationDepth` on the struck premise._
-
-_~~**Not startable and deliberately not listed above:** whether `RetrievabilityWeight` should move off 1…
-it needs both workloads measured, which is the `+forget0` arm re-run on LongMemEval.~~_
-<br>_**MEASURED AND SETTLED 2026-09-02** (`docs/task-archive.md` **Part 140**, `docs/memory-measurements.md` §5). The
-`+forget0` arm ran on LongMemEval knowledge-update and the answer is emphatic: **49.3% against the shipped
-default's 86.4%**, a −37.1 collapse, against the +5.5 it is worth on LoCoMo — **about 7 to 1 against
-moving it.** `RetrievabilityWeight` stays at 1, and this is no longer an open question.
-<br>The columns say WHY, which is the durable half: `+forget0`'s `current@k` is **identical** to the
-default's (87.1%) while its `stale@k` rises 62.9 → 87.1. Removing forgetting's vote does not change what
-the engine FINDS, it destroys what it BURIES — so LoCoMo, which only scores finding, cannot see the cost.
-**Any future arm that wins on LoCoMo owes this table a visit before it is proposed as a default.**_
-
----
-
-## Part 178 — a DECISION system on a small model: the shape is already constrained, and the region that matters is unmeasured (2026-09-12)
-
-_Opened at the owner's direction, who names this the next goal and the memory work its first instance.
-**`docs/model-tasks.md` §1–§3 is the brief** — read it before anything here, because four findings already
-constrain the design and one is a warning._
-
-_**What is already settled, so nobody re-derives it.** A decision is `select-from-list` or `affordance` in
-§1's taxonomy. **List length governs the selective shape** — 20 shown gives 16.2% precision, 40 gives 8.4%
-(level with using no judge), 80 gives 2.6% (below it). A stated budget does not bind a selective task and
-made one model endorse MORE; **D110** refused a cap over endorsements for that reason, because the lever is
-calibration or the combination rule, never a count._
-
-_**The first two items CLOSED 2026-09-12** as `docs/task-archive.md` **Parts 192 and 193**, and between
-them they replace the reading this Part opened with. The measurement is
-`node devtools/dev.mjs memory-decision`; every figure is `docs/memory-measurements.md` §5._
-
-_**This Part opened saying the evidence points at "a SCORER over a bounded candidate list, never a <!-- drift-ok: quotes the rule this Part's own measurement retired -->
-generator asked to choose". Measured at 3-7 options, that is HALF true and the half it gets wrong is the
-large model.** Among the GENERATIVE arms the winning shape **inverts with model size**: at 2,489,757,856 B
-one `select-from-list` call beats N `score-a-pair` calls at every length (`p<0.0001`), and at 806,058,240 B
-it loses — because the small model stops choosing and emits a CONSTANT, answering slot 1 on 100% of the
-trials where gold sat there. **Pick the shape from the size, never in advance.**_
-
-_**But the arm to actually reach for is neither, and it is the smallest model in the grid**: a
-**468,393,760 B** cross-encoder doing the scorer shape in ONE round trip matches the 5.3x larger instruct
-model at three options and pulls AHEAD as the list grows. It is the only arm flat in N._
-
-_**And a decision IS expressible through what ships** — `IMemoryVerificationPolicy` takes
-`(query, bounded candidate list)` and already separates *the seam did not answer* from *none of these*,
-while `ScoringVerificationPolicy` with `EndorseCount = 1` IS the argmax. `docs/model-tasks.md` §6
-carries the comparison against the other four seams, so nobody re-walks them._
-
-_**The per-option-score item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 204** / **D118**:
-`MemoryVerification.Scores` carries the score for EVERY candidate a policy scored, not the endorsed subset,
-because the rejected scores are the half a margin needs. An init-only property, since widening the record's
-primary constructor is a BINARY break — which the item's own "additive" framing got wrong. The vocabulary
-question it raised is deliberately still open: a decision is not memory, but minting a parallel namespace
-for one property is the worse trade._
-
-_**The tool-roster item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 206** / **D120**, in the
-order the ruling set: MEASURE, then decide. The ladder ran to 35 options
-(`affordance-roster-catalogue`) and a model-free embedder still reads **81.5%** against 3% chance, so
-`IToolSelector` + `EmbeddingToolSelector` shipped. **The figure bounds the seam from BELOW twice over** —
-argmax where a selector is scored on recall@k, and the `easy` fixture, whose distractors past the first
-handful are semantically distant. The `hard` fixture cannot pose the question at all: its distractors come
-from the gold tool's own family, which holds seven._
-
-_**The native-transport item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 197**. The survey did not
-come back empty — Qwen2.5, Qwen3 and Llama-3.2 all carry a tool section in their own
-`tokenizer.chat_template` — and the paired measurement says the two transports TIE on accuracy while
-failing in opposite directions, with convergence (11-24% prompt against 99.4-100% native) the largest
-effect in the grid. It also refuted `docs/model-tasks.md` §3.1's headline: a 491,400,032 B model reads six
-times a 806,058,240 B one on the same arm, so that result was the MODEL's rather than the size class's.
-`docs/memory-measurements.md` §5 owns the figures._
-
-_**The false-call item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 198**, and the hypothesis held:
-native function-calling invokes a tool on **20-30%** of requests nothing serves against the prompt
-protocol's **90-100%**, while still firing on 70-78% where a tool does fit — about 50 points of separation
-where the prompt protocol has none. So the TRANSPORT is a second lever on §2's hardest case, and
-`docs/model-tasks.md` §2 and §3.1 now say so. It also corrected Part 197's own "accuracy is a wash"
-headline: the cost is **2.4-9.6 points** at N = 3..6. `docs/memory-measurements.md` §5 owns the figures._
-
-_**The fallback-visibility item CLOSED 2026-09-13** as `docs/task-archive.md` **Part 203** / **D117**:
-`ToolLoopResult.Transport` reports which transport ran, as a nullable init-only property. A result property
-rather than a warning, because reporting which transport ran is a FACT about the run and needs no evidence,
-where a warning would have shipped a roster-size threshold taken from one model on a synthetic corpus.
-Nullable because `None` (no tools registered) and "a BYO loop never said" are different claims._
-
----
-
----
-
-## Part 233 — the backlog summarizes the archive again, one level below the gate (2026-09-15)
-
-_Found by the owner asking why 736 lines hold 8 items. **295 of them — four Parts — hold ZERO open
-checkboxes**: 109 (49), 116 (36), 128 (138), 178 (72). Every line is a "CLOSED as archive Part N" note,
-which is the thing `task-lifecycle.md` forbids in as many words: "never let the backlog SUMMARIZE the
-archive … unbounded, answering a question the archive already answers, pushing the open items down."_
-
-_**This is the SAME defect this file already fixed once, regrown where the gate cannot reach.** The
-`## Active backlog` preamble hit 478 lines carrying zero checkboxes and `check-backlog` was built to bound
-it — but `PREAMBLE_END` stops at the first `## Part`, so the per-Part bodies were never bounded and the
-accumulation moved down a level. The file's own conclusion applies to itself: a rule that keeps being
-violated is a missing gate._
-
-- [ ] **BL1 — retire the four Parts that hold no open work, and repoint what cites them.** <!-- item: state=startable -->
-  **Not a delete — RELOCATE first**, and two constraints make this more than a cut. (1) **19+ inbound
-  references** name these Parts from `docs/memory-measurements.md`, `docs/model-tasks.md`,
-  `docs/deployment-shapes.md` and the archive; `check-links` fails the moment a `TASKS.md Part N` resolves
-  to neither record. (2) **The numbers COLLIDE** — archive Parts 109/116/128/178 already exist and are
-  unrelated tasks — so these cannot move into the archive under their own numbers, which is precisely the
-  ambiguity `task-lifecycle.md` §`TASKS.md` Part N warns about. Decide the destination before cutting:
-  a fresh archive number per Part with every citation repointed, or a single entry that absorbs all four.
-  <br>**Two STALE claims are already reachable because of this**, and they close with it: `model-tasks.md`
-  says the `Model`-precedence question is "still open (`TASKS.md` Part 128)" when **D119** settled it by
-  KEEPING the precedence, and `memory-measurements.md` calls a second reader "Part 109's remaining half"
-  when that closed as `docs/task-archive.md` Part 200 with both halves run. An empty Part reads as a live
-  home for a question, so other records keep citing it as one.
-- [ ] **BL2 — `check-backlog` must fail a `## Part` that holds no open checkbox.** <!-- item: state=startable -->
-  The gate already owns the right subject and stops one line short of it: it bounds the preamble, counts
-  open items and generates the roster from their markers, but says nothing about a Part heading with zero
-  of them. One predicate over the parse it already performs. Fail-closed on the SOURCE list, per the rule
-  `check-docs`/`check-encoding` follow — and write the both-directions test at the same time, since a gate
-  that over-fires on a legitimately-empty Part is the kind someone deletes.
+_**BL1 was filed saying all four numbers COLLIDE, and only one does.** `docs/task-archive.md` Part 178 is
+an unrelated task (the cold-start measurement); 109, 116 and 128 are simply gaps there. The item's
+conclusion survives its wrong premise — they could not keep their numbers anyway, because the archive
+allocates in landing order rather than reserving a backlog number — but the reason is the ORDER, not a
+clash. Recorded because the wrong version was repeated from the item into this note before anyone checked
+it, which is the whole failure mode `check-links` cannot see: a `Part N` claim about a Part that does not
+exist reads exactly like one about a Part that does._
 
 ---
 

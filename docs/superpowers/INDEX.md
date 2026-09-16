@@ -60,14 +60,22 @@ true about that day, not about the library._
 | 2026-08-08 | Graph memory engine (MEM2) | 2.5.0 | ✓ | ✓ | design §5.7 · D40–D41 · archive Parts 47–52 |
 | 2026-08-08 | Graph memory on SQLite + Postgres (MEM2b) | 2.5.0 | — | ✓ | `.claude/knowledge/storage.md` · archive Part 48 |
 | 2026-08-05 | Provider pool / lifetime seam | 2.2.0 | ✓ | ✓ | D30 · archive Part 37 |
+| 2026-08-04 | The media generation platform (Plan 1 of 7) — the last document to leave `docs/` | 2.0.1 | — | ✓ | **D24**/**D25** · design §6 · archive Parts 32–33 · `README.md` §Generation · `TASKS.md` Part 33 (GEN-VERIFY/GEN6/GEN7, which carry the CURRENT framing — see below) |
 | 2026-08-04 | The 2.0.1 package restructure | 2.0.1 | — | ✓ | design §3 amendment · D25–D27 · archive Part 32 |
 | 2026-07-28 | 1.0 readiness | 1.0.0 | ✓ | ✓ | ROADMAP § v1.0.0 · D16 |
 | 2026-07-27 | Curated memory metadata catalog | 0.31.0 | ✓ | — | CHANGELOG 0.31.0 · archive |
 | 2026-07-19 | Agent-session surface | 0.28.5 | ✓ | — | D35 · archive · CHANGELOG 0.28.5 |
 
-**Still tracked, deliberately:** `docs/2026-08-04-generation-platform-plan.md` is *part* shipped history and
-*part* live — GEN-VERIFY, GEN6 and GEN7 in `TASKS.md` still execute from it. It moves here when its last open
-task closes. The contract itself, `docs/2026-07-17-lyntai-design.md`, is maintained state and never moves.
+**Nothing is still tracked but the contract.** `docs/2026-07-17-lyntai-design.md` is maintained state and
+never moves; `docs/` otherwise holds only records that are current by design.
+
+**The generation plan's exit is worth reading before you keep a document for its "live half" (D149).** It
+sat here for six weeks on the note *"part live — GEN-VERIFY, GEN6 and GEN7 still execute from it"*, and
+when that was finally re-read rather than re-asserted, none of the three did: Plan 6 named a streaming
+interface **D127** had deleted, Plan 7 predated both the 2026-08-30 3D survey and GEN7a shipping, and
+`TASKS.md`'s own item bodies had carried the current framing for weeks. **A "still live" note is a claim
+with an expiry date, like a blocker** (`task-lifecycle.md`) — and it expires the same silent way, because
+nothing fails when the live half quietly dies. Re-read it; do not re-assert it.
 
 ## Adding one
 

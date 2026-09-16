@@ -1,6 +1,7 @@
 // check-counts — FAIL when a COUNT written in prose disagrees with the tree it counts.
 //
-// WHY THIS IS A GATE. `TASKS.md` Part 73 measured six corrections to a counted claim inside sixty commits,
+// WHY THIS IS A GATE. `docs/task-archive.md` Part 73 measured six corrections to a counted claim inside
+// sixty commits,
 // all the same shape: a number written by hand that nothing computes. Two more went stale during the
 // 2026-08-15 session that built this, both in `CLAUDE.md`'s own baseline line, and both caught by a person
 // who happened to be looking. That is eight incidents and zero automated catches.
@@ -40,6 +41,12 @@ export const NUMBER_WORDS = {
   zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
   eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
   eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50,
+  // `empty` is how English spells zero for a SET, and a registry that cannot express a legitimate value
+  // fails on the day that value arrives. Added 2026-09-16 when the startable count reached 0 and the
+  // banner naturally read "the startable set is EMPTY" — the third time this claim hit a boundary its
+  // pattern could not say (plural-only broke at ONE, on 2026-09-12). The tempting fix each time is
+  // ungrammatical prose written to satisfy a regex, which is the gate training the document.
+  empty: 0,
 };
 
 /** A captured token (`12`, `twelve`, `TWELVE`) as an integer, or `null` when it is not a number at all. */
@@ -458,7 +465,11 @@ export const COUNTED_CLAIMS = [
     // `items?` since 2026-09-12: the count reached ONE and the plural-only pattern stopped matching, which
     // the gate reports as "its pattern found no occurrence" — a gate that cannot express a legitimate value
     // fails on the day that value arrives, and the tempting fix is ungrammatical prose.
-    pattern: /startable set is \*{0,2}([\w]+)\*{0,2} items?/gi,
+    // The noun is OPTIONAL since 2026-09-16, when the count reached ZERO and the banner read "the startable
+    // set is EMPTY" — no noun follows. Same failure at the next boundary down; `empty` is a count word in
+    // `NUMBER_WORDS` for the same reason. A trailing non-number ("…is going to move") captures a word
+    // `parseCount` rejects, which the scan already skips as "a word, not a claim".
+    pattern: /startable set is \*{0,2}([\w]+)\*{0,2}(?: items?)?/gi,
     count: countStartableItems,
     why: 'this exact sentence has advertised finished work four times, and nothing derived it',
   },

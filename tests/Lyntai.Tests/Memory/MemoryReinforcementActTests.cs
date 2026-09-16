@@ -9,7 +9,8 @@ using Lyntai.Tests.Memory.Corpus;
 namespace Lyntai.Tests.Memory;
 
 /// <summary><b>Does reinforcing only what a caller PAID for beat reinforcing whatever the ranker
-/// returned?</b> `TASKS.md` Part 64's design-audit item, and the half of reinforcement the effect seam
+/// returned?</b> `docs/task-archive.md` Part 64's design-audit item, and the half of reinforcement the
+/// effect seam
 /// (<b>D57</b>) deliberately did not answer.
 ///
 /// <para><b>The premise error being tested.</b> The README promises that <i>material you keep coming back
@@ -113,7 +114,7 @@ public sealed class MemoryReinforcementActTests
     /// <para>The expansion count is asserted first: if the corpus produced no expansions, three of the four
     /// arms are the same engine and every delta below is zero for a reason that has nothing to do with the
     /// hypothesis — the same "control identical to treatment" failure the salience study hit
-    /// (<c>TASKS.md</c> Part 69).</para></summary>
+    /// (<c>docs/task-archive.md</c> Part 71).</para></summary>
     [Fact]
     public async Task Conditioning_reinforcement_on_expansion_is_measured_rather_than_assumed()
     {
@@ -148,7 +149,8 @@ public sealed class MemoryReinforcementActTests
         Assert.True(sExpansion.Miss < sBoth.Miss && sExpansion.Pollution < sBoth.Pollution,
             $"expansion-only should beat the default on both metrics (growth OFF, shipped):\n{table}");
 
-        // (2) The half that REFUTES "less reinforcement is always better" (`TASKS.md` Part 64's earlier
+        // (2) The half that REFUTES "less reinforcement is always better" (`docs/task-archive.md` Part 64's
+        //     earlier
         //     reading). Expansion-only reinforces MORE than `neither` and is better on both metrics — so the
         //     damage was never the quantity, it was the SIGNAL.
         Assert.True(expansionOnly.Pollution < neither.Pollution,

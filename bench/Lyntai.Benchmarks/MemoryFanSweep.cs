@@ -25,7 +25,7 @@ namespace Lyntai.Benchmarks;
 /// this corpus and in which direction, which is what a default needs before it moves off zero (D49, D54:
 /// a ranking constant changes on a measurement, never on an argument). It does NOT establish the best value
 /// — the arms are a coarse ladder, not a search — and it inherits every blind spot of the corpus it runs on,
-/// including that relevance here is LEXICAL by construction (<c>TASKS.md</c> Part 69).</para>
+/// including that relevance here is LEXICAL by construction (<c>docs/task-archive.md</c> Part 69).</para>
 ///
 /// <para><b>The confound worth naming up front.</b> Degree is not independent of relevance in this corpus:
 /// co-activation links whatever a recall returned together, so a frequently-returned entry ACCUMULATES

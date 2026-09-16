@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  KINDS, MAX_PREAMBLE, STATES, checkBacklog, manifestFixedPoint, parseItems, readBacklog,
+  KINDS, MAX_PREAMBLE, STATES, checkBacklog, emptyParts, manifestFixedPoint, parseItems, readBacklog,
 } from '../check-backlog.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
 
@@ -384,5 +384,88 @@ describe('check-backlog — the generated manifest', () => {
     // reaches it, and the tempting fix is to invent work.
     for (const item of items)
       assert.ok(STATES.includes(item.state), `line ${item.line}: state \`${item.state}\` is outside the vocabulary`);
+  });
+});
+
+describe('check-backlog — a `## Part` that holds no open checkbox (BL2)', () => {
+  /// A backlog with one populated Part and any number of extra headings appended after it.
+  const withExtraParts = (...headings) => {
+    const base = backlog({ current: false });
+    return manifestFixedPoint(`${base}\n${headings.join('\n\n')}\n`);
+  };
+
+  it('FAILS on an emptied Part, and names its line and its heading', () => {
+    // The measured defect: four Parts holding 295 lines and zero checkboxes, every line a
+    // "CLOSED as archive Part N" note.
+    const { code, out } = run(withExtraParts(
+      '## Part 9 — a thread whose last item closed\n\n_CLOSED as `docs/task-archive.md` Part 40._'));
+
+    assert.equal(code, 1);
+    assert.match(out, /1 `## Part` heading\(s\) hold no open checkbox/);
+    assert.match(out, /Part 9 holds no open checkbox/);
+    assert.match(out, /a thread whose last item closed/, 'must quote the heading, not just the number');
+  });
+
+  it('counts EVERY emptied Part, not just the first', () => {
+    const { code, out } = run(withExtraParts(
+      '## Part 9 — one\n\n_closed._',
+      '## Part 10 — two\n\n_closed._',
+      '## Part 11 — three\n\n_closed._'));
+
+    assert.equal(code, 1);
+    assert.match(out, /3 `## Part` heading\(s\) hold no open checkbox/);
+  });
+
+  it('PASSES the populated Part it sits beside — the false-positive direction', () => {
+    // A gate that over-fires on a Part doing its job is the kind someone deletes, which is the risk the
+    // backlog item filed this with. The whole default fixture is one Part holding one open item.
+    const { code, out } = run(backlog());
+
+    assert.equal(code, 0, out);
+  });
+
+  it('a Part holding ONLY struck-through items is empty, because a struck item is not open', () => {
+    // `- ~~**Decided and shipped**~~` is how a closed-in-place item was written before the lifecycle rule
+    // was enforced. It is not `- [ ]`, so it must not keep a Part alive.
+    const { code, out } = run(withExtraParts(
+      '## Part 9 — a thread\n\n- ~~**A decision that shipped.**~~ Prose about it.'));
+
+    assert.equal(code, 1, out);
+    assert.match(out, /Part 9 holds no open checkbox/);
+  });
+
+  it('is BLIND to a heading that is not `## Part <n>`', () => {
+    // This is what lets a retirement leave a pointer behind without tripping the rule it just satisfied —
+    // `TASKS.md`'s own "## Retired — four Parts that outlived their open work" is exactly this shape.
+    const { code, out } = run(withExtraParts(
+      '## Retired — four Parts that outlived their open work\n\n_They are archive Parts 233-236._'));
+
+    assert.equal(code, 0, out);
+  });
+
+  it('does not double-report a Part whose items are all badly MARKED', () => {
+    // One defect must wear one name. A Part holding an unmarked checkbox is reported as unmarked; it is
+    // not ALSO empty, because the count is taken from the raw `- [ ]` line rather than from parsed items.
+    const { out } = run(withExtraParts('## Part 9 — a thread\n\n- [ ] **An item with no marker.** Prose.'));
+
+    assert.match(out, /1 open item\(s\) carry no `item:` marker/);
+    assert.doesNotMatch(out, /Part 9 holds no open checkbox/);
+  });
+
+  it('emptyParts is a pure predicate over the parse, driven both ways', () => {
+    // The seam itself, so a caller can ask the question without running the whole gate.
+    assert.deepEqual(emptyParts([{ number: 1, open: 2 }, { number: 2, open: 0 }]).map((p) => p.number), [2]);
+    assert.deepEqual(emptyParts([{ number: 1, open: 1 }]), []);
+    assert.deepEqual(emptyParts([]), []);
+  });
+
+  it('the real backlog has no empty Part', () => {
+    // The on-tree assertion. Four Parts failed this the day before it was written.
+    const { parts } = parseItems(fs.readFileSync(path.join(repo, 'TASKS.md'), 'utf8').split(/\r?\n/));
+
+    assert.ok(parts.length > 0, 'TASKS.md must hold Part headings — a run over none proves nothing');
+    assert.deepEqual(
+      emptyParts(parts).map((p) => `Part ${p.number} (line ${p.line})`), [],
+      'every `## Part` in TASKS.md must hold at least one open checkbox');
   });
 });

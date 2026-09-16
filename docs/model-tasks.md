@@ -557,14 +557,17 @@ silently run on whatever backend happens to be default. The surface does not yet
 > default candidates pin models, because a candidate's own model wins over the request's. Both memory seams
 > are fail-open, so the seam simply runs on another model and **nothing reports it**. If you need a seam
 > pinned, pin it with `ClientName` where the option exists and at the composition root where it does not —
-> `Model` alone is not a reliable pin. This is **D87**'s shape, and whether that precedence is right is
-> still open (`TASKS.md` Part 128).
+> `Model` alone is not a reliable pin. This is **D87**'s shape, and the precedence itself is settled:
+> **D119** KEPT it — a candidate IS a provider-and-model pair — and made only the PROVABLY inert case fail,
+> at composition, when every candidate a seam's client routes over pins a model and none is the one asked
+> for. A partly-pinned list still goes quietly, which is why the advice above stands.
 
 ## 6. Can you express a DECISION through what ships? Yes — through the verification seam
 
 **A decision** — given a query and a bounded list of 3-7 options, choose one or none — **is expressible
 today, and one shipped implementation already IS the argmax.** Audited 2026-09-12 against the frozen
-surface (`TASKS.md` Part 178, `docs/task-archive.md` Part 193).
+surface: the thread is `docs/task-archive.md` Part 236 and the audit closed as `docs/task-archive.md`
+Part 193.
 
 `MemoryVerificationRequest(Query, Candidates)` is exactly `(query, bounded option list)`; a candidate
 carries an `Id`, a `Relevance` and — since **D108** — its whole `Content`. The reply distinguishes the two

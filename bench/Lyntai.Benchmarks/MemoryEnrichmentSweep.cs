@@ -165,7 +165,7 @@ internal static class MemoryEnrichmentSweep
 
     private static void PrintPreamble(IReadOnlyList<Shape> shapes, IReadOnlyList<string> arms, string model)
     {
-        Console.WriteLine("memory-enrichment — WHY an embedder costs recall quality (TASKS.md Part 69)\n");
+        Console.WriteLine("memory-enrichment — WHY an embedder costs recall quality (docs/task-archive.md Part 69)\n");
         Console.WriteLine("Registering an embedder + vector store costs recall quality on this corpus. Two");
         Console.WriteLine("WRITE-TIME mechanisms could explain it, and nothing separated them:");
         Console.WriteLine("  (a) similarity LINKING adds edges that change what traversal reaches");

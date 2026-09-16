@@ -114,7 +114,9 @@ public static class LyntaiServiceCollectionExtensions
     /// would silently discard the configured threshold, cooldown and logger for BOTH domains.</para></summary>
     private static void RegisterProviderLifetime(IServiceCollection services)
     {
-        // Open generic: ONE registration serves every provider seam (IModelProvider, IModelProvider).
+        // Open generic over IProviderIdentity, not closed over IModelProvider: since D127 collapsed the
+        // domain seams there is one to close over, and the open form is what keeps the pool reusable for
+        // the next one rather than needing a second registration.
         // Never a concrete backend type — IProviderPool<SomeProvider> would be a different pool that no
         // router consults.
         services.TryAddSingleton(typeof(Lyntai.Lifecycle.IProviderPool<>), typeof(Lyntai.Lifecycle.BoundedProviderPool<>));

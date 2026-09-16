@@ -32,11 +32,17 @@ public static class GenerationProviderContract
         Assert.NotEmpty(provider.Capabilities.Operations);
     }
 
-    /// <summary><b>A declared delivery mode must be backed by the interface that serves it.</b> The router
-    /// pre-filters on <see cref="ProviderCapabilities.Operations"/> and then casts, so declaring a mode the
-    /// type does not implement is a configuration fault that surfaces at the worst moment — after a candidate
-    /// has been selected and every alternative discarded. <c>GenerationRouter</c> names this case explicitly
-    /// on its stream door (<c>docs/DECISIONS.md</c> D67).</summary>
+    /// <summary><b>A declared delivery mode must be backed by the code that serves it.</b> The router
+    /// pre-filters on <see cref="ProviderCapabilities.Operations"/>, so declaring a mode the type does not
+    /// serve is a configuration fault that surfaces at the worst moment — after a candidate has been
+    /// selected and every alternative discarded.
+    ///
+    /// <para><b>The two modes are checked DIFFERENTLY, and that asymmetry is the contract.</b> Job is still
+    /// its own interface, so a type test is the question. Stream is not: <b>D127</b> collapsed the domain
+    /// seams and made <c>StreamAsync(GenerationRequest, …)</c> a DEFAULT interface member returning
+    /// <see cref="ProviderVerdict.Unsupported"/> — so every backend "implements" it and the type test that
+    /// used to ask this went vacuous, silently, in the release that unified the seams. What has to be asked
+    /// now is whether the concrete type OVERRIDES the default.</para></summary>
     public static void Its_declared_deliveries_are_backed_by_the_interfaces_it_implements(
         IModelProvider provider)
     {
@@ -49,13 +55,35 @@ public static class GenerationProviderContract
                         $"{provider.Id} declares Job delivery but does not implement IGenerationJobProvider");
                     break;
                 case ProviderOperation.Stream:
-                    Assert.True(provider is IModelProvider,
-                        $"{provider.Id} declares Stream delivery but does not implement IModelProvider");
+                    Assert.True(ServesMediaStream(provider),
+                        $"{provider.Id} declares Stream delivery but inherits IModelProvider's default "
+                        + "StreamAsync(GenerationRequest, …), which answers Unsupported on every call");
                     break;
                 case ProviderOperation.Complete:
                     break;   // served by IModelProvider itself, which every backend implements
             }
         }
+    }
+
+    /// <summary>Whether the CONCRETE type provides its own <c>StreamAsync(GenerationRequest, …)</c> rather
+    /// than inheriting <see cref="IModelProvider"/>'s <see cref="ProviderVerdict.Unsupported"/> stub.
+    ///
+    /// <para>Read off the INTERFACE MAP, not <c>GetMethod</c>: an explicit interface implementation is
+    /// private and a public-only lookup would report it missing, failing a backend that serves the mode
+    /// perfectly well. For an un-overridden default member the target method's declaring type is the
+    /// interface itself, which is exactly the fact this needs.</para></summary>
+    internal static bool ServesMediaStream(IModelProvider provider)
+    {
+        var map = provider.GetType().GetInterfaceMap(typeof(IModelProvider));
+        for (var i = 0; i < map.InterfaceMethods.Length; i++)
+        {
+            var declared = map.InterfaceMethods[i];
+            if (declared.Name != nameof(IModelProvider.StreamAsync)) continue;
+            if (declared.GetParameters() is not [var first, _] ||
+                first.ParameterType != typeof(GenerationRequest)) continue;
+            return map.TargetMethods[i].DeclaringType != typeof(IModelProvider);
+        }
+        return false;
     }
 
     /// <summary>A backend that cannot serve inline says so with <see cref="ProviderVerdict.Unsupported"/>

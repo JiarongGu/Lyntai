@@ -15,7 +15,7 @@ namespace Lyntai.Benchmarks;
 /// <summary>
 /// <b>Does reinforcement itself hurt recall here, or only law 3's dependence on <c>r</c>?</b>
 /// The one question <see cref="MemorySpacingSweep"/> raised and structurally could not answer
-/// (<c>TASKS.md</c> Part 64, <c>docs/DECISIONS.md</c> D53).
+/// (<c>docs/task-archive.md</c> Part 64, <c>docs/DECISIONS.md</c> D53).
 ///
 /// <para><b>Why the previous study could not.</b> <see cref="DsrOptions.SpacingWeight"/> multiplies the
 /// WHOLE increase term, so setting it to zero disables all three FSRS laws together — "recall never
@@ -156,7 +156,7 @@ internal static class MemoryReinforcementSweep
 
     private static void PrintPreamble(IReadOnlyList<Arm> arms, IReadOnlyList<Shape> shapes)
     {
-        Console.WriteLine("=== Reinforcement isolation (TASKS.md Part 64, docs/DECISIONS.md D53) ===");
+        Console.WriteLine("=== Reinforcement isolation (docs/task-archive.md Part 64, docs/DECISIONS.md D53) ===");
         Console.WriteLine();
         Console.WriteLine("QUESTION: does reinforcement itself hurt recall here, or only law 3's dependence");
         Console.WriteLine("on r? MemorySpacingSweep could not tell: SpacingWeight multiplies the WHOLE");
@@ -239,7 +239,7 @@ internal static class MemoryReinforcementSweep
         Console.WriteLine();
         Console.WriteLine("  * = the 95% interval excludes zero.");
         Console.WriteLine();
-        Console.WriteLine("=== Verdict for TASKS.md Part 64 ===");
+        Console.WriteLine("=== Verdict for docs/task-archive.md Part 64 ===");
         if (topicalNo.Count == 0 || topicalFrozen.Count == 0) { Console.WriteLine("no topical cells"); return; }
 
         var meanNo = topicalNo.Average();

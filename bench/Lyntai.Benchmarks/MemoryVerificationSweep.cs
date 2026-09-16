@@ -26,10 +26,10 @@ namespace Lyntai.Benchmarks;
 ///
 /// <para><b>The verifier here is PERFECT by construction, and that is the point rather than a flaw</b> —
 /// the same stance <c>MemoryAnnotationSweep</c> takes for its annotator. It reads the corpus's own ground
-/// truth, so this measures the MECHANISM'S CEILING, not any model's accuracy. A real judge (Ollama, a local
-/// CLI, a hosted model) can only do worse. If the ceiling is small, no prompt and no model will rescue it;
-/// if it is large, the remaining question is a model's accuracy, which is a different measurement needing a
-/// live model and a token budget (<c>TASKS.md</c> Part 65).</para>
+/// truth, so this measures the MECHANISM'S CEILING, not any model's accuracy. A real judge can only do
+/// worse. If the ceiling is small, no prompt and no model will rescue it; if it is large, the question is
+/// the model's ACCURACY — measured on the LoCoMo ladder as <c>docs/task-archive.md</c> Part 143, where a
+/// real 4B judge COST 10.5 where a perfect one gained 9.5.</para>
 ///
 /// <para><b>Three arms, because the seam has two distinct postures</b> and conflating them would hide which
 /// half pays: <c>off</c> (no verifier at all — today's shipped default), <c>reorder</c> (a verdict that only
@@ -202,7 +202,7 @@ internal static class MemoryVerificationSweep
         Console.WriteLine("\"covered everything\"):");
         Console.WriteLine("  - A REAL judge's ACCURACY. This verifier is perfect by construction, so every");
         Console.WriteLine("    number here is the MECHANISM'S CEILING. A model can only do worse; measuring");
-        Console.WriteLine("    how much worse needs a live model and a token budget (TASKS.md Part 65).");
+        Console.WriteLine("    how much worse needs a live model and a token budget (docs/task-archive.md Part 143).");
         Console.WriteLine("  - The judge's COST. A verified recall spends a model call over up to");
         Console.WriteLine("    VerificationDepth candidates. That is a latency and money question this");
         Console.WriteLine("    harness does not measure at all, and it is the reason the seam ships OFF.");

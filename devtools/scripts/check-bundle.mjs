@@ -7,7 +7,8 @@
 // pull a whole SDK behind it. The `Microsoft.Extensions.*` band is auto-allowed: those ship on the runtime's
 // own version band and any DI app already has them.
 //
-// Extracted from dev.mjs 2026-08-11 (TASKS.md Part 62) so it can be driven by a test. Nothing about what it
+// Extracted from dev.mjs 2026-08-11 (docs/task-archive.md Part 62) so it can be driven by a test. Nothing
+// about what it
 // CATCHES changed in the move — the closure is read from the same `project.assets.json`, the band rule, the
 // two failure branches and every message are as they were. What the extraction buys is that the
 // allowlist-staleness branch, which had never run against a fixture, now runs on every `verify`.

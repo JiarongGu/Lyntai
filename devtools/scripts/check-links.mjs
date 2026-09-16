@@ -55,7 +55,7 @@ export const PATH_PATTERN =
   /(?<![\w/.-])((?:src|tests|devtools|bench|samples|docs|local|\.claude)\/[A-Za-z0-9_./-￿-]+\.(?:csproj|props|slnx|html|json|yaml|mjs|sql|txt|yml|md|cs))(?::\d+)?/g;
 
 /**
- * A reference that names one of the two task records AND a Part in it: `` `TASKS.md` Part 53 ``,
+ * A reference that names one of the two task records AND a Part in it: `` `TASKS.md` Part 53 ``, link-ok: pattern SHAPES, not live citations
  * `docs/task-archive.md` **Part 54**, `task-archive.md` Part 60.
  *
  * The SECOND way an inbound reference rots, and no path check can see it — the path resolves and the Part
@@ -125,7 +125,7 @@ export const csharpVocabulary = (texts) => {
  * was reported as "in NEITHER record": a false positive on right prose.
  *
  * That mattered more than a lone false positive normally would, because it CANCELLED a false negative.
- * The one live defect this gate was built for — the design contract naming `TASKS.md` for an archived
+ * The one live defect this gate was built for — the design contract naming `TASKS.md` for an archived link-ok: quotes the defect as it was written
  * Part 40 — was both wrapped across two lines (invisible to the old line-at-a-time match) and
  * bullet-declared (invisible here). Two blind spots, opposite signs, one green gate over a real defect.
  * Fixing either alone would have surfaced it; fixing neither kept it quiet for a release.
@@ -145,14 +145,15 @@ export const declaredParts = (text) => {
  * The tracked file list, `-z` so git does not C-QUOTE a non-ASCII path — `docs/灵台.md` would otherwise  link-ok
  * arrive as an 8-escape string matching no file on disk, and this gate would both fail to scan it AND
  * report every reference to it as dangling. Same root cause as check-sensitive's and check-docs' own,
- * measured 2026-08-11 (TASKS.md Part 60).
+ * measured 2026-08-11 (docs/task-archive.md Part 60).
  */
 /**
  * A citation naming a SECTION of a document: `` `docs/memory.md` §7 ``, `<c>pitfalls.md</c> §Storage`,
  * `docs/d.md` §5–7 (an ILLUSTRATION of the range shape, never a file here). link-ok
  *
  * The THIRD way an inbound reference rots, and neither half above can see it — the path resolves, the
- * record is right, and the §N names a heading that is not there. Measured 2026-08-28 (TASKS.md Part 107):
+ * record is right, and the §N names a heading that is not there. Measured 2026-08-28
+ * (docs/task-archive.md Part 107):
  * `docs/memory.md`'s `## 8. What is NOT measured` was folded into `## 7` while §9/§10 were left
  * un-renumbered, and SEVEN citations across six files kept naming a section that had stopped existing.
  *
@@ -402,7 +403,8 @@ export function checkLinks(repo, config, log = console.log, files = null) {
       // check-counts use, not the raw line. These documents wrap at ~110 columns and a Part reference spans
       // a backtick, a filename and a bold marker, so it is among the likeliest claims to straddle a break —
       // and the one live defect this gate existed for had done exactly that: the design contract's
-      // "`TASKS.md`\n**Part 40**", naming the backlog for a Part archived long ago. `line` alone stays the
+      // "`TASKS.md`\n**Part 40**", naming the backlog for a Part archived long ago (link-ok: quotes the
+      // defect as it was written). `line` alone stays the
       // unit for the PATH half above, where a target is a single token and cannot wrap mid-name.
       //
       // A match is kept only when it BEGINS in this line: one that begins in the next is seen again when
@@ -449,20 +451,54 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     }
   }
 
-  // The code tiers: comment lines only, `docs/` targets only. No Part half — a task-record reference is a
-  // prose convention, and the measurement found none in code.
+  // The code tiers: comment lines only, `docs/` targets only.
+  //
+  // THE PART HALF IS HERE NOW, and its absence was a stale MEASUREMENT rather than a scope decision. This
+  // comment read "no Part half — a task-record reference is a prose convention, and the measurement found
+  // none in code"; re-run on 2026-09-16 it finds **150 across 73 files** — every bench sweep, and several
+  // gate scripts, name the thread they belong to. None was gated, so retiring four backlog Parts silently
+  // broke 28 of them and `check-links` reported the tree clean. A scope justified by a measurement needs
+  // that measurement re-run when the tree has grown around it, exactly as a blocked backlog item does.
   const COMMENT = /^\s*(?:\/\/|\*|#)/;
   for (const file of code) {
     let text;
     try { text = readFileSync(join(repo, file), 'utf8'); } catch { continue; }
 
-    for (const [i, line] of text.split(/\r?\n/).entries()) {
+    const lines = text.split(/\r?\n/);
+    for (const [i, line] of lines.entries()) {
       if (!COMMENT.test(line)) continue;
       if (line.includes('link-ok')) continue;
       for (const [, target] of line.matchAll(PATH_PATTERN)) {
         if (!target.startsWith('docs/')) continue;
         if (onDisk.has(target)) continue;
         hits.push({ file, line: i + 1, target, text: line.trim() });
+      }
+
+      // A two-line window, unlike this tier's other halves — a Part reference spans a backtick, a filename
+      // and a number, so it straddles a wrap for the same reason it does in prose, and 2 of the 150 do.
+      // The continuation's own comment marker is stripped first, the way check-docs' `commentLinesOnly`
+      // does, or the `//` sits between the two halves of the claim. `match.index > line.length` is the same
+      // no-double-report anchor the prose tier uses.
+      const continuation = (lines[i + 1] ?? '').replace(/^\s*(?:\/\/+|\*)\s*/, '');
+      if (!continuation.includes('link-ok')) {
+        for (const match of `${line} ${continuation}`.matchAll(PART_PATTERN)) {
+          if (match.index > line.length) continue;
+          const [, record, num] = match;
+          const n = Number(num);
+          const claimsBacklog = record === 'TASKS.md';
+          if (claimsBacklog ? openParts.has(n) : archivedParts.has(n)) continue;
+          const elsewhere = claimsBacklog ? archivedParts.has(n) : openParts.has(n);
+          misfiled.push({
+            file,
+            line: i + 1,
+            record,
+            part: n,
+            actually: elsewhere
+              ? (claimsBacklog ? 'in the ARCHIVE' : 'still OPEN in TASKS.md')
+              : 'in NEITHER record',
+            text: line.trim(),
+          });
+        }
       }
 
       // The SECTION half is NOT narrowed to `docs/` the way the path half is. That narrowing exists

@@ -77,7 +77,8 @@ export default {
    * `src/`, so it never reads a parameter name, and the API-surface baseline RECORDS parameter names
    * without judging them — it reports THAT a name changed, never THAT a name should have. So a stale name
    * round-trips cleanly through the one gate whose entire job is noticing API changes. Measured cost
-   * (TASKS.md Part 61, docs/DECISIONS.md D47): `GraphMemoryEngine(ageClocks:)`, `(appraisers:)` and
+   * (docs/task-archive.md Part 61, docs/DECISIONS.md D47): `GraphMemoryEngine(ageClocks:)`, `(appraisers:)`
+   * and
    * `ModulatedRetrievability(modulators:)` kept the three words that decision retired all the way to the
    * eve of the 3.0 freeze. A human review caught all three; no gate did. Named arguments are
    * source-compatible public surface, so after a freeze each costs a major version.
@@ -125,13 +126,16 @@ export default {
    * genuine dangling reference in that file would go unreported forever.
    */
   // EMPTY on purpose, and the reason is worth keeping so the next dangling reference is not waved through
-  // as "there used to be an allowance". The one entry here covered
-  // `docs/2026-08-04-generation-platform-plan.md`, whose paths below its 2026-08-05 status banner are the
-  // layout AS FIRST WRITTEN — a faithful record of how the core was built, superseded twice by D25. D125
-  // moved that file into `check-docs`' HISTORICAL list for the same reason, and `check-links` reads
-  // HISTORICAL from there, so the file is no longer scanned and the allowance matched nothing — which this
-  // registry treats as a failure by design. The COST, stated rather than buried: that document's still-live
-  // half (GEN-VERIFY/GEN6/GEN7 execute from it) is now outside both gates until it moves to local/.
+  // as "there used to be an allowance". The one entry here covered the 2026-08-04 generation plan, whose
+  // paths below its status banner were the layout AS FIRST WRITTEN. D125 moved that file into `check-docs`'
+  // HISTORICAL list, `check-links` reads HISTORICAL from there, and the allowance then matched nothing —
+  // which this registry treats as a failure by design.
+  //
+  // The COST that comment recorded ("outside both gates until it moves to local/") is DISCHARGED: it moved
+  // on 2026-09-16 (**D149**), and the re-check that settled it is worth keeping — nothing still executed
+  // from it. Its Plan 6 named a streaming interface D127 had deleted and its Plan 7 predated both the 3D
+  // survey and GEN7a shipping, so `TASKS.md`'s own item bodies were the current framing and had been for
+  // weeks. A document kept alive for a live half should be re-read for whether that half is still live.
   staleReferenceAllowances: [],
 
   retiredApiNames: [
@@ -540,9 +544,46 @@ export default {
     },
     {
       // D144. Prose only — the package id, not a type name, so there is no baseline rule to pair with it.
+      //
+      // A WIDENING WAS TRIED AND REFUSED on 2026-09-16, recorded so nobody re-derives it. This rule missed
+      // two live sites by exactly one word — `README.md` said "Backends that need nothing extra share
+      // `Providers.Default`" and `docs/AOT.md` "it is split from `Providers.Default` for release cadence" —
+      // because prose drops a namespace prefix the moment context makes it obvious, so a rule anchored on
+      // the FULLY-QUALIFIED name is anchored on the spelling prose is least likely to use.
+      //
+      // Dropping `Lyntai[.]` finds them and 16 others: five in `docs/DECISIONS.md` where an entry records
+      // what the package was called ON THE DAY IT DECIDED (D123's own title names it), the rest in
+      // `CHANGELOG.md`'s live prefix. **Two true positives against sixteen false ones**, which is the
+      // cry-wolf ratio `docs/GATES.md` §Writing a new gate refuses: those sixteen would each take a
+      // `drift-ok`, and an exclusion added to quiet a gate is the exclusion that rots. The two sites are
+      // fixed by hand; the lesson is a TRAP (`.claude/knowledge/pitfalls.md`), not a rule.
       term: '\\bLyntai[.]Providers[.]Default\\b',
       why: 'Default named a position in a list rather than a property of the contents (D144)',
       use: '`Lyntai.Providers.Basic`',
+    },
+    {
+      // D146, the CLAIM half — `retiredApiNames` already covers the type names, and this covers the
+      // sentence that says the library still has the feature.
+      //
+      // The adjective form is the one that carries a live capability claim ("routing and fallback across
+      // CLI / HTTP / MEAI-bridged backends"), and it survived D146's own sweep in THREE places, one of them
+      // `CLAUDE.md`, which every session reads before it reads anything else. Deliberately NOT a ban on
+      // `MEAI` or `Microsoft.Extensions.AI` outright: the package is still pinned transitively by MCP, the
+      // OTel schema is still named after it, `AddBridgeProvider` still reaches an `IChatClient` (D147), and
+      // half a dozen amendments name the deleted bridge on purpose. A rule firing on all of those would
+      // collect six escapes and then rot.
+      //
+      // MEASURED, and the NOUN form was cut for exactly that reason. `\bthe MEAI bridge\b` reads like the
+      // same claim and is not: it fires on **D123**'s own heading ("a package boundary must isolate a
+      // dependency the consumer can REFUSE; the MEAI bridge is its own package") and on the two generated
+      // index rows quoting it — a decision entry naming what it decided about. The ADJECTIVE form is the
+      // one that can only be a live capability claim, and it measures **3 defects / 0 false positives**
+      // (`README.md` ×2, `CLAUDE.md`, `TASKS.md` at HEAD).
+      term: '\\bMEAI[- ]bridged\\b|Extensions[.]AI`?[- ]bridged\\b',
+      why: 'the Microsoft.Extensions.AI bridge is DELETED (D146); a sentence offering it as a live routing '
+        + 'target is advertising a feature that is gone',
+      use: '`AddBridgeProvider` (a lambda, so it costs the library no dependency — D147), or '
+        + '`AddHttpProvider` for anything OpenAI-compatible',
     },
     {
       // D140. The prose half; `GenerationInputRoles` absent for the reason on the surface rule above.
@@ -1064,6 +1105,7 @@ export default {
     'check-measurements': 'a result reading CURRENT that its own body retracts; `--write` rebuilds the index',
     'check-decision-claims': 'a DECISION that stopped describing the code it governs',
     'check-api-vocabulary': 'a retired name back on the frozen public surface',
+    'check-tautology': 'a rename that collapsed a CONTRAST — prose naming one thing twice',
     'check-samples': 'a fenced `csharp` block that does not COMPILE — default ON',
     'check-dev-loop': 'this table drifting from `dev.mjs`; `--write` rebuilds it',
     'check-sensitive': 'leak scan; `--tree` for everything, not just staged',

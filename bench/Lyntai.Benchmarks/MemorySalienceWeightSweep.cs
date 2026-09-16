@@ -34,7 +34,7 @@ namespace Lyntai.Benchmarks;
 /// table unless the values genuinely differ. Firing is presence; only distinct values are discrimination.
 /// See <c>.claude/knowledge/pitfalls.md</c> for the measured version of both traps.</para>
 ///
-/// <para>The question, the result and what neither settles live in <c>TASKS.md</c> Part 65 and
+/// <para>The question, the result and what neither settles live in <c>docs/task-archive.md</c> Part 98 and
 /// <c>docs/memory-measurements.md</c> §5; <c>PrintNotSwept</c> states the limits at the point of use.</para>
 /// </remarks>
 internal static class MemorySalienceWeightSweep
@@ -223,7 +223,7 @@ internal static class MemorySalienceWeightSweep
     {
         Console.WriteLine("memory-salience-weight — is the many-candidates regression recoverable by a BOUND?\n");
         Console.WriteLine("Salience helps on most shapes and hurts `many-candidates`, where 40 competitors mean");
-        Console.WriteLine("admitting salient entries displaces relevant ones (TASKS.md Part 65). This asks");
+        Console.WriteLine("admitting salient entries displaces relevant ones (docs/task-archive.md Part 98). This asks");
         Console.WriteLine("whether turning salience's RANKING voice down recovers it without losing the gains.");
         Console.WriteLine();
         Console.WriteLine($"  arms (SalienceWeight): {string.Join(", ", arms.Select(a => a.Label))}");

@@ -834,7 +834,7 @@ passed to `UseGraph(...)` wins over both, for that engine only.
 |---|---|
 | the contract — interfaces, semantics, objectives | `docs/2026-07-17-lyntai-design.md` §5.7 |
 | why a choice was made | `docs/DECISIONS.md` D39–D62 and D83–D86 (and D13 for the *keyword* store's eviction bound, which is a different surface) |
-| upgrading from 2.5 | `docs/migration-2.5-to-3.0.md` |
+| upgrading from 2.5 | `CHANGELOG.md` 3.0.0, **Breaking** (the dedicated guide was untracked in **D149**) |
 | the consuming story | `README.md` |
 | which SHAPE of question each model-backed seam asks, and what is measured about each | `docs/model-tasks.md` |
 | traps that pass the build while being wrong | `.claude/knowledge/pitfalls.md` |

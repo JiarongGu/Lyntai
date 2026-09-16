@@ -218,8 +218,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D146](#d146--the-microsoftextensionsai-bridge-is-deleted-and-the-trigger-to-rebuild-it-is-written-down-2026-09-15) | 2026-09-15 | the Microsoft.Extensions.AI bridge is DELETED, and the trigger to rebuild it is written down |
 | [D147](#d147--a-bridge-is-a-function-so-it-costs-no-dependency-and-belongs-in-core-2026-09-15) | 2026-09-15 | a BRIDGE is a function, so it costs no dependency and belongs in Core |
 | [D148](#d148--a-seam-that-selects-a-backend-by-capability-must-also-be-able-to-name-one-2026-09-15) | 2026-09-15 | a seam that SELECTS a backend by capability must also be able to NAME one |
+| [D149](#d149--a-document-kept-for-its-live-half-is-re-read-not-re-asserted-both-pre-30-records-leave-docs-2026-09-16) | 2026-09-16 | a document kept for its "live half" is re-READ, not re-asserted; both pre-3.0 records leave `docs/` |
 
-_All 148 entries are live decisions._
+_All 149 entries are live decisions._
 
 <!-- index:end -->
 
@@ -766,7 +767,8 @@ arrive once at the end); and **carried by a backend with nowhere to go**, which 
 folded into a neighbouring field where it would read as something it is not.
 
 ## D36 — a translation between two verdict taxonomies gets one arm per member, gated by a TEST (2026-08-05)
-Translating between `ProviderVerdict` and `ProviderVerdict` by falling back to a default silently mapped a
+Translating between the LLM and media verdict enums — two taxonomies then, one `ProviderVerdict` since
+**D136** — by falling back to a default silently mapped a
 meaningful verdict onto `Failed`. Every member gets an explicit arm, and because the compiler cannot force
 exhaustiveness over an enum, a **test** enumerates both and fails when either grows. The gate is the test,
 not the switch — the catch-all is what hid the defect, so it now holds nothing.
@@ -3776,7 +3778,8 @@ referenced the failure is at load, and `AddOnnxProvider`'s doc names the three p
 effect worth stating — the same package serves the GPU cell, which was listed as unbuilt.
 
 **Embedders become PROVIDERS, additively.** `IEmbeddingProvider : IProviderIdentity, IEmbedder` gives an
-embedding backend the `Id` + `IsAvailable` that `IModelProvider` and `IModelProvider` already have.
+embedding backend the `Id` + `IsAvailable` that the chat and media provider seams already have (two seams
+then; **D127** has since collapsed them into `IModelProvider`).
 **Changing `IEmbedder` itself was refused**: those two could adopt `IProviderIdentity` as a base because
 they already declared `Id`, and `IEmbedder` does not — adding it would introduce a REQUIRED member and
 break every bring-your-own embedder at compile. This is the optional-capability pattern Core already uses
@@ -3822,7 +3825,7 @@ which operations it serves, exactly as `GenerationCapabilities` already does —
 list, so `"text"` fits it today — and the router filters on that declaration before dispatching.
 
 **Two designs were considered and REJECTED on the way here, because both would have entrenched the split.**
-A third domain seam (`IEmbeddingProvider` as a peer of `IModelProvider` and `IModelProvider`) makes
+A third domain seam (`IEmbeddingProvider` as a peer of the chat and media provider seams) makes
 embedding a parallel stack when an embedding model is a TEXT backend like a chat model. And splitting
 operations into types (`IChatProvider` / `IEmbeddingProvider`) encodes as a hierarchy what belongs in data:
 chat and embed are two operations on one content type, not two kinds of provider.
@@ -4563,3 +4566,32 @@ that does not declare `ProviderKinds.Score`, fails where the policy is built. Re
 would be indistinguishable from a reranker that had no opinion — the same silent-degradation shape
 **D119** refused for a seam that pinned an unreachable model, and the shape the fail-open contract makes
 unavoidable everywhere else in this seam.
+
+## D149 — a document kept for its "live half" is re-READ, not re-asserted; both pre-3.0 records leave `docs/` (2026-09-16)
+
+`docs/2026-08-04-generation-platform-plan.md` (1,911 lines) and `docs/migration-2.5-to-3.0.md` (1,161) are <!-- link-ok: this entry IS the move, so it names what left -->
+untracked, into `local/superpowers/`. Together they were **21% of tracked `docs/`** and neither described
+the library as it is.
+
+**Each was kept by a standing note, and BOTH notes had gone false without anything failing.** The plan's
+was *"part live — GEN-VERIFY, GEN6 and GEN7 in `TASKS.md` still execute from it"*: re-read, none did. Plan 6
+names `IGenerationStreamProvider`, which **D127** deleted; Plan 7 predates both the 2026-08-30 3D survey and <!-- drift-ok: naming the deleted seam is the evidence this entry rests on -->
+GEN7a shipping; and `TASKS.md`'s own item bodies had carried the current framing for weeks. The guide's was
+`repo-mechanics.md`'s *"stays only because the release pipeline links to it"* — `release-notes.mjs` had
+already been repointed at `CHANGELOG.md`, and its test asserts the old link is absent.
+
+**That is the general rule, and it is `task-lifecycle.md`'s blocked-item discipline aimed at documents.** A
+"still live" note is a claim with an expiry date, refuted by looking somewhere specific — and it expires
+SILENTLY, because nothing fails when the live half quietly dies. Re-check it against the tree the way a
+blocked item is re-checked against its blocker's KIND.
+
+**The alternative was leaving them, and it had a real argument**: both were already exempt from
+`check-docs` and `check-links`, so neither could go stale in a way a gate would report. That is the
+objection turned around — **an exemption is not a place to park a document, it is evidence the document
+has finished**. A record nothing may check and nothing executes from is history, and history lives in git.
+Both were tracked, so `git show 3.0.0:docs/migration-2.5-to-3.0.md` retrieves either one — the one <!-- link-ok: a git revision path, not a working-tree path -->
+recovery route `docs/superpowers/INDEX.md` says most records do NOT have.
+
+**What was NOT done, so nobody reads this as a licence:** `docs/2026-07-17-lyntai-design.md` stays. It is
+the CONTRACT, it is maintained by dated amendment, and its exemption is about its v0.1 seed blocks rather
+than about the document having finished — the distinction this entry turns on.

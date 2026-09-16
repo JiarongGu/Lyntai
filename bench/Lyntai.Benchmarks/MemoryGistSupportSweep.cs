@@ -120,8 +120,8 @@ internal static class MemoryGistSupportSweep
         bool DiffersOnlyInDeclaredAnswer);
 
     /// <summary>
-    /// The CARDINALITY axis, added 2026-08-28 — the question `TASKS.md` Part 105 opened, and the one the
-    /// first 600-replay run held constant at 12.
+    /// The CARDINALITY axis, added 2026-08-28 — the question `docs/task-archive.md` Part 108 closed, and
+    /// the one the first 600-replay run held constant at 12.
     /// <para>B is <c>Math.Max(1, RoutineCount / 3)</c> and A is the remainder, so |A|/|B| is 2 only at
     /// multiples of 3 and reaches <b>4.0 at 5</b>. These four rungs give ratios 2.0, 4.0, 3.0, 2.0 — and the
     /// two ratio-2.0 rungs sit at different SIZES (3 and 12) deliberately, because without them a result that

@@ -8,8 +8,8 @@ namespace Lyntai.Diagnostics;
 
 /// <summary>
 /// The library's telemetry surface, following the OpenTelemetry GenAI semantic conventions
-/// (the same schema Microsoft.Extensions.AI's OpenTelemetryChatClient emits, so Lyntai's own-seam
-/// providers and MEAI-bridged ones land interoperably in one trace backend). Subscribe with
+/// (the same schema Microsoft.Extensions.AI's OpenTelemetryChatClient emits, so a span from this library
+/// and one from an app's other GenAI clients land interoperably in one trace backend). Subscribe with
 /// <c>AddSource(ActivitySourceName)</c> / <c>AddMeter(MeterName)</c>; nothing is emitted unless a
 /// listener is attached, so the overhead without observability wiring is a few null checks.
 /// </summary>

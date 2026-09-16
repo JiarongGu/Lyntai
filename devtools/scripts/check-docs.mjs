@@ -31,15 +31,13 @@ const repo = join(dirname(here), '..', '..');
 export const HISTORICAL = [
   /^CHANGELOG\.md$/,
   /^docs\/task-archive\.md$/,
-  // A dated PLAN OF RECORD. Its file tables and code snippets record what was CREATED on 2026-08-04, so a
-  // rename since then makes them inaccurate to rewrite rather than inaccurate to leave — the same
-  // "accurate BY using the vocabulary of their day" rationale the two entries above rest on. Added when
-  // D125 unified the two candidate records and produced 45 hits in this one file, every one naming a path
-  // or a snippet exactly as it stood that day.
-  /^docs\/2026-08-04-generation-platform-plan\.md$/,
-  // The 2.5->3.0 migration guide, which carries a HISTORY banner and exists to tell someone on 2.5 what to
-  // TYPE. Its names must be 3.0's, so every rename since makes it inaccurate to rewrite.
-  /^docs\/migration-2\.5-to-3\.0\.md$/,
+  // Two entries were REMOVED here on 2026-09-16, and removed rather than left because an exemption whose
+  // file is gone is an exemption nobody can see expiring — the rule this repository already states for
+  // `staleReferenceAllowances` and `retiredApiNames`. The 2026-08-04 generation plan and the 2.5→3.0
+  // migration guide are both untracked now (**D149**): a document exempted from every prose gate BECAUSE
+  // it is a record of its own day is a document that has finished, and the honest place for it is
+  // `local/superpowers/`, not a permanent hole in this list.
+  //
   // The frozen v0.1 design record. Its §5 blocks are SEEDS kept verbatim and its amendments are DATED, so
   // "out of date" is its normal and intended state — the amendment log is what carries the present tense.
   // Added 2026-09-15 after this gate did the damage it exists to prevent: under the pressure to stay green,
@@ -54,7 +52,8 @@ export const HISTORICAL = [
  * A file that is historical BELOW a boundary and MAINTAINED above it — scanned down to that line and no
  * further.
  *
- * `CHANGELOG.md` is the case, added 2026-08-11 (TASKS.md Part 53). The exemption above rests on records
+ * `CHANGELOG.md` is the case, added 2026-08-11 (docs/task-archive.md Part 53). The exemption above rests
+ * on records
  * being "accurate BY using the vocabulary of their day", which is true of a RELEASED section and false of
  * `## Unreleased`: that section describes behaviour that has not shipped, is still being edited, and can
  * still change under the words describing it. Measured 2026-08-09 — the `ReciprocalRankFusionPolicy` entry
@@ -166,7 +165,7 @@ export const IN_SCOPE = (path) =>
  * `-z` (NUL-separated) is load-bearing: without it git C-QUOTES any path with a non-ASCII byte, so
  * `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"`, the read below fails, and its `catch`  link-ok: a fixture name, quoted as data
  * skips the file — a doc that is never scanned and never reported as unscanned. Same root cause and same
- * fix as check-sensitive's; measured 2026-08-11 (TASKS.md Part 60).
+ * fix as check-sensitive's; measured 2026-08-11 (docs/task-archive.md Part 60).
  */
 export const trackedFiles = (repo) => repoFiles(repo);
 

@@ -219,10 +219,16 @@ What a backend implements:
   `ProbeAsync` and inline `GenerateAsync`. Both must **FAIL SAFE**: a value with a verdict, never a throw
   (cancellation propagates). `ProbeAsync` must **never generate** to answer a setup question — the
   generate-and-discard pattern it replaces bills a render to find out whether a key works.
-- **Optional capability interfaces, only if the backend really has them:** `IGenerationJobProvider`
-  (submit → poll → fetch, for queued/long renders) and `IModelProvider`. They are ADDITIONAL
-  interfaces the router type-tests, not flags — which is exactly why nothing may wrap a provider in a
-  decorator that implements only the base seam (see `pitfalls.md`).
+- **Inline and STREAMING are declared in DATA, the stateful JOB protocol is still an interface** — and
+  which of the two a mode is decides how it breaks. `ProviderOperation.Complete` / `.Stream` go in
+  `ProviderCapabilities.Operations`, so the failure is a DECLARATION/IMPLEMENTATION mismatch the router
+  reports ("advertises Stream delivery but does not implement"). `IGenerationJobProvider`
+  (submit → poll → fetch, for queued/long renders) is an ADDITIONAL interface the router type-tests, which
+  is why nothing may wrap a provider in a decorator implementing only the base seam (see `pitfalls.md`) —
+  a decorator erases the type test and every video render silently stops routing while image renders keep
+  working. **The two halves fail differently: a wrong FLAG mis-routes, a lost INTERFACE mis-routes
+  silently.** Before **D127** all three were interfaces; it moved two into data and kept the third,
+  because submit → poll → fetch → cancel is a contract SHAPE rather than a content type.
 - **Classify through `ProviderVerdictClassifier.FromHttpFailure(status, body, hasCredentials)`** — the same
   two-term promotion as the LLM side: a 401/403 to a call that carried no credentials is `NotConfigured`, not
   `AuthFailed`, because `AuthFailed` benches the backend for the cooldown window. The classifier DELEGATES its

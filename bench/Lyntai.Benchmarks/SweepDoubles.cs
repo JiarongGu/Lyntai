@@ -81,9 +81,9 @@ internal static class SweepDoubles
     /// already been written to stderr and the caller should return a non-zero exit.
     ///
     /// <para><b>It refuses rather than substituting a double, and that is the whole point.</b> The numbers a
-    /// fake embedder produced were withdrawn (<c>TASKS.md</c> Part 69) because its "semantic similarity" is
-    /// word overlap — so falling back here would reproduce, silently, the exact defect that withdrew
-    /// them.</para>
+    /// fake embedder produced were withdrawn (<c>docs/task-archive.md</c> Part 69) because its "semantic
+    /// similarity" is word overlap — so falling back here would reproduce, silently, the exact defect that
+    /// withdrew them.</para>
     /// </summary>
     /// <param name="http">The client to use; the caller owns its lifetime.</param>
     /// <param name="sweep">The sweep's own name, so the refusal says which run stopped.</param>
@@ -109,7 +109,7 @@ internal static class SweepDoubles
         Console.Error.WriteLine($"{sweep}: ✗ no embedding model at {baseUrl} ({model}).");
         Console.Error.WriteLine();
         Console.Error.WriteLine("  A fake embedder's \"semantic similarity\" is word overlap, and the numbers");
-        Console.Error.WriteLine("  taken through one were withdrawn (TASKS.md Part 69). Substituting one here");
+        Console.Error.WriteLine("  taken through one were withdrawn (docs/task-archive.md Part 69). Substituting one here");
         Console.Error.WriteLine("  would reproduce that defect silently, so this refuses to run instead.");
         Console.Error.WriteLine();
         Console.Error.WriteLine($"  Any OpenAI-compatible /v1/embeddings endpoint serves this:");

@@ -9,8 +9,8 @@ using Lyntai.Tests.Memory.Corpus;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary><b>Does the shipped salience policy preferentially preserve JUNK?</b> `TASKS.md` Part 53's open
-/// concern, and the one memory question 3.0 had no instrument for.
+/// <summary><b>Does the shipped salience policy preferentially preserve JUNK?</b>
+/// `docs/task-archive.md` Part 53's open concern, and the one memory question 3.0 had no instrument for.
 ///
 /// <para><b>The concern, stated precisely.</b> <see cref="StructuralSaliencePolicy"/> is
 /// <c>clamp(1 + NoveltyWeight * novelty, 1, MaxSalience)</c> — monotone in "how unlike anything already
@@ -335,7 +335,7 @@ public sealed class MemorySalienceInversionTests
     /// <summary><b>The `many-candidates` regression — the one measured cost of a shipped default — is
     /// re-checked here against the 3.0 engine rather than left at its 2026-08-12 value.</b>
     ///
-    /// <para>`TASKS.md` Part 65 recorded salience making that shape's combined miss rate WORSE by
+    /// <para>`docs/task-archive.md` Part 98 recorded salience making that shape's combined miss rate WORSE by
     /// <c>+0.0169</c> (significant) while improving every other shape: with 40 competitors, admitting salient
     /// entries displaces relevant ones. It was named the obvious first target for a bounded-admission rule.
     /// Two things have changed since, and both could move it — the ranking policy default (RRF) and the

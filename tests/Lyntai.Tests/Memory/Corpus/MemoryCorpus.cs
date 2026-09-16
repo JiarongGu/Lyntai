@@ -250,7 +250,8 @@ public sealed record CorpusQuery(string Text, IReadOnlyList<string> RelevantIds,
 /// <c>GraphMemoryEngine.ExpandAsync</c> represents, as opposed to the engine merely having returned a
 /// headline.
 ///
-/// <para><b>Why this class exists (2026-08-12, <c>TASKS.md</c> Part 64).</b> This engine reinforces
+/// <para><b>Why this class exists (2026-08-12, <c>docs/task-archive.md</c> Part 64).</b> This engine
+/// reinforces
 /// everything a recall returned, which is the ranker's own opinion rather than evidence of usefulness —
 /// measured as net-harmful to recall quality. The proposed fix is to reinforce on EXPANSION instead, and
 /// until this step existed the corpus could not express the act, so the fix was unmeasurable. Every
@@ -376,7 +377,7 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
 
     // A fixed critical-entry budget that CriticalRarity DIVIDES. Rarity is a ratio, not a count in its own
     // right, so the budget itself never moves — only how many entries share it. RAISED from 12 to 240
-    // (2026-08-10, falsification plan Task 1 Step 2 / TASKS.md Part 55): critical-rare is the DECIDING class
+    // (2026-08-10, docs/task-archive.md Part 55, Task 1 Step 2): critical-rare is the DECIDING class
     // for the curve question and the previous budget gave it only 2-4 independent targets per cell, so a
     // single entry flipping moved a cell by 0.25-0.5. 240 / 12 (CriticalRarity at its rarest named setting,
     // "rare-critical" in bench/Lyntai.Benchmarks/MemoryPolicySweep.cs) = 20, clearing the "~20+ independent
@@ -396,7 +397,8 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
     private const int HotWindowRounds = 2;
 
     // = 1.5 x AssumedInitialStability — the falsification plan's own DISCRIMINATING-BAND FLOOR, used
-    // verbatim. RAISED from 6 (2026-08-10, Task 1 Step 1/3 / TASKS.md Part 55): 6 was age/S=0.3, and even
+    // verbatim. RAISED from 6 (2026-08-10, docs/task-archive.md Part 55, Task 1 Step 1/3): 6 was age/S=0.3,
+    // and even
     // that was routinely BYPASSED by the force-drain block below reaching the queue before this many writes
     // had actually interposed — measured (old code, old constant), every shape but "high-noise" fired its
     // hot-ephemeral in-window queries at age 1-3, unmissable by either policy. GUARANTEED now, not merely
@@ -538,7 +540,8 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         }
 
         // Fires a repeated reuse batch, interposing ONE filler write between consecutive repeats
-        // (2026-08-10, Task 1 Step 2 / TASKS.md Part 55). Before this fix, a batch's `reuse` repeats fired
+        // (2026-08-10, docs/task-archive.md Part 55, Task 1 Step 2). Before this fix, a batch's `reuse`
+        // repeats fired
         // back-to-back with nothing interposed, so they were CORRELATED draws of the same retrieval decision
         // rather than independent ones — a printed N of, say, 40 carried the granularity of 40/ReuseRatio
         // independent targets, not 40. Interposing a real write between repeats means the corpus state
@@ -766,7 +769,8 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
             // are monotonically non-decreasing in enqueue order — if this round's entry is still pending,
             // nothing enqueued after it can have drained either, so it MUST still be at the front.
             //
-            // TOP UP TO THE DUE COUNT BEFORE FIRING (2026-08-10 fix, Task 1 Step 3 / TASKS.md Part 55): the
+            // TOP UP TO THE DUE COUNT BEFORE FIRING (2026-08-10, docs/task-archive.md Part 55, Task 1
+            // Step 3): the
             // ORIGINAL block dequeued and fired UNCONDITIONALLY the instant a round reached the front of the
             // queue, without checking DueWriteCount at all — bypassing HotReuseDelayWrites on every shape
             // whose own per-round write budget was thinner than the delay (measured: every shape but

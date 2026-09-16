@@ -7,7 +7,8 @@ namespace Lyntai.Benchmarks;
 ///
 /// <para>Every selective figure this repository holds stops at 20 candidates and measures an ENDORSE-A-SUBSET
 /// task whose base rate is ~1.5%. A decision is a FORCED CHOICE over a short list, so neither the precision
-/// nor the lift column transfers — a new regime rather than an extrapolation (<c>TASKS.md</c> Part 178).</para>
+/// nor the lift column transfers — a new regime rather than an extrapolation
+/// (<c>docs/task-archive.md</c> Part 236).</para>
 ///
 /// <para><b>The comparison is between two SHAPES, not two models.</b> One <c>select-from-list</c> call
 /// showing N options, against N <c>score-a-pair</c> calls argmax'd — the second costs N calls and is the

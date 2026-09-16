@@ -23,10 +23,11 @@
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
 
-    <!-- Microsoft.Extensions.AI bridge. ABSTRACTIONS ONLY: the bridge adapts an IChatClient a consumer
-         already owns, so it needs the contracts, never the implementation package. Note MCP pins this same
-         id transitively (ModelContextProtocol.Core -> 10.5.2), and NuGet unifies upward to the version here. -->
-    <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.8.0" />
+    <!-- Microsoft.Extensions.AI.Abstractions has NO entry here on purpose (D146 deleted the bridge; nothing
+         references it directly any more). Do not re-add one believing it pins MCP's transitive copy upward:
+         `CentralPackageTransitivePinningEnabled` is off, so a PackageVersion without a PackageReference does
+         nothing. Measured in project.assets.json — the entry said 10.8.0 and the restore resolved 10.5.2,
+         ModelContextProtocol.Core's own. -->
 
     <!-- in-process local inference (managed only; the consumer app picks an LLamaSharp.Backend.*) -->
     <PackageVersion Include="LLamaSharp" Version="0.27.0" />

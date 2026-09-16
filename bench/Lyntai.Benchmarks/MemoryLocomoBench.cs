@@ -152,12 +152,12 @@ internal static class MemoryLocomoBench
         // shot in items, characters and milliseconds, because a cheaper context is the point rather than a
         // side effect.
         var shotsOnly = args.Contains("--shots");
-        // `--ranks` is the LoCoMo half of `TASKS.md` Part 109. `ReciprocalRankFusionOptions.K` is GLOBAL, and
-        // the LongMemEval ladder found K = 120 cuts `stale@k` by ~12 points there for nothing measurable. But
-        // K selects a REGIME rather than a sharpness, and this is the opposite workload — a SEARCH one that
-        // wants old material FOUND rather than suppressed — so the direction here is not predictable from
-        // that class and has to be measured. Model-free, and scored offline from one ingestion for the reason
-        // `RankLadder` gives.
+        // `--ranks` is the LoCoMo half of docs/task-archive.md Part 233. `ReciprocalRankFusionOptions.K` is
+        // GLOBAL, and the LongMemEval ladder found K = 120 cuts `stale@k` by ~12 points there for nothing
+        // measurable. But K selects a REGIME rather than a sharpness, and this is the opposite workload — a
+        // SEARCH one that wants old material FOUND rather than suppressed — so the direction here is not
+        // predictable from that class and has to be measured. Model-free, and scored offline from one
+        // ingestion for the reason `RankLadder` gives.
         var ranksOnly = args.Contains("--ranks");
         // `--composition` is docs/task-archive.md Part 135: what the fused walk's context is MADE of, not how well it
         // scores. It asks two questions the QA table's `chars/q` column averages away — how many of the 40
@@ -166,7 +166,7 @@ internal static class MemoryLocomoBench
         // a corpus with near-duplicate turns reaches both arms and only a DIFFERENCE is walk-specific.
         // Model-free and retrieval-side: no reader answers anything here, so neither can be credited.
         var composition = args.Contains("--composition");
-        // `--verdict` is TASKS.md Part 128: `evidence-hit@k` reads the returned SET, and D105's
+        // `--verdict` is docs/task-archive.md Part 235: `evidence-hit@k` reads the returned SET, and D105's
         // VerdictCombination also REORDERS it, so the metric that priced the option is structurally blind to
         // half of what it does. This is the reader's view of the same choice — token-F1 over
         // Partition against Fuse on ONE judge, with the unjudged base that makes the pair readable.
@@ -544,8 +544,9 @@ internal static class MemoryLocomoBench
                     //                            `lyntai` in some way beyond its ranking config.
                     //
                     // ABSOLUTE VALUES ARE NOT COMPARABLE TO ANY PUBLISHED NUMBER. They are a
-                    // property of a 4B local reader. Only the ARM DIFFERENCE transfers -- TASKS.md
-                    // Part 109 says exactly this. Do not place either figure beside a third party's.
+                    // property of a 4B local reader. Only the ARM DIFFERENCE transfers --
+                    // docs/task-archive.md Part 233 says exactly this. Do not place either figure
+                    // beside a third party's.
 
                     // PRE-REGISTERED, 2026-09-01, before the first run of the fused multi-shot arm.
                     //
@@ -569,8 +570,8 @@ internal static class MemoryLocomoBench
                     //                                     finding. More evidence cannot hurt.
                     //
                     // Absolute values are a property of a 4B local reader. Only the arm DIFFERENCE
-                    // transfers (TASKS.md Part 109). Compare against `vector-40`, the size-matched
-                    // control, not against `vector` alone.
+                    // transfers (docs/task-archive.md Part 233). Compare against `vector-40`, the
+                    // size-matched control, not against `vector` alone.
                     : [FieldArms.Shipped(),
                         Fused(FusedOneShot),
                         // Same policy as `lyntai-fused`; the ONLY difference is that its recall asks for
@@ -698,7 +699,7 @@ internal static class MemoryLocomoBench
                 //
                 // Reaching ~80% means the other WEIGHTS diluted a good ordering. Staying near 60% means the
                 // defect is RELEVANCE ITSELF — a lexical hit carries a rank POSITION and a semantic seed a
-                // COSINE, and no weighting of one field repairs two scales sharing it. `TASKS.md` Part 128.
+                // COSINE, and no weighting of one field repairs two scales sharing it. docs/task-archive.md Part 235.
                 FieldArms.Named("+sem+rel-only"),
 
                 // The judge on the arm that is actually GOOD, which no arm had paired (2026-09-03). Every
@@ -710,7 +711,8 @@ internal static class MemoryLocomoBench
                 // This arm holds seeding fixed and adds the ceiling. What it decides is whether a REAL judge
                 // is worth a model run: a large gain means promotion still has work to do on a
                 // well-ranked pool, and no gain means the residual misses are not reachable-but-outranked at
-                // all, so no judge quality reaches them and `TASKS.md` Part 128's judge item should close.
+                // all, so no judge quality reaches them and docs/task-archive.md Part 235's judge item
+                // should close.
                 FieldArms.Named("+sem+rel-only") with
                 {
                     Name = "+sem+rel-only+oracle",
@@ -989,10 +991,11 @@ internal static class MemoryLocomoBench
                         embedder: embedder, vectors: vectors, ranking: ranking, verification: verification,
                         seedSources: seeds);
 
-                // CONTROL, added for TASKS.md Part 109: a semantic width of 20 moved evidence-hit by 0.0
-                // points and the read path looks correct on inspection, so the question is whether the vectors
-                // are there and whether a search finds them. Reading it back from what actually ran is the only
-                // way to tell a channel that does nothing from a channel that is never reached.
+                // CONTROL, added for docs/task-archive.md Part 233: a semantic width of 20 moved
+                // evidence-hit by 0.0 points and the read path looks correct on inspection, so the question
+                // is whether the vectors are there and whether a search finds them. Reading it back from what
+                // actually ran is the only way to tell a channel that does nothing from a channel that is
+                // never reached.
                 if (semanticK > 0 && !probed)
                 {
                     probed = true;
@@ -2157,8 +2160,8 @@ internal static class MemoryLocomoBench
         Console.WriteLine("  - COST. The judge and the reader share one model, which is the contention");
         Console.WriteLine("    priced in docs/memory-measurements.md section 5. It makes this run slow and");
         Console.WriteLine("    is not this study's subject.");
-        Console.WriteLine("  - A SECOND READER. One reader cannot separate its own ceiling from the memory");
-        Console.WriteLine("    layer's; that is TASKS.md Part 109's remaining half.");
+        Console.WriteLine("  - A SECOND READER. This run uses one. The widening ran separately, across three");
+        Console.WriteLine("    reader sizes, as docs/task-archive.md Part 200.");
         Console.WriteLine("  - LONGMEMEVAL. LoCoMo only; the two workloads reward opposite things.");
         Console.WriteLine("  - ANY DEPTH BUT THE SHIPPED ONE, which is DERIVED (factor 4 x the recall limit).");
     }

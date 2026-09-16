@@ -7,6 +7,7 @@ using Lyntai.Memory.Modulation;
 using Lyntai.Memory.Ranking;
 using Lyntai.Memory.Salience;
 using Lyntai.Memory.Seeding;
+using Lyntai.Memory.Verification;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -124,8 +125,8 @@ public sealed class GraphMemoryEngine(
     IMemorySalienceCompositionPolicy? salienceComposition = null,
     IReadOnlyDictionary<string, IMemoryRankingPolicy>? namedRankingPolicies = null,
     Func<DateTimeOffset>? clock = null,
-    Lyntai.Memory.Annotation.IMemoryAnnotationPolicy? annotation = null,
-    Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null,
+    IMemoryAnnotationPolicy? annotation = null,
+    IMemoryVerificationPolicy? verification = null,
     IEnumerable<IMemoryRetentionPolicy>? retentionPolicies = null,
     IMemoryRetentionCompositionPolicy? retentionComposition = null,
     IEnumerable<IMemorySeedSource>? seedSources = null)
@@ -631,21 +632,8 @@ public sealed class GraphMemoryEngine(
 
         var limit = query.Limit ?? _options.DefaultLimit;
 
-        List<GatheredCandidate> found;
-        try
-        {
-            found = await GatherAsync(query, limit, ct).ConfigureAwait(false);
-        }
-        // The CHOKE POINT of the fail-open chain: `GatherAsync` runs every registered IMemorySeedSource, so
-        // a BYO embedder or store timing out anywhere below surfaces here. Nothing between this and the
-        // seed source catches, so a bare rethrow here broke RecallAsync's own promise whatever the sources did.
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "graph recall failed for {Engine}/{Task}; returning nothing",
-                Name, query.TaskKey);
-            return MemoryRecall.Empty;
-        }
+        var found = await TryGatherAsync(query, limit, ct).ConfigureAwait(false);
+        if (found is null) return MemoryRecall.Empty;
 
         var candidates = found
             .Select(f => new MemoryCandidate(f.Node, Retrievability(f.Node), f.Hop) { Ranks = f.Ranks })
@@ -654,46 +642,7 @@ public sealed class GraphMemoryEngine(
         var ranked = ranking.Rank(candidates, new MemoryRankingContext(limit, Name));
         if (ranked.Count == 0 && candidates.Count == 0) return MemoryRecall.Empty;
 
-        // BURIED, NOT CUT — and trust outranks burial. An entry is hidden because something OUTRANKS it,
-        // never because its own retrievability crossed a line. The policy owns the floor; the ENGINE owns
-        // this exemption, because "authoritative material is never buried" must hold whatever policy is
-        // installed — including a third-party one that never heard of grades.
-        //
-        // THE PRECISE SHAPE OF THAT PROMISE: re-admission is keyed by `Node.Id`, so it holds against a policy
-        // that DROPS an authoritative candidate — even one dropping everything — but NOT against one
-        // SUBSTITUTING a fabricated `RankedMemory` under that same id, which would leave the id present and
-        // skip re-admission. "May floor, never invent" is what this loop enforces against a FORGETFUL policy,
-        // not a fabricating one.
-        //
-        // RESERVED SLOTS, NOT APPENDED: appended material is cut by the Take below, so an exact fact the
-        // query did not match — Relevance 0, therefore ranked near the bottom — is lost outright. The reserve
-        // covers EVERY authoritative candidate, not only ones a policy dropped (a ranking policy does not
-        // omit them, it RANKS them), and it may DISPLACE ordinary material, which is what marking a fact
-        // authoritative MEANS; `AuthoritativeReserve` bounds how many slots exact facts take.
-        //
-        // NOT COSMETIC: this order feeds ReinforceAsync's own `nodes.Take(CoActivationCap)` below, so which
-        // pairs get a symmetric co-activation edge PERMANENTLY written to the store depends on it too, not
-        // just on what a reader sees in the returned list.
-        var rankedById = ranked.ToDictionary(r => r.Candidate.Node.Id);
-        var authoritative = candidates
-            .Where(c => c.Node.Grade == MemoryGrade.Authoritative)
-            // keep the policy's own scoring where it produced one, so an exact fact that ranked on merit is
-            // not silently re-scored to zero by being reserved
-            .Select(c => rankedById.TryGetValue(c.Node.Id, out var r) ? r : new RankedMemory(c, 0))
-            .ToList();
-
-        // THE LIMIT BOUNDS THE RESERVE, and that outer Math.Min is not belt-and-braces — the two numbers live
-        // on different scopes and nothing else reconciles them. `AuthoritativeReserve` is configured per
-        // ENGINE; `limit` arrives per QUERY. Without the cap a reserve larger than a tighter per-call limit
-        // returns more items than the caller asked for — the `Take(Math.Max(0, limit - reserve))` below
-        // floors at zero while `reserved` is concatenated whole — and "within the caller's Limit" is a
-        // promise. The `?? limit` default already carried this cap; only an EXPLICIT value escaped it.
-        var reserve = Math.Min(limit,
-            Math.Min(authoritative.Count, Math.Max(0, _options.AuthoritativeReserve ?? limit)));
-        var reserved = authoritative.Take(reserve).ToList();
-        var reservedIds = reserved.Select(r => r.Candidate.Node.Id).ToHashSet();
-
-        var ordinary = ranked.Where(r => !reservedIds.Contains(r.Candidate.Node.Id)).ToList();
+        var (reserved, ordinary) = ReserveAuthoritative(candidates, ranked, limit);
 
         // THE CORRECTNESS SIGNAL, APPLIED BEFORE THE CUT — and the position is the whole value of it. A
         // verifier consulted AFTER `Take(limit)` can only observe what the ranking lost below the limit;
@@ -707,6 +656,111 @@ public sealed class GraphMemoryEngine(
         var verdict = await VerifyAsync(query.Query ?? string.Empty,
             [.. ordinary.Take(depth)], ct).ConfigureAwait(false);
 
+        ordinary = ApplyVerdict(ordinary, verdict);
+
+        // Ordinary material leads, in the policy's order, then the reserved exact facts — the same
+        // "matches lead, exact facts take the low end" shape the store's own merge uses, so the two agree.
+        var scored = ordinary
+            .Take(Math.Max(0, limit - reserved.Count))
+            .Concat(reserved)
+            .ToList();
+        if (scored.Count == 0) return MemoryRecall.Empty;
+
+        await LogAndReinforceAsync(scored, verdict, ct).ConfigureAwait(false);
+
+        // A judgement never removes an answer unless a consumer asked for that separately: a mistaken
+        // verdict should cost a little learning, not a lost result. Authoritative material is exempt
+        // whatever the verdict — objective (1) does not defer to a judge (D56).
+        if (verdict.Judged && _options.VerificationFilters)
+            scored = [.. scored.Where(x =>
+                x.Candidate.Node.Grade == MemoryGrade.Authoritative
+                || verdict.RelevantIds.Contains(x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)))];
+
+        if (scored.Count == 0) return MemoryRecall.Empty;
+
+        var items = ToItems(scored, query);
+
+        // The ABSTENTION signal. `Judged` is the only absolute quality statement available here — ranking is
+        // relative by construction, so a page of uniformly-irrelevant material ranks perfectly well among
+        // itself. Null when nothing judged, so the shipped default (no verifier) never reports `false` and a
+        // consumer abstaining on `false` does not abstain on everything.
+        var answered = verdict.Judged ? verdict.RelevantIds.Count > 0 : (bool?)null;
+
+        return new MemoryRecall(items, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0), answered);
+    }
+
+    /// <summary>The candidate set, or <c>null</c> where <see cref="RecallAsync"/>'s fail-open promise fired.
+    /// <para>The CHOKE POINT of the fail-open chain: <see cref="GatherAsync"/> runs every registered
+    /// <c>IMemorySeedSource</c>, so a BYO embedder or store timing out anywhere below surfaces here. Nothing
+    /// between this and the seed source catches, so a bare rethrow would break the promise whatever the
+    /// sources did.</para></summary>
+    private async Task<List<GatheredCandidate>?> TryGatherAsync(MemoryQuery query, int limit, CancellationToken ct)
+    {
+        try
+        {
+            return await GatherAsync(query, limit, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "graph recall failed for {Engine}/{Task}; returning nothing",
+                Name, query.TaskKey);
+            return null;
+        }
+    }
+
+    /// <summary>Split the ranking in two: the authoritative material this engine RESERVES slots for, and the
+    /// ordinary material competing for what is left. The caller cuts the ordinary half and concatenates the
+    /// reserve whole.</summary>
+    private (List<RankedMemory> Reserved, List<RankedMemory> Ordinary) ReserveAuthoritative(
+        IReadOnlyList<MemoryCandidate> candidates, IReadOnlyList<RankedMemory> ranked, int limit)
+    {
+        // BURIED, NOT CUT — and trust outranks burial. An entry is hidden because something OUTRANKS it,
+        // never because its own retrievability crossed a line. The policy owns the floor; the ENGINE owns
+        // this exemption, because "authoritative material is never buried" must hold whatever policy is
+        // installed — including a third-party one that never heard of grades.
+        //
+        // THE PRECISE SHAPE OF THAT PROMISE: re-admission is keyed by `Node.Id`, so it holds against a policy
+        // that DROPS an authoritative candidate — even one dropping everything — but NOT against one
+        // SUBSTITUTING a fabricated `RankedMemory` under that same id, which would leave the id present and
+        // skip re-admission. "May floor, never invent" is what this loop enforces against a FORGETFUL policy,
+        // not a fabricating one.
+        //
+        // RESERVED SLOTS, NOT APPENDED: appended material is cut by the caller's Take, so an exact fact the
+        // query did not match — Relevance 0, therefore ranked near the bottom — is lost outright. The reserve
+        // covers EVERY authoritative candidate, not only ones a policy dropped (a ranking policy does not
+        // omit them, it RANKS them), and it may DISPLACE ordinary material, which is what marking a fact
+        // authoritative MEANS; `AuthoritativeReserve` bounds how many slots exact facts take.
+        //
+        // NOT COSMETIC: this order feeds ReinforceAsync's own `nodes.Take(CoActivationCap)`, so which pairs
+        // get a symmetric co-activation edge PERMANENTLY written to the store depends on it too, not just on
+        // what a reader sees in the returned list.
+        var rankedById = ranked.ToDictionary(r => r.Candidate.Node.Id);
+        var authoritative = candidates
+            .Where(c => c.Node.Grade == MemoryGrade.Authoritative)
+            // keep the policy's own scoring where it produced one, so an exact fact that ranked on merit is
+            // not silently re-scored to zero by being reserved
+            .Select(c => rankedById.TryGetValue(c.Node.Id, out var r) ? r : new RankedMemory(c, 0))
+            .ToList();
+
+        // THE LIMIT BOUNDS THE RESERVE, and that outer Math.Min is not belt-and-braces — the two numbers live
+        // on different scopes and nothing else reconciles them. `AuthoritativeReserve` is configured per
+        // ENGINE; `limit` arrives per QUERY. Without the cap a reserve larger than a tighter per-call limit
+        // returns more items than the caller asked for — the caller's `Take` floors at zero while the reserve
+        // is concatenated whole — and "within the caller's Limit" is a promise. The `?? limit` default
+        // already carried this cap; only an EXPLICIT value escaped it.
+        var reserve = Math.Min(limit,
+            Math.Min(authoritative.Count, Math.Max(0, _options.AuthoritativeReserve ?? limit)));
+        var reserved = authoritative.Take(reserve).ToList();
+        var reservedIds = reserved.Select(r => r.Candidate.Node.Id).ToHashSet();
+
+        return (reserved, ranked.Where(r => !reservedIds.Contains(r.Candidate.Node.Id)).ToList());
+    }
+
+    /// <summary>The verifier's one bit, folded into the ranking the cut will read.</summary>
+    private List<RankedMemory> ApplyVerdict(
+        List<RankedMemory> ordinary, MemoryVerification verdict)
+    {
         // A judged-relevant candidate is PROMOTED to the front, keeping the policy's relative order among
         // promoted and among demoted alike — the verifier is asked which entries answered, never to invent
         // a total ordering, so its verdict reorders in one bit rather than replacing the ranking wholesale.
@@ -714,33 +768,30 @@ public sealed class GraphMemoryEngine(
         // `VerdictCombination` decides whether that promotion is absolute (Partition, the default) or has to
         // COMPETE with the ranking's own order (Fuse). The partition's cost scales with how many candidates
         // the judge endorses, and the option's own doc carries the measurement.
-        if (verdict.Judged && verdict.RelevantIds.Count > 0)
-        {
-            var relevant = verdict.RelevantIds.ToHashSet(StringComparer.Ordinal);
-            bool IsRelevant(RankedMemory r) =>
-                relevant.Contains(r.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture));
+        if (!verdict.Judged || verdict.RelevantIds.Count == 0) return ordinary;
 
-            // Both arms start from the SAME promoted ordering, which is what makes `Fuse` a blend of the two
-            // rankings rather than a third one: it is the partition's own result, competing on rank against
-            // the order the policy produced.
-            var promoted = new List<RankedMemory>(ordinary.Count);
-            promoted.AddRange(ordinary.Where(IsRelevant));
-            promoted.AddRange(ordinary.Where(r => !IsRelevant(r)));
+        var relevant = verdict.RelevantIds.ToHashSet(StringComparer.Ordinal);
+        bool IsRelevant(RankedMemory r) =>
+            relevant.Contains(r.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture));
 
-            ordinary = _options.VerdictCombination
-                    == Lyntai.Memory.Verification.MemoryVerdictCombination.Fuse
-                ? FuseVerdict(ordinary, promoted)
-                : promoted;
-        }
+        // Both arms start from the SAME promoted ordering, which is what makes `Fuse` a blend of the two
+        // rankings rather than a third one: it is the partition's own result, competing on rank against
+        // the order the policy produced.
+        var promoted = new List<RankedMemory>(ordinary.Count);
+        promoted.AddRange(ordinary.Where(IsRelevant));
+        promoted.AddRange(ordinary.Where(r => !IsRelevant(r)));
 
-        // Ordinary material leads, in the policy's order, then the reserved exact facts — the same
-        // "matches lead, exact facts take the low end" shape the store's own merge uses, so the two agree.
-        var scored = ordinary
-            .Take(Math.Max(0, limit - reserve))
-            .Concat(reserved)
-            .ToList();
-        if (scored.Count == 0) return MemoryRecall.Empty;
+        return _options.VerdictCombination
+                == MemoryVerdictCombination.Fuse
+            ? FuseVerdict(ordinary, promoted)
+            : promoted;
+    }
 
+    /// <summary>Record what a recall produced — reinforcing what the verdict endorsed, logging everything it
+    /// returned.</summary>
+    private Task LogAndReinforceAsync(IReadOnlyList<RankedMemory> scored,
+        MemoryVerification verdict, CancellationToken ct)
+    {
         // WHAT GETS REINFORCED vs WHAT GETS LOGGED are deliberately different sets, and that difference is
         // what makes the review log fittable at all.
         //
@@ -761,19 +812,13 @@ public sealed class GraphMemoryEngine(
             ? returned.Where(n => relevantIds.Contains(n.Id.ToString(CultureInfo.InvariantCulture))).ToList()
             : returned;
 
-        await ReinforceAsync(reinforce, MemoryReinforcementActs.Recall, ct, returned, VerdictFor)
-            .ConfigureAwait(false);
+        return ReinforceAsync(reinforce, MemoryReinforcementActs.Recall, ct, returned, VerdictFor);
+    }
 
-        // A judgement never removes an answer unless a consumer asked for that separately: a mistaken
-        // verdict should cost a little learning, not a lost result. Authoritative material is exempt
-        // whatever the verdict — objective (1) does not defer to a judge (D56).
-        if (verdict.Judged && _options.VerificationFilters)
-            scored = [.. scored.Where(x =>
-                x.Candidate.Node.Grade == MemoryGrade.Authoritative
-                || verdict.RelevantIds.Contains(x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)))];
-
-        if (scored.Count == 0) return MemoryRecall.Empty;
-
+    /// <summary>What the caller actually receives: each surviving candidate projected onto a
+    /// <see cref="MemoryItem"/>, then trimmed to the query's character budget.</summary>
+    private List<MemoryItem> ToItems(IReadOnlyList<RankedMemory> scored, MemoryQuery query)
+    {
         var items = scored
             .Select(x => new MemoryItem(
                 new MemoryRef(Name, x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture)),
@@ -809,14 +854,7 @@ public sealed class GraphMemoryEngine(
             }
             items = kept;
         }
-
-        // The ABSTENTION signal. `Judged` is the only absolute quality statement available here — ranking is
-        // relative by construction, so a page of uniformly-irrelevant material ranks perfectly well among
-        // itself. Null when nothing judged, so the shipped default (no verifier) never reports `false` and a
-        // consumer abstaining on `false` does not abstain on everything.
-        var answered = verdict.Judged ? verdict.RelevantIds.Count > 0 : (bool?)null;
-
-        return new MemoryRecall(items, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0), answered);
+        return items;
     }
 
     /// <inheritdoc />
@@ -1432,14 +1470,14 @@ public sealed class GraphMemoryEngine(
     /// reinforces normally, while an empty judged verdict teaches the engine the recall failed. Collapsing
     /// them would make a model outage silently unlearn the whole corpus — the single most damaging thing a
     /// best-effort seam could do here.</para></summary>
-    private async Task<Lyntai.Memory.Verification.MemoryVerification> VerifyAsync(
+    private async Task<MemoryVerification> VerifyAsync(
         string queryText, IReadOnlyList<RankedMemory> scored, CancellationToken ct)
     {
-        if (verification is null) return Lyntai.Memory.Verification.MemoryVerification.NoOpinion;
+        if (verification is null) return MemoryVerification.NoOpinion;
 
         try
         {
-            var request = new Lyntai.Memory.Verification.MemoryVerificationRequest(
+            var request = new MemoryVerificationRequest(
                 queryText,
                 // the same Relevance the caller will see on MemoryItem, so a policy can judge from the score
                 // distribution instead of reading the text
@@ -1447,7 +1485,7 @@ public sealed class GraphMemoryEngine(
                 // it, so a policy that scores WORDING was scoring a fragment. Which of the two to read
                 // stays the policy's choice: the cost of the text is a prompt, and only it knows whether
                 // it pays one.
-                [.. scored.Select(x => new Lyntai.Memory.Verification.MemoryVerificationCandidate(
+                [.. scored.Select(x => new MemoryVerificationCandidate(
                     x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture),
                     x.Candidate.Node.Headline,
                     x.Candidate.Node.Relevance)
@@ -1456,7 +1494,7 @@ public sealed class GraphMemoryEngine(
                 })]);
 
             return await verification.VerifyAsync(request, ct).ConfigureAwait(false)
-                   ?? Lyntai.Memory.Verification.MemoryVerification.NoOpinion;
+                   ?? MemoryVerification.NoOpinion;
         }
         // Only the CALLER's cancellation propagates. A policy's own timeout arrives as a
         // TaskCanceledException — which IS an OperationCanceledException — so a bare rethrow made this
@@ -1467,7 +1505,7 @@ public sealed class GraphMemoryEngine(
         {
             _logger.LogWarning(ex,
                 "memory verification failed for {Engine}; reinforcing what was returned", Name);
-            return Lyntai.Memory.Verification.MemoryVerification.NoOpinion;
+            return MemoryVerification.NoOpinion;
         }
     }
 
@@ -1539,7 +1577,8 @@ public sealed class GraphMemoryEngine(
             var reviews = new List<MemoryReviewWrite>(loggable.Count);
             var touched = reinforceable.Select(n => n.Id).ToHashSet();
 
-            // THE TWO EFFECTS, SEPARATED HERE (`TASKS.md` Part 64). A touch resets the entry's age on every
+            // THE TWO EFFECTS, SEPARATED HERE (`docs/task-archive.md` Part 64). A touch resets the entry's
+            // age on every
             // scale AND writes back the grown stability — one store round-trip, two effects that pull in
             // opposite directions. The age reset keeps a rarely-queried critical fact alive; the growth
             // entrenches whatever the ranker already returned, because nothing here observes whether the

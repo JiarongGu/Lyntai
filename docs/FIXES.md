@@ -7,6 +7,54 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-16 — a rename sweep collapsed CONTRASTS, in prose, in a sample, in shipped code and in a test
+
+**Symptom.** None visible, which is what let it spread. `docs/DECISIONS.md` **D36** read *"translating
+between `ProviderVerdict` and `ProviderVerdict`"* — a decision about a translation, describing a type <!-- tautology-ok: quotes the defect this entry is about -->
+translated to itself. Six sentences across `DECISIONS.md`, `CHANGELOG.md`, `pitfalls.md` and a shipped
+`Lyntai.Core` comment had the same shape. The README's capability-probe sample shipped
+`if (provider is not IModelProvider installation) continue;` against a variable already typed
+`IModelProvider`, and `check-samples` compiled it happily. `GenerationRouter.StreamAsync` carried the same
+test as a live branch with an error message naming a case that could no longer occur, and
+`GenerationProviderContract` asserted `Assert.True(provider is IModelProvider)` on an `IModelProvider`
+parameter — a contract fact that could not fail.
+
+**Root cause.** **D127** collapsed `ILlmProvider` / `IGenerationProvider` / `IGenerationStreamProvider` <!-- drift-ok: names the three seams D127 retired, which is this entry's subject -->
+into one `IModelProvider`, and the sweep replaced every occurrence of the retired names. <!-- drift-ok: continues the sentence above --> Where a sentence
+MENTIONED one, the result is correct; where it CONTRASTED two, both sides became the survivor. The type
+tests went the same way: a real question became a tautology the compiler cannot object to, because
+`x is not T` on a `T` is still meaningful for null.
+
+**Every gate was satisfied by construction.** `check-docs` hunts vocabulary a decision RETIRED and the
+retired name was gone; `check-links` resolves member names and the survivor resolves;
+`check-api-vocabulary` reads the frozen surface, which never held prose; `check-samples` compiles a sample
+and a tautological type test compiles. **`check-docs.mjs`'s own `HISTORICAL` list records this happening in
+`docs/2026-07-17-lyntai-design.md` and fixes it by exempting that file** — the incident was filed as *this
+file was damaged* rather than *this sweep was damaging*, so the other ten sites were never looked for.
+
+**Fix.** All ten prose and sample sites corrected. The router's dead branch deleted — post-D127 such a
+backend inherits `IModelProvider`'s default `StreamAsync(GenerationRequest, …)` and lands in the ordinary
+pre-commit failure path carrying its own `NotServed` detail, which is a better message than the branch
+gave. `GenerationProviderContract.ServesMediaStream` replaces the vacuous type test: it reads the INTERFACE
+MAP and asks whether the concrete type OVERRIDES the default member, which is the question that survived
+the collapse. `check-tautology` is the new gate for the prose half.
+
+**The orphaned fixture is the part worth carrying.** `LyingStreamProvider` was built to drive that router
+branch. D127 made the branch unreachable, so the fake was used by NOTHING for a release — build green,
+suite green, coverage reported. A fixture whose only caller is a branch that stopped existing is invisible
+in exactly the way the branch is.
+
+**Verify.** `check-tautology` was driven RED against `git show HEAD:` copies of the six prose files and
+reported all six, one line each — synthesized fixtures prove the patterns, the real pre-fix tree proves the
+gate. `DeclaredDeliveryIsBackedTests` drives the contract fact both ways: the two streaming fakes pass,
+`LyingStreamProvider` fails with the new message, and a backend that declares no Stream is not asked. The
+router deletion was checked against the full Generation suite (374 passed, 0 failed) and `check-warnings`.
+
+**Introduced by.** The D127 sweep on 2026-09-15 — one day before, so every site had been wrong since it
+landed and none of it had ever been right under the new names.
+
+---
+
 ## 2026-09-15 — a cross-encoder refused a multi-label export where nothing was listening
 
 **Symptom.** None visible, which IS the defect. `AddOnnxCrossEncoder` pointed at an NLI-shaped export —
@@ -492,11 +540,11 @@ byte-identical in both evidence and gold. Text is nevertheless the only key avai
 
 **The reason it survived four months of use is the interesting half.** Every retrieval ladder on record ran
 `--n 200`, and the stratified sample never drew both copies of any duplicate. So the arm whose 77.5% ceiling
-is quoted in `TASKS.md`, `docs/memory-measurements.md` §5 and Part 128's framing had **never been run at full sample and
-could not be** — a defect reachable only at a size nobody had used. The QA path carries the same assumption
-and is silent about it: `recalled[(arm, q.Text)] = …` OVERWRITES where `ToDictionary` throws, which is why
-the n = 1,540 QA run earlier the same day completed normally. That silence is benign only because the
-duplicates are exact.
+is quoted in the backlog, `docs/memory-measurements.md` §5 and `docs/task-archive.md` Part 235's framing had
+**never been run at full sample and could not be** — a defect reachable only at a size nobody had used. The
+QA path carries the same assumption and is silent about it: `recalled[(arm, q.Text)] = …` OVERWRITES where
+`ToDictionary` throws, which is why the n = 1,540 QA run earlier the same day completed normally. That
+silence is benign only because the duplicates are exact.
 
 **Fix.** `EvidenceByQuery(questions, convId)` groups by text and unions the evidence. The union is the
 honest resolution rather than first-wins: two questions sharing one text are indistinguishable to a judge

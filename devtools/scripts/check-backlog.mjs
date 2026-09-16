@@ -87,12 +87,21 @@ export function parseItems(lines) {
   const items = [];
   const unmarked = [];
   const problems = [];
+  // Every `## Part n` heading, and how many open checkboxes sit under it. Counted from the RAW checkbox
+  // line rather than from `items`, so a Part holding only items with broken markers is not also reported
+  // as empty — that would be one defect wearing two names, and the marker report is the actionable one.
+  const parts = [];
   let part = null;
 
   lines.forEach((raw, i) => {
     const heading = PART_HEADING.exec(raw);
-    if (heading) { part = Number(heading[1]); return; }
+    if (heading) {
+      part = Number(heading[1]);
+      parts.push({ number: part, line: i + 1, open: 0, title: raw.trim().slice(0, 78) });
+      return;
+    }
     if (!OPEN_ITEM.test(raw)) return;
+    if (parts.length > 0) parts[parts.length - 1].open++;
 
     const line = i + 1;
     const at = (why) => problems.push({ line, why });
@@ -139,8 +148,29 @@ export function parseItems(lines) {
     });
   });
 
-  return { items, unmarked, problems };
+  return { items, unmarked, problems, parts };
 }
+
+/**
+ * Parts whose heading survives after their last open checkbox left — the accumulation this gate was
+ * extended to catch (BL2, 2026-09-16).
+ *
+ * **It is the same defect the preamble budget already bounds, one level down.** `PREAMBLE_END` stops at the
+ * first `## Part`, so everything below was unbounded: four Parts reached **295 lines and ZERO open
+ * checkboxes**, every line a "CLOSED as archive Part N" note. The preamble rule had been enforced for
+ * weeks while the accumulation simply moved underneath it.
+ *
+ * **Why an empty Part is never legitimate, stated because the item that filed this worried it might be.**
+ * A Part is a GROUPING of open items; the archive is where a finished one goes. An emptied Part is not
+ * merely tidy-able — it reads as a live home for its question, so other records keep citing it as one, and
+ * two stale claims were reachable through exactly that. Struck-through items (`~~…~~`) are not `- [ ]` and
+ * correctly do not count: a Part holding only those is empty.
+ *
+ * The one thing it must NOT fire on is a heading that is not a backlog Part at all — `PART_HEADING`
+ * requires `Part <digits>`, so a `## Retired — …` summary heading is invisible here, which is what lets a
+ * retirement leave a pointer behind without tripping the rule it just satisfied.
+ */
+export const emptyParts = (parts) => parts.filter((p) => p.open === 0);
 
 /** The manifest body — a heading, a provenance line, and one row per open item, in file order. */
 export function renderManifest(items) {
@@ -207,7 +237,7 @@ export function checkBacklog(repo, config = {}, log = console.log, opts = {}) {
   const allowance = Number.isInteger(config.backlogPreambleAllowance)
     ? config.backlogPreambleAllowance
     : MAX_PREAMBLE;
-  const { preamble, handovers, openItems, lines, items, unmarked, problems } = readBacklog(repo);
+  const { preamble, handovers, openItems, lines, items, unmarked, problems, parts } = readBacklog(repo);
 
   if (preamble < 0) {
     log('check-backlog: ✗ could not locate the backlog preamble');
@@ -226,6 +256,9 @@ export function checkBacklog(repo, config = {}, log = console.log, opts = {}) {
   if (handovers.length > 0) failures.push(`${handovers.length} HANDOVER block(s) remain`);
   if (unmarked.length > 0) failures.push(`${unmarked.length} open item(s) carry no \`item:\` marker`);
   if (problems.length > 0) failures.push(`${problems.length} marker problem(s)`);
+  const empties = emptyParts(parts);
+  if (empties.length > 0)
+    failures.push(`${empties.length} \`## Part\` heading(s) hold no open checkbox`);
 
   // The manifest is only asked about once the markers are sound: a roster generated from a broken marker is
   // a confident wrong answer, which is worse than the missing one it replaces.
@@ -255,7 +288,15 @@ export function checkBacklog(repo, config = {}, log = console.log, opts = {}) {
   for (const h of handovers) log(`  ${RECORD}:${h.line}  ${h.text}`);
   for (const u of unmarked) log(`  ${RECORD}:${u.line}  ${u.text}`);
   for (const p of problems) log(`  ${RECORD}:${p.line}  ${p.why}`);
+  for (const p of empties) log(`  ${RECORD}:${p.line}  Part ${p.number} holds no open checkbox — ${p.title}`);
   log('');
+  if (empties.length > 0) {
+    log('  A Part with no open checkbox is finished work still occupying the OPEN backlog. Move it to');
+    log('  `docs/task-archive.md` under a FRESH number — the two files number independently, so its own');
+    log('  number is probably taken there by something unrelated — repoint every citation, and leave a');
+    log('  pointer rather than a copy. A heading that is not `## Part <n>` is invisible to this rule.');
+    log('');
+  }
   log('  The backlog holds OPEN work only and must not summarize the archive');
   log('  (`.claude/rules/task-lifecycle.md`). A handover describes work that is DONE — move it to');
   log('  `docs/task-archive.md`, one Part per task, and leave a POINTER rather than a copy.');

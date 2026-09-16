@@ -13,7 +13,8 @@
 // Usage: node devtools/dev.mjs decisions-index [--check]
 //   --check  exit 1 if the index is out of date (for a gate), writing nothing.
 //
-// Split into a pure function and a thin CLI wrapper 2026-08-11 (TASKS.md Part 62) so it can be tested. It
+// Split into a pure function and a thin CLI wrapper 2026-08-11 (docs/task-archive.md Part 62) so it can be
+// tested. It
 // used to be one top-level script, which meant merely IMPORTING it rewrote docs/DECISIONS.md — untestable by
 // construction. Nothing about what it produces changed in the move; the tests pin the anchor slugs, which
 // are the part that breaks silently (a wrong slug is a link that 404s inside the file, not an error).

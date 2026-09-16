@@ -110,7 +110,7 @@ public class MemoryDefaultRecallQualityTests
         // RE-PINNED THREE TIMES — history kept, not erased, so the sequence of which default moved, and
         // when, and why, stays readable from this one file.
         //
-        // First 2026-08-10 (DSR-default falsification plan, Task 1 / TASKS.md Part 55): the corpus generator
+        // First 2026-08-10 (docs/task-archive.md Part 55, Task 1): the corpus generator
         // (MemoryCorpus.Generate) was retargeted into the age/S band where the two shipped forgetting curves
         // actually diverge (1.5-5, up from ~1.2) — that pass measured, under the THEN-shipped default
         // (Multiplicative+HalfLife): miss=0.337931, pollution=0.881379.

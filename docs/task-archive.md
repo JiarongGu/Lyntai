@@ -1213,7 +1213,7 @@ scores **evidence-hit@k, model-free**: the benchmark names the evidence turn by 
 checkable with no reader and no judge. Result on 200 stratified questions: shipped defaults **11.0%**,
 `SemanticSeedK = 20` **11.0%**, `+ RetrievabilityWeight = 0` **22.5%**, plain cosine at the same k
 **80.5%**. Every arm returned a full 20 items, so it is ranking the wrong 20, not filtering. Tables and
-scope in `docs/memory-measurements.md` §5; what is left open is `TASKS.md` Part 109.
+scope in `docs/memory-measurements.md` §5; what it left open became `docs/task-archive.md` Part 233.
 
 **The finding is that this engine's ranking defaults are built for a workload LoCoMo deliberately is not.**
 `RelevanceWeight` and `RetrievabilityWeight` both ship at 1, so a recall weighs how-reachable equally with
@@ -1350,15 +1350,15 @@ must reproduce the SHIPPED policy's own top-10, and did not at first because it 
 way round. That is now a rule in `pitfalls.md`. The second control is that the ladder's K = 60 row reproduces
 the arm's own published numbers on the same sample exactly.
 
-**Left open as `TASKS.md` Part 109**: `K` is global, every LoCoMo figure was measured at 60, and one class of
-one benchmark is not a mandate to move a published constant.
+**Left open as `docs/task-archive.md` Part 233**: `K` is global, every LoCoMo figure was measured at 60, and
+one class of one benchmark is not a mandate to move a published constant.
 
 - *(No backlog entry — this came from a measurement, not a plan.)*
 
 ## Part 115 — the QA half, the shot curve, and a defect where forgetting had no vote (2026-08-29)
 
-✅ done 2026-08-29 — the QA half of `TASKS.md` Part 109 ran, and it grew a second half nobody had asked for
-because the first one measured the wrong mode. Tables in `docs/memory-measurements.md` §5.
+✅ done 2026-08-29 — the QA half of `docs/task-archive.md` Part 233 ran, and it grew a second half nobody
+had asked for because the first one measured the wrong mode. Tables in `docs/memory-measurements.md` §5.
 
 **The QA half, on Mem0's own benchmark.** LoCoMo, 100 questions, local reader, token-F1 primary and the LLM
 judge beside it: `lyntai` 20.3%, `lyntai-2shot` 22.5%, `vector` 45.8%, `vector-40` 49.8%. Grading is now
@@ -1391,10 +1391,10 @@ a store so a recall reinforces what the next question reads. The last is filed r
 
 ## Part 117 — the write-back is one store call, and the review log moved to the end (2026-08-29)
 
-✅ done 2026-08-29 — `TASKS.md` Part 116's write-back item, opened by **D99**'s own closing note. The touch,
-the co-activation edges and the review-log rows were three store calls, and on a relational store each
-opened its own connection: `IMemoryGraphStore.WriteBackAsync` takes all three as one, with a default body
-running the existing members so a BYO store loses nothing. `docs/DECISIONS.md` **D101**.
+✅ done 2026-08-29 — `docs/task-archive.md` Part 234's write-back item, opened by **D99**'s own closing
+note. The touch, the co-activation edges and the review-log rows were three store calls, and on a relational
+store each opened its own connection: `IMemoryGraphStore.WriteBackAsync` takes all three as one, with a
+default body running the existing members so a BYO store loses nothing. `docs/DECISIONS.md` **D101**.
 
 **Reported as a COUNT, which is the point.** Connection opens went **3 → 1**, measured by a counting
 `IDbConnectionFactory` decorator — the "before" is the same test failing at exactly 3, not an estimate. **No
@@ -1420,8 +1420,8 @@ the parts still commit independently — which is precisely what the review log 
 
 ## Part 118 — LoCoMo's questions shared a store, and it was worth 20-25 points (2026-08-29)
 
-✅ done 2026-08-29 — `TASKS.md` Part 116's contamination item. LoCoMo ran every question of a conversation
-against one store, and this engine WRITES on every read: a recall reinforces what it returned and
+✅ done 2026-08-29 — `docs/task-archive.md` Part 234's contamination item. LoCoMo ran every question of a
+conversation against one store, and this engine WRITES on every read: a recall reinforces what it returned and
 `ExpandAsync` reinforces what it walks, so question N read a graph questions 1..N−1 had already dug through.
 Each question now runs against a private byte-copy of the ingested store — `SweepDb.Clone()`, ingest once
 into a template nothing reads. **No library change**; `MemoryLongMemEvalBench` already built one store per
@@ -1444,16 +1444,16 @@ amended in place.
 **The clone control counts rows per conversation** because a lossy copy presents as a recall-quality
 regression rather than a broken harness; the WAL trap that makes that possible is in `pitfalls.md` §Testing.
 **Not re-measured**, stated rather than implied: D97's before/after tables share the contaminated regime so
-their DELTA stands, and the QA half needs a reader (`TASKS.md` Part 109).
+their DELTA stands, and the QA half needs a reader (`docs/task-archive.md` Part 233).
 
 - **Fix LoCoMo's cross-question contamination before widening any LoCoMo number.**
 
 ## Part 119 — the shot curve, extended: the class where expanding pays, and the one where it never did (2026-08-29)
 
-✅ done 2026-08-29 — two thirds of `TASKS.md` Part 116's shot-curve item: knowledge-update went from a
-25-question sample to all 70, and the temporal class got its first shot curve, on both variants. Tables in
-`docs/memory-measurements.md` §5. The remaining third — LongMemEval's four other classes — is re-scoped rather than
-closed: each needs a metric matching what that class ASKS, which is design work and not a run.
+✅ done 2026-08-29 — two thirds of `docs/task-archive.md` Part 234's shot-curve item: knowledge-update went
+from a 25-question sample to all 70, and the temporal class got its first shot curve, on both variants.
+Tables in `docs/memory-measurements.md` §5. The remaining third — LongMemEval's four other classes — is
+re-scoped rather than closed: each needs a metric matching what that class ASKS, which is design work and not a run.
 
 **The full knowledge-update sample moved the LEVEL down and the RATIO up** — every `clean` figure fell 6–9
 points against the 25-question sample, but cosine fell further, so the multiple **D100** argues went
@@ -1477,8 +1477,8 @@ all five arms.
 
 ## Part 120 — the n-shot walk is a SURFACE now, and both harnesses drive it (2026-08-30)
 
-✅ done 2026-08-30 — `TASKS.md` Part 116's first item, the one its banner called the biggest thing **D100**
-opened. `MemoryWalk.WalkAsync` is a static extension on `IMemoryEngine` yielding
+✅ done 2026-08-30 — `docs/task-archive.md` Part 234's first item, the one its banner called the biggest
+thing **D100** opened. `MemoryWalk.WalkAsync` is a static extension on `IMemoryEngine` yielding
 `IAsyncEnumerable<MemoryWalkStep>`; **nothing was added to `IMemoryEngine`, `IExpandableMemory`,
 `MemoryQuery` or `MemoryItem`**. The reasoning, the three rejected surfaces and what reversing costs are
 **D102**.
@@ -1506,9 +1506,9 @@ design §5.7, `pitfalls.md` and these two Parts.
 
 ## Part 121 — the walk's names, passed before the surface shipped (2026-08-30)
 
-✅ done 2026-08-30 — `TASKS.md` Part 116's naming item, filed the previous day and **unblocked by Part 120
-itself**: its blocker was the TREE (`MemoryWalk` did not exist, so there were no names to pass over), which
-is the kind of blocker a commit discharges. Five renames, against
+✅ done 2026-08-30 — `docs/task-archive.md` Part 234's naming item, filed the previous day and **unblocked
+by Part 120 itself**: its blocker was the TREE (`MemoryWalk` did not exist, so there were no names to pass
+over), which is the kind of blocker a commit discharges. Five renames, against
 `.claude/rules/dotnet-package-layout.md` §Naming.
 
 | was | now | why |
@@ -1540,10 +1540,10 @@ identifiers, and the same grep correctly left the five pre-existing `MaxEntries`
 
 ## Part 122 — the `K` sweep: a compromise, not a default nobody looked at (2026-08-30)
 
-✅ done 2026-08-30 — `TASKS.md` Part 109's `K` sweep. Built `node devtools/dev.mjs memory-locomo --ranks`,
-the LoCoMo-side ladder that item asked for, and ran it beside a re-run of the LongMemEval haystack ladder at
-full sample. Tables in `docs/memory-measurements.md` §5. **No default moved, and the item's own premise is what the
-measurement overturned.**
+✅ done 2026-08-30 — `docs/task-archive.md` Part 233's `K` sweep. Built
+`node devtools/dev.mjs memory-locomo --ranks`, the LoCoMo-side ladder that item asked for, and ran it beside
+a re-run of the LongMemEval haystack ladder at full sample. Tables in `docs/memory-measurements.md` §5.
+**No default moved, and the item's own premise is what the measurement overturned.**
 
 **The premise was that K = 120 is free, and BOTH halves of it failed.** LoCoMo is a SEARCH workload, and
 60 → 120 costs it 4.5 points of evidence-hit monotonically; separately, re-running knowledge-update on all
@@ -1554,8 +1554,8 @@ compromise** — every step in either direction helps one metric and hurts anoth
 
 **The sharper result is that `K` is not where the LoCoMo gap is.** 32 of 200 questions had no evidence in
 the candidate pool at all, so the fusion loses 29.5 points of material it already HELD and the best K
-recovers 4.5 of them. Part 109's residual gap is therefore not a fusion constant — it is seeding for a
-sixth of it and ranking SHAPE for the rest.
+recovers 4.5 of them. `docs/task-archive.md` Part 233's residual gap is therefore not a fusion constant — it
+is seeding for a sixth of it and ranking SHAPE for the rest.
 
 **One replica, not two, proven neutral before it was trusted.** The two ladders share
 `bench/Lyntai.Benchmarks/RankLadder.cs`, and the argument is sharper than for `WalkAsync`: a second copy
@@ -1569,9 +1569,9 @@ early `continue` skipped a dictionary a later scoring path read — which is the
 
 ## Part 123 — the expansion floor, swept: a better deal than its own doc said (2026-08-30)
 
-✅ done 2026-08-30 — `TASKS.md` Part 116's `ExpansionRetrievabilityFloor` sweep. `--expand-floor` was added
-to the LoCoMo harness so both workloads can be priced, and the knowledge-update arm re-run at 70 questions.
-Tables in `docs/memory-measurements.md` §5. **The default did not move; the DOCUMENTATION did, and that is the finding.**
+✅ done 2026-08-30 — `docs/task-archive.md` Part 234's `ExpansionRetrievabilityFloor` sweep. `--expand-floor`
+was added to the LoCoMo harness so both workloads can be priced, and the knowledge-update arm re-run at 70
+questions. Tables in `docs/memory-measurements.md` §5. **The default did not move; the DOCUMENTATION did, and that is the finding.**
 
 **It cannot be swept the cheap way, and saying why matters.** The `K` ladder one section earlier scores
 offline from a single ingestion because K only re-ranks a fixed pool. The floor changes which neighbours are
@@ -1746,10 +1746,10 @@ the exact failure `test-devtools` exists for.
 
 ## Part 131 — per-source fusion clears cosine: `+sem+rel-only` at 83.0%, and the 63.5% bar it replaces (2026-08-31)
 
-✅ done 2026-08-31 — `TASKS.md` Part 128's first item, "make `Relevance` comparable before it is ranked."
-Shipped as `IMemorySeedSource` (`docs/DECISIONS.md` **D103**): `ReciprocalRankFusionPolicy` now fuses each
-source's own ranked list instead of one pooled `Relevance` field. Tables and the full reading are
-`docs/memory-measurements.md` §5.
+✅ done 2026-08-31 — `docs/task-archive.md` Part 235's first item, "make `Relevance` comparable before it
+is ranked." Shipped as `IMemorySeedSource` (`docs/DECISIONS.md` **D103**): `ReciprocalRankFusionPolicy` now
+fuses each source's own ranked list instead of one pooled `Relevance` field. Tables and the full reading
+are `docs/memory-measurements.md` §5.
 
 **Outcome, controls beside the result.** Three controls reproduced exactly across two runs — `vector` 80.5%,
 `+rel-only` 60.0%, `lyntai` 54.5% — so the harness did not move. `+sem+fuse` clears the old 63.5% bar at
@@ -2489,9 +2489,9 @@ limit rather than the model.
 
 ## Part 155 — the multi-session shot curve, and a finding that lasted one hour
 
-✅ done 2026-09-04 — `TASKS.md` Part 116's runnable third: `--multi --shots` on both variants, with the class
-switch reusing temporal's all-evidence path because Part 116 measured the metric to be shared rather than
-assuming it. `docs/memory-measurements.md` §5.
+✅ done 2026-09-04 — `docs/task-archive.md` Part 234's runnable third: `--multi --shots` on both variants,
+with the class switch reusing temporal's all-evidence path because Part 234 measured the metric to be shared
+rather than assuming it. `docs/memory-measurements.md` §5.
 
 **The oracle overstated the second shot's gain by 4×** — +19.2 against the haystack's **+4.8** — the fifth
 question on which that variant has proved biased unpredictably, and worse than the 2.7× Part 112 measured.
@@ -2811,7 +2811,8 @@ when that claim was made, and measuring it turned the conclusion around. **What 
 judge cannot rescue a badly-seeded pool** — which is what `+forget0+oracle`'s 74.6% measures — and it says
 nothing about a judge on a good one.
 
-Consequence for the backlog: Part 128's real-judge item builds on `+sem+rel-only`, not `+forget0`.
+Consequence for the backlog: `docs/task-archive.md` Part 235's real-judge item builds on `+sem+rel-only`,
+not `+forget0`.
 
 - Run the oracle on the best mechanical arm before spending a model run on a dominated base.
 
@@ -2841,7 +2842,8 @@ drifted twice in ten minutes, are asserted equal before a run starts.
 ✅ done 2026-09-02 — **`RetrievabilityWeight` stays at 1.** The LoCoMo-winning config ran on LongMemEval
 knowledge-update for the first time and collapsed: `+forget0` **49.3% against the shipped default's 86.4%**,
 a −37.1 where the same change is worth +5.5 on LoCoMo. Roughly 7:1 against moving it, so the question
-`TASKS.md` Part 128 filed as "not startable until both workloads are measured" is settled. Table, mechanism
+`docs/task-archive.md` Part 235 filed as "not startable until both workloads are measured" is settled.
+Table, mechanism
 and the cross-workload trade: `docs/memory-measurements.md` §5.
 
 **Why the cell was empty**: the LongMemEval bench had no arm ladder — arms hardcoded `["lyntai", "vector"]`,
@@ -2871,7 +2873,8 @@ were n = 200 cells of ~37 questions, and at full sample `+sem+rel-only` reads 79
 **Two results outrank the one it was filed for.** `+sem+rel-only` clears plain cosine on the whole benchmark
 (**82.6 against 81.1**) — the first powered confirmation of that — and the PERFECT-JUDGE arm is the worst of
 the three at **74.6%**. A pure formula beats formula-plus-oracle. That does NOT establish that a judge adds
-nothing: no arm pairs the judge with semantic seeding, which is what re-aims Part 128's judge item.
+nothing: no arm pairs the judge with semantic seeding, which is what re-aims `docs/task-archive.md`
+Part 235's judge item.
 
 **The run needed a harness fix**, and it exposed a class of defect: `+forget0+oracle` could not be
 CONSTRUCTED at n = 1,540, so the arm whose ceiling three maintained records quote had never run on the whole
@@ -3025,8 +3028,8 @@ check passed, and only reading back the served model caught it (`.claude/knowled
 
 ## Part 188 — the last three LongMemEval classes, and the one where expansion buys nothing at all
 
-✅ done 2026-09-11, closing Part 116. All six classes now have a shot curve; the three single-session ones
-had no `--class` switch at all until this run. `docs/memory-measurements.md` §5
+✅ done 2026-09-11, closing `docs/task-archive.md` Part 234. All six classes now have a shot curve; the
+three single-session ones had no `--class` switch at all until this run. `docs/memory-measurements.md` §5
 (`longmemeval-single-session-user-shot2-haystack`), 3,141.2s over 74,887 ingested turns.
 
 **Shot 3 is worth exactly zero on all three, so *expand once* holds a sixth time.** `single-session-user` is
@@ -3104,7 +3107,7 @@ told a `--repeat 3` reader to re-run with `--repeat`.
 
 ## Part 191 — the fused verdict, measured against a READER, and the item's own prediction fails
 
-✅ done 2026-09-11, closing Part 128's reader-facing item. `docs/memory-measurements.md` §5
+✅ done 2026-09-11, closing `docs/task-archive.md` Part 235's reader-facing item. `docs/memory-measurements.md` §5
 (`locomo-verdict-partition-reader-n300`, `locomo-verdict-enginefuse-reader-n300`) holds the arms, both paired
 bounds, the resolvable floor and every control; nothing is copied here.
 
@@ -3132,7 +3135,7 @@ bring-up run. It now derives that gap from the rows it just printed.
 
 ## Part 192 — the selective shape BELOW 20 candidates: a 468 MB cross-encoder wins
 
-✅ done 2026-09-12, closing `TASKS.md` Part 178's first item. `docs/memory-measurements.md` §5
+✅ done 2026-09-12, closing `docs/task-archive.md` Part 236's first item. `docs/memory-measurements.md` §5
 (`decision-shape-single-evidence`) holds the grid, the controls, the noise floor and the prediction
 scorecard; nothing is copied here. The instrument is `node devtools/dev.mjs memory-decision`, new.
 
@@ -3156,8 +3159,8 @@ and what it cost each arm are in the measurement record.
 
 ## Part 193 — a decision IS expressible through a seam that already ships, and what is missing is the margin
 
-✅ done 2026-09-12, closing `TASKS.md` Part 178's second item — a desk audit, no code. Every claim was read off the
-tree and spot-verified by hand.
+✅ done 2026-09-12, closing `docs/task-archive.md` Part 236's second item — a desk audit, no code. Every
+claim was read off the tree and spot-verified by hand.
 
 - **Is a decision EXPRESSIBLE through the seams that already ship?** Answer this before proposing any
   surface. Which of `IPairwiseComparer`, `IToolLoop` and the verification seam already expresses it, and
@@ -3181,8 +3184,8 @@ end.
 
 ## Part 194 — `affordance` measured: a 4B routes a roster well and cannot decline, and no prompt fixes it
 
-✅ done 2026-09-12, closing `TASKS.md` Part 178's third item. New bench `tool-affordance`; one additive public option;
-**the shipped default deliberately unchanged.**
+✅ done 2026-09-12, closing `docs/task-archive.md` Part 236's third item. New bench `tool-affordance`; one
+additive public option; **the shipped default deliberately unchanged.**
 
 - **Measure `affordance` through the PROMPT protocol — the transport this library authors.** Roster size
   3-7, both models, a `random` null and an `oracle` through the real path, and the same trials posed as
@@ -3254,7 +3257,7 @@ each pricing one decision (quantisation; the pooling mode).
 
 ## Part 197 — the NATIVE tool transport, unblocked by a survey and measured
 
-✅ closed 2026-09-13. Moved out of `TASKS.md` Part 178.
+✅ closed 2026-09-13. Moved out of `docs/task-archive.md` Part 236.
 
 - **Measure `affordance` through the NATIVE transport — the positive control is a SURVEY, not a wait.**
 
@@ -3282,7 +3285,7 @@ raised an artifact the first could not rule out.
 
 ## Part 198 — the native transport's FALSE-CALL rate: the first lever found on §2's hardest case
 
-✅ closed 2026-09-13. Moved out of `TASKS.md` Part 178, which opened it the same day.
+✅ closed 2026-09-13. Moved out of `docs/task-archive.md` Part 236, which opened it the same day.
 
 - **Measure the NATIVE transport's FALSE-CALL rate.**
 
@@ -3307,8 +3310,8 @@ restraint. Now counted and excluded.
 
 ## Part 199 — a SECOND EMBEDDER on the LoCoMo QA half: no arm moves
 
-✅ closed 2026-09-13. The EMBEDDER half of `TASKS.md` Part 109; the reader half stays open there and is
-now recorded `blocked · env`.
+✅ closed 2026-09-13. The EMBEDDER half of `docs/task-archive.md` Part 233; the reader half stayed open
+there and was recorded `blocked · env`.
 
 - **Widen the QA half: a SECOND EMBEDDER and a SECOND READER.**
 
@@ -3335,7 +3338,8 @@ against three runs. The cost is now measured rather than guessed: four arms at n
 
 ## Part 200 — the QA half widened: a smaller reader registers the memory layer LESS
 
-✅ closed 2026-09-13. `TASKS.md` Part 109's remaining half; the embedder half closed as Part 199.
+✅ closed 2026-09-13. `docs/task-archive.md` Part 233's remaining half; the embedder half closed as
+Part 199.
 
 - **Widen the QA half: a SECOND EMBEDDER and a SECOND READER.**
 
@@ -3362,7 +3366,8 @@ effect.
 
 ## Part 201 — mean-centering REFUTED, and a static embedder priced on the memory workload
 
-✅ closed 2026-09-13. Opened the same day by `TASKS.md` Part 109's successor and closed by replication.
+✅ closed 2026-09-13. Opened the same day by `docs/task-archive.md` Part 233's successor and closed by
+replication.
 
 - **Re-test mean-CENTERING at power — the direction is consistent and the grid cannot resolve it.**
 
@@ -3386,7 +3391,8 @@ seeding is on. **How much an embedder is worth is a property of the arm**, which
 
 ## Part 202 — COMPLETENESS priced on the suppression workload, and the confound it was blocked on refuted
 
-✅ closed 2026-09-13. `TASKS.md` Part 109's last open item, and the last startable item in the backlog.
+✅ closed 2026-09-13. `docs/task-archive.md` Part 233's last open item, and the last startable item in the
+backlog.
 
 - **Price COMPLETENESS on the memory workloads, where the reader half only measured LoCoMo QA.**
 
@@ -3414,7 +3420,7 @@ positive cell survives replication — this mode keeps no per-question outcomes,
 
 ## Part 203 — the tool loop's silent transport fallback becomes visible
 
-✅ closed 2026-09-13. `TASKS.md` Part 178's fallback item, ruled by the owner the same day.
+✅ closed 2026-09-13. `docs/task-archive.md` Part 236's fallback item, ruled by the owner the same day.
 
 - **Decide whether the PROMPT-protocol fallback should announce itself.**
 
@@ -3433,7 +3439,7 @@ which has no transport to report, so widening it for one producer was the worse 
 
 ## Part 204 — the verification seam stops discarding the score it judged on
 
-✅ closed 2026-09-13. `TASKS.md` Part 178's score item, ruled by the owner the same day.
+✅ closed 2026-09-13. `docs/task-archive.md` Part 236's score item, ruled by the owner the same day.
 
 - **Decide whether a verification verdict should carry a per-option SCORE.**
 
@@ -3457,7 +3463,7 @@ property would have answered it by accident.
 
 ## Part 205 — a seam's `Model` stops losing silently
 
-✅ closed 2026-09-13. `TASKS.md` Part 128's last item, ruled by the owner the same day.
+✅ closed 2026-09-13. `docs/task-archive.md` Part 235's last item, ruled by the owner the same day.
 
 - **Decide whether a memory seam's `Model` should beat a candidate's — today it silently loses.**
 
@@ -3481,8 +3487,8 @@ code rather than left to rot.
 
 ## Part 206 — the tool roster gets a bound, after the measurement that justified one
 
-✅ closed 2026-09-13. `TASKS.md` Part 178's roster item. Ruled *measure first, decide after*, and it closed
-in that order.
+✅ closed 2026-09-13. `docs/task-archive.md` Part 236's roster item. Ruled *measure first, decide after*,
+and it closed in that order.
 
 - **Bound the tool roster BEFORE the model sees it — the model supplies no bound of its own.**
 
@@ -4027,3 +4033,127 @@ own reason for existing is that "two public seams sat outside the documented dom
 visits (**D75**) — rather than a stage of the decay pipeline the seven describe, and the namespace is public
 and frozen (**D70**) either way. `CLAUDE.md` now says that where the SEVEN claim is made, so the seam stops
 reading as a missing eighth domain.
+
+## Part 233 — `TASKS.md` Part 109: LoCoMo says the shipped ranking defaults lose to plain cosine
+
+✅ closed 2026-09-16 as part of `TASKS.md` Part 233, BL1. Opened 2026-08-29 by Part 110; retired holding
+**zero** open checkboxes, having carried 49 lines of closure notes.
+
+**The thread, and where each half landed.** It asked why defaults read 11.0% evidence-hit@20 against plain
+cosine's 80.5% on a uniform-history workload. Ranking closed as Part 113 (traversal carries the arm;
+`HopWeight = 0` costs 23 points). The QA half ran as Part 115 and found **D98**. Three harness defects moved
+every figure it opened with — question isolation alone took defaults 31.0% → 54.5% (Part 118). The QA
+widening closed as Part 200, centering as Part 201 by REFUTATION, completeness as Part 202.
+
+**What it leaves standing**, since an empty Part reads as a live home for a question and that is what kept
+it cited: the residual gap is the DESIGN, not a defect, and no arm measured has closed it.
+`docs/memory-measurements.md` §5 owns every figure.
+
+**Its "remaining half" had closed and the citations did not notice** — two records still called a second
+READER "Part 109's remaining half" after Part 200 ran both halves. That stale pair is what BL1 predicted an
+empty Part would produce, and is why the retirement is a repoint rather than a delete.
+
+## Part 234 — `TASKS.md` Part 116: the n-shot WALK, and the surface D100 opened
+
+✅ closed 2026-09-16 as part of `TASKS.md` Part 233, BL1. Opened 2026-08-29; retired holding **zero** open
+checkboxes over 36 lines.
+
+**The thread.** **D100** reframed the engine as a WALK rather than a single top-k, and this Part tracked
+what that opened. The n-shot SURFACE shipped as Part 120 (**D102**, `MemoryWalk.WalkAsync`), the write-back
+collapse as Part 117 (**D101**), LoCoMo contamination as Part 118, the expansion-floor sweep as Part 123,
+and the last three LongMemEval shot curves as Part 188.
+
+**The durable finding is not a curve.** *Expand once* holds on all six classes — shot 3 is worth exactly
+zero — and `single-session-user` is FLAT outright at 82.8% while the walk returns 7× the characters. Plain
+cosine wins all three of the last classes measured, and `single-session-preference` is the widest gap this
+record holds: **30.0% against 73.3%** at the same k, with no judge or reranker in the loop for any cell.
+`docs/memory-measurements.md` §5 owns the figures.
+
+## Part 235 — `TASKS.md` Part 128: the retrieval gap is RANKING OUT candidates the engine already holds
+
+✅ closed 2026-09-16 as part of `TASKS.md` Part 233, BL1. Opened 2026-08-31; retired holding **zero** open
+checkboxes over 138 lines — the largest of the four.
+
+**The thread.** Three LoCoMo ladders run at the owner's direction after "the memory system performance is
+not good enough". **D59** decomposed the misses — 100% reachable-but-outranked, 0% unreachable — so the
+edges were never the problem. Per-source fusion closed it as Part 131 (**D103**): the same arm reads
+**83.0%** fused against cosine's 80.5%. The real judge closed as Part 143 (a 4B judge SPENDS 10.5 points
+where a perfect one gains 9.5 — the seam has a capability FLOOR), multi-hop as Part 139 by refuting its own
+premise twice, fusion as Part 151 (**D105**), the reader-facing check as Part 191, the frontier as Part 187
+(no knee), `HeadlineChars` as Part 170 (**D108**), and seam-`Model` as Part 205 (**D119**).
+
+**Two dead directions, recorded so nobody re-runs them:** weight-tuning is retired (semantic candidates are
+outranked by CONSTRUCTION when a rank position and a cosine share one field), and preserving the cosine
+MAGNITUDE is not the fix.
+
+**One stale claim closes with it:** `model-tasks.md` called the `Model`-precedence question "still open
+here" after **D119** settled it by KEEPING the precedence.
+
+## Part 236 — `TASKS.md` Part 178: a DECISION system on a small model
+
+✅ closed 2026-09-16 as part of `TASKS.md` Part 233, BL1. Opened 2026-09-12 at the owner's direction;
+retired holding **zero** open checkboxes over 72 lines.
+
+**The thread.** `docs/model-tasks.md` §1–§3 is its brief. Every item closed inside two days: the shape
+comparison as Parts 192–193, per-option scores as Part 204 (**D118**), the tool roster as Part 206
+(**D120**, `IToolSelector` + `EmbeddingToolSelector`), native transport as Part 197, false calls as Part
+198, and fallback visibility as Part 203 (**D117**).
+
+**The finding that governs the next decision seam.** The winning SHAPE inverts with model size — at
+2,489,757,856 B one `select-from-list` call beats N `score-a-pair` calls at every length (`p<0.0001`), and
+at 806,058,240 B it loses, because the small model stops choosing and emits a CONSTANT. **Pick the shape
+from the size, never in advance.** And the arm to actually reach for is neither: a **468,393,760 B**
+cross-encoder doing the scorer shape in ONE round trip matches the 5.3× larger instruct model at three
+options and pulls ahead as the list grows — the only arm flat in N.
+
+## Part 237 — a full-tree review: what a nine-decision day left behind, and the two gates that would have caught it
+
+✅ closed 2026-09-16. A code-design + documentation review at the owner's direction, not a filed task.
+
+**The finding that organises the rest: D140–D149 landed in one day, the code sweep was complete and the
+PROSE sweep was not.** `src/*.csproj` descriptions were correct while `CLAUDE.md`, the README status
+headline, `TASKS.md`'s goal line, `docs/AOT.md` and two shipped XML docs still advertised the
+`Microsoft.Extensions.AI` bridge **D146** had deleted. `src/Directory.Packages.props` still declared it,
+with a comment claiming NuGet unifies the transitive copy upward — measured against `project.assets.json`,
+transitive pinning is off and the restore resolves MCP's own 10.5.2. The README said twelve packages
+against eleven, in a phrasing `check-counts` could not see.
+
+**Two gates, both measured before built** (`docs/GATES.md` §Writing a new gate) — details in that file:
+`check-tautology` (6 defects / 0 false positives; validated RED against `git show HEAD:` copies, which
+caught a duplicate-report bug in its own first version), and `check-backlog`'s empty-`## Part` rule (BL2).
+`check-links`' Part half reached the CODE tier, where a stale scope note had excluded it: re-measured at
+**150 citations across 73 files, 88 of them dead**.
+
+**Three things the review REFUSED**, because a negative result is the deliverable: widening the
+`Providers.Default` rule (2 true against 16 false — the two sites fixed by hand instead), the noun form of
+the MEAI rule (it fires on **D123**'s own heading), and any claim about the test baseline — the run was
+made with Docker down, so the Postgres leg did not execute and the numbers are NOT re-attested.
+
+**Detail lives where it belongs**: the rename-collapse incident in `docs/FIXES.md`; the document
+retirements in **D149**; five traps in `.claude/knowledge/pitfalls.md`; the gate descriptions in
+`docs/GATES.md`; the five refactored methods and the dead `GenerationRouter` branch in `CHANGELOG.md`.
+
+## Part 238 — the backlog's own accumulation, retired and then GATED
+
+✅ closed 2026-09-16. `TASKS.md` Part 233, both items — opened 2026-09-15 by the owner asking why 736
+lines held 8 items.
+
+- **BL1 — retire the four Parts that hold no open work, and repoint what cites them.**
+- **BL2 — `check-backlog` must fail a `## Part` that holds no open checkbox.**
+
+**Outcome: `TASKS.md` went 760 → ~480 lines**, and the accumulation is now a gate rather than a habit.
+Parts 109/116/128/178 are `docs/task-archive.md` Parts 233–236, one per thread. `check-backlog` fails a
+`## Part` heading with zero open checkboxes; a heading that is not `## Part <n>` is invisible to it, which
+is what lets a retirement leave a pointer behind without tripping the rule it just satisfied.
+
+**BL1 estimated "19+ inbound references" and there were 96.** The gap is the finding: most citations are in
+`bench/` and `devtools/` comments naming the thread an instrument belongs to, and **only 20 of the 96 were
+ever visible to a gate** — `check-links` skipped the Part half on code entirely, and reads no archive at
+all. That measurement is what put the Part half on the code tier (`docs/GATES.md`), where it immediately
+found **88 more** dead references that had accumulated over every archiving since.
+
+**BL1's stated premise was wrong and its conclusion survived.** It said all four numbers COLLIDE in the
+archive; only 178 does — 109, 116 and 128 are gaps. They could not keep their numbers anyway, because the
+archive allocates in LANDING order. **The real trap is the other shape:** `TASKS.md` Part 69's
+`NeutralSaliencePolicy` citations belong to archive Part **71**, while archive Part 69 exists and is about
+the embedder — a blind renumber would have resolved, gone green, and sent every reader to the wrong entry.

@@ -369,7 +369,7 @@ public class SearchTermsTests
         Assert.Equal(["%deploy%", "%pipeline%"], patterns);
     }
 
-    // ---- does a 3-gram DISCRIMINATE in an abugida? (`TASKS.md` Part 65) ---------------------------------
+    // ---- does a 3-gram DISCRIMINATE in an abugida? (`docs/task-archive.md` Part 71) --------------------
 
     /// <summary>Distinct everyday words per script, chosen to share no meaning and, as far as possible, no
     /// characters — so any measured overlap is the TOKENIZER's, not the vocabulary's.

@@ -28,7 +28,7 @@ if (args.Contains("--bounded"))
 // Two optional ladders swap the on/off pair for a one-factor sweep of a SalienceOptions constant, on two
 // shapes. `--ceiling` varies MaxSalience and found it to be a switch rather than a dial; `--novelty` varies
 // NoveltyWeight, which is therefore the only knob that can scale salience at all. Same sweep, same pairing,
-// so every mode stays comparable — TASKS.md Part 65.
+// so every mode stays comparable — docs/task-archive.md Part 127.
 if (args.Contains("--salience"))
     return await MemorySalienceSweep.RunAsync(
         args.Contains("--ceiling") ? MemorySalienceSweep.CeilingLadder
@@ -81,7 +81,8 @@ if (args.Contains("--fan"))
 // quality: the two WRITE-TIME mechanisms (similarity linking, novelty→salience) varied independently, which
 // nothing had done. The ONLY sweep here that calls a real model rather than a deterministic double, and it
 // EXITS rather than substituting one — the arm it replaces was measured through a bag-of-words fake in which
-// "semantic similarity" is word overlap, which is why those numbers were withdrawn (TASKS.md Part 69).
+// "semantic similarity" is word overlap, which is why those numbers were withdrawn
+// (docs/task-archive.md Part 69).
 if (args.Contains("--enrichment"))
     return await MemoryEnrichmentSweep.RunAsync();
 
@@ -126,7 +127,7 @@ if (args.Contains("--gist-support"))
 // verification one per recall; both would dominate every number here and neither is wired." This wires
 // annotation, verification and embedding onto one engine and prices what CONTENDS — verification is a
 // SINGULAR slot, so --verifier picks which backend (judge or rerank) fills it, never both at once (D115).
-// It measures nothing about recall QUALITY and says so — TASKS.md Part 177.
+// It measures nothing about recall QUALITY and says so — docs/task-archive.md Part 190.
 if (args.Contains("--contention"))
     return await MemoryContentionSweep.RunAsync(args);
 
@@ -143,7 +144,8 @@ if (args.Contains("--scale"))
 // neither the precision nor the lift column transfers. Two SHAPES on the same two models — one
 // select-from-list call over N options, against N score-a-pair calls argmax'd — plus a cross-encoder doing
 // the second shape in one round trip, so shape and size are separated. Not a `[Benchmark]`: it needs three
-// live servers and its subject is ACCURACY, which BenchmarkDotNet measures nothing about. TASKS.md Part 178.
+// live servers and its subject is ACCURACY, which BenchmarkDotNet measures nothing about.
+// docs/task-archive.md Part 236.
 if (args.Contains("--decision"))
     return await MemoryDecisionSweep.RunAsync(args);
 
@@ -151,14 +153,15 @@ if (args.Contains("--decision"))
 // evidence at any size, and the one this library does not bound — "per model tool call, unbounded by this
 // library". Runs the REAL ToolLoop on its PROMPT path (the native one is silently inert on both models
 // here and blocked on a positive control), against the same trials posed as a flat forced choice, so the
-// gap between them is the TRANSPORT rather than the choosing. TASKS.md Part 178.
+// gap between them is the TRANSPORT rather than the choosing. docs/task-archive.md Part 236.
 if (args.Contains("--affordance"))
     return await ToolAffordanceSweep.RunAsync(args);
 
 // A `--evidence` study lived here on 2026-08-12 and was removed with the `GraphMemoryOptions.ReinforceOn`
-// seam it drove — see that option's own reverted-here note. Its FINDING survives in TASKS.md Part 64: the
-// engine's reinforcement conflates an age RESET with a stability GROWTH, and those pull in opposite
-// directions, so a single gate over both could not express the configuration the evidence favours.
+// seam it drove — see that option's own reverted-here note. Its FINDING survives in
+// docs/task-archive.md Part 64: the engine's reinforcement conflates an age RESET with a stability
+// GROWTH, and those pull in opposite directions, so a single gate over both could not express the
+// configuration the evidence favours.
 
 // `node devtools/dev.mjs bench` → runs all benchmarks; pass a filter to narrow, e.g.
 //   node devtools/dev.mjs bench -- --filter *Router*

@@ -135,8 +135,7 @@ public sealed class LlmRouter(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var liveModel = await LiveModelAsync(req.Consumer, ct).ConfigureAwait(false);
-        LlmChunk? lastError = null;      // the last SUBSTANTIVE failure — what the caller is told
-        LlmChunk? lastBlameless = null;  // …kept apart, same rule as CompleteAsync (see IsBlameless)
+        var failures = new StreamFailures();
 
         foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req, liveModel))
         {
@@ -148,139 +147,206 @@ public sealed class LlmRouter(
             var retries = 0;
             while (!advance)
             {
-                var committed = false;   // once real content is yielded, no fallback — pass everything through
-                var retryVerdict = ProviderVerdict.Ok;
-
-                var activity = LyntaiDiagnostics.StartChat(provider.Id, effective.Model);
-                var start = Stopwatch.GetTimestamp();
-                ProviderVerdict outcome = ProviderVerdict.Ok;
-                LlmUsage? usage = null;
-                string? outcomeDetail = null;
-                try
-                {
-                    var enumerator = provider.StreamAsync(effective, ct).GetAsyncEnumerator(ct);
-                    await using (enumerator.ConfigureAwait(false))
-                    {
-                        while (true)
-                        {
-                            LlmChunk? chunk;
-                            try
-                            {
-                                chunk = await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null;
-                            }
-                            // only the CALLER's cancel aborts the router (the trust boundary); a provider's
-                            // OWN OperationCanceledException (ct not cancelled — e.g. its internal timeout)
-                            // becomes a fall-over-able Error chunk, not an abort of the whole stream
-                            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
-                            {
-                                // a mid-iteration throw becomes an Error chunk, classified through the shared
-                                // taxonomy (thrown 429→RateLimited, provider-internal OCE→Timeout, …)
-                                chunk = LlmChunk.Error(ProviderVerdictClassifier.FromThrown(ex), ex.Message);
-                            }
-                            if (chunk is null) break;
-
-                            // Trust boundary: a Final with NO preceding content is the empty-reply trap in
-                            // stream form (pitfalls: empty output must be fall-over-able, never a clean end) —
-                            // convert it to an Error so the pre-content fallback path below handles it.
-                            if (chunk.Kind == LlmChunkKind.Final && !committed)
-                                chunk = LlmChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (Final with no content)");
-
-                            if (chunk.Kind == LlmChunkKind.Error)
-                            {
-                                outcome = chunk.Verdict;
-                                outcomeDetail = chunk.Detail;
-                            }
-                            if (chunk.Kind == LlmChunkKind.Final) usage = chunk.Usage;
-
-                            if (chunk.Kind == LlmChunkKind.Error && !committed)
-                            {
-                                if (chunk.Verdict.IsBlameless()) lastBlameless = chunk; else lastError = chunk;
-                                var action = Policy.ActionFor(chunk.Verdict);
-                                if (action == FallbackAction.Surface)
-                                {
-                                    yield return chunk; // no fallback (same as non-streaming)
-                                    yield break;
-                                }
-                                _logger.LogWarning("router: {Provider} failed pre-content ({Verdict} — {Detail}); trying next candidate",
-                                    provider.Id, chunk.Verdict, chunk.Detail);
-                                if (action == FallbackAction.CooldownAndAdvance) deadHosts.MarkDead(key);
-                                // PenalizeAndAdvance records ONE failure on advance (below), not per retry
-                                retryVerdict = chunk.Verdict;
-                                break; // leave the enumerator; decide retry-vs-advance below
-                            }
-
-                            // A TOOL CALL commits exactly as content does, and for a sharper reason (3.0). Once
-                            // a call has been announced the consumer may already have EXECUTED it — ToolLoop
-                            // invokes on the chunk — so falling over to another candidate would run somebody's
-                            // side effect twice. Content only duplicates tokens; this duplicates actions.
-                            // A malformed ToolCall chunk carrying no call is dropped rather than committing,
-                            // the same trust-boundary rule the empty content chunk below follows.
-                            if (chunk.Kind == LlmChunkKind.ToolCall && chunk.ToolCall is null) continue;
-
-                            if (chunk.Kind is LlmChunkKind.Content or LlmChunkKind.ToolCall)
-                            {
-                                // an empty/role-only content chunk is NOT real content: never yield it
-                                // (no leak to the consumer) and it must not commit the stream / disable fallback
-                                if (chunk.Kind == LlmChunkKind.Content && chunk.Text.Length == 0) continue;
-                                if (!committed)
-                                {
-                                    committed = true;
-                                    deadHosts.RecordSuccess(key);
-                                    LyntaiDiagnostics.RecordFirstChunk(provider.Id, effective.Model,
-                                        Stopwatch.GetElapsedTime(start).TotalSeconds);
-                                    _logger.LogInformation("router: streaming from {Provider} (model {Model})",
-                                        provider.Id, effective.Model ?? "(default)");
-                                }
-                                yield return chunk;
-                                continue;
-                            }
-
-                            // Final, or an Error AFTER content committed — the only kinds that reach here
-                            // (Content continues above; a pre-content Error/Final breaks/converts above).
-                            // Both are terminal: pass through unchanged and end the stream.
-                            yield return chunk;
-                            yield break;
-                        }
-                    }
-
-                    if (committed) yield break; // ended after content — done
-                    if (retryVerdict == ProviderVerdict.Ok)
-                    {
-                        // the enumerator ended with NO chunks at all — a contract-violating empty stream
-                        // (providers must end with exactly one Final or Error). Same trust-boundary rule as
-                        // an empty reply: treat as Failed and retry/advance rather than ending the router's
-                        // own stream silently with no terminal chunk.
-                        retryVerdict = ProviderVerdict.Failed;
-                        outcome = ProviderVerdict.Failed;
-                        outcomeDetail = "empty stream (no chunks)";
-                        lastError = LlmChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (no chunks)");
-                        _logger.LogWarning("router: {Provider} produced an empty stream (no chunks); treating as Failed", provider.Id);
-                    }
-                }
-                finally
-                {
-                    LyntaiDiagnostics.RecordOutcome(activity, provider.Id, effective.Model, outcome, usage,
-                        Stopwatch.GetElapsedTime(start).TotalSeconds, outcomeDetail);
-                    activity?.Dispose();
-                }
+                var attempt = new StreamAttempt();
+                await foreach (var chunk in StreamOnceAsync(provider, effective, key, failures, attempt, ct)
+                                   .ConfigureAwait(false))
+                    yield return chunk;
+                if (attempt.Done) yield break;
 
                 // pre-content failure: retry the same candidate if the policy allows, else advance
-                if (Policy.ShouldRetrySameCandidate(retryVerdict, ++retries))
+                if (Policy.ShouldRetrySameCandidate(attempt.RetryVerdict, ++retries))
                 {
                     _logger.LogDebug("router: retrying stream {Provider} ({Retry}/{Budget}) after {Verdict}",
-                        provider.Id, retries, Policy.RetriesFor(retryVerdict), retryVerdict);
+                        provider.Id, retries, Policy.RetriesFor(attempt.RetryVerdict), attempt.RetryVerdict);
                     if (Policy.RetryBackoff > TimeSpan.Zero) await Task.Delay(Policy.RetryBackoff, ct).ConfigureAwait(false);
                     continue; // retries are part of ONE attempt — no failure recorded yet
                 }
                 // retries exhausted: record exactly ONE failure for a penalize verdict (not one per retry)
-                if (Policy.ActionFor(retryVerdict) == FallbackAction.PenalizeAndAdvance)
+                if (Policy.ActionFor(attempt.RetryVerdict) == FallbackAction.PenalizeAndAdvance)
                     deadHosts.RecordFailure(key);
                 advance = true;
             }
         }
 
-        yield return lastError ?? lastBlameless
+        yield return failures.Closing();
+    }
+
+    /// <summary>ONE stream attempt at one candidate, under its own span: read the provider's chunks, apply
+    /// the two streaming invariants, and leave <paramref name="attempt"/> saying what the caller should do
+    /// next — <see cref="StreamAttempt.Done"/> when the router's own stream is over, otherwise
+    /// <see cref="StreamAttempt.RetryVerdict"/> for the retry-vs-advance decision.</summary>
+    private async IAsyncEnumerable<LlmChunk> StreamOnceAsync(
+        IModelProvider provider, LlmRequest effective, string key, StreamFailures failures, StreamAttempt attempt,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var activity = LyntaiDiagnostics.StartChat(provider.Id, effective.Model);
+        var start = Stopwatch.GetTimestamp();
+        ProviderVerdict outcome = ProviderVerdict.Ok;
+        LlmUsage? usage = null;
+        string? outcomeDetail = null;
+        try
+        {
+            var enumerator = provider.StreamAsync(effective, ct).GetAsyncEnumerator(ct);
+            await using (enumerator.ConfigureAwait(false))
+            {
+                while (true)
+                {
+                    var chunk = await ReadNextAsync(enumerator, ct).ConfigureAwait(false);
+                    if (chunk is null) break;
+
+                    // Trust boundary: a Final with NO preceding content is the empty-reply trap in
+                    // stream form (pitfalls: empty output must be fall-over-able, never a clean end) —
+                    // convert it to an Error so the pre-content fallback path below handles it.
+                    if (chunk.Kind == LlmChunkKind.Final && !attempt.Committed)
+                        chunk = LlmChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (Final with no content)");
+
+                    if (chunk.Kind == LlmChunkKind.Error)
+                    {
+                        outcome = chunk.Verdict;
+                        outcomeDetail = chunk.Detail;
+                    }
+                    if (chunk.Kind == LlmChunkKind.Final) usage = chunk.Usage;
+
+                    if (chunk.Kind == LlmChunkKind.Error && !attempt.Committed)
+                    {
+                        if (!MayFallOver(provider, chunk, key, failures, attempt))
+                        {
+                            attempt.Done = true;
+                            yield return chunk; // no fallback (same as non-streaming)
+                            yield break;
+                        }
+                        break; // leave the enumerator; decide retry-vs-advance in the caller
+                    }
+
+                    // A TOOL CALL commits exactly as content does, and for a sharper reason (3.0). Once
+                    // a call has been announced the consumer may already have EXECUTED it — ToolLoop
+                    // invokes on the chunk — so falling over to another candidate would run somebody's
+                    // side effect twice. Content only duplicates tokens; this duplicates actions.
+                    // A malformed ToolCall chunk carrying no call is dropped rather than committing,
+                    // the same trust-boundary rule the empty content chunk below follows.
+                    if (chunk.Kind == LlmChunkKind.ToolCall && chunk.ToolCall is null) continue;
+
+                    if (chunk.Kind is LlmChunkKind.Content or LlmChunkKind.ToolCall)
+                    {
+                        // an empty/role-only content chunk is NOT real content: never yield it
+                        // (no leak to the consumer) and it must not commit the stream / disable fallback
+                        if (chunk.Kind == LlmChunkKind.Content && chunk.Text.Length == 0) continue;
+                        if (!attempt.Committed)
+                        {
+                            attempt.Committed = true;
+                            deadHosts.RecordSuccess(key);
+                            LyntaiDiagnostics.RecordFirstChunk(provider.Id, effective.Model,
+                                Stopwatch.GetElapsedTime(start).TotalSeconds);
+                            _logger.LogInformation("router: streaming from {Provider} (model {Model})",
+                                provider.Id, effective.Model ?? "(default)");
+                        }
+                        yield return chunk;
+                        continue;
+                    }
+
+                    // Final, or an Error AFTER content committed — the only kinds that reach here
+                    // (Content continues above; a pre-content Error/Final breaks/converts above).
+                    // Both are terminal: pass through unchanged and end the stream.
+                    attempt.Done = true;
+                    yield return chunk;
+                    yield break;
+                }
+            }
+
+            if (attempt.Committed) { attempt.Done = true; yield break; } // ended after content — done
+            if (attempt.RetryVerdict == ProviderVerdict.Ok)
+            {
+                // the enumerator ended with NO chunks at all — a contract-violating empty stream
+                // (providers must end with exactly one Final or Error). Same trust-boundary rule as
+                // an empty reply: treat as Failed and retry/advance rather than ending the router's
+                // own stream silently with no terminal chunk.
+                attempt.RetryVerdict = ProviderVerdict.Failed;
+                outcome = ProviderVerdict.Failed;
+                outcomeDetail = "empty stream (no chunks)";
+                failures.LastError = LlmChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (no chunks)");
+                _logger.LogWarning("router: {Provider} produced an empty stream (no chunks); treating as Failed", provider.Id);
+            }
+        }
+        finally
+        {
+            LyntaiDiagnostics.RecordOutcome(activity, provider.Id, effective.Model, outcome, usage,
+                Stopwatch.GetElapsedTime(start).TotalSeconds, outcomeDetail);
+            activity?.Dispose();
+        }
+    }
+
+    /// <summary>One guarded read off a provider's stream — the next chunk, or <c>null</c> at its end.
+    /// <para>Only the CALLER's cancel aborts the router (the trust boundary); a provider's OWN
+    /// <see cref="OperationCanceledException"/> (<paramref name="ct"/> not cancelled — e.g. its internal
+    /// timeout) becomes a fall-over-able Error chunk rather than an abort of the whole stream. Any
+    /// mid-iteration throw is classified through the shared taxonomy (thrown 429→RateLimited,
+    /// provider-internal OCE→Timeout, …).</para></summary>
+    private static async ValueTask<LlmChunk?> ReadNextAsync(IAsyncEnumerator<LlmChunk> enumerator, CancellationToken ct)
+    {
+        try
+        {
+            return await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            return LlmChunk.Error(ProviderVerdictClassifier.FromThrown(ex), ex.Message);
+        }
+    }
+
+    /// <summary>The pre-content fallback decision for an Error chunk: file it in the slot its verdict belongs
+    /// in, apply the policy's host penalty, and say whether the router may fall over. <c>false</c> is
+    /// <see cref="FallbackAction.Surface"/> — the caller yields the chunk as-is and ends, exactly as the
+    /// non-streaming path surfaces a refusal.</summary>
+    private bool MayFallOver(IModelProvider provider, LlmChunk error, string key, StreamFailures failures,
+        StreamAttempt attempt)
+    {
+        failures.Record(error);
+        var action = Policy.ActionFor(error.Verdict);
+        if (action == FallbackAction.Surface) return false;
+        _logger.LogWarning("router: {Provider} failed pre-content ({Verdict} — {Detail}); trying next candidate",
+            provider.Id, error.Verdict, error.Detail);
+        if (action == FallbackAction.CooldownAndAdvance) deadHosts.MarkDead(key);
+        // PenalizeAndAdvance records ONE failure on advance (in the caller), not per retry
+        attempt.RetryVerdict = error.Verdict;
+        return true;
+    }
+
+    /// <summary>What <see cref="StreamAsync"/>'s closing chunk is built from, folded across every candidate.
+    /// The two slots are the streaming twin of <see cref="CompleteAsync"/>'s, for the same reason: a blameless
+    /// verdict must never MASK a real one.</summary>
+    private sealed class StreamFailures
+    {
+        /// <summary>The last SUBSTANTIVE failure — what the caller is told.</summary>
+        public LlmChunk? LastError { get; set; }
+
+        /// <summary>…kept apart, so it answers only when there was no real failure.</summary>
+        public LlmChunk? LastBlameless { get; set; }
+
+        /// <summary>File an error into the slot its verdict belongs in.</summary>
+        public void Record(LlmChunk error)
+        {
+            if (error.Verdict.IsBlameless()) LastBlameless = error; else LastError = error;
+        }
+
+        /// <summary>A real failure outranks a blameless one; only a candidate list that produced nothing at
+        /// all falls through to the synthetic chunk.</summary>
+        public LlmChunk Closing() => LastError ?? LastBlameless
             ?? LlmChunk.Error(ProviderVerdict.Failed, "no live candidate (all skipped: unknown, unavailable, or dead)");
+    }
+
+    /// <summary>One attempt's own state, carried out of <see cref="StreamOnceAsync"/> because an async
+    /// iterator has no return value to put it in. Fresh per attempt, so a retry starts uncommitted.</summary>
+    private sealed class StreamAttempt
+    {
+        /// <summary>Once real content is yielded, no fallback — everything after it passes through.</summary>
+        public bool Committed { get; set; }
+
+        /// <summary>The router's own stream is over: no retry, no next candidate, no closing chunk.</summary>
+        public bool Done { get; set; }
+
+        /// <summary>What retry-vs-advance is decided on; <see cref="ProviderVerdict.Ok"/> means nothing
+        /// failed pre-content.</summary>
+        public ProviderVerdict RetryVerdict { get; set; } = ProviderVerdict.Ok;
     }
 
     /// <summary>Native tool support for a candidate list: the first live candidate (registered,

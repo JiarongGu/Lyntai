@@ -15,6 +15,7 @@
 // rate, and withdrew; a hit here is a defect by construction, which is the bar.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { repoFiles } from './_repo-files.mjs';
 
@@ -113,9 +114,19 @@ export function checkOptions(repo, config, log, files = null) {
   return 0;
 }
 
-const invokedDirectly = process.argv[1] && path.basename(process.argv[1]) === 'check-options.mjs';
-if (invokedDirectly) {
-  const repo = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\//, '')), '..', '..');
+// CLI entry point — a thin wrapper, so importing this module for a test runs nothing. `import.meta.main`
+// where the runtime has it (Node >= 24.2), because the argv fallback compares resolved paths and any way
+// that comparison can be wrong makes the guard silently do NOTHING and exit 0.
+//
+// It used two weaker forms until 2026-09-16, and it was the ONE gate with no fact in `cli-entry.test.mjs`
+// — which is not a coincidence, it is why nobody looked. The basename comparison
+// (`path.basename(process.argv[1]) === 'check-options.mjs'`) matched any script of that name anywhere, and
+// the repo path came from `new URL(import.meta.url).pathname.replace(/^\//, '')`, which is the hand-rolled
+// `file://` decode `fileURLToPath` exists to replace — it leaves a percent-escape in any path containing a
+// space, in a repository named 灵台.
+const here = fileURLToPath(import.meta.url);
+if (import.meta.main ?? (process.argv[1] && path.resolve(process.argv[1]) === here)) {
+  const repo = path.resolve(path.dirname(here), '..', '..');
   const { default: config } = await import('../project.config.mjs');
   process.exitCode = checkOptions(repo, config, (s) => console.log(s)) === 0 ? 0 : 1;
 }

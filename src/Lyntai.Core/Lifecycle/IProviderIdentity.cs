@@ -7,7 +7,8 @@ namespace Lyntai.Lifecycle;
 /// already declared exactly this member, so adopting it as a base changed no implementation anywhere — and
 /// they have since collapsed into the single <see cref="Lyntai.Lifecycle.IModelProvider"/> (D127).</para>
 ///
-/// <para><b>Both seams still declare <c>Id</c> themselves</b> (as <c>new</c>), and must keep doing so. Adding
+/// <para><b><see cref="Lyntai.Lifecycle.IModelProvider"/> still declares <c>Id</c> itself</b> (as
+/// <c>new</c>), and must keep doing so. Adding
 /// a base interface is binary-compatible; removing the member from the DERIVED interface is not — a
 /// pre-compiled caller emits <c>callvirt IModelProvider::get_Id</c>, and member resolution does not walk base
 /// interfaces, so the call would throw <see cref="MissingMethodException"/> against a rebuilt Lyntai until

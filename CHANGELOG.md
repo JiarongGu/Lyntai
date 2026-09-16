@@ -30,6 +30,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Fixed
 
+- **Documentation that survived two seam unifications and said things that are no longer true.** The
+  `README.md` offered a capability-probe sample whose `provider is not IModelProvider` type test is always
+  true (`ProbeAsync` moved onto the base seam in **D127**, so there are three optional capabilities, not
+  four), listed streaming generation under an interface that no longer exists, and advertised the
+  `Microsoft.Extensions.AI` bridge **D146** deleted — as did `IProviderIdentity`'s and
+  `LyntaiDiagnostics`' shipped XML docs. The package count was one too high. Nothing about the library's
+  behaviour changed; what a consumer reads about it did. Two new gates (`check-tautology`, and a
+  `check-backlog` rule) make the shapes behind those two classes fail rather than ship.
+
 - **A cross-encoder export whose head cannot carry one score per pair is now refused at COMPOSITION.**
   `AddOnnxCrossEncoder` pointed at a multi-label (NLI) model used to load cleanly and refuse on the first
   score — into `AddMemoryScoringVerification`, which is fail-open and reported `NoOpinion`, so every recall
@@ -313,8 +322,8 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   rather than guessed.
 
 - **`IEmbeddingProvider` — embedding backends join the provider family** (**D124**). `IProviderIdentity` +
-  `IEmbedder`, so an embedder carries the `Id` and `IsAvailable` that `IModelProvider` and
-  `IModelProvider` already do: a deployment can register more than one and tell them apart, and a
+  `IEmbedder`, so an embedder carries the `Id` and `IsAvailable` that the chat and media provider seams
+  already do: a deployment can register more than one and tell them apart, and a
   diagnostic can say WHICH embedder produced a vector. **Additive on purpose** — `IEmbedder` is unchanged,
   because adding a base interface that introduces a required `Id` would break every BYO embedder at
   compile. `Model2VecProvider` and `OnnxProvider` both implement it; `Model2VecProviderOptions` gains `Id`.

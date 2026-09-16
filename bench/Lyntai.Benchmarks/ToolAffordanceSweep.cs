@@ -23,7 +23,7 @@ namespace Lyntai.Benchmarks;
 ///
 /// <para><b>The cross-shape arm is the point.</b> The same trials posed as a plain <c>select-from-list</c>
 /// separate the cost of the TOOL TRANSPORT from the cost of choosing — without it, a bad number cannot be
-/// attributed to either. <c>TASKS.md</c> Part 178.</para></summary>
+/// attributed to either. <c>docs/task-archive.md</c> Part 236.</para></summary>
 internal static class ToolAffordanceSweep
 {
     private const int Seed = 20260912;
@@ -172,7 +172,7 @@ internal static class ToolAffordanceSweep
 
         // `--roster 3,7,14,...` takes the ladder to CATALOGUE scale, which is where bounding a tool roster
         // would actually matter — the published cells stop at seven and a deployment with a catalogue is the
-        // case the selector question was asked about (`TASKS.md` Part 178).
+        // case the selector question was asked about (docs/task-archive.md Part 236).
         //
         // Validated against the fixture rather than trusted: `hard` draws its distractors from the gold
         // tool's own family, so it cannot go past FamilySize, and asking for more makes the trial builder
@@ -215,8 +215,8 @@ internal static class ToolAffordanceSweep
 
         // `--scorers-only` drops every arm that calls a chat model — the loop arms, the cross-shape arms
         // and the whole negative corpus — leaving the model-free scorers plus the two scripted controls.
-        // It exists because the EMBEDDER axis is a survey (`TASKS.md` Part 196): a sub-100 MB candidate is
-        // one more `cosine-*` column, and paying ~2 hours of generation per candidate to add one would
+        // It exists because the EMBEDDER axis is a survey (`docs/task-archive.md` Part 196): a sub-100 MB
+        // candidate is one more `cosine-*` column, and paying ~2 hours of generation per candidate would
         // make the axis unaffordable. The dropped arms are NAMED in the output, never silently absent.
         var scorersOnly = args.Contains("--scorers-only");
 
@@ -883,9 +883,9 @@ internal static class ToolAffordanceSweep
     /// the model's structured <c>tool_calls</c> come back, so <see cref="ToolLoop"/> takes its native branch
     /// instead of authoring a prompt protocol.
     ///
-    /// <para><b>This is the arm `TASKS.md` Part 178 could not run</b>, and it needs a model whose template
-    /// carries a tool section — gemma-3's does not, and the array is silently discarded. Pair it against the
-    /// SAME model's prompt arm or the comparison confounds the transport with the model.</para>
+    /// <para><b>This is the arm `docs/task-archive.md` Part 236 could not run</b>, and it needs a model
+    /// whose template carries a tool section — gemma-3's does not, and the array is silently discarded. Pair
+    /// it against the SAME model's prompt arm or the comparison confounds the transport with the model.</para>
     ///
     /// <para><c>SupportsStreamingToolCalls</c> stays false: the streaming half would deliver the same
     /// choice through a second code path, and guessing wrong there fails SILENTLY — no call chunk arrives
@@ -1334,8 +1334,8 @@ internal static class ToolAffordanceSweep
         Console.WriteLine("  that wins here and raises false calls has moved the failure, not removed it.");
     }
 
-    /// <summary>The question `TASKS.md` Part 178 asks: does routing a choice through NATIVE function-calling
-    /// beat the prompt protocol this library authors, on one model that can do both?
+    /// <summary>The question `docs/task-archive.md` Part 236 asks: does routing a choice through NATIVE
+    /// function-calling beat the prompt protocol this library authors, on one model that can do both?
     ///
     /// <para>Paired McNemar on identical trials with an identical roster, so only the trials the two
     /// transports DISAGREED on carry information. Two models on two transports would confound them, which
@@ -1498,11 +1498,13 @@ internal static class ToolAffordanceSweep
         Console.WriteLine("  - MODEL CAPABILITY, on most of this corpus. A tool description says what the tool");
         Console.WriteLine("    does, so a request for it is usually its nearest neighbour and an embedder gets");
         Console.WriteLine("    it free — see the gold-rank line above. That makes this a clean measurement of");
-        Console.WriteLine("    the TRANSPORT, which is what Part 178 asked for, and a weak one of affordance");
-        Console.WriteLine("    REASONING, which it did not. The free-arm-wrong table is the only part that");
-        Console.WriteLine("    prices a model, and its subset size is the honest ceiling on that claim.");
+        Console.WriteLine("    the TRANSPORT, which is what docs/task-archive.md Part 236 asked for, and a");
+        Console.WriteLine("    weak one of affordance REASONING, which it did not. The free-arm-wrong table");
+        Console.WriteLine("    is the only part that prices a model, and its subset size is the honest");
+        Console.WriteLine("    ceiling on that claim.");
         Console.WriteLine("  - The NATIVE transport. It is silently inert on both models this machine holds");
-        Console.WriteLine("    and blocked on a positive control — TASKS.md Part 178, pitfalls.md.");
+        Console.WriteLine("    and blocked on a positive control — docs/task-archive.md Part 236,");
+        Console.WriteLine("    pitfalls.md.");
         Console.WriteLine("  - ONE tool per request. A roster task that needs two calls, or none, is a");
         Console.WriteLine("    different question and this fixture cannot pose it.");
         Console.WriteLine("  - ONE protocol prompt: the shipped one. It is a compile-time constant and not a");

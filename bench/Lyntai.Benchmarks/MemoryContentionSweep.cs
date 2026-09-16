@@ -26,10 +26,10 @@ namespace Lyntai.Benchmarks;
 /// the chat model and the reranker before returning a <see cref="Rig"/> — the same posture
 /// <see cref="SweepDoubles.TryRealChatAsync"/> and <see cref="SweepDoubles.TryRealEmbedderAsync"/> already
 /// take: an arm that silently ran without a model would look exactly like a fast one, and a bag-of-words
-/// stand-in for the embedder was withdrawn once already for producing exactly that illusion (TASKS.md Part
-/// 69). The embedder itself is not probed here — <c>devtools/scripts/memory-contention.mjs</c>'s
-/// <c>verifyIdentity</c> asserts its vector dimension before any cell runs. This is the positive control
-/// every cell here depends on.</para>
+/// stand-in for the embedder was withdrawn once already for producing exactly that illusion
+/// (<c>docs/task-archive.md</c> Part 69). The embedder itself is not probed here —
+/// <c>devtools/scripts/memory-contention.mjs</c>'s <c>verifyIdentity</c> asserts its vector dimension
+/// before any cell runs. This is the positive control every cell here depends on.</para>
 ///
 /// <para>It measures nothing about recall QUALITY, and says so.</para>
 /// </summary>

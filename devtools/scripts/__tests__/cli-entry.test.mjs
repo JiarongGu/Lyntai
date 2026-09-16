@@ -14,6 +14,9 @@ import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
+import { existsSync, readFileSync } from 'node:fs';
+
+import { commandRoster } from '../check-dev-loop.mjs';
 import { repoRoot } from './_fixtures.mjs';
 
 const invoke = (script, args = [], env = {}) => {
@@ -129,5 +132,61 @@ describe('the dispatcher commands that have no script of their own', () => {
 
   it('changelog runs the changelog doctor', () => {
     assert.match(dispatch('changelog'), /^changelog-doctor: /m);
+  });
+});
+
+describe('the prose gates that had no CLI-entry fact until 2026-09-16', () => {
+  // NINE `verify` gates reached this file's blind spot at once, which is the finding rather than any one of
+  // them: the list above is HAND-ENUMERATED, so a gate joins `verify` and simply never appears here. That is
+  // the failure this file's own header describes — "the process starts, scans nothing, prints nothing, and
+  // exits 0" — and the completeness fact below is what stops the tenth.
+  //
+  // Read-only: every one of these takes a `--write` that rebuilds a generated block, and none is passed it.
+  // `check-options` is TEN, and it is the one that proves the completeness fact below was worth writing:
+  // it did not even use this repository's entry-point idiom (a basename comparison, plus a hand-rolled
+  // `file://` decode), and it was the only gate with no fact here. Nothing connected those two until the
+  // derived check named it on its first run.
+  //
+  // WRITTEN OUT rather than looped, and the reason is a gate: `check-counts` holds `CLAUDE.md`'s
+  // guard-script total, and its counter reads `it(`/`test(` DECLARATIONS out of the source. A loop emitting
+  // ten facts from one declaration makes the counter report 836 where the runner prints 845 — and the whole
+  // point of that claim is that a reader COMPARES the printed number against `CLAUDE.md`.
+  const reports = (gate) => assert.match(invoke(`${gate}.mjs`), new RegExp(`^${gate}: `, 'm'));
+
+  it('check-archive reports when invoked as a script', () => reports('check-archive'));
+  it('check-backlog reports when invoked as a script', () => reports('check-backlog'));
+  it('check-comments reports when invoked as a script', () => reports('check-comments'));
+  it('check-decision-claims reports when invoked as a script', () => reports('check-decision-claims'));
+  it('check-decisions reports when invoked as a script', () => reports('check-decisions'));
+  it('check-dev-loop reports when invoked as a script', () => reports('check-dev-loop'));
+  it('check-measurements reports when invoked as a script', () => reports('check-measurements'));
+  it('check-options reports when invoked as a script', () => reports('check-options'));
+  it('check-pitfalls reports when invoked as a script', () => reports('check-pitfalls'));
+  it('check-tautology reports when invoked as a script', () => reports('check-tautology'));
+});
+
+describe('every gate `verify` runs has a CLI-entry fact here', () => {
+  it('and the roster is DERIVED from dev.mjs, never hand-listed', () => {
+    // The registry rule this repository already applies to packages — a new one must enter every registry
+    // and the misses are SILENT — applied to the one registry that proves a guard's entry point fires.
+    // Hand-enumerating it is what let nine accumulate unnoticed.
+    const { inVerify: verifySteps } = commandRoster(repoRoot);
+    const inVerify = [...verifySteps];
+    assert.ok(inVerify.length > 10,
+      `expected verify to run many gates, parsed ${inVerify.length} — a roster that parsed to nothing would `
+      + 'make this fact vacuous, which is the direction it must never fail in');
+
+    const self = readFileSync(new URL(import.meta.url), 'utf8');
+    const missing = inVerify.filter((name) => {
+      // A dispatcher-only command (`build`, `test`, `e2e`) has no script, so there is no entry point to
+      // pin and nothing to require. Only a command backed by its own script owes a fact here.
+      const script = join(repoRoot, 'devtools', 'scripts', `${name}.mjs`);
+      if (!existsSync(script)) return false;
+      return !self.includes(`${name}.mjs`) && !self.includes(`'${name}'`);
+    });
+
+    assert.deepEqual(missing, [],
+      'each of these is a `verify` gate whose `import.meta.main` wrapper nothing proves still fires — '
+      + 'add an `assert.match(invoke("<name>.mjs"), /^<name>: /m)` fact above');
   });
 });

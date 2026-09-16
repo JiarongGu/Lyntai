@@ -38,9 +38,10 @@ describe('serverSpecs', () => {
   });
 
   it('serves the SAME weights per role as memory-decision — the two tables are read together', () => {
-    // Not a tidiness assertion. Part 178 compares the affordance shape against the decision shape on the
-    // same models; a drifted role table would make that comparison wrong rather than noisy, and nothing in
-    // either sweep's output would say so. Hence one table, imported, and this test to keep it one.
+    // Not a tidiness assertion. docs/task-archive.md Part 236 compares the affordance shape against the
+    // decision shape on the same models; a drifted role table would make that comparison wrong rather than
+    // noisy, and nothing in either sweep's output would say so. Hence one table, imported, and this test to
+    // keep it one.
     assert.equal(ROLES, DECISION_ROLES);
   });
 

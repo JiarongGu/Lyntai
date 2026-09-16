@@ -64,8 +64,21 @@ describe('check-counts — parsing a written number', () => {
     assert.equal(parseCount('**thirteen**'), 13);
   });
 
+  it('reads EMPTY as zero, because that is how English spells zero for a set', () => {
+    // The startable-items claim has now hit a boundary its pattern could not express TWICE — plural-only
+    // broke at ONE (2026-09-12), and the noun broke at ZERO (2026-09-16), where the banner naturally reads
+    // "the startable set is EMPTY". A registry that cannot say a legitimate value fails on the day that
+    // value arrives, and the tempting fix is prose bent to satisfy a regex.
+    assert.equal(parseCount('EMPTY'), 0);
+    assert.equal(parseCount('empty'), 0);
+    assert.equal(parseCount('zero'), 0, 'the digit-word spelling must keep working too');
+  });
+
   it('returns null for a word that is not a number, so prose is not treated as a claim', () => {
-    for (const w of ['many', 'several', 'the', 'some', '', null]) assert.equal(parseCount(w), null);
+    // `empty` is a count word; these are not, and the pattern's optional noun means a sentence continuing
+    // "…is going to move" captures one of them. It must be skipped rather than read as a claim of zero.
+    for (const w of ['many', 'several', 'the', 'some', 'going', '', null])
+      assert.equal(parseCount(w), null);
   });
 });
 

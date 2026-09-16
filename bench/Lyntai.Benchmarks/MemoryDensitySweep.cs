@@ -26,7 +26,7 @@ namespace Lyntai.Benchmarks;
 /// <c>memory-importance</c> already established: a correction shares nearly every word with the fact it
 /// corrects, so a bag-of-words fake rates it maximally similar to its target — and a recurrence shares words
 /// with many. The fake would produce a plausible table measuring word overlap, the exact defect that withdrew
-/// an earlier set of numbers (<c>TASKS.md</c> Part 69).</para>
+/// an earlier set of numbers (<c>docs/task-archive.md</c> Part 69).</para>
 ///
 /// <para><b>Pooling across <c>--languages</c> is NOT independent evidence.</b> Every non-English fixture is
 /// a TRANSLATION of the same fixture-pair, and the language axis is built from structurally identical

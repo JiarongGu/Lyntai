@@ -7,7 +7,8 @@
 // cref ships inside the XML docs consumers read in IntelliSense. Scoped to `src/` — tests and samples are
 // free to warn. `--list` prints them all instead of the first 15.
 //
-// Extracted from dev.mjs 2026-08-11 (TASKS.md Part 62) so it can be driven by a test. Nothing about what it
+// Extracted from dev.mjs 2026-08-11 (docs/task-archive.md Part 62) so it can be driven by a test. Nothing
+// about what it
 // CATCHES changed in the move: the same two-part line filter (a warning CODE, and a `src/` path), the same
 // dedup, the same build invocation down to its flags and buffer.
 //
@@ -31,8 +32,9 @@ const repoDefault = join(dirname(here), '..', '..');
 /**
  * An MSBuild diagnostic line carrying a warning CODE — `warning` alone is prose, and prose is not a defect.
  *
- * **Widened 2026-08-12 (TASKS.md Part 62).** The original `[A-Z]{2,4}\d+` could not see two whole families of
- * real diagnostic id, so a published project could carry one and this gate would report `src/` clean:
+ * **Widened 2026-08-12 (docs/task-archive.md Part 62).** The original `[A-Z]{2,4}\d+` could not see two
+ * whole families of real diagnostic id, so a published project could carry one and this gate would report
+ * `src/` clean:
  *
  *   · **Longer than four letters** — .NET's own obsoletion warnings are `SYSLIB0011` (six).
  *   · **Not all upper case** — several analyzer packages emit camelCase ids (`xUnit1013`).

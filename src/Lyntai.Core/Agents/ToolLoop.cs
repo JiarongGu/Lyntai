@@ -104,10 +104,11 @@ public sealed class ToolLoop(
         _ => "prompt",
     };
 
-    /// <summary>The single event-producing core both doors share. Drives the loop (native / prompt / no-tools),
-    /// yields live <see cref="AgentStreamEvent"/>s, and populates <paramref name="steps"/> + <paramref name="usage"/>
-    /// as side outputs so <see cref="RunAsync"/> can fold the same run. Always ends with exactly one terminal
-    /// <see cref="SessionEnded"/> (preceded by a <see cref="UsageFinal"/> when any provider reported usage).</summary>
+    /// <summary>The single event-producing core both doors share. Picks the transport (native / prompt /
+    /// no-tools), re-yields that transport's live <see cref="AgentStreamEvent"/>s, and populates
+    /// <paramref name="steps"/> + <paramref name="usage"/> as side outputs so <see cref="RunAsync"/> can fold
+    /// the same run. Always ends with exactly one terminal <see cref="SessionEnded"/> (preceded by a
+    /// <see cref="UsageFinal"/> when any provider reported usage).</summary>
     private async IAsyncEnumerable<AgentStreamEvent> RunCoreAsync(
         LlmRequest req, int? maxIterations, List<ToolStep> steps, UsageSum usage, TransportChoice transport,
         [EnumeratorCancellation] CancellationToken ct)
@@ -151,172 +152,221 @@ public sealed class ToolLoop(
         transport.Choose(native ? ToolTransport.Native : ToolTransport.Prompt);
         var mode = Tag(transport.Value!.Value);
 
-        if (native)
+        // Finish with the mode already bound, so neither turn loop carries a transport tag it did not choose.
+        IEnumerable<AgentStreamEvent> FinishTurns(ProviderVerdict verdict, string? finalText, string? detail)
+            => Finish(mode, verdict, finalText, detail);
+
+        var turns = native
+            ? RunNativeAsync(req, tools, budget, steps, usage, Enter, FinishTurns, ct)
+            : RunPromptAsync(req, tools, budget, steps, usage, Enter, FinishTurns, ct);
+
+        // A turn loop that reached a terminal has already emitted the run's one SessionEnded; running out
+        // instead is how it reports that the budget was exhausted.
+        var terminated = false;
+        await foreach (var ev in turns.ConfigureAwait(false))
         {
-            // Native path: tool declarations go to the model; its structured LlmReply.ToolCalls drive
-            // execution, fed back as tool-role messages.
-            var declarations = tools.Select(t => new LlmTool(t.Name, t.Description, t.ParametersJsonSchema)).ToList();
-            var messages = new List<LlmMessage>(req.Messages); // no protocol prompt — the model calls tools natively
-
-            // Can this provider's STREAM carry tool calls? Until 3.0 nothing could, so this path always
-            // buffered the whole turn through CompleteAsync — and an agentic answer therefore had no
-            // time-to-first-token at all, however long the model spent writing prose before its last tool
-            // call. Streaming is used only where the provider says its stream delivers calls, because the
-            // failure of guessing wrong is SILENT: no call chunk arrives, and the loop reports the turn's
-            // prose as a final answer instead of running the tool.
-            var streaming = client.SupportsStreamingToolCalls(req);
-
-            for (var iteration = 0; iteration < budget; iteration++)
-            {
-                Enter();
-                var turn = req with { Messages = [.. messages], Tools = declarations };
-
-                string text;
-                IReadOnlyList<LlmToolCall> calls;
-                ProviderVerdict verdict;
-                string? detail;
-
-                if (streaming)
-                {
-                    var prose = new System.Text.StringBuilder();
-                    var streamed = new List<LlmToolCall>();
-                    LlmUsage? turnUsage = null;
-                    verdict = ProviderVerdict.Ok;
-                    detail = null;
-
-                    await foreach (var chunk in client.StreamAsync(turn, ct).ConfigureAwait(false))
-                    {
-                        switch (chunk.Kind)
-                        {
-                            case LlmChunkKind.Content:
-                                // THE POINT of this path: prose reaches the caller as the model writes it,
-                                // rather than after the turn's last tool call has been decided.
-                                prose.Append(chunk.Text);
-                                yield return new TextDelta(chunk.Text);
-                                break;
-                            case LlmChunkKind.ToolCall:
-                                if (chunk.ToolCall is { } streamedCall) streamed.Add(streamedCall);
-                                break;
-                            case LlmChunkKind.Final:
-                                turnUsage = chunk.Usage;
-                                break;
-                            case LlmChunkKind.Error:
-                                verdict = chunk.Verdict;
-                                detail = chunk.Detail;
-                                break;
-                        }
-                    }
-
-                    usage.Add(turnUsage);
-                    text = prose.ToString();
-                    calls = streamed;
-                }
-                else
-                {
-                    // CompleteAsync, NOT CompleteJsonAsync: a native tool-call turn has empty text and its
-                    // structured ToolCalls (the loop's signal) aren't surfaced by the JSON contract.
-                    var reply = await client.CompleteAsync(turn, ct).ConfigureAwait(false);
-                    usage.Add(reply.Usage);
-                    text = reply.Text;
-                    calls = reply.ToolCalls ?? [];
-                    verdict = reply.Verdict;
-                    detail = reply.Detail;
-                }
-
-                if (verdict != ProviderVerdict.Ok)
-                {
-                    foreach (var ev in Finish(mode, verdict, null, detail)) yield return ev;
-                    yield break;
-                }
-                if (calls.Count == 0)
-                {
-                    _logger.LogDebug("tool-loop (native): final answer after {Steps} tool step(s)", steps.Count);
-                    // On the streaming path the prose has ALREADY been delivered chunk by chunk; re-emitting
-                    // the accumulated text here would duplicate the whole answer.
-                    if (!streaming && text.Length > 0) yield return new TextDelta(text);
-                    foreach (var ev in Finish(mode, ProviderVerdict.Ok, text, null)) yield return ev; // no calls → answered
-                    yield break;
-                }
-
-                // any prose the model emitted alongside the calls is surfaced (and preserved in the transcript);
-                // then one tool-result per call (a missing tool_call_id makes providers reject the next request)
-                if (!streaming && !string.IsNullOrEmpty(text)) yield return new TextDelta(text);
-                messages.Add(LlmMessage.AssistantToolCalls(calls, text));
-                foreach (var call in calls)
-                {
-                    yield return new ToolCall(call.Name, call.ArgumentsJson, call.Id);
-                    Enter();
-                    var gated = await GatedInvokeAsync(call.Name, call.ArgumentsJson, ct).ConfigureAwait(false);
-                    if (gated.Blocked)
-                    {
-                        yield return new ToolResult(call.Id, gated.Reason ?? "", true);
-                        foreach (var ev in Finish(mode, ProviderVerdict.Refused, null, gated.Reason)) yield return ev;
-                        yield break;
-                    }
-                    steps.Add(new ToolStep(call.Name, gated.Args, gated.Observation));
-                    yield return new ToolResult(call.Id, gated.Observation, IsErrorObservation(gated.Observation));
-                    messages.Add(LlmMessage.ToolResult(call.Id, gated.Observation));
-                }
-            }
+            terminated |= ev is SessionEnded;
+            yield return ev;
         }
-        else
-        {
-            // Prompt-protocol fallback for providers without native tool-calling: {"tool":…}/{"final":…} over
-            // the text contract via LlmStructuredExtensions.CompleteJsonAsync.
-            var messages = new List<LlmMessage>
-            {
-                LlmMessage.System(BuildSystemPrompt(tools, options.ToolProtocolPreamble)),
-            };
-            messages.AddRange(req.Messages);
-
-            for (var iteration = 0; iteration < budget; iteration++)
-            {
-                // Tools = null: this path drives tool use over TEXT; a caller-supplied req.Tools must not also
-                // be sent as native declarations (tools come from the registry), or a partially-tool-aware
-                // model emits a native tool_calls turn this path never parses.
-                Enter();
-                var reply = await client.CompleteJsonAsync(req with { Messages = [.. messages], Tools = null }, ct).ConfigureAwait(false);
-                usage.Add(reply.Usage);
-                if (reply.Verdict != ProviderVerdict.Ok)
-                {
-                    foreach (var ev in Finish(mode, reply.Verdict, null, reply.Detail)) yield return ev; // surface refusal / all-down
-                    yield break;
-                }
-                if (!TryParseTurn(reply.Text, out var call))
-                {
-                    yield return new TextDelta(reply.Text); // no recognized key → a direct answer
-                    foreach (var ev in Finish(mode, ProviderVerdict.Ok, reply.Text, null)) yield return ev;
-                    yield break;
-                }
-                if (call.IsFinal)
-                {
-                    _logger.LogDebug("tool-loop: final answer after {Steps} tool step(s)", steps.Count);
-                    yield return new TextDelta(call.FinalAnswer);
-                    foreach (var ev in Finish(mode, ProviderVerdict.Ok, call.FinalAnswer, null)) yield return ev;
-                    yield break;
-                }
-
-                yield return new ToolCall(call.ToolName, call.ArgumentsJson, null); // prompt protocol has no call id
-                Enter();
-                var gated = await GatedInvokeAsync(call.ToolName, call.ArgumentsJson, ct).ConfigureAwait(false);
-                if (gated.Blocked)
-                {
-                    yield return new ToolResult(null, gated.Reason ?? "", true);
-                    foreach (var ev in Finish(mode, ProviderVerdict.Refused, null, gated.Reason)) yield return ev;
-                    yield break;
-                }
-                steps.Add(new ToolStep(call.ToolName, gated.Args, gated.Observation));
-                yield return new ToolResult(null, gated.Observation, IsErrorObservation(gated.Observation));
-
-                // feed the model its own tool-call turn, then the observation, and continue
-                messages.Add(LlmMessage.Assistant(reply.Text));
-                messages.Add(LlmMessage.User($"Tool \"{call.ToolName}\" returned:\n{gated.Observation}"));
-            }
-        }
+        if (terminated) yield break;
 
         // both paths exhaust their budget identically — ONE shared non-convergence terminal
         _logger.LogWarning("tool-loop ({Mode}): no final answer within {Budget} iterations", mode, budget);
         foreach (var ev in Finish(mode, ProviderVerdict.Failed, null, $"tool loop did not converge within {budget} iterations")) yield return ev;
+    }
+
+    /// <summary>The NATIVE turn loop: tool declarations go to the model, its structured
+    /// <see cref="LlmReply.ToolCalls"/> drive execution, and each observation is fed back as a tool-role
+    /// message. Ends by re-yielding <paramref name="finish"/>, or simply runs out — which is
+    /// <see cref="RunCoreAsync"/>'s signal that the budget was exhausted.</summary>
+    private async IAsyncEnumerable<AgentStreamEvent> RunNativeAsync(
+        LlmRequest req, IReadOnlyList<ITool> tools, int budget, List<ToolStep> steps, UsageSum usage,
+        Action enter, Func<ProviderVerdict, string?, string?, IEnumerable<AgentStreamEvent>> finish,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var declarations = tools.Select(t => new LlmTool(t.Name, t.Description, t.ParametersJsonSchema)).ToList();
+        var messages = new List<LlmMessage>(req.Messages); // no protocol prompt — the model calls tools natively
+
+        // Can this provider's STREAM carry tool calls? Until 3.0 nothing could, so this path always
+        // buffered the whole turn through CompleteAsync — and an agentic answer therefore had no
+        // time-to-first-token at all, however long the model spent writing prose before its last tool
+        // call. Streaming is used only where the provider says its stream delivers calls, because the
+        // failure of guessing wrong is SILENT: no call chunk arrives, and the loop reports the turn's
+        // prose as a final answer instead of running the tool.
+        var streaming = client.SupportsStreamingToolCalls(req);
+
+        for (var iteration = 0; iteration < budget; iteration++)
+        {
+            enter();
+            var turn = new NativeTurnResult();
+            await foreach (var ev in ReadNativeTurnAsync(
+                               req with { Messages = [.. messages], Tools = declarations },
+                               streaming, usage, turn, ct).ConfigureAwait(false))
+                yield return ev;
+
+            if (turn.Verdict != ProviderVerdict.Ok)
+            {
+                foreach (var ev in finish(turn.Verdict, null, turn.Detail)) yield return ev;
+                yield break;
+            }
+            if (turn.Calls.Count == 0)
+            {
+                _logger.LogDebug("tool-loop (native): final answer after {Steps} tool step(s)", steps.Count);
+                // On the streaming path the prose has ALREADY been delivered chunk by chunk; re-emitting
+                // the accumulated text here would duplicate the whole answer.
+                if (!streaming && turn.Text.Length > 0) yield return new TextDelta(turn.Text);
+                foreach (var ev in finish(ProviderVerdict.Ok, turn.Text, null)) yield return ev; // no calls → answered
+                yield break;
+            }
+
+            // any prose the model emitted alongside the calls is surfaced (and preserved in the transcript);
+            // then one tool-result per call (a missing tool_call_id makes providers reject the next request)
+            if (!streaming && !string.IsNullOrEmpty(turn.Text)) yield return new TextDelta(turn.Text);
+            messages.Add(LlmMessage.AssistantToolCalls(turn.Calls, turn.Text));
+            foreach (var call in turn.Calls)
+            {
+                yield return new ToolCall(call.Name, call.ArgumentsJson, call.Id);
+                enter();
+                var gated = await GatedInvokeAsync(call.Name, call.ArgumentsJson, ct).ConfigureAwait(false);
+                if (gated.Blocked)
+                {
+                    yield return new ToolResult(call.Id, gated.Reason ?? "", true);
+                    foreach (var ev in finish(ProviderVerdict.Refused, null, gated.Reason)) yield return ev;
+                    yield break;
+                }
+                steps.Add(new ToolStep(call.Name, gated.Args, gated.Observation));
+                yield return new ToolResult(call.Id, gated.Observation, IsErrorObservation(gated.Observation));
+                messages.Add(LlmMessage.ToolResult(call.Id, gated.Observation));
+            }
+        }
+    }
+
+    /// <summary>One native turn, read from the provider's STREAM when it carries tool calls and buffered
+    /// through <see cref="ILlmClient.CompleteAsync"/> otherwise. What the turn produced lands in
+    /// <paramref name="result"/> and its tokens in <paramref name="usage"/>, an async iterator having no
+    /// return value to put either in.</summary>
+    private async IAsyncEnumerable<AgentStreamEvent> ReadNativeTurnAsync(
+        LlmRequest turn, bool streaming, UsageSum usage, NativeTurnResult result,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        if (!streaming)
+        {
+            // CompleteAsync, NOT CompleteJsonAsync: a native tool-call turn has empty text and its
+            // structured ToolCalls (the loop's signal) aren't surfaced by the JSON contract.
+            var reply = await client.CompleteAsync(turn, ct).ConfigureAwait(false);
+            usage.Add(reply.Usage);
+            result.Text = reply.Text;
+            result.Calls = reply.ToolCalls ?? [];
+            result.Verdict = reply.Verdict;
+            result.Detail = reply.Detail;
+            yield break;
+        }
+
+        var prose = new StringBuilder();
+        var streamed = new List<LlmToolCall>();
+        LlmUsage? turnUsage = null;
+
+        await foreach (var chunk in client.StreamAsync(turn, ct).ConfigureAwait(false))
+        {
+            switch (chunk.Kind)
+            {
+                case LlmChunkKind.Content:
+                    // THE POINT of this path: prose reaches the caller as the model writes it,
+                    // rather than after the turn's last tool call has been decided.
+                    prose.Append(chunk.Text);
+                    yield return new TextDelta(chunk.Text);
+                    break;
+                case LlmChunkKind.ToolCall:
+                    if (chunk.ToolCall is { } streamedCall) streamed.Add(streamedCall);
+                    break;
+                case LlmChunkKind.Final:
+                    turnUsage = chunk.Usage;
+                    break;
+                case LlmChunkKind.Error:
+                    result.Verdict = chunk.Verdict;
+                    result.Detail = chunk.Detail;
+                    break;
+            }
+        }
+
+        usage.Add(turnUsage);
+        result.Text = prose.ToString();
+        result.Calls = streamed;
+    }
+
+    /// <summary>What one native turn produced, carried out of <see cref="ReadNativeTurnAsync"/> the same way
+    /// <see cref="TransportChoice"/> is carried out of the core: an async iterator cannot return one.</summary>
+    private sealed class NativeTurnResult
+    {
+        public string Text { get; set; } = "";
+
+        public IReadOnlyList<LlmToolCall> Calls { get; set; } = [];
+
+        /// <summary>Ok until an Error chunk (or a buffered reply) says otherwise — a stream that carried no
+        /// error leaves this as the turn's verdict.</summary>
+        public ProviderVerdict Verdict { get; set; } = ProviderVerdict.Ok;
+
+        public string? Detail { get; set; }
+    }
+
+    /// <summary>The PROMPT-PROTOCOL turn loop, for providers without native tool-calling:
+    /// <c>{"tool":…}</c>/<c>{"final":…}</c> over the text contract via
+    /// <see cref="LlmStructuredExtensions.CompleteJsonAsync"/>. Terminates through <paramref name="finish"/>
+    /// or runs out, exactly as the native loop does.</summary>
+    private async IAsyncEnumerable<AgentStreamEvent> RunPromptAsync(
+        LlmRequest req, IReadOnlyList<ITool> tools, int budget, List<ToolStep> steps, UsageSum usage,
+        Action enter, Func<ProviderVerdict, string?, string?, IEnumerable<AgentStreamEvent>> finish,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var messages = new List<LlmMessage>
+        {
+            LlmMessage.System(BuildSystemPrompt(tools, options.ToolProtocolPreamble)),
+        };
+        messages.AddRange(req.Messages);
+
+        for (var iteration = 0; iteration < budget; iteration++)
+        {
+            // Tools = null: this path drives tool use over TEXT; a caller-supplied req.Tools must not also
+            // be sent as native declarations (tools come from the registry), or a partially-tool-aware
+            // model emits a native tool_calls turn this path never parses.
+            enter();
+            var reply = await client.CompleteJsonAsync(req with { Messages = [.. messages], Tools = null }, ct).ConfigureAwait(false);
+            usage.Add(reply.Usage);
+            if (reply.Verdict != ProviderVerdict.Ok)
+            {
+                foreach (var ev in finish(reply.Verdict, null, reply.Detail)) yield return ev; // surface refusal / all-down
+                yield break;
+            }
+            if (!TryParseTurn(reply.Text, out var call))
+            {
+                yield return new TextDelta(reply.Text); // no recognized key → a direct answer
+                foreach (var ev in finish(ProviderVerdict.Ok, reply.Text, null)) yield return ev;
+                yield break;
+            }
+            if (call.IsFinal)
+            {
+                _logger.LogDebug("tool-loop: final answer after {Steps} tool step(s)", steps.Count);
+                yield return new TextDelta(call.FinalAnswer);
+                foreach (var ev in finish(ProviderVerdict.Ok, call.FinalAnswer, null)) yield return ev;
+                yield break;
+            }
+
+            yield return new ToolCall(call.ToolName, call.ArgumentsJson, null); // prompt protocol has no call id
+            enter();
+            var gated = await GatedInvokeAsync(call.ToolName, call.ArgumentsJson, ct).ConfigureAwait(false);
+            if (gated.Blocked)
+            {
+                yield return new ToolResult(null, gated.Reason ?? "", true);
+                foreach (var ev in finish(ProviderVerdict.Refused, null, gated.Reason)) yield return ev;
+                yield break;
+            }
+            steps.Add(new ToolStep(call.ToolName, gated.Args, gated.Observation));
+            yield return new ToolResult(null, gated.Observation, IsErrorObservation(gated.Observation));
+
+            // feed the model its own tool-call turn, then the observation, and continue
+            messages.Add(LlmMessage.Assistant(reply.Text));
+            messages.Add(LlmMessage.User($"Tool \"{call.ToolName}\" returned:\n{gated.Observation}"));
+        }
     }
 
     // A tool observation carrying an unknown-tool / threw-exception marker (see InvokeAsync) is flagged as an

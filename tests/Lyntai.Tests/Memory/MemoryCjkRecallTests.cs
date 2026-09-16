@@ -238,7 +238,8 @@ public class MemoryCjkRecallTests
     /// CO-ACTIVATION during recall (entries re-admitted together). Facts stated once, never re-mentioned and
     /// never co-recalled have no edges at all, so there is nothing for spreading activation to traverse.
     /// <para>Recorded as a fact rather than deleted, because the failing version of it is what makes the next
-    /// test the ANSWER to the consumer's case rather than a decoration. See <c>TASKS.md</c> Part 65, which
+    /// test the ANSWER to the consumer's case rather than a decoration. See
+    /// <c>docs/task-archive.md</c> Part 67, which
     /// reached the same conclusion from the measurement side: "the case needs a GUARANTEE, and the
     /// associative path cannot give one."</para></summary>
     [Theory]

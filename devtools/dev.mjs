@@ -28,7 +28,8 @@ const run = (exe, argv, opts = {}) => {
 };
 
 // The three doctors (pack / version / changelog) live in scripts/doctors.mjs — extracted 2026-08-11 so they
-// could be TESTED (TASKS.md Part 62); a function inside this switch cannot be driven by anything. They keep
+// could be TESTED (docs/task-archive.md Part 62); a function inside this switch cannot be driven by
+// anything. They keep
 // their reasoning next to themselves; this file is their command line.
 
 switch (cmd) {
@@ -44,7 +45,8 @@ switch (cmd) {
   // reason: unresolved crefs ship inside the XML docs consumers read in IntelliSense.
   // Scoped to src/ — tests and samples are free to warn. Pass --list to see them all.
   //
-  // Extracted to its own script 2026-08-11 so it can be TESTED (TASKS.md Part 62) — the three build flags
+  // Extracted to its own script 2026-08-11 so it can be TESTED (docs/task-archive.md Part 62) — the three
+  // build flags
   // it passes are load-bearing and two of them fail green (`--no-incremental` most of all: MSBuild does not
   // re-emit a warning for a project it did not rebuild). Nothing about what it catches changed in the move.
   case 'check-warnings':
@@ -58,7 +60,8 @@ switch (cmd) {
   // graph produces silently, since adding one ProjectReference can pull a whole SDK behind it.
   // The Microsoft.Extensions.* band is auto-allowed (runtime version band; present in any DI app).
   //
-  // Extracted to its own script 2026-08-11 so it can be TESTED (TASKS.md Part 62) — its allowlist-STALENESS
+  // Extracted to its own script 2026-08-11 so it can be TESTED (docs/task-archive.md Part 62) — its
+  // allowlist-STALENESS
   // branch had never run at all, and a rotted allowance is a standing permission for an id to come back
   // without anyone deciding again. Nothing about what it catches changed in the move.
   case 'check-bundle':
@@ -91,7 +94,8 @@ switch (cmd) {
   // reasoning as D26). It runs FIRST in `verify`, before the guards it covers: every one of these scripts
   // fails PERMISSIVELY when it breaks, so a broken guard reports a clean repository, and running it proves
   // nothing. Three measured check-docs defects passed every gate for their whole lifetime that way — see
-  // TASKS.md Part 60 and devtools/scripts/__tests__/. Milliseconds, so unlike consumer-smoke it is in.
+  // docs/task-archive.md Part 60 and devtools/scripts/__tests__/. Milliseconds, so unlike consumer-smoke
+  // it is in.
   //
   // A GLOB, not the directory: Node's runner matches test files by pattern, and a bare directory argument is
   // loaded as a module instead ("Cannot find module …__tests__"). Forward slashes, resolved against repo/.
@@ -119,7 +123,7 @@ switch (cmd) {
     console.error(`\n${label}: ✗ the scripts that GATE this repository are themselves failing` +
       `${Number.isFinite(failed) && failed > 0 ? ` — ${failed} test(s)` : ''}\n` +
       '  Nothing below this gate can be trusted until it is green: each of these scripts fails permissively,\n' +
-      '  so a broken one reports a clean repository (TASKS.md Part 60).');
+      '  so a broken one reports a clean repository (docs/task-archive.md Part 60).');
     process.exitCode = r.status || 1;
     break;
   }
@@ -167,10 +171,10 @@ switch (cmd) {
   // with two different diagnoses and distinguishes neither. This adds a third arm that keeps reinforcement
   // ON with the r-dependence frozen (the real Reinforce called with Age pinned to Stability, where r is
   // exactly the curve's own 0.5 anchor), so `law 3 does not transfer` and `reinforcement is net-harmful` stop
-  // being the same setting. See TASKS.md Part 64 / docs/DECISIONS.md D53.
+  // being the same setting. See docs/task-archive.md Part 64 / docs/DECISIONS.md D53.
   // memory-reinforcement — isolates the r-dependence of law 3 from reinforcement MAGNITUDE, which
   // memory-spacing's SpacingWeight knob cannot separate (it multiplies the whole increase term, so its 0 arm
-  // is reinforcement switched OFF rather than law 3 switched off). TASKS.md Part 64.
+  // is reinforcement switched OFF rather than law 3 switched off). docs/task-archive.md Part 64.
   case 'memory-reinforcement':
     if (!config.benchProject) { console.log('no bench project configured'); break; }
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--reinforcement', ...args]);
@@ -180,7 +184,8 @@ switch (cmd) {
   // both help; stability growth, which multiplies on every recall, hurts badly. If the difference is that
   // the effect COMPOUNDS rather than where its signal comes from, a growth rule that cannot compound should
   // beat both the shipped rule and switching growth off. Four arms over the FORM of the rule, not its
-  // constants. This is what decides whether 3.0 changes DsrOptions.ReinforceGain. TASKS.md Part 64.
+  // constants. This is what decided whether 3.0 changes DsrOptions.ReinforceGain. docs/task-archive.md
+  // Part 64.
   case 'memory-bounded':
     if (!config.benchProject) { console.log('no bench project configured'); break; }
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--bounded', ...args]);
@@ -191,8 +196,9 @@ switch (cmd) {
   // an embedder + vector store no harness supplied. Both arms get the SAME REAL embedder instance and a
   // vector store, so enrichment is held constant and only salience varies — it REFUSES without one, because
   // a bag-of-words fake measures word overlap rather than novelty (the numbers taken through one were
-  // withdrawn, TASKS.md Part 69). It cannot settle whether novelty INVERTS on noisy input — this corpus's
-  // noise is templated, so it reads as familiar rather than novel. TASKS.md Part 53.
+  // withdrawn, docs/task-archive.md Part 69). It cannot settle whether novelty INVERTS on noisy input —
+  // this corpus's noise is templated, so it reads as familiar rather than novel.
+  // docs/task-archive.md Part 53.
   // `--ceiling` sweeps MaxSalience (a switch, not a dial); `--novelty` sweeps NoveltyWeight over all six
   // shapes, which is the ladder that prices a shipped default rather than asking whether a knob does
   // anything.
@@ -258,7 +264,8 @@ switch (cmd) {
 
   // memory-annotation-drift — the complement to the line above, and the question it cannot ask. That sweep
   // reports the mechanism's CEILING with a perfect annotator; this reports how much of it a real model
-  // reaches, as a RATE rather than the anecdote the live test asserts (TASKS.md Part 65). Needs no engine,
+  // reaches, as a RATE rather than the anecdote the live test asserts (docs/task-archive.md Part 216).
+  // Needs no engine,
   // no store and no recall: drift is a property of IMemoryAnnotationPolicy alone. Three columns, because
   // DRIFT ALONE IS VACUOUS — a model answering one handle for everything drifts 0% and links everything,
   // one answering nothing drifts 0% and links nothing, so collapse and empty are printed beside it.
@@ -308,7 +315,8 @@ switch (cmd) {
 
   // memory-salience-weight — whether the `many-candidates` regression salience ships with is recoverable by
   // BOUNDING its ranking voice (ReciprocalRankFusionOptions.SalienceWeight), which is the open half of
-  // TASKS.md Part 65. Needs a REAL embedder, and for a sharper reason than the enrichment sweep's: without
+  // docs/task-archive.md Part 98. Needs a REAL embedder, and for a sharper reason than the enrichment
+  // sweep's: without
   // one, salience declines on every write and RRF ranks by COMPETITION (D82), so a uniformly-absent signal
   // contributes the same constant at every weight — arm 0 and arm 2 are the same engine and the flat curve
   // reads as an exoneration. Every cell therefore reports salient-vs-judged writes, and the verdict refuses
@@ -372,7 +380,7 @@ switch (cmd) {
   // Prices the two verification backends against each other: under `judge` annotation and verification
   // share one instruct server and contend; under `rerank` verification moves to its own cross-encoder and
   // nothing is shared. The ORCHESTRATOR owns every server process; the C# bench only measures and refuses
-  // on an identity mismatch. TASKS.md Part 177.
+  // on an identity mismatch. docs/task-archive.md Part 190.
   case 'memory-contention':
     run('node', [path.join(repo, 'devtools', 'scripts', 'memory-contention.mjs'), ...args]);
     break;
@@ -383,7 +391,8 @@ switch (cmd) {
   // models — one select-from-list call over N options against N score-a-pair calls argmax'd — plus a
   // cross-encoder doing the second shape in one round trip, which separates SHAPE from SIZE. The
   // ORCHESTRATOR owns four concurrent servers so the arms are paired trial for trial; it does NOT refuse a
-  // busy device, because the metric is accuracy and every cell shares one backend. TASKS.md Part 178.
+  // busy device, because the metric is accuracy and every cell shares one backend.
+  // docs/task-archive.md Part 236.
   case 'memory-decision':
     run('node', [path.join(repo, 'devtools', 'scripts', 'memory-decision.mjs'), ...args]);
     break;
@@ -395,7 +404,8 @@ switch (cmd) {
   // flat forced choice. That second arm is what separates the cost of the TOOL TRANSPORT from the cost of
   // choosing; without it a bad number cannot be attributed to either. Both controls go through the real
   // loop driven by a scripted client, so a break in the transport fails a control instead of being
-  // published. Same four roles as memory-decision on four ports of its own. TASKS.md Part 178.
+  // published. Same four roles as memory-decision on four ports of its own.
+  // docs/task-archive.md Part 236.
   case 'tool-affordance':
     run('node', [path.join(repo, 'devtools', 'scripts', 'tool-affordance.mjs'), ...args]);
     break;
@@ -629,8 +639,9 @@ switch (cmd) {
     break;
   }
 
-  // The THIRD member of that family, asking whether what a document COUNTS is still true. TASKS.md Part 73
-  // measured six corrections to a counted claim inside sixty commits, plus two more that went stale during
+  // The THIRD member of that family, asking whether what a document COUNTS is still true.
+  // docs/task-archive.md Part 73 measured six corrections to a counted claim inside sixty commits, plus
+  // two more that went stale during
   // the session which built this — eight incidents, zero automated catches, because check-docs structurally
   // cannot see one: a count going stale retires no vocabulary, so the sentence stays grammatical and wrong.
   // Registry: `COUNTED_CLAIMS` in the script itself (an entry is a regex plus a FUNCTION, so it is code and
@@ -750,12 +761,25 @@ switch (cmd) {
     break;
   }
 
+  // check-docs' OTHER twin, and the one that reads what a rename LEAVES BEHIND rather than what it
+  // retires. When a decision unifies two seams, the sweep replaces both sides of a sentence that
+  // CONTRASTED them — and every existing gate is satisfied, because the retired name is gone and the
+  // survivor resolves. `check-docs`' own HISTORICAL list records this happening in the design record on
+  // 2026-09-15 and fixed it by exempting that file; the same sweep left six more, in DECISIONS, the
+  // CHANGELOG, pitfalls, the README and a shipped `src/` comment. Scans WIDER than check-docs on purpose:
+  // a historical record is accurate by using the vocabulary of its day, and a tautology was never anyone's.
+  case 'check-tautology': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-tautology.mjs'), ...args]);
+    break;
+  }
+
   // check-docs' twin, one layer down: the same "vocabulary a decision retired" question, asked of the
   // frozen PUBLIC SURFACE instead of the prose. It exists because neither neighbour can ask it —
   // check-docs deliberately excludes src/, and the API baseline records parameter names without JUDGING
   // them, so a stale name round-trips cleanly through the one gate whose whole job is noticing API
   // changes. Three of them (`ageClocks:`, `appraisers:`, `modulators:`) reached the eve of the 3.0 freeze
-  // that way and a human review, not a gate, caught them (TASKS.md Part 61, docs/DECISIONS.md D47). Named
+  // that way and a human review, not a gate, caught them (docs/task-archive.md Part 61,
+  // docs/DECISIONS.md D47). Named
   // arguments are source-compatible surface, so after a freeze each one costs a MAJOR version — which is
   // what puts this in `verify` rather than beside `decisions-index`.
   // Registry: `retiredApiNames` in project.config.mjs (its own, NOT retiredTerms — that one is prose).
@@ -805,11 +829,12 @@ switch (cmd) {
     //
     // The guard tests come FIRST, and cost milliseconds: everything after them is enforced BY the scripts
     // they cover, and those scripts fail permissively — a broken one reports a clean repository. Fail before
-    // the guards run rather than trusting ten green lights that were never checked (TASKS.md Part 60).
+    // the guards run rather than trusting ten green lights that were never checked
+    // (docs/task-archive.md Part 60).
     //
     // The documentation gates sit together, innermost last: `check-docs` asks whether the PROSE still says
     // what a decision settled, `check-links` whether its in-repo REFERENCES still resolve,
-    // `check-api-vocabulary` asks the vocabulary question of the frozen public SURFACE (TASKS.md Part 61),
+    // `check-api-vocabulary` asks it of the frozen public SURFACE (docs/task-archive.md Part 61),
     // and `check-samples` COMPILES the fenced C# a consumer copies (Part 59).
     // `check-samples` must follow `build`, which is what makes it a 6s incremental compile rather than a
     // cold one.
@@ -821,7 +846,7 @@ switch (cmd) {
       ['check-counts', []], ['check-comments', []], ['check-decisions', []], ['check-archive', []], ['check-backlog', []],
       ['check-pitfalls', []], ['check-measurements', []], ['check-decision-claims', []], ['check-dev-loop', []],
       ['check-options', []],
-      ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
+      ['check-api-vocabulary', []], ['check-tautology', []], ['check-samples', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
     // Fingerprinted before and after: every line below describes the tree as it was HERE, so a file edited
     // while the gates run makes the whole report — the green summary included — a statement about a tree

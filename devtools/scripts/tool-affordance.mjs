@@ -3,15 +3,15 @@
 //
 // This ORCHESTRATOR owns every server process; the C# `--affordance` sweep it invokes only measures. The
 // SAME four roles `memory-decision` serves, on four ports of its own — the role table is IMPORTED rather
-// than copied, because Part 178 reads the two tables together and a drifted weights list would make that
-// comparison wrong rather than noisy.
+// than copied, because docs/task-archive.md Part 236 reads the two tables together and a drifted weights
+// list would make that comparison wrong rather than noisy.
 //
 // It does NOT refuse a busy device, for `memory-decision`'s reason: the metric is ACCURACY, every cell
 // shares one backend, and a neighbour costs wall clock rather than validity. The device state is SAMPLED
 // and REPORTED so no cost figure here is mistaken for a portable one.
 //
 // The reranker is screened against `rerank-screen`'s published REFERENCE pair before a run is spent: a
-// community GGUF missing its head still loads and still returns scores. TASKS.md Part 178.
+// community GGUF missing its head still loads and still returns scores. docs/task-archive.md Part 236.
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

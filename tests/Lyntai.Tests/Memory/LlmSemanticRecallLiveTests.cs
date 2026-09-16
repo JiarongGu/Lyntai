@@ -15,7 +15,7 @@ using Xunit;
 namespace Lyntai.Tests.Memory;
 
 /// <summary><b>Does the embedder EARN its cost when the question is one only it can answer?</b>
-/// `TASKS.md` Part 69, and the measurement that decides whether that item is a defect or an artefact.
+/// `docs/task-archive.md` Part 69, and the measurement deciding whether that is a defect or an artefact.
 ///
 /// <para><b>The finding it re-examines.</b> Enabling an <see cref="IEmbedder"/> + vector store raised the
 /// corpus miss rate from <c>0.5357</c> to <c>0.8357</c> — an order of magnitude more movement than any
@@ -109,8 +109,9 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
         //     time. So the graph engine has no semantic RETRIEVAL path: an embedder cannot reach a fact
         //     whose wording shares nothing with the query, however good the model is.
         //
-        //     Pinned rather than asserted-away, because it is the load-bearing correction to `TASKS.md`
-        //     Part 69. That item explains the embedder's measured cost as semantic neighbours "competing
+        //     Pinned rather than asserted-away, because it is the load-bearing correction to
+        //     `docs/task-archive.md` Part 69. That item explained the embedder's cost as semantic
+        //     neighbours "competing
         //     for the same bounded slots as lexical hits" — there are no semantic neighbours at recall, so
         //     the mechanism is write-time linking and salience instead. A future change that adds
         //     query-time vector seeding will flip this assertion, which is exactly when someone should be

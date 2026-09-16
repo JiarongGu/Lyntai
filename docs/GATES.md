@@ -6,7 +6,7 @@
 > failure is spurious.
 
 `node devtools/dev.mjs` with no argument prints the authoritative command list; it is derived from the
-switch in `devtools/dev.mjs`, so it cannot be a subset. `verify` runs 23 checks, stopping at the first
+switch in `devtools/dev.mjs`, so it cannot be a subset. `verify` runs 24 checks, stopping at the first
 failure. **Digits, not a number word** — `parseCount` has no hyphenated compounds, so `twenty-one` would be
 skipped rather than compared and the claim it anchors would match nothing.
 
@@ -229,6 +229,24 @@ the path resolves and the Part exists, in the OTHER file, so nothing else can se
 what breaks these**, silently, for every inbound reference; five were live on 2026-08-14. A bare `Part 53`
 with no record named is deliberately ignored — only a reference that NAMES one makes a checkable claim.
 
+**It reached the CODE tier on 2026-09-16, and the delay is the lesson.** The tier had been scanned for
+paths, sections and members since 2026-08-15, and the Part half was left out on a stated measurement — *"a
+task-record reference is a prose convention, and the measurement found none in code"*. Re-run, that scan
+finds **150 across 73 files**: every bench sweep and several gate scripts name the thread they belong to.
+**88 of them were dead**, accumulated silently over every archiving since, and the four Parts retired that
+day broke 28 more while the gate reported the tree clean. **A scope justified by a measurement needs the
+measurement re-run when the tree grows around it** — the same expiry a blocked backlog item has, and it
+expires the same invisible way. The code tier uses a two-line window for this half alone, because a Part
+reference straddles a wrap for the reason it does in prose; 2 of the 150 do.
+
+**It still stops at COMMENT lines, and that narrowing was re-measured rather than inherited.** Ten dead
+references sat in `Console.WriteLine` strings — user-visible bench output, arguably worse than a comment —
+which argues for dropping the restriction. Measured, dropping it yields **21 hits of which 11 are
+`check-links.test.mjs`'s own fixtures**: synthetic `## Part 70 — still open` content the test builds to
+drive the gate. A gate that fires on its own test's inputs is the cry-wolf shape, and it is exactly the
+case `check-docs` states the rule for — *a term inside a string literal is data the program uses, not a
+claim a reader believes*. The ten were fixed by hand; the narrowing stays.
+
 **The section half** (added 2026-08-28) asks whether a `§`-citation names a heading that is there.
 **Renumbering or FOLDING a section is what breaks these**: `docs/memory.md`'s `## 8. What is NOT measured`
 was folded into `## 7` with §9/§10 left un-renumbered, and seven citations across six files kept naming it.
@@ -395,7 +413,7 @@ checkboxes** — five stacked `HANDOVER` blocks plus a running tally of what had
 file holding 17 open items. **The file had RECORDED deleting a 49-line tally for that exact reason on
 2026-09-03 and then regrew a 19-line one in the same place.**
 
-It checks FOUR things. Two are LENGTH: the preamble's non-blank line count against **40**
+It checks FIVE things. Two are LENGTH: the preamble's non-blank line count against **40**
 (`backlogPreambleAllowance`, a ratchet, no escape token), and that **no `HANDOVER` block survives
 anywhere** — a handover describes work that is DONE, so its home is `docs/task-archive.md`, one Part per
 task. The generated roster is excluded from the budget by sitting above the `## Active backlog` heading,
@@ -407,6 +425,21 @@ markers, so a hand-edited table fails, and a blocker with no KIND or no testable
 **State is AUTHORED and never inferred**, which is the whole design: `pitfalls.md` refuted deriving that
 banner from the checkboxes, because "this is a WATCH item" is not computable from a `- [ ]`. The banner it
 replaced advertised finished work four times.
+
+The FIFTH, added 2026-09-16 (BL2): **a `## Part` heading holding no open checkbox FAILS.** The preamble
+budget stops at the first `## Part` — `PREAMBLE_END`'s own boundary — so everything below it was unbounded,
+and the same accumulation simply moved one level down: four Parts reached **295 lines and ZERO open
+checkboxes**, every line a "CLOSED as archive Part N" note, while the preamble rule sat green above them.
+That is the file's own conclusion applied to itself, twice over: *a rule that keeps being violated is a
+missing gate*, and the first gate for it was scoped to where the defect had been rather than to where it
+lives.
+
+**An empty Part is never legitimate**, which is what makes this safe to fail on rather than warn about: a
+Part is a GROUPING of open items, and an emptied one reads as a live home for its question — two stale
+claims were reachable through exactly that. Struck-through items are not `- [ ]` and correctly do not keep
+one alive. It is blind to any heading that is not `## Part <n>`, so a retirement can leave a pointer
+behind without tripping the rule it just satisfied. Counted from the RAW checkbox line, so a Part whose
+items all have broken markers is reported once, as a marker problem.
 
 ### `check-pitfalls` — whether a trap is filed, and its facet index current
 
@@ -536,6 +569,35 @@ generated file cannot hold a `drift-ok`.
 **Its limit, stated rather than oversold:** it catches reintroduction of an EXACT retired identifier, not
 every descendant of a retired word — a rule naming `ISalienceAppraiser` would not have caught the method
 `Appraise`, which is how that one survived.
+
+### `check-tautology` — what a rename LEAVES BEHIND, rather than what it retires
+
+The third sibling of `check-docs`, and it exists because the other two are satisfied by the defect. When a
+decision unifies two seams, the sweep rewrites both old names to the survivor. A sentence that merely
+mentioned one is now correct; a sentence that **contrasted** them now names the same thing on both sides
+and says nothing. The retired name is gone, so `check-docs` is happy; the survivor resolves, so
+`check-links` is happy; prose was never on a baseline, so `check-api-vocabulary` never looked.
+
+**It has happened, and the first remedy treated one file.** `check-docs`' own `HISTORICAL` list records the
+2026-09-15 sweep collapsing a contrast in `docs/2026-07-17-lyntai-design.md`, and exempted that file. The
+same sweep left **six** more — `docs/DECISIONS.md` (D36, D128, D130), `CHANGELOG.md`,
+`.claude/knowledge/pitfalls.md` and a shipped `//` comment in `Lyntai.Core` — plus four in `README.md` that
+this rule's shape does not reach, one of them a compiled sample type-testing `IModelProvider` against
+`IModelProvider`. <!-- tautology-ok: naming the defect this gate catches -->
+
+**Measured before built**, per §Writing a new gate: the prose-only scan returned **6 defects and 0 false
+positives** on the unfixed tree, against the 63-hits/0-defects and 42-of-50 signals this file records as
+REFUSED. Validated by driving it RED against `git show HEAD:` copies of the six files — synthesized
+fixtures prove the patterns, the real pre-fix tree proves the gate.
+
+**It scans WIDER than `check-docs`, on purpose.** That gate exempts historical records because they are
+accurate BY using the vocabulary of their day. A tautology was never anyone's vocabulary — it was wrong the
+moment the sweep wrote it, in every era — so released `CHANGELOG.md` sections and the dated plans of record
+are in scope here, and two of the six lived exactly there.
+
+**Its limit:** it catches a contrast collapsed onto ONE name. The `README.md` four are the other half — <!-- drift-ok: naming the retired seam is this paragraph's subject -->
+`IGenerationStreamProvider` rewritten to `IModelProvider` beside a DIFFERENT surviving name, which no <!-- drift-ok: names the retired seam deliberately -->
+backreference can see. Escape token: `tautology-ok`, its own and no other gate's.
 
 ### `check-samples` — whether a documented C# sample compiles
 

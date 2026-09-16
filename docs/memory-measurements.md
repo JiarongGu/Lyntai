@@ -73,83 +73,83 @@ mistake this column exists to prevent.
 | 1731 | `lyntai-fused-3shot-full` (+ the walk, 39.7… | token-f1 | 200 | +0.9 | — | RETRACTED |
 | 1774 | `lyntai-fused-api` (fused ranking + `Memory… | token-f1 | 1,540 | −0.4 | — | CURRENT |
 | 1829 | `+sem+rel-only` (best mechanical: semantic … | evidence-hit@k | 1,540 | 82.6% | — | CURRENT |
-| 1862 | `+forget0+oracle` (PERFECT judge, no semant… | evidence-hit@k | 1,540 | 74.6% | — | RETRACTED |
-| 1894 | `+sem+rel-only` (the arm that wins LoCoMo) … | prefers-current | 70 knowledge-upda… | −37.1 | — | CURRENT |
-| 1977 | `+sem+forget2` | evidence-hit@k | 200 | 69.5% | — | CURRENT |
-| 2031 | `+sem+forget0.5` — the top rung of a six-po… | evidence-hit@k | 200 | 80.5% | — | CURRENT |
-| 2076 | `+sem+rel-only+oracle` (a PERFECT judge — a… | evidence-hit@k | 200 | 92.5% | — | CURRENT |
-| 2112 | `+sem+rel-only+judge` (gemma3:4b, shipped `… | evidence-hit@k | 200 | 72.5% | — | SUPERSEDED by L2187 |
-| 2187 | `+sem+rel-only+judge@40` (depth 40 = 2×) | evidence-hit@k | 200 | 84.0% | — | CURRENT |
-| 2234 | `+sem+rel-only+judge+fuse` (same judge, sam… | evidence-hit@k | 200 | 83.0% | — | CURRENT |
-| 2328 | `+sem+rel-only+judge+budget5` | evidence-hit@k | 200 | 76.5% | — | CURRENT |
-| 2383 | `extract+forget0` — strong-CLI extracted fa… | prefers-current | 70 knowledge-upda… | 52.9% | — | CURRENT |
-| 2464 | `shot-2` on the `--haystack` variant (61,18… | all-evidence-recall | 125 of 133 multi-… | +4.8 | — | CURRENT |
-| 2490 | `shot-3` on the ORACLE variant | all-evidence-recall | 125 of 133 multi-… | +6.4 | — | RETRACTED |
-| 2504 | `extract+forget0` — `gemma3:4b`-extracted f… | prefers-current | 70 knowledge-upda… | 53.0% | — | CURRENT |
-| 2545 | `extract+reconcile` — ADD/UPDATE/DELETE at … | prefers-current | 25 | 75.0% | — | RETRACTED |
-| 2620 | `+sem` — decay ON (the one-knob partner of … | prefers-current | 70 questions (68 … | 72.5% | — | CURRENT |
-| 2663 | `RetrievabilityWeight` = 1 — shipped | recovery@k | 26 buried entries… | 100.0% | **ships** | CURRENT |
-| 2696 | the FIRST `--recover` run — `page@10` repor… | recovery@k | unstated | 'decay deletes … | — | RETRACTED |
-| 2716 | `+forget4` — `RetrievabilityWeight` walked … | prefers-current | 70 questions, of … | 100.0% | — | CURRENT |
-| 2737 | `lyntai`, haystack variant (model-free, k =… | prefers-current | 70 knowledge-upda… | 86.4% | **ships** | CURRENT |
-| 2808 | `lyntai` vs `vector` on LoCoMo, shared-stor… | evidence-hit@k | unstated | −49.5 | — | RETRACTED |
-| 2848 | `lyntai` shipped ranking observed by the `-… | rrf-score-separation | 25 questions, sam… | −29% | **ships** | CURRENT |
-| 2894 | K = 120 (RRF ladder rung), haystack | current@k | 25 questions | 0.0 points | — | RETRACTED |
-| 2920 | K = 60 (shipped) | evidence-hit@k | 200 LoCoMo questi… | 54.5% | **ships** | CURRENT |
-| 2967 | `shot-1` (single recall, no expansion), Lon… | clean | all 70 questions | 31.4% | **ships** | CURRENT |
-| 2999 | `shot-1` on the 25-question sample of the s… | clean | 25 questions | 40.0% | — | RETRACTED |
-| 3005 | `GraphMemoryOptions.ExpansionRetrievability… | clean | 25 questions | +4.0 | — | RETRACTED |
-| 3085 | `shot-2` on LoCoMo, shared-store run (pre-i… | evidence-hit@k | 200 questions | +6.0 | — | RETRACTED |
-| 3111 | `shot-1` (one-shot recall, shipped `k = 10`… | clean | 70 | 31.4% | — | CURRENT |
-| 3176 | `fill` (`k = 80`, engine's own `CharBudget`… | clean | 70 | 57.1% | — | CURRENT |
-| 3218 | `fill` (`k = 80`) latency in the run that p… | latency | unstated | 14.7 seconds | — | RETRACTED |
-| 3222 | `pool-16` (`GraphMemoryOptions.CandidateMul… | clean | 70 | 58.6% | — | CURRENT |
-| 3262 | `CandidateMultiplier` 4 (shipped) → 16, on … | all-evidence-recall | unstated | −28.0 | — | CURRENT |
-| 3288 | shipped `CandidateMultiplier = 4` (the `lyn… | evidence-hit@k | 200 | 54.5% | **ships** | CURRENT |
-| 3342 | `+sem+rel-only+oracle+pool16` (×16 pool = 3… | evidence-hit@k | unstated | 96.0% | — | CURRENT |
-| 3368 | `+oracle+pool32` (640 candidates, larger th… | evidence-hit@k | unstated | 100.0% | — | RETRACTED |
-| 3381 | `Partition` (shipped) against `+oracle+fuse… | evidence-hit@k | 200 | +2.0 | — | CURRENT |
-| 3407 | `ExpansionRetrievabilityFloor = 0.8`, knowl… | clean | 70q (knowledge-up… | +2.8 | — | CURRENT |
-| 3517 | shipped novelty salience policy at the ship… | miss | 10 seeds × 4 shap… | 0.710 | **ships** | CURRENT |
-| 3556 | `SalienceContext.SimilarCount` on authored … | separability-auc | 5 recurrence / 5 … | AUC = 1.000 | — | CURRENT |
-| 3588 | `recurrence` population mean `SimilarCount`… | similar-count | one probe per pop… | 6.00 | — | RETRACTED |
-| 3609 | `sum` — Σ r(m) — over an unbuilt gist tier,… | regime-picks | 600 replays = 60 … | phase A 300/300… | — | CURRENT |
-| 3640 | `count@θ`, θ = 0.9 read as one of the two p… | regime-picks | 600 replays = 60 … | phase B 300/300… | — | RETRACTED |
-| 3721 | `count@0.9` across `RoutineCount` rungs 3 /… | regime-picks | 2400 replays = 60… | tie 185 → A 175… | — | CURRENT |
-| 3761 | `mean` — Σ r(m)/n — under `bulk` with `Corp… | regime-picks | 2400 replays per … | B 300/300 at se… | — | CURRENT |
-| 3815 | reinforce on **expansion only** (the shippe… | miss | unstated | 0.4429 | — | CURRENT |
-| 3832 | shipped novelty-driven salience policy, iso… | miss | unstated (the `ma… | −0.0786 | **ships** | CURRENT |
-| 3875 | `shot-2` on the `--haystack` variant, `sing… | all-evidence-recall | 64 of 70 single-s… | +0.0 | — | CURRENT |
-| 3918 | `+sem+rel-only+judge` with `gemma-3-1b-it` … | evidence-hit@k | 200 | 83.0% | — | CURRENT |
-| 3962 | `rerank` — the bench-local `CrossEncoderVer… | latency | 50 writes + 50 re… | 94.5 ms recall … | — | CURRENT |
-| 4061 | `+sem+rel-only+judge` — the SHIPPED `Memory… | token-f1 | 301 questions sam… | −0.0346, CI [−0… | **ships** | CURRENT |
-| 4104 | `+sem+rel-only+judge+enginefuse` — the same… | token-f1 | 301 questions sam… | +0.0295, CI [+0… | — | CURRENT |
-| 4175 | the first `memory-decision` grid — gold tak… | forced-choice-accuracy | 200 trials x 5 li… | rerank 53.5% at… | — | RETRACTED |
-| 4183 | the same grid's generative tie counts, take… | forced-choice-accuracy | 200 trials x 5 li… | score-4b 100/20… | — | RETRACTED |
-| 4196 | `rerank` — a 468,393,760 B cross-encoder ar… | forced-choice-accuracy | 261 trials x 5 li… | 72.0% vs 71.5% … | — | CURRENT |
-| 4246 | `score-4b` — how often a generative 0-100 s… | forced-choice-accuracy | 261 trials x 5 li… | score-4b ties o… | — | CURRENT |
-| 4299 | `loop-4b` — a 2,489,757,856 B instruct mode… | forced-choice-accuracy | 168 trials x 5 ro… | 86.3% vs 81.0% … | — | CURRENT |
-| 4312 | `loop-1b` — a 806,058,240 B instruct model … | forced-choice-accuracy | 168 trials x 5 ro… | 10.1% at N=3 fa… | — | CURRENT |
-| 4349 | `loop-4b` on 20 requests NO tool in the ros… | false-call-rate | 20 negative reque… | 90-95% shipped;… | **ships** | CURRENT |
-| 4383 | four sub-100 MB GGUF embedders — `all-MiniL… | screen-verdict | 1 known-similar/k… | 4 of 4 HEALTHY;… | — | CURRENT |
-| 4413 | `cosine-minilm` — a 25,008,064 B `all-MiniL… | forced-choice-accuracy | 168 trials x 5 ro… | 78.6% at N=3 an… | — | CURRENT |
-| 4494 | `potion-base-8M` (30,236,760 B, a CPU looku… | evidence-hit@k | 200 | 54.0% against 5… | — | CURRENT |
-| 4539 | the `model2vec`/`potion` static family — a … | forced-choice-accuracy | 168 trials x 5 ro… | potion 52.4-70.… | — | CURRENT |
-| 4571 | subtracting the corpus centroid before cosi… | forced-choice-accuracy | 168 trials x 5 ro… | +8/+6/+3 for th… | — | CURRENT |
-| 4597 | `lyntai-fused-full` against `lyntai-fused` … | token-f1 | 61 questions x 2 … | completeness +7… | **ships** | CURRENT |
-| 4647 | `nomic-embed-text-v1.5` Q8_0 (146,146,432 B… | token-f1 | 61 questions samp… | every arm withi… | — | CURRENT |
-| 4695 | `loop-tool-native` — `qwen2.5-0.5b-instruct… | forced-choice-accuracy | 168 trials x 5 ro… | -2.4 to -9.6 po… | — | CURRENT |
-| 4703 | `qwen2.5-0.5b-instruct` Q4_K_M against `gem… | screen-verdict | 2 models x 3 tool… | qwen 6/6 emit t… | — | CURRENT |
-| 4780 | `loop-tool-native` against `loop-tool`, the… | false-call-rate | 20 negative reque… | 20-30% native a… | — | CURRENT |
-| 4817 | `full` — the shipped recall at k = 10 and t… | clean | 70 questions, hay… | -11.4 at 1,200;… | — | CURRENT |
-| 4872 | `full` — the shipped recall asking for Memo… | clean | 70 questions, hay… | a monotone rise… | — | CURRENT |
-| 4918 | `full` — the shipped recall asking for Memo… | all-evidence-recall | 132 questions, ha… | negative at eve… | — | CURRENT |
-| 4961 | `cosine` — a 333,590,944 B embedder scoring… | forced-choice-accuracy | 168 trials at eac… | 96.4 percent at… | — | CURRENT |
-| 4998 | the SHIPPED `LlmMemoryAnnotationPolicy` aga… | drift-rate | 24 eligible facts… | 41.7% to 87.5%;… | — | RETRACTED |
-| 5040 | a pure-CODE reconciler over the SAME model … | drift-rate | 24 eligible facts… | no change in 5 … | — | CURRENT |
-| 5079 | the same three models and fixture through t… | drift-rate | 20-24 eligible fa… | 83.3% to 90.5% … | — | CURRENT |
-| 5106 | a pure-CODE recency rule — carry the PREVIO… | drift-rate | 20-24 eligible fa… | gap 0: 87.0% → … | — | CURRENT |
-| 5136 | a bench-local selective annotator — number … | drift-rate | 4-24 eligible fac… | 0.0% drift at 1… | — | CURRENT |
+| 1863 | `+forget0+oracle` (PERFECT judge, no semant… | evidence-hit@k | 1,540 | 74.6% | — | RETRACTED |
+| 1896 | `+sem+rel-only` (the arm that wins LoCoMo) … | prefers-current | 70 knowledge-upda… | −37.1 | — | CURRENT |
+| 1979 | `+sem+forget2` | evidence-hit@k | 200 | 69.5% | — | CURRENT |
+| 2033 | `+sem+forget0.5` — the top rung of a six-po… | evidence-hit@k | 200 | 80.5% | — | CURRENT |
+| 2078 | `+sem+rel-only+oracle` (a PERFECT judge — a… | evidence-hit@k | 200 | 92.5% | — | CURRENT |
+| 2114 | `+sem+rel-only+judge` (gemma3:4b, shipped `… | evidence-hit@k | 200 | 72.5% | — | SUPERSEDED by L2189 |
+| 2189 | `+sem+rel-only+judge@40` (depth 40 = 2×) | evidence-hit@k | 200 | 84.0% | — | CURRENT |
+| 2236 | `+sem+rel-only+judge+fuse` (same judge, sam… | evidence-hit@k | 200 | 83.0% | — | CURRENT |
+| 2330 | `+sem+rel-only+judge+budget5` | evidence-hit@k | 200 | 76.5% | — | CURRENT |
+| 2385 | `extract+forget0` — strong-CLI extracted fa… | prefers-current | 70 knowledge-upda… | 52.9% | — | CURRENT |
+| 2466 | `shot-2` on the `--haystack` variant (61,18… | all-evidence-recall | 125 of 133 multi-… | +4.8 | — | CURRENT |
+| 2492 | `shot-3` on the ORACLE variant | all-evidence-recall | 125 of 133 multi-… | +6.4 | — | RETRACTED |
+| 2506 | `extract+forget0` — `gemma3:4b`-extracted f… | prefers-current | 70 knowledge-upda… | 53.0% | — | CURRENT |
+| 2547 | `extract+reconcile` — ADD/UPDATE/DELETE at … | prefers-current | 25 | 75.0% | — | RETRACTED |
+| 2622 | `+sem` — decay ON (the one-knob partner of … | prefers-current | 70 questions (68 … | 72.5% | — | CURRENT |
+| 2665 | `RetrievabilityWeight` = 1 — shipped | recovery@k | 26 buried entries… | 100.0% | **ships** | CURRENT |
+| 2698 | the FIRST `--recover` run — `page@10` repor… | recovery@k | unstated | 'decay deletes … | — | RETRACTED |
+| 2718 | `+forget4` — `RetrievabilityWeight` walked … | prefers-current | 70 questions, of … | 100.0% | — | CURRENT |
+| 2739 | `lyntai`, haystack variant (model-free, k =… | prefers-current | 70 knowledge-upda… | 86.4% | **ships** | CURRENT |
+| 2810 | `lyntai` vs `vector` on LoCoMo, shared-stor… | evidence-hit@k | unstated | −49.5 | — | RETRACTED |
+| 2850 | `lyntai` shipped ranking observed by the `-… | rrf-score-separation | 25 questions, sam… | −29% | **ships** | CURRENT |
+| 2896 | K = 120 (RRF ladder rung), haystack | current@k | 25 questions | 0.0 points | — | RETRACTED |
+| 2922 | K = 60 (shipped) | evidence-hit@k | 200 LoCoMo questi… | 54.5% | **ships** | CURRENT |
+| 2969 | `shot-1` (single recall, no expansion), Lon… | clean | all 70 questions | 31.4% | **ships** | CURRENT |
+| 3001 | `shot-1` on the 25-question sample of the s… | clean | 25 questions | 40.0% | — | RETRACTED |
+| 3007 | `GraphMemoryOptions.ExpansionRetrievability… | clean | 25 questions | +4.0 | — | RETRACTED |
+| 3087 | `shot-2` on LoCoMo, shared-store run (pre-i… | evidence-hit@k | 200 questions | +6.0 | — | RETRACTED |
+| 3113 | `shot-1` (one-shot recall, shipped `k = 10`… | clean | 70 | 31.4% | — | CURRENT |
+| 3178 | `fill` (`k = 80`, engine's own `CharBudget`… | clean | 70 | 57.1% | — | CURRENT |
+| 3220 | `fill` (`k = 80`) latency in the run that p… | latency | unstated | 14.7 seconds | — | RETRACTED |
+| 3224 | `pool-16` (`GraphMemoryOptions.CandidateMul… | clean | 70 | 58.6% | — | CURRENT |
+| 3264 | `CandidateMultiplier` 4 (shipped) → 16, on … | all-evidence-recall | unstated | −28.0 | — | CURRENT |
+| 3290 | shipped `CandidateMultiplier = 4` (the `lyn… | evidence-hit@k | 200 | 54.5% | **ships** | CURRENT |
+| 3344 | `+sem+rel-only+oracle+pool16` (×16 pool = 3… | evidence-hit@k | unstated | 96.0% | — | CURRENT |
+| 3370 | `+oracle+pool32` (640 candidates, larger th… | evidence-hit@k | unstated | 100.0% | — | RETRACTED |
+| 3383 | `Partition` (shipped) against `+oracle+fuse… | evidence-hit@k | 200 | +2.0 | — | CURRENT |
+| 3409 | `ExpansionRetrievabilityFloor = 0.8`, knowl… | clean | 70q (knowledge-up… | +2.8 | — | CURRENT |
+| 3519 | shipped novelty salience policy at the ship… | miss | 10 seeds × 4 shap… | 0.710 | **ships** | CURRENT |
+| 3558 | `SalienceContext.SimilarCount` on authored … | separability-auc | 5 recurrence / 5 … | AUC = 1.000 | — | CURRENT |
+| 3590 | `recurrence` population mean `SimilarCount`… | similar-count | one probe per pop… | 6.00 | — | RETRACTED |
+| 3611 | `sum` — Σ r(m) — over an unbuilt gist tier,… | regime-picks | 600 replays = 60 … | phase A 300/300… | — | CURRENT |
+| 3642 | `count@θ`, θ = 0.9 read as one of the two p… | regime-picks | 600 replays = 60 … | phase B 300/300… | — | RETRACTED |
+| 3723 | `count@0.9` across `RoutineCount` rungs 3 /… | regime-picks | 2400 replays = 60… | tie 185 → A 175… | — | CURRENT |
+| 3763 | `mean` — Σ r(m)/n — under `bulk` with `Corp… | regime-picks | 2400 replays per … | B 300/300 at se… | — | CURRENT |
+| 3817 | reinforce on **expansion only** (the shippe… | miss | unstated | 0.4429 | — | CURRENT |
+| 3834 | shipped novelty-driven salience policy, iso… | miss | unstated (the `ma… | −0.0786 | **ships** | CURRENT |
+| 3877 | `shot-2` on the `--haystack` variant, `sing… | all-evidence-recall | 64 of 70 single-s… | +0.0 | — | CURRENT |
+| 3920 | `+sem+rel-only+judge` with `gemma-3-1b-it` … | evidence-hit@k | 200 | 83.0% | — | CURRENT |
+| 3964 | `rerank` — the bench-local `CrossEncoderVer… | latency | 50 writes + 50 re… | 94.5 ms recall … | — | CURRENT |
+| 4063 | `+sem+rel-only+judge` — the SHIPPED `Memory… | token-f1 | 301 questions sam… | −0.0346, CI [−0… | **ships** | CURRENT |
+| 4106 | `+sem+rel-only+judge+enginefuse` — the same… | token-f1 | 301 questions sam… | +0.0295, CI [+0… | — | CURRENT |
+| 4177 | the first `memory-decision` grid — gold tak… | forced-choice-accuracy | 200 trials x 5 li… | rerank 53.5% at… | — | RETRACTED |
+| 4185 | the same grid's generative tie counts, take… | forced-choice-accuracy | 200 trials x 5 li… | score-4b 100/20… | — | RETRACTED |
+| 4198 | `rerank` — a 468,393,760 B cross-encoder ar… | forced-choice-accuracy | 261 trials x 5 li… | 72.0% vs 71.5% … | — | CURRENT |
+| 4248 | `score-4b` — how often a generative 0-100 s… | forced-choice-accuracy | 261 trials x 5 li… | score-4b ties o… | — | CURRENT |
+| 4301 | `loop-4b` — a 2,489,757,856 B instruct mode… | forced-choice-accuracy | 168 trials x 5 ro… | 86.3% vs 81.0% … | — | CURRENT |
+| 4314 | `loop-1b` — a 806,058,240 B instruct model … | forced-choice-accuracy | 168 trials x 5 ro… | 10.1% at N=3 fa… | — | CURRENT |
+| 4351 | `loop-4b` on 20 requests NO tool in the ros… | false-call-rate | 20 negative reque… | 90-95% shipped;… | **ships** | CURRENT |
+| 4385 | four sub-100 MB GGUF embedders — `all-MiniL… | screen-verdict | 1 known-similar/k… | 4 of 4 HEALTHY;… | — | CURRENT |
+| 4415 | `cosine-minilm` — a 25,008,064 B `all-MiniL… | forced-choice-accuracy | 168 trials x 5 ro… | 78.6% at N=3 an… | — | CURRENT |
+| 4496 | `potion-base-8M` (30,236,760 B, a CPU looku… | evidence-hit@k | 200 | 54.0% against 5… | — | CURRENT |
+| 4541 | the `model2vec`/`potion` static family — a … | forced-choice-accuracy | 168 trials x 5 ro… | potion 52.4-70.… | — | CURRENT |
+| 4573 | subtracting the corpus centroid before cosi… | forced-choice-accuracy | 168 trials x 5 ro… | +8/+6/+3 for th… | — | CURRENT |
+| 4599 | `lyntai-fused-full` against `lyntai-fused` … | token-f1 | 61 questions x 2 … | completeness +7… | **ships** | CURRENT |
+| 4649 | `nomic-embed-text-v1.5` Q8_0 (146,146,432 B… | token-f1 | 61 questions samp… | every arm withi… | — | CURRENT |
+| 4698 | `loop-tool-native` — `qwen2.5-0.5b-instruct… | forced-choice-accuracy | 168 trials x 5 ro… | -2.4 to -9.6 po… | — | CURRENT |
+| 4706 | `qwen2.5-0.5b-instruct` Q4_K_M against `gem… | screen-verdict | 2 models x 3 tool… | qwen 6/6 emit t… | — | CURRENT |
+| 4783 | `loop-tool-native` against `loop-tool`, the… | false-call-rate | 20 negative reque… | 20-30% native a… | — | CURRENT |
+| 4820 | `full` — the shipped recall at k = 10 and t… | clean | 70 questions, hay… | -11.4 at 1,200;… | — | CURRENT |
+| 4876 | `full` — the shipped recall asking for Memo… | clean | 70 questions, hay… | a monotone rise… | — | CURRENT |
+| 4922 | `full` — the shipped recall asking for Memo… | all-evidence-recall | 132 questions, ha… | negative at eve… | — | CURRENT |
+| 4965 | `cosine` — a 333,590,944 B embedder scoring… | forced-choice-accuracy | 168 trials at eac… | 96.4 percent at… | — | CURRENT |
+| 5002 | the SHIPPED `LlmMemoryAnnotationPolicy` aga… | drift-rate | 24 eligible facts… | 41.7% to 87.5%;… | — | RETRACTED |
+| 5044 | a pure-CODE reconciler over the SAME model … | drift-rate | 24 eligible facts… | no change in 5 … | — | CURRENT |
+| 5083 | the same three models and fixture through t… | drift-rate | 20-24 eligible fa… | 83.3% to 90.5% … | — | CURRENT |
+| 5110 | a pure-CODE recency rule — carry the PREVIO… | drift-rate | 20-24 eligible fa… | gap 0: 87.0% → … | — | CURRENT |
+| 5140 | a bench-local selective annotator — number … | drift-rate | 4-24 eligible fac… | 0.0% drift at 1… | — | CURRENT |
 
 <!-- results:end -->
 
@@ -1270,11 +1270,11 @@ embedder on one workload.
 
 ### Per-source fusion clears cosine, and the 63.5% bar above is now STALE (`memory-locomo --retrieval`, seed-source fusion, 2026-08-31) <!-- result: id=locomo-fusion-sem-rel-only arm="`+sem+rel-only` under per-source seed fusion (`IMemorySeedSource`, D103); SQLite store, `nomic-embed-text`" metric=evidence-hit@k n="unstated" value="83.0%" ships=no status=CURRENT supersedes="locomo-sem-rel-only-n200" -->
 
-Part 128's surviving direction — make `Relevance` comparable before it is ranked — shipped as
-`IMemorySeedSource` (**D103**): `ReciprocalRankFusionPolicy` now fuses each source's own ranked list instead
-of one pooled `Relevance` field. **This measurement is what the 63.5% figure two sections up predates.** That
-number was `+sem+rel-only` BEFORE this shipped; the same arm, same name, now reads 83.0% below — read the
-table here, not the one above, for the current best mechanical arm.
+`docs/task-archive.md` Part 235's surviving direction — make `Relevance` comparable before it is ranked —
+shipped as `IMemorySeedSource` (**D103**): `ReciprocalRankFusionPolicy` now fuses each source's own ranked
+list instead of one pooled `Relevance` field. **This measurement is what the 63.5% figure two sections up
+predates.** That number was `+sem+rel-only` BEFORE this shipped; the same arm, same name, now reads 83.0%
+below — read the table here, not the one above, for the current best mechanical arm.
 
 **Controls, read before the result** — the same three the harness has reproduced before, run twice on tree
 `7e77020`:
@@ -1305,8 +1305,8 @@ The gain is per-source fusion, not an incidental reweighting.
 
 **`+sem+rel-only` at 83.0% is the actual best mechanical arm, above plain cosine's 80.5%** — the first time
 this engine has beaten the formula it was losing to by 26.0 points two sections up. Category detail:
-multi-hop 81.1% against cosine's own 81.1% (equal, where Part 128 recorded 64.9% even with a PERFECT judge),
-single-hop 87.2% against cosine's 82.6%.
+multi-hop 81.1% against cosine's own 81.1% (equal, where `docs/task-archive.md` Part 235 recorded 64.9%
+even with a PERFECT judge), single-hop 87.2% against cosine's 82.6%.
 
 **Reproducibility establishes DETERMINISM, not a noise bound.** The two runs' arm tables are byte-identical.
 This harness is deterministic by construction — each conversation ingested once, cloned per question,
@@ -1437,8 +1437,8 @@ CORRECT verdicts do not survive** — gold *"Restoring cars"* against the answer
 its INCORRECT verdicts are defensible answers. Applied to its 1042 yes / 439 no, the corrected count is
 ≈848, i.e. **≈55% against the reported 67.7%**.
 <br>**The bias is COMMON-MODE**: the same 4B model grades every arm, so it distorts absolutes far more than
-differences — which is the measured justification for `TASKS.md` Part 109's "only the arm difference
-transfers" rule, previously held on principle alone.
+differences — which is the measured justification for `docs/task-archive.md` Part 233's "only the arm
+difference transfers" rule, previously held on principle alone.
 <br>**Stated as a lower bound, because the calibration has a flaw of its own**: the re-grade was NOT blinded
 — the grader could see each verdict while judging it, which anchors in the direction that flatters the
 judge. 25%/15% are therefore floors on disagreement, not point estimates. A blinded re-grade is the honest
@@ -1576,10 +1576,10 @@ that result stands. What the metric cannot support is the INFERENCE that usually
 retrieval should mean better answers.* Between a graph arm and a cosine arm it does not follow, because the
 two deliver different amounts of the turn they both found.
 
-**It is the mechanism, and the subsection below MEASURES it at +11.7 of a 12.0-point gap.** `TASKS.md`
-Part 128's pre-registration guessed it in words — *"the engine returns HEADLINES and the reader cannot answer
-from a pointer"* — and nothing quantified it. The quantity is 56.2% of the text, and the reason nobody caught
-it is that the one metric watching that stage is blind to it by construction.
+**It is the mechanism, and the subsection below MEASURES it at +11.7 of a 12.0-point gap.**
+`docs/task-archive.md` Part 235's pre-registration guessed it in words — *"the engine returns HEADLINES and
+the reader cannot answer from a pointer"* — and nothing quantified it. The quantity is 56.2% of the text,
+and the reason nobody caught it is that the one metric watching that stage is blind to it by construction.
 
 **A fixed-slot content experiment in the published table said the opposite, and it did NOT generalise.** <!-- result: id=locomo-fixed-slot-content-n1540 arm="fixed-slot content contrast `lyntai-2shot` → `lyntai-3shot` (identical 40 items, 40% vs 80% content share) at `--seeds 16`" metric=token-f1 n="1,540" value="+1.1" ships=no status=RETRACTED -->
 At `--seeds 16` shot 3 discovers nothing new (`new 0.0`, measured), so **`lyntai-2shot` and `lyntai-3shot`
@@ -1810,10 +1810,10 @@ run talks itself out of a gap. Reading it as a floor is a judgement, not a measu
 
 **4. The category splits moved, and multi-hop is the one worth keeping.** It read 38.0 against 37.8 at
 n = 200 — a tie — and reads **35.8 against 39.8** here, so the engine is 4.0 points behind cosine on the
-category `TASKS.md` **Part 128** already carries as the one no judge fixes. single-hop replicates as a win
-(**52.1 against 50.5**, +1.6 against +1.9), while temporal (−2.3) and open-domain (−1.9) stay behind and
-both narrow by more than half. **None of the n = 200 category cells was resolvable** — a category holds a
-few dozen questions at that sample — so what changed is the resolution, not the engine.
+category `docs/task-archive.md` **Part 235** already carries as the one no judge fixes. single-hop
+replicates as a win (**52.1 against 50.5**, +1.6 against +1.9), while temporal (−2.3) and open-domain
+(−1.9) stay behind and both narrow by more than half. **None of the n = 200 category cells was resolvable**
+— a category holds a few dozen questions at that sample — so what changed is the resolution, not the engine.
 
 **5. The pre-registration held on all three clauses**, registered in `TASKS.md` before the run started:
 `lyntai-fused-api` reproduces 42.2% ± 0.3 (42.0 ✓), `vector` lands in 41.0–43.0% (42.4 ✓), and the
@@ -1829,7 +1829,8 @@ walk is better, and no default moves on it (`MemoryDetail.Full` stays opt-in, **
 ### The retrieval ladder at FULL sample: the best mechanical arm clears cosine, and multi-hop's "16-point" gap is 3.2 (`memory-locomo --retrieval`, 2026-09-02) <!-- result: id=locomo-sem-rel-only-full-n1540 arm="`+sem+rel-only` (best mechanical: semantic seeds, relevance-only ranking) against `vector` (plain cosine)" metric=evidence-hit@k n="1,540" value="82.6%" ships=no status=CURRENT supersedes="locomo-multihop-residual-oracle" -->
 
 **Every retrieval figure above this line is n = 200.** This is the first full-sample run of the ladder, and
-it exists because `TASKS.md` Part 128's multi-hop item was reasoning from a 37-question category cell.
+it exists because `docs/task-archive.md` Part 235's multi-hop item was reasoning from a 37-question
+category cell.
 
 **Instrument.** `node devtools/dev.mjs memory-locomo --retrieval --n 1540 --no-judge --arms
 vector,+sem+rel-only,+forget0+oracle`, all 1,540 questions, seed 12345, embedder `nomic-embed-text`, no
@@ -1853,17 +1854,18 @@ and this is the COMPLETE question set rather than a draw from it. So no noise-fl
 confirmation that this engine's best mechanical configuration beats the formula it was 26 points behind in
 August. It wins single-hop (+3.5) and temporal (+1.3), and loses multi-hop (−3.2) and open-domain (−1.1).
 
-**2. Multi-hop's gap is 3.2 points, not the 16.2 the backlog was carrying.** `TASKS.md` Part 128 recorded
-*"64.9% even with a PERFECT judge, against cosine's 81.1%"* and inferred that multi-hop evidence sits
-outside `VerificationDepth`. That figure is a PRE-FUSION arm; per-source fusion (**D103**) had already
-superseded it the same day. At full sample the best mechanical arm reads 79.8 against 83.0 — a real but
-ordinary category deficit, and **no depth question follows from it.**
+**2. Multi-hop's gap is 3.2 points, not the 16.2 the backlog was carrying.** `docs/task-archive.md`
+Part 235 recorded *"64.9% even with a PERFECT judge, against cosine's 81.1%"* and inferred that multi-hop
+evidence sits outside `VerificationDepth`. That figure is a PRE-FUSION arm; per-source fusion (**D103**) had
+already superseded it the same day. At full sample the best mechanical arm reads 79.8 against 83.0 — a real
+but ordinary category deficit, and **no depth question follows from it.**
 
 **3. The PERFECT-JUDGE arm is the worst of the three, and that is the sharpest result here.** <!-- result: id=locomo-forget0-oracle-n1540 arm="`+forget0+oracle` (PERFECT judge, no semantic seeds)" metric=evidence-hit@k n="1,540" value="74.6%" ships=no status=RETRACTED -->
 `+forget0+oracle` scores **74.6%** — 8.0 below the mechanical arm and 6.5 below cosine — with a judge that
 endorses exactly the evidence the dataset names. A pure formula beating formula-plus-oracle was the reading
-Part 128 opened with at n = 200; it now holds on the whole benchmark. **The deficit was never the model
-tier**, which is what `model-decoupling.md` asks a design to demonstrate rather than assume.
+`docs/task-archive.md` Part 235 opened with at n = 200; it now holds on the whole benchmark. **The deficit
+was never the model tier**, which is what `model-decoupling.md` asks a design to demonstrate rather than
+assume.
 
 **What point 3 does NOT establish, stated because the arms invite the stronger claim.** `+forget0+oracle`
 carries no semantic seeds and `+sem+rel-only` carries no judge, so **no measured arm pairs the judge with
@@ -2102,8 +2104,8 @@ The claim that survives is narrower: **a judge cannot rescue a badly-seeded pool
 `+forget0+oracle`'s 74.6% measures — and it says nothing about a judge on a good one.
 
 **3. So the residual misses ARE reachable-but-outranked**, which is the branch that makes a real model run
-worth spending. `TASKS.md` Part 128's judge item was re-aimed onto this base before this ran; the run
-confirms the base was the right one.
+worth spending. `docs/task-archive.md` Part 235's judge item was re-aimed onto this base before this ran;
+the run confirms the base was the right one.
 
 **A CEILING, not a score.** The oracle endorses exactly the evidence LoCoMo names, so +9.5 is what promotion
 could recover at best and no claim about any model's accuracy. n = 200, one embedder; the category cells are
@@ -2466,8 +2468,8 @@ consolidation against read-time decay — measured on a baseline built to be goo
 The third LongMemEval class to get a shot curve, and the first whose metric was settled by measuring the
 class rather than reasoning about it: `multi-session` carries 2.5 flagged turns with **91% spanning more than
 one session**, and no current/stale split, so knowledge-update's preference metric is structurally
-inapplicable and temporal's all-evidence recall is what it asks for (`TASKS.md` Part 116). 125 of 133
-questions load — the other 8 carry no flagged turn at all.
+inapplicable and temporal's all-evidence recall is what it asks for (`docs/task-archive.md` Part 234).
+125 of 133 questions load — the other 8 carry no flagged turn at all.
 
 **Instrument.** `--multi --shots`, oracle then `--haystack` (61,182 turns per arm, 489 per question), 338.2s
 and 4,615.3s. Raw output, gitignored:
@@ -2914,8 +2916,8 @@ to the published table at all.
 `K` is a GLOBAL ranking constant — every LoCoMo figure in this document was measured at 60, and moving it
 would move them all, in a direction this says nothing about. 60 is Cormack, Clarke & Buettcher's published
 value for fusing IR result lists, which is a different problem from fusing decay against relevance. **This is
-an argument for sweeping `K` properly, not for changing a default**; `TASKS.md` Part 109 carried it, and the
-section below is that sweep.
+an argument for sweeping `K` properly, not for changing a default**; `docs/task-archive.md` Part 233
+carried it, and the section below is that sweep.
 
 ### `K` is a COMPROMISE, and the two benchmarks pull opposite ways (`memory-locomo --ranks`, 2026-08-30) <!-- result: id=k-ladder-locomo-shipped-k60-n200 arm="K = 60 (shipped)" metric=evidence-hit@k n="200 LoCoMo questions, seed 12345 (LME ladder: all 70 knowledge-update haystack, seed 20260829)" value="54.5%" ships=yes status=CURRENT supersedes="lme-k120-current-free-n25" -->
 
@@ -3493,8 +3495,8 @@ in full — so the "we have never touched a shared suite" version of this gap is
 comparability: those figures are **model-free retrieval** metrics against a plain-cosine control on this
 machine's embedder, while the field publishes end-to-end QA accuracy read by a frontier model, and the reader
 sets that ceiling far more than the memory layer does. So nothing here can be ranked against Mem0, Zep or
-Letta in either direction — including favourably — and closing that needs the QA half, which `TASKS.md`
-Part 109 carries.
+Letta in either direction — including favourably — and closing that needs the QA half, which
+`docs/task-archive.md` Part 233 carried.
 
 **On CONSOLIDATION the field puts the abstraction at ENCODING, and this engine was looking for it at
 retrieval** (surveyed 2026-08-31, for the gist tier). Supersession is not inferred anywhere that solves it:
@@ -4165,9 +4167,9 @@ property of `Partition` alone; on the seam a deployment is most likely to regist
 have nothing to choose between them.
 
 **What it does NOT say.** **COST** — the judge and the reader share one model, which is the contention
-priced in the section above, so nothing here prices the option's latency. **A SECOND READER** — one reader
-cannot separate its own ceiling from the memory layer's, and that is `TASKS.md` Part 109's remaining half;
-the absolute numbers are a small local model's and only the arm differences transfer. **LoCoMo only**, whose
+priced in the section above, so nothing here prices the option's latency. **A SECOND READER** — this ran on
+one, and the widening across three reader sizes is `docs/task-archive.md` Part 200, not here; the absolute
+numbers are a small local model's and only the arm differences transfer. **LoCoMo only**, whose
 workload rewards finding where LongMemEval's rewards burying, so this says nothing about the knowledge-update
 axis. And the SHIPPED depth only, which is DERIVED (factor 4 × the recall limit = 80) — no depth was swept
 here, and the 2026-09-03 sections above are what say depth is the larger lever.
@@ -4199,7 +4201,7 @@ hardcoded to 100%, so the one control aimed at gold labelling could not fail.
 (`devtools/_decision-fixed-run1.txt`, `devtools/_decision-fixed-run2.txt`). <!-- link-ok: gitignored raw sweep output, named as provenance -->
 Every selective figure above stops at 20 candidates and measures an endorse-a-SUBSET task whose base rate
 is ~1.5%; a decision is a FORCED CHOICE over a short list, so neither the precision nor the lift column
-transfers. `TASKS.md` Part 178 asked which shape wins at N = 3-7 and at what size.
+transfers. `docs/task-archive.md` Part 236 asked which shape wins at N = 3-7 and at what size.
 
 One trial is a LoCoMo question with **exactly one** evidence turn in its conversation, plus N−1 distractors
 that are the top NON-evidence turns by cosine — what a retriever actually hands a decision system. 261
@@ -4302,7 +4304,7 @@ carried a ~30% neighbour load throughout, which bounds the wall clock and not th
 `run3-escape.log`). <!-- link-ok: gitignored raw sweep output, named as provenance -->
 `docs/model-tasks.md` §1 lists `affordance` as the one shape with **no evidence at any size** and the one
 this library does not bound. This is that measurement, and it is the PROMPT half only: the native transport
-is silently inert on both models here and blocked on a positive control (`TASKS.md` Part 178).
+is silently inert on both models here and blocked on a positive control (`docs/task-archive.md` Part 236).
 
 **READ THIS ROW FIRST IF YOU ARE SIZING A DEPLOYMENT.** The headline below compares a 2,489,757,856 B model
 against a 333,590,944 B embedder, and that is the WRONG comparison for a project whose stated aim is ~500 MB
@@ -4648,8 +4650,8 @@ about 9-10 points and a 2-point depth effect would be invisible.
 
 `node devtools/dev.mjs memory-locomo --n 60 --arms lyntai-fused,lyntai-fused-3shot,vector,vector-40 --dump`,
 run twice behind a scratch orchestrator that serves a chosen embedder and reader on its own ports
-(946 s and 981 s). This is the EMBEDDER half of `TASKS.md` Part 109; the reader half is not here and §below
-says why.
+(946 s and 981 s). This is the EMBEDDER half of `docs/task-archive.md` Part 233; the reader half is not
+here and §below says why.
 
 **The arms do not move.** Paired per question — both runs answered the identical seeded sample, so the
 comparison is within-question rather than between tables:
@@ -4685,9 +4687,10 @@ identically on both sides — which the interface's own documentation says costs
 materially. **The comparison between them is fair; both are below their own ceiling**, and lifting either
 means implementing the overload in the bench double rather than changing the library.
 
-**What it does NOT say.** Nothing about a second READER — that half of Part 109 is untouched, and every
-alternative reader on this machine is weaker than the incumbent, which lowers the ceiling rather than
-separating it from the memory layer. Seven of the eleven arms were dropped to afford two runs, including
+**What it does NOT say.** Nothing about a second READER — that half ran separately, as
+`docs/task-archive.md` Part 200, and it CORRECTED the framing this section was written under: the right
+second reader is a SMALLER one, not a stronger one, because `--retrieval` already separates the memory
+layer model-free. Seven of the eleven arms were dropped to afford two runs, including
 `full`, whose window this reader exceeds (108,428 chars/q, 6 of 6 unknown at n = 6). Absolute token-F1 is
 this 4B reader's and transfers nowhere; only the arm differences do. `ships=no`: `nomic-embed-text` is not
 a shipped default and this library names no embedder at all.
@@ -4698,7 +4701,7 @@ a shipped default and this library names no embedder at all.
 (`devtools/_tooltemplate/native-run1.log`, `native-run2.log`); the positive control below is
 `devtools/_tooltemplate/native-probe.mjs`, which serves each model in turn on one port and sends both the <!-- link-ok: gitignored scratch, named as provenance -->
 same payload.
-`TASKS.md` Part 178 held this blocked on a POSITIVE CONTROL. It is no longer.
+`docs/task-archive.md` Part 236 held this blocked on a POSITIVE CONTROL. It is no longer.
 
 **The control, first, because everything below depends on it.** <!-- result: id=native-tool-positive-control arm="`qwen2.5-0.5b-instruct` Q4_K_M against `gemma-3-4b-it` Q4_K_M, byte-identical tools payloads in ONE run on ONE build, over three tool_choice modes and both jinja settings" metric=screen-verdict n="2 models x 3 tool_choice modes x 2 jinja settings" value="qwen 6/6 emit tool_calls; gemma 0/6" ships=no status=CURRENT -->
 A model whose chat template has no tool section returns HTTP 200 with `tool_calls: null` and answers from
@@ -4834,10 +4837,11 @@ and the lever does not behave the same way there.
 
 **1. The 20,000 row is the CONTROL, and it is the most important cell here.** The cap binds on neither arm,
 so `full` returns the same ten items as `shot-1` carrying **11,349 characters against 1,168** — 9.7× the
-text — and reproduces it **to the decimal on all three quality columns**. That is the confound `TASKS.md`
-Part 109 was filed about, shown ABSENT by measurement rather than argued away: this class is scored by a
-turn tag at character 0 that survives truncation, so the scorer cannot see the extra text. **Any movement
-in the other two rows is therefore the budget admitting fewer items, never the scorer's eyesight.**
+text — and reproduces it **to the decimal on all three quality columns**. That is the confound
+`docs/task-archive.md` Part 233 was filed about, shown ABSENT by measurement rather than argued away: this
+class is scored by a turn tag at character 0 that survives truncation, so the scorer cannot see the extra
+text. **Any movement in the other two rows is therefore the budget admitting fewer items, never the
+scorer's eyesight.**
 
 **2. At a tight budget whole items STARVE the page, and that half is not close.** At 1,200 the arm fits
 **2.9 items against 10.0**, and `current@k` falls **82.9% → 47.1%** — 25 of 70 questions losing the current
@@ -4963,8 +4967,8 @@ characters by the harness's own cap, identically for every arm.
 `node devtools/dev.mjs tool-affordance --scorers-only --difficulty easy --roster 3,7,14,21,28,35`, 6.8 s,
 model-free. Raw output: the gitignored `devtools/_lme-pair/roster.log`
 <!-- link-ok: gitignored raw sweep output, named as provenance for the table below -->.
-Run because `TASKS.md` Part 178 asked for a bound on the tool roster and its grid stopped at seven, where
-a bound does not yet matter.
+Run because `docs/task-archive.md` Part 236 asked for a bound on the tool roster and its grid stopped at
+seven, where a bound does not yet matter.
 
 | N | `cosine` | 95% CI | chance | lift |
 |---:|---:|---|---:|---:|

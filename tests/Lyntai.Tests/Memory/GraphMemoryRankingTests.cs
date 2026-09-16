@@ -71,7 +71,7 @@ public sealed class GraphMemoryRankingTests : IDisposable
         // FixedSaliencePolicy(4) — SalienceOptions.MaxSalience's default ceiling, the most a real
         // StructuralSaliencePolicy could ever report — the achievable boost is `1 + 1.0 * ln(4)` ≈ 2.386,
         // which clears it. A 2-candidate set is the WORST case for this rank-position normalization; a
-        // larger one needs a far smaller weight (see TASKS.md Part 53).
+        // larger one needs a far smaller weight (see docs/task-archive.md Part 53).
         var store = new SqliteMemoryGraphStore(_db.Factory);
         var ranking = new MultiplicativeRankingPolicy(new MultiplicativeRankingOptions { SalienceRankWeight = 1.0 });
         var salient = Engine(store, new FixedSaliencePolicy(4), ranking);

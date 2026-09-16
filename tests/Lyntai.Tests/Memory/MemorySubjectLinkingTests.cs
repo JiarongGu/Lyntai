@@ -265,7 +265,8 @@ public class MemorySubjectLinkingTests
     /// <summary><b>The reuse list is bounded, so in a long-lived memory a rarely-used handle DOES fall off —
     /// and this pins which one, because the eviction order is the whole design.</b>
     ///
-    /// <para>`TASKS.md` Part 65 recorded this as unmeasured residue: <c>AnnotationKnownSubjects</c> caps how
+    /// <para>`docs/task-archive.md` Part 67 shipped the reuse list and left this unmeasured:
+    /// <c>AnnotationKnownSubjects</c> caps how
     /// many existing handles an annotator is shown, and the list is ordered most-used-first, so a
     /// correct-but-singleton subject can drop out and be re-invented under a new name.</para>
     ///

@@ -8,7 +8,8 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Generation;
 
 /// <summary>A media verdict has to be able to be BLAMELESS and REPORTABLE at once, and until 2026-08-05 the
-/// router forced a choice between them (<c>TASKS.md</c> Part 40, opened by <c>docs/DECISIONS.md</c> D36).
+/// router forced a choice between them (<c>docs/task-archive.md</c> Part 40, opened by
+/// <c>docs/DECISIONS.md</c> D36).
 ///
 /// <para>The rule that forced it is right and stays: a blameless verdict must never MASK a real failure, or
 /// <c>[downHost → Failed, neverConfigured → NotConfigured]</c> sends the caller off to set up a key while the

@@ -6,19 +6,20 @@
 
 **Lyntai** (灵台, "the numinous platform" — the seat of the mind) is a reusable **.NET 10 library**: a set
 of NuGet-packable projects, **not an app** — no server, no host, no UI. It provides (1) an **LLM provider
-abstraction** with routing + **fallback** across CLI / API / `Microsoft.Extensions.AI`-bridged providers,
+abstraction** with routing + **fallback** across CLI / HTTP / lambda-**bridged** providers (**D147** —
+`AddBridgeProvider` is a delegate, so bridging costs the library no dependency),
 (2) **pluggable storage** behind per-domain interfaces, and (3) the LLM-ops layer — prompt registry,
 scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 
 ## Current state
 
 **Released: v3.1.0 (2026-08-23).** Eleven packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D148** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D149** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3817 passed / 3850 total, 33 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 812/812, doc samples 58/58. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 846/846, doc samples 58/58. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED with Docker up, re-attested 2026-09-15 at `856b6f1b`** — read off that run's own output, never
@@ -26,7 +27,14 @@ derived from a diff, which is the discipline the sentence above states and the o
 easily breaks. **+37 on the previous attestation** (3780/3813/33 at `db80fc4b`): 28 cross-backend contract
 facts on InMemory+SQLite and 9 net on Postgres, none live-gated, which is why the skip roster did not move.
 **Two review passes moved this line 3750 → 3780 → 3817 in one day** and the skip count never changed once —
-that invariance is the half worth checking, since it is what a Docker-down run would break first. Every skip is live-backend gated (a live model, embedder, reranker, Ollama, MCP or CLI), so
+that invariance is the half worth checking, since it is what a Docker-down run would break first.
+**NOT RE-ATTESTED on 2026-09-16, deliberately, and the tree has since moved +3.** That day's `verify` was
+green on all 24 gates and read `3616 / 3853 / 237` — Docker was DOWN, so the ~204-test Postgres leg never
+ran and the skip count is exactly the low-hundreds reading this paragraph warns about. It reconciles to
+`3820 / 3853 / 33` against a named cause on both sides (+3 = `DeclaredDeliveryIsBackedTests`;
++204 skipped = Postgres), **but that is a DERIVATION and this line takes only a measurement** — which is
+the rule two sentences up, and the one an arithmetic that happens to work is most tempting to break.
+Bring Docker up, run `verify`, and re-attest from that run's own output. Every skip is live-backend gated (a live model, embedder, reranker, Ollama, MCP or CLI), so
 nothing is skipping for another reason. **The gated-on-a-model-DIRECTORY suites are now four**:
 `OnnxProviderLiveTests` is FIVE (**D124**), `OnnxCrossEncoderLiveTests` four, beside
 `WordPieceTokenizerLiveTests` (**D122**) and `Model2VecProviderLiveTests` (**D121**).
@@ -215,6 +223,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `check-dev-loop` | ✓ | this table drifting from `dev.mjs`; `--write` rebuilds it |
 | `check-decision-claims` | ✓ | a DECISION that stopped describing the code it governs |
 | `check-encoding` | ✓ | MOJIBAKE in tracked text — no other gate can see it |
+| `check-tautology` | ✓ | a rename that collapsed a CONTRAST — prose naming one thing twice |
 | `check-api-vocabulary` | ✓ | a retired name back on the frozen public surface |
 | `check-samples` | ✓ | a fenced `csharp` block that does not COMPILE — default ON |
 | `verify` |  | the "am I done?" gate. Hands off the tree while it runs |

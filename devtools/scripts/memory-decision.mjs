@@ -10,7 +10,7 @@
 //
 // The reranker is screened against `rerank-screen`'s published REFERENCE pair, not just for ordering: a
 // community GGUF missing its head still loads and still returns scores, and an easy fixture passes one
-// that ranks backwards (`.claude/knowledge/pitfalls.md`). TASKS.md Part 178.
+// that ranks backwards (`.claude/knowledge/pitfalls.md`). docs/task-archive.md Part 236.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

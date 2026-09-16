@@ -272,84 +272,22 @@ public sealed class GenerationRouter(
         {
             if (IsBenched(provider, capable.Count)) { benched++; continue; }
 
-            // Declaring Stream in Capabilities and not implementing the seam is a configuration fault, not a
-            // crash: the router is the trust boundary for what a third-party backend claims about itself.
-            if (provider is not IModelProvider streamer)
-            {
-                firstBlameless ??= GenerationChunk.Failure(ProviderVerdict.Unsupported,
-                    $"{provider.Id}: advertises {ProviderOperation.Stream} delivery but does not implement " +
-                    $"{nameof(IModelProvider)}");
-                continue;
-            }
-
+            // A backend that DECLARES Stream and does not serve it is still a configuration fault — the
+            // router is the trust boundary for what a third-party backend claims about itself — but it is no
+            // longer one this door can see before calling. Until D127 there was a separate streaming
+            // interface and a type test here; the collapse made `StreamAsync(GenerationRequest, …)` a
+            // DEFAULT interface member answering Unsupported, so such a backend is now indistinguishable
+            // from a capable one until it answers, and it lands in the ordinary pre-commit failure path
+            // below carrying its own `NotServed` detail. The declaration is checked where it can be:
+            // `GenerationProviderContract.Its_declared_deliveries_are_backed_by_the_interfaces_it_implements`.
             tried++;
-            var committed = false;             // invariant 2: set only by a chunk carrying real DATA
-            var closed = false;                // did the backend send a terminal chunk of its own?
-            GenerationChunk? failure = null;
-
-            await using var chunks = streamer.StreamAsync(resolved, ct).GetAsyncEnumerator(ct);
-            while (true)
-            {
-                bool moved;
-                try
-                {
-                    moved = await chunks.MoveNextAsync().ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (ct.IsCancellationRequested)
-                {
-                    throw;   // the CALLER cancelled — never a backend fault, and never something to fall over
-                }
-                catch (Exception ex)
-                {
-                    // Unconditional on purpose — NeverReachedTheBackend is the SUBMIT door's billing rule.
-                    // Here nothing is charged by the act of asking, so a refused connection before the first
-                    // byte is the ordinary pre-commit failure the contract says advances.
-                    failure = GenerationChunk.Failure(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
-                    break;
-                }
-
-                if (!moved) break;
-                var chunk = chunks.Current;
-
-                if (chunk.Error is not null)
-                {
-                    closed = true;
-                    if (committed) { yield return chunk; yield break; }   // invariant 1: no fallback after commit
-                    failure = chunk;
-                    break;
-                }
-
-                if (chunk.Final)
-                {
-                    closed = true;
-                    deadHosts?.RecordSuccess(CooldownKey(provider));
-                    yield return chunk;
-                    yield break;
-                }
-
-                if (chunk.Data is { Length: > 0 }) committed = true;
+            var attempt = new StreamAttempt();
+            await foreach (var chunk in StreamAttemptAsync(provider, resolved, attempt, ct).ConfigureAwait(false))
                 yield return chunk;
-            }
+            if (attempt.Done) yield break;
 
-            // A stream that just STOPPED. The backend told the caller nothing about why, so this router says
-            // it instead — the terminal-chunk guarantee is the platform's, not the backend's.
-            if (failure is null && !closed)
-            {
-                if (committed)
-                {
-                    deadHosts?.RecordSuccess(CooldownKey(provider));
-                    yield return GenerationChunk.Completed();
-                    yield break;
-                }
-                failure = GenerationChunk.Failure(ProviderVerdict.Failed,
-                    $"{provider.Id}: the stream ended without producing data or a terminal chunk");
-            }
-
-            // Committed and then failed: the caller already holds bytes, so this is the answer whatever the
-            // fallback policy says about the verdict.
-            if (committed) { yield return failure!; yield break; }
-
-            var verdict = failure!.Error ?? ProviderVerdict.Failed;
+            var failure = attempt.Failure!;
+            var verdict = failure.Error ?? ProviderVerdict.Failed;
             if (!verdict.IsBlameless()) firstFailure ??= failure;
             else if (!string.IsNullOrWhiteSpace(failure.Detail)) firstBlameless ??= failure;
 
@@ -370,12 +308,108 @@ public sealed class GenerationRouter(
         // Nothing produced a stream — still exactly one terminal chunk, so a consumer's loop shape is the
         // same whether five backends were tried or none existed.
         //
-        // A REASON SOMEBODY GAVE OUTRANKS A SYNTHESIZED ONE, and the ordering here is not the inline door's
-        // for a reason that only exists on this path: a backend can be disqualified WITHOUT being called (it
-        // advertised Stream and does not implement the seam), so `tried == 0` no longer implies "nothing was
-        // learned". Checking the two slots first is what keeps that backend's own words — the only sentence
-        // in the run that names the actual problem — from being replaced by "no capable media backend".
-        yield return firstFailure ?? firstBlameless ?? (tried == 0
+        // A REASON SOMEBODY GAVE OUTRANKS A SYNTHESIZED ONE. Checking the two slots first keeps a backend's
+        // own words — the only sentence in the run that names the actual problem — from being replaced by
+        // "no capable media backend for kind …", which describes the roster rather than the failure.
+        yield return firstFailure ?? firstBlameless ?? NothingStreamed(candidates, request, tried, benched);
+    }
+
+    /// <summary>ONE backend's stream, pumped to a terminal chunk. Sets <see cref="StreamAttempt.Done"/> where
+    /// the router's own stream is over — a terminal reached the caller, or data committed and invariant 1
+    /// forbids falling over — and otherwise leaves the pre-commit <see cref="StreamAttempt.Failure"/> for the
+    /// caller's fallback decision.</summary>
+    private async IAsyncEnumerable<GenerationChunk> StreamAttemptAsync(
+        IModelProvider streamer, GenerationRequest resolved, StreamAttempt attempt,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var committed = false;             // invariant 2: set only by a chunk carrying real DATA
+        var closed = false;                // did the backend send a terminal chunk of its own?
+        GenerationChunk? failure = null;
+
+        await using var chunks = streamer.StreamAsync(resolved, ct).GetAsyncEnumerator(ct);
+        while (true)
+        {
+            bool moved;
+            try
+            {
+                moved = await chunks.MoveNextAsync().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;   // the CALLER cancelled — never a backend fault, and never something to fall over
+            }
+            catch (Exception ex)
+            {
+                // Unconditional on purpose — NeverReachedTheBackend is the SUBMIT door's billing rule.
+                // Here nothing is charged by the act of asking, so a refused connection before the first
+                // byte is the ordinary pre-commit failure the contract says advances.
+                failure = GenerationChunk.Failure(ProviderVerdictClassifier.FromThrown(ex), $"{streamer.Id}: {ex.Message}");
+                break;
+            }
+
+            if (!moved) break;
+            var chunk = chunks.Current;
+
+            if (chunk.Error is not null)
+            {
+                closed = true;
+                if (committed) { attempt.Done = true; yield return chunk; yield break; }   // invariant 1: no fallback after commit
+                failure = chunk;
+                break;
+            }
+
+            if (chunk.Final)
+            {
+                closed = true;
+                deadHosts?.RecordSuccess(CooldownKey(streamer));
+                attempt.Done = true;
+                yield return chunk;
+                yield break;
+            }
+
+            if (chunk.Data is { Length: > 0 }) committed = true;
+            yield return chunk;
+        }
+
+        // A stream that just STOPPED. The backend told the caller nothing about why, so this router says
+        // it instead — the terminal-chunk guarantee is the platform's, not the backend's.
+        if (failure is null && !closed)
+        {
+            if (committed)
+            {
+                deadHosts?.RecordSuccess(CooldownKey(streamer));
+                attempt.Done = true;
+                yield return GenerationChunk.Completed();
+                yield break;
+            }
+            failure = GenerationChunk.Failure(ProviderVerdict.Failed,
+                $"{streamer.Id}: the stream ended without producing data or a terminal chunk");
+        }
+
+        // Committed and then failed: the caller already holds bytes, so this is the answer whatever the
+        // fallback policy says about the verdict.
+        if (committed) { attempt.Done = true; yield return failure!; yield break; }
+        attempt.Failure = failure;
+    }
+
+    /// <summary>One streaming attempt's outcome, carried out of <see cref="StreamAttemptAsync"/> because an
+    /// async iterator has no return value to put it in.</summary>
+    private sealed class StreamAttempt
+    {
+        /// <summary>The router's own stream is finished: the caller stops, with no fallback decision left to
+        /// make and no synthesized terminal to add.</summary>
+        public bool Done { get; set; }
+
+        /// <summary>The PRE-COMMIT failure the caller weighs against the fallback policy — non-null wherever
+        /// <see cref="Done"/> is false.</summary>
+        public GenerationChunk? Failure { get; set; }
+    }
+
+    /// <summary>The synthesized terminal for a run in which no backend produced a stream. Reached only when
+    /// nobody said anything of their own, which is why the caller consults its two slots first.</summary>
+    private static GenerationChunk NothingStreamed(
+        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, int tried, int benched) =>
+        tried == 0
             ? GenerationChunk.Failure(
                 benched > 0 ? ProviderVerdict.RateLimited : ProviderVerdict.Unsupported,
                 benched > 0
@@ -384,8 +418,7 @@ public sealed class GenerationRouter(
                     : $"no capable media backend for kind '{request.Kind}' via {ProviderOperation.Stream} " +
                       $"among [{string.Join(", ", candidates.Select(c => c.ProviderId))}]")
             : GenerationChunk.Failure(ProviderVerdict.NotConfigured,
-                "every capable backend reported it is not configured"));
-    }
+                "every capable backend reported it is not configured");
 
     /// <summary>The first rejecting backend's own words, folded onto the synthesized "nobody took it" message
     /// — the first SUBSTANTIVE rejection where there was one, otherwise the first blameless rejection that

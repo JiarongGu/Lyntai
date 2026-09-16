@@ -6,7 +6,7 @@
 //   · the API-surface baseline RECORDS parameter names without judging them. It reports THAT a name
 //     changed, never THAT a name should have — so a stale name round-trips cleanly through the one gate
 //     whose entire job is noticing API changes.
-// Measured cost (TASKS.md Part 61, docs/DECISIONS.md D47): `GraphMemoryEngine(ageClocks:)`,
+// Measured cost (docs/task-archive.md Part 61, docs/DECISIONS.md D47): `GraphMemoryEngine(ageClocks:)`,
 // `GraphMemoryEngine(appraisers:)` and `ModulatedRetrievability(modulators:)` kept the words "clock",
 // "appraiser" and "modulator" all the way to the eve of the 3.0 freeze — the exact three words that
 // decision retired. A human review caught all three; no gate did. **Named arguments are source-compatible

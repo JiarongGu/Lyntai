@@ -16,7 +16,7 @@
 //
 // `inventory()` takes the repo root, so devtools/scripts/__tests__ can point it at a fixture tree and prove a
 // missing registry entry is actually DETECTED — this gate's own docstring says the misses are silent, which is
-// exactly the shape of thing that has to be tested rather than run (TASKS.md Part 60).
+// exactly the shape of thing that has to be tested rather than run (docs/task-archive.md Part 60).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

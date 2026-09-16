@@ -25,10 +25,10 @@
 // a botched release (in which case you know exactly which version you are writing and why).
 //
 // The rules take DIFF TEXT rather than reading git themselves, so devtools/scripts/__tests__ can drive each
-// one directly as well as end-to-end over a real staged fixture repo (TASKS.md Part 60).
+// one directly as well as end-to-end over a real staged fixture repo (docs/task-archive.md Part 60).
 //
-// It fails CLOSED on a git failure (2026-08-11, TASKS.md Part 62): an empty diff and an unreadable one are
-// different things, and this guard used to report both as "no problems". See `StagedDiffFailure` below.
+// It fails CLOSED on a git failure (2026-08-11, docs/task-archive.md Part 62): an empty diff and an
+// unreadable one differ, and this guard used to report both as "no problems". See `StagedDiffFailure`.
 
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
@@ -161,7 +161,7 @@ if (import.meta.main ?? (process.argv[1] && path.resolve(process.argv[1]) === he
     console.error(`  ${gitError.message}`);
     console.error(`
 This is NOT a report that the version was hand-edited — it is a report that nothing checked. An empty diff
-and an unreadable one are different things, and only the first one is safe to pass (TASKS.md Part 62).
+and an unreadable one are different things, and only the first one is safe to pass (docs/task-archive.md Part 62).
 
 Instead:
   · fix git first (a corrupt .git/index is repaired by deleting it and re-running \`git add\`);

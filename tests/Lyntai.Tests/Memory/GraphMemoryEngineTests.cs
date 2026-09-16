@@ -794,8 +794,8 @@ public class GraphMemoryEngineTests
 
     /// <summary><b>A recall does TWO separable things to every entry it returns — it RESETS the entry's age
     /// and (when the curve is configured to) GROWS the entry's stability — and they are welded into one
-    /// call.</b> Pinned because the decomposition is the load-bearing finding of `TASKS.md` Part 64, and
-    /// nothing else in the suite states it.
+    /// call.</b> Pinned because the decomposition is the load-bearing finding of `docs/task-archive.md`
+    /// Part 64, and nothing else in the suite states it.
     /// <para><b>The growth half is switched on explicitly here, because as of 3.0 it is OFF by default</b>
     /// (<c>DsrOptions.ReinforceGain = 0</c>, <c>docs/DECISIONS.md</c> D54 — retrieval-driven growth measured
     /// as harmful, and capped and non-compounding variants both lost to not growing). The WELD is what this
@@ -845,7 +845,8 @@ public class GraphMemoryEngineTests
 
     /// <summary><b>The two effects are separable in the API now, not only in principle — "reset the age, do
     /// not grow the stability" is expressible without the curve's cooperation.</b> This is the configuration
-    /// four studies converged on (`TASKS.md` Part 64): the age reset is what keeps a rarely-queried critical
+    /// four studies converged on (`docs/task-archive.md` Part 64): the age reset is what keeps a
+    /// rarely-queried critical
     /// fact alive, the stability growth is what entrenches whatever the ranker already favoured.
     /// <para><b>Why an ENGINE option and not the curve's own knob.</b> It is reachable today only through
     /// <c>DsrOptions.ReinforceGain = 0</c> — one shipped curve's private constant. A consumer who writes

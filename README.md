@@ -16,9 +16,9 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
      `node devtools/dev.mjs pack` / `doctor --fix` (the release pipeline bumps the version, pack updates this
      headline). Don't hand-edit the version here to release — bump VersionPrefix; the header follows. -->
 **v3.1.0 — a hardened, batteries-included cortex substrate, now with a media generation platform.**
-Twelve packages, one public front door, and a public API frozen under SemVer 2.0 since 1.0.
+Eleven packages; one public front door, and a public API frozen under SemVer 2.0 since 1.0.
 
-What is in it, by domain: **LLM** — routing with streaming-aware fallback across CLI / HTTP / MEAI-bridged
+What is in it, by domain: **LLM** — routing with streaming-aware fallback across CLI / HTTP / lambda-bridged
 backends, a configurable per-verdict `RoutingPolicy`, dead-host cooldown, native + prompt tool-calling.
 **Generation** — one capability-aware seam for image/video/audio/3d with three delivery modes (inline,
 submit→poll→fetch, streaming — all three routed, governed and throttled alike), durable renders over
@@ -51,9 +51,9 @@ only shipped default (difficulty axis live, reviews logged for later fitting), r
 registered ranking default, model-in-the-loop annotation and verification seams, and authoritative facts
 that survive any recall limit. Around it: streaming generation reachable through the router, tool calls on
 the LLM streaming contract, a cross-process job concurrency cap, and the withdrawal of the generation
-SemVer exemption, so every package carries the full promise. **Breaking, deliberately and with a path** —
-a 2.5 consumer starts at `docs/migration-2.5-to-3.0.md`, the ordered upgrade with a worked before/after;
-stored data needs nothing (schema changes run automatically).
+SemVer exemption, so every package carries the full promise. **Breaking, deliberately** — every change is
+listed in `CHANGELOG.md`'s 3.0.0 **Breaking** section; stored data needs nothing (schema changes run
+automatically).
 `CHANGELOG.md` has the per-release detail; `docs/DECISIONS.md` has the reasoning behind the load-bearing calls.
 **This file documents the working tree, not only the newest package**: anything that has not shipped yet is
 listed under `## Unreleased` in `CHANGELOG.md`, so check there before assuming a member below is in the
@@ -66,7 +66,7 @@ version you installed.
 > it was withdrawn in 3.0 (`docs/DECISIONS.md` **D70**). It named three reasons and each is closed: the two
 > backends written from vendor documentation now expose every mapping they could have got wrong as a host
 > option, so a mismatch is a configuration edit rather than a release (**D69**); the same is true of the
-> third's ported argv; and `IModelProvider` is reachable through the router (**D67**). What a real
+> third's ported argv; and streaming generation is reachable through the router (**D67**). What a real
 > run can still surprise is a wire format's SHAPE, not a value — and that is now a major-version risk taken
 > deliberately rather than a caveat carried indefinitely.
 > **The carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE:** the generation *contracts* in that
@@ -78,12 +78,11 @@ version you installed.
 > **drop your `lyntai_*` tables (including `lyntai_version_info`) or delete the dev database before the first
 > 1.0 run**; Lyntai recreates them. One-time; the ledger is append-only thereafter.
 >
-> **Upgrading 2.5 → 3.0:** see `docs/migration-2.5-to-3.0.md` for the ordered path — every breaking change
-> in dependency order, a worked before/after, and why no stored data needs a migration at all.
+> **Upgrading 2.5 → 3.0:** `CHANGELOG.md`'s 3.0.0 **Breaking** section lists every change; no stored data
+> needs a migration at all. (The dedicated 2.5→3.0 guide was untracked in **D149** — nothing runs 2.5, and
+> it is in git history at the 3.0.0 tag if you need it.)
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
-- `docs/migration-2.5-to-3.0.md` — the 2.5 → 3.0 upgrade path: what's automatic (schema), what's manual
-  (everything else), in the order the fixes depend on.
 - `docs/ROADMAP.md` — what's shipped, what's next (generation verification and the open design calls), and
   the standing maintenance policies.
 - `docs/AOT.md` — per-package trimming/Native-AOT status.
@@ -112,7 +111,7 @@ version you installed.
 
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
 dependency does this isolate?" with something concrete. Backends that need nothing extra share
-`Providers.Default`; anything dragging a native runtime (LLamaSharp, native SQLite), a platform-specific API
+`Providers.Basic`; anything dragging a native runtime (LLamaSharp, native SQLite), a platform-specific API
 (Windows DPAPI) or a protocol stack of its own (`ModelContextProtocol.Core`, via either MCP package) stays
 its own package — and `Lyntai.Core` carries the smallest footprint of all, because it is the one package you
 cannot opt out of (`docs/DECISIONS.md` D25).
@@ -125,12 +124,12 @@ check-bundle` fails the build if that closure ever drifts, so the one-line insta
 ## Consuming Lyntai
 
 ```bash
-dotnet add package Lyntai                  # the recommended STARTING set — 6 of the 12 packages
+dotnet add package Lyntai                  # the recommended STARTING set — 5 of the 11 packages
 dotnet add package Lyntai.Storage.Sqlite   # persistence (the bundle's storage is IN-MEMORY)
 dotnet add package Lyntai.Generation       # image/video/audio backends
 ```
 
-**`Lyntai` is a starting set, not the whole library.** It gives you Core, the LLM backends, the MEAI bridge,
+**`Lyntai` is a starting set, not the whole library.** It gives you Core, the LLM backends,
 both halves of MCP, and **in-memory** storage. The two that surprise people: nothing persists until you add
 `Lyntai.Storage.Sqlite` (or `.Postgres`), and generation is not included. The six packages left out are left
 out for a reason — a native payload (`Storage.Sqlite`, `Providers.LlamaSharp`, `Providers.Onnx`), a
@@ -476,8 +475,8 @@ retention policies (`IMemoryRetentionPolicy`, which lengthens a half-life — un
 `Lyntai.Memory.Modulation`, salience policies in `Lyntai.Memory.Salience`. They were flat under
 `Lyntai.Memory` up to 2.5.
 
-**Upgrading from 2.5 is more than an added `using`, and there is one ordered path through it:
-[`docs/migration-2.5-to-3.0.md`](docs/migration-2.5-to-3.0.md).** The namespace move is the easy half — the
+**Upgrading from 2.5 is more than an added `using`** — `CHANGELOG.md`'s 3.0.0 **Breaking** section is the
+list. The namespace move is the easy half — the
 seams were also renamed, `Reinforce` returns state rather than a `double`, several records gained members
 (so a positional deconstruction no longer binds), two registered defaults changed and one forgetting curve
 was deleted outright. **Stored data needs nothing**: every schema change runs automatically through
@@ -867,19 +866,18 @@ is itself an interface (`IKeyValueStore`, `IMemoryStore`, …) you can implement
 
 ### Backend self-maintenance: version · upgrade · pinned install · auth
 
-Four **optional** provider capabilities (`IModelProvider`, `IProviderUpdater`,
-`IProviderVersionInstaller`, `IProviderAuth`), so a host can show what its backend actually is, whether it
-is usable at all, and offer an upgrade — instead of hardcoding a version it will drift away from, or
-burning a turn to discover the backend isn't signed in. All are discovered by pattern-matching over the
-registered providers, none runs a completion, and all **fail safe**: an absent, stalled or erroring backend
-is reported, never thrown.
+`ProbeAsync` is on `IModelProvider` itself (**D127**) and defaults to reporting `IsAvailable`, so *every*
+backend answers "is this usable right now?". Beside it are three **optional** capabilities
+(`IProviderUpdater`, `IProviderVersionInstaller`, `IProviderAuth`), so a host can show what its backend
+actually is and offer an upgrade — instead of hardcoding a version it will drift away from, or
+burning a turn to discover the backend isn't signed in. The three are discovered by pattern-matching over
+the registered providers, none runs a completion, and all **fail safe**: an absent, stalled or erroring
+backend is reported, never thrown.
 
 ```csharp
 foreach (var provider in serviceProvider.GetServices<IModelProvider>())
 {
-    if (provider is not IModelProvider installation) continue;
-
-    var probe = await installation.ProbeAsync(ct);   // NO completion is run: no tokens, no model call
+    var probe = await provider.ProbeAsync(ct);   // NO completion is run: no tokens, no model call
     Console.WriteLine(probe.Available
         ? $"{provider.Id} {probe.Version} {probe.Model ?? "(model unknown until a turn runs)"}"
         : $"{provider.Id} unavailable — {probe.Detail}");
@@ -895,8 +893,8 @@ foreach (var provider in serviceProvider.GetServices<IModelProvider>())
 }
 ```
 
-`ClaudeCliProvider` implements all four through the same BYO `IProcessRunner` and command seams as a
-completion. Two notes on what the probe will and won't tell you:
+`ClaudeCliProvider` implements all three, plus its own `ProbeAsync`, through the same BYO `IProcessRunner`
+and command seams as a completion. Two notes on what the probe will and won't tell you:
 
 - **`Version` is exact; `Model` is null against today's claude CLI** — it has no turn-free way to report
   its resolved model, and the probe never guesses one. Read the model actually used from
@@ -1134,7 +1132,11 @@ force the others to lie:
 |---|---|---|
 | Inline | `IModelProvider.GenerateAsync` | image generation |
 | Async job | `IGenerationJobProvider` (submit → poll → fetch) | video, batch music — renders take minutes |
-| Streaming | `IModelProvider` | text-to-speech, where playback starts before generation ends |
+| Streaming | `IModelProvider.StreamAsync` | text-to-speech, where playback starts before generation ends |
+
+A backend declares which of the three it serves in `ProviderCapabilities.Operations` — data, not a type
+per mode (**D127**). Only the stateful job protocol is still its own interface, because submit → poll →
+fetch → cancel is a contract SHAPE rather than a content type.
 
 An async render exposes its **operation id**, so it survives a process restart and composes with
 `Lyntai.Jobs`; if your backend delivers by webhook, your app owns the endpoint and calls
@@ -1330,7 +1332,7 @@ model first, `"local"` as an offline backstop.
 ### Tool-calling (`Lyntai.Agents`)
 
 Give the model tools and let it work in a loop. `IToolLoop` runs over the `ILlmClient` front door, so
-it works with **any** provider (CLI, HTTP, MEAI bridge, local) — no native tool-calling required.
+it works with **any** provider (CLI, HTTP, bridged, local) — no native tool-calling required.
 
 ```csharp
 services.AddLyntai(cfg =>
@@ -1357,7 +1359,7 @@ foreach (var step in result.Steps)         // every tool call it made, for traci
 
 The loop executes the tool the model chooses, feeds the result back, and repeats up to
 `ToolLoopMaxIterations` (default 8). It uses **native** provider function-calling when available
-(OpenAI-compatible / Ollama and any `Microsoft.Extensions.AI` `IChatClient` via the bridge — structured
+(OpenAI-compatible / Ollama, and anything you reach with `AddBridgeProvider` that declares it — structured
 `tool_calls`, parallel calls supported) and falls back to a **prompt protocol** over the text contract
 for providers without it (CLI, basic local models) — same `ITool`s either way, chosen transparently
 behind the front door (`ILlmClient.SupportsToolCalls`). An
@@ -1620,7 +1622,7 @@ await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunA
   `AddDpapiSecretVault()` (`Lyntai.Secrets.Dpapi`) binds it with DPAPI. Call `GenerateMasterKeyAsync()`
   once (record the recovery key), `RecoverAsync(key)` on migration.
 - **Vision** — `LlmMessage.UserWithImage(text, bytes, "image/png")` (or `UserWithImageUrl`); the
-  OpenAI-compatible and MEAI-bridged providers send it as image content, and the **Ollama-native** flavour
+  OpenAI-compatible providers send it as image content, and the **Ollama-native** flavour
   (`AddOllamaProvider`, or any base URL detected as Ollama) sends it as `/api/chat`'s own `images` array.
   Pair it with a vision model (`llava` and friends). **One shape does not travel on the Ollama-native path:**
   an attachment carrying only a remote URL, because `/api/chat` has no URL form and Lyntai will not fetch

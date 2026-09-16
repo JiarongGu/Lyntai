@@ -193,6 +193,66 @@ public sealed class HttpModelProvider(
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeoutCts.CancelAfter(timeout); // arm for the connect (ResponseHeadersRead)
 
+        var (response, startupError) = await OpenStreamAsync(req, model, timeout, http, timeoutCts, ct)
+            .ConfigureAwait(false);
+        if (startupError is not null)
+        {
+            yield return startupError; // pre-content error — the router may fall over
+            yield break;
+        }
+
+        using var okResponse = response!;
+        using var stream = await okResponse.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+
+        var progress = new StreamProgress();
+        // the guarded loop (arm/read/stop + caller-cancel rethrow + fault→terminal) lives once in Core
+        var guarded = GuardedStream.ReadAll<string, LlmChunk>(
+            async () => await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false),
+            ex => LlmChunk.Error(
+                timeoutCts.IsCancellationRequested ? ProviderVerdict.Timeout : ProviderVerdict.Failed,
+                $"{id}: stream broke — {ex.Message}"),
+            ct, new InactivityClock(timeoutCts, timeout));
+        await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
+        {
+            if (terminal is not null)
+            {
+                yield return terminal;
+                yield break;
+            }
+            if (line!.Length == 0) continue;
+
+            // SSE ("data: {...}" / "data: [DONE]") for OpenAI-style; bare NDJSON for Ollama
+            var payload = line.StartsWith("data:", StringComparison.Ordinal) ? line[5..].Trim() : line.Trim();
+            if (payload.Length == 0) continue;
+            if (payload == "[DONE]") break;
+
+            var (text, chunkUsage, isFinal, reason, toolCallDeltas) = ParseStreamLine(payload);
+            if (chunkUsage is not null) progress.Usage = chunkUsage;
+            if (reason is not null) progress.FinishReason = reason;
+            if (toolCallDeltas is not null) progress.ToolCalls.Add(toolCallDeltas);
+            if (HttpBody.InBandError(payload) is { } streamed) progress.InBandError = streamed;
+            if (text is { Length: > 0 })
+            {
+                progress.SawContent = true;
+                yield return LlmChunk.Content(text);
+            }
+            // finish_reason terminates an NDJSON (Ollama) stream. An SSE stream instead runs on to its
+            // [DONE] sentinel (or EOF) so the trailing stream_options usage chunk — sent AFTER the
+            // finish_reason line, with an EMPTY choices array — is still read into `usage`.
+            if (isFinal && _dialect == HttpDialect.Ollama) break;
+        }
+
+        foreach (var chunk in TerminalChunks(progress)) yield return chunk;
+    }
+
+    /// <summary>Open the streaming response: the connect plus the status check, both still under the armed
+    /// inactivity clock. Exactly one half of the pair is non-null — a failure disposes the response itself,
+    /// so the caller only ever owns one it can read.</summary>
+    private async Task<(HttpResponseMessage? Response, LlmChunk? Error)> OpenStreamAsync(
+        LlmRequest req, string model, TimeSpan timeout, HttpClient http,
+        CancellationTokenSource timeoutCts, CancellationToken ct)
+    {
         HttpResponseMessage? response = null;
         LlmChunk? startupError = null;
         try
@@ -216,69 +276,47 @@ public sealed class HttpModelProvider(
             startupError = LlmChunk.Error(ProviderVerdict.Failed, $"{id}: {ex.Message}");
         }
 
-        if (startupError is not null)
-        {
-            response?.Dispose();
-            yield return startupError; // pre-content error — the router may fall over
-            yield break;
-        }
+        if (startupError is null) return (response, null);
+        response?.Dispose();
+        return (null, startupError);
+    }
 
-        using var okResponse = response!;
-        using var stream = await okResponse.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
-        using var reader = new StreamReader(stream, Encoding.UTF8);
+    /// <summary>What a stream reported as it ran, folded line by line and read once at the end by
+    /// <see cref="TerminalChunks"/>.</summary>
+    private sealed class StreamProgress
+    {
+        /// <summary>Whether any line carried real content. A zero-content stream is the streaming twin of
+        /// <see cref="CompleteAsync"/>'s empty→Failed, so this decides between Final and Error.</summary>
+        public bool SawContent { get; set; }
 
-        LlmUsage? usage = null;
-        string? finishReason = null;
-        var sawContent = false;
-        // Tool-call fragments, folded per vendor slot as they arrive and assembled once at the end. Held
-        // across the whole loop because a single call's arguments span many lines.
-        var toolCalls = new StreamingToolCalls();
-        // The last error the backend reported IN BAND. Remembered rather than acted on: an error line that
-        // arrives AFTER content is not terminal — codex's measured `{"type":"error","message":"Reconnecting
-        // ... 2/5"}` appeared in runs that went on to SUCCEED, and treating every error-ish line as fatal
-        // kills healthy calls that recovered (pitfalls.md, the mirror of the trap this fix closes). So it is
-        // consulted only on the zero-content path below, where the alternative is a reasonless "no output".
-        string? inBandError = null;
-        // the guarded loop (arm/read/stop + caller-cancel rethrow + fault→terminal) lives once in Core
-        var guarded = GuardedStream.ReadAll<string, LlmChunk>(
-            async () => await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false),
-            ex => LlmChunk.Error(
-                timeoutCts.IsCancellationRequested ? ProviderVerdict.Timeout : ProviderVerdict.Failed,
-                $"{id}: stream broke — {ex.Message}"),
-            ct, new InactivityClock(timeoutCts, timeout));
-        await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
-        {
-            if (terminal is not null)
-            {
-                yield return terminal;
-                yield break;
-            }
-            if (line!.Length == 0) continue;
+        /// <summary>The last usage any line carried — on SSE that is the trailing
+        /// <c>stream_options</c> chunk, which arrives AFTER the finish reason.</summary>
+        public LlmUsage? Usage { get; set; }
 
-            // SSE ("data: {...}" / "data: [DONE]") for OpenAI-style; bare NDJSON for Ollama
-            var payload = line.StartsWith("data:", StringComparison.Ordinal) ? line[5..].Trim() : line.Trim();
-            if (payload.Length == 0) continue;
-            if (payload == "[DONE]") break;
+        /// <summary>The backend's own reason for stopping, or null where it gave none (Ollama sends none).</summary>
+        public string? FinishReason { get; set; }
 
-            var (text, chunkUsage, isFinal, reason, toolCallDeltas) = ParseStreamLine(payload);
-            if (chunkUsage is not null) usage = chunkUsage;
-            if (reason is not null) finishReason = reason;
-            if (toolCallDeltas is not null) toolCalls.Add(toolCallDeltas);
-            if (HttpBody.InBandError(payload) is { } streamed) inBandError = streamed;
-            if (text is { Length: > 0 })
-            {
-                sawContent = true;
-                yield return LlmChunk.Content(text);
-            }
-            // finish_reason terminates an NDJSON (Ollama) stream. An SSE stream instead runs on to its
-            // [DONE] sentinel (or EOF) so the trailing stream_options usage chunk — sent AFTER the
-            // finish_reason line, with an EMPTY choices array — is still read into `usage`.
-            if (isFinal && _dialect == HttpDialect.Ollama) break;
-        }
+        /// <summary>Tool-call fragments, folded per vendor slot as they arrive and assembled once at the end.
+        /// Held across the whole loop because a single call's arguments span many lines.</summary>
+        public StreamingToolCalls ToolCalls { get; } = new();
 
+        /// <summary>The last error the backend reported IN BAND. Remembered rather than acted on: an error
+        /// line that arrives AFTER content is not terminal — codex's measured
+        /// <c>{"type":"error","message":"Reconnecting ... 2/5"}</c> appeared in runs that went on to SUCCEED,
+        /// and treating every error-ish line as fatal kills healthy calls that recovered (pitfalls.md, the
+        /// mirror of the trap this fix closes). So it is consulted only on the zero-content path, where the
+        /// alternative is a reasonless "no output".</summary>
+        public string? InBandError { get; set; }
+    }
+
+    /// <summary>How a stream ENDS: the assembled tool calls, then exactly one terminal chunk — a
+    /// <see cref="LlmChunkKind.Final"/> or an <see cref="LlmChunkKind.Error"/>, never both and never
+    /// neither.</summary>
+    private IEnumerable<LlmChunk> TerminalChunks(StreamProgress progress)
+    {
         // a streamed content filter must end as Refused, not a benign Final — same verdict the
         // non-streaming path gives the identical finish_reason
-        if (finishReason == "content_filter")
+        if (progress.FinishReason == "content_filter")
         {
             yield return LlmChunk.Error(ProviderVerdict.Refused, $"{id}: content filter");
             yield break;
@@ -293,11 +331,11 @@ public sealed class HttpModelProvider(
         // LlmChunk.ToolCall promises a COMPLETE call — the assembly is the provider's job so no consumer has
         // to know a vendor's fragmentation rules. `finish_reason` is not required: Ollama sends none, and a
         // stream that produced complete calls has produced them whatever it says about why it stopped.
-        var assembled = toolCalls.Any ? toolCalls.Build() : [];
+        var assembled = progress.ToolCalls.Any ? progress.ToolCalls.Build() : [];
         foreach (var call in assembled) yield return LlmChunk.Tool(call);
         if (assembled.Count > 0)
         {
-            yield return LlmChunk.Final(usage);
+            yield return LlmChunk.Final(progress.Usage);
             yield break;
         }
 
@@ -307,7 +345,7 @@ public sealed class HttpModelProvider(
         // was never the answer (the model stopped for tools), and a benign Final here is the silent
         // tool-call discard D71 exists to eliminate. The prose already streamed and stays; the Error is the
         // terminal chunk, which the router passes through unchanged post-commit.
-        if (finishReason == "tool_calls")
+        if (progress.FinishReason == "tool_calls")
         {
             yield return LlmChunk.Error(ProviderVerdict.Failed,
                 $"{id}: the stream finished for tool calls but none could be assembled from its deltas");
@@ -317,15 +355,15 @@ public sealed class HttpModelProvider(
         // can fall over pre-content instead of reporting a clean empty answer. When the backend said WHY in
         // band, that answer outranks the synthetic one: "no output produced" is the right verdict CLASS with
         // no reason and the wrong routing (Failed advances and strikes; RateLimited cools).
-        if (!sawContent)
+        if (!progress.SawContent)
         {
-            var reply = inBandError is not null
-                ? InBandFailure(inBandError)
+            var reply = progress.InBandError is not null
+                ? InBandFailure(progress.InBandError)
                 : new LlmReply("", ProviderVerdict.Failed, Detail: $"{id}: no output produced");
             yield return LlmChunk.Error(reply.Verdict, reply.Detail);
             yield break;
         }
-        yield return LlmChunk.Final(usage);
+        yield return LlmChunk.Final(progress.Usage);
     }
 
     private HttpRequestMessage BuildRequest(LlmRequest req, string model, bool stream)

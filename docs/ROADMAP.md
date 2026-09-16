@@ -50,7 +50,7 @@ back once the thing deferred turns out to be cheaper, load-bearing, or misframed
   premise this entry carried — "needs a distributed counter" — is precisely what D73 refused: a count
   cannot gate a claim, so a slot TABLE reuses the atomic claim both backends already prove correct, and
   Postgres's `SKIP LOCKED` starts working FOR the cap instead of against it. It costs `IJobStore` three
-  required members, so a hand-written store is affected (`docs/migration-2.5-to-3.0.md` Step 3b).
+  required members, so a hand-written store is affected (`CHANGELOG.md` 3.0.0, **Breaking**).
 - **Streaming tool-calls — SHIPPED in 3.0** (`DECISIONS.md` **D71**). It sat here as "low value, revisit on
   demand", and that judgement was wrong in an instructive way: it priced the missing FEATURE and not the
   defect underneath it. A turn that streamed prose alongside a tool call had the call silently dropped, and

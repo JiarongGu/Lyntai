@@ -74,7 +74,7 @@ public enum MemorySalienceProvenance : long
 /// <para><b>To turn salience OFF, register <see cref="NeutralSaliencePolicy"/> — registering NOTHING does
 /// not do it.</b> An empty collection means "take the shipped default", the same convention the age seam
 /// uses, so the intuitive way to disable this is the one way that silently does not
-/// (<c>TASKS.md</c> Part 69).</para>
+/// (<c>docs/task-archive.md</c> Part 71).</para>
 /// </summary>
 public interface IMemorySaliencePolicy
 {

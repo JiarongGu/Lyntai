@@ -28,10 +28,12 @@ left? The archive gains a per-task history the line never carried anyway.
 ## `TASKS.md` Part N and archive Part N are DIFFERENT numbers — always name the file
 
 **The two files number independently, so a bare `Part 178` is ambiguous and resolves to the wrong document
-about half the time.** The backlog keeps a Part's original number until it closes; the archive allocates
-sequentially as things land. They have long since diverged — an open `TASKS.md` Part 178 and an archived
-Part 178 on an unrelated subject both exist, and three archive entries said "closing Part 178's Nth item"
-meaning the backlog's while sitting in the file where that number means something else.
+about half the time.** The backlog keeps a Part's original number until it closes; the archive allocates in
+landing order. RETIREMENT is where that bites: the four Parts retired on 2026-09-16 were all renumbered on
+the way in, and one of them could not have kept its number in any case — `docs/task-archive.md` Part 178 is
+an unrelated task that closed weeks earlier. The backlog's Part 178 is `docs/task-archive.md` Part 236 now,
+and while both existed three archive entries said "closing Part 178's Nth item" meaning the backlog's, in
+the file where that number meant something else.
 
 **Write `` `TASKS.md` Part N `` or `` `docs/task-archive.md` Part N ``, every time.** A cross-reference
 gate can only check that a Part N EXISTS, not that it is the one you meant — which is the same shape as a

@@ -12,7 +12,7 @@
 //
 // Everything below the CLI line is exported and pure-ish (it takes its file list and its byte reader), so
 // devtools/scripts/__tests__/check-sensitive.test.mjs can prove each pattern FIRES. A guard whose failure
-// mode is a false PASS cannot be validated by running it — see TASKS.md Part 60.
+// mode is a false PASS cannot be validated by running it — see docs/task-archive.md Part 60.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';

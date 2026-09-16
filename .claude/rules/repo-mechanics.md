@@ -86,8 +86,11 @@ release** — do not advance it when the version moves. A session must not:
   the code that exists;
 - **pay a real cost for pre-3.0 binary compatibility** — an overload added so a pre-compiled caller of the
   old signature keeps resolving is paying for a caller that does not exist;
-- **maintain a pre-3.0 document as if it were current** — `docs/migration-2.5-to-3.0.md` carries a HISTORY
-  banner and stays only because the release pipeline links to it.
+- **maintain a pre-3.0 document as if it were current** — and when the last reason to keep one expires,
+  UNTRACK it rather than re-banner it. The 2.5→3.0 migration guide stayed on exactly that argument ("the
+  release pipeline links to it") after `release-notes.mjs` had already been repointed at `CHANGELOG.md`, so
+  1,161 lines of pre-3.0 prose sat in `docs/` on a reason that was no longer true. It is in
+  `local/superpowers/records/` and in git history (**D149**).
 
 **What survives is the FACT, never the diff.** The narrow exception: a fact about a RELEASED artifact stays
 sayable — "2.0.0 is burned on nuget.org" is a fact about the feed, not an analysis of an old release.

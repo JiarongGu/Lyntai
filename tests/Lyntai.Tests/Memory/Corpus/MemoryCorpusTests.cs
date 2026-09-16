@@ -17,7 +17,7 @@ using Shape = CorpusShape;
 /// a shared top-level helper — deliberately, so nothing in this file teaches the shape of a two-phase
 /// (write-everything-then-query-everything) consumer. See <see cref="MemoryCorpus"/>'s own doc comment for
 /// the ordering contract this is protecting.</para>
-/// <para><b>A second family, added 2026-08-10 (DSR-default falsification plan Task 1 / TASKS.md Part 55):
+/// <para><b>A second family, added 2026-08-10 (<c>docs/task-archive.md</c> Part 55, Task 1):
 /// proves the corpus actually reaches the DISCRIMINATING regime, and that neither curve collapses to a
 /// shared boundary once it does</b> — the whole reason for that retarget (see <see cref="MemoryCorpus"/>'s
 /// own class doc, "this corpus is an INSTRUMENT, not a simulation"). These guards are PROPERTY-BASED over
@@ -536,7 +536,7 @@ public class MemoryCorpusTests
                 q.RelevantIds.OrderBy(x => x, StringComparer.Ordinal));
     }
 
-    // ---- ExpandRatio: the opt-in expansion axis (2026-08-12, TASKS.md Part 64) ----
+    // ---- ExpandRatio: the opt-in expansion axis (2026-08-12, docs/task-archive.md Part 64) ----
 
     /// <summary><b>The guarantee the whole axis rests on: at the default <c>ExpandRatio = 0</c>, a corpus is
     /// byte-identical to one generated before the axis existed.</b> Asserted as the WRITE-AND-QUERY SEQUENCE
@@ -680,7 +680,7 @@ public class MemoryCorpusTests
     // The property grid shared by every age/N-band guard below — IDENTICAL to No_reuse_query_occurs_at_age_zero's
     // own grid, deliberately, so "property-based over the 60-shape grid" means the SAME 60 shapes everywhere in
     // this file rather than each guard quietly picking its own subset (the defect this whole retarget was asked
-    // to close for good — TASKS.md Part 55 / the DSR-default falsification plan's Task 1 brief, "That defect has
+    // to close for good — docs/task-archive.md Part 55, the plan's Task 1 brief, "That defect has
     // recurred twice in this file already").
     //
     // HOISTED to CorpusGrid 2026-08-28: MemoryGistSupportSweep restated these same three arrays, with nothing
@@ -701,8 +701,8 @@ public class MemoryCorpusTests
     [Fact]
     public void Topical_reuse_queries_reach_the_discriminating_bands_ceiling()
     {
-        // REPLACES the single-shape "The_interference_range_reaches_a_meaningful_age" (2026-08-10, DSR-default
-        // falsification plan Task 1 / TASKS.md Part 55): that version asserted a floor of 40 against ONE shape
+        // REPLACES the single-shape "The_interference_range_reaches_a_meaningful_age" (2026-08-10,
+        // docs/task-archive.md Part 55, Task 1): that version asserted a floor of 40 against ONE shape
         // ("high-noise") and let every other shape in the grid go unchecked — precisely the defect
         // No_reuse_query_occurs_at_age_zero was made property-based to stop recurring, recurring anyway one test
         // below it. PROPERTY-BASED here instead: every topical entry's own reuse queries are GUARANTEED (via
@@ -739,8 +739,8 @@ public class MemoryCorpusTests
     [Fact]
     public void Hot_ephemeral_in_window_queries_reach_the_discriminating_bands_floor()
     {
-        // REPLACES "Hot_ephemeral_in_window_queries_reach_a_discriminating_age" (2026-08-10, DSR-default
-        // falsification plan Task 1 Step 3 / TASKS.md Part 55, closing that item). The OLD force-drain block in
+        // REPLACES "Hot_ephemeral_in_window_queries_reach_a_discriminating_age" (2026-08-10,
+        // docs/task-archive.md Part 55, Task 1 Step 3, closing that item). The OLD force-drain block in
         // MemoryCorpus.Generate dequeued and fired a round's in-window reuse batch UNCONDITIONALLY the instant it
         // reached the front of the queue, without ever checking DueWriteCount — bypassing HotReuseDelayWrites on
         // every shape but the widest one ("high-noise"), which is why the old guard could only pin a GlobalFloor
@@ -817,7 +817,7 @@ public class MemoryCorpusTests
     [Fact]
     public void Critical_rare_clears_its_independent_target_floor_at_its_rarest_named_setting()
     {
-        // NEW (2026-08-10, DSR-default falsification plan Task 1 Step 2 / TASKS.md Part 55): critical-rare is
+        // NEW (2026-08-10, docs/task-archive.md Part 55, Task 1 Step 2): critical-rare is
         // the DECIDING class for the curve question, and it used to carry only 2-4 independent targets per cell
         // (CriticalBudget=12), so a single entry flipping moved a cell's MissRate by 0.25-0.5. CriticalRarity=12
         // is this corpus's own rarest NAMED setting (bench/Lyntai.Benchmarks/MemoryPolicySweep.cs's
@@ -1079,7 +1079,7 @@ public class MemoryCorpusTests
     [Fact]
     public void Reuse_repeats_never_fire_back_to_back_a_real_write_always_interposes()
     {
-        // NEW (2026-08-10, DSR-default falsification plan Task 1 Step 2 / TASKS.md Part 55): before this fix, a
+        // NEW (2026-08-10, docs/task-archive.md Part 55, Task 1 Step 2): before this fix, a
         // reuse batch's `reuse` repeats fired with NOTHING interposed between them — correlated draws of the
         // same retrieval decision, not independent ones, so a printed N of (say) 100 at ReuseRatio=10 carried
         // the granularity of 10 independent targets, not 100. PROPERTY-BASED over the same grid, at

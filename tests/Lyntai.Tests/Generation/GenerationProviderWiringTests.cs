@@ -10,7 +10,8 @@ namespace Lyntai.Tests.Generation;
 
 /// <summary>Per-backend <c>Add*</c> shims, the generation counterpart of <c>AddOpenAiProvider()</c> /
 /// <c>AddOllamaProvider()</c>. Before these, every media backend had to be hand-constructed WITH its
-/// <c>Func&lt;HttpClient&gt;</c> — an asymmetry the pre-2.0.1 consumer smoke surfaced (TASKS.md Part 34).
+/// <c>Func&lt;HttpClient&gt;</c> — an asymmetry the pre-2.0.1 consumer smoke surfaced
+/// (docs/task-archive.md Part 34).
 ///
 /// What they must preserve: the BYO-HttpClient seam (design §7), and the rule that a Lyntai-created client has
 /// an INFINITE HttpClient timeout so the per-call deadline owns cancellation — a 100-second default would kill

@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 215 traps, indexed two ways
+## Facets — 218 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (42) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 528 · 613 · 622 · 632 · 686 · 700 · 770 · 784 · 1099 · 1226 · 1322 · 1335 · 1362 · 1383 · 1425 · 1598 · 2573 · 2597 · 2607 · 2633 · 2644 · 2681 · 3052 · 3093 · 3102
-- **`encoding`** (7) — 75 · 95 · 100 · 639 · 647 · 922 · 2681
-- **`git`** (8) — 227 · 252 · 283 · 308 · 647 · 669 · 927 · 2573
-- **`build`** (9) — 100 · 613 · 622 · 632 · 686 · 1091 · 1598 · 2582 · 2616
+- **`gates`** (45) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 528 · 613 · 622 · 632 · 686 · 700 · 770 · 784 · 1099 · 1226 · 1322 · 1335 · 1362 · 1383 · 1425 · 1598 · 2574 · 2598 · 2608 · 2634 · 2645 · 2664 · 2680 · 2691 · 2718 · 3089 · 3130 · 3139
+- **`encoding`** (7) — 75 · 95 · 100 · 639 · 647 · 922 · 2718
+- **`git`** (8) — 227 · 252 · 283 · 308 · 647 · 669 · 927 · 2574
+- **`build`** (9) — 100 · 613 · 622 · 632 · 686 · 1091 · 1598 · 2583 · 2617
 - **`router`** (6) — 1441 · 1446 · 1455 · 1457 · 1460 · 1590
-- **`cli`** (19) — 75 · 799 · 922 · 1441 · 1462 · 1470 · 1479 · 1483 · 1495 · 1499 · 1506 · 1510 · 1517 · 1521 · 1554 · 1573 · 1577 · 1582 · 2419
-- **`lifetime`** (6) — 1620 · 1629 · 1634 · 1639 · 1652 · 1660
-- **`storage`** (18) — 1411 · 1533 · 1669 · 1771 · 1799 · 1801 · 1802 · 1804 · 1806 · 1824 · 1835 · 2064 · 2076 · 2332 · 2449 · 2663 · 2845 · 3029
-- **`memory`** (41) — 407 · 440 · 471 · 599 · 1174 · 1533 · 1703 · 1722 · 1733 · 1759 · 1771 · 1786 · 1807 · 1824 · 1835 · 1874 · 1889 · 1896 · 1915 · 1926 · 1944 · 1957 · 1970 · 2028 · 2083 · 2103 · 2139 · 2175 · 2193 · 2200 · 2231 · 2253 · 2281 · 2353 · 2428 · 2449 · 2547 · 2738 · 2897 · 2925 · 3008
-- **`generation`** (11) — 1159 · 1219 · 1302 · 1446 · 1652 · 2175 · 2366 · 2378 · 2402 · 2509 · 2534
-- **`di`** (12) — 1639 · 1889 · 1915 · 2095 · 2097 · 2100 · 2103 · 2121 · 2200 · 2231 · 2378 · 2428
-- **`measurement`** (69) — 131 · 392 · 407 · 425 · 440 · 448 · 454 · 471 · 512 · 542 · 558 · 577 · 589 · 599 · 720 · 799 · 806 · 811 · 820 · 826 · 853 · 866 · 877 · 885 · 901 · 908 · 945 · 955 · 975 · 986 · 1020 · 1047 · 1053 · 1069 · 1086 · 1091 · 1130 · 1159 · 1174 · 1204 · 1219 · 1234 · 1252 · 1267 · 1284 · 1302 · 1470 · 1669 · 1688 · 1759 · 1926 · 1957 · 1984 · 1995 · 2010 · 2028 · 2083 · 2139 · 2633 · 2714 · 2765 · 2780 · 2804 · 2824 · 2845 · 2875 · 2912 · 2976 · 3008
-- **`docs`** (26) — 144 · 172 · 195 · 316 · 669 · 700 · 720 · 770 · 1099 · 1110 · 1115 · 1122 · 1226 · 1335 · 1362 · 1425 · 1733 · 2253 · 2320 · 2484 · 2494 · 2597 · 2607 · 2644 · 2663 · 2934
-- **`tests`** (25) — 1383 · 1397 · 1411 · 1554 · 1745 · 1786 · 1807 · 1874 · 1896 · 2064 · 2076 · 2332 · 2727 · 2738 · 2749 · 2925 · 2947 · 3029 · 3037 · 3045 · 3049 · 3052 · 3064 · 3075 · 3088
+- **`cli`** (19) — 75 · 799 · 922 · 1441 · 1462 · 1470 · 1479 · 1483 · 1495 · 1499 · 1506 · 1510 · 1517 · 1521 · 1554 · 1573 · 1577 · 1582 · 2420
+- **`lifetime`** (6) — 1621 · 1630 · 1635 · 1640 · 1653 · 1661
+- **`storage`** (18) — 1411 · 1533 · 1670 · 1772 · 1800 · 1802 · 1803 · 1805 · 1807 · 1825 · 1836 · 2065 · 2077 · 2333 · 2450 · 2700 · 2882 · 3066
+- **`memory`** (41) — 407 · 440 · 471 · 599 · 1174 · 1533 · 1704 · 1723 · 1734 · 1760 · 1772 · 1787 · 1808 · 1825 · 1836 · 1875 · 1890 · 1897 · 1916 · 1927 · 1945 · 1958 · 1971 · 2029 · 2084 · 2104 · 2140 · 2176 · 2194 · 2201 · 2232 · 2254 · 2282 · 2354 · 2429 · 2450 · 2548 · 2775 · 2934 · 2962 · 3045
+- **`generation`** (11) — 1159 · 1219 · 1302 · 1446 · 1653 · 2176 · 2367 · 2379 · 2403 · 2510 · 2535
+- **`di`** (12) — 1640 · 1890 · 1916 · 2096 · 2098 · 2101 · 2104 · 2122 · 2201 · 2232 · 2379 · 2429
+- **`measurement`** (69) — 131 · 392 · 407 · 425 · 440 · 448 · 454 · 471 · 512 · 542 · 558 · 577 · 589 · 599 · 720 · 799 · 806 · 811 · 820 · 826 · 853 · 866 · 877 · 885 · 901 · 908 · 945 · 955 · 975 · 986 · 1020 · 1047 · 1053 · 1069 · 1086 · 1091 · 1130 · 1159 · 1174 · 1204 · 1219 · 1234 · 1252 · 1267 · 1284 · 1302 · 1470 · 1670 · 1689 · 1760 · 1927 · 1958 · 1985 · 1996 · 2011 · 2029 · 2084 · 2140 · 2634 · 2751 · 2802 · 2817 · 2841 · 2861 · 2882 · 2912 · 2949 · 3013 · 3045
+- **`docs`** (29) — 144 · 172 · 195 · 316 · 669 · 700 · 720 · 770 · 1099 · 1110 · 1115 · 1122 · 1226 · 1335 · 1362 · 1425 · 1734 · 2254 · 2321 · 2485 · 2495 · 2598 · 2608 · 2645 · 2664 · 2680 · 2691 · 2700 · 2971
+- **`tests`** (25) — 1383 · 1397 · 1411 · 1554 · 1746 · 1787 · 1808 · 1875 · 1897 · 2065 · 2077 · 2333 · 2764 · 2775 · 2786 · 2962 · 2984 · 3066 · 3074 · 3082 · 3086 · 3089 · 3101 · 3112 · 3125
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (23) — 227 · 407 · 440 · 471 · 700 · 820 · 1130 · 1302 · 1455 · 1460 · 1479 · 1554 · 1634 · 1722 · 1970 · 2103 · 2139 · 2366 · 2378 · 2428 · 2534 · 2547 · 2897
-- **`cancellation`** (5) — 1441 · 1446 · 1703 · 1722 · 1745
-- **`vacuous`** (48) — 131 · 205 · 212 · 392 · 448 · 454 · 512 · 542 · 622 · 826 · 866 · 885 · 975 · 1159 · 1174 · 1204 · 1219 · 1252 · 1322 · 1335 · 1397 · 1510 · 1573 · 1590 · 1745 · 1786 · 1807 · 1874 · 1896 · 1984 · 1995 · 2028 · 2139 · 2253 · 2663 · 2738 · 2749 · 2780 · 2912 · 2925 · 2947 · 2976 · 3029 · 3052 · 3064 · 3075 · 3093 · 3102
-- **`scope-blind`** (38) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 647 · 770 · 784 · 1267 · 1335 · 1425 · 1598 · 1889 · 1957 · 2064 · 2076 · 2253 · 2281 · 2332 · 2449 · 2597 · 2607 · 2616 · 2633 · 2644 · 2663 · 2749 · 2912 · 2925 · 3049 · 3093 · 3102
-- **`second-door`** (20) — 1457 · 1495 · 1499 · 1510 · 1517 · 1577 · 1582 · 1660 · 1802 · 1824 · 2103 · 2231 · 2332 · 2353 · 2366 · 2378 · 2402 · 2449 · 2484 · 2509
-- **`stale-claim`** (19) — 57 · 172 · 252 · 316 · 720 · 877 · 908 · 927 · 1099 · 1115 · 1733 · 2100 · 2320 · 2353 · 2402 · 2484 · 2644 · 2934 · 3064
-- **`silent-loss`** (61) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 425 · 440 · 589 · 639 · 686 · 700 · 799 · 811 · 866 · 922 · 955 · 986 · 1020 · 1086 · 1130 · 1219 · 1226 · 1234 · 1302 · 1362 · 1383 · 1483 · 1499 · 1533 · 1620 · 1652 · 1688 · 1759 · 1799 · 1801 · 1802 · 1804 · 1824 · 1835 · 1874 · 2010 · 2083 · 2095 · 2100 · 2121 · 2193 · 2231 · 2281 · 2419 · 2509 · 2547 · 2582 · 2597 · 2607 · 2681 · 2765 · 2845 · 2976
-- **`wrong-subject`** (66) — 57 · 111 · 131 · 308 · 392 · 425 · 454 · 471 · 528 · 542 · 558 · 577 · 589 · 599 · 613 · 632 · 826 · 853 · 885 · 901 · 908 · 955 · 986 · 1020 · 1047 · 1053 · 1110 · 1122 · 1159 · 1174 · 1204 · 1234 · 1252 · 1267 · 1284 · 1362 · 1411 · 1457 · 1506 · 1598 · 1629 · 1639 · 1669 · 1759 · 1807 · 1915 · 1926 · 1944 · 1957 · 1984 · 1995 · 2028 · 2175 · 2200 · 2534 · 2573 · 2582 · 2714 · 2765 · 2780 · 2804 · 2824 · 2845 · 2947 · 3008 · 3052
-- **`unmeasured`** (17) — 558 · 599 · 669 · 720 · 770 · 806 · 1069 · 1091 · 1462 · 1470 · 1479 · 1521 · 1573 · 1944 · 2175 · 2494 · 2934
-- **`ordering`** (10) — 632 · 1483 · 1582 · 1771 · 1806 · 2121 · 2419 · 2428 · 2727 · 2875
-- **`resource`** (14) — 613 · 647 · 686 · 945 · 1053 · 1284 · 1462 · 1554 · 1660 · 1669 · 2097 · 3037 · 3045 · 3088
+- **`fail-open`** (23) — 227 · 407 · 440 · 471 · 700 · 820 · 1130 · 1302 · 1455 · 1460 · 1479 · 1554 · 1635 · 1723 · 1971 · 2104 · 2140 · 2367 · 2379 · 2429 · 2535 · 2548 · 2934
+- **`cancellation`** (5) — 1441 · 1446 · 1704 · 1723 · 1746
+- **`vacuous`** (48) — 131 · 205 · 212 · 392 · 448 · 454 · 512 · 542 · 622 · 826 · 866 · 885 · 975 · 1159 · 1174 · 1204 · 1219 · 1252 · 1322 · 1335 · 1397 · 1510 · 1573 · 1590 · 1746 · 1787 · 1808 · 1875 · 1897 · 1985 · 1996 · 2029 · 2140 · 2254 · 2700 · 2775 · 2786 · 2817 · 2949 · 2962 · 2984 · 3013 · 3066 · 3089 · 3101 · 3112 · 3130 · 3139
+- **`scope-blind`** (41) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 647 · 770 · 784 · 1267 · 1335 · 1425 · 1598 · 1890 · 1958 · 2065 · 2077 · 2254 · 2282 · 2333 · 2450 · 2598 · 2608 · 2617 · 2634 · 2645 · 2664 · 2680 · 2691 · 2700 · 2786 · 2949 · 2962 · 3086 · 3130 · 3139
+- **`second-door`** (20) — 1457 · 1495 · 1499 · 1510 · 1517 · 1577 · 1582 · 1661 · 1803 · 1825 · 2104 · 2232 · 2333 · 2354 · 2367 · 2379 · 2403 · 2450 · 2485 · 2510
+- **`stale-claim`** (21) — 57 · 172 · 252 · 316 · 720 · 877 · 908 · 927 · 1099 · 1115 · 1734 · 2101 · 2321 · 2354 · 2403 · 2485 · 2645 · 2664 · 2680 · 2971 · 3101
+- **`silent-loss`** (61) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 425 · 440 · 589 · 639 · 686 · 700 · 799 · 811 · 866 · 922 · 955 · 986 · 1020 · 1086 · 1130 · 1219 · 1226 · 1234 · 1302 · 1362 · 1383 · 1483 · 1499 · 1533 · 1621 · 1653 · 1689 · 1760 · 1800 · 1802 · 1803 · 1805 · 1825 · 1836 · 1875 · 2011 · 2084 · 2096 · 2101 · 2122 · 2194 · 2232 · 2282 · 2420 · 2510 · 2548 · 2583 · 2598 · 2608 · 2718 · 2802 · 2882 · 3013
+- **`wrong-subject`** (66) — 57 · 111 · 131 · 308 · 392 · 425 · 454 · 471 · 528 · 542 · 558 · 577 · 589 · 599 · 613 · 632 · 826 · 853 · 885 · 901 · 908 · 955 · 986 · 1020 · 1047 · 1053 · 1110 · 1122 · 1159 · 1174 · 1204 · 1234 · 1252 · 1267 · 1284 · 1362 · 1411 · 1457 · 1506 · 1598 · 1630 · 1640 · 1670 · 1760 · 1808 · 1916 · 1927 · 1945 · 1958 · 1985 · 1996 · 2029 · 2176 · 2201 · 2535 · 2574 · 2583 · 2751 · 2802 · 2817 · 2841 · 2861 · 2882 · 2984 · 3045 · 3089
+- **`unmeasured`** (17) — 558 · 599 · 669 · 720 · 770 · 806 · 1069 · 1091 · 1462 · 1470 · 1479 · 1521 · 1573 · 1945 · 2176 · 2495 · 2971
+- **`ordering`** (10) — 632 · 1483 · 1582 · 1772 · 1807 · 2122 · 2420 · 2429 · 2764 · 2912
+- **`resource`** (14) — 613 · 647 · 686 · 945 · 1053 · 1284 · 1462 · 1554 · 1661 · 1670 · 2098 · 3074 · 3082 · 3125
 
 <!-- facets:end -->
 
@@ -1605,9 +1605,10 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   **`consumer-smoke` cannot see it at all** because it rebuilds its consumer from source every run. To test a
   binary-compatibility claim you must compile a probe against the OLD assembly and run it against the new one
   (a `callvirt` on a `null` argument is enough — `NullReferenceException` means the member resolved,
-  `MissingMethodException` means it did not). `IModelProvider` and `IModelProvider` therefore keep their
-  own `new string Id { get; }` next to `IProviderIdentity`; the declarations are the compatibility, and a
-  test pins them. Implementors are unaffected either way — one implicit `public string Id` satisfies both
+  `MissingMethodException` means it did not). `IModelProvider` therefore keeps its
+  own `new string Id { get; }` next to `IProviderIdentity`; the declaration is the compatibility, and a
+  test pins it. (It was TWO seams when this was written — **D127** collapsed them, and the `new`
+  declaration outlives the collapse because a caller compiled against either one still binds through it.) Implementors are unaffected either way — one implicit `public string Id` satisfies both
   slots — so an implementor-only compatibility check proves nothing about callers.
   **The next two places this can happen, named so nobody has to rediscover them:** `IScorer`
   (`src/Lyntai.Core/Cortex/IScorer.cs`) and `ICliProviderDialect`
@@ -1616,7 +1617,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   from `IProviderIdentity` today, and neither should be *changed to derive from it by deleting its own
   declaration* — that is the same `MissingMethodException` for every pre-compiled caller of `scorer.Id` or
   `dialect.Id`. If either ever gains the base interface, it keeps its own `new string Id { get; }` too, and
-  gets a line in `ProviderIdentityTests` alongside the two provider seams.
+  gets a line in `ProviderIdentityTests` alongside `IModelProvider`.
 - **Disposing a replaced instance aborts in-flight work.** Retiring an entry looks like it should clean up <!-- trap: sub=lifetime shape=silent-loss -->
   after itself, and "clean up" reads as `Dispose`. It isn't: retirement removes the entry and drops the
   pool's reference, and the runtime reclaims the instance once the last caller finishes. **Without leases a
@@ -2660,6 +2661,42 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   name is SURFACE, which is why `check-api-vocabulary` is a separate gate with a separate registry rather
   than a wider glob on this one.
 
+- **A rename sweep that REACHES prose destroys a contrast, and the result passes every gate because the <!-- trap: sub=docs,gates shape=stale-claim,scope-blind -->
+  retired name is gone.** The mirror image of the entry above, and more expensive. When a decision unifies
+  two seams, a sentence that merely MENTIONED one comes out correct; a sentence that CONTRASTED them comes
+  out naming the same thing on both sides. `check-docs` looks for vocabulary a decision RETIRED and finds
+  none; `check-links` resolves the survivor; `check-api-vocabulary` reads the frozen surface, which never
+  held prose. The sentence stays grammatical, plausible, and empty.
+  <br>Measured 2026-09-16, one day after **D127** collapsed the provider seams: **six** sites —
+  `docs/DECISIONS.md` (D36, D128, D130), `CHANGELOG.md`, this file, and a shipped `//` comment in
+  `Lyntai.Core` — plus four in `README.md` the same sweep wrecked a DIFFERENT way, one of them a compiled
+  sample whose `is not IModelProvider` type test against an `IModelProvider` is always false.
+  <br>**The remedy applied at the time treated ONE file**: `check-docs.mjs`'s `HISTORICAL` list records the
+  identical damage in the design record and exempts it. An exemption is not a sweep — the other ten sites
+  were never looked for, because the incident was filed as "this file was damaged" rather than as "this
+  SWEEP was damaging". **When a sweep is found to have hurt one file, the finding is about the sweep.**
+  `check-tautology` now gates the collapsed-onto-one-name half; the README half, where the survivor sits
+  beside a different name, no backreference can see.
+- **A gate's SCOPE justified by a measurement expires the way a blocked item does — silently, when the <!-- trap: sub=gates,docs shape=scope-blind,stale-claim -->
+  tree grows around it.** `check-links` scanned code comments for paths, sections and members from
+  2026-08-15 and left the Part half out, saying so: *"a task-record reference is a prose convention, and
+  the measurement found none in code"*. True when written. Re-run 2026-09-16: **150 across 73 files**, of
+  which **88 were dead** — every bench sweep names the thread it belongs to, and every archiving since had
+  broken a few more while the gate reported clean.
+  <br>**The exclusion was honest, dated and reasoned, which is exactly why nobody re-read it.** A scope
+  note reads as a design decision after a week; it was a MEASUREMENT, and `task-lifecycle.md` already says
+  how to treat one of those — a claim with an expiry date, re-checked against the thing that would refute
+  it. **When you narrow a gate on a count, write the count down** so the next reader can re-run it, and
+  re-run it when the area it excluded has visibly grown.
+- **A `retiredTerms` rule anchored on the FULLY-QUALIFIED name is anchored on the spelling prose is least <!-- trap: sub=docs,gates shape=scope-blind -->
+  likely to use.** `\bLyntai[.]Providers[.]Default\b` missed two live sites by exactly one word — the
+  README and `docs/AOT.md` both wrote the bare `Providers.Default`, because prose drops a namespace prefix
+  the moment context makes it obvious. **And widening it is NOT the fix**, which is the half worth carrying:
+  dropping `Lyntai[.]` finds those two and sixteen others, five of them decision entries recording what the
+  package was called on the day they decided, so it measures 2 true against 16 false. Both directions are
+  wrong for the same underlying reason — a package id is a WORD in prose and a PATH in a registry — and the
+  honest resolution was to fix the two by hand and record this rather than ship a rule that would collect
+  sixteen `drift-ok`s and rot. Measure a candidate widening the way `docs/GATES.md` requires of a new gate.
 - **A doc comment asserting "this is NOT duplication waiting to be extracted" is unfalsifiable, and it is <!-- trap: sub=docs,storage shape=vacuous,scope-blind -->
   the one claim nobody re-reads.** Measured 2026-08-16 (`docs/DECISIONS.md` **D77**).
   `PostgresMemoryGraphStore`'s class doc said exactly that, and justified it with three real dialect

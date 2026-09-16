@@ -10,7 +10,7 @@ namespace Lyntai.Benchmarks;
 /// <para><b>The gap this fills.</b> <c>memory-annotation</c> measures the mechanism's CEILING with a
 /// perfect annotator, and <c>LlmAnnotationLiveTests</c> asserts the PROPERTY that some handle is shared by
 /// two of three facts. Neither is a RATE, and a rate is what decides whether the published ceiling is
-/// something a deployment gets or something it only approaches (`TASKS.md` Part 65).</para>
+/// something a deployment gets or something it only approaches (`docs/task-archive.md` Part 216).</para>
 ///
 /// <para><b>It needs no engine, no store and no recall</b>, which is what keeps it small and sharp: drift
 /// is a property of <see cref="IMemoryAnnotationPolicy"/> alone. Wiring the graph engine would measure
