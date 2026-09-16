@@ -14,7 +14,10 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import {
-  DECISION_CLAIMS, checkDecisionClaims, defaultOf, missingReleasedMigrations, policyDomainFolders,
+  DECISION_CLAIMS, checkDecisionClaims, coreThirdPartyRefs, defaultOf,
+  embedderImplementationsOutsideCore,
+  missingReleasedMigrations, policyDomainFolders,
+  requiredModelProviderMembers,
   silentAotOptOuts,
   sqliteObjectsMissingPrefix,
   wireJsonSerializerUses,
@@ -292,5 +295,96 @@ describe('checkDecisionClaims', () => {
     // Pinned last, deliberately: it is the weakest assertion here, because it passes on a predicate that can
     // never go red. The fixtures above are what prove these can.
     assert.equal(checkDecisionClaims(repo, DECISION_CLAIMS, () => {}), 0);
+  });
+});
+
+describe('coreThirdPartyRefs (D25)', () => {
+  const core = (body) => ({ 'src/Lyntai.Core/Lyntai.Core.csproj': body });
+
+  it('names a dependency OFF the abstractions band — the RED case', () => {
+    const r = fixture(core('<Project><ItemGroup>\n'
+      + '<PackageReference Include="Dapper" />\n</ItemGroup></Project>\n'));
+    assert.deepEqual(coreThirdPartyRefs(r), ['Dapper']);
+  });
+
+  // The distinction the band exists for: the implementation package is refused where its abstractions
+  // half is allowed. Matching `Microsoft.Extensions.*` would let exactly this through.
+  it('refuses an IMPLEMENTATION package from the same family', () => {
+    const r = fixture(core('<Project><ItemGroup>\n'
+      + '<PackageReference Include="Microsoft.Extensions.Http" />\n</ItemGroup></Project>\n'));
+    assert.deepEqual(coreThirdPartyRefs(r), ['Microsoft.Extensions.Http']);
+  });
+
+  it('accepts the abstractions the core package actually carries', () => {
+    const r = fixture(core('<Project><ItemGroup>\n'
+      + '<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />\n'
+      + '<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />\n</ItemGroup></Project>\n'));
+    assert.deepEqual(coreThirdPartyRefs(r), []);
+  });
+});
+
+describe('requiredModelProviderMembers (D127)', () => {
+  const iface = (body) => ({
+    'src/Lyntai.Core/Lifecycle/IModelProvider.cs':
+      `namespace Lyntai.Lifecycle;\npublic interface IModelProvider : IProviderIdentity\n{\n${body}}\n`
+      + 'internal static class ProviderDefaults { public static string X => "y"; }\n',
+  });
+
+  // The POSITIVE CONTROL, and the reason it is here: the predicate's first version merged every property
+  // into the following member's chunk, so an interface with two required members reported NONE. A
+  // vacuous-pass predicate is the failure mode this whole gate exists to avoid.
+  it('finds the two members that SHOULD be required', () => {
+    const r = iface('    new string Id { get; }\n    ProviderCapabilities Capabilities { get; }\n'
+      + '    bool IsAvailable => true;\n');
+    assert.deepEqual(requiredModelProviderMembers(fixture(r)).sort(), ['Capabilities', 'Id']);
+  });
+
+  it('names an OPERATION added without a default — the RED case', () => {
+    const r = iface('    new string Id { get; }\n    ProviderCapabilities Capabilities { get; }\n'
+      + '    Task<int> RankAsync(string q, CancellationToken ct = default);\n');
+    assert.ok(requiredModelProviderMembers(fixture(r)).includes('RankAsync'));
+  });
+
+  it('counts a defaulted operation as satisfied, however many lines its body spans', () => {
+    const r = iface('    new string Id { get; }\n    ProviderCapabilities Capabilities { get; }\n'
+      + '    Task<int> RankAsync(\n        string q, CancellationToken ct = default) =>\n'
+      + '        Task.FromResult(0);\n');
+    assert.deepEqual(requiredModelProviderMembers(fixture(r)).sort(), ['Capabilities', 'Id']);
+  });
+
+  it('ignores the helper type below the interface, which is not the contract', () => {
+    const r = iface('    new string Id { get; }\n    ProviderCapabilities Capabilities { get; }\n');
+    assert.deepEqual(requiredModelProviderMembers(fixture(r)).sort(), ['Capabilities', 'Id']);
+  });
+});
+
+describe('embedderImplementationsOutsideCore (D129)', () => {
+  it('names a BACKEND that implements the front door — the RED case', () => {
+    const r = fixture({
+      'src/Lyntai.Providers.Onnx/OnnxProvider.cs':
+        'namespace X;\npublic sealed class OnnxProvider : IModelProvider, IEmbedder\n{\n}\n',
+    });
+    assert.deepEqual(embedderImplementationsOutsideCore(r), ['src/Lyntai.Providers.Onnx/OnnxProvider.cs']);
+  });
+
+  // The PRIMARY-CONSTRUCTOR form, which is how the one legitimate implementation is written. A base-list
+  // regex anchored on `class X :` misses it, and the predicate then passes by seeing nothing at all.
+  it('sees the primary-constructor form, and allows it inside the front door folder', () => {
+    const body = 'namespace X;\npublic sealed class RoutedEmbedder(\n'
+      + '    IEnumerable<IModelProvider> providers, ILogger? logger = null) : IEmbedder\n{\n}\n';
+    assert.deepEqual(embedderImplementationsOutsideCore(
+      fixture({ 'src/Lyntai.Core/Embeddings/RoutedEmbedder.cs': body })), []);
+    assert.deepEqual(embedderImplementationsOutsideCore(
+      fixture({ 'src/Lyntai.Providers.Basic/Rogue.cs': body })), ['src/Lyntai.Providers.Basic/Rogue.cs']);
+  });
+
+  it('is not fooled by a MENTION of the interface in a doc comment or a parameter', () => {
+    const r = fixture({
+      'src/Lyntai.Providers.Basic/Thing.cs':
+        '/// <summary>Beats an <see cref="IEmbedder"/>.</summary>\n'
+        + 'public sealed class Thing : IModelProvider\n{\n'
+        + '    public Thing(IEmbedder inner) { }\n}\n',
+    });
+    assert.deepEqual(embedderImplementationsOutsideCore(r), []);
   });
 });

@@ -215,6 +215,93 @@ export function policyDomainFolders(r) {
  *
  * <p>Returns `NaN` only when the field is ABSENT, so "shipped at 0" and "deleted" stay distinguishable.</p>
  */
+/**
+ * Third-party ids `Lyntai.Core` references — the package every consumer is forced to take (**D25**).
+ *
+ * The band is the ABSTRACTIONS half of `Microsoft.Extensions.*` and nothing else. An implementation
+ * package is not on it: `Microsoft.Extensions.Http` is allowed in an ADAPTER precisely because it is not
+ * allowed here, so matching the family rather than the `.Abstractions` suffix would let the thing D25
+ * exists to refuse through the gate meant to catch it.
+ */
+export function coreThirdPartyRefs(r) {
+  const csproj = read(r, 'src/Lyntai.Core/Lyntai.Core.csproj');
+  return [...csproj.matchAll(/<PackageReference\s+Include="([^"]+)"/g)]
+    .map((m) => m[1])
+    .filter((id) => !/^Microsoft\.Extensions\.[A-Za-z]+\.Abstractions$/.test(id));
+}
+
+/**
+ * Members of `IModelProvider` that a BYO provider is FORCED to implement — everything without a default
+ * body (**D127**).
+ *
+ * Only `Id` and `Capabilities` may be required: a backend must say what it is and what it serves, and
+ * every OPERATION defaults so that adding one does not break a provider outside this repository. That is
+ * the whole of what "one interface with every operation defaulted" buys, and it is spent by a single
+ * member declared without `=>`.
+ *
+ * Scans the interface BODY only — a nested helper type below it (`ProviderDefaults`) is not the contract —
+ * and strips comments first, because the XML docs here quote member signatures.
+ */
+export function requiredModelProviderMembers(r) {
+  const src = read(r, 'src/Lyntai.Core/Lifecycle/IModelProvider.cs')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/\/\/.*$/gm, '');
+  const open = src.indexOf('public interface IModelProvider');
+  if (open < 0) return ['(IModelProvider not found)'];
+  // The interface body: from its first brace to the matching one, by depth.
+  let depth = 0, start = -1, end = -1;
+  for (let i = src.indexOf('{', open); i < src.length; i++) {
+    if (src[i] === '{') { if (depth === 0) start = i + 1; depth++; }
+    else if (src[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+  }
+  if (start < 0 || end < 0) return ['(could not read the interface body)'];
+
+  const required = [];
+  // A member runs from its declaration to the `;` that ends it. An accessor block is blanked to a
+  // TERMINATOR of its own (`<prop>;`) rather than to a placeholder: the `;` inside `{ get; }` is not the
+  // member's end, but the property still ends there. Blanking without the `;` merged every property into
+  // the next member's chunk, and the first member carrying a `=>` then made the whole run look defaulted —
+  // which reported zero required members on an interface that has two, a gate that could not fail.
+  for (const chunk of src.slice(start, end).replace(/\{\s*get;\s*\}/g, '<prop>;').split(';')) {
+    const decl = chunk.trim();
+    if (!decl) continue;
+    const name = /(\w+)\s*(?:<prop>|\()/.exec(decl)?.[1];
+    if (!name) continue;
+    if (!decl.includes('=>')) required.push(name);
+  }
+  return required;
+}
+
+/**
+ * Files declaring `IEmbedder` as a base type, outside the front door's own folder (**D129**).
+ *
+ * `IEmbedder` is the FRONT DOOR — a router over every backend that produces vectors — so a BACKEND that
+ * implements it is reachable without going through routing or fallback, which is the second-door shape
+ * `pitfalls.md` files. Three backends used to implement it and D129 took it off all three; nothing but the
+ * router may hold it.
+ *
+ * Matches the PRIMARY-CONSTRUCTOR form too (`class X(...) : IEmbedder`), which is how the one legitimate
+ * implementation is written — a base-list regex anchored on `class X :` misses it and passes vacuously.
+ */
+export function embedderImplementationsOutsideCore(r) {
+  const hits = [];
+  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/{2,3}.*$/gm, '');
+  const walk = (rel) => {
+    const abs = path.join(r, rel);
+    if (!fs.existsSync(abs)) return;
+    for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
+      if (e.isDirectory()) { if (e.name !== 'bin' && e.name !== 'obj') walk(`${rel}/${e.name}`); continue; }
+      if (!e.name.endsWith('.cs')) continue;
+      const text = strip(read(r, rel, e.name));
+      // The base list of a class/record declaration: everything between `:` and the body or constraint.
+      const declares = [...text.matchAll(/\b(?:class|record)\s+\w+[^:{;]*:\s*([^{]*?)(?:\bwhere\b|\{)/gs)]
+        .some((m) => /\bIEmbedder\b/.test(m[1]));
+      if (declares && !`${rel}/`.startsWith('src/Lyntai.Core/Embeddings/')) hits.push(`${rel}/${e.name}`);
+    }
+  };
+  walk('src');
+  return hits;
+}
+
 export function defaultOf(r, relative, field) {
   const src = read(r, relative);
   const withValue = new RegExp(`private readonly \\w+ _${field}\\s*=\\s*(-?[\\d.]+)`).exec(src);
@@ -342,6 +429,51 @@ export const DECISION_CLAIMS = [
     },
     detail: (r) => `at the Memory root: ${fs.readdirSync(path.join(r, 'src', 'Lyntai.Core', 'Memory')).filter((f) => /^IMemory\w+Policy\.cs$/.test(f)).join(', ') || '(none)'}`,
     why: 'the ONE documented exception — removal governs blend MEMBERS, not entries. This audit filed its placement as a violation on the strength of the name and nearly moved it, breaking the API for nothing; the predicate is what makes the exception checkable instead of arguable',
+  },
+  // The three below were added 2026-09-17, covering the D125–D147 band: nine decisions landed in a day and
+  // reshaped the provider layer, and nothing re-checked any of them. Each was verified by hand against the
+  // tree before registration, per the header's rule.
+  {
+    id: 'D25',
+    claim: '`Lyntai.Core` carries no third-party dependency outside the `Microsoft.Extensions.*.Abstractions` band',
+    holds: (r) => coreThirdPartyRefs(r).length === 0,
+    detail: (r) => {
+      const bad = coreThirdPartyRefs(r);
+      return bad.length === 0 ? 'only the DI + Logging abstractions' : `off the band: ${bad.join(', ')}`;
+    },
+    why: 'Core is the one package a consumer cannot opt out of, so a dependency here is forced on everybody '
+      + 'and is the single most expensive line anyone can add in this repository. It is also the easiest: a '
+      + 'PackageReference is one line, it compiles, every test passes, and the trimming table in docs/AOT.md '
+      + 'is the only place the cost would ever show up. D146 deleted a 654 KB reference that had arrived '
+      + 'exactly that way',
+  },
+  {
+    id: 'D127',
+    claim: 'only `Id` and `Capabilities` are REQUIRED of an `IModelProvider`; every operation defaults',
+    holds: (r) => {
+      const req = requiredModelProviderMembers(r);
+      return req.length === 2 && req.includes('Id') && req.includes('Capabilities');
+    },
+    detail: (r) => `required: ${requiredModelProviderMembers(r).join(', ') || '(none — the predicate read nothing)'}`,
+    why: 'this is what one collapsed interface BOUGHT: an operation can be added without breaking a provider '
+      + 'outside this repository, because the default says Unsupported and the capability filter never '
+      + 'dispatches to it. One member declared without `=>` spends that silently — it compiles here, where '
+      + 'every implementation is in the same solution, and breaks every BYO provider on upgrade. Both '
+      + 'directions are checked: a REQUIRED operation fails, and so does a defaulted `Capabilities`, which '
+      + 'would let a backend ship without saying what it serves',
+  },
+  {
+    id: 'D129',
+    claim: '`IEmbedder` is the FRONT DOOR — nothing outside `Core/Embeddings/` implements it',
+    holds: (r) => embedderImplementationsOutsideCore(r).length === 0,
+    detail: (r) => {
+      const bad = embedderImplementationsOutsideCore(r);
+      return bad.length === 0 ? 'only the routed front door implements it' : `also implemented by: ${bad.join(', ')}`;
+    },
+    why: 'three backends implemented it before D129 and the LAST registration silently won, so a second '
+      + 'endpoint replaced the first instead of becoming its failover. A backend that implements it again is '
+      + 'reachable without routing, fallback or the capability filter — the second-door shape — and nothing '
+      + 'about that fails: embeddings are simply computed by whichever one the container handed back',
   },
 ];
 

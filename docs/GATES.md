@@ -549,6 +549,24 @@ predicate over the tree. **Every registered predicate was verified BY HAND befor
 each is driven RED by a synthesized tree in its own test: a predicate nobody checked is a second unverified
 claim, not a gate.
 
+**Widened 2026-09-17 from ten claims to thirteen, over the D125–D147 band** — nine decisions landed in a
+day, reshaped the whole provider layer, and not one of them was re-checked by anything. The three added are
+the ones whose violation is SILENT rather than loud: **D25** (a third-party dependency in `Lyntai.Core`,
+which every consumer is forced to take, and which is one line that compiles and passes every test — D146
+deleted a 654 KB reference that had arrived exactly that way); **D127** (only `Id` and `Capabilities` are
+required of an `IModelProvider`, which is precisely what one collapsed interface bought — a member declared
+without `=>` compiles here, where every implementation is in this solution, and breaks every BYO provider
+on upgrade); and **D129** (nothing outside `Core/Embeddings/` implements `IEmbedder`, because a backend
+that does is reachable without routing, fallback or the capability filter).
+
+**Its first version of the D127 predicate could not fail, and that is worth keeping.** Blanking `{ get; }`
+to a placeholder without its terminator merged each property into the NEXT member's chunk, so the first
+`=>` in the run made everything look defaulted: it reported ZERO required members on an interface that has
+two. It passed, it looked right, and it would have passed just as happily on the defect it exists to catch.
+The test now asserts the POSITIVE control — that the predicate finds `Id` and `Capabilities` — before
+asserting anything about a violation. **A gate's red case proves the pattern; only a positive control
+proves the gate was looking.**
+
 **Its honest limit**: it covers claims somebody registered, so it is a gate against recurrence rather than
 a proof that every decision is true — and prose claims with no extractable shape are invisible to it.
 

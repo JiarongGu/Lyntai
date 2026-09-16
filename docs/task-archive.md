@@ -4259,3 +4259,24 @@ widenings that state their own compile-time consequence, so the Breaking section
 the standard **D149** used to untrack the last guide.
 
 **Baseline re-attested with Docker up**: `3820 / 3853 / 33` at `aae8cbcb`, unchanged across the session.
+
+## Part 243 — `check-decision-claims` widened over the band nothing re-checked
+
+✅ closed 2026-09-17, at the owner's direction, following `docs/task-archive.md` Part 242.
+
+**The gap: 10 machine-checked claims against 150 decisions, and none of them in the D125–D147 band** —
+nine decisions that landed in one day and reshaped the provider layer, shipping in the next MAJOR. Three
+added, each verified by hand first and each chosen because its violation is SILENT: **D25** (a third-party
+dependency in `Lyntai.Core`), **D127** (only `Id` and `Capabilities` required of an `IModelProvider`), and
+**D129** (nothing outside `Core/Embeddings/` implements `IEmbedder`). 13 claims, all green.
+
+**Validated RED twice over**: synthesized fixtures for the patterns, and then the REAL files mutated in a
+temp copy — one operation's `=>` removed from `IModelProvider`, one off-band `PackageReference` added to
+Core — which is the proof a fixture cannot give. `docs/GATES.md` carries what each covers.
+
+**The finding worth carrying is about the predicate, not the decisions.** The first D127 predicate reported
+ZERO required members on an interface that has two: it merged each property into the next member's chunk,
+so the first `=>` made the whole run look defaulted. It was green, plausible, and would have stayed green
+over the defect it exists to catch. A red case proves the pattern; only a POSITIVE CONTROL proves the gate
+was looking at anything — and this gate's own header already said a predicate nobody checked is a second
+unverified claim.
