@@ -83,7 +83,7 @@ public sealed record GraphMemoryOptions
     public int DefaultLimit { get; init; } = 10;
 
     /// <summary>How many near neighbours a new entry is linked to when similarity enrichment is wired (an
-    /// <see cref="Lyntai.Embeddings.IEmbedder"/> and an <see cref="IVectorStore"/> are registered).
+    /// embedding backend and an <see cref="IVectorStore"/> are registered).
     /// <b>A starting point, not a tuned value</b> — chosen against a synthetic corpus, never against
     /// production usage.</summary>
     public int SimilarityK { get; init; } = 5;

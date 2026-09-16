@@ -33,7 +33,7 @@ public class MemoryRemovalCompletenessTests
     private static GraphMemoryEngine Engine(IVectorStore vectors, GraphMemoryOptions? options = null,
         IMemoryGraphStore? store = null) =>
         new("project/graph", store ?? new InMemoryMemoryGraphStore(), options,
-            agePolicies: [new PerWriteAgePolicy()], embedder: new FakeEmbedder(), vectors: vectors);
+            agePolicies: [new PerWriteAgePolicy()], providers: [new FakeEmbedder()], vectors: vectors);
 
     // The engine's own address, asked for rather than restated — a second spelling here is how these
     // assertions would keep passing against a collection the engine no longer writes.
@@ -175,7 +175,7 @@ public class MemoryRemovalCompletenessTests
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("project/graph", store,
             new GraphMemoryOptions { MinRetrievability = 0.9 },
-            agePolicies: [Accumulating()], embedder: new FakeEmbedder(), vectors: vectors);
+            agePolicies: [Accumulating()], providers: [new FakeEmbedder()], vectors: vectors);
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry about widgets"));
         await Crowd(engine, "t", 200);

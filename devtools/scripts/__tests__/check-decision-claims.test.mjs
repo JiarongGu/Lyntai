@@ -15,7 +15,6 @@ import { describe, it } from 'node:test';
 
 import {
   DECISION_CLAIMS, checkDecisionClaims, coreThirdPartyRefs, defaultOf,
-  embedderImplementationsOutsideCore,
   missingReleasedMigrations, policyDomainFolders,
   requiredModelProviderMembers,
   silentAotOptOuts,
@@ -355,36 +354,5 @@ describe('requiredModelProviderMembers (D127)', () => {
   it('ignores the helper type below the interface, which is not the contract', () => {
     const r = iface('    new string Id { get; }\n    ProviderCapabilities Capabilities { get; }\n');
     assert.deepEqual(requiredModelProviderMembers(fixture(r)).sort(), ['Capabilities', 'Id']);
-  });
-});
-
-describe('embedderImplementationsOutsideCore (D129)', () => {
-  it('names a BACKEND that implements the front door — the RED case', () => {
-    const r = fixture({
-      'src/Lyntai.Providers.Onnx/OnnxProvider.cs':
-        'namespace X;\npublic sealed class OnnxProvider : IModelProvider, IEmbedder\n{\n}\n',
-    });
-    assert.deepEqual(embedderImplementationsOutsideCore(r), ['src/Lyntai.Providers.Onnx/OnnxProvider.cs']);
-  });
-
-  // The PRIMARY-CONSTRUCTOR form, which is how the one legitimate implementation is written. A base-list
-  // regex anchored on `class X :` misses it, and the predicate then passes by seeing nothing at all.
-  it('sees the primary-constructor form, and allows it inside the front door folder', () => {
-    const body = 'namespace X;\npublic sealed class RoutedEmbedder(\n'
-      + '    IEnumerable<IModelProvider> providers, ILogger? logger = null) : IEmbedder\n{\n}\n';
-    assert.deepEqual(embedderImplementationsOutsideCore(
-      fixture({ 'src/Lyntai.Core/Embeddings/RoutedEmbedder.cs': body })), []);
-    assert.deepEqual(embedderImplementationsOutsideCore(
-      fixture({ 'src/Lyntai.Providers.Basic/Rogue.cs': body })), ['src/Lyntai.Providers.Basic/Rogue.cs']);
-  });
-
-  it('is not fooled by a MENTION of the interface in a doc comment or a parameter', () => {
-    const r = fixture({
-      'src/Lyntai.Providers.Basic/Thing.cs':
-        '/// <summary>Beats an <see cref="IEmbedder"/>.</summary>\n'
-        + 'public sealed class Thing : IModelProvider\n{\n'
-        + '    public Thing(IEmbedder inner) { }\n}\n',
-    });
-    assert.deepEqual(embedderImplementationsOutsideCore(r), []);
   });
 });

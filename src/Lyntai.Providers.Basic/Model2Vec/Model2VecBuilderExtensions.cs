@@ -24,7 +24,7 @@ public static class Model2VecBuilderExtensions
     /// composition error worth hearing at startup, and the table is read once and shared. The model is
     /// around 30 MB for `potion-base-8M` and is held for the container's life.</para>
     ///
-    /// <para>Registered with <c>TryAdd</c>, so an <see cref="IEmbedder"/> registered before this call wins —
+    /// <para>Registered with <c>TryAdd</c>, so an an embedding backend registered before this call wins —
     /// the BYO story every seam here has.</para>
     /// </summary>
     /// <param name="builder">The Lyntai builder.</param>

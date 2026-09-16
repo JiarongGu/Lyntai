@@ -82,15 +82,15 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
 
         var logger = new CapturingLogger(output);
         var store = new InMemoryMemoryGraphStore();
-        var embedder = sp.GetRequiredService<IEmbedder>();
+        var providers = sp.GetServices<IModelProvider>();
         var vectors = new InMemoryVectorStore();
         var engine = new GraphMemoryEngine("e", store,
             agePolicies: [new PerWriteAgePolicy()],
             logger: logger,
-            embedder: embedder,
+            providers: providers,
             vectors: vectors,
             seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = 5 }, logger)]);
+                new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = 5 }, logger)]);
 
         var target = await engine.RememberAsync(
             new MemoryWrite("t", "s", "the meeting was postponed until next week"));
@@ -138,16 +138,16 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
         Skip.IfNot(await LiveModel.IsAvailableAsync(), LiveModel.SkipReason);
 
         using var sp = Build();
-        var embedder = sp.GetRequiredService<IEmbedder>();
+        var providers = sp.GetServices<IModelProvider>();
 
-        var (defaults, target) = await RunAsync(embedder, new ReciprocalRankFusionPolicy());
-        var (weighted, _) = await RunAsync(embedder,
+        var (defaults, target) = await RunAsync(providers, new ReciprocalRankFusionPolicy());
+        var (weighted, _) = await RunAsync(providers,
             new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RelevanceWeight = 8 }));
-        var (lowK, _) = await RunAsync(embedder,
+        var (lowK, _) = await RunAsync(providers,
             new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { K = 1 }));
-        var (both, _) = await RunAsync(embedder,
+        var (both, _) = await RunAsync(providers,
             new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { K = 1, RelevanceWeight = 8 }));
-        var (multiplicative, _) = await RunAsync(embedder, new MultiplicativeRankingPolicy());
+        var (multiplicative, _) = await RunAsync(providers, new MultiplicativeRankingPolicy());
 
         output.WriteLine($"target                : {target}");
         output.WriteLine($"RRF defaults          : [{string.Join(",", defaults)}]");
@@ -180,15 +180,15 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
     /// <summary>Writes one paraphrase target behind <see cref="NoiseCount"/> unrelated notes, then recalls
     /// with the given ranking policy. Returns the ids at limit 5 and the target's id.</summary>
     private async Task<(List<string> AtLimit, string Target)> RunAsync(
-        IEmbedder embedder, IMemoryRankingPolicy ranking)
+        IEnumerable<IModelProvider> providers, IMemoryRankingPolicy ranking)
     {
         var store = new InMemoryMemoryGraphStore();
         var vectors = new InMemoryVectorStore();
         var engine = new GraphMemoryEngine("e", store,
             agePolicies: [new PerWriteAgePolicy()],
-            embedder: embedder, vectors: vectors, ranking: ranking,
+            providers: providers, vectors: vectors, ranking: ranking,
             seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = 5 })]);
+                new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = 5 })]);
 
         var target = await engine.RememberAsync(
             new MemoryWrite("t", "s", "the meeting was postponed until next week"));

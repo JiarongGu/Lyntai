@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Ranking;
@@ -971,12 +972,12 @@ internal static class MemoryLocomoBench
                     ? [new LexicalSeedSource()]
                     : semanticK is { } k
                         ? [new LexicalSeedSource(), new SubjectSeedSource(),
-                            new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = k })]
+                            new SemanticSeedSource([embedder], vectors, new SemanticSeedOptions { K = k })]
                         : null;
 
                 var ingest = new GraphMemoryEngine("locomo",
                     new SqliteMemoryGraphStore(template.Factory), options: options,
-                    embedder: embedder, vectors: vectors, ranking: ranking, verification: verification,
+                    providers: [embedder], vectors: vectors, ranking: ranking, verification: verification,
                     seedSources: seeds);
 
                 foreach (var text in texts)
@@ -988,7 +989,7 @@ internal static class MemoryLocomoBench
                 // READ, and it is the one being cloned.
                 GraphMemoryEngine Fresh(MemoryPolicySweep.SweepDb clone) =>
                     new("locomo", new SqliteMemoryGraphStore(clone.Factory), options: options,
-                        embedder: embedder, vectors: vectors, ranking: ranking, verification: verification,
+                        providers: [embedder], vectors: vectors, ranking: ranking, verification: verification,
                         seedSources: seeds);
 
                 // CONTROL, added for docs/task-archive.md Part 233: a semantic width of 20 moved
@@ -1417,7 +1418,7 @@ internal static class MemoryLocomoBench
     /// ranking policy in the path. It is the ablation the arm table rests on, so it deliberately shares the
     /// embedder instance rather than building a second one.</summary>
     private static async Task<IEnumerable<string>> TopKAsync(
-        IEmbedder embedder, List<(string Text, float[] Vector)> index, string query, int k)
+        IModelProvider embedder, List<(string Text, float[] Vector)> index, string query, int k)
     {
         var q = await embedder.EmbedAsync(query);
         return index.Select(e => (e.Text, Score: Cosine(q, e.Vector)))

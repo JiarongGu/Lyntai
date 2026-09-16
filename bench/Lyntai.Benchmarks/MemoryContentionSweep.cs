@@ -108,7 +108,7 @@ internal static class MemoryContentionSweep
         var db = new MemoryPolicySweep.SweepDb();
         var engine = new GraphMemoryEngine("contention", new SqliteMemoryGraphStore(db.Factory),
             new GraphMemoryOptions(), retrievability: new DsrRetrievability(),
-            agePolicies: [new PerWriteAgePolicy()], embedder: embedder, vectors: new InMemoryVectorStore(),
+            agePolicies: [new PerWriteAgePolicy()], providers: [embedder], vectors: new InMemoryVectorStore(),
             annotation: annotation, verification: verification);
 
         return new Rig(engine, reranker, annotation, db);

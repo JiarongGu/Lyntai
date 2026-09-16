@@ -62,7 +62,7 @@ public interface IModelProvider : IProviderIdentity
         throw new NotSupportedException(ProviderDefaults.NotServed(Id, nameof(EmbedAsync)));
 
     /// <summary>Embed for a known <see cref="Lyntai.Embeddings.EmbeddingRole"/>. Defaults to forwarding to
-    /// the role-less overload, exactly as <see cref="Lyntai.Embeddings.IEmbedder"/> does.
+    /// the role-less overload, so a SYMMETRIC model needs to implement only one of the two.
     ///
     /// <para><b>It exists so the front door cannot silently drop the role.</b> Asymmetric models — E5, BGE,
     /// nomic, Arctic — are trained with a distinct instruction per side and score materially worse when

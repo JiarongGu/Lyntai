@@ -50,7 +50,7 @@ When a task says "app X wants Y," run it through this before writing code:
    today's behavior (`dedup: bool = false`, `scope: string? = null`, an optional callback, a nullable
    `Usage`). A "dangerous"/opt-in posture is off by default and documented as such in the XML-doc.
 5. **Vary via seams, never `if (appName)`.** The extension model is DI collections + BYO interfaces
-   (`IProcessRunner`, `IEmbedder`, `IDbConnectionFactory`, `IToolLoop`). If a consumer needs different
+   (`IProcessRunner`, `IModelProvider`, `IDbConnectionFactory`, `IToolLoop`). If a consumer needs different
    behavior, the answer is "register your own implementation," not a branch in Core. (See
    `dotnet-package-layout.md` §Variation points — a pluggable set is a DI collection, never a conditional.)
 6. **Pin the generality with tests + baseline.** The contract test (e.g. `CuratedMemoryStoreContract`)

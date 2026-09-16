@@ -3,8 +3,9 @@ namespace Lyntai.Memory;
 /// <summary>
 /// Meaning-based task memory: remembers facts by their embedding and recalls them by semantic similarity
 /// to a query (not keyword overlap, unlike the lexical <see cref="Lyntai.Storage.IMemoryStore"/>). Composes
-/// an app-provided <see cref="Lyntai.Embeddings.IEmbedder"/> with an <see cref="IVectorStore"/>; wired when
-/// embeddings are registered (<c>builder.AddEmbeddings(...)</c>). Scoped by (taskKey, scope) like the
+/// any registered backend producing <see cref="Lyntai.Lifecycle.ProviderKinds.Vector"/> with an
+/// <see cref="IVectorStore"/>; wired when one is registered (<c>builder.AddEmbeddingProvider(...)</c>,
+/// or a package's own <c>Add…Provider</c>). Scoped by (taskKey, scope) like the
 /// lexical store; re-remembering identical content overwrites rather than duplicating.
 /// <para>CHANGING THE EMBEDDING MODEL: stored vectors keep their old dimension. Recall is fail-open (a
 /// backend that rejects a dimension-mismatched vector — e.g. pgvector — yields no hits rather than

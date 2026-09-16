@@ -1,4 +1,5 @@
 using Lyntai.Embeddings;
+using Lyntai.Tests.Fakes;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Salience;
@@ -17,9 +18,9 @@ public class MemoryDensitySignalTests
     /// <summary>Exact cosine control. A bag-of-words fake cannot be used here: a correction shares nearly
     /// every word with what it corrects, so word overlap rates it maximally similar and the fixture would
     /// pass for the wrong reason.</summary>
-    private sealed class ScriptedEmbedder(IReadOnlyDictionary<string, float[]> map) : IEmbedder
+    private sealed class ScriptedEmbedder(IReadOnlyDictionary<string, float[]> map) : EmbeddingBackend
     {
-        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<float[]>>(
                 [.. texts.Select(t => map.TryGetValue(t, out var v) ? v : new[] { 0f, 0f, 1f })]);
@@ -48,7 +49,7 @@ public class MemoryDensitySignalTests
         var salience = new CapturingSalience();
         var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
             options: new GraphMemoryOptions { SimilarityK = 8, MinSimilarity = 0.6 },
-            embedder: new ScriptedEmbedder(map),
+            providers: [new ScriptedEmbedder(map)],
             vectors: new InMemoryVectorStore(),
             saliencePolicies: [salience]);
         return (engine, salience);

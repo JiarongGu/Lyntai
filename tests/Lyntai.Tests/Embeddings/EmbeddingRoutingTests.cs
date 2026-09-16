@@ -1,14 +1,17 @@
 using Lyntai.Embeddings;
+using Lyntai.Tests.Fakes;
 using Lyntai.Lifecycle;
 
 namespace Lyntai.Tests.Embeddings;
 
-/// <summary>The embedding FRONT DOOR — the thing embeddings never had.
+/// <summary>Routing for the Vector capability: the capability filter, and the failover.
 ///
-/// <para>Before D129 the <c>IEmbedder</c> a consumer resolved WAS a backend, so a failing embedder took the
-/// whole recall path with it and a second registration silently replaced the first. These tests are the
-/// behaviour that split bought; none of them was expressible against the old single slot.</para></summary>
-public class RoutedEmbedderTests
+/// <para>Before D129 the embedder a consumer resolved WAS a backend, so a failing one took the whole
+/// recall path with it and a second registration silently replaced the first. These tests are the
+/// behaviour that split bought. <b>D151 removed the interface and kept every one of them</b>: the routing
+/// is a helper over the providers now, which is the point — the behaviour was never the type's.</para>
+/// </summary>
+public class EmbeddingRoutingTests
 {
     private sealed class FakeEmbeddingProvider(string id) : IModelProvider
     {
@@ -46,7 +49,7 @@ public class RoutedEmbedderTests
         },
     };
 
-    private static RoutedEmbedder Router(params IModelProvider[] providers) => new(providers);
+    private static IModelProvider[] Router(params IModelProvider[] providers) => providers;
 
     [Fact]
     public async Task Routes_to_the_backend_that_DECLARES_embed_and_never_calls_the_others()
@@ -56,7 +59,7 @@ public class RoutedEmbedderTests
         var chat = ChatOnly("chat");
         var embedder = new FakeEmbeddingProvider("embed");
 
-        var vectors = await Router(chat, embedder).EmbedAsync(["x"]);
+        var vectors = await EmbeddingRouting.EmbedAsync(Router(chat, embedder), ["x"]);
 
         Assert.Single(vectors);
         Assert.Equal(1, embedder.Calls);
@@ -66,12 +69,12 @@ public class RoutedEmbedderTests
     [Fact]
     public async Task FALLS_OVER_to_the_next_embedder_when_one_fails()
     {
-        // This is the capability the single IEmbedder slot could not have — its own doc admitted
+        // This is the capability the single IModelProvider slot could not have — its own doc admitted
         // "there is one embedder slot, so a later registration wins".
         var broken = new FakeEmbeddingProvider("broken") { Throws = new HttpRequestException("socket died") };
         var healthy = new FakeEmbeddingProvider("healthy");
 
-        var vectors = await Router(broken, healthy).EmbedAsync(["x"]);
+        var vectors = await EmbeddingRouting.EmbedAsync(Router(broken, healthy), ["x"]);
 
         Assert.Single(vectors);
         Assert.Equal(1, broken.Calls);
@@ -84,7 +87,7 @@ public class RoutedEmbedderTests
         var down = new FakeEmbeddingProvider("down") { IsAvailable = false };
         var up = new FakeEmbeddingProvider("up");
 
-        await Router(down, up).EmbedAsync(["x"]);
+        await EmbeddingRouting.EmbedAsync(Router(down, up), ["x"]);
 
         Assert.Equal(0, down.Calls);
         Assert.Equal(1, up.Calls);
@@ -97,7 +100,7 @@ public class RoutedEmbedderTests
         // is the one fact a backend cannot work out for itself — a router that dropped it would be silent.
         var embedder = new FakeEmbeddingProvider("embed");
 
-        await Router(embedder).EmbedAsync(["x"], EmbeddingRole.Query);
+        await EmbeddingRouting.EmbedAsync(Router(embedder), ["x"], EmbeddingRole.Query);
 
         Assert.Equal(EmbeddingRole.Query, embedder.SawRole);
     }
@@ -106,7 +109,7 @@ public class RoutedEmbedderTests
     public async Task Says_what_is_MISSING_when_nothing_declares_embed()
     {
         var error = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Router(ChatOnly("chat")).EmbedAsync(["x"]));
+            () => EmbeddingRouting.EmbedAsync(Router(ChatOnly("chat")), ["x"]));
 
         Assert.Contains("ProviderKinds.Vector", error.Message, StringComparison.Ordinal);
     }
@@ -119,7 +122,7 @@ public class RoutedEmbedderTests
         var a = new FakeEmbeddingProvider("a") { Throws = new HttpRequestException("a died") };
         var b = new FakeEmbeddingProvider("b") { Throws = new TimeoutException("b timed out") };
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => Router(a, b).EmbedAsync(["x"]));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => EmbeddingRouting.EmbedAsync(Router(a, b), ["x"]));
 
         Assert.Contains("Every embedding backend failed", error.Message, StringComparison.Ordinal);
         Assert.IsType<TimeoutException>(error.InnerException);
@@ -136,7 +139,7 @@ public class RoutedEmbedderTests
         await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => Router(first, second).EmbedAsync(["x"], EmbeddingRole.Document, cts.Token));
+            () => EmbeddingRouting.EmbedAsync(Router(first, second), ["x"], EmbeddingRole.Document, ct: cts.Token));
 
         Assert.Equal(0, second.Calls);
     }

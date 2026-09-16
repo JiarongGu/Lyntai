@@ -1,4 +1,5 @@
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Interference;
@@ -13,10 +14,10 @@ namespace Lyntai.Tests.Memory;
 /// failure — costs connections, never the entry.</summary>
 public class GraphSimilarityTests
 {
-    private static GraphMemoryEngine Engine(IEmbedder? embedder, IVectorStore? vectors,
+    private static GraphMemoryEngine Engine(IModelProvider? provider, IVectorStore? vectors,
         GraphMemoryOptions? options = null) =>
         new("project/graph", new InMemoryMemoryGraphStore(), options,
-            agePolicies: [new PerWriteAgePolicy()], embedder: embedder, vectors: vectors);
+            agePolicies: [new PerWriteAgePolicy()], providers: provider is null ? null : [provider], vectors: vectors);
 
     [Fact]
     public async Task A_new_entry_is_linked_to_a_similar_existing_one()
@@ -47,7 +48,7 @@ public class GraphSimilarityTests
     public async Task Without_an_embedder_the_graph_still_forms_and_says_so()
     {
         // the model-free floor: co-activation and explicit links do not need an embedder at all
-        var engine = Engine(embedder: null, vectors: null);
+        var engine = Engine(provider: null, vectors: null);
         await engine.RememberAsync(new MemoryWrite("t", "s", "alpha about widgets"));
         await engine.RememberAsync(new MemoryWrite("t", "s", "beta about widgets"));
 
@@ -87,17 +88,17 @@ public class GraphSimilarityTests
         var writingEmbedder = new FakeEmbedder();
         var writingVectors = new InMemoryVectorStore();
         var writing = new GraphMemoryEngine("e", store,
-            embedder: writingEmbedder, vectors: writingVectors,
+            providers: writingEmbedder is null ? null : [writingEmbedder], vectors: writingVectors,
             seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource(writingEmbedder, writingVectors, new SemanticSeedOptions { K = 5 })]);
+                new SemanticSeedSource([writingEmbedder], writingVectors, new SemanticSeedOptions { K = 5 })]);
         await writing.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"));
 
         var throwing = new ThrowingEmbedder();
         var readingVectors = new InMemoryVectorStore();
         var reading = new GraphMemoryEngine("e", store,
-            embedder: throwing, vectors: readingVectors,
+            providers: throwing is null ? null : [throwing], vectors: readingVectors,
             seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource(throwing, readingVectors, new SemanticSeedOptions { K = 5 })]);
+                new SemanticSeedSource([throwing], readingVectors, new SemanticSeedOptions { K = 5 })]);
 
         var recall = await reading.RecallAsync(new MemoryQuery("t", "s", "deploy pipeline"));
 
@@ -139,9 +140,9 @@ public class GraphSimilarityTests
         Assert.All(recall.Items, i => Assert.Equal(0, i.Degree));
     }
 
-    private sealed class ThrowingEmbedder : IEmbedder
+    private sealed class ThrowingEmbedder : EmbeddingBackend
     {
-        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default) =>
             throw new InvalidOperationException("embedding endpoint is down");
     }

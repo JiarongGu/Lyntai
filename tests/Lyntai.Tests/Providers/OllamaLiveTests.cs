@@ -89,7 +89,7 @@ public class OllamaLiveTests
 
         Assert.Equal(2, vectors.Count);                              // one vector per input, batched in one call
         Assert.True(vectors[0].Length > 0, "expected a non-empty embedding");
-        Assert.Equal(vectors[0].Length, vectors[1].Length);         // uniform dimension (the IEmbedder contract)
+        Assert.Equal(vectors[0].Length, vectors[1].Length);         // uniform dimension (the IModelProvider contract)
         Assert.Contains(vectors[0], f => f != 0f);                  // a real model, not an all-zero stub
     }
 

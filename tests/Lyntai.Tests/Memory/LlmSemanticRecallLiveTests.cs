@@ -83,10 +83,10 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
         Skip.IfNot(await LiveAsync(), LiveModel.SkipReason);
 
         using var sp = Build();
-        var embedder = sp.GetRequiredService<IEmbedder>();
+        var providers = sp.GetServices<IModelProvider>();
 
         var lexical = await RunAsync(null);
-        var semantic = await RunAsync(embedder);
+        var semantic = await RunAsync(providers);
 
         var table = string.Create(CultureInfo.InvariantCulture,
             $"""
@@ -134,10 +134,10 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
         Skip.IfNot(await LiveAsync(), LiveModel.SkipReason);
 
         using var sp = Build();
-        var embedder = sp.GetRequiredService<IEmbedder>();
+        var providers = sp.GetServices<IModelProvider>();
 
-        var off = await RunAsync(embedder, limit: 500);
-        var on = await RunAsync(embedder, semanticSeedK: 5, limit: 500);
+        var off = await RunAsync(providers, limit: 500);
+        var on = await RunAsync(providers, semanticSeedK: 5, limit: 500);
 
         var table = string.Create(CultureInfo.InvariantCulture,
             $"""
@@ -154,20 +154,20 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
 
     private readonly record struct Arm(int Hits, int Asked);
 
-    private static async Task<Arm> RunAsync(IEmbedder? embedder, int semanticSeedK = 0, int limit = 5)
+    private static async Task<Arm> RunAsync(IEnumerable<IModelProvider>? providers, int semanticSeedK = 0, int limit = 5)
     {
         var lex = CorpusLexicon.For(CorpusLanguage.English);
         var store = new InMemoryMemoryGraphStore();
-        var vectors = embedder is null ? null : new InMemoryVectorStore();
+        var vectors = EmbeddingRouting.CanEmbed(providers) ? new InMemoryVectorStore() : null;
         var engine = new GraphMemoryEngine("e", store,
             retrievability: new DsrRetrievability(),
             agePolicies: [new PerWriteAgePolicy()],
-            embedder: embedder,
+            providers: providers,
             vectors: vectors,
-            seedSources: semanticSeedK <= 0 || embedder is null || vectors is null
+            seedSources: semanticSeedK <= 0 || vectors is null
                 ? [new LexicalSeedSource()]
                 : [new LexicalSeedSource(),
-                    new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = semanticSeedK })]);
+                    new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = semanticSeedK })]);
 
         // the statements under test, plus unrelated filler so a recall has something to get wrong
         var targets = new List<string>();

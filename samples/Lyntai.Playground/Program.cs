@@ -315,7 +315,7 @@ static class GovernanceDemo
     private static async Task<bool> SemanticScenario(string dbPath)
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddClaudeCliProvider().UseSqliteStorage(dbPath).AddEmbeddings(new DemoEmbedder()).UseDefaultCandidates("claude-cli"));
+        services.AddLyntai(b => b.AddClaudeCliProvider().UseSqliteStorage(dbPath).AddEmbeddingProvider(_ => new DemoEmbedder()).AddSemanticMemory().UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();
         var mem = sp.GetRequiredService<ISemanticMemory>();
 
@@ -406,9 +406,19 @@ static class AgentSessionDemo
 }
 
 /// <summary>A deterministic stand-in embedder for the demo (feature-hashed bag-of-words, so texts sharing
-/// words land close in cosine space). A real app registers an actual embeddings model via AddEmbeddings.</summary>
-sealed class DemoEmbedder : IEmbedder
+/// words land close in cosine space). A real app registers an actual embedding BACKEND — AddOnnxProvider,
+/// AddModel2VecProvider, or AddHttpProvider with Produces = Vector (docs/DECISIONS.md D151).</summary>
+sealed class DemoEmbedder : IModelProvider
 {
+    public string Id => "demo-embedder";
+
+    public ProviderCapabilities Capabilities { get; } = new()
+    {
+        Accepts = [ProviderKinds.Text],
+        Produces = [ProviderKinds.Vector],
+        Operations = [ProviderOperation.Complete],
+    };
+
     public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<float[]>>([.. texts.Select(Embed)]);
 

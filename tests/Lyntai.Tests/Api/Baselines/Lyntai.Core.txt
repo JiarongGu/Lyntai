@@ -95,7 +95,7 @@ sealed class Lyntai.Agents.CliToolSession
     DisposeAsync() : ValueTask
     ExtraArgs : IReadOnlyList<String>
 sealed class Lyntai.Agents.EmbeddingToolSelector
-    .ctor(IEmbedder embedder, ToolSelectorOptions options = null)
+    .ctor(IEnumerable<IModelProvider> providers, ToolSelectorOptions options = null)
     SelectAsync(LlmRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>
 sealed class Lyntai.Agents.FunctionTool
     .ctor(String name, Func<String,CancellationToken,Task<String>> invoke, String description = null, String parametersJsonSchema = null)
@@ -511,16 +511,10 @@ static class Lyntai.Diagnostics.LyntaiDiagnostics
     GenerationActivitySourceName : String const
     GenerationMeterName : String const
     MeterName : String const
-static class Lyntai.Embeddings.EmbedderExtensions
-    static EmbedAsync(IEmbedder embedder, String text, CancellationToken ct = default) : Task<Single[]>
-    static EmbedAsync(IEmbedder embedder, String text, EmbeddingRole role, CancellationToken ct = default) : Task<Single[]>
 enum Lyntai.Embeddings.EmbeddingRole
     Document : EmbeddingRole const
     Query : EmbeddingRole const
     value__ : Int32
-interface Lyntai.Embeddings.IEmbedder
-    EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
-    EmbedAsync(IReadOnlyList<String> texts, EmbeddingRole role, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
 sealed class Lyntai.Generation.GenerationArtifact
     .ctor(String MediaType, Byte[] Data = null, String Uri = null, IReadOnlyDictionary<String,String> Metadata = null)
     Data : Byte[]
@@ -1574,9 +1568,6 @@ sealed class Lyntai.LyntaiBuilder
     AddConversationEnricher<T>() : LyntaiBuilder
     AddCronSchedule(String name, String lane, String type, String payload, String cron, Int32 priority = 0) : LyntaiBuilder
     AddEmbeddingProvider(Func<IServiceProvider,IModelProvider> factory) : LyntaiBuilder
-    AddEmbeddings(Func<IServiceProvider,IEmbedder> factory) : LyntaiBuilder
-    AddEmbeddings(IEmbedder embedder) : LyntaiBuilder
-    AddEmbeddings<TEmbedder>() : LyntaiBuilder
     AddFrontDoorDecorator(Int32 order, Func<IServiceProvider,ILlmClient,ILlmClient> decorate) : LyntaiBuilder
     AddGuard(Func<IServiceProvider,IGuard> factory) : LyntaiBuilder
     AddGuard<T>() : LyntaiBuilder
@@ -1598,9 +1589,6 @@ sealed class Lyntai.LyntaiBuilder
     AddScorer(Func<IServiceProvider,IScorer> factory) : LyntaiBuilder
     AddScorer<T>() : LyntaiBuilder
     AddSemanticMemory() : LyntaiBuilder
-    AddSemanticMemory(Func<IServiceProvider,IEmbedder> factory) : LyntaiBuilder
-    AddSemanticMemory(IEmbedder embedder) : LyntaiBuilder
-    AddSemanticMemory<TEmbedder>() : LyntaiBuilder
     AddTool(Func<IServiceProvider,ITool> factory) : LyntaiBuilder
     AddTool<T>() : LyntaiBuilder
     AddUsageBudget(Action<BudgetOptions> configure = null) : LyntaiBuilder
@@ -1698,7 +1686,7 @@ sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.GraphMemoryEngine
-    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IMemoryRetrievabilityPolicy retrievability = null, IEnumerable<IMemoryAgePolicy> agePolicies = null, ILogger<GraphMemoryEngine> logger = null, IEmbedder embedder = null, IVectorStore vectors = null, IEnumerable<IMemorySaliencePolicy> saliencePolicies = null, IMemoryRankingPolicy ranking = null, IMemoryAgeCompositionPolicy ageComposition = null, IMemorySalienceCompositionPolicy salienceComposition = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, Func<DateTimeOffset> clock = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null, IEnumerable<IMemoryRetentionPolicy> retentionPolicies = null, IMemoryRetentionCompositionPolicy retentionComposition = null, IEnumerable<IMemorySeedSource> seedSources = null)
+    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IMemoryRetrievabilityPolicy retrievability = null, IEnumerable<IMemoryAgePolicy> agePolicies = null, ILogger<GraphMemoryEngine> logger = null, IEnumerable<IModelProvider> providers = null, IVectorStore vectors = null, IEnumerable<IMemorySaliencePolicy> saliencePolicies = null, IMemoryRankingPolicy ranking = null, IMemoryAgeCompositionPolicy ageComposition = null, IMemorySalienceCompositionPolicy salienceComposition = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, Func<DateTimeOffset> clock = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null, IEnumerable<IMemoryRetentionPolicy> retentionPolicies = null, IMemoryRetentionCompositionPolicy retentionComposition = null, IEnumerable<IMemorySeedSource> seedSources = null)
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -2446,7 +2434,7 @@ sealed class Lyntai.Memory.Seeding.SemanticSeedOptions
     K : Int32
     ToString() : String
 sealed class Lyntai.Memory.Seeding.SemanticSeedSource
-    .ctor(IEmbedder embedder, IVectorStore vectors, SemanticSeedOptions options = null, ILogger<SemanticSeedSource> logger = null)
+    .ctor(IEnumerable<IModelProvider> providers, IVectorStore vectors, SemanticSeedOptions options = null, ILogger<SemanticSeedSource> logger = null)
     Kind : MemorySeedKind
     Name : String
     SeedAsync(MemorySeedRequest request, CancellationToken ct) : Task<IReadOnlyList<GraphNode>>
@@ -2474,7 +2462,7 @@ sealed class Lyntai.Memory.SemanticHit
     Score : Double
     ToString() : String
 sealed class Lyntai.Memory.SemanticMemory
-    .ctor(IEmbedder embedder, IVectorStore vectors, ILogger<SemanticMemory> logger = null)
+    .ctor(IEnumerable<IModelProvider> providers, IVectorStore vectors, ILogger<SemanticMemory> logger = null)
     ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
     RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
     RememberAsync(String taskKey, String scope, String content, CancellationToken ct = default) : Task

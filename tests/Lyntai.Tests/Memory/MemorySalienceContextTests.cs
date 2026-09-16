@@ -1,4 +1,5 @@
 using Lyntai.Embeddings;
+using Lyntai.Tests.Fakes;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Salience;
@@ -49,9 +50,9 @@ public class MemorySalienceContextTests
     /// <summary>Exact cosine control. A bag-of-words fake would make novelty a function of word overlap, and
     /// what is being pinned here is that the ENGINE's own measurement reaches the context — not that some
     /// number does.</summary>
-    private sealed class ScriptedEmbedder(IReadOnlyDictionary<string, float[]> map) : IEmbedder
+    private sealed class ScriptedEmbedder(IReadOnlyDictionary<string, float[]> map) : EmbeddingBackend
     {
-        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<float[]>>(
                 [.. texts.Select(t => map.TryGetValue(t, out var v) ? v : new[] { 0f, 0f, 1f })]);
@@ -115,12 +116,12 @@ public class MemorySalienceContextTests
         const string familiar = "certificate rotation is a ninety day cycle";
         var policy = new CapturingSalience();
         var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            embedder: new ScriptedEmbedder(new Dictionary<string, float[]>(StringComparer.Ordinal)
+            providers: [new ScriptedEmbedder(new Dictionary<string, float[]>(StringComparer.Ordinal)
             {
                 [prior] = [1f, 0f, 0f],
                 [novel] = [0f, 1f, 0f],
                 [familiar] = [1f, 0f, 0f],
-            }),
+            })],
             vectors: new InMemoryVectorStore(),
             saliencePolicies: [policy]);
 

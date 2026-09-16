@@ -140,6 +140,21 @@ export default {
 
   retiredApiNames: [
     {
+      // D151. `EmbeddingRole` is deliberately NOT here: it survives on IModelProvider's role-aware
+      // overload, and whole-identifier equality keeps it live without an allowance.
+      names: [
+        'IEmbedder',
+        'EmbedderExtensions',
+        'AddEmbeddings',
+        'RoutedEmbedder',
+      ],
+      use: '`AddEmbeddingProvider(_ => backend)` for a backend of your own, or a shipped one — '
+        + '`AddModel2VecProvider` / `AddOnnxProvider` / `AddHttpProvider` with `Produces = Vector`',
+      why: 'an embedder is a CAPABILITY a provider declares, not a front door: Score and Vector were '
+        + 'consumed identically inside Core and only Vector wrapped it in an interface, which was the last '
+        + 'residue of the pre-D128 world where an embedder was a distinct KIND of backend (D151)',
+    },
+    {
       names: [
         'ExtensionsAiProvider',
         'AddExtensionsAiProvider',
@@ -532,6 +547,23 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    {
+      // D151. The prose half — and deliberately the CALL FORM rather than the identifier.
+      //
+      // Banning `IEmbedder` outright measured at 102 hits across ten documents, 47 of them in
+      // `docs/DECISIONS.md`: D124, D128, D129 and D141 are entries ABOUT that type and are accurate by
+      // naming it. That is the ratio `docs/task-archive.md` Part 237 refused for the MEAI noun form, and
+      // the identifier half is already held where it belongs — `retiredApiNames` above, on the frozen
+      // surface, which is what actually stops the type coming back.
+      //
+      // What is left is prose telling a reader to CALL a method that is gone. Measured at ONE hit (D129's
+      // own entry, which takes `drift-ok`) and zero elsewhere. `EmbeddingRole` is untouched: it survives.
+      term: '\\bAddEmbeddings\\s*[(<]',
+      use: '"an embedding backend" / "a backend that produces `ProviderKinds.Vector`", registered with '
+        + '`AddEmbeddingProvider` or a shipped `Add…Provider`',
+      why: 'embedding is a CAPABILITY a provider declares, not a seam of its own — D151 deleted the front '
+        + 'door, so prose offering one sends a reader to an interface the library no longer has',
+    },
     {
       // D146. `Lyntai.ExtensionsAi` the NAMESPACE is absent: it is the name the bridge would return under.
       term: '\\bExtensionsAiProvider\\b|\\bAddExtensionsAiProvider\\b|\\bExtensionsAiBuilderExtensions\\b|\\bLyntaiChatClient\\b|\\bLyntaiChatClientExtensions\\b|\\bAsChatClient\\b|\\bLyntaiToolDeclaration\\b|\\bLlmVerdictException\\b',

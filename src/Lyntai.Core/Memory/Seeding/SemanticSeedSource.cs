@@ -1,5 +1,6 @@
 using System.Globalization;
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -31,7 +32,7 @@ namespace Lyntai.Memory.Seeding;
 /// search itself whenever a recall's limit is smaller. The cap is deterministic because this source sorts by
 /// score then id ordinally first — <see cref="IVectorStore.SearchAsync"/> leaves ties UNSPECIFIED.</para></summary>
 public sealed class SemanticSeedSource(
-    IEmbedder embedder,
+    IEnumerable<IModelProvider> providers,
     IVectorStore vectors,
     SemanticSeedOptions? options = null,
     ILogger<SemanticSeedSource>? logger = null) : IMemorySeedSource
@@ -53,7 +54,8 @@ public sealed class SemanticSeedSource(
         IReadOnlyList<VectorMatch> near;
         try
         {
-            var vector = await embedder.EmbedAsync(request.Query.Query, EmbeddingRole.Query, ct).ConfigureAwait(false);
+            var vector = await EmbeddingRouting.EmbedOneAsync(
+                providers, request.Query.Query, EmbeddingRole.Query, _logger, ct).ConfigureAwait(false);
             // SEARCH width is _options.K alone, exactly what today's engine passes to every SearchAsync call
             // — never narrowed by request.Limit, or a small recall limit would silently shrink what this
             // source can ever consider before RETURN even enters the picture.

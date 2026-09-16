@@ -199,7 +199,7 @@ internal static class MemorySalienceSweep
                 options: graphOptions,
                 retrievability: new ModulatedRetrievability(new DsrRetrievability(), retention),
                 agePolicies: [agePolicy],
-                embedder: embedder,
+                providers: [embedder],
                 vectors: vectors,
                 saliencePolicies: [counting],
                 ranking: rrf);

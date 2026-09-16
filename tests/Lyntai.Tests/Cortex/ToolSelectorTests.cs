@@ -32,7 +32,7 @@ public class ToolSelectorTests
     private static LlmRequest Ask(string prompt) => new() { Messages = [LlmMessage.User(prompt)] };
 
     private static EmbeddingToolSelector Selector(int limit) =>
-        new(new FakeEmbedder(), new ToolSelectorOptions { Limit = limit });
+        new([new FakeEmbedder()], new ToolSelectorOptions { Limit = limit });
 
     [Fact]
     public async Task Narrows_the_roster_to_the_LIMIT_keeping_what_the_request_is_about()

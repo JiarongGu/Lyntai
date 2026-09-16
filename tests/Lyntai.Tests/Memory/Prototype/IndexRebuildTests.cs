@@ -1,5 +1,6 @@
 using System.Globalization;
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Interference;
@@ -35,12 +36,12 @@ public class IndexRebuildTests
     /// vector collection. Nothing here needs the engine at all, which is the point: the index carries no
     /// information the store does not already hold.</para></summary>
     private static async Task<int> RebuildAsync(IMemoryGraphStore store, IVectorStore vectors,
-        IEmbedder embedder, string taskKey, string? scope)
+        IModelProvider embedder, string taskKey, string? scope)
     {
         var nodes = await store.SeedAsync(Engine, taskKey, scope, query: null, limit: int.MaxValue);
         foreach (var node in nodes)
         {
-            var vector = await embedder.EmbedAsync(node.Content);
+            var vector = (await embedder.EmbedAsync([node.Content]))[0];
             // THE WRINKLE: this format is GraphMemoryEngine's private convention. An application has no
             // supported way to learn it, and a rebuild that guessed it wrongly would look like it worked.
             await vectors.UpsertAsync(MemoryVectorCollection.For(Engine, node.TaskKey, node.Scope),
@@ -59,7 +60,7 @@ public class IndexRebuildTests
         var vectors = new InMemoryVectorStore();
         var embedder = new FakeEmbedder();
         var engine = new GraphMemoryEngine(Engine, store, agePolicies: [new PerWriteAgePolicy()],
-            embedder: embedder, vectors: vectors);
+            providers: embedder is null ? null : [embedder], vectors: vectors);
 
         for (var i = 0; i < 12; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"fact number {i} about the deployment"));
@@ -93,13 +94,13 @@ public class IndexRebuildTests
         var vectors = new InMemoryVectorStore();
         var embedder = new FakeEmbedder();
         var engine = new GraphMemoryEngine(Engine, store, agePolicies: [new PerWriteAgePolicy()],
-            embedder: embedder, vectors: vectors);
+            providers: embedder is null ? null : [embedder], vectors: vectors);
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "the production database runs on postgres"));
         await engine.RememberAsync(new MemoryWrite("t", "s", "kittens are small and unrelated"));
 
         var collection = MemoryVectorCollection.For(Engine, "t", "s");
-        var query = await embedder.EmbedAsync("the production database runs on postgres");
+        var query = (await embedder.EmbedAsync(["the production database runs on postgres"]))[0];
         var before = (await vectors.SearchAsync(collection, query, 1)).Single();
 
         await vectors.RemoveCollectionAsync(collection);

@@ -1,4 +1,6 @@
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
+using Lyntai.Tests.Fakes;
 using Lyntai.Providers.Onnx;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -304,11 +306,11 @@ public class OnnxProviderLiveTests
 /// <summary>How the adapter REGISTERS, which is a resource question rather than a wiring one.</summary>
 public class OnnxRegistrationTests
 {
-    private sealed class TrackingEmbedder : IEmbedder, IDisposable
+    private sealed class TrackingEmbedder : EmbeddingBackend, IDisposable
     {
         public bool WasDisposed { get; private set; }
 
-        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<float[]>>([]);
 
         public void Dispose() => WasDisposed = true;
@@ -326,10 +328,10 @@ public class OnnxRegistrationTests
         // container will clean it up" has to be true rather than assumed — and for this overload it is not.
         var embedder = new TrackingEmbedder();
         var services = new ServiceCollection();
-        services.AddSingleton<IEmbedder>(embedder);
+        services.AddSingleton<IModelProvider>(embedder);
 
         var provider = services.BuildServiceProvider();
-        _ = provider.GetRequiredService<IEmbedder>();
+        _ = provider.GetRequiredService<IModelProvider>();
         provider.Dispose();
 
         Assert.False(embedder.WasDisposed);
@@ -340,10 +342,10 @@ public class OnnxRegistrationTests
     {
         var embedder = new TrackingEmbedder();
         var services = new ServiceCollection();
-        services.AddSingleton<IEmbedder>(_ => embedder);
+        services.AddSingleton<IModelProvider>(_ => embedder);
 
         var provider = services.BuildServiceProvider();
-        _ = provider.GetRequiredService<IEmbedder>();
+        _ = provider.GetRequiredService<IModelProvider>();
         provider.Dispose();
 
         Assert.True(embedder.WasDisposed);

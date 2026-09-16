@@ -1,4 +1,5 @@
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Engines;
@@ -192,12 +193,12 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     // ---- agreement across sources ----------------------------------------------------------------------
 
     /// <summary>Exact text to exact vector, so a hit is the semantic channel or nothing.</summary>
-    private sealed class ScriptedEmbedder(string text) : IEmbedder
+    private sealed class ScriptedEmbedder(string text) : EmbeddingBackend
     {
         private static readonly float[] On = [1f, 0f];
         private static readonly float[] Off = [0f, 1f];
 
-        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<float[]>>(
                 [.. texts.Select(t => string.Equals(t, text, StringComparison.Ordinal) ? On : Off)]);
     }
@@ -214,8 +215,8 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
 
         var engine = new GraphMemoryEngine("e", store, ranking: probe,
-            embedder: embedder, vectors: vectors,
-            seedSources: [new LexicalSeedSource(), new SemanticSeedSource(embedder, vectors)]);
+            providers: embedder is null ? null : [embedder], vectors: vectors,
+            seedSources: [new LexicalSeedSource(), new SemanticSeedSource([embedder], vectors)]);
 
         var both = await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, target));
         await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "unrelated kitchen roster note"));
@@ -298,7 +299,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
             .UseInMemoryStorage()
             .AddMemory()
             .AddMemorySemanticSeeds());
-        services.AddSingleton<IEmbedder>(new ScriptedEmbedder("x"));
+        services.AddSingleton<IModelProvider>(new ScriptedEmbedder("x"));
         services.AddSingleton<IVectorStore>(new InMemoryVectorStore());
         using var sp = services.BuildServiceProvider();
 

@@ -16,11 +16,11 @@ public static class MemorySeedRegistration
     /// score: it is comparable against the other cosines in the same recall and against nothing else.
     ///
     /// <para><b>Opt-in, and that is a deliberate asymmetry with the subject channel.</b> An
-    /// <see cref="Lyntai.Embeddings.IEmbedder"/> is registered for reasons of its own — novelty, similarity
+    /// embedding backend is registered for reasons of its own — novelty, similarity
     /// linking — so seeding recall from it would change engines that never asked. A subject, by contrast,
     /// exists only because an annotator was already paid for.</para>
     ///
-    /// <para><b>Needs an <see cref="Lyntai.Embeddings.IEmbedder"/> and an
+    /// <para><b>Needs a backend producing <see cref="Lyntai.Lifecycle.ProviderKinds.Vector"/> and an
     /// <see cref="Lyntai.Memory.IVectorStore"/> in the container</b> — <see cref="SemanticSeedSource"/>'s own
     /// constructor requires both. Neither is validated HERE: engines resolve LAZILY inside
     /// <see cref="Lyntai.Memory.IMemoryEngineFactory"/>, and nothing in this library calls

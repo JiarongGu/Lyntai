@@ -245,24 +245,27 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   express at all. Two endpoints behind one hostname is not that: see **D133**. `Supports(...)` becomes `Supports(produces, operation, accepts:, model:, hasInputs:)`, and the
   `Kinds` property on `ComfyUiOptions` / `FalQueueOptions` is renamed `Produces`.
 
-- **`IEmbedder` is the embedding FRONT DOOR, and embeddings now have fallback** (**D129**). The `IEmbedder`
-  a consumer resolves is a router over every backend that produces vectors, so registering two
-  endpoints gives failover instead of the second silently replacing the first — which is what
-  `HttpEmbeddingsTransport`'s own doc admitted: *"there is one embedder slot, so a later registration wins"*.
-  `Model2VecProvider`, `OnnxProvider` and `HttpEmbeddingsTransport` **stop implementing `IEmbedder`** and are providers
-  only; a chat-only backend is never asked to embed, because the capability filter runs before dispatch.
-  **Bring-your-own is unchanged**: `AddEmbeddings(...)` registers inside the configure callback, which runs
-  before the front door is seeded with `TryAdd`, so an app-supplied embedder still wins. New:
-  `LyntaiBuilder.AddEmbeddingProvider(...)` — what a package's `Add…Embedder` calls — and a role-aware
-  `IModelProvider.EmbedAsync` overload so routing cannot silently drop `EmbeddingRole`.
+- **Embedding is a CAPABILITY, not a seam: the embedder interface is removed** (**D129**, **D151**).
+  Registering two embedding endpoints now gives FAILOVER instead of the second silently replacing the
+  first — which is what `HttpEmbeddingsTransport`'s own doc admitted: *"there is one embedder slot, so a
+  later registration wins"*. That routing is kept; what is gone is the consumer-facing type that wrapped
+  it. **`IEmbedder`, its extension helpers and all three `AddEmbeddings` overloads are deleted**, along
+  with the `AddSemanticMemory` overloads that took one. `SemanticMemory`, `SemanticSeedSource`,
+  `EmbeddingToolSelector` and `GraphMemoryEngine` take `IEnumerable<IModelProvider>` and route over
+  whichever declare `ProviderKinds.Vector` — the same shape `ScoringVerificationPolicy` already had for
+  `ProviderKinds.Score`, which is the asymmetry D151 removes.
+  <br>**What to type instead.** A shipped backend: `AddModel2VecProvider(dir)`, `AddOnnxProvider(dir)`, or
+  `AddHttpProvider` / `AddOllamaProvider` with `Produces = ProviderKinds.Vector`. Your own:
+  `AddEmbeddingProvider(_ => backend)`, where the backend is an `IModelProvider` declaring it produces
+  vectors — three members, exactly what a bring-your-own SCORER already implements. `EmbeddingRole`
+  survives on `IModelProvider.EmbedAsync`'s role-aware overload, so an asymmetric model is unaffected.
 
 - **An embedder is a PROVIDER: `IEmbeddingProvider` is removed** (**D128**). `Model2VecProvider` and
   `OnnxProvider` are `IModelProvider`s declaring `Kinds: ["text"], Operations: [Embed]`, and
-  `AddModel2VecProvider` / `AddOnnxProvider` now register them into the provider collection **as well as** the
-  `IEmbedder` slot. Nothing moves for a deployment with exactly one embedder; what changes is that a second
-  one is expressible and distinguishable by id. **`IEmbedder` stays** as the minimal bring-your-own seam —
-  one method, implementable by a lambda — while `IModelProvider` is the routed one; the two `EmbedAsync`
-  signatures are identical, so a class satisfies both with a single method.
+  `AddModel2VecProvider` / `AddOnnxProvider` register them into the provider collection. Nothing moves for a
+  deployment with exactly one embedding backend; what changes is that a second one is expressible and
+  distinguishable by id. (This entry originally kept a minimal bring-your-own interface beside the provider
+  seam; **D151** removed it — see the entry above for what replaces it.)
 
 - **ONE provider interface: `Lyntai.Lifecycle.IModelProvider`** (**D127**). It replaces `ILlmProvider`, <!-- drift-ok: the entry announcing a removal has to name what it removed -->
   `IGenerationProvider`, `IGenerationStreamProvider` and `IProviderProbe`. <!-- drift-ok: the removal entry names what it removed --> A backend now declares `Id`,

@@ -223,7 +223,7 @@ public class FeatureToggleTests : IDisposable
             .UseSqliteVectorStore()
             .UseSqliteResponseCache()
             .UseSqliteUsageTracking()
-            .AddSemanticMemory(new FakeEmbedder()));
+            .AddEmbeddingProvider(_ => new FakeEmbedder()).AddSemanticMemory());
         await using var sp = services.BuildServiceProvider();
 
         var memory = sp.GetRequiredService<Lyntai.Memory.ISemanticMemory>();

@@ -315,7 +315,7 @@ public class HttpEmbeddingsTransportTests
             httpClient: _ => new HttpClient(handler, disposeHandler: false)));
         using var sp = services.BuildServiceProvider();
 
-        Assert.NotNull(sp.GetService<IEmbedder>());
+        Assert.True(EmbeddingRouting.CanEmbed(sp.GetServices<IModelProvider>()));
         var memory = sp.GetRequiredService<ISemanticMemory>();
         await memory.RememberAsync("task", "scope", "the sky is blue");
         var hits = await memory.RecallAsync("task", "scope", "sky color?");

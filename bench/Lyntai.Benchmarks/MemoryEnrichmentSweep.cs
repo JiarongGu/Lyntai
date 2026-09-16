@@ -127,7 +127,7 @@ internal static class MemoryEnrichmentSweep
                 options: options,
                 retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
                 agePolicies: [agePolicy],
-                embedder: enriched ? embedder : null,
+                providers: enriched ? [embedder] : null,
                 vectors: enriched ? new InMemoryVectorStore() : null,
                 // Novelty is what salience READS, so dropping salience is how the novelty arm is switched
                 // off without touching the embed at all.

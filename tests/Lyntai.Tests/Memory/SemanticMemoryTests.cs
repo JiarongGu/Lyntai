@@ -1,4 +1,5 @@
 using Lyntai;
+using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,7 +75,7 @@ public class SemanticMemoryTests
 
     // ---- semantic memory service ---------------------------------------------------------------------
 
-    private static SemanticMemory NewMemory() => new(new FakeEmbedder(), new InMemoryVectorStore());
+    private static SemanticMemory NewMemory() => new([new FakeEmbedder()], new InMemoryVectorStore());
 
     [Fact]
     public async Task Recalls_the_semantically_closest_fact_first()
@@ -134,7 +135,7 @@ public class SemanticMemoryTests
     [Fact] // T7: recall is fail-open when the vector backend throws (e.g. pgvector on a dimension mismatch)
     public async Task Recall_is_fail_open_when_the_vector_store_throws()
     {
-        var mem = new SemanticMemory(new FakeEmbedder(), new ThrowingVectorStore());
+        var mem = new SemanticMemory([new FakeEmbedder()], new ThrowingVectorStore());
         var hits = await mem.RecallAsync("t", "s", "query", k: 5); // must NOT throw
         Assert.Empty(hits);
     }
@@ -196,7 +197,7 @@ public class SemanticMemoryTests
     [Fact]
     public async Task A_store_that_cannot_list_its_collections_yields_nothing_rather_than_throwing()
     {
-        var mem = new SemanticMemory(new FakeEmbedder(), new UnlistableVectorStore());
+        var mem = new SemanticMemory([new FakeEmbedder()], new UnlistableVectorStore());
 
         Assert.Empty(await mem.RecallAsync("t", scope: null, "anything", k: 5));
     }
@@ -220,9 +221,9 @@ public class SemanticMemoryTests
     [Fact]
     public async Task Without_an_embedder_a_call_throws_a_clear_error()
     {
-        var mem = new SemanticMemory(embedder: null, new InMemoryVectorStore());
+        var mem = new SemanticMemory(providers: null, new InMemoryVectorStore());
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => mem.RememberAsync("t", "s", "x"));
-        Assert.Contains("AddEmbeddings", ex.Message);
+        Assert.Contains("AddModel2VecProvider", ex.Message);
     }
 
     // ---- the engine over it --------------------------------------------------------------------------
@@ -258,12 +259,12 @@ public class SemanticMemoryTests
     // ---- DI wiring -----------------------------------------------------------------------------------
 
     [Fact]
-    public async Task AddEmbeddings_wires_semantic_memory_end_to_end()
+    public async Task AddEmbeddingProvider_wires_semantic_memory_end_to_end()
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
-            .AddEmbeddings(new FakeEmbedder()));
+            .AddEmbeddingProvider(_ => new FakeEmbedder()).AddSemanticMemory());
         using var sp = services.BuildServiceProvider();
 
         var mem = sp.GetRequiredService<ISemanticMemory>();

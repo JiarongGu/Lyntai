@@ -22,7 +22,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
-            .AddSemanticMemory(new FakeEmbedder()));
+            .AddEmbeddingProvider(_ => new FakeEmbedder()).AddSemanticMemory());
         using var sp = services.BuildServiceProvider();
 
         var mem = sp.GetRequiredService<ISemanticMemory>();
@@ -46,24 +46,25 @@ public sealed class SemanticMemoryWiringTests : IDisposable
             .AddSemanticMemory()));
 
         Assert.Contains("AddSemanticMemory", ex.Message);
-        Assert.Contains("IEmbedder", ex.Message);
+        Assert.Contains("ProviderKinds.Vector", ex.Message);
     }
 
-    /// <summary>The no-embedder overload is the "my embedder comes from somewhere else" path — a provider
-    /// package's <c>Add*Embedder</c>, <c>AddEmbeddings</c>, or a host registration made before
+    /// <summary>The no-argument overload is the "my backend comes from somewhere else" path — a provider
+    /// package's <c>Add…Provider</c>, <c>AddEmbeddingProvider</c>, or a host registration made before
     /// <c>AddLyntai</c>. All three satisfy the intent.</summary>
     [Fact]
     public void An_embedder_registered_by_any_route_satisfies_the_intent()
     {
         var viaBuilder = new ServiceCollection();
         viaBuilder.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
-            .AddEmbeddings(new FakeEmbedder())
+            .AddEmbeddingProvider(_ => new FakeEmbedder())
             .AddSemanticMemory());
         Assert.NotNull(viaBuilder.BuildServiceProvider().GetService<ISemanticMemory>());
 
         var viaHost = new ServiceCollection();
-        viaHost.AddSingleton<IEmbedder>(new FakeEmbedder());   // registered BEFORE AddLyntai
-        viaHost.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddSemanticMemory());
+        viaHost.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
+            .AddEmbeddingProvider(_ => new FakeEmbedder())
+            .AddSemanticMemory());
         Assert.NotNull(viaHost.BuildServiceProvider().GetService<ISemanticMemory>());
     }
 
@@ -72,13 +73,13 @@ public sealed class SemanticMemoryWiringTests : IDisposable
     {
         var byFactory = new ServiceCollection();
         byFactory.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
-            .AddSemanticMemory(_ => new FakeEmbedder()));
+            .AddEmbeddingProvider(_ => new FakeEmbedder()).AddSemanticMemory());
         await using var fromFactory = byFactory.BuildServiceProvider();
         Assert.NotNull(fromFactory.GetService<ISemanticMemory>());
 
         var byType = new ServiceCollection();
         byType.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
-            .AddSemanticMemory<DiConstructedEmbedder>());
+            .AddEmbeddingProvider(_ => new DiConstructedEmbedder()).AddSemanticMemory());
         await using var fromType = byType.BuildServiceProvider();
         Assert.NotNull(fromType.GetService<ISemanticMemory>());
     }
@@ -92,7 +93,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         var mine = new CountingVectorStore();
         var services = new ServiceCollection();
         services.AddSingleton<IVectorStore>(mine);
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddSemanticMemory(new FakeEmbedder()));
+        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddEmbeddingProvider(_ => new FakeEmbedder()).AddSemanticMemory());
         using var sp = services.BuildServiceProvider();
 
         Assert.Same(mine, sp.GetRequiredService<IVectorStore>());
@@ -121,16 +122,16 @@ public sealed class SemanticMemoryWiringTests : IDisposable
                 .AddProvider(_ => new FakeLlmProvider("p"))
                 .UseSqliteStorage(_db.Path)
                 .UseSqliteVectorStore()
-                .AddSemanticMemory(new FakeEmbedder()));
+                .AddEmbeddingProvider(_ => new FakeEmbedder()).AddSemanticMemory());
             return services;
         }
     }
 
     /// <summary>Parameterless so the generic overload's DI construction has nothing to resolve.</summary>
-    private sealed class DiConstructedEmbedder : IEmbedder
+    private sealed class DiConstructedEmbedder : EmbeddingBackend
     {
         private readonly FakeEmbedder _inner = new();
-        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
             _inner.EmbedAsync(texts, ct);
     }
 

@@ -1,4 +1,5 @@
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Interference;
@@ -21,9 +22,9 @@ public class MemoryTaskIsolationTests
     private const string Engine = "isolation";
 
     private static GraphMemoryEngine NewEngine(IMemoryGraphStore store,
-        IEmbedder? embedder = null, IVectorStore? vectors = null, GraphMemoryOptions? options = null) =>
+        IModelProvider? embedder = null, IVectorStore? vectors = null, GraphMemoryOptions? options = null) =>
         new(Engine, store, options, agePolicies: [new PerWriteAgePolicy()],
-            embedder: embedder, vectors: vectors);
+            providers: embedder is null ? null : [embedder], vectors: vectors);
 
     [Fact]
     public async Task A_recall_never_returns_another_task_s_material()

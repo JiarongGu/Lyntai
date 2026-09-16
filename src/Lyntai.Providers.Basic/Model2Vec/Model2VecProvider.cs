@@ -19,7 +19,7 @@ public sealed class Model2VecProviderOptions
     public string Id { get; set; } = "static";
 }
 
-/// <summary>An <see cref="IEmbedder"/> that runs IN PROCESS with no server, no GPU and no port: a
+/// <summary>An embedding backend that runs IN PROCESS with no server, no GPU and no port: a
 /// <c>model2vec</c> static lookup table, mean-pooled.
 ///
 /// <para><b>The case for it is OPERATIONAL, not quality or speed.</b> Encode-only vectors are

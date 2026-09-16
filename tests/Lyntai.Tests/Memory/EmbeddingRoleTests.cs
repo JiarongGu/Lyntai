@@ -1,4 +1,5 @@
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Tests.Fakes;
 
@@ -20,18 +21,18 @@ public class EmbeddingRoleTests
 {
     /// <summary>Records the role each call carried. Implements BOTH overloads, which is what a genuinely
     /// role-aware BYO embedder does.</summary>
-    private sealed class RoleRecordingEmbedder : IEmbedder
+    private sealed class RoleRecordingEmbedder : EmbeddingBackend
     {
         public List<(string Text, EmbeddingRole? Role)> Calls { get; } = [];
 
-        public Task<IReadOnlyList<float[]>> EmbedAsync(
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(
             IReadOnlyList<string> texts, CancellationToken ct = default)
         {
             foreach (var t in texts) Calls.Add((t, null));     // null = the role-less overload was used
             return Vectors(texts);
         }
 
-        public Task<IReadOnlyList<float[]>> EmbedAsync(
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(
             IReadOnlyList<string> texts, EmbeddingRole role, CancellationToken ct = default)
         {
             foreach (var t in texts) Calls.Add((t, role));
@@ -46,7 +47,7 @@ public class EmbeddingRoleTests
     public async Task Remembering_embeds_a_DOCUMENT_and_recalling_embeds_a_QUERY()
     {
         var embedder = new RoleRecordingEmbedder();
-        var mem = new SemanticMemory(embedder, new InMemoryVectorStore());
+        var mem = new SemanticMemory([embedder], new InMemoryVectorStore());
 
         await mem.RememberAsync("t", "s", "the capital of France is Paris");
         await mem.RecallAsync("t", "s", "where is Paris", k: 5);
@@ -62,7 +63,7 @@ public class EmbeddingRoleTests
     [Fact]
     public async Task An_embedder_implementing_only_the_ROLE_LESS_method_keeps_working_unchanged()
     {
-        var mem = new SemanticMemory(new FakeEmbedder(), new InMemoryVectorStore());
+        var mem = new SemanticMemory([new FakeEmbedder()], new InMemoryVectorStore());
 
         await mem.RememberAsync("t", "s", "the capital of France is Paris");
         var hits = await mem.RecallAsync("t", "s", "capital of France", k: 5);
@@ -76,7 +77,7 @@ public class EmbeddingRoleTests
     [Fact]
     public async Task The_default_body_delegates_to_the_role_less_method_rather_than_returning_empty()
     {
-        IEmbedder symmetric = new FakeEmbedder();
+        IModelProvider symmetric = new FakeEmbedder();
 
         var viaRole = await symmetric.EmbedAsync(["hello world"], EmbeddingRole.Query);
         var viaPlain = await symmetric.EmbedAsync(["hello world"]);
@@ -93,7 +94,7 @@ public class EmbeddingRoleTests
     {
         var embedder = new RoleRecordingEmbedder();
 
-        await embedder.EmbedAsync("just this one", EmbeddingRole.Document);
+        await embedder.EmbedAsync(["just this one"], EmbeddingRole.Document);
 
         Assert.Equal([("just this one", EmbeddingRole.Document)], embedder.Calls);
     }

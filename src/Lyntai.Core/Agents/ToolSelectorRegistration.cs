@@ -1,5 +1,6 @@
 using Lyntai.Agents;
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -19,7 +20,8 @@ public static class ToolSelectorRegistration
     /// nothing (<c>docs/memory-measurements.md</c> §5). On a handful of tools there is nothing to narrow and
     /// this only costs an embedding call.</para>
     ///
-    /// <para><b>Needs an <see cref="IEmbedder"/> registered</b>, and it is the cheapest thing in the loop:
+    /// <para><b>Needs a backend that produces <see cref="ProviderKinds.Vector"/></b>, and it is the
+    /// cheapest thing in the loop:
     /// model-free, and the arm measured furthest ahead of any generative one at this size class.</para>
     ///
     /// <para><b>Fail-open.</b> A selector that faults or returns nothing leaves the roster whole — dropping
@@ -38,7 +40,7 @@ public static class ToolSelectorRegistration
         // TryAdd, so a consumer's own IToolSelector registered before this call wins outright — the same
         // BYO story every other seam in this library has.
         builder.Services.TryAddSingleton<IToolSelector>(sp =>
-            new EmbeddingToolSelector(sp.GetRequiredService<IEmbedder>(), options));
+            new EmbeddingToolSelector(sp.GetServices<IModelProvider>(), options));
 
         return builder;
     }

@@ -1,4 +1,6 @@
 using Lyntai.Embeddings;
+using Lyntai.Tests.Fakes;
+using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Seeding;
@@ -29,7 +31,7 @@ public class GraphSemanticScopeTests
 
     /// <summary>Exact text to exact vector. Anything unscripted is orthogonal to both, so an accidental
     /// match cannot pass this test.</summary>
-    private sealed class ScriptedEmbedder : IEmbedder
+    private sealed class ScriptedEmbedder : EmbeddingBackend
     {
         private static readonly Dictionary<string, float[]> Map = new(StringComparer.Ordinal)
         {
@@ -38,7 +40,7 @@ public class GraphSemanticScopeTests
             [Other] = [0f, 1f, 0f],
         };
 
-        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<float[]>>(
                 [.. texts.Select(t => Map.TryGetValue(t, out var v) ? v : [0f, 0f, 1f])]);
@@ -73,11 +75,11 @@ public class GraphSemanticScopeTests
         var embedder = new ScriptedEmbedder();
         var vectors = new InMemoryVectorStore();
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            logger: log, embedder: embedder, vectors: vectors,
+            logger: log, providers: embedder is null ? null : [embedder], vectors: vectors,
             seedSources: seedK <= 0
                 ? [new LexicalSeedSource()]
                 : [new LexicalSeedSource(),
-                    new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = seedK }, log)]);
+                    new SemanticSeedSource([embedder], vectors, new SemanticSeedOptions { K = seedK }, log)]);
         return (engine, log);
     }
 
@@ -142,9 +144,9 @@ public class GraphSemanticScopeTests
         var embedder = new ScriptedEmbedder();
         var vectors = new UnlistableVectorStore();
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            logger: log, embedder: embedder, vectors: vectors,
+            logger: log, providers: embedder is null ? null : [embedder], vectors: vectors,
             seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = 3 }, log)]);
+                new SemanticSeedSource([embedder], vectors, new SemanticSeedOptions { K = 3 }, log)]);
         await SeedAsync(engine);
 
         Assert.Empty((await engine.RecallAsync(new MemoryQuery("household", null, Query))).Items);

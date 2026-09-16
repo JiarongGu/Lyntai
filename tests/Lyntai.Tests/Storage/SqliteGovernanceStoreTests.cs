@@ -197,7 +197,7 @@ public class SqliteGovernanceStoreTests : IDisposable
     public async Task Semantic_memory_works_over_the_sqlite_vector_store()
     {
         // the whole point of the seam: SemanticMemory is unchanged, just its vector backend is SQLite
-        var mem = new SemanticMemory(new FakeEmbedder(), new SqliteVectorStore(_db.Factory));
+        var mem = new SemanticMemory([new FakeEmbedder()], new SqliteVectorStore(_db.Factory));
         await mem.RememberAsync("t", "s", "cancel my subscription anytime");
         await mem.RememberAsync("t", "s", "our pizza menu today");
 

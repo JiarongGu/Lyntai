@@ -4280,3 +4280,28 @@ so the first `=>` made the whole run look defaulted. It was green, plausible, an
 over the defect it exists to catch. A red case proves the pattern; only a POSITIVE CONTROL proves the gate
 was looking at anything — and this gate's own header already said a predicate nobody checked is a second
 unverified claim.
+
+## Part 244 — `IEmbedder` removed: an embedder is a capability, not a front door
+
+✅ closed 2026-09-17. `TASKS.md` Part 100, opened and closed the same day — **D151** recorded the decision
+first at the owner's direction, then the change landed.
+
+**The argument is D151's; what the work cost is this.** 12 entries off the frozen surface (the interface,
+two extension helpers, four `Add*` overloads, four public constructors), 19 source files, 33 test files,
+the bench doubles and the playground. `RoutedEmbedder` became `EmbeddingRouting` — an internal helper
+keeping D129's capability filter and failover, which were the substance; only the type wrapping them went.
+The four consumers take `IEnumerable<IModelProvider>`, exactly as `ScoringVerificationPolicy` already did.
+
+**Bring-your-own needed nothing new.** `AddEmbeddingProvider(factory)` was already public, so the route
+D151 describes existed before the entry was written — the removal took a seam away and added no
+replacement.
+
+**Two gate findings, both about gates this session had just built.** The **D129 claim went vacuous the
+moment its subject did**: `check-decision-claims` would have reported it green for ever over a rule with
+nothing left to break, which is worse than not having it (`docs/GATES.md`). And a broad `IEmbedder` prose
+ban measured **102 hits across ten documents, 47 in `docs/DECISIONS.md`** — entries accurate by naming what
+they were about — so the registry took the CALL form instead, at 1 hit against 0 false, and the identifier
+half stayed on `retiredApiNames` where it actually stops the type returning.
+
+**No test was lost**: 3853 total before and after, and the four failures the change produced were all
+assertions about the deleted seam, each repointed at the question it was really asking.

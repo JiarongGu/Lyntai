@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Ranking;
@@ -882,11 +883,11 @@ internal static class MemoryLongMemEvalBench
         var vectors = new InMemoryVectorStore();
         IMemorySeedSource[]? seeds = arm.SemanticK is { } k
             ? [new LexicalSeedSource(), new SubjectSeedSource(),
-                new SemanticSeedSource(embedder, vectors, new SemanticSeedOptions { K = k })]
+                new SemanticSeedSource([embedder], vectors, new SemanticSeedOptions { K = k })]
             : null;
 
         return new GraphMemoryEngine(Task, new SqliteMemoryGraphStore(db.Factory), options: arm.Options,
-            embedder: embedder, vectors: vectors, ranking: arm.Ranking, verification: arm.Verification,
+            providers: [embedder], vectors: vectors, ranking: arm.Ranking, verification: arm.Verification,
             seedSources: seeds);
     }
 
@@ -1558,7 +1559,7 @@ internal static class MemoryLongMemEvalBench
         var options = new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor };
         if (multiplier is { } m) options = options with { CandidateMultiplier = m };
         var engine = new GraphMemoryEngine("lme", new SqliteMemoryGraphStore(db.Factory),
-            options: options, embedder: embedder, vectors: new InMemoryVectorStore());
+            options: options, providers: [embedder], vectors: new InMemoryVectorStore());
 
         foreach (var t in q.Turns)
             await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
@@ -1680,7 +1681,7 @@ internal static class MemoryLongMemEvalBench
             var store = new SqliteMemoryGraphStore(db.Factory);
             var engine = new GraphMemoryEngine("lme", store,
                 options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor },
-                embedder: embedder, vectors: new InMemoryVectorStore());
+                providers: [embedder], vectors: new InMemoryVectorStore());
 
             var index = new List<(string Text, float[] Vector)>();
             foreach (var t in q.Turns)
@@ -1851,7 +1852,7 @@ internal static class MemoryLongMemEvalBench
             var store = new SqliteMemoryGraphStore(db.Factory);
             var engine = new GraphMemoryEngine("lme", store,
                 options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor },
-                embedder: embedder, vectors: new InMemoryVectorStore());
+                providers: [embedder], vectors: new InMemoryVectorStore());
 
             var index = new List<(string Text, float[] Vector)>();
             foreach (var t in q.Turns)
@@ -1964,7 +1965,7 @@ internal static class MemoryLongMemEvalBench
             using var db = new MemoryPolicySweep.SweepDb();
             var store = new SqliteMemoryGraphStore(db.Factory);
             var probe = new RankProbe(new ReciprocalRankFusionPolicy()) { Current = q.Current, Stale = q.Stale };
-            var engine = new GraphMemoryEngine("lme", store, embedder: embedder,
+            var engine = new GraphMemoryEngine("lme", store, providers: [embedder],
                 vectors: new InMemoryVectorStore(), ranking: probe);
 
             foreach (var t in q.Turns)
@@ -2213,7 +2214,7 @@ internal static class MemoryLongMemEvalBench
     }
 
     private static async Task<IEnumerable<string>> TopKAsync(
-        IEmbedder embedder, List<(string Text, float[] Vector)> index, string query, int k)
+        IModelProvider embedder, List<(string Text, float[] Vector)> index, string query, int k)
     {
         var q = await embedder.EmbedAsync(query);
         return index.Select(e => (e.Text, Score: Cosine(q, e.Vector)))

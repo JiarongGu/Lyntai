@@ -1,17 +1,19 @@
 using System.Security.Cryptography;
 using System.Text;
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lyntai.Memory;
 
 /// <summary>Default <see cref="ISemanticMemory"/>: embeds content/queries with the registered
-/// <see cref="IEmbedder"/> and stores/searches vectors through an <see cref="IVectorStore"/> (one
-/// collection per task+scope). The embedder is optional at construction so the service always resolves,
+/// backend declaring <see cref="ProviderKinds.Vector"/> and stores/searches vectors through an
+/// <see cref="IVectorStore"/> (one collection per task+scope). Embedding is optional at construction so the service always resolves,
 /// but a call throws a clear error if none was registered.</summary>
 public sealed class SemanticMemory(
-    IEmbedder? embedder, IVectorStore vectors, ILogger<SemanticMemory>? logger = null) : ISemanticMemory
+    IEnumerable<IModelProvider>? providers, IVectorStore vectors,
+    ILogger<SemanticMemory>? logger = null) : ISemanticMemory
 {
     // U+001F unit separator between task + scope so ("ab","c") and ("a","bc") can't collide onto one
     // collection. Built from (char)0x1f so the source stays plain-ASCII (no inline control byte / escape).
@@ -21,8 +23,9 @@ public sealed class SemanticMemory(
 
     private int _warnedUnlistable;
 
-    private IEmbedder Embedder => embedder ?? throw new InvalidOperationException(
-        "Semantic memory requires an IEmbedder — register one with builder.AddEmbeddings(...).");
+    private IEnumerable<IModelProvider> Embedders => EmbeddingRouting.CanEmbed(providers)
+        ? providers!
+        : throw new InvalidOperationException($"Semantic memory needs to embed. {EmbeddingRouting.NothingEmbeds}");
 
     public async Task RememberAsync(string taskKey, string scope, string content, CancellationToken ct = default)
     {
@@ -31,7 +34,8 @@ public sealed class SemanticMemory(
         // vectors keep their old dimension; the vector stores degrade gracefully (in-memory/SQLite rank a
         // mismatched row last via Cosine=0; pgvector rejects it), so REINDEX (ForgetAsync + re-Remember).
         if (string.IsNullOrWhiteSpace(content)) return;
-        var vector = await Embedder.EmbedAsync(content, EmbeddingRole.Document, ct).ConfigureAwait(false);
+        var vector = await EmbeddingRouting.EmbedOneAsync(
+            Embedders, content, EmbeddingRole.Document, _logger, ct).ConfigureAwait(false);
         await vectors.UpsertAsync(Collection(taskKey, scope), IdFor(content), vector, content, ct).ConfigureAwait(false);
         _logger.LogDebug("semantic memory: remembered {Chars} chars in {Task}/{Scope}", content.Length, taskKey, scope);
     }
@@ -42,7 +46,8 @@ public sealed class SemanticMemory(
         if (string.IsNullOrWhiteSpace(query) || k <= 0) return [];
         try
         {
-            var qv = await Embedder.EmbedAsync(query, EmbeddingRole.Query, ct).ConfigureAwait(false);
+            var qv = await EmbeddingRouting.EmbedOneAsync(
+                Embedders, query, EmbeddingRole.Query, _logger, ct).ConfigureAwait(false);
             if (scope is null) return await AcrossScopesAsync(taskKey, qv, k, minScore, ct).ConfigureAwait(false);
             var matches = await vectors.SearchAsync(Collection(taskKey, scope), qv, k, ct).ConfigureAwait(false);
             return [.. matches.Where(m => m.Score >= minScore).Select(m => new SemanticHit(m.Payload, m.Score))];

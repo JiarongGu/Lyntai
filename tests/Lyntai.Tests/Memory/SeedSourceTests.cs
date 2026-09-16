@@ -1,5 +1,6 @@
 using System.Globalization;
 using Lyntai.Embeddings;
+using Lyntai.Tests.Fakes;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Seeding;
@@ -51,17 +52,17 @@ public sealed class SeedSourceTests : IDisposable
 
     /// <summary>Returns a fixed vector for every text it is asked to embed — the query text never matters to
     /// these tests, only the vectors seeded directly into the store.</summary>
-    private sealed class FixedEmbedder(float[] vector) : IEmbedder
+    private sealed class FixedEmbedder(float[] vector) : EmbeddingBackend
     {
-        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<float[]>>([.. texts.Select(_ => vector)]);
     }
 
     /// <summary>Faults on every call, so the source's own catch is what a test observes rather than the
     /// double's plumbing.</summary>
-    private sealed class ThrowingEmbedder : IEmbedder
+    private sealed class ThrowingEmbedder : EmbeddingBackend
     {
-        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
             throw new InvalidOperationException("embedder unavailable");
     }
 
@@ -255,7 +256,7 @@ public sealed class SeedSourceTests : IDisposable
             new VectorMatch(one.Id, "entry one", 0.5),
         ]);
 
-        var source = new SemanticSeedSource(new FixedEmbedder([1f, 0f]), vectors);
+        var source = new SemanticSeedSource([new FixedEmbedder([1f, 0f])], vectors);
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery(TaskKey: "task", Scope: "scope", Query: "anything"), Limit: 10);
 
@@ -286,7 +287,7 @@ public sealed class SeedSourceTests : IDisposable
         var matches = ids.Select((id, i) => new VectorMatch(id, $"entry {i}", 1.0 - i * 0.1)).ToList();
         var vectors = new RecordingVectorStore(matches);
 
-        var source = new SemanticSeedSource(new FixedEmbedder([1f, 0f]), vectors, new SemanticSeedOptions { K = 5 });
+        var source = new SemanticSeedSource([new FixedEmbedder([1f, 0f])], vectors, new SemanticSeedOptions { K = 5 });
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery(TaskKey: "task", Scope: "scope", Query: "anything"), Limit: 2);
 
@@ -303,14 +304,17 @@ public sealed class SeedSourceTests : IDisposable
     {
         var store = new SqliteMemoryGraphStore(_db.Factory);
         var log = new CapturingLogger();
-        var source = new SemanticSeedSource(new ThrowingEmbedder(), new InMemoryVectorStore(), logger: log);
+        var source = new SemanticSeedSource([new ThrowingEmbedder()], new InMemoryVectorStore(), logger: log);
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery(TaskKey: "task", Scope: "scope", Query: "anything"), Limit: 10);
 
         var seeded = await source.SeedAsync(request, CancellationToken.None);
 
         Assert.Empty(seeded);   // empty because the fault was swallowed, never because nothing matched
-        Assert.Single(log.Warnings);   // the assertion that tells the two apart
+        // ONE warning from the seed source itself. Routing logs its own per-attempt warning above it
+        // (D151 kept D129's failover), so the count is 2 — assert on the SOURCE's line, which is what
+        // tells a swallowed fault apart from an empty match.
+        Assert.Contains(log.Warnings, w => w.Contains("semantic seeding failed", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -326,7 +330,7 @@ public sealed class SeedSourceTests : IDisposable
         await vectors.UpsertAsync(MemoryVectorCollection.For("seedtest", "task", "home"), home.Id, [1f, 0f], "plumbing arrangements", CancellationToken.None);
         await vectors.UpsertAsync(MemoryVectorCollection.For("seedtest", "task", "garden"), garden.Id, [1f, 0f], "gardening notes", CancellationToken.None);
 
-        var source = new SemanticSeedSource(new FixedEmbedder([1f, 0f]), vectors);
+        var source = new SemanticSeedSource([new FixedEmbedder([1f, 0f])], vectors);
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery(TaskKey: "task", Scope: null, Query: "anything"), Limit: 10);
 

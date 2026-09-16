@@ -11,7 +11,7 @@ public class MemoryPromptComposerTests
 
     private static SemanticMemory SemanticWith(params string[] facts)
     {
-        var mem = new SemanticMemory(new FakeEmbedder(), new InMemoryVectorStore());
+        var mem = new SemanticMemory([new FakeEmbedder()], new InMemoryVectorStore());
         foreach (var f in facts) mem.RememberAsync("trip", "s", f).GetAwaiter().GetResult();
         return mem;
     }

@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Engines;
@@ -107,7 +108,7 @@ public class MemoryWiringDiagnosticsTests
     public void A_graph_member_that_embeds_every_write_and_seeds_no_recall_is_reported()
     {
         var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            embedder: new FakeEmbedder(), vectors: new InMemoryVectorStore());
+            providers: [new FakeEmbedder()], vectors: new InMemoryVectorStore());
 
         var found = Assert.Single(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
@@ -123,8 +124,8 @@ public class MemoryWiringDiagnosticsTests
         var embedder = new FakeEmbedder();
         var vectors = new InMemoryVectorStore();
         var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            embedder: embedder, vectors: vectors,
-            seedSources: [new LexicalSeedSource(), new SemanticSeedSource(embedder, vectors)]);
+            providers: embedder is null ? null : [embedder], vectors: vectors,
+            seedSources: [new LexicalSeedSource(), new SemanticSeedSource([embedder], vectors)]);
 
         Assert.Empty(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
@@ -292,7 +293,7 @@ public class MemoryWiringDiagnosticsTests
     public void A_BYO_semantic_channel_under_its_own_name_is_not_reported_as_missing()
     {
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            embedder: new FakeEmbedder(), vectors: new InMemoryVectorStore(),
+            providers: [new FakeEmbedder()], vectors: new InMemoryVectorStore(),
             seedSources: [new LexicalSeedSource(), new AcmeVectorChannel()]);
 
         Assert.Empty(MemoryWiring.Inspect([engine], verification: false, annotation: false));
@@ -304,7 +305,7 @@ public class MemoryWiringDiagnosticsTests
     public void An_embedder_with_no_semantic_channel_at_all_is_still_reported()
     {
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            embedder: new FakeEmbedder(), vectors: new InMemoryVectorStore(),
+            providers: [new FakeEmbedder()], vectors: new InMemoryVectorStore(),
             seedSources: [new LexicalSeedSource()]);
 
         var found = Assert.Single(MemoryWiring.Inspect([engine], verification: false, annotation: false));
@@ -319,7 +320,7 @@ public class MemoryWiringDiagnosticsTests
     public void An_undeclared_channel_silences_the_finding_rather_than_triggering_a_false_one()
     {
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            embedder: new FakeEmbedder(), vectors: new InMemoryVectorStore(),
+            providers: [new FakeEmbedder()], vectors: new InMemoryVectorStore(),
             seedSources: [new LexicalSeedSource(), new UndeclaredChannel()]);
 
         Assert.Empty(MemoryWiring.Inspect([engine], verification: false, annotation: false));

@@ -28,7 +28,7 @@ does and does not cover, and a blank means *not yet shown to fit the budget*, ne
 | **score-a-pair** (generative) | grade this output against this input, 0..1 | `LlmScorerBase`, and `RelevancyScorer` under it | per evaluation, per scorer | composition root | no |
 | **classify** | is this fact durable enough to keep verbatim | `LlmAnnotationOptions.SuggestGrade`, off by default | per WRITE, when on | option | no |
 | **affordance** | given these tools, what do you want | `MemoryTools`, the generation tools, an MCP-hosted toolset | per model tool call, unbounded by this library | no | **yes — §3.1** |
-| **embed** | place this text in a vector space | `IEmbedder` | per WRITE **and** per RECALL | no | **yes — §3.3** |
+| **embed** | place this text in a vector space | `ProviderKinds.Vector` | per WRITE **and** per RECALL | no | **yes — §3.3** |
 | **repair** | re-emit that, as JSON this time | the shared JSON completion helper | at most once per call, under three seams | inherited | no |
 | **delegate a run** | here is a task, do it | `IAgentSession` | per session, model-driven | n/a — you pick a CLI | out of scope |
 
@@ -465,7 +465,7 @@ list-length rule turning up on a **model-free** arm. Size the model to the list 
    right 56-62% of the time, beating a 468,393,760 B cross-encoder at 5.3% of the bytes. It is not a
    degraded copy.
 3. **Every one of them is a 512-position model, and the size column cannot see that.** All four reject a
-   6,263-character input, so none can be the memory `IEmbedder` — which is called per WRITE *and* per
+   6,263-character input, so none can be the memory embedding backend — which is called per WRITE *and* per
    RECALL over entries truncated at ~6,000 characters. **Sub-100 MB is a SHORT-INPUT story here**: a tool
    roster, a query, a headline. Ask a candidate's `context_length` before its byte count.
 
@@ -549,7 +549,7 @@ silently run on whatever backend happens to be default. The surface does not yet
   does not need a custom type: the shipped scorer, comparer and tool loop each take a client on a public
   constructor, and the container registrations are try-add, so registering your own instance first wins.
   Resolve the factory, ask it for the name you want, and hand it in.
-- **`IEmbedder` has no named-client story at all**, and it is the most frequent model contact in the
+- **The embedding seam has no named-client story at all**, and it is the most frequent model contact in the
   library — per write *and* per recall. It is also never batched: every call site goes through the
   single-text path, one text per call.
 

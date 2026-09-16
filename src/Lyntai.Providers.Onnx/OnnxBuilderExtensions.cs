@@ -29,7 +29,7 @@ public static class OnnxBuilderExtensions
     /// the sequence limit come from the model's own files unless <paramref name="configure"/> overrides
     /// them.</para>
     ///
-    /// <para>Registered with <c>TryAdd</c>, so an <see cref="IEmbedder"/> registered before this call
+    /// <para>Registered with <c>TryAdd</c>, so an an embedding backend registered before this call
     /// wins — the BYO story every seam here has.</para>
     /// </summary>
     /// <param name="builder">The Lyntai builder.</param>

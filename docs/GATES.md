@@ -549,15 +549,24 @@ predicate over the tree. **Every registered predicate was verified BY HAND befor
 each is driven RED by a synthesized tree in its own test: a predicate nobody checked is a second unverified
 claim, not a gate.
 
-**Widened 2026-09-17 from ten claims to thirteen, over the D125–D147 band** — nine decisions landed in a
+**Widened 2026-09-17 from ten claims to thirteen, over the D125–D147 band** (twelve after the retirement below) — nine decisions landed in a
 day, reshaped the whole provider layer, and not one of them was re-checked by anything. The three added are
 the ones whose violation is SILENT rather than loud: **D25** (a third-party dependency in `Lyntai.Core`,
 which every consumer is forced to take, and which is one line that compiles and passes every test — D146
 deleted a 654 KB reference that had arrived exactly that way); **D127** (only `Id` and `Capabilities` are
 required of an `IModelProvider`, which is precisely what one collapsed interface bought — a member declared
 without `=>` compiles here, where every implementation is in this solution, and breaks every BYO provider
-on upgrade); and **D129** (nothing outside `Core/Embeddings/` implements `IEmbedder`, because a backend
+on upgrade); and **D129** (nothing outside `Core/Embeddings/` implements the embedding front door, because a backend
 that does is reachable without routing, fallback or the capability filter).
+
+**The D129 claim was RETIRED the same day, and how it died is the more useful half.** **D151** deleted the
+embedder interface, so no file could declare it, so the predicate could never return anything again: green
+for ever, over a rule with nothing left to break. A vacuous claim is worse than an absent one because it
+reports a rule as HELD — and this gate's own header already calls an unchecked predicate "a second
+unverified claim, not a gate". **A claim outlives the decision it encodes only while its SUBJECT does**;
+when a later decision removes the subject, retire the claim rather than enjoy the green. The surviving
+invariant — no embedder-shaped front door comes back — is vocabulary, so it is `retiredApiNames` against
+the frozen surface, where a second copy here would add nothing.
 
 **Its first version of the D127 predicate could not fail, and that is worth keeping.** Blanking `{ get; }`
 to a placeholder without its terminator merged each property into the NEXT member's chunk, so the first

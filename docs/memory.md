@@ -780,12 +780,12 @@ removed, which a deployment with no vector store does not pay.
 A graph member for decay and links, a semantic member for meaning — over the same facts. Both hold
 associative material, so by default the graph takes every write and the semantic store stays empty.
 
-<!-- compile-given: class MyEmbedder : Lyntai.Embeddings.IEmbedder { public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<float[]>>([]); } -->
+<!-- compile-given: class MyEmbedder : Lyntai.Lifecycle.IModelProvider { public string Id => "mine"; public Lyntai.Lifecycle.ProviderCapabilities Capabilities { get; } = new() { Accepts = [Lyntai.Lifecycle.ProviderKinds.Text], Produces = [Lyntai.Lifecycle.ProviderKinds.Vector], Operations = [Lyntai.Lifecycle.ProviderOperation.Complete] }; public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<float[]>>([]); } -->
 ```csharp
 services.AddLyntai(cfg => cfg
     .UseSqliteStorage("Data Source=app.db")
     .UseSqliteVectorStore()
-    .AddSemanticMemory(new MyEmbedder())
+    .AddEmbeddingProvider(_ => new MyEmbedder()).AddSemanticMemory()
     .AddMemoryEngine("project", e => e.UseGraph().UseSemantic().FanOutWrites()));
 ```
 

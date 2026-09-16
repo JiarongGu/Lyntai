@@ -155,7 +155,7 @@ internal static class MemoryImportanceSweep
                 new SqliteMemoryGraphStore(db.Factory),
                 retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
                 agePolicies: [agePolicy],
-                embedder: embedder,
+                providers: [embedder],
                 vectors: new InMemoryVectorStore(),
                 saliencePolicies: [counting],
                 // The SHIPPED ranking configuration: SalienceWeight is 0, so salience speaks through decay

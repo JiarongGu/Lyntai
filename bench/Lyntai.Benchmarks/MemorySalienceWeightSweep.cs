@@ -126,7 +126,7 @@ internal static class MemorySalienceWeightSweep
                 // the only thing the ladder moves is how loudly salience speaks in the ranking.
                 retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
                 agePolicies: [agePolicy],
-                embedder: embedder,
+                providers: [embedder],
                 vectors: new InMemoryVectorStore(),
                 saliencePolicies: [counting],
                 ranking: ranking);

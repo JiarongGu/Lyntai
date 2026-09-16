@@ -81,7 +81,7 @@ public class Model2VecProviderTests : IDisposable
         services.AddLyntai(cfg => cfg.AddModel2VecProvider(WriteModel(Vocabulary("alpha"))));
         var provider = services.BuildServiceProvider();
 
-        Assert.NotNull(provider.GetService<IEmbedder>());
+        Assert.True(EmbeddingRouting.CanEmbed(provider.GetServices<IModelProvider>()));
         var asProvider = Assert.Single(
             provider.GetServices<IModelProvider>().Where(p => p.Id == "static"));
         Assert.Contains(ProviderKinds.Vector, asProvider.Capabilities.Produces);

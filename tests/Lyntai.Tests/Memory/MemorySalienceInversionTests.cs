@@ -83,7 +83,7 @@ public sealed class MemorySalienceInversionTests
     private static GraphMemoryEngine NewEngine(InMemoryMemoryGraphStore store, ArmKind arm) =>
         new("e", store,
             agePolicies: [new PerWriteAgePolicy()],
-            embedder: arm == ArmKind.Off ? null : new FakeEmbedder(),
+            providers: arm == ArmKind.Off ? null : [new FakeEmbedder()],
             vectors: arm == ArmKind.Off ? null : new InMemoryVectorStore(),
             saliencePolicies: arm == ArmKind.Salience
                 ? [new StructuralSaliencePolicy()]
@@ -317,7 +317,7 @@ public sealed class MemorySalienceInversionTests
             var store = new InMemoryMemoryGraphStore();
             var engine = new GraphMemoryEngine("e", store,
                 agePolicies: [new PerWriteAgePolicy()],
-                embedder: new FakeEmbedder(),
+                providers: [new FakeEmbedder()],
                 vectors: new InMemoryVectorStore(),
                 saliencePolicies: policies);
 

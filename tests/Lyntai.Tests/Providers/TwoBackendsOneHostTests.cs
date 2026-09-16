@@ -115,7 +115,7 @@ public class TwoBackendsOneHostTests
 
         var chat = providers.Single(p => p.Capabilities.Produces.Contains(ProviderKinds.Text));
         var reply = await chat.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
-        var vectors = await sp.GetRequiredService<IEmbedder>().EmbedAsync(["a"]);
+        var vectors = await EmbeddingRouting.EmbedAsync(sp.GetServices<IModelProvider>(), ["a"]);
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal([1f, 2f, 3f], Assert.Single(vectors));
@@ -124,7 +124,7 @@ public class TwoBackendsOneHostTests
             handler.Requests.Select(r => r.Uri?.ToString()));
     }
 
-    // Declaring Vector is what arms the routed IEmbedder and AddSemanticMemory, both of which are decided
+    // Declaring Vector is what arms the routed IModelProvider and AddSemanticMemory, both of which are decided
     // at composition time — before any provider is built (D129).
     [Fact]
     public void A_chat_only_deployment_gets_NO_embedder_rather_than_a_broken_one()
@@ -133,6 +133,6 @@ public class TwoBackendsOneHostTests
         services.AddLyntai(b => b.AddHttpProvider("chat", o => o.BaseUrl = Host));
         using var sp = services.BuildServiceProvider();
 
-        Assert.Null(sp.GetService<IEmbedder>());
+        Assert.False(EmbeddingRouting.CanEmbed(sp.GetServices<IModelProvider>()));
     }
 }

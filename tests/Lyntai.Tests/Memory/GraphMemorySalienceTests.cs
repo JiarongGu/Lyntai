@@ -1,4 +1,5 @@
 using Lyntai.Embeddings;
+using Lyntai.Tests.Fakes;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Forgetting;
@@ -42,9 +43,9 @@ public class GraphMemorySalienceTests
             throw new InvalidOperationException("the salience policy is broken");
     }
 
-    private sealed class ThrowingEmbedder : IEmbedder
+    private sealed class ThrowingEmbedder : EmbeddingBackend
     {
-        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default) =>
             throw new InvalidOperationException("embedding endpoint is down");
     }
@@ -159,7 +160,7 @@ public class GraphMemorySalienceTests
         // (default) salience policy records nothing rather than the caller ever seeing the exception
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store,
-            embedder: new ThrowingEmbedder(), vectors: new InMemoryVectorStore());
+            providers: [new ThrowingEmbedder()], vectors: new InMemoryVectorStore());
 
         var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
 

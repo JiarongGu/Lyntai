@@ -249,8 +249,17 @@ internal static class SweepDoubles
     /// references — the csproj records what pulling a third one cost the last time (a build log past Node's
     /// spawnSync buffer, reported as a failed build that had in fact succeeded).
     /// </remarks>
-    internal sealed class OpenAiCompatibleEmbedder(HttpClient http, string baseUrl, string model) : IEmbedder
+    internal sealed class OpenAiCompatibleEmbedder(HttpClient http, string baseUrl, string model) : IModelProvider
     {
+        public string Id { get; init; } = "bench-http-embed";
+
+        public ProviderCapabilities Capabilities { get; } = new()
+        {
+            Accepts = [ProviderKinds.Text],
+            Produces = [ProviderKinds.Vector],
+            Operations = [ProviderOperation.Complete],
+        };
+
         /// <summary>
         /// Probes by actually EMBEDDING something, rather than by reading a model list.
         ///
@@ -385,8 +394,17 @@ internal static class SweepDoubles
     }
 
     /// <summary>Memoizes a real model by text — deterministic input, deterministic output.</summary>
-    internal sealed class CachingEmbedder(IEmbedder inner) : IEmbedder
+    internal sealed class CachingEmbedder(IModelProvider inner) : IModelProvider
     {
+        public string Id { get; init; } = "bench-cache";
+
+        public ProviderCapabilities Capabilities { get; } = new()
+        {
+            Accepts = [ProviderKinds.Text],
+            Produces = [ProviderKinds.Vector],
+            Operations = [ProviderOperation.Complete],
+        };
+
         private readonly ConcurrentDictionary<string, Task<float[]>> _cache = new(StringComparer.Ordinal);
         private int _hits;
         private int _misses;
@@ -740,4 +758,14 @@ internal static class SweepDoubles
                     "the bench client backs a verification judge, which does not stream");
         }
     }
+}
+
+/// <summary>Single-text embedding for the sweeps. Core's own routing helper is internal (D151 removed the
+/// public embedder seam), and a bench drives ONE chosen backend rather than a routed set — so the batch
+/// primitive is called directly here rather than reaching for fallback the sweeps do not want.</summary>
+internal static class BenchEmbedding
+{
+    public static async Task<float[]> EmbedAsync(this IModelProvider provider, string text,
+        CancellationToken ct = default) =>
+        (await provider.EmbedAsync([text], ct).ConfigureAwait(false))[0];
 }

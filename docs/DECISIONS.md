@@ -3948,7 +3948,7 @@ both sides, so a consumer held a BACKEND directly. `HttpEmbeddingsTransport`'s o
 consequence: *"there is one embedder slot, so a later registration wins"*. Registering a second endpoint
 silently replaced the first instead of giving it a fallback.
 
-**Bring-your-own survives on ORDER, not on a second interface.** `AddEmbeddings(…)` registers directly
+**Bring-your-own survives on ORDER, not on a second interface.** `AddEmbeddings(…)` registers directly <!-- drift-ok: this entry IS the seam D151 later removed; it has to name what it introduced -->
 inside the configure callback, which runs before the front door is seeded with `TryAdd` — so an
 app-supplied embedder always wins. That is the deliberate mirror of the trap `pitfalls.md` records about
 seeding a `TryAdd` inside a builder callback, and it is the same reason `RegisterProviderLifetime` is all
@@ -4673,8 +4673,7 @@ does not exist yet, and it is a LARGER change than the delegate above, not a sma
 **Breaking, and this release is the window** — the public API is frozen under SemVer with no carve-out
 (**D70**), so it goes in the major now shipping or it waits for the next one.
 
-**NOT YET IMPLEMENTED at the time of writing, deliberately.** Recorded ahead of the code at the owner's
-direction, because removing a public interface across four constructors and a test suite is worth agreeing
-on paper first. `IEmbedder` is still on the surface; the work is `TASKS.md` Part 100. Read this entry as
-the decision taken, not as the tree described — which is the one way a decision record can be read wrongly
-that `check-decision-claims` cannot catch, since it gates claims somebody registered.
+**Recorded ahead of the code and SHIPPED the same day.** The paper-first step was worth taking — the
+removal touched four public constructors, twelve surface entries and 33 test files — and the entry carried
+a "not yet implemented" banner until the change landed, because a decision written ahead of its code reads
+exactly like one describing the tree and `check-decision-claims` cannot catch that.

@@ -1,4 +1,5 @@
 using Lyntai.Embeddings;
+using Lyntai.Tests.Fakes;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Storage.InMemory;
@@ -56,9 +57,9 @@ public class MemoryVectorCollectionTests
 
     /// <summary>Embeds everything to one vector, so any leak between collections shows up as a hit rather
     /// than being masked by a similarity threshold.</summary>
-    private sealed class OneVectorEmbedder : IEmbedder
+    private sealed class OneVectorEmbedder : EmbeddingBackend
     {
-        public Task<IReadOnlyList<float[]>> EmbedAsync(
+        public override Task<IReadOnlyList<float[]>> EmbedAsync(
             IReadOnlyList<string> texts, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<float[]>>([.. texts.Select(_ => new[] { 1f, 0f })]);
     }
@@ -68,7 +69,7 @@ public class MemoryVectorCollectionTests
     {
         var vectors = new InMemoryVectorStore();
         var engine = new GraphMemoryEngine("E", new InMemoryMemoryGraphStore(),
-            embedder: new OneVectorEmbedder(), vectors: vectors);
+            providers: [new OneVectorEmbedder()], vectors: vectors);
 
         // the two triples that composed to one address under the old separator
         await engine.RememberAsync(new MemoryWrite("a", "b|c", "kept"));

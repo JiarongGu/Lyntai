@@ -1,5 +1,6 @@
 using System.Globalization;
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Forgetting;
 using Lyntai.Memory.Interference;
@@ -49,10 +50,11 @@ namespace Lyntai.Memory.Engines;
 /// takes <see cref="SummedAgeCompositionPolicy"/>. Irrelevant when only one policy is registered — composing a
 /// singleton is the identity.</param>
 /// <param name="logger">Optional; reinforcement and recall failures are logged rather than thrown.</param>
-/// <param name="embedder">Optional. With a <paramref name="vectors"/> store, enables similarity
+/// <param name="providers">Optional. With a <paramref name="vectors"/> store, a backend declaring
+/// <see cref="ProviderKinds.Vector"/> enables similarity
 /// enrichment — a new entry is linked to its nearest existing neighbours. Pure enrichment on top of the
 /// model-free floor: without it the graph still forms from co-activation and explicit links.</param>
-/// <param name="vectors">Optional; see <paramref name="embedder"/>.</param>
+/// <param name="vectors">Optional; see <paramref name="providers"/>.</param>
 /// <param name="saliencePolicies">Judge how strongly a write is encoded — the coexisting salience dimensions
 /// in play; null or empty takes a single <see cref="StructuralSaliencePolicy"/>. Without an embedder there is
 /// no novelty to judge and it reports nothing.</param>
@@ -117,7 +119,7 @@ public sealed class GraphMemoryEngine(
     IMemoryRetrievabilityPolicy? retrievability = null,
     IEnumerable<IMemoryAgePolicy>? agePolicies = null,
     ILogger<GraphMemoryEngine>? logger = null,
-    IEmbedder? embedder = null,
+    IEnumerable<IModelProvider>? providers = null,
     IVectorStore? vectors = null,
     IEnumerable<IMemorySaliencePolicy>? saliencePolicies = null,
     IMemoryRankingPolicy? ranking = null,
@@ -300,7 +302,7 @@ public sealed class GraphMemoryEngine(
         return policy;
     }
 
-    private bool Enriches => embedder is not null && vectors is not null;
+    private bool Enriches => EmbeddingRouting.CanEmbed(providers) && vectors is not null;
 
     /// <summary>This engine embeds every write and no recall reads those vectors — an embedder and a vector
     /// store are wired, so novelty and similarity linking run on the WRITE path, while no
@@ -495,7 +497,8 @@ public sealed class GraphMemoryEngine(
         if (!Enriches || _options.SimilarityK <= 0) return null;
         try
         {
-            var vector = await embedder!.EmbedAsync(write.Content, EmbeddingRole.Document, ct).ConfigureAwait(false);
+            var vector = await EmbeddingRouting.EmbedOneAsync(
+                providers, write.Content, EmbeddingRole.Document, _logger, ct).ConfigureAwait(false);
             var near = await vectors!
                 .SearchAsync(VectorCollection(write.TaskKey, write.Scope), vector, _options.SimilarityK + 1, ct)
                 .ConfigureAwait(false);

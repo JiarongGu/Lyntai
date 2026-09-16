@@ -1,4 +1,5 @@
 using Lyntai.Embeddings;
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 
 namespace Lyntai.Agents;
@@ -55,7 +56,8 @@ public sealed class ToolSelectorOptions
 /// <para><b>A tool's description is what gets embedded</b>, so a roster whose descriptions do not say what
 /// each tool is FOR cannot be narrowed well by this — which is a property of the descriptions rather than
 /// of the embedder, and the one thing a deployment can fix directly.</para></summary>
-public sealed class EmbeddingToolSelector(IEmbedder embedder, ToolSelectorOptions? options = null)
+public sealed class EmbeddingToolSelector(
+    IEnumerable<IModelProvider> providers, ToolSelectorOptions? options = null)
     : IToolSelector
 {
     private readonly ToolSelectorOptions _options = options ?? new ToolSelectorOptions();
@@ -79,9 +81,11 @@ public sealed class EmbeddingToolSelector(IEmbedder embedder, ToolSelectorOption
 
         // Role-aware (D116): the request is the QUERY side and the descriptions are DOCUMENTS. On a
         // symmetric model the default body makes this identical to the role-less call.
-        var queryVector = (await embedder.EmbedAsync([query], EmbeddingRole.Query, ct).ConfigureAwait(false))[0];
+        var queryVector = await EmbeddingRouting.EmbedOneAsync(
+            providers, query, EmbeddingRole.Query, ct: ct).ConfigureAwait(false);
         var described = tools.Select(Describe).ToList();
-        var toolVectors = await embedder.EmbedAsync(described, EmbeddingRole.Document, ct).ConfigureAwait(false);
+        var toolVectors = await EmbeddingRouting.EmbedAsync(
+            providers, described, EmbeddingRole.Document, ct: ct).ConfigureAwait(false);
 
         // Ordered by score, then by ORIGINAL POSITION so a tie is broken the way the registry listed them
         // rather than arbitrarily — two tools with identical descriptions must not reorder run to run.

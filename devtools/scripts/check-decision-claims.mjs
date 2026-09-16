@@ -271,36 +271,19 @@ export function requiredModelProviderMembers(r) {
   return required;
 }
 
-/**
- * Files declaring `IEmbedder` as a base type, outside the front door's own folder (**D129**).
+/*
+ * `embedderImplementationsOutsideCore` lived here from 2026-09-17 until later the same day, registered as
+ * D129's claim: nothing outside `Core/Embeddings/` may implement the embedding front door.
  *
- * `IEmbedder` is the FRONT DOOR — a router over every backend that produces vectors — so a BACKEND that
- * implements it is reachable without going through routing or fallback, which is the second-door shape
- * `pitfalls.md` files. Three backends used to implement it and D129 took it off all three; nothing but the
- * router may hold it.
+ * IT WENT BECAUSE ITS SUBJECT DID. **D151** deleted `IEmbedder`, so no file can declare it and the
+ * predicate could never return anything again — green for ever, over a rule with nothing left to break.
+ * That is the exact shape this gate's own header calls "a second unverified claim, not a gate", and a
+ * vacuous claim is worse than an absent one: it reports a rule as HELD.
  *
- * Matches the PRIMARY-CONSTRUCTOR form too (`class X(...) : IEmbedder`), which is how the one legitimate
- * implementation is written — a base-list regex anchored on `class X :` misses it and passes vacuously.
+ * The invariant that survives — no embedder-shaped front door comes back — is a VOCABULARY rule, so it is
+ * `retiredApiNames` and `retiredTerms` in `devtools/project.config.mjs`, checked by
+ * `check-api-vocabulary` against the frozen surface. Registering it here too would be a second copy.
  */
-export function embedderImplementationsOutsideCore(r) {
-  const hits = [];
-  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/{2,3}.*$/gm, '');
-  const walk = (rel) => {
-    const abs = path.join(r, rel);
-    if (!fs.existsSync(abs)) return;
-    for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
-      if (e.isDirectory()) { if (e.name !== 'bin' && e.name !== 'obj') walk(`${rel}/${e.name}`); continue; }
-      if (!e.name.endsWith('.cs')) continue;
-      const text = strip(read(r, rel, e.name));
-      // The base list of a class/record declaration: everything between `:` and the body or constraint.
-      const declares = [...text.matchAll(/\b(?:class|record)\s+\w+[^:{;]*:\s*([^{]*?)(?:\bwhere\b|\{)/gs)]
-        .some((m) => /\bIEmbedder\b/.test(m[1]));
-      if (declares && !`${rel}/`.startsWith('src/Lyntai.Core/Embeddings/')) hits.push(`${rel}/${e.name}`);
-    }
-  };
-  walk('src');
-  return hits;
-}
 
 export function defaultOf(r, relative, field) {
   const src = read(r, relative);
@@ -461,19 +444,6 @@ export const DECISION_CLAIMS = [
       + 'every implementation is in the same solution, and breaks every BYO provider on upgrade. Both '
       + 'directions are checked: a REQUIRED operation fails, and so does a defaulted `Capabilities`, which '
       + 'would let a backend ship without saying what it serves',
-  },
-  {
-    id: 'D129',
-    claim: '`IEmbedder` is the FRONT DOOR — nothing outside `Core/Embeddings/` implements it',
-    holds: (r) => embedderImplementationsOutsideCore(r).length === 0,
-    detail: (r) => {
-      const bad = embedderImplementationsOutsideCore(r);
-      return bad.length === 0 ? 'only the routed front door implements it' : `also implemented by: ${bad.join(', ')}`;
-    },
-    why: 'three backends implemented it before D129 and the LAST registration silently won, so a second '
-      + 'endpoint replaced the first instead of becoming its failover. A backend that implements it again is '
-      + 'reachable without routing, fallback or the capability filter — the second-door shape — and nothing '
-      + 'about that fails: embeddings are simply computed by whichever one the container handed back',
   },
 ];
 

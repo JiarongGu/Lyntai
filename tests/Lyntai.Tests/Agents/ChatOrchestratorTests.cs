@@ -125,7 +125,7 @@ public class ChatOrchestratorTests
     {
         var provider = new FakeLlmProvider("p");
         provider.Replies.Enqueue(new LlmReply("cancel via account settings", ProviderVerdict.Ok));
-        using var sp = Build(provider, b => b.AddEmbeddings(new FakeEmbedder()));
+        using var sp = Build(provider, b => b.AddEmbeddingProvider(_ => new FakeEmbedder()));
 
         await sp.GetRequiredService<IChatOrchestrator>()
             .ChatAsync(new ChatTurn { Message = "how do I cancel?", TaskKey = "t1", UseTools = false });
