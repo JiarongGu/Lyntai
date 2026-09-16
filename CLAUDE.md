@@ -22,10 +22,12 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 live-backend only), e2e 3/3, guard-script tests 853/853, doc samples 58/58. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-16 at `a8819277`** — read off that run's own output, never
+**MEASURED with Docker up, re-attested 2026-09-17 at `aae8cbcb`** — read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
-easily breaks. **+3 on the previous attestation** (3817/3850/33 at `856b6f1b`): the three
-`DeclaredDeliveryIsBackedTests` facts, none live-gated, which is why the skip roster did not move.
+easily breaks. **UNCHANGED from the previous attestation** (`a8819277`), across a session of four commits
+that edited both SQL adapters: every one of them moved comments, XML docs or `devtools/`, so no xUnit fact
+was added or removed. **No movement is a result, and it is the one this line is checked against** — a diff
+that touches `src/` and leaves all three figures alone is the normal case, not a suspicious one.
 **Two review passes moved this line 3750 → 3780 → 3817 in one day** and the skip count has never changed —
 that invariance is the half worth checking, since it is what a Docker-down run would break first.
 **The Docker-down run is not hypothetical: the FIRST attempt that day read `3616 / 3853 / 237`** and was

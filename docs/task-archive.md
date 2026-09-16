@@ -4243,17 +4243,19 @@ not tidying; it was getting the tree ready to cut a release.
 **The release gate was broken and nothing could have said so.** `consumer-smoke` — the only check that
 compiles a fresh app against the PACKAGES — failed with four compile errors, its consumer fixture never
 having been updated through the D125–D147 renames. Fixed against the shipped API baselines and green end to
-end. Incident in `docs/FIXES.md`; the general shape (a gate outside the routine run rots like an unrun test,
-and reports it at release time) in `.claude/knowledge/pitfalls.md`; the entry in `docs/GATES.md` now states
-the cost of being outside `verify`, which it previously did not.
+end. Incident in `docs/FIXES.md`; the general shape in `.claude/knowledge/pitfalls.md`; `docs/GATES.md` now
+states the cost of being outside `verify`, which it previously did not.
 
-**A live release note said a package was renamed to itself.** `CHANGELOG.md`'s `## Unreleased` carried
-"`X` is renamed `X`" plus a refusal sentence naming the name that shipped — both halves of a rename entry
-rewritten by the same sweep. `check-tautology` was green: its four patterns are all CONTRAST joiners, and a
-rename entry is written old-then-new, so the shape most exposed to a rename campaign was the one shape it
-could not see. Two patterns added (five verbs, three arrow spellings), measured at **1 true / 0 false over
-811 files** and driven RED against the real pre-fix file.
+**A live release note said a package was renamed to itself**, with a refusal sentence naming the name that
+shipped — both halves of one rename entry rewritten by the same sweep. `check-tautology` was green: its four
+patterns are CONTRAST joiners, and a rename entry is written old-then-new, so the shape most exposed to a
+rename campaign was the one it could not see. Two patterns added, measured at 1 true / 0 false over 811
+files and driven RED against the real pre-fix file (`docs/GATES.md`).
 
-**What this says about the next release**, which is the reason the pass happened: `## Unreleased` holds a
-large **Breaking** section — package renames, the MEAI bridge deletion, one provider interface, one verdict
-taxonomy — so the next release is a MAJOR, and the unlisting the owner has deferred happens after it ships.
+**Two results that stop the next session re-deriving them.** The next release is a MAJOR — `## Unreleased`
+holds 36 Breaking entries — and the deferred unlisting happens after it ships. **A separate migration guide
+is REFUSED**: 24 of those entries carry an explicit old → new mapping and the other 12 are source-compatible
+widenings that state their own compile-time consequence, so the Breaking section IS the migration path, on
+the standard **D149** used to untrack the last guide.
+
+**Baseline re-attested with Docker up**: `3820 / 3853 / 33` at `aae8cbcb`, unchanged across the session.
