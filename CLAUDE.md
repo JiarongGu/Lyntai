@@ -137,16 +137,19 @@ anything moved, and its exit code must never be read through a pipe (`.claude/kn
 Six things no gate can catch, so they live here rather than in `docs/GATES.md`:
 
 - **A rule that is written down and still violated is a missing gate, not a knowledge problem.** That is
-  the argument that produced `check-encoding`, `check-links`, `check-archive` and `check-backlog` — reach
-  for it before writing another paragraph telling the next session to remember.
+  the argument that produced `check-encoding`, `check-links`, `check-archive`, `check-backlog` and
+  `check-tautology` — reach for it before writing another paragraph telling the next session to remember.
+  **And when a gate's SCOPE rests on a measurement, that measurement expires**: `check-links` skipped the
+  code tier on "found none in code" and re-measured at 150, 88 of them dead.
 - **Add a `retiredTerms` entry (`devtools/project.config.mjs`) whenever a decision renames or re-dimensions
   something.** `check-docs` has no dead-rule check, so a MISSING entry is invisible to every gate here.
 - **Each gate owns its OWN escape token** — `drift-ok` (docs), `link-ok` (links), `count-ok` (counts),
-  `comment-ok` (comments), `measure-ok` (measurements), none at all for the length ratchets. Never let one
-  token silence two gates, and write every new allowance so that one LOOSER than needed, or one that stops
-  matching, FAILS.
+  `comment-ok` (comments), `measure-ok` (measurements), `tautology-ok` (tautology), none at all for the
+  length ratchets. Never let one token silence two gates, and write every new allowance so that one LOOSER
+  than needed, or one that stops matching, FAILS.
 - **Repointing is the fix and renumbering is the trap**: a renumbered `§` resolves to the WRONG section
-  without failing anything. Archiving a task silently breaks every inbound `TASKS.md Part N` the same way.
+  without failing anything. Archiving a task breaks every inbound `TASKS.md Part N` the same way — that
+  half IS gated now, in prose and in code comments both, so a retirement fails loudly instead of rotting.
 - **`check-samples` compiles every fenced `csharp` block in the docs, and the default is ON.** Two
   annotations go before the fence — `<!-- compile-given: <declarations> -->` supplies the context a
   fragment assumes and keeps the block COMPILED, `<!-- compile-skip: <reason> -->` takes it out — and both

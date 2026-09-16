@@ -4124,10 +4124,10 @@ caught a duplicate-report bug in its own first version), and `check-backlog`'s e
 `check-links`' Part half reached the CODE tier, where a stale scope note had excluded it: re-measured at
 **150 citations across 73 files, 88 of them dead**.
 
-**Three things the review REFUSED**, because a negative result is the deliverable: widening the
-`Providers.Default` rule (2 true against 16 false — the two sites fixed by hand instead), the noun form of
-the MEAI rule (it fires on **D123**'s own heading), and any claim about the test baseline — the run was
-made with Docker down, so the Postgres leg did not execute and the numbers are NOT re-attested.
+**Three things the review REFUSED**, a negative result being the deliverable: widening the
+`Providers.Default` rule (2 true against 16 false — the two sites fixed by hand), the noun form of the
+MEAI rule (it fires on **D123**'s own heading), and any baseline claim from a Docker-down run — discharged
+the same day at `3820 / 3853 / 33`, Part 239.
 
 **Detail lives where it belongs**: the rename-collapse incident in `docs/FIXES.md`; the document
 retirements in **D149**; five traps in `.claude/knowledge/pitfalls.md`; the gate descriptions in
@@ -4157,3 +4157,30 @@ archive; only 178 does — 109, 116 and 128 are gaps. They could not keep their 
 archive allocates in LANDING order. **The real trap is the other shape:** `TASKS.md` Part 69's
 `NeutralSaliencePolicy` citations belong to archive Part **71**, while archive Part 69 exists and is about
 the embedder — a blind renumber would have resolved, gone green, and sent every reader to the wrong entry.
+
+## Part 239 — the follow-on: an attestation withheld, and three items that were never blocked
+
+✅ closed 2026-09-16, at the owner's direction after `docs/task-archive.md` Part 237. Not a filed task —
+it began as two loose ends that Part 237 named and the owner asked to close.
+
+**The attestation.** Part 237 refused to re-attest the baseline from a Docker-down run whose arithmetic
+reconciled perfectly. Docker up, `verify` green on all 24 gates: **3820 / 3853 / 33** at `a8819277`, +3 on
+the previous attestation (`DeclaredDeliveryIsBackedTests`), skip roster unmoved. **The withheld run is
+worth as much as the taken one** — it is the concrete case for why that line takes a measurement, and
+`CLAUDE.md` now carries it.
+
+**Three items were never blocked, and the owner refuted the framing twice.** The first challenge —
+*"verify properly rather than just call it blocked"* — found CLI12 (`@openai/codex` 0.154.0 is on npm with
+a `win32-x64` binary) and GEN-VERIFY's `sd-cli` half (a 17.1 MB public zip) were both one download away,
+which `task-lifecycle.md` calls a STEP in as many words. GEN6 moved to `decision-only`, the state's first
+occupant, because its `env` half was contingent on the ruling rather than independent of it.
+
+**The second challenge — "we should not only focus on fal" — found the bigger one.** THREE surfaces are
+documented-not-measured and only fal needs a vendor; ComfyUI is self-hosted, free to probe, declares both
+Image and Video, and was named in no summary sentence anywhere. It had survived two passes, **including
+the pass that split the item**, because the split followed the axis the NAME suggested.
+
+**What generalises is filed, not summarised here**: the re-check procedure in `.claude/rules/task-lifecycle.md`
+(a negative re-check is evidence only of the question it asked), and the framing trap in
+`.claude/knowledge/pitfalls.md` (an item named after its most expensive instance hides the cheapest, and
+the reader who splits it inherits that framing). Startable set: 3, from 0.
