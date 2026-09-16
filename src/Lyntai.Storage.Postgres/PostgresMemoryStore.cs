@@ -52,8 +52,7 @@ public sealed class PostgresMemoryStore(
             await CapEvictAsync(conn, taskKey, scope, cap, policy.Mode, now, ct).ConfigureAwait(false);
     }
 
-    // Count-cap eviction as ONE atomic statement (race-free, no scope fetch) — the statement itself is
-    // single-sourced in Core (MemoryEviction.CapEvictSql) so the two SQL backends can't drift on it.
+    // One atomic statement: race-free, and no scope fetch — which is why this exists beside ApplyAsync.
     private static Task CapEvictAsync(IDbConnection conn, string taskKey, string scope, int cap,
         MemoryEvictionMode mode, DateTimeOffset now, CancellationToken ct) =>
         conn.ExecuteAsync(new CommandDefinition(MemoryEviction.CapEvictSql(mode),
@@ -74,8 +73,7 @@ public sealed class PostgresMemoryStore(
     {
         var take = limit ?? options.MemoryRecallLimit;
         var now = _clock();
-        // LRU refreshes last-access only on a QUERIED recall (a targeted lookup = "use"); a bare list-all
-        // is enumeration, not use, so it must not bump every returned entry.
+        // Queried-only, per MemoryEvictionPolicy.TracksAccess.
         var touch = options.MemoryEviction.TracksAccess && !string.IsNullOrWhiteSpace(query);
         try
         {
@@ -133,9 +131,9 @@ public sealed class PostgresMemoryStore(
         }
     }
 
-    /// <summary>LRU: refresh last-access of the recalled entries so they survive eviction. Best-effort — a
-    /// failed refresh (e.g. transient write contention) is swallowed so it NEVER turns a successful recall
-    /// into an empty result (the outer catch is fail-open). Only fires on a queried LRU recall.</summary>
+    /// <summary>LRU: refresh last-access of the recalled entries so they survive eviction, on the terms
+    /// <see cref="MemoryEvictionPolicy.TracksAccess"/> sets — queried recalls only, and best-effort, so the
+    /// swallowed failure here cannot turn a successful recall into an empty one.</summary>
     private async Task<IReadOnlyList<MemoryEntry>> TouchAsync(IDbConnection conn, List<MemoryEntry> hits,
         bool touch, DateTimeOffset now, CancellationToken ct)
     {

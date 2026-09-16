@@ -13,7 +13,20 @@ namespace Lyntai.Storage;
 /// because a name mismatch here is a SILENT null rather than an error — and two independent copies of a
 /// 25-property mapping is two places for that silence to appear. The queries genuinely differ by dialect;
 /// the property names they alias to do not, and this type is what makes that a fact instead of a
-/// coincidence.</para></summary>
+/// coincidence.</para>
+///
+/// <para><b>The three age marks are SUBTRACTIONS against policy-independent primitives</b> (design §5.7).
+/// <see cref="Age"/>, <see cref="OrdinalAge"/> and <see cref="VolumeAge"/> — and their
+/// <c>Strength*</c> counterparts — are a stored mark taken from where the engine now stands; the store
+/// applies no decay and evaluates no curve, which is the policy's job. The engine's position, ordinal and
+/// character count advance UNCONDITIONALLY on every write, whatever
+/// <see cref="Lyntai.Memory.Interference.IMemoryAgePolicy"/> is installed, so swapping that policy cannot
+/// corrupt them. <see cref="ProvenanceRetrievability"/> and <see cref="ProvenanceSalience"/> are plain
+/// counters read straight back — nothing is computed for them, here or in SQL.</para>
+///
+/// <para><b>What each backend still states for itself is the DIALECT</b>, and only that: SQLite's column
+/// affinity can hold <c>1.0</c> as an INTEGER and <c>0.5</c> as a REAL in one column, so its 0..1-shaped
+/// reads need a <c>CAST</c> that Postgres's <c>DOUBLE PRECISION</c> does not.</para></summary>
 public class MemoryNodeRow
 {
     public long Id { get; set; }

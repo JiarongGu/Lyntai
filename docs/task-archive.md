@@ -4208,3 +4208,26 @@ REFUSED: 0 hits over 18 files, so the four defects above are pattern misses, not
 above "**The Postgres leg is 195 tests**… the quantity that carries forward". Re-measured off this session's
 Docker-down run (`3616 / 3853 / 237`): it is 204, and it GROWS with the tree, so the DERIVATION carries
 forward and the number does not.
+
+## Part 241 — the duplicated commentary in the two SQL adapters, relocated to its owners
+
+✅ closed 2026-09-16, at the owner's direction after `docs/task-archive.md` Part 240. Not a filed task.
+
+**Measured first, which redirected the pass.** Duplication in `src/` is one axis — **380 of 397 cross-file
+duplicated 8-line blocks are the SQLite↔Postgres pair**, and `Lyntai.Core` is effectively clean — but the
+CODE half is already answered by `.claude/knowledge/storage.md` §Don't "dedup", and Core takes no database
+driver, so the plumbing has nowhere to go. The PROSE half had never been looked at; the measurement and the
+rule now live in that same section.
+
+**Outcome: 431 → 377 comment lines, identical 119 → 94, near-duplicate 96 → 84**, each relocated rule landing
+on the thing that owns it — `MemoryNodeRow`, `MemorySignals.Salience`, `MemoryEvictionPolicy.TracksAccess`,
+`IMemoryGraphStore.UpsertAsync`, `IJobStore.ListAsync`, `ICuratedMemoryStore.UpdateAsync`. Several were
+CONTRACT rules living only inside two concrete backends, where a BYO store never looks, so this closed gaps
+rather than only shortening files. **D150** takes the Governance-guard argument; the Dapper process-global
+type-handler registry is now a trap in `.claude/knowledge/sql-storage.md`.
+
+**§Don't "dedup" was itself stale**: it named `JobStoreSql` as "the one thing that IS shared" after four more
+had joined it, so a reader was told to re-derive an extraction that already exists.
+
+**Deliberately NOT deduplicated:** the `Use*Storage` XML docs, ~34 identical lines. Both are public surfaces
+and a consumer sees only one, so that is the contract working rather than drift.

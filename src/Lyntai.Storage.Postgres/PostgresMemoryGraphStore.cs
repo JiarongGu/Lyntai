@@ -19,11 +19,8 @@ namespace Lyntai.Storage.Postgres;
 /// synchronous open blocks a thread-pool thread for a whole TCP connect plus authentication — thread-pool
 /// starvation on a cold pool rather than a slow query, and the cancellation token cannot reach the connect
 /// either. The SQLite twin may open synchronously because its "connect" is a file handle.</para>
-/// <para><b>Age is a subtraction, not a duration</b> — <c>lyntai_memory_position</c> holds a monotone position
-/// per engine — and <b>the decay curve is never evaluated here</b>. <see cref="GraphNode.OrdinalAge"/> and
-/// <see cref="GraphNode.VolumeAge"/> are the SAME shape of subtraction against two ADDITIONAL primitives the
-/// table also tracks unconditionally (design doc §5.7); <see cref="GraphNode.ElapsedAge"/> is computed in
-/// .NET, not SQL.</para>
+/// <para><b>Age is a subtraction, not a duration</b>, and <b>the decay curve is never evaluated here</b>.
+/// What the age marks mean is <see cref="MemoryNodeRow"/>'s, once.</para>
 /// <para>Recall matches the query term-wise through <see cref="SearchTerms"/> and orders by GRADE, then by
 /// how many terms matched, then by recency; the RANKING within that is backend-specific (a term count here),
 /// WHICH entries are found is not. <b>Grade leads</b> because authoritative material is admitted
@@ -47,23 +44,12 @@ public sealed class PostgresMemoryGraphStore(
     // guarantee across calls.
     private readonly ConcurrentDictionary<string, long> _reviewCounters = new(StringComparer.Ordinal);
 
-    // Degree/Strength are plain aggregates and Age/StrengthAge are plain subtractions against @position — the
-    // store applies no decay; the policy does. No CAST: DOUBLE PRECISION binds to double directly.
+    // What every column here MEANS is MemoryNodeRow's, stated once; what follows is this dialect's alone.
     //
-    // OrdinalAge/VolumeAge are the SAME shape of subtraction, against the two new policy-independent
-    // primitives (design doc §5.7) — @ordinal and @chars advance unconditionally on every write, regardless of
-    // which IMemoryAgePolicy the engine has installed. EncodingAt is read RAW; ElapsedAge is a .NET-side
-    // subtraction in MemoryNodeRow.ToNode, matching the SQLite twin's own reasoning (avoiding a date-parsing round trip in
-    // the database).
-    // ProvenanceRetrievability/ProvenanceSalience are plain BIGINTs (design doc §5.7, Task 4), read exactly
-    // like RecallCount/Degree — no computation, so nothing to cast.
-    // Difficulty is DOUBLE PRECISION, same as Stability — no CAST
-    // needed on this backend either (Npgsql binds DOUBLE PRECISION straight to double).
-    // StrengthOrdinalAge/StrengthVolumeAge are the strength-side counterparts of OrdinalAge/VolumeAge, and
-    // StrengthenedAt is read RAW for the reason EncodingAt is. Each takes its own MAX: all
-    // four strengthening marks advance monotonically together from one write's totals, so the freshest edge
-    // holds the maximum of every one. MAX over no rows is NULL, so StrengthenedAt alone is nullable — a node
-    // with no edges has no strengthening to date and MemoryNodeRow.ToNode reports 0, matching the other two's COALESCE.
+    // No CAST anywhere: Npgsql binds DOUBLE PRECISION and BIGINT straight through, so the affinity trap the
+    // SQLite twin casts around does not exist here. Every alias is QUOTED — an unquoted one folds to lower
+    // case and then misses the row property, which is a silent null rather than an error.
+    // Each strength mark takes its OWN MAX, never "the primitives of whichever edge has the max position".
     private const string NodeColumns = """
         n.id AS "Id", n.engine AS "Engine", n.task_key AS "TaskKey", n.scope AS "Scope",
         n.headline AS "Headline", n.content AS "Content", n.grade AS "Grade",
@@ -104,23 +90,17 @@ public sealed class PostgresMemoryGraphStore(
     public async Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
-        // MemoryContentKey.Of is the ONE dedup key — a backend hashing content its own way answers "is this
-        // the same memory?" differently, which is a contract difference, not a storage detail.
         var hash = MemoryContentKey.Of(write.Content);
         var metadata = CuratedMetadataJson.Serialize(write.Metadata);
-        // NULL, not "{}", for an empty bag — the NULL is what the DO UPDATE SET below reads as "no
-        // opinion", keeping the stored signals. See GraphNodeWrite.Signals for why blanking would be
-        // wrong.
+        // NULL, not "{}", for an empty bag — the DO UPDATE SET below reads NULL as "no opinion" and keeps
+        // the stored signals. See GraphNodeWrite.Signals.
         var signals = MemorySignalsJson.Serialize(write.Signals);
-        // The column is the COERCED materialization of the bag's salience for the database to sort on; the
-        // bag stays the source of truth and is stored verbatim, so the two are not byte-for-byte equal — a
-        // bag holding 0.5 reads back as 0.5 while the column holds 1. What they cannot do is drift: both come
-        // from the SAME write.Signals in this ONE statement, through MemorySignals.Salience, which is the ONE
-        // definition of the coercion (below-1 → 1, non-finite → 1) that the InMemory store's ordering and the
-        // engine's rank boost also read the value through. This second read bypasses
-        // MemorySignalsJson.Serialize's own non-finite filter entirely, which is why it needs that guard at
-        // all: Npgsql binds a NaN double without complaint, straight into a NOT NULL column every seed query
-        // orders on — and Postgres sorts NaN ABOVE every real number, so the corruption is silent.
+        // The column is the COERCED salience the database sorts on; the bag above is stored VERBATIM, so the
+        // two are deliberately not byte-for-byte equal — a bag holding 0.5 reads back 0.5 while the column
+        // holds 1. They cannot DRIFT, which is the part that matters: one write.Signals, one statement, and
+        // MemorySignals.Salience is the single definition of the coercion (and of why it, rather than this
+        // call site, carries the non-finite guard — on this backend an unguarded NaN is bound silently and
+        // then sorts ABOVE every real number).
         var salience = MemorySignals.Salience(write.Signals);
         // The LIVE difficulty column — promoted from the bag, but
         // NOT on salience's own "bag is non-empty" trigger (see the SQLite twin's own
@@ -132,10 +112,8 @@ public sealed class PostgresMemoryGraphStore(
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
-        // advance the engine's position AND the three policy-independent primitives FIRST and atomically, so
-        // the new entry's own age is zero relative to everything it is stamped with. The primitives advance
-        // UNCONDITIONALLY — one write, this write's own content length, this write's own timestamp — never
-        // from write.Advance, which is this write's chosen IMemoryAgePolicy's business, not the store's.
+        // Advance FIRST and atomically, position and the three primitives together — the contract rule is on
+        // IMemoryGraphStore.UpsertAsync. DO UPDATE SET must name the table here, unlike the SQLite twin.
         var totals = await conn.QuerySingleAsync<MemoryPositionRow>(new CommandDefinition("""
             INSERT INTO lyntai_memory_position (engine, position, ordinal, chars, encoded_at)
             VALUES (@engine, @advance, 1, @contentLength, @now)

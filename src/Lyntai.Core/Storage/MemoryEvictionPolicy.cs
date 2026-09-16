@@ -54,7 +54,11 @@ public sealed class MemoryEvictionPolicy
     public bool HasSizeBound => MaxEntriesPerScope is > 0 || MaxCharsPerScope is > 0;
 
     /// <summary>Whether recall must refresh last-access recency (only <see cref="MemoryEvictionMode.Lru"/>
-    /// needs it — a small best-effort write on recall).</summary>
+    /// needs it — a small best-effort write on recall).
+    /// <para><b>A QUERIED recall counts as use; a bare list-all does not.</b> Enumerating a scope is not
+    /// using its entries, so a store that bumped every returned row would make listing a cache-warming
+    /// operation and defeat the mode. The refresh is also best-effort: a failed one must never turn a
+    /// successful recall into an empty result.</para></summary>
     public bool TracksAccess => Mode == MemoryEvictionMode.Lru;
 
     // ── presets: the "multi-way" an app selects ──────────────────────────────────────────────────────

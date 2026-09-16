@@ -357,7 +357,21 @@ public sealed record MemoryReview(
 public interface IMemoryGraphStore
 {
     /// <summary>Store a node, or refresh the existing one with identical content, advancing the engine's
-    /// position by <see cref="GraphNodeWrite.Advance"/>. Returns its id.</summary>
+    /// position by <see cref="GraphNodeWrite.Advance"/>. Returns its id.
+    ///
+    /// <para><b>Advance the engine FIRST, and atomically with the write</b>, so the new entry's own age is
+    /// zero against everything it is stamped with. An implementation that stamps before advancing gives
+    /// every fresh entry a non-zero age on one backend and not another.</para>
+    ///
+    /// <para><b>Only the position comes from <see cref="GraphNodeWrite.Advance"/>.</b> The three
+    /// policy-independent primitives — one write, this write's own content length, this write's own
+    /// timestamp — advance UNCONDITIONALLY, whatever
+    /// <see cref="Lyntai.Memory.Interference.IMemoryAgePolicy"/> is installed. That is what makes the policy
+    /// swappable, so taking any of the three from <c>Advance</c> is a contract break rather than a
+    /// shortcut.</para>
+    ///
+    /// <para>Dedup is on <see cref="MemoryContentKey"/> — see it for why that is a contract fact and not a
+    /// storage detail.</para></summary>
     /// <param name="write">The node to store.</param>
     /// <param name="ct">Cancellation.</param>
     Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default);

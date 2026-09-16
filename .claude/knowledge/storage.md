@@ -154,11 +154,12 @@ was not optional.
 ## Don't "dedup" the Sqlite/Postgres stores — the parallelism is intentional
 
 The two relational backends mirror each other file-for-file, and a normalized diff makes most pairs look
-90%+ identical (`TraceStore` differs by 3 lines of 199). **This is not duplication waiting to be
-extracted.** A 2026-07-29 review checked every pair and found the divergence is *dialect necessity* in
-every case, not drift:
+90%+ identical (82.6% of all normalized lines, re-measured 2026-09-16). **Most of that is not duplication
+waiting to be extracted.** A 2026-07-29 review checked every pair and found the divergence below is
+*dialect necessity*, not drift — and it stays true of the expressions in the table even where the
+STATEMENTS around them have since been hoisted:
 
-| Pair | Why it differs — and can't be shared |
+| Pair | Why it differs — and the dialect part can't be shared |
 |---|---|
 | `ConversationStore` | Postgres needs a **bounded retry loop** around the `MAX(seq)+1` insert; SQLite serializes writers and doesn't. A concurrency strategy, not a spelling. |
 | `KeyValueStore` | SQLite's `LIKE` is case-INsensitive → `substr()` prefix match; Postgres's `LIKE` is case-sensitive but its ORDER BY is locale-dependent → `LIKE … ESCAPE` + `COLLATE "C"`. Opposite problems, opposite fixes, same contract. |
@@ -173,16 +174,32 @@ backends harder to read and to fork. They have also **not drifted** across 30+ r
 `*StoreContract` facts run every domain against InMemory + Sqlite + Postgres and hold them to one contract.
 **The contract tests are the dedup mechanism here, not a shared base class.**
 
-**The one thing that IS shared, and the rule it sets:** `Core/Storage/JobStoreSql.cs` hoists the job
-**state machine** (transition statements, the `claimed_by` write fence, the claim-candidate predicate) plus
-the `JobRow` mapping. That was right because drift there is a *correctness* bug — two backends disagreeing
-on fencing corrupts jobs — and because the text is genuinely engine-independent (booleans are bound as
-`@t`/`@f` parameters precisely so the statements stay identical). Only the locking frame stays per-dialect.
+**What IS shared, and the rule it sets.** `Core/Storage/JobStoreSql.cs` was the first and states the case:
+it hoists the job **state machine** (transition statements, the `claimed_by` write fence, the
+claim-candidate predicate) plus the `JobRow` mapping, because drift there is a *correctness* bug — two
+backends disagreeing on fencing corrupts jobs — and because the text is genuinely engine-independent
+(booleans are bound as `@t`/`@f` parameters precisely so the statements stay identical). Only the locking
+frame stays per-dialect.
+
+**It is no longer the only one, and a reader who takes it as such will re-derive an extraction that already
+exists.** `ConversationStoreSql` and `TraceStoreSql` (`StorageSql.cs`), `MemoryGraphSql` (**D77**) and
+`MemoryEviction.CapEvictSql` hoist statements the same way, and the row types go with them —
+`StorageRows.cs`, `MemoryGraphRows.cs`. So the pairs in the table above differ by the dialect expression and
+the concurrency strategy, NOT by whole statements: `TraceStore` is 70 lines a side now, holding one SQL
+literal between them.
 
 So the rule: **share engine-independent, correctness-critical logic; never share dialect expressions.** If
 an extraction needs a `bool isSqlite` or a `Real(col)` helper to work, that's the signal to stop — Core
 carries no database driver (`Lyntai.Core.csproj` has only DI + Logging abstractions, and "no heavy
 dependencies" is a stated selling point), so shared SQL there can never be more than text anyway.
+
+**The rule reaches the PROSE, which is where the parallelism actually costs something.** Measured
+2026-09-16: of 431 substantive comment lines in the SQLite adapter, **119 were byte-identical** in the
+Postgres twin and **96 more said the same thing in different words** — already two wordings of one rule,
+which is drift by the definition this section uses for code. An engine-independent RULE gets stated once,
+next to the shared thing it governs (`MemoryNodeRow` for what an age mark means, `MemoryEviction` for the
+eviction statement) or in the record that owns it; each backend keeps its DIALECT note and a pointer.
+`check-comments` bounds a block's length and can see none of this.
 
 ## Migrations
 

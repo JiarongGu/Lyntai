@@ -120,8 +120,11 @@ public readonly record struct MemorySignals
     /// <para><b>Non-finite becomes 1.</b> A <see cref="double.NaN"/> does not merely mis-sort: it poisons
     /// every arithmetic consumer downstream. <c>Math.Max(1, NaN)</c> is <c>NaN</c> by IEEE 754:2019, so a
     /// rank multiplied by it is <c>NaN</c>, every comparison against it is false, and a recall whose
-    /// candidates all carry one returns nothing at all — a silent, total recall blackout. On SQLite it is
-    /// worse still: <c>Microsoft.Data.Sqlite</c> refuses to bind it and the whole write fails.</para>
+    /// candidates all carry one returns nothing at all — a silent, total recall blackout. The two relational
+    /// backends then fail in OPPOSITE directions, which is why the guard lives here rather than at either
+    /// call site: <c>Microsoft.Data.Sqlite</c> refuses to bind it and the whole write fails LOUDLY, while
+    /// Npgsql binds it without complaint into a NOT NULL column every seed query orders on — and Postgres
+    /// sorts NaN ABOVE every real number, so there the corruption is silent and it ranks first.</para>
     /// <para>Both values are reachable through the public <see cref="Lyntai.Memory.Salience.IMemorySaliencePolicy"/> seam, so neither
     /// is hypothetical. <b>Every read site calls this</b> — the two SQL stores' promoted <c>salience</c>
     /// column, the in-process store's admission ordering, and <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/>'s rank boost. They

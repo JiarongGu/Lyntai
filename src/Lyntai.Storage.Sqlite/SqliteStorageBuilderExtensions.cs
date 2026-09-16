@@ -145,29 +145,10 @@ public static class SqliteStorageBuilderExtensions
 
     // --- the Governance prerequisite, enforced at WIRING time -----------------------------------------
     // lyntai_response_cache, lyntai_usage and lyntai_vector all ship in the ONE Governance migration, so a
-    // feature subset omitting StorageFeature.Governance leaves the three helpers above registering stores
-    // over tables that were never created — and the app finds out at the first cached call / metered call /
-    // recall, not at startup. UseSqliteStorage's stated contract is that a disabled domain is simply not
-    // resolvable and that unresolvability IS the startup signal; these three are the only calls that could
-    // break it, so they enforce it instead of degrading quietly.
-    //
-    // Order-independent ACROSS THE STORAGE/HELPER PAIR: the check needs BOTH the feature selection and the
-    // helper call, and an app may write those two either way round, so each side records a sentinel in the
-    // service collection and verifies whatever the other side already recorded. Nothing ever resolves these
-    // sentinels — a guard you can defeat by swapping THOSE two builder lines is not a guard.
-    //
-    // Scoped to that pair on purpose. Two Use*Storage calls are not commutable — they are competing
-    // SELECTIONS and the LAST one wins, so order is load-bearing there by design.
-    //
-    // It applies ONLY where Lyntai owns the schema (the selection carries LyntaiMigrates). Under
-    // SchemaMigration.None or an app-supplied IDbConnectionFactory the app's own DDL decides which tables
-    // exist, so firing would reject a wiring that has always worked and the remedy it offers would create no
-    // table anyway.
-    //
-    // CONSEQUENCE WORTH KNOWING: a BYO-factory call made LAST stands the guard down for the whole wiring,
-    // because that selection says "not Lyntai's schema". Defensible — but a host can trip it by REORDERING
-    // two lines it thought were independent, so: the guard follows the SELECTION, and if both overloads are
-    // called the last one decides, for the guard exactly as for the connection factory.
+    // feature subset omitting it leaves the three helpers above registering stores over tables that were
+    // never created. Why the check is EAGER, what a lazy one would have accepted, and the two scope rules
+    // (order-independent across the storage/helper PAIR only; applies only where Lyntai owns the schema) are
+    // docs/DECISIONS.md D150.
 
     private sealed record SqliteFeatureSelection(StorageFeature Features, bool LyntaiMigrates);
 
@@ -187,19 +168,8 @@ public static class SqliteStorageBuilderExtensions
             VerifyGovernance(selection, ((SqliteGovernanceBackedCall)descriptor.ImplementationInstance!).Method);
     }
 
-    // The last selection registered SO FAR — which, because the guard is evaluated EAGERLY (at each call,
-    // not once at the end), is not necessarily the selection the app finishes with.
-    //
-    // The difference is observable, so state it rather than imply otherwise: with
-    //   UseSqliteStorage(a, Memory) → UseSqliteVectorStore() → UseSqliteStorage(b, All)
-    // the helper throws against the Memory selection even though the FINAL selection is valid. A lazy guard
-    // judging only the end state was considered and rejected: the check is symmetric by construction — each
-    // side records a sentinel and verifies whatever the other side already recorded — and deferring it needs a
-    // run-once-after-configure hook on LyntaiBuilder, i.e. a new public extension point in Core existing solely
-    // to serve two adapters, plus a new way for the guard to silently not run at all. Eager also fails AT the
-    // offending line, which is the property the guard was added for.
-    // The cost accepted: re-stating the feature set across two UseSqliteStorage calls, narrow first, is
-    // rejected. State the feature set once — or make the widening call before the helper.
+    // The last selection registered SO FAR — the guard is EAGER, so this is not necessarily the selection
+    // the app finishes with. That difference is deliberate and priced in docs/DECISIONS.md D150.
     private static SqliteFeatureSelection? Selection(LyntaiBuilder builder) =>
         builder.Services.LastOrDefault(d => !d.IsKeyedService && d.ServiceType == typeof(SqliteFeatureSelection))
             ?.ImplementationInstance as SqliteFeatureSelection;

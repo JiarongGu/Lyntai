@@ -38,6 +38,13 @@ nothing at all for a language that does not use spaces — and "no results" read
   commonly *off* by default, which means constraints you wrote are silently not enforced). Put this in
   one factory; a connection opened anywhere else will not have them.
 
+- **A micro-ORM's type-handler registry is usually PROCESS-GLOBAL, so two backends in one process do not
+  each get their own.** Whichever registers last wins, for every connection of every backend — so two
+  handlers for the same CLR type that differ at all give one backend the other's round-trip behaviour, with
+  nothing to see at the registration site. An app mixing backends per domain is the normal case here, not an
+  exotic one. Keep such handlers behaviourally identical and assert it in a test rather than in a comment;
+  a "keep these two in sync" note is a rule with no mechanism behind it.
+
 ### Migrations
 
 - **Number migrations with a sortable timestamp, and never reuse a number.** A duplicate number that has

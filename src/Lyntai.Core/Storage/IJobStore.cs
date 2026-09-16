@@ -154,6 +154,10 @@ public interface IJobStore
 
     Task<JobRecord?> GetAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>List jobs, optionally filtered by status and/or lane, newest first.</summary>
+    /// <summary>List jobs, optionally filtered by status and/or lane, newest first.
+    /// <para><b>A non-positive <paramref name="limit"/> returns EMPTY on every backend</b> — it asks for
+    /// nothing. Left to the database the three disagreed: an in-process <c>.Take</c> gave empty, SQLite reads
+    /// a negative <c>LIMIT</c> as NO limit and returned the whole table, and Postgres threw. So each backend
+    /// guards it before the query rather than inheriting its dialect's opinion.</para></summary>
     Task<IReadOnlyList<JobRecord>> ListAsync(JobStatus? status = null, string? lane = null, int limit = 100, CancellationToken ct = default);
 }

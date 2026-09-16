@@ -292,8 +292,9 @@ Two seams the list alone doesn't reveal:
 - **A Governance-backed `Use*` helper needs its own startup guard.** `lyntai_vector`, the response cache and
   the usage ledger all ship under `StorageFeature.Governance`, so those helpers must reject a Governance-less
   subset at wiring time rather than at first use. The existing `RequireGovernance` is private to each backend,
-  so a new package writes its own equivalent (`storage.md` §Migrations, which also carries the
-  schema-ownership carve-out).
+  so a new package writes its own equivalent — **read `docs/DECISIONS.md` D150 first**: it is why the check
+  is EAGER, what a lazy one would have accepted, and the two scope rules a copy gets wrong (`storage.md`
+  §Migrations also carries the schema-ownership carve-out).
 
 Each domain you DO implement owes a `<Domain>StoreContract` fact class alongside the existing ones
 (`tests/Lyntai.Tests/Storage/`, and `tests/Lyntai.Tests/Jobs/` for `JobStoreContract`) — the contract facts

@@ -70,10 +70,10 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
         }
     }
 
-    // KEEP IDENTICAL to Lyntai.Storage.Postgres's DateTimeOffsetHandler (shared global Dapper registry).
-    // `internal` (not private) so a test can assert the two are behaviorally identical — the process-global
-    // registry means whichever backend's static ctor runs last wins, so a silent drift between them would
-    // corrupt round-trips on one backend.
+    // KEEP IDENTICAL to Lyntai.Storage.Postgres's DateTimeOffsetHandler: Dapper's registry is process-global,
+    // so whichever backend registers last wins for BOTH (sql-storage.md §Connections). `internal` rather than
+    // private is what lets DateTimeOffsetHandlerParityTests hold them to it — that test is the mechanism
+    // here, not this note.
     internal sealed class DateTimeOffsetHandler : SqlMapper.TypeHandler<DateTimeOffset>
     {
         public override void SetValue(IDbDataParameter parameter, DateTimeOffset value) =>

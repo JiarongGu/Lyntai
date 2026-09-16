@@ -17,12 +17,9 @@ namespace Lyntai.Storage.Sqlite;
 /// <para><b>The FTS path is TWO queries merged</b>, alone among the backends: an FTS5 <c>MATCH</c> predicate
 /// cannot carry the grade carve-out and keep its bm25 ordering, so the scope's exact facts are fetched
 /// separately and combined by <c>Merge</c>, which reserves capacity for them rather than appending.</para>
-/// <para><b>Age is a subtraction, not a duration.</b> <c>lyntai_memory_position</c> holds a monotone position
-/// per engine, so no date arithmetic appears in any query — which also avoids <c>julianday</c> returning NULL
-/// on an unparseable timestamp and silently excluding every row. <see cref="GraphNode.OrdinalAge"/> and
-/// <see cref="GraphNode.VolumeAge"/> are the same shape of subtraction against two more primitives the table
-/// tracks unconditionally (design §5.7); <see cref="GraphNode.ElapsedAge"/> is the one exception, computed in
-/// .NET for the identical reason — see <see cref="MemoryNodeRow.ToNode"/>.</para>
+/// <para><b>Age is a subtraction, not a duration</b>, and no date arithmetic appears in any query here — on
+/// this backend that also avoids <c>julianday</c> returning NULL for an unparseable timestamp and silently
+/// excluding every row. What the age marks mean is <see cref="MemoryNodeRow"/>'s, once.</para>
 /// <para><b>The QUERIES here are this backend's own; the MATERIALIZATION is shared</b> with the Postgres
 /// twin: every row type, the projection to <see cref="GraphNode"/> and the dialect-free statements live once
 /// in <see cref="MemoryNodeRow"/> and <see cref="MemoryGraphSql"/> — a column↔property mismatch is a SILENT
@@ -49,27 +46,12 @@ public sealed class SqliteMemoryGraphStore(
     // per-call connection/transaction and this store itself makes no single-writer guarantee.
     private readonly ConcurrentDictionary<string, long> _reviewCounters = new(StringComparer.Ordinal);
 
-    // Alias every column explicitly: a name mismatch is a SILENT null, not an error. Degree/Strength are
-    // plain aggregates, and Age/StrengthAge are plain subtractions against @position — the store applies no
-    // decay; the policy does.
+    // What every column here MEANS is MemoryNodeRow's, stated once; what follows is this dialect's alone.
     //
-    // OrdinalAge/VolumeAge are the SAME shape of subtraction, against the two new policy-independent
-    // primitives (design doc §5.7) — @ordinal and @chars advance unconditionally on every write, regardless of
-    // which IMemoryAgePolicy the engine has installed, so they can never be corrupted by swapping it.
-    // EncodingAt is read RAW rather than diffed in SQL: this store deliberately does no date arithmetic (see
-    // the type doc's remark on `julianday`), so ElapsedAge is computed in .NET, in MemoryNodeRow.ToNode.
-    // ProvenanceRetrievability/ProvenanceSalience are plain integers (design doc §5.7, Task 4) — unlike
-    // Age/OrdinalAge/VolumeAge above they are never computed here, so no affinity-trap CAST applies; they
-    // are read exactly like RecallCount/Degree.
-    // Difficulty IS a 0..1-shaped affinity trap like Stability, not
-    // like the provenance ints above: SQLite can store 1.0 as an INTEGER and 0.5 as a REAL in the SAME
-    // column, so it needs the same CAST(... AS REAL) Stability already gets.
-    // StrengthOrdinalAge/StrengthVolumeAge are the strength-side counterparts of OrdinalAge/VolumeAge, and
-    // StrengthenedAt is read RAW for exactly the reason EncodingAt is. Each takes its own
-    // MAX rather than "the primitives of whichever edge has the max position": all four advance monotonically
-    // together from one write's totals, so the freshest edge holds the maximum of every one of them. MAX over
-    // no rows is NULL, which is why StrengthenedAt alone is nullable here — a node with no edges has no
-    // strengthening to date, and MemoryNodeRow.ToNode reports 0 for it, matching the COALESCE the other two apply in SQL.
+    // CAST(... AS REAL) on Stability, Difficulty and the six age marks: SQLite column affinity can hold 1.0
+    // as an INTEGER and 0.5 as a REAL in the SAME column, so a 0..1-shaped read needs the cast to come back
+    // as a double. The provenance counters take none — nothing is computed for them, so no affinity applies.
+    // Each strength mark takes its OWN MAX, never "the primitives of whichever edge has the max position".
     private const string NodeColumns = """
         n.id AS Id, n.engine AS Engine, n.task_key AS TaskKey, n.scope AS Scope,
         n.headline AS Headline, n.content AS Content, n.grade AS Grade,
@@ -110,23 +92,16 @@ public sealed class SqliteMemoryGraphStore(
     public async Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
-        // MemoryContentKey.Of is the ONE dedup key — a backend hashing content its own way answers "is this
-        // the same memory?" differently, which is a contract difference, not a storage detail.
         var hash = MemoryContentKey.Of(write.Content);
         var metadata = CuratedMetadataJson.Serialize(write.Metadata);
-        // NULL, not "{}", for an empty bag — the NULL is what the DO UPDATE SET below reads as "no
-        // opinion", keeping the stored signals. See GraphNodeWrite.Signals for why blanking would be
-        // wrong.
+        // NULL, not "{}", for an empty bag — the DO UPDATE SET below reads NULL as "no opinion" and keeps
+        // the stored signals. See GraphNodeWrite.Signals.
         var signals = MemorySignalsJson.Serialize(write.Signals);
-        // The column is the COERCED materialization of the bag's salience for the database to sort on; the
-        // bag stays the source of truth and is stored verbatim, so the two are not byte-for-byte equal — a
-        // bag holding 0.5 reads back as 0.5 while the column holds 1. What they cannot do is drift: both come
-        // from the SAME write.Signals in this ONE statement, through MemorySignals.Salience, which is the ONE
-        // definition of the coercion (below-1 → 1, non-finite → 1) that the InMemory store's ordering and the
-        // engine's rank boost also read the value through. This second read bypasses
-        // MemorySignalsJson.Serialize's own non-finite filter entirely, which is why it needs that guard at
-        // all: an unguarded NaN does not merely mis-sort here — Microsoft.Data.Sqlite refuses to bind it and
-        // fails the whole write.
+        // The column is the COERCED salience the database sorts on; the bag above is stored VERBATIM, so the
+        // two are deliberately not byte-for-byte equal — a bag holding 0.5 reads back 0.5 while the column
+        // holds 1. They cannot DRIFT, which is the part that matters: one write.Signals, one statement, and
+        // MemorySignals.Salience is the single definition of the coercion (and of why it, rather than this
+        // call site, carries the non-finite guard).
         var salience = MemorySignals.Salience(write.Signals);
         // The LIVE difficulty column — promoted from the bag, but NOT on the trigger salience uses.
         // Difficulty has a SECOND writer salience does not (the retrievability policy, via TouchAsync), so
@@ -138,10 +113,8 @@ public sealed class SqliteMemoryGraphStore(
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
-        // advance the engine's position AND the three policy-independent primitives FIRST and atomically, so
-        // the new entry's own age is zero relative to everything it is stamped with. The primitives advance
-        // UNCONDITIONALLY — one write, this write's own content length, this write's own timestamp — never
-        // from write.Advance, which is this write's chosen IMemoryAgePolicy's business, not the store's.
+        // Advance FIRST and atomically, position and the three primitives together — the contract rule is on
+        // IMemoryGraphStore.UpsertAsync. ON CONFLICT is how the two halves stay one statement here.
         var totals = await conn.QuerySingleAsync<MemoryPositionRow>(new CommandDefinition("""
             INSERT INTO lyntai_memory_position (engine, position, ordinal, chars, encoded_at)
             VALUES (@engine, @advance, 1, @contentLength, @now)

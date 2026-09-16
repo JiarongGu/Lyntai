@@ -53,9 +53,9 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
         return id;
     }
 
-    // taskKey/scope can't ride the SET's COALESCE: NULL is a LEGAL stored value there, so null keeps meaning
-    // "leave unchanged" and the empty string is the clear-to-NULL sentinel (interface doc). Resolved in C# so
-    // the collision check and the UPDATE write the identical value.
+    // The null / empty-string sentinel is ICuratedMemoryStore.UpdateAsync's. It cannot ride the SET's
+    // COALESCE because NULL is a LEGAL stored value here, so it is resolved in C# — which is also what makes
+    // the collision check below and the UPDATE write the identical value.
     private static string? Rescope(string? argument, string? current)
         => argument is null ? current : argument.Length == 0 ? null : argument;
 
@@ -79,11 +79,9 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
         var newTask = Rescope(taskKey, cur.TaskKey);
         var newScope = Rescope(scope, cur.Scope);
 
-        // an identity-mutating update must not land on an identity ANOTHER row already holds — that is precisely
-        // the duplicate AddAsync(dedup: true) promises not to create. Refuse, writing nothing. Checked only when
-        // the identity actually MOVES, so an enabled/metadata-only edit never refuses and the duplicates
-        // dedup:false legitimately allows stay editable. IS NOT DISTINCT FROM is the null-safe compare, as in
-        // the dedup add.
+        // Refuse a collision rather than mint the duplicate dedup:true promises not to create, and check only
+        // when the identity actually MOVES — both are ICuratedMemoryStore.UpdateAsync's contract, stated
+        // there. IS NOT DISTINCT FROM is this dialect's null-safe compare, as in the dedup add.
         if (newKind != cur.Kind || newContent != cur.Content || newTask != cur.TaskKey || newScope != cur.Scope)
         {
             var clash = await conn.ExecuteScalarAsync<long?>(new CommandDefinition("""

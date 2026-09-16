@@ -49,6 +49,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   **D135**. No prose gate reads a `*.csproj`; measured at 0 hits over 18 files, so these were corrected by
   hand rather than by widening one. Detail in `docs/task-archive.md` Part 240.
 
+- **Contract rules that existed only inside the two SQL backends are now on the seams themselves.**
+  `IMemoryGraphStore.UpsertAsync` states that the engine advances FIRST and atomically and that only the
+  position comes from `GraphNodeWrite.Advance` (the three policy-independent primitives never do, which is
+  what makes the age policy swappable); `IJobStore.ListAsync` states that a non-positive limit returns empty
+  on every backend; `MemoryEvictionPolicy.TracksAccess` states that a queried recall is use and a list-all is
+  not. A BYO store reads the seam, not somebody else's backend. Detail in `docs/task-archive.md` Part 241,
+  and the Governance-guard design in **D150**.
+
 - **A cross-encoder export whose head cannot carry one score per pair is now refused at COMPOSITION.**
   `AddOnnxCrossEncoder` pointed at a multi-label (NLI) model used to load cleanly and refuse on the first
   score — into `AddMemoryScoringVerification`, which is fail-open and reported `NoOpinion`, so every recall

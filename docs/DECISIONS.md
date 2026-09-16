@@ -219,8 +219,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D147](#d147--a-bridge-is-a-function-so-it-costs-no-dependency-and-belongs-in-core-2026-09-15) | 2026-09-15 | a BRIDGE is a function, so it costs no dependency and belongs in Core |
 | [D148](#d148--a-seam-that-selects-a-backend-by-capability-must-also-be-able-to-name-one-2026-09-15) | 2026-09-15 | a seam that SELECTS a backend by capability must also be able to NAME one |
 | [D149](#d149--a-document-kept-for-its-live-half-is-re-read-not-re-asserted-both-pre-30-records-leave-docs-2026-09-16) | 2026-09-16 | a document kept for its "live half" is re-READ, not re-asserted; both pre-3.0 records leave `docs/` |
+| [D150](#d150--the-governance-wiring-guard-is-eager-and-the-argument-for-it-lives-here-rather-than-in-both-backends-2026-09-16) | 2026-09-16 | the Governance wiring guard is EAGER, and the argument for it lives here rather than in both back… |
 
-_All 149 entries are live decisions._
+_All 150 entries are live decisions._
 
 <!-- index:end -->
 
@@ -4595,3 +4596,37 @@ recovery route `docs/superpowers/INDEX.md` says most records do NOT have.
 **What was NOT done, so nobody reads this as a licence:** `docs/2026-07-17-lyntai-design.md` stays. It is
 the CONTRACT, it is maintained by dated amendment, and its exemption is about its v0.1 seed blocks rather
 than about the document having finished — the distinction this entry turns on.
+
+---
+
+## D150 — the Governance wiring guard is EAGER, and the argument for it lives here rather than in both backends (2026-09-16)
+
+**The decision.** `UseSqliteVectorStore` and its five siblings check the Governance prerequisite at the
+call that needs it, against the feature selection registered SO FAR — not once at the end of configuration.
+Each adapter keeps the guard; neither keeps the argument for it.
+
+**Why a guard at all.** `lyntai_response_cache`, `lyntai_usage` and `lyntai_vector` ship in the ONE
+Governance migration, so a feature subset omitting `StorageFeature.Governance` leaves those helpers
+registering stores over tables nothing created. `Use*Storage`'s stated contract is that a disabled domain is
+simply not RESOLVABLE and that unresolvability IS the startup signal; these helpers are the only calls that
+could break it, so they enforce it instead of failing at the first cached call, metered call or recall.
+
+**The alternative, and why it lost.** A LAZY guard judging only the end state would accept
+`Use…Storage(a, Memory)` → `Use…VectorStore()` → `Use…Storage(b, All)`, which the eager one rejects even
+though the FINAL selection is valid. That difference is real and is the cost accepted. Deferring needs a
+run-once-after-configure hook on `LyntaiBuilder` — **a new public extension point in Core existing solely to
+serve two adapters**, plus a new way for the guard to silently not run at all. Eager also fails AT the
+offending line, which is the property the guard was added for. The remedy is to state the feature set once,
+or to make the widening call first.
+
+**Two scope rules that are not obvious from the code.** It is order-independent across the
+storage/helper PAIR only — each side records a sentinel nothing ever resolves, so swapping those two builder
+lines cannot defeat it — but two `Use*Storage` calls are competing SELECTIONS where the last wins, so order
+IS load-bearing there by design. And it applies only where Lyntai owns the schema: under
+`SchemaMigration.None` or a host-supplied factory the app's DDL decides what exists. **The consequence worth
+knowing**: a BYO-factory call made LAST stands the guard down for the whole wiring.
+
+**Why this is a decision rather than a comment.** The argument stood in both `Lyntai.Storage.Sqlite` and
+`Lyntai.Storage.Postgres`, ~40 lines each, saying the same thing twice — with the rejected alternative in
+the copy nobody reviews. A third SQL backend would have made three (`.claude/knowledge/extending-lyntai.md`
+tells one to write its own `RequireGovernance`, which is now a pointer to this entry).
