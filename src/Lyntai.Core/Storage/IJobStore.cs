@@ -39,7 +39,11 @@ public interface IJobStore
 
     /// <summary>Append a human-readable step to the job's step log (capped, JSON — parse with
     /// <see cref="Lyntai.Jobs.JobStepLog.Parse"/>). Observability only; does not renew the lease. Fenced by
-    /// <paramref name="workerId"/>; false = lost the lease.</summary>
+    /// <paramref name="workerId"/>; false = lost the lease.
+    /// <para><b>The cap makes this a read-modify-write, so an implementation must serialize concurrent
+    /// reports for the SAME job</b> — per job, never per store, or one store's reports become a global
+    /// bottleneck. Unserialized, two reports racing the same log clobber each other and the loss is silent,
+    /// because a step log nobody is watching live is exactly where that goes unnoticed.</para></summary>
     Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default);
 
     /// <summary>Mark the job Succeeded (terminal). Fenced; false = lost the lease.</summary>

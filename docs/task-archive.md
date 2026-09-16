@@ -4219,12 +4219,15 @@ CODE half is already answered by `.claude/knowledge/storage.md` §Don't "dedup",
 driver, so the plumbing has nowhere to go. The PROSE half had never been looked at; the measurement and the
 rule now live in that same section.
 
-**Outcome: 431 → 377 comment lines, identical 119 → 94, near-duplicate 96 → 84**, each relocated rule landing
-on the thing that owns it — `MemoryNodeRow`, `MemorySignals.Salience`, `MemoryEvictionPolicy.TracksAccess`,
-`IMemoryGraphStore.UpsertAsync`, `IJobStore.ListAsync`, `ICuratedMemoryStore.UpdateAsync`. Several were
-CONTRACT rules living only inside two concrete backends, where a BYO store never looks, so this closed gaps
-rather than only shortening files. **D150** takes the Governance-guard argument; the Dapper process-global
-type-handler registry is now a trap in `.claude/knowledge/sql-storage.md`.
+**Outcome over two rounds: 431 → 365 comment lines, identical 119 → 84, near-duplicate 96 → 82**, each
+relocated rule landing on the thing that owns it — `MemoryNodeRow`, `MemorySignals.Salience`,
+`MemoryEvictionPolicy.TracksAccess`, `MemoryPositionRow`, `MemoryReviewLogPacing`, and the contract members
+`IMemoryGraphStore.{UpsertAsync,TouchAsync,LinkManyAsync,SeedAsync}`, `IJobStore.{ListAsync,ReportStepAsync}`,
+`ITraceStore`, `IScoreStore`, `ICuratedMemoryStore.UpdateAsync`. **Round two was mostly DELETION**: the owner
+already held the rule in most cases, so the second copy went without anything having to be written. Several
+were CONTRACT rules living only inside two concrete backends, where a BYO store never looks, so this closed
+gaps rather than only shortening files. **D150** takes the Governance-guard argument; the Dapper
+process-global type-handler registry is now a trap in `.claude/knowledge/sql-storage.md`.
 
 **§Don't "dedup" was itself stale**: it named `JobStoreSql` as "the one thing that IS shared" after four more
 had joined it, so a reader was told to re-derive an extraction that already exists.

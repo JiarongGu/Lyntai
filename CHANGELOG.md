@@ -52,10 +52,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 - **Contract rules that existed only inside the two SQL backends are now on the seams themselves.**
   `IMemoryGraphStore.UpsertAsync` states that the engine advances FIRST and atomically and that only the
   position comes from `GraphNodeWrite.Advance` (the three policy-independent primitives never do, which is
-  what makes the age policy swappable); `IJobStore.ListAsync` states that a non-positive limit returns empty
-  on every backend; `MemoryEvictionPolicy.TracksAccess` states that a queried recall is use and a list-all is
-  not. A BYO store reads the seam, not somebody else's backend. Detail in `docs/task-archive.md` Part 241,
-  and the Governance-guard design in **D150**.
+  what makes the age policy swappable); `TouchAsync` states that a touch advances the engine on NO scale, so
+  a recall cannot age every other entry; `LinkManyAsync` states that one position snapshot per batch is more
+  CORRECT rather than merely faster, which an override must keep. `IJobStore.ListAsync` states that a
+  non-positive limit returns empty on every backend and `ReportStepAsync` that the capped step log is a
+  read-modify-write an implementation must serialize per JOB; `ITraceStore` states the step-ordinal fallback;
+  `MemoryEvictionPolicy.TracksAccess` states that a queried recall is use and a list-all is not. A BYO store
+  reads the seam, not somebody else's backend. Detail in `docs/task-archive.md` Part 241, and the
+  Governance-guard design in **D150**.
 
 - **A cross-encoder export whose head cannot carry one score per pair is now refused at COMPOSITION.**
   `AddOnnxCrossEncoder` pointed at a multi-label (NLI) model used to load cleanly and refuse on the first

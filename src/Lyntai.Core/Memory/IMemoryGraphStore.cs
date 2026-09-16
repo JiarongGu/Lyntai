@@ -440,8 +440,12 @@ public interface IMemoryGraphStore
     /// <summary>Record reinforcement for the nodes a recall actually returned, stamping the current
     /// position AND the current <see cref="GraphNode.OrdinalAge"/>/<see cref="GraphNode.VolumeAge"/>/
     /// <see cref="GraphNode.ElapsedAge"/> primitives — a touch resets a node's age on every scale at once,
-    /// not only the one <see cref="GraphNode.Age"/> reads. Best-effort by contract: the caller treats a
-    /// failure here as "no learning", never as "no memory".</summary>
+    /// not only the one <see cref="GraphNode.Age"/> reads.
+    /// <para><b>A touch does NOT advance the engine</b>, on any scale. It stamps the touched node to where
+    /// the engine already stands; only a write moves it (<see cref="UpsertAsync"/>). A store that advanced
+    /// here would make every recall age every OTHER entry, which is the opposite of reinforcement.</para>
+    /// <para>Best-effort by contract: the caller treats a failure here as "no learning", never as "no
+    /// memory".</para></summary>
     /// <param name="engine">The owning engine's name.</param>
     /// <param name="touches">The reinforcements to record.</param>
     /// <param name="ct">Cancellation.</param>
@@ -477,7 +481,13 @@ public interface IMemoryGraphStore
     ///
     /// <para><b>Order is not significant and duplicates are additive</b>, matching
     /// <see cref="LinkAsync"/>: two writes of the same pair strengthen it twice, whether they arrive in one
-    /// call or two.</para></summary>
+    /// call or two.</para>
+    ///
+    /// <para><b>One position snapshot for the whole batch is more CORRECT, not merely faster.</b> Every edge
+    /// in a recall's co-activation set was strengthened by the SAME retrieval, so stamping them all at one
+    /// position says that; reading the position once per edge lets ten marks from one event drift apart. An
+    /// override that batches the round-trips but re-reads the position per edge has taken the speed and
+    /// dropped the reason.</para></summary>
     /// <param name="engine">The owning engine's name.</param>
     /// <param name="edges">The edges to write; an empty list is a no-op.</param>
     /// <param name="ct">Cancellation.</param>

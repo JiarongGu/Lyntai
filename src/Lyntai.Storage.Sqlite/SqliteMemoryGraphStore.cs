@@ -81,8 +81,7 @@ public sealed class SqliteMemoryGraphStore(
         "(@position - n.last_recalled_position) / MAX(CAST(n.stability AS REAL), "
         + MemoryGraphSql.MinimumStability + ")";
 
-    // Seeding applies NO faintness bound — decay buries by rank in the engine, never by excluding a row
-    // here. This predicate is PruneAsync's alone, where removing a memory is the explicit intent.
+    // PruneAsync's alone: seeding applies no faintness bound at all (IMemoryGraphStore.SeedAsync).
 
     // Bound as a PARAMETER rather than written as a literal: MemoryGrade is Inherit=0, Associative=1,
     // Authoritative=2, so a hand-written "grade = 1" silently means the OPPOSITE of what it reads like.
@@ -423,8 +422,7 @@ public sealed class SqliteMemoryGraphStore(
     // path and WriteBackAsync run identically and cannot drift into two spellings of one write.
     private static Task TouchAsync(IDbConnection conn, string engine,
         IReadOnlyCollection<GraphTouch> touches, MemoryPositionRow totals, CancellationToken ct) =>
-        // a recall does NOT advance the position or any of the three primitives — it stamps the touched
-        // node's own snapshot to wherever the engine already is, on every scale at once
+        // Stamps to where the engine already stands, and advances nothing — IMemoryGraphStore.TouchAsync.
         conn.ExecuteAsync(new CommandDefinition("""
             UPDATE lyntai_memory_node
             SET last_recalled_position = @position, stability = @Stability, difficulty = @Difficulty,
@@ -455,9 +453,8 @@ public sealed class SqliteMemoryGraphStore(
     }
 
     /// <summary>The batched form: ONE connection and ONE position-totals read for every edge, where the
-    /// single-edge path pays both per call. A recall writes ten co-activation edges at the shipped cap, so
-    /// this is the difference between ten round-trips and one — see the interface member's own doc for the
-    /// measurement that motivated it.</summary>
+    /// single-edge path pays both per call. Why it is worth overriding, and what an override must keep, is
+    /// <see cref="IMemoryGraphStore.LinkManyAsync"/>'s own doc.</summary>
     public async Task LinkManyAsync(string engine, IReadOnlyList<GraphEdgeWrite> edges,
         CancellationToken ct = default)
     {
@@ -466,9 +463,7 @@ public sealed class SqliteMemoryGraphStore(
         if (edges.Count == 0) return;
 
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        // ONE snapshot for the whole batch, which is the point: every edge in a recall's co-activation set
-        // was strengthened by the SAME retrieval, so stamping them at one position is more correct than
-        // letting ten reads drift apart, not merely faster.
+        // ONE snapshot for the whole batch — the correctness half of IMemoryGraphStore.LinkManyAsync.
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
         await LinkManyAsync(conn, edges, totals, ct).ConfigureAwait(false);
     }
@@ -585,9 +580,8 @@ public sealed class SqliteMemoryGraphStore(
         await RecordReviewsAsync(conn, engine, reviews, cap, ct).ConfigureAwait(false);
     }
 
-    // The insert plus its paced trim, over a caller-owned connection. The pacing counter is INSTANCE state,
-    // so routing both paths through here is what keeps one store's trim cadence single — two copies of the
-    // AddOrUpdate would each advance it and trim twice as often as MemoryReviewLogPacing intends.
+    // ONE call site on purpose: the pacing counter is INSTANCE state, so a second copy of the AddOrUpdate
+    // would advance it twice and trim at double the cadence MemoryReviewLogPacing sets.
     private async Task RecordReviewsAsync(IDbConnection conn, string engine,
         IReadOnlyCollection<MemoryReviewWrite> reviews, int cap, CancellationToken ct)
     {
@@ -710,10 +704,9 @@ public sealed class SqliteMemoryGraphStore(
         return [.. rows];
     }
 
-    /// <summary>Where the engine currently stands, on every scale a store tracks: the legacy,
-    /// <c>Advance</c>-driven <see cref="MemoryPositionRow.Position"/>, and the three primitives that advance
-    /// unconditionally. All default to their zero value for an engine nothing has been written to — which is
-    /// correct: nothing has happened in it, so nothing has aged.</summary>
+    /// <summary>Where the engine currently stands, on every scale a store tracks — see
+    /// <see cref="MemoryPositionRow"/>, including why a missing row reads as zero rather than as an
+    /// error.</summary>
     private static async Task<MemoryPositionRow> TotalsAsync(IDbConnection conn, string engine, CancellationToken ct) =>
         await conn.QuerySingleOrDefaultAsync<MemoryPositionRow>(new CommandDefinition("""
             SELECT CAST(position AS REAL) AS Position, ordinal AS Ordinal, chars AS Chars, encoded_at AS EncodedAt

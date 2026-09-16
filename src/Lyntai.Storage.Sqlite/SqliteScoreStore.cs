@@ -12,8 +12,7 @@ public sealed class SqliteScoreStore(IDbConnectionFactory factory) : IScoreStore
         var now = DateTimeOffset.UtcNow;
         foreach (var r in results)
         {
-            // upsert on (session_id, scorer_id): re-scoring a session REPLACES that scorer's row
-            await conn.ExecuteAsync(new CommandDefinition("""
+                await conn.ExecuteAsync(new CommandDefinition("""
                 INSERT INTO lyntai_score_result (session_id, scorer_id, scorer_name, score_group, is_llm, score, reason, created_at)
                 VALUES (@sessionId, @ScorerId, @ScorerName, @Group, @IsLlm, @Score, @Reason, @now)
                 ON CONFLICT(session_id, scorer_id) DO UPDATE SET

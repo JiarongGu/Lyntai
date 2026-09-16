@@ -16,10 +16,9 @@ namespace Lyntai.Storage.Sqlite;
 public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOffset>? clock = null, int stepLogCap = JobStepLog.DefaultCap) : IJobStore
 {
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
-    // ReportStepAsync is a read-modify-write on step_log (no single-statement atomic append with the cap),
-    // so concurrent reports for the SAME job are serialized. Per JOB, not per store: the fenced write
-    // already makes cross-process interleaving safe, and a store-wide gate held across two round-trips
-    // serialized every concurrent job's reporting behind whichever got there first.
+    // Per JOB, not per store — IJobStore.ReportStepAsync requires the serialization, and a store-wide
+    // gate held across two round-trips would queue every concurrent job behind whichever got there
+    // first. Cross-process interleaving is already safe: the write is fenced.
     private readonly KeyedLock<Guid> _stepLocks = new();
 
     public async Task<Guid> EnqueueAsync(JobSpec spec, CancellationToken ct = default)
@@ -113,8 +112,7 @@ public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOf
 
     public async Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default)
     {
-        // read-modify-write the capped JSON step log under the job's own gate so concurrent reports don't
-        // clobber each other; the fenced write drops it if the lease was lost
+        // The job's own gate, per IJobStore.ReportStepAsync; the fenced write drops it if the lease was lost.
         using var held = await _stepLocks.AcquireAsync(id, ct).ConfigureAwait(false);
         var current = await GetAsync(id, ct).ConfigureAwait(false);
         if (current is null || current.Status != JobStatus.Running || current.ClaimedBy != workerId) return false;
