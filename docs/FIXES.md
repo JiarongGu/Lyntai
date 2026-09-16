@@ -7,6 +7,39 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-17 — the release gate had not compiled since the rename campaign, and nothing said so
+
+**Symptom.** `node devtools/dev.mjs consumer-smoke` — the gate whose whole job is proving the PACKAGES work
+for a fresh consumer — exited 1 with four compile errors. It had last passed before the D125–D147 renames,
+so it had been broken across the largest breaking change in the project's history while `verify` stayed
+green on all 24 gates, twice a day.
+
+**Root cause.** The gate writes a consumer app in the library's own public API and compiles it against the
+packed nuspecs. That fixture is a CONSUMER, so every sweep that updates call sites has to update it — and
+none did: it still constructed `GenerationCandidate` (**D125** replaced it with `ProviderCandidate`), passed <!-- drift-ok: the retired name the fixture held is the defect -->
+`AddOllamaProvider(defaultModel:)` (**D132**/**D133** reshaped the registrations to `model:`), and lacked
+the `using` for `ProviderKinds` and `ProviderVerdict` after both moved to `Lyntai.Lifecycle`
+(**D127**/**D136**/**D140**).
+
+**Why nothing caught it.** Three mechanisms all miss `devtools/`: no prose gate scans it, the solution build
+never compiles a fixture that exists only as a template string, and `verify` does not run this gate at all —
+deliberately, because it is minutes. So the only thing that could have reported it was somebody running it,
+which is what "run it before a release" actually means.
+
+**Fix.** The template updated against the shipped API baselines rather than by guessing: `ProviderCandidate`,
+`model:`, and `using Lyntai.Lifecycle`. The gate then passes end to end — pack, symbol-package check,
+restore, build, run.
+
+**Verify.** `consumer-smoke` green, exit 0: 11 packages, 10 symbol packages each carrying a PDB, and the app
+restores, compiles and runs. Re-run from a cold scratch feed, so the eviction step proves it compiled
+against today's packages rather than a cached copy.
+
+**Introduced by.** The D125–D147 sweeps, 2026-09-15 — the fixture was never in any of their call-site
+updates. The reusable half is in `.claude/knowledge/pitfalls.md`: a gate outside the routine run rots like
+an unrun test, and reports it at release time.
+
+---
+
 ## 2026-09-16 — the retirement roster named a NAMESPACE, so the package it retired stayed listed
 
 **Symptom.** None from the tool, which is the defect. `node devtools/nuget-unlist.mjs` printed

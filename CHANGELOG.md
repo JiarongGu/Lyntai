@@ -302,13 +302,13 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   removed outright by **D146**, which found no provider used it. The fold is kept in this list because it
   explains the dependency's route through the release; the bridge itself is gone.
 
-- **`Lyntai.Providers.LlamaSharp` is renamed `Lyntai.Providers.LlamaSharp`.** Every package here is named for
-  the dependency it ISOLATES, and "Local" stopped naming anything once the in-process static embedder
-  landed — it described three things and identified none. **The namespace and every type name are
-  unchanged**, deliberately, so the migration is one `PackageReference` and no `using` edit;
-  `AddLlamaSharpProvider(modelPath)` still registers it. `AddLlamaSharpProvider` was refused because
-  `AddLlamaProvider` already exists next door for llama-server over HTTP, and two names that close meaning
-  opposite things is worse than one imprecise one. The old id is unlisted (**D44**).
+- **`Lyntai.Providers.Local` is renamed `Lyntai.Providers.LlamaSharp`** (**D122**). Every package here is <!-- drift-ok: the entry ANNOUNCING this rename has to name the id it replaces -->
+  named for the dependency it ISOLATES, and "Local" stopped naming anything once the in-process static
+  embedder landed — it described three things and identified none. **The namespace and every type name are
+  unchanged**, deliberately, so the migration is one `PackageReference` and no `using` edit; the
+  registration is `AddLlamaSharpProvider(modelPath)`, renamed from `AddLocalProvider` by **D138**. <!-- drift-ok: as above, for the registration -->
+  `AddLlamaProvider` next door is a DIFFERENT backend — llama-server over HTTP — and the two must not be
+  read as alternatives. The old id is unlisted (**D44**).
 
 - **`ToolLoop`'s constructor gains an optional trailing `IToolSelector? selector` parameter** (**D120**).
   Source-compatible — existing code keeps compiling — but BINARY-breaking for a pre-compiled caller of the

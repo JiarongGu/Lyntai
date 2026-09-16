@@ -127,13 +127,14 @@ using Lyntai.Agents;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Generation.Routing;
+using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
 var services = new ServiceCollection();
 services.AddLyntai(cfg => cfg
-    .AddOllamaProvider(defaultModel: "qwen3:4b")
+    .AddOllamaProvider(model: "qwen3:4b")
     .UseSqliteStorage(Path.Combine(Path.GetTempPath(), $"lyntai-smoke-{Guid.NewGuid():N}.db"))
     // the per-backend shim, through the PACKAGE — it registers a named HttpClient, which is what needs
     // Microsoft.Extensions.Http to have travelled with Lyntai.Generation's nuspec
@@ -156,7 +157,7 @@ if (sp.GetRequiredService<IKeyValueStore>() is null) throw new Exception("no IKe
 // the generation domain wires and ROUTES through the package graph, and an unconfigured backend reports a
 // verdict a host can act on rather than throwing or inventing an artifact
 var render = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
-    [new GenerationCandidate("openai-images")],
+    [new ProviderCandidate("openai-images")],
     new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a red square" });
 if (render.Verdict != ProviderVerdict.NotConfigured)
     throw new Exception($"unconfigured image backend reported {render.Verdict}, expected NotConfigured");

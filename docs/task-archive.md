@@ -4234,3 +4234,26 @@ had joined it, so a reader was told to re-derive an extraction that already exis
 
 **Deliberately NOT deduplicated:** the `Use*Storage` XML docs, ~34 identical lines. Both are public surfaces
 and a consumer sees only one, so that is the contract working rather than drift.
+
+## Part 242 — release readiness: the release gate had not run, and it had not worked
+
+✅ closed 2026-09-17, at the owner's direction — the framing that reorganised the session. The review was
+not tidying; it was getting the tree ready to cut a release.
+
+**The release gate was broken and nothing could have said so.** `consumer-smoke` — the only check that
+compiles a fresh app against the PACKAGES — failed with four compile errors, its consumer fixture never
+having been updated through the D125–D147 renames. Fixed against the shipped API baselines and green end to
+end. Incident in `docs/FIXES.md`; the general shape (a gate outside the routine run rots like an unrun test,
+and reports it at release time) in `.claude/knowledge/pitfalls.md`; the entry in `docs/GATES.md` now states
+the cost of being outside `verify`, which it previously did not.
+
+**A live release note said a package was renamed to itself.** `CHANGELOG.md`'s `## Unreleased` carried
+"`X` is renamed `X`" plus a refusal sentence naming the name that shipped — both halves of a rename entry
+rewritten by the same sweep. `check-tautology` was green: its four patterns are all CONTRAST joiners, and a
+rename entry is written old-then-new, so the shape most exposed to a rename campaign was the one shape it
+could not see. Two patterns added (five verbs, three arrow spellings), measured at **1 true / 0 false over
+811 files** and driven RED against the real pre-fix file.
+
+**What this says about the next release**, which is the reason the pass happened: `## Unreleased` holds a
+large **Breaking** section — package renames, the MEAI bridge deletion, one provider interface, one verdict
+taxonomy — so the next release is a MAJOR, and the unlisting the owner has deferred happens after it ships.

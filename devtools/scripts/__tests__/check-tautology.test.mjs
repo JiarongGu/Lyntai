@@ -184,3 +184,31 @@ test('a defect genuinely SPANNING the wrap is still reported', () => {
     assert.equal(out.filter((l) => l.includes('a.md:')).length, 1, 'and exactly once');
   });
 });
+
+// The RENAME shape. It is separated from the joiner fact above because the failure it catches is a
+// different one: a joiner contrast is collapsed by a sweep that rewrote one side, a rename entry by a sweep
+// that rewrote both — and a rename entry is old-then-new BY CONSTRUCTION, so it is the shape most exposed
+// to a rename campaign. A live `CHANGELOG.md` entry carried it for two days past every green gate.
+test('a rename that names the same identifier on both sides FAILS, and a real rename PASSES', () => {
+  for (const verb of ['is renamed', 'renamed to', 'becomes', 'replaces', 'is replaced by']) {
+    withRepo({ 'a.md': `- **\`${NAME}\` ${verb} \`${NAME}\`.** the package is named for what it drags\n` }, (repo) => {
+      assert.equal(run(repo, ['a.md']), 1, `rename verb "${verb}" must fire`);
+    });
+
+    withRepo({ 'a.md': `- **\`${OTHER}\` ${verb} \`${NAME}\`.** the package is named for what it drags\n` }, (repo) => {
+      assert.equal(run(repo, ['a.md']), 0, `a GENUINE rename via "${verb}" must pass`);
+    });
+  }
+});
+
+test('the arrow form a rename TABLE uses fires, and keeps two different names clean', () => {
+  for (const arrow of ['→', '->', '=>']) {
+    withRepo({ 'a.md': `| \`${NAME}\` ${arrow} \`${NAME}\` | the naming pass |\n` }, (repo) => {
+      assert.equal(run(repo, ['a.md']), 1, `arrow "${arrow}" must fire`);
+    });
+
+    withRepo({ 'a.md': `| \`${OTHER}\` ${arrow} \`${NAME}\` | the naming pass |\n` }, (repo) => {
+      assert.equal(run(repo, ['a.md']), 0, `a GENUINE rename via "${arrow}" must pass`);
+    });
+  }
+});

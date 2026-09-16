@@ -38,6 +38,15 @@ export const COLLAPSED = [
   // characters keep it off English's own repetitions ("over and over", "more and more"), which are
   // lowercase and short. Pinned in both directions by the test.
   /\b([A-Z][A-Za-z0-9_]{4,})\s+and\s+\1\b/g,
+  // THE RENAME SHAPE, added 2026-09-17 — the one a rename sweep is most likely to collapse, and the one
+  // this gate's first four patterns all missed. A rename entry is old-then-new by construction, so a sweep
+  // that rewrites every occurrence of the old name rewrites BOTH sides and leaves a sentence saying a thing
+  // was renamed to itself. `CHANGELOG.md`'s Breaking section is written almost entirely in this shape, which
+  // is where it was found: a live entry read "`X` is renamed `X`" for two days, in the release-facing log.
+  // Measured before adding: 1 true hit against 0 false, over 811 prose and code files.
+  /`([A-Za-z_][A-Za-z0-9_.<>]{3,})`\s+(?:is\s+renamed|renamed\s+to|becomes|replaces|is\s+replaced\s+by)\s+`\1`/g,
+  // The same claim written as an arrow, which is how a rename TABLE writes it.
+  /`([A-Za-z_][A-Za-z0-9_.<>]{3,})`\s*(?:→|->|=>)\s*`\1`/g,
 ];
 
 /**

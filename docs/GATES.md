@@ -595,6 +595,15 @@ accurate BY using the vocabulary of their day. A tautology was never anyone's vo
 moment the sweep wrote it, in every era — so released `CHANGELOG.md` sections and the dated plans of record
 are in scope here, and two of the six lived exactly there.
 
+**The RENAME shape was missing, and it is the one most exposed to a rename campaign** (added 2026-09-17).
+The first four patterns are all CONTRAST joiners — `and` / `or` / a slash / a parenthesised pair — and a
+rename entry is not written that way. It is written old-then-new, so a sweep replacing every occurrence of
+the old name rewrites BOTH sides and leaves "`X` is renamed `X`". `CHANGELOG.md`'s Breaking section is
+written almost entirely in that shape, which is where it was found: a LIVE entry under `## Unreleased`,
+release-facing prose, carrying it past every green gate. Five verbs and three arrow spellings now fire.
+**Measured before adding, as above: 1 true hit against 0 false over 811 files**, and driven RED against the
+real pre-fix `CHANGELOG.md` rather than only against fixtures.
+
 **Its limit:** it catches a contrast collapsed onto ONE name. The `README.md` four are the other half — <!-- drift-ok: naming the retired seam is this paragraph's subject -->
 `IGenerationStreamProvider` rewritten to `IModelProvider` beside a DIFFERENT surviving name, which no <!-- drift-ok: names the retired seam deliberately -->
 backreference can see. Escape token: `tautology-ok`, its own and no other gate's.
@@ -645,6 +654,15 @@ Packs every package to a scratch feed under a throwaway version, then restores +
 console app against the PACKAGES rather than project references. **The only check that exercises what
 actually ships** — nuspecs, dependency groups, symbol packages, the bundle restore. Minutes, so
 deliberately out of `verify`; run it before a release or after touching packaging.
+
+**Being outside `verify` has a cost this entry did not state, and it was paid on 2026-09-17: the gate was
+BROKEN and nothing said so.** Its consumer app is a fixture written in the library's own public API, and the
+D125–D147 rename campaign went straight past it — `GenerationCandidate` after **D125** replaced it, a <!-- drift-ok: the retired name is what the fixture still held -->
+`defaultModel:` argument after **D132** reshaped the registrations, and two types that had moved to
+`Lyntai.Lifecycle`. Four compile errors, sitting there across the largest breaking change in the project's
+history, discovered only when someone ran it. **A gate nothing schedules rots exactly as an unrun test
+does** — and this one surfaces its rot at release time, which is the worst moment to meet it. The trap is in
+`.claude/knowledge/pitfalls.md`; the fixture's own staleness is `docs/FIXES.md`.
 
 ### `doctor` — the three version checks
 
