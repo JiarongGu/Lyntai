@@ -2,7 +2,7 @@
 
   <!--
     Lyntai.Providers.Onnx — the ADAPTER for ONNX Runtime, and the dependency it isolates is a NATIVE one.
-    That is the whole reason it is a package rather than a class in Providers.Default: D122 folded the static
+    That is the whole reason it is a package rather than a class in Providers.Basic: D122 folded the static
     embedder in because its dependency could be WRITTEN (a WordPiece pass is ~250 lines); an inference runtime
     cannot, and at ~16 MB of native code per RID it is exactly what a consumer may refuse.
   -->

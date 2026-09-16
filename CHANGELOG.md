@@ -39,6 +39,16 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   behaviour changed; what a consumer reads about it did. Two new gates (`check-tautology`, and a
   `check-backlog` rule) make the shapes behind those two classes fail rather than ship.
 
+- **…and the rest of it, in the tiers that sweep did not read.** `README.md` still labelled
+  `Lyntai.Generation` **Experimental** and justified its package boundary by the release cadence **D70** <!-- drift-ok: the entry ANNOUNCING this retirement has to name the label it removes -->
+  withdrew with the carve-out — in a table cell the `retiredTerms` rule could not match, now widened.
+  `Lyntai.Providers.Basic`'s package description still called itself "the default set" (**D144** renamed it
+  for exactly that reason), and four `*.csproj` comments were a rename behind: the bundle advertising the
+  deleted `Microsoft.Extensions.AI` bridge, the `Microsoft.Extensions.AI.Abstractions` justification left
+  annotating the reference that outlived it, `Providers.Default`, and a namespace the HTTP family left in
+  **D135**. No prose gate reads a `*.csproj`; measured at 0 hits over 18 files, so these were corrected by
+  hand rather than by widening one. Detail in `docs/task-archive.md` Part 240.
+
 - **A cross-encoder export whose head cannot carry one score per pair is now refused at COMPOSITION.**
   `AddOnnxCrossEncoder` pointed at a multi-label (NLI) model used to load cleanly and refuse on the first
   score — into `AddMemoryScoringVerification`, which is fail-open and reported `NoOpinion`, so every recall

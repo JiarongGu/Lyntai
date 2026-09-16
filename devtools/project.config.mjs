@@ -449,8 +449,10 @@ export default {
         'Reserve',
         'task',
       ],
-      use: '`ValidateProvenanceBits`, `IProviderProbe`, and the three composition policies with the '
-        + '`Policy` suffix their own interfaces and every sibling seam carry',
+      // `IProviderProbe` stood here as the replacement until 2026-09-16, one rename behind: D127 collapsed
+      // it into `IModelProvider`, so this list was prescribing a type the tree no longer has.
+      use: '`ValidateProvenanceBits`, `IModelProvider` (capability is DATA — D126/D127), and the three '
+        + 'composition policies with the `Policy` suffix their own interfaces and every sibling seam carry',
       why: 'EnsureEachBitIsSingleRealAndUnique was an assertion-shaped, ungrammatical name on frozen '
         + 'surface, beside three siblings called Fits/Pack/Unpack. IProviderInstallation declares a single '
         + 'ProbeAsync and installs nothing — one word from IProviderVersionInstaller, which does — and the '
@@ -537,10 +539,15 @@ export default {
       use: '`AddHttpProvider` for any OpenAI-compatible backend',
     },
     {
-      // D145. Prose + baseline are both covered by the namespace form; the TYPES kept their names.
+      // D145 retired this namespace and D146 then deleted the module under it, so there is no replacement
+      // NAME to offer — only the thing a reader reaching for it actually wants. `use` said
+      // "`Lyntai.ExtensionsAi`, and `Lyntai.Llm` for `AsChatClient()`" until 2026-09-16: a prescription
+      // naming two things the tree no longer has, one of them retired by the entry directly above.
       term: '\\bLyntai[.]Providers[.]ExtensionsAi\\b',
-      why: 'the module is a two-way BRIDGE and three of its four types are not providers (D145)',
-      use: '`Lyntai.ExtensionsAi`, and `Lyntai.Llm` for `AsChatClient()`',
+      why: 'the module is a two-way BRIDGE and three of its four types are not providers (D145); D146 then '
+        + 'deleted it outright, so the namespace it moved to is gone too',
+      use: '`AddBridgeProvider("id", (req, ct) => …)` — a bridge is a delegate now, so it costs no '
+        + 'dependency and needs no namespace of its own (D147)',
     },
     {
       // D144. Prose only — the package id, not a type name, so there is no baseline rule to pair with it.
@@ -719,12 +726,21 @@ export default {
     // The pattern is deliberately narrow. `experimental` alone would fire on the ROADMAP's genuine uses —
     // MEAI's experimental surfaces, OTel's experimental semconv — which are other projects' labels and
     // nothing to do with this promise. What is retired is the CLAIM: this library marking its own package.
+    //
+    // WIDENED 2026-09-16, and the narrowing is what let the label survive a month in the file a consumer
+    // reads FIRST. The third alternative demanded a VERB and an uppercase spelling, so the README's package
+    // table — `| \`Lyntai.Generation\` | **Experimental.** The media backend set … |` — matched nothing at
+    // all, in a document this gate does scan. A label needs no verb; it is the shortest way to say it.
+    // Measured before widening: 1 true (that cell) against 1 false, D67's rejected alternative, which names
+    // the package as it stood and now carries `drift-ok`. The bare word still is not the pattern — proximity
+    // to `Lyntai.Generation` is, so ROADMAP's OTel line is untouched.
     {
       term: '(?:EXPERIMENTAL|experimental)(?:\\s+\\w+){0,3}\\s+(?:carve-out|carveout)'
         + '|(?:carve-out|carveout)(?:\\s+\\w+){0,3}\\s+(?:EXPERIMENTAL|experimental)'
-        + '|Lyntai\\.Generation`?(?:\\s+\\w+){0,4}\\s+(?:is|ships)\\s+EXPERIMENTAL'
+        + '|Lyntai\\.Generation`?[^\\n]{0,30}?(?:EXPERIMENTAL|[Ee]xperimental)'
+        + '|(?:EXPERIMENTAL|[Ee]xperimental)[^\\n]{0,30}?`?Lyntai\\.Generation'
         + '|exempt from (?:that |the )?(?:SemVer )?promise',
-      use: 'say every package carries the full SemVer promise (D70), and name D67/D69 for why the three '
+      use: 'that every package carries the full SemVer promise (D70), naming D67/D69 for why the three '
         + 'reasons the exemption gave are closed',
       why: 'the carve-out was WITHDRAWN in 3.0, not satisfied — a document still describing Lyntai.Generation '
         + 'as exempt tells a consumer they may rely on minor-version reshaping that will not happen, and '
@@ -739,7 +755,11 @@ export default {
     // every gate stayed green, because nothing was registered HERE.
     {
       term: 'IProviderInstallation',
-      use: '`IProviderProbe`',
+      // `use` named `IProviderProbe` until 2026-09-16 — D66's replacement, which D127 then collapsed into
+      // `IModelProvider`. A remediation naming a type the tree no longer has sends the reader one rename
+      // behind, and this registry is the one place that cannot afford it.
+      use: '`IModelProvider`, whose capabilities are DATA (`ProviderCapabilities`, D126) rather than a '
+        + 'type-test (D127)',
       why: 'it declares one ProbeAsync and installs nothing, one word from IProviderVersionInstaller which '
         + 'does; the documented use is a capability type-test, so the name is the whole API (D66)',
     },
@@ -1362,8 +1382,6 @@ export default {
   // irreducible rather than merely unpaid: it states SEVEN distinct guarantees a BYO store must honour, at
   // 2–11 lines each. The one paragraph that was NOT a guarantee — six lines defending the admission rule
   // against a misreading it had already stated — is what came out.
-  // One entry per FILE, holding EVERY over-limit block in it, worst first — see `check-comments.mjs`
-  // `asAllowanceList` for why a single number per file was not a ratchet.
   //
   // SCOPE WIDENED 2026-08-16 to `tests/`, `devtools/` and `bench/`. `src/` had been paid down to one block
   // and the other three tiers were never scanned at all — while holding LONGER blocks than anything left in

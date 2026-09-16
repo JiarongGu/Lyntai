@@ -19,7 +19,7 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3820 passed / 3853 total, 33 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 846/846, doc samples 58/58. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 851/851, doc samples 58/58. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED with Docker up, re-attested 2026-09-16 at `a8819277`** — read off that run's own output, never
@@ -48,10 +48,12 @@ changed number cannot be told from an extrapolated one, and that is how it read 
 samples 58/58 — and the guard count is derived from the tree by `check-counts`, so it cannot go stale
 unseen. **Movement that reconciles against a NAMED cause on both sides is the only kind needing no
 investigation; any other is a finding**, and "+n new tests" is no longer the whole of that rule.
-**The Postgres leg is 195 tests**, measured on an EARLIER tree of 3,644 total (the daemon down read
-`3427 passed / 217 skipped` against `3622 / 22` with it up, and 217 − 22 = 195 = the difference in passes).
-That total is smaller than the baseline above because the tree has grown since; the 195 is the quantity
-that carries forward, never the totals it was derived from. A skip count near 217 means those 195 did not run.
+**The Postgres leg is 204 tests**, re-measured 2026-09-16 against the attestation above: Docker down reads
+`3616 passed / 237 skipped`, and 237 − 33 = 204 = 3820 − 3616, the same quantity from both sides.
+**The LEG GROWS WITH THE TREE, which the previous wording did not anticipate** — it was 195 on an earlier
+tree of 3,644 total (`3427 / 217` down against `3622 / 22` up). So what carries forward is the DERIVATION,
+never the number: re-derive it from the run in front of you, exactly as the baseline line above is derived.
+A skip count in the low hundreds means the leg did not run, whatever it currently counts.
 Everything else on that line is gated. `docs/GATES.md` is why each gate exists, what it measured and which
 numbers it holds.
 

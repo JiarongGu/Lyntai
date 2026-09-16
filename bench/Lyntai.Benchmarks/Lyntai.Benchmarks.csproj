@@ -36,7 +36,7 @@
   <!-- MemoryPolicySweep.cs reuses these two files VERBATIM (compile-time link, not a second copy) rather
        than re-deriving the mutation-tested corpus generator and recall-quality metric — a sweep over a
        drifted copy would measure something else entirely. Linked as FILES rather than a ProjectReference to
-       Lyntai.Tests.csproj deliberately: that project also drags in Postgres/Testcontainers/MCP/ExtensionsAi/
+       Lyntai.Tests.csproj deliberately: that project also drags in Postgres/Testcontainers/MCP/Onnx/
        Generation + xunit, and doing so once measurably blew the check-warnings gate's full-solution
        `-v normal` build log past Node's spawnSync 1 MiB buffer (1,049,602 bytes captured, ENOBUFS) — `verify`
        reported "build FAILED" for a build that had in fact succeeded. Neither file needs anything beyond

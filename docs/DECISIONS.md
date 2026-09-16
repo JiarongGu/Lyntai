@@ -1489,7 +1489,7 @@ own remarks said *"Designed, not yet exercised. No backend implements this seam,
 it"* and *"Read what follows as inferred, not measured"* — and it lives in Core, so 3.0 would have frozen it
 under the full promise. Three options were live. **Delete it until GEN6** had the strongest precedent
 (**D14**: a real failure is a better starting point than a speculative one) and was the recommendation.
-**Move it to the EXPERIMENTAL `Lyntai.Generation` package** would have bought reshaping room in a minor at
+**Move it to the EXPERIMENTAL `Lyntai.Generation` package** would have bought reshaping room in a minor at <!-- drift-ok: the REJECTED alternative, named as the package stood that day; D70 withdrew the label the same week -->
 the cost of the layout rule that generation CONTRACTS live in Core. Both were refused for the same reason,
 and the owner's is the sharper statement of it: **nothing was blocking the platform work.** What GEN6 needs a
 vendor for is a *backend*; what made this seam unshippable was that the *router* could not reach it, and no

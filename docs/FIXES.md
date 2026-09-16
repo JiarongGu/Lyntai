@@ -7,6 +7,40 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-16 — the retirement roster named a NAMESPACE, so the package it retired stayed listed
+
+**Symptom.** None from the tool, which is the defect. `node devtools/nuget-unlist.mjs` printed
+`Lyntai.ExtensionsAi` / `- not published, skipping` and ended `Planned: 0 version(s)… Done.` On nuget.org,
+`Lyntai.Providers.ExtensionsAi` holds **30 versions, ten of them still LISTED** (2.0.1–3.1.0) — the package <!-- drift-ok: the PUBLISHED id this entry is about; it is data on a feed, not a name in the tree -->
+**D123** folded away, which this array exists to unlist. The id in the array was never published at all.
+
+**Root cause.** **D145** renamed the NAMESPACE `Lyntai.Providers.ExtensionsAi` → `Lyntai.ExtensionsAi` and <!-- drift-ok: as above -->
+the sweep rewrote the `RETIRED` entry with everything else, turning a published package id into a namespace
+name. The commit message states the opposite in as many words — *"The PACKAGE does not move… only the
+namespace moves"* — so the sweep contradicted its own author. This is the THIRD instance: the commit
+immediately before it (**D144**) had repaired two of these and written the warning into the file's header.
+
+**Why nothing caught it.** The array is the one part of the roster with no on-disk counterpart, by design
+(*"NOTHING on disk remembers them"*), so there is nothing for a rename to disagree with. No prose gate reads
+it either: `check-docs` excludes `devtools/` structurally and `check-links`' code tier is `.cs` only.
+Measured before concluding that: running every `retiredTerms` pattern over `devtools/**/*.mjs` comments
+gives **28 hits, all legitimate** (a registry has to quote what it retires), so widening that gate is
+refused — as is widening it to `*.csproj`, which scores **0 hits over 18 files**.
+
+**Fix.** The published id restored. `mustBePublished(id, listed)` makes a `RETIRED` id the feed has never
+published an ERROR rather than a skip — true by construction, since the array holds only ids that WERE
+published. The tool's body moved into `main()` behind an `import.meta.url` check so the predicate is
+importable without the network, which is the pure seam `.claude/rules/repo-mechanics.md` §Dev loop asks for.
+
+**Verify.** Driven RED against the roster as it stood at HEAD: `mustBePublished('Lyntai.ExtensionsAi', null)`
+returns `true` under the old array, and the roster fact fails on the missing published id. Five facts in
+`devtools/scripts/__tests__/nuget-unlist.test.mjs`, including a positive control so an emptied array cannot
+pass. A live dry run then resolves all eight retired ids and reports `Planned: 0` with no error line.
+
+**Introduced by.** `888e0fde` (D145), 2026-09-15 — one commit after the header warning it broke.
+
+---
+
 ## 2026-09-16 — a rename sweep collapsed CONTRASTS, in prose, in a sample, in shipped code and in a test
 
 **Symptom.** None visible, which is what let it spread. `docs/DECISIONS.md` **D36** read *"translating

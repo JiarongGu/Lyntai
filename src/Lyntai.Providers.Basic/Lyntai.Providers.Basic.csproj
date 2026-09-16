@@ -1,23 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The DEFAULT provider set: everything that reaches an LLM without dragging a heavy or platform-specific
-    dependency — the spawned CLIs (`claude`, `codex`) and any OpenAI-compatible HTTP endpoint (OpenAI, Ollama,
-    OpenRouter, Azure), plus the HTTP embedder. One package because their dependency footprint is the same
-    (Core + managed Microsoft.Extensions.Http; no native payload), so bundling costs a consumer nothing.
+    The BASIC provider set, and "basic" is the membership RULE rather than a position in a list (D144):
+    everything that reaches a model needing nothing beyond Lyntai.Core and the BCL — the spawned CLIs
+    (`claude`, `codex`), any OpenAI-compatible HTTP endpoint (OpenAI, Ollama, OpenRouter, Azure) for chat
+    AND embeddings, and the in-process model2vec embedder. One package because their dependency footprint
+    is the same (no native payload), so bundling costs a consumer nothing.
 
     Packages stay SEPARATE when they drag something a consumer may not want: Lyntai.Providers.LlamaSharp
     (LLamaSharp + a native backend), Lyntai.Storage.Sqlite (a native SQLite binary),
     Lyntai.Tools.Mcp (ModelContextProtocol.Core), Lyntai.Secrets.Dpapi (Windows-only).
     See docs/DECISIONS.md D25.
 
-    NAMESPACES ARE UNCHANGED (Lyntai.Providers.ClaudeCli / .CodexCli / .OpenAiCompatible) — merging the
-    packages must not force a consumer to edit `using` directives; only the PackageReference changes.
+    The 2.0.1 MERGE changed no namespace, deliberately — a consumer edits one PackageReference and no
+    `using`. The HTTP family was renamed later and for its own reason (Lyntai.Providers.Http, D135), so the
+    namespaces here are .ClaudeCli / .CodexCli / .Http, plus Lyntai.Embeddings.Model2Vec (D121).
   -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Providers.Basic</PackageId>
-    <Description>The default Lyntai LLM backend set: the authenticated `claude` and `codex` CLIs, any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat + embeddings, and an in-process model2vec embedder — bundled because none of them ships a native payload, so this package needs nothing beyond Lyntai.Core and the BCL. Media backends live in Lyntai.Generation; local GGUF inference is Lyntai.Providers.LlamaSharp.</Description>
+    <Description>The Lyntai LLM backends that need nothing beyond Lyntai.Core and the BCL: the authenticated `claude` and `codex` CLIs, any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat + embeddings, and an in-process model2vec embedder — bundled because none of them ships a native payload. Media backends live in Lyntai.Generation; local GGUF inference is Lyntai.Providers.LlamaSharp.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,10 +28,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Http" />
-    <!-- ABSTRACTIONS ONLY, and it costs the bundle NOTHING: Lyntai.Tools.Mcp already pins this id
-         transitively through ModelContextProtocol.Core, and both MCP halves are in the bundle, so every
-         one-line-install consumer already carries this assembly. The MEAI bridge folded in here rather
-         than holding a package id for 37,376 B of code that adapts a type the bundle already has. -->
+    <!-- The only third-party reference here, and it must stay the only one: this package's whole membership
+         rule is Core + the BCL, so anything added below moves a backend out of it. On the
+         Microsoft.Extensions.* band D26 allows; the HTTP backend needs a named-client factory. -->
   </ItemGroup>
 
   <ItemGroup>

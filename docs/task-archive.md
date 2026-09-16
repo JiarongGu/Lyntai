@@ -4184,3 +4184,27 @@ the pass that split the item**, because the split followed the axis the NAME sug
 (a negative re-check is evidence only of the question it asked), and the framing trap in
 `.claude/knowledge/pitfalls.md` (an item named after its most expensive instance hides the cheapest, and
 the reader who splits it inherits that framing). Startable set: 3, from 0.
+
+## Part 240 — the nine-decision day's THIRD sweep of residue, in the tiers no prose gate reads
+
+✅ closed 2026-09-16, at the owner's direction. Not a filed task — a documentation-drift pass over the same
+D139–D149 window `docs/task-archive.md` Part 237 swept, asked of the tiers that pass did not scan.
+
+**The finding that organises the rest: Part 237 swept `.md` and `.cs`, and the residue that survived is in
+neither.** A published package id in `devtools/nuget-unlist.mjs` (`docs/FIXES.md`, and the trap in
+`.claude/knowledge/pitfalls.md`) and FOUR `*.csproj` comments — the bundle still advertising the deleted
+MEAI bridge, `Providers.Basic` calling itself "the DEFAULT set" with its deleted dependency's
+justification orphaned onto the survivor, `Providers.Onnx` naming `Providers.Default`, and a bench note
+listing `ExtensionsAi`. Part 237 had recorded *"`src/*.csproj` descriptions were correct"*, which was true
+of the `<Description>` elements and false of the comments around them.
+
+**Two gates measured, one widened and one refused.** `retiredTerms`' D70 pattern demanded a VERB and an
+uppercase spelling, so the README's package table cell — `**Experimental.**`, in the file a consumer reads
+first — matched nothing for a month in a document that gate does scan; widened at 1 true / 1 false (**D67**
+takes `drift-ok`) and proven RED against the pre-fix line. Scanning `*.csproj` for retired vocabulary is
+REFUSED: 0 hits over 18 files, so the four defects above are pattern misses, not scope misses.
+
+**`CLAUDE.md` contradicted itself about the Postgres leg** — "+204 skipped is the Postgres leg" eleven lines
+above "**The Postgres leg is 195 tests**… the quantity that carries forward". Re-measured off this session's
+Docker-down run (`3616 / 3853 / 237`): it is 204, and it GROWS with the tree, so the DERIVATION carries
+forward and the number does not.

@@ -107,7 +107,7 @@ version you installed.
 | `Lyntai.Tools.Mcp` | MCP in BOTH directions: expose an MCP server's tools as Lyntai `ITool`s, and host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
 | `Lyntai.Providers.Onnx` | In-process **transformers** via ONNX Runtime — no server, no port. `AddOnnxProvider(dir)` embeds (pooling, normalization and the sequence limit read from the model's own files); `AddOnnxCrossEncoder(dir)` scores `(query, document)` pairs, which is what `AddMemoryScoringVerification()` reranks recalls with. References the **managed half only**: add one native backend yourself (`Microsoft.ML.OnnxRuntime` for CPU, `.DirectML` for any DX12 GPU, `.Gpu` for CUDA), because the library does not choose your hardware. |
-| `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D25). |
+| `Lyntai.Generation` | The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. A separate package for FOOTPRINT, not for release cadence — it carries the full SemVer promise like every other (**D70**), and stays outside the bundle so a one-line install does not drag media backends for a feature most apps never call (D25/D26). |
 
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
 dependency does this isolate?" with something concrete. Backends that need nothing extra share
@@ -133,8 +133,8 @@ dotnet add package Lyntai.Generation       # image/video/audio backends
 both halves of MCP, and **in-memory** storage. The two that surprise people: nothing persists until you add
 `Lyntai.Storage.Sqlite` (or `.Postgres`), and generation is not included. The six packages left out are left
 out for a reason — a native payload (`Storage.Sqlite`, `Providers.LlamaSharp`, `Providers.Onnx`), a
-platform-specific API (`Secrets.Dpapi`), a server dependency (`Storage.Postgres`), or an unverified surface
-(`Lyntai.Generation`) — see `docs/DECISIONS.md` D26.
+platform-specific API (`Secrets.Dpapi`), a server dependency (`Storage.Postgres`), or a surface most
+applications never call (`Lyntai.Generation`) — see `docs/DECISIONS.md` D26.
 
 **Convenience vs size.** `Lyntai` is a bundle with no code of its own — it just pulls a curated set. A
 framework-dependent `dotnet publish` copies the **whole** dependency graph and analyses nothing, so that lands
@@ -153,7 +153,6 @@ never touch is never opened.
 
 Then compose in DI:
 
-<!-- compile-given: IChatClient myChatClient; -->
 ```csharp
 using Lyntai;                       // the builder + Add*/Use* extensions
 using Lyntai.Cortex.Scorers;

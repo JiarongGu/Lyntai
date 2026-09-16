@@ -30,7 +30,7 @@
 
 import { execFile } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
@@ -44,19 +44,36 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
  * package is removed or folded into another.
  */
 // **These are PUBLISHED ids, not current type or package names.** A rename in the tree must never touch
-// them: two were silently rewritten by rename sweeps on 2026-09-15 — `Lyntai.Providers.OpenAiCompatible`
-// became `…Http` and `Lyntai.Providers.Local` became `…LlamaSharp`, the second turning a retired id into
-// the name of a LIVE package this would then have unlisted. Restored from the commit that wrote them.
-const RETIRED = [
-  'Lyntai.Providers.ClaudeCli', //       folded into Lyntai.Providers.Default at 2.0.1
-  'Lyntai.Providers.CodexCli', //        folded into Lyntai.Providers.Default at 2.0.1
+// them: THREE were silently rewritten by rename sweeps on 2026-09-15 — `Lyntai.Providers.OpenAiCompatible`
+// became `…Http`, `Lyntai.Providers.Local` became `…LlamaSharp` (turning a retired id into the name of a
+// LIVE package this would then have unlisted), and `Lyntai.Providers.ExtensionsAi` became the NAMESPACE
+// `Lyntai.ExtensionsAi`, which was never published at all. Restored from the commits that wrote them.
+//
+// The third is why `mustBePublished` below exists rather than another paragraph here. It was rewritten by
+// the commit AFTER the one that repaired the first two and wrote this warning — D145, whose own message
+// says "the PACKAGE does not move; only the namespace moves" — and it survived until 2026-09-16 because a
+// 404 read as `- not published, skipping`, one unremarkable line in a run that then reported success. Ten
+// listed versions (2.0.1–3.1.0) were waiting behind it. A rule stated in a comment and broken by the next
+// commit is a missing check, not a knowledge problem.
+export const RETIRED = [
+  'Lyntai.Providers.ClaudeCli', //        folded into Lyntai.Providers.Default at 2.0.1
+  'Lyntai.Providers.CodexCli', //         folded into Lyntai.Providers.Default at 2.0.1
   'Lyntai.Providers.OpenAiCompatible', // folded into Lyntai.Providers.Default at 2.0.1
-  'Lyntai.Providers.ClaudeCli.Mcp', //   removed at 1.1.0
-  'Lyntai.Providers.Local', //           renamed to Lyntai.Providers.LlamaSharp (D122's naming pass)
-  'Lyntai.ExtensionsAi', //    folded into Lyntai.Providers.Default (D123)
-  'Lyntai.Tools.Mcp.Hosting', //         folded into Lyntai.Tools.Mcp (D142)
-  'Lyntai.Providers.Default', //         renamed to Lyntai.Providers.Basic (D144)
+  'Lyntai.Providers.ClaudeCli.Mcp', //    removed at 1.1.0
+  'Lyntai.Providers.Local', //            renamed to Lyntai.Providers.LlamaSharp (D122's naming pass)
+  'Lyntai.Providers.ExtensionsAi', //     folded into Lyntai.Providers.Default (D123)
+  'Lyntai.Tools.Mcp.Hosting', //          folded into Lyntai.Tools.Mcp (D142)
+  'Lyntai.Providers.Default', //          renamed to Lyntai.Providers.Basic (D144)
 ];
+
+/**
+ * A RETIRED id that the feed has never heard of is a TYPO, not an absence — the array exists only for ids
+ * that WERE published, so "never published" is the one answer it can never legitimately give. Pure so a
+ * test can exercise it without the network; `null` means the registration fetch 404'd.
+ */
+export function mustBePublished(id, listed, retired = RETIRED) {
+  return listed === null && retired.includes(id);
+}
 
 /**
  * The currently packable ids, READ FROM THE CSPROJS rather than listed here — because a hand-written
@@ -82,8 +99,6 @@ function currentPackageIds() {
   if (ids.length === 0) throw new Error('no packable ids found under src/ — run this from the repository');
   return ids;
 }
-
-const PACKAGES = [...currentPackageIds(), ...RETIRED].sort();
 
 const args = process.argv.slice(2);
 const apply = args.includes('--apply');
@@ -120,15 +135,19 @@ async function listedVersions(id) {
 }
 
 const key = valueOf('--api-key') ?? process.env.NUGET_API_KEY;
+
+/** Never let a key reach the console, even inside a tool error that happened to echo the arguments. */
+const redact = (text) => (key ? String(text).split(key).join('***') : String(text));
+
+async function main() {
+const PACKAGES = [...currentPackageIds(), ...RETIRED].sort();
+
 if (apply && !key) {
   console.error('No API key. Mint an Unlist-scoped key on nuget.org (glob `Lyntai.*`), then either');
   console.error('  $env:NUGET_API_KEY = "..."   (preferred — stays out of shell history)');
   console.error('  --api-key <key>              (convenient — the key lands in shell history)');
   process.exit(1);
 }
-
-/** Never let a key reach the console, even inside a tool error that happened to echo the arguments. */
-const redact = (text) => (key ? String(text).split(key).join('***') : String(text));
 
 console.log(`${apply ? 'UNLISTING' : 'DRY RUN — nothing will change'} · versions below ${cutoff}\n`);
 
@@ -142,6 +161,13 @@ for (const id of PACKAGES) {
     listed = await listedVersions(id);
   } catch (err) {
     console.log(`${id}\n  ! ${err.message}\n`);
+    failed++;
+    continue;
+  }
+  if (mustBePublished(id, listed)) {
+    console.log(`${id}\n  ✗ RETIRED but the feed has never published it — this id is wrong.`);
+    console.log('    Nothing here can unlist the real package, and the run below still says "Done".');
+    console.log('    A rename sweep is the usual cause: these are PUBLISHED ids, never current names.\n');
     failed++;
     continue;
   }
@@ -185,3 +211,8 @@ console.log(apply
   ? `Done. ${done} unlisted, ${failed} failed.`
   : `Planned: ${planned} version(s) would be unlisted. Re-run with --apply to do it.`);
 if (failed) process.exitCode = 1;
+}
+
+// Run only when invoked directly, so a test can import `mustBePublished` without the tool reaching the
+// network — the seam repo-mechanics §Dev loop asks for ("test through a pure function, never by spawning").
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
