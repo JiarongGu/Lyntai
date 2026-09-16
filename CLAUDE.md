@@ -22,12 +22,13 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 live-backend only), e2e 3/3, guard-script tests 860/860, doc samples 58/58. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-17 at `aae8cbcb`** — read off that run's own output, never
+**MEASURED with Docker up, re-attested 2026-09-17 at `355221d8`** — read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
-easily breaks. **UNCHANGED from the previous attestation** (`a8819277`), across a session of four commits
-that edited both SQL adapters: every one of them moved comments, XML docs or `devtools/`, so no xUnit fact
-was added or removed. **No movement is a result, and it is the one this line is checked against** — a diff
-that touches `src/` and leaves all three figures alone is the normal case, not a suspicious one.
+easily breaks. **UNCHANGED across a session that deleted a public interface** (**D151**): 78 files, 19 of
+them in `src/` and 33 test files, and all three figures held. **No movement is a result, and it is the one
+this line is checked against** — a diff that touches `src/` heavily and leaves the trio alone is the normal
+case, not a suspicious one, because what moves these numbers is a test being ADDED or REMOVED and a
+refactor does neither.
 **Two review passes moved this line 3750 → 3780 → 3817 in one day** and the skip count has never changed —
 that invariance is the half worth checking, since it is what a Docker-down run would break first.
 **The Docker-down run is not hypothetical: the FIRST attempt that day read `3616 / 3853 / 237`** and was
