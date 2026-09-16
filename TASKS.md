@@ -15,22 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 5 Parts: 2 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 10 across 5 Parts: 3 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 104 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 121 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 169 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 188 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 242 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 302 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 357 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 380 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 437 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 111 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 128 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 161 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 214 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 233 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 287 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 482 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -45,9 +46,10 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is TWO items**, and both sat here
-marked `blocked` until 2026-09-16. **The accumulation that hid them is now GATED rather than watched for**:
-`check-backlog` fails a `## Part` holding no open checkbox.
+longer drift apart. Edit the marker, never the table. **The startable set is THREE items**: two sat here
+marked `blocked` until 2026-09-16 and the third had never been filed at all, hidden inside a bundled item.
+**The accumulation that hid them is now GATED rather than watched for**: `check-backlog` fails a
+`## Part` holding no open checkbox.
 
 **Re-checking an `env` item asks whether the artifact is OBTAINABLE, not whether it is installed** —
 `task-lifecycle.md` §A blocked item, which two re-checks here got wrong before a reader did.
@@ -96,10 +98,15 @@ GEN7a shipping, so the three item bodies below are the current framing and the p
 the core was built._
 
 _GEN3 (local `sd-cli`), GEN4 (durable renders + the fal.ai queue backend), GEN6's tool/MCP bridge half and
-GEN5 (governance + telemetry parity) all landed 2026-08-04 — see `docs/task-archive.md` Part 33. GEN3/GEN4 carry
-an **unmeasured-surface** caveat to close the first time they run for real: the `sd-cli` argv/size clamping is
-ported-not-measured, and fal's wire format is documented-not-measured. (`sd-cli`'s binary-directory working dir
-was the third such surface — a consuming app measured it 2026-08-04 and it is now confirmed.)_
+GEN5 (governance + telemetry parity) all landed 2026-08-04 — see `docs/task-archive.md` Part 33._
+
+_**THREE surfaces are unmeasured, not two, and only ONE of them needs a vendor.** This paragraph named the
+`sd-cli` argv/clamp (ported-not-measured) and fal's wire format (documented-not-measured) and omitted
+**ComfyUI**, whose own class header says no instance was available to measure it — a self-hosted backend
+needing no account, declaring both Image and Video. Sorted by what each COSTS: ComfyUI is a local server,
+`sd-cli` is two downloads, fal is an account. Naming only the first and the last is how "we are waiting on
+fal" came to stand in for "the platform is unverified". (`sd-cli`'s binary-directory working dir was a
+fourth such surface — a consuming app measured it 2026-08-04 and it is now confirmed.)_
 
 - [ ] **GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the multiple-of-64 clamp.** <!-- item: state=startable -->
   Then delete that backend's remaining "unverified" notes from the XML docs, or fix the mapping and keep
@@ -118,9 +125,47 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   download". A re-check that confirms the artifact is still absent from the machine is answering the wrong
   question: the test is whether someone could BEGIN today, not whether the work is already done._
 
+- [ ] **GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server.** Its class header says <!-- item: state=startable -->
+  *"No ComfyUI instance was available to measure when this was written"*, so the endpoint paths and the
+  response field names are documented-surface. **Nothing about this needs an account**: ComfyUI is
+  self-hosted, its probe is free and exact (system-stats / object-info), and a wrong path fails as a 404
+  rather than as a bad render.
+
+  **Two stages, and the first is cheap.** (1) **The HTTP surface** — submit, poll history, fetch — is
+  verified by ANY workflow that produces ANY output, so a 512×512 SD 1.5 image settles every path and all
+  four response field names in seconds. (2) **The VIDEO kind** then needs a video workflow, and that is the
+  only part a model choice touches: it exercises `ProviderKinds.Video` routing and the view-URI rule the
+  header states (*"a local video is easily 100 MB, and downloading it uninvited would be the platform
+  spending the caller's memory"*) — a rule no image can test, because no image is big enough to make
+  returning bytes obviously wrong.
+
+  _**Two open-weight video candidates, checked 2026-09-16, and the LICENCE is the axis that separates
+  them** — which is the plan's own Decision 3 test ("open weights … Apache-2.0 and ComfyUI-native" against
+  "closed-weight, hosted-only and moderated"). **Wan2.2-TI2V-5B is Apache-2.0**, ComfyUI-native, and
+  unifies text-to-video and image-to-video in one model, so it exercises both request shapes the router
+  can send; its card states 720P/24fps and **24 GB** VRAM, and reaching a 12 GB card is community GGUF
+  quantization at 480p — real, widely reported, and **not measured by us**, which is the caveat this whole
+  item exists to stop shipping unstated. **LTX-Video** is far faster and lighter but ships a CUSTOM
+  "LTX-Video Open-Weights License", so it is a licence someone must READ rather than a permissive default.
+  <br>**Neither is a library recommendation and neither may become a default** — which model serves a
+  deployment is the deployment's to answer (`model-decoupling.md`, `generic-library.md`). This names what
+  to install to RUN the verification, nothing more._
+
+  _**Why this was not filed until 2026-09-16**, which is the finding rather than the item: GEN-VERIFY was
+  written fal-first and split fal-first, so the ONE unverified backend that needs no vendor at all stayed
+  invisible inside it through two passes — including the pass that split it. **Three surfaces are
+  documented-not-measured, not two**, and they have completely different costs: `sd-cli` needs two
+  downloads, ComfyUI needs a local server, and only fal needs an account. Sorting them by what they COST
+  is what the single item prevented._
+
 - [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=blocked kind=env needs="a fal.ai account and key — nobody here has one, and no download substitutes for it" -->
   vocabulary, the result field names and what `cost` reports. Then delete that backend's "unverified" notes
   or fix the mapping.
+
+  _**This is fal's OWN wire format and nothing else.** It is not the generation platform's verification
+  story and must not be treated as one — the two sibling items above cover the other two backends without
+  a vendor, and the video DELIVERY path is reachable through ComfyUI. Filed narrowly on purpose, because
+  the old bundled item let "we are waiting on fal" stand in for "the platform is unverified"._
 
   _**This half IS blocked, and it is the rule's own example of one**: a vendor key or an account, which no
   download can supply. Split from the `sd-cli` half on 2026-09-16 because they were always independent —
