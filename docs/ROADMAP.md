@@ -33,6 +33,9 @@ per-version design record, where one exists, is indexed in `docs/superpowers/IND
 | **v3.0.0** (2026-08-17) | **the memory retention model, then the pre-freeze sweep that followed it.** Memory (D45–D66): seven `IMemory*Policy` domains, FSRS as the only shipped curve, RRF the ranking default, a recall that no longer lengthens a half-life, an authoritative fact that takes a slot within the limit, six pre-release migrations folded into one. Everything else (D67–D82): the generation stream door, streaming tool calls, the cross-process job cap, the forget/prune split, the generation router as a trust boundary, every generation backend registered by configure callback, the naming sweep — and `Lyntai.Generation`'s SemVer exemption **withdrawn**, so no package is exempt |
 | v3.0.1 (2026-08-21) | **five memory seams two adopting applications had to work around**, all one shape — a registration that resolves and can never run (D83–D86): the composition renderer reachable without an engine, per-entry grades for a curated catalog that mixes provenance, fan-out writes so a blend's second member is not silently empty, a wiring check for a member or policy nothing can reach, and a scope-optional semantic recall. Additive throughout |
 
+| v3.0.2 (2026-08-22) | the adopting applications' next round, same shape as 3.0.1 — a seam that resolves and cannot run (see `CHANGELOG.md`) |
+| **v3.1.0** (2026-08-23) | **the current release.** Detail is `CHANGELOG.md`; this table is one line per version, deliberately |
+
 ## Planned
 
 ### The platform kit (design §9) — SHIPPED pre-1.0, final deferrals closed before the freeze

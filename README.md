@@ -412,7 +412,7 @@ services.AddLyntai(cfg => cfg
 
 var memory = sp.GetRequiredService<IMemoryEngineFactory>().Get("project/graph");
 await memory.RememberAsync(new MemoryWrite("proj", "code",
-    "The build gate is node devtools/dev.mjs verify, which runs sixteen checks."));
+    "The build gate is node devtools/dev.mjs verify, which runs 24 checks."));
 
 var recall = await memory.RecallAsync(new MemoryQuery("proj", "code", "gate"));
 // headlines only — Content is null until you ask for it
@@ -702,9 +702,10 @@ capability a provider declares, like scoring (`docs/DECISIONS.md` **D151**).
 
 `AddSemanticMemory()` is how you **say** you want semantic recall. Registering a backend is what actually
 turns it on, so forgetting one used to be silent — no `ISemanticMemory` at all, and every recall path
-skipping it without complaint. Stating the intent turns that into a startup failure instead. Overloads take
-the embedder directly (`AddSemanticMemory(myEmbedder)`, a factory, or a type), and the no-argument form is
-for when the embedder arrives from elsewhere, as above.
+skipping it without complaint. Stating the intent turns that into a startup failure instead. It takes no
+argument: the backend arrives separately, either from a shipped `Add…Provider` or from your own through
+`AddEmbeddingProvider(_ => backend)`. A backend you register as a plain `AddProvider` is NOT seen — that
+call states nothing about embedding, and the wiring has to decide before any provider is built.
 
 Vectors live in a swappable `IVectorStore` — the built-in `InMemoryVectorStore` (exact brute-force cosine)
 is the default; call `UseSqliteVectorStore()` to persist them in SQLite (it needs
@@ -1632,7 +1633,7 @@ await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunA
 ## Dev loop
 
 ```
-node devtools/dev.mjs verify           # THE "am I done?" gate — sixteen checks, stopping at the first
+node devtools/dev.mjs verify           # THE "am I done?" gate — 24 checks, stopping at the first
 node devtools/dev.mjs build            # build the solution
 node devtools/dev.mjs test             # xUnit tests (unit + integration, zero real tokens)
 node devtools/dev.mjs e2e --build      # Playground full-stack smoke against the provider-stub

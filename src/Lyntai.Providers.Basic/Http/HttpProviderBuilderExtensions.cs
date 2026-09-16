@@ -51,8 +51,8 @@ public static class HttpProviderBuilderExtensions
             disposeHttpClient: !byo); // dispose only Lyntai-created clients
 
         // What it PRODUCES picks the front door. AddEmbeddingProvider is the same collection plus the
-        // statement that something can embed, which AddSemanticMemory and the routed IEmbedder read at
-        // composition time, before any provider is built (D129).
+        // statement that something can embed, which AddSemanticMemory reads at composition time — before
+        // any provider is built, which is why a factory registration has to say it (D151).
         if (string.Equals(config.Produces, ProviderKinds.Vector, StringComparison.OrdinalIgnoreCase))
             builder.AddEmbeddingProvider(Build);
         else

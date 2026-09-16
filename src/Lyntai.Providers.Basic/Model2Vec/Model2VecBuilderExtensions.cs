@@ -42,8 +42,8 @@ public static class Model2VecBuilderExtensions
 
         // A PROVIDER, not the embedder slot. Declaring ProviderOperation.Embed puts this backend in the
         // same collection the router selects chat and media from, so several can be registered and told
-        // apart by id — and the IEmbedder a consumer resolves is the routing front door over them, not
-        // this instance (D129).
+        // apart by id. There is no front door to resolve: routing over the capable ones is a helper the
+        // consumers share, not a seam (D151).
         builder.AddEmbeddingProvider(_ => embedder);
         return builder;
     }

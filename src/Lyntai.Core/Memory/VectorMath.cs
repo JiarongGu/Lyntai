@@ -26,7 +26,7 @@ public static class VectorMath
     /// <para><b>Here because every embedder backend wants it and none of them can share it otherwise.</b>
     /// L2-normalization is runtime-independent arithmetic — the ONNX adapter and the model2vec one each
     /// carried a copy, in different packages, so Core is the only place either can reach. A BYO
-    /// <c>IEmbedder</c> that normalizes wants the same one, for the same reason this type exists at all:
+    /// backend that normalizes wants the same one, for the same reason this type exists at all:
     /// two backends that normalize differently do not rank identically.</para>
     ///
     /// <para><b>The zero guard is load-bearing.</b> Dividing by a zero length yields NaN in every component,
