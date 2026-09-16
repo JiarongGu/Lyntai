@@ -104,6 +104,16 @@ Both cannot be right, and a cold reader called the inconsistency out before any 
 
 - **A named, freely available artifact is a STEP.** "Pull `all-MiniLM-L6-v2` Q8" is a first step with a
   known URL and a known size. Marking that blocked hides work that someone could start in the next minute.
+- **RE-CHECKING an `env` item asks whether the artifact is OBTAINABLE, never whether it is INSTALLED** —
+  and getting that backwards is how a step stays filed as a blocker indefinitely. Measured 2026-09-16:
+  two items sat `blocked · env` on a download, and two separate dated re-checks left them there by running
+  `where codex` / `where sd-cli`, finding nothing, and recording the absence. Every one of those runs was
+  honest and every one answered the machine's INVENTORY, which is the observation that filed the item in
+  the first place. Asked the other way, both were one public download away — `@openai/codex` 0.154.0 ships
+  a `win32-x64` binary, and `stable-diffusion.cpp`'s Windows CPU build is a 17.1 MB zip.
+  <br>**This is the SECOND time a READER caught this drift rather than a re-check**, which is why it is
+  written as a procedure and not as advice: the paragraph above already records the first. **A negative
+  re-check is evidence only of the question it asked.**
 - **BLOCKED is for what a download cannot fix**: a vendor key or an account, an upstream patch that has not
   merged, a model class nobody has shown to exist, hardware that is absent. The test is whether the item
   could begin today if someone simply decided to.

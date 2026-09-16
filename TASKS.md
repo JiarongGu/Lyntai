@@ -15,21 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 5 Parts: 6 blocked, 2 watch
+## Open items — 9 across 5 Parts: 2 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 103 | 33 | GEN-VERIFY — confirm the remaining unmeasured surfaces against reality | blocked · env | a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB … |
-| 154 | 33 | GEN6 — streaming audio (TTS) | blocked · decision+env | a TTS vendor pick, then a key — the wire format must be measured, not infer… |
-| 163 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 217 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | blocked · env | a codex-cli reinstall on this machine, then one real turn that runs tools |
-| 272 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 327 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 350 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 407 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 104 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 121 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 169 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 188 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 242 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 302 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 357 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 380 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 437 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -44,13 +45,13 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is EMPTY, and that is a
-legitimate state** — every open item is `blocked` or `watch`, each naming what would clear it. Four passes
-have now emptied it (`docs/task-archive.md` Parts 221–229, then 230–232, then 233–236, then 238), and the
-fourth arrived by a READER asking why 736 lines held 8 items — which is the one route none of the other
-four can be scheduled into. **That accumulation is now GATED rather than watched for**: `check-backlog`
-fails a `## Part` holding no open checkbox, so the Parts that reached 295 empty lines cannot do it again.
-**An `env` blocker EXPIRES
+longer drift apart. Edit the marker, never the table. **The startable set is TWO items**, and both sat here
+marked `blocked` until 2026-09-16. **The accumulation that hid them is now GATED rather than watched for**:
+`check-backlog` fails a `## Part` holding no open checkbox.
+
+**Re-checking an `env` item asks whether the artifact is OBTAINABLE, not whether it is installed** —
+`task-lifecycle.md` §A blocked item, which two re-checks here got wrong before a reader did.
+**An `env` blocker also EXPIRES
 SILENTLY** — Part 65 read "this machine holds exactly one chat model" for two weeks while three sat on
 disk, every one already used by other measurements here. Nothing fails when an environment GROWS, so
 nothing announces it; **re-check every `env` item before concluding there is no work.**
@@ -58,9 +59,9 @@ nothing announces it; **re-check every `env` item before concluding there is no 
 names the next candidate, which is how Part 217 arrived narrowed to one signal of three. The others are a
 ruling, a captured failure, and a design REVIEW — the only one schedulable on purpose, and the only one
 that has twice filled a whole Part in one pass (Part 179, then Part 221) where every other route yields
-ones and twos. `decision-only` is still
-EMPTY. That sentence is hand-written on purpose and gated by `check-counts`: the banner it replaces
-advertised finished work **four** times, and nothing derived it.
+ones and twos. `decision-only` holds its FIRST item (GEN6): its `env` half was contingent on the ruling,
+so stating both made a decision read as an environment wall. That sentence is hand-written on purpose —
+the banner it replaces advertised finished work **four** times, and nothing derived it.
 
 **Where things stand is NOT summarized here, deliberately.** `docs/memory-measurements.md` §5 is the measurement record,
 `docs/task-archive.md` holds one Part per closed task, `docs/DECISIONS.md` holds what was decided and why,
@@ -100,17 +101,31 @@ an **unmeasured-surface** caveat to close the first time they run for real: the 
 ported-not-measured, and fal's wire format is documented-not-measured. (`sd-cli`'s binary-directory working dir
 was the third such surface — a consuming app measured it 2026-08-04 and it is now confirmed.)_
 
-- [ ] **GEN-VERIFY — confirm the remaining unmeasured surfaces against reality.** For `sd-cli`: run one render <!-- item: state=blocked kind=env needs="a real fal.ai key; and for the sd-cli half the BINARY as well as a ~1.7 GB model — neither is on this machine" -->
-  and check the argv and the multiple-of-64 clamp. For fal: one submit → poll → fetch with a real key, checking
-  the status vocabulary, the result field names and what `cost` reports. Then delete the remaining "unverified"
-  notes from the XML docs — or fix the mappings and keep them.
+- [ ] **GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the multiple-of-64 clamp.** <!-- item: state=startable -->
+  Then delete that backend's remaining "unverified" notes from the XML docs, or fix the mapping and keep
+  them. Two downloads, both named: the CPU build is
+  `sd-master-<rev>-bin-win-cpu-x64.zip` from `leejet/stable-diffusion.cpp`'s releases (**17.1 MB**, verified
+  2026-09-16), and any SD 1.5 checkpoint (~1.7 GB) satisfies the model. Point
+  `LocalDiffusionOptions.BinaryPath` at the extracted `sd-cli.exe` — there is no PATH probe and no prefix
+  match, deliberately, because the same zip ships `sd-server.exe` and a loose `sd`-prefix match would
+  select the SERVER and present as a HANG.
 
-  _**RE-CHECKED 2026-09-15, and the `needs` was UNDERSTATING it.** It read "a ~1.7 GB model download",
-  which reads as one step; the `sd-cli` BINARY is absent too (`where sd`, `where sd-cli`: nothing), and no
-  fal-shaped variable is in the environment. Corrected rather than left, because a `needs` that omits half
-  the wall sends someone to do the download and hit the other half — the lifecycle rule's "concretely
-  enough to test" is about exactly that. The two halves remain independent: the fal half needs a key nobody
-  here has, the `sd-cli` half needs a binary plus a model, and neither blocks the other._
+  _**RE-FILED 2026-09-16 from `blocked · env` to STARTABLE, and the item was never blocked.**
+  `task-lifecycle.md` says it in as many words — "a DOWNLOAD is a step, not a blocker, unless you cannot
+  name the file" — and both files are nameable, public and small. **This is the SECOND time that exact
+  drift has been caught by a reader rather than a re-check**; the rule's own text records the first, where
+  "one item sat `startable` needing a model nobody had named, while its neighbour sat `blocked · env` for a
+  download". A re-check that confirms the artifact is still absent from the machine is answering the wrong
+  question: the test is whether someone could BEGIN today, not whether the work is already done._
+
+- [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=blocked kind=env needs="a fal.ai account and key — nobody here has one, and no download substitutes for it" -->
+  vocabulary, the result field names and what `cost` reports. Then delete that backend's "unverified" notes
+  or fix the mapping.
+
+  _**This half IS blocked, and it is the rule's own example of one**: a vendor key or an account, which no
+  download can supply. Split from the `sd-cli` half on 2026-09-16 because they were always independent —
+  the old single item said so itself — and bundling them let the real blocker hide a startable one behind
+  it for weeks._
 
   _**The BLOCKING half is gone (2026-08-16, `docs/DECISIONS.md` D69) — what is left is confirmation, not
   repair.** Every mapping that could be wrong is now a host option: fal's status vocabulary and cost fields,
@@ -151,15 +166,25 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
   this never blocked a release — 3.0 ships the package under the full SemVer promise (**D70**)._
 
-- [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend against a real vendor. **The scope shrank on <!-- item: state=blocked kind=decision,env needs="a TTS vendor pick, then a key — the wire format must be measured, not inferred" -->
+- [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend against a real vendor. **The scope shrank on <!-- item: state=decision-only needs="a ruling on WHICH backend measures the chunk shape first — a hosted vendor (then an account) or a local engine (then only a download)" -->
   2026-08-16** (`docs/DECISIONS.md` **D67**): the PLATFORM half is done and shipped in 3.0 —
   `IGenerationRouter.StreamAsync` selects, falls over, governs and throttles a `Stream`-capable backend, and
   the router guarantees exactly one terminal chunk, so a backend no longer has to be careful about fallback or
   closing its own stream. What is left is a real backend and the thing only it can settle: whether
   data-then-terminal is the decomposition a real TTS wire format wants. So this is no longer "the seam is
   unexercised" — the handling is measured by `GenerationRouterStreamTests`; it is "the chunk SHAPE is still
-  inferred". **TTS before music** (owner). Needs a vendor pick and a MEASURED wire format (the GEN-VERIFY
-  lesson), so it waits on a key rather than shipping another documented-not-measured surface.
+  inferred". **TTS before music** (owner). It needs a MEASURED wire format, never an inferred one — the
+  GEN-VERIFY lesson.
+
+  _**RE-FILED 2026-09-16 from `blocked · decision,env` to `decision-only`: the `env` half is CONTINGENT on
+  the ruling, not independent of it.** The open question is which backend ships first, and the two branches
+  have different costs. A HOSTED vendor needs an account nobody here has — a real blocker. A LOCAL engine
+  needs a download: `piper_tts` ships a `win_amd64` wheel (v1.8.0, verified 2026-09-16), streams PCM, and
+  would be spawned through `IProcessRunner` exactly as `LocalDiffusionProvider` drives `sd-cli`. So
+  "waits on a key" was only true of one branch, and stating it unconditionally made a RULING look like an
+  environment wall. **Naming a concrete local candidate is what turns this into a decision someone can
+  actually take** — it is not a recommendation, and the owner may well want a hosted format measured
+  instead._
 - [ ] **GEN7 — pipelines (3d → image → video)**: ordered stages feeding `artifact.ToInput(role)` forward, with <!-- item: state=blocked kind=tree needs="a 3D generation backend — the pipeline's first stage has none, and the 3d-to-image edge needs a rasterizer that does not belong in this library" -->
   per-stage candidates and per-stage failure semantics.
   **Blocker restated 2026-08-11 — the original "deferred until ≥2 real backends exist" now reads as SATISFIED
@@ -214,18 +239,23 @@ uncertainty stays inside the tool-step half**. It does NOT bound the KIND of eve
 provisional and only its payload is reliable (the item below is the consequence). What is left is
 measurement, and measurement only — nothing here is codeable without a real codex run._
 
-- [ ] **CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping.** <!-- item: state=blocked kind=env needs="a codex-cli reinstall on this machine, then one real turn that runs tools" -->
+- [ ] **CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping.** <!-- item: state=startable -->
   `src/Lyntai.Providers.Basic/CodexCli/CodexAgentReader.cs`. The capture behind this backend (codex-cli 0.146.0,
   2026-08-04) ran a trivial `--oss` turn with **no tools**, so the entire tool-step half is inferred and
   marked as such in the XML docs.
 
-  **Two blockers, and the second was only found on 2026-08-11 when the owner authorized the first:** it
-  spends tokens (the owner's call, and they said yes), **and the codex CLI is not installed on this machine
-  at all** — not on PATH, not in the npm global root, not in any usual location. The 2026-08-04 capture came
-  from an install that is gone, so this needs a REINSTALL plus a turn, not just a go-ahead.
-  <br>**RE-CHECKED 2026-09-15 and still absent** — `where codex` finds nothing. Recorded because the
-  neighbouring `env` item on this sweep had gone stale the other way: an environment blocker expires
-  silently when the machine grows, so a negative re-check is worth a date rather than a repeat.
+  **First step: `npm i -g @openai/codex`.** Verified on the registry 2026-09-16 — `0.154.0`, with a
+  `win32-x64` platform binary among its optional dependencies. The 2026-08-04 capture used `--oss`, and
+  this machine holds 16 GGUF models, so the turn itself needs **no vendor account** — which also settles
+  the token question the owner already answered yes to.
+
+  _**RE-FILED 2026-09-16 from `blocked · env`, and the re-checks that kept it blocked were asking the wrong
+  question.** Twice — 2026-09-15 and again this morning — `where codex` returned nothing and the item was
+  left blocked on the strength of it. That confirms the binary is ABSENT; it says nothing about whether it
+  is OBTAINABLE, which is the test `task-lifecycle.md` actually sets ("could someone begin this today?").
+  A named package on a public registry is a step. **The shape to carry: for an `env` blocker, "still not
+  installed" is not a re-check — it is the same observation that filed the item.** Re-check the artifact's
+  AVAILABILITY, not the machine's inventory._
 
   **Why this is not merely cosmetic.** The reader recognises exactly three item names (`agent_message`,
   `reasoning`, `error`) and routes everything else to the tool arm **by elimination**. So a wrong NAME is not
