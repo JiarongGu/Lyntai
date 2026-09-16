@@ -15,23 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 5 Parts: 3 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 11 across 6 Parts: 4 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 111 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 128 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 161 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 214 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 233 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 287 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 482 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 112 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 129 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 162 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 215 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 234 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 279 | 100 | EMB1 — delete `IEmbedder` and `EmbedderExtensions`, and route embedding the… | startable |  |
+| 317 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 377 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 432 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 455 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 512 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -46,8 +47,8 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is THREE items**: two sat here
-marked `blocked` until 2026-09-16 and the third had never been filed at all, hidden inside a bundled item.
+longer drift apart. Edit the marker, never the table. **The startable set is FOUR items**: three were
+`blocked` or unfiled until 2026-09-16, and the fourth is D151's `IEmbedder` removal, settled before coding.
 **The accumulation that hid them is now GATED rather than watched for**: `check-backlog` fails a
 `## Part` holding no open checkbox.
 
@@ -268,6 +269,35 @@ fourth such surface — a consuming app measured it 2026-08-04 and it is now con
 > `[x]` here.
 
 ---
+
+## Part 100 — remove `IEmbedder`: an embedder is a capability, not a front door (2026-09-17)
+
+_Opened by `docs/DECISIONS.md` **D151**, which is recorded ahead of the code. The decision is taken; what
+is left is the change itself, and it is BREAKING, so it lands in the major now shipping or waits for the
+next one (**D70**)._
+
+- [ ] **EMB1 — delete `IEmbedder` and `EmbedderExtensions`, and route embedding the way scoring is routed.** <!-- item: state=startable -->
+  `src/Lyntai.Core/Embeddings/IEmbedder.cs`. **12 entries leave the frozen surface**: the interface, the two
+  extension helpers, four `Add*` overloads (`AddEmbeddings` ×2, `AddSemanticMemory` ×2) and four public
+  constructors that take one — `SemanticMemory`, `SemanticSeedSource`, `EmbeddingToolSelector`,
+  `GraphMemoryEngine`.
+
+  **Keep the substance of D129 while dropping its type.** `RoutedEmbedder`'s capability filter and failover
+  are what fixed the last-registration-wins defect, so they stay — as a shared routing helper the four
+  consumers call, not as a public interface. The four constructors take `IEnumerable<IModelProvider>`
+  instead, which is exactly what `ScoringVerificationPolicy` already does with `ProviderKinds.Score`.
+
+  **`EmbeddingRole` SURVIVES** — it is on `IModelProvider.EmbedAsync`'s role-aware overload, not just on the
+  interface being deleted, and the asymmetric-model reasoning behind it is unaffected.
+
+  Then: the API baselines, `tests/Lyntai.Tests/Fakes/FakeEmbedder.cs` and the embedding suites, the README's
+  embedding story, and a `CHANGELOG.md` **Breaking** entry. `consumer-smoke` is the gate that proves a
+  consumer can still reach embedding through the packages.
+
+  _**Not part of this**: an `embed` delegate on `AddBridgeProvider`. D151 considered it and left it
+  additive-if-needed, because three shipped backends already embed. And a CLI cannot embed at all — the
+  dialect seam is completion-shaped throughout — so "bridge it as a CLI" is not the cheap route it sounds
+  like._
 
 ## Part 41 — CLI backends: the codex surface still to MEASURE (2026-08-05)
 

@@ -220,8 +220,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D148](#d148--a-seam-that-selects-a-backend-by-capability-must-also-be-able-to-name-one-2026-09-15) | 2026-09-15 | a seam that SELECTS a backend by capability must also be able to NAME one |
 | [D149](#d149--a-document-kept-for-its-live-half-is-re-read-not-re-asserted-both-pre-30-records-leave-docs-2026-09-16) | 2026-09-16 | a document kept for its "live half" is re-READ, not re-asserted; both pre-3.0 records leave `docs/` |
 | [D150](#d150--the-governance-wiring-guard-is-eager-and-the-argument-for-it-lives-here-rather-than-in-both-backends-2026-09-16) | 2026-09-16 | the Governance wiring guard is EAGER, and the argument for it lives here rather than in both back… |
+| [D151](#d151--an-embedder-is-a-capability-not-a-front-door-iembedder-is-removed-2026-09-17) | 2026-09-17 | an embedder is a CAPABILITY, not a front door: `IEmbedder` is removed |
 
-_All 150 entries are live decisions._
+_All 151 entries are live decisions._
 
 <!-- index:end -->
 
@@ -4630,3 +4631,50 @@ knowing**: a BYO-factory call made LAST stands the guard down for the whole wiri
 `Lyntai.Storage.Postgres`, ~40 lines each, saying the same thing twice — with the rejected alternative in
 the copy nobody reviews. A third SQL backend would have made three (`.claude/knowledge/extending-lyntai.md`
 tells one to write its own `RequireGovernance`, which is now a pointer to this entry).
+
+---
+
+## D151 — an embedder is a CAPABILITY, not a front door: `IEmbedder` is removed (2026-09-17)
+
+**The decision.** `IEmbedder` and `EmbedderExtensions` leave the public surface. Embedding is what a
+provider DECLARES (`Produces: Vector`) and what `IModelProvider.EmbedAsync` serves — the same shape as
+every other capability. Core's four consumers take `IEnumerable<IModelProvider>` and go through one shared
+routing helper, which keeps the failover **D129** bought while dropping the type it wrapped it in.
+
+**Why, in one comparison.** `Score` (**D139**) and `Vector` (**D129**) are consumed IDENTICALLY inside
+Core: `ScoringVerificationPolicy` and `RoutedEmbedder` both take `IEnumerable<IModelProvider>` and filter
+on `Capabilities`. Only embedding then wraps that in a public interface. It is not carrying a design — it
+is the last residue of the world before **D128**, where an embedder was a distinct KIND of backend, and
+**D126**/**D130**/**D131** dismantled that everywhere else. The cost is 12 entries on a frozen surface: the
+interface, two extension helpers, four `Add*` overloads and four public constructors.
+
+**This REVERSES D129's public half and keeps its substance.** The defect D129 fixed was real — three
+backends implemented `IEmbedder`, so the LAST registration silently won and a second endpoint replaced the
+first instead of becoming its failover. That is fixed by the capability filter and the routing helper, both
+of which stay. What goes is the conclusion that the fix needed a consumer-facing interface.
+
+**The alternative, and why it lost.** Keep `IEmbedder` as the BYO seam — an app plugging in its own model
+implements one member instead of a provider. It lost on measurement rather than taste: three shipped
+backends already embed — `Model2VecProvider` in process with no server, `OnnxProvider` over any
+transformer export, and `HttpModelProvider` against any OpenAI-compatible `/embeddings` endpoint, which is
+the de-facto standard. What remains is a vendor SDK that is neither, and that case implements
+`IModelProvider` — `Id`, `Capabilities`, `EmbedAsync` — exactly as a BYO scorer already must. A seam kept
+for a residue, at 12 surface entries, is the asymmetry this entry exists to remove.
+
+**A bridge delegate was considered and is NOT part of this.** An `embed` on `AddBridgeProvider` (**D147**)
+would make BYO a lambda, but it re-answers what the shipped backends answer; additive later if a case appears.
+
+**One thing that is NOT a route, recorded so it is not re-derived: a CLI cannot embed.**
+`ICliProviderDialect` is completion-shaped throughout — `BuildCompletionArgs`, `BuildPrompt`,
+`SupportsToolCalls`, the version/auth/install args — and no member of it or of the CLI engine touches
+embedding. "Bridge an embedder as a CLI dialect, it is only a calling path and args" describes work that
+does not exist yet, and it is a LARGER change than the delegate above, not a smaller one.
+
+**Breaking, and this release is the window** — the public API is frozen under SemVer with no carve-out
+(**D70**), so it goes in the major now shipping or it waits for the next one.
+
+**NOT YET IMPLEMENTED at the time of writing, deliberately.** Recorded ahead of the code at the owner's
+direction, because removing a public interface across four constructors and a test suite is worth agreeing
+on paper first. `IEmbedder` is still on the surface; the work is `TASKS.md` Part 100. Read this entry as
+the decision taken, not as the tree described — which is the one way a decision record can be read wrongly
+that `check-decision-claims` cannot catch, since it gates claims somebody registered.
