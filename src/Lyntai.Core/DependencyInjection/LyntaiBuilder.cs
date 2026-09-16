@@ -2,7 +2,6 @@ using Lyntai.Lifecycle;
 using System.Diagnostics.CodeAnalysis;
 using Lyntai.Agents;
 using Lyntai.Cortex;
-using Lyntai.Embeddings;
 using Lyntai.Guards;
 using Lyntai.Jobs;
 using Lyntai.Llm;
@@ -134,9 +133,15 @@ public sealed class LyntaiBuilder
     /// <summary>Register a backend that embeds — an <see cref="IModelProvider"/> declaring
     /// <see cref="ProviderKinds.Vector"/>.
     ///
-    /// <para>The same collection as <see cref="AddProvider"/>; what this adds is the STATEMENT that
-    /// something can embed, which the container needs before any provider is built. Use it from a
-    /// package's <c>Add…Embedder</c> extension rather than <see cref="AddProvider"/>.</para></summary>
+    /// <para><b>The same collection as <see cref="AddProvider"/>; what this adds is the STATEMENT that
+    /// something can embed</b>, which the container needs before any provider is BUILT and so cannot read
+    /// from a factory. Reach for this rather than <see cref="AddProvider"/> whenever the backend produces
+    /// vectors — registering an embedding backend through <see cref="AddProvider"/> compiles and runs, and
+    /// leaves <see cref="AddSemanticMemory()"/> unable to see it.</para>
+    ///
+    /// <para>A host registering an INSTANCE into the service collection before <c>AddLyntai</c> needs no
+    /// statement: that object declares its own <see cref="ProviderCapabilities"/> and the wiring reads
+    /// them.</para></summary>
     public LyntaiBuilder AddEmbeddingProvider(Func<IServiceProvider, IModelProvider> factory)
     {
         EmbeddingProviderRegistered = true;

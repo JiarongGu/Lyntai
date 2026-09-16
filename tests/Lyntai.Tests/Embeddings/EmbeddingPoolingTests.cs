@@ -1,4 +1,3 @@
-using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Lyntai.Tests.Fakes;
 using Lyntai.Providers.Onnx;

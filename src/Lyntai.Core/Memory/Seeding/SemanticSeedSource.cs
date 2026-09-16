@@ -1,5 +1,4 @@
 using System.Globalization;
-using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

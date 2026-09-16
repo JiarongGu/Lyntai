@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using Lyntai.Embeddings;
 using Lyntai.Embeddings.Model2Vec;
 using Lyntai.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;

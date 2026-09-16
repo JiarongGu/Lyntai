@@ -2,7 +2,6 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Microsoft.Extensions.Logging;

@@ -11,7 +11,6 @@ using Lyntai.Agents;
 using Lyntai.Cortex;
 using Lyntai.Cortex.Scorers;
 using Lyntai.Diagnostics;
-using Lyntai.Embeddings;
 using Lyntai.Jobs;
 using Lyntai.Llm;
 using Lyntai.Llm.Budgeting;

@@ -7,6 +7,42 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-17 — removing the embedder seam made a BYO backend invisible, and the error told you to use it
+
+**Symptom.** After **D151**, `AddSemanticMemory()` threw for a consumer who had registered their own
+embedding backend as an `IModelProvider` — either `services.AddSingleton<IModelProvider>(backend)` before
+`AddLyntai`, or `builder.AddProvider(_ => backend)`. The thrown message named that exact route as the
+remedy: *"A backend of your own is an IModelProvider declaring that it produces vectors"*. So the library
+refused a wiring, and told the consumer to do the thing it had just refused. `AddSemanticMemory`'s own XML
+doc made the same promise, and so did D151.
+
+**Root cause.** The pre-D151 guard had TWO conditions — a builder flag (`EmbeddingProviderRegistered`, set
+by `AddEmbeddingProvider`) **and** a descriptor scan for a registered `IEmbedder`. Deleting the interface
+removed the type the scan looked for, and the scan went with it instead of being repointed. Only the flag
+survived, and nothing but `AddEmbeddingProvider` sets it. Every SHIPPED backend was fine — Model2Vec, Onnx
+and the HTTP provider all funnel through that method — so only bring-your-own broke, which is the half no
+shipped test covered.
+
+**Why the test suite was green.** The one test for the route, `An_embedder_registered_by_any_route_...`,
+had both its arms rewritten to the same call during the refactor. Two identical arms cannot fail
+independently: the second `Assert.NotNull` was guaranteed by the first. The test name still said "by any
+route" and its doc still listed three.
+
+**Fix.** `EmbeddingIsWired` restores the second route on the only footing that survives the deletion. A
+FACTORY registration cannot be inspected before a provider is built, so the flag remains the statement for
+it; an INSTANCE registration needs no statement, because the object is in the descriptor and declares its
+own `ProviderCapabilities`. Reading the capability rather than counting providers is what keeps a chat-only
+deployment failing fast — a second fact now pins that direction.
+
+**Verify.** Two facts, both driven RED first: the host-instance route threw before the fix and wires after
+it, and a host-registered chat-only backend still throws. The two arms of the repaired test are now
+genuinely different code paths, and its doc says that if they ever read alike again, one of them is
+testing nothing. Full `verify` green with Docker up, 3821 / 3854 / 33.
+
+**Introduced by.** `355221d8` (D151), the same day — found by a review pass, not by a gate.
+
+---
+
 ## 2026-09-17 — the release gate had not compiled since the rename campaign, and nothing said so
 
 **Symptom.** `node devtools/dev.mjs consumer-smoke` — the gate whose whole job is proving the PACKAGES work

@@ -511,10 +511,6 @@ static class Lyntai.Diagnostics.LyntaiDiagnostics
     GenerationActivitySourceName : String const
     GenerationMeterName : String const
     MeterName : String const
-enum Lyntai.Embeddings.EmbeddingRole
-    Document : EmbeddingRole const
-    Query : EmbeddingRole const
-    value__ : Int32
 sealed class Lyntai.Generation.GenerationArtifact
     .ctor(String MediaType, Byte[] Data = null, String Uri = null, IReadOnlyDictionary<String,String> Metadata = null)
     Data : Byte[]
@@ -1005,6 +1001,10 @@ sealed class Lyntai.Lifecycle.BoundedProviderPool`1
     RetireSlot(String slot) : Int32
     Statistics : ProviderPoolStatistics
     TryGetKey(TProvider instance, ProviderKey& key) : Boolean
+enum Lyntai.Lifecycle.EmbeddingRole
+    Document : EmbeddingRole const
+    Query : EmbeddingRole const
+    value__ : Int32
 enum Lyntai.Lifecycle.FallbackAction
     Advance : FallbackAction const
     CooldownAndAdvance : FallbackAction const

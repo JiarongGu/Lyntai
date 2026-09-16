@@ -1,5 +1,4 @@
 using System.Globalization;
-using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Forgetting;
@@ -302,7 +301,11 @@ public sealed class GraphMemoryEngine(
         return policy;
     }
 
-    private bool Enriches => EmbeddingRouting.CanEmbed(providers) && vectors is not null;
+    // The VECTOR STORE is checked first deliberately: it is a null test, where `CanEmbed` walks the
+    // registered backends and asks each whether it is available — which for a CLI backend resolves a
+    // command on PATH. This property is read on every write and every recall, so the cheap half leads and
+    // an engine with no vector store never pays for the other one at all.
+    private bool Enriches => vectors is not null && EmbeddingRouting.CanEmbed(providers);
 
     /// <summary>This engine embeds every write and no recall reads those vectors — an embedder and a vector
     /// store are wired, so novelty and similarity linking run on the WRITE path, while no

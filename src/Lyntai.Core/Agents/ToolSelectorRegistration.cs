@@ -1,5 +1,4 @@
 using Lyntai.Agents;
-using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

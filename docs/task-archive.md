@@ -4305,3 +4305,30 @@ half stayed on `retiredApiNames` where it actually stops the type returning.
 
 **No test was lost**: 3853 total before and after, and the four failures the change produced were all
 assertions about the deleted seam, each repointed at the question it was really asking.
+
+## Part 245 — a five-dimension release review, and the regression it caught in work committed hours earlier
+
+✅ closed 2026-09-17, at the owner's direction: a full code-and-docs review before cutting the major,
+run as five parallel reviews — test integrity, public surface, structure/boundaries, maintained docs,
+release mechanics.
+
+**The finding that justified the pass: D151 broke bring-your-own embedding**, and `verify` was green over
+it because the one test covering the route had both arms rewritten into the same call. A test that cannot
+fail independently is the failure mode this repository builds gates against, and here it hid a shipped
+defect for the length of a session. Incident in `docs/FIXES.md`.
+
+**What the review changed immediately**, beyond that fix: the orphaned `Lyntai.Embeddings` namespace root
+(`TASKS.md` Part 101), `CLAUDE.md`'s namespace map — which listed a Core namespace that no longer exists
+and undercounted shared namespaces by two — and `AddEmbeddingProvider`'s shipped XML doc, which pointed at
+an `Add…Embedder` convention D132 retired.
+
+**What it found and did NOT change**, filed rather than fixed because each is a decision rather than a
+defect: the cross-encoder's names (`AddOnnxCrossEncoder` / `OnnxCrossEncoder`, the one backend D137/D138
+missed), `HttpDialect` as a closed enum where a DI seam belongs, `AddProvider` versus
+`AddEmbeddingProvider` as a silent mis-wiring trap, four surface changes since v3.1.0 that no changelog
+entry announces, and a `### Breaking` section carrying nine additive entries.
+
+**The reusable half is REVIEW SHAPE, not embeddings.** Each finding came from asking a different question
+of one tree, and none would have surfaced from the others — the regression was invisible to four of the
+five, because only the reviewer told to assume a green suite hides weakened tests looked for arms that had
+become identical.

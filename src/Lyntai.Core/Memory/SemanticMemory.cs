@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -23,7 +22,11 @@ public sealed class SemanticMemory(
 
     private int _warnedUnlistable;
 
-    private IEnumerable<IModelProvider> Embedders => EmbeddingRouting.CanEmbed(providers)
+    // The full provider list, guarded. Routing filters it again and would throw on its own, so this exists
+    // only to put "semantic memory" in front of that message — a consumer who wired this deliberately is
+    // owed the reason it cannot run, not just the generic one. Named for what it returns, not for what it
+    // checks: these are the registered backends, not a pre-filtered set of embedders.
+    private IEnumerable<IModelProvider> ProvidersOrThrow => EmbeddingRouting.CanEmbed(providers)
         ? providers!
         : throw new InvalidOperationException($"Semantic memory needs to embed. {EmbeddingRouting.NothingEmbeds}");
 
@@ -35,7 +38,7 @@ public sealed class SemanticMemory(
         // mismatched row last via Cosine=0; pgvector rejects it), so REINDEX (ForgetAsync + re-Remember).
         if (string.IsNullOrWhiteSpace(content)) return;
         var vector = await EmbeddingRouting.EmbedOneAsync(
-            Embedders, content, EmbeddingRole.Document, _logger, ct).ConfigureAwait(false);
+            ProvidersOrThrow, content, EmbeddingRole.Document, _logger, ct).ConfigureAwait(false);
         await vectors.UpsertAsync(Collection(taskKey, scope), IdFor(content), vector, content, ct).ConfigureAwait(false);
         _logger.LogDebug("semantic memory: remembered {Chars} chars in {Task}/{Scope}", content.Length, taskKey, scope);
     }
@@ -47,7 +50,7 @@ public sealed class SemanticMemory(
         try
         {
             var qv = await EmbeddingRouting.EmbedOneAsync(
-                Embedders, query, EmbeddingRole.Query, _logger, ct).ConfigureAwait(false);
+                ProvidersOrThrow, query, EmbeddingRole.Query, _logger, ct).ConfigureAwait(false);
             if (scope is null) return await AcrossScopesAsync(taskKey, qv, k, minScore, ct).ConfigureAwait(false);
             var matches = await vectors.SearchAsync(Collection(taskKey, scope), qv, k, ct).ConfigureAwait(false);
             return [.. matches.Where(m => m.Score >= minScore).Select(m => new SemanticHit(m.Payload, m.Score))];

@@ -1,6 +1,5 @@
 using System.Net;
 using Lyntai;
-using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Lyntai.Llm;
 using Lyntai.Providers.Http;

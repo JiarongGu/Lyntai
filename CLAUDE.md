@@ -18,7 +18,7 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D151** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3820 passed / 3853 total, 33 skipped` (the skips are
+**The baseline a green run should match:** `3821 passed / 3854 total, 33 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 860/860, doc samples 58/58. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
@@ -89,7 +89,7 @@ of them is gated, which is why these five are here and the ones a gate or a test
 Namespace map (Core): `Lyntai.Llm` (+ `.Cli` — a new CLI backend is a DIALECT, never a new provider —
 `.Routing` / `.Caching` / `.Budgeting` / `.RateLimiting`) / `Lyntai.Generation` (+ `.Routing` / `.Jobs` /
 `.Tools`; the CONTRACTS are in Core, the BACKENDS are the separate `Lyntai.Generation` package, split by
-dependency footprint) / `Lyntai.Embeddings` / `Lyntai.Memory` (semantic memory + vector store; the
+dependency footprint) / `Lyntai.Memory` (semantic memory + vector store; the
 graph-memory DOMAINS are SEVEN: `.Interference` / `.Forgetting` / `.Modulation` / `.Salience` /
 `.Ranking` / `.Annotation` / `.Verification`, each an `IMemory*Policy` seam plus its implementations AND its
 options — `.Seeding` has that shape and is NOT one, because `IMemorySeedSource` PRODUCES candidates rather
@@ -102,9 +102,14 @@ either way. A root-level `IMemory*Policy` without a recorded reason now RAISES t
 `check-counts`, which it previously could not see at all) / `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` / `Lyntai.Jobs` /
 `Lyntai.Guards` / `Lyntai.Secrets` / `Lyntai.Lifecycle` / `Lyntai.Storage` / `Lyntai.Processes` /
 `Lyntai.Text`; builder + `Add*`/`Use*` extensions live in the `Lyntai` namespace.
-**One namespace above is not Core's alone**: `Lyntai.Providers.Basic` ships `Model2VecProvider` publicly
-into `Lyntai.Embeddings.Model2Vec`, while the other in-process embedder sits in `Lyntai.Providers.Onnx`. An
-inconsistency, frozen by **D70** — recorded so a reader does not conclude the tree disagrees with this map.
+**THREE namespaces above are not Core's alone, and one is not Core's at all.** `Lyntai.Secrets` is shared
+(Core's envelope + `Lyntai.Secrets.Dpapi`'s public protector) and `Lyntai.Llm` is entered by an INTERNAL
+type in `Lyntai.Providers.Basic`. **`Lyntai.Embeddings` left Core entirely with D151** — `EmbeddingRole` and
+the routing helper moved to `Lyntai.Lifecycle`, where the capability vocabulary lives — so the only
+inhabitant of that root is now `Lyntai.Providers.Basic`'s public `Lyntai.Embeddings.Model2Vec`, an adapter
+owning a namespace family with no contract above it. The other in-process embedder sits in
+`Lyntai.Providers.Onnx`. **Frozen by D70 and now on a weaker footing than when that was recorded** — the
+note used to say the parent was Core's; it is not. `TASKS.md` Part 101 holds the call.
 
 **The records, and what each is for:** `docs/2026-07-17-lyntai-design.md` — the contract (interfaces,
 semantics); read it first · `docs/DECISIONS.md` §How to read it — the rationale log, present tense,

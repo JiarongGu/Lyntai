@@ -1,5 +1,5 @@
+using Lyntai.Lifecycle;
 using Lyntai;
-using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Tests.Fakes;
 using Lyntai.Tests.Storage;
@@ -49,9 +49,14 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         Assert.Contains("ProviderKinds.Vector", ex.Message);
     }
 
-    /// <summary>The no-argument overload is the "my backend comes from somewhere else" path — a provider
-    /// package's <c>Add…Provider</c>, <c>AddEmbeddingProvider</c>, or a host registration made before
-    /// <c>AddLyntai</c>. All three satisfy the intent.</summary>
+    /// <summary>The no-argument overload is the "my backend comes from somewhere else" path. Two routes
+    /// have to reach it and they are NOT the same code: the builder's own
+    /// <see cref="LyntaiBuilder.AddEmbeddingProvider"/>, which STATES the capability, and a host
+    /// registration made before <c>AddLyntai</c>, which states nothing and must be INSPECTED.
+    ///
+    /// <para>The second arm was a duplicate of the first between D151 and its follow-up, so it could not
+    /// fail — and the route it was supposed to cover was broken the whole time. The arms must stay
+    /// genuinely different; if they ever read alike again, one of them is testing nothing.</para></summary>
     [Fact]
     public void An_embedder_registered_by_any_route_satisfies_the_intent()
     {
@@ -61,11 +66,28 @@ public sealed class SemanticMemoryWiringTests : IDisposable
             .AddSemanticMemory());
         Assert.NotNull(viaBuilder.BuildServiceProvider().GetService<ISemanticMemory>());
 
+        // The HOST route: an IModelProvider instance in the collection before AddLyntai ever runs. Nothing
+        // states that it embeds, so the wiring has to read its declared Capabilities.
         var viaHost = new ServiceCollection();
-        viaHost.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
-            .AddEmbeddingProvider(_ => new FakeEmbedder())
-            .AddSemanticMemory());
+        viaHost.AddSingleton<IModelProvider>(new FakeEmbedder());
+        viaHost.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddSemanticMemory());
         Assert.NotNull(viaHost.BuildServiceProvider().GetService<ISemanticMemory>());
+    }
+
+    /// <summary>A chat-only host registration must NOT satisfy the intent — the inspection above reads the
+    /// declared capability rather than counting providers, so a deployment with backends but none that
+    /// embeds still fails at composition instead of degrading to a silent no-op at run time.</summary>
+    [Fact]
+    public void A_host_registered_backend_that_does_not_embed_does_not_satisfy_it()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IModelProvider>(new FakeLlmProvider("chat-only"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddSemanticMemory()));
+
+        Assert.Contains("ProviderKinds.Vector", ex.Message);
     }
 
     [Fact]

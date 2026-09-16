@@ -1,4 +1,4 @@
-namespace Lyntai.Embeddings;
+namespace Lyntai.Lifecycle;
 
 /// <summary>Which side of a similarity comparison a text is being embedded for.
 ///

@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;

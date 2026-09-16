@@ -1,4 +1,3 @@
-using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Lyntai.Providers.Onnx;
 using Microsoft.Extensions.DependencyInjection;

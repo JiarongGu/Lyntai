@@ -15,23 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 5 Parts: 3 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 11 across 6 Parts: 4 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 111 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 128 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 161 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 214 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 233 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 287 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 347 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 402 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 425 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 482 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 112 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 129 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 162 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 215 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 234 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 281 | 101 | NS1 — rule on `Lyntai.Embeddings.Model2Vec`, in THIS release window or not … | startable |  |
+| 312 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 372 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 427 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 450 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 507 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -46,8 +47,8 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is THREE items**: all three sat
-here `blocked` or unfiled until 2026-09-16, two of them hidden inside a bundled item.
+longer drift apart. Edit the marker, never the table. **The startable set is FOUR items**: three sat here
+`blocked` or unfiled until 2026-09-16, and the fourth is a naming call the major's window opens (Part 101).
 **The accumulation that hid them is now GATED rather than watched for**: `check-backlog` fails a
 `## Part` holding no open checkbox.
 
@@ -268,6 +269,30 @@ fourth such surface — a consuming app measured it 2026-08-04 and it is now con
 > `[x]` here.
 
 ---
+
+## Part 101 — `Lyntai.Embeddings.Model2Vec`: an adapter owning a namespace root (2026-09-17)
+
+_Opened by **D151**'s follow-through. `EmbeddingRole` and the routing helper moved to `Lyntai.Lifecycle`,
+so Core no longer has a `Lyntai.Embeddings` namespace at all — and the only inhabitant left of that root is
+`Lyntai.Providers.Basic`'s public `Model2VecProvider` / `SafetensorsTable`. **The inconsistency CLAUDE.md
+records as "frozen by D70" is now a STRONGER one than the note describes**: it said the parent was Core's
+and shared; the parent is gone._
+
+- [ ] **NS1 — rule on `Lyntai.Embeddings.Model2Vec`, in THIS release window or not at all.** <!-- item: state=startable -->
+  `src/Lyntai.Providers.Basic/Model2Vec/Model2VecProvider.cs:6`, `SafetensorsTable.cs:3`. Both public, so
+  the spelling is frozen under SemVer until a major — and a major is being cut now, which is why this is
+  startable rather than a standing wish.
+
+  **Three options, and the cost of each is the point.** (1) Move to `Lyntai.Providers.Model2Vec`, matching
+  `Lyntai.Providers.Onnx` — the two in-process embedding backends then read alike, and the orphaned root
+  disappears. Breaking, mechanical, and free in this window. (2) Leave it and re-record the inconsistency
+  on its new footing, since the old justification no longer holds. (3) Move it to
+  `Lyntai.Embeddings.Model2Vec`'s natural parent by giving Core an `Lyntai.Embeddings` contract again —
+  **refused on sight**: that reinstates the category D151 removed.
+
+  _Not a defect in itself — a consumer's `using` works either way. What it costs is the map: an adapter
+  owning a namespace family with no contract above it inverts `dotnet-package-layout.md`'s "contract in the
+  core package, implementation in an adapter", and the next reader of that rule meets a counter-example._
 
 ## Part 41 — CLI backends: the codex surface still to MEASURE (2026-08-05)
 

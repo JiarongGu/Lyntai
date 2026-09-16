@@ -61,13 +61,18 @@ public static class LyntaiServiceCollectionExtensions
         // AddSemanticMemory states an intent the wiring below can only honor when something can embed —
         // otherwise ISemanticMemory is never registered and every recall path skips it in silence. The
         // whole point of naming the feature is to turn that quiet degradation into a startup failure.
-        // It is a STATED fact rather than an inferred one (LyntaiBuilder.EmbeddingProviderRegistered),
-        // because capability is only knowable once a provider is BUILT and this has to decide before that.
-        if (builder.SemanticMemoryRequested && !builder.EmbeddingProviderRegistered)
+        //
+        // TWO ROUTES, because capability is only knowable once a provider is BUILT and this must decide
+        // before that. `AddEmbeddingProvider` STATES it, which is the only thing a factory registration can
+        // do. A host registering an INSTANCE before `AddLyntai` states nothing — but the instance is right
+        // there in the descriptor, so its declared `Capabilities` can be read without building anything.
+        // Dropping the second route is what made a BYO backend registered outside the builder invisible,
+        // while the error text told the consumer to do exactly that.
+        if (builder.SemanticMemoryRequested && !EmbeddingIsWired(services, builder))
             throw new InvalidOperationException(
                 "AddSemanticMemory was called, but no registered backend produces vectors, so "
                 + "ISemanticMemory would never be wired and semantic recall would silently do nothing. "
-                + Lyntai.Embeddings.EmbeddingRouting.NothingEmbeds
+                + Lyntai.Lifecycle.EmbeddingRouting.NothingEmbeds
                 + " Or drop the AddSemanticMemory call.");
 
         // same contradiction for refusal screening: it wraps Lyntai's OWN client inside the factory below,
@@ -312,6 +317,24 @@ public static class LyntaiServiceCollectionExtensions
         }, backend.Lifetime));
     }
 
+    /// <summary>Whether anything in the container will be able to embed, decided WITHOUT building a
+    /// provider — which is the constraint that shapes this.
+    ///
+    /// <para>A factory registration cannot be inspected, so <see cref="LyntaiBuilder.AddEmbeddingProvider"/>
+    /// exists to STATE the capability. An instance registration needs no statement: the object is in the
+    /// descriptor and declares its own <see cref="ProviderCapabilities"/>. Reading it is what keeps a host
+    /// registration made before <c>AddLyntai</c> working, and reading the CAPABILITY rather than counting
+    /// providers is what keeps a chat-only deployment failing fast.</para></summary>
+    private static bool EmbeddingIsWired(IServiceCollection services, LyntaiBuilder builder) =>
+        builder.EmbeddingProviderRegistered
+        || services.Any(d => !d.IsKeyedService
+            && d.ServiceType == typeof(Lyntai.Lifecycle.IModelProvider)
+            && d.ImplementationInstance is Lyntai.Lifecycle.IModelProvider p
+            && p.Capabilities.Supports(
+                Lyntai.Lifecycle.ProviderKinds.Vector,
+                Lyntai.Lifecycle.ProviderOperation.Complete,
+                accepts: Lyntai.Lifecycle.ProviderKinds.Text));
+
     /// <summary>Semantic memory — wired ONLY when a backend producing
     /// <see cref="Lyntai.Lifecycle.ProviderKinds.Vector"/> is registered. Composes the registered providers
     /// with a vector store (in-memory default; register your own <c>IVectorStore</c> for pgvector/etc.).
@@ -326,7 +349,7 @@ public static class LyntaiServiceCollectionExtensions
     /// and the guard above turns the silent skip into a composition-time throw.</para></summary>
     private static void RegisterSemanticMemory(IServiceCollection services, LyntaiBuilder builder)
     {
-        if (!builder.EmbeddingProviderRegistered) return;
+        if (!EmbeddingIsWired(services, builder)) return;
         services.TryAddSingleton<Lyntai.Memory.IVectorStore, Lyntai.Memory.InMemoryVectorStore>();
         services.TryAddSingleton<Lyntai.Memory.ISemanticMemory>(sp => new Lyntai.Memory.SemanticMemory(
             sp.GetServices<Lyntai.Lifecycle.IModelProvider>(), sp.GetRequiredService<Lyntai.Memory.IVectorStore>(),

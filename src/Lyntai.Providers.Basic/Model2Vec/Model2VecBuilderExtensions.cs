@@ -1,4 +1,3 @@
-using Lyntai.Embeddings;
 using Lyntai.Embeddings.Model2Vec;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

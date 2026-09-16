@@ -1,4 +1,3 @@
-using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using Lyntai.Memory;
 using Lyntai.Memory.Annotation;

@@ -1,7 +1,6 @@
-using Lyntai.Lifecycle;
 using Microsoft.Extensions.Logging;
 
-namespace Lyntai.Embeddings;
+namespace Lyntai.Lifecycle;
 
 /// <summary>Routing for the <see cref="ProviderKinds.Vector"/> capability: pick the backends that can
 /// embed, try them in order, fall over when one fails.
@@ -17,17 +16,26 @@ namespace Lyntai.Embeddings;
 /// recall and the next, and a cached "unavailable" would outlive the outage that caused it.</para></summary>
 internal static class EmbeddingRouting
 {
+    private static bool Embeds(IModelProvider p) =>
+        p.IsAvailable && p.Capabilities.Supports(
+            ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text);
+
     /// <summary>The registered backends that turn text into vectors, in registration order.</summary>
     public static IReadOnlyList<IModelProvider> Capable(IEnumerable<IModelProvider>? providers) =>
-        providers?.Where(p => p.IsAvailable && p.Capabilities.Supports(
-            ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text)).ToList()
-        ?? [];
+        providers?.Where(Embeds).ToList() ?? [];
 
     /// <summary>Whether anything can embed at all — what a consumer asks instead of null-checking a seam.
-    /// <para>This REPLACES "is an embedder registered?": the answer is now derived from what the registered
+    ///
+    /// <para>This REPLACES "is an embedder registered?": the answer is derived from what the registered
     /// backends declare, so a deployment cannot claim an embedding capability it has no backend for.</para>
-    /// </summary>
-    public static bool CanEmbed(IEnumerable<IModelProvider>? providers) => Capable(providers).Count > 0;
+    ///
+    /// <para><b>It SHORT-CIRCUITS and allocates nothing</b>, because callers sit on hot paths —
+    /// <c>GraphMemoryEngine.Enriches</c> is read on every write and every recall. Answering it through
+    /// <see cref="Capable"/> would build a list per call to ask a yes/no question, and
+    /// <see cref="IModelProvider.IsAvailable"/> is not always free: a CLI backend's resolves a command on
+    /// PATH. Ask the cheap question first and stop at the first backend that answers.</para></summary>
+    public static bool CanEmbed(IEnumerable<IModelProvider>? providers) =>
+        providers is not null && providers.Any(Embeds);
 
     /// <summary>Embed a batch, falling over to the next capable backend when one fails.</summary>
     /// <exception cref="InvalidOperationException">Nothing can embed, or every backend failed.</exception>

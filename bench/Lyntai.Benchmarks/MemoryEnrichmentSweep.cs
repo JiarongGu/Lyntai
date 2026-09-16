@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 
-using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Forgetting;

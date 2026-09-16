@@ -1,7 +1,6 @@
 using System.Net;
 using Lyntai;
 using Lyntai.Lifecycle;
-using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Providers.Http;
 using Lyntai.Tests.Fakes;

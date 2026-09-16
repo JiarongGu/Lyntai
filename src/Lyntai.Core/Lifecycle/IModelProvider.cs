@@ -13,7 +13,7 @@ namespace Lyntai.Lifecycle;
 ///
 /// <para><b>Every operation is DEFAULTED to <c>Unsupported</c></b>, so a backend implements only what it
 /// does. An embedder overrides
-/// <see cref="EmbedAsync(IReadOnlyList{string},Lyntai.Embeddings.EmbeddingRole,CancellationToken)"/> and
+/// <see cref="EmbedAsync(IReadOnlyList{string},Lyntai.Lifecycle.EmbeddingRole,CancellationToken)"/> and
 /// nothing else; a CLI chat backend overrides <see cref="CompleteAsync"/> and
 /// <see cref="StreamAsync(LlmRequest,CancellationToken)"/>.</para>
 ///
@@ -61,7 +61,7 @@ public interface IModelProvider : IProviderIdentity
     Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
         throw new NotSupportedException(ProviderDefaults.NotServed(Id, nameof(EmbedAsync)));
 
-    /// <summary>Embed for a known <see cref="Lyntai.Embeddings.EmbeddingRole"/>. Defaults to forwarding to
+    /// <summary>Embed for a known <see cref="Lyntai.Lifecycle.EmbeddingRole"/>. Defaults to forwarding to
     /// the role-less overload, so a SYMMETRIC model needs to implement only one of the two.
     ///
     /// <para><b>It exists so the front door cannot silently drop the role.</b> Asymmetric models — E5, BGE,
@@ -69,7 +69,7 @@ public interface IModelProvider : IProviderIdentity
     /// both sides are embedded identically. A router that only knew the role-less overload would quietly
     /// erase the one fact a backend cannot work out for itself.</para></summary>
     Task<IReadOnlyList<float[]>> EmbedAsync(
-        IReadOnlyList<string> texts, Lyntai.Embeddings.EmbeddingRole role, CancellationToken ct = default) =>
+        IReadOnlyList<string> texts, Lyntai.Lifecycle.EmbeddingRole role, CancellationToken ct = default) =>
         EmbedAsync(texts, ct);
 
     /// <summary>A query and a set of documents in, one relevance score per document out, IN INPUT ORDER.

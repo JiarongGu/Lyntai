@@ -1,4 +1,3 @@
-using Lyntai.Embeddings;
 using Lyntai.Lifecycle;
 using System.Net;
 using System.Runtime.CompilerServices;
