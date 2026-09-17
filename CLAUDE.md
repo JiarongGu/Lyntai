@@ -18,16 +18,16 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D152** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3821 passed / 3854 total, 33 skipped` (the skips are
+**The baseline a green run should match:** `3823 passed / 3856 total, 33 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 860/860, doc samples 58/58. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-17 at `355221d8`** — read off that run's own output, never
+**MEASURED with Docker up, re-attested 2026-09-17 at `30b092fe`** — read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
-easily breaks. **UNCHANGED across a session that deleted a public interface** (**D151**): 78 files, 19 of
-them in `src/` and 33 test files, and all three figures held. **No movement is a result, and it is the one
-this line is checked against** — a diff that touches `src/` heavily and leaves the trio alone is the normal
-case, not a suspicious one, because what moves these numbers is a test being ADDED or REMOVED and a
+easily breaks. **Moved +2 across a 117-file rename** (**D152**), and the +2 is the whole check: two tests
+were ADDED for a new overload, and a rename of 117 files moved nothing else. **A big diff with a small,
+NAMED movement is the normal case** — a diff that touches `src/` heavily and leaves the trio alone is not
+suspicious either, because what moves these numbers is a test being ADDED or REMOVED and a
 refactor does neither.
 **Two review passes moved this line 3750 → 3780 → 3817 in one day** and the skip count has never changed —
 that invariance is the half worth checking, since it is what a Docker-down run would break first.
