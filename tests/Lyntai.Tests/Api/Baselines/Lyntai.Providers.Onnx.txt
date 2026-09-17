@@ -2,12 +2,12 @@ static class Lyntai.OnnxBuilderExtensions
     static AddOnnxCrossEncoder(LyntaiBuilder builder, String modelDirectory, Action<OnnxCrossEncoderOptions> configure = null) : LyntaiBuilder
     static AddOnnxProvider(LyntaiBuilder builder, String modelDirectory, Action<OnnxProviderOptions> configure = null) : LyntaiBuilder
 sealed class Lyntai.Providers.Onnx.OnnxCrossEncoder
+    CallAsync(ScoreRequest request, CancellationToken ct = default) : Task<ScoreResponse>
     Capabilities : ProviderCapabilities
     Dispose() : Void
     Id : String
     IsAvailable : Boolean
     MaxTokens : Int32
-    ScoreAsync(String query, IReadOnlyList<String> documents, CancellationToken ct = default) : Task<IReadOnlyList<Double>>
     static FromDirectory(String directory, OnnxCrossEncoderOptions options = null) : OnnxCrossEncoder
 sealed class Lyntai.Providers.Onnx.OnnxCrossEncoderOptions
     .ctor()

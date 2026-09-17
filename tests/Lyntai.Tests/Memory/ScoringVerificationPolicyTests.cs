@@ -20,7 +20,7 @@ public class ScoringVerificationPolicyTests
 {
     /// <summary>A backend that produces scores and records what it was asked to score.</summary>
     private sealed class FakeScorer(
-        Func<IReadOnlyList<string>, IReadOnlyList<double>> score, string id = "scorer") : IModelProvider
+        Func<IReadOnlyList<string>, IReadOnlyList<double>> score, string id = "scorer") : IScoreProvider
     {
         public string Id => id;
         public List<IReadOnlyList<string>> Sent { get; } = [];
@@ -32,12 +32,17 @@ public class ScoringVerificationPolicyTests
             Operations = [ProviderOperation.Complete],
         };
 
-        public Task<IReadOnlyList<double>> ScoreAsync(
-            string query, IReadOnlyList<string> documents, CancellationToken ct = default)
+        /// <summary>Throws where the scripted function throws, rather than converting it to a verdict: these
+        /// tests are about what the seam does with a backend that FAILS, and the router classifying an
+        /// escaping exception is the path a real in-process backend takes.</summary>
+        public Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
-            Sent.Add(documents);
-            return Task.FromResult(score(documents));
+            Sent.Add(request.Documents);
+            var scores = score(request.Documents);
+            return Task.FromResult(scores.Count == 0
+                ? new ScoreResponse(ProviderVerdict.Ok, scores)
+                : ScoreResponse.Success(scores));
         }
     }
 
@@ -234,20 +239,17 @@ public class ScoringVerificationPolicyTests
         return logger.Levels;
     }
 
+    /// <summary>The wiring defect this seam used to report at Warning on EVERY recall is now refused once,
+    /// at composition, by <c>AddLyntai</c> — a backend declaring ProviderKinds.Score without implementing
+    /// IScoreProvider cannot reach a deployment at all (D153). Pinned by
+    /// <c>SemanticMemoryWiringTests.A_backend_that_DECLARES_vectors_without_implementing_the_seam_is_refused</c>
+    /// for the vector half; both kinds go through one guard.
+    ///
+    /// <para>What remains here is the TRANSIENT case, which stays at debug: a transport blip is per-recall
+    /// noise, not a defect, and the two must not log alike.</para></summary>
     [Fact]
-    public async Task A_backend_that_DECLARED_Score_and_does_not_serve_it_is_AUDIBLE_not_debug_only()
+    public async Task A_TRANSIENT_failure_stays_at_DEBUG_rather_than_crying_wolf_every_recall()
     {
-        // Fail-open stays — the verdict is still NoOpinion, pinned above. What changes is audibility: a
-        // backend declaring a kind it does not implement is a WIRING defect, identical on every recall
-        // forever, and at debug level nothing ever tells the deployment its recalls are unverified.
-        Assert.Contains(LogLevel.Warning, await LevelsFrom(new NotSupportedException("no ScoreAsync here")));
-    }
-
-    [Fact]
-    public async Task A_TRANSIENT_failure_stays_at_debug_so_the_warning_above_still_means_something()
-    {
-        // The positive control. Without it, an implementation that logged everything at Warning would pass
-        // the test above and turn a per-recall transport blip into per-recall noise.
         Assert.DoesNotContain(LogLevel.Warning, await LevelsFrom(new HttpRequestException("connection reset")));
         Assert.DoesNotContain(LogLevel.Warning, await LevelsFrom(new InvalidOperationException("malformed")));
     }

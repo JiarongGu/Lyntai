@@ -365,18 +365,38 @@ public static class LyntaiServiceCollectionExtensions
         {
             if (descriptor.IsKeyedService
                 || descriptor.ServiceType != typeof(Lyntai.Lifecycle.IModelProvider)
-                || descriptor.ImplementationInstance is not Lyntai.Lifecycle.IModelProvider provider
-                || !Embeds(provider.Capabilities)
-                || provider is Lyntai.Lifecycle.IVectorProvider)
+                || descriptor.ImplementationInstance is not Lyntai.Lifecycle.IModelProvider provider)
                 continue;
 
+            Refuse(provider, Embeds(provider.Capabilities),
+                provider is Lyntai.Lifecycle.IVectorProvider,
+                nameof(Lyntai.Lifecycle.ProviderKinds.Vector), nameof(Lyntai.Lifecycle.IVectorProvider),
+                "semantic recall would return nothing");
+
+            Refuse(provider, Scores(provider.Capabilities),
+                provider is Lyntai.Lifecycle.IScoreProvider,
+                nameof(Lyntai.Lifecycle.ProviderKinds.Score), nameof(Lyntai.Lifecycle.IScoreProvider),
+                "every recall would go unverified");
+        }
+
+        static void Refuse(
+            Lyntai.Lifecycle.IModelProvider provider, bool declares, bool implements, string kind,
+            string seam, string consequence)
+        {
+            if (!declares || implements) return;
             throw new InvalidOperationException(
-                $"Backend '{provider.Id}' ({provider.GetType().Name}) declares ProviderKinds.Vector but does "
-                + "not implement IVectorProvider, so nothing would ever route an embed call to it — semantic "
-                + "recall would return nothing with no error. Implement IVectorProvider, or drop Vector from "
-                + "its ProviderCapabilities.Produces.");
+                $"Backend '{provider.Id}' ({provider.GetType().Name}) declares ProviderKinds.{kind} but does "
+                + $"not implement {seam}, so nothing would ever route that call to it — {consequence} with no "
+                + $"error at all. Implement {seam}, or drop {kind} from its ProviderCapabilities.Produces.");
         }
     }
+
+    /// <summary>Text in, scores out — the shape <c>AddMemoryScoringVerification</c> selects on.</summary>
+    private static bool Scores(Lyntai.Lifecycle.ProviderCapabilities capabilities) =>
+        capabilities.Supports(
+            Lyntai.Lifecycle.ProviderKinds.Score,
+            Lyntai.Lifecycle.ProviderOperation.Complete,
+            accepts: Lyntai.Lifecycle.ProviderKinds.Text);
 
     /// <summary>Semantic memory — wired ONLY when a backend producing
     /// <see cref="Lyntai.Lifecycle.ProviderKinds.Vector"/> is registered. Composes the registered providers

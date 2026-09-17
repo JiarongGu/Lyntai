@@ -1008,7 +1008,6 @@ interface Lyntai.Lifecycle.IModelProvider
     Id : String
     IsAvailable : Boolean
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
-    ScoreAsync(String query, IReadOnlyList<String> documents, CancellationToken ct = default) : Task<IReadOnlyList<Double>>
     StreamAsync(GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
 interface Lyntai.Lifecycle.IProviderAdmission
@@ -1033,6 +1032,7 @@ interface Lyntai.Lifecycle.IProviderQueue`2
     SubmitAsync(TRequest request, CancellationToken ct = default) : Task<QueuedOperation>
 interface Lyntai.Lifecycle.IProviderStream`2
     StreamAsync(TRequest request, CancellationToken ct = default) : IAsyncEnumerable<TChunk>
+interface Lyntai.Lifecycle.IScoreProvider
 interface Lyntai.Lifecycle.IVectorProvider
 sealed class Lyntai.Lifecycle.ProviderAdmission
     .ctor(ProviderAdmissionOptions options = null)
@@ -1185,6 +1185,28 @@ sealed class Lyntai.Lifecycle.RoutingPolicy
     RetriesFor(ProviderVerdict verdict) : Int32
     Retry(ProviderVerdict verdict, Int32 count) : RoutingPolicy
     RetryBackoff : TimeSpan
+sealed class Lyntai.Lifecycle.ScoreRequest
+    .ctor(String Query, IReadOnlyList<String> Documents)
+    Deconstruct(String& Query, IReadOnlyList`1& Documents) : Void
+    Documents : IReadOnlyList<String>
+    Equals(Object obj) : Boolean
+    Equals(ScoreRequest other) : Boolean
+    GetHashCode() : Int32
+    Query : String
+    ToString() : String
+sealed class Lyntai.Lifecycle.ScoreResponse
+    .ctor(ProviderVerdict Verdict, IReadOnlyList<Double> Scores, String Detail = null)
+    Deconstruct(ProviderVerdict& Verdict, IReadOnlyList`1& Scores, String& Detail) : Void
+    Detail : String
+    Equals(Object obj) : Boolean
+    Equals(ScoreResponse other) : Boolean
+    GetHashCode() : Int32
+    IsOk : Boolean
+    Scores : IReadOnlyList<Double>
+    ToString() : String
+    Verdict : ProviderVerdict
+    static Failure(ProviderVerdict verdict, String detail = null) : ScoreResponse
+    static Success(IReadOnlyList<Double> scores, String detail = null) : ScoreResponse
 sealed class Lyntai.Lifecycle.TransientProviderPool`1
     .ctor()
     GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider

@@ -29,7 +29,7 @@ public sealed class HttpModelProvider(
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
     ILogger<HttpModelProvider>? logger = null,
-    bool disposeHttpClient = true) : IModelProvider, IVectorProvider
+    bool disposeHttpClient = true) : IModelProvider, IVectorProvider, IScoreProvider
 {
     private readonly ILogger _logger = logger ?? NullLogger<HttpModelProvider>.Instance;
     private readonly HttpDialect _dialect = HttpEndpoint.ResolveDialect(config.Dialect, config.BaseUrl);
@@ -103,13 +103,13 @@ public sealed class HttpModelProvider(
 
 
     /// <inheritdoc/>
-    /// <exception cref="NotSupportedException">This registration does not produce scores.</exception>
-    public Task<IReadOnlyList<double>> ScoreAsync(
-        string query, IReadOnlyList<string> documents, CancellationToken ct = default) =>
+    /// <exception cref="NotSupportedException">This registration does not produce scores. A router checks
+    /// <see cref="Capabilities"/> first, so only a caller that ignored them reaches this.</exception>
+    public Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default) =>
         (_rerank ?? throw new NotSupportedException(
             $"{id} produces {config.Produces}, not {ProviderKinds.Score} — a reranker is its own backend, "
             + "registered with Produces = ProviderKinds.Score."))
-        .ScoreAsync(query, documents, ct);
+        .CallAsync(request, ct);
 
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {

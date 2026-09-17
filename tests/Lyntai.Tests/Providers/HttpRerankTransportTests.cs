@@ -90,22 +90,38 @@ public class HttpRerankTransportTests
     [InlineData(HttpStatusCode.OK, """{"results":[{"index":7,"score":0.99},{"index":0,"score":0.5}]}""")]
     // a document left unscored would read as 0.0, which ranks as confidently as a real score
     [InlineData(HttpStatusCode.OK, """{"results":[{"index":0,"score":0.5}]}""")]
-    public async Task A_malformed_or_incomplete_answer_THROWS_rather_than_ranking_on_holes(
+    public async Task A_malformed_or_incomplete_answer_FAILS_rather_than_ranking_on_holes(
         HttpStatusCode status, string body)
     {
         var scorer = Scorer(new StubHttpHandler().Enqueue(status, body));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => scorer.ScoreAsync("q", ["a", "b"]));
+        var response = await scorer.CallAsync(new ScoreRequest("q", ["a", "b"]));
+
+        Assert.NotEqual(ProviderVerdict.Ok, response.Verdict);
+        Assert.Empty(response.Scores);
     }
 
     [Fact]
-    public async Task A_non_2xx_status_throws_and_names_it()
+    public async Task A_non_2xx_status_is_a_verdict_that_names_it()
     {
         var scorer = Scorer(new StubHttpHandler().Enqueue(HttpStatusCode.InternalServerError, "upstream died"));
 
-        var ex = await Assert.ThrowsAsync<HttpRequestException>(() => scorer.ScoreAsync("q", ["a"]));
+        var response = await scorer.CallAsync(new ScoreRequest("q", ["a"]));
 
-        Assert.Contains("500", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(ProviderVerdict.Failed, response.Verdict);
+        Assert.Contains("500", response.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_429_is_RATE_LIMITED_so_a_second_reranker_can_take_over()
+    {
+        // Before D153 a rate-limited reranker threw, the verification seam reported NoOpinion, and the very
+        // next recall asked the same exhausted host again -- there was no cooldown for it to reach.
+        var scorer = Scorer(new StubHttpHandler().Enqueue(HttpStatusCode.TooManyRequests, "slow down"));
+
+        var response = await scorer.CallAsync(new ScoreRequest("q", ["a"]));
+
+        Assert.Equal(ProviderVerdict.RateLimited, response.Verdict);
     }
 
     [Fact]
@@ -131,11 +147,13 @@ public class HttpRerankTransportTests
     }
 
     [Fact]
-    public async Task A_component_timeout_is_a_TimeoutException_not_the_callers_cancellation()
+    public async Task A_component_timeout_is_a_TIMEOUT_verdict_not_the_callers_cancellation()
     {
         var handler = new StubHttpHandler().Enqueue(_ => throw new TaskCanceledException());
 
-        await Assert.ThrowsAsync<TimeoutException>(() => Scorer(handler).ScoreAsync("q", ["a"]));
+        var response = await Scorer(handler).CallAsync(new ScoreRequest("q", ["a"]));
+
+        Assert.Equal(ProviderVerdict.Timeout, response.Verdict);
     }
 
     [Fact]

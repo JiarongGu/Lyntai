@@ -13,10 +13,10 @@ namespace Lyntai.Providers.Http;
 /// <see cref="HttpVectorTransport"/> is for vectors. A transport, not a backend: it has no id and no
 /// capabilities, because the provider that owns it is the backend.
 ///
-/// <para><b>It THROWS rather than reporting a degraded answer</b>, which is the rule
-/// <see cref="Lyntai.Lifecycle.IModelProvider.ScoreAsync"/> states — there is no score meaning "I could
-/// not", and a zero ranks as confidently as any other number. A caller that wants to fail open catches;
-/// <c>ScoringVerificationPolicy</c> does exactly that.</para></summary>
+/// <para><b>It reports a non-Ok VERDICT rather than a degraded answer</b>, which is the rule
+/// <see cref="ScoreResponse"/> states — there is no score meaning "I could not", and a zero ranks as
+/// confidently as any other number, so failure gets its own axis. A caller that wants to fail open reads
+/// the verdict; <c>ScoringVerificationPolicy</c> does exactly that.</para></summary>
 internal sealed class HttpRerankTransport(
     string id,
     HttpModelOptions config,
@@ -30,16 +30,16 @@ internal sealed class HttpRerankTransport(
 
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
 
-    /// <summary>Score every document against the query, returning one score per document IN INPUT ORDER.</summary>
-    /// <exception cref="HttpRequestException">The endpoint returned a non-2xx status or was unreachable.</exception>
-    /// <exception cref="TimeoutException">No response within <see cref="LyntaiOptions.ProviderTimeout"/>.</exception>
-    /// <exception cref="InvalidOperationException">The response was malformed, scored a document the caller
-    /// did not send, or left one unscored.</exception>
+    /// <summary>Score every document against the query, one score per document IN INPUT ORDER.
+    /// <para>Failure is a <see cref="ScoreResponse"/> verdict, classified like the chat and vector paths, so
+    /// a 429 cools this host and a 401 answered to a call with no key is NotConfigured (D153).</para></summary>
     /// <exception cref="OperationCanceledException">The caller's <paramref name="ct"/> was cancelled.</exception>
-    public async Task<IReadOnlyList<double>> ScoreAsync(
-        string query, IReadOnlyList<string> documents, CancellationToken ct = default)
+    public async Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default)
     {
-        if (documents.Count == 0) return [];
+        ArgumentNullException.ThrowIfNull(request);
+        var query = request.Query;
+        var documents = request.Documents;
+        if (documents.Count == 0) return new ScoreResponse(ProviderVerdict.Ok, []);
 
         var timeout = options.ProviderTimeout;
         string body;
@@ -54,7 +54,9 @@ internal sealed class HttpRerankTransport(
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
-                throw new HttpRequestException(
+                return ScoreResponse.Failure(
+                    ProviderVerdictClassifier.FromHttpFailure(
+                        response.StatusCode, errorBody, hasCredentials: !string.IsNullOrWhiteSpace(config.ApiKey)),
                     $"{id}: rerank HTTP {(int)response.StatusCode} {HttpBody.Head(errorBody)}");
             }
             body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
@@ -62,13 +64,15 @@ internal sealed class HttpRerankTransport(
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
         {
-            throw new TimeoutException($"{id}: no rerank response within {timeout}");
+            return ScoreResponse.Failure(ProviderVerdict.Timeout, $"{id}: no rerank response within {timeout}");
         }
 
-        var scores = TryExtractScores(body, documents.Count)
-            ?? throw new InvalidOperationException($"{id}: malformed or incomplete rerank response");
+        var scores = TryExtractScores(body, documents.Count);
+        if (scores is null)
+            return ScoreResponse.Failure(
+                ProviderVerdict.Failed, $"{id}: malformed or incomplete rerank response");
         _logger.LogDebug("{Id}: scored {Count} documents", id, scores.Length);
-        return scores;
+        return ScoreResponse.Success(scores);
     }
 
     private HttpRequestMessage BuildRequest(string query, IReadOnlyList<string> documents)

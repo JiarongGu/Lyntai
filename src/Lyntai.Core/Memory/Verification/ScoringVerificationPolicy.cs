@@ -71,9 +71,18 @@ public sealed class ScoringVerificationPolicy(
     {
         if (request.Candidates.Count == 0) return MemoryVerification.NoOpinion;
 
-        var backend = _backends.FirstOrDefault(p => p.IsAvailable
-            && p.Capabilities.Supports(ProviderKinds.Score, ProviderOperation.Complete, accepts: ProviderKinds.Text));
-        if (backend is null)
+        // ROUTED since D153, where this used to take FirstOrDefault and stop. A second registered reranker
+        // is now a failover rather than decoration, and a rate-limited one is benched instead of being asked
+        // again on the next recall. The seam stays FAIL-OPEN either way: a non-Ok verdict reports NoOpinion.
+        // NO logger passed on purpose. The router warns per failed attempt, which is right for a call a
+        // consumer is waiting on and wrong here: this seam is FAIL-OPEN and runs on every recall, so a
+        // transport blip would become per-recall noise at Warning. The outcome is logged below at debug,
+        // carrying the verdict and the backend's own words, which is what a reader of this seam needs.
+        var router = new ProviderRouter<ScoreRequest, ScoreResponse>(
+            _backends, ScoreResponse.Failure,
+            c => c.Supports(ProviderKinds.Score, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+
+        if (!router.CanServe())
         {
             _logger.LogDebug("no backend produces {Kind}; reporting NoOpinion", ProviderKinds.Score);
             return MemoryVerification.NoOpinion;
@@ -83,35 +92,37 @@ public sealed class ScoringVerificationPolicy(
         // truncation and scoring a fragment cost this arm 13 points (D108).
         var documents = request.Candidates.Select(c => c.Content ?? c.Headline).ToList();
 
-        IReadOnlyList<double> scores;
+        ScoreResponse response;
         try
         {
-            scores = await backend.ScoreAsync(request.Query, documents, ct).ConfigureAwait(false);
+            response = await router.CallAsync(new ScoreRequest(request.Query, documents), ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (NotSupportedException ex)
-        {
-            // Fail-open still, but AUDIBLE: this is the one failure here that is permanent rather than
-            // transient — a backend declaring ProviderKinds.Score without serving it fails identically on
-            // every recall, so at debug level nothing ever tells a deployment its recalls go unverified.
-            // The shipped in-process backend cannot reach this (OnnxCrossEncoder refuses at composition);
-            // a BYO provider whose declaration and implementation disagree is what this is for.
-            _logger.LogWarning(ex, "{Id} declares {Kind} but does not serve it, so every recall it is asked "
-                + "about goes unverified; reporting NoOpinion", backend.Id, ProviderKinds.Score);
-            return MemoryVerification.NoOpinion;
-        }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "{Id} did not score usably; reporting NoOpinion", backend.Id);
+            // The router classifies a backend's own throw into a verdict, so reaching here means something
+            // outside a backend faulted. Fail-open, as the contract says.
+            _logger.LogDebug(ex, "scoring verification faulted; reporting NoOpinion");
             return MemoryVerification.NoOpinion;
         }
+
+        if (!response.IsOk)
+        {
+            _logger.LogDebug("no backend scored usably ({Verdict}: {Detail}); reporting NoOpinion",
+                response.Verdict, response.Detail);
+            return MemoryVerification.NoOpinion;
+        }
+
+        var scores = response.Scores;
 
         // A short or long answer is a malformed one: pairing by position is only sound when the counts agree,
         // and a silent truncation would endorse the wrong candidates rather than none.
         if (scores.Count != documents.Count)
         {
-            _logger.LogDebug("{Id} scored {Got} of {Sent} documents; reporting NoOpinion",
-                backend.Id, scores.Count, documents.Count);
+            // No backend id here on purpose: routing may have tried several, and naming the last one would
+            // point a reader at whichever happened to answer rather than at the arity fault itself.
+            _logger.LogDebug("a scoring backend returned {Got} of {Sent} documents; reporting NoOpinion",
+                scores.Count, documents.Count);
             return MemoryVerification.NoOpinion;
         }
 

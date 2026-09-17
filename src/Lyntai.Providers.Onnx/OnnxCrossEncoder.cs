@@ -24,7 +24,7 @@ namespace Lyntai.Providers.Onnx;
 ///
 /// <para><b>Inference runs on the calling thread</b>, as with the vector backend: the async signature is the
 /// seam's, not a promise to yield.</para></summary>
-public sealed class OnnxCrossEncoder : IModelProvider, IDisposable
+public sealed class OnnxCrossEncoder : IScoreProvider, IDisposable
 {
     private readonly InferenceSession _session;
     private readonly WordPieceTokenizer _tokenizer;
@@ -92,13 +92,15 @@ public sealed class OnnxCrossEncoder : IModelProvider, IDisposable
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<double>> ScoreAsync(
-        string query, IReadOnlyList<string> documents, CancellationToken ct = default)
+    /// <remarks>In process: there is no transport to fail, so the only non-Ok outcome from here is a throw
+    /// the router classifies.</remarks>
+    public Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(documents);
+        ArgumentNullException.ThrowIfNull(request);
         ct.ThrowIfCancellationRequested();
-        return Task.FromResult<IReadOnlyList<double>>(
-            documents.Count == 0 ? [] : Score(query ?? string.Empty, documents));
+        return Task.FromResult(request.Documents.Count == 0
+            ? new ScoreResponse(ProviderVerdict.Ok, [])
+            : ScoreResponse.Success(Score(request.Query ?? string.Empty, request.Documents)));
     }
 
     /// <summary>One batched forward pass over <c>[CLS] query [SEP] document [SEP]</c>: encode each pair, pad
@@ -124,7 +126,7 @@ public sealed class OnnxCrossEncoder : IModelProvider, IDisposable
     /// says it cannot carry one score per pair.
     ///
     /// <para><b>Composition is the only place such a refusal is heard.</b> <c>ScoringVerificationPolicy</c>
-    /// is fail-open by contract, so the same objection raised from <see cref="ScoreAsync"/> reaches a
+    /// is fail-open by contract, so the same objection raised from <see cref="CallAsync"/> reaches a
     /// deployment as a recall that is quietly never verified. A graph that declared a dynamic label axis
     /// says too little to refuse on and is judged by <see cref="CrossEncoderLogits.Read"/> instead, against
     /// the tensor it actually returns.</para></summary>

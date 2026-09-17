@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using Lyntai.Lifecycle;
 using Lyntai.Memory.Verification;
 using Lyntai.Providers.Onnx;
 using Lyntai.Text;
@@ -168,7 +169,8 @@ internal sealed class CrossEncoderReranker(HttpClient http, string baseUrl, stri
     private IReadOnlyList<(int Index, double Score)> LocalRank(
         string query, IReadOnlyList<string> documents, CancellationToken ct)
     {
-        var scores = _local!.ScoreAsync(query, documents, ct).GetAwaiter().GetResult();
+        var scores = _local!.CallAsync(new ScoreRequest(query, documents), ct)
+            .GetAwaiter().GetResult().Scores;
 
         var budget = _local.MaxTokens - 3;                        // [CLS] q [SEP] d [SEP]
         var asked = _tokenizer!.EncodeToIds(query).Count;

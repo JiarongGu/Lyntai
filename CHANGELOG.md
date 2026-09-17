@@ -260,6 +260,21 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   vectors — three members, exactly what a bring-your-own SCORER already implements. The per-call role
   distinction survives on `EmbedAsync`'s role-aware overload, so an asymmetric model is unaffected.
 
+- **Reranking is routed too: `IModelProvider.ScoreAsync` is removed** (**D153**). A reranker implements
+  `IScoreProvider` — `CallAsync(ScoreRequest) → ScoreResponse` — with the verdict beside the scores, for the
+  reason the vector side has it: there is no score meaning "I could not", and a zero ranks as confidently as
+  any other number.
+  | was | now |
+  | --- | --- |
+  | `IModelProvider.ScoreAsync(query, docs, ct)` | `IScoreProvider.CallAsync(new ScoreRequest(query, docs), ct)` | <!-- drift-ok: the entry ANNOUNCING the removal has to name it -->
+  <br>**Scoring verification now FALLS OVER**, which it never did: it took the first capable backend and
+  stopped, so a second registered reranker was decoration and a rate-limited one was asked again on the very
+  next recall. It stays fail-open — a non-Ok verdict is still `NoOpinion` — and deliberately passes the
+  router no logger, because a fail-open seam running on every recall must not turn a transport blip into
+  per-recall warnings.
+  <br>A backend declaring `Score` without implementing `IScoreProvider` is refused at composition, by the
+  same guard as the vector half. That replaces a per-recall warning with a single startup error.
+
 - **Embedding is a ROUTED call with a verdict: `IModelProvider.EmbedAsync` is removed** (**D153**). A vector
   backend now implements `IVectorProvider` — `CallAsync(VectorRequest) → VectorResponse` — and the verdict
   sits beside the vectors instead of failure arriving as an exception.

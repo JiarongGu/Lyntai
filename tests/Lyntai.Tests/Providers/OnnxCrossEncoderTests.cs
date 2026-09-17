@@ -1,4 +1,5 @@
 using Lyntai.Lifecycle;
+using Lyntai.Tests.Fakes;
 using Lyntai.Memory.Verification;
 using Lyntai.Providers.Onnx;
 using Microsoft.Extensions.DependencyInjection;
@@ -223,14 +224,14 @@ public class OnnxCrossEncoderReachabilityTests
 {
     /// <summary>Carries the cross-encoder's own declaration, so the predicate below is exercised against
     /// what the class really says rather than against a copy of it.</summary>
-    private sealed class DeclaredLikeTheCrossEncoder : IModelProvider
+    private sealed class DeclaredLikeTheCrossEncoder : IScoreProvider
     {
         public string Id => "onnx-rerank";
         public ProviderCapabilities Capabilities => OnnxCrossEncoder.Declared;
 
-        public Task<IReadOnlyList<double>> ScoreAsync(
-            string query, IReadOnlyList<string> documents, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<double>>([.. documents.Select((_, i) => (double)i)]);
+        public Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default) =>
+            Task.FromResult(ScoreResponse.Success(
+                [.. request.Documents.Select((_, i) => (double)i)]));
     }
 
     [Fact]

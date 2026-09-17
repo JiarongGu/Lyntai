@@ -121,12 +121,12 @@ sealed class Lyntai.Providers.Http.HttpModelOptions
     QueryPrefix : String
 sealed class Lyntai.Providers.Http.HttpModelProvider
     .ctor(String id, HttpModelOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<HttpModelProvider> logger = null, Boolean disposeHttpClient = true)
+    CallAsync(ScoreRequest request, CancellationToken ct = default) : Task<ScoreResponse>
     CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>
     Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean
-    ScoreAsync(String query, IReadOnlyList<String> documents, CancellationToken ct = default) : Task<IReadOnlyList<Double>>
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
 sealed class Lyntai.Providers.Model2Vec.Model2VecProvider
     CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>

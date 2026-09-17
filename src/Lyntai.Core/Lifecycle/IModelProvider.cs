@@ -57,28 +57,6 @@ public interface IModelProvider : IProviderIdentity
     IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
         ProviderDefaults.One(LlmChunk.Error(ProviderVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
 
-    /// <summary>A query and a set of documents in, one relevance score per document out, IN INPUT ORDER.
-    /// Served by a backend declaring <see cref="ProviderKinds.Score"/>; a separate METHOD only because its
-    /// shape differs, not because it is a separate kind of call.
-    ///
-    /// <para><b>Input order is the contract, not the ranking.</b> A rerank endpoint answers sorted and
-    /// carries its own indices; putting the scores back in input order is the backend's job, because the
-    /// caller holds the documents and an index it did not send is unusable. A caller ranks by sorting what
-    /// it gets back.</para>
-    ///
-    /// <para><b>The caller owns the SIZE of the list, and nothing here bounds it.</b> A backend may serve
-    /// the whole set in one request or one forward pass, so cost — a payload, a context window, an
-    /// activation buffer — scales with what you send. Bound it before calling; the memory seam does, at
-    /// <c>GraphMemoryOptions.VerificationDepth</c>.</para></summary>
-    /// <exception cref="NotSupportedException">This backend does not declare
-    /// <see cref="ProviderKinds.Score"/>. It THROWS rather than returning a verdict because there is no
-    /// score meaning "I could not" — a zero ranks as confidently as any other number. <b>The vector side
-    /// no longer has this problem</b>: <see cref="VectorResponse"/> carries the verdict beside the vectors,
-    /// and this seam is due the same treatment.</exception>
-    Task<IReadOnlyList<double>> ScoreAsync(
-        string query, IReadOnlyList<string> documents, CancellationToken ct = default) =>
-        throw new NotSupportedException(ProviderDefaults.NotServed(Id, nameof(ScoreAsync)));
-
     /// <summary>Media in, media out — one request, artifacts back.</summary>
     Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
         Task.FromResult(new GenerationResult(ProviderVerdict.Unsupported, [], Detail: ProviderDefaults.NotServed(Id, nameof(GenerateAsync))));

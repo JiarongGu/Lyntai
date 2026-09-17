@@ -160,9 +160,11 @@ export default {
       // is untouched — `EmbeddingRole`, `CanEmbed` and the operation's name all survive (D152); what is
       // retired is the member that used to sit on IModelProvider.
       names: ['EmbedAsync'],
-      use: '`IVectorProvider.CallAsync(new VectorRequest(texts, role), ct)`',
-      why: 'embedding is a routed call with a verdict, not a method that throws — a failed embed had no '
-        + 'verdict for routing to act on, so a rate-limited host was retried on the next recall (D153)',
+      use: '`IVectorProvider.CallAsync(new VectorRequest(texts, role), ct)` and '
+        + '`IScoreProvider.CallAsync(new ScoreRequest(query, documents), ct)`',
+      why: 'embedding and reranking are routed calls with a verdict, not methods that throw — a failed one '
+        + 'had no verdict for routing to act on, so a rate-limited host was retried on the next recall '
+        + '(D153). `IScorer.ScoreAsync`, the eval seam, is a different member and keeps its name',
     },
     {
       // D153 step 1. `Job` is not matched on its own — it is the whole of `Lyntai.Jobs`, the durable job
