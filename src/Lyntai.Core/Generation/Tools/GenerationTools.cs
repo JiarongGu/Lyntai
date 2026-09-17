@@ -385,7 +385,7 @@ public sealed class GenerationSubmitTool(
         var submission = await router.SubmitAsync(
             GenerationToolJson.Candidates(named, options.DefaultCandidates), request, ct).ConfigureAwait(false);
 
-        if (submission.Operation.Status == GenerationOperationStatus.Failed)
+        if (submission.Operation.Status == QueuedOperationStatus.Failed)
             // An INCONCLUSIVE submission is the one failure a model must not react to in its usual way. Its
             // default move after a tool error is to call the tool again — and here that re-submits work a
             // backend may already be running and billing for, walking straight around the router's refusal to
@@ -449,7 +449,7 @@ public sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) 
             writer.WriteString("status", operation.Status.ToString().ToLowerInvariant());
             if (operation.Progress is { } progress) writer.WriteNumber("progress", progress);
             if (operation.Detail is { } detail) writer.WriteString("detail", detail);
-            if (operation.Status == GenerationOperationStatus.Succeeded)
+            if (operation.Status == QueuedOperationStatus.Succeeded)
                 writer.WriteString("next", "call generate_fetch to collect it");
         });
     }

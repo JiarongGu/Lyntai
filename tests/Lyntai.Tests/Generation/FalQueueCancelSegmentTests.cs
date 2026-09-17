@@ -37,7 +37,7 @@ public class FalQueueCancelSegmentTests
 
         var operation = await provider.CancelAsync("fal-ai/wan-t2v#req-123");
 
-        Assert.Equal(GenerationOperationStatus.Cancelled, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Cancelled, operation.Status);
         Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v/requests/req-123/cancel",
             http.Requests[0].Uri?.ToString());
         Assert.Equal("Key k", http.Requests[0].Auth);
@@ -59,7 +59,7 @@ public class FalQueueCancelSegmentTests
 
         var operation = await provider.CancelAsync("fal-ai/wan-t2v#req-123");
 
-        Assert.Equal(GenerationOperationStatus.Cancelled, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Cancelled, operation.Status);
         Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v/req/req-123/abort", http.Requests[0].Uri?.ToString());
     }
 
@@ -73,7 +73,7 @@ public class FalQueueCancelSegmentTests
 
         var operation = await provider.CancelAsync("fal-ai/wan-t2v#req-123");
 
-        Assert.Equal(GenerationOperationStatus.Running, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
         Assert.Contains("409", operation.Detail);
     }
 
@@ -84,7 +84,7 @@ public class FalQueueCancelSegmentTests
 
         var operation = await provider.CancelAsync("no-separator-here");
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("malformed", operation.Detail);
         Assert.Empty(http.Requests);
     }

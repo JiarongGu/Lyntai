@@ -1798,10 +1798,10 @@ it shipped.
 **Symptom.** A `GenerationRenderJob` against fal whose key was rotated out of configuration, or whose
 request id fal no longer knew, polled every 15 seconds for the life of the process. The job was never
 dead-lettered, never failed and never completed; the reason — *"not configured: BaseUrl and ApiKey are both
-required"* — sat in `GenerationOperation.Detail`, where nothing acts on it.
+required"* — sat in `QueuedOperation.Detail`, where nothing acts on it.
 
 **Root cause.** `FalQueueProvider.PollCoreAsync` mapped EVERY `GetAsync` failure to
-`GenerationOperationStatus.Running`, and `GetAsync` produces a failure for three unrelated things: an
+`QueuedOperationStatus.Running`, and `GetAsync` produces a failure for three unrelated things: an
 unconfigured backend, any non-2xx, and any exception. The method's own `<remarks>` justified only the narrow
 case — *"the same treatment a transport failure already gets here"* — so the code was broader than the
 reasoning written above it. `GenerationRenderJobHandler` reads `Running` as "re-checkpoint and poll again",

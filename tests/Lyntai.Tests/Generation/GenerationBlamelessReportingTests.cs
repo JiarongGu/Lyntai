@@ -263,7 +263,7 @@ public class GenerationSubmitBlamelessReportingTests
         {
             Accepts = [ProviderKinds.Text],
             Produces = [ProviderKinds.Video],
-            Operations = [ProviderOperation.Job],
+            Operations = [ProviderOperation.Queued],
         };
 
         public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
@@ -272,16 +272,16 @@ public class GenerationSubmitBlamelessReportingTests
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
             Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "job backend"));
 
-        public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(new GenerationOperation("", GenerationOperationStatus.Failed, Detail: Detail));
+        public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
+            Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: Detail));
 
-        public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Failed));
+        public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
+            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Failed));
 
         public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "nothing"));
 
-        public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Cancelled));
+        public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
+            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));
     }
 }

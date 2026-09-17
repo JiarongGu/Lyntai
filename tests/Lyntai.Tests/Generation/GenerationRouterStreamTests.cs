@@ -7,7 +7,7 @@ namespace Lyntai.Tests.Generation;
 
 /// <summary>The stream door, added in 3.0. Before it, <c>IModelProvider</c> was a seam the
 /// platform could not reach: the capability pre-filter was only ever asked about
-/// <see cref="ProviderOperation.Complete"/> and <see cref="ProviderOperation.Job"/>, so a backend
+/// <see cref="ProviderOperation.Complete"/> and <see cref="ProviderOperation.Queued"/>, so a backend
 /// advertising <see cref="ProviderOperation.Stream"/> had to be driven directly and the contract shipped
 /// unexercised.
 ///

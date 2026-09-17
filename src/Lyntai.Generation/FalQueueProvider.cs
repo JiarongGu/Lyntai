@@ -46,7 +46,7 @@ public sealed class FalQueueOptions
     /// <see cref="StatusSegment"/> on the same request path, and settable for the same reason.</summary>
     public string CancelSegment { get; set; } = "cancel";
 
-    /// <summary>How the queue's own status strings map onto <see cref="GenerationOperationStatus"/>.
+    /// <summary>How the queue's own status strings map onto <see cref="QueuedOperationStatus"/>.
     /// Case-insensitive. A status NOT in this map is treated as still running — never as a failure, because
     /// declaring an unknown state terminal abandons a render that is merely in a state this build has not
     /// heard of.</summary>
@@ -58,12 +58,12 @@ public sealed class FalQueueOptions
     /// That is also why this is a dictionary rather than a delegate: configuration binding can reach it.
     /// <para>Replacing the map replaces it wholesale — add to it to extend the vocabulary, assign to it to
     /// redefine one.</para></remarks>
-    public IDictionary<string, GenerationOperationStatus> StatusVocabulary { get; set; } =
-        new Dictionary<string, GenerationOperationStatus>(StringComparer.OrdinalIgnoreCase)
+    public IDictionary<string, QueuedOperationStatus> StatusVocabulary { get; set; } =
+        new Dictionary<string, QueuedOperationStatus>(StringComparer.OrdinalIgnoreCase)
         {
-            ["IN_QUEUE"] = GenerationOperationStatus.Queued,
-            ["IN_PROGRESS"] = GenerationOperationStatus.Running,
-            ["COMPLETED"] = GenerationOperationStatus.Succeeded,
+            ["IN_QUEUE"] = QueuedOperationStatus.Queued,
+            ["IN_PROGRESS"] = QueuedOperationStatus.Running,
+            ["COMPLETED"] = QueuedOperationStatus.Succeeded,
         };
 
     /// <summary>Result fields read, in order, as the render's cost — the first numeric one wins. Settable
@@ -138,7 +138,7 @@ public sealed class FalQueueProvider(
     {
         Accepts = [ProviderKinds.Text],
         Produces = options.Produces,
-        Operations = [ProviderOperation.Job],
+        Operations = [ProviderOperation.Queued],
         SupportsInputs = true,          // image→video, reference→video: the model decides
         // Models deliberately NOT enumerated: hundreds, changing without us, and an empty list means
         // "unknown" rather than "serves nothing" (ProviderCapabilities.Models).
@@ -163,7 +163,7 @@ public sealed class FalQueueProvider(
     /// <inheritdoc/>
     /// <remarks>Bounded by the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it carries one, else
     /// <see cref="FalQueueOptions.Timeout"/> — the ENQUEUEING call only, not the render it starts.</remarks>
-    public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
+    public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
             token => SubmitCoreAsync(request, token),
@@ -175,7 +175,7 @@ public sealed class FalQueueProvider(
                 Inconclusive = true,
             });
 
-    private async Task<GenerationOperation> SubmitCoreAsync(GenerationRequest request, CancellationToken ct)
+    private async Task<QueuedOperation> SubmitCoreAsync(GenerationRequest request, CancellationToken ct)
     {
         if (Unconfigured() is { } missing) return Failed(missing);
         if (Model(request) is not { Length: > 0 } model)
@@ -208,7 +208,7 @@ public sealed class FalQueueProvider(
                 return Failed($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
 
             return Field(body, "request_id") is { } requestId
-                ? new GenerationOperation($"{model}{ModelSeparator}{requestId}", GenerationOperationStatus.Queued)
+                ? new QueuedOperation($"{model}{ModelSeparator}{requestId}", QueuedOperationStatus.Queued)
                 : Failed($"no request_id in the response: {HttpArtifacts.FailureDetail(body, 200)}");
         }
         catch (OperationCanceledException) { throw; }
@@ -223,17 +223,17 @@ public sealed class FalQueueProvider(
     /// operation as still RUNNING — the same treatment a transport failure already gets here, and for the same
     /// reason: no answer is not a failed render, and reading it as terminal would abandon a submitted (and
     /// billed) generation that is merely still going.</remarks>
-    public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
+    public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,
             token => PollCoreAsync(operationId, token),
-            reason => new GenerationOperation(operationId, GenerationOperationStatus.Running,
+            reason => new QueuedOperation(operationId, QueuedOperationStatus.Running,
                 Detail: $"the status call {reason} — the render is still assumed to be running"));
 
-    private async Task<GenerationOperation> PollCoreAsync(string operationId, CancellationToken ct)
+    private async Task<QueuedOperation> PollCoreAsync(string operationId, CancellationToken ct)
     {
         var (model, requestId) = Split(operationId);
         if (requestId is null)
-            return new GenerationOperation(operationId, GenerationOperationStatus.Failed,
+            return new QueuedOperation(operationId, QueuedOperationStatus.Failed,
                 Detail: $"malformed operation id '{operationId}' — expected \"model{ModelSeparator}requestId\"");
 
         var (body, failure, transport, _) = await GetAsync(
@@ -244,8 +244,8 @@ public sealed class FalQueueProvider(
         // was never dead-lettered, never failed and never completed, with the reason sitting in Detail where
         // nothing acts on it.
         if (failure is not null)
-            return new GenerationOperation(operationId,
-                transport ? GenerationOperationStatus.Running : GenerationOperationStatus.Failed,
+            return new QueuedOperation(operationId,
+                transport ? QueuedOperationStatus.Running : QueuedOperationStatus.Failed,
                 Detail: failure);
 
         var status = Field(body!, "status");
@@ -255,13 +255,13 @@ public sealed class FalQueueProvider(
         // for real is the one who finds out. Correcting a wrong string must not require a library release,
         // and `StatusVocabulary` is a plain dictionary precisely so it can be fixed in `appsettings.json`.
         if (status is not null && options.StatusVocabulary.TryGetValue(status, out var mapped))
-            return new GenerationOperation(operationId, mapped,
-                Progress: mapped == GenerationOperationStatus.Succeeded ? 1 : null,
-                Detail: mapped == GenerationOperationStatus.Queued ? QueueDetail(body!) : null);
+            return new QueuedOperation(operationId, mapped,
+                Progress: mapped == QueuedOperationStatus.Succeeded ? 1 : null,
+                Detail: mapped == QueuedOperationStatus.Queued ? QueueDetail(body!) : null);
 
         // an unknown status is NOT a failure: treating "something new" as terminal would abandon a render
         // that is merely in a state this build hasn't heard of
-        return new GenerationOperation(operationId, GenerationOperationStatus.Running,
+        return new QueuedOperation(operationId, QueuedOperationStatus.Running,
             Detail: $"unrecognised status '{status}'");
     }
 
@@ -303,17 +303,17 @@ public sealed class FalQueueProvider(
     /// <inheritdoc/>
     /// <remarks>Bounded by <see cref="FalQueueOptions.Timeout"/>; a cancel that timed out may or may not have
     /// landed, so the render is reported as still running rather than assumed stopped.</remarks>
-    public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
+    public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,
             token => CancelCoreAsync(operationId, token),
-            reason => new GenerationOperation(operationId, GenerationOperationStatus.Running,
+            reason => new QueuedOperation(operationId, QueuedOperationStatus.Running,
                 Detail: $"the cancel {reason}"));
 
-    private async Task<GenerationOperation> CancelCoreAsync(string operationId, CancellationToken ct)
+    private async Task<QueuedOperation> CancelCoreAsync(string operationId, CancellationToken ct)
     {
         var (model, requestId) = Split(operationId);
         if (requestId is null)
-            return new GenerationOperation(operationId, GenerationOperationStatus.Failed, Detail: "malformed operation id");
+            return new QueuedOperation(operationId, QueuedOperationStatus.Failed, Detail: "malformed operation id");
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
@@ -324,15 +324,15 @@ public sealed class FalQueueProvider(
             Authorize(message);
             using var response = await http.SendAsync(message, ct).ConfigureAwait(false);
             return response.IsSuccessStatusCode
-                ? new GenerationOperation(operationId, GenerationOperationStatus.Cancelled)
+                ? new QueuedOperation(operationId, QueuedOperationStatus.Cancelled)
                 // a render already running may not be cancellable — report it, don't pretend
-                : new GenerationOperation(operationId, GenerationOperationStatus.Running,
+                : new QueuedOperation(operationId, QueuedOperationStatus.Running,
                     Detail: $"cancel rejected: {(int)response.StatusCode}");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return new GenerationOperation(operationId, GenerationOperationStatus.Running, Detail: ex.Message);
+            return new QueuedOperation(operationId, QueuedOperationStatus.Running, Detail: ex.Message);
         }
     }
 
@@ -352,8 +352,8 @@ public sealed class FalQueueProvider(
             message.Headers.Authorization = new AuthenticationHeaderValue("Key", key);
     }
 
-    private static GenerationOperation Failed(string detail) =>
-        new("", GenerationOperationStatus.Failed, Detail: detail);
+    private static QueuedOperation Failed(string detail) =>
+        new("", QueuedOperationStatus.Failed, Detail: detail);
 
     /// <summary>Split <c>"model#requestId"</c>. The model may itself contain slashes (<c>fal-ai/wan-t2v</c>),
     /// which is why the separator is a character the ids don't use rather than the last path segment.</summary>

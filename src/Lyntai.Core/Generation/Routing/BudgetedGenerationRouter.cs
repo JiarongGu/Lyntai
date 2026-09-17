@@ -62,7 +62,7 @@ public sealed class BudgetedGenerationRouter(
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
             return new GenerationSubmission("",
-                new GenerationOperation("", GenerationOperationStatus.Failed, Detail: reason));
+                new QueuedOperation("", QueuedOperationStatus.Failed, Detail: reason));
 
         return await inner.SubmitAsync(candidates, request, ct).ConfigureAwait(false);
     }

@@ -565,26 +565,6 @@ static class Lyntai.Generation.GenerationInputRoles
     Init : String const
     Reference : String const
     Voice : String const
-sealed class Lyntai.Generation.GenerationOperation
-    .ctor(String Id, GenerationOperationStatus Status, Nullable<Double> Progress = null, String Detail = null)
-    Deconstruct(String& Id, GenerationOperationStatus& Status, Nullable`1& Progress, String& Detail) : Void
-    Detail : String
-    Equals(GenerationOperation other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    Id : String
-    Inconclusive : Boolean
-    IsTerminal : Boolean
-    Progress : Nullable<Double>
-    Status : GenerationOperationStatus
-    ToString() : String
-enum Lyntai.Generation.GenerationOperationStatus
-    Cancelled : GenerationOperationStatus const
-    Failed : GenerationOperationStatus const
-    Queued : GenerationOperationStatus const
-    Running : GenerationOperationStatus const
-    Succeeded : GenerationOperationStatus const
-    value__ : Int32
 sealed class Lyntai.Generation.GenerationRequest
     .ctor()
     Consumer : String
@@ -624,10 +604,10 @@ sealed class Lyntai.Generation.GenerationUsage
     Seconds : Nullable<Double>
     ToString() : String
 interface Lyntai.Generation.IGenerationJobProvider
-    CancelAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
+    CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     FetchAsync(String operationId, CancellationToken ct = default) : Task<GenerationResult>
-    PollAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
-    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationOperation>
+    PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
+    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<QueuedOperation>
 sealed class Lyntai.Generation.Jobs.GenerationArtifactDelivery
     .ctor(Guid JobId, String ProviderId, String OperationId, IReadOnlyList<GenerationArtifact> Artifacts, GenerationUsage Usage = null)
     Artifacts : IReadOnlyList<GenerationArtifact>
@@ -667,6 +647,26 @@ sealed class Lyntai.Generation.Jobs.GenerationRenderJobOptions
     ToString() : String
 interface Lyntai.Generation.Jobs.IGenerationArtifactSink
     ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default) : Task
+sealed class Lyntai.Generation.QueuedOperation
+    .ctor(String Id, QueuedOperationStatus Status, Nullable<Double> Progress = null, String Detail = null)
+    Deconstruct(String& Id, QueuedOperationStatus& Status, Nullable`1& Progress, String& Detail) : Void
+    Detail : String
+    Equals(Object obj) : Boolean
+    Equals(QueuedOperation other) : Boolean
+    GetHashCode() : Int32
+    Id : String
+    Inconclusive : Boolean
+    IsTerminal : Boolean
+    Progress : Nullable<Double>
+    Status : QueuedOperationStatus
+    ToString() : String
+enum Lyntai.Generation.QueuedOperationStatus
+    Cancelled : QueuedOperationStatus const
+    Failed : QueuedOperationStatus const
+    Queued : QueuedOperationStatus const
+    Running : QueuedOperationStatus const
+    Succeeded : QueuedOperationStatus const
+    value__ : Int32
 sealed class Lyntai.Generation.Routing.BudgetedGenerationRouter
     .ctor(IGenerationRouter inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedGenerationRouter> logger = null)
     GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
@@ -714,12 +714,12 @@ sealed class Lyntai.Generation.Routing.GenerationStage
     SelectInput : Func<GenerationResult,IEnumerable<GenerationArtifact>>
     ToString() : String
 sealed class Lyntai.Generation.Routing.GenerationSubmission
-    .ctor(String ProviderId, GenerationOperation Operation)
-    Deconstruct(String& ProviderId, GenerationOperation& Operation) : Void
+    .ctor(String ProviderId, QueuedOperation Operation)
+    Deconstruct(String& ProviderId, QueuedOperation& Operation) : Void
     Equals(GenerationSubmission other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
-    Operation : GenerationOperation
+    Operation : QueuedOperation
     ProviderId : String
     ToString() : String
 interface Lyntai.Generation.Routing.IGenerationRouter
@@ -1091,7 +1091,7 @@ static class Lyntai.Lifecycle.ProviderKinds
     Video : String const
 enum Lyntai.Lifecycle.ProviderOperation
     Complete : ProviderOperation const
-    Job : ProviderOperation const
+    Queued : ProviderOperation const
     Stream : ProviderOperation const
     value__ : Int32
 sealed class Lyntai.Lifecycle.ProviderPoolOptions

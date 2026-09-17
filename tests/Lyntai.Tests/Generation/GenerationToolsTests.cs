@@ -131,7 +131,7 @@ public class GenerationToolsTests
         Assert.Equal(2, backends.Count);
         var video = backends.Single(b => b.GetProperty("id").GetString() == "video");
         Assert.Equal("video", video.GetProperty("kinds")[0].GetString());
-        Assert.Equal("job", video.GetProperty("delivery")[0].GetString());
+        Assert.Equal("queued", video.GetProperty("delivery")[0].GetString());
         Assert.True(video.GetProperty("usable").GetBoolean());
     }
 

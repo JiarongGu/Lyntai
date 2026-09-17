@@ -9,8 +9,8 @@ namespace Lyntai.Tests.Generation;
 
 /// <summary>The SUBMIT path answers a rejection with the routing policy, and reports the reason it was given.
 ///
-/// <para>Both halves were missing for the same reason: a <see cref="GenerationOperation"/> carries a
-/// <see cref="GenerationOperationStatus"/>, not a verdict, so there was nothing for
+/// <para>Both halves were missing for the same reason: a <see cref="QueuedOperation"/> carries a
+/// <see cref="QueuedOperationStatus"/>, not a verdict, so there was nothing for
 /// <see cref="GenerationRoutingPolicy.ActionFor"/> to switch on and nothing but candidate ids left to report.
 /// Every rejection therefore advanced AND took a dead-host strike — including one from a backend that answered
 /// "not configured" before it opened a socket, which is exactly the penalty-for-a-known-fact that
@@ -151,7 +151,7 @@ public class GenerationSubmitFallbackTests
         var submission = await new GenerationRouter([broken]).SubmitAsync(Order("broken"), Video());
 
         Assert.Equal("", submission.ProviderId);
-        Assert.Equal(GenerationOperationStatus.Failed, submission.Operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, submission.Operation.Status);
         Assert.Contains("broken", submission.Operation.Detail);
     }
 
@@ -206,7 +206,7 @@ public class GenerationSubmitFallbackTests
         {
             Accepts = [ProviderKinds.Text],
             Produces = [ProviderKinds.Video],
-            Operations = [ProviderOperation.Job],
+            Operations = [ProviderOperation.Queued],
         };
 
         public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
@@ -215,19 +215,19 @@ public class GenerationSubmitFallbackTests
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
             Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "job backend"));
 
-        public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
+        public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
         {
             SubmitCalls++;
-            return Task.FromResult(new GenerationOperation("", GenerationOperationStatus.Failed, Detail: Detail));
+            return Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: Detail));
         }
 
-        public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Failed));
+        public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
+            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Failed));
 
         public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "nothing"));
 
-        public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Cancelled));
+        public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
+            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));
     }
 }

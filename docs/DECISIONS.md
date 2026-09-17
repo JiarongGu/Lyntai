@@ -1597,7 +1597,7 @@ string means a finished render is polled forever, or an unfinished one is report
 means the budget decorator spends against a number that is not the price. **The loud half was configurable
 and the silent half was not.**
 
-**Declarative, not delegates, and the reason is specific.** A `Func<string, GenerationOperationStatus?>` seam
+**Declarative, not delegates, and the reason is specific.** A `Func<string, QueuedOperationStatus?>` seam
 would be the more idiomatic shape and is the wrong one here: these options are bound from `appsettings.json`,
 and a delegate cannot be. The whole value is that a host correcting a vendor's real vocabulary at 2am edits
 configuration and restarts — `docs/DECISIONS.md` D66's `LocalDiffusionOptions.Strength` rename is the

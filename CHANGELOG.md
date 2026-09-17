@@ -260,6 +260,18 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   vectors — three members, exactly what a bring-your-own SCORER already implements. The per-call role
   distinction survives on `EmbedAsync`'s role-aware overload, so an asymmetric model is unaffected.
 
+- **The queued delivery mode stops borrowing the word `Job`** (**D153**). `Lyntai.Jobs` is the durable job
+  queue an *application* runs — `IJobStore`, `IJobQueue`, `IJobHandler`, `IJobRunner`, `IJobScheduler` — and
+  a backend delivery mode is a different thing that composes with it. So:
+  | was | now |
+  | --- | --- |
+  | `ProviderOperation.Job` | `ProviderOperation.Queued` | <!-- drift-ok: the entry ANNOUNCING the retirement has to name it -->
+  | `GenerationOperation` | `QueuedOperation` | <!-- drift-ok: as above -->
+  | `GenerationOperationStatus` | `QueuedOperationStatus` | <!-- drift-ok: as above -->
+  <br>**One agent-visible change**: the generation tools serialize the delivery mode from the enum name, so
+  a model reading a backend listing now sees `"delivery": ["queued"]` where it saw `["job"]`. Nothing in
+  `Lyntai.Jobs` moves.
+
 - **A PROVIDER is named for its backend; the OPERATION keeps its usual verb** (**D152**). D151 removed the
   embedder *interface* and left the word on a registration, a selector and a namespace — so the taxonomy it
   deleted was still legible on the surface. **Three renames, all mechanical:**
@@ -1909,7 +1921,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   fails with a detail saying the request may still have been enqueued.
 - Probes (`OpenAiImageProvider`, `Automatic1111Provider`, `ComfyUiProvider`) are bounded by the same option — with
   the shim's infinite client they could otherwise stall indefinitely against a host that accepts connections.
-- **A submission that gets no answer no longer causes a second, paid submission elsewhere.** `GenerationOperation`
+- **A submission that gets no answer no longer causes a second, paid submission elsewhere.** `QueuedOperation`
   gained an additive **`Inconclusive`** flag for the one case the `Failed` status cannot express: *the backend
   never answered, so nobody knows whether it took the work*. `GenerationRouter.SubmitAsync` now **surfaces** such a
   submission — carrying the provider id, so the caller learns who might hold it — instead of advancing to the next

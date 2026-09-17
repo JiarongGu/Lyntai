@@ -296,16 +296,16 @@ public static class LyntaiDiagnostics
     /// <summary>Tag a submission's span with the operation id — the handle a durable render is resumed by,
     /// and the only way to correlate a trace with the backend's own dashboard.
     ///
-    /// <para>An INCONCLUSIVE submission (<see cref="GenerationOperation.Inconclusive"/>: no answer arrived, so
+    /// <para>An INCONCLUSIVE submission (<see cref="QueuedOperation.Inconclusive"/>: no answer arrived, so
     /// the backend may already be running a billable render) is tagged <c>Inconclusive</c> rather than
     /// <c>Failed</c>. They are the same status but not the same incident — the operator investigating a
     /// possible double charge needs something to search on, and a rejection they can ignore must not sit in
     /// the same bucket as a submission nobody knows the fate of.</para></summary>
     internal static void RecordSubmission(Activity? activity, string backend, string kind,
-        string operationId, GenerationOperationStatus status, double elapsedSeconds,
+        string operationId, QueuedOperationStatus status, double elapsedSeconds,
         bool inconclusive = false)
     {
-        var errorType = status == GenerationOperationStatus.Failed
+        var errorType = status == QueuedOperationStatus.Failed
             ? inconclusive ? "Inconclusive" : "Failed"
             : null;
 

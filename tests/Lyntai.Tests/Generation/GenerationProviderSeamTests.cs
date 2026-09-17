@@ -27,7 +27,7 @@ public class GenerationProviderSeamTests
         // type-based check bought, and it survives the fold that removed the interface it tested.
         Assert.Contains(ProviderOperation.Complete, provider.Capabilities.Operations);
         Assert.DoesNotContain(ProviderOperation.Stream, provider.Capabilities.Operations);
-        Assert.DoesNotContain(ProviderOperation.Job, provider.Capabilities.Operations);
+        Assert.DoesNotContain(ProviderOperation.Queued, provider.Capabilities.Operations);
     }
 
     [Fact]
@@ -61,9 +61,9 @@ public class GenerationProviderSeamTests
         var polled = await provider.PollAsync(submitted.Id);
         var fetched = await provider.FetchAsync(submitted.Id);
 
-        Assert.Equal(GenerationOperationStatus.Queued, submitted.Status);
+        Assert.Equal(QueuedOperationStatus.Queued, submitted.Status);
         Assert.False(submitted.IsTerminal);
-        Assert.Equal(GenerationOperationStatus.Succeeded, polled.Status);
+        Assert.Equal(QueuedOperationStatus.Succeeded, polled.Status);
         Assert.True(polled.IsTerminal);
         Assert.True(fetched.IsOk);
         Assert.Equal("video/mp4", fetched.Artifacts[0].MediaType);

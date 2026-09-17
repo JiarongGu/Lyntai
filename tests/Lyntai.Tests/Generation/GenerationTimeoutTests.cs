@@ -147,7 +147,7 @@ public class GenerationTimeoutTests
         var fal = await new FalQueueProvider(
             new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling())
             .SubmitAsync(new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "a wave" });
-        Assert.Equal(GenerationOperationStatus.Failed, fal.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, fal.Status);
 
         var comfy = await new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
@@ -156,7 +156,7 @@ public class GenerationTimeoutTests
                 Kind = ProviderKinds.Image,
                 Options = new Dictionary<string, string> { ["workflow"] = "{}" },
             });
-        Assert.Equal(GenerationOperationStatus.Failed, comfy.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, comfy.Status);
     }
 
     [Fact]
@@ -167,12 +167,12 @@ public class GenerationTimeoutTests
         var fal = await new FalQueueProvider(
             new FalQueueOptions { ApiKey = "k", Timeout = Short }, Stalling())
             .PollAsync("fal-ai/wan-t2v#abc");
-        Assert.Equal(GenerationOperationStatus.Running, fal.Status);
+        Assert.Equal(QueuedOperationStatus.Running, fal.Status);
 
         var comfy = await new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
             .PollAsync("prompt-1");
-        Assert.Equal(GenerationOperationStatus.Running, comfy.Status);
+        Assert.Equal(QueuedOperationStatus.Running, comfy.Status);
     }
 
     [Fact]
@@ -222,7 +222,7 @@ public class GenerationTimeoutTests
         // somewhere else, which is the duplicate paid render the whole checkpoint-first design exists to avoid
         var operation = await StalledFal().SubmitAsync(Video());
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.True(operation.Inconclusive);
         Assert.Contains("may still have been enqueued", operation.Detail);
     }
@@ -234,7 +234,7 @@ public class GenerationTimeoutTests
         var operation = await new FalQueueProvider(new FalQueueOptions { ApiKey = "k" }, Stalling())
             .SubmitAsync(Video());     // no model named anywhere: refused before any HTTP call
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.False(operation.Inconclusive);
     }
 

@@ -274,7 +274,7 @@ public class GenerationRouterTests
 
         Assert.Equal("video-backend", submission.ProviderId);
         Assert.Equal("op-1", submission.Operation.Id);
-        Assert.Equal(GenerationOperationStatus.Queued, submission.Operation.Status);
+        Assert.Equal(QueuedOperationStatus.Queued, submission.Operation.Status);
     }
 
     [Fact]
@@ -285,7 +285,7 @@ public class GenerationRouterTests
         var submission = await Router(image).SubmitAsync(
             [new ProviderCandidate("image-backend")], new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "x" });
 
-        Assert.Equal(GenerationOperationStatus.Failed, submission.Operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, submission.Operation.Status);
         Assert.Contains("no capable", submission.Operation.Detail);
     }
 }

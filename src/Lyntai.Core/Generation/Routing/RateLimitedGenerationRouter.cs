@@ -52,7 +52,7 @@ public sealed class RateLimitedGenerationRouter(
         {
             Throttled(request.Consumer);
             return new GenerationSubmission("",
-                new GenerationOperation("", GenerationOperationStatus.Failed, Detail: Reason));
+                new QueuedOperation("", QueuedOperationStatus.Failed, Detail: Reason));
         }
         return await inner.SubmitAsync(candidates, request, ct).ConfigureAwait(false);
     }

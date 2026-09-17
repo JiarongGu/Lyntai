@@ -64,7 +64,7 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IGenerationJobPr
     {
         Accepts = [ProviderKinds.Text],
         Produces = [ProviderKinds.Video],
-        Operations = [ProviderOperation.Job],
+        Operations = [ProviderOperation.Queued],
         SupportsInputs = true,
     };
 
@@ -73,14 +73,14 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IGenerationJobPr
     public int SubmitCalls => _submits;
 
     /// <summary>What a submission reports — Queued by default, so a job test reaches polling in one hop.</summary>
-    public GenerationOperationStatus SubmitStatus { get; set; } = GenerationOperationStatus.Queued;
+    public QueuedOperationStatus SubmitStatus { get; set; } = QueuedOperationStatus.Queued;
 
     /// <summary>Whether a Failed submission is INCONCLUSIVE — the backend never answered, which the router
-    /// surfaces instead of advancing (see <see cref="GenerationOperation.Inconclusive"/>).</summary>
+    /// surfaces instead of advancing (see <see cref="QueuedOperation.Inconclusive"/>).</summary>
     public bool SubmitInconclusive { get; set; }
 
     /// <summary>What the next poll reports — Succeeded by default, so a job test reaches delivery in one hop.</summary>
-    public GenerationOperationStatus PollStatus { get; set; } = GenerationOperationStatus.Succeeded;
+    public QueuedOperationStatus PollStatus { get; set; } = QueuedOperationStatus.Succeeded;
 
     /// <summary>Detail carried on the polled operation (a failure reason, a queue position).</summary>
     public string? PollDetail { get; set; }
@@ -96,15 +96,15 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IGenerationJobPr
     /// the one path where a throw may or may not already have committed money.</summary>
     public Exception? SubmitThrows { get; set; }
 
-    public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
+    public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
     {
         if (SubmitThrows is not null) throw SubmitThrows;
-        return Task.FromResult(new GenerationOperation($"op-{++_submits}", SubmitStatus) { Inconclusive = SubmitInconclusive });
+        return Task.FromResult(new QueuedOperation($"op-{++_submits}", SubmitStatus) { Inconclusive = SubmitInconclusive });
     }
 
-    public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
-        Task.FromResult(new GenerationOperation(operationId, PollStatus,
-            Progress: PollStatus == GenerationOperationStatus.Succeeded ? 1 : 0.5, Detail: PollDetail));
+    public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
+        Task.FromResult(new QueuedOperation(operationId, PollStatus,
+            Progress: PollStatus == QueuedOperationStatus.Succeeded ? 1 : 0.5, Detail: PollDetail));
 
     /// <summary>What the completed render COST, reported by the fetch. Null keeps the pre-existing usage
     /// (seconds only, no money), so every test written before this knob is byte-identical — a real queue
@@ -116,8 +116,8 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IGenerationJobPr
             [new GenerationArtifact("video/mp4", Uri: $"https://example.invalid/{operationId}.mp4")],
             new GenerationUsage(Seconds: 5, CostUsd: FetchCostUsd)));
 
-    public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
-        Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Cancelled));
+    public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
+        Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));
 }
 
 /// <summary>A STREAMING backend: two content chunks, then a terminal completion.</summary>

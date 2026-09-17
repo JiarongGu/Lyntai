@@ -237,7 +237,7 @@ What a backend implements:
   `AuthFailed`, because `AuthFailed` benches the backend for the cooldown window. The classifier DELEGATES its
   pattern corpus to `ProviderVerdictClassifier` and translates; never carry a second copy of "what does a 429 look
   like".
-- **A submit whose outcome is UNKNOWN is `GenerationOperation.Inconclusive`, and is never re-submitted.** A
+- **A submit whose outcome is UNKNOWN is `QueuedOperation.Inconclusive`, and is never re-submitted.** A
   backend that ANSWERS "no" can be retried elsewhere for free; a backend that never answered may already hold
   a billable render, and handing the same request to the next candidate buys the same generation twice. The
   router surfaces such a submission instead of advancing, and does not count it toward the dead-host

@@ -172,7 +172,7 @@ public class RouterCooldownKeyTests
         var admission = new ProviderAdmission(options);
         var key = ProviderKey.For("fake-video").With("v", "a").Build();
 
-        var backend = new FakeGenerationJobProvider { SubmitStatus = GenerationOperationStatus.Failed };
+        var backend = new FakeGenerationJobProvider { SubmitStatus = QueuedOperationStatus.Failed };
         var router = new GenerationRouter([backend], null, new DeadHostTracker(), _ => key, admission);
 
         var submission = await router.SubmitAsync(Candidates("fake-video"), VideoRequest()).WaitAsync(GateWait);
@@ -197,7 +197,7 @@ public class RouterCooldownKeyTests
 
         var backend = new FakeGenerationJobProvider
         {
-            SubmitStatus = GenerationOperationStatus.Failed,
+            SubmitStatus = QueuedOperationStatus.Failed,
             SubmitInconclusive = true,
         };
         var router = new GenerationRouter([backend], null, new DeadHostTracker(), _ => key, admission);

@@ -43,7 +43,10 @@ public class GenerationBackendsToolTests
 
         Assert.Equal(2, Backends(observation).GetArrayLength());
         Assert.True(Backend(observation, "images").GetProperty("usable").GetBoolean());
-        Assert.Equal("job", Backend(observation, "video").GetProperty("delivery")[0].GetString());
+        // "queued", not "job": the delivery mode is named for what it does, and `Job` collided with the
+        // durable job queue an APP runs (Lyntai.Jobs). The tool payload is derived from the enum name, so
+        // a model reading this field sees the rename — which is why the assertion is on the literal.
+        Assert.Equal("queued", Backend(observation, "video").GetProperty("delivery")[0].GetString());
     }
 
     /// <summary><b>The whole listing is bounded, not each probe.</b> A stalled backend must not be able to

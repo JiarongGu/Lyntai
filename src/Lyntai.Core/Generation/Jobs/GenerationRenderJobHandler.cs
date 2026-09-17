@@ -75,7 +75,7 @@ public sealed class GenerationRenderJobHandler(
         var candidates = job.Candidates.Select(ProviderCandidateSpec.Parse).ToList();
         var submission = await router.SubmitAsync(candidates, job.Request, ct).ConfigureAwait(false);
 
-        if (submission.Operation.Status == GenerationOperationStatus.Failed)
+        if (submission.Operation.Status == QueuedOperationStatus.Failed)
             // An INCONCLUSIVE submission is the one failure that must not be retried blind: the backend never
             // answered, so it may already be running a billable render this job knows no id for. Fail with the
             // backend NAMED, the same manual-recovery move the lost-lease path below makes — a human can check
@@ -116,8 +116,8 @@ public sealed class GenerationRenderJobHandler(
 
         switch (operation.Status)
         {
-            case GenerationOperationStatus.Queued:
-            case GenerationOperationStatus.Running:
+            case QueuedOperationStatus.Queued:
+            case QueuedOperationStatus.Running:
                 var done = operation.Progress is { } fraction ? (int)Math.Round(fraction * 100) : 0;
                 await ctx.ReportProgressAsync(done, 100, "running", ct).ConfigureAwait(false);
                 // Re-checkpoint the same value to RENEW THE LEASE across a long render — and HONOUR the
@@ -132,7 +132,7 @@ public sealed class GenerationRenderJobHandler(
                 // the backend says the render is progressing normally, so this is a Poll — see JobOutcome.Poll
                 return JobOutcome.Poll(_options.EffectivePollDelay);
 
-            case GenerationOperationStatus.Succeeded:
+            case QueuedOperationStatus.Succeeded:
                 // Revalidate the lease BEFORE fetching, because everything past this point has side
                 // effects the job store cannot fence: the fetch RECORDS SPEND and the sink RECEIVES the
                 // artifacts. `CompleteAsync` is fenced, so a zombie worker's outcome is discarded — but

@@ -255,7 +255,7 @@ public class GenerationGovernanceTests
 
         var submission = await router.SubmitAsync(Order("video"), Video);
 
-        Assert.Equal(GenerationOperationStatus.Failed, submission.Operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, submission.Operation.Status);
         Assert.Contains("cost budget", submission.Operation.Detail);
         Assert.Equal(0, backend.SubmitCalls);
     }
@@ -567,7 +567,7 @@ public class GenerationGovernanceTests
         {
             Accepts = [ProviderKinds.Text],
             Produces = [ProviderKinds.Video],
-            Operations = [ProviderOperation.Job],
+            Operations = [ProviderOperation.Queued],
         };
 
         public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
@@ -576,19 +576,19 @@ public class GenerationGovernanceTests
         public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
             Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "job backend"));
 
-        public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
+        public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
         {
             SubmitCalls++;
-            return Task.FromResult(new GenerationOperation("", GenerationOperationStatus.Failed, Detail: "queue down"));
+            return Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: "queue down"));
         }
 
-        public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Failed));
+        public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
+            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Failed));
 
         public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "nothing"));
 
-        public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Cancelled));
+        public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
+            Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));
     }
 }

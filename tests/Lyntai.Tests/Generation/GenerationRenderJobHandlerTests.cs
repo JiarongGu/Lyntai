@@ -102,7 +102,7 @@ public class GenerationRenderJobHandlerTests
     [Fact]
     public async Task A_still_running_operation_retries_and_reports_progress_rather_than_failing()
     {
-        var backend = new FakeGenerationJobProvider { Id = "video", PollStatus = GenerationOperationStatus.Running };
+        var backend = new FakeGenerationJobProvider { Id = "video", PollStatus = QueuedOperationStatus.Running };
         var (handler, _, sink) = Handler(backend);
         var ctx = new RecordingContext();
         await handler.HandleAsync(ctx.Build(Payload()));
@@ -120,7 +120,7 @@ public class GenerationRenderJobHandlerTests
         var backend = new FakeGenerationJobProvider
         {
             Id = "video",
-            PollStatus = GenerationOperationStatus.Failed,
+            PollStatus = QueuedOperationStatus.Failed,
             PollDetail = "content policy",
         };
         var (handler, _, sink) = Handler(backend);

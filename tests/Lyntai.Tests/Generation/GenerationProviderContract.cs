@@ -50,7 +50,7 @@ public static class GenerationProviderContract
         {
             switch (delivery)
             {
-                case ProviderOperation.Job:
+                case ProviderOperation.Queued:
                     Assert.True(provider is IGenerationJobProvider,
                         $"{provider.Id} declares Job delivery but does not implement IGenerationJobProvider");
                     break;

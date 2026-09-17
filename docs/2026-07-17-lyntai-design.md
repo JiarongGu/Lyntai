@@ -276,7 +276,7 @@ public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
 - **`ProbeAsync` never generates.** The generate-and-discard check it replaces bills a real generation to
   answer a setup question. A backend that genuinely cannot be checked without generating reports
   `Available: false` with the reason.
-- **A submit whose deadline expires is `GenerationOperation.Inconclusive`, and is never re-submitted** — the
+- **A submit whose deadline expires is `QueuedOperation.Inconclusive`, and is never re-submitted** — the
   work may have been accepted, so a retry double-bills the host (`Inconclusive` shipped in 2.2.0). The operation id is checkpointed BEFORE the first poll, so a crash
   resumes the render already running instead of paying for a second one.
 - **The CONTRACTS are in `Lyntai.Core`** (namespaces `Lyntai.Generation` + `.Routing`/`.Jobs`/`.Tools`); the

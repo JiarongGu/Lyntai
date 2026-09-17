@@ -91,7 +91,7 @@ public sealed class ComfyUiOptions
 ///   (<c>Options["workflow"]</c>) and optionally where the prompt belongs in it
 ///   (<c>Options["prompt-path"]</c>). <see cref="GenerationRequest.Prompt"/> may be null, and no default
 ///   graph is invented — guessing one would silently produce something nobody asked for.</item>
-/// <item><b>Asynchronous, locally.</b> <see cref="ProviderOperation.Job"/> delivery on a machine you own,
+/// <item><b>Asynchronous, locally.</b> <see cref="ProviderOperation.Queued"/> delivery on a machine you own,
 ///   composing with <c>Lyntai.Jobs</c> exactly like a hosted render.</item>
 /// <item><b>No content policy in the path</b>, which makes it the candidate to place after a hosted backend
 ///   when a refusal should be picked up locally (<see cref="Routing.GenerationRoutingPolicy"/>).</item>
@@ -125,7 +125,7 @@ public sealed class ComfyUiProvider(
     {
         Accepts = [ProviderKinds.Text],
         Produces = options.Produces,
-        Operations = [ProviderOperation.Job],
+        Operations = [ProviderOperation.Queued],
         // NOT SupportsInputs: a graph takes its init image from a node the CALLER authored, and the platform
         // cannot know which node that is — so GenerationRequest.Inputs has nowhere to go. Declaring it is an
         // admission promise (ProviderCapabilities.Supports) that the submit path below cannot keep.
@@ -169,7 +169,7 @@ public sealed class ComfyUiProvider(
     /// <inheritdoc/>
     /// <remarks>Bounded by the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it carries one, else
     /// <see cref="ComfyUiOptions.Timeout"/> — the QUEUEING call only, not the run it starts.</remarks>
-    public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
+    public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
             token => SubmitCoreAsync(request, token),
@@ -181,7 +181,7 @@ public sealed class ComfyUiProvider(
                 Inconclusive = true,
             });
 
-    private async Task<GenerationOperation> SubmitCoreAsync(GenerationRequest request, CancellationToken ct)
+    private async Task<QueuedOperation> SubmitCoreAsync(GenerationRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return Failed("no BaseUrl configured");
@@ -223,7 +223,7 @@ public sealed class ComfyUiProvider(
             var id = Field(body, options.PromptIdField);
             return id is null
                 ? Failed($"no {options.PromptIdField} in the response: {HttpArtifacts.FailureDetail(body, 200)}")
-                : new GenerationOperation(id, GenerationOperationStatus.Queued);
+                : new QueuedOperation(id, QueuedOperationStatus.Queued);
         }
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException ex)
@@ -242,22 +242,22 @@ public sealed class ComfyUiProvider(
     /// render, and reading it as terminal would abandon a run that is merely still going. A 4xx or an
     /// unconfigured BaseUrl IS terminal — that id will never resolve, and polling it forever strands the
     /// job.</summary>
-    public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
+    public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,
             token => PollCoreAsync(operationId, token),
-            reason => new GenerationOperation(operationId, GenerationOperationStatus.Running,
+            reason => new QueuedOperation(operationId, QueuedOperationStatus.Running,
                 Detail: $"the status call {reason} — the run is still assumed to be going"));
 
-    private async Task<GenerationOperation> PollCoreAsync(string operationId, CancellationToken ct)
+    private async Task<QueuedOperation> PollCoreAsync(string operationId, CancellationToken ct)
     {
         var (body, failure, transport, _) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
         if (failure is not null)
-            return new GenerationOperation(operationId,
-                transport ? GenerationOperationStatus.Running : GenerationOperationStatus.Failed, Detail: failure);
+            return new QueuedOperation(operationId,
+                transport ? QueuedOperationStatus.Running : QueuedOperationStatus.Failed, Detail: failure);
 
         return Entry(body!, operationId) is { } entry && Completed(entry)
-            ? new GenerationOperation(operationId, GenerationOperationStatus.Succeeded, Progress: 1)
-            : new GenerationOperation(operationId, GenerationOperationStatus.Running,
+            ? new QueuedOperation(operationId, QueuedOperationStatus.Succeeded, Progress: 1)
+            : new QueuedOperation(operationId, QueuedOperationStatus.Running,
                 Detail: "not in history yet — still queued or running");
     }
 
@@ -300,13 +300,13 @@ public sealed class ComfyUiProvider(
     /// stops whatever is executing — documented here because it matters if a host queues several. Bounded by
     /// <see cref="ComfyUiOptions.Timeout"/>; an interrupt that timed out may or may not have landed, so the run
     /// is reported as still going rather than assumed stopped.</summary>
-    public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
+    public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,
             token => CancelCoreAsync(operationId, token),
-            reason => new GenerationOperation(operationId, GenerationOperationStatus.Running,
+            reason => new QueuedOperation(operationId, QueuedOperationStatus.Running,
                 Detail: $"the interrupt {reason}"));
 
-    private async Task<GenerationOperation> CancelCoreAsync(string operationId, CancellationToken ct)
+    private async Task<QueuedOperation> CancelCoreAsync(string operationId, CancellationToken ct)
     {
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
@@ -315,15 +315,15 @@ public sealed class ComfyUiProvider(
             using var content = new StringContent("{}", Encoding.UTF8, "application/json");
             using var response = await http.PostAsync(Url(options.InterruptPath), content, ct).ConfigureAwait(false);
             return response.IsSuccessStatusCode
-                ? new GenerationOperation(operationId, GenerationOperationStatus.Cancelled,
+                ? new QueuedOperation(operationId, QueuedOperationStatus.Cancelled,
                     Detail: "interrupt sent (ComfyUI interrupts the RUNNING job, not this id specifically)")
-                : new GenerationOperation(operationId, GenerationOperationStatus.Running,
+                : new QueuedOperation(operationId, QueuedOperationStatus.Running,
                     Detail: $"interrupt rejected: {(int)response.StatusCode}");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return new GenerationOperation(operationId, GenerationOperationStatus.Running, Detail: ex.Message);
+            return new QueuedOperation(operationId, QueuedOperationStatus.Running, Detail: ex.Message);
         }
     }
 
@@ -331,8 +331,8 @@ public sealed class ComfyUiProvider(
 
     private string Url(string path) => $"{Root}/{path.TrimStart('/')}";
 
-    private GenerationOperation Failed(string detail) =>
-        new("", GenerationOperationStatus.Failed, Detail: detail);
+    private QueuedOperation Failed(string detail) =>
+        new("", QueuedOperationStatus.Failed, Detail: detail);
 
     /// <summary>Reads the history document. <c>Transport</c> distinguishes "the server did not answer" — an
     /// unreachable host or a 5xx — from a failure that is about THIS operation: an unconfigured BaseUrl, or a

@@ -13,8 +13,14 @@ public enum ProviderOperation
     /// <summary>Incremental delivery — tokens, frames, audio.</summary>
     Stream = 1,
 
-    /// <summary>Submit now, collect later: the backend returns a handle rather than a result.</summary>
-    Job = 2,
+    /// <summary>Submit now, collect later: the backend returns a handle rather than a result.
+    ///
+    /// <para><b>Named <c>Queued</c> rather than <c>Job</c>, because <c>Job</c> already means something else
+    /// here</b> — <c>Lyntai.Jobs</c> is the durable job queue an APPLICATION runs (<c>IJobStore</c>,
+    /// <c>IJobQueue</c>, <c>IJobHandler</c>, <c>IJobRunner</c>). This is a delivery mode of one backend
+    /// call, and the two compose rather than being the same thing: an app's job may submit a queued
+    /// generation and poll it later.</para></summary>
+    Queued = 2,
 }
 
 /// <summary>The content types this library routes over. Open by construction —

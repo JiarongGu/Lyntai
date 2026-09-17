@@ -45,7 +45,7 @@ public class ComfyUiProviderTests
         Assert.Equal("comfyui", provider.Id);
         Assert.Contains(ProviderKinds.Image, provider.Capabilities.Produces);
         Assert.Contains(ProviderKinds.Video, provider.Capabilities.Produces);   // local video via a workflow
-        Assert.Equal([ProviderOperation.Job], provider.Capabilities.Operations);
+        Assert.Equal([ProviderOperation.Queued], provider.Capabilities.Operations);
         Assert.IsAssignableFrom<IGenerationJobProvider>(provider);
     }
 
@@ -59,7 +59,7 @@ public class ComfyUiProviderTests
 
         Assert.False(provider.Capabilities.SupportsInputs);
         Assert.False(provider.Capabilities.Supports(
-            Ask().Kind, ProviderOperation.Job, Ask().Model, hasInputs: true));
+            Ask().Kind, ProviderOperation.Queued, Ask().Model, hasInputs: true));
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class ComfyUiProviderTests
             Inputs = [GenerationInput.FirstFrame(new byte[] { 1, 2, 3 }, "image/png")],
         });
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("workflow graph", operation.Detail);
         Assert.Empty(http.Requests);          // nothing was submitted, so nothing was billed
     }
@@ -102,7 +102,7 @@ public class ComfyUiProviderTests
         var operation = await provider.SubmitAsync(Ask());
 
         Assert.Equal("abc-123", operation.Id);
-        Assert.Equal(GenerationOperationStatus.Queued, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Queued, operation.Status);
         Assert.Equal("http://127.0.0.1:8188/prompt", http.Requests[0].Uri?.ToString());
         Assert.Contains("KSampler", http.Requests[0].Body);       // the caller's graph went through
     }
@@ -129,7 +129,7 @@ public class ComfyUiProviderTests
 
         var operation = await provider.SubmitAsync(Ask(workflow: null));
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("workflow", operation.Detail);
         Assert.Empty(http.Requests);
     }
@@ -141,7 +141,7 @@ public class ComfyUiProviderTests
 
         var operation = await provider.SubmitAsync(Ask(workflow: "{not json"));
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Empty(http.Requests);
     }
 
@@ -154,7 +154,7 @@ public class ComfyUiProviderTests
 
         var operation = await provider.PollAsync("abc-123");
 
-        Assert.Equal(GenerationOperationStatus.Running, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
         Assert.Equal("http://127.0.0.1:8188/history/abc-123", http.Requests[0].Uri?.ToString());
     }
 
@@ -169,7 +169,7 @@ public class ComfyUiProviderTests
 
         var operation = await provider.PollAsync("abc-123");
 
-        Assert.Equal(GenerationOperationStatus.Running, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
         Assert.Contains("hiccup", operation.Detail);
     }
 
@@ -183,7 +183,7 @@ public class ComfyUiProviderTests
 
         var operation = await provider.PollAsync("abc-123");
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
     }
 
     [Fact]
@@ -193,7 +193,7 @@ public class ComfyUiProviderTests
 
         var operation = await provider.PollAsync("abc-123");
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("BaseUrl", operation.Detail);
         Assert.Empty(http.Requests);
     }
@@ -208,7 +208,7 @@ public class ComfyUiProviderTests
 
         var operation = await provider.PollAsync("abc-123");
 
-        Assert.Equal(GenerationOperationStatus.Succeeded, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Succeeded, operation.Status);
         Assert.Equal(1, operation.Progress);
     }
 
@@ -266,7 +266,7 @@ public class ComfyUiProviderTests
 
         var operation = await provider.CancelAsync("abc-123");
 
-        Assert.Equal(GenerationOperationStatus.Cancelled, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Cancelled, operation.Status);
         Assert.Equal("http://127.0.0.1:8188/interrupt", http.Requests[0].Uri?.ToString());
     }
 
@@ -281,7 +281,7 @@ public class ComfyUiProviderTests
         var submitted = await provider.SubmitAsync(Ask());
         var probe = await provider.ProbeAsync();
 
-        Assert.Equal(GenerationOperationStatus.Failed, submitted.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, submitted.Status);
         Assert.Contains("not reachable", submitted.Detail);
         Assert.False(probe.Available);
     }
@@ -339,7 +339,7 @@ public class ComfyUiProviderTests
         var operation = await provider.SubmitAsync(Ask());
 
         Assert.Equal("abc-123", operation.Id);
-        Assert.Equal(GenerationOperationStatus.Queued, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Queued, operation.Status);
     }
 
     [Fact]
@@ -356,7 +356,7 @@ public class ComfyUiProviderTests
 
         var operation = await provider.SubmitAsync(Ask());
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("job_id", operation.Detail);
     }
 

@@ -156,6 +156,19 @@ export default {
         + 'residue of the pre-D128 world where an embedder was a distinct KIND of backend (D151)',
     },
     {
+      // D153 step 1. `Job` is not matched on its own — it is the whole of `Lyntai.Jobs`, the durable job
+      // queue an APPLICATION runs, which keeps every one of its names. What is retired is the PROVIDER
+      // delivery mode that borrowed the word, and the handle that carried a domain prefix.
+      names: [
+        'GenerationOperation',
+        'GenerationOperationStatus',
+      ],
+      use: '`QueuedOperation` / `QueuedOperationStatus`, and `ProviderOperation.Queued` for the delivery '
+        + 'mode that was `ProviderOperation.Job`',
+      why: 'a delivery mode named Job collided with Lyntai.Jobs, and the handle was named for one domain '
+        + 'when submit/poll/fetch/cancel is a delivery SHAPE any kind can serve (D153)',
+    },
+    {
       // D152, the PROVIDER-facing half only. `EmbeddingRole` and `EmbedAsync` are deliberately NOT here:
       // they name the OPERATION, which is where every vendor puts the word (OpenAI's `/v1/embeddings`,
       // Ollama's `/api/embed`) and where this seam's sibling methods already take a verb — `CompleteAsync`,
@@ -691,6 +704,15 @@ export default {
         + 'they produce — the taxonomy D130 deleted from the types and D132 from the surface',
       use: '`AddHttpProvider` (with `Chat`/`Embeddings` saying which routes), '
         + '`AddOnnxProvider`, `AddModel2VecProvider`, `AddLlamaSharpProvider`, `HttpVectorTransport`',
+    },
+    {
+      // D153 step 1, the prose half. `ProviderOperation.Job` is matched QUALIFIED so that the whole of
+      // `Lyntai.Jobs` — IJobStore, IJobQueue, IJobHandler, JobContext — stays sayable; it is the word's
+      // legitimate owner here, and the delivery mode was the borrower.
+      term: '\\bGenerationOperation\\b|\\bGenerationOperationStatus\\b|\\bProviderOperation\\.Job\\b',
+      why: 'the queued delivery mode and its handle were named for one domain and for a word Lyntai.Jobs '
+        + 'already owns (D153)',
+      use: '`QueuedOperation`, `QueuedOperationStatus`, `ProviderOperation.Queued`',
     },
     {
       // D152, the prose half — the SURFACE half is in `retiredApiNames` above. A document naming any of

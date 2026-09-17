@@ -33,14 +33,14 @@ sealed class Lyntai.Generation.Providers.ComfyUiOptions
     WorkflowOption : String
 sealed class Lyntai.Generation.Providers.ComfyUiProvider
     .ctor(ComfyUiOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
-    CancelAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
+    CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     Capabilities : ProviderCapabilities
     FetchAsync(String operationId, CancellationToken ct = default) : Task<GenerationResult>
     GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
-    PollAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
+    PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
-    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationOperation>
+    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<QueuedOperation>
 enum Lyntai.Generation.Providers.DiffusionAccelerator
     Cpu : DiffusionAccelerator const
     Gpu : DiffusionAccelerator const
@@ -56,19 +56,19 @@ sealed class Lyntai.Generation.Providers.FalQueueOptions
     Produces : IReadOnlyList<String>
     RequestsSegment : String
     StatusSegment : String
-    StatusVocabulary : IDictionary<String,GenerationOperationStatus>
+    StatusVocabulary : IDictionary<String,QueuedOperationStatus>
     Timeout : TimeSpan
     WebhookQueryParameter : String
 sealed class Lyntai.Generation.Providers.FalQueueProvider
     .ctor(FalQueueOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
-    CancelAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
+    CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     Capabilities : ProviderCapabilities
     FetchAsync(String operationId, CancellationToken ct = default) : Task<GenerationResult>
     GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
-    PollAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
+    PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
-    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationOperation>
+    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<QueuedOperation>
 sealed class Lyntai.Generation.Providers.LocalDiffusionOptions
     .ctor()
     Accelerator : DiffusionAccelerator

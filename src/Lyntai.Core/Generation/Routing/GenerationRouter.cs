@@ -18,12 +18,12 @@ namespace Lyntai.Generation.Routing;
 /// <c>LlmRouter.CompleteAsync</c> holds the same two slots, so change one and check the other.</para>
 ///
 /// <para><b>Submission has one rule of its own:</b> a failed submission marked
-/// <see cref="GenerationOperation.Inconclusive"/> SURFACES rather than advancing, because a backend that
+/// <see cref="QueuedOperation.Inconclusive"/> SURFACES rather than advancing, because a backend that
 /// never answered may already hold a billable render and the next candidate would buy it twice.</para>
 ///
 /// <para><b>The policy governs submission too, at one remove.</b> A submission carries a
-/// <see cref="GenerationOperationStatus"/>, not a verdict, so a rejection is classified from the backend's
-/// own <see cref="GenerationOperation.Detail"/> and answered by the same table. Two things hold whatever the
+/// <see cref="QueuedOperationStatus"/>, not a verdict, so a rejection is classified from the backend's
+/// own <see cref="QueuedOperation.Detail"/> and answered by the same table. Two things hold whatever the
 /// text says: Inconclusive is decided BEFORE the verdict, and a submission the router does not accept
 /// reports an EMPTY <see cref="GenerationSubmission.ProviderId"/> — <see cref="IGenerationRouter"/>'s "no
 /// candidate accepted" — with the first rejection folded into the detail by the two-slot rule above.</para>
@@ -147,7 +147,7 @@ public sealed class GenerationRouter(
     public async Task<GenerationSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
     {
-        var capable = Capable(candidates, request, ProviderOperation.Job);
+        var capable = Capable(candidates, request, ProviderOperation.Queued);
         var benched = 0;
 
         // the FIRST substantive rejection, kept the way GenerateAsync keeps its firstFailure: the backend
@@ -174,7 +174,7 @@ public sealed class GenerationRouter(
             {
                 var started = Stopwatch.GetTimestamp();
                 using var span = LyntaiDiagnostics.StartGeneration("submit", provider.Id, resolved.Kind, resolved.Model);
-                GenerationOperation operation;
+                QueuedOperation operation;
                 try
                 {
                     operation = await job.SubmitAsync(resolved, ct).ConfigureAwait(false);
@@ -192,13 +192,13 @@ public sealed class GenerationRouter(
                     // A throw that provably never left this process is NOT caught here (see the filter): it
                     // committed nothing, so it propagates and the durable-job runner applies its ordinary
                     // retry.
-                    operation = new GenerationOperation("", GenerationOperationStatus.Failed,
+                    operation = new QueuedOperation("", QueuedOperationStatus.Failed,
                         Detail: $"{provider.Id}: {ex.Message}") { Inconclusive = true };
                 }
                 LyntaiDiagnostics.RecordSubmission(span, provider.Id, resolved.Kind, operation.Id, operation.Status,
                     Stopwatch.GetElapsedTime(started).TotalSeconds, operation.Inconclusive);
 
-                if (operation.Status != GenerationOperationStatus.Failed)
+                if (operation.Status != QueuedOperationStatus.Failed)
                 {
                     deadHosts?.RecordSuccess(CooldownKey(provider));
                     return new GenerationSubmission(provider.Id, operation);
@@ -249,7 +249,7 @@ public sealed class GenerationRouter(
             }
         }
 
-        return new GenerationSubmission("", new GenerationOperation("", GenerationOperationStatus.Failed,
+        return new GenerationSubmission("", new QueuedOperation("", QueuedOperationStatus.Failed,
             Detail: (benched > 0
                 ? $"every capable media backend for a '{request.Kind}' job is on dead-host cooldown"
                 : $"no capable media backend accepted a '{request.Kind}' job among " +

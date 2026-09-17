@@ -29,7 +29,7 @@ public class FalQueueProviderTests
         var (provider, _) = Provider();
 
         Assert.Equal("fal", provider.Id);
-        Assert.Equal([ProviderOperation.Job], provider.Capabilities.Operations);
+        Assert.Equal([ProviderOperation.Queued], provider.Capabilities.Operations);
         Assert.Contains(ProviderKinds.Video, provider.Capabilities.Produces);
         Assert.IsAssignableFrom<IGenerationJobProvider>(provider);
         Assert.Empty(provider.Capabilities.Models);   // hundreds, and they change without us
@@ -45,7 +45,7 @@ public class FalQueueProviderTests
 
         var operation = await provider.SubmitAsync(Ask());
 
-        Assert.Equal(GenerationOperationStatus.Queued, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Queued, operation.Status);
         Assert.Equal("fal-ai/wan-t2v#req-123", operation.Id);
         Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v", http.Requests[0].Uri?.ToString());
         Assert.Equal("Key k", http.Requests[0].Auth);
@@ -73,12 +73,12 @@ public class FalQueueProviderTests
     }
 
     [Theory]
-    [InlineData("IN_QUEUE", GenerationOperationStatus.Queued)]
-    [InlineData("IN_PROGRESS", GenerationOperationStatus.Running)]
-    [InlineData("COMPLETED", GenerationOperationStatus.Succeeded)]
-    [InlineData("SOMETHING_NEW", GenerationOperationStatus.Running)]   // unknown != failed
+    [InlineData("IN_QUEUE", QueuedOperationStatus.Queued)]
+    [InlineData("IN_PROGRESS", QueuedOperationStatus.Running)]
+    [InlineData("COMPLETED", QueuedOperationStatus.Succeeded)]
+    [InlineData("SOMETHING_NEW", QueuedOperationStatus.Running)]   // unknown != failed
     public async Task Poll_maps_queue_status_onto_the_operation_states_the_job_handler_branches_on(
-        string status, GenerationOperationStatus expected)
+        string status, QueuedOperationStatus expected)
     {
         var (provider, http) = Provider();
         http.Enqueue(HttpStatusCode.OK, $"{{\"status\":\"{status}\"}}");
@@ -101,15 +101,15 @@ public class FalQueueProviderTests
     public async Task A_host_that_learns_the_real_status_vocabulary_can_correct_it_in_configuration()
     {
         var options = new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" };
-        options.StatusVocabulary["ENQUEUED"] = GenerationOperationStatus.Queued;      // extend
-        options.StatusVocabulary["COMPLETED"] = GenerationOperationStatus.Running;    // redefine
+        options.StatusVocabulary["ENQUEUED"] = QueuedOperationStatus.Queued;      // extend
+        options.StatusVocabulary["COMPLETED"] = QueuedOperationStatus.Running;    // redefine
         var (provider, http) = Provider(options);
 
         http.Enqueue(HttpStatusCode.OK, """{"status":"ENQUEUED"}""");
-        Assert.Equal(GenerationOperationStatus.Queued, (await provider.PollAsync("fal-ai/wan-t2v#req-1")).Status);
+        Assert.Equal(QueuedOperationStatus.Queued, (await provider.PollAsync("fal-ai/wan-t2v#req-1")).Status);
 
         http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED"}""");
-        Assert.Equal(GenerationOperationStatus.Running, (await provider.PollAsync("fal-ai/wan-t2v#req-1")).Status);
+        Assert.Equal(QueuedOperationStatus.Running, (await provider.PollAsync("fal-ai/wan-t2v#req-1")).Status);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class FalQueueProviderTests
 
         var operation = await provider.PollAsync("fal-ai/wan-t2v#req-1");
 
-        Assert.Equal(GenerationOperationStatus.Running, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
         Assert.Contains("unrecognised status", operation.Detail);
     }
 
@@ -164,7 +164,7 @@ public class FalQueueProviderTests
 
         var operation = await provider.PollAsync("fal-ai/wan-t2v#req-123");
 
-        Assert.Equal(GenerationOperationStatus.Running, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
         Assert.Contains("hiccup", operation.Detail);
     }
 
@@ -182,7 +182,7 @@ public class FalQueueProviderTests
 
         var operation = await provider.PollAsync("fal-ai/wan-t2v#req-123");
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("not found", operation.Detail);
     }
 
@@ -203,7 +203,7 @@ public class FalQueueProviderTests
 
         var operation = await provider.PollAsync("fal-ai/wan-t2v#req-123");
 
-        Assert.Equal(GenerationOperationStatus.Running, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Running, operation.Status);
     }
 
     [Fact]
@@ -215,7 +215,7 @@ public class FalQueueProviderTests
 
         var operation = await provider.PollAsync("fal-ai/wan-t2v#req-123");
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("not configured", operation.Detail);
     }
 
@@ -265,7 +265,7 @@ public class FalQueueProviderTests
         var operation = await provider.SubmitAsync(Ask());
         var probe = await provider.ProbeAsync();
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("not configured", operation.Detail);
         Assert.False(probe.Available);
         Assert.Empty(http.Requests);
@@ -278,7 +278,7 @@ public class FalQueueProviderTests
 
         var operation = await provider.SubmitAsync(Ask());
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("no model", operation.Detail);
         Assert.Empty(http.Requests);
     }
@@ -296,7 +296,7 @@ public class FalQueueProviderTests
             Inputs = [GenerationInput.FirstFrame(new byte[] { 1, 2, 3 }, "image/png")],
         });
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("URL", operation.Detail);
         Assert.Empty(http.Requests);          // nothing was submitted, so nothing was billed
     }
@@ -312,7 +312,7 @@ public class FalQueueProviderTests
             Inputs = [GenerationInput.FirstFrame(new Uri("https://cdn.invalid/first.png"), "image/png")],
         });
 
-        Assert.Equal(GenerationOperationStatus.Queued, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Queued, operation.Status);
         Assert.Contains("\"image_url\"", http.Requests[0].Body);  // the first-frame field, not input_image_url
         Assert.Contains("cdn.invalid/first.png", http.Requests[0].Body);
     }
@@ -334,7 +334,7 @@ public class FalQueueProviderTests
 
         var operation = await provider.PollAsync("no-separator-here");
 
-        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
         Assert.Contains("malformed", operation.Detail);
         Assert.Empty(http.Requests);
     }
