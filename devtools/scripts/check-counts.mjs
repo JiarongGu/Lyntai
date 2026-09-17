@@ -457,22 +457,26 @@ export const COUNTED_CLAIMS = [
     count: countDecisions,
     why: 'CLAUDE.md routes a reader to the decision log by RANGE, so a short range reads as "nothing landed after this"',
   },
-  {
-    what: 'startable backlog items',
-    // Anchored on `startable set is N item(s)`, the banner's own shape. Deliberately not a bare `(\w+)
-    // items`: `TASKS.md` says "items" constantly about candidates, endorsed items and codex stream items,
-    // and a gate firing on those is one somebody switches off.
-    // `items?` since 2026-09-12: the count reached ONE and the plural-only pattern stopped matching, which
-    // the gate reports as "its pattern found no occurrence" — a gate that cannot express a legitimate value
-    // fails on the day that value arrives, and the tempting fix is ungrammatical prose.
-    // The noun is OPTIONAL since 2026-09-16, when the count reached ZERO and the banner read "the startable
-    // set is EMPTY" — no noun follows. Same failure at the next boundary down; `empty` is a count word in
-    // `NUMBER_WORDS` for the same reason. A trailing non-number ("…is going to move") captures a word
-    // `parseCount` rejects, which the scan already skips as "a word, not a claim".
-    pattern: /startable set is \*{0,2}([\w]+)\*{0,2}(?: items?)?/gi,
-    count: countStartableItems,
-    why: 'this exact sentence has advertised finished work four times, and nothing derived it',
-  },
+  /*
+   * `startable backlog items` was registered here until 2026-09-17, anchored on the banner sentence
+   * "the startable set is N items".
+   *
+   * IT WENT BECAUSE THE SENTENCE DID, and the sentence went because **D111** had already made it
+   * redundant: the roster at the head of `TASKS.md` is GENERATED from the per-item `item:` markers, and
+   * `check-backlog` fails while the manifest and the markers disagree. So the count is derived and gated
+   * either way, and the banner was a second, hand-maintained copy of it sitting thirty lines above the
+   * generated one.
+   *
+   * The history is the argument. This pattern was widened twice to chase the prose — `items?` when the
+   * count reached ONE, then an optional noun when it reached ZERO and the banner read "is EMPTY" — and it
+   * broke three more times in one session, every time because a human edited a number a table already
+   * owned. A counter that keeps needing a wider pattern is measuring a sentence that should not exist;
+   * the same reasoning retired `dev.mjs`'s usage banner (see `commentBlockAllowances`' own note).
+   *
+   * What the claim protected against was a banner ADVERTISING FINISHED WORK, four times. That risk lives
+   * in the prose being hand-written at all, which is what was removed — the preamble now names no number
+   * and points at the table instead.
+   */
   {
     what: 'golden corpus shapes',
     // Anchored on "pins N golden shapes" — the TOTAL, which is what the counter computes. Deliberately not

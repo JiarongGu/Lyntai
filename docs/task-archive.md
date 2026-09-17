@@ -4322,8 +4322,8 @@ defect for the length of a session. Incident in `docs/FIXES.md`.
 and undercounted shared namespaces by two — and `AddEmbeddingProvider`'s shipped XML doc, which pointed at
 an `Add…Embedder` convention D132 retired.
 
-**What it found and did NOT change**, filed rather than fixed because each is a decision rather than a
-defect: the cross-encoder's names (`AddOnnxCrossEncoder` / `OnnxCrossEncoder`, the one backend D137/D138
+**What it found and did NOT change** is `TASKS.md` Part 102, one decidable item each — filed rather than
+fixed because each is a decision rather than a defect: the cross-encoder's names (`AddOnnxCrossEncoder` / `OnnxCrossEncoder`, the one backend D137/D138
 missed), `HttpDialect` as a closed enum where a DI seam belongs, `AddProvider` versus
 `AddEmbeddingProvider` as a silent mis-wiring trap, four surface changes since v3.1.0 that no changelog
 entry announces, and a `### Breaking` section carrying nine additive entries.

@@ -15,24 +15,30 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 11 across 6 Parts: 4 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 17 across 7 Parts: 10 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 112 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 129 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 162 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 215 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 234 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 281 | 101 | NS1 — rule on `Lyntai.Embeddings.Model2Vec`, in THIS release window or not … | startable |  |
-| 312 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 372 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 427 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 450 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 507 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 118 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 135 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 168 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 221 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 240 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 289 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
+| 304 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
+| 313 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
+| 320 | 102 | REL4 — two registration methods, identical signatures, and one silently mis… | startable |  |
+| 329 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
+| 338 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
+| 360 | 101 | NS1 — rule on `Lyntai.Embeddings.Model2Vec`, in THIS release window or not … | startable |  |
+| 391 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 451 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 506 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 529 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 586 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -47,8 +53,8 @@ history rather than context (`repo-mechanics.md`)._
 **What is open is the TABLE at the head of this file, and it is GENERATED.** Every checkbox carries an
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
-longer drift apart. Edit the marker, never the table. **The startable set is FOUR items**: three sat here
-`blocked` or unfiled until 2026-09-16, and the fourth is a naming call the major's window opens (Part 101).
+longer drift apart. Edit the marker, never the table — the COUNT lives there and nowhere else, so this
+sentence names no number. Most of what is startable today is Part 102, the pre-release review's open calls.
 **The accumulation that hid them is now GATED rather than watched for**: `check-backlog` fails a
 `## Part` holding no open checkbox.
 
@@ -269,6 +275,79 @@ fourth such surface — a consuming app measured it 2026-08-04 and it is now con
 > `[x]` here.
 
 ---
+
+## Part 102 — the pre-release review's open calls, one decision each (2026-09-17)
+
+_Opened by `docs/task-archive.md` **Part 245**, a five-dimension review run before cutting the major.
+Everything that was a DEFECT was fixed in that pass; what is left is below, and each one is a CHOICE
+rather than a repair. **Three of them close with this release window** — REL3, REL4 and REL5 change public
+names or shapes, so they ship in the major or wait for the next one._
+
+_**Read the evidence before deciding, and re-verify it.** These came out of a review, not out of a gate;
+the line numbers and counts were true on 2026-09-17 and rot the way any measurement does._
+
+- [ ] **REL1 — four surface changes since `v3.1.0` that NO changelog entry announces.** <!-- item: state=startable -->
+  The changelog IS the migration path for this major (**D149** — there is deliberately no separate guide),
+  so an unannounced break is a consumer hitting it with nothing to read.
+  1. **`MemoryReview.Grade` → `ReviewGrade`** on `MemoryReview`, `MemoryReviewWrite` and `MemoryReviewRow`
+     (commit `94f89b2c`, marked `!`). `MemoryReviewWrite` is constructed by every BYO `IMemoryGraphStore`.
+  2. **`ProviderProbeResult`'s positional parameter ORDER changed** — `(Available, Version, Model, Detail)`
+     became `(Available, Detail, Version, Model)`. **The sharp one**: D127's entry mentions the two domains
+     had different field orders but never says the survivor took generation's, so a consumer who follows
+     its stated migration recompiles CLEAN and files their version string into `Detail`. A silent data
+     defect on upgrade, not a compile break.
+  3. **`GraphNode` gained a trailing `Matched` member** — the Breaking section lists this exact break class
+     for four sibling types and omits the one a BYO graph store RETURNS.
+  4. **`Lyntai.Llm.Routing.FallbackAction` → `Lyntai.Lifecycle.FallbackAction`.** D140's entry names only
+     the generation-side type as moving.
+
+- [ ] **REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describes a dead migration.** <!-- item: state=startable -->
+  `RunPipelineAsync`, `WalkAsync`, `WriteBackAsync`, `LinkManyAsync`, `ExpansionRetrievabilityFloor`,
+  `SalienceContext.SimilarCount`, `MemoryItem.Metadata`, `MemoryVerificationCandidate.Relevance` and
+  `IMemorySeedSource` all sit under a `### Breaking` heading. For a release whose changelog is the
+  migration path, a consumer reading that heading gets nine non-breaks mixed into the list. Separately,
+  **D145's entry instructs a migration D146 deleted fifteen lines above it** — D123 and D128 both carry a
+  supersession note and D145 does not, so it reads as live guidance. The Unreleased section also has six
+  `### Added` headings and three `### Breaking`; worth collapsing before the cut.
+
+- [ ] **REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep missed.** <!-- item: state=startable -->
+  `AddOnnxCrossEncoder` / `OnnxCrossEncoder` / `OnnxCrossEncoderOptions`, beside `AddOnnxProvider` /
+  `OnnxProvider` / `OnnxProviderOptions` in the same file and the same baseline. It is the ONLY shipped
+  `IModelProvider` whose type name lacks `Provider` and the only named-backend registration without the
+  suffix. **D137** restored the suffix "on all seventeen" and **D138** renamed the sibling in this very
+  file; both passed over it. A rename now is mechanical; after the major it costs another one.
+
+- [ ] **REL4 — two registration methods, identical signatures, and one silently mis-wires.** <!-- item: state=startable -->
+  `AddProvider` and `AddEmbeddingProvider` both take `Func<IServiceProvider, IModelProvider>`. The second additionally sets the flag
+  `AddSemanticMemory()` reads, so registering an embedding backend through the first compiles, runs, and
+  leaves semantic memory unwired. **This already bit once** (`docs/FIXES.md` 2026-09-17) and the fix
+  restored only the instance-registration route; the factory trap is still open by design, because
+  capability is unknowable before a provider is built. Options: a distinct parameter type, an analyzer, a
+  startup warning when a built provider declares `Vector` but the flag was never set, or accept it and
+  document it louder. Also missing: `AddEmbeddingProvider<T>()`, which the LLM side has.
+
+- [ ] **REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belongs.** <!-- item: state=startable -->
+  `src/Lyntai.Providers.Basic/Http/HttpDialect.cs:11`, with the conditionals at `Http/ProviderDetect.cs`,
+  `Http/HttpEndpoint.cs` and `Http/HttpModelProvider.cs`. `dotnet-package-layout.md` §Variation points:
+  *"If adding a backend requires editing existing code, the seam is in the wrong place."* Adding
+  Ollama-native required edits at five sites, so the test is met by history rather than hypothesis — and
+  one directory up, `ICliProviderDialect` is the same idea done as an interface. The enum is PUBLIC, so
+  shipping again freezes it for the major. The counter-argument worth weighing: the family's membership
+  rule is "OpenAI-compatible", so a foreign wire schema arguably belongs in its own provider class.
+
+- [ ] **REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-facing.** <!-- item: state=startable -->
+  Worst first, and **each needs re-verifying before acting** — this list is a review's output, not a
+  gate's. `extending-lyntai.md`: a dialect sketch with the wrong `BuildCompletionArgs` arity, a
+  `SupportsToolCalls` member that does not exist on `IModelProvider` (writing it compiles and is silently
+  ignored), a native-provider sketch omitting `Capabilities` — the one member with no default — and
+  "THREE of the thirteen carry a default body" where the thirteen ARE the required ones of sixteen.
+  `pitfalls.md`: an entry whose premise **D108** removed (`IMemoryVerificationPolicy` does receive
+  `Content`), and one instructing a bump to a literal that no longer exists. `memory.md`: a "turn the judge
+  on" recipe that is a no-op at shipped defaults, and an unreachable salience column. `GATES.md`,
+  `AOT.md`, `llm-and-router.md`, `storage.md`: assorted stale names and counts.
+  <br>_Why no gate sees these: `check-links`' member tier asks whether a name exists ANYWHERE in the tree,
+  not whether it is on the named type; `check-tautology` and `check-docs` do not read
+  `.claude/knowledge/**`; and 11 of the 58 doc samples carry `compile-skip`._
 
 ## Part 101 — `Lyntai.Embeddings.Model2Vec`: an adapter owning a namespace root (2026-09-17)
 
