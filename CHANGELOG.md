@@ -260,6 +260,24 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   vectors — three members, exactly what a bring-your-own SCORER already implements. The per-call role
   distinction survives on `EmbedAsync`'s role-aware overload, so an asymmetric model is unaffected.
 
+- **`ProviderRouter<TRequest,TResponse>` — fallback routing for any call shape** (**D153**). Candidate
+  selection, dead-host cooldown, admission and fallback, over whichever registered backends implement
+  `IProviderCall<,>`. An application closing it over its own types gets all of it without Core knowing its
+  kind exists. `VectorRequest`/`VectorResponse` and `IVectorProvider` are its first call shape —
+  `VectorResponse` carries the verdict **beside** the vectors, because there is no vector meaning "I could
+  not" and a zero compares as real.
+  <br>**It does NOT replace `LlmRouter` or `GenerationRouter`.** Those differ in eight recorded,
+  load-bearing ways — last-versus-first failure, retries present versus absent, one synthetic failure versus
+  two — and folding them in would mean eight injection points on the most load-bearing code here.
+  Converging them is its own decision.
+
+- **The cross-domain routing types leave `Lyntai.Llm.Routing`** (**D153**). `RoutingPolicy`,
+  `DeadHostTracker` and `CooldownScope` move to `Lyntai.Lifecycle`; edit the `using`, the types are
+  unchanged. They were never LLM-specific — the generation router and its factory use all three — and
+  `Lyntai.Lifecycle` was importing the LLM namespace to reach them, which put the neutral taxonomy
+  downstream of one domain. That is the inversion **D140** removed one layer up. `LlmRouter`, `LlmClient`
+  and `ILlmRouterFactory` stay where they are; those genuinely are the LLM front door.
+
 - **A generic provider base, so a consuming app can define its OWN kind** (**D153**). Four additive seams in
   `Lyntai.Lifecycle`: `IProviderOutcome` (`Verdict` + `Detail` — what routing needs from any response, and
   the whole of it), `IProviderCall<TRequest,TResponse>`, `IProviderStream<TRequest,TChunk>` and

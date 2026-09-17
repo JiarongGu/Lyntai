@@ -1,4 +1,4 @@
-namespace Lyntai.Llm.Routing;
+namespace Lyntai.Lifecycle;
 
 /// <summary>The granularity at which the dead-host tracker keys a candidate's cooldown state.</summary>
 public enum CooldownScope

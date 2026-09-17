@@ -1,6 +1,6 @@
 using Lyntai.Lifecycle;
 
-namespace Lyntai.Llm.Routing;
+namespace Lyntai.Lifecycle;
 
 /// <summary>
 /// The router's fallback policy: how each <see cref="ProviderVerdict"/> maps to a <see cref="FallbackAction"/>,

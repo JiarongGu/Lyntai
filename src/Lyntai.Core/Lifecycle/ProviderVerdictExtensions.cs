@@ -55,12 +55,12 @@ public static class ProviderVerdictExtensions
     /// <para><b><see cref="ProviderVerdict.Failed"/> is the classifier's CATCH-ALL, so this over-reports on
     /// purpose.</b> That bucket holds real availability faults (a reset connection, a 502) AND permanent
     /// errors nothing matched, so a 400 whose body fits no pattern reads transient. Kept because
-    /// <see cref="Lyntai.Llm.Routing.RoutingPolicy.Retry(ProviderVerdict, int)"/> re-sends to the same candidate for exactly
+    /// <see cref="RoutingPolicy.Retry(ProviderVerdict, int)"/> re-sends to the same candidate for exactly
     /// <see cref="ProviderVerdict.Failed"/> and <see cref="ProviderVerdict.Timeout"/>, and a predicate that disagreed
     /// with the router about its own retry rule would be worse than one that over-reports. <b>Read it as "a
     /// retry is worth ONE bounded attempt", never as a licence for a loop</b>; where certainty matters, read
     /// the specific verdict.</para>
-    /// <para>Deliberately NOT derived from <see cref="Lyntai.Llm.Routing.RoutingPolicy"/>: that table answers what the
+    /// <para>Deliberately NOT derived from <see cref="RoutingPolicy"/>: that table answers what the
     /// ROUTER does with a candidate, and the two differ (<see cref="ProviderVerdict.RateLimited"/> and
     /// <see cref="ProviderVerdict.AuthFailed"/> share an action there, not here).
     /// <c>LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient</c> fails until a new

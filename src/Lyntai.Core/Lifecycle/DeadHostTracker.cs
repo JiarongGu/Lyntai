@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Lyntai.Llm.Routing;
+namespace Lyntai.Lifecycle;
 
 /// <summary>
 /// Dead-host cooldown (a FIXED cooldown after N consecutive failures, not exponential backoff): after

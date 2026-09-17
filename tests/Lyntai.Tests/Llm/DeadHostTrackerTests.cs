@@ -1,3 +1,4 @@
+using Lyntai.Lifecycle;
 using Lyntai.Llm.Routing;
 
 namespace Lyntai.Tests.Llm;
