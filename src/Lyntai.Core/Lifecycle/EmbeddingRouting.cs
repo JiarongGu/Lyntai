@@ -41,11 +41,16 @@ internal static class EmbeddingRouting
     /// backends IMPLEMENT, so a deployment cannot claim an embedding capability it has no backend for.</para>
     ///
     /// <para><b>It SHORT-CIRCUITS and allocates nothing</b>, because callers sit on hot paths —
-    /// <c>GraphMemoryEngine.Enriches</c> is read on every write and every recall. Building the capable LIST
-    /// to ask a yes/no question would allocate per call, and <see cref="IModelProvider.IsAvailable"/> is not
-    /// always free: a CLI backend's resolves a command on PATH.</para></summary>
+    /// <c>GraphMemoryEngine.Enriches</c> is read on every write and every recall. It therefore asks the two
+    /// questions DIRECTLY rather than through <see cref="Router"/>: building a router to answer a yes/no
+    /// would allocate one per call, which is the regression a review caught here. <see cref="Capable"/> and
+    /// <see cref="EmbedAsync"/> go through the router, because they were already allocating.</para>
+    ///
+    /// <para><see cref="IModelProvider.IsAvailable"/> is asked LAST and is not always free — a CLI backend's
+    /// resolves a command on PATH — so the two cheap checks come first.</para></summary>
     public static bool CanEmbed(IEnumerable<IModelProvider>? providers) =>
-        providers is not null && Router(providers, null).CanServe();
+        providers is not null
+        && providers.Any(p => p is IVectorProvider && Embeds(p.Capabilities) && p.IsAvailable);
 
     /// <summary>Embed a batch, falling over to the next capable backend when one fails.</summary>
     /// <exception cref="InvalidOperationException">Nothing can embed, or every backend failed. <b>Thrown

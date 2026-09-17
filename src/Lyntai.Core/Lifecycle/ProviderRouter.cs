@@ -39,7 +39,7 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     IProviderAdmission? admission = null,
     Func<IModelProvider, ProviderKey?>? configuration = null,
     ILogger? logger = null)
-    where TResponse : IProviderOutcome
+    where TResponse : class, IProviderOutcome
 {
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
     private readonly RoutingPolicy _policy = policy ?? new RoutingPolicy();

@@ -221,9 +221,10 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D149](#d149--a-document-kept-for-its-live-half-is-re-read-not-re-asserted-both-pre-30-records-leave-docs-2026-09-16) | 2026-09-16 | a document kept for its "live half" is re-READ, not re-asserted; both pre-3.0 records leave `docs/` |
 | [D150](#d150--the-governance-wiring-guard-is-eager-and-the-argument-for-it-lives-here-rather-than-in-both-backends-2026-09-16) | 2026-09-16 | the Governance wiring guard is EAGER, and the argument for it lives here rather than in both back… |
 | [D151](#d151--an-embedder-is-a-capability-not-a-front-door-iembedder-is-removed-2026-09-17) | 2026-09-17 | an embedder is a CAPABILITY, not a front door: `IEmbedder` is removed |
-| [D152](#d152--a-provider-is-named-for-its-backend-embedding-is-capability-vocabulary-2026-09-17) | 2026-09-17 | a provider is named for its BACKEND; "embedding" is capability vocabulary |
+| [D152](#d152--a-provider-is-named-for-its-backend-the-noun-is-vector-the-verb-is-embed-2026-09-17) | 2026-09-17 | a PROVIDER is named for its backend; the NOUN is `Vector`, the VERB is `Embed` |
+| [D153](#d153--a-seam-per-signature-over-a-generic-routed-base-2026-09-17) | 2026-09-17 | a seam per SIGNATURE, over a generic routed base |
 
-_All 152 entries are live decisions._
+_All 153 entries are live decisions._
 
 <!-- index:end -->
 
@@ -4723,3 +4724,41 @@ backend is named for what it reads. `StaticEmbeddingProvider` was considered and
 
 **Breaking, and this release is the window** — the public surface is frozen under SemVer with no carve-out
 (**D70**), so it goes in the major now shipping or it waits for the next one.
+
+## D153 — a seam per SIGNATURE, over a generic routed base (2026-09-17)
+
+**The decision.** A backend implements the call shapes it serves — `IVectorProvider` is the first —
+rather than inheriting every method on one interface with the ones it does not serve defaulted to
+`Unsupported`. Each shape closes `IProviderCall<TRequest,TResponse>`, and `ProviderRouter<,>` gives any
+shape candidate selection, dead-host cooldown, admission and fallback. **Which KIND a backend serves stays
+in `ProviderCapabilities.Produces`** — image and video share one shape, so an interface exists only where
+the TYPES differ, never per kind.
+
+**What forced it was a measurement, not symmetry.** The capability model declares two data axes, but the
+seven methods followed neither — `GenerateAsync` covered four kinds while `EmbedAsync` covered one, and two
+`StreamAsync` overloads differed only by request type. The consequence was that **routing quality varied by
+kind and nobody had decided it should**: chat and media had cooldown, admission and fallback; vector had a
+hand-rolled try/catch with neither; score had no fallback at all. So a rate-limited embedding host was
+retried on the very next recall, where the chat path would have benched it.
+
+**And an app could not define a kind at all.** Both routers are typed to Core's own request and reply
+types, so an application's own provider kind got no identity, cooldown, admission or fallback. Closing the
+generic parameters over its own types is what changes that — the point of the base, and the reason it is
+generic rather than a fourth hard-coded shape.
+
+**TWO checks are required and neither is redundant.** A router selects on the type test AND on the declared
+capability, because one class can implement a shape and be CONFIGURED not to serve it — `HttpModelProvider`
+implements the vector call whatever its `Produces` says, so the type test alone would hand a chat-only
+endpoint an embed call. The inverse is refused at composition: a backend DECLARING `Vector` without
+implementing the seam satisfies startup and is then never selected, which is silent and total. It cost the
+shipped sample exactly that during this change.
+
+**It does NOT merge `LlmRouter` and `GenerationRouter`, and the refusal is the recorded part.** They differ
+in eight deliberate ways — last- versus first-substantive failure, blameless slot semantics, retries present
+versus absent, id-resolution versus capability-filtering, one synthetic failure versus two, tried/benched
+counting, filing order around the `Surface` check, and admission one frame deeper. Folding those in means
+eight injection points on the most load-bearing code here, which is the flag multiplication
+`library-api-design.md` warns about, and the goal needs none of it. Converging them is a separate decision.
+
+**`Job` is not a delivery mode's name here.** `Lyntai.Jobs` is the durable queue an APPLICATION runs, and
+the two compose rather than coincide, so the mode is `Queued` and its handle `QueuedOperation`.

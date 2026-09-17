@@ -11,6 +11,10 @@ namespace Lyntai.Lifecycle;
 /// carrying a verdict. A backend that would rather throw has to decide what a failed call RETURNS instead —
 /// which is the discipline the LLM side has had since 1.0, and the reason a zero-content reply is
 /// <see cref="ProviderVerdict.Failed"/> rather than an empty success.</para></summary>
+/// <remarks><b>Implement it on a REFERENCE type.</b> <see cref="ProviderRouter{TRequest,TResponse}"/>
+/// constrains its response to a class, because it distinguishes "no candidate answered" from "one answered
+/// badly" by holding a null — and a struct's default is not null, so a value-type response would report a
+/// zeroed answer as a real one. Every response here is a record.</remarks>
 public interface IProviderOutcome
 {
     /// <summary>How the attempt ended. The router acts on this alone.</summary>
