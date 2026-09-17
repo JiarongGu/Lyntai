@@ -4751,7 +4751,9 @@ capability, because one class can implement a shape and be CONFIGURED not to ser
 implements the vector call whatever its `Produces` says, so the type test alone would hand a chat-only
 endpoint an embed call. The inverse is refused at composition: a backend DECLARING `Vector` without
 implementing the seam satisfies startup and is then never selected, which is silent and total. It cost the
-shipped sample exactly that during this change.
+shipped sample exactly that during this change. **The same asymmetry is why `AddProvider`'s `declares`
+argument survives** rather than being replaced by reading `typeof(T)`: a type test answers what a class CAN
+do, and composition needs what this REGISTRATION does.
 
 **It does NOT merge `LlmRouter` and `GenerationRouter`, and the refusal is the recorded part.** They differ
 in eight deliberate ways — last- versus first-substantive failure, blameless slot semantics, retries present

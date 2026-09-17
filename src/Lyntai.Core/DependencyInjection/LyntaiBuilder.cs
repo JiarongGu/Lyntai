@@ -104,6 +104,10 @@ public sealed class LyntaiBuilder
     /// <c>AddSemanticMemory</c> is a startup failure naming this argument, rather than a recall that quietly
     /// never runs.</para>
     ///
+    /// <para><b>A capability interface does NOT make this redundant</b>, though it looks as though it
+    /// should: a type test says what a class CAN do, and this says what the REGISTRATION does
+    /// (<c>docs/DECISIONS.md</c> <b>D153</b>).</para>
+    ///
     /// <para>Registering an INSTANCE on <see cref="Services"/> before <c>AddLyntai</c> needs no declaration:
     /// the object is in the descriptor and states its own capabilities.</para></summary>
     /// <param name="factory">Builds the backend from the container.</param>
