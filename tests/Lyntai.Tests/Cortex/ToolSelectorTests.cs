@@ -10,7 +10,7 @@ namespace Lyntai.Tests.Cortex;
 /// <para>The measured problem (<c>docs/memory-measurements.md</c> §5): a 4B invokes a tool on 90-95% of
 /// requests nothing on the roster serves, and two preamble rewrites in opposite directions moved that by
 /// NOTHING — so wording is not the lever and narrowing the roster is what is left. The measured
-/// feasibility: a model-free embedder picks the right tool from 35 options 81.5% of the time.</para>
+/// feasibility: a model-free vector backend picks the right tool from 35 options 81.5% of the time.</para>
 ///
 /// <para><b>The failure that matters here is dropping the RIGHT tool</b>, so these pin the fail-open path
 /// as hard as the happy one: a selector that throws, or asks for nothing, leaves the roster whole.</para>
@@ -31,8 +31,8 @@ public class ToolSelectorTests
 
     private static LlmRequest Ask(string prompt) => new() { Messages = [LlmMessage.User(prompt)] };
 
-    private static EmbeddingToolSelector Selector(int limit) =>
-        new([new FakeEmbedder()], new ToolSelectorOptions { Limit = limit });
+    private static VectorToolSelector Selector(int limit) =>
+        new([new FakeVectorProvider()], new ToolSelectorOptions { Limit = limit });
 
     [Fact]
     public async Task Narrows_the_roster_to_the_LIMIT_keeping_what_the_request_is_about()

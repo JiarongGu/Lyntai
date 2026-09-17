@@ -121,7 +121,7 @@ public static class MemoryEngineRegistration
         // THE TWO SHIPPED SEED CHANNELS, and this registration is what "the default" now means: the store's
         // own text read, which was an unconditional store.SeedAsync call before the seam existed, and the
         // handle lookup, on by default at SubjectSeedOptions.K's own default of 5. The VECTOR channel is
-        // deliberately unregistered by this call — no SemanticSeedSource is added here, and an embedder
+        // deliberately unregistered by this call — no SemanticSeedSource is added here, and a vector backend
         // registered for reasons of its own must not silently start steering recall (AddMemorySemanticSeeds
         // opts it in).
         //

@@ -95,8 +95,8 @@ internal static class MemoryDecisionSweep
             Timeout = TimeSpan.FromMinutes(5),
         };
 
-        var embedder = await SweepDoubles.TryRealEmbedderAsync(http, "memory-decision");
-        if (embedder is null) return 1;
+        var vectorProvider = await SweepDoubles.TryRealVectorProviderAsync(http, "memory-decision");
+        if (vectorProvider is null) return 1;
         var big = await SweepDoubles.TryRealChatAsync(http, "memory-decision");
         if (big is null) return 1;
         var small = TrySmallChat(http);
@@ -109,7 +109,7 @@ internal static class MemoryDecisionSweep
         var sampled = MemoryLocomoBench.Stratify(questions, want);
         PrintPreamble(path, big, small, rerankOk, difficulty, sampled.Count, lanes);
 
-        var trials = await BuildTrialsAsync(conversations, sampled, embedder, difficulty);
+        var trials = await BuildTrialsAsync(conversations, sampled, vectorProvider, difficulty);
         if (trials.Count == 0)
         {
             Console.Error.WriteLine("memory-decision: no trial could be built — every question lost its gold "
@@ -118,7 +118,7 @@ internal static class MemoryDecisionSweep
         }
         PrintTrialProfile(trials, difficulty, sampled.Count);
 
-        var cells = await RunArmsAsync(trials, big, small, rerankOk ? reranker : null, embedder, lanes);
+        var cells = await RunArmsAsync(trials, big, small, rerankOk ? reranker : null, vectorProvider, lanes);
 
         PrintAccuracyTable(cells, trials.Count);
         PrintControls(cells, reranker, rerankOk);
@@ -148,7 +148,7 @@ internal static class MemoryDecisionSweep
     private static async Task<List<Trial>> BuildTrialsAsync(
         IReadOnlyList<(string Id, List<MemoryLocomoBench.Turn> Turns)> conversations,
         IReadOnlyList<MemoryLocomoBench.Question> questions,
-        SweepDoubles.CachingEmbedder embedder,
+        SweepDoubles.CachingVectorProvider vectorProvider,
         Difficulty difficulty)
     {
         var wanted = questions.Select(q => q.ConvId).ToHashSet(StringComparer.Ordinal);
@@ -158,7 +158,7 @@ internal static class MemoryDecisionSweep
         foreach (var (id, turns) in conversations.Where(c => wanted.Contains(c.Id)))
         {
             var texts = turns.Select(Render).ToList();
-            var vectors = await embedder.EmbedAsync(texts);
+            var vectors = await vectorProvider.EmbedAsync(texts);
             var byDiaId = new Dictionary<string, int>(StringComparer.Ordinal);
             for (var i = 0; i < turns.Count; i++) byDiaId.TryAdd(turns[i].DiaId, i);
 
@@ -173,7 +173,7 @@ internal static class MemoryDecisionSweep
                 if (evidence.Count != 1) continue;
                 var gold = evidence[0];
 
-                var query = (await embedder.EmbedAsync([q.Text]))[0];
+                var query = (await vectorProvider.EmbedAsync([q.Text]))[0];
                 var ranked = Enumerable.Range(0, texts.Count)
                     .Select(i => (Index: i, Score: Cosine(query, vectors[i])))
                     .OrderByDescending(r => r.Score).ToList();
@@ -240,7 +240,7 @@ internal static class MemoryDecisionSweep
         SweepDoubles.OpenAiCompatibleChat big,
         SweepDoubles.OpenAiCompatibleChat? small,
         CrossEncoderReranker? reranker,
-        SweepDoubles.CachingEmbedder embedder,
+        SweepDoubles.CachingVectorProvider vectorProvider,
         int lanes)
     {
         var chats = new List<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)> { ("4b", big) };
@@ -261,7 +261,7 @@ internal static class MemoryDecisionSweep
         await Parallel.ForEachAsync(trials.Select((t, i) => (Trial: t, Index: i)),
             new ParallelOptions { MaxDegreeOfParallelism = lanes }, async (item, ct) =>
             {
-                await RunOneTrialAsync(item.Trial, item.Index, chats, reranker, embedder, cells, ct);
+                await RunOneTrialAsync(item.Trial, item.Index, chats, reranker, vectorProvider, cells, ct);
                 var seen = Interlocked.Increment(ref done);
                 if (seen % 25 == 0) Console.WriteLine($"    {seen}/{trials.Count} trials");
             });
@@ -273,7 +273,7 @@ internal static class MemoryDecisionSweep
         Trial trial, int index,
         IReadOnlyList<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)> chats,
         CrossEncoderReranker? reranker,
-        SweepDoubles.CachingEmbedder embedder,
+        SweepDoubles.CachingVectorProvider vectorProvider,
         Dictionary<(string Arm, int N), Cell> cells,
         CancellationToken ct)
     {
@@ -306,8 +306,8 @@ internal static class MemoryDecisionSweep
             scores["rerank"] = row;
         }
 
-        var query = (await embedder.EmbedAsync([trial.Question], ct))[0];
-        var vectors = await embedder.EmbedAsync(options, ct);
+        var query = (await vectorProvider.EmbedAsync([trial.Question], ct))[0];
+        var vectors = await vectorProvider.EmbedAsync(options, ct);
         scores["cosine"] = [.. vectors.Select(v => (double?)Cosine(query, v))];
 
         foreach (var n in ListLengths)
@@ -659,7 +659,7 @@ internal static class MemoryDecisionSweep
     private static void PrintNotSwept()
     {
         Console.WriteLine("\nNOT swept (stated rather than left implicit):");
-        Console.WriteLine("  - ONE corpus (LoCoMo), one language, one embedder choosing the distractors.");
+        Console.WriteLine("  - ONE corpus (LoCoMo), one language, one vector backend choosing the distractors.");
         Console.WriteLine("  - ONE prompt per shape. Both are bench-local: the shipped judge prompt endorses a");
         Console.WriteLine("    SUBSET and cannot express a forced choice, so it could not have been reused.");
         Console.WriteLine("  - Temperature 0 throughout; no sampling-variance arm, and requests run");

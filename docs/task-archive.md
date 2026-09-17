@@ -4332,3 +4332,29 @@ entry announces, and a `### Breaking` section carrying nine additive entries.
 of one tree, and none would have surfaced from the others — the regression was invisible to four of the
 five, because only the reviewer told to assume a green suite hides weakened tests looked for arms that had
 become identical.
+
+## Part 246 — the role word leaves PROVIDER names, and stops there (2026-09-17)
+
+**Closes `TASKS.md` Part 102's REL4 and all of Part 101 (NS1)** — filed as two unrelated items, resolved as
+one decision (**D152**). The backlog framed REL4 as a mis-wiring trap and NS1 as a stray namespace; both are
+the same thing, which is that **D151** removed the embedder INTERFACE and left the word on the names around
+it. Detail and the alternatives that lost are in D152; the migration table is in `CHANGELOG.md`.
+
+**REL4's four listed options were all worse than a fifth nobody had written down.** Each — a distinct
+parameter type, an analyzer, a startup warning, louder docs — accepted that a second registration method had
+to exist. `AddProvider(factory, declares)` removed the need. **An options list inherited from a review is a
+starting point, not a menu.**
+
+**It took THREE readings to land, and only the last one was derived from the code.** The first retired the
+word everywhere; the second pulled back to "the vendors put it on the operation"; the third — prompted by a
+reader refusing the appeal to convention — read `Produces` and got the rule that held: the NOUN is the kind
+(`Vector`), the VERB is the call (`Embed`). Each earlier reading was right about the cases it had looked at
+and silently wrong elsewhere, which is why a review caught residue both times.
+
+**The reusable half is in `.claude/knowledge/pitfalls.md`** §Environment / tooling — one trap for the blind
+token sweep that rewrote prose and a user-facing error string, one for taking a rename's SCOPE from
+convention instead of from your own model.
+
+**A review also caught new public surface with no test**: `AddProvider<T>(declares)` had none, and the test
+claiming to cover it called the factory overload twice — the same collapsed-arms defect the file's own
+comment records from D151, reintroduced within the change that quoted it.

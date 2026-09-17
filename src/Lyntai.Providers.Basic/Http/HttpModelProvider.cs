@@ -65,8 +65,8 @@ public sealed class HttpModelProvider(
     /// <summary>The <c>/embeddings</c> wire shape, or null when this backend produces something else. It is
     /// composed rather than inherited: an embeddings call has nothing in common with a completion beyond the
     /// host it is posted to.</summary>
-    private readonly HttpEmbeddingsTransport? _embeddings = !ServesVectors(config) ? null
-        : new HttpEmbeddingsTransport(id, config, httpFactory, options, logger, disposeHttpClient);
+    private readonly HttpVectorTransport? _embeddings = !ServesVectors(config) ? null
+        : new HttpVectorTransport(id, config, httpFactory, options, logger, disposeHttpClient);
 
     /// <summary>The <c>/v1/rerank</c> wire shape, or null when this backend produces something else.</summary>
     private readonly HttpRerankTransport? _rerank = !ServesScores(config) ? null
@@ -101,7 +101,7 @@ public sealed class HttpModelProvider(
 
     /// <summary>The embeddings transport, or the refusal <see cref="IModelProvider"/>'s own default gives.
     /// Reached only by a caller that ignored <see cref="Capabilities"/>, since a router checks first.</summary>
-    private HttpEmbeddingsTransport Vectors() => _embeddings
+    private HttpVectorTransport Vectors() => _embeddings
         ?? throw new NotSupportedException(
             $"{id} produces {config.Produces}, not {ProviderKinds.Vector} — an embedding model is its own "
             + "backend, registered with Produces = ProviderKinds.Vector.");

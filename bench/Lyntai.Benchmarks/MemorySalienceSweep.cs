@@ -22,12 +22,12 @@ namespace Lyntai.Benchmarks;
 /// only the rank boost is opt-in (<c>docs/DECISIONS.md</c> D45). It was invisible to every earlier study for
 /// a structural reason worth knowing: <see cref="StructuralSaliencePolicy"/> scores
 /// <see cref="SalienceContext.Novelty"/>, which the engine derives only when an
-/// <see cref="Lyntai.Embeddings.IEmbedder"/> AND an <see cref="IVectorStore"/> are both supplied, and no
+/// <c>ProviderKinds.Vector</c> backend AND an <see cref="IVectorStore"/> are both supplied, and no
 /// harness supplied either.</para>
 ///
-/// <para><b>It runs against a REAL embedder and refuses without one (2026-08-28)</b> — salience reads
+/// <para><b>It runs against a REAL vector backend and refuses without one (2026-08-28)</b> — salience reads
 /// NOVELTY, which a bag-of-words fake turns into a different quantity; <c>docs/memory-measurements.md</c> §5 carries the
-/// argument and the two-embedder readings. Both arms get the IDENTICAL shared, caching embedder instance and
+/// argument and the two-vector backend readings. Both arms get the IDENTICAL shared, caching vector backend instance and
 /// a vector store, so enrichment is held CONSTANT and only salience varies.</para>
 ///
 /// <para><b>The OFF arm registers <see cref="NeutralSaliencePolicy"/>, and passing <c>null</c> instead is the
@@ -42,8 +42,8 @@ namespace Lyntai.Benchmarks;
 /// <para><b>What this can and cannot settle.</b> It measures salience's NET effect on this corpus. It does
 /// NOT test the concern that novelty inverts on noisy input — this corpus's noise is TEMPLATED
 /// (<c>"item noise{n} was {filler} mentioned once and never again"</c>), sharing a skeleton with every other
-/// class, so the second noise entry onward reads as FAMILIAR rather than novel. <b>A real embedder does not
-/// lift this</b> — near-identical templated text is near-identical vectors under any embedder — so the
+/// class, so the second noise entry onward reads as FAMILIAR rather than novel. <b>A real vector backend does not
+/// lift this</b> — near-identical templated text is near-identical vectors under any vector backend — so the
 /// failure mode is unreachable by construction here, and <c>memory-importance</c>'s <c>diverse-noise</c>
 /// shape is what reaches it. Stated so a null result is not misread as clearing the design question.</para>
 /// </summary>
@@ -66,14 +66,14 @@ internal static class MemorySalienceSweep
     {
         // REFUSES rather than substitutes, 2026-08-28, the same discipline `memory-salience-weight` and
         // `memory-enrichment` already carry. Salience reads NOVELTY, which the engine derives from a
-        // similarity search — so through `FakeEmbedder`, a feature-hashed bag of words, "unlike anything
+        // similarity search — so through `FakeVectorProvider`, a feature-hashed bag of words, "unlike anything
         // already stored" degenerates into "shares few words with anything already stored". That is a
         // different quantity, and `docs/task-archive.md` Part 69 withdrew the numbers taken through it.
-        // One embedder is shared across every replay and CACHES, so the arms see identical vectors and the
+        // One vector backend is shared across every replay and CACHES, so the arms see identical vectors and the
         // cost is one embed per distinct text rather than one per replay.
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
-        var sharedEmbedder = await SweepDoubles.TryRealEmbedderAsync(http, "memory-salience");
-        if (sharedEmbedder is null) return 1;
+        var sharedVectorProvider = await SweepDoubles.TryRealVectorProviderAsync(http, "memory-salience");
+        if (sharedVectorProvider is null) return 1;
 
         var stopwatch = Stopwatch.StartNew();
         var agePolicy = new PerWriteAgePolicy();
@@ -130,7 +130,7 @@ internal static class MemorySalienceSweep
             // It runs ALL SIX shapes where the ceiling ladder runs two, because the question it now answers
             // is different: the ceiling ladder asked whether a knob does anything, and this one asks what a
             // shipped DEFAULT should be. Two shapes cannot answer that — the on/off pair is significant on
-            // five of six under one embedder and reverses sign on `high-noise` under the other, so a default
+            // five of six under one vector backend and reverses sign on `high-noise` under the other, so a default
             // chosen on `baseline` + `many-candidates` is chosen on the two that happen to agree.
             //
             // Rungs bracket the decision rather than sampling it evenly: `NW0` is the measured neutral (the
@@ -170,9 +170,9 @@ internal static class MemorySalienceSweep
 
             var on = arm != OffLabel;
             var armOpts = on ? armOptions[arm] : null;
-            // Both arms enrich identically — same embedder INSTANCE, same vector store shape — so the
+            // Both arms enrich identically — same vector backend INSTANCE, same vector store shape — so the
             // difference below is salience and not "the engine performed a vector search".
-            var embedder = sharedEmbedder;
+            var vectorProvider = sharedVectorProvider;
             var vectors = new InMemoryVectorStore();
 
             // EVERY arm wraps its policy, the OFF arm included, so "salient" and "distinct" mean the same
@@ -199,7 +199,7 @@ internal static class MemorySalienceSweep
                 options: graphOptions,
                 retrievability: new ModulatedRetrievability(new DsrRetrievability(), retention),
                 agePolicies: [agePolicy],
-                providers: [embedder],
+                providers: [vectorProvider],
                 vectors: vectors,
                 saliencePolicies: [counting],
                 ranking: rrf);
@@ -257,7 +257,7 @@ internal static class MemorySalienceSweep
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s over {seeds.Count} seed(s), " +
             $"{shapes.Length} shape(s), {arms.Length} arm(s); " +
-            $"{sharedEmbedder.Misses} embed call(s), {sharedEmbedder.Hits} cache hit(s).");
+            $"{sharedVectorProvider.Misses} embed call(s), {sharedVectorProvider.Hits} cache hit(s).");
         Console.WriteLine();
         Console.WriteLine("NOT swept (stated rather than left implicit):");
         Console.WriteLine("  - The rank boost. SalienceRankWeight is opt-in and stays 0 (D45), so this");
@@ -272,7 +272,7 @@ internal static class MemorySalienceSweep
         });
         Console.WriteLine("  - Whether novelty INVERTS on noisy input. This corpus's noise is templated, so a");
         Console.WriteLine("    null result here does NOT clear that concern — see the class doc.");
-        Console.WriteLine($"  - Embedder realism is no longer a caveat: novelty is measured through the REAL");
+        Console.WriteLine($"  - VectorProvider realism is no longer a caveat: novelty is measured through the REAL");
         Console.WriteLine($"    {SweepDoubles.Model}, not a bag-of-words fake (changed 2026-08-28).");
         return 0;
     }
@@ -284,12 +284,12 @@ internal static class MemorySalienceSweep
         Console.WriteLine();
         Console.WriteLine("Salience ships ON for two of its three consumers - decay resistance and store");
         Console.WriteLine("admission priority - and no measurement this repository has ever taken included it.");
-        Console.WriteLine("MemoryPolicySweep's C1 control ASSERTS its absence; and novelty needs an embedder");
+        Console.WriteLine("MemoryPolicySweep's C1 control ASSERTS its absence; and novelty needs a vector backend");
         Console.WriteLine("plus a vector store, which no harness supplied. Both arms here get both, so the");
         Console.WriteLine("only thing that varies is whether anything judges salience and acts on it.");
         Console.WriteLine();
         Console.WriteLine("WHAT THIS CANNOT SETTLE: whether novelty INVERTS on noisy input. This corpus's");
-        Console.WriteLine("noise is TEMPLATED, so it reads as familiar rather than novel under ANY embedder -");
+        Console.WriteLine("noise is TEMPLATED, so it reads as familiar rather than novel under ANY vector backend -");
         Console.WriteLine("a real one does not lift this. A null result here does NOT clear that concern.");
         Console.WriteLine();
         Console.WriteLine($"Base seed: {BaseSeed}, seeds: {SeedCount}, query limit: {QueryLimit}");
@@ -505,8 +505,8 @@ internal static class MemorySalienceSweep
         Console.WriteLine();
         Console.WriteLine("  READ THIS AS A COST ORDERING, NOT AS A DEFAULT. This corpus's noise is TEMPLATED,");
         Console.WriteLine("  which puts the novelty-inversion case out of reach, and a shipped default also");
-        Console.WriteLine("  answers to embedder sensitivity — the on/off pair differs by ~2.5x between two real");
-        Console.WriteLine("  embedders and REVERSES sign on one shape. One ladder on one embedder is an input to");
+        Console.WriteLine("  answers to vector backend sensitivity — the on/off pair differs by ~2.5x between two real");
+        Console.WriteLine("  vector backends and REVERSES sign on one shape. One ladder on one vector backend is an input to");
         Console.WriteLine("  that decision, not the decision.");
     }
 

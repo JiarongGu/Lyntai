@@ -44,7 +44,7 @@ public sealed class OnnxProvider : IModelProvider, IDisposable
     /// <inheritdoc />
     public string Id { get; }
 
-    /// <summary>Text in, VECTORS out — which is the whole of what makes this an embedder. Producing only
+    /// <summary>Text in, VECTORS out — which is the whole of what makes this a vector backend. Producing only
     /// <see cref="ProviderKinds.Vector"/> is how it tells a router never to send it a chat or a render;
     /// every method it does not implement keeps <see cref="IModelProvider"/>'s default "I do not serve
     /// that" body, so declining costs no code.</summary>
@@ -59,7 +59,7 @@ public sealed class OnnxProvider : IModelProvider, IDisposable
     /// non-ONNX model has already thrown at composition.</summary>
     public bool IsAvailable => true;
 
-    /// <summary>The sequence length this embedder truncates at, including both special tokens.</summary>
+    /// <summary>The sequence length this vector backend truncates at, including both special tokens.</summary>
     public int MaxTokens => _maxTokens;
 
     /// <summary>Load a sentence-transformer export: an ONNX graph plus <c>vocab.txt</c>, with pooling and
@@ -107,7 +107,7 @@ public sealed class OnnxProvider : IModelProvider, IDisposable
         for (var i = 0; i < texts.Count; i++)
         {
             var block = flat.AsSpan(i * width * hiddenSize, width * hiddenSize);
-            vectors[i] = EmbeddingPooling.Reduce(
+            vectors[i] = VectorPooling.Reduce(
                 block, hiddenSize, PaddedMask(encodings[i], width), _pooling, _normalize);
         }
 
@@ -115,7 +115,7 @@ public sealed class OnnxProvider : IModelProvider, IDisposable
     }
 
     /// <summary>The attention mask widened to the batch, zero over the padding — which is what tells
-    /// <see cref="EmbeddingPooling"/> not to average the padded rows in.</summary>
+    /// <see cref="VectorPooling"/> not to average the padded rows in.</summary>
     private static int[] PaddedMask(WordPieceEncoding encoding, int width)
     {
         var mask = new int[width];

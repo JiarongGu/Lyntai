@@ -688,7 +688,7 @@ services.AddLyntai(cfg => cfg
         o.Produces = ProviderKinds.Vector;        // -> /embeddings, not /chat/completions
     })
     .AddSemanticMemory());                        // states the intent — see below
-    // …or bring your own: .AddEmbeddingProvider(_ => myBackend)  // an IModelProvider producing Vector
+    // …or bring your own: .AddProvider(_ => myBackend, declares)  // an IModelProvider producing Vector
 
 var memory = sp.GetRequiredService<ISemanticMemory>();
 await memory.RememberAsync(taskKey: "support", scope: "faq", "You can cancel your subscription anytime.");
@@ -696,16 +696,18 @@ var hits = await memory.RecallAsync("support", "faq", query: "how do I stop payi
 // hits ranked by similarity, each with a Content + cosine Score
 ```
 
-Embedding ROUTES over every backend that produces vectors, so registering two of them is failover rather
-than the second silently replacing the first. There is no embedder interface to resolve — embedding is a
-capability a provider declares, like scoring (`docs/DECISIONS.md` **D151**).
+Vector work ROUTES over every backend that produces vectors, so registering two of them is failover rather
+than the second silently replacing the first. There is no interface to resolve and no role-named
+registration to find — producing vectors is a capability a provider declares, like scoring
+(`docs/DECISIONS.md` **D151**/**D152**).
 
 `AddSemanticMemory()` is how you **say** you want semantic recall. Registering a backend is what actually
 turns it on, so forgetting one used to be silent — no `ISemanticMemory` at all, and every recall path
 skipping it without complaint. Stating the intent turns that into a startup failure instead. It takes no
 argument: the backend arrives separately, either from a shipped `Add…Provider` or from your own through
-`AddEmbeddingProvider(_ => backend)`. A backend you register as a plain `AddProvider` is NOT seen — that
-call states nothing about embedding, and the wiring has to decide before any provider is built.
+`AddProvider(_ => backend, declares)`. **Pass that second argument** — a factory cannot be inspected before
+it runs, and the wiring has to decide before any provider is built, so a factory that declares nothing
+reads as "does not embed" and this call fails at startup telling you so.
 
 Vectors live in a swappable `IVectorStore` — the built-in `InMemoryVectorStore` (exact brute-force cosine)
 is the default; call `UseSqliteVectorStore()` to persist them in SQLite (it needs

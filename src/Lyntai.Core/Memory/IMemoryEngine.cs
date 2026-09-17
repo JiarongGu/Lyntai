@@ -101,7 +101,7 @@ public enum MemorySources
 
     /// <summary>Similarity-derived edge enrichment is WIRED for this engine.
     /// <para>Deliberately distinct from <see cref="Semantic"/>, which means a semantic-memory MEMBER
-    /// produced hits: both need an embedder and they fail independently, so one flag could not report both
+    /// produced hits: both need a vector backend and they fail independently, so one flag could not report both
     /// honestly.</para>
     /// <para><b>This flag reports CONFIGURATION, not contribution</b> — unlike its siblings, and said
     /// plainly because the difference matters. Enrichment is a WRITE-side tier: it creates edges, which by

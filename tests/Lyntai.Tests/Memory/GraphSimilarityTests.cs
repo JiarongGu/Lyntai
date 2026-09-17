@@ -9,7 +9,7 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Memory;
 
 /// <summary>Similarity enrichment: pure enrichment on top of a model-free floor. It links a new entry to
-/// its nearest existing neighbours when an embedder and a vector store are wired, and its absence — or its
+/// its nearest existing neighbours when a vector backend and a vector store are wired, and its absence — or its
 /// failure — costs connections, never the entry.</summary>
 public class GraphSimilarityTests
 {
@@ -21,7 +21,7 @@ public class GraphSimilarityTests
     [Fact]
     public async Task A_new_entry_is_linked_to_a_similar_existing_one()
     {
-        var engine = Engine(new FakeEmbedder(), new InMemoryVectorStore(),
+        var engine = Engine(new FakeVectorProvider(), new InMemoryVectorStore(),
             new GraphMemoryOptions { MinSimilarity = 0.1 });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "you can cancel your subscription anytime"));
@@ -35,7 +35,7 @@ public class GraphSimilarityTests
     [Fact]
     public async Task Recall_reports_that_similarity_is_wired()
     {
-        var engine = Engine(new FakeEmbedder(), new InMemoryVectorStore());
+        var engine = Engine(new FakeVectorProvider(), new InMemoryVectorStore());
         await engine.RememberAsync(new MemoryWrite("t", "s", "a remembered thing"));
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "remembered"));
@@ -44,9 +44,9 @@ public class GraphSimilarityTests
     }
 
     [Fact]
-    public async Task Without_an_embedder_the_graph_still_forms_and_says_so()
+    public async Task Without_a_vector_backend_the_graph_still_forms_and_says_so()
     {
-        // the model-free floor: co-activation and explicit links do not need an embedder at all
+        // the model-free floor: co-activation and explicit links do not need a vector backend at all
         var engine = Engine(provider: null, vectors: null);
         await engine.RememberAsync(new MemoryWrite("t", "s", "alpha about widgets"));
         await engine.RememberAsync(new MemoryWrite("t", "s", "beta about widgets"));
@@ -59,10 +59,10 @@ public class GraphSimilarityTests
     }
 
     [Fact]
-    public async Task A_failing_embedder_costs_links_not_the_entry()
+    public async Task A_failing_vector_backend_costs_links_not_the_entry()
     {
         // enrichment sits ON TOP of the floor, so a broken embedding endpoint must not fail a write
-        var engine = Engine(new ThrowingEmbedder(), new InMemoryVectorStore());
+        var engine = Engine(new ThrowingVectorProvider(), new InMemoryVectorStore());
 
         var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
 
@@ -72,27 +72,27 @@ public class GraphSimilarityTests
     }
 
     [Fact]
-    public async Task A_failing_embedder_at_RECALL_degrades_to_the_lexical_hits_rather_than_to_nothing()
+    public async Task A_failing_vector_backend_at_RECALL_degrades_to_the_lexical_hits_rather_than_to_nothing()
     {
         // The twin of the write-path fact above, and it was missing: the engine's own semantic seed had no
         // try/catch and was called AFTER store.SeedAsync had already produced lexical seeds, so a transient
-        // embedder fault threw out of GatherAsync, hit RecallAsync's best-effort catch, and returned
+        // vector backend fault threw out of GatherAsync, hit RecallAsync's best-effort catch, and returned
         // MemoryRecall.Empty — good seeds discarded, and indistinguishable from "the query matched nothing".
         // Design §5.7.0: "enrichment is best-effort and its failure degrades QUALITY, never CORRECTNESS."
         // The catch now lives in SemanticSeedSource, and this asserts the same promise through the seam.
         //
-        // The write must go in with a WORKING embedder (the write path is separately guarded, but this test is
+        // The write must go in with a WORKING vector backend (the write path is separately guarded, but this test is
         // about recall), so the throwing one is installed for the read only.
         var store = new InMemoryMemoryGraphStore();
-        var writingEmbedder = new FakeEmbedder();
+        var writingVectorProvider = new FakeVectorProvider();
         var writingVectors = new InMemoryVectorStore();
         var writing = new GraphMemoryEngine("e", store,
-            providers: writingEmbedder is null ? null : [writingEmbedder], vectors: writingVectors,
+            providers: writingVectorProvider is null ? null : [writingVectorProvider], vectors: writingVectors,
             seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource([writingEmbedder], writingVectors, new SemanticSeedOptions { K = 5 })]);
+                new SemanticSeedSource([writingVectorProvider], writingVectors, new SemanticSeedOptions { K = 5 })]);
         await writing.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"));
 
-        var throwing = new ThrowingEmbedder();
+        var throwing = new ThrowingVectorProvider();
         var readingVectors = new InMemoryVectorStore();
         var reading = new GraphMemoryEngine("e", store,
             providers: throwing is null ? null : [throwing], vectors: readingVectors,
@@ -108,13 +108,13 @@ public class GraphSimilarityTests
     [Fact]
     public async Task A_failing_vector_STORE_costs_links_not_the_entry()
     {
-        // The sibling of the embedder fact above, and a DIFFERENT link in the chain: a working embedder
-        // produces a vector and the INDEX is what refuses it. The embedder case short-circuits in
+        // The sibling of the vector backend fact above, and a DIFFERENT link in the chain: a working vector backend
+        // produces a vector and the INDEX is what refuses it. The vector backend case short-circuits in
         // SearchAsync before enrichment runs at all, so it never exercised the store's own write.
         //
         // "A partial projection failure cannot lose the canonical write" is the invariant, and it is the one
         // this engine's whole best-effort posture rests on: enrichment sits ON TOP of a model-free floor.
-        var engine = Engine(new FakeEmbedder(), new WriteHostileVectorStore());
+        var engine = Engine(new FakeVectorProvider(), new WriteHostileVectorStore());
 
         var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
 
@@ -128,7 +128,7 @@ public class GraphSimilarityTests
     {
         // without a floor a new entry links to its k nearest however unrelated, which in a young graph
         // means linking to nearly everything
-        var engine = Engine(new FakeEmbedder(), new InMemoryVectorStore(),
+        var engine = Engine(new FakeVectorProvider(), new InMemoryVectorStore(),
             new GraphMemoryOptions { MinSimilarity = 0.99 });
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"));
@@ -139,7 +139,7 @@ public class GraphSimilarityTests
         Assert.All(recall.Items, i => Assert.Equal(0, i.Degree));
     }
 
-    private sealed class ThrowingEmbedder : EmbeddingBackend
+    private sealed class ThrowingVectorProvider : FakeVectorProviderBase
     {
         public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default) =>
@@ -147,7 +147,7 @@ public class GraphSimilarityTests
     }
 
     /// <summary>A vector store that SEARCHES fine and refuses to be written to — so enrichment gets past the
-    /// shared search and fails at the index, which is the half a failing embedder can never reach.</summary>
+    /// shared search and fails at the index, which is the half a failing vector backend can never reach.</summary>
     private sealed class WriteHostileVectorStore : IVectorStore
     {
         private readonly InMemoryVectorStore _inner = new();

@@ -38,7 +38,7 @@ internal static class SweepDoubles
     /// server</b> (<c>repo-mechanics.md</c> §Local models). It used to be Ollama's <c>11434</c>, and that
     /// default is why every figure taken before 2026-09-08 is Ollama-served without any run having chosen
     /// it — nothing printed the endpoint, so the provenance had to be reconstructed afterwards from which
-    /// processes happened to be up. Hence <see cref="TryRealEmbedderAsync"/> now prints what answered.</para>
+    /// processes happened to be up. Hence <see cref="TryRealVectorProviderAsync"/> now prints what answered.</para>
     /// </summary>
     internal const string UrlVariable = "LYNTAI_LIVE_MODEL_URL";
 
@@ -48,7 +48,7 @@ internal static class SweepDoubles
         ?? Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL")
         ?? "nomic-embed-text";
 
-    /// <summary>What actually ANSWERED, once <see cref="TryRealEmbedderAsync"/> has resolved an embedder —
+    /// <summary>What actually ANSWERED, once <see cref="TryRealVectorProviderAsync"/> has resolved a vector backend —
     /// falling back to the requested name before that, or when the server names many models and so routes
     /// by the requested one. For a table HEADER, which is the one place the requested name reads as a
     /// finding rather than as a setting.</summary>
@@ -76,38 +76,38 @@ internal static class SweepDoubles
             : "";
 
     /// <summary>
-    /// A cached real embedder, or <c>null</c> when no model is reachable — in which case the refusal has
+    /// A cached real vector backend, or <c>null</c> when no model is reachable — in which case the refusal has
     /// already been written to stderr and the caller should return a non-zero exit.
     ///
     /// <para><b>It refuses rather than substituting a double, and that is the whole point.</b> The numbers a
-    /// fake embedder produced were withdrawn (<c>docs/task-archive.md</c> Part 69) because its "semantic
+    /// fake vector backend produced were withdrawn (<c>docs/task-archive.md</c> Part 69) because its "semantic
     /// similarity" is word overlap — so falling back here would reproduce, silently, the exact defect that
     /// withdrew them.</para>
     /// </summary>
     /// <param name="http">The client to use; the caller owns its lifetime.</param>
     /// <param name="sweep">The sweep's own name, so the refusal says which run stopped.</param>
-    internal static async Task<CachingEmbedder?> TryRealEmbedderAsync(HttpClient http, string sweep)
+    internal static async Task<CachingVectorProvider?> TryRealVectorProviderAsync(HttpClient http, string sweep)
     {
         var model = Model;
         var baseUrl = BaseUrl;
-        var real = new OpenAiCompatibleEmbedder(http, baseUrl, model);
+        var real = new OpenAiCompatibleVectorProvider(http, baseUrl, model);
         if (await real.ReachableAsync())
         {
             // PROVENANCE, printed on every run rather than reconstructed afterwards. The endpoint used to
-            // appear nowhere — only the model NAME did — so a table said "embedder nomic-embed-text" and
+            // appear nowhere — only the model NAME did — so a table said "vector backend nomic-embed-text" and
             // could not say which of two servers answered it, and a whole session's figures had to be
             // attributed after the fact by asking which processes were up (`TASKS.md`, 2026-09-04).
             var served = _served = await real.ServedModelAsync();
             Console.WriteLine(served is null || served == model
-                ? $"{sweep}: embedder {model} at {baseUrl}{StandardNote(baseUrl)}"
-                : $"{sweep}: embedder {served} at {baseUrl} (requested {model}; the server serves what it "
+                ? $"{sweep}: vector backend {model} at {baseUrl}{StandardNote(baseUrl)}"
+                : $"{sweep}: vector backend {served} at {baseUrl} (requested {model}; the server serves what it "
                   + $"loaded){StandardNote(baseUrl)}");
-            return new CachingEmbedder(real);
+            return new CachingVectorProvider(real);
         }
 
         Console.Error.WriteLine($"{sweep}: ✗ no embedding model at {baseUrl} ({model}).");
         Console.Error.WriteLine();
-        Console.Error.WriteLine("  A fake embedder's \"semantic similarity\" is word overlap, and the numbers");
+        Console.Error.WriteLine("  A fake vector backend's \"semantic similarity\" is word overlap, and the numbers");
         Console.Error.WriteLine("  taken through one were withdrawn (docs/task-archive.md Part 69). Substituting one here");
         Console.Error.WriteLine("  would reproduce that defect silently, so this refuses to run instead.");
         Console.Error.WriteLine();
@@ -118,12 +118,12 @@ internal static class SweepDoubles
         return null;
     }
 
-    /// <summary>Environment variable naming EXTRA embedders to score with, as <c>label=url</c> pairs
+    /// <summary>Environment variable naming EXTRA vector backends to score with, as <c>label=url</c> pairs
     /// separated by commas. Each becomes its own scoring arm beside the primary one.</summary>
     internal const string ArmsVariable = "LYNTAI_LIVE_EMBED_ARMS";
 
     /// <summary>
-    /// The extra embedders named by <see cref="ArmsVariable"/>, or <c>null</c> when one of them could not
+    /// The extra vector backends named by <see cref="ArmsVariable"/>, or <c>null</c> when one of them could not
     /// be reached — in which case the refusal is already on stderr and the caller should return non-zero.
     ///
     /// <para><b>It REFUSES rather than skipping, and that is the point.</b> A skipped arm is an absent
@@ -131,15 +131,15 @@ internal static class SweepDoubles
     /// same conflation the loop arms' <c>unanswered</c> counter exists to prevent one layer down. An empty
     /// variable is a legitimate "no extra arms" and returns an empty list.</para>
     ///
-    /// <para>The primary embedder stays whatever <see cref="TryRealEmbedderAsync"/> resolved, because it is
+    /// <para>The primary vector backend stays whatever <see cref="TryRealVectorProviderAsync"/> resolved, because it is
     /// the one that CONSTRUCTS the trials. Varying that would change which distractors a roster holds, so
     /// two runs would not be comparable — the arms here vary only the SCORING.</para>
     /// </summary>
-    internal static async Task<List<(string Label, CachingEmbedder Embedder)>?> TryExtraEmbeddersAsync(
+    internal static async Task<List<(string Label, CachingVectorProvider VectorProvider)>?> TryExtraVectorProvidersAsync(
         HttpClient http, string sweep)
     {
         var spec = Environment.GetEnvironmentVariable(ArmsVariable);
-        var arms = new List<(string, CachingEmbedder)>();
+        var arms = new List<(string, CachingVectorProvider)>();
         if (string.IsNullOrWhiteSpace(spec)) return arms;
 
         foreach (var entry in spec.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
@@ -153,10 +153,10 @@ internal static class SweepDoubles
 
             var label = entry[..at];
             var url = entry[(at + 1)..];
-            var real = new OpenAiCompatibleEmbedder(http, url, label);
+            var real = new OpenAiCompatibleVectorProvider(http, url, label);
             if (!await real.ReachableAsync())
             {
-                Console.Error.WriteLine($"{sweep}: ✗ embedder arm \"{label}\" unreachable at {url}.");
+                Console.Error.WriteLine($"{sweep}: ✗ vector backend arm \"{label}\" unreachable at {url}.");
                 Console.Error.WriteLine("  Refusing to run: a skipped arm is a missing column, and a missing");
                 Console.Error.WriteLine("  column reads as \"not measured\" rather than as \"not reached\".");
                 return null;
@@ -166,10 +166,10 @@ internal static class SweepDoubles
             // asked, so the requested label proves nothing and a shape check cannot separate two models
             // that share a dimension. What the server says it loaded is a fact the process computed.
             var served = await real.ServedModelAsync();
-            Console.WriteLine($"{sweep}: embedder arm {label} at {url}"
+            Console.WriteLine($"{sweep}: vector backend arm {label} at {url}"
                 + (served is null ? " (this build names no model)" : $" serving {served}")
                 + StandardNote(url));
-            arms.Add((label, new CachingEmbedder(real)));
+            arms.Add((label, new CachingVectorProvider(real)));
         }
         return arms;
     }
@@ -244,11 +244,11 @@ internal static class SweepDoubles
     /// embedding model" while a perfectly good one was loaded.</para>
     /// </summary>
     /// <remarks>
-    /// Written here rather than reusing <c>HttpEmbeddingsTransport</c> so the bench project keeps its two project
+    /// Written here rather than reusing <c>HttpVectorTransport</c> so the bench project keeps its two project
     /// references — the csproj records what pulling a third one cost the last time (a build log past Node's
     /// spawnSync buffer, reported as a failed build that had in fact succeeded).
     /// </remarks>
-    internal sealed class OpenAiCompatibleEmbedder(HttpClient http, string baseUrl, string model) : IModelProvider
+    internal sealed class OpenAiCompatibleVectorProvider(HttpClient http, string baseUrl, string model) : IModelProvider
     {
         public string Id { get; init; } = "bench-http-embed";
 
@@ -393,7 +393,7 @@ internal static class SweepDoubles
     }
 
     /// <summary>Memoizes a real model by text — deterministic input, deterministic output.</summary>
-    internal sealed class CachingEmbedder(IModelProvider inner) : IModelProvider
+    internal sealed class CachingVectorProvider(IModelProvider inner) : IModelProvider
     {
         public string Id { get; init; } = "bench-cache";
 
@@ -441,7 +441,7 @@ internal static class SweepDoubles
 
     /// <summary>Endpoint of the CHAT model, falling back to <see cref="UrlVariable"/>.
     /// <para><b>Its own variable because a <c>llama-server</c> serves ONE model.</b> Under Ollama the chat
-    /// model and the embedder answer on one port, so one URL sufficed; under this repository's standard
+    /// model and the vector backend answer on one port, so one URL sufficed; under this repository's standard
     /// they are two processes, and a shared variable forces a run to choose which role gets the right
     /// endpoint. Defaulted, so an Ollama-shaped setup keeps working unchanged.</para></summary>
     internal const string ChatUrlVariable = "LYNTAI_LIVE_CHAT_URL";
@@ -760,9 +760,9 @@ internal static class SweepDoubles
 }
 
 /// <summary>Single-text embedding for the sweeps. Core's own routing helper is internal (D151 removed the
-/// public embedder seam), and a bench drives ONE chosen backend rather than a routed set — so the batch
+/// public vector backend seam), and a bench drives ONE chosen backend rather than a routed set — so the batch
 /// primitive is called directly here rather than reaching for fallback the sweeps do not want.</summary>
-internal static class BenchEmbedding
+internal static class BenchVectors
 {
     public static async Task<float[]> EmbedAsync(this IModelProvider provider, string text,
         CancellationToken ct = default) =>

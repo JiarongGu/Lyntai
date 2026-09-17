@@ -36,7 +36,7 @@ public sealed class MemoryPromptComposer(
         var contents = new List<string>();
 
         // semantic recall leads — but only with a concrete scope (a vector collection is per task+scope)
-        // and a query to embed. Fail-open: a broken embedder/store falls through to lexical.
+        // and a query to embed. Fail-open: a broken vector backend/store falls through to lexical.
         if (semantic is not null && scope is not null && !string.IsNullOrWhiteSpace(query))
         {
             try
@@ -44,7 +44,7 @@ public sealed class MemoryPromptComposer(
                 var hits = await semantic.RecallAsync(taskKey, scope, query, limit ?? DefaultSemanticK, ct: ct).ConfigureAwait(false);
                 foreach (var hit in hits) if (seen.Add(hit.Content)) contents.Add(hit.Content);
             }
-            // "Never throws" is this type's contract, and a BYO embedder or vector store imposing its own
+            // "Never throws" is this type's contract, and a BYO vector backend or vector store imposing its own
             // deadline raises the same exception type the caller's cancel does — so only the token separates
             // them, and a bare rethrow made that promise false for every custom store.
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }

@@ -10,7 +10,7 @@ namespace Lyntai.Providers.Http;
 /// <summary>The <c>/v1/rerank</c> WIRE SHAPE — the route Cohere defined and llama.cpp's <c>--reranking</c>
 /// mode, Jina, TEI and vLLM serve. Composed by <see cref="HttpModelProvider"/> when a registration declares
 /// <see cref="Lyntai.Lifecycle.ProviderKinds.Score"/>, exactly as
-/// <see cref="HttpEmbeddingsTransport"/> is for vectors. A transport, not a backend: it has no id and no
+/// <see cref="HttpVectorTransport"/> is for vectors. A transport, not a backend: it has no id and no
 /// capabilities, because the provider that owns it is the backend.
 ///
 /// <para><b>It THROWS rather than reporting a degraded answer</b>, which is the rule

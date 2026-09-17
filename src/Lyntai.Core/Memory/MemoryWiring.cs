@@ -54,10 +54,10 @@ internal static class MemoryWiring
         {
             if (member.EmbedsWithoutSeeding)
                 findings.Add(
-                    $"graph member '{member.Name}' is wired with an embedder and a vector store but no " +
+                    $"graph member '{member.Name}' is wired with a vector backend and a vector store but no " +
                     "IMemorySeedSource declaring MemorySeedKind.Semantic — every write is embedded, for " +
                     "novelty and similarity linking, and no recall considers those neighbours. Call " +
-                    "AddMemorySemanticSeeds(), or drop the embedder registration; as wired you pay an " +
+                    "AddMemorySemanticSeeds(), or drop the vector backend registration; as wired you pay an " +
                     "embedding per write for nothing a recall reads. If you HAVE your own vector channel, " +
                     "declare its Kind — this asks a channel's role, not its name.");
 

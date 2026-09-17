@@ -628,7 +628,7 @@ public class GraphMemoryEngineTests
     /// accumulator is exactly what the ContentSize-governed writes above left it at.
     /// <para><b>Fix round 2, I-1: extended to a CONNECTED entry, which the original scenario above
     /// structurally cannot exercise.</b> "the seed fact" alone has <c>Strength == 0</c> (no edge, no recall,
-    /// no embedder before this point), so it was never routed through
+    /// no vector backend before this point), so it was never routed through
     /// <c>GraphMemoryEngine.HasUnknownStrengthUnit</c>'s guard at all — round 1's own fix (re-deriving
     /// <c>Age</c>) is a complete story for an UNCONNECTED entry, and this method's first half still proves
     /// exactly that, unmodified. "the linked fact" below is EXPLICITLY linked to a neighbour while

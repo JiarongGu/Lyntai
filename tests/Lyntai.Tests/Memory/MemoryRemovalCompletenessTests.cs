@@ -22,7 +22,7 @@ namespace Lyntai.Tests.Memory;
 /// shape <c>.claude/knowledge/pitfalls.md</c> §Second doors records, where the question is not "is this code
 /// correct" but "what else can reach these objects, and does it apply the same rules".</para>
 ///
-/// <para><b>The asymmetry these facts pin.</b> Enrichment is best-effort — a failing embedder costs links,
+/// <para><b>The asymmetry these facts pin.</b> Enrichment is best-effort — a failing vector backend costs links,
 /// never the entry. Removal is not: a forget that silently does less than it says is the failure the whole
 /// surface exists to prevent, which is why the vector delete runs BEFORE the store delete and is allowed to
 /// throw.</para>
@@ -32,7 +32,7 @@ public class MemoryRemovalCompletenessTests
     private static GraphMemoryEngine Engine(IVectorStore vectors, GraphMemoryOptions? options = null,
         IMemoryGraphStore? store = null) =>
         new("project/graph", store ?? new InMemoryMemoryGraphStore(), options,
-            agePolicies: [new PerWriteAgePolicy()], providers: [new FakeEmbedder()], vectors: vectors);
+            agePolicies: [new PerWriteAgePolicy()], providers: [new FakeVectorProvider()], vectors: vectors);
 
     // The engine's own address, asked for rather than restated — a second spelling here is how these
     // assertions would keep passing against a collection the engine no longer writes.
@@ -174,7 +174,7 @@ public class MemoryRemovalCompletenessTests
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("project/graph", store,
             new GraphMemoryOptions { MinRetrievability = 0.9 },
-            agePolicies: [Accumulating()], providers: [new FakeEmbedder()], vectors: vectors);
+            agePolicies: [Accumulating()], providers: [new FakeVectorProvider()], vectors: vectors);
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry about widgets"));
         await Crowd(engine, "t", 200);

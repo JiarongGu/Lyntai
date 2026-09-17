@@ -1,12 +1,12 @@
 using System.Text;
 using System.Text.Json;
-using Lyntai.Embeddings.Model2Vec;
+using Lyntai.Providers.Model2Vec;
 using Lyntai.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Embeddings;
 
-/// <summary>The in-process, server-free embedder.
+/// <summary>The in-process, server-free vector backend.
 ///
 /// <para>Every test here builds its OWN model — a real safetensors file and a real WordPiece vocabulary,
 /// written to a temp directory — so the suite needs no download and no server. That is also what makes the
@@ -59,23 +59,23 @@ public class Model2VecProviderTests : IDisposable
     [Fact]
     public void Declares_EMBED_and_nothing_else_so_a_router_never_sends_it_a_chat()
     {
-        // An embedder is a provider like any other now (D128) — what makes it an embedder is the DECLARATION,
+        // A vector backend is a provider like any other now (D128) — what makes it a vector backend is the DECLARATION,
         // not a separate interface. Asserting the absences is the half that matters: it is what stops the
         // router dispatching a completion here and getting the default Unsupported back.
-        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha")));
+        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha")));
 
-        Assert.Equal([ProviderKinds.Text], embedder.Capabilities.Accepts);
-        Assert.Equal([ProviderKinds.Vector], embedder.Capabilities.Produces);
-        Assert.Equal([ProviderOperation.Complete], embedder.Capabilities.Operations);
-        Assert.Equal("static", embedder.Id);
-        Assert.True(embedder.IsAvailable);
+        Assert.Equal([ProviderKinds.Text], vectorProvider.Capabilities.Accepts);
+        Assert.Equal([ProviderKinds.Vector], vectorProvider.Capabilities.Produces);
+        Assert.Equal([ProviderOperation.Complete], vectorProvider.Capabilities.Operations);
+        Assert.Equal("static", vectorProvider.Id);
+        Assert.True(vectorProvider.IsAvailable);
     }
 
     [Fact]
-    public void AddModel2Vec_registers_it_as_a_PROVIDER_as_well_as_the_embedder_slot()
+    public void AddModel2Vec_registers_it_as_a_PROVIDER_as_well_as_the_vector_backend_slot()
     {
-        // Both halves are load-bearing: the slot keeps the one-embedder deployment working untouched, and
-        // the provider collection is what lets a second embedder be registered and told apart by id.
+        // Both halves are load-bearing: the slot keeps the one-vector backend deployment working untouched, and
+        // the provider collection is what lets a second vector backend be registered and told apart by id.
         var services = new ServiceCollection();
         services.AddLyntai(cfg => cfg.AddModel2VecProvider(WriteModel(Vocabulary("alpha"))));
         var provider = services.BuildServiceProvider();
@@ -89,18 +89,18 @@ public class Model2VecProviderTests : IDisposable
     [Fact]
     public void Reads_the_table_and_reports_the_models_own_width()
     {
-        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta"), dimensions: 7));
+        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta"), dimensions: 7));
 
-        Assert.Equal(7, embedder.Dimensions);
+        Assert.Equal(7, vectorProvider.Dimensions);
     }
 
     [Fact]
     public async Task Mean_pools_the_rows_its_tokens_select()
     {
         // Rows are all-i, so "alpha beta" (ids 5 and 6) means exactly (5 + 6) / 2 = 5.5 in every dimension.
-        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
+        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
 
-        var vector = (await embedder.EmbedAsync(["alpha beta"]))[0];
+        var vector = (await vectorProvider.EmbedAsync(["alpha beta"]))[0];
 
         Assert.All(vector, v => Assert.Equal(5.5f, v, 3));
     }
@@ -112,9 +112,9 @@ public class Model2VecProviderTests : IDisposable
         // pruned vocabulary produces; bracketing the input with [CLS]/[SEP] would fold two more rows into
         // every mean and shift each vector by an amount no test asserting "a vector came back" could see.
         // "alpha" alone must therefore be row 5 and nothing else.
-        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
+        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
 
-        var vector = (await embedder.EmbedAsync(["alpha"]))[0];
+        var vector = (await vectorProvider.EmbedAsync(["alpha"]))[0];
 
         Assert.All(vector, v => Assert.Equal(5f, v, 3));
     }
@@ -137,9 +137,9 @@ public class Model2VecProviderTests : IDisposable
     {
         // A store full of documents must not be refused over one empty one, and a zero vector is what an
         // empty string MEANS — maximally dissimilar to everything.
-        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha")));
+        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha")));
 
-        var vectors = await embedder.EmbedAsync(["", "   "]);
+        var vectors = await vectorProvider.EmbedAsync(["", "   "]);
 
         Assert.All(vectors, v => Assert.All(v, component => Assert.Equal(0f, component)));
     }
@@ -169,17 +169,17 @@ public class Model2VecProviderTests : IDisposable
     [Fact]
     public async Task Has_NO_context_limit_which_is_the_one_thing_this_class_has_over_a_small_transformer()
     {
-        // Every sub-100 MB transformer embedder rejects an input past 512 tokens. A lookup table has no
+        // Every sub-100 MB transformer vector backend rejects an input past 512 tokens. A lookup table has no
         // positional embeddings, so a long document is just more rows to average.
-        var embedder = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
+        var vectorProvider = Model2VecProvider.FromDirectory(WriteModel(Vocabulary("alpha", "beta")));
 
-        var vector = (await embedder.EmbedAsync([string.Join(" ", Enumerable.Repeat("alpha beta", 4000))]))[0];
+        var vector = (await vectorProvider.EmbedAsync([string.Join(" ", Enumerable.Repeat("alpha beta", 4000))]))[0];
 
         Assert.Contains(vector, v => v != 0f);
     }
 }
 
-/// <summary>The static embedder against a REAL downloaded model, which the synthetic fixture cannot
+/// <summary>The static vector backend against a REAL downloaded model, which the synthetic fixture cannot
 /// stand in for: a real export ships a PRUNED vocabulary, so this is what would catch a table and a
 /// tokenizer that disagree about which row an id names — the failure that produces plausible vectors and
 /// an untraceable retrieval loss.
@@ -194,14 +194,14 @@ public class Model2VecProviderLiveTests
     {
         Skip.If(string.IsNullOrWhiteSpace(Directory), "set LYNTAI_STATIC_MODEL_DIR to a model2vec directory");
 
-        var embedder = Model2VecProvider.FromDirectory(Directory!);
-        var vectors = await embedder.EmbedAsync([
+        var vectorProvider = Model2VecProvider.FromDirectory(Directory!);
+        var vectors = await vectorProvider.EmbedAsync([
             "the weather forecast for tomorrow",
             "a stock market share price quote",
             "tomorrow's weather forecast",
         ]);
 
-        Assert.True(embedder.Dimensions > 0);
+        Assert.True(vectorProvider.Dimensions > 0);
 
         // The table's own vocabulary is PRUNED, so a wrong row mapping would still produce finite vectors.
         // Ordering a related pair above an unrelated one is the cheapest check that cannot pass on one.

@@ -64,17 +64,54 @@ public sealed class LyntaiBuilder
     /// short-circuits without spending budget/rate-limit).</summary>
     public const int CacheDecoratorOrder = 20;
 
+    /// <summary>What a DEFERRED registration said it would produce — the capabilities passed to an
+    /// <c>AddProvider</c> overload, for the composition-time questions that cannot wait for a provider to be
+    /// built.
+    ///
+    /// <para><b>A declaration, never a substitute for the real thing.</b> Routing always reads the built
+    /// provider's own <see cref="IModelProvider.Capabilities"/>; nothing here reaches a router. This list
+    /// answers one narrower question — "will anything in this container be able to do X?" — asked while the
+    /// container is still being described.</para></summary>
+    internal List<ProviderCapabilities> DeclaredCapabilities { get; } = [];
+
     /// <summary>Register an <see cref="IModelProvider"/> into the router's provider collection.</summary>
-    public LyntaiBuilder AddProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+    /// <param name="declares">Optional. What this backend will produce, stated NOW because a type the
+    /// container constructs cannot be inspected until it is built — see the
+    /// <see cref="AddProvider(Func{IServiceProvider,IModelProvider},ProviderCapabilities)"/> overload, which
+    /// documents why and what omitting it costs.</param>
+    public LyntaiBuilder AddProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>(
+        ProviderCapabilities? declares = null)
         where T : class, IModelProvider
     {
+        if (declares is not null) DeclaredCapabilities.Add(declares);
         Services.AddSingleton<IModelProvider, T>();
         return this;
     }
 
-    /// <summary>Register a provider built from the service provider (for id/config-parameterized ones).</summary>
-    public LyntaiBuilder AddProvider(Func<IServiceProvider, IModelProvider> factory)
+    /// <summary>Register a provider built from the service provider (for id/config-parameterized ones) —
+    /// <b>the one door every backend comes through, whatever it produces</b> (<c>docs/DECISIONS.md</c>
+    /// <b>D152</b>).
+    ///
+    /// <para><b>Pass <paramref name="declares"/> when a composition-time decision depends on this
+    /// backend.</b> A factory is opaque until it runs, so a seam that must decide while the container is
+    /// being described — <see cref="AddSemanticMemory()"/> is the one that ships — cannot see what this will
+    /// produce. Stating it here is what lets that seam fail fast, and a backend that declares
+    /// <see cref="ProviderKinds.Vector"/> is what <c>AddSemanticMemory</c> looks for.</para>
+    ///
+    /// <para><b>Omitting it is safe but not free, and the cost is exactly one thing:</b> routing is
+    /// unaffected — it reads each built provider's own <see cref="IModelProvider.Capabilities"/> — but a
+    /// composition-time question about this backend answers "no". So an undeclared vector backend plus
+    /// <c>AddSemanticMemory</c> is a startup failure naming this argument, rather than a recall that quietly
+    /// never runs.</para>
+    ///
+    /// <para>Registering an INSTANCE on <see cref="Services"/> before <c>AddLyntai</c> needs no declaration:
+    /// the object is in the descriptor and states its own capabilities.</para></summary>
+    /// <param name="factory">Builds the backend from the container.</param>
+    /// <param name="declares">Optional. What the built provider will declare.</param>
+    public LyntaiBuilder AddProvider(
+        Func<IServiceProvider, IModelProvider> factory, ProviderCapabilities? declares = null)
     {
+        if (declares is not null) DeclaredCapabilities.Add(declares);
         Services.AddSingleton(factory);
         return this;
     }
@@ -120,32 +157,6 @@ public sealed class LyntaiBuilder
                 : [ProviderOperation.Complete, ProviderOperation.Stream],
         };
         return AddProvider(_ => new BridgeProvider(id, declared, complete, stream));
-    }
-
-    /// <summary>Set by <see cref="AddEmbeddingProvider"/>: at least one backend that EMBEDS was registered.
-    ///
-    /// <para>It exists because capability is only knowable once a provider is BUILT, and the wiring below
-    /// has to decide at composition time — whether to seed the routing front door at all, and whether
-    /// <c>AddSemanticMemory</c> can be honoured. Inferring it from "any provider is registered" would wire
-    /// semantic memory for a chat-only deployment and turn a clean startup failure into a runtime one.</para></summary>
-    internal bool EmbeddingProviderRegistered { get; private set; }
-
-    /// <summary>Register a backend that embeds — an <see cref="IModelProvider"/> declaring
-    /// <see cref="ProviderKinds.Vector"/>.
-    ///
-    /// <para><b>The same collection as <see cref="AddProvider"/>; what this adds is the STATEMENT that
-    /// something can embed</b>, which the container needs before any provider is BUILT and so cannot read
-    /// from a factory. Reach for this rather than <see cref="AddProvider"/> whenever the backend produces
-    /// vectors — registering an embedding backend through <see cref="AddProvider"/> compiles and runs, and
-    /// leaves <see cref="AddSemanticMemory()"/> unable to see it.</para>
-    ///
-    /// <para>A host registering an INSTANCE into the service collection before <c>AddLyntai</c> needs no
-    /// statement: that object declares its own <see cref="ProviderCapabilities"/> and the wiring reads
-    /// them.</para></summary>
-    public LyntaiBuilder AddEmbeddingProvider(Func<IServiceProvider, IModelProvider> factory)
-    {
-        EmbeddingProviderRegistered = true;
-        return AddProvider(factory);
     }
 
     /// <summary>Register an eval dimension into the scoring collection.</summary>

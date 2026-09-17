@@ -228,7 +228,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `BaseUrl`, `ApiKey`, `Dialect`, `Model`, `Produces`, plus the route-specific knobs. `DefaultModel` is
   renamed `Model` and the presets' `defaultModel:` parameter `model:`. `HttpEmbedder` and <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `OpenAiCompatibleEmbedderOptions` are gone; the wire shape is the internal <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
-  `HttpEmbeddingsTransport`.
+  `HttpVectorTransport`.
 
 - **The `*Embedder` suffix is retired from every registration** (**D132**): `AddOnnxEmbedder` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `AddOnnxProvider`, `AddStaticEmbedder` → `AddModel2VecProvider` (with `StaticEmbedder` → <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
@@ -247,18 +247,40 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 - **Embedding is a CAPABILITY, not a seam: the embedder interface is removed** (**D129**, **D151**).
   Registering two embedding endpoints now gives FAILOVER instead of the second silently replacing the
-  first — which is what `HttpEmbeddingsTransport`'s own doc admitted: *"there is one embedder slot, so a
+  first — which is what the HTTP vector transport's own doc admitted: *"there is one embedder slot, so a
   later registration wins"*. That routing is kept; what is gone is the consumer-facing type that wrapped
   it. **`IEmbedder`, its extension helpers and all three `AddEmbeddings` overloads are deleted**, along
   with the `AddSemanticMemory` overloads that took one. `SemanticMemory`, `SemanticSeedSource`,
-  `EmbeddingToolSelector` and `GraphMemoryEngine` take `IEnumerable<IModelProvider>` and route over
+  `VectorToolSelector` and `GraphMemoryEngine` take `IEnumerable<IModelProvider>` and route over
   whichever declare `ProviderKinds.Vector` — the same shape `ScoringVerificationPolicy` already had for
   `ProviderKinds.Score`, which is the asymmetry D151 removes.
   <br>**What to type instead.** A shipped backend: `AddModel2VecProvider(dir)`, `AddOnnxProvider(dir)`, or
   `AddHttpProvider` / `AddOllamaProvider` with `Produces = ProviderKinds.Vector`. Your own:
-  `AddEmbeddingProvider(_ => backend)`, where the backend is an `IModelProvider` declaring it produces
-  vectors — three members, exactly what a bring-your-own SCORER already implements. `EmbeddingRole`
-  survives on `IModelProvider.EmbedAsync`'s role-aware overload, so an asymmetric model is unaffected.
+  `AddProvider(_ => backend, declares)`, where the backend is an `IModelProvider` declaring it produces
+  vectors — three members, exactly what a bring-your-own SCORER already implements. The per-call role
+  distinction survives on `EmbedAsync`'s role-aware overload, so an asymmetric model is unaffected.
+
+- **A PROVIDER is named for its backend; the OPERATION keeps its usual verb** (**D152**). D151 removed the
+  embedder *interface* and left the word on a registration, a selector and a namespace — so the taxonomy it
+  deleted was still legible on the surface. **Three renames, all mechanical:**
+  | was | now |
+  | --- | --- |
+  | `builder.AddEmbeddingProvider(factory)` | `builder.AddProvider(factory, declares)` | <!-- drift-ok: the migration table ANNOUNCING these retirements has to name them -->
+  | `EmbeddingToolSelector` / `AddEmbeddingToolSelector` | `VectorToolSelector` / `AddVectorToolSelector` | <!-- drift-ok: as above -->
+  | `Lyntai.Embeddings.Model2Vec` (namespace) | `Lyntai.Providers.Model2Vec` | <!-- drift-ok: as above -->
+  <br>**`IModelProvider.EmbedAsync` and `EmbeddingRole` are UNCHANGED**, deliberately. They name the
+  operation, which is where every vendor puts the word — OpenAI's `/v1/embeddings` returning
+  `data[].embedding`, Ollama's `/api/embed` — and where this seam's sibling methods already take a verb
+  (`CompleteAsync`, `GenerateAsync`, `ScoreAsync`). Nothing to migrate.
+  <br>**`AddProvider` gains an optional second argument** rather than gaining a sibling:
+  `AddProvider(factory, declares: ProviderCapabilities?)` on both overloads. A factory cannot be inspected
+  before it runs, and `AddSemanticMemory` must decide at composition time — so a factory producing
+  `Vector` states it there. **Existing `AddProvider` calls compile unchanged**; a factory that declares
+  nothing is treated as not embedding, exactly as before, and `AddSemanticMemory` fails at startup naming
+  the argument to add.
+  <br>**What does NOT change, deliberately:** the `/embeddings` and `/api/embed` routes, the `"embedding"`
+  JSON field, and `Model2VecProvider`'s own name — `model2vec` is an upstream FORMAT, as ONNX is, and a
+  backend is named for what it reads.
 
 - **An embedder is a PROVIDER: `IEmbeddingProvider` is removed** (**D128**). `Model2VecProvider` and
   `OnnxProvider` are `IModelProvider`s declaring `Kinds: ["text"], Operations: [Embed]`, and
@@ -361,11 +383,11 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   because a `model2vec` table must not have them; `Encode` is the transformer path, adding those tokens
   plus the attention mask and segment ids a BERT graph takes as separate tensors.
 
-- **`IToolSelector` and `AddEmbeddingToolSelector` — the tool roster can be BOUNDED before the model sees
+- **`IToolSelector` and `AddVectorToolSelector` — the tool roster can be BOUNDED before the model sees
   it** (**D120**). `IToolRegistry` hands the loop every registered tool on every iteration and the model
   supplies no bound of its own: a 4B invokes a tool on **90-95%** of requests nothing on the roster serves,
   and two preamble rewrites in opposite directions moved that by nothing — so wording is not the lever.
-  `EmbeddingToolSelector` is the shipped implementation, model-free, scoring the request against each tool's
+  `VectorToolSelector` is the shipped implementation, model-free, scoring the request against each tool's
   own name and description; measured, that arm still picks the right tool from **35** options **81.5%** of
   the time against 3% chance. **Fail-open in three ways** — no selector, a faulting selector and an empty
   result all leave the roster whole, because dropping the tool a request needed is the failure that matters.
@@ -711,7 +733,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   <br>**The write path was the worse half**: annotation runs before the entry is stored, so a slow
   annotator lost the FACT rather than its subject edges. A caller's own cancellation still propagates
   unchanged — the two are now told apart by whether the caller's token is actually cancelled, the same
-  distinction `HttpEmbeddingsTransport` and the OpenAI-compatible provider already drew.
+  distinction `HttpVectorTransport` and the OpenAI-compatible provider already drew.
   <br>**Nothing changes for a deployment with no annotator or verifier registered**, which is the default:
   both seams are opt-in. The promise now lives on both seam CONTRACTS, so a BYO policy is held to it too.
 
@@ -725,7 +747,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   <br>**A behaviour change only for a BYO component that times out**, and only in the direction the docs
   already promised — a store, engine, embedder or vector store whose own deadline fires now degrades instead
   of throwing. A caller's cancellation propagates exactly as before, and a deployment on the shipped
-  SQLite/Postgres/InMemory stores and the shipped `HttpEmbeddingsTransport` sees nothing change at all, because none of
+  SQLite/Postgres/InMemory stores and the shipped `HttpVectorTransport` sees nothing change at all, because none of
   those raise a cancellation they were not asked for.
   <br>**Four seam contracts said otherwise and were corrected**, since a fixed behaviour with a doc still
   asserting the old one is the worse half: `IMemoryEngine.RecallAsync` said *"Only

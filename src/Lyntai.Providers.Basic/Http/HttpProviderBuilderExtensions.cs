@@ -13,7 +13,7 @@ public static class HttpProviderBuilderExtensions
     /// different ids — e.g. one "openai" and one "ollama", or a chat and an embedding backend on one
     /// server).
     /// <para><b>This one KEEPS the <c>Provider</c> suffix</b> where a named backend drops it (<b>D134</b>):
-    /// like <see cref="LyntaiBuilder.AddProvider(Func{IServiceProvider,Lyntai.Lifecycle.IModelProvider})"/>
+    /// like <see cref="LyntaiBuilder.AddProvider(Func{IServiceProvider,Lyntai.Lifecycle.IModelProvider},Lyntai.Lifecycle.ProviderCapabilities)"/>
     /// it is the GENERIC registration, so <c>Provider</c> is the noun it takes rather than a suffix on a
     /// vendor's name. The vendor presets below — <see cref="AddOpenAiProvider"/>, <see cref="AddOllamaProvider"/> — name a
     /// backend, so they do not carry it.</para>
@@ -50,13 +50,15 @@ public static class HttpProviderBuilderExtensions
             sp.GetService<ILogger<HttpModelProvider>>(),
             disposeHttpClient: !byo); // dispose only Lyntai-created clients
 
-        // What it PRODUCES picks the front door. AddEmbeddingProvider is the same collection plus the
-        // statement that something can embed, which AddSemanticMemory reads at composition time — before
-        // any provider is built, which is why a factory registration has to say it (D151).
-        if (string.Equals(config.Produces, ProviderKinds.Vector, StringComparison.OrdinalIgnoreCase))
-            builder.AddEmbeddingProvider(Build);
-        else
-            builder.AddProvider(Build);
+        // ONE registration whatever this produces (D152). The declaration is separate only because `Build`
+        // is a FACTORY: AddSemanticMemory asks what is registered at composition time, before any provider
+        // exists to be asked, so the configured Produces is restated here as a declaration.
+        builder.AddProvider(Build, new ProviderCapabilities
+        {
+            Accepts = [ProviderKinds.Text],
+            Produces = [config.Produces],
+            Operations = [ProviderOperation.Complete],
+        });
         return builder;
     }
 

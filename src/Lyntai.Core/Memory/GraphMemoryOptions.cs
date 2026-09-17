@@ -283,11 +283,11 @@ public sealed record GraphMemoryOptions
     ///
     /// <para><b>Reach for <c>Fuse</c> when the judge is weak or <see cref="VerificationDepth"/> is deep.</b>
     /// Measured on LoCoMo with a real 4B judge at the shipped depth, the partition cost <b>10.5 points</b> of
-    /// evidence-hit on one embedder and <b>12.0</b> on a second, while fusing the same verdict from the same
+    /// evidence-hit on one vector backend and <b>12.0</b> on a second, while fusing the same verdict from the same
     /// model recovered ALL of that loss on the first and <b>most</b> of it on the second — 9.5 of 12.0,
     /// landing 2.5 short of the unjudged base (<c>docs/memory-measurements.md</c> §5).
     /// <b>So expect it to remove most of a bad judge's cost, never to beat the base</b>: it is insurance
-    /// rather than an improvement. How MUCH it recovers is embedder-dependent; that it recovers most of it
+    /// rather than an improvement. How MUCH it recovers is vector backend-dependent; that it recovers most of it
     /// replicated. It is not the default because a silent reordering is a change no consumer could detect at
     /// compile time.</para>
     ///

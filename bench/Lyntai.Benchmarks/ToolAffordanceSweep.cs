@@ -238,9 +238,9 @@ internal static class ToolAffordanceSweep
             Timeout = TimeSpan.FromMinutes(2),
         };
 
-        var embedder = await SweepDoubles.TryRealEmbedderAsync(http, "tool-affordance");
-        if (embedder is null) return 1;
-        var extra = await SweepDoubles.TryExtraEmbeddersAsync(http, "tool-affordance");
+        var vectorProvider = await SweepDoubles.TryRealVectorProviderAsync(http, "tool-affordance");
+        if (vectorProvider is null) return 1;
+        var extra = await SweepDoubles.TryExtraVectorProvidersAsync(http, "tool-affordance");
         if (extra is null) return 1;
         // Not resolved at all under `--scorers-only`: that mode calls no chat model, and DEMANDING one
         // meant the orchestrator had to serve ~3.3 GB of weights it never touched — which is what made the
@@ -255,21 +255,21 @@ internal static class ToolAffordanceSweep
         var rerankOk = await reranker.ReachableAsync();
         reranker.Reset();   // the probe's own two pairs must not count toward the measured region's audit
 
-        var trials = await BuildTrialsAsync(embedder, difficulty, cap);
+        var trials = await BuildTrialsAsync(vectorProvider, difficulty, cap);
         PrintPreamble(big, small, rerankOk, difficulty, trials.Count, lanes, extra, scorersOnly,
             scorersOnly ? null : nativeChat, skipBaseline);
         PrintTrialProfile(trials, difficulty);
 
-        // `cosine` is the PRIMARY embedder — the one that also built the trials — so its name is kept and
+        // `cosine` is the PRIMARY vector backend — the one that also built the trials — so its name is kept and
         // its figure stays comparable to every published table. The extras vary only the scoring.
-        var scorers = new List<(string Arm, SweepDoubles.CachingEmbedder Embedder)> { ("cosine", embedder) };
-        scorers.AddRange(extra.Select(e => ($"cosine-{e.Label}", e.Embedder)));
+        var scorers = new List<(string Arm, SweepDoubles.CachingVectorProvider VectorProvider)> { ("cosine", vectorProvider) };
+        scorers.AddRange(extra.Select(e => ($"cosine-{e.Label}", e.VectorProvider)));
 
-        // CENTERING, as a paired arm on EVERY embedder rather than a rescue for the weak one. An embedding
+        // CENTERING, as a paired arm on EVERY vector backend rather than a rescue for the weak one. An embedding
         // space is anisotropic — every vector shares a large common component — so cosine measures that
         // shared direction as much as the text. Subtracting the corpus centroid removes it, and the reason
         // it is run on the incumbent too is that a lever which only ever gets tried on a small model can
-        // never be shown to transfer. The centroid is over all 42 declarations, computed ONCE per embedder.
+        // never be shown to transfer. The centroid is over all 42 declarations, computed ONCE per vector backend.
         var centroids = new Dictionary<string, float[]>(StringComparer.Ordinal);
         foreach (var (arm, scorer) in scorers)
             centroids[arm] = Centroid(await scorer.EmbedAsync(
@@ -328,10 +328,10 @@ internal static class ToolAffordanceSweep
     /// request so the nested roster sizes show the most confusable siblings first — which is what makes
     /// N = 3 a harder cell per option than N = 7, not merely a shorter one.</summary>
     private static async Task<List<Trial>> BuildTrialsAsync(
-        SweepDoubles.CachingEmbedder embedder, Difficulty difficulty, int cap)
+        SweepDoubles.CachingVectorProvider vectorProvider, Difficulty difficulty, int cap)
     {
         var tools = ToolAffordanceCorpus.Tools;
-        var declarations = await embedder.EmbedAsync(
+        var declarations = await vectorProvider.EmbedAsync(
             [.. tools.Select(ToolAffordanceCorpus.Declaration)]);
 
         var rng = new Random(Seed);
@@ -341,7 +341,7 @@ internal static class ToolAffordanceSweep
         {
             foreach (var request in tools[gold].Requests)
             {
-                var query = (await embedder.EmbedAsync([request]))[0];
+                var query = (await vectorProvider.EmbedAsync([request]))[0];
                 var ranked = Enumerable.Range(0, tools.Count)
                     .Select(i => (Index: i, Score: Cosine(query, declarations[i])))
                     .OrderByDescending(r => r.Score).ToList();
@@ -422,7 +422,7 @@ internal static class ToolAffordanceSweep
         SweepDoubles.OpenAiCompatibleChat? small,
         SweepDoubles.OpenAiCompatibleChat? nativeChat,
         CrossEncoderReranker? reranker,
-        IReadOnlyList<(string Arm, SweepDoubles.CachingEmbedder Embedder)> scorers,
+        IReadOnlyList<(string Arm, SweepDoubles.CachingVectorProvider VectorProvider)> scorers,
         IReadOnlyDictionary<string, float[]> centroids,
         int lanes)
     {
@@ -478,7 +478,7 @@ internal static class ToolAffordanceSweep
         IReadOnlyList<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)> chats,
         IReadOnlyList<(string Label, SweepDoubles.OpenAiCompatibleChat Chat)> natives,
         CrossEncoderReranker? reranker,
-        IReadOnlyList<(string Arm, SweepDoubles.CachingEmbedder Embedder)> scorers,
+        IReadOnlyList<(string Arm, SweepDoubles.CachingVectorProvider VectorProvider)> scorers,
         IReadOnlyDictionary<string, float[]> centroids,
         Dictionary<(string Arm, int N), Cell> cells,
         CancellationToken ct)
@@ -494,8 +494,8 @@ internal static class ToolAffordanceSweep
         var scores = new Dictionary<string, double?[]>(StringComparer.Ordinal);
         var declarations = options.Select(i => ToolAffordanceCorpus.Declaration(tools[i])).ToList();
 
-        // One row per embedder arm. Every arm sees the SAME roster, because the trials were built by the
-        // primary embedder before any of them ran — so a difference here is the scorer and nothing else.
+        // One row per vector backend arm. Every arm sees the SAME roster, because the trials were built by the
+        // primary vector backend before any of them ran — so a difference here is the scorer and nothing else.
         foreach (var (arm, scorer) in scorers)
         {
             var query = (await scorer.EmbedAsync([trial.Request], ct))[0];
@@ -1046,7 +1046,7 @@ internal static class ToolAffordanceSweep
 
     private static void PrintPreamble(SweepDoubles.OpenAiCompatibleChat big,
         SweepDoubles.OpenAiCompatibleChat? small, bool rerankOk, Difficulty difficulty, int trials, int lanes,
-        IReadOnlyList<(string Label, SweepDoubles.CachingEmbedder Embedder)> extra, bool scorersOnly,
+        IReadOnlyList<(string Label, SweepDoubles.CachingVectorProvider VectorProvider)> extra, bool scorersOnly,
         SweepDoubles.OpenAiCompatibleChat? nativeChat, bool skipBaseline)
     {
         Console.WriteLine("\ntool-affordance — what a small model does with a roster of 3-7 tools, through the");
@@ -1097,14 +1097,14 @@ internal static class ToolAffordanceSweep
             ? $"  rerank     : {CrossEncoderReranker.Model} at {CrossEncoderReranker.BaseUrl}"
             : "  rerank     : SKIPPED — nothing usable answered /v1/rerank");
         Console.WriteLine($"  concurrency: {lanes} in-flight request(s)");
-        Console.WriteLine($"  embedder   : {SweepDoubles.ServedOrRequestedModel}  — builds the trials AND "
+        Console.WriteLine($"  vector backend   : {SweepDoubles.ServedOrRequestedModel}  — builds the trials AND "
             + "scores the `cosine` arm");
         Console.WriteLine(extra.Count == 0
             ? "  embed arms : none — set LYNTAI_LIVE_EMBED_ARMS=label=url,… to add `cosine-<label>` arms"
             : $"  embed arms : {string.Join(", ", extra.Select(e => $"cosine-{e.Label}"))}");
         if (extra.Count > 0)
         {
-            Console.WriteLine("               Trial construction is PINNED to the primary embedder above, so");
+            Console.WriteLine("               Trial construction is PINNED to the primary vector backend above, so");
             Console.WriteLine("               every arm sees the same roster and only the SCORING varies. It");
             Console.WriteLine("               also means `cosine` faces distractors selected to be hardest for");
             Console.WriteLine("               itself, which biases against it rather than for it.\n");
@@ -1421,7 +1421,7 @@ internal static class ToolAffordanceSweep
     ///
     /// <para><b>The headline table cannot answer this and reads as though it does.</b> On a corpus where
     /// cosine already picks the right tool, an arm scoring 75% overall may be winning nothing a 333 MB
-    /// embedder was not already winning for free. Splitting on the free arm separates "it agreed with
+    /// vector backend was not already winning for free. Splitting on the free arm separates "it agreed with
     /// cosine" from "it beat cosine", and only the second is worth bytes.</para>
     ///
     /// <para>The subset is SMALL by construction — it is exactly the corpus's own difficulty — so the
@@ -1496,7 +1496,7 @@ internal static class ToolAffordanceSweep
         Console.WriteLine("  - The corpus is SYNTHETIC and English-only. No corpus of real tool rosters exists");
         Console.WriteLine("    here, so nothing about absolute difficulty transfers off this fixture.");
         Console.WriteLine("  - MODEL CAPABILITY, on most of this corpus. A tool description says what the tool");
-        Console.WriteLine("    does, so a request for it is usually its nearest neighbour and an embedder gets");
+        Console.WriteLine("    does, so a request for it is usually its nearest neighbour and a vector backend gets");
         Console.WriteLine("    it free — see the gold-rank line above. That makes this a clean measurement of");
         Console.WriteLine("    the TRANSPORT, which is what docs/task-archive.md Part 236 asked for, and a");
         Console.WriteLine("    weak one of affordance REASONING, which it did not. The free-arm-wrong table");

@@ -7,7 +7,7 @@ namespace Lyntai.Tests.Api;
 ///
 /// <para>Three details were dropped until 2026-08-05, each hiding a real break:</para>
 /// <list type="bullet">
-/// <item><b>type parameters</b> — <c>AddSemanticMemory()</c> and <c>AddSemanticMemory&lt;TEmbedder&gt;()</c>
+/// <item><b>type parameters</b> — <c>AddSemanticMemory()</c> and <c>AddSemanticMemory&lt;TVectorProvider&gt;()</c>
 /// rendered as the identical line, so the baseline literally held it twice; deleting either overload left a
 /// baseline the gate still accepted, because the diff read as an ordinary removal of something the surviving
 /// duplicate covered. Removing a public overload from a frozen surface is exactly what the gate is for;</item>
@@ -24,7 +24,7 @@ public class ApiSurfaceRendererTests
 {
     /// <summary>The reported shape, on a LOCAL fixture — which is what this file's own header asks for and
     /// what this one fact did not do until 2026-09-17. It pinned <c>AddSemanticMemory()</c> against
-    /// <c>AddSemanticMemory&lt;TEmbedder&gt;()</c> on the real builder, and **D151** deleted the generic
+    /// <c>AddSemanticMemory&lt;TVectorProvider&gt;()</c> on the real builder, and **D151** deleted the generic
     /// overload, so the fact failed for a reason that had nothing to do with the renderer. No
     /// zero-argument generic/non-generic pair survives anywhere on the public surface now, so the shape is
     /// only testable on a fixture — which is the argument the header already made.</summary>

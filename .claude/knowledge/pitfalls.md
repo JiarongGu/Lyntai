@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 221 traps, indexed two ways
+## Facets — 222 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (47) — 57 · 102 · 111 · 131 · 144 · 153 · 166 · 172 · 195 · 205 · 212 · 227 · 237 · 283 · 303 · 349 · 367 · 528 · 613 · 622 · 632 · 686 · 700 · 770 · 784 · 1099 · 1226 · 1322 · 1335 · 1362 · 1383 · 1400 · 1417 · 1459 · 1632 · 2622 · 2646 · 2656 · 2682 · 2693 · 2712 · 2728 · 2739 · 2766 · 3137 · 3178 · 3187
-- **`encoding`** (7) — 75 · 95 · 100 · 639 · 647 · 922 · 2766
-- **`git`** (8) — 227 · 252 · 283 · 308 · 647 · 669 · 927 · 2622
-- **`build`** (11) — 100 · 613 · 622 · 632 · 686 · 1091 · 1383 · 1400 · 1632 · 2631 · 2665
-- **`router`** (6) — 1475 · 1480 · 1489 · 1491 · 1494 · 1624
-- **`cli`** (19) — 75 · 799 · 922 · 1475 · 1496 · 1504 · 1513 · 1517 · 1529 · 1533 · 1540 · 1544 · 1551 · 1555 · 1588 · 1607 · 1611 · 1616 · 2468
-- **`lifetime`** (6) — 1655 · 1664 · 1669 · 1674 · 1687 · 1695
-- **`storage`** (18) — 1445 · 1567 · 1704 · 1806 · 1834 · 1836 · 1837 · 1839 · 1841 · 1859 · 1870 · 2099 · 2111 · 2381 · 2498 · 2748 · 2930 · 3114
-- **`memory`** (41) — 407 · 440 · 471 · 599 · 1174 · 1567 · 1738 · 1757 · 1768 · 1794 · 1806 · 1821 · 1842 · 1859 · 1870 · 1909 · 1924 · 1931 · 1950 · 1961 · 1979 · 1992 · 2005 · 2063 · 2118 · 2138 · 2174 · 2210 · 2228 · 2235 · 2280 · 2302 · 2330 · 2402 · 2477 · 2498 · 2596 · 2823 · 2982 · 3010 · 3093
-- **`generation`** (12) — 1159 · 1219 · 1302 · 1480 · 1687 · 2210 · 2266 · 2415 · 2427 · 2451 · 2558 · 2583
-- **`di`** (12) — 1674 · 1924 · 1950 · 2130 · 2132 · 2135 · 2138 · 2156 · 2235 · 2280 · 2427 · 2477
-- **`measurement`** (69) — 131 · 392 · 407 · 425 · 440 · 448 · 454 · 471 · 512 · 542 · 558 · 577 · 589 · 599 · 720 · 799 · 806 · 811 · 820 · 826 · 853 · 866 · 877 · 885 · 901 · 908 · 945 · 955 · 975 · 986 · 1020 · 1047 · 1053 · 1069 · 1086 · 1091 · 1130 · 1159 · 1174 · 1204 · 1219 · 1234 · 1252 · 1267 · 1284 · 1302 · 1504 · 1704 · 1723 · 1794 · 1961 · 1992 · 2019 · 2030 · 2045 · 2063 · 2118 · 2174 · 2682 · 2799 · 2850 · 2865 · 2889 · 2909 · 2930 · 2960 · 2997 · 3061 · 3093
-- **`docs`** (30) — 144 · 172 · 195 · 316 · 669 · 700 · 720 · 770 · 1099 · 1110 · 1115 · 1122 · 1226 · 1335 · 1362 · 1459 · 1768 · 2266 · 2302 · 2369 · 2533 · 2543 · 2646 · 2656 · 2693 · 2712 · 2728 · 2739 · 2748 · 3019
-- **`tests`** (25) — 1417 · 1431 · 1445 · 1588 · 1780 · 1821 · 1842 · 1909 · 1931 · 2099 · 2111 · 2381 · 2812 · 2823 · 2834 · 3010 · 3032 · 3114 · 3122 · 3130 · 3134 · 3137 · 3149 · 3160 · 3173
+- **`gates`** (47) — 57 · 124 · 133 · 153 · 166 · 175 · 188 · 194 · 217 · 227 · 234 · 249 · 259 · 305 · 325 · 371 · 389 · 550 · 635 · 644 · 654 · 708 · 722 · 792 · 806 · 1121 · 1248 · 1344 · 1357 · 1384 · 1405 · 1422 · 1439 · 1481 · 1654 · 2644 · 2668 · 2678 · 2704 · 2715 · 2734 · 2750 · 2761 · 2788 · 3159 · 3200 · 3209
+- **`encoding`** (7) — 75 · 117 · 122 · 661 · 669 · 944 · 2788
+- **`git`** (8) — 249 · 274 · 305 · 330 · 669 · 691 · 949 · 2644
+- **`build`** (11) — 122 · 635 · 644 · 654 · 708 · 1113 · 1405 · 1422 · 1654 · 2653 · 2687
+- **`router`** (6) — 1497 · 1502 · 1511 · 1513 · 1516 · 1646
+- **`cli`** (19) — 75 · 821 · 944 · 1497 · 1518 · 1526 · 1535 · 1539 · 1551 · 1555 · 1562 · 1566 · 1573 · 1577 · 1610 · 1629 · 1633 · 1638 · 2490
+- **`lifetime`** (6) — 1677 · 1686 · 1691 · 1696 · 1709 · 1717
+- **`storage`** (18) — 1467 · 1589 · 1726 · 1828 · 1856 · 1858 · 1859 · 1861 · 1863 · 1881 · 1892 · 2121 · 2133 · 2403 · 2520 · 2770 · 2952 · 3136
+- **`memory`** (41) — 429 · 462 · 493 · 621 · 1196 · 1589 · 1760 · 1779 · 1790 · 1816 · 1828 · 1843 · 1864 · 1881 · 1892 · 1931 · 1946 · 1953 · 1972 · 1983 · 2001 · 2014 · 2027 · 2085 · 2140 · 2160 · 2196 · 2232 · 2250 · 2257 · 2302 · 2324 · 2352 · 2424 · 2499 · 2520 · 2618 · 2845 · 3004 · 3032 · 3115
+- **`generation`** (12) — 1181 · 1241 · 1324 · 1502 · 1709 · 2232 · 2288 · 2437 · 2449 · 2473 · 2580 · 2605
+- **`di`** (12) — 1696 · 1946 · 1972 · 2152 · 2154 · 2157 · 2160 · 2178 · 2257 · 2302 · 2449 · 2499
+- **`measurement`** (69) — 153 · 414 · 429 · 447 · 462 · 470 · 476 · 493 · 534 · 564 · 580 · 599 · 611 · 621 · 742 · 821 · 828 · 833 · 842 · 848 · 875 · 888 · 899 · 907 · 923 · 930 · 967 · 977 · 997 · 1008 · 1042 · 1069 · 1075 · 1091 · 1108 · 1113 · 1152 · 1181 · 1196 · 1226 · 1241 · 1256 · 1274 · 1289 · 1306 · 1324 · 1526 · 1726 · 1745 · 1816 · 1983 · 2014 · 2041 · 2052 · 2067 · 2085 · 2140 · 2196 · 2704 · 2821 · 2872 · 2887 · 2911 · 2931 · 2952 · 2982 · 3019 · 3083 · 3115
+- **`docs`** (31) — 95 · 166 · 194 · 217 · 338 · 691 · 722 · 742 · 792 · 1121 · 1132 · 1137 · 1144 · 1248 · 1357 · 1384 · 1481 · 1790 · 2288 · 2324 · 2391 · 2555 · 2565 · 2668 · 2678 · 2715 · 2734 · 2750 · 2761 · 2770 · 3041
+- **`tests`** (26) — 95 · 1439 · 1453 · 1467 · 1610 · 1802 · 1843 · 1864 · 1931 · 1953 · 2121 · 2133 · 2403 · 2834 · 2845 · 2856 · 3032 · 3054 · 3136 · 3144 · 3152 · 3156 · 3159 · 3171 · 3182 · 3195
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (23) — 227 · 407 · 440 · 471 · 700 · 820 · 1130 · 1302 · 1489 · 1494 · 1513 · 1588 · 1669 · 1757 · 2005 · 2138 · 2174 · 2415 · 2427 · 2477 · 2583 · 2596 · 2982
-- **`cancellation`** (5) — 1475 · 1480 · 1738 · 1757 · 1780
-- **`vacuous`** (49) — 131 · 205 · 212 · 392 · 448 · 454 · 512 · 542 · 622 · 826 · 866 · 885 · 975 · 1159 · 1174 · 1204 · 1219 · 1252 · 1322 · 1335 · 1400 · 1431 · 1544 · 1607 · 1624 · 1780 · 1821 · 1842 · 1909 · 1931 · 2019 · 2030 · 2063 · 2174 · 2302 · 2748 · 2823 · 2834 · 2865 · 2997 · 3010 · 3032 · 3061 · 3114 · 3137 · 3149 · 3160 · 3178 · 3187
-- **`scope-blind`** (43) — 102 · 153 · 166 · 172 · 195 · 205 · 227 · 237 · 283 · 349 · 367 · 647 · 770 · 784 · 1267 · 1335 · 1383 · 1459 · 1632 · 1924 · 1992 · 2099 · 2111 · 2266 · 2302 · 2330 · 2381 · 2498 · 2646 · 2656 · 2665 · 2682 · 2693 · 2712 · 2728 · 2739 · 2748 · 2834 · 2997 · 3010 · 3134 · 3178 · 3187
-- **`second-door`** (20) — 1491 · 1529 · 1533 · 1544 · 1551 · 1611 · 1616 · 1695 · 1837 · 1859 · 2138 · 2280 · 2381 · 2402 · 2415 · 2427 · 2451 · 2498 · 2533 · 2558
-- **`stale-claim`** (23) — 57 · 172 · 252 · 316 · 720 · 877 · 908 · 927 · 1099 · 1115 · 1400 · 1768 · 2135 · 2266 · 2369 · 2402 · 2451 · 2533 · 2693 · 2712 · 2728 · 3019 · 3149
-- **`silent-loss`** (62) — 75 · 95 · 100 · 144 · 303 · 308 · 349 · 367 · 425 · 440 · 589 · 639 · 686 · 700 · 799 · 811 · 866 · 922 · 955 · 986 · 1020 · 1086 · 1130 · 1219 · 1226 · 1234 · 1302 · 1362 · 1383 · 1417 · 1517 · 1533 · 1567 · 1655 · 1687 · 1723 · 1794 · 1834 · 1836 · 1837 · 1839 · 1859 · 1870 · 1909 · 2045 · 2118 · 2130 · 2135 · 2156 · 2228 · 2280 · 2330 · 2468 · 2558 · 2596 · 2631 · 2646 · 2656 · 2766 · 2850 · 2930 · 3061
-- **`wrong-subject`** (66) — 57 · 111 · 131 · 308 · 392 · 425 · 454 · 471 · 528 · 542 · 558 · 577 · 589 · 599 · 613 · 632 · 826 · 853 · 885 · 901 · 908 · 955 · 986 · 1020 · 1047 · 1053 · 1110 · 1122 · 1159 · 1174 · 1204 · 1234 · 1252 · 1267 · 1284 · 1362 · 1445 · 1491 · 1540 · 1632 · 1664 · 1674 · 1704 · 1794 · 1842 · 1950 · 1961 · 1979 · 1992 · 2019 · 2030 · 2063 · 2210 · 2235 · 2583 · 2622 · 2631 · 2799 · 2850 · 2865 · 2889 · 2909 · 2930 · 3032 · 3093 · 3137
-- **`unmeasured`** (17) — 558 · 599 · 669 · 720 · 770 · 806 · 1069 · 1091 · 1496 · 1504 · 1513 · 1555 · 1607 · 1979 · 2210 · 2543 · 3019
-- **`ordering`** (10) — 632 · 1517 · 1616 · 1806 · 1841 · 2156 · 2468 · 2477 · 2812 · 2960
-- **`resource`** (14) — 613 · 647 · 686 · 945 · 1053 · 1284 · 1496 · 1588 · 1695 · 1704 · 2132 · 3122 · 3130 · 3173
+- **`fail-open`** (23) — 249 · 429 · 462 · 493 · 722 · 842 · 1152 · 1324 · 1511 · 1516 · 1535 · 1610 · 1691 · 1779 · 2027 · 2160 · 2196 · 2437 · 2449 · 2499 · 2605 · 2618 · 3004
+- **`cancellation`** (5) — 1497 · 1502 · 1760 · 1779 · 1802
+- **`vacuous`** (49) — 153 · 227 · 234 · 414 · 470 · 476 · 534 · 564 · 644 · 848 · 888 · 907 · 997 · 1181 · 1196 · 1226 · 1241 · 1274 · 1344 · 1357 · 1422 · 1453 · 1566 · 1629 · 1646 · 1802 · 1843 · 1864 · 1931 · 1953 · 2041 · 2052 · 2085 · 2196 · 2324 · 2770 · 2845 · 2856 · 2887 · 3019 · 3032 · 3054 · 3083 · 3136 · 3159 · 3171 · 3182 · 3200 · 3209
+- **`scope-blind`** (43) — 124 · 175 · 188 · 194 · 217 · 227 · 249 · 259 · 305 · 371 · 389 · 669 · 792 · 806 · 1289 · 1357 · 1405 · 1481 · 1654 · 1946 · 2014 · 2121 · 2133 · 2288 · 2324 · 2352 · 2403 · 2520 · 2668 · 2678 · 2687 · 2704 · 2715 · 2734 · 2750 · 2761 · 2770 · 2856 · 3019 · 3032 · 3156 · 3200 · 3209
+- **`second-door`** (20) — 1513 · 1551 · 1555 · 1566 · 1573 · 1633 · 1638 · 1717 · 1859 · 1881 · 2160 · 2302 · 2403 · 2424 · 2437 · 2449 · 2473 · 2520 · 2555 · 2580
+- **`stale-claim`** (23) — 57 · 194 · 274 · 338 · 742 · 899 · 930 · 949 · 1121 · 1137 · 1422 · 1790 · 2157 · 2288 · 2391 · 2424 · 2473 · 2555 · 2715 · 2734 · 2750 · 3041 · 3171
+- **`silent-loss`** (63) — 75 · 95 · 117 · 122 · 166 · 325 · 330 · 371 · 389 · 447 · 462 · 611 · 661 · 708 · 722 · 821 · 833 · 888 · 944 · 977 · 1008 · 1042 · 1108 · 1152 · 1241 · 1248 · 1256 · 1324 · 1384 · 1405 · 1439 · 1539 · 1555 · 1589 · 1677 · 1709 · 1745 · 1816 · 1856 · 1858 · 1859 · 1861 · 1881 · 1892 · 1931 · 2067 · 2140 · 2152 · 2157 · 2178 · 2250 · 2302 · 2352 · 2490 · 2580 · 2618 · 2653 · 2668 · 2678 · 2788 · 2872 · 2952 · 3083
+- **`wrong-subject`** (67) — 57 · 95 · 133 · 153 · 330 · 414 · 447 · 476 · 493 · 550 · 564 · 580 · 599 · 611 · 621 · 635 · 654 · 848 · 875 · 907 · 923 · 930 · 977 · 1008 · 1042 · 1069 · 1075 · 1132 · 1144 · 1181 · 1196 · 1226 · 1256 · 1274 · 1289 · 1306 · 1384 · 1467 · 1513 · 1562 · 1654 · 1686 · 1696 · 1726 · 1816 · 1864 · 1972 · 1983 · 2001 · 2014 · 2041 · 2052 · 2085 · 2232 · 2257 · 2605 · 2644 · 2653 · 2821 · 2872 · 2887 · 2911 · 2931 · 2952 · 3054 · 3115 · 3159
+- **`unmeasured`** (17) — 580 · 621 · 691 · 742 · 792 · 828 · 1091 · 1113 · 1518 · 1526 · 1535 · 1577 · 1629 · 2001 · 2232 · 2565 · 3041
+- **`ordering`** (10) — 654 · 1539 · 1638 · 1828 · 1863 · 2178 · 2490 · 2499 · 2834 · 2982
+- **`resource`** (14) — 635 · 669 · 708 · 967 · 1075 · 1306 · 1518 · 1610 · 1717 · 1726 · 2154 · 3144 · 3152 · 3195
 
 <!-- facets:end -->
 
@@ -92,6 +92,28 @@ of the two: most of these traps recur in a subsystem that had never met them.
   three files and took `LICENSE` and `Lyntai.slnx` with them. Both were tracked, so `git checkout --`
   restored them and `verify` proved the tree intact — but a delete whose predicate is "not the extensions
   I happened to list" is a whitelist nobody reviewed. Remove named paths, or `git clean -n` first.
+- **A whole-token rename sweep rewrites PROSE and STRING LITERALS too, and both stay green.** Measured <!-- trap: sub=docs,tests shape=silent-loss,wrong-subject -->
+  2026-09-17 renaming `embedder` → `vectorProvider` across 86 files (**D152**): comments became *"an
+  vectorProvider's graph"*, and a user-facing error in `MemoryWiring` told a consumer to *"drop the
+  vectorProvider registration"*. The build was clean at every step, because none of it is code.
+  <br>**Three passes, in this order, and the order is the point**: identifiers; then comment prose, with
+  `cref=`/`name=` attribute values MASKED so a real type name survives; then string literals, with `{…}`
+  interpolation holes masked so `{vectorProvider.Misses}` is not "fixed" into a compile error. A single
+  pass cannot do it — the same token is an identifier in one place and a noun in another.
+  <br>**And check whether the token appears in someone else's WIRE before sweeping it.** `embedder` does
+  not, so it was safe; `embedding` does — `/embeddings`, `/api/embed`, the `"embedding"` JSON field,
+  `max_position_embeddings`, `token_embeddings` — so it was excluded and repointed by hand. A vendor's
+  route is not yours to rename, and a model file's key least of all.
+  <br>**The SCOPE of a rename comes from your own model, and getting that from convention instead cost two
+  extra passes here.** **D152** replaced a word in three rounds — first everywhere, then pulled back to
+  "the vendors put it on the operation", then corrected again — and only the third reading held, because
+  only it was derived from the code: `Produces` is the axis a router selects on, so the NOUN is the kind
+  (`Vector`) and the VERB is the call that yields one (`Embed`). The vendors happen to agree, which is
+  corroboration and not a reason.
+  <br>**Ask what the word IS in your model — a kind, an operation, a backend — before replacing any of
+  it.** "What does everyone else call this" produces a rule that is right in the cases you sampled and
+  silently wrong everywhere else, and after a sweep every occurrence looks equally wrong, so there is
+  nothing left to check it against.
 - **This machine's console is GBK/CP936.** Writing UTF-8 through it (PowerShell `Set-Content`/`Out-File` <!-- trap: sub=encoding shape=silent-loss -->
   without `-Encoding utf8`, `echo >`, a shell heredoc) **double-encodes and lossily corrupts** non-ASCII
   content — it once mangled every `灵台`/`—`/`§` in `TASKS.md` irreversibly. **Always write files with
@@ -1479,7 +1501,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   bug in two providers; the buffered path shipped it too — both fixed.)
 - **A non-positive resolved budget means the OPPOSITE thing in the two domains — don't "unify" the idiom <!-- trap: sub=router,generation shape=cancellation -->
   casually.** The LLM sites arm the clock unconditionally (`HttpModelProvider.CompleteAsync`,
-  `HttpEmbeddingsTransport.EmbedBatchAsync` and `HttpRerankTransport.ScoreAsync` all `CancelAfter(timeout)`), and app-configured
+  `HttpVectorTransport.EmbedBatchAsync` and `HttpRerankTransport.ScoreAsync` all `CancelAfter(timeout)`), and app-configured
   values are trusted rather than clamped (`LyntaiOptions.ResolveTimeout`), so a `TimeoutByConsumer` entry of
   `TimeSpan.Zero` **cancels the call instantly**. `GenerationDeadline.GuardAsync` reads the same value as
   **no deadline at all** — the documented escape hatch for a host that owns its own clocks. Both are

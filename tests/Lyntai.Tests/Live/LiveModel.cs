@@ -22,7 +22,7 @@ namespace Lyntai.Tests.Live;
 ///
 /// <para><b>The trap when pointing this at llama.cpp: two suites need a CHAT model and an EMBEDDING model at
 /// the same endpoint simultaneously.</b> Ollama loads on demand, so one URL serves both. A
-/// <c>llama-server</c> started with a single <c>-m</c> holds one model, so the judge half or the embedder
+/// <c>llama-server</c> started with a single <c>-m</c> holds one model, so the judge half or the vector backend
 /// half answers and the other 404s — which surfaces as a confusing partial failure rather than as a skip.
 /// Start it in ROUTER mode (<c>--models-dir</c> with <c>--models-max</c> above 1) when a suite needs
 /// both.</para>

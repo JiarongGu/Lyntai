@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
 
-public class HttpEmbeddingsTransportTests
+public class HttpVectorTransportTests
 {
     // OpenAI / LM Studio shape: { data: [ { index, embedding: [...] }, ... ] }. Integer-valued floats keep
     // the equality asserts exact (every value below is exactly representable in float32).
@@ -19,7 +19,7 @@ public class HttpEmbeddingsTransportTests
         ],"model":"text-embedding-3-small","usage":{"prompt_tokens":4,"total_tokens":4}}
         """;
 
-    // The same shape carrying ONE vector. HttpEmbeddingsTransport asserts the returned vector count matches the batch
+    // The same shape carrying ONE vector. HttpVectorTransport asserts the returned vector count matches the batch
     // size, so a single-input test scripted with the two-vector body above fails on that guard rather than
     // on what it meant to assert.
     private const string OpenAiBodyOne = """
@@ -28,16 +28,16 @@ public class HttpEmbeddingsTransportTests
         ],"model":"text-embedding-3-small","usage":{"prompt_tokens":2,"total_tokens":2}}
         """;
 
-    private static HttpEmbeddingsTransport Embedder(StubHttpHandler handler, Action<HttpModelOptions>? configure = null)
+    private static HttpVectorTransport VectorProvider(StubHttpHandler handler, Action<HttpModelOptions>? configure = null)
     {
         var config = new HttpModelOptions
         { BaseUrl = "https://api.openai.com", ApiKey = "test-key", Model = "text-embedding-3-small" };
         configure?.Invoke(config);
-        return new HttpEmbeddingsTransport("openai", config, () => new HttpClient(handler, disposeHandler: false),
+        return new HttpVectorTransport("openai", config, () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
 
-    // An embedder has NO verdict and NO fallback — it throws (see the HttpEmbeddingsTransport type doc), so there is no
+    // A vector backend has NO verdict and NO fallback — it throws (see the HttpVectorTransport type doc), so there is no
     // "advance without blame" for it to reach and no verdict change to make. The only thing a host can act on
     // is the WORDING: "not configured" points at setup, while a bare 401 points at a key that was never
     // supplied. Message-only parity with the provider-side NotConfigured distinction.
@@ -45,9 +45,9 @@ public class HttpEmbeddingsTransportTests
     public async Task A_401_with_no_api_key_supplied_says_not_configured()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, "unauthorized");
-        var embedder = Embedder(handler, c => c.ApiKey = null);
+        var vectorProvider = VectorProvider(handler, c => c.ApiKey = null);
 
-        var ex = await Assert.ThrowsAsync<HttpRequestException>(async () => await embedder.EmbedAsync(["a"]));
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(async () => await vectorProvider.EmbedAsync(["a"]));
 
         Assert.Contains("not configured", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("401", ex.Message); // the status stays, for diagnosis
@@ -70,7 +70,7 @@ public class HttpEmbeddingsTransportTests
             $$"""{"data":[{"index":0,"embedding":[1.0,{{element}},3.0]}]}""");
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await Embedder(handler).EmbedAsync(["a"]));
+            async () => await VectorProvider(handler).EmbedAsync(["a"]));
 
         Assert.Contains("malformed", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(string.IsNullOrEmpty(why));
@@ -84,7 +84,7 @@ public class HttpEmbeddingsTransportTests
             """{"data":[{"index":0,"embedding":[1.0,1e400,3.0]}]}""");
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await Embedder(handler).EmbedAsync(["a"]));
+            async () => await VectorProvider(handler).EmbedAsync(["a"]));
 
         Assert.Contains("malformed", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -97,7 +97,7 @@ public class HttpEmbeddingsTransportTests
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
             """{"data":[{"index":0,"embedding":[1.0,0.0,3.0]}]}""");
 
-        var vectors = await Embedder(handler).EmbedAsync(["a"]);
+        var vectors = await VectorProvider(handler).EmbedAsync(["a"]);
 
         Assert.Equal([1.0f, 0.0f, 3.0f], vectors[0]);
     }
@@ -110,14 +110,14 @@ public class HttpEmbeddingsTransportTests
     public async Task A_QUERY_and_a_DOCUMENT_are_sent_with_their_own_configured_prefixes()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBodyOne);
-        var embedder = Embedder(handler, c =>
+        var vectorProvider = VectorProvider(handler, c =>
         {
             c.DocumentPrefix = "search_document: ";
             c.QueryPrefix = "search_query: ";
         });
 
-        await embedder.EmbedAsync(["paris is the capital"], EmbeddingRole.Document);
-        await embedder.EmbedAsync(["where is paris"], EmbeddingRole.Query);
+        await vectorProvider.EmbedAsync(["paris is the capital"], EmbeddingRole.Document);
+        await vectorProvider.EmbedAsync(["where is paris"], EmbeddingRole.Query);
 
         Assert.Contains("search_document: paris is the capital", handler.Requests[0].Body);
         Assert.Contains("search_query: where is paris", handler.Requests[1].Body);
@@ -129,9 +129,9 @@ public class HttpEmbeddingsTransportTests
         // The default must be a symmetric model, because that is what the library shipped before roles
         // existed and what most endpoints serve.
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBodyOne);
-        var embedder = Embedder(handler);
+        var vectorProvider = VectorProvider(handler);
 
-        await embedder.EmbedAsync(["paris"], EmbeddingRole.Query);
+        await vectorProvider.EmbedAsync(["paris"], EmbeddingRole.Query);
 
         Assert.Contains("\"paris\"", handler.Requests[0].Body);
         Assert.DoesNotContain("query", handler.Requests[0].Body, StringComparison.OrdinalIgnoreCase);
@@ -143,9 +143,9 @@ public class HttpEmbeddingsTransportTests
         // A model with an instruction on queries only (the BGE shape) must not get an invented document
         // prefix — an empty string and "unset" have to mean the same thing here.
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBodyOne);
-        var embedder = Embedder(handler, c => c.QueryPrefix = "Represent this sentence: ");
+        var vectorProvider = VectorProvider(handler, c => c.QueryPrefix = "Represent this sentence: ");
 
-        await embedder.EmbedAsync(["stored text"], EmbeddingRole.Document);
+        await vectorProvider.EmbedAsync(["stored text"], EmbeddingRole.Document);
 
         Assert.Contains("\"stored text\"", handler.Requests[0].Body);
         Assert.DoesNotContain("Represent", handler.Requests[0].Body);
@@ -155,9 +155,9 @@ public class HttpEmbeddingsTransportTests
     public async Task The_prefix_is_applied_to_EVERY_text_in_a_batch()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBody);
-        var embedder = Embedder(handler, c => c.DocumentPrefix = "passage: ");
+        var vectorProvider = VectorProvider(handler, c => c.DocumentPrefix = "passage: ");
 
-        await embedder.EmbedAsync(["first", "second"], EmbeddingRole.Document);
+        await vectorProvider.EmbedAsync(["first", "second"], EmbeddingRole.Document);
 
         Assert.Contains("passage: first", handler.Requests[0].Body);
         Assert.Contains("passage: second", handler.Requests[0].Body);
@@ -168,7 +168,7 @@ public class HttpEmbeddingsTransportTests
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, "unauthorized");
 
-        var ex = await Assert.ThrowsAsync<HttpRequestException>(async () => await Embedder(handler).EmbedAsync(["a"]));
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(async () => await VectorProvider(handler).EmbedAsync(["a"]));
 
         Assert.DoesNotContain("not configured", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -178,7 +178,7 @@ public class HttpEmbeddingsTransportTests
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBody);
 
-        var vectors = await Embedder(handler).EmbedAsync(["a", "b"]);
+        var vectors = await VectorProvider(handler).EmbedAsync(["a", "b"]);
 
         Assert.Equal(2, vectors.Count);
         Assert.Equal([1.0f, 2.0f, 3.0f], vectors[0]);
@@ -196,7 +196,7 @@ public class HttpEmbeddingsTransportTests
             {"data":[{"index":1,"embedding":[4.0,5.0,6.0]},{"index":0,"embedding":[1.0,2.0,3.0]}]}
             """);
 
-        var vectors = await Embedder(handler).EmbedAsync(["a", "b"]);
+        var vectors = await VectorProvider(handler).EmbedAsync(["a", "b"]);
 
         Assert.Equal([1.0f, 2.0f, 3.0f], vectors[0]); // index 0 first, though it arrived second
         Assert.Equal([4.0f, 5.0f, 6.0f], vectors[1]);
@@ -209,8 +209,8 @@ public class HttpEmbeddingsTransportTests
             {"model":"nomic-embed-text","embeddings":[[1.0,2.0],[3.0,4.0]]}
             """);
 
-        var embedder = Embedder(handler, c => { c.BaseUrl = "http://localhost:11434"; c.ApiKey = null; c.Model = "nomic-embed-text"; });
-        var vectors = await embedder.EmbedAsync(["a", "b"]);
+        var vectorProvider = VectorProvider(handler, c => { c.BaseUrl = "http://localhost:11434"; c.ApiKey = null; c.Model = "nomic-embed-text"; });
+        var vectors = await vectorProvider.EmbedAsync(["a", "b"]);
 
         Assert.Equal([1.0f, 2.0f], vectors[0]);
         Assert.Equal([3.0f, 4.0f], vectors[1]);
@@ -223,7 +223,7 @@ public class HttpEmbeddingsTransportTests
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBody);
 
-        await Embedder(handler, c => c.BaseUrl = "http://localhost:11434/v1").EmbedAsync(["a", "b"]);
+        await VectorProvider(handler, c => c.BaseUrl = "http://localhost:11434/v1").EmbedAsync(["a", "b"]);
 
         Assert.Equal(new Uri("http://localhost:11434/v1/embeddings"), handler.Requests[0].Uri);
     }
@@ -233,7 +233,7 @@ public class HttpEmbeddingsTransportTests
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBody);
 
-        await Embedder(handler, c => { c.BaseUrl = "https://my-res.openai.azure.com"; c.ApiKey = "azure-key"; }).EmbedAsync(["a", "b"]);
+        await VectorProvider(handler, c => { c.BaseUrl = "https://my-res.openai.azure.com"; c.ApiKey = "azure-key"; }).EmbedAsync(["a", "b"]);
 
         Assert.Equal(new Uri("https://my-res.openai.azure.com/openai/v1/embeddings"), handler.Requests[0].Uri);
         Assert.Equal("azure-key", handler.Requests[0].ApiKeyHeader);
@@ -245,7 +245,7 @@ public class HttpEmbeddingsTransportTests
     {
         var handler = new StubHttpHandler();
 
-        var vectors = await Embedder(handler).EmbedAsync([]);
+        var vectors = await VectorProvider(handler).EmbedAsync([]);
 
         Assert.Empty(vectors);
         Assert.Empty(handler.Requests); // nothing to embed → no HTTP call
@@ -256,7 +256,7 @@ public class HttpEmbeddingsTransportTests
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.InternalServerError, "boom");
 
-        var ex = await Assert.ThrowsAsync<HttpRequestException>(() => Embedder(handler).EmbedAsync(["a"]));
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(() => VectorProvider(handler).EmbedAsync(["a"]));
 
         Assert.Contains("openai", ex.Message);
         Assert.Contains("500", ex.Message);
@@ -267,7 +267,7 @@ public class HttpEmbeddingsTransportTests
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, "{not json");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Embedder(handler).EmbedAsync(["a"]));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => VectorProvider(handler).EmbedAsync(["a"]));
     }
 
     [Fact] // a response with fewer vectors than inputs is a correctness fault, not a partial success
@@ -275,7 +275,7 @@ public class HttpEmbeddingsTransportTests
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """{"data":[{"index":0,"embedding":[1.0,2.0]}]}""");
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => Embedder(handler).EmbedAsync(["a", "b"]));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => VectorProvider(handler).EmbedAsync(["a", "b"]));
 
         Assert.Contains("2", ex.Message); // expected 2
     }
@@ -288,7 +288,7 @@ public class HttpEmbeddingsTransportTests
             .Enqueue(HttpStatusCode.OK, """{"data":[{"index":0,"embedding":[2.0]}]}""")
             .Enqueue(HttpStatusCode.OK, """{"data":[{"index":0,"embedding":[3.0]}]}""");
 
-        var vectors = await Embedder(handler, c => c.BatchSize = 1).EmbedAsync(["a", "b", "c"]);
+        var vectors = await VectorProvider(handler, c => c.BatchSize = 1).EmbedAsync(["a", "b", "c"]);
 
         Assert.Equal(3, handler.Requests.Count); // one request per input
         Assert.Equal([1.0f], vectors[0]);
@@ -296,8 +296,8 @@ public class HttpEmbeddingsTransportTests
         Assert.Equal([3.0f], vectors[2]);
     }
 
-    [Fact] // the whole point: declaring the embeddings route wires IEmbedder → ISemanticMemory turns on
-    public async Task Declaring_the_embeddings_route_wires_the_embedder_and_enables_semantic_recall()
+    [Fact] // the whole point: declaring the embeddings route wires a vector backend → ISemanticMemory turns on
+    public async Task Declaring_the_embeddings_route_wires_the_vector_backend_and_enables_semantic_recall()
     {
         // same vector for every input → the query embeds identically to the stored content (cosine 1.0),
         // so recall returns it. The stub repeats its last script, so one Enqueue covers both calls.

@@ -24,10 +24,10 @@ namespace Lyntai.Benchmarks;
 ///
 /// <para><b>Refuses rather than substituting, on the seams it checks.</b> <see cref="BuildRigAsync"/> checks
 /// the chat model and the reranker before returning a <see cref="Rig"/> — the same posture
-/// <see cref="SweepDoubles.TryRealChatAsync"/> and <see cref="SweepDoubles.TryRealEmbedderAsync"/> already
+/// <see cref="SweepDoubles.TryRealChatAsync"/> and <see cref="SweepDoubles.TryRealVectorProviderAsync"/> already
 /// take: an arm that silently ran without a model would look exactly like a fast one, and a bag-of-words
-/// stand-in for the embedder was withdrawn once already for producing exactly that illusion
-/// (<c>docs/task-archive.md</c> Part 69). The embedder itself is not probed here —
+/// stand-in for the vector backend was withdrawn once already for producing exactly that illusion
+/// (<c>docs/task-archive.md</c> Part 69). The vector backend itself is not probed here —
 /// <c>devtools/scripts/memory-contention.mjs</c>'s <c>verifyIdentity</c> asserts its vector dimension
 /// before any cell runs. This is the positive control every cell here depends on.</para>
 ///
@@ -37,8 +37,8 @@ internal static class MemoryContentionSweep
 {
     /// <summary>Everything one cell needs, built once so a cell measures the seams rather than the wiring.
     ///
-    /// <para><b>The embedder is NOT the caching one.</b> <see cref="SweepDoubles.CachingEmbedder"/> memoizes by
-    /// text, which is right for a quality sweep replaying a fixed corpus and fatal here: the embedder is the
+    /// <para><b>The vector backend is NOT the caching one.</b> <see cref="SweepDoubles.CachingVectorProvider"/> memoizes by
+    /// text, which is right for a quality sweep replaying a fixed corpus and fatal here: the vector backend is the
     /// most frequent model contact in the library (per write AND per recall) and a cache would report its cost
     /// as zero.</para>
     ///
@@ -92,7 +92,7 @@ internal static class MemoryContentionSweep
         // in CountingAnnotation (pitfalls.md).
         reranker.Reset();
 
-        var embedder = new SweepDoubles.OpenAiCompatibleEmbedder(http, SweepDoubles.BaseUrl, SweepDoubles.Model);
+        var vectorProvider = new SweepDoubles.OpenAiCompatibleVectorProvider(http, SweepDoubles.BaseUrl, SweepDoubles.Model);
         var clients = new SweepDoubles.BenchClientFactory(chat);
 
         // The SHIPPED policies, not bench-local ones — an arm has to exercise the shipped prompt, parsing and
@@ -108,7 +108,7 @@ internal static class MemoryContentionSweep
         var db = new MemoryPolicySweep.SweepDb();
         var engine = new GraphMemoryEngine("contention", new SqliteMemoryGraphStore(db.Factory),
             new GraphMemoryOptions(), retrievability: new DsrRetrievability(),
-            agePolicies: [new PerWriteAgePolicy()], providers: [embedder], vectors: new InMemoryVectorStore(),
+            agePolicies: [new PerWriteAgePolicy()], providers: [vectorProvider], vectors: new InMemoryVectorStore(),
             annotation: annotation, verification: verification);
 
         return new Rig(engine, reranker, annotation, db);
@@ -244,7 +244,7 @@ internal static class MemoryContentionSweep
 
     /// <summary>Writes and recalls driven CONCURRENTLY, which is the cell this sweep exists for.
     ///
-    /// <para><b>What contends is decided by <see cref="Verifier"/>, not fixed.</b> The embedder is always its
+    /// <para><b>What contends is decided by <see cref="Verifier"/>, not fixed.</b> The vector backend is always its
     /// own process, so it can never contend with anything here. Under <see cref="Verifier.Judge"/> annotation
     /// and verification both want the instruct model and share its slots — that sharing is the contention
     /// this cell exists to price. Under <see cref="Verifier.Rerank"/> verification moves to the cross-encoder's

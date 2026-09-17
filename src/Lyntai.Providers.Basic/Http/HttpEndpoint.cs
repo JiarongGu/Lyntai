@@ -2,7 +2,7 @@ namespace Lyntai.Providers.Http;
 
 /// <summary>
 /// The URL and auth conventions every HTTP surface in this package shares, whichever dialect — the chat provider
-/// and the embedder differ ONLY in their route names, so the dialect rules live here once.
+/// and the vector backend differ ONLY in their route names, so the dialect rules live here once.
 ///
 /// <para>Kept in one place deliberately: the Azure rule below is subtle, and when it lived in two copies a
 /// drift would have been silent — chat would keep working while embeddings 404'd (or the reverse), with

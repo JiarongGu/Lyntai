@@ -26,7 +26,7 @@ internal static class EmbeddingRouting
 
     /// <summary>Whether anything can embed at all — what a consumer asks instead of null-checking a seam.
     ///
-    /// <para>This REPLACES "is an embedder registered?": the answer is derived from what the registered
+    /// <para>This REPLACES "is a vector backend registered?": the answer is derived from what the registered
     /// backends declare, so a deployment cannot claim an embedding capability it has no backend for.</para>
     ///
     /// <para><b>It SHORT-CIRCUITS and allocates nothing</b>, because callers sit on hot paths —

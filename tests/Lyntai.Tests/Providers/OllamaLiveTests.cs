@@ -18,11 +18,11 @@ namespace Lyntai.Tests.Providers;
 public class OllamaLiveTests
 {
     private const string DefaultModel = "llama3.2:3b";
-    private const string DefaultEmbedModel = "nomic-embed-text";
+    private const string DefaultVectorModel = "nomic-embed-text";
     private const string Reason = Lyntai.Tests.Live.OllamaLive.SkipReason;
     private static string BaseUrl => Lyntai.Tests.Live.OllamaLive.BaseUrl;
     private static string Model => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_MODEL") ?? DefaultModel;
-    private static string EmbedModel => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL") ?? DefaultEmbedModel;
+    private static string VectorModel => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL") ?? DefaultVectorModel;
 
     private static HttpModelProvider Provider() =>
         new("ollama",
@@ -80,12 +80,12 @@ public class OllamaLiveTests
     {
         Skip.IfNot(await LiveAsync(), Reason); // also requires `ollama pull nomic-embed-text`
 
-        var embedder = new HttpEmbeddingsTransport("ollama",
-            new HttpModelOptions { BaseUrl = BaseUrl, Model = EmbedModel },
+        var vectorProvider = new HttpVectorTransport("ollama",
+            new HttpModelOptions { BaseUrl = BaseUrl, Model = VectorModel },
             () => new HttpClient(),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(3) }); // cold model load can be slow
 
-        var vectors = await embedder.EmbedAsync(["the sky is blue", "grass is green"]);
+        var vectors = await vectorProvider.EmbedAsync(["the sky is blue", "grass is green"]);
 
         Assert.Equal(2, vectors.Count);                              // one vector per input, batched in one call
         Assert.True(vectors[0].Length > 0, "expected a non-empty embedding");

@@ -56,7 +56,7 @@ public class MemoryVectorCollectionTests
 
     /// <summary>Embeds everything to one vector, so any leak between collections shows up as a hit rather
     /// than being masked by a similarity threshold.</summary>
-    private sealed class OneVectorEmbedder : EmbeddingBackend
+    private sealed class OneVectorProvider : FakeVectorProviderBase
     {
         public override Task<IReadOnlyList<float[]>> EmbedAsync(
             IReadOnlyList<string> texts, CancellationToken ct = default) =>
@@ -68,7 +68,7 @@ public class MemoryVectorCollectionTests
     {
         var vectors = new InMemoryVectorStore();
         var engine = new GraphMemoryEngine("E", new InMemoryMemoryGraphStore(),
-            providers: [new OneVectorEmbedder()], vectors: vectors);
+            providers: [new OneVectorProvider()], vectors: vectors);
 
         // the two triples that composed to one address under the old separator
         await engine.RememberAsync(new MemoryWrite("a", "b|c", "kept"));

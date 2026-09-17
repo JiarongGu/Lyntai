@@ -7,8 +7,8 @@ namespace Lyntai.Tests.Providers;
 
 /// <summary>Reading the relevance score out of a cross-encoder's output. <b>The half that can be WRONG
 /// without failing</b> — a head with more than one label still returns finite, well-formed numbers — and the
-/// only half a test can reach without a model on disk, exactly as <c>EmbeddingPooling</c> is for the
-/// embedder.</summary>
+/// only half a test can reach without a model on disk, exactly as <c>VectorPooling</c> is for the
+/// vector backend.</summary>
 public class CrossEncoderLogitsTests
 {
     [Fact]
@@ -53,7 +53,7 @@ public class CrossEncoderLogitsTests
     [Fact]
     public void REFUSES_an_output_with_a_rank_it_cannot_read()
     {
-        // A per-TOKEN output — what an embedder's graph emits — is [batch, tokens, hidden]. Pointing this
+        // A per-TOKEN output — what a vector backend's graph emits — is [batch, tokens, hidden]. Pointing this
         // class at a bi-encoder is the likeliest misconfiguration, and it must not average into a "score".
         Assert.Throws<InvalidOperationException>(
             () => CrossEncoderLogits.Read([1f, 2f, 3f, 4f], [2, 2, 1], rows: 2));
@@ -125,7 +125,7 @@ public class CrossEncoderShapeDeclarationTests
 
     // ---- the COMPOSITION call site, not merely the rule it applies -----------------------------------
     // `ScoreOutput` takes the graph's output names and a shape lookup rather than an InferenceSession,
-    // for the reason `EmbeddingPooling` and `ShapeProblem` above are separated at all: a decision welded to
+    // for the reason `VectorPooling` and `ShapeProblem` above are separated at all: a decision welded to
     // a native session is a decision no test can reach, so deleting it leaves the suite green. Pinning the
     // RULE and leaving the CALL unpinned is the defect this repository records against `OnnxRegistrationTests`.
 
@@ -173,7 +173,7 @@ public class CrossEncoderShapeDeclarationTests
 }
 
 /// <summary>Composition failures — the ones a partial download actually produces. The cross-encoder loads
-/// eagerly for the same reason the embedder does: a bad model directory is a startup error, not a recall
+/// eagerly for the same reason the vector backend does: a bad model directory is a startup error, not a recall
 /// that silently stops being verified.</summary>
 public class OnnxCrossEncoderCompositionTests : IDisposable
 {
@@ -270,46 +270,62 @@ public class OnnxCrossEncoderReachabilityTests
 /// site, which is also what makes it reachable here.</para></summary>
 public class OnnxOwnershipTests
 {
-    private sealed class TrackingProvider : IModelProvider, IDisposable
+    private sealed class TrackingProvider(string produces) : IModelProvider, IDisposable
     {
         public string Id => "tracked";
-        public ProviderCapabilities Capabilities => OnnxCrossEncoder.Declared;
+
+        public ProviderCapabilities Capabilities { get; } = new()
+        {
+            Accepts = [ProviderKinds.Text],
+            Produces = [produces],
+            Operations = [ProviderOperation.Complete],
+        };
+
         public bool WasDisposed { get; private set; }
         public void Dispose() => WasDisposed = true;
     }
 
     [Theory]
-    [InlineData(true)]   // AddOnnxProvider's path — an embedding provider
-    [InlineData(false)]  // AddOnnxCrossEncoder's path — a plain one
-    public void The_CONTAINER_owns_what_either_builder_call_registers(bool embeds)
+    [InlineData(ProviderKinds.Vector)]   // AddOnnxProvider's path
+    [InlineData(ProviderKinds.Score)]    // AddOnnxCrossEncoder's path
+    public void The_CONTAINER_owns_what_either_builder_call_registers(string produces)
     {
         // Both hold a native InferenceSession, so "the container will clean it up" has to be true rather
         // than assumed — and for the instance overload it is not.
-        var provider = new TrackingProvider();
+        var provider = new TrackingProvider(produces);
         var services = new ServiceCollection();
 
-        services.AddLyntai(b => OnnxBuilderExtensions.RegisterOwned(b, provider, embeds));
+        services.AddLyntai(b => OnnxBuilderExtensions.RegisterOwned(b, provider));
         using (var built = services.BuildServiceProvider())
             Assert.Contains(provider, built.GetServices<IModelProvider>());
 
         Assert.True(provider.WasDisposed, "the container disposed nothing — it was handed an instance");
     }
 
+    /// <summary>Since <b>D152</b> the registration READS the provider's own capabilities rather than being
+    /// told which kind it is, so this now pins that the reading is right — where before it pinned that one
+    /// call site passed the correct <c>embeds</c> literal.</summary>
     [Fact]
     public void Registering_the_CROSS_ENCODER_does_not_claim_the_deployment_can_embed()
     {
         // It produces scores. Claiming otherwise would let AddSemanticMemory compose over a backend that
         // cannot embed, turning a clean composition failure into a runtime one.
-        var services = new ServiceCollection();
-
-        services.AddLyntai(b => OnnxBuilderExtensions.RegisterOwned(b, new TrackingProvider(), embeds: false));
-
         Assert.Throws<InvalidOperationException>(
             () => new ServiceCollection().AddLyntai(b =>
             {
-                OnnxBuilderExtensions.RegisterOwned(b, new TrackingProvider(), embeds: false);
+                OnnxBuilderExtensions.RegisterOwned(b, new TrackingProvider(ProviderKinds.Score));
                 b.AddSemanticMemory();
             }));
+
+        // …and the mirror: the embedding half of the same package DOES satisfy it, so the assertion above
+        // is about the capability rather than about RegisterOwned declaring nothing at all.
+        var embeds = new ServiceCollection();
+        embeds.AddLyntai(b =>
+        {
+            OnnxBuilderExtensions.RegisterOwned(b, new TrackingProvider(ProviderKinds.Vector));
+            b.AddSemanticMemory();
+        });
+        Assert.NotNull(embeds.BuildServiceProvider().GetService<Lyntai.Memory.ISemanticMemory>());
     }
 }
 

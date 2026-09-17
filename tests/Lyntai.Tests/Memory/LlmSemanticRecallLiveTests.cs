@@ -13,10 +13,10 @@ using Xunit;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary><b>Does the embedder EARN its cost when the question is one only it can answer?</b>
+/// <summary><b>Does the vector backend EARN its cost when the question is one only it can answer?</b>
 /// `docs/task-archive.md` Part 69, and the measurement deciding whether that is a defect or an artefact.
 ///
-/// <para><b>The finding it re-examines.</b> Enabling an <see cref="IEmbedder"/> + vector store raised the
+/// <para><b>The finding it re-examines.</b> Enabling an <c>ProviderKinds.Vector</c> backend + vector store raised the
 /// corpus miss rate from <c>0.5357</c> to <c>0.8357</c> — an order of magnitude more movement than any
 /// policy — because semantic neighbours compete for the same bounded slots as lexical hits. That was
 /// recorded as pinned-not-fixed, on the grounds that the corpus defines relevance LEXICALLY, so a semantic
@@ -24,7 +24,7 @@ namespace Lyntai.Tests.Memory;
 ///
 /// <para><b>Two things were wrong with how that was measured, and both flatter the pessimistic reading.</b>
 /// The corpus had no question a semantic route could uniquely answer, so enrichment could only ever be seen
-/// costing slots it never earned back. And it was measured with <c>FakeEmbedder</c> — a feature-hashed bag
+/// costing slots it never earned back. And it was measured with <c>FakeVectorProvider</c> — a feature-hashed bag
 /// of WORDS, in which "semantic similarity" IS word overlap. A test double that cannot represent meaning
 /// cannot show meaning-based retrieval helping, so that arm was never a test of the idea.</para>
 ///
@@ -33,7 +33,7 @@ namespace Lyntai.Tests.Memory;
 /// missing instrument: a REAL embedding model. Both were needed; either alone still measures nothing.</para>
 ///
 /// <para><b>THE ANSWER, measured 2026-08-13, and it is not the one this file was built to find:</b> a real
-/// embedding model recovers <b>none</b> of them — 0/3, the same as no embedder — because without the vector
+/// embedding model recovers <b>none</b> of them — 0/3, the same as no vector backend — because without the vector
 /// CHANNEL registered the vector store is consulted at WRITE time only. The mechanism, and the correction it
 /// forces on Part 69's own explanation, are argued at the assertion that pins them.</para>
 ///
@@ -42,13 +42,13 @@ namespace Lyntai.Tests.Memory;
 /// <c>LYNTAI_OLLAMA_EMBED_MODEL</c> overrides the model (default <c>nomic-embed-text</c>).</para>
 ///
 /// <para><b>Any OpenAI-compatible endpoint</b> — <c>LYNTAI_LIVE_MODEL_FLAVOR=openai</c> plus a URL runs this
-/// against llama.cpp's <c>llama-server</c>. The embedder registration below was already backend-neutral; the
+/// against llama.cpp's <c>llama-server</c>. The vector backend registration below was already backend-neutral; the
 /// gate and the chat provider were not.</para></summary>
 public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     private static string BaseUrl => LiveModel.BaseUrl;
 
-    private static string EmbedModel =>
+    private static string VectorModel =>
         Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL") ?? "nomic-embed-text";
 
     private static Task<bool> LiveAsync() => LiveModel.IsAvailableAsync();
@@ -57,14 +57,14 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddLiveProvider(EmbedModel)
+            .AddLiveProvider(VectorModel)
             .UseDefaultCandidates("ollama")
-            // The chat provider does not register an embedder — that is its own seam, reached through the
+            // The chat provider does not register a vector backend — that is its own seam, reached through the
             // OpenAI-compatible registration, which every backend here serves at /v1/embeddings.
             .AddHttpProvider("ollama-embed", o =>
             {
                 o.BaseUrl = BaseUrl;
-                o.Model = EmbedModel;
+                o.Model = VectorModel;
                 o.Produces = ProviderKinds.Vector;
             }));
         return services.BuildServiceProvider();
@@ -73,11 +73,11 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
     /// <summary><b>THE MEASUREMENT.</b> Write every paraphrase statement plus filler, then ask each cue —
     /// which shares no index term with its target — and count how often the right entry comes back.
     ///
-    /// <para>Without an embedder this must be near-total failure: that is what "shares no index term"
+    /// <para>Without a vector backend this must be near-total failure: that is what "shares no index term"
     /// means, and it is asserted as a CONTROL rather than assumed, because a lexical route that somehow
     /// answered these would make the whole comparison meaningless.</para></summary>
     [SkippableFact]
-    public async Task A_real_embedder_recovers_paraphrased_facts_that_the_lexical_path_cannot_reach()
+    public async Task A_real_vector_backend_recovers_paraphrased_facts_that_the_lexical_path_cannot_reach()
     {
         Skip.IfNot(await LiveAsync(), LiveModel.SkipReason);
 
@@ -89,10 +89,10 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
 
         var table = string.Create(CultureInfo.InvariantCulture,
             $"""
-             embedder: {EmbedModel}
+             vectorProvider: {VectorModel}
                               paraphrase hits
-               no embedder    {lexical.Hits}/{lexical.Asked}
-               real embedder  {semantic.Hits}/{semantic.Asked}
+               no vectorProvider    {lexical.Hits}/{lexical.Asked}
+               real vectorProvider  {semantic.Hits}/{semantic.Asked}
              """);
         output.WriteLine(table);
 
@@ -105,11 +105,11 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
         //     recovers none of them either. `GraphMemoryEngine.GatherAsync` seeds candidates ONLY from
         //     `IMemoryGraphStore.SeedAsync` — a lexical query — and then walks edges. The vector store is
         //     consulted at WRITE time (novelty for salience, and similarity LINKING) and never at recall
-        //     time. So the graph engine has no semantic RETRIEVAL path: an embedder cannot reach a fact
+        //     time. So the graph engine has no semantic RETRIEVAL path: a vector backend cannot reach a fact
         //     whose wording shares nothing with the query, however good the model is.
         //
         //     Pinned rather than asserted-away, because it is the load-bearing correction to
-        //     `docs/task-archive.md` Part 69. That item explained the embedder's cost as semantic
+        //     `docs/task-archive.md` Part 69. That item explained the vector backend's cost as semantic
         //     neighbours "competing
         //     for the same bounded slots as lexical hits" — there are no semantic neighbours at recall, so
         //     the mechanism is write-time linking and salience instead. A future change that adds
@@ -140,7 +140,7 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
 
         var table = string.Create(CultureInfo.InvariantCulture,
             $"""
-             embedder: {EmbedModel}
+             vectorProvider: {VectorModel}
                                    paraphrases reachable (limit 500)
                no semantic channel   {off.Hits}/{off.Asked}
                semantic K = 5        {on.Hits}/{on.Asked}

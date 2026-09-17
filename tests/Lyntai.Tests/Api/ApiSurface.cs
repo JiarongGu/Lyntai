@@ -10,7 +10,7 @@ namespace Lyntai.Tests.Api;
 /// <para><b>Whatever this renderer drops, the gate cannot see.</b> A dropped detail does not weaken the
 /// gate, it deletes it for that shape: the baseline simply has no place to record the change. Three
 /// details were dropped until 2026-08-05, each hiding a real break — a method's TYPE PARAMETERS (so
-/// <c>AddSemanticMemory()</c> and <c>AddSemanticMemory&lt;TEmbedder&gt;()</c> rendered as one identical
+/// <c>AddSemanticMemory()</c> and <c>AddSemanticMemory&lt;TVectorProvider&gt;()</c> rendered as one identical
 /// line, held twice, and deleting either overload still matched), its parameter NAMES (a rename is a
 /// source break for every named-argument caller), and an optional parameter's DEFAULT VALUE (a bare
 /// <c>=</c> marker made flipping a default invisible). Adding a fourth detail is cheap; noticing a

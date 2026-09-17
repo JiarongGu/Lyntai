@@ -16,11 +16,11 @@ using Lyntai.Tests.Memory.Corpus;
 namespace Lyntai.Benchmarks;
 
 /// <summary>
-/// <c>memory-enrichment</c> — WHY registering an embedder costs recall quality, by varying the two
+/// <c>memory-enrichment</c> — WHY registering a vector backend costs recall quality, by varying the two
 /// write-time mechanisms INDEPENDENTLY.
 /// </summary>
 /// <remarks>
-/// <para><b>The question, and why it needed a new instrument.</b> Registering an <see cref="IEmbedder"/> and
+/// <para><b>The question, and why it needed a new instrument.</b> Registering an <c>ProviderKinds.Vector</c> backend and
 /// an <see cref="IVectorStore"/> measurably costs recall quality on this corpus — an effect larger than
 /// anything salience produces in either direction, and reproducible. Two write-time mechanisms could explain
 /// it and nothing separated them: <b>(a)</b> similarity LINKING adds edges that change what traversal
@@ -34,7 +34,7 @@ namespace Lyntai.Benchmarks;
 /// drops novelty while linking continues. Crossing the two gives a clean 2×2.</para>
 ///
 /// <para><b>A REAL model, and this sweep fails rather than substituting a fake.</b> The arm this study
-/// replaces was measured through <c>FakeEmbedder</c>, a feature-hashed bag of WORDS in which "semantic
+/// replaces was measured through <c>FakeVectorProvider</c>, a feature-hashed bag of WORDS in which "semantic
 /// similarity" IS word overlap — a double that cannot represent meaning can only ever be seen paying a cost
 /// it could never be seen earning back, which is exactly why the original numbers were withdrawn. Falling
 /// back to a fake here would repeat that mistake silently, so an unreachable Ollama is a hard exit.</para>
@@ -75,8 +75,8 @@ internal static class MemoryEnrichmentSweep
 
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
         // Refuses rather than substituting a fake — see SweepDoubles for why that is the whole point here.
-        var embedder = await SweepDoubles.TryRealEmbedderAsync(http, "memory-enrichment");
-        if (embedder is null) return 1;
+        var vectorProvider = await SweepDoubles.TryRealVectorProviderAsync(http, "memory-enrichment");
+        if (vectorProvider is null) return 1;
 
         var stopwatch = Stopwatch.StartNew();
         var agePolicy = new PerWriteAgePolicy();
@@ -126,7 +126,7 @@ internal static class MemoryEnrichmentSweep
                 options: options,
                 retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
                 agePolicies: [agePolicy],
-                providers: enriched ? [embedder] : null,
+                providers: enriched ? [vectorProvider] : null,
                 vectors: enriched ? new InMemoryVectorStore() : null,
                 // Novelty is what salience READS, so dropping salience is how the novelty arm is switched
                 // off without touching the embed at all.
@@ -144,39 +144,39 @@ internal static class MemoryEnrichmentSweep
         }
 
         var seeds = Enumerable.Range(0, SeedCount).Select(i => BaseSeed + i).ToList();
-        // Sequential over arms within a cell would be enough, but the embedder cache makes the whole run
+        // Sequential over arms within a cell would be enough, but the vector backend cache makes the whole run
         // I/O-light after the first pass, so the usual parallel shape applies.
         await Parallel.ForEachAsync(
             from seed in seeds from shape in shapes from arm in arms select (seed, shape, arm),
             new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
             async (item, _) => await RunOneAsync(item.seed, item.shape, item.arm));
 
-        PrintControls(links.ToList(), judged.ToList(), orderChecks.ToList(), embedder);
+        PrintControls(links.ToList(), judged.ToList(), orderChecks.ToList(), vectorProvider);
         PrintTable(rows.ToList(), shapes, arms);
         PrintVerdict(rows.ToList(), shapes);
 
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s over {seeds.Count} seed(s) × "
-            + $"{shapes.Length} shape(s) × {arms.Length} arm(s); {embedder.Misses} embed call(s), "
-            + $"{embedder.Hits} cache hit(s).");
+            + $"{shapes.Length} shape(s) × {arms.Length} arm(s); {vectorProvider.Misses} embed call(s), "
+            + $"{vectorProvider.Hits} cache hit(s).");
         return 0;
     }
 
     private static void PrintPreamble(IReadOnlyList<Shape> shapes, IReadOnlyList<string> arms, string model)
     {
-        Console.WriteLine("memory-enrichment — WHY an embedder costs recall quality (docs/task-archive.md Part 69)\n");
-        Console.WriteLine("Registering an embedder + vector store costs recall quality on this corpus. Two");
+        Console.WriteLine("memory-enrichment — WHY a vector backend costs recall quality (docs/task-archive.md Part 69)\n");
+        Console.WriteLine("Registering a vector backend + vector store costs recall quality on this corpus. Two");
         Console.WriteLine("WRITE-TIME mechanisms could explain it, and nothing separated them:");
         Console.WriteLine("  (a) similarity LINKING adds edges that change what traversal reaches");
         Console.WriteLine("  (b) NOVELTY feeds salience, which changes what is admitted and how it decays");
         Console.WriteLine();
         Console.WriteLine("The 2x2 that separates them, using knobs that already ship:");
-        Console.WriteLine($"  {None,-13} no embedder at all — the model-free floor");
+        Console.WriteLine($"  {None,-13} no vector backend at all — the model-free floor");
         Console.WriteLine($"  {LinkOnly,-13} embed + search + LINK; salience neutral    -> (a) alone");
         Console.WriteLine($"  {NoveltyOnly,-13} embed + search, MinSimilarity>1 so NO edge -> (b) alone");
         Console.WriteLine($"  {Both,-13} the shipped enriched configuration         -> (a)+(b)");
         Console.WriteLine();
-        Console.WriteLine($"Embedder: {model} (REAL). No semantic seed source, so no arm has a query-time");
+        Console.WriteLine($"VectorProvider: {model} (REAL). No semantic seed source, so no arm has a query-time");
         Console.WriteLine("semantic path and the whole difference is write-time.");
         Console.WriteLine();
         Console.WriteLine($"Shapes: {string.Join(", ", shapes.Select(s => s.Label))}");
@@ -191,7 +191,7 @@ internal static class MemoryEnrichmentSweep
     /// </summary>
     private static void PrintControls(IReadOnlyList<(string Arm, int Edges)> links,
         IReadOnlyList<(string Arm, int Salient)> judged, IReadOnlyList<bool> order,
-        SweepDoubles.CachingEmbedder embedder)
+        SweepDoubles.CachingVectorProvider vectorProvider)
     {
         Console.WriteLine("Controls (each arm must have done what its NAME claims):");
 
@@ -209,8 +209,8 @@ internal static class MemoryEnrichmentSweep
 
         Console.WriteLine($"  {(order.All(o => o) ? "OK  " : "FAIL")} corpus order identical in every cell "
             + $"({order.Count(o => o)}/{order.Count})");
-        Console.WriteLine($"  ---- embedder: {embedder.Misses} distinct text(s) embedded, "
-            + $"{embedder.Hits} served from cache");
+        Console.WriteLine($"  ---- vector backend: {vectorProvider.Misses} distinct text(s) embedded, "
+            + $"{vectorProvider.Hits} served from cache");
         Console.WriteLine();
     }
 

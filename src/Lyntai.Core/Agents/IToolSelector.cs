@@ -32,13 +32,13 @@ public interface IToolSelector
         LlmRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default);
 }
 
-/// <summary>Knobs for <see cref="EmbeddingToolSelector"/>.</summary>
+/// <summary>Knobs for <see cref="VectorToolSelector"/>.</summary>
 public sealed class ToolSelectorOptions
 {
     /// <summary>The most tools to show. <b>Zero or less narrows NOTHING</b> — a misconfiguration must not be
     /// able to blind the loop, and "show no tools" is already sayable by registering none.
     /// <para>Unmeasured as a default. The evidence sizes the SELECTOR, not this number: a model-free
-    /// embedder picks the right tool from 35 options 81.5% of the time (argmax, so recall at a cut of k is
+    /// vector backend picks the right tool from 35 options 81.5% of the time (argmax, so recall at a cut of k is
     /// higher), which says narrowing is feasible and says nothing about where to cut.</para></summary>
     public int Limit { get; set; } = 8;
 }
@@ -46,7 +46,7 @@ public sealed class ToolSelectorOptions
 /// <summary>The shipped <see cref="IToolSelector"/>: cosine similarity between the request and each tool's
 /// own description, keeping the best <see cref="ToolSelectorOptions.Limit"/>.
 ///
-/// <para><b>Model-free and the cheapest arm measured.</b> A 333,590,944 B embedder scoring tool
+/// <para><b>Model-free and the cheapest arm measured.</b> A 333,590,944 B vector backend scoring tool
 /// descriptions reads 81.5% at 35 options where chance is 3% — ahead of every generative arm at or under
 /// that size class and far cheaper (<c>affordance-roster-catalogue</c>). The figure is an OPTIMISTIC bound:
 /// past the first handful the fixture's distractors are semantically distant, and a real catalogue is a
@@ -54,8 +54,8 @@ public sealed class ToolSelectorOptions
 ///
 /// <para><b>A tool's description is what gets embedded</b>, so a roster whose descriptions do not say what
 /// each tool is FOR cannot be narrowed well by this — which is a property of the descriptions rather than
-/// of the embedder, and the one thing a deployment can fix directly.</para></summary>
-public sealed class EmbeddingToolSelector(
+/// of the vector backend, and the one thing a deployment can fix directly.</para></summary>
+public sealed class VectorToolSelector(
     IEnumerable<IModelProvider> providers, ToolSelectorOptions? options = null)
     : IToolSelector
 {

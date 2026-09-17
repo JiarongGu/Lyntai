@@ -8,7 +8,7 @@ namespace Lyntai.Providers.Onnx;
 /// query and a document through one transformer, one relevance logit out. No HTTP endpoint, no server, no
 /// port.
 ///
-/// <para><b>It is a different backend from <see cref="OnnxProvider"/>, not a mode of it.</b> An embedder
+/// <para><b>It is a different backend from <see cref="OnnxProvider"/>, not a mode of it.</b> A vector backend
 /// answers "what does this text mean" once per text and a cross-encoder answers "does this document answer
 /// this query" once per PAIR, so the two produce different <see cref="ProviderKinds"/> and cost differently:
 /// n documents are n forward passes here, against one each.</para>
@@ -22,7 +22,7 @@ namespace Lyntai.Providers.Onnx;
 /// <c>AddMemoryScoringVerification</c> selects any backend declaring <see cref="ProviderKinds.Score"/>
 /// (<c>docs/DECISIONS.md</c> D139), so this serves the memory verification seam without speaking HTTP.</para>
 ///
-/// <para><b>Inference runs on the calling thread</b>, as with the embedder: the async signature is the
+/// <para><b>Inference runs on the calling thread</b>, as with the vector backend: the async signature is the
 /// seam's, not a promise to yield.</para></summary>
 public sealed class OnnxCrossEncoder : IModelProvider, IDisposable
 {
@@ -84,7 +84,7 @@ public sealed class OnnxCrossEncoder : IModelProvider, IDisposable
             $"{nameof(OnnxCrossEncoderOptions)}.{nameof(OnnxCrossEncoderOptions.ModelFile)}");
         var tokenizer = WordPieceTokenizer.FromModelDirectory(directory);
 
-        // Only the position limit is wanted here — pooling and normalization are the embedder's half of that
+        // Only the position limit is wanted here — pooling and normalization are the vector backend's half of that
         // reader — but max_position_embeddings lives in the same config.json and one reader cannot drift.
         var maxTokens = SentenceTransformerConfig.FromDirectory(directory).MaxTokens;
 

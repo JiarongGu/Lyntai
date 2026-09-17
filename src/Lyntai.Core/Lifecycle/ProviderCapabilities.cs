@@ -53,7 +53,7 @@ public static class ProviderKinds
     public const string Score = "score";
 
     /// <summary>What an EMBEDDER produces. It is a kind rather than an operation, and that is the whole
-    /// correction: an embedder accepts text and produces vectors, exactly as an image backend accepts text
+    /// correction: a vector backend accepts text and produces vectors, exactly as an image backend accepts text
     /// and produces an image. Treating it as its own operation made it the one member that had to be
     /// explained away (<c>docs/DECISIONS.md</c> D130).</summary>
     public const string Vector = "vector";
@@ -77,13 +77,13 @@ public static class ProviderKinds
 public sealed record ProviderCapabilities
 {
     /// <summary>The content types this backend takes IN (<see cref="ProviderKinds"/>), matched
-    /// case-insensitively. A chat model and an embedder both accept <c>text</c>; an image-to-video backend
+    /// case-insensitively. A chat model and a vector backend both accept <c>text</c>; an image-to-video backend
     /// accepts <c>text</c> and <c>image</c>.</summary>
     public IReadOnlyList<string> Accepts { get; init; } = [];
 
     /// <summary>The content types this backend puts OUT. <b>This is the axis that separates the backend
     /// classes</b>: text out is a chat model, <see cref="ProviderKinds.Image"/> out is a renderer,
-    /// <see cref="ProviderKinds.Vector"/> out is an embedder. Empty serves nothing.</summary>
+    /// <see cref="ProviderKinds.Vector"/> out is a vector backend. Empty serves nothing.</summary>
     public IReadOnlyList<string> Produces { get; init; } = [];
 
     /// <summary>How a result is DELIVERED — inline, streamed, or as a job. Not what it is; that is

@@ -14,7 +14,7 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 ## Current state
 
 **Released: v3.1.0 (2026-08-23).** Eleven packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D151** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D152** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
@@ -102,14 +102,18 @@ either way. A root-level `IMemory*Policy` without a recorded reason now RAISES t
 `check-counts`, which it previously could not see at all) / `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` / `Lyntai.Jobs` /
 `Lyntai.Guards` / `Lyntai.Secrets` / `Lyntai.Lifecycle` / `Lyntai.Storage` / `Lyntai.Processes` /
 `Lyntai.Text`; builder + `Add*`/`Use*` extensions live in the `Lyntai` namespace.
-**THREE namespaces above are not Core's alone, and one is not Core's at all.** `Lyntai.Secrets` is shared
-(Core's envelope + `Lyntai.Secrets.Dpapi`'s public protector) and `Lyntai.Llm` is entered by an INTERNAL
-type in `Lyntai.Providers.Basic`. **`Lyntai.Embeddings` left Core entirely with D151** — `EmbeddingRole` and
-the routing helper moved to `Lyntai.Lifecycle`, where the capability vocabulary lives — so the only
-inhabitant of that root is now `Lyntai.Providers.Basic`'s public `Lyntai.Embeddings.Model2Vec`, an adapter
-owning a namespace family with no contract above it. The other in-process embedder sits in
-`Lyntai.Providers.Onnx`. **Frozen by D70 and now on a weaker footing than when that was recorded** — the
-note used to say the parent was Core's; it is not. `TASKS.md` Part 101 holds the call.
+**TWO namespaces above are not Core's alone.** `Lyntai.Secrets` is shared (Core's envelope +
+`Lyntai.Secrets.Dpapi`'s public protector) and `Lyntai.Llm` is entered by an INTERNAL type in
+`Lyntai.Providers.Basic`. **A third is simply gone: nothing inhabits an embedding-named root any more**
+(**D152**) — the role-named namespace, registration and selector are retired, and both in-process vector
+backends now sit under `Lyntai.Providers.*` (`.Model2Vec`, `.Onnx`) like every other adapter.
+**A PROVIDER is named for its BACKEND; what it produces is said in `ProviderCapabilities`** — so a role word
+on a provider type, namespace or registration is a defect rather than a style choice.
+**The rest of the vocabulary splits NOUN from VERB, and the line is easy to cross in both directions**: the
+noun is `Vector` — it is what `Produces` selects on — and the verb is `Embed`, the call that yields one. So
+`ProviderKinds.Vector`, `VectorToolSelector`, `IVectorStore`; but `EmbedAsync`, `CanEmbed`. Two passes
+crossed it in opposite directions before it held; **D152** records why the rule has to come from `Produces`
+rather than from what other vendors happen to call things.
 
 **The records, and what each is for:** `docs/2026-07-17-lyntai-design.md` — the contract (interfaces,
 semantics); read it first · `docs/DECISIONS.md` §How to read it — the rationale log, present tense,

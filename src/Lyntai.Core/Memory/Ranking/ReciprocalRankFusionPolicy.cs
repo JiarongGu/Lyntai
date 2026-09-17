@@ -351,7 +351,7 @@ public sealed class ReciprocalRankFusionPolicy(ReciprocalRankFusionOptions? opti
     /// equivalent to setting its weight to 0, without a consumer having to notice its discriminating power
     /// vanished and disable it by hand. That case is ordinary here rather than exotic, because this policy
     /// fuses SIGNALS rather than already-total ranked lists: <see cref="MemorySignals.Salience"/> reports the
-    /// identical neutral value for every candidate whenever nothing has judged any of them (no embedder, no
+    /// identical neutral value for every candidate whenever nothing has judged any of them (no vector backend, no
     /// vector store — the library's own default deployment), and every direct hit shares hop 0 on a fresh
     /// graph or with <c>Hops = 0</c>. A PARTIALLY tied signal degrades proportionally rather than totally:
     /// only the tied subset shares a rank, and everyone past them still pays for the width of the group they

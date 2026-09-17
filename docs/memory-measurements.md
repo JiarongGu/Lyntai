@@ -4679,10 +4679,10 @@ and `lyntai-fused-3shot` third under both. The top two swap — `vector` 52.0 / 
 46.5 / 52.9 — but they are within 2-3 points of each other in both runs, which is a near-tie either way
 rather than a reordering.
 
-**The caveat that cuts both ways: NEITHER model got its prefixes.** `IEmbedder` expresses the distinction
-(`EmbeddingRole.Document` / `Query`, whose own doc names the nomic and BGE families) but the role-aware
-overload has a DEFAULT BODY forwarding to the role-less one, and the bench's `OpenAiCompatibleEmbedder`
-implements only the role-less overload. Both models here are asymmetric families, so both were embedded
+**The caveat that cuts both ways: NEITHER model got its prefixes.** `IModelProvider` expresses the
+distinction (`EmbeddingRole.Document` / `Query`, whose own doc names the nomic and BGE families) but the
+role-aware overload has a DEFAULT BODY forwarding to the role-less one, and the bench's
+`OpenAiCompatibleVectorProvider` implements only the role-less overload. Both models here are asymmetric families, so both were embedded
 identically on both sides — which the interface's own documentation says costs an asymmetric model
 materially. **The comparison between them is fair; both are below their own ceiling**, and lifting either
 means implementing the overload in the bench double rather than changing the library.

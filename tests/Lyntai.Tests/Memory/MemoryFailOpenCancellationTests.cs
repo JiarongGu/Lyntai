@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Memory;
 /// which IS an <see cref="OperationCanceledException"/> and says nothing about the caller.
 ///
 /// <para><b>Why one suite rather than a fact per file: these handlers are in SERIES.</b> A single timeout
-/// from a BYO embedder passes through the seed source, the graph engine's gather, the composite, and then
+/// from a BYO vector backend passes through the seed source, the graph engine's gather, the composite, and then
 /// the walk or the composition — four nested fail-open handlers, and a bare rethrow at ANY of them breaks
 /// the promise of ALL of them. Fixing one link and testing it in isolation would have looked green while the
 /// chain still leaked, which is why <see cref="A_timeout_deep_in_the_chain_degrades_at_every_layer_above_it"/>

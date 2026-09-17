@@ -23,7 +23,7 @@ public static class VectorMath
 
     /// <summary>Scale <paramref name="vector"/> to unit length, IN PLACE. A zero vector is left alone.
     ///
-    /// <para><b>Here because every embedder backend wants it and none of them can share it otherwise.</b>
+    /// <para><b>Here because every vector backend backend wants it and none of them can share it otherwise.</b>
     /// L2-normalization is runtime-independent arithmetic — the ONNX adapter and the model2vec one each
     /// carried a copy, in different packages, so Core is the only place either can reach. A BYO
     /// backend that normalizes wants the same one, for the same reason this type exists at all:

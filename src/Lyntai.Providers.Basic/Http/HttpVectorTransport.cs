@@ -24,7 +24,7 @@ namespace Lyntai.Providers.Http;
 /// <c>RememberAsync</c> surfaces them by design. Because there is no verdict, a 401 with no key supplied
 /// says so in the message instead: see <see cref="NotConfiguredHint"/>.
 /// </summary>
-internal sealed class HttpEmbeddingsTransport(
+internal sealed class HttpVectorTransport(
     string id,
     HttpModelOptions config,
     Func<HttpClient> httpFactory,
@@ -32,7 +32,7 @@ internal sealed class HttpEmbeddingsTransport(
     ILogger? logger = null,
     bool disposeHttpClient = true)
 {
-    private readonly ILogger _logger = logger ?? NullLogger<HttpEmbeddingsTransport>.Instance;
+    private readonly ILogger _logger = logger ?? NullLogger<HttpVectorTransport>.Instance;
 
     private readonly HttpDialect _dialect = HttpEndpoint.ResolveDialect(config.Dialect, config.BaseUrl);
 
@@ -221,7 +221,7 @@ internal sealed class HttpEmbeddingsTransport(
     }
 
     /// <summary>" (not configured: no ApiKey)" when the server demanded credentials this call never carried,
-    /// otherwise empty. An embedder has no verdict and no fallback — it THROWS — so unlike a chat provider it
+    /// otherwise empty. A vector backend has no verdict and no fallback — it THROWS — so unlike a chat provider it
     /// has no <c>NotConfigured</c> outcome to report and nothing to route around; the wording is the only
     /// thing a host can act on. Without it a 401 sends someone to check a key they never supplied, when the
     /// answer is to set one. Same distinction as the provider side, expressed the only way this seam allows.

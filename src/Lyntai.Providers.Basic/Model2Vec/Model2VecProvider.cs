@@ -3,7 +3,7 @@ using Lyntai.Memory;
 using System.Text.Json;
 using Lyntai.Text;
 
-namespace Lyntai.Embeddings.Model2Vec;
+namespace Lyntai.Providers.Model2Vec;
 
 /// <summary>Knobs for <see cref="Model2VecProvider"/>.</summary>
 public sealed class Model2VecProviderOptions
@@ -14,7 +14,7 @@ public sealed class Model2VecProviderOptions
     public bool? Normalize { get; set; }
 
     /// <summary>The provider id this backend reports as <see cref="IModelProvider.Id"/>. Give it a
-    /// distinct value when a deployment registers more than one embedder, so a diagnostic can say which
+    /// distinct value when a deployment registers more than one vector backend, so a diagnostic can say which
     /// one produced a vector.</summary>
     public string Id { get; set; } = "static";
 }
@@ -29,12 +29,12 @@ public sealed class Model2VecProviderOptions
 /// decisive for a distributed app and invisible to a benchmark (<c>docs/deployment-shapes.md</c>).</para>
 ///
 /// <para><b>What the class costs, measured.</b> On the memory workload `potion-base-8M` (30,236,760 B) is
-/// <b>0.5 points</b> behind a 333,590,944 B server-hosted embedder on the shipped default; on a purely
-/// embedding-bound selective task it is about <b>12</b> points behind. <b>How much an embedder is worth is a
+/// <b>0.5 points</b> behind a 333,590,944 B server-hosted vector backend on the shipped default; on a purely
+/// embedding-bound selective task it is about <b>12</b> points behind. <b>How much a vector backend is worth is a
 /// property of the ARM</b> — read the one that matches your workload, not the headline
 /// (<c>docs/memory-measurements.md</c> §5).</para>
 ///
-/// <para><b>It has NO context limit</b>, unlike every sub-100 MB transformer embedder, which reject an input
+/// <para><b>It has NO context limit</b>, unlike every sub-100 MB transformer vector backend, which reject an input
 /// past 512 tokens: a lookup table has no positional embeddings, so a long document is simply more rows to
 /// average.</para>
 ///
@@ -58,7 +58,7 @@ public sealed class Model2VecProvider : IModelProvider
     /// <inheritdoc />
     public string Id { get; }
 
-    /// <summary>Text in, VECTORS out — which is the whole of what makes this an embedder. Producing only
+    /// <summary>Text in, VECTORS out — which is the whole of what makes this a vector backend. Producing only
     /// <see cref="ProviderKinds.Vector"/> is how it tells a router never to send it a chat or a render;
     /// every method it does not implement keeps <see cref="IModelProvider"/>'s default "I do not serve
     /// that" body, so declining costs no code.</summary>

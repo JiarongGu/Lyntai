@@ -5,14 +5,14 @@ namespace Lyntai.Tests.Embeddings;
 
 /// <summary>Routing for the Vector capability: the capability filter, and the failover.
 ///
-/// <para>Before D129 the embedder a consumer resolved WAS a backend, so a failing one took the whole
+/// <para>Before D129 the vector backend a consumer resolved WAS a backend, so a failing one took the whole
 /// recall path with it and a second registration silently replaced the first. These tests are the
 /// behaviour that split bought. <b>D151 removed the interface and kept every one of them</b>: the routing
 /// is a helper over the providers now, which is the point — the behaviour was never the type's.</para>
 /// </summary>
 public class EmbeddingRoutingTests
 {
-    private sealed class FakeEmbeddingProvider(string id) : IModelProvider
+    private sealed class StubVectorProvider(string id) : IModelProvider
     {
         public string Id { get; } = id;
         public bool IsAvailable { get; set; } = true;
@@ -38,7 +38,7 @@ public class EmbeddingRoutingTests
     }
 
     /// <summary>A chat-only backend: it PRODUCES text, not vectors.</summary>
-    private static FakeEmbeddingProvider ChatOnly(string id) => new(id)
+    private static StubVectorProvider ChatOnly(string id) => new(id)
     {
         Capabilities = new ProviderCapabilities
         {
@@ -56,22 +56,22 @@ public class EmbeddingRoutingTests
         // The capability filter is the whole point: a chat backend must not be asked to embed and then
         // report Unsupported — it must not be asked at all.
         var chat = ChatOnly("chat");
-        var embedder = new FakeEmbeddingProvider("embed");
+        var vectorProvider = new StubVectorProvider("embed");
 
-        var vectors = await EmbeddingRouting.EmbedAsync(Router(chat, embedder), ["x"]);
+        var vectors = await EmbeddingRouting.EmbedAsync(Router(chat, vectorProvider), ["x"]);
 
         Assert.Single(vectors);
-        Assert.Equal(1, embedder.Calls);
+        Assert.Equal(1, vectorProvider.Calls);
         Assert.Equal(0, chat.Calls);
     }
 
     [Fact]
-    public async Task FALLS_OVER_to_the_next_embedder_when_one_fails()
+    public async Task FALLS_OVER_to_the_next_vector_backend_when_one_fails()
     {
         // This is the capability the single IModelProvider slot could not have — its own doc admitted
-        // "there is one embedder slot, so a later registration wins".
-        var broken = new FakeEmbeddingProvider("broken") { Throws = new HttpRequestException("socket died") };
-        var healthy = new FakeEmbeddingProvider("healthy");
+        // "there is one vector backend slot, so a later registration wins".
+        var broken = new StubVectorProvider("broken") { Throws = new HttpRequestException("socket died") };
+        var healthy = new StubVectorProvider("healthy");
 
         var vectors = await EmbeddingRouting.EmbedAsync(Router(broken, healthy), ["x"]);
 
@@ -83,8 +83,8 @@ public class EmbeddingRoutingTests
     [Fact]
     public async Task Skips_a_backend_reporting_itself_UNAVAILABLE_without_calling_it()
     {
-        var down = new FakeEmbeddingProvider("down") { IsAvailable = false };
-        var up = new FakeEmbeddingProvider("up");
+        var down = new StubVectorProvider("down") { IsAvailable = false };
+        var up = new StubVectorProvider("up");
 
         await EmbeddingRouting.EmbedAsync(Router(down, up), ["x"]);
 
@@ -97,11 +97,11 @@ public class EmbeddingRoutingTests
     {
         // Asymmetric models score materially worse when both sides are embedded identically, and the role
         // is the one fact a backend cannot work out for itself — a router that dropped it would be silent.
-        var embedder = new FakeEmbeddingProvider("embed");
+        var vectorProvider = new StubVectorProvider("embed");
 
-        await EmbeddingRouting.EmbedAsync(Router(embedder), ["x"], EmbeddingRole.Query);
+        await EmbeddingRouting.EmbedAsync(Router(vectorProvider), ["x"], EmbeddingRole.Query);
 
-        Assert.Equal(EmbeddingRole.Query, embedder.SawRole);
+        Assert.Equal(EmbeddingRole.Query, vectorProvider.SawRole);
     }
 
     [Fact]
@@ -118,8 +118,8 @@ public class EmbeddingRoutingTests
     {
         // A failure list that loses every cause is unactionable; the inner exception is what a developer
         // reads first.
-        var a = new FakeEmbeddingProvider("a") { Throws = new HttpRequestException("a died") };
-        var b = new FakeEmbeddingProvider("b") { Throws = new TimeoutException("b timed out") };
+        var a = new StubVectorProvider("a") { Throws = new HttpRequestException("a died") };
+        var b = new StubVectorProvider("b") { Throws = new TimeoutException("b timed out") };
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => EmbeddingRouting.EmbedAsync(Router(a, b), ["x"]));
 
@@ -132,8 +132,8 @@ public class EmbeddingRoutingTests
     {
         // The one throw fallback must not swallow: falling over on the caller's own cancel would call
         // every remaining backend after the caller asked to stop.
-        var first = new FakeEmbeddingProvider("a") { Throws = new OperationCanceledException() };
-        var second = new FakeEmbeddingProvider("b");
+        var first = new StubVectorProvider("a") { Throws = new OperationCanceledException() };
+        var second = new StubVectorProvider("b");
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 

@@ -3,16 +3,16 @@ using Microsoft.ML.Tokenizers;
 
 // Microsoft.ML.Tokenizers ships a WordPieceTokenizer of its own, so the type under test is aliased rather
 // than imported. BertTokenizer, not that type, is the reference: it runs the FULL pipeline (clean, CJK,
-// lowercase, strip accents, punctuation, then WordPiece), which is what the embedder used to call.
+// lowercase, strip accents, punctuation, then WordPiece), which is what the vector backend used to call.
 using WordPieceTokenizer = Lyntai.Text.WordPieceTokenizer;
 
 namespace Lyntai.Tests.Text;
 
-/// <summary>The WordPiece tokenizer the static embedder owns.
+/// <summary>The WordPiece tokenizer the static vector backend owns.
 ///
 /// <para><b>Why the library writes its own.</b> <c>Microsoft.ML.Tokenizers</c> costs 325,896 B and drags
-/// <c>Google.Protobuf</c> (489,568 B) for the SentencePiece models this embedder never loads — 812 KB of
-/// closure for one WordPiece call. Owning it lets the static embedder live in the dependency-free
+/// <c>Google.Protobuf</c> (489,568 B) for the SentencePiece models this vector backend never loads — 812 KB of
+/// closure for one WordPiece call. Owning it lets the static vector backend live in the dependency-free
 /// <c>Lyntai.Providers.Basic</c> and keep that package's trim/AOT claim.</para>
 ///
 /// <para><b>The risk that buys, and how it is pinned.</b> A tokenizer that disagrees by one rule produces
@@ -239,7 +239,7 @@ public class WordPieceTokenizerTests
         }
 
         // 2. ACCENTS are stripped. A BERT tokenizer_config declares strip_accents: null, which the
-        //    reference reads as "follow do_lower_case" — on, for every model this embedder loads.
+        //    reference reads as "follow do_lower_case" — on, for every model this vector backend loads.
         Assert.Equal([1], theirs.EncodeToIds("café"));
         Assert.Equal([7], ours.EncodeToIds("café"));
 
@@ -260,7 +260,7 @@ public class WordPieceTokenizerTests
 }
 
 /// <summary><see cref="WordPieceTokenizer.Encode"/> — the TRANSFORMER path, which is the one thing the
-/// static embedder must never get.
+/// static vector backend must never get.
 ///
 /// <para>A <c>model2vec</c> table is a mean over content rows, so bracketing it with <c>[CLS]</c>/<c>[SEP]</c>
 /// shifts every vector. A BERT graph is the opposite: it takes those tokens plus an attention mask and a
@@ -297,7 +297,7 @@ public class WordPieceEncodeTests
     public void Marks_every_token_as_SEGMENT_ZERO_because_one_text_is_one_segment()
     {
         // Segment ids are what a cross-encoder uses to tell a query from a document, and what llama.cpp's
-        // GGUF conversion zeroes (docs/task-archive.md Part 215). A single-sequence embedder legitimately sends zeros;
+        // GGUF conversion zeroes (docs/task-archive.md Part 215). A single-sequence vector backend legitimately sends zeros;
         // the point of emitting the tensor at all is that the graph asks for it.
         var encoding = Tokenizer("alpha", "beta").Encode("alpha beta");
 

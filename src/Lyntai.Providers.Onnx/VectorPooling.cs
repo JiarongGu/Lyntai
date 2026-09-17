@@ -7,7 +7,7 @@ namespace Lyntai.Providers.Onnx;
 /// <para>Separated from the session on purpose: this is the half that can be WRONG without failing — a mean
 /// that includes padding, or a normalize that divides by zero — and it is the half a test can reach without
 /// a 90 MB model on disk.</para></summary>
-internal static class EmbeddingPooling
+internal static class VectorPooling
 {
     /// <summary>Pool <paramref name="tokens"/> — a row-major <c>[token, width]</c> block for ONE text.</summary>
     /// <param name="tokens">The model's last hidden state for this text.</param>

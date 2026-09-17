@@ -192,7 +192,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     // ---- agreement across sources ----------------------------------------------------------------------
 
     /// <summary>Exact text to exact vector, so a hit is the semantic channel or nothing.</summary>
-    private sealed class ScriptedEmbedder(string text) : EmbeddingBackend
+    private sealed class ScriptedVectorProvider(string text) : FakeVectorProviderBase
     {
         private static readonly float[] On = [1f, 0f];
         private static readonly float[] Off = [0f, 1f];
@@ -210,12 +210,12 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         const string target = "beta rollout begins monday";
         var store = new InMemoryMemoryGraphStore();
         var vectors = new InMemoryVectorStore();
-        var embedder = new ScriptedEmbedder(target);
+        var vectorProvider = new ScriptedVectorProvider(target);
         var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
 
         var engine = new GraphMemoryEngine("e", store, ranking: probe,
-            providers: embedder is null ? null : [embedder], vectors: vectors,
-            seedSources: [new LexicalSeedSource(), new SemanticSeedSource([embedder], vectors)]);
+            providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors,
+            seedSources: [new LexicalSeedSource(), new SemanticSeedSource([vectorProvider], vectors)]);
 
         var both = await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, target));
         await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "unrelated kitchen roster note"));
@@ -298,7 +298,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
             .UseInMemoryStorage()
             .AddMemory()
             .AddMemorySemanticSeeds());
-        services.AddSingleton<IModelProvider>(new ScriptedEmbedder("x"));
+        services.AddSingleton<IModelProvider>(new ScriptedVectorProvider("x"));
         services.AddSingleton<IVectorStore>(new InMemoryVectorStore());
         using var sp = services.BuildServiceProvider();
 
@@ -312,14 +312,14 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     /// resolution of <see cref="IMemoryEngineFactory"/>, since that is what eagerly builds every registered
     /// <see cref="IMemoryEngine"/> and so first constructs <see cref="SemanticSeedSource"/>.</summary>
     [Fact]
-    public void AddMemorySemanticSeeds_without_an_embedder_throws_on_the_first_factory_resolution()
+    public void AddMemorySemanticSeeds_without_a_vector_backend_throws_on_the_first_factory_resolution()
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
             .UseInMemoryStorage()
             .AddMemory()
-            .AddMemorySemanticSeeds());   // no IEmbedder / IVectorStore registered
+            .AddMemorySemanticSeeds());   // no a vector backend / IVectorStore registered
         using var sp = services.BuildServiceProvider();   // does NOT throw
 
         Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<IMemoryEngineFactory>());

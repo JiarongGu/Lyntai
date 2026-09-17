@@ -42,7 +42,7 @@ public class GraphMemorySalienceTests
             throw new InvalidOperationException("the salience policy is broken");
     }
 
-    private sealed class ThrowingEmbedder : EmbeddingBackend
+    private sealed class ThrowingVectorProvider : FakeVectorProviderBase
     {
         public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default) =>
@@ -91,10 +91,10 @@ public class GraphMemorySalienceTests
     }
 
     [Fact]
-    public async Task With_no_embedder_the_default_salience_policy_records_nothing()
+    public async Task With_no_vector_backend_the_default_salience_policy_records_nothing()
     {
         // the default path must be byte-identical to 2.5.0 decay behaviour for anyone who wires nothing —
-        // a salience policy IS registered (the default), but with no embedder there is no novelty to judge
+        // a salience policy IS registered (the default), but with no vector backend there is no novelty to judge
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store);
 
@@ -152,14 +152,14 @@ public class GraphMemorySalienceTests
     }
 
     [Fact]
-    public async Task A_throwing_embedder_degrades_to_no_signals_rather_than_losing_the_write()
+    public async Task A_throwing_vector_backend_degrades_to_no_signals_rather_than_losing_the_write()
     {
-        // the shared similarity search now feeds salience judgement too, so a broken embedder must degrade the
+        // the shared similarity search now feeds salience judgement too, so a broken vector backend must degrade the
         // SAME way it already does for enrichment: the write still succeeds, and with no comparables the
         // (default) salience policy records nothing rather than the caller ever seeing the exception
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store,
-            providers: [new ThrowingEmbedder()], vectors: new InMemoryVectorStore());
+            providers: [new ThrowingVectorProvider()], vectors: new InMemoryVectorStore());
 
         var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
 

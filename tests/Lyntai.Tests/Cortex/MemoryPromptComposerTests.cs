@@ -11,7 +11,7 @@ public class MemoryPromptComposerTests
 
     private static SemanticMemory SemanticWith(params string[] facts)
     {
-        var mem = new SemanticMemory([new FakeEmbedder()], new InMemoryVectorStore());
+        var mem = new SemanticMemory([new FakeVectorProvider()], new InMemoryVectorStore());
         foreach (var f in facts) mem.RememberAsync("trip", "s", f).GetAwaiter().GetResult();
         return mem;
     }
@@ -106,7 +106,7 @@ public class MemoryPromptComposerTests
         public Task RememberAsync(string taskKey, string scope, string content, CancellationToken ct = default) =>
             Task.CompletedTask;
         public Task<IReadOnlyList<SemanticHit>> RecallAsync(string taskKey, string? scope, string query,
-            int k = 5, double minScore = 0, CancellationToken ct = default) => throw new InvalidOperationException("embedder down");
+            int k = 5, double minScore = 0, CancellationToken ct = default) => throw new InvalidOperationException("vector backend down");
         public Task ForgetAsync(string taskKey, string scope, CancellationToken ct = default) => Task.CompletedTask;
     }
 

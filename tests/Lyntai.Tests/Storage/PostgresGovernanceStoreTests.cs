@@ -189,7 +189,7 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var task = Uid();
-        var mem = new SemanticMemory([new FakeEmbedder()], new PostgresVectorStore(pg.Factory));
+        var mem = new SemanticMemory([new FakeVectorProvider()], new PostgresVectorStore(pg.Factory));
         await mem.RememberAsync(task, "s", "cancel my subscription anytime");
         await mem.RememberAsync(task, "s", "our pizza menu today");
 

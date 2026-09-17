@@ -53,7 +53,7 @@ public sealed class MemoryEngineBuilder
     private static LexicalMemoryEngine BuildLexical(IServiceProvider sp, string full) =>
         new(full, Required<IMemoryStore>(sp), sp.GetService<ILogger<LexicalMemoryEngine>>());
 
-    /// <summary>Draw on meaning-based <see cref="ISemanticMemory"/>. Associative. Needs an embedder — see
+    /// <summary>Draw on meaning-based <see cref="ISemanticMemory"/>. Associative. Needs a vector backend — see
     /// <c>AddSemanticMemory</c>.</summary>
     /// <param name="label">Distinguishes several members of the same kind.</param>
     public MemoryEngineBuilder UseSemantic(string label = "semantic")

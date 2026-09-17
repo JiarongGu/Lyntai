@@ -277,8 +277,8 @@ internal static class MemoryScaleSweep
 
         var engine = NewEngine();
 
-        // No embedder and no vector store: an embed per write would dominate the write number and measure
-        // the embedder rather than the store. `memory-enrichment` is where that cost is priced.
+        // No vector backend and no vector store: an embed per write would dominate the write number and measure
+        // the vector backend rather than the store. `memory-enrichment` is where that cost is priced.
         var writeStart = Stopwatch.GetTimestamp();
         for (var i = 0; i < size.Entries; i++)
             await engine.RememberAsync(new MemoryWrite("scale", Scope(i), Content(i)));
@@ -495,7 +495,7 @@ internal static class MemoryScaleSweep
         Console.WriteLine("  - RECALL QUALITY at scale. This corpus has no ground truth and measures cost");
         Console.WriteLine("    only. Whether miss and pollution hold up at 100k is a separate study, and no");
         Console.WriteLine("    number here speaks to it.");
-        Console.WriteLine("  - ENRICHMENT. No embedder and no vector store, so writes carry no embed and");
+        Console.WriteLine("  - ENRICHMENT. No vector backend and no vector store, so writes carry no embed and");
         Console.WriteLine("    recalls no vector search. A deployment with both pays more than this reports,");
         Console.WriteLine("    and `memory-enrichment` is where that cost is priced.");
         Console.WriteLine("  - A MODEL IN THE LOOP. Annotation costs a model call per write and verification");

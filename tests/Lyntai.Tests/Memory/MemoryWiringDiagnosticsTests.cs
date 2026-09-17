@@ -100,7 +100,7 @@ public class MemoryWiringDiagnosticsTests
             f => f.Contains("IMemory", StringComparison.Ordinal));
     }
 
-    /// <summary>Part 92: an embedder plus a vector store turns enrichment on, so every write is embedded for
+    /// <summary>Part 92: a vector backend plus a vector store turns enrichment on, so every write is embedded for
     /// novelty and similarity linking — while the vector CHANNEL is opt-in, so no recall reads any of it. The
     /// consumer pays an embedding per write, gets vectors on disk, and sees no change in what recall returns;
     /// it cost an adopter most of a session to find, with every check green.</summary>
@@ -108,7 +108,7 @@ public class MemoryWiringDiagnosticsTests
     public void A_graph_member_that_embeds_every_write_and_seeds_no_recall_is_reported()
     {
         var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            providers: [new FakeEmbedder()], vectors: new InMemoryVectorStore());
+            providers: [new FakeVectorProvider()], vectors: new InMemoryVectorStore());
 
         var found = Assert.Single(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
@@ -117,24 +117,24 @@ public class MemoryWiringDiagnosticsTests
     }
 
     /// <summary>Registering the channel closes it — the finding is about the GAP between the two paths, not
-    /// about having an embedder.</summary>
+    /// about having a vector backend.</summary>
     [Fact]
     public void The_same_member_with_seeding_configured_reports_nothing()
     {
-        var embedder = new FakeEmbedder();
+        var vectorProvider = new FakeVectorProvider();
         var vectors = new InMemoryVectorStore();
         var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            providers: embedder is null ? null : [embedder], vectors: vectors,
-            seedSources: [new LexicalSeedSource(), new SemanticSeedSource([embedder], vectors)]);
+            providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors,
+            seedSources: [new LexicalSeedSource(), new SemanticSeedSource([vectorProvider], vectors)]);
 
         Assert.Empty(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
             verification: false, annotation: false));
     }
 
-    /// <summary>…and so does having no embedder at all, which is the shipped default. A finding that fired
+    /// <summary>…and so does having no vector backend at all, which is the shipped default. A finding that fired
     /// on the zero-configuration path would fire on almost every consumer.</summary>
     [Fact]
-    public void A_graph_member_with_no_embedder_reports_nothing()
+    public void A_graph_member_with_no_vector_backend_reports_nothing()
     {
         var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore());
 
@@ -293,7 +293,7 @@ public class MemoryWiringDiagnosticsTests
     public void A_BYO_semantic_channel_under_its_own_name_is_not_reported_as_missing()
     {
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            providers: [new FakeEmbedder()], vectors: new InMemoryVectorStore(),
+            providers: [new FakeVectorProvider()], vectors: new InMemoryVectorStore(),
             seedSources: [new LexicalSeedSource(), new AcmeVectorChannel()]);
 
         Assert.Empty(MemoryWiring.Inspect([engine], verification: false, annotation: false));
@@ -302,10 +302,10 @@ public class MemoryWiringDiagnosticsTests
     /// <summary>The finding must still FIRE when the channel really is absent — the positive control without
     /// which the test above passes on a diagnostic that was simply switched off.</summary>
     [Fact]
-    public void An_embedder_with_no_semantic_channel_at_all_is_still_reported()
+    public void A_vector_backend_with_no_semantic_channel_at_all_is_still_reported()
     {
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            providers: [new FakeEmbedder()], vectors: new InMemoryVectorStore(),
+            providers: [new FakeVectorProvider()], vectors: new InMemoryVectorStore(),
             seedSources: [new LexicalSeedSource()]);
 
         var found = Assert.Single(MemoryWiring.Inspect([engine], verification: false, annotation: false));
@@ -320,7 +320,7 @@ public class MemoryWiringDiagnosticsTests
     public void An_undeclared_channel_silences_the_finding_rather_than_triggering_a_false_one()
     {
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            providers: [new FakeEmbedder()], vectors: new InMemoryVectorStore(),
+            providers: [new FakeVectorProvider()], vectors: new InMemoryVectorStore(),
             seedSources: [new LexicalSeedSource(), new UndeclaredChannel()]);
 
         Assert.Empty(MemoryWiring.Inspect([engine], verification: false, annotation: false));

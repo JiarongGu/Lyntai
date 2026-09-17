@@ -7,12 +7,12 @@ namespace Lyntai.Memory.Seeding;
 
 /// <summary>The vector channel: embeds the query and searches an <see cref="IVectorStore"/> for its nearest
 /// entries, contributing each as a candidate in COSINE order. Registered nowhere by default, unlike
-/// <see cref="LexicalSeedSource"/> — an embedder is wired for reasons of its own, so seeding recall from it
+/// <see cref="LexicalSeedSource"/> — a vector backend is wired for reasons of its own, so seeding recall from it
 /// is an opt-in (<c>AddMemorySemanticSeeds</c>).
 ///
-/// <para><b>Best-effort, per the seam's own contract</b> (<see cref="IMemorySeedSource"/>): a failing embedder
+/// <para><b>Best-effort, per the seam's own contract</b> (<see cref="IMemorySeedSource"/>): a failing vector backend
 /// or vector store logs a warning and returns empty rather than throwing, so this channel's outage degrades
-/// QUALITY and never CORRECTNESS. The CALLER's cancellation is the one thing never swallowed; an embedder's
+/// QUALITY and never CORRECTNESS. The CALLER's cancellation is the one thing never swallowed; a vector backend's
 /// own timeout is an enrichment fault like any other, however it is spelled.</para>
 ///
 /// <para><b>A null <see cref="MemoryQuery.Scope"/> spans every collection the store holds under the task</b>,

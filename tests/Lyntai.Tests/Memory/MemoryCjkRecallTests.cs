@@ -234,7 +234,7 @@ public class MemoryCjkRecallTests
     /// do.</b> This assertion was written the other way round first — "more of the cluster returns than the
     /// cue could have matched" — and it failed IDENTICALLY in both languages, returning exactly the one
     /// lexically-matched fact. That is not a language defect and not a bug: this engine's edges come from
-    /// vector similarity at write time (needs an embedder AND a vector store, neither supplied here) or from
+    /// vector similarity at write time (needs a vector backend AND a vector store, neither supplied here) or from
     /// CO-ACTIVATION during recall (entries re-admitted together). Facts stated once, never re-mentioned and
     /// never co-recalled have no edges at all, so there is nothing for spreading activation to traverse.
     /// <para>Recorded as a fact rather than deleted, because the failing version of it is what makes the next
@@ -260,7 +260,7 @@ public class MemoryCjkRecallTests
     /// <summary><b>An AUTHORITATIVE cluster DOES come back whole — in both languages. This is the answer to
     /// "even if I don't mention my spouse, this entire relationship should stay relevant."</b>
     /// <para>Authoritative material is admitted by <c>SeedAsync</c>'s grade carve-out whatever the query
-    /// matched, and re-admitted by the engine, so it does not depend on a lexical hit, on an embedder, or on
+    /// matched, and re-admitted by the engine, so it does not depend on a lexical hit, on a vector backend, or on
     /// edges existing. That makes it the mechanism for a fact that must not be lost — and it means the answer
     /// to the consumer's case is a WRITE-side decision (grade the fact) rather than a retrieval-side hope.
     /// </para>

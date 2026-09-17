@@ -221,8 +221,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D149](#d149--a-document-kept-for-its-live-half-is-re-read-not-re-asserted-both-pre-30-records-leave-docs-2026-09-16) | 2026-09-16 | a document kept for its "live half" is re-READ, not re-asserted; both pre-3.0 records leave `docs/` |
 | [D150](#d150--the-governance-wiring-guard-is-eager-and-the-argument-for-it-lives-here-rather-than-in-both-backends-2026-09-16) | 2026-09-16 | the Governance wiring guard is EAGER, and the argument for it lives here rather than in both back… |
 | [D151](#d151--an-embedder-is-a-capability-not-a-front-door-iembedder-is-removed-2026-09-17) | 2026-09-17 | an embedder is a CAPABILITY, not a front door: `IEmbedder` is removed |
+| [D152](#d152--a-provider-is-named-for-its-backend-embedding-is-capability-vocabulary-2026-09-17) | 2026-09-17 | a provider is named for its BACKEND; "embedding" is capability vocabulary |
 
-_All 151 entries are live decisions._
+_All 152 entries are live decisions._
 
 <!-- index:end -->
 
@@ -3473,7 +3474,7 @@ than companions.
 ## D116 — the embedding seam carries a ROLE, because an asymmetric model cannot infer it (2026-09-12)
 
 `IEmbedder` gains a role-aware overload with a DEFAULT BODY forwarding to the role-less one, and every
-Lyntai call site passes `EmbeddingRole.Document` when storing and `Query` when searching. The library
+Lyntai call site passes `EmbeddingRole.Document` when storing and `Query` when searching. The library <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 supplies no prefix and names no model; `HttpModelOptions.DocumentPrefix`/`QueryPrefix` let a
 deployment say what its own model wants, defaulting to nothing.
 
@@ -3611,7 +3612,7 @@ likes.
 ## D120 — the tool roster is BOUNDED by a seam, because the model supplies no bound of its own (2026-09-13)
 
 `IToolSelector` — `(request, every registered tool) -> the ones worth showing` — with
-`EmbeddingToolSelector` as the shipped implementation and `AddEmbeddingToolSelector` to register it.
+`EmbeddingToolSelector` as the shipped implementation and `AddEmbeddingToolSelector` to register it. <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 `ToolLoop` narrows through it when one is registered and behaves exactly as before when none is.
 
 **The problem is measured and the lever is not wording.** A 4B invokes a tool on **90-95%** of requests
@@ -3650,7 +3651,7 @@ carries it under **Breaking** rather than under Added. An overload was refused f
 `Model2VecProvider` over a `model2vec` lookup table, registered with `AddModel2VecProvider(modelDirectory)`. No
 HTTP endpoint, no GPU, no port, no second process.
 
-> **AMENDED — it is not a package.** This shipped as `Lyntai.Embeddings.Model2Vec`, an adapter package
+> **AMENDED — it is not a package.** This shipped as `Lyntai.Embeddings.Model2Vec`, an adapter package <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 > isolating `Microsoft.ML.Tokenizers`. **D122** priced that dependency and wrote the tokenizer instead, so
 > the embedder now lives in `Lyntai.Providers.Basic` and its tokenizer in Core. Everything below is
 > unchanged; only the packaging claim moved. The package was never published, so no id is burned.
@@ -3687,7 +3688,7 @@ a related pair above an unrelated one on a real model and is skipped without one
 
 ## D122 — a dependency you use 5% of is written, not isolated: the static embedder owns its tokenizer and needs no package (2026-09-14)
 
-`Lyntai.Embeddings.Model2Vec` is gone, its contents split by KIND: the adapter (`Model2VecProvider`,
+`Lyntai.Embeddings.Model2Vec` is gone, its contents split by KIND: the adapter (`Model2VecProvider`, <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 `SafetensorsTable`, `AddModel2VecProvider`) is in **`Lyntai.Providers.Basic`** under its existing namespace;
 the logic it needed, `WordPieceTokenizer`, is public in **`Lyntai.Core`** (`Lyntai.Text`) and replaces
 `Microsoft.ML.Tokenizers`. Never published, so no id is burned and no consumer edits a `using`.
@@ -3927,7 +3928,7 @@ class satisfies both with a single method and nothing is written twice.
 **Registration is ADDITIVE on purpose.** `AddModel2VecProvider` / `AddOnnxProvider` now call `AddProvider`
 *and* keep the `TryAddSingleton<IEmbedder>` slot. Nothing moves for a deployment registering exactly one
 embedder; what changes is that a second one is now expressible and distinguishable by id, which the single
-slot cannot do — `HttpEmbeddingsTransport`'s own shipped doc admits it: *"there is one embedder slot, so a later
+slot cannot do — `HttpEmbeddingsTransport`'s own shipped doc admits it: *"there is one embedder slot, so a later <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 registration wins"*.
 
 **What this does NOT yet do**, stated so the gap is not mistaken for finished work: the `IEmbedder` a
@@ -3938,13 +3939,13 @@ second router, and that is exactly what minting a third family would have made i
 ## D129 — IEmbedder is the FRONT DOOR, not a backend contract: embeddings get routing and fallback (2026-09-14)
 
 `IEmbedder` is now implemented by `RoutedEmbedder` alone — a router over every `IModelProvider` declaring
-`ProviderOperation.Embed`. `Model2VecProvider`, `OnnxProvider` and `HttpEmbeddingsTransport` stop implementing it and are
-providers only; `AddEmbeddingProvider` registers them and states, at composition time, that something can
+`ProviderOperation.Embed`. `Model2VecProvider`, `OnnxProvider` and `HttpEmbeddingsTransport` stop implementing it and are <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
+providers only; `AddEmbeddingProvider` registers them and states, at composition time, that something can <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 embed.
 
 **One type was doing two jobs, and that is why embeddings had no fallback.** Chat has always separated them
 — consumers resolve `ILlmClient`, backends implement the provider seam — while embedding had `IEmbedder` on
-both sides, so a consumer held a BACKEND directly. `HttpEmbeddingsTransport`'s own shipped doc admitted the
+both sides, so a consumer held a BACKEND directly. `HttpEmbeddingsTransport`'s own shipped doc admitted the <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 consequence: *"there is one embedder slot, so a later registration wins"*. Registering a second endpoint
 silently replaced the first instead of giving it a fallback.
 
@@ -3961,7 +3962,7 @@ it from "any provider is registered" would wire semantic memory for a chat-only 
 startup failure into a runtime one.
 
 **`IModelProvider` gained the role-aware `EmbedAsync` overload** so the router cannot silently drop
-`EmbeddingRole`. Asymmetric models — E5, BGE, nomic, Arctic — are trained with a distinct instruction per
+`EmbeddingRole`. Asymmetric models — E5, BGE, nomic, Arctic — are trained with a distinct instruction per <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 side and score materially worse when both sides are embedded identically; the role is the one thing a
 backend cannot work out for itself, so a front door that flattened it would be invisible and wrong.
 
@@ -3987,7 +3988,7 @@ exactly one field, which is what the whole series was reaching for.
 **`Produces` is a LIST, and that is what the previous shape could not express.** An OpenAI-compatible host
 answers `/chat/completions` AND `/embeddings`, so it declares `[text, vector]` and implements both methods
 off one configuration, one id and one HttpClient. Under an `Embed` operation that backend had to be split
-into two registrations pointed at the same endpoint — which is how `HttpEmbeddingsTransport` came to exist beside
+into two registrations pointed at the same endpoint — which is how `HttpEmbeddingsTransport` came to exist beside <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 `HttpModelProvider` in the first place.
 
 **`Accepts` is checked only when a caller pins it**, because the common case is text in and pinning it
@@ -4035,7 +4036,7 @@ and defaulting one to the other posts a plausible request that returns nonsense 
 > survives is `Produces` being a list, which means one CALL returning several kinds. D132's single
 > registration METHOD stands; only this entry's bundling of two backends into one options object does not.
 
-**Registration routes on the same fact:** a configured section makes it `AddEmbeddingProvider`, which is the
+**Registration routes on the same fact:** a configured section makes it `AddEmbeddingProvider`, which is the <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 same collection plus the statement that something can embed — the flag `AddSemanticMemory` and the routed
 `IEmbedder` front door read at composition time (**D129**), before any provider is built.
 
@@ -4101,7 +4102,7 @@ rendering host a fourth, which is the same failure `Produces` being a string was
 
 **`Produces` decides everything downstream**: the route posted to, the operations declared (vector serves
 `Complete` alone — there is no partially delivered embedding), whether tool calls are claimed, and which
-front door the registration enters. `AddEmbeddingProvider` is still what arms the routed `IEmbedder` and
+front door the registration enters. `AddEmbeddingProvider` is still what arms the routed `IEmbedder` and <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 `AddSemanticMemory` (**D129**); what picks it is now one field rather than a section being non-null.
 
 **What this costs, stated plainly:** the base URL is written twice for a host that serves both, and nothing
@@ -4128,7 +4129,7 @@ surface a consumer actually types.
 generic and became `IModelProvider`; `AddXProvider` is the same word doing the same non-work. Consistency
 means applying the reason, not the spelling.
 
-**Three names KEEP the suffix, and the rule is what they take.** `AddProvider`, `AddEmbeddingProvider` and
+**Three names KEEP the suffix, and the rule is what they take.** `AddProvider`, `AddEmbeddingProvider` and <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 `AddGenerationProvider` accept a FACTORY — they are the generic primitives a BYO backend registers through,
 where `Provider` is the noun the method takes rather than a suffix on a vendor's name. `AddOllamaProvider` names a
 backend; `AddProvider` names the act. Whole-identifier matching in both registries keeps them live with no
@@ -4231,7 +4232,7 @@ the vendor is the qualifier. `AddOllamaProvider` reads as *a provider, the Ollam
 `AddSqliteVectorStore` or `AddDpapiSecretVault`. A name with no noun is only right where the vendor IS the
 whole feature, which is the `AddSerilog` idiom and not what this builder is.
 
-**What D134 got right and D137 keeps:** `AddProvider`, `AddEmbeddingProvider`, `AddGenerationProvider` and
+**What D134 got right and D137 keeps:** `AddProvider`, `AddEmbeddingProvider`, `AddGenerationProvider` and <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 `AddHttpProvider` take a FACTORY or a bare configuration rather than naming a backend. They were the
 exception under D134's rule and are simply ordinary under this one — every method names its noun, and these
 have no vendor to qualify it with.
@@ -4636,8 +4637,10 @@ tells one to write its own `RequireGovernance`, which is now a pointer to this e
 
 ## D151 — an embedder is a CAPABILITY, not a front door: `IEmbedder` is removed (2026-09-17)
 
+> **AMENDED by D152: the registration named below is gone; the argument and `EmbedAsync` are unchanged.**
+
 **The decision.** `IEmbedder` and `EmbedderExtensions` leave the public surface. Embedding is what a
-provider DECLARES (`Produces: Vector`) and what `IModelProvider.EmbedAsync` serves — the same shape as
+provider DECLARES (`Produces: Vector`) and what `IModelProvider.EmbedAsync` serves — the same shape as <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) --> <!-- link-ok: the member D152 renamed; naming it as it was IS the record -->
 every other capability. Core's four consumers take `IEnumerable<IModelProvider>` and go through one shared
 routing helper, which keeps the failover **D129** bought while dropping the type it wrapped it in.
 
@@ -4677,3 +4680,46 @@ does not exist yet, and it is a LARGER change than the delegate above, not a sma
 removal touched four public constructors, twelve surface entries and 33 test files — and the entry carried
 a "not yet implemented" banner until the change landed, because a decision written ahead of its code reads
 exactly like one describing the tree and `check-decision-claims` cannot catch that.
+
+## D152 — a PROVIDER is named for its backend; the NOUN is `Vector`, the VERB is `Embed` (2026-09-17)
+
+**The decision.** A provider type, its namespace and its registration are named for the BACKEND they reach
+— `OnnxProvider`, `Model2VecProvider`, `HttpModelProvider` — because what a backend produces is declared in
+`ProviderCapabilities.Produces`, never encoded in a name. So `AddEmbeddingProvider` is deleted, <!-- drift-ok: the entry RECORDS the name it retires -->
+`EmbeddingToolSelector` is `VectorToolSelector`, and `Lyntai.Embeddings.Model2Vec` is <!-- drift-ok: as above -->
+`Lyntai.Providers.Model2Vec` — closing what the backlog carried as Part 101 (NS1) alongside Part 102's
+REL4 (`docs/task-archive.md` Part 246). The tree had already voted: every other registration named a
+backend and that one named a role.
+
+**But `EmbedAsync` and `EmbeddingRole` STAY, on this library's model rather than anyone else's
+convention.** The axis a router selects on is `Produces`, whose noun here is `ProviderKinds.Vector`;
+embedding is not even a distinct operation — `ProviderCapabilities` puts chat and an image render on the
+same `Complete`, "which differ by `Produces`, the CONTENT type, not by the operation". So `EmbedAsync` names
+*Complete producing Vector*, and the rule is: **the NOUN is `Vector`** (the kind, and anything holding or
+consuming it — `VectorToolSelector`, `IVectorStore`), **the VERB is `Embed`**. That the ecosystem agrees is
+corroboration, not the argument — `Produces` being a LIST is, because a provider is never defined by
+embedding and so cannot be named for it. Two passes crossed this line in opposite directions;
+`.claude/knowledge/pitfalls.md` carries why.
+
+**The hard part was `AddEmbeddingProvider`, and the answer was not a second door.** It existed for a real <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
+constraint: `AddSemanticMemory` must decide at composition time, and a FACTORY cannot be inspected before
+it is built. The fix is to let the one door DECLARE —
+`AddProvider(factory, declares: ProviderCapabilities?)`. Composition reads the declaration, routing still
+reads each built provider's own `Capabilities`, and the fail-fast is unchanged: an undeclared factory
+answers "no", so the failure a consumer meets names the argument to add rather than a second method to
+find. It also generalises — the next composition-time capability question reads the same declaration.
+
+**The alternatives, and why they lost.** A distinct DELEGATE TYPE per capability makes the mistake
+unrepresentable but multiplies doors, which is the thing being removed. A STARTUP WARNING when a built
+provider declares `Vector` and nothing said so reports the trap instead of removing it, and arrives after
+composition has already skipped the wiring. Deferring the check to first resolution deletes the flag too,
+but moves a startup failure to a lazily-resolved one for no gain once `declares` exists.
+
+**What is deliberately NOT renamed, because the library does not own it.** The vendors' wire — the
+`/embeddings` and `/api/embed` routes, the `"embedding"` JSON field, `max_position_embeddings` and
+`token_embeddings` in a model's own config. And `Model2VecProvider` keeps its name for the reason
+`StaticEmbedder` lost its (**D130**/**D132**): `model2vec` is an upstream FORMAT, exactly as ONNX is, and a <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
+backend is named for what it reads. `StaticEmbeddingProvider` was considered and refused on that ground.
+
+**Breaking, and this release is the window** — the public surface is frozen under SemVer with no carve-out
+(**D70**), so it goes in the major now shipping or it waits for the next one.

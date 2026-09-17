@@ -141,18 +141,34 @@ export default {
   retiredApiNames: [
     {
       // D151. `EmbeddingRole` is deliberately NOT here: it survives on IModelProvider's role-aware
-      // overload, and whole-identifier equality keeps it live without an allowance.
+      // overload, and whole-identifier equality keeps it live without an allowance. D152 re-examined that
+      // and kept it — the word belongs on the OPERATION, only not on a provider.
       names: [
         'IEmbedder',
         'EmbedderExtensions',
         'AddEmbeddings',
         'RoutedEmbedder',
       ],
-      use: '`AddEmbeddingProvider(_ => backend)` for a backend of your own, or a shipped one — '
+      use: '`AddProvider(_ => backend, declares)` for a backend of your own, or a shipped one — '
         + '`AddModel2VecProvider` / `AddOnnxProvider` / `AddHttpProvider` with `Produces = Vector`',
       why: 'an embedder is a CAPABILITY a provider declares, not a front door: Score and Vector were '
         + 'consumed identically inside Core and only Vector wrapped it in an interface, which was the last '
         + 'residue of the pre-D128 world where an embedder was a distinct KIND of backend (D151)',
+    },
+    {
+      // D152, the PROVIDER-facing half only. `EmbeddingRole` and `EmbedAsync` are deliberately NOT here:
+      // they name the OPERATION, which is where every vendor puts the word (OpenAI's `/v1/embeddings`,
+      // Ollama's `/api/embed`) and where this seam's sibling methods already take a verb — `CompleteAsync`,
+      // `GenerateAsync`, `ScoreAsync`. A first pass retired those two as well and was pulled back before it
+      // shipped, which is why the exemption is written down rather than left to be re-derived.
+      names: [
+        'AddEmbeddingProvider',
+        'EmbeddingToolSelector',
+        'AddEmbeddingToolSelector',
+      ],
+      use: '`AddProvider(factory, declares)`, `VectorToolSelector` / `AddVectorToolSelector`',
+      why: 'a provider is named for its BACKEND, never for what it produces — no vendor ships an '
+        + '"embedding provider" either; the capability is declared in ProviderCapabilities.Produces (D152)',
     },
     {
       names: [
@@ -247,11 +263,12 @@ export default {
         + 'vendor for all four (D135)',
     },
     {
-      // D130. `Kinds` and `Embed` are whole-identifier tokens, so `ProviderKinds`, `ProviderKinds` and
-      // every `EmbedAsync` stay live without an allowance — which is the point of the tokenizing rule.
+      // D130. `Kinds` and `Embed` are whole-identifier tokens, so `ProviderKinds` and every `EmbedAsync`
+      // stay live without an allowance — which is the point of the tokenizing rule, and D152 left both
+      // standing: it retired the word from PROVIDER names, not from the operation.
       names: ['Kinds', 'Embed'],
-      use: '`ProviderCapabilities.Accepts` / `.Produces`, and `ProviderKinds.Vector` for what an embedder '
-        + 'PUTS OUT',
+      use: '`ProviderCapabilities.Accepts` / `.Produces`, and `ProviderKinds.Vector` for what a vector '
+        + 'backend PUTS OUT',
       why: 'a backend is accepts -> produces delivered some way; embedding was the one ProviderOperation '
         + 'member whose own doc had to explain that it produced nothing of its Kinds (D130)',
     },
@@ -673,7 +690,25 @@ export default {
       why: 'every registration returns an IModelProvider, so an *Embedder suffix sorted backends by what '
         + 'they produce — the taxonomy D130 deleted from the types and D132 from the surface',
       use: '`AddHttpProvider` (with `Chat`/`Embeddings` saying which routes), '
-        + '`AddOnnxProvider`, `AddModel2VecProvider`, `AddLlamaSharpProvider`, `HttpEmbeddingsTransport`',
+        + '`AddOnnxProvider`, `AddModel2VecProvider`, `AddLlamaSharpProvider`, `HttpVectorTransport`',
+    },
+    {
+      // D152, the prose half — the SURFACE half is in `retiredApiNames` above. A document naming any of
+      // these is describing a registration, a type or a namespace the tree no longer has.
+      // DELIBERATELY not matched, and each for its own reason. `EmbeddingRole` and `EmbedAsync` name the
+      // OPERATION and are LIVE — every vendor puts the word exactly there (OpenAI `/v1/embeddings`, Ollama
+      // `/api/embed`), and the sibling methods on that seam are verbs too. The word "embedding" describing
+      // the operation is likewise correct English: a vector IS an embedding. `/embeddings` and `/api/embed`
+      // are the vendors' routes. And `model2vec` is an upstream FORMAT, which is why `Model2VecProvider`
+      // survived the sweep that took `StaticEmbedder` — a backend is named for what it READS.
+      term: '\\bAddEmbeddingProvider\\b|\\bEmbeddingToolSelector\\b'
+        + '|\\bAddEmbeddingToolSelector\\b|\\bHttpEmbeddingsTransport\\b'
+        + '|\\bLyntai\\.Embeddings\\b',
+      why: 'a provider is named for its BACKEND, never for what it produces — no vendor ships an '
+        + '"embedding provider" either; D151 removed the embedder interface and D152 removed the word from '
+        + 'the registration, the selector and the namespace root it had been left on',
+      use: '`AddProvider(factory, declares)`, `VectorToolSelector`, `HttpVectorTransport`, '
+        + '`Lyntai.Providers.Model2Vec`',
     },
     {
       // D125. The SURFACE half is in `retiredApiNames`; this is the prose half. Both names described the

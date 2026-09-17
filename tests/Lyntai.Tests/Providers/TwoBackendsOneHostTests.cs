@@ -19,7 +19,7 @@ public class TwoBackendsOneHostTests
         {"choices":[{"message":{"role":"assistant","content":"hi"}}]}
         """;
 
-    private const string EmbedBody = """
+    private const string VectorResponseBody = """
         {"object":"list","data":[{"object":"embedding","index":0,"embedding":[1.0,2.0,3.0]}]}
         """;
 
@@ -74,7 +74,7 @@ public class TwoBackendsOneHostTests
     [Fact]
     public async Task Produces_picks_the_ROUTE_a_call_is_posted_to()
     {
-        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, EmbedBody);
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, VectorResponseBody);
         var provider = Provider(handler, o => o.Produces = ProviderKinds.Vector);
 
         await provider.EmbedAsync(["a"]);
@@ -91,7 +91,7 @@ public class TwoBackendsOneHostTests
     {
         var handler = new StubHttpHandler()
             .Enqueue(HttpStatusCode.OK, ChatBody)
-            .Enqueue(HttpStatusCode.OK, EmbedBody);
+            .Enqueue(HttpStatusCode.OK, VectorResponseBody);
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddHttpProvider("local-chat", o =>
@@ -126,7 +126,7 @@ public class TwoBackendsOneHostTests
     // Declaring Vector is what arms the routed IModelProvider and AddSemanticMemory, both of which are decided
     // at composition time — before any provider is built (D129).
     [Fact]
-    public void A_chat_only_deployment_gets_NO_embedder_rather_than_a_broken_one()
+    public void A_chat_only_deployment_gets_NO_vector_backend_rather_than_a_broken_one()
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b.AddHttpProvider("chat", o => o.BaseUrl = Host));

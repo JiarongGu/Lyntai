@@ -14,7 +14,7 @@ namespace Lyntai.Benchmarks;
 /// <see cref="SalienceContext.SimilarCount"/> at all? The cheapest possible refutation of the gist tier's
 /// promotion rule (<c>local/superpowers/specs/2026-08-27-gist-tier-design.md</c> §5): a correction resembles
 /// exactly one stored entry, a recurrence resembles many, and if the two do not separate here — authored
-/// fixtures, a real embedder, no corpus and no tier — nothing downstream can work.
+/// fixtures, a real vector backend, no corpus and no tier — nothing downstream can work.
 /// </summary>
 /// <remarks>
 /// <para><b>Fixtures, never <see cref="MemoryCorpus"/>.</b> The corpus has no CORRECTION class — the gist
@@ -22,7 +22,7 @@ namespace Lyntai.Benchmarks;
 /// test needs only "which population is this write from", never a per-query ground truth, so hand-authored
 /// fixtures are sufficient and independent of piece (2). Do not wire this to the corpus.</para>
 ///
-/// <para><b>It refuses to run without a real embedder</b>, for the reason <c>memory-enrichment</c> and
+/// <para><b>It refuses to run without a real vector backend</b>, for the reason <c>memory-enrichment</c> and
 /// <c>memory-importance</c> already established: a correction shares nearly every word with the fact it
 /// corrects, so a bag-of-words fake rates it maximally similar to its target — and a recurrence shares words
 /// with many. The fake would produce a plausible table measuring word overlap, the exact defect that withdrew
@@ -52,7 +52,7 @@ internal static class MemoryDensitySweep
     private const int MinimumPairedObservations = 2;
 
     // Every fixture's Prior list is padded to exactly this many entries (fix round 2, Critical 1): SearchAsync
-    // requests SimilarityK + 1 = 6 neighbours, so any store short of that lets the STORE, not the embedder,
+    // requests SimilarityK + 1 = 6 neighbours, so any store short of that lets the STORE, not the vector backend,
     // set SimilarCount's ceiling. 10 rather than the bare minimum of 6 because recurrence already sat there
     // (6 near-identical priors + 4 distractors) — matching it, rather than computing a per-population minimum,
     // makes every store the SAME size, not merely each one individually "enough".
@@ -88,8 +88,8 @@ internal static class MemoryDensitySweep
     public static async Task<int> RunAsync(bool acrossLanguages = false)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
-        var embedder = await SweepDoubles.TryRealEmbedderAsync(http, "memory-density");
-        if (embedder is null) return 1;
+        var vectorProvider = await SweepDoubles.TryRealVectorProviderAsync(http, "memory-density");
+        if (vectorProvider is null) return 1;
 
         var stopwatch = Stopwatch.StartNew();
 
@@ -108,7 +108,7 @@ internal static class MemoryDensitySweep
             var salience = new CapturingSalience();
             using var db = new MemoryPolicySweep.SweepDb();
             var engine = new GraphMemoryEngine("density", new SqliteMemoryGraphStore(db.Factory),
-                providers: [embedder], vectors: new InMemoryVectorStore(), saliencePolicies: [salience]);
+                providers: [vectorProvider], vectors: new InMemoryVectorStore(), saliencePolicies: [salience]);
 
             foreach (var prior in fixture.Prior)
                 await engine.RememberAsync(new MemoryWrite("t", "s", prior));
@@ -132,7 +132,7 @@ internal static class MemoryDensitySweep
 
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s over {languages.Length} language(s); " +
-            $"{embedder.Misses} embed call(s), {embedder.Hits} cache hit(s).");
+            $"{vectorProvider.Misses} embed call(s), {vectorProvider.Hits} cache hit(s).");
         return 0;
     }
 
@@ -156,7 +156,7 @@ internal static class MemoryDensitySweep
     /// own it does NOT control for store size.</para>
     /// <para><b>C1</b> is what does: every observation's <c>ComparableCount</c> is the SAME value, across
     /// every population and every language (fix round 2, Critical 1). <c>SearchAsync</c> requests
-    /// <c>SimilarityK + 1</c> neighbours, so a store short of that count lets the STORE, not the embedder, set
+    /// <c>SimilarityK + 1</c> neighbours, so a store short of that count lets the STORE, not the vector backend, set
     /// <c>SimilarCount</c>'s ceiling — this is the control that would have caught <c>correction</c> sitting at
     /// 5 stored entries while <c>recurrence</c> sat at 10, the exact confound fix round 1 left open.</para>
     /// <para><b>C2</b>: the <c>novel</c> population reports 0 everywhere it ran — if it does not, the floor is
@@ -344,7 +344,7 @@ internal static class MemoryDensitySweep
     /// (<see cref="CommonStoreSize"/>) from one shared distractor pool — fix round 2, Critical 1. Fix round
     /// 1 shared the pool but did not equalise totals: <c>correction</c> landed at 5 entries, <c>recurrence</c>
     /// at 10 (its distractors, added on top of 6 already-saturating priors, were a no-op), and
-    /// <c>SimilarCount</c>'s ceiling was still set by the STORE rather than the embedder — exactly the
+    /// <c>SimilarCount</c>'s ceiling was still set by the STORE rather than the vector backend — exactly the
     /// confound this exists to remove. <c>novel</c>'s own priors ARE the pool; <c>correction</c> and
     /// <c>recurrence</c> draw only as much of it as their own signal-bearing priors leave short of the
     /// common total, so the SAME material backs every population's padding.

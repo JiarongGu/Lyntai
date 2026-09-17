@@ -2,7 +2,7 @@ namespace Lyntai.Providers.Onnx;
 
 /// <summary>Reads one relevance score per pair out of a classification head's output.
 ///
-/// <para>Separated from the session for the reason <see cref="EmbeddingPooling"/> is: this is the half that
+/// <para>Separated from the session for the reason <see cref="VectorPooling"/> is: this is the half that
 /// can be WRONG without failing — a head with more than one label still returns finite, well-ordered-looking
 /// numbers — and the half a test can reach without a model on disk.</para></summary>
 internal static class CrossEncoderLogits

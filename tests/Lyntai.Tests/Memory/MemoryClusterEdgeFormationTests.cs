@@ -95,7 +95,7 @@ public class MemoryClusterEdgeFormationTests
     /// cluster connects depends on its members happening to land in one top-N together; nothing about the
     /// mechanism is about them being about the same entity.</para>
     /// <para>The two mechanisms that DO answer the case are elsewhere and are not luck: similarity edges at
-    /// write time (needs an embedder and a vector store — neither is supplied here, and a deterministic fake
+    /// write time (needs a vector backend and a vector store — neither is supplied here, and a deterministic fake
     /// cannot stand in, since "similar" would then mean something different from what it means in
     /// production), and <see cref="MemoryGrade.Authoritative"/>, which
     /// <c>MemoryChineseRecallTests</c> shows returning the whole cluster in both languages because grade

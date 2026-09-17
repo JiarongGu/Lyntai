@@ -17,7 +17,7 @@ public class MemoryDensitySignalTests
     /// <summary>Exact cosine control. A bag-of-words fake cannot be used here: a correction shares nearly
     /// every word with what it corrects, so word overlap rates it maximally similar and the fixture would
     /// pass for the wrong reason.</summary>
-    private sealed class ScriptedEmbedder(IReadOnlyDictionary<string, float[]> map) : EmbeddingBackend
+    private sealed class ScriptedVectorProvider(IReadOnlyDictionary<string, float[]> map) : FakeVectorProviderBase
     {
         public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default) =>
@@ -48,7 +48,7 @@ public class MemoryDensitySignalTests
         var salience = new CapturingSalience();
         var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
             options: new GraphMemoryOptions { SimilarityK = 8, MinSimilarity = 0.6 },
-            providers: [new ScriptedEmbedder(map)],
+            providers: [new ScriptedVectorProvider(map)],
             vectors: new InMemoryVectorStore(),
             saliencePolicies: [salience]);
         return (engine, salience);
@@ -197,7 +197,7 @@ public class MemoryDensitySignalTests
     }
 
     [Fact]
-    public async Task With_no_embedder_it_is_zero_rather_than_unknown()
+    public async Task With_no_vector_backend_it_is_zero_rather_than_unknown()
     {
         // No search means no information. Zero is the same answer Novelty and ComparableCount already give,
         // and a policy reading a nonzero count from a store it never searched would be reading a fiction.

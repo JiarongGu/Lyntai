@@ -35,12 +35,12 @@ public class IndexRebuildTests
     /// vector collection. Nothing here needs the engine at all, which is the point: the index carries no
     /// information the store does not already hold.</para></summary>
     private static async Task<int> RebuildAsync(IMemoryGraphStore store, IVectorStore vectors,
-        IModelProvider embedder, string taskKey, string? scope)
+        IModelProvider vectorProvider, string taskKey, string? scope)
     {
         var nodes = await store.SeedAsync(Engine, taskKey, scope, query: null, limit: int.MaxValue);
         foreach (var node in nodes)
         {
-            var vector = (await embedder.EmbedAsync([node.Content]))[0];
+            var vector = (await vectorProvider.EmbedAsync([node.Content]))[0];
             // THE WRINKLE: this format is GraphMemoryEngine's private convention. An application has no
             // supported way to learn it, and a rebuild that guessed it wrongly would look like it worked.
             await vectors.UpsertAsync(MemoryVectorCollection.For(Engine, node.TaskKey, node.Scope),
@@ -57,9 +57,9 @@ public class IndexRebuildTests
     {
         var store = new InMemoryMemoryGraphStore();
         var vectors = new InMemoryVectorStore();
-        var embedder = new FakeEmbedder();
+        var vectorProvider = new FakeVectorProvider();
         var engine = new GraphMemoryEngine(Engine, store, agePolicies: [new PerWriteAgePolicy()],
-            providers: embedder is null ? null : [embedder], vectors: vectors);
+            providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors);
 
         for (var i = 0; i < 12; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"fact number {i} about the deployment"));
@@ -77,7 +77,7 @@ public class IndexRebuildTests
         var survived = await engine.RecallAsync(new MemoryQuery("t", "s", "deployment", Limit: 20));
         Assert.Equal(12, survived.Items.Count);
 
-        var rebuilt = await RebuildAsync(store, vectors, embedder, "t", "s");
+        var rebuilt = await RebuildAsync(store, vectors, vectorProvider, "t", "s");
 
         Assert.Equal(12, rebuilt);
         Assert.Equal(indexed, await IndexedIdsAsync(vectors, collection));   // PARITY, id for id
@@ -91,19 +91,19 @@ public class IndexRebuildTests
         // and requires the same answer. A rebuild that stored zero vectors would pass the fact above.
         var store = new InMemoryMemoryGraphStore();
         var vectors = new InMemoryVectorStore();
-        var embedder = new FakeEmbedder();
+        var vectorProvider = new FakeVectorProvider();
         var engine = new GraphMemoryEngine(Engine, store, agePolicies: [new PerWriteAgePolicy()],
-            providers: embedder is null ? null : [embedder], vectors: vectors);
+            providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors);
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "the production database runs on postgres"));
         await engine.RememberAsync(new MemoryWrite("t", "s", "kittens are small and unrelated"));
 
         var collection = MemoryVectorCollection.For(Engine, "t", "s");
-        var query = (await embedder.EmbedAsync(["the production database runs on postgres"]))[0];
+        var query = (await vectorProvider.EmbedAsync(["the production database runs on postgres"]))[0];
         var before = (await vectors.SearchAsync(collection, query, 1)).Single();
 
         await vectors.RemoveCollectionAsync(collection);
-        await RebuildAsync(store, vectors, embedder, "t", "s");
+        await RebuildAsync(store, vectors, vectorProvider, "t", "s");
 
         var after = (await vectors.SearchAsync(collection, query, 1)).Single();
 

@@ -5,7 +5,7 @@ namespace Lyntai.Providers.Http;
 
 /// <summary>
 /// The HTTP error-reporting conventions every HTTP surface in this package shares, whichever dialect — the chat
-/// provider and the embedder read and trim a failure body identically, so it lives here once for the same
+/// provider and the vector backend read and trim a failure body identically, so it lives here once for the same
 /// reason <see cref="HttpEndpoint"/> does: two copies drift silently, and the drift shows up as a worse
 /// diagnostic on one surface only.
 /// </summary>

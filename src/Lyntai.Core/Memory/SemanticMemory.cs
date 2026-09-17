@@ -25,7 +25,7 @@ public sealed class SemanticMemory(
     // The full provider list, guarded. Routing filters it again and would throw on its own, so this exists
     // only to put "semantic memory" in front of that message — a consumer who wired this deliberately is
     // owed the reason it cannot run, not just the generic one. Named for what it returns, not for what it
-    // checks: these are the registered backends, not a pre-filtered set of embedders.
+    // checks: these are the registered backends, not a pre-filtered set of vector backends.
     private IEnumerable<IModelProvider> ProvidersOrThrow => EmbeddingRouting.CanEmbed(providers)
         ? providers!
         : throw new InvalidOperationException($"Semantic memory needs to embed. {EmbeddingRouting.NothingEmbeds}");

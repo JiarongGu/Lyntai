@@ -6,8 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Embeddings;
 
 /// <summary>The pooling half — the part that can be WRONG without failing, and the only part of an ONNX
-/// embedder a test can reach without a 90 MB model on disk.</summary>
-public class EmbeddingPoolingTests
+/// vector backend a test can reach without a 90 MB model on disk.</summary>
+public class VectorPoolingTests
 {
     // Two tokens, width 3: row 0 is all 1s, row 1 is all 3s. A mean over both is 2.
     private static readonly float[] Tokens = [1, 1, 1, 3, 3, 3];
@@ -15,7 +15,7 @@ public class EmbeddingPoolingTests
     [Fact]
     public void Means_over_the_attended_tokens()
     {
-        var vector = EmbeddingPooling.Reduce(Tokens, 3, [1, 1], OnnxPooling.Mean, normalize: false);
+        var vector = VectorPooling.Reduce(Tokens, 3, [1, 1], OnnxPooling.Mean, normalize: false);
 
         Assert.Equal([2f, 2f, 2f], vector);
     }
@@ -26,7 +26,7 @@ public class EmbeddingPoolingTests
         // The silent failure this guards: padding rows hold real numbers, not zeros, so a naive mean shifts
         // every vector by an amount that depends on how long the longest text in the BATCH happened to be —
         // which makes a document's embedding depend on its neighbours.
-        var vector = EmbeddingPooling.Reduce(Tokens, 3, [1, 0], OnnxPooling.Mean, normalize: false);
+        var vector = VectorPooling.Reduce(Tokens, 3, [1, 0], OnnxPooling.Mean, normalize: false);
 
         Assert.Equal([1f, 1f, 1f], vector);
     }
@@ -34,7 +34,7 @@ public class EmbeddingPoolingTests
     [Fact]
     public void Cls_pooling_takes_row_zero_and_ignores_the_rest()
     {
-        var vector = EmbeddingPooling.Reduce(Tokens, 3, [1, 1], OnnxPooling.Cls, normalize: false);
+        var vector = VectorPooling.Reduce(Tokens, 3, [1, 1], OnnxPooling.Cls, normalize: false);
 
         Assert.Equal([1f, 1f, 1f], vector);
     }
@@ -42,10 +42,10 @@ public class EmbeddingPoolingTests
     [Fact]
     public void Normalizes_to_unit_length_when_asked_and_not_when_not()
     {
-        var unit = EmbeddingPooling.Reduce(Tokens, 3, [1, 1], OnnxPooling.Mean, normalize: true);
+        var unit = VectorPooling.Reduce(Tokens, 3, [1, 1], OnnxPooling.Mean, normalize: true);
         Assert.Equal(1.0, Math.Sqrt(unit.Sum(v => (double)v * v)), 5);
 
-        var raw = EmbeddingPooling.Reduce(Tokens, 3, [1, 1], OnnxPooling.Mean, normalize: false);
+        var raw = VectorPooling.Reduce(Tokens, 3, [1, 1], OnnxPooling.Mean, normalize: false);
         Assert.True(Math.Sqrt(raw.Sum(v => (double)v * v)) > 1.5);
     }
 
@@ -54,7 +54,7 @@ public class EmbeddingPoolingTests
     {
         // Encode always emits [CLS]/[SEP] so this cannot arrive through the shipped path — but a NaN
         // compares false against everything, so it would poison a vector store silently instead of failing.
-        var vector = EmbeddingPooling.Reduce(Tokens, 3, [0, 0], OnnxPooling.Mean, normalize: true);
+        var vector = VectorPooling.Reduce(Tokens, 3, [0, 0], OnnxPooling.Mean, normalize: true);
 
         Assert.All(vector, v => Assert.Equal(0f, v));
     }
@@ -141,7 +141,7 @@ public class SentenceTransformerConfigTests : IDisposable
 }
 
 /// <summary>Composition failures — the ones a partial download actually produces.</summary>
-public class OnnxEmbedderCompositionTests : IDisposable
+public class OnnxProviderCompositionTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("lyntai-onnx-").FullName;
 
@@ -189,7 +189,7 @@ public class OnnxEmbedderCompositionTests : IDisposable
     }
 }
 
-/// <summary>The ONNX embedder against a REAL export, which nothing above can stand in for: everything else
+/// <summary>The ONNX vector backend against a REAL export, which nothing above can stand in for: everything else
 /// here tests a half (pooling arithmetic, a config reader, an error path) because an ONNX graph is protobuf
 /// and cannot be hand-built the way a safetensors fixture can.
 ///
@@ -212,9 +212,9 @@ public class OnnxProviderLiveTests
     [SkippableFact]
     public async Task A_real_model_ranks_a_related_pair_above_an_unrelated_one()
     {
-        using var embedder = Load();
+        using var vectorProvider = Load();
 
-        var vectors = await embedder.EmbedAsync([
+        var vectors = await vectorProvider.EmbedAsync([
             "the weather forecast for tomorrow",
             "a stock market share price quote",
             "tomorrow's weather forecast",
@@ -238,8 +238,8 @@ public class OnnxProviderLiveTests
     [SkippableFact]
     public async Task Agrees_with_the_PYTHON_reference_pipeline_to_four_decimals()
     {
-        using var embedder = Load();
-        var vectors = await embedder.EmbedAsync([
+        using var vectorProvider = Load();
+        var vectors = await vectorProvider.EmbedAsync([
             "the weather forecast for tomorrow",
             "a stock market share price quote",
             "tomorrow's weather forecast",
@@ -259,9 +259,9 @@ public class OnnxProviderLiveTests
         // all-MiniLM-L6-v2 lists a Normalize module, so its vectors are unit length without anyone asking.
         // Reading it wrong is invisible to cosine, which is scale-invariant — so nothing downstream would
         // report it, which is exactly why it is asserted here.
-        using var embedder = Load();
+        using var vectorProvider = Load();
 
-        var vector = (await embedder.EmbedAsync(["the weather forecast for tomorrow"]))[0];
+        var vector = (await vectorProvider.EmbedAsync(["the weather forecast for tomorrow"]))[0];
 
         Assert.Equal(1.0, Math.Sqrt(vector.Sum(v => (double)v * v)), 4);
     }
@@ -272,9 +272,9 @@ public class OnnxProviderLiveTests
         // The one capability a model2vec table has over this class, from the other side: a transformer has
         // positional embeddings, so an over-long input must be cut. Failing here would mean a single long
         // document could refuse a whole corpus.
-        using var embedder = Load();
+        using var vectorProvider = Load();
 
-        var vectors = await embedder.EmbedAsync([
+        var vectors = await vectorProvider.EmbedAsync([
             string.Join(' ', Enumerable.Repeat("alpha beta gamma", 4000)),
             "short",
         ]);
@@ -286,12 +286,12 @@ public class OnnxProviderLiveTests
     [SkippableFact]
     public async Task Reports_an_id_and_availability_like_every_other_provider()
     {
-        using var embedder = Load();
+        using var vectorProvider = Load();
 
-        Assert.Equal("onnx", embedder.Id);
-        Assert.True(embedder.IsAvailable);
-        Assert.Equal(512, embedder.MaxTokens);
-        Assert.NotEmpty((await embedder.EmbedAsync(["x"]))[0]);
+        Assert.Equal("onnx", vectorProvider.Id);
+        Assert.True(vectorProvider.IsAvailable);
+        Assert.Equal(512, vectorProvider.MaxTokens);
+        Assert.NotEmpty((await vectorProvider.EmbedAsync(["x"]))[0]);
     }
 
     private static double Cosine(float[] a, float[] b)
@@ -305,7 +305,7 @@ public class OnnxProviderLiveTests
 /// <summary>How the adapter REGISTERS, which is a resource question rather than a wiring one.</summary>
 public class OnnxRegistrationTests
 {
-    private sealed class TrackingEmbedder : EmbeddingBackend, IDisposable
+    private sealed class TrackingVectorProvider : FakeVectorProviderBase, IDisposable
     {
         public bool WasDisposed { get; private set; }
 
@@ -325,28 +325,28 @@ public class OnnxRegistrationTests
     {
         // The premise behind registering through a factory: a provider holds a native session, so "the
         // container will clean it up" has to be true rather than assumed — and for this overload it is not.
-        var embedder = new TrackingEmbedder();
+        var vectorProvider = new TrackingVectorProvider();
         var services = new ServiceCollection();
-        services.AddSingleton<IModelProvider>(embedder);
+        services.AddSingleton<IModelProvider>(vectorProvider);
 
         var provider = services.BuildServiceProvider();
         _ = provider.GetRequiredService<IModelProvider>();
         provider.Dispose();
 
-        Assert.False(embedder.WasDisposed);
+        Assert.False(vectorProvider.WasDisposed);
     }
 
     [Fact]
     public void A_singleton_registered_through_a_FACTORY_is_disposed_by_the_container()
     {
-        var embedder = new TrackingEmbedder();
+        var vectorProvider = new TrackingVectorProvider();
         var services = new ServiceCollection();
-        services.AddSingleton<IModelProvider>(_ => embedder);
+        services.AddSingleton<IModelProvider>(_ => vectorProvider);
 
         var provider = services.BuildServiceProvider();
         _ = provider.GetRequiredService<IModelProvider>();
         provider.Dispose();
 
-        Assert.True(embedder.WasDisposed);
+        Assert.True(vectorProvider.WasDisposed);
     }
 }

@@ -43,7 +43,7 @@ public static class OnnxBuilderExtensions
         var options = new OnnxProviderOptions();
         configure?.Invoke(options);
 
-        return RegisterOwned(builder, OnnxProvider.FromDirectory(modelDirectory, options), embeds: true);
+        return RegisterOwned(builder, OnnxProvider.FromDirectory(modelDirectory, options));
     }
 
     /// <summary>Hands the container a built backend it will DISPOSE — the one registration site both calls
@@ -59,12 +59,12 @@ public static class OnnxBuilderExtensions
     /// missed on the other — and so `OnnxOwnershipTests` can assert the registration these methods really
     /// perform instead of restating the DI rule beside them.</para>
     ///
-    /// <para><paramref name="embeds"/> picks the collection: an embedding provider sets a composition-time
-    /// flag that decides whether <c>AddSemanticMemory</c> can be honoured, and a cross-encoder must not set
-    /// it — it produces scores, and claiming otherwise turns a clean composition failure into a runtime
-    /// one.</para></summary>
-    internal static LyntaiBuilder RegisterOwned(LyntaiBuilder builder, IModelProvider provider, bool embeds) =>
-        embeds ? builder.AddEmbeddingProvider(_ => provider) : builder.AddProvider(_ => provider);
+    /// <para><b>The capability is READ, never restated.</b> Both backends here are built before this runs,
+    /// so the declaration handed to composition is the provider's own — there is no second place to get it
+    /// wrong, and no parameter saying which kind this is (<c>docs/DECISIONS.md</c> <b>D152</b>). An earlier
+    /// shape took an <c>embeds</c> bool, which is a fact the object already carried.</para></summary>
+    internal static LyntaiBuilder RegisterOwned(LyntaiBuilder builder, IModelProvider provider) =>
+        builder.AddProvider(_ => provider, provider.Capabilities);
 
     /// <summary>
     /// Score <c>(query, document)</c> pairs IN PROCESS with a cross-encoder through ONNX Runtime — the
@@ -101,7 +101,6 @@ public static class OnnxBuilderExtensions
         var options = new OnnxCrossEncoderOptions();
         configure?.Invoke(options);
 
-        return RegisterOwned(
-            builder, OnnxCrossEncoder.FromDirectory(modelDirectory, options), embeds: false);
+        return RegisterOwned(builder, OnnxCrossEncoder.FromDirectory(modelDirectory, options));
     }
 }

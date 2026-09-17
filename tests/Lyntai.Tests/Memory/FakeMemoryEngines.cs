@@ -562,7 +562,7 @@ internal sealed class SubjectHostileGraphStore : IMemoryGraphStore
 }
 
 /// <summary>In-process <see cref="ISemanticMemory"/> whose "similarity" is substring containment, so a
-/// test needs no embedder and spends no tokens.</summary>
+/// test needs no vector backend and spends no tokens.</summary>
 internal sealed class FakeSemanticMemory : ISemanticMemory
 {
     private readonly List<(string Task, string Scope, string Content)> _entries = [];

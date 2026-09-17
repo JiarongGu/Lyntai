@@ -17,7 +17,7 @@ namespace Lyntai.Tests.Memory;
 /// with arithmetic; the engine had the numbers and did not pass them.</para>
 ///
 /// <para>These pin the DATA, not a policy. The library ships no score-floor verifier, because the floor is a
-/// property of the deployment's embedder and corpus — `generic-library` rule 7: a value only the deployment
+/// property of the deployment's vector backend and corpus — `generic-library` rule 7: a value only the deployment
 /// can know is the host's to supply.</para>
 /// </summary>
 public class MemoryVerificationRelevanceTests

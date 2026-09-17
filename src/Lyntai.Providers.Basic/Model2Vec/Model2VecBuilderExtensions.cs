@@ -1,11 +1,11 @@
-using Lyntai.Embeddings.Model2Vec;
+using Lyntai.Providers.Model2Vec;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 // Lives in the Lyntai namespace so the Add*/Use* methods appear on the builder.
 namespace Lyntai;
 
-/// <summary>DI entry point for the in-process static embedder. A consumer composes it through the builder
+/// <summary>DI entry point for the in-process static vector backend. A consumer composes it through the builder
 /// (<c>services.AddLyntai(cfg =&gt; cfg.AddModel2VecProvider(…))</c>) and never constructs its types by hand.</summary>
 public static class Model2VecBuilderExtensions
 {
@@ -38,13 +38,12 @@ public static class Model2VecBuilderExtensions
         var options = new Model2VecProviderOptions();
         configure?.Invoke(options);
 
-        var embedder = Model2VecProvider.FromDirectory(modelDirectory, options);
+        var provider = Model2VecProvider.FromDirectory(modelDirectory, options);
 
-        // A PROVIDER, not the embedder slot. Declaring ProviderOperation.Embed puts this backend in the
-        // same collection the router selects chat and media from, so several can be registered and told
-        // apart by id. There is no front door to resolve: routing over the capable ones is a helper the
-        // consumers share, not a seam (D151).
-        builder.AddEmbeddingProvider(_ => embedder);
+        // A PROVIDER like any other: it goes into the same collection the router selects chat and media
+        // from, so several can be registered and told apart by id (D151). Built already, so the declaration
+        // handed to composition is its OWN — never a restatement (D152).
+        builder.AddProvider(_ => provider, provider.Capabilities);
         return builder;
     }
 }

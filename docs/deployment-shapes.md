@@ -147,7 +147,7 @@ the static class too; what a consumer is choosing between is a package they can 
 one they cannot.
 
 **The static cell turned out to need NO package of its own**, which is the sharper form of that boundary.
-It was briefly `Lyntai.Embeddings.Model2Vec`, isolating `Microsoft.ML.Tokenizers` — until that dependency was
+It was briefly `Lyntai.Embeddings.Model2Vec`, isolating `Microsoft.ML.Tokenizers` — until that dependency was <!-- drift-ok: a historical note: what the package was briefly called -->
 measured at **812 KB** of closure (325,896 B, plus `Google.Protobuf`'s 489,568 B for the SentencePiece
 models it never loads) for one WordPiece call. Owning the tokenizer is ~250 lines, so the embedder folded
 into the dependency-free `Lyntai.Providers.Basic` and kept that package's `✅` trim/AOT row. **A package

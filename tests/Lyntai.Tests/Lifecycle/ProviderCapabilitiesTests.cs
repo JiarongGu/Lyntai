@@ -16,8 +16,8 @@ public class ProviderCapabilitiesTests
         Operations = operations,
     };
 
-    /// <summary>Text in, vectors out — an embedder, expressed as a KIND rather than an operation.</summary>
-    private static ProviderCapabilities Embedder() => new()
+    /// <summary>Text in, vectors out — a vector backend, expressed as a KIND rather than an operation.</summary>
+    private static ProviderCapabilities VectorProvider() => new()
     {
         Accepts = [ProviderKinds.Text],
         Produces = [ProviderKinds.Vector],
@@ -34,18 +34,18 @@ public class ProviderCapabilitiesTests
     }
 
     [Fact]
-    public void An_embedder_and_a_chat_model_differ_by_what_they_PRODUCE_not_by_operation()
+    public void A_vector_backend_and_a_chat_model_differ_by_what_they_PRODUCE_not_by_operation()
     {
         // The correction D130 makes. Both accept text and both deliver inline; the only difference is the
         // output kind — which is why "embed" was never an operation, and why one backend can declare BOTH.
         var chat = Text(ProviderOperation.Complete);
-        var embedder = Embedder();
+        var vectorProvider = VectorProvider();
 
         Assert.True(chat.Supports(ProviderKinds.Text, ProviderOperation.Complete));
         Assert.False(chat.Supports(ProviderKinds.Vector, ProviderOperation.Complete));
 
-        Assert.True(embedder.Supports(ProviderKinds.Vector, ProviderOperation.Complete));
-        Assert.False(embedder.Supports(ProviderKinds.Text, ProviderOperation.Complete));
+        Assert.True(vectorProvider.Supports(ProviderKinds.Vector, ProviderOperation.Complete));
+        Assert.False(vectorProvider.Supports(ProviderKinds.Text, ProviderOperation.Complete));
     }
 
     [Fact]

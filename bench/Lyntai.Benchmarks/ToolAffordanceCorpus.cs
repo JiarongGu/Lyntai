@@ -479,7 +479,7 @@ internal static class ToolAffordanceCorpus
     internal static string Declare(ToolSpec spec) =>
         $"- {spec.Name}: {spec.Description}\n  arguments JSON schema: {spec.Schema}\n";
 
-    /// <summary>What the embedder and the cross-encoder score a request against — the SAME text the model
+    /// <summary>What the vector backend and the cross-encoder score a request against — the SAME text the model
     /// reads, so no arm is scoring a representation another arm was not shown.</summary>
     internal static string Declaration(ToolSpec spec) => $"{spec.Name}: {spec.Description}";
 

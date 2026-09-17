@@ -8,11 +8,11 @@ namespace Lyntai.Lifecycle;
 /// <para><b>What a provider serves is DATA, not a type.</b> <see cref="Capabilities"/> declares what it
 /// <c>Accepts</c>, what it <c>Produces</c> and how it delivers, and a router checks that BEFORE dispatching
 /// — so a method a backend does not serve is never called, and declining one costs it no code. That is why
-/// there is no chat-provider and no embedding-provider: a chat model is text → text and an embedder is
+/// there is no chat-provider and no embedding-provider: a chat model is text → text and a vector backend is
 /// text → vector, which is a difference in a LIST (<c>docs/DECISIONS.md</c> D126, D127, D130).</para>
 ///
 /// <para><b>Every operation is DEFAULTED to <c>Unsupported</c></b>, so a backend implements only what it
-/// does. An embedder overrides
+/// does. A vector backend overrides
 /// <see cref="EmbedAsync(IReadOnlyList{string},Lyntai.Lifecycle.EmbeddingRole,CancellationToken)"/> and
 /// nothing else; a CLI chat backend overrides <see cref="CompleteAsync"/> and
 /// <see cref="StreamAsync(LlmRequest,CancellationToken)"/>.</para>

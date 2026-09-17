@@ -2,7 +2,7 @@ using Lyntai.Memory;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>The vector arithmetic every embedder backend and every brute-force store shares, so that two
+/// <summary>The vector arithmetic every vector backend backend and every brute-force store shares, so that two
 /// of them rank identically.
 ///
 /// <para><b>`NormalizeInPlace` was two copies in two packages</b> — the ONNX adapter's and the model2vec

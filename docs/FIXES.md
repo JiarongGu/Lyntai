@@ -17,9 +17,9 @@ refused a wiring, and told the consumer to do the thing it had just refused. `Ad
 doc made the same promise, and so did D151.
 
 **Root cause.** The pre-D151 guard had TWO conditions — a builder flag (`EmbeddingProviderRegistered`, set
-by `AddEmbeddingProvider`) **and** a descriptor scan for a registered `IEmbedder`. Deleting the interface
+by `AddEmbeddingProvider`) **and** a descriptor scan for a registered `IEmbedder`. Deleting the interface <!-- drift-ok: the fix entry records the pre-D152 spelling -->
 removed the type the scan looked for, and the scan went with it instead of being repointed. Only the flag
-survived, and nothing but `AddEmbeddingProvider` sets it. Every SHIPPED backend was fine — Model2Vec, Onnx
+survived, and nothing but `AddEmbeddingProvider` sets it. Every SHIPPED backend was fine — Model2Vec, Onnx <!-- drift-ok: the fix entry records the pre-D152 spelling -->
 and the HTTP provider all funnel through that method — so only bring-your-own broke, which is the half no
 shipped test covered.
 

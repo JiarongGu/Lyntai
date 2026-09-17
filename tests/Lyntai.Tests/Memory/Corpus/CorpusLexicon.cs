@@ -179,16 +179,16 @@ internal abstract class CorpusLexicon
     ///
     /// <para><b>Why the corpus needs them.</b> Every other class here defines relevance LEXICALLY — the
     /// query names the id or shares a word — so a semantic neighbour is wrong BY CONSTRUCTION, and an
-    /// embedder can only ever be measured costing slots it never earns back (`docs/task-archive.md` Part 69,
+    /// vector backend can only ever be measured costing slots it never earns back (`docs/task-archive.md` Part 69,
     /// where
     /// enabling one raised the miss rate from 0.5357 to 0.8357). This is the one class that asks a question
     /// the lexical path cannot answer at all, so it is the only place the enrichment can show an upside.</para>
     ///
-    /// <para><b>A bag-of-words test double cannot serve this.</b> <c>FakeEmbedder</c> is a feature-hashed
+    /// <para><b>A bag-of-words test double cannot serve this.</b> <c>FakeVectorProvider</c> is a feature-hashed
     /// bag of WORDS, so "semantic similarity" in it IS word overlap — and a cue sharing no words is exactly
     /// as invisible to it as to the lexical path. This class therefore only means anything against a REAL
     /// embedding model, which is a limit of the instrument rather than of the idea, and is stated here so
-    /// nobody measures it with the double and concludes the embedder does not help.</para>
+    /// nobody measures it with the double and concludes the vector backend does not help.</para>
     ///
     /// <para>The no-shared-term property is asserted in <c>MemoryCorpusTests</c> rather than trusted: if a
     /// pair ever overlaps, the class silently becomes an ordinary keyword recall and would report semantic

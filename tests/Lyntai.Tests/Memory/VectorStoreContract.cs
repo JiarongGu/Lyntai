@@ -14,7 +14,7 @@ namespace Lyntai.Tests.Memory;
 /// the in-process store, or swapping pgvector's <c>&lt;=&gt;</c> for <c>&lt;#&gt;</c>, passed. Found
 /// 2026-08-14 by the whole-codebase review.</para>
 ///
-/// <para>That matters beyond tidiness. <c>IVectorStore</c> takes whatever an <c>IEmbedder</c> produces and
+/// <para>That matters beyond tidiness. <c>IVectorStore</c> takes whatever an <c>ProviderKinds.Vector</c> backend produces and
 /// not every embedding model returns normalised vectors, while <c>ISemanticMemory</c>'s <c>minScore</c>
 /// treats the result as a cosine in <c>[-1, 1]</c>. An unbounded dot product makes that threshold mean
 /// nothing — and mean something DIFFERENT on each backend.</para>

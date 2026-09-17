@@ -23,8 +23,8 @@ namespace Lyntai.Benchmarks;
 /// applies <see cref="SalienceRetentionPolicy"/> identically, so decay resistance and store admission — the
 /// two consumers of salience that are not ranking — are held constant.</para>
 ///
-/// <para><b>It refuses to run without a real embedder, for a sharper reason than cost.</b> Salience reads
-/// NOVELTY, which the engine derives from a similarity search it performs only when an embedder and a vector
+/// <para><b>It refuses to run without a real vector backend, for a sharper reason than cost.</b> Salience reads
+/// NOVELTY, which the engine derives from a similarity search it performs only when a vector backend and a vector
 /// store are both present; without them <see cref="StructuralSaliencePolicy"/> declines on every write. RRF
 /// then ranks by COMPETITION (<b>D82</b>), so a uniformly-absent signal contributes the same constant at
 /// every weight and every arm is the same engine.</para>
@@ -67,8 +67,8 @@ internal static class MemorySalienceWeightSweep
     public static async Task<int> RunAsync(bool acrossLanguages = false)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
-        var embedder = await SweepDoubles.TryRealEmbedderAsync(http, "memory-salience-weight");
-        if (embedder is null) return 1;
+        var vectorProvider = await SweepDoubles.TryRealVectorProviderAsync(http, "memory-salience-weight");
+        if (vectorProvider is null) return 1;
 
         var stopwatch = Stopwatch.StartNew();
         var agePolicy = new PerWriteAgePolicy();
@@ -126,7 +126,7 @@ internal static class MemorySalienceWeightSweep
                 // the only thing the ladder moves is how loudly salience speaks in the ranking.
                 retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
                 agePolicies: [agePolicy],
-                providers: [embedder],
+                providers: [vectorProvider],
                 vectors: new InMemoryVectorStore(),
                 saliencePolicies: [counting],
                 ranking: ranking);
@@ -147,7 +147,7 @@ internal static class MemorySalienceWeightSweep
             new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
             async (item, _) => await RunOneAsync(item.seed, item.shape, item.arm, item.lang));
 
-        var measurable = PrintControls([.. judged], [.. orderChecks], embedder);
+        var measurable = PrintControls([.. judged], [.. orderChecks], vectorProvider);
         foreach (var language in languages)
         {
             if (languages.Length > 1) Console.WriteLine($"--- {language} ---\n");
@@ -162,7 +162,7 @@ internal static class MemorySalienceWeightSweep
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s over {seeds.Count} seed(s) x "
             + $"{shapes.Length} shape(s) x {arms.Length} arm(s) x {languages.Length} language(s); "
-            + $"{embedder.Misses} embed call(s), {embedder.Hits} cache hit(s).");
+            + $"{vectorProvider.Misses} embed call(s), {vectorProvider.Hits} cache hit(s).");
         return 0;
     }
 
@@ -229,7 +229,7 @@ internal static class MemorySalienceWeightSweep
         Console.WriteLine($"  arms (SalienceWeight): {string.Join(", ", arms.Select(a => a.Label))}");
         Console.WriteLine($"  shapes:                {string.Join(", ", shapes.Select(s => s.Label))}");
         Console.WriteLine($"  languages:             {string.Join(", ", languages)}");
-        Console.WriteLine($"  seeds: {SeedCount}, limit {QueryLimit}, embedder {SweepDoubles.Model} (REAL)");
+        Console.WriteLine($"  seeds: {SeedCount}, limit {QueryLimit}, vector backend {SweepDoubles.Model} (REAL)");
         Console.WriteLine();
         Console.WriteLine("  `1.0` is the SHIPPED default. Retention and store admission are identical in every");
         Console.WriteLine("  arm, so a difference is the ranking voice and nothing else.\n");
@@ -240,7 +240,7 @@ internal static class MemorySalienceWeightSweep
     /// </summary>
     /// <returns>Whether the swept signal genuinely varied — false makes every number here uninterpretable.</returns>
     private static bool PrintControls(IReadOnlyList<(string Arm, int Salient, int Judged, int Distinct)> judged,
-        IReadOnlyList<bool> order, SweepDoubles.CachingEmbedder embedder)
+        IReadOnlyList<bool> order, SweepDoubles.CachingVectorProvider vectorProvider)
     {
         Console.WriteLine("Controls:");
 
@@ -280,7 +280,7 @@ internal static class MemorySalienceWeightSweep
             Console.WriteLine("    The weight must not change what is WRITTEN. Arms differ in more than ranking.");
 
         Console.WriteLine($"  corpus replay order preserved in {order.Count(o => o)}/{order.Count} cell(s)");
-        Console.WriteLine($"  embedder: {embedder.Misses} call(s), {embedder.Hits} cache hit(s) — one set of");
+        Console.WriteLine($"  vector backend: {vectorProvider.Misses} call(s), {vectorProvider.Hits} cache hit(s) — one set of");
         Console.WriteLine("    vectors shared by every arm, which is what makes the comparison paired.");
         Console.WriteLine();
         return measurable;

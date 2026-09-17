@@ -21,9 +21,9 @@ public class MemoryTaskIsolationTests
     private const string Engine = "isolation";
 
     private static GraphMemoryEngine NewEngine(IMemoryGraphStore store,
-        IModelProvider? embedder = null, IVectorStore? vectors = null, GraphMemoryOptions? options = null) =>
+        IModelProvider? vectorProvider = null, IVectorStore? vectors = null, GraphMemoryOptions? options = null) =>
         new(Engine, store, options, agePolicies: [new PerWriteAgePolicy()],
-            providers: embedder is null ? null : [embedder], vectors: vectors);
+            providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors);
 
     [Fact]
     public async Task A_recall_never_returns_another_task_s_material()
@@ -54,7 +54,7 @@ public class MemoryTaskIsolationTests
         // (addressed per task and scope), and subject linking looks up NodesBySubjectAsync with the write's
         // own task. This exercises the first two together and requires zero degree across the boundary.
         var store = new InMemoryMemoryGraphStore();
-        var engine = NewEngine(store, new FakeEmbedder(), new InMemoryVectorStore(),
+        var engine = NewEngine(store, new FakeVectorProvider(), new InMemoryVectorStore(),
             new GraphMemoryOptions { MinSimilarity = 0.1 });   // link freely — the point is that it still cannot cross
 
         foreach (var task in new[] { "mine", "theirs" })

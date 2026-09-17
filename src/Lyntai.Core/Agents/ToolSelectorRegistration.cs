@@ -28,7 +28,7 @@ public static class ToolSelectorRegistration
     /// </summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="configure">Knobs; null takes the defaults.</param>
-    public static LyntaiBuilder AddEmbeddingToolSelector(this LyntaiBuilder builder,
+    public static LyntaiBuilder AddVectorToolSelector(this LyntaiBuilder builder,
         Action<ToolSelectorOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -39,7 +39,7 @@ public static class ToolSelectorRegistration
         // TryAdd, so a consumer's own IToolSelector registered before this call wins outright — the same
         // BYO story every other seam in this library has.
         builder.Services.TryAddSingleton<IToolSelector>(sp =>
-            new EmbeddingToolSelector(sp.GetServices<IModelProvider>(), options));
+            new VectorToolSelector(sp.GetServices<IModelProvider>(), options));
 
         return builder;
     }

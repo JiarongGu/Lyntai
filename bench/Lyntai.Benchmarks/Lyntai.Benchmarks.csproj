@@ -52,7 +52,7 @@
          (which is half of why salience had never been measured). Linked for the same reason as the two
          above — and it is the right file rather than a bench-local copy precisely because a second embedder
          would make "novel" mean something different here than it does in the tests. -->
-    <Compile Include="..\..\tests\Lyntai.Tests\Fakes\FakeEmbedder.cs" Link="Fakes\FakeEmbedder.cs" />
+    <Compile Include="..\..\tests\Lyntai.Tests\Fakes\FakeVectorProvider.cs" Link="Fakes\FakeVectorProvider.cs" />
     <!-- The similarity-index ADDRESS, linked for the same one-spelling reason and NOT reached through an
          InternalsVisibleTo. The locomo semantic control spelled it by hand, held `locomo|conv|scope` after
          the engine moved to U+001F, and reported "vectors=0" over a fully populated store — which reads as a

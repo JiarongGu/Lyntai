@@ -22,7 +22,7 @@ namespace Lyntai.Benchmarks;
 /// score from here is therefore NOT comparable to a published one, and the run says so in its own output.
 /// What IS comparable is the arm difference: every arm answers the same questions with the same reader, so
 /// the only thing varying is the memory layer.</para>
-/// <para><b>The ablation is the point.</b> <c>vector</c> is the same embedder and the same k with no graph,
+/// <para><b>The ablation is the point.</b> <c>vector</c> is the same vector backend and the same k with no graph,
 /// no decay, no salience and no ranking policy — so <c>lyntai</c> minus <c>vector</c> is what this library
 /// adds over plain similarity search. <c>full</c> puts the whole conversation in the prompt and is the
 /// no-memory-needed ceiling. See <c>docs/memory-measurements.md</c> §5.</para>
@@ -132,7 +132,7 @@ internal static class MemoryLocomoBench
 
         // `--verdict` needs a reader (it scores token-F1 over the QA arms); `--retrieval` needs none. Left
         // unchecked, the two together would drop `needsReader` to false while the verdict arms still expect
-        // one, so refuse here — before spending an embedder connection on a run that cannot proceed — rather
+        // one, so refuse here — before spending a vector backend connection on a run that cannot proceed — rather
         // than let that surface later as a confusing failure.
         if (args.Contains("--verdict") && args.Contains("--retrieval"))
         {
@@ -142,10 +142,10 @@ internal static class MemoryLocomoBench
         }
 
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
-        var embedder = await SweepDoubles.TryRealEmbedderAsync(http, "memory-locomo");
-        if (embedder is null) return 1;
+        var vectorProvider = await SweepDoubles.TryRealVectorProviderAsync(http, "memory-locomo");
+        if (vectorProvider is null) return 1;
         // The retrieval diagnostic needs no reader at all, so it does not demand one — a machine with an
-        // embedder but no chat model can still run the half that measures the memory layer.
+        // vector backend but no chat model can still run the half that measures the memory layer.
         // `--shots` is the diagnostic for what this engine is actually FOR: a first load that is small and
         // only related, then expansion that buys the detail. It needs no reader — evidence-hit per shot is
         // the model-free form of "did shot 2 find the memory shot 1 only pointed at" — and it prices each
@@ -302,7 +302,7 @@ internal static class MemoryLocomoBench
         var (conversations, questions) = Load(path);
         var sampled = Stratify(questions, take);
 
-        PrintPreamble(chat?.Model ?? "(none - retrieval only)", embedder,
+        PrintPreamble(chat?.Model ?? "(none - retrieval only)", vectorProvider,
             conversations.Count, questions.Count, sampled.Count, arms,
             retrievalOnly || shotsOnly || ranksOnly, composition);
 
@@ -676,7 +676,7 @@ internal static class MemoryLocomoBench
                 },
 
                 // The FORMULA arms (2026-08-31): they test what makes the judge an add-on rather than a
-                // rescue. `vector` is PURE tier-2 — one embedder, cosine, no graph, no judge — and scores
+                // rescue. `vector` is PURE tier-2 — one vector backend, cosine, no graph, no judge — and scores
                 // 80.5%, above this engine WITH a perfect judge at 77.5%. A plain formula beating
                 // formula-plus-oracle puts the deficit in the formula tier, which is the shape
                 // `model-decoupling.md` warns about: a model becoming the floor rather than the ceiling.
@@ -940,17 +940,17 @@ internal static class MemoryLocomoBench
             // in the text every arm reads, so none is advantaged.
             var texts = turns.Select(t => $"[{t.Date}] ({t.DiaId}) {t.Speaker}: {t.Text}").ToList();
             var vectorIndex = new List<(string Text, float[] Vector)>();
-            foreach (var text in texts) vectorIndex.Add((text, await embedder.EmbedAsync(text)));
+            foreach (var text in texts) vectorIndex.Add((text, await vectorProvider.EmbedAsync(text)));
 
             // dia_id -> the WHOLE turn, for the rehydration arm. Built by INDEX against `texts` rather than
             // by projecting `turns` again, so the two can never disagree about what a turn's text is.
             var byDiaId = new Dictionary<string, string>(StringComparer.Ordinal);
             for (var i = 0; i < turns.Count; i++) byDiaId[turns[i].DiaId] = texts[i];
 
-            // Warm the QUERY embeddings before anything is timed. The embedder cache is shared across arms,
+            // Warm the QUERY embeddings before anything is timed. The vector backend cache is shared across arms,
             // so whichever arm ran first would otherwise pay for every embed and the ms column would be
             // measuring arm ORDER rather than retrieval work.
-            if (shotsOnly) foreach (var q in mine) await embedder.EmbedAsync(q.Text);
+            if (shotsOnly) foreach (var q in mine) await vectorProvider.EmbedAsync(q.Text);
 
             var recalled = new Dictionary<(string Arm, string Question), List<string>>();
             foreach (var (arm, options, ranking, verification, semanticK) in configs)
@@ -971,12 +971,12 @@ internal static class MemoryLocomoBench
                     ? [new LexicalSeedSource()]
                     : semanticK is { } k
                         ? [new LexicalSeedSource(), new SubjectSeedSource(),
-                            new SemanticSeedSource([embedder], vectors, new SemanticSeedOptions { K = k })]
+                            new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = k })]
                         : null;
 
                 var ingest = new GraphMemoryEngine("locomo",
                     new SqliteMemoryGraphStore(template.Factory), options: options,
-                    providers: [embedder], vectors: vectors, ranking: ranking, verification: verification,
+                    providers: [vectorProvider], vectors: vectors, ranking: ranking, verification: verification,
                     seedSources: seeds);
 
                 foreach (var text in texts)
@@ -988,7 +988,7 @@ internal static class MemoryLocomoBench
                 // READ, and it is the one being cloned.
                 GraphMemoryEngine Fresh(MemoryPolicySweep.SweepDb clone) =>
                     new("locomo", new SqliteMemoryGraphStore(clone.Factory), options: options,
-                        providers: [embedder], vectors: vectors, ranking: ranking, verification: verification,
+                        providers: [vectorProvider], vectors: vectors, ranking: ranking, verification: verification,
                         seedSources: seeds);
 
                 // CONTROL, added for docs/task-archive.md Part 233: a semantic width of 20 moved
@@ -1007,7 +1007,7 @@ internal static class MemoryLocomoBench
                     // after the address moved to a U+001F separator and reported vectors=0 over a fully
                     // populated store — a false zero that reads as a dead channel (docs/FIXES.md).
                     var collection = MemoryVectorCollection.For("locomo", convId, "session");
-                    var probeVector = await embedder.EmbedAsync(mine[0].Text);
+                    var probeVector = await vectorProvider.EmbedAsync(mine[0].Text);
                     var all = await vectors.SearchAsync(collection, probeVector, 100_000);
                     var topK = await vectors.SearchAsync(collection, probeVector, RecallLimit);
                     var collections = await vectors.ListCollectionsAsync(
@@ -1162,7 +1162,7 @@ internal static class MemoryLocomoBench
                     foreach (var (arm, k) in new[] { ("vector", RecallLimit), ($"vector-{ShotBudget}", ShotBudget) })
                     {
                         var clock = Stopwatch.StartNew();
-                        var got = (await TopKAsync(embedder, vectorIndex, q.Text, k)).ToList();
+                        var got = (await TopKAsync(vectorProvider, vectorIndex, q.Text, k)).ToList();
                         millis[arm] = millis.GetValueOrDefault(arm) + clock.Elapsed.TotalMilliseconds;
                         var key = (arm, q.Category);
                         asked[key] = asked.GetValueOrDefault(key) + 1;
@@ -1191,7 +1191,7 @@ internal static class MemoryLocomoBench
                 // itself would give the walk near-duplicate items through no fault of the walk.
                 foreach (var q in mine)
                     Record($"vector-{ShotBudget}",
-                        (await TopKAsync(embedder, vectorIndex, q.Text, ShotBudget)).ToList(), null);
+                        (await TopKAsync(vectorProvider, vectorIndex, q.Text, ShotBudget)).ToList(), null);
 
                 Console.WriteLine($"  {convId}: {turns.Count} turns ingested, "
                     + $"{mine.Count} question(s) composed");
@@ -1214,7 +1214,7 @@ internal static class MemoryLocomoBench
                 {
                     var sets = configs.Select(c => (Arm: c.Name, Got: recalled[(c.Name, q.Text)]))
                         .Append((Arm: "vector",
-                            Got: (await TopKAsync(embedder, vectorIndex, q.Text, RecallLimit)).ToList()));
+                            Got: (await TopKAsync(vectorProvider, vectorIndex, q.Text, RecallLimit)).ToList()));
 
                     foreach (var (arm, got) in sets)
                     {
@@ -1240,9 +1240,9 @@ internal static class MemoryLocomoBench
                     // than two independently-drawn ones.
                     IReadOnlyList<string> pieces = arm switch
                     {
-                        "vector" => [.. await TopKAsync(embedder, vectorIndex, q.Text, RecallLimit)],
+                        "vector" => [.. await TopKAsync(vectorProvider, vectorIndex, q.Text, RecallLimit)],
                         _ when arm == $"vector-{ShotBudget}" =>
-                            [.. await TopKAsync(embedder, vectorIndex, q.Text, ShotBudget)],
+                            [.. await TopKAsync(vectorProvider, vectorIndex, q.Text, ShotBudget)],
                         "full" => texts,
                         // Reuses the one-shot fused arm's OWN returned set — not a second recall — so
                         // retrieval, ranking and slot count are held exactly and only the text differs.
@@ -1408,18 +1408,18 @@ internal static class MemoryLocomoBench
 
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"vector backend {vectorProvider.Misses} call(s), {vectorProvider.Hits} cache hit(s)"
             + $"{TruncationNote()}.");
         return 0;
     }
 
-    /// <summary>Cosine top-k over the SAME embedder — the naive-RAG arm, with no graph, decay, salience or
+    /// <summary>Cosine top-k over the SAME vector backend — the naive-RAG arm, with no graph, decay, salience or
     /// ranking policy in the path. It is the ablation the arm table rests on, so it deliberately shares the
-    /// embedder instance rather than building a second one.</summary>
+    /// vector backend instance rather than building a second one.</summary>
     private static async Task<IEnumerable<string>> TopKAsync(
-        IModelProvider embedder, List<(string Text, float[] Vector)> index, string query, int k)
+        IModelProvider vectorProvider, List<(string Text, float[] Vector)> index, string query, int k)
     {
-        var q = await embedder.EmbedAsync(query);
+        var q = await vectorProvider.EmbedAsync(query);
         return index.Select(e => (e.Text, Score: Cosine(q, e.Vector)))
             .OrderByDescending(e => e.Score).Take(k).Select(e => e.Text);
     }
@@ -1547,8 +1547,8 @@ internal static class MemoryLocomoBench
     /// <summary>The truncation footer, empty when nothing was cut. A run that truncated and did not say so
     /// would be claiming to have embedded text it did not.</summary>
     private static string TruncationNote() =>
-        SweepDoubles.OpenAiCompatibleEmbedder.Truncated is var cut and > 0
-            ? $", {cut} input(s) truncated to {SweepDoubles.OpenAiCompatibleEmbedder.MaxInputChars} chars"
+        SweepDoubles.OpenAiCompatibleVectorProvider.Truncated is var cut and > 0
+            ? $", {cut} input(s) truncated to {SweepDoubles.OpenAiCompatibleVectorProvider.MaxInputChars} chars"
             : "";
 
     private static string? ArgValue(string[] args, string name)
@@ -1557,7 +1557,7 @@ internal static class MemoryLocomoBench
         return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
     }
 
-    private static void PrintPreamble(string model, SweepDoubles.CachingEmbedder embedder,
+    private static void PrintPreamble(string model, SweepDoubles.CachingVectorProvider vectorProvider,
         int conversations, int total, int sampled, IReadOnlyList<string> arms, bool retrievalOnly,
         bool composition)
     {
@@ -1574,7 +1574,7 @@ internal static class MemoryLocomoBench
             Console.WriteLine();
             Console.WriteLine($"Conversations: {conversations}   Questions: {sampled} of {total}, seeded {Seed}");
             Console.WriteLine($"Arms: {string.Join(", ", arms)}   recall limit {RecallLimit}   "
-                + $"seeds/step {expandSeeds}   embedder {SweepDoubles.ServedOrRequestedModel}");
+                + $"seeds/step {expandSeeds}   vector backend {SweepDoubles.ServedOrRequestedModel}");
             Console.WriteLine();
             Console.WriteLine("`seeds/step` MUST match the run being explained - the QA table it decomposes was");
             Console.WriteLine("taken at 16, and this mode defaults to 3. The control at the foot checks it.");
@@ -1593,7 +1593,7 @@ internal static class MemoryLocomoBench
             Console.WriteLine("verifier reorders their candidates before the cut, so they price PROMOTION.");
             Console.WriteLine();
             Console.WriteLine($"Conversations: {conversations}   Questions: {sampled} of {total}, seeded {Seed}");
-            Console.WriteLine($"Arms: {string.Join(", ", arms)}   k = {RecallLimit}   embedder {SweepDoubles.ServedOrRequestedModel}");
+            Console.WriteLine($"Arms: {string.Join(", ", arms)}   k = {RecallLimit}   vector backend {SweepDoubles.ServedOrRequestedModel}");
             Console.WriteLine();
             return;
         }
@@ -1607,7 +1607,7 @@ internal static class MemoryLocomoBench
         Console.WriteLine();
         Console.WriteLine($"Conversations: {conversations}   Scored categories: 1-4 (the published protocol)");
         Console.WriteLine($"Questions: {sampled} sampled from {total}, seeded {Seed}, stratified by category");
-        Console.WriteLine($"Arms: {string.Join(", ", arms)}   recall limit {RecallLimit}   embedder {SweepDoubles.ServedOrRequestedModel}");
+        Console.WriteLine($"Arms: {string.Join(", ", arms)}   recall limit {RecallLimit}   vector backend {SweepDoubles.ServedOrRequestedModel}");
         Console.WriteLine();
         Console.WriteLine("The grader is the SAME model that answered, which can be generous to its own");
         Console.WriteLine("phrasing. Stated rather than hidden; a second grader is the obvious next control.");

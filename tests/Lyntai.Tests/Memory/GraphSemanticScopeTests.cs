@@ -16,7 +16,7 @@ namespace Lyntai.Tests.Memory;
 /// same query answered when a scope was named and returned nothing when it was not, which is the COMMON
 /// case.</para>
 ///
-/// <para><b>The embedder is scripted, not fuzzy</b>, because the subject is the collection the search runs
+/// <para><b>The vector backend is scripted, not fuzzy</b>, because the subject is the collection the search runs
 /// against and not similarity quality. A word-overlap double could not tell "found semantically" apart from
 /// "found lexically" — the query below shares no term with any content, so the lexical seed is empty by
 /// construction and every hit here is the semantic path or nothing.</para></summary>
@@ -30,7 +30,7 @@ public class GraphSemanticScopeTests
 
     /// <summary>Exact text to exact vector. Anything unscripted is orthogonal to both, so an accidental
     /// match cannot pass this test.</summary>
-    private sealed class ScriptedEmbedder : EmbeddingBackend
+    private sealed class ScriptedVectorProvider : FakeVectorProviderBase
     {
         private static readonly Dictionary<string, float[]> Map = new(StringComparer.Ordinal)
         {
@@ -71,14 +71,14 @@ public class GraphSemanticScopeTests
     private static (GraphMemoryEngine Engine, CapturingLogger Log) Build(int seedK)
     {
         var log = new CapturingLogger();
-        var embedder = new ScriptedEmbedder();
+        var vectorProvider = new ScriptedVectorProvider();
         var vectors = new InMemoryVectorStore();
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            logger: log, providers: embedder is null ? null : [embedder], vectors: vectors,
+            logger: log, providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors,
             seedSources: seedK <= 0
                 ? [new LexicalSeedSource()]
                 : [new LexicalSeedSource(),
-                    new SemanticSeedSource([embedder], vectors, new SemanticSeedOptions { K = seedK }, log)]);
+                    new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = seedK }, log)]);
         return (engine, log);
     }
 
@@ -140,12 +140,12 @@ public class GraphSemanticScopeTests
     public async Task A_store_that_cannot_list_leaves_the_unscoped_path_empty_and_the_scoped_path_working()
     {
         var log = new CapturingLogger();
-        var embedder = new ScriptedEmbedder();
+        var vectorProvider = new ScriptedVectorProvider();
         var vectors = new UnlistableVectorStore();
         var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
-            logger: log, providers: embedder is null ? null : [embedder], vectors: vectors,
+            logger: log, providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors,
             seedSources: [new LexicalSeedSource(),
-                new SemanticSeedSource([embedder], vectors, new SemanticSeedOptions { K = 3 }, log)]);
+                new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = 3 }, log)]);
         await SeedAsync(engine);
 
         Assert.Empty((await engine.RecallAsync(new MemoryQuery("household", null, Query))).Items);

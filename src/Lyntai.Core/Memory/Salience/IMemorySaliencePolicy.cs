@@ -24,7 +24,7 @@ namespace Lyntai.Memory.Salience;
 /// floor on density and never a census.</b> A write resembling far more than that reports only as many as
 /// were fetched, and a policy must read it as "at least this many" rather than as a count of the
 /// scope.</para>
-/// <para><c>0</c> when no similarity search ran — no embedder, no vector store, or
+/// <para><c>0</c> when no similarity search ran — no vector backend, no vector store, or
 /// <c>SimilarityK &lt;= 0</c>. Nothing to compare against is no information, exactly as
 /// <paramref name="Novelty"/> reports it.</para></param>
 public readonly record struct SalienceContext(

@@ -188,7 +188,7 @@ public class ReciprocalRankFusionPolicyTests
     {
         // THE fact that would have caught F1 — and it needs TWO signals tied at once to actually
         // discriminate the bug, mirroring the exact adversarial shape the fix report worked out by hand.
-        // The library's own DEFAULT deployment ties exactly these two together: no embedder/vector store
+        // The library's own DEFAULT deployment ties exactly these two together: no vector backend/vector store
         // makes StructuralSaliencePolicy report the identical neutral salience for every node, AND a
         // fresh graph (or Hops = 0) makes every hit hop 0 — salience and hop tie SIMULTANEOUSLY, not in
         // isolation. Five candidates, real signals (relevance, retrievability) assigned the OPPOSITE way

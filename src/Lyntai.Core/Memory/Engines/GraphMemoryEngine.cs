@@ -55,7 +55,7 @@ namespace Lyntai.Memory.Engines;
 /// model-free floor: without it the graph still forms from co-activation and explicit links.</param>
 /// <param name="vectors">Optional; see <paramref name="providers"/>.</param>
 /// <param name="saliencePolicies">Judge how strongly a write is encoded — the coexisting salience dimensions
-/// in play; null or empty takes a single <see cref="StructuralSaliencePolicy"/>. Without an embedder there is
+/// in play; null or empty takes a single <see cref="StructuralSaliencePolicy"/>. Without a vector backend there is
 /// no novelty to judge and it reports nothing.</param>
 /// <param name="salienceComposition">How several coexisting salience policies' bags combine into one; null
 /// takes <see cref="MaximalSalienceCompositionPolicy"/>. Irrelevant when only one salience policy is
@@ -307,7 +307,7 @@ public sealed class GraphMemoryEngine(
     // an engine with no vector store never pays for the other one at all.
     private bool Enriches => vectors is not null && EmbeddingRouting.CanEmbed(providers);
 
-    /// <summary>This engine embeds every write and no recall reads those vectors — an embedder and a vector
+    /// <summary>This engine embeds every write and no recall reads those vectors — a vector backend and a vector
     /// store are wired, so novelty and similarity linking run on the WRITE path, while no
     /// <see cref="SemanticSeedSource"/> is registered so the READ path consults none of it. Still the shipped
     /// default: the vector channel is opt-in (<c>AddMemorySemanticSeeds</c>).
@@ -477,11 +477,11 @@ public sealed class GraphMemoryEngine(
     }
 
     /// <summary>The one embed and similarity search a write needs, shared by <see cref="Probe"/> (novelty,
-    /// before the node has an id) and <see cref="EnrichAsync"/> (linking + indexing, after) — an embedder
+    /// before the node has an id) and <see cref="EnrichAsync"/> (linking + indexing, after) — a vector backend
     /// that bills a network call per invocation is paid ONCE per write, never twice for one.
-    /// <para>Null when nothing is enriched (no embedder/vector store wired, or
+    /// <para>Null when nothing is enriched (no vector backend/vector store wired, or
     /// <see cref="GraphMemoryOptions.SimilarityK"/> is non-positive) or when the search itself fails —
-    /// BEST-EFFORT, exactly like the enrichment it now backs: a failing embedder must not fail the
+    /// BEST-EFFORT, exactly like the enrichment it now backs: a failing vector backend must not fail the
     /// write.</para>
     /// <para>Searches <see cref="GraphMemoryOptions.SimilarityK"/> + 1 because, on a re-remember, this
     /// write's own PRIOR vector — from the earlier write of identical content — is still sitting in the
@@ -582,7 +582,7 @@ public sealed class GraphMemoryEngine(
     /// <summary>Link a newly stored entry to its nearest existing neighbours and index its own vector, from
     /// the similarity search <see cref="RememberAsync"/> already ran to judge it — no second embed or
     /// search.
-    /// <para>BEST-EFFORT, deliberately: enrichment sits on top of a model-free floor, so a failing embedder
+    /// <para>BEST-EFFORT, deliberately: enrichment sits on top of a model-free floor, so a failing vector backend
     /// or vector store must not fail the write. The entry is already stored by the time this runs — it
     /// simply has fewer connections than it might have had, or (when the shared search already failed) none
     /// at all, and is not indexed for anyone else's similarity search either.</para></summary>
@@ -697,7 +697,7 @@ public sealed class GraphMemoryEngine(
 
     /// <summary>The candidate set, or <c>null</c> where <see cref="RecallAsync"/>'s fail-open promise fired.
     /// <para>The CHOKE POINT of the fail-open chain: <see cref="GatherAsync"/> runs every registered
-    /// <c>IMemorySeedSource</c>, so a BYO embedder or store timing out anywhere below surfaces here. Nothing
+    /// <c>IMemorySeedSource</c>, so a BYO vector backend or store timing out anywhere below surfaces here. Nothing
     /// between this and the seed source catches, so a bare rethrow would break the promise whatever the
     /// sources did.</para></summary>
     private async Task<List<GatheredCandidate>?> TryGatherAsync(MemoryQuery query, int limit, CancellationToken ct)
@@ -1085,7 +1085,7 @@ public sealed class GraphMemoryEngine(
     /// whole collection rather than the ids still present.</para></summary>
     private async Task ForgetVectorsAsync(string taskKey, string? scope, CancellationToken ct)
     {
-        // `vectors`, not `Enriches`: an engine whose embedder was removed still has to erase what an earlier
+        // `vectors`, not `Enriches`: an engine whose vector backend was removed still has to erase what an earlier
         // configuration indexed.
         if (vectors is null) return;
 

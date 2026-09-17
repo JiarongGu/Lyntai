@@ -15,30 +15,28 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 17 across 7 Parts: 10 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 15 across 6 Parts: 8 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 118 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 135 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 168 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 221 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 240 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 289 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
-| 304 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
-| 313 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
-| 320 | 102 | REL4 — two registration methods, identical signatures, and one silently mis… | startable |  |
-| 329 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
-| 338 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
-| 360 | 101 | NS1 — rule on `Lyntai.Embeddings.Model2Vec`, in THIS release window or not … | startable |  |
-| 391 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 451 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 506 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 529 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 586 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 116 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 133 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 166 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 219 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 238 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 287 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
+| 302 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
+| 311 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
+| 318 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
+| 327 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
+| 356 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 416 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 471 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 494 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 551 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -317,15 +315,6 @@ the line numbers and counts were true on 2026-09-17 and rot the way any measurem
   suffix. **D137** restored the suffix "on all seventeen" and **D138** renamed the sibling in this very
   file; both passed over it. A rename now is mechanical; after the major it costs another one.
 
-- [ ] **REL4 — two registration methods, identical signatures, and one silently mis-wires.** <!-- item: state=startable -->
-  `AddProvider` and `AddEmbeddingProvider` both take `Func<IServiceProvider, IModelProvider>`. The second additionally sets the flag
-  `AddSemanticMemory()` reads, so registering an embedding backend through the first compiles, runs, and
-  leaves semantic memory unwired. **This already bit once** (`docs/FIXES.md` 2026-09-17) and the fix
-  restored only the instance-registration route; the factory trap is still open by design, because
-  capability is unknowable before a provider is built. Options: a distinct parameter type, an analyzer, a
-  startup warning when a built provider declares `Vector` but the flag was never set, or accept it and
-  document it louder. Also missing: `AddEmbeddingProvider<T>()`, which the LLM side has.
-
 - [ ] **REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belongs.** <!-- item: state=startable -->
   `src/Lyntai.Providers.Basic/Http/HttpDialect.cs:11`, with the conditionals at `Http/ProviderDetect.cs`,
   `Http/HttpEndpoint.cs` and `Http/HttpModelProvider.cs`. `dotnet-package-layout.md` §Variation points:
@@ -348,30 +337,6 @@ the line numbers and counts were true on 2026-09-17 and rot the way any measurem
   <br>_Why no gate sees these: `check-links`' member tier asks whether a name exists ANYWHERE in the tree,
   not whether it is on the named type; `check-tautology` and `check-docs` do not read
   `.claude/knowledge/**`; and 11 of the 58 doc samples carry `compile-skip`._
-
-## Part 101 — `Lyntai.Embeddings.Model2Vec`: an adapter owning a namespace root (2026-09-17)
-
-_Opened by **D151**'s follow-through. `EmbeddingRole` and the routing helper moved to `Lyntai.Lifecycle`,
-so Core no longer has a `Lyntai.Embeddings` namespace at all — and the only inhabitant left of that root is
-`Lyntai.Providers.Basic`'s public `Model2VecProvider` / `SafetensorsTable`. **The inconsistency CLAUDE.md
-records as "frozen by D70" is now a STRONGER one than the note describes**: it said the parent was Core's
-and shared; the parent is gone._
-
-- [ ] **NS1 — rule on `Lyntai.Embeddings.Model2Vec`, in THIS release window or not at all.** <!-- item: state=startable -->
-  `src/Lyntai.Providers.Basic/Model2Vec/Model2VecProvider.cs:6`, `SafetensorsTable.cs:3`. Both public, so
-  the spelling is frozen under SemVer until a major — and a major is being cut now, which is why this is
-  startable rather than a standing wish.
-
-  **Three options, and the cost of each is the point.** (1) Move to `Lyntai.Providers.Model2Vec`, matching
-  `Lyntai.Providers.Onnx` — the two in-process embedding backends then read alike, and the orphaned root
-  disappears. Breaking, mechanical, and free in this window. (2) Leave it and re-record the inconsistency
-  on its new footing, since the old justification no longer holds. (3) Move it to
-  `Lyntai.Embeddings.Model2Vec`'s natural parent by giving Core an `Lyntai.Embeddings` contract again —
-  **refused on sight**: that reinstates the category D151 removed.
-
-  _Not a defect in itself — a consumer's `using` works either way. What it costs is the map: an adapter
-  owning a namespace family with no contract above it inverts `dotnet-package-layout.md`'s "contract in the
-  core package, implementation in an adapter", and the next reader of that rule meets a counter-example._
 
 ## Part 41 — CLI backends: the codex surface still to MEASURE (2026-08-05)
 

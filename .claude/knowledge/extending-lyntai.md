@@ -178,14 +178,17 @@ Tests: drive it against a stub, never a live endpoint — an HTTP provider gets 
 `LYNTAI_PROVIDER_CMD`. Cover each verdict, streaming order, and empty→Failed.
 
 **C. NOT a chat backend? Then most of B does not apply, and what replaces it is one LIST.** Every rule above
-is about a verdict, and an embedder or a reranker returns neither — `EmbedAsync` and `ScoreAsync` THROW
+is about a verdict, and a vector or rerank backend returns neither — `EmbedAsync` and `ScoreAsync` THROW
 instead, because there is no vector and no score meaning "I could not" and a zero ranks as confidently as a
 real number (`IModelProvider`'s own remarks). What you write is the method plus
 `Produces = [ProviderKinds.Vector]` or `[ProviderKinds.Score]`, and **the declaration is the wiring**: a
 seam that consumes the kind finds you, so a cross-encoder needs no reranker-shaped registration and no
 policy of its own — `AddMemoryScoringVerification` already selects on `Score` (**D139**), and
-`OnnxCrossEncoder` is the worked example. Register with `AddProvider`, reserving `AddEmbeddingProvider` for
-something that genuinely embeds; it sets a composition-time flag and a non-embedder must not.
+`OnnxCrossEncoder` is the worked example. Register with `AddProvider` like every other backend — there is
+no role-named registration to choose between (**D152**). **Pass `declares` when a FACTORY produces
+`Vector`**: `AddSemanticMemory` decides at composition time, before anything is built, so an undeclared
+factory reads as "does not embed" and that call fails fast naming the argument. A backend built eagerly
+hands over its own `Capabilities` and restates nothing.
 
 **And a second backend in an EXISTING adapter package changes no registry** — that is the whole payoff of
 the footprint test. `check-packages` gates the nine a new package must enter; a class beside one that

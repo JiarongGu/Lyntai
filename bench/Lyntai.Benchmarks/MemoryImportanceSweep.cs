@@ -33,8 +33,8 @@ namespace Lyntai.Benchmarks;
 /// away", not "first priority". Survival is the question, so it is asked on the configuration that ships. A
 /// ranking voice, and a combination arm, belong to the follow-up.</para>
 ///
-/// <para><b>It refuses to run without a real embedder</b>, for D89's reason: novelty comes from a similarity
-/// probe the engine performs only when an embedder and vector store are both present, so without one the
+/// <para><b>It refuses to run without a real vector backend</b>, for D89's reason: novelty comes from a similarity
+/// probe the engine performs only when a vector backend and vector store are both present, so without one the
 /// novelty arm silently BECOMES the salience-off control and the table reads as a win.</para>
 ///
 /// <para><b>The oracle is a CEILING, never an accuracy</b> — <c>memory-annotation</c>'s stance for a perfect
@@ -106,8 +106,8 @@ internal static class MemoryImportanceSweep
     public static async Task<int> RunAsync(bool acrossLanguages = false)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
-        var embedder = await SweepDoubles.TryRealEmbedderAsync(http, "memory-importance");
-        if (embedder is null) return 1;
+        var vectorProvider = await SweepDoubles.TryRealVectorProviderAsync(http, "memory-importance");
+        if (vectorProvider is null) return 1;
 
         var stopwatch = Stopwatch.StartNew();
         var agePolicy = new PerWriteAgePolicy();
@@ -155,7 +155,7 @@ internal static class MemoryImportanceSweep
                 new SqliteMemoryGraphStore(db.Factory),
                 retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
                 agePolicies: [agePolicy],
-                providers: [embedder],
+                providers: [vectorProvider],
                 vectors: new InMemoryVectorStore(),
                 saliencePolicies: [counting],
                 // The SHIPPED ranking configuration: SalienceWeight is 0, so salience speaks through decay
@@ -195,7 +195,7 @@ internal static class MemoryImportanceSweep
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s over {seeds.Count} seed(s) x "
             + $"{shapes.Length} shape(s) x {arms.Length} arm(s) x {languages.Length} language(s); "
-            + $"{embedder.Misses} embed call(s), {embedder.Hits} cache hit(s).");
+            + $"{vectorProvider.Misses} embed call(s), {vectorProvider.Hits} cache hit(s).");
         return 0;
     }
 

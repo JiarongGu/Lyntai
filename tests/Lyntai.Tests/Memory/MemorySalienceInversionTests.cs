@@ -20,7 +20,7 @@ namespace Lyntai.Tests.Memory;
 /// guards only the empty-engine case, not this one.</para>
 ///
 /// <para><b>Why it was unfalsifiable until now, and it was not the reason first recorded.</b> The blocker
-/// was written down as "needs an embedder" — half wrong. <see cref="FakeEmbedder"/> has existed all along.
+/// was written down as "needs a vector backend" — half wrong. <see cref="FakeVectorProvider"/> has existed all along.
 /// The real blocker was the CORPUS: its noise shared one fixed skeleton, differing only by an id token and a
 /// filler word, so under bag-of-words novelty the second noise entry onward reads as FAMILIAR. The corpus
 /// modelled noise as <i>semantically irrelevant</i>; the hypothesis is about <i>textually diverse</i>. Those
@@ -30,16 +30,16 @@ namespace Lyntai.Tests.Memory;
 /// <para><b>Salience was absent from EVERY measurement this repository has ever taken.</b> Not by oversight
 /// in these tests — by assertion in the sweep's own control, which reflects over each constructed engine to
 /// confirm the retention collection is empty. It is doubly invisible: novelty needs an
-/// <see cref="Lyntai.Embeddings.IEmbedder"/> and no harness registered one. Meanwhile it ships ON: decay
+/// <c>ProviderKinds.Vector</c> backend and no harness registered one. Meanwhile it ships ON: decay
 /// resistance and admission priority are both default-on (only the rank boost is opt-in, <b>D45</b>). A
 /// live retention dimension that no measurement exercised is exactly the shape of blind spot
 /// <c>pitfalls.md</c> now warns about.</para>
 ///
 /// <para><b>English only, and that is a real limit rather than an oversight.</b>
-/// <see cref="FakeEmbedder"/> is a feature-hashed bag of WHITESPACE-SPLIT words, so on a spaceless script
+/// <see cref="FakeVectorProvider"/> is a feature-hashed bag of WHITESPACE-SPLIT words, so on a spaceless script
 /// every entry collapses to a single token, every entry is unique, and novelty pins at its maximum for
 /// reasons that belong to the test double rather than to the policy. A CJK arm here would measure the
-/// embedder, not the hypothesis. Answering it for CJK needs an embedder that segments.</para></summary>
+/// vector backend, not the hypothesis. Answering it for CJK needs a vector backend that segments.</para></summary>
 public sealed class MemorySalienceInversionTests
 {
     private const int Seed = 4242;
@@ -48,27 +48,27 @@ public sealed class MemorySalienceInversionTests
     /// <summary>The three arms, and the middle one is the whole reason this is trustworthy.
     ///
     /// <para><b>Salience cannot be switched on alone.</b> Novelty comes from the engine's own similarity
-    /// search, so a salience arm necessarily also registers an <see cref="Lyntai.Embeddings.IEmbedder"/> and
+    /// search, so a salience arm necessarily also registers an <c>ProviderKinds.Vector</c> backend and
     /// an <see cref="Lyntai.Storage.IVectorStore"/> — and those change recall by themselves, because the
     /// vector search seeds candidates that compete for the same limited slots. Comparing
-    /// <see cref="Off"/> against <see cref="Salience"/> therefore measures <i>embedder + salience</i> and
+    /// <see cref="Off"/> against <see cref="Salience"/> therefore measures <i>vector backend + salience</i> and
     /// attributes all of it to salience.</para>
     ///
     /// <para><b>The first version of this file had exactly that defect and reported the inversion as
-    /// reproduced</b> (+0.1857 misses on diverse noise). <see cref="Embedder"/> is the arm that separates
-    /// them: same embedder, same vector store, no salience policy — so <c>Embedder to Salience</c> isolates
+    /// reproduced</b> (+0.1857 misses on diverse noise). <see cref="VectorProvider"/> is the arm that separates
+    /// them: same vector backend, same vector store, no salience policy — so <c>VectorProvider to Salience</c> isolates
     /// the one factor under test, the same one-factor-at-a-time discipline the language sweep is built on
     /// (<b>D55</b>).</para>
     /// </summary>
     private enum ArmKind
     {
-        /// <summary>No embedder, no vector store, no salience — what every prior measurement here ran.</summary>
+        /// <summary>No vector backend, no vector store, no salience — what every prior measurement here ran.</summary>
         Off,
 
-        /// <summary>Embedder and vector store, no salience policy. The control.</summary>
-        Embedder,
+        /// <summary>VectorProvider and vector store, no salience policy. The control.</summary>
+        VectorProvider,
 
-        /// <summary>Embedder, vector store AND the shipped salience policy.</summary>
+        /// <summary>VectorProvider, vector store AND the shipped salience policy.</summary>
         Salience,
     }
 
@@ -83,7 +83,7 @@ public sealed class MemorySalienceInversionTests
     private static GraphMemoryEngine NewEngine(InMemoryMemoryGraphStore store, ArmKind arm) =>
         new("e", store,
             agePolicies: [new PerWriteAgePolicy()],
-            providers: arm == ArmKind.Off ? null : [new FakeEmbedder()],
+            providers: arm == ArmKind.Off ? null : [new FakeVectorProvider()],
             vectors: arm == ArmKind.Off ? null : new InMemoryVectorStore(),
             saliencePolicies: arm == ArmKind.Salience
                 ? [new StructuralSaliencePolicy()]
@@ -165,7 +165,7 @@ public sealed class MemorySalienceInversionTests
     }
 
     /// <summary><b>THE MEASUREMENT.</b> Three arms on both noise kinds, with the isolated salience effect
-    /// reported as <c>Embedder to Salience</c> — never as <c>Off to Salience</c>, which confounds the policy
+    /// reported as <c>VectorProvider to Salience</c> — never as <c>Off to Salience</c>, which confounds the policy
     /// with the vector search it needs in order to run at all.</summary>
     [Fact]
     public async Task Salience_does_not_preferentially_preserve_textually_diverse_junk()
@@ -174,10 +174,10 @@ public sealed class MemorySalienceInversionTests
         var diverse = CorpusShape.Default with { NoiseKind = CorpusNoiseKind.Diverse };
 
         var tOff = await RunAsync(templated, ArmKind.Off);
-        var tEmb = await RunAsync(templated, ArmKind.Embedder);
+        var tEmb = await RunAsync(templated, ArmKind.VectorProvider);
         var tSal = await RunAsync(templated, ArmKind.Salience);
         var dOff = await RunAsync(diverse, ArmKind.Off);
-        var dEmb = await RunAsync(diverse, ArmKind.Embedder);
+        var dEmb = await RunAsync(diverse, ArmKind.VectorProvider);
         var dSal = await RunAsync(diverse, ArmKind.Salience);
 
         var table = string.Create(CultureInfo.InvariantCulture,
@@ -186,7 +186,7 @@ public sealed class MemorySalienceInversionTests
                templated    {tOff.Miss:F4} / {tEmb.Miss:F4} / {tSal.Miss:F4}       {tOff.Pollution:F4} / {tEmb.Pollution:F4} / {tSal.Pollution:F4}     {tSal.SalientWrites}
                diverse      {dOff.Miss:F4} / {dEmb.Miss:F4} / {dSal.Miss:F4}       {dOff.Pollution:F4} / {dEmb.Pollution:F4} / {dSal.Pollution:F4}     {dSal.SalientWrites}
 
-               isolated salience effect (embedder -> salience):
+               isolated salience effect (vectorProvider -> salience):
                  templated  miss {tSal.Miss - tEmb.Miss:+0.0000;-0.0000}   pollution {tSal.Pollution - tEmb.Pollution:+0.0000;-0.0000}
                  diverse    miss {dSal.Miss - dEmb.Miss:+0.0000;-0.0000}   pollution {dSal.Pollution - dEmb.Pollution:+0.0000;-0.0000}
              """);
@@ -200,7 +200,7 @@ public sealed class MemorySalienceInversionTests
             $"""
              Part 53's inversion concern REPRODUCED on the channel it can actually act through: preserving
              textually diverse junk cost {dSal.Miss - dEmb.Miss:F4} of additional MISSES against the
-             embedder-only control, above the {InversionTolerance:F4} tolerance — real material crowded out
+             vectorProvider-only control, above the {InversionTolerance:F4} tolerance — real material crowded out
              by junk held for being novel.
 
              {table}
@@ -239,9 +239,9 @@ public sealed class MemorySalienceInversionTests
     /// <para>Turning the vector path on raises the miss rate from <c>0.5357</c> to <c>0.8357</c> on templated
     /// noise — an order of magnitude more movement than anything salience does — because semantic neighbours
     /// compete for the same bounded slots as lexical hits, and on a corpus whose ground truth is lexical they
-    /// displace correct answers. The first version of this file compared no-embedder against
-    /// embedder-plus-salience and reported the whole gap as the salience inversion reproducing at
-    /// <c>+0.1857</c>. It was the embedder.</para>
+    /// displace correct answers. The first version of this file compared no-vector backend against
+    /// vector backend-plus-salience and reported the whole gap as the salience inversion reproducing at
+    /// <c>+0.1857</c>. It was the vector backend.</para>
     ///
     /// <para><b>Pinned rather than fixed.</b> The number is a property of THIS corpus, whose relevance is
     /// defined lexically — a corpus with semantically-related ground truth would likely reverse it, and this
@@ -249,21 +249,21 @@ public sealed class MemorySalienceInversionTests
     /// attributing this cost to whatever policy happens to be switched on beside it. Recorded in
     /// `TASKS.md` as open, with the instrument named.</para></summary>
     [Fact]
-    public async Task The_embedder_not_salience_is_what_moves_recall_quality_on_this_corpus()
+    public async Task The_vector_backend_not_salience_is_what_moves_recall_quality_on_this_corpus()
     {
         var off = await RunAsync(CorpusShape.Default, ArmKind.Off);
-        var embedder = await RunAsync(CorpusShape.Default, ArmKind.Embedder);
+        var vectorProvider = await RunAsync(CorpusShape.Default, ArmKind.VectorProvider);
         var salience = await RunAsync(CorpusShape.Default, ArmKind.Salience);
 
-        var embedderEffect = embedder.Miss - off.Miss;
-        var salienceEffect = salience.Miss - embedder.Miss;
+        var vectorProviderEffect = vectorProvider.Miss - off.Miss;
+        var salienceEffect = salience.Miss - vectorProvider.Miss;
 
-        Assert.True(embedderEffect > 0.1,
-            $"expected the embedder to move miss substantially; it moved {embedderEffect:+0.0000;-0.0000}");
-        Assert.True(Math.Abs(salienceEffect) < Math.Abs(embedderEffect),
+        Assert.True(vectorProviderEffect > 0.1,
+            $"expected the vector backend to move miss substantially; it moved {vectorProviderEffect:+0.0000;-0.0000}");
+        Assert.True(Math.Abs(salienceEffect) < Math.Abs(vectorProviderEffect),
             $"""
-             salience ({salienceEffect:+0.0000;-0.0000}) should be the SMALLER effect beside the embedder
-             ({embedderEffect:+0.0000;-0.0000}) — if that has stopped being true, the attribution in this
+             salience ({salienceEffect:+0.0000;-0.0000}) should be the SMALLER effect beside the vectorProvider
+             ({vectorProviderEffect:+0.0000;-0.0000}) — if that has stopped being true, the attribution in this
              file's remarks is stale and needs re-measuring rather than re-wording.
              """);
     }
@@ -317,7 +317,7 @@ public sealed class MemorySalienceInversionTests
             var store = new InMemoryMemoryGraphStore();
             var engine = new GraphMemoryEngine("e", store,
                 agePolicies: [new PerWriteAgePolicy()],
-                providers: [new FakeEmbedder()],
+                providers: [new FakeVectorProvider()],
                 vectors: new InMemoryVectorStore(),
                 saliencePolicies: policies);
 
@@ -350,7 +350,7 @@ public sealed class MemorySalienceInversionTests
     {
         var many = CorpusShape.Default with { CandidateCount = 40 };
 
-        var off = await RunAsync(many, ArmKind.Embedder);
+        var off = await RunAsync(many, ArmKind.VectorProvider);
         var on = await RunAsync(many, ArmKind.Salience);
 
         var table = string.Create(CultureInfo.InvariantCulture,
@@ -377,7 +377,7 @@ public sealed class MemorySalienceInversionTests
         // NeutralSaliencePolicy — which did not exist when the cost was first recorded.
         //
         // SUPERSEDED AS A MEASUREMENT (not as a guard) 2026-08-28: `memory-salience` now runs 30 paired
-        // seeds through two REAL embedders, and docs/memory.md section 5 carries both. The figures above
+        // seeds through two REAL vector backends, and docs/memory.md section 5 carries both. The figures above
         // predate D89, so they were taken while SalienceWeight was 1 and the ranking voice was still in
         // play. This assertion stays an UPPER BOUND and both new readings sit well inside it — which is
         // also why it could not have detected that the value moved.

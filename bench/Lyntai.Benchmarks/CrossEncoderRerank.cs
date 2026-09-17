@@ -28,7 +28,7 @@ namespace Lyntai.Benchmarks;
 internal sealed class CrossEncoderReranker(HttpClient http, string baseUrl, string model)
 {
     /// <summary>Endpoint of the rerank server. Separate from <see cref="SweepDoubles.UrlVariable"/> because
-    /// a <c>llama-server</c> serves ONE model: the embedder and the reranker are two processes on two
+    /// a <c>llama-server</c> serves ONE model: the vector backend and the reranker are two processes on two
     /// ports, not two models behind one.</summary>
     internal const string UrlVariable = "LYNTAI_LIVE_RERANK_URL";
 

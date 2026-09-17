@@ -51,7 +51,7 @@ public sealed class SeedSourceTests : IDisposable
 
     /// <summary>Returns a fixed vector for every text it is asked to embed — the query text never matters to
     /// these tests, only the vectors seeded directly into the store.</summary>
-    private sealed class FixedEmbedder(float[] vector) : EmbeddingBackend
+    private sealed class FixedVectorProvider(float[] vector) : FakeVectorProviderBase
     {
         public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<float[]>>([.. texts.Select(_ => vector)]);
@@ -59,10 +59,10 @@ public sealed class SeedSourceTests : IDisposable
 
     /// <summary>Faults on every call, so the source's own catch is what a test observes rather than the
     /// double's plumbing.</summary>
-    private sealed class ThrowingEmbedder : EmbeddingBackend
+    private sealed class ThrowingVectorProvider : FakeVectorProviderBase
     {
         public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
-            throw new InvalidOperationException("embedder unavailable");
+            throw new InvalidOperationException("vector backend unavailable");
     }
 
     /// <summary>Mirrors <c>SemanticSeedProbeTests.CapturingLogger</c>: a swallowed fault reads as an empty
@@ -255,7 +255,7 @@ public sealed class SeedSourceTests : IDisposable
             new VectorMatch(one.Id, "entry one", 0.5),
         ]);
 
-        var source = new SemanticSeedSource([new FixedEmbedder([1f, 0f])], vectors);
+        var source = new SemanticSeedSource([new FixedVectorProvider([1f, 0f])], vectors);
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery(TaskKey: "task", Scope: "scope", Query: "anything"), Limit: 10);
 
@@ -286,7 +286,7 @@ public sealed class SeedSourceTests : IDisposable
         var matches = ids.Select((id, i) => new VectorMatch(id, $"entry {i}", 1.0 - i * 0.1)).ToList();
         var vectors = new RecordingVectorStore(matches);
 
-        var source = new SemanticSeedSource([new FixedEmbedder([1f, 0f])], vectors, new SemanticSeedOptions { K = 5 });
+        var source = new SemanticSeedSource([new FixedVectorProvider([1f, 0f])], vectors, new SemanticSeedOptions { K = 5 });
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery(TaskKey: "task", Scope: "scope", Query: "anything"), Limit: 2);
 
@@ -299,11 +299,11 @@ public sealed class SeedSourceTests : IDisposable
     }
 
     [Fact]
-    public async Task The_semantic_source_returns_empty_rather_than_throwing_when_the_embedder_faults()
+    public async Task The_semantic_source_returns_empty_rather_than_throwing_when_the_vector_backend_faults()
     {
         var store = new SqliteMemoryGraphStore(_db.Factory);
         var log = new CapturingLogger();
-        var source = new SemanticSeedSource([new ThrowingEmbedder()], new InMemoryVectorStore(), logger: log);
+        var source = new SemanticSeedSource([new ThrowingVectorProvider()], new InMemoryVectorStore(), logger: log);
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery(TaskKey: "task", Scope: "scope", Query: "anything"), Limit: 10);
 
@@ -329,7 +329,7 @@ public sealed class SeedSourceTests : IDisposable
         await vectors.UpsertAsync(MemoryVectorCollection.For("seedtest", "task", "home"), home.Id, [1f, 0f], "plumbing arrangements", CancellationToken.None);
         await vectors.UpsertAsync(MemoryVectorCollection.For("seedtest", "task", "garden"), garden.Id, [1f, 0f], "gardening notes", CancellationToken.None);
 
-        var source = new SemanticSeedSource([new FixedEmbedder([1f, 0f])], vectors);
+        var source = new SemanticSeedSource([new FixedVectorProvider([1f, 0f])], vectors);
         var request = new MemorySeedRequest("seedtest", store,
             new MemoryQuery(TaskKey: "task", Scope: null, Query: "anything"), Limit: 10);
 

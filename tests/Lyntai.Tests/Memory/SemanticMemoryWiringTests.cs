@@ -8,21 +8,25 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Memory;
 
 /// <summary>The <c>AddSemanticMemory</c> wiring seam: one builder call turns semantic recall on, states the
-/// intent so the embedder-less case is a startup FAILURE rather than a silent skip, and leaves every piece
-/// (embedder, vector store, the service itself) substitutable. Pins that no consumer has to <c>new</c> up a
-/// vector store, a connection factory, or an embedder to get persistent semantic recall.</summary>
+/// intent so the case where nothing embeds is a startup FAILURE rather than a silent skip, and leaves every
+/// piece (backend, vector store, the service itself) substitutable. Pins that no consumer has to <c>new</c>
+/// up a vector store, a connection factory, or a backend to get persistent semantic recall.
+///
+/// <para><b>There is ONE registration door</b> (<c>docs/DECISIONS.md</c> <b>D152</b>): a backend is
+/// registered with <c>AddProvider</c> whatever it produces, and a FACTORY declares its capability through
+/// the same call. The role-named second registration it replaced is gone.</para></summary>
 public sealed class SemanticMemoryWiringTests : IDisposable
 {
     private readonly TempDbPath _db = new("semantic-wiring");
     public void Dispose() => _db.Dispose();
 
     [Fact]
-    public async Task AddSemanticMemory_with_an_embedder_wires_recall_in_one_call()
+    public async Task AddSemanticMemory_with_a_vector_backend_wires_recall_in_one_call()
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
-            .AddEmbeddingProvider(_ => new FakeEmbedder()).AddSemanticMemory());
+            .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
         using var sp = services.BuildServiceProvider();
 
         var mem = sp.GetRequiredService<ISemanticMemory>();
@@ -33,11 +37,11 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         Assert.Contains("cancel", hits[0].Content);
     }
 
-    /// <summary>The whole point of naming the feature: without this call, an app that forgets the embedder
-    /// gets NO <see cref="ISemanticMemory"/> registration at all and every recall path quietly skips
+    /// <summary>The whole point of naming the feature: without this call, an app that forgets the vector
+    /// backend gets NO <see cref="ISemanticMemory"/> registration at all and every recall path quietly skips
     /// semantic memory. Stating the intent turns that into a composition-time throw.</summary>
     [Fact]
-    public void AddSemanticMemory_without_any_embedder_fails_fast_instead_of_silently_doing_nothing()
+    public void AddSemanticMemory_without_any_vector_backend_fails_fast_instead_of_silently_doing_nothing()
     {
         var services = new ServiceCollection();
 
@@ -50,28 +54,48 @@ public sealed class SemanticMemoryWiringTests : IDisposable
     }
 
     /// <summary>The no-argument overload is the "my backend comes from somewhere else" path. Two routes
-    /// have to reach it and they are NOT the same code: the builder's own
-    /// <see cref="LyntaiBuilder.AddEmbeddingProvider"/>, which STATES the capability, and a host
-    /// registration made before <c>AddLyntai</c>, which states nothing and must be INSPECTED.
+    /// have to reach it and they are NOT the same code: a FACTORY, which cannot be inspected and so STATES
+    /// its capability through <c>AddProvider</c>'s <c>declares</c> argument, and a host registration made
+    /// before <c>AddLyntai</c>, which states nothing and must be INSPECTED.
     ///
     /// <para>The second arm was a duplicate of the first between D151 and its follow-up, so it could not
     /// fail — and the route it was supposed to cover was broken the whole time. The arms must stay
     /// genuinely different; if they ever read alike again, one of them is testing nothing.</para></summary>
     [Fact]
-    public void An_embedder_registered_by_any_route_satisfies_the_intent()
+    public void A_vector_backend_registered_by_any_route_satisfies_the_intent()
     {
-        var viaBuilder = new ServiceCollection();
-        viaBuilder.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
-            .AddEmbeddingProvider(_ => new FakeEmbedder())
+        var viaDeclaration = new ServiceCollection();
+        viaDeclaration.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared)
             .AddSemanticMemory());
-        Assert.NotNull(viaBuilder.BuildServiceProvider().GetService<ISemanticMemory>());
+        Assert.NotNull(viaDeclaration.BuildServiceProvider().GetService<ISemanticMemory>());
 
         // The HOST route: an IModelProvider instance in the collection before AddLyntai ever runs. Nothing
         // states that it embeds, so the wiring has to read its declared Capabilities.
         var viaHost = new ServiceCollection();
-        viaHost.AddSingleton<IModelProvider>(new FakeEmbedder());
+        viaHost.AddSingleton<IModelProvider>(new FakeVectorProvider());
         viaHost.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddSemanticMemory());
         Assert.NotNull(viaHost.BuildServiceProvider().GetService<ISemanticMemory>());
+    }
+
+    /// <summary>The limitation the <c>declares</c> argument exists to make FIXABLE, pinned so nobody
+    /// "improves" it into a silent pass: a factory that declares NOTHING is treated as not embedding, so
+    /// <c>AddSemanticMemory</c> still fails fast rather than wiring a recall that cannot run.
+    ///
+    /// <para>This is the same outcome the deleted role-named registration produced for a caller who reached
+    /// for <c>AddProvider</c> instead — the difference is that the fix is now to say what the backend
+    /// produces, rather than to find the other method (<c>docs/DECISIONS.md</c> <b>D152</b>).</para></summary>
+    [Fact]
+    public void A_factory_that_declares_nothing_still_fails_fast()
+    {
+        var services = new ServiceCollection();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeVectorProvider())        // genuinely embeds — and says so to nobody
+            .AddSemanticMemory()));
+
+        Assert.Contains("ProviderKinds.Vector", ex.Message);
     }
 
     /// <summary>A chat-only host registration must NOT satisfy the intent — the inspection above reads the
@@ -90,20 +114,42 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         Assert.Contains("ProviderKinds.Vector", ex.Message);
     }
 
+    /// <summary>BOTH <c>AddProvider</c> overloads carry <c>declares</c>, and the two arms here have to call
+    /// genuinely different ones — a FACTORY and the GENERIC, which the container constructs.
+    ///
+    /// <para><b>Written this way because the arms had collapsed once already.</b> Between D151 and its
+    /// follow-up the two routes above were the same call, so neither could fail; this test was then
+    /// reintroduced with both arms on the factory overload, leaving <c>AddProvider&lt;T&gt;(declares)</c> —
+    /// new public surface — with no coverage at all while its name claimed otherwise.</para></summary>
     [Fact]
-    public async Task The_factory_and_generic_overloads_register_the_embedder_too()
+    public async Task Both_AddProvider_overloads_carry_the_declaration()
     {
         var byFactory = new ServiceCollection();
         byFactory.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
-            .AddEmbeddingProvider(_ => new FakeEmbedder()).AddSemanticMemory());
+            .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
         await using var fromFactory = byFactory.BuildServiceProvider();
         Assert.NotNull(fromFactory.GetService<ISemanticMemory>());
 
         var byType = new ServiceCollection();
         byType.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
-            .AddEmbeddingProvider(_ => new DiConstructedEmbedder()).AddSemanticMemory());
+            .AddProvider<DiConstructedVectorProvider>(FakeVectorProviderBase.Declared).AddSemanticMemory());
         await using var fromType = byType.BuildServiceProvider();
         Assert.NotNull(fromType.GetService<ISemanticMemory>());
+    }
+
+    /// <summary>…and the generic overload WITHOUT a declaration answers "no", exactly as the factory one
+    /// does. Without this the arm above could pass on a `declares` the wiring never actually read.</summary>
+    [Fact]
+    public void The_generic_overload_that_declares_nothing_also_fails_fast()
+    {
+        var services = new ServiceCollection();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider<DiConstructedVectorProvider>()
+            .AddSemanticMemory()));
+
+        Assert.Contains("ProviderKinds.Vector", ex.Message);
     }
 
     /// <summary>Substitutable: a host that registers its own <see cref="IVectorStore"/> (or its own
@@ -115,14 +161,14 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         var mine = new CountingVectorStore();
         var services = new ServiceCollection();
         services.AddSingleton<IVectorStore>(mine);
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddEmbeddingProvider(_ => new FakeEmbedder()).AddSemanticMemory());
+        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
         using var sp = services.BuildServiceProvider();
 
         Assert.Same(mine, sp.GetRequiredService<IVectorStore>());
     }
 
     /// <summary>The persistent path end to end, with ZERO hand-construction: storage, the SQLite vector
-    /// store and the embedder all arrive through builder calls, and the vectors survive a fresh container
+    /// store and the vector backend all arrive through builder calls, and the vectors survive a fresh container
     /// over the same database file.</summary>
     [Fact]
     public async Task Persistent_semantic_recall_needs_no_hand_constructed_types()
@@ -144,15 +190,15 @@ public sealed class SemanticMemoryWiringTests : IDisposable
                 .AddProvider(_ => new FakeLlmProvider("p"))
                 .UseSqliteStorage(_db.Path)
                 .UseSqliteVectorStore()
-                .AddEmbeddingProvider(_ => new FakeEmbedder()).AddSemanticMemory());
+                .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
             return services;
         }
     }
 
     /// <summary>Parameterless so the generic overload's DI construction has nothing to resolve.</summary>
-    private sealed class DiConstructedEmbedder : EmbeddingBackend
+    private sealed class DiConstructedVectorProvider : FakeVectorProviderBase
     {
-        private readonly FakeEmbedder _inner = new();
+        private readonly FakeVectorProvider _inner = new();
         public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
             _inner.EmbedAsync(texts, ct);
     }

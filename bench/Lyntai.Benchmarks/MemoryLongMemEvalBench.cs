@@ -24,7 +24,7 @@ namespace Lyntai.Benchmarks;
 /// model actually makes, and one a flat cosine index has no mechanism to make at all.</para>
 ///
 /// <para><b>The headline metric is preference, not recall.</b> Both facts are textually similar and both sit
-/// in the store; an archive returns whichever the embedder likes. Scoring "did you retrieve the answer"
+/// in the store; an archive returns whichever the vector backend likes. Scoring "did you retrieve the answer"
 /// would hide that. So the arms are scored on whether the CURRENT turn outranks the STALE one, with plain
 /// hit-rates beside it so a preference win cannot be manufactured by retrieving neither.</para>
 ///
@@ -327,12 +327,12 @@ internal static class MemoryLongMemEvalBench
     /// <param name="chat">The deciding model.</param>
     /// <param name="engine">The engine whose store is being consolidated.</param>
     /// <param name="store">The store, for the delete a supersession performs.</param>
-    /// <param name="embedder">Gates the model call — see <see cref="Similar"/>.</param>
+    /// <param name="vector backend">Gates the model call — see <see cref="Similar"/>.</param>
     /// <param name="decisions">Verdicts shared across arms, keyed on the fact PAIR — see
     /// <see cref="WriteAsync"/>.</param>
     private sealed class Reconciler(
         SweepDoubles.IBenchChat chat, GraphMemoryEngine engine, SqliteMemoryGraphStore store,
-        SweepDoubles.CachingEmbedder embedder, Dictionary<string, bool> decisions)
+        SweepDoubles.CachingVectorProvider vectorProvider, Dictionary<string, bool> decisions)
     {
         /// <summary>How alike a stored fact must be before the model is asked whether it was superseded.
         /// <para>Cost control with a rationale rather than a cap: a supersession is a CHANGED VALUE for the
@@ -492,8 +492,8 @@ internal static class MemoryLongMemEvalBench
         }
 
         private async Task<double> CosineOf(string a, string b) =>
-            Cosine(await embedder.EmbedAsync(a).ConfigureAwait(false),
-                await embedder.EmbedAsync(b).ConfigureAwait(false));
+            Cosine(await vectorProvider.EmbedAsync(a).ConfigureAwait(false),
+                await vectorProvider.EmbedAsync(b).ConfigureAwait(false));
 
         /// <summary>Drops a leading <c>(sNtM)</c> marker so similarity is about the FACT.</summary>
         private static string Strip(string text)
@@ -529,7 +529,7 @@ internal static class MemoryLongMemEvalBench
     /// any gain was bought rather than earned. <c>extract+forget0</c> is predicted to stay indistinguishable
     /// from cosine either way, since a budget shapes the store and not forgetting's vote.</para></summary>
     private static async Task<int> RunExtractionAsync(IReadOnlyList<Question> sampled,
-        SweepDoubles.CachingEmbedder embedder, SweepDoubles.IBenchChat chat, string[] args)
+        SweepDoubles.CachingVectorProvider vectorProvider, SweepDoubles.IBenchChat chat, string[] args)
     {
         var budget = ArgValue(args, "--facts") is { } b && int.TryParse(b, out var cap) ? cap : 0;
         var extractor = new FactExtractor(chat, budget);
@@ -596,7 +596,7 @@ internal static class MemoryLongMemEvalBench
                 var texts = arm == "lyntai" ? [.. q.Turns.Select(t => $"{t.Tag} {t.Text}")] : extracted;
 
                 using var db = new MemoryPolicySweep.SweepDb();
-                var engine = EngineFor(config, db, embedder);
+                var engine = EngineFor(config, db, vectorProvider);
 
                 if (arm.Contains("reconcile", StringComparison.Ordinal))
                 {
@@ -604,7 +604,7 @@ internal static class MemoryLongMemEvalBench
                     // as the replacement arrives rather than left for decay to bury.
                     var fixedGate = arm.Contains("-fixed", StringComparison.Ordinal);
                     var consolidator = new Reconciler(
-                        chat, engine, new SqliteMemoryGraphStore(db.Factory), embedder, decisions);
+                        chat, engine, new SqliteMemoryGraphStore(db.Factory), vectorProvider, decisions);
                     foreach (var text in texts)
                         await consolidator.WriteAsync(text, countGate: fixedGate, boost: fixedGate);
                     asked += consolidator.Asked;
@@ -628,9 +628,9 @@ internal static class MemoryLongMemEvalBench
             foreach (var t in q.Turns)
             {
                 var content = $"{t.Tag} {t.Text}";
-                index.Add((content, await embedder.EmbedAsync(content)));
+                index.Add((content, await vectorProvider.EmbedAsync(content)));
             }
-            results.Add((VectorArm, (await TopKAsync(embedder, index, q.Text, RecallLimit)).ToList()));
+            results.Add((VectorArm, (await TopKAsync(vectorProvider, index, q.Text, RecallLimit)).ToList()));
 
             foreach (var (arm, got) in results)
             {
@@ -731,7 +731,7 @@ internal static class MemoryLongMemEvalBench
     /// deliberately the easiest honest query — this is a floor test for reachability, not a difficulty
     /// test.</para></summary>
     private static async Task<int> RunRecoveryAsync(IReadOnlyList<Question> sampled,
-        SweepDoubles.CachingEmbedder embedder, string[] args)
+        SweepDoubles.CachingVectorProvider vectorProvider, string[] args)
     {
         var configs = SelectConfigs(args, out _);
         if (configs is null) return 1;
@@ -753,7 +753,7 @@ internal static class MemoryLongMemEvalBench
             foreach (var arm in configs)
             {
                 using var db = new MemoryPolicySweep.SweepDb();
-                var engine = EngineFor(arm, db, embedder);
+                var engine = EngineFor(arm, db, vectorProvider);
                 foreach (var t in q.Turns)
                     await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
 
@@ -877,16 +877,16 @@ internal static class MemoryLongMemEvalBench
     /// for one. <b>Every arm gets its own store and its own vector store</b> — a recall reinforces what it
     /// returns, so arms sharing one would each mutate the decay state the next reads.</summary>
     private static GraphMemoryEngine EngineFor(FieldArm arm, MemoryPolicySweep.SweepDb db,
-        SweepDoubles.CachingEmbedder embedder)
+        SweepDoubles.CachingVectorProvider vectorProvider)
     {
         var vectors = new InMemoryVectorStore();
         IMemorySeedSource[]? seeds = arm.SemanticK is { } k
             ? [new LexicalSeedSource(), new SubjectSeedSource(),
-                new SemanticSeedSource([embedder], vectors, new SemanticSeedOptions { K = k })]
+                new SemanticSeedSource([vectorProvider], vectors, new SemanticSeedOptions { K = k })]
             : null;
 
         return new GraphMemoryEngine(Task, new SqliteMemoryGraphStore(db.Factory), options: arm.Options,
-            providers: [embedder], vectors: vectors, ranking: arm.Ranking, verification: arm.Verification,
+            providers: [vectorProvider], vectors: vectors, ranking: arm.Ranking, verification: arm.Verification,
             seedSources: seeds);
     }
 
@@ -924,8 +924,8 @@ internal static class MemoryLongMemEvalBench
         }
 
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
-        var embedder = await SweepDoubles.TryRealEmbedderAsync(http, "memory-longmemeval");
-        if (embedder is null) return 1;
+        var vectorProvider = await SweepDoubles.TryRealVectorProviderAsync(http, "memory-longmemeval");
+        if (vectorProvider is null) return 1;
 
         // `--temporal` is the COUNTER-TEST to the knowledge-update class, not more of the same. Temporal
         // reasoning asks things like "what was the FIRST issue after the service", so the answer is often
@@ -1003,7 +1003,7 @@ internal static class MemoryLongMemEvalBench
         {
             // A LADDER, because the corpus is what a run pays for. Two budget values as two processes
             // re-embed the same 64,911 turns twice (~70 minutes each on 2026-09-06); in one process the
-            // second value's ingestions are all embedder cache hits, so it costs SQLite writes and nothing
+            // second value's ingestions are all vector backend cache hits, so it costs SQLite writes and nothing
             // else. Same reasoning as `--arms` on both field benches.
             var parts = bs.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             var caps = new List<int>();
@@ -1169,8 +1169,8 @@ internal static class MemoryLongMemEvalBench
             Preamble(sampled, questions.Count, turns, haystack, seed, wantClass);
             BudgetPreamble(budgets, fillK, pools, detail);
             return shots
-                ? await RunTemporalShotsAsync(sampled, embedder, expandFloor, budgets, fillK, pools, args, detail)
-                : await RunTemporalAsync(sampled, embedder, args);
+                ? await RunTemporalShotsAsync(sampled, vectorProvider, expandFloor, budgets, fillK, pools, args, detail)
+                : await RunTemporalAsync(sampled, vectorProvider, args);
         }
 
         if (args.Contains("--extract"))
@@ -1207,7 +1207,7 @@ internal static class MemoryLongMemEvalBench
             }
 
             Console.WriteLine();
-            return await RunExtractionAsync(sampled, embedder, writer, args);
+            return await RunExtractionAsync(sampled, vectorProvider, writer, args);
         }
 
         if (args.Contains("--recover"))
@@ -1225,7 +1225,7 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine("below it means decay is deleting, and no gain elsewhere would justify that.");
             Console.WriteLine();
             Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
-            return await RunRecoveryAsync(sampled, embedder, args);
+            return await RunRecoveryAsync(sampled, vectorProvider, args);
         }
 
         if (shots)
@@ -1239,7 +1239,7 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine();
             Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
             BudgetPreamble(budgets, fillK, pools, detail);
-            return await RunShotsAsync(sampled, embedder, expandFloor, budgets, fillK, pools, args, detail);
+            return await RunShotsAsync(sampled, vectorProvider, expandFloor, budgets, fillK, pools, args, detail);
         }
 
         // `--ranks` scores ONE probe-wrapped engine over a K ladder, so it has no arms to select. Rejected
@@ -1263,7 +1263,7 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine("the contribution columns below are what tests it.");
             Console.WriteLine();
             Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
-            await RunRanksAsync(sampled, embedder);
+            await RunRanksAsync(sampled, vectorProvider);
             return 0;
         }
 
@@ -1336,7 +1336,7 @@ internal static class MemoryLongMemEvalBench
             foreach (var arm in configs)
             {
                 using var db = new MemoryPolicySweep.SweepDb();
-                var engine = EngineFor(arm, db, embedder);
+                var engine = EngineFor(arm, db, vectorProvider);
                 foreach (var t in q.Turns)
                     await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
 
@@ -1353,9 +1353,9 @@ internal static class MemoryLongMemEvalBench
                 foreach (var t in q.Turns)
                 {
                     var content = $"{t.Tag} {t.Text}";
-                    index.Add((content, await embedder.EmbedAsync(content)));
+                    index.Add((content, await vectorProvider.EmbedAsync(content)));
                 }
-                results.Add((VectorArm, (await TopKAsync(embedder, index, q.Text, RecallLimit)).ToList()));
+                results.Add((VectorArm, (await TopKAsync(vectorProvider, index, q.Text, RecallLimit)).ToList()));
             }
 
             foreach (var (arm, got) in results)
@@ -1410,7 +1410,7 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("  ranks first. It is here so a preference win cannot hide a recall collapse.");
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"vector backend {vectorProvider.Misses} call(s), {vectorProvider.Hits} cache hit(s)"
             + $"{TruncationNote()}.");
         return 0;
     }
@@ -1520,9 +1520,9 @@ internal static class MemoryLongMemEvalBench
     /// so it spends the entire allowance on its own best material. That is the strongest form of the arm the
     /// walk has to beat — a shallow top-k could run out of items before it ran out of budget and lose for a
     /// reason that is the harness's rather than cosine's.</summary>
-    private static async Task<IReadOnlyList<string>> BudgetedVectorAsync(SweepDoubles.CachingEmbedder embedder,
+    private static async Task<IReadOnlyList<string>> BudgetedVectorAsync(SweepDoubles.CachingVectorProvider vectorProvider,
         List<(string Text, float[] Vector)> index, string query, ContextBudget budget) =>
-        budget.Fit((await TopKAsync(embedder, index, query, index.Count)).ToList());
+        budget.Fit((await TopKAsync(vectorProvider, index, query, index.Count)).ToList());
 
     /// <summary>The arm that SPENDS the budget: one recall at <paramref name="fillK"/> with the engine's own
     /// <c>MemoryQuery.CharBudget</c> doing the cut.
@@ -1551,14 +1551,14 @@ internal static class MemoryLongMemEvalBench
     /// <see cref="MemoryDetail.Headline"/>; <see cref="MemoryDetail.Full"/> is the <c>full</c> arm and is
     /// visible ONLY through a character cap, since detail is projected after ranking and cannot move the set.</param>
     private static async Task<(IReadOnlyList<string> Body, double Ms)> RecallArmAsync(Question q,
-        SweepDoubles.CachingEmbedder embedder, double expandFloor, int limit, int? multiplier = null,
+        SweepDoubles.CachingVectorProvider vectorProvider, double expandFloor, int limit, int? multiplier = null,
         MemoryDetail detail = MemoryDetail.Headline)
     {
         using var db = new MemoryPolicySweep.SweepDb();
         var options = new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor };
         if (multiplier is { } m) options = options with { CandidateMultiplier = m };
         var engine = new GraphMemoryEngine("lme", new SqliteMemoryGraphStore(db.Factory),
-            options: options, providers: [embedder], vectors: new InMemoryVectorStore());
+            options: options, providers: [vectorProvider], vectors: new InMemoryVectorStore());
 
         foreach (var t in q.Turns)
             await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
@@ -1658,7 +1658,7 @@ internal static class MemoryLongMemEvalBench
     /// reinforcement to confound the shots.</para>
     /// </summary>
     private static async Task<int> RunShotsAsync(List<Question> sampled,
-        SweepDoubles.CachingEmbedder embedder, double expandFloor, ContextBudget[] budgets, int fillK,
+        SweepDoubles.CachingVectorProvider vectorProvider, double expandFloor, ContextBudget[] budgets, int fillK,
         int[] pools, string[] args, bool detail = false)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -1680,16 +1680,16 @@ internal static class MemoryLongMemEvalBench
             var store = new SqliteMemoryGraphStore(db.Factory);
             var engine = new GraphMemoryEngine("lme", store,
                 options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor },
-                providers: [embedder], vectors: new InMemoryVectorStore());
+                providers: [vectorProvider], vectors: new InMemoryVectorStore());
 
             var index = new List<(string Text, float[] Vector)>();
             foreach (var t in q.Turns)
             {
                 var content = $"{t.Tag} {t.Text}";
                 await engine.RememberAsync(new MemoryWrite(Task, Scope, content));
-                index.Add((content, await embedder.EmbedAsync(content)));
+                index.Add((content, await vectorProvider.EmbedAsync(content)));
             }
-            await embedder.EmbedAsync(q.Text);   // warm the query embed so no arm pays for it alone
+            await vectorProvider.EmbedAsync(q.Text);   // warm the query embed so no arm pays for it alone
 
             void Score(string arm, IReadOnlyList<string> body, double ms)
             {
@@ -1719,10 +1719,10 @@ internal static class MemoryLongMemEvalBench
             // 14.7 SECONDS in a column whose other rows are milliseconds - a number no reader could take at
             // face value and none should have been asked to.
             var deepClock = Stopwatch.StartNew();
-            var deep = binding.Count > 0 ? (await TopKAsync(embedder, index, q.Text, index.Count)).ToList() : [];
+            var deep = binding.Count > 0 ? (await TopKAsync(vectorProvider, index, q.Text, index.Count)).ToList() : [];
             var deepMs = deepClock.Elapsed.TotalMilliseconds;
             var (filled, fillMs) = binding.Count > 0
-                ? await RecallArmAsync(q, embedder, expandFloor, fillK)
+                ? await RecallArmAsync(q, vectorProvider, expandFloor, fillK)
                 : ((IReadOnlyList<string>)[], 0d);
 
             // Each multiplier needs its OWN store: a recall reinforces what it returns, so scoring two
@@ -1731,7 +1731,7 @@ internal static class MemoryLongMemEvalBench
             var pooled = new List<(int M, IReadOnlyList<string> Body, double Ms)>();
             foreach (var m in binding.Count > 0 ? pools : [])
             {
-                var (body, ms) = await RecallArmAsync(q, embedder, expandFloor, RecallLimit, m);
+                var (body, ms) = await RecallArmAsync(q, vectorProvider, expandFloor, RecallLimit, m);
                 pooled.Add((m, body, ms));
             }
 
@@ -1739,7 +1739,7 @@ internal static class MemoryLongMemEvalBench
             // limit, shipped multiplier, MemoryDetail.Full — so the ONLY difference from `shot-1` is how much
             // of each chosen item is rendered, and the budget is what turns that into fewer items.
             var (whole, wholeMs) = detail && binding.Count > 0
-                ? await RecallArmAsync(q, embedder, expandFloor, RecallLimit, null, MemoryDetail.Full)
+                ? await RecallArmAsync(q, vectorProvider, expandFloor, RecallLimit, null, MemoryDetail.Full)
                 : ((IReadOnlyList<string>)[], 0d);
 
             foreach (var b in budgets)
@@ -1749,7 +1749,7 @@ internal static class MemoryLongMemEvalBench
                     foreach (var (arm, k) in new[] { ("vector", RecallLimit), ($"vector-{ShotBudget}", ShotBudget) })
                     {
                         var vclock = Stopwatch.StartNew();
-                        var got = (await TopKAsync(embedder, index, q.Text, k)).ToList();
+                        var got = (await TopKAsync(vectorProvider, index, q.Text, k)).ToList();
                         Score(arm, got, vclock.Elapsed.TotalMilliseconds);
                     }
 
@@ -1791,7 +1791,7 @@ internal static class MemoryLongMemEvalBench
         PrintBudget(budgets);
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"vector backend {vectorProvider.Misses} call(s), {vectorProvider.Hits} cache hit(s)"
             + $"{TruncationNote()}.");
         return 0;
     }
@@ -1829,7 +1829,7 @@ internal static class MemoryLongMemEvalBench
     /// load missed. That is the one workload where more shots should help most, and it had no curve at
     /// all.</summary>
     private static async Task<int> RunTemporalShotsAsync(List<Question> sampled,
-        SweepDoubles.CachingEmbedder embedder, double expandFloor, ContextBudget[] budgets, int fillK,
+        SweepDoubles.CachingVectorProvider vectorProvider, double expandFloor, ContextBudget[] budgets, int fillK,
         int[] pools, string[] args, bool detail = false)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -1851,16 +1851,16 @@ internal static class MemoryLongMemEvalBench
             var store = new SqliteMemoryGraphStore(db.Factory);
             var engine = new GraphMemoryEngine("lme", store,
                 options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor },
-                providers: [embedder], vectors: new InMemoryVectorStore());
+                providers: [vectorProvider], vectors: new InMemoryVectorStore());
 
             var index = new List<(string Text, float[] Vector)>();
             foreach (var t in q.Turns)
             {
                 var content = $"{t.Tag} {t.Text}";
                 await engine.RememberAsync(new MemoryWrite(Task, Scope, content));
-                index.Add((content, await embedder.EmbedAsync(content)));
+                index.Add((content, await vectorProvider.EmbedAsync(content)));
             }
-            await embedder.EmbedAsync(q.Text);   // warm the query embed so no arm pays for it alone
+            await vectorProvider.EmbedAsync(q.Text);   // warm the query embed so no arm pays for it alone
             evidenceTotal += q.Evidence.Count;
 
             void Score(string arm, IReadOnlyList<string> body)
@@ -1880,22 +1880,22 @@ internal static class MemoryLongMemEvalBench
             });
 
             var binding = budgets.Where(b => b.Binds).ToList();
-            var deep = binding.Count > 0 ? (await TopKAsync(embedder, index, q.Text, index.Count)).ToList() : [];
+            var deep = binding.Count > 0 ? (await TopKAsync(vectorProvider, index, q.Text, index.Count)).ToList() : [];
             var filled = binding.Count > 0
-                ? (await RecallArmAsync(q, embedder, expandFloor, fillK)).Body
+                ? (await RecallArmAsync(q, vectorProvider, expandFloor, fillK)).Body
                 : [];
 
             // One store per multiplier - see the knowledge-update runner for why sharing one would let the
             // first recall's reinforcement change the second's ranking.
             var pooled = new List<(int M, IReadOnlyList<string> Body)>();
             foreach (var m in binding.Count > 0 ? pools : [])
-                pooled.Add((m, (await RecallArmAsync(q, embedder, expandFloor, RecallLimit, m)).Body));
+                pooled.Add((m, (await RecallArmAsync(q, vectorProvider, expandFloor, RecallLimit, m)).Body));
 
             // The COMPLETENESS arm, as the knowledge-update runner builds it and for the same reason: its own
             // store, the shipped limit and multiplier, MemoryDetail.Full. Here it is scored on COVERAGE, so
             // a cap that suppresses a superseded fact one class over can only lose flagged turns.
             var whole = detail && binding.Count > 0
-                ? (await RecallArmAsync(q, embedder, expandFloor, RecallLimit, null, MemoryDetail.Full)).Body
+                ? (await RecallArmAsync(q, vectorProvider, expandFloor, RecallLimit, null, MemoryDetail.Full)).Body
                 : [];
 
             foreach (var b in budgets)
@@ -1903,7 +1903,7 @@ internal static class MemoryLongMemEvalBench
                 if (!b.Binds)
                 {
                     foreach (var (arm, k) in new[] { ("vector", RecallLimit), ($"vector-{ShotBudget}", ShotBudget) })
-                        Score(arm, (await TopKAsync(embedder, index, q.Text, k)).ToList());
+                        Score(arm, (await TopKAsync(vectorProvider, index, q.Text, k)).ToList());
                     continue;
                 }
 
@@ -1939,7 +1939,7 @@ internal static class MemoryLongMemEvalBench
         PrintBudget(budgets);
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"vector backend {vectorProvider.Misses} call(s), {vectorProvider.Hits} cache hit(s)"
             + $"{TruncationNote()}.");
         return 0;
     }
@@ -1947,7 +1947,7 @@ internal static class MemoryLongMemEvalBench
     /// <summary>Reports where the pair lands on each ranking signal, and what that position is WORTH under
     /// RRF's own curve. The rank gap and the contribution gap are separate columns on purpose: a gap that
     /// holds while its contribution collapses is the whole hypothesis, and one number cannot show it.</summary>
-    private static async Task RunRanksAsync(List<Question> sampled, SweepDoubles.CachingEmbedder embedder)
+    private static async Task RunRanksAsync(List<Question> sampled, SweepDoubles.CachingVectorProvider vectorProvider)
     {
         const double K = 60;   // ReciprocalRankFusionOptions.K's shipped default.
         var stopwatch = Stopwatch.StartNew();
@@ -1964,7 +1964,7 @@ internal static class MemoryLongMemEvalBench
             using var db = new MemoryPolicySweep.SweepDb();
             var store = new SqliteMemoryGraphStore(db.Factory);
             var probe = new RankProbe(new ReciprocalRankFusionPolicy()) { Current = q.Current, Stale = q.Stale };
-            var engine = new GraphMemoryEngine("lme", store, providers: [embedder],
+            var engine = new GraphMemoryEngine("lme", store, providers: [vectorProvider],
                 vectors: new InMemoryVectorStore(), ranking: probe);
 
             foreach (var t in q.Turns)
@@ -2015,7 +2015,7 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("  are the ones that decide the order.");
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"vector backend {vectorProvider.Misses} call(s), {vectorProvider.Hits} cache hit(s)"
             + $"{TruncationNote()}.");
     }
 
@@ -2031,7 +2031,7 @@ internal static class MemoryLongMemEvalBench
     /// after the service" is unanswerable from the later fact alone — so partial recall is a miss, and the
     /// any-evidence column beside it shows how much of the gap is partial rather than total.</summary>
     private static async Task<int> RunTemporalAsync(List<Question> sampled,
-        SweepDoubles.CachingEmbedder embedder, string[] args)
+        SweepDoubles.CachingVectorProvider vectorProvider, string[] args)
     {
         var configs = SelectConfigs(args, out var wantsCosine);
         if (configs is null) return 1;
@@ -2054,7 +2054,7 @@ internal static class MemoryLongMemEvalBench
             foreach (var arm in configs)
             {
                 using var db = new MemoryPolicySweep.SweepDb();
-                var engine = EngineFor(arm, db, embedder);
+                var engine = EngineFor(arm, db, vectorProvider);
                 foreach (var t in q.Turns)
                     await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
 
@@ -2069,9 +2069,9 @@ internal static class MemoryLongMemEvalBench
                 foreach (var t in q.Turns)
                 {
                     var content = $"{t.Tag} {t.Text}";
-                    index.Add((content, await embedder.EmbedAsync(content)));
+                    index.Add((content, await vectorProvider.EmbedAsync(content)));
                 }
-                results.Add((VectorArm, (await TopKAsync(embedder, index, q.Text, RecallLimit)).ToList()));
+                results.Add((VectorArm, (await TopKAsync(vectorProvider, index, q.Text, RecallLimit)).ToList()));
             }
 
             evidenceTotal += q.Evidence.Count;
@@ -2100,7 +2100,7 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("  everywhere'.");
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
-            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s)"
+            + $"vector backend {vectorProvider.Misses} call(s), {vectorProvider.Hits} cache hit(s)"
             + $"{TruncationNote()}.");
         return 0;
     }
@@ -2213,9 +2213,9 @@ internal static class MemoryLongMemEvalBench
     }
 
     private static async Task<IEnumerable<string>> TopKAsync(
-        IModelProvider embedder, List<(string Text, float[] Vector)> index, string query, int k)
+        IModelProvider vectorProvider, List<(string Text, float[] Vector)> index, string query, int k)
     {
-        var q = await embedder.EmbedAsync(query);
+        var q = await vectorProvider.EmbedAsync(query);
         return index.Select(e => (e.Text, Score: Cosine(q, e.Vector)))
             .OrderByDescending(e => e.Score).Take(k).Select(e => e.Text);
     }
@@ -2352,7 +2352,7 @@ internal static class MemoryLongMemEvalBench
             : "oracle — evidence sessions only, nothing to bury")}");
         Console.WriteLine($"Questions: {sampled.Count} of {pool} {cls}   seed {seed}   sample {Digest(sampled)}");
         Console.WriteLine($"Ingested:  {turns} turns per arm, {(double)turns / sampled.Count:F0} per question   "
-            + $"k = {RecallLimit}   embedder {SweepDoubles.ServedOrRequestedModel}   model-free");
+            + $"k = {RecallLimit}   vector backend {SweepDoubles.ServedOrRequestedModel}   model-free");
         Console.WriteLine();
     }
 
@@ -2393,8 +2393,8 @@ internal static class MemoryLongMemEvalBench
     /// <summary>The truncation footer, empty when nothing was cut. A run that truncated and did not say so
     /// would be claiming to have embedded text it did not.</summary>
     private static string TruncationNote() =>
-        SweepDoubles.OpenAiCompatibleEmbedder.Truncated is var cut and > 0
-            ? $", {cut} input(s) truncated to {SweepDoubles.OpenAiCompatibleEmbedder.MaxInputChars} chars"
+        SweepDoubles.OpenAiCompatibleVectorProvider.Truncated is var cut and > 0
+            ? $", {cut} input(s) truncated to {SweepDoubles.OpenAiCompatibleVectorProvider.MaxInputChars} chars"
             : "";
 
     private static string? ArgValue(string[] args, string name)

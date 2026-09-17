@@ -77,7 +77,7 @@ if (args.Contains("--verification"))
 if (args.Contains("--fan"))
     return await MemoryFanSweep.RunAsync();
 
-// `node devtools/dev.mjs memory-enrichment` → --enrichment. WHY registering an embedder costs recall
+// `node devtools/dev.mjs memory-enrichment` → --enrichment. WHY registering a vector backend costs recall
 // quality: the two WRITE-TIME mechanisms (similarity linking, novelty→salience) varied independently, which
 // nothing had done. The ONLY sweep here that calls a real model rather than a deterministic double, and it
 // EXITS rather than substituting one — the arm it replaces was measured through a bag-of-words fake in which
@@ -88,7 +88,7 @@ if (args.Contains("--enrichment"))
 
 // `node devtools/dev.mjs memory-salience-weight` → --salience-weight. Whether the `many-candidates`
 // regression salience ships with is recoverable by BOUNDING its ranking voice. The second sweep here that
-// needs a REAL model, and for a sharper reason than cost: without an embedder salience declines on every
+// needs a REAL model, and for a sharper reason than cost: without a vector backend salience declines on every
 // write, and RRF ranks by competition (D82), so a uniformly-absent signal contributes the same constant at
 // every weight — the curve would be flat as an ARTIFACT with every control green.
 // `--languages` is the SECOND run: the decisive pair (silent vs shipped) across all five CorpusLanguage
@@ -104,14 +104,14 @@ if (args.Contains("--salience-weight"))
 // stored", so sustained significance DECAYS on that axis as it is confirmed while a one-off triviality reads
 // as maximal. Ranking stays at the shipped SalienceWeight = 0, so this prices SURVIVAL (decay resistance +
 // store admission), which is D45's actual claim for what salience means.
-// Needs a real embedder, and for D89's reason: without one the novelty arm silently becomes the
+// Needs a real vector backend, and for D89's reason: without one the novelty arm silently becomes the
 // salience-off arm and the table reads as "importance wins" having measured nothing.
 if (args.Contains("--importance"))
     return await MemoryImportanceSweep.RunAsync(args.Contains("--languages"));
 
 // `node devtools/dev.mjs memory-density` → --density. Whether a CORRECTION and a RECURRENCE separate on
 // SalienceContext.SimilarCount at all. This is the cheapest possible refutation of the gist tier: if they
-// do not separate here, on authored fixtures with a real embedder, nothing downstream can work.
+// do not separate here, on authored fixtures with a real vector backend, nothing downstream can work.
 if (args.Contains("--density"))
     return await MemoryDensitySweep.RunAsync(args.Contains("--languages"));
 

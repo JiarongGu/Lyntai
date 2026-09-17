@@ -130,7 +130,7 @@ public static class SqliteStorageBuilderExtensions
         return builder;
     }
 
-    /// <summary>Back semantic-memory vectors (<c>AddSemanticMemory</c> / <c>AddEmbeddingProvider</c>) with SQLite
+    /// <summary>Back semantic-memory vectors (<c>AddSemanticMemory</c> / <c>AddProvider</c>) with SQLite
     /// so they survive restarts. Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, SchemaMigration)"/>
     /// for the factory + schema, including <see cref="StorageFeature.Governance"/> — the feature carrying
     /// the <c>lyntai_vector</c> table — whenever Lyntai is the one migrating (see the Governance note

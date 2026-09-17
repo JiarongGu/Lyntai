@@ -49,7 +49,7 @@ public class MemorySalienceContextTests
     /// <summary>Exact cosine control. A bag-of-words fake would make novelty a function of word overlap, and
     /// what is being pinned here is that the ENGINE's own measurement reaches the context — not that some
     /// number does.</summary>
-    private sealed class ScriptedEmbedder(IReadOnlyDictionary<string, float[]> map) : EmbeddingBackend
+    private sealed class ScriptedVectorProvider(IReadOnlyDictionary<string, float[]> map) : FakeVectorProviderBase
     {
         public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default) =>
@@ -108,14 +108,14 @@ public class MemorySalienceContextTests
     {
         // The two are complementary, not alternatives: novelty is the engine's own measurement and cannot be
         // derived from the write, which is why it lives on the context rather than being left to policies.
-        // An embedder and a vector store are wired on purpose — without them `Probe` short-circuits and every
+        // A vector backend and a vector store are wired on purpose — without them `Probe` short-circuits and every
         // context reports 0, so a fixture on the bare engine cannot fail for the reason it is named for.
         const string prior = "the certificate rotation runs every ninety days";
         const string novel = "a violin string snapped during the second movement";
         const string familiar = "certificate rotation is a ninety day cycle";
         var policy = new CapturingSalience();
         var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            providers: [new ScriptedEmbedder(new Dictionary<string, float[]>(StringComparer.Ordinal)
+            providers: [new ScriptedVectorProvider(new Dictionary<string, float[]>(StringComparer.Ordinal)
             {
                 [prior] = [1f, 0f, 0f],
                 [novel] = [0f, 1f, 0f],

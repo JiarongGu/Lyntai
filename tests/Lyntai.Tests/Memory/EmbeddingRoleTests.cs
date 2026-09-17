@@ -4,14 +4,14 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Memory;
 
-/// <summary>The embedding ROLE seam: the library tells an embedder which side of a similarity comparison
+/// <summary>The embedding ROLE seam: the library tells a vector backend which side of a similarity comparison
 /// a text is being embedded for, and the deployment's implementation decides what to do with that.
 ///
 /// <para><b>Why it exists.</b> Asymmetric embedding models — the E5, BGE, nomic and Arctic families — are
 /// trained with distinct instructions for the text being STORED and the text being SEARCHED WITH, and score
 /// materially worse when both sides are embedded identically. Before this seam the engine called one
 /// role-less method from both paths, so such a model could not be driven correctly through Lyntai by ANY
-/// implementation: a BYO embedder had no way to learn which side it was serving.</para>
+/// implementation: a BYO vector backend had no way to learn which side it was serving.</para>
 ///
 /// <para><b>The compatibility half is what these tests mostly pin.</b> A symmetric model must be unaffected
 /// and an existing implementation must keep working untouched, which is what the interface's default body
@@ -19,8 +19,8 @@ namespace Lyntai.Tests.Memory;
 public class EmbeddingRoleTests
 {
     /// <summary>Records the role each call carried. Implements BOTH overloads, which is what a genuinely
-    /// role-aware BYO embedder does.</summary>
-    private sealed class RoleRecordingEmbedder : EmbeddingBackend
+    /// role-aware BYO vector backend does.</summary>
+    private sealed class RoleRecordingVectorProvider : FakeVectorProviderBase
     {
         public List<(string Text, EmbeddingRole? Role)> Calls { get; } = [];
 
@@ -45,24 +45,24 @@ public class EmbeddingRoleTests
     [Fact]
     public async Task Remembering_embeds_a_DOCUMENT_and_recalling_embeds_a_QUERY()
     {
-        var embedder = new RoleRecordingEmbedder();
-        var mem = new SemanticMemory([embedder], new InMemoryVectorStore());
+        var vectorProvider = new RoleRecordingVectorProvider();
+        var mem = new SemanticMemory([vectorProvider], new InMemoryVectorStore());
 
         await mem.RememberAsync("t", "s", "the capital of France is Paris");
         await mem.RecallAsync("t", "s", "where is Paris", k: 5);
 
         Assert.Equal(
             [("the capital of France is Paris", EmbeddingRole.Document), ("where is Paris", EmbeddingRole.Query)],
-            embedder.Calls);
+            vectorProvider.Calls);
     }
 
     /// <summary>The compatibility guarantee, and the reason the seam is a default-implemented member rather
-    /// than a new required one: <see cref="FakeEmbedder"/> implements ONLY the role-less method — exactly
-    /// what every embedder written before this seam existed looks like — and must keep working.</summary>
+    /// than a new required one: <see cref="FakeVectorProvider"/> implements ONLY the role-less method — exactly
+    /// what every vector backend written before this seam existed looks like — and must keep working.</summary>
     [Fact]
-    public async Task An_embedder_implementing_only_the_ROLE_LESS_method_keeps_working_unchanged()
+    public async Task A_vector_backend_implementing_only_the_ROLE_LESS_method_keeps_working_unchanged()
     {
-        var mem = new SemanticMemory([new FakeEmbedder()], new InMemoryVectorStore());
+        var mem = new SemanticMemory([new FakeVectorProvider()], new InMemoryVectorStore());
 
         await mem.RememberAsync("t", "s", "the capital of France is Paris");
         var hits = await mem.RecallAsync("t", "s", "capital of France", k: 5);
@@ -76,7 +76,7 @@ public class EmbeddingRoleTests
     [Fact]
     public async Task The_default_body_delegates_to_the_role_less_method_rather_than_returning_empty()
     {
-        IModelProvider symmetric = new FakeEmbedder();
+        IModelProvider symmetric = new FakeVectorProvider();
 
         var viaRole = await symmetric.EmbedAsync(["hello world"], EmbeddingRole.Query);
         var viaPlain = await symmetric.EmbedAsync(["hello world"]);
@@ -91,11 +91,11 @@ public class EmbeddingRoleTests
     [Fact]
     public async Task The_single_text_extension_carries_the_role_through()
     {
-        var embedder = new RoleRecordingEmbedder();
+        var vectorProvider = new RoleRecordingVectorProvider();
 
-        await embedder.EmbedAsync(["just this one"], EmbeddingRole.Document);
+        await vectorProvider.EmbedAsync(["just this one"], EmbeddingRole.Document);
 
-        Assert.Equal([("just this one", EmbeddingRole.Document)], embedder.Calls);
+        Assert.Equal([("just this one", EmbeddingRole.Document)], vectorProvider.Calls);
     }
 
     /// <summary><see cref="EmbeddingRole.Document"/> is the default value of the enum, so a

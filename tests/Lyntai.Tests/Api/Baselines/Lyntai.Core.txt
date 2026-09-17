@@ -94,9 +94,6 @@ sealed class Lyntai.Agents.CliToolSession
     .ctor(IReadOnlyList<String> extraArgs, Func<ValueTask> dispose = null)
     DisposeAsync() : ValueTask
     ExtraArgs : IReadOnlyList<String>
-sealed class Lyntai.Agents.EmbeddingToolSelector
-    .ctor(IEnumerable<IModelProvider> providers, ToolSelectorOptions options = null)
-    SelectAsync(LlmRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>
 sealed class Lyntai.Agents.FunctionTool
     .ctor(String name, Func<String,CancellationToken,Task<String>> invoke, String description = null, String parametersJsonSchema = null)
     Description : String
@@ -287,6 +284,9 @@ sealed class Lyntai.Agents.UsageLive
     OutputTokens : Int64
     PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
+sealed class Lyntai.Agents.VectorToolSelector
+    .ctor(IEnumerable<IModelProvider> providers, ToolSelectorOptions options = null)
+    SelectAsync(LlmRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>
 sealed class Lyntai.BudgetOptions
     .ctor()
     MaxCostUsd : Nullable<Double>
@@ -1567,7 +1567,6 @@ sealed class Lyntai.LyntaiBuilder
     AddConversationEnricher(Func<IServiceProvider,IConversationEnricher> factory) : LyntaiBuilder
     AddConversationEnricher<T>() : LyntaiBuilder
     AddCronSchedule(String name, String lane, String type, String payload, String cron, Int32 priority = 0) : LyntaiBuilder
-    AddEmbeddingProvider(Func<IServiceProvider,IModelProvider> factory) : LyntaiBuilder
     AddFrontDoorDecorator(Int32 order, Func<IServiceProvider,ILlmClient,ILlmClient> decorate) : LyntaiBuilder
     AddGuard(Func<IServiceProvider,IGuard> factory) : LyntaiBuilder
     AddGuard<T>() : LyntaiBuilder
@@ -1579,8 +1578,8 @@ sealed class Lyntai.LyntaiBuilder
     AddJobSchedule(String name, String lane, String type, String payload, TimeSpan every, Int32 priority = 0) : LyntaiBuilder
     AddLiveModelRouting() : LyntaiBuilder
     AddMemoryPruneJob(String cron, Nullable<TimeSpan> olderThan = null, String taskKey = null, String lane = "default", String name = "lyntai-memory-prune", Int32 priority = 0) : LyntaiBuilder
-    AddProvider(Func<IServiceProvider,IModelProvider> factory) : LyntaiBuilder
-    AddProvider<T>() : LyntaiBuilder
+    AddProvider(Func<IServiceProvider,IModelProvider> factory, ProviderCapabilities declares = null) : LyntaiBuilder
+    AddProvider<T>(ProviderCapabilities declares = null) : LyntaiBuilder
     AddRateLimit(Action<RateLimitOptions> configure = null) : LyntaiBuilder
     AddRefusalMatcher(Func<IServiceProvider,IRefusalMatcher> factory) : LyntaiBuilder
     AddRefusalMatcher(IRefusalMatcher matcher) : LyntaiBuilder
@@ -3164,6 +3163,6 @@ sealed class Lyntai.Text.WordPieceTokenizer
     static FromModelDirectory(String directory) : WordPieceTokenizer
     static FromVocabulary(IReadOnlyList<String> vocabulary, String unknownToken = "[UNK]", Boolean lowercase = true, Nullable<Boolean> stripAccents = null, Boolean tokenizeChineseCharacters = true, String classificationToken = "[CLS]", String separatorToken = "[SEP]") : WordPieceTokenizer
 static class Lyntai.ToolSelectorRegistration
-    static AddEmbeddingToolSelector(LyntaiBuilder builder, Action<ToolSelectorOptions> configure = null) : LyntaiBuilder
+    static AddVectorToolSelector(LyntaiBuilder builder, Action<ToolSelectorOptions> configure = null) : LyntaiBuilder
 static class Microsoft.Extensions.DependencyInjection.LyntaiServiceCollectionExtensions
     static AddLyntai(IServiceCollection services, Action<LyntaiBuilder> configure) : IServiceCollection

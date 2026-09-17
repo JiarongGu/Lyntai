@@ -310,11 +310,13 @@ static class GovernanceDemo
     }
 
     // semantic memory: remember two facts, recall by a query that overlaps the relevant one — it must rank
-    // first, and the unrelated fact be filtered by the minScore floor. (DemoEmbedder is a stand-in model.)
+    // first, and the unrelated fact be filtered by the minScore floor. (DemoVectorProvider is a stand-in model.)
     private static async Task<bool> SemanticScenario(string dbPath)
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddClaudeCliProvider().UseSqliteStorage(dbPath).AddEmbeddingProvider(_ => new DemoEmbedder()).AddSemanticMemory().UseDefaultCandidates("claude-cli"));
+        services.AddLyntai(b => b.AddClaudeCliProvider().UseSqliteStorage(dbPath)
+            .AddProvider(_ => new DemoVectorProvider(), DemoVectorProvider.Declared)
+            .AddSemanticMemory().UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();
         var mem = sp.GetRequiredService<ISemanticMemory>();
 
@@ -322,7 +324,7 @@ static class GovernanceDemo
         await mem.RememberAsync("faq", "s", "Our pizza menu changes every week.");
         var hits = await mem.RecallAsync("faq", "s", "how do I cancel my subscription", k: 2, minScore: 0.0001);
         // the query-relevant fact ranks FIRST (the unrelated pizza fact may still trail with a tiny
-        // collision-driven score from the demo's feature-hash embedder — a real model wouldn't)
+        // collision-driven score from the demo's feature-hash vector backend — a real model wouldn't)
         return hits.Count > 0 && hits[0].Content.Contains("cancel");
     }
 
@@ -404,19 +406,23 @@ static class AgentSessionDemo
     }
 }
 
-/// <summary>A deterministic stand-in embedder for the demo (feature-hashed bag-of-words, so texts sharing
+/// <summary>A deterministic stand-in vector backend for the demo (feature-hashed bag-of-words, so texts sharing
 /// words land close in cosine space). A real app registers an actual embedding BACKEND — AddOnnxProvider,
 /// AddModel2VecProvider, or AddHttpProvider with Produces = Vector (docs/DECISIONS.md D151).</summary>
-sealed class DemoEmbedder : IModelProvider
+sealed class DemoVectorProvider : IModelProvider
 {
-    public string Id => "demo-embedder";
+    public string Id => "demo-vectors";
 
-    public ProviderCapabilities Capabilities { get; } = new()
+    /// <summary>Reachable without an instance, so the registration can STATE what this produces before
+    /// anything is built (docs/DECISIONS.md D152).</summary>
+    public static readonly ProviderCapabilities Declared = new()
     {
         Accepts = [ProviderKinds.Text],
         Produces = [ProviderKinds.Vector],
         Operations = [ProviderOperation.Complete],
     };
+
+    public ProviderCapabilities Capabilities => Declared;
 
     public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<float[]>>([.. texts.Select(Embed)]);
