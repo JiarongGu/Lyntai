@@ -647,26 +647,6 @@ sealed class Lyntai.Generation.Jobs.GenerationRenderJobOptions
     ToString() : String
 interface Lyntai.Generation.Jobs.IGenerationArtifactSink
     ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default) : Task
-sealed class Lyntai.Generation.QueuedOperation
-    .ctor(String Id, QueuedOperationStatus Status, Nullable<Double> Progress = null, String Detail = null)
-    Deconstruct(String& Id, QueuedOperationStatus& Status, Nullable`1& Progress, String& Detail) : Void
-    Detail : String
-    Equals(Object obj) : Boolean
-    Equals(QueuedOperation other) : Boolean
-    GetHashCode() : Int32
-    Id : String
-    Inconclusive : Boolean
-    IsTerminal : Boolean
-    Progress : Nullable<Double>
-    Status : QueuedOperationStatus
-    ToString() : String
-enum Lyntai.Generation.QueuedOperationStatus
-    Cancelled : QueuedOperationStatus const
-    Failed : QueuedOperationStatus const
-    Queued : QueuedOperationStatus const
-    Running : QueuedOperationStatus const
-    Succeeded : QueuedOperationStatus const
-    value__ : Int32
 sealed class Lyntai.Generation.Routing.BudgetedGenerationRouter
     .ctor(IGenerationRouter inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedGenerationRouter> logger = null)
     GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
@@ -1025,14 +1005,26 @@ interface Lyntai.Lifecycle.IModelProvider
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
 interface Lyntai.Lifecycle.IProviderAdmission
     EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>
+interface Lyntai.Lifecycle.IProviderCall`2
+    CallAsync(TRequest request, CancellationToken ct = default) : Task<TResponse>
 interface Lyntai.Lifecycle.IProviderIdentity
     Id : String
+interface Lyntai.Lifecycle.IProviderOutcome
+    Detail : String
+    Verdict : ProviderVerdict
 interface Lyntai.Lifecycle.IProviderPool`1
     GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
     Retire(ProviderKey key) : Boolean
     RetireSlot(String slot) : Int32
     Statistics : ProviderPoolStatistics
     TryGetKey(TProvider instance, ProviderKey& key) : Boolean
+interface Lyntai.Lifecycle.IProviderQueue`2
+    CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
+    FetchAsync(String operationId, CancellationToken ct = default) : Task<TResponse>
+    PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
+    SubmitAsync(TRequest request, CancellationToken ct = default) : Task<QueuedOperation>
+interface Lyntai.Lifecycle.IProviderStream`2
+    StreamAsync(TRequest request, CancellationToken ct = default) : IAsyncEnumerable<TChunk>
 sealed class Lyntai.Lifecycle.ProviderAdmission
     .ctor(ProviderAdmissionOptions options = null)
     EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>
@@ -1150,6 +1142,26 @@ static class Lyntai.Lifecycle.ProviderVerdictExtensions
     static IsBlameless(ProviderVerdict verdict) : Boolean
     static IsOk(ProviderVerdict verdict) : Boolean
     static IsTransient(ProviderVerdict verdict) : Boolean
+sealed class Lyntai.Lifecycle.QueuedOperation
+    .ctor(String Id, QueuedOperationStatus Status, Nullable<Double> Progress = null, String Detail = null)
+    Deconstruct(String& Id, QueuedOperationStatus& Status, Nullable`1& Progress, String& Detail) : Void
+    Detail : String
+    Equals(Object obj) : Boolean
+    Equals(QueuedOperation other) : Boolean
+    GetHashCode() : Int32
+    Id : String
+    Inconclusive : Boolean
+    IsTerminal : Boolean
+    Progress : Nullable<Double>
+    Status : QueuedOperationStatus
+    ToString() : String
+enum Lyntai.Lifecycle.QueuedOperationStatus
+    Cancelled : QueuedOperationStatus const
+    Failed : QueuedOperationStatus const
+    Queued : QueuedOperationStatus const
+    Running : QueuedOperationStatus const
+    Succeeded : QueuedOperationStatus const
+    value__ : Int32
 sealed class Lyntai.Lifecycle.TransientProviderPool`1
     .ctor()
     GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider

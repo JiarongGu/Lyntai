@@ -260,6 +260,20 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   vectors — three members, exactly what a bring-your-own SCORER already implements. The per-call role
   distinction survives on `EmbedAsync`'s role-aware overload, so an asymmetric model is unaffected.
 
+- **A generic provider base, so a consuming app can define its OWN kind** (**D153**). Four additive seams in
+  `Lyntai.Lifecycle`: `IProviderOutcome` (`Verdict` + `Detail` — what routing needs from any response, and
+  the whole of it), `IProviderCall<TRequest,TResponse>`, `IProviderStream<TRequest,TChunk>` and
+  `IProviderQueue<TRequest,TResponse>`. An application closing these over its own types gets candidate
+  selection, dead-host cooldown, admission and fallback from the shared router **without this library
+  knowing its kind exists** — today it gets none of that, because both routers are typed to Core's own
+  request and reply types.
+  <br>`LlmReply` and `GenerationResult` now declare `IProviderOutcome`. Both already had `Verdict` and
+  `Detail`, so nothing about either type changes — that they satisfied it unmodified is the evidence the
+  contract is the right one.
+  <br>**Moved:** `QueuedOperation` and `QueuedOperationStatus` `Lyntai.Generation` → `Lyntai.Lifecycle`. A <!-- drift-ok: the entry ANNOUNCING the move has to name both sides -->
+  queue any kind can serve cannot live in the generation namespace. Edit the `using`; the types are
+  unchanged.
+
 - **The queued delivery mode stops borrowing the word `Job`** (**D153**). `Lyntai.Jobs` is the durable job
   queue an *application* runs — `IJobStore`, `IJobQueue`, `IJobHandler`, `IJobRunner`, `IJobScheduler` — and
   a backend delivery mode is a different thing that composes with it. So:

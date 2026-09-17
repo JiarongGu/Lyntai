@@ -15,6 +15,7 @@ public sealed record GenerationResult(
     IReadOnlyList<GenerationArtifact> Artifacts,
     GenerationUsage? Usage = null,
     string? Detail = null)
+    : IProviderOutcome
 {
     /// <summary>Whether the call produced media.</summary>
     public bool IsOk => Verdict == ProviderVerdict.Ok;
