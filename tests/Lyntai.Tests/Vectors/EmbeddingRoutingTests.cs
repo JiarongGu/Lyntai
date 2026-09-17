@@ -12,7 +12,7 @@ namespace Lyntai.Tests.Embeddings;
 /// </summary>
 public class EmbeddingRoutingTests
 {
-    private sealed class StubVectorProvider(string id) : IModelProvider
+    private sealed class StubVectorProvider(string id) : IVectorProvider
     {
         public string Id { get; } = id;
         public bool IsAvailable { get; set; } = true;
@@ -27,13 +27,15 @@ public class EmbeddingRoutingTests
             Operations = [ProviderOperation.Complete],
         };
 
-        public Task<IReadOnlyList<float[]>> EmbedAsync(
-            IReadOnlyList<string> texts, EmbeddingRole role, CancellationToken ct = default)
+        /// <summary>Throws rather than returning a verdict on purpose: these tests are about what routing
+        /// does with a backend that FAILS, and an escaping exception is the harsher of the two paths — the
+        /// router has to classify it rather than being handed a verdict.</summary>
+        public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default)
         {
             Calls++;
-            SawRole = role;
+            SawRole = request.Role;
             if (Throws is not null) throw Throws;
-            return Task.FromResult<IReadOnlyList<float[]>>([[1f, 2f]]);
+            return Task.FromResult(VectorResponse.Success([[1f, 2f]]));
         }
     }
 
@@ -116,15 +118,18 @@ public class EmbeddingRoutingTests
     [Fact]
     public async Task Reports_the_LAST_reason_when_every_backend_failed_rather_than_a_bare_message()
     {
-        // A failure list that loses every cause is unactionable; the inner exception is what a developer
-        // reads first.
+        // A failure list that loses every cause is unactionable. Since D153 the cause survives as a
+        // CLASSIFIED VERDICT plus the backend's own words rather than as an inner exception — which is
+        // strictly more usable, because a verdict is what routing and a host can act on where an exception
+        // type is only something to read.
         var a = new StubVectorProvider("a") { Throws = new HttpRequestException("a died") };
         var b = new StubVectorProvider("b") { Throws = new TimeoutException("b timed out") };
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => EmbeddingRouting.EmbedAsync(Router(a, b), ["x"]));
 
         Assert.Contains("Every embedding backend failed", error.Message, StringComparison.Ordinal);
-        Assert.IsType<TimeoutException>(error.InnerException);
+        Assert.Contains("b timed out", error.Message, StringComparison.Ordinal);   // the LAST backend's words
+        Assert.DoesNotContain("a died", error.Message, StringComparison.Ordinal);  // …not the first one's
     }
 
     [Fact]

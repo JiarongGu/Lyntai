@@ -3,6 +3,7 @@ using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Providers.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 

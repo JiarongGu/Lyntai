@@ -121,18 +121,17 @@ sealed class Lyntai.Providers.Http.HttpModelOptions
     QueryPrefix : String
 sealed class Lyntai.Providers.Http.HttpModelProvider
     .ctor(String id, HttpModelOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<HttpModelProvider> logger = null, Boolean disposeHttpClient = true)
+    CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>
     Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
-    EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
-    EmbedAsync(IReadOnlyList<String> texts, EmbeddingRole role, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
     Id : String
     IsAvailable : Boolean
     ScoreAsync(String query, IReadOnlyList<String> documents, CancellationToken ct = default) : Task<IReadOnlyList<Double>>
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
 sealed class Lyntai.Providers.Model2Vec.Model2VecProvider
+    CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>
     Capabilities : ProviderCapabilities
     Dimensions : Int32
-    EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
     Id : String
     IsAvailable : Boolean
     static FromDirectory(String directory, Model2VecProviderOptions options = null) : Model2VecProvider

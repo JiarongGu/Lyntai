@@ -19,10 +19,14 @@ namespace Lyntai.Providers.Http;
 /// Azure resource → <c>/openai/v1/embeddings</c>; everything else → <c>/v1/embeddings</c>).
 /// <see cref="LyntaiOptions.ProviderTimeout"/> is the deadline for one HTTP REQUEST, so a call that
 /// <see cref="HttpModelOptions.BatchSize"/> splits is bounded by batches × that value rather
-/// than by it once. Failures THROW (an embedding call has no verdict/fallback) —
-/// <see cref="Lyntai.Memory.ISemanticMemory.RecallAsync"/> is fail-open and swallows them, while
-/// <c>RememberAsync</c> surfaces them by design. Because there is no verdict, a 401 with no key supplied
-/// says so in the message instead: see <see cref="NotConfiguredHint"/>.
+/// than by it once.
+/// <para><b>Failures come back as a <see cref="VectorResponse"/> verdict</b> (<c>docs/DECISIONS.md</c>
+/// <b>D153</b>), classified through the same
+/// <see cref="ProviderVerdictClassifier.FromHttpFailure(System.Net.HttpStatusCode,string,bool)"/> the
+/// chat path uses — so a 429 cools this host and a 401 answered to a call carrying NO key is
+/// <see cref="ProviderVerdict.NotConfigured"/> rather than a blamed <see cref="ProviderVerdict.AuthFailed"/>.
+/// This class previously threw and said that distinction in the MESSAGE, because an embed call had no
+/// verdict to put it in.</para>
 /// </summary>
 internal sealed class HttpVectorTransport(
     string id,
@@ -40,20 +44,28 @@ internal sealed class HttpVectorTransport(
     /// APP-supplied (BYO) client is NEVER disposed — the app owns its lifetime.</summary>
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
 
-    /// <summary>Embed <paramref name="texts"/>, returning one vector per input in the SAME order (batched
-    /// per <see cref="HttpModelOptions.BatchSize"/> and concatenated). An empty input returns
-    /// an empty list without any HTTP call. Failure THROWS (an embedding call has no verdict/fallback) — the
-    /// caller decides whether to swallow it (recall is fail-open) or surface it (remember is not).</summary>
-    /// <returns>One <c>float[]</c> per input text, in input order.</returns>
-    /// <exception cref="HttpRequestException">The endpoint returned a non-2xx status.</exception>
-    /// <exception cref="TimeoutException">No response within <see cref="LyntaiOptions.ProviderTimeout"/> —
-    /// the deadline for one HTTP request, armed afresh per batch; distinct from caller cancellation.</exception>
-    /// <exception cref="InvalidOperationException">The response was malformed / carried no vectors, or the
-    /// vector count did not match the batch size.</exception>
-    /// <exception cref="OperationCanceledException">The caller's <paramref name="ct"/> was cancelled.</exception>
-    public async Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default)
+    /// <summary>Embed a request's texts, one vector per input in the SAME order (batched per
+    /// <see cref="HttpModelOptions.BatchSize"/> and concatenated), applying the role's configured prefix
+    /// (<see cref="HttpModelOptions.DocumentPrefix"/> / <see cref="HttpModelOptions.QueryPrefix"/>) first.
+    /// With neither prefix set — the default, and every symmetric model — it forwards without allocating.
+    ///
+    /// <para><b>A failed BATCH fails the whole call.</b> Returning the batches that happened to succeed
+    /// would hand the caller fewer vectors than texts, silently mis-pairing every one after the gap.</para>
+    /// </summary>
+    /// <exception cref="OperationCanceledException">The caller's <paramref name="ct"/> was cancelled — the
+    /// one failure that is not a verdict, because it belongs to the caller.</exception>
+    public async Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default)
     {
-        if (texts.Count == 0) return [];
+        ArgumentNullException.ThrowIfNull(request);
+        var prefix = request.Role == EmbeddingRole.Query ? config.QueryPrefix : config.DocumentPrefix;
+        IReadOnlyList<string> texts = string.IsNullOrEmpty(prefix)
+            ? request.Texts
+            : [.. request.Texts.Select(t => prefix + t)];
+
+        // nothing asked for is nothing owed, and no HTTP call. Constructed directly rather than through
+        // Success, whose empty-list guard is about an Ok that answered a real request with nothing.
+        if (texts.Count == 0) return new VectorResponse(ProviderVerdict.Ok, []);
+
         using var owned = OwnedClient();       // disposed only when Lyntai owns it
         var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
 
@@ -66,27 +78,14 @@ internal sealed class HttpVectorTransport(
         for (var i = 0; i < texts.Count; i += batchSize)
         {
             var slice = texts.Skip(i).Take(batchSize).ToList();
-            result.AddRange(await EmbedBatchAsync(slice, http, ct).ConfigureAwait(false));
+            var batch = await EmbedBatchAsync(slice, http, ct).ConfigureAwait(false);
+            if (!batch.IsOk) return batch;
+            result.AddRange(batch.Vectors);
         }
-        return result;
+        return VectorResponse.Success(result);
     }
 
-    /// <summary>Embed for a known <paramref name="role"/>, applying that side's configured prefix
-    /// (<see cref="HttpModelOptions.DocumentPrefix"/> /
-    /// <see cref="HttpModelOptions.QueryPrefix"/>) before the request, then continuing
-    /// through the role-less path above — so batching, ordering and every failure mode are identical.
-    /// With neither prefix set (the default, and every symmetric model) it forwards without allocating.
-    /// </summary>
-    public Task<IReadOnlyList<float[]>> EmbedAsync(
-        IReadOnlyList<string> texts, EmbeddingRole role, CancellationToken ct = default)
-    {
-        var prefix = role == EmbeddingRole.Query ? config.QueryPrefix : config.DocumentPrefix;
-        return string.IsNullOrEmpty(prefix)
-            ? EmbedAsync(texts, ct)
-            : EmbedAsync([.. texts.Select(t => prefix + t)], ct);
-    }
-
-    private async Task<IReadOnlyList<float[]>> EmbedBatchAsync(IReadOnlyList<string> batch, HttpClient http, CancellationToken ct)
+    private async Task<VectorResponse> EmbedBatchAsync(IReadOnlyList<string> batch, HttpClient http, CancellationToken ct)
     {
         var timeout = options.ProviderTimeout;
         string body;
@@ -98,23 +97,33 @@ internal sealed class HttpVectorTransport(
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
-                throw new HttpRequestException(
-                    $"{id}: embeddings HTTP {(int)response.StatusCode}{NotConfiguredHint(response.StatusCode)} {HttpBody.Head(errorBody)}");
+                // the THREE-argument overload: a 401/403 answered to a call that carried no credentials is
+                // NotConfigured, which advances blamelessly, where AuthFailed benches the host
+                return VectorResponse.Failure(
+                    ProviderVerdictClassifier.FromHttpFailure(
+                        response.StatusCode, errorBody, hasCredentials: !string.IsNullOrWhiteSpace(config.ApiKey)),
+                    $"{id}: embeddings HTTP {(int)response.StatusCode} {HttpBody.Head(errorBody)}");
             }
             body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
         {
-            throw new TimeoutException($"{id}: no embeddings response within {timeout}");
+            return VectorResponse.Failure(
+                ProviderVerdict.Timeout, $"{id}: no embeddings response within {timeout}");
         }
+        // A transport-level throw (socket reset, DNS, TLS) is deliberately NOT caught here: the classifier's
+        // thrown-exception arm is internal to Core, and `ProviderRouter` already applies it to anything that
+        // escapes a backend. Catching it here would mean a second, weaker copy of that taxonomy.
 
-        var vectors = TryExtractVectors(body)
-            ?? throw new InvalidOperationException($"{id}: malformed or empty embeddings response");
+        var vectors = TryExtractVectors(body);
+        if (vectors is null)
+            return VectorResponse.Failure(ProviderVerdict.Failed, $"{id}: malformed or empty embeddings response");
         if (vectors.Count != batch.Count)
-            throw new InvalidOperationException($"{id}: expected {batch.Count} embeddings, got {vectors.Count}");
+            return VectorResponse.Failure(
+                ProviderVerdict.Failed, $"{id}: expected {batch.Count} embeddings, got {vectors.Count}");
         _logger.LogDebug("{Id}: embedded {Count} texts ({Dim}-dim)", id, vectors.Count, vectors[0].Length);
-        return vectors;
+        return VectorResponse.Success(vectors);
     }
 
     private HttpRequestMessage BuildRequest(IReadOnlyList<string> texts)

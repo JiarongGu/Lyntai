@@ -41,7 +41,7 @@ public sealed class Model2VecProviderOptions
 /// <para><b>No PCA or Zipf weighting is applied at inference.</b> A <c>model2vec</c> export bakes both into
 /// the table when it is built, so the runtime is a lookup and a mean. This reads <c>config.json</c> only for
 /// <c>normalize</c>.</para></summary>
-public sealed class Model2VecProvider : IModelProvider
+public sealed class Model2VecProvider : IVectorProvider
 {
     private readonly WordPieceTokenizer _tokenizer;
     private readonly SafetensorsTable _table;
@@ -111,12 +111,15 @@ public sealed class Model2VecProvider : IModelProvider
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<float[]>> EmbedAsync(
-        IReadOnlyList<string> texts, CancellationToken ct = default)
+    /// <remarks>A lookup and a mean, in process: there is no transport to fail, so the only non-Ok outcome
+    /// a caller sees from here is a throw the router classifies.</remarks>
+    public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(texts);
+        ArgumentNullException.ThrowIfNull(request);
         ct.ThrowIfCancellationRequested();
-        return Task.FromResult<IReadOnlyList<float[]>>([.. texts.Select(Embed)]);
+        return Task.FromResult(request.Texts.Count == 0
+            ? new VectorResponse(ProviderVerdict.Ok, [])
+            : VectorResponse.Success([.. request.Texts.Select(Embed)]));
     }
 
     /// <summary>Mean of the rows the text's tokens select. <b>A text with no usable token yields a ZERO

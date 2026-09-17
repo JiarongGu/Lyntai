@@ -409,7 +409,7 @@ static class AgentSessionDemo
 /// <summary>A deterministic stand-in vector backend for the demo (feature-hashed bag-of-words, so texts sharing
 /// words land close in cosine space). A real app registers an actual embedding BACKEND — AddOnnxProvider,
 /// AddModel2VecProvider, or AddHttpProvider with Produces = Vector (docs/DECISIONS.md D151).</summary>
-sealed class DemoVectorProvider : IModelProvider
+sealed class DemoVectorProvider : IVectorProvider
 {
     public string Id => "demo-vectors";
 
@@ -424,8 +424,8 @@ sealed class DemoVectorProvider : IModelProvider
 
     public ProviderCapabilities Capabilities => Declared;
 
-    public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<float[]>>([.. texts.Select(Embed)]);
+    public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default) =>
+        Task.FromResult(VectorResponse.Success([.. request.Texts.Select(Embed)]));
 
     private static float[] Embed(string text)
     {

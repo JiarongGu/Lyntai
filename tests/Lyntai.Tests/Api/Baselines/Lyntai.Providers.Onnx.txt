@@ -19,9 +19,9 @@ enum Lyntai.Providers.Onnx.OnnxPooling
     Mean : OnnxPooling const
     value__ : Int32
 sealed class Lyntai.Providers.Onnx.OnnxProvider
+    CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>
     Capabilities : ProviderCapabilities
     Dispose() : Void
-    EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
     Id : String
     IsAvailable : Boolean
     MaxTokens : Int32

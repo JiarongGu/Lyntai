@@ -37,27 +37,56 @@ public class HttpVectorTransportTests
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
 
-    // A vector backend has NO verdict and NO fallback — it throws (see the HttpVectorTransport type doc), so there is no
-    // "advance without blame" for it to reach and no verdict change to make. The only thing a host can act on
-    // is the WORDING: "not configured" points at setup, while a bare 401 points at a key that was never
-    // supplied. Message-only parity with the provider-side NotConfigured distinction.
+    // A 401 answered to a call carrying NO key is NotConfigured, not AuthFailed — full parity with the chat
+    // path, and the difference is not cosmetic: AuthFailed BENCHES this host for the cooldown window, while
+    // NotConfigured advances blamelessly and lets a host offer setup. Until D153 an embed call had no verdict
+    // to put that in and said it in the message instead; this asserts the verdict, and that the status still
+    // reaches a human for diagnosis.
     [Fact]
-    public async Task A_401_with_no_api_key_supplied_says_not_configured()
+    public async Task A_401_with_no_api_key_supplied_is_NOT_CONFIGURED_rather_than_a_benched_host()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, "unauthorized");
         var vectorProvider = VectorProvider(handler, c => c.ApiKey = null);
 
-        var ex = await Assert.ThrowsAsync<HttpRequestException>(async () => await vectorProvider.EmbedAsync(["a"]));
+        var response = await vectorProvider.CallAsync(new VectorRequest(["a"]));
 
-        Assert.Contains("not configured", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("401", ex.Message); // the status stays, for diagnosis
+        Assert.Equal(ProviderVerdict.NotConfigured, response.Verdict);
+        Assert.Empty(response.Vectors);
+        Assert.Contains("401", response.Detail); // the status stays, for diagnosis
+    }
+
+    [Fact]
+    public async Task A_401_WITH_a_key_supplied_is_AuthFailed_which_benches_the_host()
+    {
+        // The other half of the two-term promotion: credentials were sent and REJECTED, which is a fault
+        // worth cooling the host over. Without this arm the test above passes for a classifier that answers
+        // NotConfigured to every 401.
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, "unauthorized");
+        var vectorProvider = VectorProvider(handler, c => c.ApiKey = "sk-real");
+
+        var response = await vectorProvider.CallAsync(new VectorRequest(["a"]));
+
+        Assert.Equal(ProviderVerdict.AuthFailed, response.Verdict);
+    }
+
+    [Fact]
+    public async Task A_429_is_RATE_LIMITED_so_the_router_can_cool_this_host()
+    {
+        // The gain D153 actually buys here: before, this threw and the embedding path retried the same
+        // exhausted host on the very next recall, because it had no cooldown to reach.
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.TooManyRequests, "slow down");
+
+        var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
+
+        Assert.Equal(ProviderVerdict.RateLimited, response.Verdict);
     }
 
     // ---- a corrupt vector must FAIL, not arrive ------------------------------------------------------
     // Every element used to be coerced with `n.ValueKind == Number ? (float)n.GetDouble() : 0f`, so a null,
     // a string or a non-finite element became a silent 0 in an otherwise plausible vector — which then got
-    // stored, or compared by cosine, with nothing anywhere reporting it. The type's own XML doc already
-    // promises InvalidOperationException on a malformed body; these route the corrupt cases into it.
+    // stored, or compared by cosine, with nothing anywhere reporting it. Since D153 a malformed body is a
+    // Failed VERDICT rather than a throw, which is what lets the router advance to the next backend instead
+    // of the call dying — these route the corrupt cases into it.
 
     [Theory]
     [InlineData("null", "a JSON null")]
@@ -69,10 +98,10 @@ public class HttpVectorTransportTests
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
             $$"""{"data":[{"index":0,"embedding":[1.0,{{element}},3.0]}]}""");
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await VectorProvider(handler).EmbedAsync(["a"]));
+        var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
 
-        Assert.Contains("malformed", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ProviderVerdict.Failed, response.Verdict);
+        Assert.Contains("malformed", response.Detail, StringComparison.OrdinalIgnoreCase);
         Assert.False(string.IsNullOrEmpty(why));
     }
 
@@ -83,10 +112,10 @@ public class HttpVectorTransportTests
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
             """{"data":[{"index":0,"embedding":[1.0,1e400,3.0]}]}""");
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await VectorProvider(handler).EmbedAsync(["a"]));
+        var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
 
-        Assert.Contains("malformed", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ProviderVerdict.Failed, response.Verdict);
+        Assert.Contains("malformed", response.Detail, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -168,9 +197,9 @@ public class HttpVectorTransportTests
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, "unauthorized");
 
-        var ex = await Assert.ThrowsAsync<HttpRequestException>(async () => await VectorProvider(handler).EmbedAsync(["a"]));
+        var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
 
-        Assert.DoesNotContain("not configured", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.NotEqual(ProviderVerdict.NotConfigured, response.Verdict);
     }
 
     [Fact]
@@ -252,32 +281,37 @@ public class HttpVectorTransportTests
     }
 
     [Fact]
-    public async Task Http_500_throws_with_the_id_and_status()
+    public async Task Http_500_is_a_FAILED_verdict_carrying_the_id_and_status()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.InternalServerError, "boom");
 
-        var ex = await Assert.ThrowsAsync<HttpRequestException>(() => VectorProvider(handler).EmbedAsync(["a"]));
+        var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
 
-        Assert.Contains("openai", ex.Message);
-        Assert.Contains("500", ex.Message);
+        Assert.Equal(ProviderVerdict.Failed, response.Verdict);
+        Assert.Contains("openai", response.Detail);
+        Assert.Contains("500", response.Detail);
     }
 
     [Fact]
-    public async Task Malformed_body_throws()
+    public async Task Malformed_body_is_a_FAILED_verdict()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, "{not json");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => VectorProvider(handler).EmbedAsync(["a"]));
+        var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
+
+        Assert.Equal(ProviderVerdict.Failed, response.Verdict);
+        Assert.Empty(response.Vectors);
     }
 
     [Fact] // a response with fewer vectors than inputs is a correctness fault, not a partial success
-    public async Task Vector_count_mismatch_throws()
+    public async Task Vector_count_mismatch_is_a_FAILED_verdict_rather_than_a_partial_success()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """{"data":[{"index":0,"embedding":[1.0,2.0]}]}""");
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => VectorProvider(handler).EmbedAsync(["a", "b"]));
+        var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a", "b"]));
 
-        Assert.Contains("2", ex.Message); // expected 2
+        Assert.Equal(ProviderVerdict.Failed, response.Verdict);
+        Assert.Contains("2", response.Detail); // expected 2
     }
 
     [Fact] // BatchSize>0 chunks a large list into several requests, concatenating results in input order

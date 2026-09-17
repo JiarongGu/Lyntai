@@ -260,6 +260,24 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   vectors — three members, exactly what a bring-your-own SCORER already implements. The per-call role
   distinction survives on `EmbedAsync`'s role-aware overload, so an asymmetric model is unaffected.
 
+- **Embedding is a ROUTED call with a verdict: `IModelProvider.EmbedAsync` is removed** (**D153**). A vector
+  backend now implements `IVectorProvider` — `CallAsync(VectorRequest) → VectorResponse` — and the verdict
+  sits beside the vectors instead of failure arriving as an exception.
+  | was | now |
+  | --- | --- |
+  | `IModelProvider.EmbedAsync(texts, ct)` | `IVectorProvider.CallAsync(new VectorRequest(texts), ct)` | <!-- drift-ok: the entry ANNOUNCING the removal has to name it -->
+  | `EmbedAsync(texts, role, ct)` | `CallAsync(new VectorRequest(texts, role), ct)` | <!-- drift-ok: as above -->
+  <br>**What it buys, and it is not tidiness.** An embed call failing over HTTP used to throw, so the
+  embedding path had no verdict to act on: a 429 was retried on the very next recall as if nothing had
+  happened. Now a 429 is `RateLimited` and the router cools that host; a 401 answered to a call carrying no
+  key is `NotConfigured` and advances blamelessly, where one carrying a key is `AuthFailed` and benches it —
+  the same two-term promotion the chat path has had since D31. Vector backends also gain retry-then-advance
+  and the blameless-verdict split.
+  <br>**A backend that DECLARES `Vector` without implementing `IVectorProvider` is now refused at
+  composition**, naming both sides. That mismatch is otherwise silent and total: routing selects on the type
+  test while `AddSemanticMemory` reads the declaration, so the backend satisfies startup and is never
+  called. It cost the shipped sample exactly that during this change, which is why the guard exists.
+
 - **`ProviderRouter<TRequest,TResponse>` — fallback routing for any call shape** (**D153**). Candidate
   selection, dead-host cooldown, admission and fallback, over whichever registered backends implement
   `IProviderCall<,>`. An application closing it over its own types gets all of it without Core knowing its

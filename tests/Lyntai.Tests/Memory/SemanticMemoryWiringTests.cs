@@ -98,6 +98,40 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         Assert.Contains("ProviderKinds.Vector", ex.Message);
     }
 
+    /// <summary>A backend that DECLARES vectors and does not IMPLEMENT the seam is refused at composition.
+    ///
+    /// <para><b>Without this the failure is silent and total.</b> Routing selects on the type test while the
+    /// wiring check reads the declaration, so such a backend satisfies startup, is never selected, and every
+    /// semantic recall returns nothing with no error anywhere. It cost the Playground exactly that on the day
+    /// the seam landed — the e2e caught it, which is the only reason it was not shipped.</para></summary>
+    [Fact]
+    public void A_backend_that_DECLARES_vectors_without_implementing_the_seam_is_refused()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IModelProvider>(new DeclaresVectorsButCannot());
+
+        var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddSemanticMemory()));
+
+        Assert.Contains("IVectorProvider", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("declares", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Declares the capability, implements nothing that serves it — the exact shape the guard
+    /// above exists to refuse.</summary>
+    private sealed class DeclaresVectorsButCannot : IModelProvider
+    {
+        public string Id => "lying-backend";
+
+        public ProviderCapabilities Capabilities { get; } = new()
+        {
+            Accepts = [ProviderKinds.Text],
+            Produces = [ProviderKinds.Vector],
+            Operations = [ProviderOperation.Complete],
+        };
+    }
+
     /// <summary>A chat-only host registration must NOT satisfy the intent — the inspection above reads the
     /// declared capability rather than counting providers, so a deployment with backends but none that
     /// embeds still fails at composition instead of degrading to a silent no-op at run time.</summary>

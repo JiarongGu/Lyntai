@@ -9,9 +9,8 @@ namespace Lyntai.Lifecycle;
 /// call is one side or the other, because that is the one thing an implementation cannot work out for
 /// itself.</para>
 ///
-/// <para>A SYMMETRIC model ignores it, which is why
-/// <see cref="Lyntai.Lifecycle.IModelProvider.EmbedAsync(IReadOnlyList{string}, EmbeddingRole, CancellationToken)"/>
-/// has a default body forwarding to the role-less overload.</para></summary>
+/// <para>A SYMMETRIC model ignores it, and a backend that does not vary by side simply reads the same
+/// vectors for either value.</para></summary>
 public enum EmbeddingRole
 {
     /// <summary>Text being stored and later searched over. <b>The enum's default</b>, deliberately: a

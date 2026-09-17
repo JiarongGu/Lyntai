@@ -766,5 +766,6 @@ internal static class BenchVectors
 {
     public static async Task<float[]> EmbedAsync(this IModelProvider provider, string text,
         CancellationToken ct = default) =>
-        (await provider.EmbedAsync([text], ct).ConfigureAwait(false))[0];
+        (await ((IVectorProvider)provider).CallAsync(new VectorRequest([text]), ct)
+            .ConfigureAwait(false)).Vectors[0];
 }

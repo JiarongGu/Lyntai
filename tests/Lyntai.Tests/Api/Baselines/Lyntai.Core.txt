@@ -1004,8 +1004,6 @@ enum Lyntai.Lifecycle.FallbackAction
 interface Lyntai.Lifecycle.IModelProvider
     Capabilities : ProviderCapabilities
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
-    EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
-    EmbedAsync(IReadOnlyList<String> texts, EmbeddingRole role, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
     GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
     IsAvailable : Boolean
@@ -1133,7 +1131,7 @@ struct Lyntai.Lifecycle.ProviderRegistration`1
     Key : ProviderKey
     ToString() : String
 sealed class Lyntai.Lifecycle.ProviderRouter`2
-    .ctor(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, RoutingPolicy policy = null, DeadHostTracker deadHosts = null, IProviderAdmission admission = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, ILogger logger = null)
+    .ctor(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, DeadHostTracker deadHosts = null, IProviderAdmission admission = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, ILogger logger = null)
     CallAsync(TRequest request, CancellationToken ct = default) : Task<TResponse>
     CanServe() : Boolean
     Capable() : IReadOnlyList<IProviderCall<TRequest,TResponse>>

@@ -18,7 +18,7 @@ namespace Lyntai.Providers.Onnx;
 /// <para><b>Inference runs on the calling thread.</b> The async signature is the seam's, not a promise to
 /// yield — a batch of long documents is CPU-bound for tens of milliseconds. Wrap the call if that matters
 /// to your scheduler.</para></summary>
-public sealed class OnnxProvider : IModelProvider, IDisposable
+public sealed class OnnxProvider : IVectorProvider, IDisposable
 {
     private readonly InferenceSession _session;
     private readonly WordPieceTokenizer _tokenizer;
@@ -84,11 +84,16 @@ public sealed class OnnxProvider : IModelProvider, IDisposable
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default)
+    /// <remarks>In-process and synchronous: there is no transport to fail, so the only non-Ok outcome a
+    /// caller sees from here is a throw the router classifies. The <see cref="VectorResponse"/> shape is the
+    /// seam's, not a claim that this backend has verdicts of its own.</remarks>
+    public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(texts);
+        ArgumentNullException.ThrowIfNull(request);
         ct.ThrowIfCancellationRequested();
-        return Task.FromResult<IReadOnlyList<float[]>>(texts.Count == 0 ? [] : Embed(texts));
+        return Task.FromResult(request.Texts.Count == 0
+            ? new VectorResponse(ProviderVerdict.Ok, [])
+            : VectorResponse.Success(Embed(request.Texts)));
     }
 
     /// <summary>One batched forward pass: encode, pad to the longest, run, pool each row.</summary>

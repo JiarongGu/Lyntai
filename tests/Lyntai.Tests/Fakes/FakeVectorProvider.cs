@@ -11,23 +11,15 @@ namespace Lyntai.Tests.Fakes;
 /// there is no vector backend seam to fake any more. It is the same shape a real in-process backend has, which
 /// is the point: a test that passes this exercises the capability filter and the routing the production
 /// path uses, rather than a seam only tests implement.</para></summary>
-public sealed class FakeVectorProvider(int dim = 64) : IModelProvider
+public sealed class FakeVectorProvider(int dim = 64) : FakeVectorProviderBase
 {
-    public string Id { get; init; } = "fake-vectors";
-
     /// <summary>The declaration, reachable without an instance — what a test hands
     /// <c>AddProvider(factory, declares)</c> so composition can see the capability before anything is
     /// built.</summary>
-    public static readonly ProviderCapabilities Declared = new()
-    {
-        Accepts = [ProviderKinds.Text],
-        Produces = [ProviderKinds.Vector],
-        Operations = [ProviderOperation.Complete],
-    };
+    public static new readonly ProviderCapabilities Declared = FakeVectorProviderBase.Declared;
 
-    public ProviderCapabilities Capabilities => Declared;
-
-    public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
+    public override Task<IReadOnlyList<float[]>> EmbedAsync(
+        IReadOnlyList<string> texts, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<float[]>>([.. texts.Select(Embed)]);
 
     private float[] Embed(string text)

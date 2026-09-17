@@ -156,6 +156,15 @@ export default {
         + 'residue of the pre-D128 world where an embedder was a distinct KIND of backend (D151)',
     },
     {
+      // D153 step 4. `EmbedAsync` leaves the provider seam for `IVectorProvider.CallAsync`. The WORD embed
+      // is untouched — `EmbeddingRole`, `CanEmbed` and the operation's name all survive (D152); what is
+      // retired is the member that used to sit on IModelProvider.
+      names: ['EmbedAsync'],
+      use: '`IVectorProvider.CallAsync(new VectorRequest(texts, role), ct)`',
+      why: 'embedding is a routed call with a verdict, not a method that throws — a failed embed had no '
+        + 'verdict for routing to act on, so a rate-limited host was retried on the next recall (D153)',
+    },
+    {
       // D153 step 1. `Job` is not matched on its own — it is the whole of `Lyntai.Jobs`, the durable job
       // queue an APPLICATION runs, which keeps every one of its names. What is retired is the PROVIDER
       // delivery mode that borrowed the word, and the handle that carried a domain prefix.

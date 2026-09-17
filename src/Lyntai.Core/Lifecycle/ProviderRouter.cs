@@ -24,10 +24,16 @@ namespace Lyntai.Lifecycle;
 /// <param name="configuration">Which CONFIGURATION a backend runs under, for cooldown and admission keys.
 /// Must return a STABLE key per instance — see <c>llm-and-router.md</c>; a varying answer records a bench
 /// under a key nobody checks.</param>
+/// <param name="serves">Whether a backend's DECLARED capabilities cover this call, asked in addition to the
+/// type test. <b>Both are required and neither is redundant</b>: one backend class can implement a call
+/// shape and be CONFIGURED not to serve it — <c>HttpModelProvider</c> implements the vector shape whatever
+/// its <c>Produces</c> says — so the type test alone would route a chat-only endpoint an embed call. Null
+/// asks the type test only, which is right for a shape whose implementers always serve it.</param>
 /// <param name="logger">Null = no logging.</param>
 public sealed class ProviderRouter<TRequest, TResponse>(
     IEnumerable<IModelProvider> providers,
     Func<ProviderVerdict, string, TResponse> synthesize,
+    Func<ProviderCapabilities, bool>? serves = null,
     RoutingPolicy? policy = null,
     DeadHostTracker? deadHosts = null,
     IProviderAdmission? admission = null,
@@ -45,14 +51,19 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     /// <para>Availability is read per call rather than cached: a backend can become usable between one call
     /// and the next, and a cached "unavailable" would outlive the outage that caused it.</para></summary>
     public IReadOnlyList<IProviderCall<TRequest, TResponse>> Capable() =>
-        [.. providers.OfType<IProviderCall<TRequest, TResponse>>().Where(p => p.IsAvailable)];
+        [.. providers.OfType<IProviderCall<TRequest, TResponse>>().Where(Serves)];
+
+    /// <summary>The two questions a candidate must answer yes to, asked in one place so the list and the
+    /// short-circuit below cannot drift: does it IMPLEMENT this call, and does it DECLARE it.</summary>
+    private bool Serves(IProviderCall<TRequest, TResponse> provider) =>
+        provider.IsAvailable && (serves is null || serves(provider.Capabilities));
 
     /// <summary>Whether anything can serve this shape at all.
     ///
     /// <para><b>Short-circuits and allocates nothing</b>, because callers sit on hot paths and
     /// <see cref="IModelProvider.IsAvailable"/> is not always free — a CLI backend's resolves a command on
     /// PATH. Ask the cheap question and stop at the first backend that answers.</para></summary>
-    public bool CanServe() => providers.OfType<IProviderCall<TRequest, TResponse>>().Any(p => p.IsAvailable);
+    public bool CanServe() => providers.OfType<IProviderCall<TRequest, TResponse>>().Any(Serves);
 
     /// <summary>Try each capable backend in turn until one answers Ok, applying the policy's action to every
     /// non-Ok verdict on the way.

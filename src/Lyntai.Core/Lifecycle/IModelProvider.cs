@@ -6,16 +6,21 @@ namespace Lyntai.Lifecycle;
 /// <summary>A backend. THE provider seam — one interface for every domain this library routes over.
 ///
 /// <para><b>What a provider serves is DATA, not a type.</b> <see cref="Capabilities"/> declares what it
-/// <c>Accepts</c>, what it <c>Produces</c> and how it delivers, and a router checks that BEFORE dispatching
-/// — so a method a backend does not serve is never called, and declining one costs it no code. That is why
-/// there is no chat-provider and no embedding-provider: a chat model is text → text and a vector backend is
-/// text → vector, which is a difference in a LIST (<c>docs/DECISIONS.md</c> D126, D127, D130).</para>
+/// <c>Accepts</c>, what it <c>Produces</c> and how it delivers, and a router SELECTS on that — a chat model
+/// is text → text and a vector backend is text → vector, which is a difference in a LIST
+/// (<c>docs/DECISIONS.md</c> D126, D127, D130).
 ///
-/// <para><b>Every operation is DEFAULTED to <c>Unsupported</c></b>, so a backend implements only what it
-/// does. A vector backend overrides
-/// <see cref="EmbedAsync(IReadOnlyList{string},Lyntai.Lifecycle.EmbeddingRole,CancellationToken)"/> and
-/// nothing else; a CLI chat backend overrides <see cref="CompleteAsync"/> and
-/// <see cref="StreamAsync(LlmRequest,CancellationToken)"/>.</para>
+/// <para><b>A seam per SIGNATURE is not a seam per kind, and the distinction is the whole of D153.</b>
+/// <see cref="IVectorProvider"/> exists because its types differ, not because embedding is a different
+/// class of backend — image and video share one seam for exactly the same reason. Which KIND a backend
+/// serves stays in <see cref="ProviderCapabilities.Produces"/>, never in the interface it
+/// implements.</para></para>
+///
+/// <para><b>Every operation here is DEFAULTED to <c>Unsupported</c></b>, so a backend implements only what
+/// it does — a CLI chat backend overrides <see cref="CompleteAsync"/> and
+/// <see cref="StreamAsync(LlmRequest,CancellationToken)"/> and nothing else. A backend whose SIGNATURE
+/// differs implements its own seam instead: <see cref="IVectorProvider"/> is the worked example
+/// (<c>docs/DECISIONS.md</c> D153).</para>
 ///
 /// <para><b>The stateful JOB protocol is NOT here</b> — <see cref="IGenerationJobProvider"/> keeps
 /// submit/poll/fetch/cancel, because that is an operation SHAPE keyed on a handle rather than a content
@@ -52,26 +57,6 @@ public interface IModelProvider : IProviderIdentity
     IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
         ProviderDefaults.One(LlmChunk.Error(ProviderVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
 
-    /// <summary>Content in, vectors out — one per input, in order. Served by a backend declaring
-    /// <see cref="ProviderKinds.Vector"/> among what it <see cref="ProviderCapabilities.Produces"/>; it is a
-    /// separate METHOD only because its return type differs, not because it is a separate kind of call.</summary>
-    /// <exception cref="NotSupportedException">This backend does not declare
-    /// <see cref="ProviderKinds.Vector"/>. It THROWS where the others return a verdict because there is
-    /// no vector that means "I could not": a zero vector compares as real and would poison a store.</exception>
-    Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
-        throw new NotSupportedException(ProviderDefaults.NotServed(Id, nameof(EmbedAsync)));
-
-    /// <summary>Embed for a known <see cref="Lyntai.Lifecycle.EmbeddingRole"/>. Defaults to forwarding to
-    /// the role-less overload, so a SYMMETRIC model needs to implement only one of the two.
-    ///
-    /// <para><b>It exists so the front door cannot silently drop the role.</b> Asymmetric models — E5, BGE,
-    /// nomic, Arctic — are trained with a distinct instruction per side and score materially worse when
-    /// both sides are embedded identically. A router that only knew the role-less overload would quietly
-    /// erase the one fact a backend cannot work out for itself.</para></summary>
-    Task<IReadOnlyList<float[]>> EmbedAsync(
-        IReadOnlyList<string> texts, Lyntai.Lifecycle.EmbeddingRole role, CancellationToken ct = default) =>
-        EmbedAsync(texts, ct);
-
     /// <summary>A query and a set of documents in, one relevance score per document out, IN INPUT ORDER.
     /// Served by a backend declaring <see cref="ProviderKinds.Score"/>; a separate METHOD only because its
     /// shape differs, not because it is a separate kind of call.
@@ -86,9 +71,10 @@ public interface IModelProvider : IProviderIdentity
     /// activation buffer — scales with what you send. Bound it before calling; the memory seam does, at
     /// <c>GraphMemoryOptions.VerificationDepth</c>.</para></summary>
     /// <exception cref="NotSupportedException">This backend does not declare
-    /// <see cref="ProviderKinds.Score"/>. It THROWS rather than returning a verdict for the same reason
-    /// <see cref="EmbedAsync(IReadOnlyList{string},CancellationToken)"/> does: there is no score meaning
-    /// "I could not", and a zero ranks as confidently as any other number.</exception>
+    /// <see cref="ProviderKinds.Score"/>. It THROWS rather than returning a verdict because there is no
+    /// score meaning "I could not" — a zero ranks as confidently as any other number. <b>The vector side
+    /// no longer has this problem</b>: <see cref="VectorResponse"/> carries the verdict beside the vectors,
+    /// and this seam is due the same treatment.</exception>
     Task<IReadOnlyList<double>> ScoreAsync(
         string query, IReadOnlyList<string> documents, CancellationToken ct = default) =>
         throw new NotSupportedException(ProviderDefaults.NotServed(Id, nameof(ScoreAsync)));

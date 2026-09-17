@@ -68,6 +68,10 @@ public static class LyntaiServiceCollectionExtensions
         // nothing — but the instance is right there in the descriptor, so its declared `Capabilities` can be
         // read without building anything. Dropping the second route is what made a BYO backend registered
         // outside the builder invisible, while the error text told the consumer to do exactly that.
+        // before the wiring check below, so "you declared Vector but did not implement it" is reported as
+        // that rather than as the downstream "nothing produces vectors"
+        RefuseCapabilityMismatch(services);
+
         if (builder.SemanticMemoryRequested && !VectorBackendIsWired(services, builder))
             throw new InvalidOperationException(
                 "AddSemanticMemory was called, but no registered backend produces vectors, so "
@@ -343,6 +347,36 @@ public static class LyntaiServiceCollectionExtensions
             Lyntai.Lifecycle.ProviderKinds.Vector,
             Lyntai.Lifecycle.ProviderOperation.Complete,
             accepts: Lyntai.Lifecycle.ProviderKinds.Text);
+
+    /// <summary>Refuse a backend whose DECLARATION and IMPLEMENTATION disagree: it says it produces vectors
+    /// and does not implement <see cref="Lyntai.Lifecycle.IVectorProvider"/>.
+    ///
+    /// <para><b>The failure it replaces is silent.</b> Routing selects on the type test, and
+    /// <c>AddSemanticMemory</c>'s own check reads the declaration — so such a backend satisfies composition,
+    /// is never selected at run time, and semantic recall simply returns nothing. It cost a sample exactly
+    /// that on the day the seam landed, which is why the check exists rather than a note
+    /// (<c>docs/DECISIONS.md</c> <b>D153</b>).</para>
+    ///
+    /// <para>Instance registrations only, for the same reason the wiring check has two arms: a factory
+    /// cannot be inspected before it runs.</para></summary>
+    private static void RefuseCapabilityMismatch(IServiceCollection services)
+    {
+        foreach (var descriptor in services)
+        {
+            if (descriptor.IsKeyedService
+                || descriptor.ServiceType != typeof(Lyntai.Lifecycle.IModelProvider)
+                || descriptor.ImplementationInstance is not Lyntai.Lifecycle.IModelProvider provider
+                || !Embeds(provider.Capabilities)
+                || provider is Lyntai.Lifecycle.IVectorProvider)
+                continue;
+
+            throw new InvalidOperationException(
+                $"Backend '{provider.Id}' ({provider.GetType().Name}) declares ProviderKinds.Vector but does "
+                + "not implement IVectorProvider, so nothing would ever route an embed call to it — semantic "
+                + "recall would return nothing with no error. Implement IVectorProvider, or drop Vector from "
+                + "its ProviderCapabilities.Produces.");
+        }
+    }
 
     /// <summary>Semantic memory — wired ONLY when a backend producing
     /// <see cref="Lyntai.Lifecycle.ProviderKinds.Vector"/> is registered. Composes the registered providers

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Lyntai.Providers.Model2Vec;
 using Lyntai.Lifecycle;
 using Microsoft.Extensions.DependencyInjection;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Embeddings;
 

@@ -29,7 +29,7 @@ public sealed class HttpModelProvider(
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
     ILogger<HttpModelProvider>? logger = null,
-    bool disposeHttpClient = true) : IModelProvider
+    bool disposeHttpClient = true) : IModelProvider, IVectorProvider
 {
     private readonly ILogger _logger = logger ?? NullLogger<HttpModelProvider>.Instance;
     private readonly HttpDialect _dialect = HttpEndpoint.ResolveDialect(config.Dialect, config.BaseUrl);
@@ -89,15 +89,10 @@ public sealed class HttpModelProvider(
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
 
     /// <inheritdoc/>
-    /// <exception cref="NotSupportedException">This registration does not produce vectors.</exception>
-    public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
-        Vectors().EmbedAsync(texts, ct);
-
-    /// <inheritdoc/>
-    /// <exception cref="NotSupportedException">This registration does not produce vectors.</exception>
-    public Task<IReadOnlyList<float[]>> EmbedAsync(
-        IReadOnlyList<string> texts, EmbeddingRole role, CancellationToken ct = default) =>
-        Vectors().EmbedAsync(texts, role, ct);
+    /// <exception cref="NotSupportedException">This registration does not produce vectors. A router checks
+    /// <see cref="Capabilities"/> first, so only a caller that ignored them reaches this.</exception>
+    public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default) =>
+        Vectors().CallAsync(request, ct);
 
     /// <summary>The embeddings transport, or the refusal <see cref="IModelProvider"/>'s own default gives.
     /// Reached only by a caller that ignored <see cref="Capabilities"/>, since a router checks first.</summary>
