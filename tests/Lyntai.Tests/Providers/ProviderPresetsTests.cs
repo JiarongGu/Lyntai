@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Providers;
 
 /// <summary>The pre-configured provider presets set the right endpoint/id defaults and route through
-/// the same OpenAI-compatible provider; a BYO-httpClient path lets each hit a scripted handler. Apps
+/// the same OpenAI-shaped provider; a BYO-httpClient path lets each hit a scripted handler. Apps
 /// wanting bespoke config keep AddHttpProvider or their own IModelProvider via AddProvider.</summary>
 public class ProviderPresetsTests
 {

@@ -143,7 +143,7 @@ internal sealed class HttpVectorTransport(
     }
 
     /// <summary>The embeddings endpoint — Ollama's native batched <c>/api/embed</c> (parallel to the chat
-    /// provider's <c>/api/chat</c>), otherwise the OpenAI-compatible <c>embeddings</c> route.</summary>
+    /// provider's <c>/api/chat</c>), otherwise the OpenAI-shaped <c>embeddings</c> route.</summary>
     private Uri Endpoint() =>
         HttpEndpoint.Build(config.BaseUrl, _dialect, ollamaNativePath: "/api/embed", openAiRoute: "embeddings");
 

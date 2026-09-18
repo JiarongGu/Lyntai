@@ -43,7 +43,8 @@ Nothing warns; the second model simply loads, occupies memory, and is never call
 
 Four paths — pick the cheapest one that reaches your backend:
 
-**A. Is the backend OpenAI-COMPATIBLE? Then it is already supported (preferred).** OpenAI, Azure, Ollama,
+**A. Is the backend reachable over HTTP in a dialect Lyntai already speaks? Then it is already supported
+(preferred).** OpenAI, Azure, Ollama,
 OpenRouter, vLLM, llama-server, Groq, DeepSeek and most of the rest ship such an endpoint. You do *nothing*
 but register: `builder.AddHttpProvider("my-id", o => { o.BaseUrl = …; o.Dialect = …; })`, and one
 registration serves chat, embeddings or reranking depending on `Produces`. **Only write a native provider if
@@ -151,7 +152,7 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
   on it: `AuthFailed` BENCHES the provider for the cooldown window, so a backend the consumer merely listed
   without configuring would be penalised on every first attempt for a fact the platform knew before calling,
   while `NotConfigured` skips it blamelessly and lets a host offer setup (`docs/DECISIONS.md` D31). The rule is
-  **not** "a key is required": an OpenAI-compatible endpoint run locally (LM Studio, vLLM, Ollama)
+  **not** "a key is required": an OpenAI-shaped endpoint run locally (LM Studio, vLLM, Ollama)
   legitimately needs none, so "no key" cannot mean unconfigured on its own — only "no key AND the server
   demanded one" does. A CLI/session-authenticated dialect has no `hasCredentials` fact at all and correctly
   stays on the two-argument overload. The generation domain states the same rule over its own vocabulary

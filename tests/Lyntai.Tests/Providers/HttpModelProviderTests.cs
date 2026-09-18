@@ -58,7 +58,7 @@ public class HttpModelProviderTests
 
     // A backend the consumer LISTED but never configured must be skipped blamelessly, not benched: AuthFailed
     // cools the host for the cooldown window, so every first attempt paid a penalty for a fact the provider
-    // already knew. Not simply "require a key up front" — a locally-run OpenAI-compatible server (LM Studio,
+    // already knew. Not simply "require a key up front" — a locally-run OpenAI-shaped server (LM Studio,
     // vLLM, Ollama) legitimately has none, so only the server DEMANDING one makes a missing key a config gap.
     [Fact]
     public async Task A_401_with_no_api_key_supplied_is_NotConfigured()

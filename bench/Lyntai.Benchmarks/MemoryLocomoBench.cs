@@ -97,7 +97,7 @@ internal static class MemoryLocomoBench
     /// the ceiling the arm is named for</b>, and reading it as "even the whole conversation does badly" is
     /// the wrong conclusion.</para>
     /// <para>It is a property of the DEPLOYMENT's reader, never of this library: the chat seam speaks
-    /// OpenAI-compatible HTTP and cannot portably ask for a window, and a server may truncate silently. Set
+    /// OpenAI-shaped HTTP and cannot portably ask for a window, and a server may truncate silently. Set
     /// <c>LYNTAI_READER_WINDOW_CHARS</c> where a run has a bigger one.</para>
     /// </summary>
     private static int ReaderWindowChars =>

@@ -153,7 +153,7 @@ prescription. Suffix vocabulary: `dotnet-package-layout.md` §Naming.
 
 ## Local models — llama.cpp is the standard, Ollama is merely supported
 
-Everything here speaks OpenAI-compatible HTTP and does not care which server answers, so this is a
+Everything here speaks HTTP in one of the shipped dialects and does not care which server answers, so this is a
 convention about what to REACH FOR, not a constraint the code enforces.
 
 - **The benches default to `http://localhost:8080`** — llama-server's own port. Override with

@@ -15,7 +15,7 @@ namespace Lyntai.Providers.Http;
 /// <see cref="HttpModelOptions.Dialect"/> picks the routes and the payload shape.
 ///
 /// <para><b>It is not named for a vendor because it is not one.</b> Three dialects post the OpenAI schema to
-/// <c>/v1/…</c> and are fairly called OpenAI-compatible; <see cref="HttpDialect.Ollama"/> posts Ollama's own
+/// <c>/v1/…</c> and are fairly called OpenAI-shaped; <see cref="HttpDialect.Ollama"/> posts Ollama's own
 /// <c>/api/chat</c> and <c>/api/embed</c>, which by its own documentation are NOT. A name claiming otherwise
 /// was false for that dialect and misleading for the rest (<c>docs/DECISIONS.md</c> D135). It is the same
 /// shape the CLI side already has: one engine, a dialect per backend.</para>
@@ -74,7 +74,7 @@ public sealed class HttpModelProvider(
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(config.BaseUrl);
 
-    // OpenAI-compatible endpoints support native function-calling: we send req.Tools and surface the
+    // OpenAI-shaped endpoints support native function-calling: we send req.Tools and surface the
     // model's tool_calls on the reply. Coarse — an Ollama MODEL that ignores tools just answers in prose.
 
     /// <inheritdoc/>
@@ -376,7 +376,7 @@ public sealed class HttpModelProvider(
         return request;
     }
 
-    /// <summary>The chat endpoint — Ollama's native <c>/api/chat</c>, otherwise the OpenAI-compatible
+    /// <summary>The chat endpoint — Ollama's native <c>/api/chat</c>, otherwise the OpenAI-shaped
     /// <c>chat/completions</c> route.</summary>
     private Uri Endpoint() =>
         HttpEndpoint.Build(config.BaseUrl, _dialect, ollamaNativePath: "/api/chat", openAiRoute: "chat/completions");
@@ -405,7 +405,7 @@ public sealed class HttpModelProvider(
         var detail = $"{id}: HTTP {(int)status} {HttpBody.Head(body)}";
         // typed status wins; body text goes through the ONE shared classifier (never local heuristics).
         // hasCredentials separates "never set up" (NotConfigured — skipped blamelessly) from "your key was
-        // rejected" (AuthFailed — benched for the cooldown window). A local OpenAI-compatible server needs no
+        // rejected" (AuthFailed — benched for the cooldown window). A local OpenAI-shaped server needs no
         // key, so the missing key only means unconfigured once the server has actually demanded one.
         return new TextResponse("", ProviderVerdictClassifier.FromHttpFailure(status, body, HasCredentials), Detail: detail);
     }

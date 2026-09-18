@@ -177,7 +177,7 @@ internal static class MemoryAnnotationDriftSweep
             // would measure the stand-in. The same posture every model-priced arm here takes.
             Console.Error.WriteLine("memory-annotation-drift: this measures a MODEL's drift, so it will not "
                 + "run without one. Point LYNTAI_LIVE_CHAT_URL (or LYNTAI_LIVE_MODEL_URL) at an "
-                + "OpenAI-compatible endpoint and name it with LYNTAI_LIVE_CHAT_MODEL.");
+                + "OpenAI-shaped endpoint and name it with LYNTAI_LIVE_CHAT_MODEL.");
             return 1;
         }
 

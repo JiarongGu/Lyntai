@@ -6,7 +6,7 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
-/// <summary>The OpenAI-compatible images backend. Wire shapes are PORTED from a sibling app's
+/// <summary>The OpenAI-shaped images backend. Wire shapes are PORTED from a sibling app's
 /// production code (both response variants — inline base64 and a URL — occur in practice), and driven here
 /// through a stubbed handler so no request leaves the machine and no generation is billed.</summary>
 public class OpenAiImageProviderTests
@@ -54,7 +54,7 @@ public class OpenAiImageProviderTests
     [Fact]
     public async Task A_local_keyless_endpoint_is_never_called_unconfigured_just_for_having_no_key()
     {
-        // an OpenAI-compatible server run locally (LM Studio, vLLM, Ollama) needs no key — "no key" alone must
+        // an OpenAI-shaped server run locally (LM Studio, vLLM, Ollama) needs no key — "no key" alone must
         // never mean unconfigured, or every local image endpoint would be skipped
         var (provider, http) = Provider(new OpenAiImageOptions { BaseUrl = "http://127.0.0.1:1234/v1" });
         http.Enqueue(HttpStatusCode.OK, $"{{\"data\":[{{\"b64_json\":\"{OneByteBase64}\"}}]}}");

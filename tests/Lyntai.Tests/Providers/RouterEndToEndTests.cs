@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Providers;
 
 /// <summary>Spec §6 fallback semantics proven END-TO-END across two heterogeneous provider types:
-/// the claude CLI (spawning the deterministic stub) and an OpenAI-compatible HTTP endpoint
+/// the claude CLI (spawning the deterministic stub) and an OpenAI-shaped HTTP endpoint
 /// (stubbed handler). No fakes of Lyntai's own types anywhere in this file.</summary>
 [Collection("provider-cmd-env")] // serialized with other tests that set LYNTAI_PROVIDER_CMD
 public class RouterEndToEndTests : IDisposable

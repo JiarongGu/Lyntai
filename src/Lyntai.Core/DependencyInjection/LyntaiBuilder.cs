@@ -127,7 +127,7 @@ public sealed class LyntaiBuilder
     /// come along. Nothing about the caller's ecosystem reaches this library, which is why a bridge costs no
     /// dependency (<c>docs/DECISIONS.md</c> D147).</para>
     ///
-    /// <para><b>For an OpenAI-compatible endpoint, use <c>AddHttpProvider</c> instead</b> — most vendors
+    /// <para><b>For an OpenAI-shaped endpoint, use <c>AddHttpProvider</c> instead</b> — most vendors
     /// ship one, and it already handles verdicts, streaming, usage, tool calls and the dialect
     /// differences.</para></summary>
     /// <param name="id">The router-facing id, as on any backend: a LABEL for one configured client, so two

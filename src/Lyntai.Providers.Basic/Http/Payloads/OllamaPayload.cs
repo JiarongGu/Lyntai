@@ -100,7 +100,7 @@ internal static class OllamaPayload
                 logger?.LogWarning(
                     "ollama /api/chat cannot deliver {Count} attachment(s) on this turn: its images array " +
                     "takes inline base64 only, and these carry no bytes (a remote Uri). Inline them " +
-                    "(TextMessage.UserWithImage) or point the provider at Ollama's OpenAI-compatible /v1 " +
+                    "(TextMessage.UserWithImage) or point the provider at Ollama's OpenAI-shaped /v1 " +
                     "surface via AddHttpProvider, which accepts an image URL.", undeliverable);
 
             if (images.Length > 0)

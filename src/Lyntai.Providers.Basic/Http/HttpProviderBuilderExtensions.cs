@@ -80,7 +80,7 @@ public static class HttpProviderBuilderExtensions
     /// <summary>A local (or remote) Ollama endpoint, pinned to Ollama's NATIVE surface
     /// (<see cref="HttpDialect.Ollama"/>). Default base "http://localhost:11434", id "ollama".
     /// <para><paramref name="baseUrl"/> must be the server ROOT (e.g. <c>http://localhost:11434</c>), never
-    /// its <c>/v1</c> OpenAI-compatible surface: the pin is applied over whatever URL you pass, so a
+    /// its <c>/v1</c> OpenAI-shaped surface: the pin is applied over whatever URL you pass, so a
     /// <c>/v1</c> base composes to <c>…/v1/api/chat</c> and 404s on the first call. Send a <c>/v1</c> base
     /// through <see cref="AddHttpProvider"/> instead, whose detection resolves it correctly.</para>
     /// <para>Attachments are carried: an <see cref="Lyntai.Inference.TextAttachment"/> with <c>Data</c> travels in
@@ -130,7 +130,7 @@ public static class HttpProviderBuilderExtensions
             o.Dialect = HttpDialect.OpenRouter;
         }, httpClient);
 
-    /// <summary>Azure OpenAI, targeting the resource's OpenAI-COMPATIBLE <c>v1</c> surface.
+    /// <summary>Azure OpenAI, targeting the resource's OpenAI-shaped <c>v1</c> surface.
     /// <paramref name="endpoint"/> is your resource URL (e.g. <c>https://my-resource.openai.azure.com</c> —
     /// requests compose to <c>…/openai/v1/chat/completions</c>); <paramref name="apiKey"/> is sent as both
     /// the <c>api-key</c> header (Azure key auth) and a Bearer token. Default id "azure-openai".</summary>

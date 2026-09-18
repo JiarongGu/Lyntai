@@ -227,8 +227,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D155](#d155--the-generic-router-gets-a-factory-because-what-must-not-be-rebuilt-is-the-bookkeeping-2026-09-18) | 2026-09-18 | the generic router gets a FACTORY, because what must not be rebuilt is the bookkeeping |
 | [D156](#d156--a-domain-is-not-a-kind-of-provider-so-the-media-registration-is-deleted-rather-than-renamed-2026-09-18) | 2026-09-18 | a domain is not a kind of provider, so the media registration is deleted rather than renamed |
 | [D157](#d157--a-provider-is-the-engine-and-stays-pure-a-dialect-decides-what-it-produces-2026-09-18) | 2026-09-18 | a provider is the ENGINE and stays pure; a DIALECT decides what it produces |
+| [D158](#d158--the-http-family-is-named-for-its-transport-membership-is-a-dialect-not-a-vendors-compatibility-claim-2026-09-19) | 2026-09-19 | the HTTP family is named for its TRANSPORT; membership is a DIALECT, not a vendor's compatibility… |
 
-_All 157 entries are live decisions._
+_All 158 entries are live decisions._
 
 <!-- index:end -->
 
@@ -4921,3 +4922,35 @@ the library** — it is a fact about each backend.
 of a shared engine — *"a dialect is a stateless description; the engine holds the resources"* — and
 `HttpModelOptions.Dialect` already carries one as an option. The ONNX seam is the same idea in the same
 words. A provider package may expose its own dialect seam; Core does not know it exists.
+
+## D158 — the HTTP family is named for its TRANSPORT; membership is a DIALECT, not a vendor's compatibility claim (2026-09-19)
+
+**The decision.** "OpenAI-compatible" is retired from live prose. The question a consumer asks is *"is my
+backend reachable over HTTP in a dialect Lyntai speaks?"*, and the answer is `HttpDialect` — four members,
+one of which (`Ollama`) is not OpenAI's schema at all. Where the wire genuinely IS OpenAI's, the tree's own
+word is **OpenAI-shaped**, which was already in three files and describes a payload rather than asserting
+compatibility with a vendor.
+
+**This finishes D135 rather than reversing it.** D135 renamed the TYPES off the vendor —
+`AddOpenAiCompatible*` became `AddHttpProvider` — on the argument that "naming the family after one vendor <!-- drift-ok: the record names what D135 retired, which is the comparison being drawn -->
+centres that vendor for endpoints that have nothing to do with it". It then explicitly KEPT the phrase,
+"correct about the three dialects that are". That carve-out is what rotted: a phrase left in place as the
+family's membership rule keeps teaching the model the names no longer do, and it had spread to ~70 live
+sites including two NuGet package descriptions.
+
+**The tell that it was load-bearing, not cosmetic.** `TASKS.md` REL5 had recorded a genuine-looking
+counter-argument against making `HttpDialect` a DI seam: *the family's membership rule is
+"OpenAI-compatible", so a foreign wire schema belongs in its own provider class.* That argument only stands
+while the phrase is the rule. Once membership is the DIALECT, a foreign wire schema is exactly what a new
+dialect IS — and the enum is what makes adding one an edit to four existing files. **A legacy term was
+holding a design decision in place.**
+
+**One mention is kept, deliberately**, in `README.md`: vendors market their endpoints as
+"OpenAI-compatible", so a reader searching that term must land somewhere. It is framed as what vendors call
+it, beside the rule this library actually applies.
+
+**No gate is added, and that refusal is the point.** Measured over the scanned tier: 14 hits, of which
+**eleven are records** that must keep their day's wording, one is the deliberate README mention, and one is
+a false positive in `AOT.md` where "compatible" means AOT-compatible. A rule collecting twelve `drift-ok`s
+and one wrong hit is the shape this repository already refused for `Providers.Default` — fix by hand,
+record the refusal, do not ship a rule that will rot.

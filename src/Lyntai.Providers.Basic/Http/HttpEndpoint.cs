@@ -20,7 +20,7 @@ internal static class HttpEndpoint
     /// <param name="dialect">A CONCRETE dialect (run it through <see cref="ResolveDialect"/> first).</param>
     /// <param name="ollamaNativePath">Ollama's native, non-OpenAI path for this operation, rooted —
     /// e.g. <c>/api/chat</c>, <c>/api/embed</c>.</param>
-    /// <param name="openAiRoute">The OpenAI-compatible route, UNrooted and without the version segment —
+    /// <param name="openAiRoute">The OpenAI-shaped route, UNrooted and without the version segment —
     /// e.g. <c>chat/completions</c>, <c>embeddings</c>.</param>
     internal static Uri Build(string baseUrl, HttpDialect dialect, string ollamaNativePath, string openAiRoute)
     {
@@ -28,7 +28,7 @@ internal static class HttpEndpoint
         var path = dialect switch
         {
             HttpDialect.Ollama => ollamaNativePath,
-            // Azure's OpenAI-COMPATIBLE (v1) surface lives under /openai/v1 on the resource host — a bare
+            // Azure's OpenAI-shaped v1 surface lives under /openai/v1 on the resource host — a bare
             // resource URL (https://my-res.openai.azure.com) would otherwise compose /v1/… and 404. A base
             // that already includes /openai(…/v1) falls through to the generic suffix logic below.
             HttpDialect.AzureOpenAi when !b.Contains("/openai", StringComparison.OrdinalIgnoreCase)

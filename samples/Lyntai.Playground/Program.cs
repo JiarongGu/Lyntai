@@ -1,5 +1,5 @@
 // Lyntai.Playground — full-stack smoke over the real library surface:
-// AddLyntai(SQLite + claude-cli + an openai-compatible endpoint) → prompt override/compose →
+// AddLyntai(SQLite + claude-cli + an openai-shaped endpoint) → prompt override/compose →
 // completion via the router → scoring (incl. an LLM judge) → trace persist/read → memory recall.
 // Honors LYNTAI_PROVIDER_CMD (the devtools e2e harness points it at the deterministic stub, so a
 // run spends no real tokens) and LYNTAI_DATA (isolated data folder).

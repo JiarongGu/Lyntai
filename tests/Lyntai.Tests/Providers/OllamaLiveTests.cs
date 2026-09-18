@@ -7,7 +7,7 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Providers;
 
 /// <summary>
-/// OPT-IN live integration against a real local Ollama — proves the OpenAI-compatible provider
+/// OPT-IN live integration against a real local Ollama — proves the OpenAI-shaped provider
 /// (Ollama dialect) works end-to-end against a real endpoint, not just a stubbed HttpMessageHandler.
 /// Runs only when <c>LYNTAI_LIVE_OLLAMA</c> is set AND the endpoint is reachable; otherwise it reports as
 /// SKIPPED (<c>Xunit.SkippableFact</c>), so the default test run stays fast, deterministic, and

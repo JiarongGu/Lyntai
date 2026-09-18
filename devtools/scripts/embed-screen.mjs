@@ -274,7 +274,7 @@ async function embed(baseUrl, text) {
  *
  *  <b>`endpoint` is the mode for an embedder this harness cannot START.</b> A static model2vec/potion
  *  model has no GGUF in existence, so `llama-server` cannot serve it and the whole class was unreachable
- *  by every instrument here. Given an already-running OpenAI-compatible URL the SAME fixture, the same
+ *  by every instrument here. Given an already-running OpenAI-shaped URL the SAME fixture, the same
  *  assertions and the same control comparison apply — only the process lifecycle differs. */
 async function screenOne({ model, pooling, opts, serverExe, scratchDir, isControl, endpoint }) {
   const manage = !endpoint;

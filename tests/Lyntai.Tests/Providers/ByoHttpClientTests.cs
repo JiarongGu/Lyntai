@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Providers;
 
 /// <summary>The BYO HttpClient seam: an app supplies its own configured client (here one wired to a
-/// scripted handler) and the OpenAI-compatible provider uses it instead of a Lyntai-created client.</summary>
+/// scripted handler) and the OpenAI-shaped provider uses it instead of a Lyntai-created client.</summary>
 public class ByoHttpClientTests
 {
     private const string OkBody = """

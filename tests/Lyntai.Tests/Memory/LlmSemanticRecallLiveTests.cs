@@ -41,7 +41,7 @@ namespace Lyntai.Tests.Memory;
 /// endpoint is reachable; otherwise SKIPPED, never a pass that observed nothing.
 /// <c>LYNTAI_OLLAMA_EMBED_MODEL</c> overrides the model (default <c>nomic-embed-text</c>).</para>
 ///
-/// <para><b>Any OpenAI-compatible endpoint</b> — <c>LYNTAI_LIVE_MODEL_FLAVOR=openai</c> plus a URL runs this
+/// <para><b>Any OpenAI-shaped endpoint</b> — <c>LYNTAI_LIVE_MODEL_FLAVOR=openai</c> plus a URL runs this
 /// against llama.cpp's <c>llama-server</c>. The vector backend registration below was already backend-neutral; the
 /// gate and the chat provider were not.</para></summary>
 public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper output)
@@ -60,7 +60,7 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
             .AddLiveProvider(VectorModel)
             .UseDefaultCandidates("ollama")
             // The chat provider does not register a vector backend — that is its own seam, reached through the
-            // OpenAI-compatible registration, which every backend here serves at /v1/embeddings.
+            // OpenAI-shaped registration, which every backend here serves at /v1/embeddings.
             .AddHttpProvider("ollama-embed", o =>
             {
                 o.BaseUrl = BaseUrl;

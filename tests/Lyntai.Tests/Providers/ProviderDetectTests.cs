@@ -12,9 +12,9 @@ public class ProviderDetectTests
     [InlineData("http://localhost:11434", HttpDialect.Ollama)]
     [InlineData("http://192.168.1.5:11434", HttpDialect.Ollama)]
     [InlineData("http://gpu-box:11434", HttpDialect.Ollama)]
-    [InlineData("http://localhost:11434/v1", HttpDialect.OpenAi)]   // Ollama's OpenAI-compatible surface
+    [InlineData("http://localhost:11434/v1", HttpDialect.OpenAi)]   // Ollama's OpenAI-shaped surface
     [InlineData("http://localhost:11434/v1/", HttpDialect.OpenAi)]
-    [InlineData("https://my-own-gateway.example.com", HttpDialect.OpenAi)]   // fail-open to OpenAI-compat
+    [InlineData("https://my-own-gateway.example.com", HttpDialect.OpenAi)]   // fail-open to OpenAI-shaped
     [InlineData("not a url at all", HttpDialect.OpenAi)]
     [InlineData("", HttpDialect.OpenAi)]
     public void Detects_flavor_from_url_shape(string baseUrl, HttpDialect expected)

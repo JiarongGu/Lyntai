@@ -102,7 +102,7 @@ public static partial class ProviderVerdictClassifier
     /// is not cosmetic, because routing acts on it: NotConfigured skips the candidate blamelessly and lets a
     /// host offer setup, whereas AuthFailed BENCHES the provider for the cooldown window. A backend a
     /// consumer merely listed without configuring would otherwise be penalised on every first attempt.
-    /// <para>Why not simply require a key up front: an OpenAI-COMPATIBLE endpoint run locally (LM Studio,
+    /// <para>Why not simply require a key up front: an OpenAI-shaped endpoint run locally (LM Studio,
     /// vLLM, Ollama) legitimately needs none, so "no key" cannot mean unconfigured on its own — only "no key
     /// AND the server demanded one" does.</para>
     /// <para>The generation domain states the SAME rule over its own vocabulary

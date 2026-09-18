@@ -27,7 +27,7 @@ namespace Lyntai.Tests.Memory;
 /// <c>LYNTAI_OLLAMA_ANNOTATION_MODEL</c> (default <c>llama3.2:3b</c> — annotation runs on every write, so a
 /// small model is the realistic deployment).</para>
 ///
-/// <para><b>Any OpenAI-compatible endpoint, not Ollama specifically</b> — set
+/// <para><b>Any OpenAI-shaped endpoint, not Ollama specifically</b> — set
 /// <c>LYNTAI_LIVE_MODEL_FLAVOR=openai</c> and a URL to run this against llama.cpp's <c>llama-server</c>.
 /// What this suite needs is a model that can annotate, and nothing in it is about a vendor's wire
 /// format.</para>

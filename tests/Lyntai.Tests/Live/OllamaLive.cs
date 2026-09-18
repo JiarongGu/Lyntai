@@ -17,7 +17,7 @@ namespace Lyntai.Tests.Live;
 /// for.</b> Only suites that are ABOUT Ollama belong here: they exercise
 /// <c>HttpDialect.Ollama</c>'s NATIVE routes, so <c>/api/tags</c> is exactly the right probe and a
 /// non-Ollama endpoint SHOULD skip them. A suite that merely needs a model to embed or judge with uses
-/// <see cref="LiveModel"/>, which probes the OpenAI-compatible routes both Ollama and llama.cpp's
+/// <see cref="LiveModel"/>, which probes the OpenAI-shaped routes both Ollama and llama.cpp's
 /// <c>llama-server</c> serve. Four suites were gated here for no reason other than being written next to
 /// these two, and the effect was that they could not run against any other backend at all.</para></summary>
 public static class OllamaLive

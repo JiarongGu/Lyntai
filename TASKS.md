@@ -29,11 +29,11 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 235 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
 | 286 | 102 | REL2 — what counts as BREAKING here has never been written down | decision-only · decision | a ruling on whether a trailing defaulted record member is Breaking or Added… |
 | 304 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
-| 329 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 389 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 444 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 467 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 524 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 334 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 394 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 449 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 472 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 529 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -307,8 +307,13 @@ the line numbers and counts were true on 2026-09-17 and rot the way any measurem
   *"If adding a backend requires editing existing code, the seam is in the wrong place."* Adding
   Ollama-native required edits at five sites, so the test is met by history rather than hypothesis — and
   one directory up, `ICliProviderDialect` is the same idea done as an interface. The enum is PUBLIC, so
-  shipping again freezes it for the major. The counter-argument worth weighing: the family's membership
-  rule is "OpenAI-compatible", so a foreign wire schema arguably belongs in its own provider class.
+  shipping again freezes it for the major.
+  <br>**Its recorded counter-argument is GONE as of D158**, which makes this a straight call rather than a
+  fork. That argument ran: *the family's membership rule is "OpenAI-compatible", so a foreign wire schema
+  belongs in its own provider class.* But the membership rule is the DIALECT and always was — the family is
+  named for its TRANSPORT, and `HttpDialect.Ollama` is already a member that is not OpenAI's schema at all.
+  A foreign wire schema is therefore exactly what a new dialect IS, and the enum is what makes adding one an
+  edit to four existing files.
 
 
 ## Part 41 — CLI backends: the codex surface still to MEASURE (2026-08-05)

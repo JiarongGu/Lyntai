@@ -247,7 +247,7 @@ public class HttpVectorTransportTests
         Assert.Null(handler.Requests[0].Auth); // keyless local endpoint
     }
 
-    [Fact] // a base already ending in /v1 (e.g. Ollama's OpenAI-compat surface) must not double the prefix
+    [Fact] // a base already ending in /v1 (e.g. Ollama's OpenAI-shaped surface) must not double the prefix
     public async Task Base_url_ending_in_v1_is_not_doubled()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBody);

@@ -3570,7 +3570,7 @@ each, every store padded to the same 10 entries from one shared distractor pool 
 sets the count's ceiling. **It refuses to run without a real embedder** and exits rather than substituting a
 double, for the reason `memory-enrichment` established: a correction shares nearly every word with the fact
 it corrects, so a bag-of-words fake rates it maximally similar by construction and would print a plausible
-table measuring word overlap. Measured against `embeddinggemma-300M-Q8_0` over a local OpenAI-compatible
+table measuring word overlap. Measured against `embeddinggemma-300M-Q8_0` over a local OpenAI-shaped
 `/v1/embeddings` endpoint — 120 embed calls, 2.0 s.
 
 | population | mean `SimilarCount` | min | max |
@@ -3685,7 +3685,7 @@ five — the ranker's own contribution to stored `Stability`, which is what **D5
 engine-side half is untested rather than cleared.
 
 **A model in the loop bought nothing here.** `ggml-org/gemma-3-4b-it-GGUF`, served by `llama-server` on a
-local OpenAI-compatible endpoint, answered 300 counterbalanced pairs (600 calls) with **zero order
+local OpenAI-shaped endpoint, answered 300 counterbalanced pairs (600 calls) with **zero order
 disagreements** and returned exactly the recency reading, agreeing with `mean` on all 300. Scope that: **the
 prompt NAMES the recency ordering** ("more recent" / "older"), so a model obeying the label scores the same
 without reading an entry, and counterbalancing rules out position bias, not label-following.
@@ -4544,7 +4544,7 @@ library still cannot call a static embedder at all.
 --scorers-only --skip-baseline --embed-endpoint …` (`devtools/_potion/*.log`).
 <!-- link-ok: gitignored raw sweep output, named as provenance -->
 **§3's static class had never been run at all** — no GGUF of any `model2vec` model exists, so nothing here
-could serve one. A small OpenAI-compatible shim over the reference implementation makes it measurable
+could serve one. A small OpenAI-shaped shim over the reference implementation makes it measurable
 without a library change, which is what had to happen before anyone argues for an in-process embedder as
 public surface.
 

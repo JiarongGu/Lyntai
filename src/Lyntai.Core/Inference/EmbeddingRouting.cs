@@ -87,7 +87,7 @@ internal static class EmbeddingRouting
     public const string NothingEmbeds =
         "No registered backend produces ProviderKinds.Vector from text. Register one — "
         + "AddModel2VecProvider(dir) or AddOnnxProvider(dir) in process, or AddHttpProvider / "
-        + "AddOllamaProvider with Produces = ProviderKinds.Vector against any OpenAI-compatible "
+        + "AddOllamaProvider with Produces = ProviderKinds.Vector against any HTTP "
         + "/embeddings endpoint. A backend of your own is an IModelProvider that also implements "
         + "IVectorProvider (docs/DECISIONS.md D151, D153).";
 }

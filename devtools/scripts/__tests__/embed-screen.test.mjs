@@ -286,7 +286,7 @@ describe('parseArgs', () => {
 
   it('takes repeatable --endpoint label=url, for an embedder this harness cannot START', () => {
     // A model2vec/potion static embedder has no GGUF in existence, so llama-server cannot serve it and
-    // the class was unreachable by every instrument here. An already-running OpenAI-compatible endpoint
+    // the class was unreachable by every instrument here. An already-running OpenAI-shaped endpoint
     // is the seam that reaches it — and the same door screens Ollama or anything hosted.
     const o = parseArgs(['--endpoint', 'potion-8M=http://127.0.0.1:8180',
       '--endpoint', 'potion-2M=http://127.0.0.1:8181']);

@@ -447,7 +447,7 @@ internal static class MemoryGistSupportSweep
                 $"({SweepDoubles.ChatModel}).");
             Console.WriteLine("  This arm measures what a MODEL is worth, so a scripted stand-in would measure the");
             Console.WriteLine("  stand-in. The mechanical arms above are model-free and ran in full; this one is");
-            Console.WriteLine($"  additive. Point {SweepDoubles.UrlVariable} at an OpenAI-compatible endpoint and");
+            Console.WriteLine($"  additive. Point {SweepDoubles.UrlVariable} at an OpenAI-shaped endpoint and");
             Console.WriteLine($"  name the model with {SweepDoubles.ChatModelVariable} to include it.");
             Console.WriteLine();
             return false;

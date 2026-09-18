@@ -8,7 +8,7 @@ description: Use when adding a new LLM provider to Lyntai (a new backend/model s
 Read `.claude/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.claude/knowledge/llm-and-router.md` first.
 
 ## Decide the path
-1. **Is it OpenAI-COMPATIBLE?** (OpenAI/Azure/Ollama/OpenRouter/vLLM/llama-server/Groq/DeepSeek/…) → don't
+1. **Is it reachable over HTTP in a dialect we speak?** (OpenAI/Azure/Ollama/OpenRouter/vLLM/llama-server/Groq/DeepSeek/…) → don't
    write a provider. The consumer calls `builder.AddHttpProvider("id", o => o.BaseUrl = …)`, picking a
    dialect. Most vendors ship such an endpoint, so this is the answer far more often than not (**D146**).
 2. **Is it a spawned CLI agent?** (`claude`, a sibling CLI) → write a **dialect**, not a provider. See the
@@ -75,7 +75,7 @@ the csproj.
       hasCredentials)` — copy `HttpModelProvider`. A 401/403 answered to a call that carried NO
       credentials is `NotConfigured`, not `AuthFailed`: AuthFailed BENCHES the provider for the cooldown
       window, so a backend the consumer merely listed without configuring is penalised on every first
-      attempt (`docs/DECISIONS.md` D31). Not "a key is required" — a local OpenAI-compatible endpoint (LM
+      attempt (`docs/DECISIONS.md` D31). Not "a key is required" — a local OpenAI-shaped endpoint (LM
       Studio, vLLM, Ollama) legitimately needs none, so only "no key AND the server demanded one" counts.
       A CLI/session-authenticated dialect has no `hasCredentials` fact and correctly stays on the
       two-argument overload.

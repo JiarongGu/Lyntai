@@ -27,7 +27,7 @@ internal static class SweepDoubles
     /// <summary>Environment variable naming the embedding model, so a machine serving a different one does
     /// not need a code change. The legacy <c>LYNTAI_OLLAMA_EMBED_MODEL</c> still works.
     /// <para><b>Named for the ROLE rather than for one server</b>, which the URL variable already was: these
-    /// sweeps talk OpenAI-compatible HTTP and this machine runs both Ollama and <c>llama-server</c>, so a
+    /// sweeps talk OpenAI-shaped HTTP and this machine runs both Ollama and <c>llama-server</c>, so a
     /// vendor in the name is a claim about the host that the code never makes.</para></summary>
     internal const string ModelVariable = "LYNTAI_LIVE_EMBED_MODEL";
 
@@ -110,7 +110,7 @@ internal static class SweepDoubles
         Console.Error.WriteLine("  taken through one were withdrawn (docs/task-archive.md Part 69). Substituting one here");
         Console.Error.WriteLine("  would reproduce that defect silently, so this refuses to run instead.");
         Console.Error.WriteLine();
-        Console.Error.WriteLine($"  Any OpenAI-compatible /v1/embeddings endpoint serves this:");
+        Console.Error.WriteLine($"  Any OpenAI-shaped /v1/embeddings endpoint serves this:");
         Console.Error.WriteLine($"    - llama.cpp:   llama-server -m <model.gguf> --embedding   (the standard here)");
         Console.Error.WriteLine($"    - Ollama:      ollama pull {model}   (then set {UrlVariable})");
         Console.Error.WriteLine($"  Point it with {UrlVariable}, and name the model with {ModelVariable}.");
@@ -234,7 +234,7 @@ internal static class SweepDoubles
     }
 
     /// <summary>
-    /// A real embedding model over the OpenAI-compatible <c>/v1/embeddings</c> route.
+    /// A real embedding model over the OpenAI-shaped <c>/v1/embeddings</c> route.
     ///
     /// <para><b>That route rather than Ollama's native one, so a sweep is not tied to a vendor.</b> Ollama
     /// and llama.cpp's <c>llama-server</c> both serve it; only Ollama serves <c>/api/embeddings</c>. Through
@@ -449,7 +449,7 @@ internal static class SweepDoubles
         Environment.GetEnvironmentVariable(ChatUrlVariable) ?? BaseUrl;
 
     /// <summary>
-    /// A real chat model over the OpenAI-compatible <c>/v1/chat/completions</c> route, or <c>null</c> when
+    /// A real chat model over the OpenAI-shaped <c>/v1/chat/completions</c> route, or <c>null</c> when
     /// none is reachable — in which case the refusal is already on stderr and the caller exits non-zero.
     /// </summary>
     internal static async Task<OpenAiCompatibleChat?> TryRealChatAsync(HttpClient http, string sweep)
@@ -468,7 +468,7 @@ internal static class SweepDoubles
         Console.Error.WriteLine("  This arm measures what a MODEL is worth, so a scripted stand-in would");
         Console.Error.WriteLine("  measure the stand-in. It refuses to run instead.");
         Console.Error.WriteLine();
-        Console.Error.WriteLine("  Any OpenAI-compatible /v1/chat/completions endpoint serves this:");
+        Console.Error.WriteLine("  Any OpenAI-shaped /v1/chat/completions endpoint serves this:");
         Console.Error.WriteLine("    - llama.cpp:   llama-server -hf <user>/<model>[:quant]   (preferred)");
         Console.Error.WriteLine($"    - Ollama:      ollama pull {model}                        (convenience only)");
         Console.Error.WriteLine($"  Point it with {ChatUrlVariable} (or {UrlVariable}), and name it with {ChatModelVariable}.");
@@ -543,7 +543,7 @@ internal static class SweepDoubles
         return null;
     }
 
-    /// <summary>A real chat model over the OpenAI-compatible route, asked one question at a time.</summary>
+    /// <summary>A real chat model over the OpenAI-shaped route, asked one question at a time.</summary>
     internal sealed class OpenAiCompatibleChat(HttpClient http, string baseUrl, string model) : IBenchChat
     {
         /// <summary>The model this instance asks, for a table to label its row with.</summary>

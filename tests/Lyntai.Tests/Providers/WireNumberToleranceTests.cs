@@ -21,7 +21,7 @@ namespace Lyntai.Tests.Providers;
 /// answer the caller has already paid for.</para></summary>
 public class WireNumberToleranceTests
 {
-    // ── the OpenAI-compatible HTTP provider (buffered) ────────────────────────
+    // ── the OpenAI-shaped HTTP provider (buffered) ────────────────────────
 
     [Fact]
     public async Task A_fractional_token_count_still_returns_the_reply()
@@ -68,7 +68,7 @@ public class WireNumberToleranceTests
         Assert.Equal(0, reply.Usage.OutputTokens);
     }
 
-    // ── the OpenAI-compatible HTTP provider (streamed) ────────────────────────
+    // ── the OpenAI-shaped HTTP provider (streamed) ────────────────────────
 
     [Fact]
     public async Task A_fractional_count_on_the_trailing_usage_chunk_does_not_break_the_stream()

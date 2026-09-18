@@ -3,7 +3,7 @@
   <!--
     The BASIC provider set, and "basic" is the membership RULE rather than a position in a list (D144):
     everything that reaches a model needing nothing beyond Lyntai.Core and the BCL — the spawned CLIs
-    (`claude`, `codex`), any OpenAI-compatible HTTP endpoint (OpenAI, Ollama, OpenRouter, Azure) for chat
+    (`claude`, `codex`), any OpenAI-shaped HTTP endpoint (OpenAI, Ollama, OpenRouter, Azure) for chat
     AND embeddings, and the in-process model2vec embedder. One package because their dependency footprint
     is the same (no native payload), so bundling costs a consumer nothing.
 
@@ -19,7 +19,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Providers.Basic</PackageId>
-    <Description>The Lyntai LLM backends that need nothing beyond Lyntai.Core and the BCL: the authenticated `claude` and `codex` CLIs, any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat + embeddings, and an in-process model2vec embedder — bundled because none of them ships a native payload. Media backends live in Lyntai.Generation; local GGUF inference is Lyntai.Providers.LlamaSharp.</Description>
+    <Description>The Lyntai LLM backends that need nothing beyond Lyntai.Core and the BCL: the authenticated `claude` and `codex` CLIs, any OpenAI-shaped endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat + embeddings, and an in-process model2vec embedder — bundled because none of them ships a native payload. Media backends live in Lyntai.Generation; local GGUF inference is Lyntai.Providers.LlamaSharp.</Description>
   </PropertyGroup>
 
   <ItemGroup>

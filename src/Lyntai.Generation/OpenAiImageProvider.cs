@@ -41,7 +41,7 @@ public sealed class OpenAiImageOptions
 }
 
 /// <summary>
-/// An <see cref="IModelProvider"/> over an OpenAI-compatible images API — the cloud service, or any local
+/// An <see cref="IModelProvider"/> over an OpenAI-shaped images API — the cloud service, or any local
 /// server that speaks the same shape. INLINE delivery: one request, artifacts back.
 ///
 /// Two endpoints, chosen by whether the request carries inputs:
@@ -149,7 +149,7 @@ public sealed class OpenAiImageProvider(
 
             if (!response.IsSuccessStatusCode)
                 // HasCredentials: a 401 with no key supplied is NOT_CONFIGURED (skip blamelessly, offer setup),
-                // not AUTH_FAILED (bench the backend for the cooldown window). An OpenAI-compatible endpoint run
+                // not AUTH_FAILED (bench the backend for the cooldown window). An OpenAI-shaped endpoint run
                 // locally needs no key at all, so only the server DEMANDING one makes "no key" a config problem.
                 return MediaResponse.Failure(
                     ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, body, HasCredentials),

@@ -39,12 +39,12 @@ public class OllamaContextSizeTests
 
     // Every dialect other than native Ollama builds the OpenAI payload, whose builder never receives the
     // option at all. The /v1 case is the one that actually bit: the SAME Ollama server on its
-    // OpenAI-COMPATIBLE surface, where the setting looks like it must apply and does not.
+    // OpenAI-SHAPED surface, where the setting looks like it must apply and does not.
     [Theory]
     [InlineData("https://api.openai.com")]           // plain OpenAI
     [InlineData("https://openrouter.ai/api/v1")]     // OpenRouter
     [InlineData("https://my-res.openai.azure.com")]  // Azure OpenAI
-    [InlineData("http://localhost:11434/v1")]        // Ollama's OpenAI-compatible surface, NOT its native one
+    [InlineData("http://localhost:11434/v1")]        // Ollama's OpenAI-shaped surface, NOT its native one
     public async Task Every_other_flavor_ignores_it_entirely(string baseUrl)
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);

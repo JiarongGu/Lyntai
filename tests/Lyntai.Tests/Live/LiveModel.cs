@@ -4,7 +4,7 @@ using Lyntai.Providers.Http;
 namespace Lyntai.Tests.Live;
 
 /// <summary>
-/// The gate for a live test that needs A MODEL — any OpenAI-compatible local endpoint, so Ollama and
+/// The gate for a live test that needs A MODEL — any OpenAI-shaped local endpoint, so Ollama and
 /// llama.cpp's <c>llama-server</c> are both usable without editing a test.
 ///
 /// <para><b>Deliberately NOT merged with <see cref="OllamaLive"/>, which answers a different question.</b>

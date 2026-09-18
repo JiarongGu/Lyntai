@@ -86,7 +86,7 @@ public class ProviderVerdictClassifierTests
     [Fact]
     public void The_no_credentials_promotion_applies_only_to_auth_failures()
     {
-        // "no key" alone cannot mean unconfigured: an OpenAI-compatible endpoint run locally (LM Studio,
+        // "no key" alone cannot mean unconfigured: an OpenAI-shaped endpoint run locally (LM Studio,
         // vLLM, Ollama) legitimately needs none. Only "no key AND the server demanded one" does.
         Assert.Equal(ProviderVerdict.RateLimited,
             ProviderVerdictClassifier.FromHttpFailure(HttpStatusCode.TooManyRequests, null, hasCredentials: false));

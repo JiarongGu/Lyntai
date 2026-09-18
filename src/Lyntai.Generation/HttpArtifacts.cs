@@ -25,7 +25,7 @@ internal static class HttpArtifacts
         catch (FormatException) { return null; }
     }
 
-    /// <summary>Read the OpenAI-compatible images envelope: <c>{ data: [ { b64_json | url } ] }</c>.
+    /// <summary>Read the OpenAI-shaped images envelope: <c>{ data: [ { b64_json | url } ] }</c>.
     /// A URL is returned AS a URI artifact rather than downloaded — the platform never spends the caller's
     /// bandwidth (or guesses at auth for someone else's host) uninvited.</summary>
     public static IReadOnlyList<MediaArtifact> FromOpenAiEnvelope(string body, string mediaType = "image/png")
@@ -67,7 +67,7 @@ internal static class HttpArtifacts
     }
 
     /// <summary>The backend's own words about a failure, trimmed to something loggable. Prefers a nested
-    /// <c>error.message</c> (the shape every OpenAI-compatible service uses) and falls back to the raw body,
+    /// <c>error.message</c> (the shape every OpenAI-shaped service uses) and falls back to the raw body,
     /// because the raw body is what a diagnostics pane actually needs when the shape is unfamiliar.</summary>
     public static string FailureDetail(string body, int max = 500)
     {

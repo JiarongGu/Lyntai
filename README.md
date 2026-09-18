@@ -99,7 +99,7 @@ version you installed.
 |---|---|
 | **`Lyntai`** | **The starting set (5 of 11)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage. Not the whole library: add `Lyntai.Storage.Sqlite` to persist and `Lyntai.Generation` for media. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI — plus `Lyntai.Text.WordPieceTokenizer`, a BERT tokenizer owned rather than depended on (**D122**), usable anywhere a token-aware step is wanted. Deps: DI + Logging abstractions only. |
-| `Lyntai.Providers.Basic` | The dependency-free **LLM** backends — Core and the BCL, nothing else: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port. Media backends moved to `Lyntai.Generation`. |
+| `Lyntai.Providers.Basic` | The dependency-free **LLM** backends — Core and the BCL, nothing else: authenticated `claude` and `codex` CLIs; any OpenAI-shaped endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port. Media backends moved to `Lyntai.Generation`. |
 | `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLlamaSharpProvider(modelPath)` and every namespace are unchanged. |
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
@@ -209,7 +209,7 @@ verdict, on purpose: the enum grows, and a single member is already best express
 - **A backend you listed but never configured is skipped, not benched** — when a server answers 401/403 to a
   call that carried no credentials, the verdict is `NotConfigured`, and the router advances with no cooldown
   and no dead-host penalty (`AuthFailed` — a key that WAS supplied and got rejected — still cools the host).
-  It isn't "a key is required": a locally-run OpenAI-compatible server legitimately needs none, so only the
+  It isn't "a key is required": a locally-run OpenAI-shaped server legitimately needs none, so only the
   server actually demanding one makes a missing key a configuration gap. Same rule as the generation router.
   A blameless verdict never *masks* a real one either — if one candidate is down and the next is merely
   unconfigured, you're told about the outage, not sent to check a key.
@@ -1049,7 +1049,7 @@ submit/poll/stream, capability and routing machinery.
 <!-- compile-given: string key; -->
 ```csharp
 services.AddLyntai(cfg => cfg
-    // hosted: an OpenAI-compatible images API
+    // hosted: an OpenAI-shaped images API
     .AddOpenAiImageProvider(o => { o.ApiKey = key; o.Model = "gpt-image-1"; })
     // local: a Stable Diffusion WebUI on this machine
     .AddAutomatic1111Provider(o => { })
@@ -1273,7 +1273,9 @@ services.AddLyntai(b => b.ConfigureProviderAdmission(a => a.BySlot["sd-local"] =
 
 ### Bridging a backend Lyntai has no provider for (`AddBridgeProvider`)
 
-Most vendors ship an OpenAI-compatible endpoint, so `AddHttpProvider` reaches them. When one does not — its
+Most vendors ship an endpoint speaking OpenAI's schema — what they market as "OpenAI-compatible" — so
+`AddHttpProvider` reaches them. Lyntai's own rule is the dialect, not the vendor: `HttpDialect` ships four,
+and Ollama's native surface is not OpenAI's at all. When a backend speaks none of them — its
 own wire format, an in-house service, an SDK you already use — **a bridge is a lambda**, and the library
 takes no dependency on whatever you wrapped:
 
@@ -1363,7 +1365,7 @@ foreach (var step in result.Steps)         // every tool call it made, for traci
 
 The loop executes the tool the model chooses, feeds the result back, and repeats up to
 `ToolLoopMaxIterations` (default 8). It uses **native** provider function-calling when available
-(OpenAI-compatible / Ollama, and anything you reach with `AddBridgeProvider` that declares it — structured
+(OpenAI-shaped / Ollama, and anything you reach with `AddBridgeProvider` that declares it — structured
 `tool_calls`, parallel calls supported) and falls back to a **prompt protocol** over the text contract
 for providers without it (CLI, basic local models) — same `ITool`s either way, chosen transparently
 behind the front door (`ITextClient.SupportsToolCalls`). An
@@ -1626,7 +1628,7 @@ await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunA
   `AddDpapiSecretVault()` (`Lyntai.Secrets.Dpapi`) binds it with DPAPI. Call `GenerateMasterKeyAsync()`
   once (record the recovery key), `RecoverAsync(key)` on migration.
 - **Vision** — `TextMessage.UserWithImage(text, bytes, "image/png")` (or `UserWithImageUrl`); the
-  OpenAI-compatible providers send it as image content, and the **Ollama-native** flavour
+  OpenAI-shaped backends send it as image content, and the **Ollama-native** flavour
   (`AddOllamaProvider`, or any base URL detected as Ollama) sends it as `/api/chat`'s own `images` array.
   Pair it with a vision model (`llava` and friends). **One shape does not travel on the Ollama-native path:**
   an attachment carrying only a remote URL, because `/api/chat` has no URL form and Lyntai will not fetch

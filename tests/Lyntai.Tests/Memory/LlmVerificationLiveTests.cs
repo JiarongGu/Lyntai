@@ -39,7 +39,7 @@ namespace Lyntai.Tests.Memory;
 /// <c>LYNTAI_VERIFY_RESULTS</c> (an ABSOLUTE path to append the table to, for sweeping several models in one
 /// pass).</para>
 ///
-/// <para><b>The local judge is any OpenAI-compatible endpoint</b> — <c>LYNTAI_LIVE_MODEL_FLAVOR=openai</c>
+/// <para><b>The local judge is any OpenAI-shaped endpoint</b> — <c>LYNTAI_LIVE_MODEL_FLAVOR=openai</c>
 /// plus a URL points it at llama.cpp's <c>llama-server</c>. Which is the same point the paragraph above
 /// makes about hosted models: the seam takes a judge, and where that judge runs is a deployment's business.</para>
 ///

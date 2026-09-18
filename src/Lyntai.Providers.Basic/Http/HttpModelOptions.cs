@@ -45,7 +45,7 @@ public sealed class HttpModelOptions
     /// <see cref="ProviderKinds.Text"/> ONLY — it becomes Ollama's <c>options.num_ctx</c> on the native
     /// <c>/api/chat</c> payload. **Every other dialect IGNORES it silently**: the OpenAI-shaped payload has
     /// no equivalent knob (the context window is a property of the deployed model there), and that includes
-    /// Ollama's own OpenAI-COMPATIBLE <c>/v1</c> surface, which resolves to
+    /// Ollama's own OpenAI-shaped <c>/v1</c> surface, which resolves to
     /// <see cref="HttpDialect.OpenAi"/>. The name carries the backend for exactly that reason — a generic
     /// one read as a portable setting and was not one.</summary>
     public int? OllamaContextSize { get; set; }

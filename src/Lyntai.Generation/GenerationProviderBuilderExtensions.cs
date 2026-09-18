@@ -32,7 +32,7 @@ namespace Lyntai;
 /// whichever fires first, the caller sees the same verdict.</para></summary>
 public static class GenerationProviderBuilderExtensions
 {
-    /// <summary>An OpenAI-compatible images endpoint — the cloud service, or any local server speaking the same
+    /// <summary>An OpenAI-shaped images endpoint — the cloud service, or any local server speaking the same
     /// shape. Default id <c>"openai-images"</c> (<see cref="OpenAiImageOptions.Id"/>).</summary>
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Endpoint, credential and defaults.</param>

@@ -261,7 +261,7 @@ export default {
         'LyntaiToolDeclaration',
         'LlmVerdictException',
       ],
-      use: 'nothing — the Microsoft.Extensions.AI bridge is deleted; reach an OpenAI-compatible backend '
+      use: 'nothing — the Microsoft.Extensions.AI bridge is deleted; reach an OpenAI-shaped backend '
         + 'with `AddHttpProvider`',
       why: 'no provider used it (0 of 43 files), and a bridge is not a provider — speculative public '
         + 'surface frozen under SemVer, paid for by every consumer, for a case nobody hit (D146)',
@@ -667,7 +667,7 @@ export default {
       // D146. `Lyntai.ExtensionsAi` the NAMESPACE is absent: it is the name the bridge would return under.
       term: '\\bExtensionsAiProvider\\b|\\bAddExtensionsAiProvider\\b|\\bExtensionsAiBuilderExtensions\\b|\\bLyntaiChatClient\\b|\\bLyntaiChatClientExtensions\\b|\\bAsChatClient\\b|\\bLyntaiToolDeclaration\\b|\\bLlmVerdictException\\b',
       why: 'the Microsoft.Extensions.AI bridge is deleted; its trigger to return is in D146',
-      use: '`AddHttpProvider` for any OpenAI-compatible backend',
+      use: '`AddHttpProvider` for any backend reachable in a shipped HttpDialect',
     },
     {
       // D145 retired this namespace and D146 then deleted the module under it, so there is no replacement
@@ -721,7 +721,7 @@ export default {
       why: 'the Microsoft.Extensions.AI bridge is DELETED (D146); a sentence offering it as a live routing '
         + 'target is advertising a feature that is gone',
       use: '`AddBridgeProvider` (a lambda, so it costs the library no dependency — D147), or '
-        + '`AddHttpProvider` for anything OpenAI-compatible',
+        + '`AddHttpProvider` for anything reachable in a shipped HttpDialect',
     },
     {
       // D140. The prose half; the input-role vocabulary is absent for the reason on the surface rule
@@ -754,7 +754,13 @@ export default {
     },
     {
       // D135. The prose half. `OpenAiPayload` and `OpenAiFlavor.OpenAi`'s member name are absent for the
-      // reason on the surface rule above; so is the PHRASE "OpenAI-compatible", which stays correct about
+      // reason on the surface rule above. The PHRASE "OpenAI-compatible" was kept here by D135 and is
+      // RETIRED from live prose by D158 — the membership rule is the DIALECT, not a vendor's claim. It is
+      // deliberately NOT a rule: measured 2026-09-19 at 14 hits over the scanned tier, of which 11 are
+      // records that must keep their day's wording, one is a deliberate README mention and one is a false
+      // positive where "compatible" means AOT-compatible. That is the shape this file already refused for
+      // `Providers.Default` — fix by hand, record the refusal, do not ship a rule that collects drift-oks.
+      // The line D135 wrote, kept for the record, said the phrase stays correct about
       // the three dialects that are.
       term: '\\bAddOpenAiCompatible\\b|\\bAddOpenAiCompatibleProvider\\b|\\bOpenAiCompatibleProvider\\b|\\bOpenAiCompatibleOptions\\b|\\bOpenAiCompatibleBuilderExtensions\\b|\\bOpenAiEmbeddingsTransport\\b|\\bOpenAiEndpoint\\b|\\bOpenAiFlavor\\b|\\bOpenAiHttp\\b',
       why: 'the HTTP family is not OpenAI — one of its four dialects is documented by its own vendor as '

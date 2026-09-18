@@ -77,7 +77,7 @@ public static class ProviderKinds
 /// aggregator fronts hundreds behind one id and cannot enumerate them.</para>
 ///
 /// <para><b><see cref="Produces"/> is a LIST, and that is load-bearing.</b> One backend can serve several
-/// output kinds: an OpenAI-compatible host answers <c>/chat/completions</c> AND <c>/embeddings</c>, so it
+/// output kinds: an OpenAI-shaped host answers <c>/chat/completions</c> AND <c>/embeddings</c>, so it
 /// declares <c>[text, vector]</c> and implements both methods off one configuration. Modelling embedding as
 /// its own operation made that inexpressible (<c>docs/DECISIONS.md</c> D130).</para></summary>
 public sealed record ProviderCapabilities
