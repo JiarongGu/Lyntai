@@ -23,7 +23,7 @@ that canonical set; read both, they are not duplicates.
       `ITraceStore`, `IPromptVersionStore`, `IJobStore`, `ICuratedMemoryStore`, `IVectorStore`,
       `IResponseCache`, `IUsageTracker`, `IModelRoutingStore`, **`IMemoryGraphStore`**
       (`src/Lyntai.Core/Storage/` plus `Memory/`,
-      `Llm/Caching/`, `Llm/Budgeting/`, `Llm/Routing/`; mirror `src/Lyntai.Storage.Postgres/`, which
+      `Inference/Caching/`, `Inference/Budgeting/`, `Inference/`; mirror `src/Lyntai.Storage.Postgres/`, which
       implements twelve of them). Each one you DO implement owes a `<Domain>StoreContract` fact. No
       cross-domain coupling (a future composite store routes domains to different backends).
       <br>**`IMemoryGraphStore` is the big one and this list omitted it until 2026-09-10** — 643 lines of

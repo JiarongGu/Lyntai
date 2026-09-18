@@ -846,7 +846,8 @@ export default {
         + '|\\bLlmClientFactory\\b|\\bLlmRouterFactory\\b|\\bLlmClient\\b|\\bLlmRouter\\b'
         + '|\\bDelegatingLlmClient\\b|\\bRefusalScreeningLlmClient\\b|\\bGuardedLlmClient\\b'
         + '|\\bCachingLlmClient\\b|\\bBudgetedLlmClient\\b|\\bRateLimitedLlmClient\\b'
-        + '|\\bAddLlmClient\\b|\\bLyntai\\.Llm\\b',
+        // the SLASHED spelling too — see the Lifecycle entry below for why a dotted rule cannot see it
+        + '|\\bAddLlmClient\\b|\\bLyntai\\.Llm\\b|(^|[^A-Za-z0-9_.])Llm/',
       why: 'the front door is named for what it serves, and everything about CALLING a backend lives in '
         + 'one namespace; Llm named a model class rather than a content kind (D154)',
       use: '`ITextClient` / `TextClient` / `ITextRouter` / `TextRouter`, `AddTextClient`, the '
@@ -858,7 +859,10 @@ export default {
       // call shapes; only about a third of it — pools, admission, cooldown, candidates — was lifecycle.
       // Historical records keep the old spelling on purpose: a decision that moved a type INTO
       // Lyntai.Lifecycle did exactly that, and rewriting it would falsify the record rather than update it.
-      term: '\\bLyntai\\.Lifecycle\\b',
+      // ALSO the SLASHED spelling. A path is invisible to a dotted-namespace rule, which is how
+      // `Lifecycle/ProviderVerdict.cs` survived the rename in a knowledge doc and a sibling reached a live
+      // SKILL. Measured 2026-09-19 over the scanned tier: 2 hits, 1 defect, 1 record already annotated.
+      term: '\\bLyntai\\.Lifecycle\\b|(^|[^A-Za-z0-9_.])Lifecycle/',
       why: 'the namespace was named for a third of what it held; everything about CALLING a backend now '
         + 'lives in Lyntai.Inference (D154)',
       use: '`Lyntai.Inference`',
