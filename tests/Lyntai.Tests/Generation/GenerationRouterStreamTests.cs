@@ -1,4 +1,3 @@
-using Lyntai.Generation;
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
@@ -20,22 +19,22 @@ public class GenerationRouterStreamTests
 {
     private static GenerationRouter Router(params IModelProvider[] providers) => new(providers);
 
-    private static GenerationRequest Speech() =>
+    private static MediaRequest Speech() =>
         new() { Kind = ProviderKinds.Audio, Prompt = "read this aloud" };
 
     private static ProviderCandidate[] Candidates(params IModelProvider[] providers) =>
         [.. providers.Select(p => new ProviderCandidate(p.Id))];
 
-    private static async Task<List<GenerationChunk>> Collect(IAsyncEnumerable<GenerationChunk> stream)
+    private static async Task<List<MediaChunk>> Collect(IAsyncEnumerable<MediaChunk> stream)
     {
-        var chunks = new List<GenerationChunk>();
+        var chunks = new List<MediaChunk>();
         await foreach (var chunk in stream) chunks.Add(chunk);
         return chunks;
     }
 
     /// <summary>Exactly one terminal chunk, and it is LAST — asserted on every path, because "the stream
     /// ended" and "the stream ended well" are the two things a raw enumerable cannot distinguish.</summary>
-    private static GenerationChunk AssertOneTerminal(List<GenerationChunk> chunks)
+    private static MediaChunk AssertOneTerminal(List<MediaChunk> chunks)
     {
         var terminals = chunks.Where(c => c.Final || c.Error is not null).ToList();
         Assert.Single(terminals);
@@ -78,12 +77,12 @@ public class GenerationRouterStreamTests
         var broken = new ScriptedStreamProvider
         {
             Id = "broken",
-            Script = [GenerationChunk.Failure(ProviderVerdict.Failed, "backend fell over")],
+            Script = [MediaChunk.Failure(ProviderVerdict.Failed, "backend fell over")],
         };
         var healthy = new ScriptedStreamProvider
         {
             Id = "healthy",
-            Script = [GenerationChunk.Content([9]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
         var chunks = await Collect(Router(broken, healthy).StreamAsync(Candidates(broken, healthy), Speech()));
@@ -102,14 +101,14 @@ public class GenerationRouterStreamTests
             Id = "half",
             Script =
             [
-                GenerationChunk.Content([1, 2], "audio/mpeg"),
-                GenerationChunk.Failure(ProviderVerdict.Failed, "died mid-render"),
+                MediaChunk.Content([1, 2], "audio/mpeg"),
+                MediaChunk.Failure(ProviderVerdict.Failed, "died mid-render"),
             ],
         };
         var healthy = new ScriptedStreamProvider
         {
             Id = "healthy",
-            Script = [GenerationChunk.Content([9]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
         var chunks = await Collect(Router(half, healthy).StreamAsync(Candidates(half, healthy), Speech()));
@@ -127,13 +126,13 @@ public class GenerationRouterStreamTests
         var half = new ScriptedStreamProvider
         {
             Id = "half",
-            Script = [GenerationChunk.Content([1])],
+            Script = [MediaChunk.Content([1])],
             Throws = new InvalidOperationException("socket died mid-stream"),
         };
         var healthy = new ScriptedStreamProvider
         {
             Id = "healthy",
-            Script = [GenerationChunk.Content([9]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
         var chunks = await Collect(Router(half, healthy).StreamAsync(Candidates(half, healthy), Speech()));
@@ -157,7 +156,7 @@ public class GenerationRouterStreamTests
         var healthy = new ScriptedStreamProvider
         {
             Id = "healthy",
-            Script = [GenerationChunk.Content([9]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
         var chunks = await Collect(Router(unreachable, healthy).StreamAsync(
@@ -180,14 +179,14 @@ public class GenerationRouterStreamTests
             Id = "announcer",
             Script =
             [
-                new GenerationChunk(MediaType: "audio/mpeg"),
-                GenerationChunk.Failure(ProviderVerdict.Failed, "never got going"),
+                new MediaChunk(MediaType: "audio/mpeg"),
+                MediaChunk.Failure(ProviderVerdict.Failed, "never got going"),
             ],
         };
         var healthy = new ScriptedStreamProvider
         {
             Id = "healthy",
-            Script = [GenerationChunk.Content([9]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
         var chunks = await Collect(Router(announcer, healthy).StreamAsync(
@@ -203,12 +202,12 @@ public class GenerationRouterStreamTests
         var empty = new ScriptedStreamProvider
         {
             Id = "empty",
-            Script = [GenerationChunk.Content([]), GenerationChunk.Failure(ProviderVerdict.Failed, "nothing")],
+            Script = [MediaChunk.Content([]), MediaChunk.Failure(ProviderVerdict.Failed, "nothing")],
         };
         var healthy = new ScriptedStreamProvider
         {
             Id = "healthy",
-            Script = [GenerationChunk.Content([9]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
         var chunks = await Collect(Router(empty, healthy).StreamAsync(Candidates(empty, healthy), Speech()));
@@ -225,7 +224,7 @@ public class GenerationRouterStreamTests
         var truncated = new ScriptedStreamProvider
         {
             Id = "truncated",
-            Script = [GenerationChunk.Content([1, 2])],   // no Final, no Error — it simply ends
+            Script = [MediaChunk.Content([1, 2])],   // no Final, no Error — it simply ends
         };
 
         var chunks = await Collect(Router(truncated).StreamAsync(Candidates(truncated), Speech()));
@@ -241,7 +240,7 @@ public class GenerationRouterStreamTests
         var healthy = new ScriptedStreamProvider
         {
             Id = "healthy",
-            Script = [GenerationChunk.Content([9]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
         var chunks = await Collect(Router(silent, healthy).StreamAsync(Candidates(silent, healthy), Speech()));
@@ -253,8 +252,8 @@ public class GenerationRouterStreamTests
     [Fact]
     public async Task Every_candidate_failing_still_yields_exactly_one_terminal_chunk()
     {
-        var a = new ScriptedStreamProvider { Id = "a", Script = [GenerationChunk.Failure(ProviderVerdict.Failed, "a died")] };
-        var b = new ScriptedStreamProvider { Id = "b", Script = [GenerationChunk.Failure(ProviderVerdict.Failed, "b died")] };
+        var a = new ScriptedStreamProvider { Id = "a", Script = [MediaChunk.Failure(ProviderVerdict.Failed, "a died")] };
+        var b = new ScriptedStreamProvider { Id = "b", Script = [MediaChunk.Failure(ProviderVerdict.Failed, "b died")] };
 
         var chunks = await Collect(Router(a, b).StreamAsync(Candidates(a, b), Speech()));
 
@@ -286,7 +285,7 @@ public class GenerationRouterStreamTests
         var healthy = new ScriptedStreamProvider
         {
             Id = "healthy",
-            Script = [GenerationChunk.Content([9]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
         var chunks = await Collect(Router(liar, healthy).StreamAsync(Candidates(liar, healthy), Speech()));
@@ -321,12 +320,12 @@ public class GenerationRouterStreamTests
         var refuser = new ScriptedStreamProvider
         {
             Id = "refuser",
-            Script = [GenerationChunk.Failure(ProviderVerdict.Refused, "content policy")],
+            Script = [MediaChunk.Failure(ProviderVerdict.Refused, "content policy")],
         };
         var healthy = new ScriptedStreamProvider
         {
             Id = "healthy",
-            Script = [GenerationChunk.Content([9]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([9]), MediaChunk.Completed()],
         };
 
         var chunks = await Collect(Router(refuser, healthy).StreamAsync(
@@ -343,7 +342,7 @@ public class GenerationRouterStreamTests
         var tts = new ScriptedStreamProvider
         {
             Id = "tts",
-            Script = [GenerationChunk.Content([1]), GenerationChunk.Content([2]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([1]), MediaChunk.Content([2]), MediaChunk.Completed()],
         };
         using var cts = new CancellationTokenSource();
 

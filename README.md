@@ -70,7 +70,7 @@ version you installed.
 > run can still surprise is a wire format's SHAPE, not a value — and that is now a major-version risk taken
 > deliberately rather than a caveat carried indefinitely.
 > **The carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE:** the generation *contracts* in that
-> namespace (`GenerationResult`, the routing policy, `ProviderVerdictClassifier`, …) ship inside the mandatory
+> namespace (`MediaResponse`, the routing policy, `ProviderVerdictClassifier`, …) ship inside the mandatory
 > `Lyntai.Core` and carry the FULL promise — which is why `docs/DECISIONS.md` D36 treated a verdict-translation
 > fix in one of them as major-bump material rather than claiming the exemption. Everything
 > else (LLM routing, storage, cortex, jobs, guards, secrets, memory, tools) carries the full promise. **Upgrading 0.31 → 1.0:** the 0.x migrations were collapsed
@@ -1098,11 +1098,11 @@ factories**, never the positional constructor:
 
 <!-- compile-given: byte[] sourcePng; -->
 ```csharp
-new GenerationRequest
+new MediaRequest
 {
     Kind = ProviderKinds.Image,
     Prompt = "the same room, at night",
-    Inputs = [GenerationInput.Init(sourcePng, "image/png")],   // role baked in; it cannot be omitted
+    Inputs = [MediaInput.Init(sourcePng, "image/png")],   // role baked in; it cannot be omitted
 }
 ```
 
@@ -1119,7 +1119,7 @@ ceilings, model catalogues):
 <!-- compile-given: IReadOnlyList<ProviderCandidate> candidates;
      void Save(byte[] data) { } -->
 ```csharp
-var result = await router.GenerateAsync(candidates, new GenerationRequest
+var result = await router.GenerateAsync(candidates, new MediaRequest
 {
     Kind = ProviderKinds.Image,                 // open string: image / video / audio / 3d / whatever's next
     Prompt = "a red square on white",
@@ -1149,15 +1149,15 @@ An async render exposes its **operation id**, so it survives a process restart a
 artifact fed into the next through `artifact.ToInput(role)`. Every stage carries its own candidates and
 routes independently, so the image leg and the video leg need not be the same vendor:
 
-<!-- compile-given: GenerationRequest image;
-     GenerationRequest video; -->
+<!-- compile-given: MediaRequest image;
+     MediaRequest video; -->
 ```csharp
 var result = await router.RunPipelineAsync(
 [
     new GenerationStage(image, [new ProviderCandidate("openai-images")]),
     new GenerationStage(video, [new ProviderCandidate("fal")])
     {
-        InputRole = GenerationInputRoles.FirstFrame,        // what the still IS to the video backend
+        InputRole = MediaInputRoles.FirstFrame,        // what the still IS to the video backend
     },
 ]);
 
@@ -1205,7 +1205,7 @@ failure rather than inventing an artifact.
 | Backend | Delivery | Notes |
 |---|---|---|
 | `OpenAiImageProvider` | Inline | `/images/generations`, or `/images/edits` when the request carries an input image. A `url` response comes back as a URI artifact — never downloaded for you |
-| `Automatic1111Provider` | Inline | A locally-run SD WebUI: `txt2img` / `img2img`. Not running reports **NotConfigured** (skipped, not blamed), and its probe checks a checkpoint is *loaded* — "up" isn't "usable". The WebUI's currently-loaded checkpoint decides the model: `GenerationRequest.Model`, including a candidate's `a1111:sd_xl_base` pin, is **not** sent |
+| `Automatic1111Provider` | Inline | A locally-run SD WebUI: `txt2img` / `img2img`. Not running reports **NotConfigured** (skipped, not blamed), and its probe checks a checkpoint is *loaded* — "up" isn't "usable". The WebUI's currently-loaded checkpoint decides the model: `MediaRequest.Model`, including a candidate's `a1111:sd_xl_base` pin, is **not** sent |
 | `ComfyUiProvider` | **Job** | *Documented, not measured.* Local and workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs. A transport failure while polling reports **Running, not Failed** — an unanswered status call says nothing about a run still going — while a 4xx or an unconfigured base URL stays terminal, so a bad id never polls forever |
 | `LocalDiffusionProvider` | Inline | A local `sd-cli` / stable-diffusion.cpp subprocess through `IProcessRunner` — no key, no network, no content policy in the path. Argv and the multiple-of-64 size clamp are ported from a working implementation rather than measured here |
 | `FalQueueProvider` | **Job** | *Documented, not measured.* One aggregator queue reaching the Wan/Kling/Veo-class video models. The operation id **carries its model** (`"model#requestId"`) because a resumed job has only the id, and a transport failure while polling reports **Running, not Failed** — a 500 says nothing about a paid render still in flight |

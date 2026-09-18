@@ -1,5 +1,4 @@
 using Lyntai.Inference;
-using Lyntai.Generation;
 
 namespace Lyntai.Tests.Generation;
 
@@ -10,7 +9,7 @@ public class GenerationContractTests
     [Fact]
     public void A_request_defaults_to_no_inputs_and_no_options()
     {
-        var request = new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a red square" };
+        var request = new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
         Assert.Empty(request.Inputs);
         Assert.Empty(request.Options);
@@ -22,7 +21,7 @@ public class GenerationContractTests
     {
         // WAN alone has text→video, image→video (FIRST FRAME) and reference→video: the role is what
         // distinguishes them, and it is free-form so another backend's roles fit without a contract change
-        var input = new GenerationInput("image/png", Data: [1, 2, 3], Role: GenerationInputRoles.FirstFrame);
+        var input = new MediaInput("image/png", Data: [1, 2, 3], Role: MediaInputRoles.FirstFrame);
 
         Assert.Equal("image/png", input.MediaType);
         Assert.Equal("first-frame", input.Role);
@@ -32,7 +31,7 @@ public class GenerationContractTests
     [Fact]
     public void A_failed_result_is_not_ok_and_carries_no_artifacts()
     {
-        var result = GenerationResult.Failure(ProviderVerdict.NotConfigured, "no endpoint configured");
+        var result = MediaResponse.Failure(ProviderVerdict.NotConfigured, "no endpoint configured");
 
         Assert.False(result.IsOk);
         Assert.Empty(result.Artifacts);
@@ -45,7 +44,7 @@ public class GenerationContractTests
     {
         // an "Ok" with nothing in it is the empty-Ok mistake the LLM side already learned (pitfalls.md):
         // the router must be able to fall over instead of handing back a successful nothing
-        var ex = Assert.Throws<ArgumentException>(() => GenerationResult.Success([]));
+        var ex = Assert.Throws<ArgumentException>(() => MediaResponse.Success([]));
 
         Assert.Contains("artifact", ex.Message);
     }
@@ -65,10 +64,10 @@ public class GenerationContractTests
     {
         // CHAINING is a first-class use case: 3d → image → video, or image → video-first-frame. One stage's
         // output must feed the next without the caller re-wrapping bytes by hand.
-        var rendered = new GenerationArtifact("image/png", Data: [1, 2, 3],
+        var rendered = new MediaArtifact("image/png", Data: [1, 2, 3],
             Metadata: new Dictionary<string, string> { ["seed"] = "42" });
 
-        var input = rendered.ToInput(GenerationInputRoles.FirstFrame);
+        var input = rendered.ToInput(MediaInputRoles.FirstFrame);
 
         Assert.Equal("image/png", input.MediaType);
         Assert.Equal([1, 2, 3], input.Data);
@@ -80,9 +79,9 @@ public class GenerationContractTests
     {
         // video backends commonly return a signed URL; chaining must not force a download the caller
         // didn't ask for (the next backend may well be able to read the URL itself)
-        var hosted = new GenerationArtifact("video/mp4", Uri: "https://example.invalid/a.mp4");
+        var hosted = new MediaArtifact("video/mp4", Uri: "https://example.invalid/a.mp4");
 
-        var input = hosted.ToInput(GenerationInputRoles.Reference);
+        var input = hosted.ToInput(MediaInputRoles.Reference);
 
         Assert.Null(input.Data);
         Assert.Equal("https://example.invalid/a.mp4", input.Uri);

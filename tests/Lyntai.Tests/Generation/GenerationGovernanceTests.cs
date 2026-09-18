@@ -21,8 +21,8 @@ namespace Lyntai.Tests.Generation;
 /// rate-limit buckets).</summary>
 public class GenerationGovernanceTests
 {
-    private static readonly GenerationRequest Image = new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
-    private static readonly GenerationRequest Video = new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
+    private static readonly MediaRequest Image = new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
+    private static readonly MediaRequest Video = new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     // A FIXED instant, not the real clock: a burst-1 bucket refills at 1/s, so two `await`s on the real
     // clock are only reliably refused if the whole gap between them stays under a second — which a loaded
@@ -447,14 +447,14 @@ public class GenerationGovernanceTests
     // second entry point reaches the same objects, and adding a door is the cheapest way to lose one. So the
     // behaviour is pinned per door rather than assumed from the signature.
 
-    private static async Task<List<GenerationChunk>> Collect(IAsyncEnumerable<GenerationChunk> stream)
+    private static async Task<List<MediaChunk>> Collect(IAsyncEnumerable<MediaChunk> stream)
     {
-        var chunks = new List<GenerationChunk>();
+        var chunks = new List<MediaChunk>();
         await foreach (var chunk in stream) chunks.Add(chunk);
         return chunks;
     }
 
-    private static readonly GenerationRequest Speech =
+    private static readonly MediaRequest Speech =
         new() { Kind = ProviderKinds.Audio, Prompt = "read this aloud" };
 
     [Fact]
@@ -463,7 +463,7 @@ public class GenerationGovernanceTests
         var backend = new ScriptedStreamProvider
         {
             Id = "tts",
-            Script = [GenerationChunk.Content([1]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([1]), MediaChunk.Completed()],
         };
         var (router, tracker) = Budgeted(backend, o => o.Budget.MaxCostUsd = 1.0);
         await tracker.RecordAsync("default", new TextUsage(0, 0, 0, 1.0));
@@ -484,7 +484,7 @@ public class GenerationGovernanceTests
         var backend = new ScriptedStreamProvider
         {
             Id = "tts",
-            Script = [GenerationChunk.Content([1]), GenerationChunk.Completed(new GenerationUsage(CostUsd: 0.25))],
+            Script = [MediaChunk.Content([1]), MediaChunk.Completed(new MediaUsage(CostUsd: 0.25))],
         };
         var (router, tracker) = Budgeted(backend, o => o.Budget.MaxCostUsd = 10.0);
 
@@ -499,7 +499,7 @@ public class GenerationGovernanceTests
         var backend = new ScriptedStreamProvider
         {
             Id = "tts",
-            Script = [GenerationChunk.Content([1]), GenerationChunk.Completed()],
+            Script = [MediaChunk.Content([1]), MediaChunk.Completed()],
         };
         var limits = new RateLimitOptions { PermitsPerSecond = 1, Burst = 1, MaxWait = TimeSpan.Zero };
         var router = new RateLimitedGenerationRouter(Router([backend]), new TokenBucketRateLimiter(limits, () => FrozenNow));
@@ -573,10 +573,10 @@ public class GenerationGovernanceTests
         public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
             Task.FromResult(new ProviderProbeResult(true, "up"));
 
-        public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "job backend"));
+        public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported, "job backend"));
 
-        public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
+        public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
         {
             SubmitCalls++;
             return Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: "queue down"));
@@ -585,8 +585,8 @@ public class GenerationGovernanceTests
         public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Failed));
 
-        public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "nothing"));
+        public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
+            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Failed, "nothing"));
 
         public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));

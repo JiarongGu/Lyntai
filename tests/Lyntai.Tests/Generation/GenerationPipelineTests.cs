@@ -1,4 +1,3 @@
-using Lyntai.Generation;
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Llm.Budgeting;
@@ -8,28 +7,28 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Generation;
 
 /// <summary>The pipeline runner: ordered stages, each feeding the next through
-/// <see cref="GenerationArtifact.ToInput"/>. Driven through a scripted <see cref="IGenerationRouter"/> so a
+/// <see cref="MediaArtifact.ToInput"/>. Driven through a scripted <see cref="IGenerationRouter"/> so a
 /// fact can stage the artifact counts a real backend produces — and, for the governance fact, through the
 /// REAL router under the budget decorator.</summary>
 public class GenerationPipelineTests
 {
-    private static readonly GenerationRequest Image =
+    private static readonly MediaRequest Image =
         new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
-    private static readonly GenerationRequest Video =
+    private static readonly MediaRequest Video =
         new() { Kind = ProviderKinds.Video, Prompt = "pan across it" };
 
     private static IReadOnlyList<ProviderCandidate> Order(params string[] ids) =>
         [.. ids.Select(id => new ProviderCandidate(id))];
 
     /// <summary>An Ok carrying <paramref name="artifacts"/> artifacts. Built through the CONSTRUCTOR rather
-    /// than <see cref="GenerationResult.Success"/> so zero is expressible — that shape is what a BYO router
+    /// than <see cref="MediaResponse.Success"/> so zero is expressible — that shape is what a BYO router
     /// can return, and the runner has to refuse it rather than chain nothing.</summary>
-    private static GenerationResult Produced(int artifacts, GenerationUsage? usage = null) =>
+    private static MediaResponse Produced(int artifacts, MediaUsage? usage = null) =>
         new(ProviderVerdict.Ok,
             [.. Enumerable.Range(0, artifacts)
-                .Select(i => new GenerationArtifact("image/png", Uri: $"https://example.invalid/{i}.png"))],
-            usage ?? new GenerationUsage(Count: artifacts));
+                .Select(i => new MediaArtifact("image/png", Uri: $"https://example.invalid/{i}.png"))],
+            usage ?? new MediaUsage(Count: artifacts));
 
     [Fact]
     public async Task A_single_stage_pipeline_is_one_router_call_and_reports_its_artifacts()
@@ -55,7 +54,7 @@ public class GenerationPipelineTests
         await router.RunPipelineAsync(
         [
             new GenerationStage(Image, Order("sd", "openai")),
-            new GenerationStage(Video, Order("fal")) { InputRole = GenerationInputRoles.FirstFrame },
+            new GenerationStage(Video, Order("fal")) { InputRole = MediaInputRoles.FirstFrame },
         ]);
 
         Assert.Equal(["sd", "openai"], router.Candidates[0].Select(c => c.ProviderId));
@@ -70,11 +69,11 @@ public class GenerationPipelineTests
         await router.RunPipelineAsync(
         [
             new GenerationStage(Image, Order("sd")),
-            new GenerationStage(Video, Order("fal")) { InputRole = GenerationInputRoles.FirstFrame },
+            new GenerationStage(Video, Order("fal")) { InputRole = MediaInputRoles.FirstFrame },
         ]);
 
         var chained = Assert.Single(router.Requests[1].Inputs);
-        Assert.Equal(GenerationInputRoles.FirstFrame, chained.Role);
+        Assert.Equal(MediaInputRoles.FirstFrame, chained.Role);
         Assert.Equal("https://example.invalid/0.png", chained.Uri);
         Assert.Equal("image/png", chained.MediaType);
     }
@@ -83,19 +82,19 @@ public class GenerationPipelineTests
     public async Task A_chained_input_is_appended_so_the_stages_OWN_inputs_survive()
     {
         // replacing would silently drop a style reference the caller attached to the video stage
-        var style = GenerationInput.Reference(new Uri("https://example.invalid/style.png"), "image/png");
+        var style = MediaInput.Reference(new Uri("https://example.invalid/style.png"), "image/png");
         var router = new ScriptedRouter(Produced(1), Produced(1));
 
         await router.RunPipelineAsync(
         [
             new GenerationStage(Image, Order("sd")),
             new GenerationStage(Video with { Inputs = [style] }, Order("fal"))
-                { InputRole = GenerationInputRoles.FirstFrame },
+                { InputRole = MediaInputRoles.FirstFrame },
         ]);
 
         Assert.Equal(2, router.Requests[1].Inputs.Count);
-        Assert.Equal(GenerationInputRoles.Reference, router.Requests[1].Inputs[0].Role);   // the caller's, first
-        Assert.Equal(GenerationInputRoles.FirstFrame, router.Requests[1].Inputs[1].Role);
+        Assert.Equal(MediaInputRoles.Reference, router.Requests[1].Inputs[0].Role);   // the caller's, first
+        Assert.Equal(MediaInputRoles.FirstFrame, router.Requests[1].Inputs[1].Role);
     }
 
     [Fact]
@@ -119,7 +118,7 @@ public class GenerationPipelineTests
         var result = await router.RunPipelineAsync(
         [
             new GenerationStage(Image, Order("sd")),
-            new GenerationStage(Video, Order("fal")) { InputRole = GenerationInputRoles.FirstFrame },
+            new GenerationStage(Video, Order("fal")) { InputRole = MediaInputRoles.FirstFrame },
         ]);
 
         Assert.Equal(1, result.FailedAt);
@@ -154,7 +153,7 @@ public class GenerationPipelineTests
             new GenerationStage(Image, Order("sd")),
             new GenerationStage(Video, Order("fal"))
             {
-                InputRole = GenerationInputRoles.FirstFrame,
+                InputRole = MediaInputRoles.FirstFrame,
                 SelectInput = previous => [previous.Artifacts[2]],
             },
         ]);
@@ -186,14 +185,14 @@ public class GenerationPipelineTests
         // the plan's requirement, asserted as a CALL COUNT rather than left as a comment
         var router = new ScriptedRouter(
             Produced(1),
-            GenerationResult.Failure(ProviderVerdict.Refused, "content policy"),
+            MediaResponse.Failure(ProviderVerdict.Refused, "content policy"),
             Produced(1));
 
         var result = await router.RunPipelineAsync(
         [
             new GenerationStage(Image, Order("sd")),
-            new GenerationStage(Video, Order("fal")) { InputRole = GenerationInputRoles.FirstFrame },
-            new GenerationStage(Video, Order("fal")) { InputRole = GenerationInputRoles.FirstFrame },
+            new GenerationStage(Video, Order("fal")) { InputRole = MediaInputRoles.FirstFrame },
+            new GenerationStage(Video, Order("fal")) { InputRole = MediaInputRoles.FirstFrame },
         ]);
 
         Assert.Equal(2, router.Calls);                      // stage 3 never ran, stage 1 never re-ran
@@ -207,12 +206,12 @@ public class GenerationPipelineTests
     {
         // stage 1's render is already billed; throwing it away is destroying something the caller paid for
         var router = new ScriptedRouter(
-            Produced(1), GenerationResult.Failure(ProviderVerdict.Timeout, "too slow"));
+            Produced(1), MediaResponse.Failure(ProviderVerdict.Timeout, "too slow"));
 
         var result = await router.RunPipelineAsync(
         [
             new GenerationStage(Image, Order("sd")),
-            new GenerationStage(Video, Order("fal")) { InputRole = GenerationInputRoles.FirstFrame },
+            new GenerationStage(Video, Order("fal")) { InputRole = MediaInputRoles.FirstFrame },
         ]);
 
         Assert.False(result.IsOk);
@@ -226,13 +225,13 @@ public class GenerationPipelineTests
     public async Task Usage_sums_across_the_stages_that_ran_and_stays_null_for_what_none_of_them_measured()
     {
         var router = new ScriptedRouter(
-            Produced(1, new GenerationUsage(Count: 1, CostUsd: 0.02)),
-            Produced(1, new GenerationUsage(Count: 1, Seconds: 5, CostUsd: 0.40)));
+            Produced(1, new MediaUsage(Count: 1, CostUsd: 0.02)),
+            Produced(1, new MediaUsage(Count: 1, Seconds: 5, CostUsd: 0.40)));
 
         var result = await router.RunPipelineAsync(
         [
             new GenerationStage(Image, Order("sd")),
-            new GenerationStage(Video, Order("fal")) { InputRole = GenerationInputRoles.FirstFrame },
+            new GenerationStage(Video, Order("fal")) { InputRole = MediaInputRoles.FirstFrame },
         ]);
 
         Assert.Equal(2, result.Usage!.Count);
@@ -243,8 +242,8 @@ public class GenerationPipelineTests
     [Fact]
     public async Task Usage_a_backend_never_reported_is_null_rather_than_an_invented_zero()
     {
-        var router = new ScriptedRouter(new GenerationResult(ProviderVerdict.Ok,
-            [new GenerationArtifact("image/png", Uri: "https://example.invalid/0.png")]));
+        var router = new ScriptedRouter(new MediaResponse(ProviderVerdict.Ok,
+            [new MediaArtifact("image/png", Uri: "https://example.invalid/0.png")]));
 
         var result = await router.RunPipelineAsync([new GenerationStage(Image, Order("sd"))]);
 
@@ -260,7 +259,7 @@ public class GenerationPipelineTests
         await router.RunPipelineAsync(
         [
             new GenerationStage(Image, Order("sd")),
-            new GenerationStage(video, Order("fal")) { InputRole = GenerationInputRoles.FirstFrame },
+            new GenerationStage(video, Order("fal")) { InputRole = MediaInputRoles.FirstFrame },
         ]);
 
         Assert.Empty(video.Inputs);                       // the chained input went to a COPY
@@ -296,7 +295,7 @@ public class GenerationPipelineTests
         var router = new ScriptedRouter(Produced(1));
 
         await Assert.ThrowsAsync<ArgumentException>(() => router.RunPipelineAsync(
-            [new GenerationStage(Image, Order("sd")) { InputRole = GenerationInputRoles.Init }]));
+            [new GenerationStage(Image, Order("sd")) { InputRole = MediaInputRoles.Init }]));
         await Assert.ThrowsAsync<ArgumentException>(() => router.RunPipelineAsync(
             [new GenerationStage(Image, Order("sd")) { SelectInput = _ => [] }]));
 
@@ -322,7 +321,7 @@ public class GenerationPipelineTests
         var result = await router.RunPipelineAsync(
         [
             new GenerationStage(Image, Order("hosted")),
-            new GenerationStage(Image, Order("hosted")) { InputRole = GenerationInputRoles.Init },
+            new GenerationStage(Image, Order("hosted")) { InputRole = MediaInputRoles.Init },
         ]);
 
         Assert.Equal(1, result.FailedAt);
@@ -336,18 +335,18 @@ public class GenerationPipelineTests
     /// proves a stage did — or did NOT — reach a backend.
     /// <para>The submit and stream doors THROW: the pipeline drives the inline door only, so reaching either
     /// is the defect, and a plausible return value would hide it.</para></summary>
-    private sealed class ScriptedRouter(params GenerationResult[] script) : IGenerationRouter
+    private sealed class ScriptedRouter(params MediaResponse[] script) : IGenerationRouter
     {
-        private readonly Queue<GenerationResult> _script = new(script);
+        private readonly Queue<MediaResponse> _script = new(script);
 
-        public List<GenerationRequest> Requests { get; } = [];
+        public List<MediaRequest> Requests { get; } = [];
 
         public List<IReadOnlyList<ProviderCandidate>> Candidates { get; } = [];
 
         public int Calls => Requests.Count;
 
-        public Task<GenerationResult> GenerateAsync(
-            IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
+        public Task<MediaResponse> GenerateAsync(
+            IReadOnlyList<ProviderCandidate> candidates, MediaRequest request,
             CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
@@ -355,16 +354,16 @@ public class GenerationPipelineTests
             Candidates.Add(candidates);
             return Task.FromResult(_script.Count > 0
                 ? _script.Dequeue()
-                : GenerationResult.Failure(ProviderVerdict.Failed, "the script ran out"));
+                : MediaResponse.Failure(ProviderVerdict.Failed, "the script ran out"));
         }
 
         public Task<GenerationSubmission> SubmitAsync(
-            IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
+            IReadOnlyList<ProviderCandidate> candidates, MediaRequest request,
             CancellationToken ct = default) =>
             throw new NotSupportedException("the pipeline must drive the inline door");
 
-        public IAsyncEnumerable<GenerationChunk> StreamAsync(
-            IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
+        public IAsyncEnumerable<MediaChunk> StreamAsync(
+            IReadOnlyList<ProviderCandidate> candidates, MediaRequest request,
             CancellationToken ct = default) =>
             throw new NotSupportedException("the pipeline must drive the inline door");
     }

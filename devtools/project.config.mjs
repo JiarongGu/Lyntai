@@ -140,6 +140,28 @@ export default {
 
   retiredApiNames: [
     {
+      // D154 NS-3a and NS-3b, the SURFACE half of both. Every one of these was a public type on the frozen
+      // baseline, so a reintroduction is a break nothing else would name: the baseline reports THAT a name
+      // changed, never that it should not have come back.
+      //
+      // The FRONT DOOR is deliberately absent and must stay absent until NS-4 lands — `ILlmClient`,
+      // `LlmClient`, `ILlmRouter` and `LlmRouter` are LIVE surface today, and a rule naming them would fail
+      // this gate against a tree that is correct. `LlmConsumers` is here under a name that is neither
+      // Text* nor Media*: it is cross-domain vocabulary and became `ProviderConsumers`.
+      names: [
+        'LlmRequest', 'LlmReply', 'LlmChunk', 'LlmChunkKind', 'LlmUsage', 'LlmMessage',
+        'LlmAttachment', 'LlmReasoning', 'LlmTool', 'LlmToolCall', 'LlmConsumers',
+        'GenerationRequest', 'GenerationResult', 'GenerationChunk', 'GenerationUsage',
+        'GenerationArtifact', 'GenerationInput', 'GenerationInputRoles',
+      ],
+      use: '`TextRequest` / `TextResponse` / `TextChunk` / `TextChunkKind` / `TextUsage` / `TextMessage` / '
+        + '`TextAttachment` / `TextReasoning` / `TextTool` / `TextToolCall`, `ProviderConsumers`, and '
+        + '`MediaRequest` / `MediaResponse` / `MediaChunk` / `MediaUsage` / `MediaArtifact` / `MediaInput` '
+        + '/ `MediaInputRoles` — all in `Lyntai.Inference`',
+      why: 'a call shape is named for what it PRODUCES and sits with its peers: Llm named a model CLASS and '
+        + 'Generation named the ACT, while Vector and Score already named the content kind (D154)',
+    },
+    {
       // D151. `EmbeddingRole` is deliberately NOT here: it survives on IModelProvider's role-aware
       // overload, and whole-identifier equality keeps it live without an allowance. D152 re-examined that
       // and kept it — the word belongs on the OPERATION, only not on a provider.
@@ -211,8 +233,10 @@ export default {
         + 'surface frozen under SemVer, paid for by every consumer, for a case nobody hit (D146)',
     },
     {
-      // D140. `GenerationInputRoles` is deliberately NOT here — a different vocabulary that happened to
-      // share a file, and whole-identifier equality keeps it live without an allowance.
+      // D140. The input-ROLE vocabulary is deliberately NOT retired here — a different vocabulary that
+      // happened to share a file, and whole-identifier equality keeps it live without an allowance. D154
+      // NS-3b later RENAMED it to `MediaInputRoles`, which is a different claim: the old spelling is
+      // retired by the entry at the head of this list, the vocabulary itself is as live as it ever was.
       names: [
         'GenerationFallbackAction',
         'GenerationKinds',
@@ -666,7 +690,8 @@ export default {
         + '`AddHttpProvider` for anything OpenAI-compatible',
     },
     {
-      // D140. The prose half; `GenerationInputRoles` absent for the reason on the surface rule above.
+      // D140. The prose half; the input-role vocabulary is absent for the reason on the surface rule
+      // above — D140 did not merge it away, D154 NS-3b merely renamed it to `MediaInputRoles`.
       term: '\\bGenerationFallbackAction\\b|\\bGenerationKinds\\b',
       why: 'the routing action and the media kinds are one vocabulary each, in Lyntai.Inference (D140)',
       use: '`FallbackAction` / `ProviderKinds`',
@@ -728,6 +753,23 @@ export default {
         + 'rather than a content kind (D154)',
       use: '`TextRequest` / `TextResponse` / `TextChunk` / `TextToolCall` / `TextTool` / `TextUsage` / '
         + '`TextMessage` / `TextAttachment` / `TextReasoning`, and `ProviderConsumers`',
+    },
+    {
+      // D154 NS-3b. The MEDIA call shape, beside the text one, for the same reason: `Generation` named the
+      // ACT rather than what comes back. Every one of the seven was checked for readers outside the media
+      // domain first — the NS-3a lesson — and all seven were media-only; the shared seam reading them
+      // (IModelProvider, LyntaiDiagnostics) is exactly why they belong in Lyntai.Inference.
+      //
+      // The DOMAIN machinery keeps the word and is NOT matched here: GenerationRouter, GenerationPipeline,
+      // GenerationStage, GenerationRenderJob, IGenerationJobProvider, the *Tool classes. Nor is the
+      // TELEMETRY: `Lyntai.Generation` is a live ActivitySource/Meter name and `lyntai.generation.*` are
+      // live metric names, which a consumer subscribes to by string — someone else's wire, not ours.
+      term: '\\bGenerationRequest\\b|\\bGenerationResult\\b|\\bGenerationChunk\\b|\\bGenerationUsage\\b'
+        + '|\\bGenerationArtifact\\b|\\bGenerationInputRoles\\b|\\bGenerationInput\\b',
+      why: 'a call shape is named for what it PRODUCES and sits with its peers; Generation named the act, '
+        + 'and *Result disagreed with the *Request/*Response rule (D154)',
+      use: '`MediaRequest` / `MediaResponse` / `MediaChunk` / `MediaUsage` / `MediaArtifact` / '
+        + '`MediaInput` / `MediaInputRoles`, all in `Lyntai.Inference`',
     },
     {
       // D154 NS-1. The namespace said LIFECYCLE and held the provider seam, the verdict taxonomy and four

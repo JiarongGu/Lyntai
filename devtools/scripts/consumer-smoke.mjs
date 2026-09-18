@@ -158,13 +158,13 @@ if (sp.GetRequiredService<IKeyValueStore>() is null) throw new Exception("no IKe
 // verdict a host can act on rather than throwing or inventing an artifact
 var render = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
     [new ProviderCandidate("openai-images")],
-    new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a red square" });
+    new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a red square" });
 if (render.Verdict != ProviderVerdict.NotConfigured)
     throw new Exception($"unconfigured image backend reported {render.Verdict}, expected NotConfigured");
 
 // the named factories are reachable from the package and bake the role in (D28)
-if (GenerationInput.Init(new byte[] { 1 }, "image/png").Role != GenerationInputRoles.Init)
-    throw new Exception("GenerationInput.Init did not carry its role");
+if (MediaInput.Init(new byte[] { 1 }, "image/png").Role != MediaInputRoles.Init)
+    throw new Exception("MediaInput.Init did not carry its role");
 
 Console.WriteLine("CONSUMER SMOKE OK");
 `);

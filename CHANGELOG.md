@@ -12,6 +12,34 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ## Unreleased
 
+### Breaking
+
+- **One namespace for everything about CALLING a backend, and every call shape named for what it
+  PRODUCES** (**D154**). Four peer call families sat in three namespaces because that is where each one
+  grew up, so the map contradicted the model: `Lyntai.Lifecycle` held the provider seam, the verdicts and <!-- drift-ok: the entry ANNOUNCING the move has to name the namespace it retired -->
+  the vector/score shapes; `Lyntai.Llm` held the text shapes; `Lyntai.Generation` held the media ones. They
+  are peers, so they share one home — `Lyntai.Inference`.
+  <br>**Moved, namespace only:** `Lyntai.Lifecycle` → `Lyntai.Inference`, and `Lyntai.Llm.Streaming` → <!-- drift-ok: the entry ANNOUNCING the move has to name both sides -->
+  `Lyntai.Inference.Streaming`. No type changed; a consumer edits the `using` and nothing else.
+  <br>**Renamed and moved, text:** `LlmRequest`→`TextRequest`, `LlmReply`→`TextResponse`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `LlmChunk`→`TextChunk`, `LlmChunkKind`→`TextChunkKind`, `LlmUsage`→`TextUsage`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `LlmMessage`→`TextMessage`, `LlmAttachment`→`TextAttachment`, `LlmReasoning`→`TextReasoning`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `LlmTool`→`TextTool`, `LlmToolCall`→`TextToolCall`. `LlmConsumers` became **`ProviderConsumers`**, not <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `TextConsumers`: the media tools read it too, so it is cross-domain vocabulary that merely grew up on the
+  text side.
+  <br>**Renamed and moved, media:** `GenerationRequest`→`MediaRequest`, `GenerationResult`→**`MediaResponse`**, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `GenerationChunk`→`MediaChunk`, `GenerationUsage`→`MediaUsage`, `GenerationArtifact`→`MediaArtifact`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `GenerationInput`→`MediaInput`, `GenerationInputRoles`→`MediaInputRoles`. `MediaResponse` also closes the <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  last disagreement with the `*Request`/`*Response` naming rule — both come back from a CALL, not from a
+  tracked operation, so `*Result` was the wrong spelling of the pair.
+  <br>**Unchanged, and deliberately:** the media DOMAIN keeps the word — `GenerationRouter`,
+  `GenerationPipeline`, `GenerationStage`, `GenerationRenderJob`, `IGenerationJobProvider` and the media
+  tools are machinery for running a generation rather than the shape of the call. So are the telemetry
+  names: `LyntaiDiagnostics.GenerationActivitySourceName` is still `"Lyntai.Generation"` and the metrics
+  are still `lyntai.generation.*`, because a consumer subscribes to those by string.
+  <br>**Still to come in this sequence:** the front door (`ILlmClient` and the text router) has not moved
+  yet, so `Lyntai.Llm` remains a live namespace.
+
 ### Added
 
 - **`ScoringVerificationOptions.ProviderId` names WHICH backend verifies a recall** (**D148**). Unset it
@@ -182,7 +210,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   had — and `GenerationKinds.Image/Video/Audio/Model3d` become `ProviderKinds.*`, which declared the same <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   names with the same values. D136 merged the routing table's key and left its value duplicated; this is
   that, one layer out. **The two routing POLICIES are untouched** — they differ on `Unsupported` and on
-  their unmapped defaults, and that is table content rather than vocabulary. `GenerationInputRoles`
+  their unmapped defaults, and that is table content rather than vocabulary. `MediaInputRoles`
   (`init`/`first-frame`/`reference`/`voice`) is NOT merged: those say what an input IS to a generation, not
   what a backend produces.
 
@@ -318,7 +346,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   selection, dead-host cooldown, admission and fallback from the shared router **without this library
   knowing its kind exists** — today it gets none of that, because both routers are typed to Core's own
   request and reply types.
-  <br>`TextResponse` and `GenerationResult` now declare `IProviderOutcome`. Both already had `Verdict` and
+  <br>`TextResponse` and `MediaResponse` now declare `IProviderOutcome`. Both already had `Verdict` and
   `Detail`, so nothing about either type changes — that they satisfied it unmodified is the evidence the
   contract is the right one.
   <br>**Moved:** `QueuedOperation` and `QueuedOperationStatus` `Lyntai.Generation` → `Lyntai.Inference`. A <!-- drift-ok: the entry ANNOUNCING the move has to name both sides -->
@@ -635,7 +663,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 - **`RunPipelineAsync` — ordered generation stages, each feeding the next.** An extension over
   `IGenerationRouter` running `GenerationStage`s in order and chaining each one's artifact into the next
-  through `GenerationArtifact.ToInput(role)`. Every stage carries its OWN candidates and routes
+  through `MediaArtifact.ToInput(role)`. Every stage carries its OWN candidates and routes
   independently, because an image backend and a video backend are rarely the same vendor.
   <br>**Nothing was added to `IGenerationRouter`** — every stage is an ordinary routed call, which is what
   keeps spend caps, throttling and dead-host cooldown governing a pipeline exactly as they govern one render.
@@ -650,7 +678,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `GenerationPipelineResult.Stages` holds every stage that ran, including the one that failed, and
   `FailedAt` says which. Retry WITHIN a stage stays the router's fallback across that stage's candidates.
   Chained inputs are APPENDED to a stage's own `Inputs`, so a style reference the caller attached survives,
-  and the caller's `GenerationRequest` is never mutated.
+  and the caller's `MediaRequest` is never mutated.
 - **`WalkAsync` — the n-shot walk, as a surface rather than a loop every consumer writes.** An extension over
   `IMemoryEngine` yielding `IAsyncEnumerable<MemoryWalkStep>`: a recall, then expansions outward from what it
   turned up. **Your `break` is the stop condition**, because how far a walk is worth taking is a property of
@@ -834,7 +862,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   (`ct.IsCancellationRequested`) rather than the exception type.
 
 - **ComfyUI told the router it accepted input media and then discarded it.** `ComfyUiProvider` declared
-  `GenerationCapabilities.SupportsInputs` while never reading `GenerationRequest.Inputs`. That flag is an
+  `GenerationCapabilities.SupportsInputs` while never reading `MediaRequest.Inputs`. That flag is an
   admission filter — `GenerationCapabilities.Supports` excludes a backend from input-carrying requests when
   it is unset — so declaring it made the router **select** ComfyUI for exactly the work it could not do: a
   chained first frame or init image was dropped, the workflow ran as authored, and the render came back

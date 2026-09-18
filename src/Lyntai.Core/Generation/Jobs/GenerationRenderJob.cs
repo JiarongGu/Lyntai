@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Lyntai.Inference;
 
 namespace Lyntai.Generation.Jobs;
 
@@ -10,7 +11,7 @@ namespace Lyntai.Generation.Jobs;
 /// <param name="Candidates">Candidate specs in routing order — <c>"provider"</c> or <c>"provider:model"</c>,
 /// the same shape <c>UseDefaultGenerationCandidates</c> accepts.</param>
 /// <param name="Request">What to generate.</param>
-public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, GenerationRequest Request)
+public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, MediaRequest Request)
 {
     /// <summary>Serialize for <c>JobSpec.Payload</c>.</summary>
     public string ToJson()
@@ -86,7 +87,7 @@ public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, Gener
                     if (option.Value.ValueKind == JsonValueKind.String)
                         options[option.Name] = option.Value.GetString() ?? "";
 
-            var inputs = new List<GenerationInput>();
+            var inputs = new List<MediaInput>();
             if (root.TryGetProperty("inputs", out var inputArray) && inputArray.ValueKind == JsonValueKind.Array)
                 foreach (var input in inputArray.EnumerateArray())
                 {
@@ -95,11 +96,11 @@ public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, Gener
                     byte[]? data = null;
                     if (GenerationJson.Str(input, "data") is { } base64)
                         try { data = Convert.FromBase64String(base64); } catch (FormatException) { }
-                    inputs.Add(new GenerationInput(mediaType, data,
+                    inputs.Add(new MediaInput(mediaType, data,
                         GenerationJson.Str(input, "uri"), GenerationJson.Str(input, "role")));
                 }
 
-            return new GenerationRenderJob(candidates, new GenerationRequest
+            return new GenerationRenderJob(candidates, new MediaRequest
             {
                 Kind = kind,
                 Consumer = GenerationJson.Str(root, "consumer") ?? "default",

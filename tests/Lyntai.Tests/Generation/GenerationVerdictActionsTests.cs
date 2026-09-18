@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using System.Net;
-using Lyntai.Generation;
 using Lyntai.Generation.Routing;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -121,7 +120,7 @@ public class GenerationVerdictActionsTests
         var working = new FakeGenerationProvider { Id = "b" };
         var router = new GenerationRouter([gap, working], deadHosts: deadHosts);
         ProviderCandidate[] candidates = [new("a"), new("b")];
-        var request = new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a red square" };
+        var request = new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
         var first = await router.GenerateAsync(candidates, request);
         var second = await router.GenerateAsync(candidates, request);

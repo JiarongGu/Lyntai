@@ -11,7 +11,7 @@ sealed class Lyntai.Generation.Providers.Automatic1111Options
 sealed class Lyntai.Generation.Providers.Automatic1111Provider
     .ctor(Automatic1111Options options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     Capabilities : ProviderCapabilities
-    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
     Id : String
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
 sealed class Lyntai.Generation.Providers.ComfyUiOptions
@@ -35,12 +35,12 @@ sealed class Lyntai.Generation.Providers.ComfyUiProvider
     .ctor(ComfyUiOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     Capabilities : ProviderCapabilities
-    FetchAsync(String operationId, CancellationToken ct = default) : Task<GenerationResult>
-    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    FetchAsync(String operationId, CancellationToken ct = default) : Task<MediaResponse>
+    GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
     Id : String
     PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
-    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<QueuedOperation>
+    SubmitAsync(MediaRequest request, CancellationToken ct = default) : Task<QueuedOperation>
 enum Lyntai.Generation.Providers.DiffusionAccelerator
     Cpu : DiffusionAccelerator const
     Gpu : DiffusionAccelerator const
@@ -63,12 +63,12 @@ sealed class Lyntai.Generation.Providers.FalQueueProvider
     .ctor(FalQueueOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     Capabilities : ProviderCapabilities
-    FetchAsync(String operationId, CancellationToken ct = default) : Task<GenerationResult>
-    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    FetchAsync(String operationId, CancellationToken ct = default) : Task<MediaResponse>
+    GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
     Id : String
     PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
-    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<QueuedOperation>
+    SubmitAsync(MediaRequest request, CancellationToken ct = default) : Task<QueuedOperation>
 sealed class Lyntai.Generation.Providers.LocalDiffusionOptions
     .ctor()
     Accelerator : DiffusionAccelerator
@@ -88,7 +88,7 @@ sealed class Lyntai.Generation.Providers.LocalDiffusionOptions
 sealed class Lyntai.Generation.Providers.LocalDiffusionProvider
     .ctor(LocalDiffusionOptions options, IProcessRunner runner)
     Capabilities : ProviderCapabilities
-    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
     Id : String
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
 sealed class Lyntai.Generation.Providers.OpenAiImageOptions
@@ -102,7 +102,7 @@ sealed class Lyntai.Generation.Providers.OpenAiImageOptions
 sealed class Lyntai.Generation.Providers.OpenAiImageProvider
     .ctor(OpenAiImageOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     Capabilities : ProviderCapabilities
-    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
     Id : String
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
 static class Lyntai.GenerationProviderBuilderExtensions

@@ -49,7 +49,7 @@ public static class ProviderKinds
     /// into <see cref="Image"/> or <see cref="Video"/>:</b> no image or video backend accepts a mesh, so the
     /// 3d→image edge is a RASTERIZATION rather than a generation, and this platform performs none. A mesh
     /// backend's own <c>image/*</c> artifacts are usually UV texture atlases — a flattened skin, not a view of
-    /// the object — so chaining one through <c>GenerationArtifact.ToInput</c> renders fine and is wrong. The
+    /// the object — so chaining one through <c>MediaArtifact.ToInput</c> renders fine and is wrong. The
     /// kind is declared so a backend serving it needs no contract change.</summary>
     public const string Model3d = "3d";
 

@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using System.Net;
-using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Tests.Fakes;
 
@@ -30,7 +29,7 @@ public class GenerationSizeHintParsingTests
             () => new HttpClient(handler, disposeHandler: false)), handler);
     }
 
-    private static GenerationRequest Ask(string size) => new()
+    private static MediaRequest Ask(string size) => new()
     {
         Kind = ProviderKinds.Image,
         Prompt = "a red square",

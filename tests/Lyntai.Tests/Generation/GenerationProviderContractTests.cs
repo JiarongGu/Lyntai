@@ -18,7 +18,7 @@ public abstract class GenerationProviderContractFacts
     protected abstract IModelProvider New(StubHttpHandler http);
 
     /// <summary>A request this backend would accept — the shape its own suite uses.</summary>
-    protected abstract GenerationRequest Ask();
+    protected abstract MediaRequest Ask();
 
     /// <summary>An operation id this backend can PARSE. It must be well-formed, or a job backend rejects it
     /// before it ever calls out — which is how the first draft of the fetch fact silently tested fal's
@@ -98,7 +98,7 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
         if (!provider.Capabilities.SupportsInputs) return;
 
         var marker = Encoding.ASCII.GetBytes("LYNTAI-INPUT-MARKER-7F3A");
-        var ask = Ask() with { Inputs = [GenerationInput.FirstFrame(marker, "image/png")] };
+        var ask = Ask() with { Inputs = [MediaInput.FirstFrame(marker, "image/png")] };
 
         if (provider.Capabilities.Operations.Contains(ProviderOperation.Complete))
             await provider.GenerateAsync(ask);
@@ -147,7 +147,7 @@ public class OpenAiImageProviderContractTests : HttpGenerationProviderContractFa
             new OpenAiImageOptions { ApiKey = "k" },
             () => new HttpClient(http, disposeHandler: false));
 
-    protected override GenerationRequest Ask() =>
+    protected override MediaRequest Ask() =>
         new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 }
 
@@ -158,7 +158,7 @@ public class Automatic1111ProviderContractTests : HttpGenerationProviderContract
             new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" },
             () => new HttpClient(http, disposeHandler: false));
 
-    protected override GenerationRequest Ask() =>
+    protected override MediaRequest Ask() =>
         new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 }
 
@@ -172,7 +172,7 @@ public class ComfyUiProviderContractTests : HttpGenerationProviderContractFacts
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188" },
             () => new HttpClient(http, disposeHandler: false));
 
-    protected override GenerationRequest Ask() => new()
+    protected override MediaRequest Ask() => new()
     {
         Kind = ProviderKinds.Image,
         Prompt = "a red square",
@@ -191,7 +191,7 @@ public class FalQueueProviderContractTests : HttpGenerationProviderContractFacts
             new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" },
             () => new HttpClient(http, disposeHandler: false));
 
-    protected override GenerationRequest Ask() =>
+    protected override MediaRequest Ask() =>
         new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     /// <summary>fal encodes the MODEL into the operation id, because the queue's status and result URLs need
@@ -217,6 +217,6 @@ public class LocalDiffusionProviderContractTests : GenerationProviderContractFac
             new FakeProcessRunner());
     }
 
-    protected override GenerationRequest Ask() =>
+    protected override MediaRequest Ask() =>
         new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 }

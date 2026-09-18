@@ -511,107 +511,15 @@ static class Lyntai.Diagnostics.LyntaiDiagnostics
     GenerationActivitySourceName : String const
     GenerationMeterName : String const
     MeterName : String const
-sealed class Lyntai.Generation.GenerationArtifact
-    .ctor(String MediaType, Byte[] Data = null, String Uri = null, IReadOnlyDictionary<String,String> Metadata = null)
-    Data : Byte[]
-    Deconstruct(String& MediaType, Byte[]& Data, String& Uri, IReadOnlyDictionary`2& Metadata) : Void
-    Equals(GenerationArtifact other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    MediaType : String
-    Metadata : IReadOnlyDictionary<String,String>
-    ToInput(String role = null) : GenerationInput
-    ToString() : String
-    Uri : String
-sealed class Lyntai.Generation.GenerationChunk
-    .ctor(Byte[] Data = null, String MediaType = null, Nullable<ProviderVerdict> Error = null, String Detail = null, Boolean Final = false, GenerationUsage Usage = null)
-    Data : Byte[]
-    Deconstruct(Byte[]& Data, String& MediaType, Nullable`1& Error, String& Detail, Boolean& Final, GenerationUsage& Usage) : Void
-    Detail : String
-    Equals(GenerationChunk other) : Boolean
-    Equals(Object obj) : Boolean
-    Error : Nullable<ProviderVerdict>
-    Final : Boolean
-    GetHashCode() : Int32
-    MediaType : String
-    ToString() : String
-    Usage : GenerationUsage
-    static Completed(GenerationUsage usage = null) : GenerationChunk
-    static Content(Byte[] data, String mediaType = null) : GenerationChunk
-    static Failure(ProviderVerdict verdict, String detail = null) : GenerationChunk
-sealed class Lyntai.Generation.GenerationInput
-    .ctor(String MediaType, Byte[] Data = null, String Uri = null, String Role = null)
-    Data : Byte[]
-    Deconstruct(String& MediaType, Byte[]& Data, String& Uri, String& Role) : Void
-    Equals(GenerationInput other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    MediaType : String
-    Role : String
-    ToString() : String
-    Uri : String
-    static FirstFrame(Byte[] data, String mediaType) : GenerationInput
-    static FirstFrame(Uri uri, String mediaType) : GenerationInput
-    static From(String role, Byte[] data, String mediaType) : GenerationInput
-    static From(String role, Uri uri, String mediaType) : GenerationInput
-    static Init(Byte[] data, String mediaType) : GenerationInput
-    static Init(Uri uri, String mediaType) : GenerationInput
-    static Reference(Byte[] data, String mediaType) : GenerationInput
-    static Reference(Uri uri, String mediaType) : GenerationInput
-    static Voice(Byte[] data, String mediaType) : GenerationInput
-    static Voice(Uri uri, String mediaType) : GenerationInput
-static class Lyntai.Generation.GenerationInputRoles
-    FirstFrame : String const
-    Init : String const
-    Reference : String const
-    Voice : String const
-sealed class Lyntai.Generation.GenerationRequest
-    .ctor()
-    Consumer : String
-    Equals(GenerationRequest other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    Inputs : IReadOnlyList<GenerationInput>
-    Kind : String required
-    Model : String
-    Option(String name) : String
-    Options : IReadOnlyDictionary<String,String>
-    Prompt : String
-    TimeoutSeconds : Nullable<Int32>
-    ToString() : String
-sealed class Lyntai.Generation.GenerationResult
-    .ctor(ProviderVerdict Verdict, IReadOnlyList<GenerationArtifact> Artifacts, GenerationUsage Usage = null, String Detail = null)
-    Artifacts : IReadOnlyList<GenerationArtifact>
-    Deconstruct(ProviderVerdict& Verdict, IReadOnlyList`1& Artifacts, GenerationUsage& Usage, String& Detail) : Void
-    Detail : String
-    Equals(GenerationResult other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    IsOk : Boolean
-    ToString() : String
-    Usage : GenerationUsage
-    Verdict : ProviderVerdict
-    static Failure(ProviderVerdict verdict, String detail = null) : GenerationResult
-    static Success(IReadOnlyList<GenerationArtifact> artifacts, GenerationUsage usage = null, String detail = null) : GenerationResult
-sealed class Lyntai.Generation.GenerationUsage
-    .ctor(Nullable<Int32> Count = null, Nullable<Double> Seconds = null, Nullable<Double> CostUsd = null)
-    CostUsd : Nullable<Double>
-    Count : Nullable<Int32>
-    Deconstruct(Nullable`1& Count, Nullable`1& Seconds, Nullable`1& CostUsd) : Void
-    Equals(GenerationUsage other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    Seconds : Nullable<Double>
-    ToString() : String
 interface Lyntai.Generation.IGenerationJobProvider
     CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
-    FetchAsync(String operationId, CancellationToken ct = default) : Task<GenerationResult>
+    FetchAsync(String operationId, CancellationToken ct = default) : Task<MediaResponse>
     PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
-    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<QueuedOperation>
+    SubmitAsync(MediaRequest request, CancellationToken ct = default) : Task<QueuedOperation>
 sealed class Lyntai.Generation.Jobs.GenerationArtifactDelivery
-    .ctor(Guid JobId, String ProviderId, String OperationId, IReadOnlyList<GenerationArtifact> Artifacts, GenerationUsage Usage = null)
-    Artifacts : IReadOnlyList<GenerationArtifact>
-    Deconstruct(Guid& JobId, String& ProviderId, String& OperationId, IReadOnlyList`1& Artifacts, GenerationUsage& Usage) : Void
+    .ctor(Guid JobId, String ProviderId, String OperationId, IReadOnlyList<MediaArtifact> Artifacts, MediaUsage Usage = null)
+    Artifacts : IReadOnlyList<MediaArtifact>
+    Deconstruct(Guid& JobId, String& ProviderId, String& OperationId, IReadOnlyList`1& Artifacts, MediaUsage& Usage) : Void
     Equals(GenerationArtifactDelivery other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
@@ -619,15 +527,15 @@ sealed class Lyntai.Generation.Jobs.GenerationArtifactDelivery
     OperationId : String
     ProviderId : String
     ToString() : String
-    Usage : GenerationUsage
+    Usage : MediaUsage
 sealed class Lyntai.Generation.Jobs.GenerationRenderJob
-    .ctor(IReadOnlyList<String> Candidates, GenerationRequest Request)
+    .ctor(IReadOnlyList<String> Candidates, MediaRequest Request)
     Candidates : IReadOnlyList<String>
-    Deconstruct(IReadOnlyList`1& Candidates, GenerationRequest& Request) : Void
+    Deconstruct(IReadOnlyList`1& Candidates, MediaRequest& Request) : Void
     Equals(GenerationRenderJob other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
-    Request : GenerationRequest
+    Request : MediaRequest
     ToJson() : String
     ToString() : String
     static Parse(String payload) : GenerationRenderJob
@@ -649,30 +557,30 @@ interface Lyntai.Generation.Jobs.IGenerationArtifactSink
     ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default) : Task
 sealed class Lyntai.Generation.Routing.BudgetedGenerationRouter
     .ctor(IGenerationRouter inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedGenerationRouter> logger = null)
-    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
-    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
-    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 static class Lyntai.Generation.Routing.GenerationPipeline
     static RunPipelineAsync(IGenerationRouter router, IReadOnlyList<GenerationStage> stages, CancellationToken ct = default) : Task<GenerationPipelineResult>
 sealed class Lyntai.Generation.Routing.GenerationPipelineResult
-    .ctor(IReadOnlyList<GenerationResult> Stages, Nullable<Int32> FailedAt, GenerationUsage Usage)
-    Artifacts : IReadOnlyList<GenerationArtifact>
-    Deconstruct(IReadOnlyList`1& Stages, Nullable`1& FailedAt, GenerationUsage& Usage) : Void
+    .ctor(IReadOnlyList<MediaResponse> Stages, Nullable<Int32> FailedAt, MediaUsage Usage)
+    Artifacts : IReadOnlyList<MediaArtifact>
+    Deconstruct(IReadOnlyList`1& Stages, Nullable`1& FailedAt, MediaUsage& Usage) : Void
     Detail : String
     Equals(GenerationPipelineResult other) : Boolean
     Equals(Object obj) : Boolean
     FailedAt : Nullable<Int32>
     GetHashCode() : Int32
     IsOk : Boolean
-    Stages : IReadOnlyList<GenerationResult>
+    Stages : IReadOnlyList<MediaResponse>
     ToString() : String
-    Usage : GenerationUsage
+    Usage : MediaUsage
     Verdict : ProviderVerdict
 sealed class Lyntai.Generation.Routing.GenerationRouter
     .ctor(IEnumerable<IModelProvider> providers, GenerationRoutingPolicy policy = null, DeadHostTracker deadHosts = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, IProviderAdmission admission = null)
-    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
-    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
-    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Routing.GenerationRouterFactory
     .ctor(IProviderPool<IModelProvider> pool, DeadHostTracker deadHosts, GenerationRoutingPolicy policy = null, IRateLimiter rateLimiter = null, IUsageTracker usage = null, LyntaiOptions options = null, ILoggerFactory loggers = null, IProviderAdmission admission = null)
     For(IReadOnlyList<IModelProvider> providers) : IGenerationRouter
@@ -683,15 +591,15 @@ sealed class Lyntai.Generation.Routing.GenerationRoutingPolicy
     ExemptSoleCandidate : Boolean
     On(ProviderVerdict verdict, FallbackAction action) : GenerationRoutingPolicy
 sealed class Lyntai.Generation.Routing.GenerationStage
-    .ctor(GenerationRequest Request, IReadOnlyList<ProviderCandidate> Candidates)
+    .ctor(MediaRequest Request, IReadOnlyList<ProviderCandidate> Candidates)
     Candidates : IReadOnlyList<ProviderCandidate>
-    Deconstruct(GenerationRequest& Request, IReadOnlyList`1& Candidates) : Void
+    Deconstruct(MediaRequest& Request, IReadOnlyList`1& Candidates) : Void
     Equals(GenerationStage other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     InputRole : String
-    Request : GenerationRequest
-    SelectInput : Func<GenerationResult,IEnumerable<GenerationArtifact>>
+    Request : MediaRequest
+    SelectInput : Func<MediaResponse,IEnumerable<MediaArtifact>>
     ToString() : String
 sealed class Lyntai.Generation.Routing.GenerationSubmission
     .ctor(String ProviderId, QueuedOperation Operation)
@@ -703,17 +611,17 @@ sealed class Lyntai.Generation.Routing.GenerationSubmission
     ProviderId : String
     ToString() : String
 interface Lyntai.Generation.Routing.IGenerationRouter
-    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
-    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
-    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 interface Lyntai.Generation.Routing.IGenerationRouterFactory
     For(IReadOnlyList<IModelProvider> providers) : IGenerationRouter
     For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers) : IGenerationRouter
 sealed class Lyntai.Generation.Routing.RateLimitedGenerationRouter
     .ctor(IGenerationRouter inner, IRateLimiter limiter, ILogger<RateLimitedGenerationRouter> logger = null)
-    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
-    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
-    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Tools.GenerationBackendsTool
     .ctor(IEnumerable<IModelProvider> providers, GenerationOptions options = null)
     Description : String
@@ -828,11 +736,11 @@ enum Lyntai.Inference.FallbackAction
 interface Lyntai.Inference.IModelProvider
     Capabilities : ProviderCapabilities
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
-    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
     Id : String
     IsAvailable : Boolean
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
-    StreamAsync(GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
+    StreamAsync(MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
 interface Lyntai.Inference.IProviderAdmission
     EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>
@@ -866,6 +774,98 @@ interface Lyntai.Inference.IProviderVersionInstaller
     InstallAsync(ProviderInstallRequest request = null, CancellationToken ct = default) : Task<ProviderUpdateResult>
 interface Lyntai.Inference.IScoreProvider
 interface Lyntai.Inference.IVectorProvider
+sealed class Lyntai.Inference.MediaArtifact
+    .ctor(String MediaType, Byte[] Data = null, String Uri = null, IReadOnlyDictionary<String,String> Metadata = null)
+    Data : Byte[]
+    Deconstruct(String& MediaType, Byte[]& Data, String& Uri, IReadOnlyDictionary`2& Metadata) : Void
+    Equals(MediaArtifact other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    MediaType : String
+    Metadata : IReadOnlyDictionary<String,String>
+    ToInput(String role = null) : MediaInput
+    ToString() : String
+    Uri : String
+sealed class Lyntai.Inference.MediaChunk
+    .ctor(Byte[] Data = null, String MediaType = null, Nullable<ProviderVerdict> Error = null, String Detail = null, Boolean Final = false, MediaUsage Usage = null)
+    Data : Byte[]
+    Deconstruct(Byte[]& Data, String& MediaType, Nullable`1& Error, String& Detail, Boolean& Final, MediaUsage& Usage) : Void
+    Detail : String
+    Equals(MediaChunk other) : Boolean
+    Equals(Object obj) : Boolean
+    Error : Nullable<ProviderVerdict>
+    Final : Boolean
+    GetHashCode() : Int32
+    MediaType : String
+    ToString() : String
+    Usage : MediaUsage
+    static Completed(MediaUsage usage = null) : MediaChunk
+    static Content(Byte[] data, String mediaType = null) : MediaChunk
+    static Failure(ProviderVerdict verdict, String detail = null) : MediaChunk
+sealed class Lyntai.Inference.MediaInput
+    .ctor(String MediaType, Byte[] Data = null, String Uri = null, String Role = null)
+    Data : Byte[]
+    Deconstruct(String& MediaType, Byte[]& Data, String& Uri, String& Role) : Void
+    Equals(MediaInput other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    MediaType : String
+    Role : String
+    ToString() : String
+    Uri : String
+    static FirstFrame(Byte[] data, String mediaType) : MediaInput
+    static FirstFrame(Uri uri, String mediaType) : MediaInput
+    static From(String role, Byte[] data, String mediaType) : MediaInput
+    static From(String role, Uri uri, String mediaType) : MediaInput
+    static Init(Byte[] data, String mediaType) : MediaInput
+    static Init(Uri uri, String mediaType) : MediaInput
+    static Reference(Byte[] data, String mediaType) : MediaInput
+    static Reference(Uri uri, String mediaType) : MediaInput
+    static Voice(Byte[] data, String mediaType) : MediaInput
+    static Voice(Uri uri, String mediaType) : MediaInput
+static class Lyntai.Inference.MediaInputRoles
+    FirstFrame : String const
+    Init : String const
+    Reference : String const
+    Voice : String const
+sealed class Lyntai.Inference.MediaRequest
+    .ctor()
+    Consumer : String
+    Equals(MediaRequest other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Inputs : IReadOnlyList<MediaInput>
+    Kind : String required
+    Model : String
+    Option(String name) : String
+    Options : IReadOnlyDictionary<String,String>
+    Prompt : String
+    TimeoutSeconds : Nullable<Int32>
+    ToString() : String
+sealed class Lyntai.Inference.MediaResponse
+    .ctor(ProviderVerdict Verdict, IReadOnlyList<MediaArtifact> Artifacts, MediaUsage Usage = null, String Detail = null)
+    Artifacts : IReadOnlyList<MediaArtifact>
+    Deconstruct(ProviderVerdict& Verdict, IReadOnlyList`1& Artifacts, MediaUsage& Usage, String& Detail) : Void
+    Detail : String
+    Equals(MediaResponse other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    IsOk : Boolean
+    ToString() : String
+    Usage : MediaUsage
+    Verdict : ProviderVerdict
+    static Failure(ProviderVerdict verdict, String detail = null) : MediaResponse
+    static Success(IReadOnlyList<MediaArtifact> artifacts, MediaUsage usage = null, String detail = null) : MediaResponse
+sealed class Lyntai.Inference.MediaUsage
+    .ctor(Nullable<Int32> Count = null, Nullable<Double> Seconds = null, Nullable<Double> CostUsd = null)
+    CostUsd : Nullable<Double>
+    Count : Nullable<Int32>
+    Deconstruct(Nullable`1& Count, Nullable`1& Seconds, Nullable`1& CostUsd) : Void
+    Equals(MediaUsage other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Seconds : Nullable<Double>
+    ToString() : String
 sealed class Lyntai.Inference.ProviderAdmission
     .ctor(ProviderAdmissionOptions options = null)
     EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>

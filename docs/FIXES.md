@@ -136,7 +136,7 @@ and a tautological type test compiles. **`check-docs.mjs`'s own `HISTORICAL` lis
 file was damaged* rather than *this sweep was damaging*, so the other ten sites were never looked for.
 
 **Fix.** All ten prose and sample sites corrected. The router's dead branch deleted — post-D127 such a
-backend inherits `IModelProvider`'s default `StreamAsync(GenerationRequest, …)` and lands in the ordinary
+backend inherits `IModelProvider`'s default `StreamAsync(GenerationRequest, …)` and lands in the ordinary <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 pre-commit failure path carrying its own `NotServed` detail, which is a better message than the branch
 gave. `GenerationProviderContract.ServesMediaStream` replaces the vacuous type test: it reads the INTERFACE
 MAP and asks whether the concrete type OVERRIDES the default member, which is the question that survived
@@ -708,7 +708,7 @@ they measure retention, which is a real quantity, just not the one they are labe
 
 ## 2026-08-30 — ComfyUI promised the router it took inputs, then dropped them
 
-**Symptom.** Hand `ComfyUiProvider` a `GenerationRequest` carrying a `GenerationInput` — a chained first
+**Symptom.** Hand `ComfyUiProvider` a `GenerationRequest` carrying a `GenerationInput` — a chained first <!-- drift-ok: the record names the types AS THEY WERE; D154 renamed them after -->
 frame, an init image — and the render runs as if you had passed none. No error, no warning, nothing in the
 result saying the image was discarded. The graph executes exactly as authored, so the output comes back
 plausible and is simply not what was asked for. Found while surveying whether a 3D stage could feed the

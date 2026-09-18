@@ -208,17 +208,17 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     }
 
     /// <inheritdoc/>
-    public async Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
+    public async Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
     {
         if (options.BinaryPath is not { Length: > 0 } binary || !File.Exists(binary) ||
             options.ModelPath is not { Length: > 0 } model || !File.Exists(model))
-            return GenerationResult.Failure(ProviderVerdict.NotConfigured,
+            return MediaResponse.Failure(ProviderVerdict.NotConfigured,
                 "the local engine or its model is not present on disk");
 
         var source = request.Inputs.FirstOrDefault();
         if (source is not null && source.Data is not { Length: > 0 })
-            return GenerationResult.Failure(ProviderVerdict.Unsupported,
-                "the engine reads its source image from DISK; supply GenerationInput.Data rather than a URI");
+            return MediaResponse.Failure(ProviderVerdict.Unsupported,
+                "the engine reads its source image from DISK; supply MediaInput.Data rather than a URI");
 
         var work = Path.Combine(options.WorkDirectory ?? Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         try
@@ -252,11 +252,11 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                return GenerationResult.Failure(ProviderVerdict.Failed, $"spawn failed: {ex.Message}");
+                return MediaResponse.Failure(ProviderVerdict.Failed, $"spawn failed: {ex.Message}");
             }
 
             if (result.TimedOut)
-                return GenerationResult.Failure(ProviderVerdict.Timeout,
+                return MediaResponse.Failure(ProviderVerdict.Timeout,
                     result.TimeoutKind == ProcessTimeoutKind.MaxDuration
                         ? $"the render exceeded {maxDuration}"
                         : $"the engine went silent for {inactivity}");
@@ -264,20 +264,20 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
             if (!File.Exists(output))
             {
                 var stderr = Tail(result.StdErr);
-                return GenerationResult.Failure(ProviderVerdict.Failed,
+                return MediaResponse.Failure(ProviderVerdict.Failed,
                     result.ExitCode != 0
                         ? $"exit {result.ExitCode}: {stderr}"
                         : $"no image produced{(stderr.Length > 0 ? $": {stderr}" : "")}");
             }
 
             var bytes = await File.ReadAllBytesAsync(output, ct).ConfigureAwait(false);
-            return GenerationResult.Success(
-                [new GenerationArtifact("image/png", Data: bytes)], new GenerationUsage(Count: 1));
+            return MediaResponse.Success(
+                [new MediaArtifact("image/png", Data: bytes)], new MediaUsage(Count: 1));
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return GenerationResult.Failure(ProviderVerdict.Failed, ex.Message);
+            return MediaResponse.Failure(ProviderVerdict.Failed, ex.Message);
         }
         finally
         {

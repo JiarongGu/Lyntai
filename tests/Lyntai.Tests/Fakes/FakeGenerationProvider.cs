@@ -41,7 +41,7 @@ public sealed class FakeGenerationProvider : IModelProvider
     /// bug must be classified and fallen over, never propagated to the caller.</summary>
     public Exception? Throws { get; set; }
 
-    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
+    public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
     {
         GenerateCalls++;
         if (Throws is not null) throw Throws;
@@ -49,9 +49,9 @@ public sealed class FakeGenerationProvider : IModelProvider
             : Verdicts.Count == 1 ? Verdicts.Peek()
             : ProviderVerdict.Ok;
         return Task.FromResult(verdict == ProviderVerdict.Ok
-            ? GenerationResult.Success([new GenerationArtifact("image/png", Data: [0x89])],
-                new GenerationUsage(Count: 1, CostUsd: CostUsd))
-            : GenerationResult.Failure(verdict, $"fake {verdict}"));
+            ? MediaResponse.Success([new MediaArtifact("image/png", Data: [0x89])],
+                new MediaUsage(Count: 1, CostUsd: CostUsd))
+            : MediaResponse.Failure(verdict, $"fake {verdict}"));
     }
 }
 
@@ -89,14 +89,14 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IGenerationJobPr
         Task.FromResult(new ProviderProbeResult(true, "fake video ready"));
 
     /// <summary>Inline is NOT this backend's mode; the base seam must still answer honestly.</summary>
-    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "this backend generates via submit/poll"));
+    public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+        Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported, "this backend generates via submit/poll"));
 
     /// <summary>When set, <see cref="SubmitAsync"/> THROWS it — a backend violating the fail-safe contract on
     /// the one path where a throw may or may not already have committed money.</summary>
     public Exception? SubmitThrows { get; set; }
 
-    public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
+    public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
     {
         if (SubmitThrows is not null) throw SubmitThrows;
         return Task.FromResult(new QueuedOperation($"op-{++_submits}", SubmitStatus) { Inconclusive = SubmitInconclusive });
@@ -111,10 +111,10 @@ public sealed class FakeGenerationJobProvider : IModelProvider, IGenerationJobPr
     /// backend prices at fetch, which is the only point the total is known.</summary>
     public double? FetchCostUsd { get; set; }
 
-    public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Success(
-            [new GenerationArtifact("video/mp4", Uri: $"https://example.invalid/{operationId}.mp4")],
-            new GenerationUsage(Seconds: 5, CostUsd: FetchCostUsd)));
+    public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
+        Task.FromResult(MediaResponse.Success(
+            [new MediaArtifact("video/mp4", Uri: $"https://example.invalid/{operationId}.mp4")],
+            new MediaUsage(Seconds: 5, CostUsd: FetchCostUsd)));
 
     public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
         Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));
@@ -135,16 +135,16 @@ public sealed class FakeGenerationStreamProvider : IModelProvider
     public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
         Task.FromResult(new ProviderProbeResult(true, "fake tts ready"));
 
-    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Success([new GenerationArtifact("audio/mpeg", Data: [1, 2, 3, 4])]));
+    public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+        Task.FromResult(MediaResponse.Success([new MediaArtifact("audio/mpeg", Data: [1, 2, 3, 4])]));
 
-    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
-        GenerationRequest request, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<MediaChunk> StreamAsync(
+        MediaRequest request, [EnumeratorCancellation] CancellationToken ct = default)
     {
-        yield return GenerationChunk.Content([1, 2], "audio/mpeg");
+        yield return MediaChunk.Content([1, 2], "audio/mpeg");
         await Task.Yield();
-        yield return GenerationChunk.Content([3, 4]);
-        yield return GenerationChunk.Completed(new GenerationUsage(Seconds: 1.5));
+        yield return MediaChunk.Content([3, 4]);
+        yield return MediaChunk.Completed(new MediaUsage(Seconds: 1.5));
     }
 }
 
@@ -160,7 +160,7 @@ public sealed class ScriptedStreamProvider : IModelProvider
 
     /// <summary>Chunks to emit, in order. May legitimately end without a terminal chunk — the router is
     /// what guarantees the caller gets one.</summary>
-    public IReadOnlyList<GenerationChunk> Script { get; init; } = [];
+    public IReadOnlyList<MediaChunk> Script { get; init; } = [];
 
     /// <summary>Thrown from the enumerator AFTER <see cref="Script"/> is exhausted.</summary>
     public Exception? Throws { get; init; }
@@ -175,11 +175,11 @@ public sealed class ScriptedStreamProvider : IModelProvider
     public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
         Task.FromResult(new ProviderProbeResult(true, "scripted"));
 
-    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "streaming only"));
+    public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+        Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported, "streaming only"));
 
-    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
-        GenerationRequest request, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<MediaChunk> StreamAsync(
+        MediaRequest request, [EnumeratorCancellation] CancellationToken ct = default)
     {
         StreamCalls++;
         foreach (var chunk in Script)
@@ -217,12 +217,12 @@ public sealed class BadProbeProvider : IModelProvider
         return new ProviderProbeResult(true, "unreachable");
     }
 
-    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "not used"));
+    public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+        Task.FromResult(MediaResponse.Failure(ProviderVerdict.Failed, "not used"));
 }
 
 /// <summary>Advertises <see cref="ProviderOperation.Stream"/> and never overrides
-/// <c>StreamAsync(GenerationRequest, …)</c>, so every call answers
+/// <c>StreamAsync(MediaRequest, …)</c>, so every call answers
 /// <see cref="ProviderVerdict.Unsupported"/> from <see cref="IModelProvider"/>'s default member — the shape
 /// a BYO backend can ship, and the reason a declared delivery is checked against the code behind it.
 /// <para>It was built for a router branch that type-tested a separate streaming interface. <b>D127</b>
@@ -243,6 +243,6 @@ public sealed class LyingStreamProvider : IModelProvider
     public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
         Task.FromResult(new ProviderProbeResult(true, "liar"));
 
-    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "no"));
+    public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+        Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported, "no"));
 }

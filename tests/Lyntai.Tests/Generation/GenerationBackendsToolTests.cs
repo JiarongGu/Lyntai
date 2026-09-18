@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using System.Text.Json;
 
-using Lyntai.Generation;
 using Lyntai.Generation.Tools;
 using Lyntai.Tests.Fakes;
 
@@ -164,8 +163,8 @@ public class GenerationBackendsToolTests
             return new ProviderProbeResult(true, "counted");
         }
 
-        public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "not used"));
+        public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Failed, "not used"));
     }
 
     /// <summary>The CALLER's own cancellation still propagates. The listing's deadline is this tool's clock;

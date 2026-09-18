@@ -1,4 +1,3 @@
-using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Inference;
 using Lyntai.Processes;
@@ -27,7 +26,7 @@ namespace Lyntai;
 ///
 /// <para><b>Infinite there does not mean unbounded.</b> Every backend enforces its own per-call deadline —
 /// each options record carries a <c>Timeout</c>, overridden per call by
-/// <see cref="Generation.GenerationRequest.TimeoutSeconds"/> — and a fired deadline is a
+/// <see cref="Inference.MediaRequest.TimeoutSeconds"/> — and a fired deadline is a
 /// <see cref="ProviderVerdict.Timeout"/> result rather than a throw. That deadline is what makes the
 /// infinite client timeout safe. A BYO client keeps its own <see cref="HttpClient.Timeout"/> too;
 /// whichever fires first, the caller sees the same verdict.</para></summary>
@@ -140,7 +139,7 @@ public static class GenerationProviderBuilderExtensions
             return sp => create(() => httpClient(sp), false);
 
         // The per-call deadline owns timeouts, not HttpClient's default 100s — a render outlives it routinely.
-        // That deadline is real (GenerationDeadline, per-backend Timeout + GenerationRequest.TimeoutSeconds);
+        // That deadline is real (GenerationDeadline, per-backend Timeout + MediaRequest.TimeoutSeconds);
         // infinite here is only safe BECAUSE of it, so don't drop one without dropping the other.
         builder.Services.AddHttpClient(HttpClientName(id))
             .ConfigureHttpClient(c => c.Timeout = Timeout.InfiniteTimeSpan);

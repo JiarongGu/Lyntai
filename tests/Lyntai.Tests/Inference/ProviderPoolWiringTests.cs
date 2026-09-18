@@ -1,4 +1,3 @@
-using Lyntai.Generation;
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Llm;
@@ -271,12 +270,12 @@ public class ProviderPoolWiringTests
         public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
             Task.FromResult(new ProviderProbeResult(true, "ready"));
 
-        public async Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
+        public async Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
         {
             if (Interlocked.Increment(ref _concurrent) == 2) BothInside.TrySetResult();
             await _gate.Task.ConfigureAwait(false);
             Interlocked.Decrement(ref _concurrent);
-            return GenerationResult.Success([new GenerationArtifact("image/png", Data: [0x89])]);
+            return MediaResponse.Success([new MediaArtifact("image/png", Data: [0x89])]);
         }
 
         public void Release() => _gate.TrySetResult();
@@ -295,7 +294,7 @@ public class ProviderPoolWiringTests
             .ConfigureProviderAdmission(o => o.BySlot["a1111"] = 1)
             .AddGenerationProvider(_ => backend));
         var router = sp.GetRequiredService<IGenerationRouter>();
-        var request = new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a cat" };
+        var request = new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a cat" };
 
         var first = router.GenerateAsync([new ProviderCandidate("a1111")], request);
         var second = router.GenerateAsync([new ProviderCandidate("a1111")], request);
@@ -388,7 +387,7 @@ public class ProviderPoolWiringTests
         var router = sp.GetRequiredService<IGenerationRouterFactory>().For([
             new ProviderRegistration<IModelProvider>(key, () => new FakeGenerationProvider { Id = "a1111" })]);
         var result = await router.GenerateAsync([new ProviderCandidate("a1111")],
-            new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a cat" });
+            new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a cat" });
 
         Assert.True(result.IsOk);
         Assert.Equal(key, Assert.Single(admission.Entered));
@@ -433,7 +432,7 @@ public class ProviderPoolWiringTests
 
         var result = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
             [new ProviderCandidate("a1111")],
-            new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "a cat" });
+            new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a cat" });
 
         Assert.True(result.IsOk);
         Assert.Equal(1, backend.GenerateCalls);

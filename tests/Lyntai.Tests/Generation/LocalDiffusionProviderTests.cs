@@ -44,11 +44,11 @@ public class LocalDiffusionProviderTests
             return new ProcessResult(0, "done", "");
         };
 
-    private static GenerationRequest Ask(string prompt = "a red square", string? size = null)
+    private static MediaRequest Ask(string prompt = "a red square", string? size = null)
     {
         var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (size is not null) options["size"] = size;
-        return new GenerationRequest { Kind = ProviderKinds.Image, Prompt = prompt, Options = options };
+        return new MediaRequest { Kind = ProviderKinds.Image, Prompt = prompt, Options = options };
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public class LocalDiffusionProviderTests
 
         var result = await provider.GenerateAsync(Ask("brighten it") with
         {
-            Inputs = [new GenerationInput("image/png", Data: [1, 2, 3], Role: GenerationInputRoles.Init)],
+            Inputs = [new MediaInput("image/png", Data: [1, 2, 3], Role: MediaInputRoles.Init)],
         });
 
         Assert.True(result.IsOk, result.Detail);
@@ -436,7 +436,7 @@ public class LocalDiffusionProviderTests
 
         var result = await provider.GenerateAsync(Ask() with
         {
-            Inputs = [new GenerationInput("image/png", Uri: "https://example.invalid/in.png")],
+            Inputs = [new MediaInput("image/png", Uri: "https://example.invalid/in.png")],
         });
 
         Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);

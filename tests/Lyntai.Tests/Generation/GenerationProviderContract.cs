@@ -39,7 +39,7 @@ public static class GenerationProviderContract
     ///
     /// <para><b>The two modes are checked DIFFERENTLY, and that asymmetry is the contract.</b> Job is still
     /// its own interface, so a type test is the question. Stream is not: <b>D127</b> collapsed the domain
-    /// seams and made <c>StreamAsync(GenerationRequest, …)</c> a DEFAULT interface member returning
+    /// seams and made <c>StreamAsync(MediaRequest, …)</c> a DEFAULT interface member returning
     /// <see cref="ProviderVerdict.Unsupported"/> — so every backend "implements" it and the type test that
     /// used to ask this went vacuous, silently, in the release that unified the seams. What has to be asked
     /// now is whether the concrete type OVERRIDES the default.</para></summary>
@@ -57,7 +57,7 @@ public static class GenerationProviderContract
                 case ProviderOperation.Stream:
                     Assert.True(ServesMediaStream(provider),
                         $"{provider.Id} declares Stream delivery but inherits IModelProvider's default "
-                        + "StreamAsync(GenerationRequest, …), which answers Unsupported on every call");
+                        + "StreamAsync(MediaRequest, …), which answers Unsupported on every call");
                     break;
                 case ProviderOperation.Complete:
                     break;   // served by IModelProvider itself, which every backend implements
@@ -65,7 +65,7 @@ public static class GenerationProviderContract
         }
     }
 
-    /// <summary>Whether the CONCRETE type provides its own <c>StreamAsync(GenerationRequest, …)</c> rather
+    /// <summary>Whether the CONCRETE type provides its own <c>StreamAsync(MediaRequest, …)</c> rather
     /// than inheriting <see cref="IModelProvider"/>'s <see cref="ProviderVerdict.Unsupported"/> stub.
     ///
     /// <para>Read off the INTERFACE MAP, not <c>GetMethod</c>: an explicit interface implementation is
@@ -80,7 +80,7 @@ public static class GenerationProviderContract
             var declared = map.InterfaceMethods[i];
             if (declared.Name != nameof(IModelProvider.StreamAsync)) continue;
             if (declared.GetParameters() is not [var first, _] ||
-                first.ParameterType != typeof(GenerationRequest)) continue;
+                first.ParameterType != typeof(MediaRequest)) continue;
             return map.TargetMethods[i].DeclaringType != typeof(IModelProvider);
         }
         return false;
@@ -91,7 +91,7 @@ public static class GenerationProviderContract
     /// policy SURFACES rather than advancing on (<c>docs/DECISIONS.md</c> D3), because trying the next
     /// candidate cannot fix a capability mismatch.</summary>
     public static async Task An_inline_call_to_a_job_only_backend_is_Unsupported(
-        IModelProvider provider, GenerationRequest ask)
+        IModelProvider provider, MediaRequest ask)
     {
         if (provider.Capabilities.Operations.Contains(ProviderOperation.Complete)) return;
 
@@ -107,7 +107,7 @@ public static class GenerationProviderContract
     /// So a shipped backend that throws where it could have answered costs the caller its whole candidate
     /// chain.</summary>
     public static async Task A_backend_failure_is_a_verdict_rather_than_a_throw(
-        IModelProvider provider, GenerationRequest ask)
+        IModelProvider provider, MediaRequest ask)
     {
         var result = await provider.GenerateAsync(ask);
 
@@ -139,7 +139,7 @@ public static class GenerationProviderContract
     /// tell them apart would report a caller's deliberate stop as a backend timeout — and on the submit path
     /// that reads as "the backend may hold a billable render", which is the expensive direction.</summary>
     public static async Task Caller_cancellation_propagates_rather_than_becoming_a_verdict(
-        IModelProvider provider, GenerationRequest ask)
+        IModelProvider provider, MediaRequest ask)
     {
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
@@ -152,7 +152,7 @@ public static class GenerationProviderContract
     /// <see cref="Its_declared_deliveries_are_backed_by_the_interfaces_it_implements"/>, one axis over:
     /// <see cref="ProviderCapabilities.SupportsInputs"/> is not advisory, because
     /// <see cref="ProviderCapabilities.Supports"/> uses it as an ADMISSION filter. Declaring it is a promise
-    /// to the router that this backend reads <see cref="GenerationRequest.Inputs"/>, so a backend that
+    /// to the router that this backend reads <see cref="MediaRequest.Inputs"/>, so a backend that
     /// declares it and ignores them is handed the chained artifact and drops it in silence.
     /// <para>Two answers are acceptable and one is not. SENDING NOTHING is honest — that is a refusal, and
     /// <c>FalQueueProvider</c> refuses a bytes-only input exactly this way. Sending a request that carries the

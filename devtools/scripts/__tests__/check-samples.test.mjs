@@ -371,9 +371,9 @@ describe('check-samples — wrapping a block', () => {
 describe('check-samples — isolating a block that redefines library surface', () => {
   it('defect 4: a block declaring `namespace Lyntai.…` is compiled ALONE', () => {
     // CS0436 is a WARNING: a type declared in source outranks the same type from a referenced assembly for
-    // the whole compilation. Batched, one such sample silently redefines `GenerationRequest` for every
+    // the whole compilation. Batched, one such sample silently redefines `MediaRequest` for every
     // other sample, which then verifies against the doc's type instead of the shipped one.
-    assert.equal(shadowsLibrary(['namespace Lyntai.Generation;', 'record GenerationRequest;']), true);
+    assert.equal(shadowsLibrary(['namespace Lyntai.Inference;', 'record MediaRequest;']), true);
     assert.equal(shadowsLibrary(['namespace Contoso.App;']), false);
     assert.equal(shadowsLibrary(['services.AddLyntai(x);']), false);
 

@@ -61,7 +61,7 @@ public sealed class ComfyUiOptions
     public string CompletedField { get; set; } = "completed";
 
     /// <summary>The option key holding a dotted path to the node input that receives
-    /// <see cref="GenerationRequest.Prompt"/> (e.g. <c>"6.inputs.text"</c>).</summary>
+    /// <see cref="MediaRequest.Prompt"/> (e.g. <c>"6.inputs.text"</c>).</summary>
     public string PromptPathOption { get; set; } = "prompt-path";
 
     /// <summary>Ceiling for ONE HTTP call to the server — a submit, a history read, an interrupt, a probe.
@@ -75,9 +75,9 @@ public sealed class ComfyUiOptions
     ///
     /// <para>Shorter than the inline backends' default because these calls are queue operations rather than
     /// renders — none of them should take minutes. On <c>SubmitAsync</c> a request's
-    /// <see cref="GenerationRequest.TimeoutSeconds"/> still overrides it (it is the most specific thing that
+    /// <see cref="MediaRequest.TimeoutSeconds"/> still overrides it (it is the most specific thing that
     /// caller can say about that call). <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline, but a
-    /// submit whose request carries its own <see cref="GenerationRequest.TimeoutSeconds"/> still has
+    /// submit whose request carries its own <see cref="MediaRequest.TimeoutSeconds"/> still has
     /// one.</para></summary>
     public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(2);
 }
@@ -89,7 +89,7 @@ public sealed class ComfyUiOptions
 /// <list type="number">
 /// <item><b>Graph-shaped.</b> ComfyUI runs a WORKFLOW, not a prompt, so the caller supplies the graph
 ///   (<c>Options["workflow"]</c>) and optionally where the prompt belongs in it
-///   (<c>Options["prompt-path"]</c>). <see cref="GenerationRequest.Prompt"/> may be null, and no default
+///   (<c>Options["prompt-path"]</c>). <see cref="MediaRequest.Prompt"/> may be null, and no default
 ///   graph is invented — guessing one would silently produce something nobody asked for.</item>
 /// <item><b>Asynchronous, locally.</b> <see cref="ProviderOperation.Queued"/> delivery on a machine you own,
 ///   composing with <c>Lyntai.Jobs</c> exactly like a hosted render.</item>
@@ -127,7 +127,7 @@ public sealed class ComfyUiProvider(
         Produces = options.Produces,
         Operations = [ProviderOperation.Queued],
         // NOT SupportsInputs: a graph takes its init image from a node the CALLER authored, and the platform
-        // cannot know which node that is — so GenerationRequest.Inputs has nowhere to go. Declaring it is an
+        // cannot know which node that is — so MediaRequest.Inputs has nowhere to go. Declaring it is an
         // admission promise (ProviderCapabilities.Supports) that the submit path below cannot keep.
     };
 
@@ -162,14 +162,14 @@ public sealed class ComfyUiProvider(
 
     /// <summary>Inline delivery is not this backend's mode — say so rather than hiding a poll loop inside one
     /// call (which would lose progress, cancellation and restart-survival).</summary>
-    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported,
+    public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+        Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported,
             "ComfyUI generates asynchronously: use submit → poll → fetch (IGenerationJobProvider)"));
 
     /// <inheritdoc/>
-    /// <remarks>Bounded by the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it carries one, else
+    /// <remarks>Bounded by the request's <see cref="MediaRequest.TimeoutSeconds"/> if it carries one, else
     /// <see cref="ComfyUiOptions.Timeout"/> — the QUEUEING call only, not the run it starts.</remarks>
-    public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
+    public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
             token => SubmitCoreAsync(request, token),
@@ -181,7 +181,7 @@ public sealed class ComfyUiProvider(
                 Inconclusive = true,
             });
 
-    private async Task<QueuedOperation> SubmitCoreAsync(GenerationRequest request, CancellationToken ct)
+    private async Task<QueuedOperation> SubmitCoreAsync(MediaRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return Failed("no BaseUrl configured");
@@ -191,7 +191,7 @@ public sealed class ComfyUiProvider(
         // input runs the graph as authored, which bills a render nobody asked for and looks plausible.
         if (request.Inputs.Count > 0)
             return Failed("ComfyUI takes an init image from a node inside the workflow graph, so there is "
-                + "nowhere to put GenerationInput — reference the image from the graph in "
+                + "nowhere to put MediaInput — reference the image from the graph in "
                 + $"Options[\"{options.WorkflowOption}\"] instead");
 
         if (request.Option(options.WorkflowOption) is not { Length: > 0 } workflowJson)
@@ -264,12 +264,12 @@ public sealed class ComfyUiProvider(
     /// <inheritdoc/>
     /// <remarks>Bounded by <see cref="ComfyUiOptions.Timeout"/>; a fired deadline is a
     /// <see cref="ProviderVerdict.Timeout"/> result, and the operation can simply be fetched again.</remarks>
-    public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
+    public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,
             token => FetchCoreAsync(operationId, token),
-            reason => GenerationResult.Failure(ProviderVerdict.Timeout, $"the result fetch {reason}"));
+            reason => MediaResponse.Failure(ProviderVerdict.Timeout, $"the result fetch {reason}"));
 
-    private async Task<GenerationResult> FetchCoreAsync(string operationId, CancellationToken ct)
+    private async Task<MediaResponse> FetchCoreAsync(string operationId, CancellationToken ct)
     {
         // a fetch is asked for a finished render's bytes, so an unanswered read is a failed fetch (the caller
         // simply fetches again) rather than the "still going" the poll reports
@@ -279,20 +279,20 @@ public sealed class ComfyUiProvider(
         // NotConfigured says to go and set the credential up. hasCredentials is FALSE because this backend
         // has no credential surface at all: a 401 here can only mean something in front of it wants one.
         if (failure is not null)
-            return GenerationResult.Failure(
+            return MediaResponse.Failure(
                 status is { } code
                     ? ProviderVerdictClassifier.FromHttpFailure(code, failure, hasCredentials: false)
                     : ProviderVerdictClassifier.FromErrorText(failure),
                 failure);
 
         if (Entry(body!, operationId) is not { } entry || !Completed(entry))
-            return GenerationResult.Failure(ProviderVerdict.Failed,
+            return MediaResponse.Failure(ProviderVerdict.Failed,
                 $"operation {operationId} is not finished — poll until Succeeded before fetching");
 
         var artifacts = OutputArtifacts(entry);
         return artifacts.Count > 0
-            ? GenerationResult.Success(artifacts, new GenerationUsage(Count: artifacts.Count))
-            : GenerationResult.Failure(ProviderVerdict.Failed,
+            ? MediaResponse.Success(artifacts, new MediaUsage(Count: artifacts.Count))
+            : MediaResponse.Failure(ProviderVerdict.Failed,
                 $"operation {operationId} completed with no recognised outputs");
     }
 
@@ -425,13 +425,13 @@ public sealed class ComfyUiProvider(
     /// <summary>Walk <c>outputs.&lt;node&gt;.&lt;images|gifs|…&gt;[]</c> and turn each file reference into a
     /// view URI. Collection names vary by node pack, so ANY array of objects carrying a
     /// <c>filename</c> counts — that tolerance is deliberate given the surface is unverified.</summary>
-    private IReadOnlyList<GenerationArtifact> OutputArtifacts(JsonElement? entry)
+    private IReadOnlyList<MediaArtifact> OutputArtifacts(JsonElement? entry)
     {
         if (entry is not { ValueKind: JsonValueKind.Object } value ||
             !value.TryGetProperty(options.OutputsField, out var outputs) || outputs.ValueKind != JsonValueKind.Object)
             return [];
 
-        var artifacts = new List<GenerationArtifact>();
+        var artifacts = new List<MediaArtifact>();
         foreach (var node in outputs.EnumerateObject())
         {
             if (node.Value.ValueKind != JsonValueKind.Object) continue;
@@ -447,7 +447,7 @@ public sealed class ComfyUiProvider(
                     var type = HttpArtifacts.Str(file, "type") ?? "output";
                     var uri = $"{Url(options.ViewPath)}?filename={Uri.EscapeDataString(filename)}" +
                         $"&subfolder={Uri.EscapeDataString(subfolder)}&type={Uri.EscapeDataString(type)}";
-                    artifacts.Add(new GenerationArtifact(MediaTypeOf(filename), Uri: uri,
+                    artifacts.Add(new MediaArtifact(MediaTypeOf(filename), Uri: uri,
                         Metadata: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                         {
                             ["node"] = node.Name,

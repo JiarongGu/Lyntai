@@ -29,12 +29,12 @@ public class ComfyUiProviderTests
         return (provider, handler);
     }
 
-    private static GenerationRequest Ask(string? prompt = "a red square", string? workflow = Workflow)
+    private static MediaRequest Ask(string? prompt = "a red square", string? workflow = Workflow)
     {
         var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (workflow is not null) options["workflow"] = workflow;
         options["prompt-path"] = "6.inputs.text";
-        return new GenerationRequest { Kind = ProviderKinds.Image, Prompt = prompt, Options = options };
+        return new MediaRequest { Kind = ProviderKinds.Image, Prompt = prompt, Options = options };
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class ComfyUiProviderTests
     public void It_does_not_declare_SupportsInputs_because_the_graph_owns_the_init_image()
     {
         // SupportsInputs is an ADMISSION filter in ProviderCapabilities.Supports, so declaring it promises
-        // the router this backend reads GenerationRequest.Inputs. It cannot: the init image is a node the
+        // the router this backend reads MediaRequest.Inputs. It cannot: the init image is a node the
         // caller authored and the platform cannot know which one.
         var (provider, _) = Provider();
 
@@ -72,7 +72,7 @@ public class ComfyUiProviderTests
 
         var operation = await provider.SubmitAsync(Ask() with
         {
-            Inputs = [GenerationInput.FirstFrame(new byte[] { 1, 2, 3 }, "image/png")],
+            Inputs = [MediaInput.FirstFrame(new byte[] { 1, 2, 3 }, "image/png")],
         });
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);

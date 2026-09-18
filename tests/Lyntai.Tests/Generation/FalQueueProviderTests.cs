@@ -21,7 +21,7 @@ public class FalQueueProviderTests
             () => new HttpClient(handler, disposeHandler: false)), handler);
     }
 
-    private static GenerationRequest Ask() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
+    private static MediaRequest Ask() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     [Fact]
     public void It_declares_a_job_backend_across_the_kinds_the_host_configured()
@@ -293,7 +293,7 @@ public class FalQueueProviderTests
 
         var operation = await provider.SubmitAsync(Ask() with
         {
-            Inputs = [GenerationInput.FirstFrame(new byte[] { 1, 2, 3 }, "image/png")],
+            Inputs = [MediaInput.FirstFrame(new byte[] { 1, 2, 3 }, "image/png")],
         });
 
         Assert.Equal(QueuedOperationStatus.Failed, operation.Status);
@@ -309,7 +309,7 @@ public class FalQueueProviderTests
 
         var operation = await provider.SubmitAsync(Ask() with
         {
-            Inputs = [GenerationInput.FirstFrame(new Uri("https://cdn.invalid/first.png"), "image/png")],
+            Inputs = [MediaInput.FirstFrame(new Uri("https://cdn.invalid/first.png"), "image/png")],
         });
 
         Assert.Equal(QueuedOperationStatus.Queued, operation.Status);

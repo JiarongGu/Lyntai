@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using Lyntai.Generation;
 using Lyntai.Llm;
 
 namespace Lyntai.Diagnostics;
@@ -260,7 +259,7 @@ public static class LyntaiDiagnostics
     }
 
     internal static void RecordGeneration(Activity? activity, string backend, string kind,
-        ProviderVerdict verdict, GenerationUsage? usage, double elapsedSeconds, string? detail = null)
+        ProviderVerdict verdict, MediaUsage? usage, double elapsedSeconds, string? detail = null)
     {
         var errorType = verdict == ProviderVerdict.Ok ? null : verdict.ToString();
 

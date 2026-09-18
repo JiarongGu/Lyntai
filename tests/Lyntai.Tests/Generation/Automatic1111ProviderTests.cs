@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using System.Net;
-using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Tests.Fakes;
 
@@ -23,7 +22,7 @@ public class Automatic1111ProviderTests
         return (provider, handler);
     }
 
-    private static GenerationRequest Ask(string prompt = "a red square") =>
+    private static MediaRequest Ask(string prompt = "a red square") =>
         new() { Kind = ProviderKinds.Image, Prompt = prompt };
 
     [Fact]
@@ -78,7 +77,7 @@ public class Automatic1111ProviderTests
 
         var result = await provider.GenerateAsync(Ask("brighten it") with
         {
-            Inputs = [new GenerationInput("image/png", Data: [1, 2, 3], Role: GenerationInputRoles.Init)],
+            Inputs = [new MediaInput("image/png", Data: [1, 2, 3], Role: MediaInputRoles.Init)],
         });
 
         Assert.True(result.IsOk);
@@ -108,7 +107,7 @@ public class Automatic1111ProviderTests
 
         var result = await provider.GenerateAsync(Ask() with
         {
-            Inputs = [new GenerationInput("image/png", Uri: "https://example.invalid/in.png")],
+            Inputs = [new MediaInput("image/png", Uri: "https://example.invalid/in.png")],
         });
 
         Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);

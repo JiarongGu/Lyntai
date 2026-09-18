@@ -58,7 +58,7 @@ internal static class GenerationToolJson
 
     /// <summary>Describe artifacts for a model: what they are and where, never the bytes. A base64 image in a
     /// tool observation would blow the context window for no benefit — the app's sink is where bytes go.</summary>
-    public static void WriteArtifacts(Utf8JsonWriter writer, IReadOnlyList<GenerationArtifact> artifacts, bool delivered)
+    public static void WriteArtifacts(Utf8JsonWriter writer, IReadOnlyList<MediaArtifact> artifacts, bool delivered)
     {
         writer.WriteBoolean("delivered", delivered);
         writer.WriteStartArray("artifacts");
@@ -73,10 +73,10 @@ internal static class GenerationToolJson
         writer.WriteEndArray();
     }
 
-    /// <summary>Turn the request fields a model may supply into a <see cref="GenerationRequest"/>. Unknown
-    /// members become pass-through <see cref="GenerationRequest.Options"/>, so a model can use a backend's own
+    /// <summary>Turn the request fields a model may supply into a <see cref="MediaRequest"/>. Unknown
+    /// members become pass-through <see cref="MediaRequest.Options"/>, so a model can use a backend's own
     /// knobs (duration, aspect, voice) without Lyntai enumerating them.</summary>
-    public static GenerationRequest ReadRequest(
+    public static MediaRequest ReadRequest(
         JsonElement root, string consumer, out IReadOnlyList<string> candidates)
     {
         var candidateList = new List<string>();
@@ -96,11 +96,11 @@ internal static class GenerationToolJson
                 if (!reserved.Contains(property.Name) && property.Value.ValueKind is JsonValueKind.String or JsonValueKind.Number)
                     options[property.Name] = property.Value.ToString();
 
-        var inputs = new List<GenerationInput>();
+        var inputs = new List<MediaInput>();
         if (GenerationJson.Str(root, "imageUrl") is { } imageUrl)
-            inputs.Add(new GenerationInput("image/*", Uri: imageUrl, Role: GenerationInputRoles.Init));
+            inputs.Add(new MediaInput("image/*", Uri: imageUrl, Role: MediaInputRoles.Init));
 
-        return new GenerationRequest
+        return new MediaRequest
         {
             Kind = GenerationJson.Str(root, "kind") ?? ProviderKinds.Image,
             Consumer = consumer,

@@ -1,3 +1,5 @@
+using Lyntai.Inference;
+
 namespace Lyntai.Generation.Jobs;
 
 /// <summary>Where a finished durable generation's artifacts go. Implemented by the APP, because the platform
@@ -24,5 +26,5 @@ public sealed record GenerationArtifactDelivery(
     Guid JobId,
     string ProviderId,
     string OperationId,
-    IReadOnlyList<GenerationArtifact> Artifacts,
-    GenerationUsage? Usage = null);
+    IReadOnlyList<MediaArtifact> Artifacts,
+    MediaUsage? Usage = null);

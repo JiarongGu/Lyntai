@@ -73,7 +73,7 @@ public sealed class FalQueueOptions
     public IList<string> CostFields { get; set; } = ["cost", "cost_usd", "price"];
 
     /// <summary>Query parameter used to hand the backend a webhook URL the APP hosts. Lyntai never hosts one
-    /// (D24) — supply the URL via <c>GenerationRequest.Options["webhook"]</c> and call
+    /// (D24) — supply the URL via <c>MediaRequest.Options["webhook"]</c> and call
     /// <see cref="FalQueueProvider.FetchAsync"/> when it fires.</summary>
     public string WebhookQueryParameter { get; set; } = "fal_webhook";
 
@@ -89,9 +89,9 @@ public sealed class FalQueueOptions
     ///
     /// <para>Shorter than the inline backends' default because these are queue operations rather than renders.
     /// On <see cref="FalQueueProvider.SubmitAsync"/> a request's
-    /// <see cref="GenerationRequest.TimeoutSeconds"/> still overrides it (the most specific thing that caller
+    /// <see cref="MediaRequest.TimeoutSeconds"/> still overrides it (the most specific thing that caller
     /// can say about that call). <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline, but a submit
-    /// whose request carries its own <see cref="GenerationRequest.TimeoutSeconds"/> still has
+    /// whose request carries its own <see cref="MediaRequest.TimeoutSeconds"/> still has
     /// one.</para></summary>
     public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(2);
 }
@@ -114,7 +114,7 @@ public sealed class FalQueueOptions
 /// it rather than forcing every caller to persist a second field. Documented because it is visible in
 /// checkpoints and logs.</para>
 /// <para><b>Cost:</b> fal prices per model AND per resolution, so the headline rate often buys a lower tier.
-/// Whatever the response reports lands in <see cref="GenerationUsage.CostUsd"/> — it is never inferred from a
+/// Whatever the response reports lands in <see cref="MediaUsage.CostUsd"/> — it is never inferred from a
 /// rate card.</para>
 /// </remarks>
 /// <param name="options">Endpoint, credential and declared kinds.</param>
@@ -155,15 +155,15 @@ public sealed class FalQueueProvider(
                 "must not enqueue a billable request)"));
 
     /// <summary>Inline delivery is not this backend's mode — the queue is asynchronous by design.</summary>
-    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported,
+    public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+        Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported,
             "fal's queue is asynchronous: use submit → poll → fetch (IGenerationJobProvider), or the durable " +
             "GenerationRenderJobHandler"));
 
     /// <inheritdoc/>
-    /// <remarks>Bounded by the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it carries one, else
+    /// <remarks>Bounded by the request's <see cref="MediaRequest.TimeoutSeconds"/> if it carries one, else
     /// <see cref="FalQueueOptions.Timeout"/> — the ENQUEUEING call only, not the render it starts.</remarks>
-    public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
+    public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
             token => SubmitCoreAsync(request, token),
@@ -175,7 +175,7 @@ public sealed class FalQueueProvider(
                 Inconclusive = true,
             });
 
-    private async Task<QueuedOperation> SubmitCoreAsync(GenerationRequest request, CancellationToken ct)
+    private async Task<QueuedOperation> SubmitCoreAsync(MediaRequest request, CancellationToken ct)
     {
         if (Unconfigured() is { } missing) return Failed(missing);
         if (Model(request) is not { Length: > 0 } model)
@@ -185,7 +185,7 @@ public sealed class FalQueueProvider(
         // the only honest answer: dropping it (which is what BuildInput used to do) submitted — and billed — a
         // text-to-video render against a caller who asked for image→video, and the result looked plausible.
         if (request.Inputs.Count > 0 && !request.Inputs.Any(i => i.Uri is { Length: > 0 }))
-            return Failed("fal takes input media as a URL; supply GenerationInput.Uri rather than Data — the " +
+            return Failed("fal takes input media as a URL; supply MediaInput.Uri rather than Data — the " +
                 "platform will not upload your bytes on your behalf");
 
         var url = $"{Root}/{model.Trim('/')}";
@@ -268,16 +268,16 @@ public sealed class FalQueueProvider(
     /// <inheritdoc/>
     /// <remarks>Bounded by <see cref="FalQueueOptions.Timeout"/>; a fired deadline is a
     /// <see cref="ProviderVerdict.Timeout"/> result, and the operation can simply be fetched again.</remarks>
-    public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
+    public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,
             token => FetchCoreAsync(operationId, token),
-            reason => GenerationResult.Failure(ProviderVerdict.Timeout, $"the result fetch {reason}"));
+            reason => MediaResponse.Failure(ProviderVerdict.Timeout, $"the result fetch {reason}"));
 
-    private async Task<GenerationResult> FetchCoreAsync(string operationId, CancellationToken ct)
+    private async Task<MediaResponse> FetchCoreAsync(string operationId, CancellationToken ct)
     {
         var (model, requestId) = Split(operationId);
         if (requestId is null)
-            return GenerationResult.Failure(ProviderVerdict.Failed, $"malformed operation id '{operationId}'");
+            return MediaResponse.Failure(ProviderVerdict.Failed, $"malformed operation id '{operationId}'");
 
         // the fetch path classifies the failure rather than branching on transport: a fetch that cannot be
         // completed is a result the caller acts on now, where a poll is a question that can be asked again
@@ -287,7 +287,7 @@ public sealed class FalQueueProvider(
         // status line is not the vocabulary FromErrorText matches on — so a rejected key read as a failed
         // render, which both benches the backend and hides the one thing a host could act on.
         if (failure is not null)
-            return GenerationResult.Failure(
+            return MediaResponse.Failure(
                 status is { } code
                     ? ProviderVerdictClassifier.FromHttpFailure(code, failure, hasCredentials: true)
                     : ProviderVerdictClassifier.FromErrorText(failure),
@@ -295,8 +295,8 @@ public sealed class FalQueueProvider(
 
         var artifacts = ReadArtifacts(body!);
         return artifacts.Count > 0
-            ? GenerationResult.Success(artifacts, new GenerationUsage(Count: artifacts.Count, CostUsd: Cost(body!)))
-            : GenerationResult.Failure(ProviderVerdict.Failed,
+            ? MediaResponse.Success(artifacts, new MediaUsage(Count: artifacts.Count, CostUsd: Cost(body!)))
+            : MediaResponse.Failure(ProviderVerdict.Failed,
                 $"no artifacts in the result: {HttpArtifacts.FailureDetail(body!, 200)}");
     }
 
@@ -343,7 +343,7 @@ public sealed class FalQueueProvider(
             ? "not configured: BaseUrl and ApiKey are both required"
             : null;
 
-    private string? Model(GenerationRequest request) =>
+    private string? Model(MediaRequest request) =>
         request.Model is { Length: > 0 } model ? model : options.Model;
 
     private void Authorize(HttpRequestMessage message)
@@ -417,9 +417,9 @@ public sealed class FalQueueProvider(
     }
 
     /// <summary>The model's input object. Common fields are mapped; everything else in
-    /// <see cref="GenerationRequest.Options"/> is passed through verbatim, because each model on an aggregator
+    /// <see cref="MediaRequest.Options"/> is passed through verbatim, because each model on an aggregator
     /// takes its own parameters and typing them would need a release per model.</summary>
-    internal static string BuildInput(GenerationRequest request)
+    internal static string BuildInput(MediaRequest request)
     {
         using var buffer = new MemoryStream();
         using (var writer = new Utf8JsonWriter(buffer))
@@ -432,7 +432,7 @@ public sealed class FalQueueProvider(
             // billed a text-to-video render against a caller who asked for image→video.
             if (request.Inputs.FirstOrDefault(i => i.Uri is { Length: > 0 }) is { } input)
                 writer.WriteString(
-                    string.Equals(input.Role, GenerationInputRoles.FirstFrame, StringComparison.OrdinalIgnoreCase)
+                    string.Equals(input.Role, MediaInputRoles.FirstFrame, StringComparison.OrdinalIgnoreCase)
                         ? "image_url"
                         : "input_image_url",
                     input.Uri!);
@@ -450,18 +450,18 @@ public sealed class FalQueueProvider(
     /// <summary>Pull artifacts out of a completed result. Tolerant by design: fal's models return their output
     /// under model-specific names (<c>video</c>, <c>images</c>, <c>audio</c>), so ANY object carrying a
     /// <c>url</c> counts — and nothing recognised means "no artifacts", never an invented one.</summary>
-    internal static IReadOnlyList<GenerationArtifact> ReadArtifacts(string body)
+    internal static IReadOnlyList<MediaArtifact> ReadArtifacts(string body)
     {
         if (!JsonExtract.TryParseObject(body, out var doc)) return [];
         using (doc)
         {
-            var artifacts = new List<GenerationArtifact>();
+            var artifacts = new List<MediaArtifact>();
             Walk(doc.RootElement, artifacts, depth: 0);
             return artifacts;
         }
     }
 
-    private static void Walk(JsonElement element, List<GenerationArtifact> artifacts, int depth)
+    private static void Walk(JsonElement element, List<MediaArtifact> artifacts, int depth)
     {
         if (depth > 4 || artifacts.Count >= 32) return;   // a result document, not an arbitrary graph
 
@@ -471,7 +471,7 @@ public sealed class FalQueueProvider(
                 if (HttpArtifacts.Str(element, "url") is { } url)
                 {
                     var contentType = HttpArtifacts.Str(element, "content_type") ?? MediaTypeOf(url);
-                    artifacts.Add(new GenerationArtifact(contentType, Uri: url));
+                    artifacts.Add(new MediaArtifact(contentType, Uri: url));
                     return;   // this object IS the artifact — don't also walk its siblings
                 }
                 foreach (var property in element.EnumerateObject()) Walk(property.Value, artifacts, depth + 1);

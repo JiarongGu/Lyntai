@@ -80,12 +80,12 @@ public sealed class GenerationRouter(
     private readonly Func<IModelProvider, ProviderKey?> _configuration = configuration ?? (_ => null);
 
     /// <inheritdoc/>
-    public async Task<GenerationResult> GenerateAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+    public async Task<MediaResponse> GenerateAsync(
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         var capable = Capable(candidates, request, ProviderOperation.Complete);
-        GenerationResult? firstFailure = null;     // the first SUBSTANTIVE failure — what the caller is told
-        GenerationResult? firstBlameless = null;   // …kept apart, so it answers only when nothing really failed
+        MediaResponse? firstFailure = null;     // the first SUBSTANTIVE failure — what the caller is told
+        MediaResponse? firstBlameless = null;   // …kept apart, so it answers only when nothing really failed
         var tried = 0;
         var benched = 0;
 
@@ -127,7 +127,7 @@ public sealed class GenerationRouter(
         }
 
         if (tried == 0)
-            return GenerationResult.Failure(
+            return MediaResponse.Failure(
                 benched > 0 ? ProviderVerdict.RateLimited : ProviderVerdict.Unsupported,
                 benched > 0
                     ? $"every capable media backend for kind '{request.Kind}' is on dead-host cooldown " +
@@ -139,13 +139,13 @@ public sealed class GenerationRouter(
         // are the honest answer (a host turns "not configured" into a setup prompt, and "too long" into a
         // shorter prompt), and only a run in which nothing said anything at all falls through to the
         // synthetic reply. Same three-slot rule as LlmRouter.CompleteAsync's last ?? lastBlameless ?? …
-        return firstFailure ?? firstBlameless ?? GenerationResult.Failure(ProviderVerdict.NotConfigured,
+        return firstFailure ?? firstBlameless ?? MediaResponse.Failure(ProviderVerdict.NotConfigured,
             "every capable backend reported it is not configured");
     }
 
     /// <inheritdoc/>
     public async Task<GenerationSubmission> SubmitAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         var capable = Capable(candidates, request, ProviderOperation.Queued);
         var benched = 0;
@@ -258,13 +258,13 @@ public sealed class GenerationRouter(
     }
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
+    public async IAsyncEnumerable<MediaChunk> StreamAsync(
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var capable = Capable(candidates, request, ProviderOperation.Stream);
-        GenerationChunk? firstFailure = null;     // the first SUBSTANTIVE failure — the same two-slot rule
-        GenerationChunk? firstBlameless = null;   // …GenerateAsync follows, so all three doors answer alike
+        MediaChunk? firstFailure = null;     // the first SUBSTANTIVE failure — the same two-slot rule
+        MediaChunk? firstBlameless = null;   // …GenerateAsync follows, so all three doors answer alike
         var tried = 0;
         var benched = 0;
 
@@ -275,7 +275,7 @@ public sealed class GenerationRouter(
             // A backend that DECLARES Stream and does not serve it is still a configuration fault — the
             // router is the trust boundary for what a third-party backend claims about itself — but it is no
             // longer one this door can see before calling. Until D127 there was a separate streaming
-            // interface and a type test here; the collapse made `StreamAsync(GenerationRequest, …)` a
+            // interface and a type test here; the collapse made `StreamAsync(MediaRequest, …)` a
             // DEFAULT interface member answering Unsupported, so such a backend is now indistinguishable
             // from a capable one until it answers, and it lands in the ordinary pre-commit failure path
             // below carrying its own `NotServed` detail. The declaration is checked where it can be:
@@ -318,13 +318,13 @@ public sealed class GenerationRouter(
     /// the router's own stream is over — a terminal reached the caller, or data committed and invariant 1
     /// forbids falling over — and otherwise leaves the pre-commit <see cref="StreamAttempt.Failure"/> for the
     /// caller's fallback decision.</summary>
-    private async IAsyncEnumerable<GenerationChunk> StreamAttemptAsync(
-        IModelProvider streamer, GenerationRequest resolved, StreamAttempt attempt,
+    private async IAsyncEnumerable<MediaChunk> StreamAttemptAsync(
+        IModelProvider streamer, MediaRequest resolved, StreamAttempt attempt,
         [EnumeratorCancellation] CancellationToken ct)
     {
         var committed = false;             // invariant 2: set only by a chunk carrying real DATA
         var closed = false;                // did the backend send a terminal chunk of its own?
-        GenerationChunk? failure = null;
+        MediaChunk? failure = null;
 
         await using var chunks = streamer.StreamAsync(resolved, ct).GetAsyncEnumerator(ct);
         while (true)
@@ -343,7 +343,7 @@ public sealed class GenerationRouter(
                 // Unconditional on purpose — NeverReachedTheBackend is the SUBMIT door's billing rule.
                 // Here nothing is charged by the act of asking, so a refused connection before the first
                 // byte is the ordinary pre-commit failure the contract says advances.
-                failure = GenerationChunk.Failure(ProviderVerdictClassifier.FromThrown(ex), $"{streamer.Id}: {ex.Message}");
+                failure = MediaChunk.Failure(ProviderVerdictClassifier.FromThrown(ex), $"{streamer.Id}: {ex.Message}");
                 break;
             }
 
@@ -379,10 +379,10 @@ public sealed class GenerationRouter(
             {
                 deadHosts?.RecordSuccess(CooldownKey(streamer));
                 attempt.Done = true;
-                yield return GenerationChunk.Completed();
+                yield return MediaChunk.Completed();
                 yield break;
             }
-            failure = GenerationChunk.Failure(ProviderVerdict.Failed,
+            failure = MediaChunk.Failure(ProviderVerdict.Failed,
                 $"{streamer.Id}: the stream ended without producing data or a terminal chunk");
         }
 
@@ -402,22 +402,22 @@ public sealed class GenerationRouter(
 
         /// <summary>The PRE-COMMIT failure the caller weighs against the fallback policy — non-null wherever
         /// <see cref="Done"/> is false.</summary>
-        public GenerationChunk? Failure { get; set; }
+        public MediaChunk? Failure { get; set; }
     }
 
     /// <summary>The synthesized terminal for a run in which no backend produced a stream. Reached only when
     /// nobody said anything of their own, which is why the caller consults its two slots first.</summary>
-    private static GenerationChunk NothingStreamed(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, int tried, int benched) =>
+    private static MediaChunk NothingStreamed(
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, int tried, int benched) =>
         tried == 0
-            ? GenerationChunk.Failure(
+            ? MediaChunk.Failure(
                 benched > 0 ? ProviderVerdict.RateLimited : ProviderVerdict.Unsupported,
                 benched > 0
                     ? $"every capable media backend for kind '{request.Kind}' is on dead-host cooldown " +
                       $"({benched} of [{string.Join(", ", candidates.Select(c => c.ProviderId))}])"
                     : $"no capable media backend for kind '{request.Kind}' via {ProviderOperation.Stream} " +
                       $"among [{string.Join(", ", candidates.Select(c => c.ProviderId))}]")
-            : GenerationChunk.Failure(ProviderVerdict.NotConfigured,
+            : MediaChunk.Failure(ProviderVerdict.NotConfigured,
                 "every capable backend reported it is not configured");
 
     /// <summary>The first rejecting backend's own words, folded onto the synthesized "nobody took it" message
@@ -445,8 +445,8 @@ public sealed class GenerationRouter(
 
     /// <summary>One backend attempt, wrapped in a span + duration/cost metrics. Per ATTEMPT, not per request:
     /// a trace of a fallback run has to show the attempt that failed as well as the one that worked.</summary>
-    private async Task<GenerationResult> AttemptAsync(
-        IModelProvider provider, GenerationRequest request, CancellationToken ct)
+    private async Task<MediaResponse> AttemptAsync(
+        IModelProvider provider, MediaRequest request, CancellationToken ct)
     {
         // the permit is taken BEFORE the clock starts, so a queued render's wait never inflates the
         // backend's reported latency
@@ -454,7 +454,7 @@ public sealed class GenerationRouter(
 
         var started = Stopwatch.GetTimestamp();
         using var span = LyntaiDiagnostics.StartGeneration("generate", provider.Id, request.Kind, request.Model);
-        GenerationResult result;
+        MediaResponse result;
         try
         {
             result = await provider.GenerateAsync(request, ct).ConfigureAwait(false);
@@ -472,12 +472,12 @@ public sealed class GenerationRouter(
             // fired so the attempt was invisible in telemetry, and the caller got a raw exception.
             // Classified through the shared taxonomy for the same reason the LLM side gives — hand-rolling
             // Failed here would hammer a rate-limited host instead of cooling it.
-            result = GenerationResult.Failure(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
+            result = MediaResponse.Failure(ProviderVerdictClassifier.FromThrown(ex), $"{provider.Id}: {ex.Message}");
         }
         LyntaiDiagnostics.RecordGeneration(span, provider.Id, request.Kind, result.Verdict,
-            // an Ok result always has artifacts (GenerationResult.Success enforces it), so the count is
+            // an Ok result always has artifacts (MediaResponse.Success enforces it), so the count is
             // reported even by a backend that returns no usage of its own
-            result.IsOk ? result.Usage ?? new GenerationUsage(Count: result.Artifacts.Count) : result.Usage,
+            result.IsOk ? result.Usage ?? new MediaUsage(Count: result.Artifacts.Count) : result.Usage,
             Stopwatch.GetElapsedTime(started).TotalSeconds, result.Detail);
         return result;
     }
@@ -545,10 +545,10 @@ public sealed class GenerationRouter(
     ///
     /// <para>The dedup itself is the LLM router's (<see cref="CandidateDedup"/>) — first wins, order preserved
     /// — rather than a second copy of it here.</para></summary>
-    private List<(IModelProvider Provider, GenerationRequest Request)> Capable(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, ProviderOperation delivery)
+    private List<(IModelProvider Provider, MediaRequest Request)> Capable(
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, ProviderOperation delivery)
     {
-        var resolved = new List<(IModelProvider Provider, GenerationRequest Request)>();
+        var resolved = new List<(IModelProvider Provider, MediaRequest Request)>();
         foreach (var candidate in candidates)
         {
             var provider = _providers.FirstOrDefault(p =>
@@ -561,7 +561,7 @@ public sealed class GenerationRouter(
 
         // capability LAST: a duplicate is dropped before it is asked, and the surviving count is the number
         // of distinct backends this request could actually reach
-        var capable = new List<(IModelProvider, GenerationRequest)>();
+        var capable = new List<(IModelProvider, MediaRequest)>();
         foreach (var entry in CandidateDedup.Dedup(resolved, e => (e.Provider.Id, e.Request.Model)))
         {
             // Where a domain REQUEST becomes a generic capability query. The mapping is the whole of what

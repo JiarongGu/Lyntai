@@ -33,9 +33,9 @@ public sealed class OpenAiImageOptions
     /// render legitimately runs for minutes (which is why <c>AddOpenAiImageProvider</c> gives its client an
     /// infinite <see cref="HttpClient"/> timeout rather than the 100-second default), but bounded, because a
     /// backend that accepts the connection and then stalls would otherwise hang a background render forever.
-    /// A request's own <see cref="GenerationRequest.TimeoutSeconds"/> overrides it.
+    /// A request's own <see cref="MediaRequest.TimeoutSeconds"/> overrides it.
     /// <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline — a request that carries its own
-    /// <see cref="GenerationRequest.TimeoutSeconds"/> still imposes one, since the more specific instruction
+    /// <see cref="MediaRequest.TimeoutSeconds"/> still imposes one, since the more specific instruction
     /// wins either way.</summary>
     public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(10);
 }
@@ -118,25 +118,25 @@ public sealed class OpenAiImageProvider(
     }
 
     /// <inheritdoc/>
-    /// <remarks>Runs under a deadline: the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it
+    /// <remarks>Runs under a deadline: the request's <see cref="MediaRequest.TimeoutSeconds"/> if it
     /// carries one, else <see cref="OpenAiImageOptions.Timeout"/>. A fired deadline is a
     /// <see cref="ProviderVerdict.Timeout"/> result; <paramref name="ct"/> keeps its own meaning and still
     /// propagates as cancellation.</remarks>
-    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
+    public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
             token => GenerateCoreAsync(request, token),
-            reason => GenerationResult.Failure(ProviderVerdict.Timeout, $"the render {reason}"));
+            reason => MediaResponse.Failure(ProviderVerdict.Timeout, $"the render {reason}"));
 
-    private async Task<GenerationResult> GenerateCoreAsync(GenerationRequest request, CancellationToken ct)
+    private async Task<MediaResponse> GenerateCoreAsync(MediaRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
-            return GenerationResult.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
+            return MediaResponse.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
 
         var edit = request.Inputs.FirstOrDefault();
         if (edit is not null && edit.Data is not { Length: > 0 })
-            return GenerationResult.Failure(ProviderVerdict.Unsupported,
-                "this endpoint edits BYTES; supply GenerationInput.Data (a URI-only input would mean the " +
+            return MediaResponse.Failure(ProviderVerdict.Unsupported,
+                "this endpoint edits BYTES; supply MediaInput.Data (a URI-only input would mean the " +
                 "platform downloading it for you, and guessing at auth for that host)");
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
@@ -151,20 +151,20 @@ public sealed class OpenAiImageProvider(
                 // HasCredentials: a 401 with no key supplied is NOT_CONFIGURED (skip blamelessly, offer setup),
                 // not AUTH_FAILED (bench the backend for the cooldown window). An OpenAI-compatible endpoint run
                 // locally needs no key at all, so only the server DEMANDING one makes "no key" a config problem.
-                return GenerationResult.Failure(
+                return MediaResponse.Failure(
                     ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, body, HasCredentials),
                     HttpArtifacts.FailureDetail(body));
 
             var artifacts = HttpArtifacts.FromOpenAiEnvelope(body);
             return artifacts.Count > 0
-                ? GenerationResult.Success(artifacts, new GenerationUsage(Count: artifacts.Count))
-                : GenerationResult.Failure(ProviderVerdict.Failed,
+                ? MediaResponse.Success(artifacts, new MediaUsage(Count: artifacts.Count))
+                : MediaResponse.Failure(ProviderVerdict.Failed,
                     $"no image in the response: {HttpArtifacts.FailureDetail(body, 200)}");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return GenerationResult.Failure(ProviderVerdictClassifier.FromException(ex), ex.Message);
+            return MediaResponse.Failure(ProviderVerdictClassifier.FromException(ex), ex.Message);
         }
     }
 
@@ -174,13 +174,13 @@ public sealed class OpenAiImageProvider(
     /// "your key was rejected" when the server answers 401/403.</summary>
     private bool HasCredentials => !string.IsNullOrWhiteSpace(options.ApiKey);
 
-    private string Size(GenerationRequest request) =>
+    private string Size(MediaRequest request) =>
         request.Option("size") is { Length: > 0 } size ? size : options.DefaultSize;
 
-    private string? Model(GenerationRequest request) =>
+    private string? Model(MediaRequest request) =>
         request.Model is { Length: > 0 } model ? model : options.Model;
 
-    private HttpRequestMessage Generation(GenerationRequest request)
+    private HttpRequestMessage Generation(MediaRequest request)
     {
         // JsonObject over an anonymous type — keeps the package's trim/AOT claim honest
         var payload = new JsonObject
@@ -199,7 +199,7 @@ public sealed class OpenAiImageProvider(
         return message;
     }
 
-    private HttpRequestMessage Edit(GenerationRequest request, GenerationInput input)
+    private HttpRequestMessage Edit(MediaRequest request, MediaInput input)
     {
         var form = new MultipartFormDataContent();
         var image = new ByteArrayContent(input.Data!);

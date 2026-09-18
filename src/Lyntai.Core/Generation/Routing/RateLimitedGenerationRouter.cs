@@ -33,20 +33,20 @@ public sealed class RateLimitedGenerationRouter(
     private const string Reason = "client-side generation rate limit exceeded";
 
     /// <inheritdoc/>
-    public async Task<GenerationResult> GenerateAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+    public async Task<MediaResponse> GenerateAsync(
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
         {
             Throttled(request.Consumer);
-            return GenerationResult.Failure(ProviderVerdict.RateLimited, Reason);
+            return MediaResponse.Failure(ProviderVerdict.RateLimited, Reason);
         }
         return await inner.GenerateAsync(candidates, request, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public async Task<GenerationSubmission> SubmitAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
         {
@@ -63,14 +63,14 @@ public sealed class RateLimitedGenerationRouter(
     /// through. ONE permit per stream, taken before the first chunk: a stream is one call to one backend, so
     /// charging it per chunk would let the length of the media decide the rate rather than the rate deciding
     /// it.</remarks>
-    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
+    public async IAsyncEnumerable<MediaChunk> StreamAsync(
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
         {
             Throttled(request.Consumer);
-            yield return GenerationChunk.Failure(ProviderVerdict.RateLimited, Reason);
+            yield return MediaChunk.Failure(ProviderVerdict.RateLimited, Reason);
             yield break;
         }
 

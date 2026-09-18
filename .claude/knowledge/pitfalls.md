@@ -653,7 +653,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   a migration runner that aborts the transaction).
 - **A type declared in SOURCE outranks the same type from a referenced assembly for the whole compilation, <!-- trap: sub=build,gates shape=ordering,wrong-subject -->
   and the diagnostic is only a warning (`CS0436`).** So one documented sample opening
-  `namespace Lyntai.Generation;` silently redefines the real `GenerationRequest` for every other sample
+  `namespace Lyntai.Inference;` silently redefines the real `MediaRequest` for every other sample
   compiled alongside it, which then typecheck against the doc's copy instead of the shipped one — green,
   and meaningless. `check-samples` compiles any block declaring a namespace under the library root in its
   OWN compilation for this reason. The shape to remember: **whenever you compile untrusted-ish source
@@ -2613,7 +2613,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   than an oversight: Hunyuan3D reports its GLB as `application/octet-stream`, so the type is opaque exactly
   where the decision matters. **A stage that cannot positively identify a chainable artifact must REFUSE
   rather than fall back** — the fallback is the bug, and it is invisible from the contract, which is why
-  `GenerationArtifact.ToInput(role)` takes an explicit role.
+  `MediaArtifact.ToInput(role)` takes an explicit role.
 
 - **A loud refusal raised into a FAIL-OPEN consumer is a silent one, and the code that raises it cannot <!-- trap: sub=memory shape=fail-open,silent-loss -->
   tell.** Measured 2026-09-15 (`docs/FIXES.md`). `CrossEncoderLogits.Read` refuses a multi-label (NLI) head
@@ -2645,7 +2645,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   moves the cross-domain members into the wrong family, and the compiler agrees with you.** Found
   2026-09-17 renaming the text call shape `Llm*` → `Text*` (**D154** NS-3a). Nine of the ten types were <!-- drift-ok: the trap IS the rename; it must name the family it moved -->
   genuinely text-specific; `LlmConsumers` was not — `GenerationTools.cs` reads `LlmConsumers.Agent`, and <!-- drift-ok: names the ONE type that kept the wrong prefix, which is this trap's whole subject -->
-  `GenerationRequest.Consumer` is documented as matching the LLM side. It is consumer-tag vocabulary that
+  `MediaRequest.Consumer` is documented as matching the LLM side. It is consumer-tag vocabulary that
   merely grew up on the text side, so it became `ProviderConsumers`.
   <br>**Nothing would have failed had the sweep trusted the prefix.** `TextConsumers.Agent` compiles,
   passes, ships, and reads to the next maintainer as a claim that consumer tags are a text concept — which

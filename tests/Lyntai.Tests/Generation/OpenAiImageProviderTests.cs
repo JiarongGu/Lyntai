@@ -23,7 +23,7 @@ public class OpenAiImageProviderTests
         return (provider, handler);
     }
 
-    private static GenerationRequest Ask(string prompt = "a red square") =>
+    private static MediaRequest Ask(string prompt = "a red square") =>
         new() { Kind = ProviderKinds.Image, Prompt = prompt };
 
     [Fact]
@@ -145,7 +145,7 @@ public class OpenAiImageProviderTests
 
         var result = await provider.GenerateAsync(Ask("remove the background") with
         {
-            Inputs = [new GenerationInput("image/png", Data: [1, 2, 3], Role: GenerationInputRoles.Init)],
+            Inputs = [new MediaInput("image/png", Data: [1, 2, 3], Role: MediaInputRoles.Init)],
         });
 
         Assert.True(result.IsOk);
@@ -162,7 +162,7 @@ public class OpenAiImageProviderTests
 
         var result = await provider.GenerateAsync(Ask() with
         {
-            Inputs = [new GenerationInput("image/png", Uri: "https://example.invalid/in.png")],
+            Inputs = [new MediaInput("image/png", Uri: "https://example.invalid/in.png")],
         });
 
         Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);

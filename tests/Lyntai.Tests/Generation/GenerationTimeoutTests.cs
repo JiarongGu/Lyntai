@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using System.Text.Json;
-using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Generation.Routing;
 using Lyntai.Generation.Tools;
@@ -40,7 +39,7 @@ public class GenerationTimeoutTests
 
     private static Func<HttpClient> Stalling() => () => new HttpClient(new StallingHandler()) { Timeout = Backstop };
 
-    private static GenerationRequest Ask(int? timeoutSeconds = null) =>
+    private static MediaRequest Ask(int? timeoutSeconds = null) =>
         new() { Kind = ProviderKinds.Image, Prompt = "a red square", TimeoutSeconds = timeoutSeconds };
 
     private static readonly TimeSpan Short = TimeSpan.FromMilliseconds(150);
@@ -146,12 +145,12 @@ public class GenerationTimeoutTests
     {
         var fal = await new FalQueueProvider(
             new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling())
-            .SubmitAsync(new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "a wave" });
+            .SubmitAsync(new MediaRequest { Kind = ProviderKinds.Video, Prompt = "a wave" });
         Assert.Equal(QueuedOperationStatus.Failed, fal.Status);
 
         var comfy = await new ComfyUiProvider(
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
-            .SubmitAsync(new GenerationRequest
+            .SubmitAsync(new MediaRequest
             {
                 Kind = ProviderKinds.Image,
                 Options = new Dictionary<string, string> { ["workflow"] = "{}" },
@@ -211,7 +210,7 @@ public class GenerationTimeoutTests
     private static FalQueueProvider StalledFal() => new(
         new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling());
 
-    private static GenerationRequest Video() =>
+    private static MediaRequest Video() =>
         new() { Kind = ProviderKinds.Video, Prompt = "a wave" };
 
     [Fact]

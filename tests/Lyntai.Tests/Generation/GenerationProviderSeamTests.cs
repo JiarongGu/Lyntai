@@ -35,7 +35,7 @@ public class GenerationProviderSeamTests
     {
         var provider = new FakeGenerationProvider();
 
-        var result = await provider.GenerateAsync(new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "x" });
+        var result = await provider.GenerateAsync(new MediaRequest { Kind = ProviderKinds.Image, Prompt = "x" });
 
         Assert.True(result.IsOk);
         Assert.Equal("image/png", result.Artifacts[0].MediaType);
@@ -57,7 +57,7 @@ public class GenerationProviderSeamTests
     {
         var provider = new FakeGenerationJobProvider();
 
-        var submitted = await provider.SubmitAsync(new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "x" });
+        var submitted = await provider.SubmitAsync(new MediaRequest { Kind = ProviderKinds.Video, Prompt = "x" });
         var polled = await provider.PollAsync(submitted.Id);
         var fetched = await provider.FetchAsync(submitted.Id);
 
@@ -74,8 +74,8 @@ public class GenerationProviderSeamTests
     {
         var provider = new FakeGenerationStreamProvider();
 
-        var chunks = new List<GenerationChunk>();
-        await foreach (var chunk in provider.StreamAsync(new GenerationRequest { Kind = ProviderKinds.Audio, Prompt = "hi" }))
+        var chunks = new List<MediaChunk>();
+        await foreach (var chunk in provider.StreamAsync(new MediaRequest { Kind = ProviderKinds.Audio, Prompt = "hi" }))
             chunks.Add(chunk);
 
         Assert.Equal(2, chunks.Count(c => c.Data is { Length: > 0 }));
@@ -88,7 +88,7 @@ public class GenerationProviderSeamTests
 /// <para>It exists because the assertion it replaces could not fail. Until 2026-09-16 the Stream arm read
 /// <c>Assert.True(provider is IModelProvider, …)</c> against a parameter already typed
 /// <see cref="IModelProvider"/> — always true. It was a real type test before <b>D127</b> collapsed the
-/// domain seams and turned <c>StreamAsync(GenerationRequest, …)</c> into a default interface member; the
+/// domain seams and turned <c>StreamAsync(MediaRequest, …)</c> into a default interface member; the
 /// rename made every backend "implement" it, and the fact went vacuous in the same release, silently. A
 /// test that cannot fail reports coverage it does not have, which is worse than no test.</para></summary>
 public class DeclaredDeliveryIsBackedTests

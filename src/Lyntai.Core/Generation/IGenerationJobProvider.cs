@@ -20,7 +20,7 @@ public interface IGenerationJobProvider
 {
     /// <summary>Submit the request and return immediately with an operation to track. Fails safe: a rejected
     /// submission comes back as a <see cref="QueuedOperationStatus.Failed"/> operation with a reason.</summary>
-    Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default);
+    Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default);
 
     /// <summary>Ask the backend where an operation is. Cheap and safe to call repeatedly; carries
     /// <see cref="QueuedOperation.Progress"/> where the backend reports it.</summary>
@@ -28,7 +28,7 @@ public interface IGenerationJobProvider
 
     /// <summary>Collect the artifacts of a SUCCEEDED operation. Callable from anywhere that has the id —
     /// including an app's webhook handler.</summary>
-    Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default);
+    Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default);
 
     /// <summary>Ask the backend to abandon the operation, where it supports that. A backend that cannot
     /// cancel should say so in the returned detail rather than throw.</summary>

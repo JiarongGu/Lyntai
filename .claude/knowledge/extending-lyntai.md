@@ -213,7 +213,7 @@ names what it REGISTERS with the vendor as the qualifier (**D137**), so the suff
 **D67**). If you are adding a backend, the practical consequence is: **put anything you are unsure of behind
 an OPTION rather than a literal**, which is what makes a wrong guess a consumer's config edit instead of your
 major bump. The `Lyntai.Generation` **NAMESPACE** is still a different thing from the package:
-`GenerationResult`, `ProviderVerdictClassifier`, the routing policy and the rest of the contracts ship
+`MediaResponse`, `ProviderVerdictClassifier`, the routing policy and the rest of the contracts ship
 inside mandatory `Lyntai.Core` — a distinction worth keeping straight, since `docs/DECISIONS.md` D36 did
 verdict-translation fix and treated it as major-bump material.
 

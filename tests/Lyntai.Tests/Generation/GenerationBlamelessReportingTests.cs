@@ -25,7 +25,7 @@ namespace Lyntai.Tests.Generation;
 /// have swapped one cost for the other.</para></summary>
 public class GenerationBlamelessReportingTests
 {
-    private static GenerationRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
+    private static MediaRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
     private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
@@ -192,10 +192,10 @@ public class GenerationBlamelessReportingTests
         public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
             Task.FromResult(new ProviderProbeResult(true, "up"));
 
-        public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
+        public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
         {
             GenerateCalls++;
-            return Task.FromResult(GenerationResult.Failure(Verdict, Detail));
+            return Task.FromResult(MediaResponse.Failure(Verdict, Detail));
         }
     }
 }
@@ -208,7 +208,7 @@ public class GenerationBlamelessReportingTests
 [Collection("verdict-matchers")]
 public class GenerationSubmitBlamelessReportingTests
 {
-    private static GenerationRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
+    private static MediaRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
@@ -269,17 +269,17 @@ public class GenerationSubmitBlamelessReportingTests
         public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
             Task.FromResult(new ProviderProbeResult(true, "up"));
 
-        public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "job backend"));
+        public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported, "job backend"));
 
-        public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
+        public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default) =>
             Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: Detail));
 
         public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Failed));
 
-        public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "nothing"));
+        public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
+            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Failed, "nothing"));
 
         public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));

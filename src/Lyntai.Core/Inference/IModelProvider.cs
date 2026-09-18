@@ -58,12 +58,12 @@ public interface IModelProvider : IProviderIdentity
         ProviderDefaults.One(TextChunk.Error(ProviderVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
 
     /// <summary>Media in, media out — one request, artifacts back.</summary>
-    Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(new GenerationResult(ProviderVerdict.Unsupported, [], Detail: ProviderDefaults.NotServed(Id, nameof(GenerateAsync))));
+    Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+        Task.FromResult(new MediaResponse(ProviderVerdict.Unsupported, [], Detail: ProviderDefaults.NotServed(Id, nameof(GenerateAsync))));
 
     /// <summary>Media out incrementally. Ends with exactly one terminal chunk either way.</summary>
-    IAsyncEnumerable<GenerationChunk> StreamAsync(GenerationRequest request, CancellationToken ct = default) =>
-        ProviderDefaults.One(GenerationChunk.Failure(ProviderVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
+    IAsyncEnumerable<MediaChunk> StreamAsync(MediaRequest request, CancellationToken ct = default) =>
+        ProviderDefaults.One(MediaChunk.Failure(ProviderVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
 }
 
 /// <summary>The bodies <see cref="IModelProvider"/>'s defaults delegate to — an interface cannot hold an

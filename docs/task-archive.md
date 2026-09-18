@@ -4358,3 +4358,26 @@ convention instead of from your own model.
 **A review also caught new public surface with no test**: `AddProvider<T>(declares)` had none, and the test
 claiming to cover it called the factory overload twice — the same collapsed-arms defect the file's own
 comment records from D151, reintroduced within the change that quoted it.
+
+## Part 247 — the MEDIA call shape is `Media*`, in `Lyntai.Inference` (D154 NS-3b)
+
+✅ done 2026-09-18 — **Outcome:** `Generation{Request,Result,Chunk,Usage,Artifact,Input,InputRoles}` →
+`Media{Request,Response,Chunk,Usage,Artifact,Input,InputRoles}`, moved out of `Lyntai.Generation` into
+`Lyntai.Inference` beside the text, vector and score shapes. One rewrite per file: 664 occurrences over 66
+files, plus five `git mv`s and two splits (`MediaInput`, `MediaUsage` got their own files, matching the
+`Text*` layout). `GenerationResult` → `MediaResponse` closes the last name disagreeing with
+`dotnet-package-layout.md` §Naming. Both `retiredTerms` and `retiredApiNames` gained an entry — the SURFACE
+half also backfills NS-3a, which had only registered the prose half. Detail in `CHANGELOG.md` §Unreleased.
+
+**The prefix check that NS-3a's trap demands was run and came back clean** — all seven types are read only
+by the media domain and by the shared seam (`IModelProvider`, `LyntaiDiagnostics`), which is the argument
+for moving them rather than against it. What KEPT the word is the finding: the domain machinery
+(`GenerationRouter`, `GenerationPipeline`, `IGenerationJobProvider`, the media tools) and the telemetry
+names, which are a consumer's subscription string rather than a type.
+
+**Left for the step that decides `Lyntai.Generation`'s residual membership:** the root namespace now holds
+exactly two types, `IGenerationJobProvider` and the internal `GenerationJson`. A seam whose whole signature
+is `Lyntai.Inference` types sitting alone under a domain root is the same shape D153 used to justify
+`IVectorProvider`'s home.
+
+- **NS-3b — the MEDIA call shape: rename AND move in one pass.**

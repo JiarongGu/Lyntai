@@ -1,4 +1,3 @@
-using Lyntai.Generation;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
@@ -83,7 +82,7 @@ public class BoundedProviderPoolTests
 
         pool.Retire(Key("a"));
 
-        var result = await inFlight.GenerateAsync(new GenerationRequest { Kind = "image", Prompt = "a cat" });
+        var result = await inFlight.GenerateAsync(new MediaRequest { Kind = "image", Prompt = "a cat" });
         Assert.True(result.IsOk);
     }
 

@@ -1,4 +1,3 @@
-using Lyntai.Generation;
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Llm;
@@ -15,9 +14,9 @@ namespace Lyntai.Tests.Lifecycle;
 /// behave exactly as it did before this seam existed.</para></summary>
 public class RouterCooldownKeyTests
 {
-    private static GenerationRequest Request() => new() { Kind = ProviderKinds.Image, Prompt = "a cat" };
+    private static MediaRequest Request() => new() { Kind = ProviderKinds.Image, Prompt = "a cat" };
 
-    private static GenerationRequest VideoRequest() => new() { Kind = ProviderKinds.Video, Prompt = "a cat" };
+    private static MediaRequest VideoRequest() => new() { Kind = ProviderKinds.Video, Prompt = "a cat" };
 
     private static List<ProviderCandidate> Candidates(params string[] ids) =>
         [.. ids.Select(id => new ProviderCandidate(id))];
@@ -326,13 +325,13 @@ public class RouterCooldownKeyTests
         public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
             Task.FromResult(new ProviderProbeResult(true, "ready"));
 
-        public async Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
+        public async Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default)
         {
             Interlocked.Increment(ref _concurrent);
             Entered.TrySetResult();
             await _gate.Task.ConfigureAwait(false);
             Interlocked.Decrement(ref _concurrent);
-            return GenerationResult.Success([new GenerationArtifact("image/png", Data: [0x89])]);
+            return MediaResponse.Success([new MediaArtifact("image/png", Data: [0x89])]);
         }
 
         public void Release() => _gate.TrySetResult();

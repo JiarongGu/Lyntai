@@ -1,10 +1,10 @@
-using Lyntai.Generation;
+using Lyntai.Inference;
 
 namespace Lyntai.Tests.Generation;
 
 /// <summary>The named factories exist because the positional constructor is a SILENT-misbinding trap: three of
-/// <c>GenerationInput(string MediaType, byte[]? Data, string? Uri, string? Role)</c>'s four slots are strings
-/// and <c>Role</c> is last, so <c>new GenerationInput(GenerationInputRoles.Init, bytes, "image/png")</c>
+/// <c>MediaInput(string MediaType, byte[]? Data, string? Uri, string? Role)</c>'s four slots are strings
+/// and <c>Role</c> is last, so <c>new MediaInput(MediaInputRoles.Init, bytes, "image/png")</c>
 /// compiles clean, binds <c>"init"</c> to the media type and leaves the role NULL — an img2img request that
 /// degrades to text-to-image with no error anywhere (TASKS.md GEN10, reported from a real consumer).
 ///
@@ -17,22 +17,22 @@ public class GenerationInputFactoryTests
     [Fact]
     public void Init_bakes_the_role_the_positional_call_silently_loses()
     {
-        var input = GenerationInput.Init(Pixels, "image/png");
+        var input = MediaInput.Init(Pixels, "image/png");
 
-        Assert.Equal(GenerationInputRoles.Init, input.Role);
+        Assert.Equal(MediaInputRoles.Init, input.Role);
         Assert.Equal("image/png", input.MediaType);
         Assert.Same(Pixels, input.Data);
         Assert.Null(input.Uri);
     }
 
     [Theory]
-    [InlineData(GenerationInputRoles.Init)]
-    [InlineData(GenerationInputRoles.FirstFrame)]
-    [InlineData(GenerationInputRoles.Reference)]
-    [InlineData(GenerationInputRoles.Voice)]
+    [InlineData(MediaInputRoles.Init)]
+    [InlineData(MediaInputRoles.FirstFrame)]
+    [InlineData(MediaInputRoles.Reference)]
+    [InlineData(MediaInputRoles.Voice)]
     public void Every_well_known_role_has_a_factory(string role)
     {
-        // one factory per GenerationInputRoles constant — a role a caller can name but not construct safely
+        // one factory per MediaInputRoles constant — a role a caller can name but not construct safely
         // would just push them back to the positional ctor
         var input = ByRole(role);
 
@@ -45,9 +45,9 @@ public class GenerationInputFactoryTests
     {
         // System.Uri, not string, on purpose: with two strings the same media-type/uri transposition would be
         // back. A wrong type is a compile error; a wrong string is a silent one.
-        var input = GenerationInput.Reference(new Uri("https://example.invalid/style.png"), "image/png");
+        var input = MediaInput.Reference(new Uri("https://example.invalid/style.png"), "image/png");
 
-        Assert.Equal(GenerationInputRoles.Reference, input.Role);
+        Assert.Equal(MediaInputRoles.Reference, input.Role);
         Assert.Equal("https://example.invalid/style.png", input.Uri);
         Assert.Null(input.Data);
     }
@@ -55,14 +55,14 @@ public class GenerationInputFactoryTests
     [Fact]
     public void From_carries_a_role_the_platform_does_not_know_because_roles_are_open_strings()
     {
-        // GenerationInputRoles is constants, not an enum, so a backend may document its own role — the escape
+        // MediaInputRoles is constants, not an enum, so a backend may document its own role — the escape
         // hatch has to be as safe as the named four, which is why role comes FIRST here
-        var input = GenerationInput.From("mask", Pixels, "image/png");
+        var input = MediaInput.From("mask", Pixels, "image/png");
 
         Assert.Equal("mask", input.Role);
         Assert.Same(Pixels, input.Data);
 
-        var byUri = GenerationInput.From("mask", new Uri("https://example.invalid/m.png"), "image/png");
+        var byUri = MediaInput.From("mask", new Uri("https://example.invalid/m.png"), "image/png");
 
         Assert.Equal("mask", byUri.Role);
         Assert.Equal("https://example.invalid/m.png", byUri.Uri);
@@ -73,10 +73,10 @@ public class GenerationInputFactoryTests
     {
         // an empty media type or a null payload reaches the backend as a malformed multipart part or an
         // unreadable input — loudly here beats mysteriously there
-        Assert.Throws<ArgumentNullException>(() => GenerationInput.Init((byte[])null!, "image/png"));
-        Assert.Throws<ArgumentException>(() => GenerationInput.Init(Pixels, "  "));
-        Assert.Throws<ArgumentNullException>(() => GenerationInput.Voice((Uri)null!, "audio/wav"));
-        Assert.Throws<ArgumentException>(() => GenerationInput.From(" ", Pixels, "image/png"));
+        Assert.Throws<ArgumentNullException>(() => MediaInput.Init((byte[])null!, "image/png"));
+        Assert.Throws<ArgumentException>(() => MediaInput.Init(Pixels, "  "));
+        Assert.Throws<ArgumentNullException>(() => MediaInput.Voice((Uri)null!, "audio/wav"));
+        Assert.Throws<ArgumentException>(() => MediaInput.From(" ", Pixels, "image/png"));
     }
 
     [Fact]
@@ -84,17 +84,17 @@ public class GenerationInputFactoryTests
     {
         // ToInput is the OTHER way to build an input (pipeline chaining) and already takes the role explicitly;
         // the two paths must produce the same shape or a pipeline stage and a hand-built stage would differ
-        var artifact = new GenerationArtifact("image/png", Pixels);
+        var artifact = new MediaArtifact("image/png", Pixels);
 
-        Assert.Equal(GenerationInput.Init(Pixels, "image/png"), artifact.ToInput(GenerationInputRoles.Init));
+        Assert.Equal(MediaInput.Init(Pixels, "image/png"), artifact.ToInput(MediaInputRoles.Init));
     }
 
-    private static GenerationInput ByRole(string role) => role switch
+    private static MediaInput ByRole(string role) => role switch
     {
-        GenerationInputRoles.Init => GenerationInput.Init(Pixels, "image/png"),
-        GenerationInputRoles.FirstFrame => GenerationInput.FirstFrame(Pixels, "image/png"),
-        GenerationInputRoles.Reference => GenerationInput.Reference(Pixels, "image/png"),
-        GenerationInputRoles.Voice => GenerationInput.Voice(Pixels, "audio/wav"),
+        MediaInputRoles.Init => MediaInput.Init(Pixels, "image/png"),
+        MediaInputRoles.FirstFrame => MediaInput.FirstFrame(Pixels, "image/png"),
+        MediaInputRoles.Reference => MediaInput.Reference(Pixels, "image/png"),
+        MediaInputRoles.Voice => MediaInput.Voice(Pixels, "audio/wav"),
         _ => throw new ArgumentOutOfRangeException(nameof(role)),
     };
 }

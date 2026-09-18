@@ -45,8 +45,8 @@
 //     re-shaping or dropping whatever failed and recompiling, and a block is passed only by a compilation
 //     in which nothing at all errored. Anything else is a green light over unbound code.
 //  2. A TYPE DECLARED IN SOURCE BEATS THE SAME TYPE FROM A REFERENCED ASSEMBLY, compilation-wide (CS0436 is
-//     a WARNING). So one sample opening `namespace Lyntai.Generation;` silently redefines the real
-//     `GenerationRequest` for every OTHER sample in the same batch, which then verify against the doc's
+//     a WARNING). So one sample opening `namespace Lyntai.Inference;` silently redefines the real
+//     `MediaRequest` for every OTHER sample in the same batch, which then verify against the doc's
 //     type instead of the library's. Blocks that declare a namespace under the library root are compiled
 //     ISOLATED, one build each, for that reason — never batched.
 //

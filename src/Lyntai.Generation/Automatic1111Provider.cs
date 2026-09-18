@@ -34,9 +34,9 @@ public sealed class Automatic1111Options
     /// the host's own GPU legitimately runs for minutes (which is why <c>AddAutomatic1111Provider</c> gives its
     /// client an infinite <see cref="HttpClient"/> timeout rather than the 100-second default), but bounded: a
     /// WebUI wedged mid-render answers nothing at all, and without a deadline that hangs a background render
-    /// forever. A request's own <see cref="GenerationRequest.TimeoutSeconds"/> overrides it.
+    /// forever. A request's own <see cref="MediaRequest.TimeoutSeconds"/> overrides it.
     /// <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline — a request that carries its own
-    /// <see cref="GenerationRequest.TimeoutSeconds"/> still imposes one, since the more specific instruction
+    /// <see cref="MediaRequest.TimeoutSeconds"/> still imposes one, since the more specific instruction
     /// wins either way.</summary>
     public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(10);
 }
@@ -51,7 +51,7 @@ public sealed class Automatic1111Options
 /// (<see cref="Routing.GenerationRoutingPolicy"/>).
 ///
 /// <b>The loaded checkpoint decides the model, not the request.</b> The payload carries prompt, size, steps and
-/// CFG only, so <see cref="GenerationRequest.Model"/> is NOT honoured — including a candidate's
+/// CFG only, so <see cref="MediaRequest.Model"/> is NOT honoured — including a candidate's
 /// <c>"a1111:some-checkpoint"</c> pin, which the router applies to the request and this backend then ignores.
 /// The render uses whatever checkpoint the WebUI currently holds (<see cref="ProbeAsync"/> reports which), and a
 /// host that needs a specific one switches it in the WebUI. Every local backend answers "what decides the
@@ -117,25 +117,25 @@ public sealed class Automatic1111Provider(
     }
 
     /// <inheritdoc/>
-    /// <remarks>Runs under a deadline: the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it
+    /// <remarks>Runs under a deadline: the request's <see cref="MediaRequest.TimeoutSeconds"/> if it
     /// carries one, else <see cref="Automatic1111Options.Timeout"/>. A fired deadline is a
     /// <see cref="ProviderVerdict.Timeout"/> result; <paramref name="ct"/> keeps its own meaning and still
     /// propagates as cancellation.</remarks>
-    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
+    public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
             token => GenerateCoreAsync(request, token),
-            reason => GenerationResult.Failure(ProviderVerdict.Timeout, $"the render {reason}"));
+            reason => MediaResponse.Failure(ProviderVerdict.Timeout, $"the render {reason}"));
 
-    private async Task<GenerationResult> GenerateCoreAsync(GenerationRequest request, CancellationToken ct)
+    private async Task<MediaResponse> GenerateCoreAsync(MediaRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
-            return GenerationResult.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
+            return MediaResponse.Failure(ProviderVerdict.NotConfigured, "no BaseUrl configured");
 
         var source = request.Inputs.FirstOrDefault();
         if (source is not null && source.Data is not { Length: > 0 })
-            return GenerationResult.Failure(ProviderVerdict.Unsupported,
-                "img2img needs the source BYTES; supply GenerationInput.Data rather than a URI");
+            return MediaResponse.Failure(ProviderVerdict.Unsupported,
+                "img2img needs the source BYTES; supply MediaInput.Data rather than a URI");
 
         var (width, height) = Size(request);
         // JsonObject, not an anonymous type: reflection serialization would break this package's
@@ -174,26 +174,26 @@ public sealed class Automatic1111Provider(
             // does not exist. AuthFailed is the honest answer — the host's proxy rejected us. "Not set up yet"
             // already has its own two routes here: no BaseUrl, and the not-reachable arm below.
             if (!response.IsSuccessStatusCode)
-                return GenerationResult.Failure(
+                return MediaResponse.Failure(
                     ProviderVerdictClassifier.FromHttpFailure(response.StatusCode, body),
                     HttpArtifacts.FailureDetail(body));
 
             var artifacts = HttpArtifacts.FromWebUiEnvelope(body);
             return artifacts.Count > 0
-                ? GenerationResult.Success(artifacts, new GenerationUsage(Count: artifacts.Count))
-                : GenerationResult.Failure(ProviderVerdict.Failed,
+                ? MediaResponse.Success(artifacts, new MediaUsage(Count: artifacts.Count))
+                : MediaResponse.Failure(ProviderVerdict.Failed,
                     $"no image in the response: {HttpArtifacts.FailureDetail(body, 200)}");
         }
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException ex)
         {
             // a local server that isn't running is NOT a fault to penalise — it's an unconfigured candidate
-            return GenerationResult.Failure(ProviderVerdict.NotConfigured,
+            return MediaResponse.Failure(ProviderVerdict.NotConfigured,
                 $"the WebUI at {Root} is not reachable: {ex.Message}");
         }
         catch (Exception ex)
         {
-            return GenerationResult.Failure(ProviderVerdictClassifier.FromException(ex), ex.Message);
+            return MediaResponse.Failure(ProviderVerdictClassifier.FromException(ex), ex.Message);
         }
     }
 
@@ -202,7 +202,7 @@ public sealed class Automatic1111Provider(
     /// <summary><c>"768x512"</c> → (768, 512); anything unparseable — or numeric but non-positive, such as
     /// <c>"0x0"</c> — falls back to the configured default rather than failing the call, because a bad size hint
     /// is not worth losing a generation over.</summary>
-    private (int Width, int Height) Size(GenerationRequest request)
+    private (int Width, int Height) Size(MediaRequest request)
     {
         if (request.Option("size") is { Length: > 0 } size)
         {

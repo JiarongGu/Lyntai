@@ -1,4 +1,3 @@
-using Lyntai.Generation;
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Llm.Routing;
@@ -17,7 +16,7 @@ namespace Lyntai.Tests.Generation;
 /// count is taken fixes only the first.</para></summary>
 public class GenerationRouterDedupTests
 {
-    private static GenerationRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
+    private static MediaRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
     private static DeadHostTracker Benching() => new(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
 

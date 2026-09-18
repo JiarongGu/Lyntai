@@ -28,7 +28,7 @@ namespace Lyntai.Generation.Providers;
 /// does.</para></summary>
 internal static class GenerationDeadline
 {
-    /// <summary>Resolve one call's budget: an explicit <see cref="GenerationRequest.TimeoutSeconds"/> wins
+    /// <summary>Resolve one call's budget: an explicit <see cref="MediaRequest.TimeoutSeconds"/> wins
     /// (the most specific thing a caller can say), else the backend's configured default. A non-positive
     /// request value is not a budget and is ignored — the same rule as
     /// <c>LyntaiOptions.ResolveTimeout</c>.</summary>

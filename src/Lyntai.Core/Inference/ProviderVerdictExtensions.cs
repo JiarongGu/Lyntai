@@ -18,7 +18,7 @@ namespace Lyntai.Inference;
 /// </summary>
 public static class ProviderVerdictExtensions
 {
-    /// <summary>The call produced an answer. Mirrors <c>Lyntai.Generation.GenerationResult.IsOk</c> — the
+    /// <summary>The call produced an answer. Mirrors <see cref="MediaResponse.IsOk"/> — the
     /// same question gets the same name in both domains.</summary>
     public static bool IsOk(this ProviderVerdict verdict) => verdict == ProviderVerdict.Ok;
 

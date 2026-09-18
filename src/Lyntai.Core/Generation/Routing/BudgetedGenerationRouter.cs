@@ -41,11 +41,11 @@ public sealed class BudgetedGenerationRouter(
     private readonly ILogger _logger = logger ?? NullLogger<BudgetedGenerationRouter>.Instance;
 
     /// <inheritdoc/>
-    public async Task<GenerationResult> GenerateAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+    public async Task<MediaResponse> GenerateAsync(
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
-            return GenerationResult.Failure(ProviderVerdict.Refused, reason);
+            return MediaResponse.Failure(ProviderVerdict.Refused, reason);
 
         var result = await inner.GenerateAsync(candidates, request, ct).ConfigureAwait(false);
         await RecordAsync(request.Consumer, result.Usage, ct).ConfigureAwait(false);
@@ -58,7 +58,7 @@ public sealed class BudgetedGenerationRouter(
     /// itself is only known when the render finishes, which is why <c>GenerationRenderJobHandler</c> records
     /// it: this decorator never sees the completed result.</remarks>
     public async Task<GenerationSubmission> SubmitAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
             return new GenerationSubmission("",
@@ -72,19 +72,19 @@ public sealed class BudgetedGenerationRouter(
     /// one door straight through would make streaming the cheapest way to spend past a cap, which is the
     /// <c>pitfalls.md</c> § "Second doors" shape — a capability enforced at one entry point is not enforced
     /// when a second entry point reaches the same objects.
-    /// <para>The refusal is delivered as a terminal <see cref="GenerationChunk.Failure"/> rather than a
+    /// <para>The refusal is delivered as a terminal <see cref="MediaChunk.Failure"/> rather than a
     /// thrown exception, because a caller writing <c>await foreach</c> should learn about a budget refusal
     /// the same way they learn about a backend refusal.</para>
-    /// <para>Cost is recorded from the terminal chunk's <see cref="GenerationChunk.Usage"/>, which is the
+    /// <para>Cost is recorded from the terminal chunk's <see cref="MediaChunk.Usage"/>, which is the
     /// only place a streaming backend can report it — the total is not known until the stream ends. A backend
     /// that reports none records none, exactly as on the inline path.</para></remarks>
-    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
-        IReadOnlyList<ProviderCandidate> candidates, GenerationRequest request,
+    public async IAsyncEnumerable<MediaChunk> StreamAsync(
+        IReadOnlyList<ProviderCandidate> candidates, MediaRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
         {
-            yield return GenerationChunk.Failure(ProviderVerdict.Refused, reason);
+            yield return MediaChunk.Failure(ProviderVerdict.Refused, reason);
             yield break;
         }
 
@@ -104,12 +104,12 @@ public sealed class BudgetedGenerationRouter(
     /// Recording generation spend is something the library's own components do on a caller's behalf; if it
     /// ever becomes a consumer capability it belongs on <see cref="IUsageTracker"/>, not on a router decorator.</para></summary>
     internal static ValueTask RecordAsync(
-        IUsageTracker tracker, string consumer, GenerationUsage? usage, CancellationToken ct = default) =>
+        IUsageTracker tracker, string consumer, MediaUsage? usage, CancellationToken ct = default) =>
         usage?.CostUsd is { } cost && cost > 0
             ? tracker.RecordAsync(consumer, new TextUsage(0, 0, 0, cost), ct)
             : ValueTask.CompletedTask;
 
-    private ValueTask RecordAsync(string consumer, GenerationUsage? usage, CancellationToken ct) =>
+    private ValueTask RecordAsync(string consumer, MediaUsage? usage, CancellationToken ct) =>
         RecordAsync(tracker, consumer, usage, ct);
 
     /// <summary>The refusal reason when a COST cap that applies to <paramref name="consumer"/> has been

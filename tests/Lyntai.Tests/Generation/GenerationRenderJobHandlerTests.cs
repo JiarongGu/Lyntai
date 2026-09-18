@@ -1,4 +1,3 @@
-using Lyntai.Generation;
 using Lyntai.Generation.Jobs;
 using Lyntai.Generation.Routing;
 using Lyntai.Jobs;
@@ -52,7 +51,7 @@ public class GenerationRenderJobHandlerTests
 
     private static string Payload() => new GenerationRenderJob(
         ["video"],
-        new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "a cat surfing" }).ToJson();
+        new MediaRequest { Kind = ProviderKinds.Video, Prompt = "a cat surfing" }).ToJson();
 
     [Fact]
     public void It_handles_one_well_known_job_type()
@@ -143,7 +142,7 @@ public class GenerationRenderJobHandlerTests
         var handler = new GenerationRenderJobHandler(new GenerationRouter(providers), providers, new CollectingSink());
 
         var outcome = await handler.HandleAsync(new RecordingContext().Build(
-            new GenerationRenderJob(["image-only"], new GenerationRequest { Kind = ProviderKinds.Video }).ToJson()));
+            new GenerationRenderJob(["image-only"], new MediaRequest { Kind = ProviderKinds.Video }).ToJson()));
 
         Assert.Equal(JobOutcome.Kind.Fail, outcome.Result);
         Assert.Contains("no capable", outcome.Error);
@@ -182,7 +181,7 @@ public class GenerationRenderJobHandlerTests
         // Core is AOT-compatible, so payloads are hand-written JSON rather than reflection-serialized
         var job = new GenerationRenderJob(
             ["fal:wan-t2v", "comfyui"],
-            new GenerationRequest
+            new MediaRequest
             {
                 Kind = ProviderKinds.Video,
                 Prompt = "a cat surfing",
@@ -193,7 +192,7 @@ public class GenerationRenderJobHandlerTests
                     ["duration"] = "5",
                     ["size"] = "1280x720",
                 },
-                Inputs = [new GenerationInput("image/png", Data: [1, 2, 3], Role: GenerationInputRoles.FirstFrame)],
+                Inputs = [new MediaInput("image/png", Data: [1, 2, 3], Role: MediaInputRoles.FirstFrame)],
             });
 
         var parsed = GenerationRenderJob.Parse(job.ToJson());
@@ -209,6 +208,6 @@ public class GenerationRenderJobHandlerTests
         var input = Assert.Single(parsed.Request.Inputs);
         Assert.Equal("image/png", input.MediaType);
         Assert.Equal([1, 2, 3], input.Data);                                 // bytes survive the round trip
-        Assert.Equal(GenerationInputRoles.FirstFrame, input.Role);
+        Assert.Equal(MediaInputRoles.FirstFrame, input.Role);
     }
 }

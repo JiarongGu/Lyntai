@@ -2,7 +2,6 @@ using Lyntai.Inference;
 using System.Text.Json;
 using Lyntai;
 using Lyntai.Agents;
-using Lyntai.Generation;
 using Lyntai.Generation.Jobs;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;

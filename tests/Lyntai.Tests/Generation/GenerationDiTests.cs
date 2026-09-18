@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Generation;
 using Lyntai.Generation.Routing;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
@@ -75,7 +74,7 @@ public class GenerationDiTests
         var router = sp.GetRequiredService<IGenerationRouter>();
 
         var result = await router.GenerateAsync(options.DefaultCandidates,
-            new GenerationRequest { Kind = ProviderKinds.Image, Prompt = "x" });
+            new MediaRequest { Kind = ProviderKinds.Image, Prompt = "x" });
 
         Assert.True(result.IsOk);
         Assert.Equal(["a"], options.DefaultCandidates.Select(c => c.ProviderId));

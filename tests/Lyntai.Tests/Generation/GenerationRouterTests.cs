@@ -1,4 +1,3 @@
-using Lyntai.Generation;
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
@@ -12,9 +11,9 @@ public class GenerationRouterTests
 {
     private static GenerationRouter Router(params IModelProvider[] providers) => new(providers);
 
-    private static GenerationRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
+    private static MediaRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
-    private static GenerationRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
+    private static MediaRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     [Fact]
     public async Task It_generates_through_the_first_capable_candidate()
@@ -155,7 +154,7 @@ public class GenerationRouterTests
 
         var result = await Router(blind).GenerateAsync(
             [new ProviderCandidate("no-inputs")],
-            Image() with { Inputs = [GenerationInput.Init(new byte[] { 1, 2, 3 }, "image/png")] });
+            Image() with { Inputs = [MediaInput.Init(new byte[] { 1, 2, 3 }, "image/png")] });
 
         Assert.False(result.IsOk);
         Assert.Equal(0, blind.GenerateCalls);
@@ -270,7 +269,7 @@ public class GenerationRouterTests
         var video = new FakeGenerationJobProvider { Id = "video-backend" };
 
         var submission = await Router(video).SubmitAsync(
-            [new ProviderCandidate("video-backend")], new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "x" });
+            [new ProviderCandidate("video-backend")], new MediaRequest { Kind = ProviderKinds.Video, Prompt = "x" });
 
         Assert.Equal("video-backend", submission.ProviderId);
         Assert.Equal("op-1", submission.Operation.Id);
@@ -283,7 +282,7 @@ public class GenerationRouterTests
         var image = new FakeGenerationProvider { Id = "image-backend" };
 
         var submission = await Router(image).SubmitAsync(
-            [new ProviderCandidate("image-backend")], new GenerationRequest { Kind = ProviderKinds.Video, Prompt = "x" });
+            [new ProviderCandidate("image-backend")], new MediaRequest { Kind = ProviderKinds.Video, Prompt = "x" });
 
         Assert.Equal(QueuedOperationStatus.Failed, submission.Operation.Status);
         Assert.Contains("no capable", submission.Operation.Detail);

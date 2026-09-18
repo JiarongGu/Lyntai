@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Lyntai.Inference;
 using Lyntai.Text;
 
 namespace Lyntai.Generation.Providers;
@@ -27,7 +28,7 @@ internal static class HttpArtifacts
     /// <summary>Read the OpenAI-compatible images envelope: <c>{ data: [ { b64_json | url } ] }</c>.
     /// A URL is returned AS a URI artifact rather than downloaded — the platform never spends the caller's
     /// bandwidth (or guesses at auth for someone else's host) uninvited.</summary>
-    public static IReadOnlyList<GenerationArtifact> FromOpenAiEnvelope(string body, string mediaType = "image/png")
+    public static IReadOnlyList<MediaArtifact> FromOpenAiEnvelope(string body, string mediaType = "image/png")
     {
         if (!JsonExtract.TryParseObject(body, out var doc)) return [];
         using (doc)
@@ -35,21 +36,21 @@ internal static class HttpArtifacts
             if (!doc.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
                 return [];
 
-            var artifacts = new List<GenerationArtifact>();
+            var artifacts = new List<MediaArtifact>();
             foreach (var item in data.EnumerateArray())
             {
                 if (item.ValueKind != JsonValueKind.Object) continue;
                 if (Str(item, "b64_json") is { } b64 && DecodeBase64(b64) is { } bytes)
-                    artifacts.Add(new GenerationArtifact(mediaType, Data: bytes, Metadata: RevisedPrompt(item)));
+                    artifacts.Add(new MediaArtifact(mediaType, Data: bytes, Metadata: RevisedPrompt(item)));
                 else if (Str(item, "url") is { } url)
-                    artifacts.Add(new GenerationArtifact(mediaType, Uri: url, Metadata: RevisedPrompt(item)));
+                    artifacts.Add(new MediaArtifact(mediaType, Uri: url, Metadata: RevisedPrompt(item)));
             }
             return artifacts;
         }
     }
 
     /// <summary>Read the Stable Diffusion WebUI envelope: <c>{ images: [ "&lt;base64&gt;" ] }</c>.</summary>
-    public static IReadOnlyList<GenerationArtifact> FromWebUiEnvelope(string body, string mediaType = "image/png")
+    public static IReadOnlyList<MediaArtifact> FromWebUiEnvelope(string body, string mediaType = "image/png")
     {
         if (!JsonExtract.TryParseObject(body, out var doc)) return [];
         using (doc)
@@ -57,10 +58,10 @@ internal static class HttpArtifacts
             if (!doc.RootElement.TryGetProperty("images", out var images) || images.ValueKind != JsonValueKind.Array)
                 return [];
 
-            var artifacts = new List<GenerationArtifact>();
+            var artifacts = new List<MediaArtifact>();
             foreach (var item in images.EnumerateArray())
                 if (item.ValueKind == JsonValueKind.String && DecodeBase64(item.GetString()) is { } bytes)
-                    artifacts.Add(new GenerationArtifact(mediaType, Data: bytes));
+                    artifacts.Add(new MediaArtifact(mediaType, Data: bytes));
             return artifacts;
         }
     }
@@ -112,7 +113,7 @@ internal static class HttpArtifacts
     /// <para>ONE table, because two had already drifted: fal's copy was missing <c>.gif</c> and
     /// <c>.flac</c>, so the same extension became <c>audio/flac</c> from one backend and
     /// <c>application/octet-stream</c> from the other — and that media type is what a consumer's
-    /// <c>IGenerationArtifactSink</c> switches on and what <c>GenerationArtifact.ToInput</c> carries into
+    /// <c>IGenerationArtifactSink</c> switches on and what <c>MediaArtifact.ToInput</c> carries into
     /// the next stage of a chain.</para>
     /// <para>Extension EXTRACTION stays per-backend: ComfyUI reports a filename, fal a URL that may carry a
     /// query string. Those are genuinely different inputs; the mapping is not.</para></summary>

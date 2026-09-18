@@ -21,7 +21,7 @@ namespace Lyntai.Tests.Generation;
 [Collection("verdict-matchers")]
 public class GenerationSubmitFallbackTests
 {
-    private static GenerationRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
+    private static MediaRequest Video() => new() { Kind = ProviderKinds.Video, Prompt = "a cat surfing" };
 
     private static ProviderCandidate[] Order(params string[] ids) => [.. ids.Select(id => new ProviderCandidate(id))];
 
@@ -212,10 +212,10 @@ public class GenerationSubmitFallbackTests
         public Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default) =>
             Task.FromResult(new ProviderProbeResult(true, "up"));
 
-        public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Unsupported, "job backend"));
+        public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
+            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported, "job backend"));
 
-        public Task<QueuedOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
+        public Task<QueuedOperation> SubmitAsync(MediaRequest request, CancellationToken ct = default)
         {
             SubmitCalls++;
             return Task.FromResult(new QueuedOperation("", QueuedOperationStatus.Failed, Detail: Detail));
@@ -224,8 +224,8 @@ public class GenerationSubmitFallbackTests
         public Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Failed));
 
-        public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
-            Task.FromResult(GenerationResult.Failure(ProviderVerdict.Failed, "nothing"));
+        public Task<MediaResponse> FetchAsync(string operationId, CancellationToken ct = default) =>
+            Task.FromResult(MediaResponse.Failure(ProviderVerdict.Failed, "nothing"));
 
         public Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
             Task.FromResult(new QueuedOperation(operationId, QueuedOperationStatus.Cancelled));

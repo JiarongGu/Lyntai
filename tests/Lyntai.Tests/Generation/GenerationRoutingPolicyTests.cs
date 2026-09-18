@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Generation;
 using Lyntai.Generation.Routing;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +12,7 @@ namespace Lyntai.Tests.Generation;
 /// ends the run or moves to the next candidate.</summary>
 public class GenerationRoutingPolicyTests
 {
-    private static GenerationRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "x" };
+    private static MediaRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "x" };
 
     [Fact]
     public void The_defaults_mirror_the_LLM_router_so_one_mental_model_covers_both_domains()

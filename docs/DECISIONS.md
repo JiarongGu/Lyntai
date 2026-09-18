@@ -223,8 +223,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D151](#d151--an-embedder-is-a-capability-not-a-front-door-iembedder-is-removed-2026-09-17) | 2026-09-17 | an embedder is a CAPABILITY, not a front door: `IEmbedder` is removed |
 | [D152](#d152--a-provider-is-named-for-its-backend-the-noun-is-vector-the-verb-is-embed-2026-09-17) | 2026-09-17 | a PROVIDER is named for its backend; the NOUN is `Vector`, the VERB is `Embed` |
 | [D153](#d153--a-seam-per-signature-over-a-generic-routed-base-2026-09-17) | 2026-09-17 | a seam per SIGNATURE, over a generic routed base |
+| [D154](#d154--a-namespace-names-a-subject-a-consumer-has-and-a-call-shape-is-named-for-what-it-produces-2026-09-18) | 2026-09-18 | a namespace names a SUBJECT a consumer has, and a call shape is named for what it PRODUCES |
 
-_All 153 entries are live decisions._
+_All 154 entries are live decisions._
 
 <!-- index:end -->
 
@@ -642,7 +643,7 @@ is wrong at runtime. Where that is possible the type gets named factory methods 
 meaning explicit at the call site, and the raw constructor stops being the obvious path.
 
 **The test is not "same-typed slots" — it is "misbinds into something that still WORKS".**
-`GenerationInput(MediaType, Data, Uri, Role)` is the case: with `Role` last, the plausible positional call
+`GenerationInput(MediaType, Data, Uri, Role)` is the case: with `Role` last, the plausible positional call <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 binds a role string to the media type and leaves `Role` null, so an img2img request degrades silently to
 text-to-image — the caller's source image is ignored, a plausible image comes back, and nothing errors
 anywhere. Reported by a consuming app, caught only because a test asserted on `Role`.
@@ -651,7 +652,7 @@ Two things go with it:
 
 - **URI overloads take `System.Uri`, not `string`** — two adjacent strings would reintroduce the very
   transposition being fixed. A wrong type is a compile error; a wrong string is a silent one.
-- **`GenerationArtifact` was checked and does NOT get factories**, and the reason is the rule working rather
+- **`GenerationArtifact` was checked and does NOT get factories**, and the reason is the rule working rather <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
   than an exception to it. Its only same-typed pair is `MediaType`/`Uri`, transposing them requires
   explicitly passing `null` for the `byte[]` slot in between (at which point the caller is demonstrably
   counting slots), and there is no silent degradation — a wrong media type surfaces immediately and nothing
@@ -4325,7 +4326,7 @@ vocabulary.** The two routing policies genuinely differ — `RoutingPolicy` surf
 `GenerationRoutingPolicy` advances on it, and their unmapped defaults differ too — and none of that moved.
 A policy is a table over a shared vocabulary, exactly as **D136** said of the verdicts.
 
-**What is NOT merged, and the reason it looks like it should be:** `GenerationInputRoles` sits in the same
+**What is NOT merged, and the reason it looks like it should be:** `GenerationInputRoles` sits in the same <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 file and holds `init` / `first-frame` / `reference` / `voice`. Those are what an input IS TO a generation,
 not what a backend produces — the axis `ProviderCapabilities.Accepts` would pin if it ever needed that
 granularity. It keeps its own vocabulary and moves to its own file, so the next reader is not deciding by
@@ -4764,3 +4765,38 @@ eight injection points on the most load-bearing code here, which is the flag mul
 
 **`Job` is not a delivery mode's name here.** `Lyntai.Jobs` is the durable queue an APPLICATION runs, and
 the two compose rather than coincide, so the mode is `Queued` and its handle `QueuedOperation`.
+
+## D154 — a namespace names a SUBJECT a consumer has, and a call shape is named for what it PRODUCES (2026-09-18)
+
+**The decision.** Everything about CALLING a backend lives in one namespace, `Lyntai.Inference`, and each
+call family is named for the content kind it produces: `Text*`, `Vector*`, `Score*`, `Media*`. The four are
+peers under `IProviderCall<TRequest,TResponse>` (**D153**), so they share a home rather than keeping the
+three they grew up in — `Lyntai.Lifecycle` (seam, verdicts, vector and score shapes), `Lyntai.Llm` (text) <!-- drift-ok: the record names the namespace it retired -->
+and `Lyntai.Generation` (media).
+
+**What was wrong was a map contradicting its model.** D153 gave every family the same SHAPE and left them
+where they were, so a reader met three vocabularies for one idea. `Lyntai.Lifecycle` named about a third of <!-- drift-ok: the record names the namespace it retired -->
+what it held. `Llm` named a model CLASS and `Generation` named the ACT, where `Vector` and `Score` already
+named the content — and `Produces` is the axis a router selects on, so the content kind is the one the code
+agrees with (**D152** reached the same rule from the provider side).
+
+**The prefix trap, and it is the reusable half.** A domain prefix is evidence of where a type was BORN, not
+of what it belongs to. `LlmConsumers` is read by the media tools, so it became `ProviderConsumers`; a sweep <!-- drift-ok: the record names the type it renamed, which is this paragraph's whole subject -->
+trusting the prefix would have produced `TextConsumers`, which compiles, passes and then argues for a
+second media-side copy of a type that is already shared. Nothing here can catch that —
+`check-api-vocabulary` enforces retired names, not whether a kept name is true — so every member of a
+family is checked against its READERS before the rename. `.claude/knowledge/pitfalls.md` §Refactoring &
+namespace moves carries the procedure.
+
+**What KEEPS a domain word is the machinery, not the call.** `GenerationRouter`, `GenerationPipeline`,
+`GenerationRenderJob` and the media tools run a generation; they are not the shape of one. So are the
+telemetry names — `Lyntai.Generation` is an `ActivitySource` a consumer subscribes to by STRING, and
+renaming it would break a subscription no compiler can see.
+
+**The step that looked cheapest was REFUTED at implementation, and that is why the order was pure moves
+first.** `Lyntai.Llm.{Caching,Budgeting,RateLimiting,Cli}` were claimed to be domain-neutral; four of the <!-- drift-ok: the record names the namespace it retired -->
+five traffic in text types, and only `Streaming` was. A concern can be general while its only
+implementation is specific — the seam's SIGNATURE settles it, never the namespace's purpose.
+
+**It does NOT merge `TextRouter` and `MediaRouter`.** D153 refused that on eight recorded differences and
+nothing here changes them; they become neighbours, not one class.
