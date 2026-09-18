@@ -269,8 +269,11 @@ Measured at the defaults, on the increase term, with a stored stability of 100:
 | 5 | 1.12× | 1.35× | 1.66× |
 
 `SalienceRetentionPolicy` is registered for every graph engine, so a consumer who never mentions salience
-still gets this; `4.0` is `SalienceOptions.MaxSalience`'s own default, so the right-hand column is the most
-a shipped policy can report rather than a corner case. The inflation is LARGEST for the FRESHEST recalls —
+still gets this. **The shipped ceiling is the 2.5 column, not the 4.0 one**: `MaxSalience` defaults to 4, but
+at the shipped `NoveltyWeight` of 1.5 the reachable maximum is `1 + 1.5 x 1` = **2.5**, so the default
+ceiling sits outside the reachable range and never binds. Reaching the right-hand column takes a raised
+`NoveltyWeight` — which is the knob that scales magnitude — so read 4.0 as the headroom a re-tuned
+deployment has, never as what a default install reports. The inflation is LARGEST for the FRESHEST recalls —
 the opposite of the intuition that a retention signal matters most on rarely-touched entries — and it
 COMPOUNDS, because each inflated gain raises the base of the next.
 
@@ -728,9 +731,14 @@ services.AddLyntai(cfg => cfg
     .AddMemoryEngine("project", e => e.UseGraph(new GraphMemoryOptions
     {
         // The shipped depth factor of 4 was fitted against a PERFECT judge, for which depth is free
-        // because it never endorses junk. A real small model loses precision on a long list: halving
+        // because it never endorses junk. A real small model loses precision on a long list: HALVING
         // the depth took the same model from -10.5 points to +1.0 (docs/memory-measurements.md).
-        VerificationDepth = 40,
+        //
+        // 20 IS the halving, and the arithmetic is worth keeping because the number alone reads
+        // arbitrary: VerificationDepth is ABSOLUTE, and its default is DefaultVerificationDepthFactor
+        // (4) x the recall limit (DefaultLimit, 10) = 40. Writing 40 here would set the default and
+        // change nothing.
+        VerificationDepth = 20,
 
         // ...or leave the depth alone and stop the verdict PARTITIONING the page, which removes the
         // same loss. Either one; both together is untested.

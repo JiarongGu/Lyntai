@@ -74,7 +74,8 @@ public sealed class MyCliDialect : CliProviderDialectBase
     public override string DefaultCommand => "mycli";                   // resolved on PATH (shim-safe)
     public override IReadOnlyList<string> CommandEnvironmentVariables    // shared stub seam first
         => ["LYNTAI_PROVIDER_CMD", "MYCLI_CMD"];
-    public override IReadOnlyList<string> BuildCompletionArgs(TextRequest r) => ["exec", "--json"];
+    public override IReadOnlyList<string> BuildCompletionArgs(                // TWO parameters
+        TextRequest r, IReadOnlyList<string> toolHostArgs) => ["exec", "--json"];
     public override CliOutputEvent ParseLine(string line) => /* → Content / Result / Ignored */;
 
     // OPTIONAL, and only when VERIFIED against the real binary (see below):
@@ -104,8 +105,10 @@ Rules specific to this path:
 - **Check what your CLI assumes about its working directory.** The engine spawns from a neutral temp dir; codex
   needs `--skip-git-repo-check` because of it.
 - **`SupportsToolCalls` on the dialect drives ONLY the engine's ignored-tools warning.** If your dialect
-  returns `true`, the composing `IModelProvider` must declare `public bool SupportsToolCalls => true;` itself —
-  the provider is the capability declarer (D21), and the engine does not forward the dialect's answer.
+  returns `true`, the composing provider must declare it in its `ProviderCapabilities`
+  (`SupportsToolCalls = true`) — the provider is the capability declarer (D21) and the engine does not
+  forward the dialect's answer. **It is NOT a member of `IModelProvider`**: writing
+  `public bool SupportsToolCalls => true;` on your provider compiles and is read by nothing.
   Otherwise `TextRouter.SupportsToolCalls` reports false and `ToolLoop` silently takes the prompt-based
   fallback on a backend that can do native tool calls.
 - **Portable installs are free if you don't fight them** — the host passes `command` (+ `environment`) to your
@@ -129,6 +132,7 @@ package id can never be freed (D23), so a needless one is permanent. Implement:
 public sealed class MyProvider(string id, /* options, factory */, LyntaiOptions options) : IModelProvider
 {
     public string Id => id;                 // the candidate id the router selects on
+    public ProviderCapabilities Capabilities => /* Accepts / Produces / Operations */;   // NO default — the one member you must write
     public bool IsAvailable => /* cheap check; real failures surface as verdicts, not here */;
     public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default);
     public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default);
@@ -305,8 +309,8 @@ Never hand-roll the csproj; the misses are silent.
 Implement the domain interfaces the consumer needs — they're independent, you don't have to do all of them,
 and there are **thirteen**, not five: the eight in `src/Lyntai.Core/Storage/` (`IKeyValueStore`,
 `IConversationStore`, `IMemoryStore`, `IScoreStore`, `ITraceStore`, `IPromptVersionStore`, `IJobStore`,
-`ICuratedMemoryStore`) plus `IVectorStore` (`Memory/`), `IResponseCache` (`Llm/Caching/`), `IUsageTracker`
-(`Llm/Budgeting/`), `IModelRoutingStore` (`Llm/Routing/`) — and **`IMemoryGraphStore` (`Memory/`), which
+`ICuratedMemoryStore`) plus `IVectorStore` (`Memory/`), `IResponseCache` (`Inference/Caching/`), `IUsageTracker`
+(`Inference/Budgeting/`), `IModelRoutingStore` (`Inference/`) — and **`IMemoryGraphStore` (`Memory/`), which
 this list omitted entirely until 2026-09-10**.
 
 **Read that omission as the warning it is.** `IMemoryGraphStore` is the LARGEST thing in the storage layer
@@ -316,7 +320,7 @@ without it. It is also the only one with a per-backend migration asymmetry (`.cl
 §Migrations) and the only one whose contract pins an ORDER (`WriteBackAsync`, **D101**). If you are backing
 the memory engine, it is most of your work; if you are not, you can skip it like any other.
 
-**THREE of the thirteen carry a default body, and the difference between them matters.**
+**THREE of the SIXTEEN carry a default body — the thirteen above are what is left, and the difference between the three matters.**
 `KnownSubjectsAsync` defaults to an empty list, so a BYO store silently gets **no subject seeding** at all
 (**D88**) — nothing fails, recall is simply worse. `LinkManyAsync` (**D99**) and `WriteBackAsync` (**D101**)
 default to the calls the engine used to make inline, so a BYO store loses no behaviour and is merely no

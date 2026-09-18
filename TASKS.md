@@ -15,26 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 13 across 6 Parts: 5 startable, 4 blocked, 2 watch, 2 decision-only
+## Open items — 12 across 6 Parts: 4 startable, 4 blocked, 2 watch, 2 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 114 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 131 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 164 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 217 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 236 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 287 | 102 | REL2 — what counts as BREAKING here has never been written down | decision-only · decision | a ruling on whether a trailing defaulted record member is Breaking or Added… |
-| 305 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
-| 314 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
-| 343 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 403 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 458 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 481 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 538 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 113 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 130 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 163 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 216 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 235 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 286 | 102 | REL2 — what counts as BREAKING here has never been written down | decision-only · decision | a ruling on whether a trailing defaulted record member is Breaking or Added… |
+| 304 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
+| 329 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 389 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 444 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 467 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 524 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -311,19 +310,6 @@ the line numbers and counts were true on 2026-09-17 and rot the way any measurem
   shipping again freezes it for the major. The counter-argument worth weighing: the family's membership
   rule is "OpenAI-compatible", so a foreign wire schema arguably belongs in its own provider class.
 
-- [ ] **REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-facing.** <!-- item: state=startable -->
-  Worst first, and **each needs re-verifying before acting** — this list is a review's output, not a
-  gate's. `extending-lyntai.md`: a dialect sketch with the wrong `BuildCompletionArgs` arity, a
-  `SupportsToolCalls` member that does not exist on `IModelProvider` (writing it compiles and is silently
-  ignored), a native-provider sketch omitting `Capabilities` — the one member with no default — and
-  "THREE of the thirteen carry a default body" where the thirteen ARE the required ones of sixteen.
-  `pitfalls.md`: an entry whose premise **D108** removed (`IMemoryVerificationPolicy` does receive
-  `Content`), and one instructing a bump to a literal that no longer exists. `memory.md`: a "turn the judge
-  on" recipe that is a no-op at shipped defaults, and an unreachable salience column. `GATES.md`,
-  `AOT.md`, `llm-and-router.md`, `storage.md`: assorted stale names and counts.
-  <br>_Why no gate sees these: `check-links`' member tier asks whether a name exists ANYWHERE in the tree,
-  not whether it is on the named type; `check-tautology` and `check-docs` do not read
-  `.claude/knowledge/**`; and 11 of the 58 doc samples carry `compile-skip`._
 
 ## Part 41 — CLI backends: the codex surface still to MEASURE (2026-08-05)
 

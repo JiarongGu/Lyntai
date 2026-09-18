@@ -50,7 +50,7 @@ because treating them alike leads to either bloating a consuming story or wrongl
 
 | Site | What it is | Obligation when a verdict is added |
 |---|---|---|
-| `Lifecycle/ProviderVerdict.cs` | the CANONICAL statement, and the IntelliSense a consumer reads | the member, with its own doc |
+| `Inference/ProviderVerdict.cs` | the CANONICAL statement, and the IntelliSense a consumer reads | the member, with its own doc |
 | `ITextRouter.cs`'s XML doc | the contract a consumer reads — genuinely ENUMERATES all nine | add it to the enumeration |
 | design §5.1 + §6 | the frozen v0.1 record | a DATED amendment, never a rewrite (§5.1 already carries the "now nine members" note) |
 | `README.md` §The semantics you're getting | a consuming-story SUMMARY, deliberately not an enumeration — it names six of nine and omits `Unsupported`/`ContextWindowExceeded` on purpose | only if the new verdict changes what a consumer must DO; silence here is not drift |

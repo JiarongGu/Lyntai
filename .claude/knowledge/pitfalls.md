@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (47) — 57 · 124 · 133 · 153 · 166 · 175 · 188 · 194 · 217 · 227 · 234 · 249 · 259 · 305 · 325 · 371 · 389 · 550 · 635 · 644 · 654 · 708 · 722 · 792 · 806 · 1121 · 1248 · 1344 · 1357 · 1384 · 1405 · 1422 · 1439 · 1481 · 1654 · 2665 · 2689 · 2699 · 2731 · 2742 · 2761 · 2777 · 2788 · 2815 · 3186 · 3227 · 3236
-- **`encoding`** (7) — 75 · 117 · 122 · 661 · 669 · 944 · 2815
-- **`git`** (8) — 249 · 274 · 305 · 330 · 669 · 691 · 949 · 2665
-- **`build`** (12) — 122 · 635 · 644 · 654 · 708 · 1113 · 1405 · 1422 · 1654 · 2644 · 2674 · 2708
+- **`gates`** (47) — 57 · 124 · 133 · 153 · 166 · 175 · 188 · 194 · 217 · 227 · 234 · 249 · 259 · 305 · 325 · 371 · 389 · 550 · 635 · 644 · 654 · 708 · 722 · 792 · 806 · 1121 · 1248 · 1344 · 1357 · 1384 · 1405 · 1422 · 1439 · 1481 · 1654 · 2667 · 2691 · 2701 · 2733 · 2744 · 2763 · 2779 · 2790 · 2817 · 3188 · 3229 · 3238
+- **`encoding`** (7) — 75 · 117 · 122 · 661 · 669 · 944 · 2817
+- **`git`** (8) — 249 · 274 · 305 · 330 · 669 · 691 · 949 · 2667
+- **`build`** (12) — 122 · 635 · 644 · 654 · 708 · 1113 · 1405 · 1422 · 1654 · 2646 · 2676 · 2710
 - **`router`** (6) — 1497 · 1502 · 1511 · 1513 · 1516 · 1646
-- **`cli`** (19) — 75 · 821 · 944 · 1497 · 1518 · 1526 · 1535 · 1539 · 1551 · 1555 · 1562 · 1566 · 1573 · 1577 · 1610 · 1629 · 1633 · 1638 · 2490
+- **`cli`** (19) — 75 · 821 · 944 · 1497 · 1518 · 1526 · 1535 · 1539 · 1551 · 1555 · 1562 · 1566 · 1573 · 1577 · 1610 · 1629 · 1633 · 1638 · 2492
 - **`lifetime`** (6) — 1677 · 1686 · 1691 · 1696 · 1709 · 1717
-- **`storage`** (18) — 1467 · 1589 · 1726 · 1828 · 1856 · 1858 · 1859 · 1861 · 1863 · 1881 · 1892 · 2121 · 2133 · 2403 · 2520 · 2797 · 2979 · 3163
-- **`memory`** (41) — 429 · 462 · 493 · 621 · 1196 · 1589 · 1760 · 1779 · 1790 · 1816 · 1828 · 1843 · 1864 · 1881 · 1892 · 1931 · 1946 · 1953 · 1972 · 1983 · 2001 · 2014 · 2027 · 2085 · 2140 · 2160 · 2196 · 2232 · 2250 · 2257 · 2302 · 2324 · 2352 · 2424 · 2499 · 2520 · 2618 · 2872 · 3031 · 3059 · 3142
-- **`generation`** (12) — 1181 · 1241 · 1324 · 1502 · 1709 · 2232 · 2288 · 2437 · 2449 · 2473 · 2580 · 2605
-- **`di`** (12) — 1696 · 1946 · 1972 · 2152 · 2154 · 2157 · 2160 · 2178 · 2257 · 2302 · 2449 · 2499
-- **`measurement`** (69) — 153 · 414 · 429 · 447 · 462 · 470 · 476 · 493 · 534 · 564 · 580 · 599 · 611 · 621 · 742 · 821 · 828 · 833 · 842 · 848 · 875 · 888 · 899 · 907 · 923 · 930 · 967 · 977 · 997 · 1008 · 1042 · 1069 · 1075 · 1091 · 1108 · 1113 · 1152 · 1181 · 1196 · 1226 · 1241 · 1256 · 1274 · 1289 · 1306 · 1324 · 1526 · 1726 · 1745 · 1816 · 1983 · 2014 · 2041 · 2052 · 2067 · 2085 · 2140 · 2196 · 2731 · 2848 · 2899 · 2914 · 2938 · 2958 · 2979 · 3009 · 3046 · 3110 · 3142
-- **`docs`** (31) — 95 · 166 · 194 · 217 · 338 · 691 · 722 · 742 · 792 · 1121 · 1132 · 1137 · 1144 · 1248 · 1357 · 1384 · 1481 · 1790 · 2288 · 2324 · 2391 · 2555 · 2565 · 2689 · 2699 · 2742 · 2761 · 2777 · 2788 · 2797 · 3068
-- **`tests`** (26) — 95 · 1439 · 1453 · 1467 · 1610 · 1802 · 1843 · 1864 · 1931 · 1953 · 2121 · 2133 · 2403 · 2861 · 2872 · 2883 · 3059 · 3081 · 3163 · 3171 · 3179 · 3183 · 3186 · 3198 · 3209 · 3222
+- **`storage`** (18) — 1467 · 1589 · 1726 · 1830 · 1858 · 1860 · 1861 · 1863 · 1865 · 1883 · 1894 · 2123 · 2135 · 2405 · 2522 · 2799 · 2981 · 3165
+- **`memory`** (41) — 429 · 462 · 493 · 621 · 1196 · 1589 · 1760 · 1779 · 1790 · 1816 · 1830 · 1845 · 1866 · 1883 · 1894 · 1933 · 1948 · 1955 · 1974 · 1985 · 2003 · 2016 · 2029 · 2087 · 2142 · 2162 · 2198 · 2234 · 2252 · 2259 · 2304 · 2326 · 2354 · 2426 · 2501 · 2522 · 2620 · 2874 · 3033 · 3061 · 3144
+- **`generation`** (12) — 1181 · 1241 · 1324 · 1502 · 1709 · 2234 · 2290 · 2439 · 2451 · 2475 · 2582 · 2607
+- **`di`** (12) — 1696 · 1948 · 1974 · 2154 · 2156 · 2159 · 2162 · 2180 · 2259 · 2304 · 2451 · 2501
+- **`measurement`** (69) — 153 · 414 · 429 · 447 · 462 · 470 · 476 · 493 · 534 · 564 · 580 · 599 · 611 · 621 · 742 · 821 · 828 · 833 · 842 · 848 · 875 · 888 · 899 · 907 · 923 · 930 · 967 · 977 · 997 · 1008 · 1042 · 1069 · 1075 · 1091 · 1108 · 1113 · 1152 · 1181 · 1196 · 1226 · 1241 · 1256 · 1274 · 1289 · 1306 · 1324 · 1526 · 1726 · 1745 · 1816 · 1985 · 2016 · 2043 · 2054 · 2069 · 2087 · 2142 · 2198 · 2733 · 2850 · 2901 · 2916 · 2940 · 2960 · 2981 · 3011 · 3048 · 3112 · 3144
+- **`docs`** (31) — 95 · 166 · 194 · 217 · 338 · 691 · 722 · 742 · 792 · 1121 · 1132 · 1137 · 1144 · 1248 · 1357 · 1384 · 1481 · 1790 · 2290 · 2326 · 2393 · 2557 · 2567 · 2691 · 2701 · 2744 · 2763 · 2779 · 2790 · 2799 · 3070
+- **`tests`** (26) — 95 · 1439 · 1453 · 1467 · 1610 · 1802 · 1845 · 1866 · 1933 · 1955 · 2123 · 2135 · 2405 · 2863 · 2874 · 2885 · 3061 · 3083 · 3165 · 3173 · 3181 · 3185 · 3188 · 3200 · 3211 · 3224
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (23) — 249 · 429 · 462 · 493 · 722 · 842 · 1152 · 1324 · 1511 · 1516 · 1535 · 1610 · 1691 · 1779 · 2027 · 2160 · 2196 · 2437 · 2449 · 2499 · 2605 · 2618 · 3031
+- **`fail-open`** (23) — 249 · 429 · 462 · 493 · 722 · 842 · 1152 · 1324 · 1511 · 1516 · 1535 · 1610 · 1691 · 1779 · 2029 · 2162 · 2198 · 2439 · 2451 · 2501 · 2607 · 2620 · 3033
 - **`cancellation`** (5) — 1497 · 1502 · 1760 · 1779 · 1802
-- **`vacuous`** (49) — 153 · 227 · 234 · 414 · 470 · 476 · 534 · 564 · 644 · 848 · 888 · 907 · 997 · 1181 · 1196 · 1226 · 1241 · 1274 · 1344 · 1357 · 1422 · 1453 · 1566 · 1629 · 1646 · 1802 · 1843 · 1864 · 1931 · 1953 · 2041 · 2052 · 2085 · 2196 · 2324 · 2797 · 2872 · 2883 · 2914 · 3046 · 3059 · 3081 · 3110 · 3163 · 3186 · 3198 · 3209 · 3227 · 3236
-- **`scope-blind`** (43) — 124 · 175 · 188 · 194 · 217 · 227 · 249 · 259 · 305 · 371 · 389 · 669 · 792 · 806 · 1289 · 1357 · 1405 · 1481 · 1654 · 1946 · 2014 · 2121 · 2133 · 2288 · 2324 · 2352 · 2403 · 2520 · 2689 · 2699 · 2708 · 2731 · 2742 · 2761 · 2777 · 2788 · 2797 · 2883 · 3046 · 3059 · 3183 · 3227 · 3236
-- **`second-door`** (20) — 1513 · 1551 · 1555 · 1566 · 1573 · 1633 · 1638 · 1717 · 1859 · 1881 · 2160 · 2302 · 2403 · 2424 · 2437 · 2449 · 2473 · 2520 · 2555 · 2580
-- **`stale-claim`** (23) — 57 · 194 · 274 · 338 · 742 · 899 · 930 · 949 · 1121 · 1137 · 1422 · 1790 · 2157 · 2288 · 2391 · 2424 · 2473 · 2555 · 2742 · 2761 · 2777 · 3068 · 3198
-- **`silent-loss`** (64) — 75 · 95 · 117 · 122 · 166 · 325 · 330 · 371 · 389 · 447 · 462 · 611 · 661 · 708 · 722 · 821 · 833 · 888 · 944 · 977 · 1008 · 1042 · 1108 · 1152 · 1241 · 1248 · 1256 · 1324 · 1384 · 1405 · 1439 · 1539 · 1555 · 1589 · 1677 · 1709 · 1745 · 1816 · 1856 · 1858 · 1859 · 1861 · 1881 · 1892 · 1931 · 2067 · 2140 · 2152 · 2157 · 2178 · 2250 · 2302 · 2352 · 2490 · 2580 · 2618 · 2644 · 2674 · 2689 · 2699 · 2815 · 2899 · 2979 · 3110
-- **`wrong-subject`** (68) — 57 · 95 · 133 · 153 · 330 · 414 · 447 · 476 · 493 · 550 · 564 · 580 · 599 · 611 · 621 · 635 · 654 · 848 · 875 · 907 · 923 · 930 · 977 · 1008 · 1042 · 1069 · 1075 · 1132 · 1144 · 1181 · 1196 · 1226 · 1256 · 1274 · 1289 · 1306 · 1384 · 1467 · 1513 · 1562 · 1654 · 1686 · 1696 · 1726 · 1816 · 1864 · 1972 · 1983 · 2001 · 2014 · 2041 · 2052 · 2085 · 2232 · 2257 · 2605 · 2644 · 2665 · 2674 · 2848 · 2899 · 2914 · 2938 · 2958 · 2979 · 3081 · 3142 · 3186
-- **`unmeasured`** (17) — 580 · 621 · 691 · 742 · 792 · 828 · 1091 · 1113 · 1518 · 1526 · 1535 · 1577 · 1629 · 2001 · 2232 · 2565 · 3068
-- **`ordering`** (10) — 654 · 1539 · 1638 · 1828 · 1863 · 2178 · 2490 · 2499 · 2861 · 3009
-- **`resource`** (14) — 635 · 669 · 708 · 967 · 1075 · 1306 · 1518 · 1610 · 1717 · 1726 · 2154 · 3171 · 3179 · 3222
+- **`vacuous`** (49) — 153 · 227 · 234 · 414 · 470 · 476 · 534 · 564 · 644 · 848 · 888 · 907 · 997 · 1181 · 1196 · 1226 · 1241 · 1274 · 1344 · 1357 · 1422 · 1453 · 1566 · 1629 · 1646 · 1802 · 1845 · 1866 · 1933 · 1955 · 2043 · 2054 · 2087 · 2198 · 2326 · 2799 · 2874 · 2885 · 2916 · 3048 · 3061 · 3083 · 3112 · 3165 · 3188 · 3200 · 3211 · 3229 · 3238
+- **`scope-blind`** (43) — 124 · 175 · 188 · 194 · 217 · 227 · 249 · 259 · 305 · 371 · 389 · 669 · 792 · 806 · 1289 · 1357 · 1405 · 1481 · 1654 · 1948 · 2016 · 2123 · 2135 · 2290 · 2326 · 2354 · 2405 · 2522 · 2691 · 2701 · 2710 · 2733 · 2744 · 2763 · 2779 · 2790 · 2799 · 2885 · 3048 · 3061 · 3185 · 3229 · 3238
+- **`second-door`** (20) — 1513 · 1551 · 1555 · 1566 · 1573 · 1633 · 1638 · 1717 · 1861 · 1883 · 2162 · 2304 · 2405 · 2426 · 2439 · 2451 · 2475 · 2522 · 2557 · 2582
+- **`stale-claim`** (23) — 57 · 194 · 274 · 338 · 742 · 899 · 930 · 949 · 1121 · 1137 · 1422 · 1790 · 2159 · 2290 · 2393 · 2426 · 2475 · 2557 · 2744 · 2763 · 2779 · 3070 · 3200
+- **`silent-loss`** (64) — 75 · 95 · 117 · 122 · 166 · 325 · 330 · 371 · 389 · 447 · 462 · 611 · 661 · 708 · 722 · 821 · 833 · 888 · 944 · 977 · 1008 · 1042 · 1108 · 1152 · 1241 · 1248 · 1256 · 1324 · 1384 · 1405 · 1439 · 1539 · 1555 · 1589 · 1677 · 1709 · 1745 · 1816 · 1858 · 1860 · 1861 · 1863 · 1883 · 1894 · 1933 · 2069 · 2142 · 2154 · 2159 · 2180 · 2252 · 2304 · 2354 · 2492 · 2582 · 2620 · 2646 · 2676 · 2691 · 2701 · 2817 · 2901 · 2981 · 3112
+- **`wrong-subject`** (68) — 57 · 95 · 133 · 153 · 330 · 414 · 447 · 476 · 493 · 550 · 564 · 580 · 599 · 611 · 621 · 635 · 654 · 848 · 875 · 907 · 923 · 930 · 977 · 1008 · 1042 · 1069 · 1075 · 1132 · 1144 · 1181 · 1196 · 1226 · 1256 · 1274 · 1289 · 1306 · 1384 · 1467 · 1513 · 1562 · 1654 · 1686 · 1696 · 1726 · 1816 · 1866 · 1974 · 1985 · 2003 · 2016 · 2043 · 2054 · 2087 · 2234 · 2259 · 2607 · 2646 · 2667 · 2676 · 2850 · 2901 · 2916 · 2940 · 2960 · 2981 · 3083 · 3144 · 3188
+- **`unmeasured`** (17) — 580 · 621 · 691 · 742 · 792 · 828 · 1091 · 1113 · 1518 · 1526 · 1535 · 1577 · 1629 · 2003 · 2234 · 2567 · 3070
+- **`ordering`** (10) — 654 · 1539 · 1638 · 1830 · 1865 · 2180 · 2492 · 2501 · 2863 · 3011
+- **`resource`** (14) — 635 · 669 · 708 · 967 · 1075 · 1306 · 1518 · 1610 · 1717 · 1726 · 2156 · 3173 · 3181 · 3224
 
 <!-- facets:end -->
 
@@ -1814,8 +1814,10 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   policy, rather than before. **Then mutation-test it**: apply the wrong fix and watch the twin go red. A
   control nobody has seen fail is not a control.
 - **A seam that hands a model a TRUNCATION measures the truncation, and the model takes the blame.** <!-- trap: sub=memory,measurement shape=wrong-subject,silent-loss -->
-  `IMemoryVerificationPolicy` receives `MemoryVerificationCandidate.Headline` and never `Content`, and
-  `GraphMemoryOptions.HeadlineChars` ships at 120. Measured 2026-09-08 on LoCoMo, whose turns have a median
+  `IMemoryVerificationPolicy` received `MemoryVerificationCandidate.Headline` and never `Content`, while
+  `GraphMemoryOptions.HeadlineChars` shipped at 120. **That premise is GONE — `Content` was added and
+  `ScoringVerificationPolicy` now passes `c.Content ?? c.Headline` (D108)** — and the entry stays because the
+  SHAPE is what recurs: a seam narrowing its input measures the narrowing. Measured 2026-09-08 on LoCoMo, whose turns have a median
   of 133 characters: a purpose-built cross-encoder scored **78.0%** against its base's 85.5% and read as a
   refutation of the whole design lead — until the same model on the same arm with headlines long enough to
   hold the turn read **91.0%**. Headline length alone was worth **+13.0** to the reranked arm and +0.5 to
@@ -2125,16 +2127,16 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   contract's public statics against a hand-bumped literal — it catches a fact added and wired NOWHERE, and a
   fact added and wired to InMemory/Sqlite but not Postgres, and it does **not** catch a fact added and wired
   to **Postgres alone**: the author bumps `covered`, the assertion passes, and the invariant the entry above
-  exists to protect is enforced on one backend. Closing it properly means driving all three through a
-  reflection-fed `[Theory]` so exhaustiveness is structural rather than counted — deliberately not done days
-  before a freeze, because it restructures ~200 tests to close a gap with no live instance. **Re-measure with
-  a per-backend call census (parse each test file for `MemoryGraphStoreContract.<name>`) rather than trusting
-  the count**, which is how the 68/68/68 above was established.
+  exists to protect is enforced on one backend. **CLOSED SINCE**: `MemoryGraphStoreCoverageTests` drives all three
+  backends from a reflection-fed source, so exhaustiveness is STRUCTURAL and the hand-bumped literal is
+  gone — its own summary calls itself *"the mechanism that replaced a hand-bumped literal"*. The entry
+  stays for the shape, which is general: **a COUNT is not exhaustiveness**, and a guard whose failure mode
+  is a false PASS cannot be validated by running it.
 - **A cross-backend invariant enforced on ONE backend's test class is not enforced.** The non-finite-salience <!-- trap: sub=tests,storage shape=scope-blind -->
   guard above was pinned only in `SqliteMemoryGraphStoreTests`, so the in-process store's own divergence
   survived a full review. If a fact is about the CONTRACT, it belongs in `MemoryGraphStoreContract` and must
-  be wired to all three backends (`InMemory`, `Sqlite`, `Postgres` — the last also bumps the `covered` count
-  that guards against a silent skip). Keep a backend-specific assertion only where it genuinely cannot be
+  be wired to all three backends (`InMemory`, `Sqlite`, `Postgres`); coverage is reflection-fed now, so there
+  is no count to bump.) Keep a backend-specific assertion only where it genuinely cannot be
   portable — reading a raw column, for instance.
 
 - **An id that is unique WITHIN one engine is not unique across a composite, and keying on it alone works <!-- trap: sub=memory,measurement shape=silent-loss -->

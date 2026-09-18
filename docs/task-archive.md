@@ -4548,3 +4548,28 @@ and neither should this), and finally `Produces` — which `HttpModelOptions` ha
 default vector dialect and would have stayed SKIPPED, green, in `verify`. Caught by reading, not by a gate.
 
 - **REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep missed.**
+
+## Part 255 — REL6: the Tier-B how-to errors, each re-verified before it was touched
+
+✅ done 2026-09-19 — **Outcome:** nine documentation defects fixed across `extending-lyntai.md`,
+`pitfalls.md`, `memory.md` and `llm-and-router.md`. Every claim was checked against the tree first, as the
+item and Part 102 both require; all nine held, and two were sharper than the item said.
+
+**The two that would have cost a reader real time.** `memory.md`'s "turn the judge on" recipe set
+`VerificationDepth = 40` while its comment said it HALVED the depth — but that option is absolute and
+defaults to `DefaultVerificationDepthFactor` (4) × `DefaultLimit` (10) = **40**, so the recipe written to
+avoid a measured −10.5-point outcome changed nothing. It now sets 20 and shows the arithmetic. And the
+salience table's `4.0` column is unreachable: `MaxSalience` defaults to 4, but at the shipped
+`NoveltyWeight` of 1.5 the ceiling is `1 + 1.5` = **2.5**, which the option's own XML doc already said.
+
+**`extending-lyntai.md` taught three things that do not compile or do nothing:** `BuildCompletionArgs` with
+one parameter where the seam takes two; `public bool SupportsToolCalls => true;` on a provider, which is a
+`ProviderCapabilities` FIELD and so compiles as a member nothing reads; and a native-provider sketch
+omitting `Capabilities`, the one member with no default body. Its "THREE of the thirteen carry a default
+body" was self-contradictory — the thirteen ARE the required ones of sixteen.
+
+**The stale-name half was already discharged** by this session's D154 sweeps — except three **slashed**
+paths (`Lifecycle/ProviderVerdict.cs`, `Llm/Caching/`, `Llm/Routing/`), invisible to a dotted-namespace
+rewrite for the third time in two days. `pitfalls.md` §Refactoring already records that shape.
+
+- **REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-facing.**
