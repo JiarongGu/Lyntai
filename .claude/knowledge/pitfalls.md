@@ -3076,7 +3076,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   direction is the dangerous one because it looks like evidence.** Both shapes hit within one hour writing
   the 3.0 seam contracts:
   - **Testing the FAKE.** A cancellation fact asserted that a pre-cancelled token propagates — against a
-    stub that ignores its token entirely (`FakeLlmClient`, `StubHttpHandler`). Nothing cancelled, so the fact
+    stub that ignores its token entirely (`FakeTextClient`, `StubHttpHandler`). Nothing cancelled, so the fact
     passed vacuously for some subjects and failed for others by measuring the stub. What it was FOR is the
     subject's catch ORDERING (`catch (OperationCanceledException) { throw; }` ahead of a fail-safe catch),
     which needs a double that honours the token.
@@ -3179,7 +3179,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   test that would have caught the bug.
 - **This repo has TWO independent ways for a targeted test run to verify nothing.** (1) `dotnet test <!-- trap: sub=tests,gates shape=vacuous,wrong-subject -->
   --filter` **reports success when it matches zero tests** — a filter naming `LlmRouterTests`, a class that
-  does not exist (the real ones are `LlmRouterCompleteTests` / `LlmRouterStreamTests`), passed vacuously and
+  does not exist (the real ones are `TextRouterCompleteTests` / `TextRouterStreamTests`), passed vacuously and
   looked like a clean regression run. (2) Through the wrapper it depends on `--`, which is not obvious.
   `node devtools/dev.mjs test --filter X` forwards straight into `dotnet test` (`devtools/dev.mjs` spreads
   `...args` into the argv, and always has) and inherits trap (1) whole — a name matching nothing passes

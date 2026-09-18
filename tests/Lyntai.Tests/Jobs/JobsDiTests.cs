@@ -16,7 +16,7 @@ public class JobsDiTests
         var ran = false;
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddJobHandler(_ => new FakeJobHandler("greet", _ => { ran = true; return Task.FromResult(JobOutcome.Complete); })));
         using var sp = services.BuildServiceProvider();
@@ -33,7 +33,7 @@ public class JobsDiTests
     public void Queue_without_a_storage_backend_throws_clearly()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))); // no Use*Storage
+        services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p"))); // no Use*Storage
         using var sp = services.BuildServiceProvider();
 
         var ex = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<IJobQueue>());

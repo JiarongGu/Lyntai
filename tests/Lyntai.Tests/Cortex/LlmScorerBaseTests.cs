@@ -21,9 +21,9 @@ public class LlmScorerBaseTests
 
     private static ScoreContext Ctx => new() { SessionId = "s", Output = "out" };
 
-    private static FakeLlmClient ClientReturning(double score)
+    private static FakeTextClient ClientReturning(double score)
     {
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         llm.Replies.Enqueue(new TextResponse($$"""{"score":{{score}}}""", ProviderVerdict.Ok));
         return llm;
     }

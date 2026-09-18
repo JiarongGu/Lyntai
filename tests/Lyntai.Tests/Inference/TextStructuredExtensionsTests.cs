@@ -3,9 +3,9 @@ using Lyntai;
 using Lyntai.Tests.Fakes;
 using Lyntai.Text;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
-public class LlmStructuredExtensionsTests
+public class TextStructuredExtensionsTests
 {
     private static TextRequest Req => new()
     {
@@ -13,7 +13,7 @@ public class LlmStructuredExtensionsTests
         JsonSchema = """{"type":"object"}""",
     };
 
-    private static ITextClient Client(FakeLlmProvider provider)
+    private static ITextClient Client(FakeTextProvider provider)
     {
         var options = new LyntaiOptions();
         options.DefaultCandidates.Add(new ProviderCandidate(provider.Id));
@@ -23,7 +23,7 @@ public class LlmStructuredExtensionsTests
     [Fact]
     public async Task Json_is_extracted_from_prose_and_fences()
     {
-        var p = new FakeLlmProvider("p");
+        var p = new FakeTextProvider("p");
         p.Replies.Enqueue(new TextResponse("Sure! Here you go:\n```json\n{\"ok\": true}\n```\nAnything else?", ProviderVerdict.Ok));
 
         var reply = await Client(p).CompleteJsonAsync(Req);
@@ -35,7 +35,7 @@ public class LlmStructuredExtensionsTests
     [Fact]
     public async Task One_retry_on_unparseable_then_ok()
     {
-        var p = new FakeLlmProvider("p");
+        var p = new FakeTextProvider("p");
         p.Replies.Enqueue(new TextResponse("no json here at all", ProviderVerdict.Ok));
         p.Replies.Enqueue(new TextResponse("""{"second": "try"}""", ProviderVerdict.Ok));
 
@@ -49,7 +49,7 @@ public class LlmStructuredExtensionsTests
     [Fact]
     public async Task Unparseable_after_retry_is_failed()
     {
-        var p = new FakeLlmProvider("p");
+        var p = new FakeTextProvider("p");
         p.Replies.Enqueue(new TextResponse("still prose", ProviderVerdict.Ok));
         p.Replies.Enqueue(new TextResponse("{broken json", ProviderVerdict.Ok));
 
@@ -64,7 +64,7 @@ public class LlmStructuredExtensionsTests
     {
         // a deterministic provider re-sent the IDENTICAL request just repeats its prose — the retry
         // must feed back the bad reply + a JSON-only instruction so the second attempt can differ
-        var p = new FakeLlmProvider("p");
+        var p = new FakeTextProvider("p");
         p.Replies.Enqueue(new TextResponse("just prose, sorry", ProviderVerdict.Ok));
         p.Replies.Enqueue(new TextResponse("""{"ok":1}""", ProviderVerdict.Ok));
 
@@ -89,7 +89,7 @@ public class LlmStructuredExtensionsTests
     [InlineData("{/* note */\"ok\": true}", "a block comment")]
     public async Task A_reply_CODE_can_repair_costs_no_second_call(string text, string why)
     {
-        var p = new FakeLlmProvider("p");
+        var p = new FakeTextProvider("p");
         p.Replies.Enqueue(new TextResponse(text, ProviderVerdict.Ok));
 
         var reply = await Client(p).CompleteJsonAsync(Req);
@@ -105,7 +105,7 @@ public class LlmStructuredExtensionsTests
         // The contract is "an Ok verdict guarantees JsonDocument.Parse(reply.Text) succeeds". Accepting a
         // trailing comma leniently and handing the RAW text back would keep the model call and break that
         // promise for every consumer — which is worse than the round trip it saves.
-        var p = new FakeLlmProvider("p");
+        var p = new FakeTextProvider("p");
         p.Replies.Enqueue(new TextResponse("""Here: {"b": 2, "a": [1,2,],}""", ProviderVerdict.Ok));
 
         var reply = await Client(p).CompleteJsonAsync(Req);
@@ -122,7 +122,7 @@ public class LlmStructuredExtensionsTests
     {
         // Truncation is the case leniency must NOT paper over: an unbalanced object is missing content, not
         // punctuation, so asking the model again is the only thing that can produce it.
-        var p = new FakeLlmProvider("p");
+        var p = new FakeTextProvider("p");
         p.Replies.Enqueue(new TextResponse("""{"cut": "of""", ProviderVerdict.Ok));
         p.Replies.Enqueue(new TextResponse("""{"whole": true}""", ProviderVerdict.Ok));
 
@@ -135,7 +135,7 @@ public class LlmStructuredExtensionsTests
     [Fact]
     public async Task Non_ok_verdicts_pass_through_without_retry()
     {
-        var p = new FakeLlmProvider("p");
+        var p = new FakeTextProvider("p");
         p.Replies.Enqueue(new TextResponse("", ProviderVerdict.Refused, Detail: "policy"));
 
         var reply = await Client(p).CompleteJsonAsync(Req);

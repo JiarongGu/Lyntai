@@ -16,7 +16,7 @@ public class MemoryEngineRegistrationTests
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"));
+            b.AddProvider(_ => new FakeTextProvider("p"));
             configure(b);
         });
         return services.BuildServiceProvider();
@@ -122,7 +122,7 @@ public class MemoryEngineRegistrationTests
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         services.AddSingleton<ICuratedMemoryStore>(new FakeCuratedStore());
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("project", e => e.UseCurated("glossary").UseCurated("style")));
         using var sp = services.BuildServiceProvider();
 
@@ -188,7 +188,7 @@ public class MemoryEngineRegistrationTests
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         services.AddSingleton<ICuratedMemoryStore>(new FakeCuratedStore());
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("project", e => e
                 .UseCurated("glossary").ReserveCharacters(200)
                 .UseLexical()

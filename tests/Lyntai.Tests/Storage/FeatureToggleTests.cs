@@ -68,7 +68,7 @@ public class FeatureToggleTests : IDisposable
         var path = FreshPath();
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteStorage(path, StorageFeature.Score));
         using var sp = services.BuildServiceProvider();
 
@@ -102,7 +102,7 @@ public class FeatureToggleTests : IDisposable
 
         var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p")).UseSqliteStorage(path, StorageFeature.Memory);
+            b.AddProvider(_ => new FakeTextProvider("p")).UseSqliteStorage(path, StorageFeature.Memory);
             Apply(b, helper);
         }));
 
@@ -123,7 +123,7 @@ public class FeatureToggleTests : IDisposable
 
         var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"))
+            b.AddProvider(_ => new FakeTextProvider("p"))
                 .UsePostgresStorage(UnusedPostgres, StorageFeature.Memory, SchemaMigration.OnFirstUse);
             ApplyPostgres(b, helper);
         }));
@@ -142,7 +142,7 @@ public class FeatureToggleTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteStorage(FreshPath(), StorageFeature.Memory, SchemaMigration.None)
             .UseSqliteVectorStore()
             .UseSqliteResponseCache()
@@ -150,13 +150,13 @@ public class FeatureToggleTests : IDisposable
 
         var reversed = new ServiceCollection();
         reversed.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteVectorStore()                                                   // helper FIRST
             .UseSqliteStorage(FreshPath(), StorageFeature.Memory, SchemaMigration.None));
 
         var postgres = new ServiceCollection();
         postgres.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UsePostgresStorage(UnusedPostgres, StorageFeature.Memory, SchemaMigration.None)
             .UsePostgresResponseCache()
             .UsePostgresUsageTracking());
@@ -173,7 +173,7 @@ public class FeatureToggleTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteStorage(new SqliteConnectionFactory(FreshPath()), StorageFeature.Memory)
             .UseSqliteVectorStore()
             .UseSqliteResponseCache()
@@ -181,7 +181,7 @@ public class FeatureToggleTests : IDisposable
 
         var postgres = new ServiceCollection();
         postgres.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UsePostgresStorage(new Lyntai.Storage.Postgres.PostgresConnectionFactory(UnusedPostgres),
                 StorageFeature.Memory)
             .UsePostgresResponseCache()
@@ -203,7 +203,7 @@ public class FeatureToggleTests : IDisposable
         var services = new ServiceCollection();
 
         var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteVectorStore()                              // helper FIRST
             .UseSqliteStorage(path, StorageFeature.Memory)));    // selection second
 
@@ -218,7 +218,7 @@ public class FeatureToggleTests : IDisposable
         var path = FreshPath();
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteStorage(path, StorageFeature.Governance)   // narrow, but Governance is in
             .UseSqliteVectorStore()
             .UseSqliteResponseCache()
@@ -242,7 +242,7 @@ public class FeatureToggleTests : IDisposable
         var path = FreshPath();
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteStorage(path)
             .UseSqliteVectorStore()
             .UseSqliteResponseCache()

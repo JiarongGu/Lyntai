@@ -213,7 +213,7 @@ public class RouterCooldownKeyTests
     public async Task The_llm_router_honours_the_delegate_too()
     {
         var tracker = new DeadHostTracker(threshold: 1);
-        var provider = new FakeLlmProvider("openai");
+        var provider = new FakeTextProvider("openai");
         provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
@@ -240,7 +240,7 @@ public class RouterCooldownKeyTests
         options.Routing.CooldownScope = CooldownScope.ProviderAndModel;
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
-        var provider = new FakeLlmProvider("openai");
+        var provider = new FakeTextProvider("openai");
         provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
 
         var router = new TextRouter([provider], tracker, options, configuration: _ => cfg);
@@ -264,7 +264,7 @@ public class RouterCooldownKeyTests
         var admission = new ProviderAdmission(options);
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
-        var provider = new FakeLlmProvider("openai");
+        var provider = new FakeTextProvider("openai");
         provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
 
         var router = new TextRouter([provider], new DeadHostTracker(), new LyntaiOptions(),
@@ -287,7 +287,7 @@ public class RouterCooldownKeyTests
         var admission = new ProviderAdmission(options);
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
-        var router = new TextRouter([new FakeLlmProvider("openai")], new DeadHostTracker(), new LyntaiOptions(),
+        var router = new TextRouter([new FakeTextProvider("openai")], new DeadHostTracker(), new LyntaiOptions(),
             configuration: _ => cfg, admission: admission);
 
         var chunks = new List<TextChunk>();

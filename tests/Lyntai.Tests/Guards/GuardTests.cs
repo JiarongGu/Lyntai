@@ -111,7 +111,7 @@ public class GuardTests
     [Fact]
     public async Task Guarded_client_gates_error_reply_detail()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "boom: leaked-path /etc/secret"));
         var client = new GuardedTextClient(inner, new GuardRail([new DenylistGuard(["leaked-path"])]));
 
@@ -133,7 +133,7 @@ public class GuardTests
     [Fact]
     public async Task Guarded_client_blocks_a_denied_request_before_the_model()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("should not be reached", ProviderVerdict.Ok));
         var client = new GuardedTextClient(inner, new GuardRail([new DenylistGuard(["bomb"])]));
 
@@ -146,7 +146,7 @@ public class GuardTests
     [Fact]
     public async Task Guarded_client_replaces_a_flagged_reply()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("sensitive output", ProviderVerdict.Ok));
         var client = new GuardedTextClient(inner, new GuardRail([new RewriteGuard()]));
 
@@ -161,7 +161,7 @@ public class GuardTests
     {
         // R3 — a response Replace redacts the reply; it must NOT leave denied content in ToolCalls/Detail
         // (which the output gate also scans). The replacement text is the whole sanitized reply.
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("sensitive output", ProviderVerdict.Ok, Detail: "trace: leaked-path")
         {
             ToolCalls = [new TextToolCall("c1", "run", """{"cmd":"exfiltrate"}""")],
@@ -198,7 +198,7 @@ public class GuardTests
     [Fact]
     public async Task Guarded_client_passes_clean_traffic_through()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("all good", ProviderVerdict.Ok));
         var client = new GuardedTextClient(inner, new GuardRail([new DenylistGuard(["nope"])]));
 
@@ -212,7 +212,7 @@ public class GuardTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddGuard(_ => new DenylistGuard(["secret"])));
         using var sp = services.BuildServiceProvider();
 

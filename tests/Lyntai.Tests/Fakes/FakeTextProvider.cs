@@ -5,7 +5,7 @@ namespace Lyntai.Tests.Fakes;
 
 /// <summary>Scripted in-memory provider: queue replies for CompleteAsync, set a chunk script for
 /// StreamAsync; records every request it saw.</summary>
-public sealed class FakeLlmProvider(string id) : IModelProvider
+public sealed class FakeTextProvider(string id) : IModelProvider
 {
     public string Id { get; } = id;
 

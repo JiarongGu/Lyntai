@@ -2,9 +2,9 @@ using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Tests.Fakes;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
-public class LlmRouterCompleteTests
+public class TextRouterCompleteTests
 {
     private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
@@ -14,9 +14,9 @@ public class LlmRouterCompleteTests
     [Fact]
     public async Task First_ok_is_returned_and_second_not_called()
     {
-        var p1 = new FakeLlmProvider("p1");
+        var p1 = new FakeTextProvider("p1");
         p1.Replies.Enqueue(new TextResponse("from p1", ProviderVerdict.Ok));
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
@@ -28,9 +28,9 @@ public class LlmRouterCompleteTests
     [Fact]
     public async Task Failed_advances_to_second_which_serves()
     {
-        var p1 = new FakeLlmProvider("p1");
+        var p1 = new FakeTextProvider("p1");
         p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "boom"));
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
         p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
@@ -44,9 +44,9 @@ public class LlmRouterCompleteTests
     public async Task A_thrown_429_is_classified_RateLimited_and_cools_the_host()
     {
         var tracker = new DeadHostTracker();
-        var p1 = new FakeLlmProvider("p1")
+        var p1 = new FakeTextProvider("p1")
         { CompleteThrow = new HttpRequestException("throttled", null, System.Net.HttpStatusCode.TooManyRequests) };
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
         p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(tracker, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
@@ -60,9 +60,9 @@ public class LlmRouterCompleteTests
     public async Task A_thrown_error_with_refusal_keywords_still_falls_over()
     {
         // an error page from a proxy/CDN mentioning "content filter" — the MODEL never declined anything
-        var p1 = new FakeLlmProvider("p1")
+        var p1 = new FakeTextProvider("p1")
         { CompleteThrow = new HttpRequestException("<html>Blocked by corporate content filter</html>") };
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
         p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
@@ -74,9 +74,9 @@ public class LlmRouterCompleteTests
     [Fact]
     public async Task All_failed_returns_the_last_error()
     {
-        var p1 = new FakeLlmProvider("p1");
+        var p1 = new FakeTextProvider("p1");
         p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "first"));
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
         p2.Replies.Enqueue(new TextResponse("", ProviderVerdict.Timeout, Detail: "second"));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
@@ -90,9 +90,9 @@ public class LlmRouterCompleteTests
     {
         // amended §6: a 429 is terminal for the host's window, transient for the fleet
         var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
-        var p1 = new FakeLlmProvider("p1");
+        var p1 = new FakeTextProvider("p1");
         p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
         p2.Replies.Enqueue(new TextResponse("served by fallback", ProviderVerdict.Ok));
 
         var router = Router(tracker, p1, p2);
@@ -112,9 +112,9 @@ public class LlmRouterCompleteTests
     {
         // too-big-for-model is not a host fault: the correct remedy is a larger-context candidate
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
-        var small = new FakeLlmProvider("small");
+        var small = new FakeTextProvider("small");
         small.Replies.Enqueue(new TextResponse("", ProviderVerdict.ContextWindowExceeded, Detail: "context_length_exceeded"));
-        var big = new FakeLlmProvider("big");
+        var big = new FakeTextProvider("big");
         big.Replies.Enqueue(new TextResponse("handled by the big model", ProviderVerdict.Ok));
 
         var reply = await Router(tracker, small, big).CompleteAsync([new("small"), new("big")], Req);
@@ -127,9 +127,9 @@ public class LlmRouterCompleteTests
     public async Task Auth_failure_cools_the_host_and_advances()
     {
         var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
-        var badKey = new FakeLlmProvider("bad-key");
+        var badKey = new FakeTextProvider("bad-key");
         badKey.Replies.Enqueue(new TextResponse("", ProviderVerdict.AuthFailed, Detail: "401"));
-        var goodKey = new FakeLlmProvider("good-key");
+        var goodKey = new FakeTextProvider("good-key");
         goodKey.Replies.Enqueue(new TextResponse("authorized", ProviderVerdict.Ok));
 
         var reply = await Router(tracker, badKey, goodKey).CompleteAsync([new("bad-key"), new("good-key")], Req);
@@ -145,9 +145,9 @@ public class LlmRouterCompleteTests
         // on cooldown for a fact the router knew before calling. NotConfigured advances with no penalty and
         // no cooldown — the same thing the generation router already does (GenerationRoutingPolicy).
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
-        var unset = new FakeLlmProvider("unset");
+        var unset = new FakeTextProvider("unset");
         unset.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "no api key"));
-        var configured = new FakeLlmProvider("configured");
+        var configured = new FakeTextProvider("configured");
         configured.Replies.Enqueue(new TextResponse("served", ProviderVerdict.Ok));
 
         var reply = await Router(tracker, unset, configured).CompleteAsync([new("unset"), new("configured")], Req);
@@ -162,9 +162,9 @@ public class LlmRouterCompleteTests
         // the masking trap a blameless verdict introduces: told "not configured", a caller goes and sets up
         // a key — while the backend they HAD configured is the one that is down. GenerationRouter already
         // guards this ("aren't faults worth reporting over a real failure"); the LLM router must too.
-        var down = new FakeLlmProvider("down");
+        var down = new FakeTextProvider("down");
         down.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "connection refused"));
-        var unset = new FakeLlmProvider("unset");
+        var unset = new FakeTextProvider("unset");
         unset.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "no api key"));
 
         var reply = await Router(null, down, unset).CompleteAsync([new("down"), new("unset")], Req);
@@ -182,12 +182,12 @@ public class LlmRouterCompleteTests
         //
         // That invariant — the LAST substantive failure wins, unlike GenerationRouter's first — is held by
         // `All_failed_returns_the_last_error` (above) and its streaming twin
-        // `LlmRouterStreamTests.All_candidates_fail_pre_content_yields_last_error`. Those two are the ONLY
+        // `TextRouterStreamTests.All_candidates_fail_pre_content_yields_last_error`. Those two are the ONLY
         // guard against a well-meant harmonisation of the two routers; they are not redundant with this one,
         // and deleting either would let last-wins silently become first-wins with every test still green.
-        var unset = new FakeLlmProvider("unset");
+        var unset = new FakeTextProvider("unset");
         unset.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "no api key"));
-        var down = new FakeLlmProvider("down");
+        var down = new FakeTextProvider("down");
         down.Replies.Enqueue(new TextResponse("", ProviderVerdict.Timeout, Detail: "timed out"));
 
         var reply = await Router(null, unset, down).CompleteAsync([new("unset"), new("down")], Req);
@@ -200,9 +200,9 @@ public class LlmRouterCompleteTests
     {
         // …and with no real failure to report, the blameless verdict IS the honest answer — a host turns it
         // into a setup prompt. Keeping it out of the reply entirely would be a regression, not a fix.
-        var a = new FakeLlmProvider("a");
+        var a = new FakeTextProvider("a");
         a.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "a: no api key"));
-        var b = new FakeLlmProvider("b");
+        var b = new FakeTextProvider("b");
         b.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "b: no api key"));
 
         var reply = await Router(null, a, b).CompleteAsync([new("a"), new("b")], Req);
@@ -214,9 +214,9 @@ public class LlmRouterCompleteTests
     [Fact]
     public async Task All_candidates_rate_limited_surfaces_the_rate_limit()
     {
-        var p1 = new FakeLlmProvider("p1");
+        var p1 = new FakeTextProvider("p1");
         p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429 p1"));
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
         p2.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429 p2"));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
@@ -228,9 +228,9 @@ public class LlmRouterCompleteTests
     [Fact]
     public async Task Refused_surfaces_without_fallback()
     {
-        var p1 = new FakeLlmProvider("p1");
+        var p1 = new FakeTextProvider("p1");
         p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.Refused, Detail: "policy"));
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
@@ -244,8 +244,8 @@ public class LlmRouterCompleteTests
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         tracker.RecordFailure("p1"); // threshold 1 → dead now
 
-        var p1 = new FakeLlmProvider("p1");
-        var p2 = new FakeLlmProvider("p2");
+        var p1 = new FakeTextProvider("p1");
+        var p2 = new FakeTextProvider("p2");
         p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(tracker, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
@@ -257,8 +257,8 @@ public class LlmRouterCompleteTests
     [Fact]
     public async Task Unavailable_provider_is_skipped()
     {
-        var p1 = new FakeLlmProvider("p1") { IsAvailable = false };
-        var p2 = new FakeLlmProvider("p2");
+        var p1 = new FakeTextProvider("p1") { IsAvailable = false };
+        var p2 = new FakeTextProvider("p2");
         p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
@@ -271,7 +271,7 @@ public class LlmRouterCompleteTests
     public async Task Provider_exception_is_mapped_to_failed_and_advances()
     {
         var p1 = new ThrowingProvider("p1");
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
         p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);

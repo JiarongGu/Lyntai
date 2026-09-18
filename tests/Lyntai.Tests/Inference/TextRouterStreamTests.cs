@@ -2,9 +2,9 @@ using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Tests.Fakes;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
-public class LlmRouterStreamTests
+public class TextRouterStreamTests
 {
     private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
@@ -14,11 +14,11 @@ public class LlmRouterStreamTests
     [Fact]
     public async Task Pre_content_failure_falls_over_to_next_candidate()
     {
-        var p1 = new FakeLlmProvider("p1")
+        var p1 = new FakeTextProvider("p1")
         {
             StreamScript = _ => [TextChunk.Error(ProviderVerdict.Failed, "cold start")],
         };
-        var p2 = new FakeLlmProvider("p2")
+        var p2 = new FakeTextProvider("p2")
         {
             StreamScript = _ => [TextChunk.Content("hello "), TextChunk.Content("world"), TextChunk.Final()],
         };
@@ -36,11 +36,11 @@ public class LlmRouterStreamTests
         // the streaming route has its OWN penalty/cooldown bookkeeping — assert the no-blame path here too
         // rather than inferring it from the shared Policy.ActionFor
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
-        var unset = new FakeLlmProvider("unset")
+        var unset = new FakeTextProvider("unset")
         {
             StreamScript = _ => [TextChunk.Error(ProviderVerdict.NotConfigured, "no api key")],
         };
-        var configured = new FakeLlmProvider("configured")
+        var configured = new FakeTextProvider("configured")
         {
             StreamScript = _ => [TextChunk.Content("served"), TextChunk.Final()],
         };
@@ -56,11 +56,11 @@ public class LlmRouterStreamTests
     public async Task A_real_failure_is_reported_over_a_later_unconfigured_candidate_while_streaming()
     {
         // same masking trap as the non-streaming path, and its own lastError accumulation to get wrong
-        var down = new FakeLlmProvider("down")
+        var down = new FakeTextProvider("down")
         {
             StreamScript = _ => [TextChunk.Error(ProviderVerdict.Failed, "connection refused")],
         };
-        var unset = new FakeLlmProvider("unset")
+        var unset = new FakeTextProvider("unset")
         {
             StreamScript = _ => [TextChunk.Error(ProviderVerdict.NotConfigured, "no api key")],
         };
@@ -75,8 +75,8 @@ public class LlmRouterStreamTests
     [Fact]
     public async Task Every_streamed_candidate_unconfigured_still_reports_not_configured()
     {
-        var a = new FakeLlmProvider("a") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.NotConfigured, "a: no api key")] };
-        var b = new FakeLlmProvider("b") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.NotConfigured, "b: no api key")] };
+        var a = new FakeTextProvider("a") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.NotConfigured, "a: no api key")] };
+        var b = new FakeTextProvider("b") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.NotConfigured, "b: no api key")] };
 
         var chunks = await Router(a, b).StreamAsync([new("a"), new("b")], Req).ToListAsync();
 
@@ -87,8 +87,8 @@ public class LlmRouterStreamTests
     [Fact] // T8: a PROVIDER's own OperationCanceledException (caller ct not cancelled) falls over, not aborts
     public async Task Provider_side_cancellation_pre_content_falls_over_to_next_candidate()
     {
-        var p1 = new FakeLlmProvider("p1") { StreamThrow = new OperationCanceledException("provider gave up") };
-        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [TextChunk.Content("hi"), TextChunk.Final()] };
+        var p1 = new FakeTextProvider("p1") { StreamThrow = new OperationCanceledException("provider gave up") };
+        var p2 = new FakeTextProvider("p2") { StreamScript = _ => [TextChunk.Content("hi"), TextChunk.Final()] };
 
         // no caller cancellation → the provider's OWN OCE must not abort the router; it falls over to p2
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
@@ -102,11 +102,11 @@ public class LlmRouterStreamTests
     {
         // the router is the trust boundary: an empty/role-only Content chunk must NOT disable fallback
         // (shipped providers guard this, but a third-party IModelProvider may yield an empty first chunk)
-        var p1 = new FakeLlmProvider("p1")
+        var p1 = new FakeTextProvider("p1")
         {
             StreamScript = _ => [TextChunk.Content(""), TextChunk.Error(ProviderVerdict.Failed, "empty then died")],
         };
-        var p2 = new FakeLlmProvider("p2")
+        var p2 = new FakeTextProvider("p2")
         {
             StreamScript = _ => [TextChunk.Content("recovered"), TextChunk.Final()],
         };
@@ -121,8 +121,8 @@ public class LlmRouterStreamTests
     [Fact] // L4: zero chunks = a contract-violating empty stream → Failed + fall over (not a silent end)
     public async Task Zero_chunk_stream_falls_over_to_the_next_candidate()
     {
-        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [] };
-        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [TextChunk.Content("recovered"), TextChunk.Final()] };
+        var p1 = new FakeTextProvider("p1") { StreamScript = _ => [] };
+        var p2 = new FakeTextProvider("p2") { StreamScript = _ => [TextChunk.Content("recovered"), TextChunk.Final()] };
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
@@ -133,7 +133,7 @@ public class LlmRouterStreamTests
     [Fact] // L4: with no fallback left, the empty stream still ends with a terminal Error chunk (never silence)
     public async Task Zero_chunk_stream_with_no_fallback_yields_a_terminal_error()
     {
-        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [] };
+        var p1 = new FakeTextProvider("p1") { StreamScript = _ => [] };
 
         var chunks = await Router(p1).StreamAsync([new("p1")], Req).ToListAsync();
 
@@ -145,8 +145,8 @@ public class LlmRouterStreamTests
     [Fact] // L4: a Final with NO preceding content is the empty-reply trap at the trust boundary → falls over
     public async Task Pre_content_final_falls_over_instead_of_passing_an_empty_end_through()
     {
-        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [TextChunk.Final()] };
-        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [TextChunk.Content("recovered"), TextChunk.Final()] };
+        var p1 = new FakeTextProvider("p1") { StreamScript = _ => [TextChunk.Final()] };
+        var p2 = new FakeTextProvider("p2") { StreamScript = _ => [TextChunk.Content("recovered"), TextChunk.Final()] };
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
@@ -157,11 +157,11 @@ public class LlmRouterStreamTests
     [Fact]
     public async Task Mid_stream_error_after_a_token_passes_through_no_second_candidate()
     {
-        var p1 = new FakeLlmProvider("p1")
+        var p1 = new FakeTextProvider("p1")
         {
             StreamScript = _ => [TextChunk.Content("partial"), TextChunk.Error(ProviderVerdict.Failed, "died mid-stream")],
         };
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
@@ -175,11 +175,11 @@ public class LlmRouterStreamTests
     public async Task Caller_cancellation_mid_stream_propagates_without_fallback_or_a_fabricated_terminal()
     {
         using var cts = new CancellationTokenSource();
-        var p1 = new FakeLlmProvider("p1")
+        var p1 = new FakeTextProvider("p1")
         {
             StreamScript = _ => [TextChunk.Content("partial"), TextChunk.Content("never delivered"), TextChunk.Final()],
         };
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
 
         var received = new List<TextChunk>();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
@@ -200,7 +200,7 @@ public class LlmRouterStreamTests
     [Fact]
     public async Task Success_streams_straight_through_in_order()
     {
-        var p1 = new FakeLlmProvider("p1")
+        var p1 = new FakeTextProvider("p1")
         {
             StreamScript = _ => [TextChunk.Content("a"), TextChunk.Content("b"), TextChunk.Content("c"),
                 TextChunk.Final(new TextUsage(10, 3))],
@@ -216,11 +216,11 @@ public class LlmRouterStreamTests
     public async Task Pre_content_rate_limit_cools_the_host_and_falls_over()
     {
         // amended §6: RateLimited advances like Failed/Timeout (the host cools, the fleet serves)
-        var p1 = new FakeLlmProvider("p1")
+        var p1 = new FakeTextProvider("p1")
         {
             StreamScript = _ => [TextChunk.Error(ProviderVerdict.RateLimited, "429")],
         };
-        var p2 = new FakeLlmProvider("p2")
+        var p2 = new FakeTextProvider("p2")
         {
             StreamScript = _ => [TextChunk.Content("fallback stream"), TextChunk.Final()],
         };
@@ -235,11 +235,11 @@ public class LlmRouterStreamTests
     [Fact]
     public async Task Pre_content_refusal_surfaces_without_fallback()
     {
-        var p1 = new FakeLlmProvider("p1")
+        var p1 = new FakeTextProvider("p1")
         {
             StreamScript = _ => [TextChunk.Error(ProviderVerdict.Refused, "content policy")],
         };
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
@@ -251,8 +251,8 @@ public class LlmRouterStreamTests
     [Fact]
     public async Task All_candidates_fail_pre_content_yields_last_error()
     {
-        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.Failed, "one")] };
-        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.Timeout, "two")] };
+        var p1 = new FakeTextProvider("p1") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.Failed, "one")] };
+        var p2 = new FakeTextProvider("p2") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.Timeout, "two")] };
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 

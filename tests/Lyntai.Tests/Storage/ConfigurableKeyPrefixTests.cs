@@ -71,7 +71,7 @@ public class ConfigurableKeyPrefixTests
         var services = new ServiceCollection();
         services.AddSingleton<IKeyValueStore>(kv);
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("fake"))
+            .AddProvider(_ => new FakeTextProvider("fake"))
             .Configure(o => o.PromptKeyPrefix = "cortex.prompt."));
         using var sp = services.BuildServiceProvider();
 
@@ -90,7 +90,7 @@ public class ConfigurableKeyPrefixTests
         var services = new ServiceCollection();
         services.AddSingleton<IKeyValueStore>(kv);
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("fake"))
+            .AddProvider(_ => new FakeTextProvider("fake"))
             .Configure(o => o.ModelKeyPrefix = "llm.model.")
             .AddLiveModelRouting());
         using var sp = services.BuildServiceProvider();

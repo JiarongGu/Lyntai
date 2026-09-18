@@ -36,7 +36,7 @@ public class LlmMemoryAnnotationPolicyTests
             throw new NotSupportedException();
     }
 
-    /// <summary>Honours the token, which the shared <c>FakeLlmClient</c> deliberately does not — the
+    /// <summary>Honours the token, which the shared <c>FakeTextClient</c> deliberately does not — the
     /// cancellation fact is about the POLICY's catch ordering (<c>catch (OperationCanceledException) { throw; }</c>
     /// ahead of the fail-open catch), and a client that ignored the token would make it pass vacuously.</summary>
     private sealed class CancellingClient : ITextClient

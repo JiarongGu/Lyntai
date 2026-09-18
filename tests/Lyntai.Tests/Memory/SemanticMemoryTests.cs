@@ -263,7 +263,7 @@ public class SemanticMemoryTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
         using var sp = services.BuildServiceProvider();
 

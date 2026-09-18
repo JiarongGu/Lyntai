@@ -1,6 +1,6 @@
 using Lyntai.Inference;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
 public class RoutingPolicyTests
 {

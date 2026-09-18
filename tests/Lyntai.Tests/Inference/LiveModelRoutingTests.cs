@@ -3,7 +3,7 @@ using Lyntai;
 using Lyntai.Tests.Fakes;
 using InMemoryKeyValueStore = Lyntai.Storage.InMemory.InMemoryKeyValueStore;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>Live per-consumer model routing (A6): an admin-set model override in the KV store takes effect
 /// on the very next call — no restart — resolved above the code/env default but below an explicit model.</summary>
@@ -39,7 +39,7 @@ public class LiveModelRoutingTests
     public async Task An_admin_retune_takes_effect_live_without_restart()
     {
         var kv = new InMemoryKeyValueStore();
-        var provider = new FakeLlmProvider("p"); // its Calls capture the request the router built (with the effective model)
+        var provider = new FakeTextProvider("p"); // its Calls capture the request the router built (with the effective model)
         var options = new LyntaiOptions();
         options.DefaultModelByConsumer["scoring"] = "config-model";
         var router = new TextRouter([provider], new DeadHostTracker(), options,

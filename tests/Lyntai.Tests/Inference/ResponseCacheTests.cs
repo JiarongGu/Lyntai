@@ -5,7 +5,7 @@ using Lyntai.Inference.Caching;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>The opt-in response cache: stable keying (output-determining fields only), the in-memory
 /// store's TTL + size eviction, the front-door decorator's hit/miss/only-Ok/tool-bypass/streaming rules,
@@ -99,7 +99,7 @@ public class ResponseCacheTests
     [Fact]
     public async Task Cache_does_not_cross_serve_consumers_with_different_default_models()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("answer-for-a", ProviderVerdict.Ok));
         inner.Replies.Enqueue(new TextResponse("answer-for-b", ProviderVerdict.Ok));
         var options = new LyntaiOptions();
@@ -192,9 +192,9 @@ public class ResponseCacheTests
 
     // ---- decorator -----------------------------------------------------------------------------------
 
-    private static (CachingTextClient client, FakeLlmClient inner) Decorated()
+    private static (CachingTextClient client, FakeTextClient inner) Decorated()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         var options = new LyntaiOptions();
         return (new CachingTextClient(inner, new InMemoryResponseCache(options), options), inner);
     }
@@ -269,7 +269,7 @@ public class ResponseCacheTests
     [Fact]
     public async Task AddResponseCache_wires_a_caching_front_door()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("once", ProviderVerdict.Ok)); // exactly one scripted reply
         var services = new ServiceCollection();
         services.AddLyntai(b => b

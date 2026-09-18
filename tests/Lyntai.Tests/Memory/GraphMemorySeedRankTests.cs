@@ -274,7 +274,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddMemory());
         using var sp = services.BuildServiceProvider();
@@ -294,7 +294,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddMemory()
             .AddMemorySemanticSeeds());
@@ -316,7 +316,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddMemory()
             .AddMemorySemanticSeeds());   // no a vector backend / IVectorStore registered
@@ -333,7 +333,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddMemory()
             .AddMemorySubjectSeeds(new SubjectSeedOptions { K = 11 }));

@@ -16,7 +16,7 @@ namespace Lyntai.Tests.Agents;
 /// on the one that never did.</summary>
 public class ChatResultUsageTests
 {
-    private static ServiceProvider Build(FakeLlmProvider provider, Action<LyntaiBuilder>? extra = null)
+    private static ServiceProvider Build(FakeTextProvider provider, Action<LyntaiBuilder>? extra = null)
     {
         var services = new ServiceCollection();
         services.AddLyntai(b =>
@@ -30,7 +30,7 @@ public class ChatResultUsageTests
     [Fact] // the headline: the tool loop's summed usage reaches the caller instead of being discarded
     public async Task Tool_loop_usage_is_surfaced_on_the_chat_result()
     {
-        var provider = new FakeLlmProvider("p"); // no native tools → prompt-protocol tool loop, two turns
+        var provider = new FakeTextProvider("p"); // no native tools → prompt-protocol tool loop, two turns
         provider.Replies.Enqueue(new TextResponse("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok, new TextUsage(10, 5)));
         provider.Replies.Enqueue(new TextResponse("""{"final":"HI done"}""", ProviderVerdict.Ok, new TextUsage(7, 3, 2, 0.25)));
         using var sp = Build(provider, b => b.AddTool(_ => new FunctionTool("shout", (a, _) => Task.FromResult(a.ToUpperInvariant()))));
@@ -49,7 +49,7 @@ public class ChatResultUsageTests
     [Fact] // the no-tools path discarded the reply's usage the same way
     public async Task Plain_completion_usage_is_surfaced_on_the_chat_result()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("the answer is 42", ProviderVerdict.Ok, new TextUsage(12, 4)));
         using var sp = Build(provider);
 
@@ -64,7 +64,7 @@ public class ChatResultUsageTests
     [Fact] // a provider that surfaces no tokens (a CLI one) must not become a misleading all-zero figure
     public async Task Usage_stays_null_when_no_provider_reported_any()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("no tokens here", ProviderVerdict.Ok));
         using var sp = Build(provider);
 
@@ -78,7 +78,7 @@ public class ChatResultUsageTests
     [Fact] // a failed turn still SPENT the tokens — the figure is what the turn cost, not what it returned
     public async Task Usage_is_surfaced_on_a_non_ok_verdict()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         // Refused is FallbackAction.Surface under the default RoutingPolicy — no retry, no next candidate —
         // so the reply the orchestrator sees is exactly this one, usage and all.
         provider.Replies.Enqueue(new TextResponse("", ProviderVerdict.Refused, new TextUsage(9, 0), "policy"));
@@ -95,7 +95,7 @@ public class ChatResultUsageTests
     [Fact] // the input gate returns BEFORE any provider call — there is no figure, and zero would be a lie
     public async Task Usage_stays_null_when_the_input_gate_blocked_before_the_model()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("should not run", ProviderVerdict.Ok, new TextUsage(99, 99)));
         using var sp = Build(provider, b => b.AddGuard(_ => new DenylistGuard(["malware"])));
 
@@ -110,7 +110,7 @@ public class ChatResultUsageTests
     [Fact] // …but an OUTPUT-gate block already spent the tokens, so it reports them
     public async Task Usage_is_surfaced_when_the_output_gate_blocked_the_answer()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("here is the leaked secret", ProviderVerdict.Ok, new TextUsage(6, 11)));
         using var sp = Build(provider, b => b.AddGuard(_ => new DenylistGuard(["leaked"])));
 

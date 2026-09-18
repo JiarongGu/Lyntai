@@ -50,7 +50,7 @@ public class LyntaiDiagnosticsTests
         using var listener = SpanListener(spans);
         ActivitySource.AddActivityListener(listener);
 
-        var p = new FakeLlmProvider("p1");
+        var p = new FakeTextProvider("p1");
         p.Replies.Enqueue(new TextResponse("hi", ProviderVerdict.Ok, new TextUsage(100, 20)));
         await Router(p).CompleteAsync([new("p1", "m-span-ok")], Req);
 
@@ -70,7 +70,7 @@ public class LyntaiDiagnosticsTests
         using var listener = SpanListener(spans);
         ActivitySource.AddActivityListener(listener);
 
-        var p = new FakeLlmProvider("p1");
+        var p = new FakeTextProvider("p1");
         p.Replies.Enqueue(new TextResponse("", ProviderVerdict.Timeout, Detail: "too slow"));
         await Router(p).CompleteAsync([new("p1", "m-span-err")], Req);
 
@@ -103,7 +103,7 @@ public class LyntaiDiagnosticsTests
         });
         meterListener.Start();
 
-        var p = new FakeLlmProvider("p1");
+        var p = new FakeTextProvider("p1");
         p.Replies.Enqueue(new TextResponse("hi", ProviderVerdict.Ok, new TextUsage(7, 3)));
         await Router(p).CompleteAsync([new("p1", "m-metrics")], Req);
 
@@ -132,7 +132,7 @@ public class LyntaiDiagnosticsTests
         });
         meterListener.Start();
 
-        var p = new FakeLlmProvider("p1")
+        var p = new FakeTextProvider("p1")
         {
             StreamScript = _ => [TextChunk.Content("a"), TextChunk.Content("b"), TextChunk.Final()],
         };

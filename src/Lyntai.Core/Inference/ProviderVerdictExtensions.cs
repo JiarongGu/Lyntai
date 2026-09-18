@@ -62,7 +62,7 @@ public static class ProviderVerdictExtensions
     /// <para>Deliberately NOT derived from <see cref="RoutingPolicy"/>: that table answers what the
     /// ROUTER does with a candidate, and the two differ (<see cref="ProviderVerdict.RateLimited"/> and
     /// <see cref="ProviderVerdict.AuthFailed"/> share an action there, not here).
-    /// <c>LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient</c> fails until a new
+    /// <c>ProviderVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient</c> fails until a new
     /// member is CLASSIFIED, not merely listed — the obligation D31 places on the policy table.</para></summary>
     public static bool IsTransient(this ProviderVerdict verdict) =>
         verdict is ProviderVerdict.Failed or ProviderVerdict.Timeout or ProviderVerdict.RateLimited;

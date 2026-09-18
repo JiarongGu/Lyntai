@@ -19,7 +19,7 @@ public class DeferredMigrationTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteStorage(_db.Path, Lyntai.Storage.SchemaMigration.OnFirstUse));
         using var sp = services.BuildServiceProvider();
 
@@ -34,7 +34,7 @@ public class DeferredMigrationTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteStorage(_db.Path, Lyntai.Storage.SchemaMigration.OnFirstUse));
         using var sp = services.BuildServiceProvider();
 

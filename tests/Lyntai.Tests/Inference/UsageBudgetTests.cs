@@ -5,7 +5,7 @@ using Lyntai.Inference.Caching;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>Usage budgeting: the in-memory tracker's per-consumer + global accounting, the front-door
 /// decorator's record-then-enforce (refuse over a cap without hitting a provider), and — with caching —
@@ -56,9 +56,9 @@ public class UsageBudgetTests
 
     // ---- decorator -----------------------------------------------------------------------------------
 
-    private static (BudgetedTextClient client, FakeLlmClient inner, IUsageTracker tracker) Budgeted(Action<BudgetOptions> tune)
+    private static (BudgetedTextClient client, FakeTextClient inner, IUsageTracker tracker) Budgeted(Action<BudgetOptions> tune)
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         var options = new LyntaiOptions();
         tune(options.Budget);
         var tracker = new InMemoryUsageTracker();
@@ -150,7 +150,7 @@ public class UsageBudgetTests
     [Fact]
     public async Task Budget_and_cache_compose_with_the_cache_outermost_so_hits_are_free()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(Ok(0.04)); // exactly one scripted reply; a real call costs 0.04
         var services = new ServiceCollection();
         services.AddLyntai(b => b

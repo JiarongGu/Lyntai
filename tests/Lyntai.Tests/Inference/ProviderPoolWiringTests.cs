@@ -365,7 +365,7 @@ public class ProviderPoolWiringTests
         var key = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var router = sp.GetRequiredService<ITextRouterFactory>().For([
-            new ProviderRegistration<IModelProvider>(key, () => new FakeLlmProvider("openai"))]);
+            new ProviderRegistration<IModelProvider>(key, () => new FakeTextProvider("openai"))]);
         var reply = await router.CompleteAsync([new ProviderCandidate("openai")],
             new TextRequest { Messages = [TextMessage.User("hi")] });
 
@@ -408,7 +408,7 @@ public class ProviderPoolWiringTests
     public async Task The_llm_factory_routes_over_a_pooled_configuration()
     {
         using var sp = Provider(_ => { });
-        var provider = new FakeLlmProvider("openai");
+        var provider = new FakeTextProvider("openai");
 
         var router = sp.GetRequiredService<ITextRouterFactory>().For([
             new ProviderRegistration<IModelProvider>(

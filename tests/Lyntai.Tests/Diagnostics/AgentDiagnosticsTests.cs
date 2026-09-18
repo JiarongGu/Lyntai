@@ -37,7 +37,7 @@ public class AgentDiagnosticsTests
         using var listener = SpanListener(spans);
         ActivitySource.AddActivityListener(listener);
 
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"echo-tl","arguments":{}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
         var tool = new FunctionTool("echo-tl", (a, _) => Task.FromResult($"observed:{a}"), "echoes");
@@ -72,7 +72,7 @@ public class AgentDiagnosticsTests
             lock (invocations) invocations.Add((name, error));
         });
 
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"boom-tl","arguments":{}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"handled"}""", ProviderVerdict.Ok));
         var tool = new FunctionTool("boom-tl", (_, _) => throw new InvalidOperationException("kaboom"));

@@ -1,7 +1,7 @@
 using Lyntai.Agents;
 using Lyntai.Inference;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>Every tag the LIBRARY itself emits must have a constant in <see cref="ProviderConsumers"/>.
 ///
@@ -12,7 +12,7 @@ namespace Lyntai.Tests.Llm;
 /// fail — it silently opens a bucket no cap covers and no report names, which is what
 /// <see cref="ProviderConsumers"/>'s own docs warn about. A string literal drifting from its constant is
 /// invisible to every gate here.</para></summary>
-public class LlmConsumerTagTests
+public class ProviderConsumerTagTests
 {
     [Fact]
     public void A_chat_turns_default_tag_is_the_declared_constant_not_a_loose_literal()

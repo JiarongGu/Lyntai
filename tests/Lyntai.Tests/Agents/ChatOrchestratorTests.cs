@@ -12,7 +12,7 @@ namespace Lyntai.Tests.Agents;
 /// recall/write — driven through DI with fakes so no real provider is needed.</summary>
 public class ChatOrchestratorTests
 {
-    private static ServiceProvider Build(FakeLlmProvider provider, Action<LyntaiBuilder>? extra = null)
+    private static ServiceProvider Build(FakeTextProvider provider, Action<LyntaiBuilder>? extra = null)
     {
         var services = new ServiceCollection();
         services.AddLyntai(b =>
@@ -26,7 +26,7 @@ public class ChatOrchestratorTests
     [Fact]
     public async Task Clean_turn_answers_and_remembers()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("the answer is 42", ProviderVerdict.Ok));
         using var sp = Build(provider);
 
@@ -43,7 +43,7 @@ public class ChatOrchestratorTests
     [Fact]
     public async Task Input_gate_blocks_before_the_model()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("should not run", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddGuard(_ => new DenylistGuard(["malware"])));
 
@@ -58,7 +58,7 @@ public class ChatOrchestratorTests
     [Fact]
     public async Task Output_gate_blocks_a_flagged_answer()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("here is the leaked secret", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddGuard(_ => new DenylistGuard(["leaked"])));
 
@@ -84,7 +84,7 @@ public class ChatOrchestratorTests
     [Fact] // R1: recalled memory must NOT bypass the input gate (facts can enter via public seams un-gated)
     public async Task Recalled_memory_is_still_input_gated_before_the_model()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("should not run", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddGuard(_ => new DenylistGuard(["malware"])));
 
@@ -102,7 +102,7 @@ public class ChatOrchestratorTests
     [Fact] // A2: an input-gate Replace persists Q as the REWRITTEN USER MESSAGE — never the composed prompt
     public async Task Replaced_input_remembers_the_rewritten_message_not_the_composed_prompt()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("done", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddGuard(_ => new PiiRewriteGuard()));
 
@@ -122,7 +122,7 @@ public class ChatOrchestratorTests
     [Fact]
     public async Task Remembers_the_exchange_to_both_memory_stores_when_embeddings_are_wired()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("cancel via account settings", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared));
 
@@ -140,7 +140,7 @@ public class ChatOrchestratorTests
     [Fact]
     public async Task Uses_the_tool_loop_when_tools_are_registered()
     {
-        var provider = new FakeLlmProvider("p"); // no native tools → prompt-protocol tool loop
+        var provider = new FakeTextProvider("p"); // no native tools → prompt-protocol tool loop
         provider.Replies.Enqueue(new TextResponse("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok));
         provider.Replies.Enqueue(new TextResponse("""{"final":"HI done"}""", ProviderVerdict.Ok));
         using var sp = Build(provider, b => b.AddTool(_ => new Lyntai.Agents.FunctionTool("shout", (a, _) => Task.FromResult(a.ToUpperInvariant()))));

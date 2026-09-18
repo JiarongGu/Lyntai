@@ -29,7 +29,7 @@ public class PairwiseComparerTests
         // "Give the model only what it is genuinely better at. It is not better at exact comparison"
         // (`.claude/knowledge/model-decoupling.md`). Two identical strings are a string comparison, and
         // asking costs TWO calls under the default position-bias mitigation.
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         var comparer = new LlmPairwiseComparer(llm);
 
         var result = await comparer.CompareAsync("q", "the same answer", "the same answer");
@@ -43,7 +43,7 @@ public class PairwiseComparerTests
     {
         // Judged=false means "no verdict was available". Here one is, and it is certain — collapsing the
         // two would make a deterministic answer read as a judge outage.
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
 
         var result = await new LlmPairwiseComparer(llm).CompareAsync("q", "same", "same");
 
@@ -57,7 +57,7 @@ public class PairwiseComparerTests
         // mode, and on identical text there is no signal to overcome it: a judge that answers "a" has
         // returned a false verdict, and the two-pass check cannot catch it because BOTH passes see the same
         // two strings. Wired through the single-pass path so the fake's scripted "a" would be believed.
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         llm.Replies.Enqueue(Json("a"));
 
         var result = await new LlmPairwiseComparer(llm, mitigatePositionBias: false)
@@ -73,7 +73,7 @@ public class PairwiseComparerTests
         // The short-circuit is ORDINAL equality and deliberately nothing looser. Whether trailing space
         // matters is a judgement about the caller's domain — a formatting eval would say it does — so code
         // refuses to make it and the model is still asked.
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         llm.Replies.Enqueue(Json("a"));
 
         await new LlmPairwiseComparer(llm, mitigatePositionBias: false).CompareAsync("q", "answer", "answer ");
@@ -84,7 +84,7 @@ public class PairwiseComparerTests
     [Fact]
     public async Task Single_pass_returns_the_judge_pick()
     {
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         llm.Replies.Enqueue(Json("a"));
         var comparer = new LlmPairwiseComparer(llm, mitigatePositionBias: false);
 
@@ -98,7 +98,7 @@ public class PairwiseComparerTests
     public async Task Position_bias_mitigation_confirms_a_consistent_winner()
     {
         // forward call picks slot A (=outputA); swapped call picks slot B (=outputA again) → consistent A
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         llm.Replies.Enqueue(Json("a")); // forward: A wins
         llm.Replies.Enqueue(Json("b")); // swapped: slot B wins, which is outputA → still A
         var comparer = new LlmPairwiseComparer(llm); // mitigation on by default
@@ -113,7 +113,7 @@ public class PairwiseComparerTests
     public async Task Position_bias_disagreement_becomes_a_tie()
     {
         // both passes pick "slot A" → the judge just favors whatever is first (position bias) → Tie
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         llm.Replies.Enqueue(Json("a")); // forward: slot A (=outputA)
         llm.Replies.Enqueue(Json("a")); // swapped: slot A (=outputB) → the two disagree on the real output
         var comparer = new LlmPairwiseComparer(llm);
@@ -127,7 +127,7 @@ public class PairwiseComparerTests
     [Fact]
     public async Task A_failed_judge_verdict_is_a_tie()
     {
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         llm.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down"));
         var comparer = new LlmPairwiseComparer(llm, mitigatePositionBias: false);
 
@@ -145,7 +145,7 @@ public class PairwiseComparerTests
     [Fact]
     public async Task An_unparseable_reply_is_NOT_a_judgement_even_though_the_call_succeeded()
     {
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         llm.Replies.Enqueue(new TextResponse("I'd rather not pick, sorry.", ProviderVerdict.Ok));
         var comparer = new LlmPairwiseComparer(llm, mitigatePositionBias: false);
 
@@ -160,7 +160,7 @@ public class PairwiseComparerTests
     [Fact]
     public async Task A_judge_that_genuinely_answers_TIE_IS_a_judgement()
     {
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         llm.Replies.Enqueue(Json("tie"));
         var comparer = new LlmPairwiseComparer(llm, mitigatePositionBias: false);
 
@@ -176,7 +176,7 @@ public class PairwiseComparerTests
     [Fact]
     public async Task A_position_bias_disagreement_is_still_a_judgement()
     {
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         llm.Replies.Enqueue(Json("a"));
         llm.Replies.Enqueue(Json("a"));   // both pick the first SLOT → the two disagree on the real output
         var comparer = new LlmPairwiseComparer(llm);
@@ -193,7 +193,7 @@ public class PairwiseComparerTests
     [Fact]
     public async Task A_two_pass_run_where_EITHER_pass_failed_is_not_a_judgement()
     {
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         llm.Replies.Enqueue(Json("a"));
         llm.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down"));
         var comparer = new LlmPairwiseComparer(llm);

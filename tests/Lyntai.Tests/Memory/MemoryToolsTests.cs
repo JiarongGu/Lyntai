@@ -17,7 +17,7 @@ public class MemoryToolsTests
         services.AddSingleton<IMemoryGraphStore>(new InMemoryMemoryGraphStore());
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"));
+            b.AddProvider(_ => new FakeTextProvider("p"));
             configure(b);
         });
         return services.BuildServiceProvider();

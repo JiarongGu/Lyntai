@@ -3,7 +3,7 @@ using Lyntai;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>
 /// Named <see cref="ITextClient"/>s, the chat counterpart of named memory engines.
@@ -11,7 +11,7 @@ namespace Lyntai.Tests.Llm;
 /// permissions, and that a name pointing at a backend nobody registered fails loudly instead of quietly
 /// running on the app's default.</para>
 /// </summary>
-public class LlmClientFactoryTests
+public class TextClientFactoryTests
 {
     private static ServiceProvider Build(Action<LyntaiBuilder> configure)
     {
@@ -22,7 +22,7 @@ public class LlmClientFactoryTests
 
     private static LyntaiBuilder WithProviders(LyntaiBuilder b, params string[] ids)
     {
-        foreach (var id in ids) b.Services.AddSingleton<IModelProvider>(new FakeLlmProvider(id));
+        foreach (var id in ids) b.Services.AddSingleton<IModelProvider>(new FakeTextProvider(id));
         return b;
     }
 
@@ -147,8 +147,8 @@ public class LlmClientFactoryTests
     [Fact]
     public async Task A_named_client_routes_over_its_own_backends_when_the_default_candidates_name_none_of_them()
     {
-        var cli = new FakeLlmProvider("claude-cli");
-        var ollama = new FakeLlmProvider("ollama-chat");
+        var cli = new FakeTextProvider("claude-cli");
+        var ollama = new FakeTextProvider("ollama-chat");
         using var sp = Build(b => b
             .UseDefaultCandidates("claude-cli")
             .AddTextClient("judge", c => c.UseProviders("ollama-chat"))
@@ -168,8 +168,8 @@ public class LlmClientFactoryTests
     [Fact]
     public async Task Deriving_a_named_clients_candidates_leaves_the_default_client_narrow()
     {
-        var cli = new FakeLlmProvider("claude-cli");
-        var ollama = new FakeLlmProvider("ollama-chat");
+        var cli = new FakeTextProvider("claude-cli");
+        var ollama = new FakeTextProvider("ollama-chat");
         using var sp = Build(b => b
             .UseDefaultCandidates("claude-cli")
             .AddTextClient("judge", c => c.UseProviders("ollama-chat"))
@@ -187,11 +187,11 @@ public class LlmClientFactoryTests
     [Fact]
     public async Task A_derived_candidate_keeps_the_model_the_default_list_pinned_for_that_backend()
     {
-        var small = new FakeLlmProvider("local");
+        var small = new FakeTextProvider("local");
         using var sp = Build(b => b
             .UseDefaultCandidates(new ProviderCandidate("hosted"), new ProviderCandidate("local", "qwen3:4b"))
             .AddTextClient("judge", c => c.UseProviders("local"))
-            .Services.AddSingleton<IModelProvider>(new FakeLlmProvider("hosted"))
+            .Services.AddSingleton<IModelProvider>(new FakeTextProvider("hosted"))
                      .AddSingleton<IModelProvider>(small));
 
         await sp.GetRequiredService<ITextClientFactory>().Get("judge")
@@ -207,9 +207,9 @@ public class LlmClientFactoryTests
     [Fact]
     public async Task A_named_clients_fallback_order_is_the_order_it_declared()
     {
-        var first = new FakeLlmProvider("b");
+        var first = new FakeTextProvider("b");
         first.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down"));
-        var second = new FakeLlmProvider("a");
+        var second = new FakeTextProvider("a");
         using var sp = Build(b => b
             .UseDefaultCandidates("a", "b")                    // the GLOBAL order is a, then b
             .AddTextClient("judge", c => c.UseProviders("b", "a"))
@@ -229,14 +229,14 @@ public class LlmClientFactoryTests
     [Fact]
     public async Task A_pooled_backend_absent_from_the_default_list_is_still_reachable()
     {
-        var known = new FakeLlmProvider("a");
+        var known = new FakeTextProvider("a");
         known.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down"));
-        var unlisted = new FakeLlmProvider("c");
+        var unlisted = new FakeTextProvider("c");
         using var sp = Build(b => b
             .UseDefaultCandidates("a", "b")
             .AddTextClient("judge", c => c.UseProviders("a", "c"))
             .Services.AddSingleton<IModelProvider>(known)
-                     .AddSingleton<IModelProvider>(new FakeLlmProvider("b"))
+                     .AddSingleton<IModelProvider>(new FakeTextProvider("b"))
                      .AddSingleton<IModelProvider>(unlisted));
 
         var reply = await sp.GetRequiredService<ITextClientFactory>().Get("judge")
@@ -252,8 +252,8 @@ public class LlmClientFactoryTests
     [Fact]
     public async Task Naming_no_provider_keeps_the_global_candidate_list()
     {
-        var primary = new FakeLlmProvider("a");
-        var other = new FakeLlmProvider("b");
+        var primary = new FakeTextProvider("a");
+        var other = new FakeTextProvider("b");
         using var sp = Build(b => b
             .UseDefaultCandidates("a")
             .AddTextClient("everything")
@@ -272,7 +272,7 @@ public class LlmClientFactoryTests
     [Fact]
     public async Task A_named_client_can_state_its_candidates_outright()
     {
-        var backend = new FakeLlmProvider("local");
+        var backend = new FakeTextProvider("local");
         using var sp = Build(b => b
             .UseDefaultCandidates(new ProviderCandidate("local", "big"))
             .AddTextClient("judge", c => c.UseCandidates(new ProviderCandidate("local", "small")))

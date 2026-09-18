@@ -2,7 +2,7 @@ using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Tests.Fakes;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>The v0.3 routing-policy behaviors on top of the router: retry-then-advance,
 /// per-(provider, model) cooldown granularity, and the sole-candidate exemption.</summary>
@@ -19,11 +19,11 @@ public class RouterPolicyBehaviorTests
         var options = new LyntaiOptions();
         options.Routing.Retry(ProviderVerdict.Failed, 2); // up to 2 retries → 3 attempts total
 
-        var flaky = new FakeLlmProvider("flaky");
+        var flaky = new FakeTextProvider("flaky");
         flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "blip 1"));
         flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "blip 2"));
         flaky.Replies.Enqueue(new TextResponse("recovered on the third try", ProviderVerdict.Ok));
-        var backup = new FakeLlmProvider("backup");
+        var backup = new FakeTextProvider("backup");
 
         var reply = await Router(options, null, flaky, backup).CompleteAsync([new("flaky"), new("backup")], Req);
 
@@ -38,10 +38,10 @@ public class RouterPolicyBehaviorTests
         var options = new LyntaiOptions();
         options.Routing.Retry(ProviderVerdict.Failed, 1); // 1 retry → 2 attempts, both fail
 
-        var flaky = new FakeLlmProvider("flaky");
+        var flaky = new FakeTextProvider("flaky");
         flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down 1"));
         flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down 2"));
-        var backup = new FakeLlmProvider("backup");
+        var backup = new FakeTextProvider("backup");
         backup.Replies.Enqueue(new TextResponse("from backup", ProviderVerdict.Ok));
 
         var reply = await Router(options, null, flaky, backup).CompleteAsync([new("flaky"), new("backup")], Req);
@@ -56,9 +56,9 @@ public class RouterPolicyBehaviorTests
         var options = new LyntaiOptions();
         options.Routing.Retry(ProviderVerdict.RateLimited, 5); // ignored — cooled verdicts don't retry
 
-        var limited = new FakeLlmProvider("limited");
+        var limited = new FakeTextProvider("limited");
         limited.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
-        var backup = new FakeLlmProvider("backup");
+        var backup = new FakeTextProvider("backup");
         backup.Replies.Enqueue(new TextResponse("from backup", ProviderVerdict.Ok));
 
         var reply = await Router(options, null, limited, backup).CompleteAsync([new("limited"), new("backup")], Req);
@@ -75,7 +75,7 @@ public class RouterPolicyBehaviorTests
         var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
 
         // one provider, two models; the small model gets rate-limited, the large one must stay live
-        var host = new FakeLlmProvider("host");
+        var host = new FakeTextProvider("host");
         host.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429 small"));
         host.Replies.Enqueue(new TextResponse("large model served", ProviderVerdict.Ok));
 
@@ -92,7 +92,7 @@ public class RouterPolicyBehaviorTests
         var options = new LyntaiOptions(); // default scope = Provider
         var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
 
-        var host = new FakeLlmProvider("host");
+        var host = new FakeTextProvider("host");
         host.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
         host.Replies.Enqueue(new TextResponse("second model", ProviderVerdict.Ok));
 
@@ -111,7 +111,7 @@ public class RouterPolicyBehaviorTests
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         tracker.MarkDead("only"); // already cooled
 
-        var only = new FakeLlmProvider("only");
+        var only = new FakeTextProvider("only");
         only.Replies.Enqueue(new TextResponse("served despite cooldown", ProviderVerdict.Ok));
 
         var reply = await Router(options, tracker, only).CompleteAsync([new("only")], Req);
@@ -128,7 +128,7 @@ public class RouterPolicyBehaviorTests
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         tracker.MarkDead("only");
 
-        var only = new FakeLlmProvider("only");
+        var only = new FakeTextProvider("only");
         only.Replies.Enqueue(new TextResponse("should not be reached", ProviderVerdict.Ok));
 
         var reply = await Router(options, tracker, only).CompleteAsync([new("only")], Req);
@@ -143,9 +143,9 @@ public class RouterPolicyBehaviorTests
         var options = new LyntaiOptions();
         options.Routing.On(ProviderVerdict.Failed, FallbackAction.Surface); // don't fall back on Failed
 
-        var p1 = new FakeLlmProvider("p1");
+        var p1 = new FakeTextProvider("p1");
         p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "surfaced"));
-        var p2 = new FakeLlmProvider("p2");
+        var p2 = new FakeTextProvider("p2");
         p2.Replies.Enqueue(new TextResponse("should not be reached", ProviderVerdict.Ok));
 
         var reply = await Router(options, null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
@@ -163,9 +163,9 @@ public class RouterPolicyBehaviorTests
         options.Routing.Retry(ProviderVerdict.Failed, 2);
         var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
 
-        var flaky = new FakeLlmProvider("flaky");
+        var flaky = new FakeTextProvider("flaky");
         for (var i = 0; i < 3; i++) flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: $"blip {i}"));
-        var backup = new FakeLlmProvider("backup");
+        var backup = new FakeTextProvider("backup");
         backup.Replies.Enqueue(new TextResponse("from backup", ProviderVerdict.Ok));
 
         await Router(options, tracker, flaky, backup).CompleteAsync([new("flaky"), new("backup")], Req);
@@ -178,7 +178,7 @@ public class RouterPolicyBehaviorTests
     public async Task Streaming_empty_content_chunks_are_never_yielded_to_the_consumer()
     {
         var options = new LyntaiOptions();
-        var p = new FakeLlmProvider("p")
+        var p = new FakeTextProvider("p")
         {
             // an empty/role-only chunk, then real content — the empty one must not leak downstream
             StreamScript = _ => [TextChunk.Content(""), TextChunk.Content("real answer"), TextChunk.Final()],
@@ -197,11 +197,11 @@ public class RouterPolicyBehaviorTests
     public async Task Streaming_empty_chunk_then_error_still_falls_over_without_leaking()
     {
         var options = new LyntaiOptions();
-        var p1 = new FakeLlmProvider("p1")
+        var p1 = new FakeTextProvider("p1")
         {
             StreamScript = _ => [TextChunk.Content(""), TextChunk.Error(ProviderVerdict.Failed, "cold")],
         };
-        var p2 = new FakeLlmProvider("p2")
+        var p2 = new FakeTextProvider("p2")
         {
             StreamScript = _ => [TextChunk.Content("served by fallback"), TextChunk.Final()],
         };
@@ -220,7 +220,7 @@ public class RouterPolicyBehaviorTests
         var options = new LyntaiOptions();
         options.Routing.Retry(ProviderVerdict.Failed, 1);
 
-        var flaky = new FakeLlmProvider("flaky");
+        var flaky = new FakeTextProvider("flaky");
         var attempt = 0;
         flaky.StreamScript = _ => ++attempt == 1
             ? [TextChunk.Error(ProviderVerdict.Failed, "cold start")]

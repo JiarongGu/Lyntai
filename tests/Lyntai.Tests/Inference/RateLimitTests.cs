@@ -8,7 +8,7 @@ using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>Client-side rate limiting: the token bucket's reservation math (deterministic via an explicit
 /// `now`), the front-door decorator's throttle-or-refuse, and DI composition with the cache (a cached hit
@@ -150,7 +150,7 @@ public class RateLimitTests
     [Fact]
     public async Task Over_the_rate_the_decorator_refuses_without_calling_the_provider()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("first", ProviderVerdict.Ok));
         // fixed clock → no refill between the two calls, MaxWait 0 → the 2nd refuses immediately
         var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.Zero; });
@@ -167,7 +167,7 @@ public class RateLimitTests
     [Fact]
     public async Task Streaming_over_the_rate_yields_a_rate_limited_error_chunk()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.Zero; });
         var client = new RateLimitedTextClient(inner, limiter);
 
@@ -204,7 +204,7 @@ public class RateLimitTests
         meterListener.Start();
 
         var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.Zero; });
-        var client = new RateLimitedTextClient(new FakeLlmClient(), limiter);
+        var client = new RateLimitedTextClient(new FakeTextClient(), limiter);
         var request = new TextRequest { Messages = [TextMessage.User("a")], Consumer = consumer };
 
         await client.CompleteAsync(request);                        // spends the one permit — not a refusal
@@ -216,7 +216,7 @@ public class RateLimitTests
     [Fact]
     public async Task SupportsToolCalls_delegates_to_the_inner_client()
     {
-        var inner = new FakeLlmClient { SupportsToolCallsResult = true };
+        var inner = new FakeTextClient { SupportsToolCallsResult = true };
         var client = new RateLimitedTextClient(inner, Limiter(_ => { }));
         Assert.True(client.SupportsToolCalls(new TextRequest { Messages = [TextMessage.User("a")] }));
     }
@@ -244,7 +244,7 @@ public class RateLimitTests
     [Fact]
     public async Task AddRateLimit_is_idempotent_and_does_not_double_charge()
     {
-        var provider = new FakeLlmProvider("p"); // default Ok replies
+        var provider = new FakeTextProvider("p"); // default Ok replies
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => provider)
@@ -264,9 +264,9 @@ public class RateLimitTests
     public void A_pre_registered_front_door_with_a_decorator_throws()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<ITextClient>(new FakeLlmClient()); // BYO ITextClient before AddLyntai
+        services.AddSingleton<ITextClient>(new FakeTextClient()); // BYO ITextClient before AddLyntai
         Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddResponseCache())); // decorator would be silently dropped → guarded
     }
 
@@ -289,7 +289,7 @@ public class RateLimitTests
     public async Task AddRateLimit_with_no_effective_limit_warns_but_still_serves()
     {
         var logs = new List<string>();
-        var provider = new FakeLlmProvider("p"); // default Ok replies
+        var provider = new FakeTextProvider("p"); // default Ok replies
         var services = new ServiceCollection();
         services.AddLogging(b => b.AddProvider(new CapturingLoggerProvider(logs)));
         services.AddLyntai(b => b
@@ -309,7 +309,7 @@ public class RateLimitTests
     public async Task AddRateLimit_with_a_real_limit_does_not_warn()
     {
         var logs = new List<string>();
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         var services = new ServiceCollection();
         services.AddLogging(b => b.AddProvider(new CapturingLoggerProvider(logs)));
         services.AddLyntai(b => b
@@ -341,7 +341,7 @@ public class RateLimitTests
     [Fact]
     public async Task A_cached_hit_does_not_spend_a_rate_limit_permit()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("answer", ProviderVerdict.Ok));
         var services = new ServiceCollection();
         services.AddLyntai(b => b

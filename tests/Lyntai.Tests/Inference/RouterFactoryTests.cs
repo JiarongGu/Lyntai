@@ -208,9 +208,9 @@ public class RouterFactoryTests
 
         var error = Assert.Throws<ArgumentException>(() => factory.For([
             new ProviderRegistration<IModelProvider>(
-                ProviderKey.For("openai").With("tenant", "a").Build(), () => new FakeLlmProvider("openai")),
+                ProviderKey.For("openai").With("tenant", "a").Build(), () => new FakeTextProvider("openai")),
             new ProviderRegistration<IModelProvider>(
-                ProviderKey.For("OpenAI").With("tenant", "b").Build(), () => new FakeLlmProvider("OpenAI")),
+                ProviderKey.For("OpenAI").With("tenant", "b").Build(), () => new FakeTextProvider("OpenAI")),
         ]));
 
         Assert.Contains("OpenAI", error.Message, StringComparison.OrdinalIgnoreCase);
@@ -282,7 +282,7 @@ public class RouterFactoryTests
         var tracker = new DeadHostTracker(threshold: 1);
         var key = ProviderKey.For("openai").With("tenant", "a").Build();
 
-        var provider = new FakeLlmProvider("openai");
+        var provider = new FakeTextProvider("openai");
         provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
 
         var router = LlmFactory(pool, tracker)
@@ -300,7 +300,7 @@ public class RouterFactoryTests
         var pool = new BoundedProviderPool<IModelProvider>();
         var tracker = new DeadHostTracker(threshold: 1);
 
-        var provider = new FakeLlmProvider("openai");
+        var provider = new FakeTextProvider("openai");
         provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
 
         var router = LlmFactory(pool, tracker).For([(IModelProvider)provider]);

@@ -1,8 +1,8 @@
 using Lyntai.Inference;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
-public class LlmTypesTests
+public class TextTypesTests
 {
     [Fact]
     public void Records_construct_with_expected_values()

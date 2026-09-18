@@ -21,7 +21,7 @@ public class CompositeStorageTests : IDisposable
         var services = new ServiceCollection();
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"));
+            b.AddProvider(_ => new FakeTextProvider("p"));
             b.UseSqliteStorage(_db.Path);   // all domains → SQLite (TryAdd)
             // route memory to the in-memory backend instead — last registration wins in DI
             b.Services.AddSingleton<IMemoryStore>(sp => new InMemoryMemoryStore(sp.GetRequiredService<LyntaiOptions>()));
@@ -49,7 +49,7 @@ public class CompositeStorageTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage());
         using var sp = services.BuildServiceProvider();
 
@@ -73,7 +73,7 @@ public class CompositeStorageTests : IDisposable
         var services = new ServiceCollection();
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"));
+            b.AddProvider(_ => new FakeTextProvider("p"));
             b.Services.AddSingleton<IKeyValueStore, Lyntai.Storage.InMemory.InMemoryKeyValueStore>();
             b.UseInMemoryStorage(); // TryAdd — must NOT replace the KV above, fills the rest
         });

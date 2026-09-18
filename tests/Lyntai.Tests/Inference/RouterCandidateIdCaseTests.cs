@@ -2,7 +2,7 @@ using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Tests.Fakes;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
 /// <summary>A candidate id is matched CASE-INSENSITIVELY, in the LLM router as everywhere else.
 ///
@@ -26,7 +26,7 @@ public class RouterCandidateIdCaseTests
     [Fact]
     public async Task A_candidate_cased_differently_from_the_providers_own_Id_still_selects_it()
     {
-        var provider = new FakeLlmProvider("openai");
+        var provider = new FakeTextProvider("openai");
         provider.Replies.Enqueue(new TextResponse("served", ProviderVerdict.Ok));
 
         var reply = await Router(provider).CompleteAsync([new ProviderCandidate("OpenAI")], Req);
@@ -41,7 +41,7 @@ public class RouterCandidateIdCaseTests
     {
         // the failure mode the fix removes: the ONLY registered backend was skipped as "not registered", and
         // the caller got a synthetic reply naming no provider at all
-        var provider = new FakeLlmProvider("Ollama");
+        var provider = new FakeTextProvider("Ollama");
 
         var reply = await Router(provider).CompleteAsync([new ProviderCandidate("ollama")], Req);
 
@@ -53,7 +53,7 @@ public class RouterCandidateIdCaseTests
     public async Task The_streaming_door_matches_ids_the_same_way()
     {
         // LiveCandidates is shared, so this is a guard against the two doors drifting apart again
-        var provider = new FakeLlmProvider("openai");
+        var provider = new FakeTextProvider("openai");
 
         var chunks = new List<TextChunk>();
         await foreach (var chunk in Router(provider).StreamAsync([new ProviderCandidate("OPENAI")], Req))
@@ -92,7 +92,7 @@ public class RouterCandidateIdCaseTests
         // the two halves meeting: dedup makes [openai, OpenAI] one candidate, which is what keeps the
         // sole-candidate exemption from being silently withdrawn by a duplicate spelling
         var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
-        var provider = new FakeLlmProvider("openai");
+        var provider = new FakeTextProvider("openai");
         provider.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "boom"));
         provider.Replies.Enqueue(new TextResponse("recovered", ProviderVerdict.Ok));
         var router = new TextRouter([provider], tracker, new LyntaiOptions());

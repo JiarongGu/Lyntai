@@ -25,7 +25,7 @@ public class ConversationEnricherTests
         var rec = new RecordingEnricher();
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddConversationEnricher(_ => rec));
         using var sp = services.BuildServiceProvider();
@@ -45,7 +45,7 @@ public class ConversationEnricherTests
     public void No_enricher_registered_resolves_the_plain_backend_store()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).UseInMemoryStorage());
+        services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p")).UseInMemoryStorage());
         using var sp = services.BuildServiceProvider();
 
         Assert.IsType<InMemoryConversationStore>(sp.GetRequiredService<IConversationStore>()); // not wrapped
@@ -57,7 +57,7 @@ public class ConversationEnricherTests
         var services = new ServiceCollection();
         services.AddScoped<IConversationStore, InMemoryConversationStore>(); // BYO, deliberately scoped
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddConversationEnricher(_ => new RecordingEnricher()));
 
         var descriptor = services.Last(d => d.ServiceType == typeof(IConversationStore));

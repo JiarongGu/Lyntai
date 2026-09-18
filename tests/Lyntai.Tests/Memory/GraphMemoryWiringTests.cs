@@ -42,7 +42,7 @@ public class GraphMemoryWiringTests
         services.AddSingleton<IMemoryGraphStore>(new InMemoryMemoryGraphStore());
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"));
+            b.AddProvider(_ => new FakeTextProvider("p"));
             configure(b);
         });
         return services.BuildServiceProvider();
@@ -152,7 +152,7 @@ public class GraphMemoryWiringTests
         services.AddSingleton<IMemorySaliencePolicy>(new MarksContentSalient("salient", 4));
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"));
+            b.AddProvider(_ => new FakeTextProvider("p"));
             if (entryPoint == "UseGraph") b.AddMemoryEngine("project", e => e.UseGraph());
             else b.AddMemory("project");
         });
@@ -185,7 +185,7 @@ public class GraphMemoryWiringTests
         var custom = new MarksContentSalient("x", 2);
         services.AddSingleton<IMemorySaliencePolicy>(custom);
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("project", e => e.UseGraph()));
         using var sp = services.BuildServiceProvider();
 
@@ -210,7 +210,7 @@ public class GraphMemoryWiringTests
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         services.AddSingleton<IMemoryGraphStore>(new InMemoryMemoryGraphStore());
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("project", e => e.UseGraph()));
         var custom = new MarksContentSalient("x", 2);
         services.AddSingleton<IMemorySaliencePolicy>(custom); // registered AFTER AddLyntai
@@ -239,7 +239,7 @@ public class GraphMemoryWiringTests
         var custom = new MultiplicativeRankingPolicy(new MultiplicativeRankingOptions { HopAttenuation = 0.9 });
         services.AddSingleton<IMemoryRankingPolicy>(custom);
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("project", e => e.UseGraph()));
         using var sp = services.BuildServiceProvider();
 
@@ -264,7 +264,7 @@ public class GraphMemoryWiringTests
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         services.AddSingleton<IMemoryGraphStore>(new InMemoryMemoryGraphStore());
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("project", e => e.UseGraph()));
         var custom = new MultiplicativeRankingPolicy(new MultiplicativeRankingOptions { HopAttenuation = 0.9 });
         services.AddSingleton<IMemoryRankingPolicy>(custom); // registered AFTER AddLyntai
@@ -297,7 +297,7 @@ public class GraphMemoryWiringTests
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         services.AddSingleton<IMemoryGraphStore>(new InMemoryMemoryGraphStore());
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("project", e => e.UseGraph()));
         using var sp = services.BuildServiceProvider();
 
@@ -364,7 +364,7 @@ public class GraphMemoryWiringTests
         // gives the same reasoning for).
         services.AddSingleton<IMemoryAgePolicy>(new PerWriteAgePolicy());
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("project", e => e.UseGraph()));
         // deliberately NO services.AddSingleton<IMemoryRankingPolicy>(...) call anywhere
         using var sp = services.BuildServiceProvider();
@@ -405,7 +405,7 @@ public class GraphMemoryWiringTests
         services.AddSingleton<IMemoryGraphStore>(new InMemoryMemoryGraphStore());
         services.AddSingleton(new SalienceOptions { MaxSalience = 7, NoveltyWeight = 100 });
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("project", e => e.UseGraph()));
         using var sp = services.BuildServiceProvider();
 
@@ -450,7 +450,7 @@ public class GraphMemoryWiringTests
         services.AddSingleton<IMemoryRankingPolicy>(sp =>
             new MultiplicativeRankingPolicy(sp.GetService<MultiplicativeRankingOptions>()));
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("project", e => e.UseGraph()));
         using var sp = services.BuildServiceProvider();
 
@@ -469,7 +469,7 @@ public class GraphMemoryWiringTests
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("project", e => e.UseGraph()));
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
@@ -494,7 +494,7 @@ public class GraphMemoryWiringTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryStore>(new FakeMemoryStore());
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddMemory());
+        services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p")).AddMemory());
         using var sp = services.BuildServiceProvider();
 
         var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get();
@@ -590,7 +590,7 @@ public class GraphMemoryWiringTests
         services.AddSingleton<IMemoryRetrievabilityPolicy>(new DsrRetrievability());
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"));
+            b.AddProvider(_ => new FakeTextProvider("p"));
             b.AddMemoryEngine("m", e => e.UseGraph());
         });
         using var sp = services.BuildServiceProvider();
@@ -647,7 +647,7 @@ public class GraphMemoryWiringTests
         services.AddSingleton<IMemoryAgePolicy>(new PerWriteAgePolicy());
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"));
+            b.AddProvider(_ => new FakeTextProvider("p"));
             b.AddMemoryEngine("m", e => e.UseGraph());
         });
         services.AddSingleton<IMemoryRetrievabilityPolicy>(
@@ -675,7 +675,7 @@ public class GraphMemoryWiringTests
         services.AddSingleton<IMemoryAgePolicy>(new PerWriteAgePolicy());
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"));
+            b.AddProvider(_ => new FakeTextProvider("p"));
             b.AddMemoryEngine("m", e => e.UseGraph());
         });
         // deliberately NO services.AddSingleton<IMemoryRetrievabilityPolicy>(...) call anywhere
@@ -745,7 +745,7 @@ public class GraphMemoryWiringTests
         services.AddSingleton<Lyntai.Memory.Verification.IMemoryVerificationPolicy>(verification);
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"));
+            b.AddProvider(_ => new FakeTextProvider("p"));
             b.AddMemory("m");             // the one-line path — NOT AddMemoryEngine(…, e => e.UseGraph())
         });
         using var sp = services.BuildServiceProvider();

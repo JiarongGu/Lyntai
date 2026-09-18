@@ -19,7 +19,7 @@ public sealed class UsePostgresStorageTests(PostgresFixture pg)
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UsePostgresStorage(pg.ConnectionString)); // idempotent re-migrate + register all stores
         using var sp = services.BuildServiceProvider();
 

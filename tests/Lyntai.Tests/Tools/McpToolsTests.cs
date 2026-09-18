@@ -46,8 +46,8 @@ public class McpToolsTests
             new McpTool("shout", "uppercases its args", null, (args, _) => Task.FromResult(args.ToUpperInvariant())),
         };
 
-        // FakeLlmProvider (no native tools) → the loop takes the prompt path; script its protocol turns
-        var provider = new FakeLlmProvider("p");
+        // FakeTextProvider (no native tools) → the loop takes the prompt path; script its protocol turns
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok));
         provider.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
 
@@ -70,7 +70,7 @@ public class McpToolsTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMcpTools(
                 new McpTool("alpha", null, null, (args, _) => Task.FromResult(args)),
                 new McpTool("beta", null, null, (args, _) => Task.FromResult(args)))

@@ -166,7 +166,7 @@ public class CuratedMemoryEngineTests
         var services = new ServiceCollection();
         services.AddSingleton<ICuratedMemoryStore>(await SeededAsync());
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("graded", e => e.UseCurated("glossary", BySource))
             .AddMemoryEngine("plain", e => e.UseCurated("glossary"))
             .AddMemoryEngine("whole", e => e.UseCurated(kind: null, label: "catalog")));

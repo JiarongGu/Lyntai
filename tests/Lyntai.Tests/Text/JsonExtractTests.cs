@@ -4,7 +4,7 @@ namespace Lyntai.Tests.Text;
 
 /// <summary>The three entry points and which POSTURE each takes — the thing their names do not carry.
 ///
-/// <para>Behaviour under the two readers is covered end to end by <c>LlmStructuredExtensionsTests</c>, which
+/// <para>Behaviour under the two readers is covered end to end by <c>TextStructuredExtensionsTests</c>, which
 /// exercises them through the front door and the repair path. What is here is the split itself: that
 /// leniency reaches exactly the two reads and never the grader, and the one place extraction and leniency
 /// disagree.</para></summary>

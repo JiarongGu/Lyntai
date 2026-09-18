@@ -38,8 +38,8 @@ public class ScorerAppliesTests
     {
         // The consumer-visible defect: a caller running its own scorer loop asks the INTERFACE, and used to
         // be told "applies" by every judge that had opted out.
-        IScorer gated = new Judge(new FakeLlmClient(), applies: false);
-        IScorer open = new Judge(new FakeLlmClient(), applies: true);
+        IScorer gated = new Judge(new FakeTextClient(), applies: false);
+        IScorer open = new Judge(new FakeTextClient(), applies: true);
 
         Assert.False(gated.Applies(Ctx));
         Assert.True(open.Applies(Ctx));
@@ -51,7 +51,7 @@ public class ScorerAppliesTests
         // True before AND after — ScoreAsync re-checks the gate as its first line, which is why no judge ever
         // spent a token and why the persisted results are unchanged by this fix. Pinned so the CHANGELOG's
         // "no scoring output moves" claim has a test behind it.
-        var llm = new FakeLlmClient();
+        var llm = new FakeTextClient();
         var service = new ScoringService([new Judge(llm, applies: false)]);
 
         var results = await service.EvaluateAsync(Ctx, persist: false);
@@ -67,7 +67,7 @@ public class ScorerAppliesTests
         // ScoringService's per-scorer try — logged and skipped fail-open, indistinguishable from a dimension
         // that legitimately did not apply. Now the gate runs where ScoringService deliberately puts it,
         // outside the try, so a buggy predicate is a bug rather than a silently dropped dimension.
-        var service = new ScoringService([new ThrowingGateJudge(new FakeLlmClient())]);
+        var service = new ScoringService([new ThrowingGateJudge(new FakeTextClient())]);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.EvaluateAsync(Ctx, persist: false));

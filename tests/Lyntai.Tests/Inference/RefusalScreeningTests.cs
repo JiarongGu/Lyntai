@@ -3,7 +3,7 @@ using Lyntai;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
 public class RefusalScreeningTests
 {
@@ -16,7 +16,7 @@ public class RefusalScreeningTests
     [Fact]
     public async Task Reply_matching_the_per_request_pattern_is_refused()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("Lo siento, no puedo ayudar con eso.", ProviderVerdict.Ok));
         var screened = new RefusalScreeningTextClient(inner);
 
@@ -29,7 +29,7 @@ public class RefusalScreeningTests
     [Fact]
     public async Task Reply_not_matching_stays_ok()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("Sure, here is the answer.", ProviderVerdict.Ok));
         var screened = new RefusalScreeningTextClient(inner);
 
@@ -40,7 +40,7 @@ public class RefusalScreeningTests
     [Fact]
     public async Task No_pattern_passes_through()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("no puedo ayudar", ProviderVerdict.Ok)); // would match, but no pattern set
         var screened = new RefusalScreeningTextClient(inner);
 
@@ -51,7 +51,7 @@ public class RefusalScreeningTests
     [Fact]
     public async Task Malformed_pattern_is_ignored_fail_open()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("anything", ProviderVerdict.Ok));
         var screened = new RefusalScreeningTextClient(inner);
 
@@ -62,7 +62,7 @@ public class RefusalScreeningTests
     [Fact]
     public async Task A_non_ok_reply_is_left_untouched()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
         var screened = new RefusalScreeningTextClient(inner);
 
@@ -73,7 +73,7 @@ public class RefusalScreeningTests
     [Fact]
     public async Task Wired_through_AddLyntai_the_front_door_screens_the_reply()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("I cannot help with that request.", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
@@ -100,7 +100,7 @@ public class RefusalScreeningTests
     [Fact]
     public async Task A_registered_matcher_downgrades_an_ok_reply_to_refused()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("well, NOPE, not doing that", ProviderVerdict.Ok));
         var screened = new RefusalScreeningTextClient(inner, [new ContainsMatcher("NOPE")]);
 
@@ -111,7 +111,7 @@ public class RefusalScreeningTests
     [Fact]
     public async Task A_matcher_that_does_not_match_leaves_the_reply_ok()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("sure thing", ProviderVerdict.Ok));
         var screened = new RefusalScreeningTextClient(inner, [new ContainsMatcher("NOPE")]);
 
@@ -122,7 +122,7 @@ public class RefusalScreeningTests
     [Fact]
     public async Task A_throwing_matcher_fails_open()
     {
-        var inner = new FakeLlmClient();
+        var inner = new FakeTextClient();
         inner.Replies.Enqueue(new TextResponse("anything", ProviderVerdict.Ok));
         var screened = new RefusalScreeningTextClient(inner, [new ThrowingMatcher()]);
 
@@ -134,16 +134,16 @@ public class RefusalScreeningTests
     public void A_pre_registered_front_door_with_a_refusal_matcher_throws()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<ITextClient>(new FakeLlmClient()); // BYO ITextClient before AddLyntai
+        services.AddSingleton<ITextClient>(new FakeTextClient()); // BYO ITextClient before AddLyntai
         Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddRefusalMatcher(new ContainsMatcher("NOPE")))); // screening wraps Lyntai's client → dropped → guarded
     }
 
     [Fact]
     public async Task Matchers_registered_via_AddRefusalMatcher_screen_at_the_front_door()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("here is my NOPE answer", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();

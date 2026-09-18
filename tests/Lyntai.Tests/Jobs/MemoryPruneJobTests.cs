@@ -64,7 +64,7 @@ public class MemoryPruneJobTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddMemoryPruneJob(cron: "0 3 * * *", olderThan: TimeSpan.FromDays(30), taskKey: "chat"));
         using var sp = services.BuildServiceProvider();
@@ -83,7 +83,7 @@ public class MemoryPruneJobTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddMemoryPruneJob(cron: "0 3 * * *", name: "prune-nightly")
             .AddMemoryPruneJob(cron: "0 * * * *", name: "prune-hourly", taskKey: "hot"));
@@ -98,7 +98,7 @@ public class MemoryPruneJobTests
     {
         var services = new ServiceCollection();
         Assert.ThrowsAny<Exception>(() => services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddMemoryPruneJob(cron: "not a cron")));
     }

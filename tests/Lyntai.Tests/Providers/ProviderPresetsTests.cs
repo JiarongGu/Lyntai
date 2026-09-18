@@ -106,7 +106,7 @@ public class ProviderPresetsTests
     public async Task Presets_compose_and_route_by_id_with_bring_your_own_provider()
     {
         // several presets + a fully custom IModelProvider, all behind one router — the BYO path stays open
-        var custom = new FakeLlmProvider("custom");
+        var custom = new FakeTextProvider("custom");
         custom.Replies.Enqueue(new TextResponse("from a custom provider", ProviderVerdict.Ok));
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
 

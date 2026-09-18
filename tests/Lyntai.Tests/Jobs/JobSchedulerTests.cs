@@ -175,7 +175,7 @@ public class JobSchedulerTests
     {
         var services = new ServiceCollection();
         Assert.ThrowsAny<Exception>(() => services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddCronSchedule("bad", "l", "t", "{}", "not a cron"))); // throws at composition, not at tick
     }
@@ -185,7 +185,7 @@ public class JobSchedulerTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddJobSchedule("hourly", "lane", "t", "{}", TimeSpan.FromMinutes(60)));
         using var sp = services.BuildServiceProvider();

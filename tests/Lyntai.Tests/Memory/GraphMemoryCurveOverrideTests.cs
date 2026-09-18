@@ -58,7 +58,7 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
         services.AddSingleton<IMemoryGraphStore>(new SqliteMemoryGraphStore(_db.Factory));
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => new FakeLlmProvider("p"));
+            b.AddProvider(_ => new FakeTextProvider("p"));
             configure(b);
         });
         return services.BuildServiceProvider();
@@ -107,7 +107,7 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
         services.AddSingleton<IMemoryGraphStore>(new SqliteMemoryGraphStore(_db.Factory));
         services.AddSingleton<IMemoryRetrievabilityPolicy>(new MarkedCurve(63, 41)); // container default
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("named", e => e.UseGraph(retrievability: new MarkedCurve(11, 40)))
             .AddMemoryEngine("plain", e => e.UseGraph()));
         using var sp = services.BuildServiceProvider();
@@ -130,7 +130,7 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
         services.AddSingleton<IMemoryGraphStore>(new SqliteMemoryGraphStore(_db.Factory));
         services.AddSingleton<IMemoryRetrievabilityPolicy>(new MarkedCurve(63, 41));
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("plain", e => e.UseGraph()));
         using var sp = services.BuildServiceProvider();
 
@@ -198,7 +198,7 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
         if (retention is { } factor)
             services.AddSingleton<IMemoryRetentionPolicy>(new FixedRetentionPolicy(factor));
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("named", e => e.UseGraph(retrievability: new MarkedCurve(11, 40))));
         using var sp = services.BuildServiceProvider();
         var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get("named/graph");

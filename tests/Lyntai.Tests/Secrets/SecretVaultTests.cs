@@ -83,7 +83,7 @@ public class SecretVaultTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddSecretVault(RandomNumberGenerator.GetBytes(32)));
         using var sp = services.BuildServiceProvider();
@@ -102,7 +102,7 @@ public class SecretVaultTests
         foreach (var badKey in new[] { null, Array.Empty<byte>() })
         {
             var ex = Assert.Throws<ArgumentException>(() =>
-                services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddSecretVault(badKey!)));
+                services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p")).AddSecretVault(badKey!)));
             Assert.Contains("AddPlaintextSecretVault", ex.Message);
         }
     }
@@ -112,7 +112,7 @@ public class SecretVaultTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddPlaintextSecretVault());
         using var sp = services.BuildServiceProvider();

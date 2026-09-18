@@ -36,7 +36,7 @@ public class ProviderIdentityTests
     public void An_existing_implementor_satisfies_it_unchanged()
     {
         IProviderIdentity generation = new FakeGenerationProvider { Id = "a1111" };
-        IProviderIdentity llm = new FakeLlmProvider("openai");
+        IProviderIdentity llm = new FakeTextProvider("openai");
 
         Assert.Equal("a1111", generation.Id);
         Assert.Equal("openai", llm.Id);

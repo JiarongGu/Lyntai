@@ -120,7 +120,7 @@ public sealed class GraphMemoryRankingOverrideTests : IDisposable
         services.AddSingleton<IMemoryGraphStore>(new SqliteMemoryGraphStore(_db.Factory));
         services.AddSingleton<IMemoryRankingPolicy>(new OrderById(ascending: false)); // container default
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("special", e => e.UseGraph(ranking: new OrderById(ascending: true))));
         using var sp = services.BuildServiceProvider();
         var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get("special/graph");
@@ -143,7 +143,7 @@ public sealed class GraphMemoryRankingOverrideTests : IDisposable
         services.AddSingleton<IMemoryGraphStore>(new SqliteMemoryGraphStore(_db.Factory));
         services.AddSingleton<IMemoryRankingPolicy>(new OrderById(ascending: false)); // container default
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("plain", e => e.UseGraph()));
         using var sp = services.BuildServiceProvider();
         var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get("plain/graph");
@@ -162,7 +162,7 @@ public sealed class GraphMemoryRankingOverrideTests : IDisposable
         var services = new ServiceCollection();
         services.AddSingleton<IMemoryGraphStore>(new SqliteMemoryGraphStore(_db.Factory));
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("named", e => e.UseGraph(
                 ranking: new OrderById(ascending: true),
                 namedRankingPolicies: new Dictionary<string, IMemoryRankingPolicy>

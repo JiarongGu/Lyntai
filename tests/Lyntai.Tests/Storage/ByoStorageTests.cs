@@ -20,7 +20,7 @@ public class ByoStorageTests : IDisposable
         var appFactory = _db.Factory; // the app owns this (pool, lifecycle, …); already migrated
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteStorage(appFactory)); // BYO factory, no Lyntai migration
         using var sp = services.BuildServiceProvider();
 
@@ -41,7 +41,7 @@ public class ByoStorageTests : IDisposable
         // a decorator the app might use to add its own connection setup/telemetry
         var wrapper = new CountingFactory(_db.Factory);
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).UseSqliteStorage(wrapper));
+        services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p")).UseSqliteStorage(wrapper));
         using var sp = services.BuildServiceProvider();
 
         await sp.GetRequiredService<IKeyValueStore>().SetAsync("k", "v");
@@ -56,7 +56,7 @@ public class ByoStorageTests : IDisposable
         using var fresh = new TempDbPath("noschema");
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteStorage(fresh.Path, Lyntai.Storage.SchemaMigration.None));
         using var sp = services.BuildServiceProvider();
 
@@ -74,7 +74,7 @@ public class ByoStorageTests : IDisposable
         var services = new ServiceCollection();
         services.AddSingleton<IKeyValueStore>(myKv);
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseSqliteStorage(_db.Factory));
         using var sp = services.BuildServiceProvider();
 

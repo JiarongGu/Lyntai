@@ -91,9 +91,9 @@ public class ToolSelectorTests
         Assert.Contains("recipes", prompt, StringComparison.Ordinal);
     }
 
-    private static FakeLlmClient Answering()
+    private static FakeTextClient Answering()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
         return client;
     }

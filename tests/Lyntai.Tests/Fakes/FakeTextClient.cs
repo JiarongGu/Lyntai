@@ -5,7 +5,7 @@ namespace Lyntai.Tests.Fakes;
 
 /// <summary>Scripted <see cref="ITextClient"/> for cortex tests that don't need the real router:
 /// queue replies for CompleteAsync; records every request.</summary>
-public sealed class FakeLlmClient : ITextClient
+public sealed class FakeTextClient : ITextClient
 {
     public Queue<TextResponse> Replies { get; } = new();
     public List<TextRequest> Calls { get; } = [];

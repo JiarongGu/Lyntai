@@ -75,7 +75,7 @@ public class DpapiSecretProtectorTests
         if (!OperatingSystem.IsWindows()) return;
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddDpapiSecretVault());
         using var sp = services.BuildServiceProvider();

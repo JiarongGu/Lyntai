@@ -3,7 +3,7 @@ using Lyntai;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Lyntai.Tests.Llm;
+namespace Lyntai.Tests.Inference;
 
 public class ConfigureRoutingTests
 {
@@ -12,7 +12,7 @@ public class ConfigureRoutingTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .ConfigureRouting(r =>
             {
                 r.Retry(ProviderVerdict.Failed, 3);
@@ -30,7 +30,7 @@ public class ConfigureRoutingTests
     [Fact]
     public async Task ConfigureRouting_retry_takes_effect_end_to_end()
     {
-        var flaky = new FakeLlmProvider("flaky");
+        var flaky = new FakeTextProvider("flaky");
         flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "blip"));
         flaky.Replies.Enqueue(new TextResponse("recovered", ProviderVerdict.Ok));
 

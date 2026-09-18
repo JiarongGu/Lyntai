@@ -17,7 +17,7 @@ public class UseSqliteStorageTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("fake"))
+            .AddProvider(_ => new FakeTextProvider("fake"))
             .UseSqliteStorage(_db.Path));
         using var sp = services.BuildServiceProvider();
 

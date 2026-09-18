@@ -4,14 +4,14 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Cortex;
 
-/// <summary>The provider-agnostic tool-calling loop, driven by a scripted <see cref="FakeLlmClient"/>:
+/// <summary>The provider-agnostic tool-calling loop, driven by a scripted <see cref="FakeTextClient"/>:
 /// the model's JSON turns are queued, tools are fakes, so every branch (call → observation → final,
 /// unknown tool, throwing tool, non-convergence, surfaced verdict, no-tools) is deterministic.</summary>
 public class ToolLoopTests
 {
     private static LyntaiOptions Options(int max = 8) => new() { ToolLoopMaxIterations = max };
 
-    private static ToolLoop Loop(FakeLlmClient client, params ITool[] tools) =>
+    private static ToolLoop Loop(FakeTextClient client, params ITool[] tools) =>
         new(client, new ToolRegistry(tools), Options());
 
     private static TextRequest Ask(string prompt = "do it") => new() { Messages = [TextMessage.User(prompt)] };
@@ -33,7 +33,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Calls_a_tool_then_returns_the_final_answer_recording_the_step()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"echo","arguments":{"x":1}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"all done"}""", ProviderVerdict.Ok));
 
@@ -50,7 +50,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Feeds_the_observation_back_to_the_model()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"echo","arguments":{}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"ok"}""", ProviderVerdict.Ok));
 
@@ -65,7 +65,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Unknown_tool_is_reported_back_not_thrown()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"nope","arguments":{}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"recovered"}""", ProviderVerdict.Ok));
 
@@ -80,7 +80,7 @@ public class ToolLoopTests
     public async Task A_throwing_tool_becomes_an_error_observation()
     {
         var boom = new FunctionTool("boom", (_, _) => throw new InvalidOperationException("kaboom"));
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"boom","arguments":{}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"handled"}""", ProviderVerdict.Ok));
 
@@ -94,7 +94,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Non_Ok_verdict_is_surfaced_without_further_tool_calls()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("", ProviderVerdict.Refused, Detail: "policy"));
 
         var result = await Loop(client, Echo()).RunAsync(Ask());
@@ -107,7 +107,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Does_not_converge_within_budget_returns_Failed()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         // never emits a "final" — always calls the tool again
         client.StreamScript = null;
         for (var i = 0; i < 10; i++)
@@ -124,7 +124,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Budget_override_beats_the_configured_default()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         for (var i = 0; i < 10; i++)
             client.Replies.Enqueue(new TextResponse("""{"tool":"echo","arguments":{}}""", ProviderVerdict.Ok));
 
@@ -137,7 +137,7 @@ public class ToolLoopTests
     [Fact]
     public async Task A_direct_JSON_answer_without_a_protocol_key_is_treated_as_final()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"result":"42"}""", ProviderVerdict.Ok));
 
         var result = await Loop(client, Echo()).RunAsync(Ask());
@@ -152,7 +152,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Aggregates_token_usage_across_every_call_prompt_path()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"echo","arguments":{}}""", ProviderVerdict.Ok, new TextUsage(10, 5, 1, 0.001)));
         client.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok, new TextUsage(20, 8, 2, 0.002)));
 
@@ -168,7 +168,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Aggregates_token_usage_across_every_call_native_path()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("", ProviderVerdict.Ok, new TextUsage(10, 5))
         { ToolCalls = [new TextToolCall("c1", "echo", "{}")] });
         client.Replies.Enqueue(new TextResponse("done", ProviderVerdict.Ok, new TextUsage(20, 8)));
@@ -183,7 +183,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Usage_is_null_when_no_provider_reports_any()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok)); // no usage
 
         var result = await Loop(client, Echo()).RunAsync(Ask());
@@ -197,7 +197,7 @@ public class ToolLoopTests
         // The instruction half is a deployment knob; the ROSTER is not. A consumer who could suppress the
         // tool list would get a loop whose model is never told what it may call — silently, since the loop
         // would still run and the model would still answer.
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
         var options = new LyntaiOptions { ToolProtocolPreamble = "ONLY-MINE. Reply with JSON." };
 
@@ -214,7 +214,7 @@ public class ToolLoopTests
     {
         // Exposed so a deployment can EXTEND rather than rewrite. A consumer appending one sentence should
         // not have to re-type a protocol contract whose exact wording the loop's own parser depends on.
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
 
         await new ToolLoop(client, new ToolRegistry([Echo()]), new LyntaiOptions()).RunAsync(Ask());
@@ -226,7 +226,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Usage_is_surfaced_on_the_no_tools_single_completion()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("just answered", ProviderVerdict.Ok, new TextUsage(7, 3)));
 
         var result = await new ToolLoop(client, new ToolRegistry([]), Options()).RunAsync(Ask());
@@ -237,7 +237,7 @@ public class ToolLoopTests
 
     // ---- native tool-calling path (client.Capabilities.SupportsToolCalls == true) ---------------------------------
 
-    private static ToolLoop NativeLoop(FakeLlmClient client, params ITool[] tools)
+    private static ToolLoop NativeLoop(FakeTextClient client, params ITool[] tools)
     {
         client.SupportsToolCallsResult = true;
         return new ToolLoop(client, new ToolRegistry(tools), Options());
@@ -246,7 +246,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Native_executes_the_models_tool_calls_and_feeds_results_back()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("", ProviderVerdict.Ok)
         { ToolCalls = [new TextToolCall("call_1", "echo", """{"x":1}""")] });
         client.Replies.Enqueue(new TextResponse("all done", ProviderVerdict.Ok)); // no tool calls → final
@@ -271,7 +271,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Native_handles_parallel_tool_calls_in_one_turn()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("", ProviderVerdict.Ok)
         {
             ToolCalls =
@@ -294,7 +294,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Native_unknown_tool_is_reported_back_not_thrown()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("", ProviderVerdict.Ok)
         { ToolCalls = [new TextToolCall("call_1", "nope", "{}")] });
         client.Replies.Enqueue(new TextResponse("recovered", ProviderVerdict.Ok));
@@ -309,7 +309,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Native_non_convergence_returns_Failed()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         for (var i = 0; i < 10; i++)
             client.Replies.Enqueue(new TextResponse("", ProviderVerdict.Ok)
             { ToolCalls = [new TextToolCall($"call_{i}", "echo", "{}")] });
@@ -325,7 +325,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Native_surfaces_a_non_Ok_verdict()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "slow down"));
 
         var result = await NativeLoop(client, Echo()).RunAsync(Ask());
@@ -337,7 +337,7 @@ public class ToolLoopTests
     [Fact]
     public async Task With_no_tools_registered_it_is_a_single_plain_completion()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("just answered", ProviderVerdict.Ok));
 
         var loop = new ToolLoop(client, new ToolRegistry([]), Options());
@@ -354,7 +354,7 @@ public class ToolLoopTests
     [Fact]
     public async Task StreamAsync_prompt_path_yields_toolcall_result_text_then_terminal_in_order()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"echo","arguments":{"x":1}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"all done"}""", ProviderVerdict.Ok));
 
@@ -380,7 +380,7 @@ public class ToolLoopTests
     [Fact]
     public async Task StreamAsync_native_path_yields_live_events()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("", ProviderVerdict.Ok)
         { ToolCalls = [new TextToolCall("call_1", "echo", """{"x":1}""")] });
         client.Replies.Enqueue(new TextResponse("all done", ProviderVerdict.Ok));
@@ -398,7 +398,7 @@ public class ToolLoopTests
     [Fact]
     public async Task StreamAsync_surfaces_a_non_ok_verdict_as_an_error_terminal()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("", ProviderVerdict.Refused, Detail: "policy"));
 
         var events = await Loop(client, Echo()).StreamAsync(Ask()).ToListAsync();
@@ -413,7 +413,7 @@ public class ToolLoopTests
     [Fact]
     public async Task StreamAsync_emits_a_usage_final_when_a_provider_reports_usage()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"echo","arguments":{}}""", ProviderVerdict.Ok, new TextUsage(10, 5)));
         client.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok, new TextUsage(20, 8)));
 
@@ -430,7 +430,7 @@ public class ToolLoopTests
     public async Task StreamAsync_reports_a_throwing_tool_as_an_error_result()
     {
         var boom = new FunctionTool("boom", (_, _) => throw new InvalidOperationException("kaboom"));
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"boom","arguments":{}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"handled"}""", ProviderVerdict.Ok));
 
@@ -469,7 +469,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Blocks_a_tool_call_whose_args_contain_a_denied_term()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"echo","arguments":{"x":"launch the nukes"}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"unreached"}""", ProviderVerdict.Ok));
         var loop = new ToolLoop(client, new ToolRegistry([Echo()]), Options(),
@@ -486,7 +486,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Blocks_a_tool_observation_that_contains_a_denied_term()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"leak","arguments":{}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"unreached"}""", ProviderVerdict.Ok));
         var leak = new FunctionTool("leak", (_, _) => Task.FromResult("here is the SECRET_KEY value"), "leaks");
@@ -502,7 +502,7 @@ public class ToolLoopTests
     [Fact]
     public async Task Allows_a_clean_tool_call_when_a_guard_is_present()
     {
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("""{"tool":"echo","arguments":{"x":1}}""", ProviderVerdict.Ok));
         client.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
         var loop = new ToolLoop(client, new ToolRegistry([Echo()]), Options(),
@@ -522,7 +522,7 @@ public class ToolLoopTests
     // the model spent writing prose before its last tool call. The loop now streams when, and only when,
     // the provider says its STREAM delivers tool calls.
 
-    private static ToolLoop StreamingNativeLoop(FakeLlmClient client, params ITool[] tools)
+    private static ToolLoop StreamingNativeLoop(FakeTextClient client, params ITool[] tools)
     {
         client.SupportsToolCallsResult = true;
         client.SupportsStreamingToolCallsResult = true;
@@ -533,7 +533,7 @@ public class ToolLoopTests
     public async Task Streaming_native_emits_prose_AS_IT_ARRIVES_and_still_runs_the_tool()
     {
         var turn = 0;
-        var client = new FakeLlmClient
+        var client = new FakeTextClient
         {
             StreamScript = _ => ++turn == 1
                 ? [TextChunk.Content("let "), TextChunk.Content("me check"),
@@ -558,7 +558,7 @@ public class ToolLoopTests
     {
         // The buffered path yields one TextDelta carrying the whole answer; the streaming path has already
         // delivered it in pieces. Doing both would hand the consumer the entire answer twice.
-        var client = new FakeLlmClient
+        var client = new FakeTextClient
         {
             StreamScript = _ => [TextChunk.Content("one "), TextChunk.Content("answer"), TextChunk.Final()],
         };
@@ -577,7 +577,7 @@ public class ToolLoopTests
         // is what every provider here did until 3.0. Streaming such a provider would see no call chunk and
         // report the turn's prose as a final answer — the tool silently never runs. So the loop must use
         // CompleteAsync, and the StreamScript below would fail the test if it ever reached it.
-        var client = new FakeLlmClient
+        var client = new FakeTextClient
         {
             SupportsToolCallsResult = true,
             SupportsStreamingToolCallsResult = false,
@@ -597,7 +597,7 @@ public class ToolLoopTests
     [Fact]
     public async Task A_streamed_error_ends_the_turn_with_its_verdict()
     {
-        var client = new FakeLlmClient
+        var client = new FakeTextClient
         {
             StreamScript = _ => [TextChunk.Error(ProviderVerdict.RateLimited, "slow down")],
         };
@@ -614,7 +614,7 @@ public class ToolLoopTests
         // Usage arrives on Final rather than on a reply object; losing it would silently stop budgeting
         // every agentic turn, which is the kind of gap that shows up as a bill.
         var turn = 0;
-        var client = new FakeLlmClient
+        var client = new FakeTextClient
         {
             StreamScript = _ => ++turn == 1
                 ? [TextChunk.Tool(new TextToolCall("c1", "echo", "{}")), TextChunk.Final(new TextUsage(10, 4))]
@@ -637,12 +637,12 @@ public class ToolLoopTests
         // (`docs/memory-measurements.md` §5). A deployment on a model with no tool template got that second
         // column and nothing said so. Reporting the transport is a FACT about what ran, which is why it is a
         // result property rather than a warning with a threshold picked out of one model's evidence.
-        var prompt = new FakeLlmClient();
+        var prompt = new FakeTextClient();
         prompt.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
         var fell_back = await Loop(prompt, Echo()).RunAsync(Ask());
         Assert.Equal(ToolTransport.Prompt, fell_back.Transport);
 
-        var native = new FakeLlmClient { SupportsToolCallsResult = true };
+        var native = new FakeTextClient { SupportsToolCallsResult = true };
         native.Replies.Enqueue(new TextResponse("answered", ProviderVerdict.Ok));
         var went_native = await Loop(native, Echo()).RunAsync(Ask());
         Assert.Equal(ToolTransport.Native, went_native.Transport);
@@ -654,7 +654,7 @@ public class ToolLoopTests
         // Three-way on purpose. `None` is a positive claim that no tool transport was needed; null is a BYO
         // IToolLoop that never reported one. Collapsing them would make a silent implementation
         // indistinguishable from a plain completion - the same reason MemoryReviewWrite.Verified is nullable.
-        var client = new FakeLlmClient();
+        var client = new FakeTextClient();
         client.Replies.Enqueue(new TextResponse("straight answer", ProviderVerdict.Ok));
 
         var result = await Loop(client).RunAsync(Ask());

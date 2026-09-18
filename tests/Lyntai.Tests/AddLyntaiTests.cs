@@ -13,7 +13,7 @@ public class AddLyntaiTests
     [Fact]
     public async Task Minimal_setup_resolves_router_and_round_trips_a_completion()
     {
-        var fake = new FakeLlmProvider("fake");
+        var fake = new FakeTextProvider("fake");
         fake.Replies.Enqueue(new TextResponse("routed!", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
@@ -35,7 +35,7 @@ public class AddLyntaiTests
     public async Task Cortex_services_resolve_without_any_storage()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("fake")));
+        services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("fake")));
         using var sp = services.BuildServiceProvider();
 
         var prompts = sp.GetRequiredService<IPromptRegistry>();
@@ -60,7 +60,7 @@ public class AddLyntaiTests
 
         var services = new ServiceCollection();
         services.AddSingleton<IKeyValueStore>(kv);
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("fake")));
+        services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("fake")));
         using var sp = services.BuildServiceProvider();
 
         var rendered = await sp.GetRequiredService<IPromptRegistry>().RenderAsync("p", "default {v}",
@@ -73,10 +73,10 @@ public class AddLyntaiTests
     public void Calling_AddLyntai_twice_throws_rather_than_shadowing_options()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("a")));
+        services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("a")));
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("b"))));
+            services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("b"))));
         Assert.Contains("already been called", ex.Message);
     }
 
@@ -91,7 +91,7 @@ public class AddLyntaiTests
         services.AddSingleton(new LyntaiOptions());
 
         Assert.Throws<InvalidOperationException>(() =>
-            services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("a"))));
+            services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("a"))));
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class AddLyntaiTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("fake"))
+            .AddProvider(_ => new FakeTextProvider("fake"))
             .AddScorer<StubScorer>()
             .AddScorer<StubScorer>());
         using var sp = services.BuildServiceProvider();
@@ -124,7 +124,7 @@ public class AddLyntaiTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseDefaultCandidates("p")
             .AddFrontDoorDecorator(25, (_, inner) => new TagDecorator(inner))); // 25 = outside the cache slot
         using var sp = services.BuildServiceProvider();

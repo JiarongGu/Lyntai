@@ -198,7 +198,7 @@ public class MemoryWiringDiagnosticsTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("chat", e => e.UseCurated("glossary").StrictWiring())
             .AddMemoryVerification());
         services.AddSingleton<ICuratedMemoryStore>(new FakeCuratedStore());
@@ -216,7 +216,7 @@ public class MemoryWiringDiagnosticsTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .UseInMemoryStorage()
             .AddMemoryEngine("chat", e => e.UseGraph().StrictWiring())
             .AddMemoryVerification());
@@ -233,7 +233,7 @@ public class MemoryWiringDiagnosticsTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("lenient", e => e.UseCurated("glossary"))
             .AddMemoryEngine("strict", e => e.UseCurated("style").StrictWiring())
             .AddMemoryVerification());
@@ -251,7 +251,7 @@ public class MemoryWiringDiagnosticsTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("chat", e => e.UseCurated("glossary"))
             .AddMemoryVerification());
         services.AddSingleton<ICuratedMemoryStore>(new FakeCuratedStore());
@@ -274,7 +274,7 @@ public class MemoryWiringDiagnosticsTests
             throw new InvalidOperationException("constructed, which the check must never do"));
         services.AddSingleton<ICuratedMemoryStore>(new FakeCuratedStore());
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddMemoryEngine("chat", e => e.UseCurated("glossary")));
         using var sp = services.BuildServiceProvider();
 

@@ -14,7 +14,7 @@ public class AddToolTests
     public void Tool_loop_and_registry_resolve_with_no_tools_registered()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).UseDefaultCandidates("p"));
+        services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p")).UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
         Assert.NotNull(sp.GetService<IToolLoop>());
@@ -24,7 +24,7 @@ public class AddToolTests
     [Fact]
     public async Task AddTool_registers_tools_the_loop_can_call_end_to_end()
     {
-        var provider = new FakeLlmProvider("p");
+        var provider = new FakeTextProvider("p");
         provider.Replies.Enqueue(new TextResponse("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok));
         provider.Replies.Enqueue(new TextResponse("""{"final":"HI"}""", ProviderVerdict.Ok));
 

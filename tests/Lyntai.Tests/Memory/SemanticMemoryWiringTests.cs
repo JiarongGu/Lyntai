@@ -25,7 +25,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
         using var sp = services.BuildServiceProvider();
 
@@ -46,7 +46,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         var services = new ServiceCollection();
 
         var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddSemanticMemory()));
 
         Assert.Contains("AddSemanticMemory", ex.Message);
@@ -65,7 +65,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
     public void A_vector_backend_registered_by_any_route_satisfies_the_intent()
     {
         var viaDeclaration = new ServiceCollection();
-        viaDeclaration.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
+        viaDeclaration.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p"))
             .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared)
             .AddSemanticMemory());
         Assert.NotNull(viaDeclaration.BuildServiceProvider().GetService<ISemanticMemory>());
@@ -74,7 +74,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         // states that it embeds, so the wiring has to read its declared Capabilities.
         var viaHost = new ServiceCollection();
         viaHost.AddSingleton<IModelProvider>(new FakeVectorProvider());
-        viaHost.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddSemanticMemory());
+        viaHost.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p")).AddSemanticMemory());
         Assert.NotNull(viaHost.BuildServiceProvider().GetService<ISemanticMemory>());
     }
 
@@ -91,7 +91,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         var services = new ServiceCollection();
 
         var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddProvider(_ => new FakeVectorProvider())        // genuinely embeds — and says so to nobody
             .AddSemanticMemory()));
 
@@ -111,7 +111,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         services.AddSingleton<IModelProvider>(new DeclaresVectorsButCannot());
 
         var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddSemanticMemory()));
 
         Assert.Contains("IVectorProvider", ex.Message, StringComparison.Ordinal);
@@ -139,10 +139,10 @@ public sealed class SemanticMemoryWiringTests : IDisposable
     public void A_host_registered_backend_that_does_not_embed_does_not_satisfy_it()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<IModelProvider>(new FakeLlmProvider("chat-only"));
+        services.AddSingleton<IModelProvider>(new FakeTextProvider("chat-only"));
 
         var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddSemanticMemory()));
 
         Assert.Contains("ProviderKinds.Vector", ex.Message);
@@ -159,13 +159,13 @@ public sealed class SemanticMemoryWiringTests : IDisposable
     public async Task Both_AddProvider_overloads_carry_the_declaration()
     {
         var byFactory = new ServiceCollection();
-        byFactory.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
+        byFactory.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p"))
             .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
         await using var fromFactory = byFactory.BuildServiceProvider();
         Assert.NotNull(fromFactory.GetService<ISemanticMemory>());
 
         var byType = new ServiceCollection();
-        byType.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p"))
+        byType.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p"))
             .AddProvider<DiConstructedVectorProvider>(FakeVectorProviderBase.Declared).AddSemanticMemory());
         await using var fromType = byType.BuildServiceProvider();
         Assert.NotNull(fromType.GetService<ISemanticMemory>());
@@ -179,7 +179,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         var services = new ServiceCollection();
 
         var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
-            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddProvider(_ => new FakeTextProvider("p"))
             .AddProvider<DiConstructedVectorProvider>()
             .AddSemanticMemory()));
 
@@ -195,7 +195,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         var mine = new CountingVectorStore();
         var services = new ServiceCollection();
         services.AddSingleton<IVectorStore>(mine);
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
+        services.AddLyntai(b => b.AddProvider(_ => new FakeTextProvider("p")).AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
         using var sp = services.BuildServiceProvider();
 
         Assert.Same(mine, sp.GetRequiredService<IVectorStore>());
@@ -221,7 +221,7 @@ public sealed class SemanticMemoryWiringTests : IDisposable
         {
             var services = new ServiceCollection();
             services.AddLyntai(b => b
-                .AddProvider(_ => new FakeLlmProvider("p"))
+                .AddProvider(_ => new FakeTextProvider("p"))
                 .UseSqliteStorage(_db.Path)
                 .UseSqliteVectorStore()
                 .AddProvider(_ => new FakeVectorProvider(), FakeVectorProvider.Declared).AddSemanticMemory());
