@@ -106,7 +106,7 @@ public sealed class BudgetedGenerationRouter(
     internal static ValueTask RecordAsync(
         IUsageTracker tracker, string consumer, GenerationUsage? usage, CancellationToken ct = default) =>
         usage?.CostUsd is { } cost && cost > 0
-            ? tracker.RecordAsync(consumer, new LlmUsage(0, 0, 0, cost), ct)
+            ? tracker.RecordAsync(consumer, new TextUsage(0, 0, 0, cost), ct)
             : ValueTask.CompletedTask;
 
     private ValueTask RecordAsync(string consumer, GenerationUsage? usage, CancellationToken ct) =>

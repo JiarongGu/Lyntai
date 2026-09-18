@@ -1,3 +1,4 @@
+using Lyntai.Inference;
 namespace Lyntai.Agents;
 
 /// <summary>
@@ -5,7 +6,7 @@ namespace Lyntai.Agents;
 /// <see cref="IEnumerable{ITool}"/> keyed by <see cref="Name"/> (the DI-collection variation point —
 /// adding a tool is a new class + one registration, never a switch). The declaration half
 /// (<see cref="Name"/>/<see cref="Description"/>/<see cref="ParametersJsonSchema"/>) mirrors
-/// <see cref="Lyntai.Llm.LlmTool"/>; <see cref="InvokeAsync"/> is the execution half.
+/// <see cref="Lyntai.Inference.TextTool"/>; <see cref="InvokeAsync"/> is the execution half.
 /// </summary>
 public interface ITool
 {

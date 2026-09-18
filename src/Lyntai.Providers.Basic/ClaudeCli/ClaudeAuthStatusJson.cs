@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Lyntai.Llm;
 using Lyntai.Text;
+using Lyntai.Inference;
 
 namespace Lyntai.Providers.ClaudeCli;
 

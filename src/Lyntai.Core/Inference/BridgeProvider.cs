@@ -24,20 +24,20 @@ namespace Lyntai.Inference;
 internal sealed class BridgeProvider(
     string id,
     ProviderCapabilities capabilities,
-    Func<LlmRequest, CancellationToken, Task<LlmReply>> complete,
-    Func<LlmRequest, CancellationToken, IAsyncEnumerable<LlmChunk>>? stream) : IModelProvider
+    Func<TextRequest, CancellationToken, Task<TextResponse>> complete,
+    Func<TextRequest, CancellationToken, IAsyncEnumerable<TextChunk>>? stream) : IModelProvider
 {
     public string Id => id;
 
     public ProviderCapabilities Capabilities => capabilities;
 
-    public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+    public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
         complete(req, ct);
 
     /// <summary>Falls back to <see cref="IModelProvider"/>'s own Unsupported default when no stream
     /// delegate was supplied — which the declared capabilities already tell a router, so this is the
     /// belt-and-braces half rather than the gate.</summary>
-    public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+    public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
         stream is null
             ? ((IModelProvider)this).StreamUnsupported()
             : stream(req, ct);
@@ -47,11 +47,11 @@ internal sealed class BridgeProvider(
 /// class implementing the member cannot otherwise call.</summary>
 internal static class BridgeProviderDefaults
 {
-    public static IAsyncEnumerable<LlmChunk> StreamUnsupported(this IModelProvider provider) =>
-        One(LlmChunk.Error(ProviderVerdict.Unsupported,
+    public static IAsyncEnumerable<TextChunk> StreamUnsupported(this IModelProvider provider) =>
+        One(TextChunk.Error(ProviderVerdict.Unsupported,
             $"{provider.Id} does not serve StreamAsync — no stream delegate was supplied to AddBridgeProvider."));
 
-    private static async IAsyncEnumerable<LlmChunk> One(LlmChunk chunk)
+    private static async IAsyncEnumerable<TextChunk> One(TextChunk chunk)
     {
         await Task.CompletedTask.ConfigureAwait(false);
         yield return chunk;

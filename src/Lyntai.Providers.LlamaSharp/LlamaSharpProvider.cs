@@ -58,34 +58,34 @@ public sealed class LlamaSharpProvider(
     /// letting the router fall over.)</summary>
     public bool IsAvailable => File.Exists(options.ModelPath);
 
-    public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         var text = new StringBuilder();
-        LlmUsage? usage = null;
+        TextUsage? usage = null;
         await foreach (var chunk in StreamAsync(req, ct).ConfigureAwait(false))
         {
             switch (chunk.Kind)
             {
-                case LlmChunkKind.Content: text.Append(chunk.Text); break;
-                case LlmChunkKind.Final: usage = chunk.Usage; break;
-                case LlmChunkKind.Error: return new LlmReply("", chunk.Verdict, Detail: chunk.Detail);
+                case TextChunkKind.Content: text.Append(chunk.Text); break;
+                case TextChunkKind.Final: usage = chunk.Usage; break;
+                case TextChunkKind.Error: return new TextResponse("", chunk.Verdict, Detail: chunk.Detail);
             }
         }
         // the empty-as-Ok trap, enforced locally: if the stream contract ever broke (a Final with no
         // content), an empty aggregate must fall over at the router, not report a clean empty answer
         if (text.Length == 0)
-            return new LlmReply("", ProviderVerdict.Failed, Detail: $"{Id}: empty response");
-        return new LlmReply(text.ToString(), ProviderVerdict.Ok, usage);
+            return new TextResponse("", ProviderVerdict.Failed, Detail: $"{Id}: empty response");
+        return new TextResponse(text.ToString(), ProviderVerdict.Ok, usage);
     }
 
-    public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             StatelessExecutor executor;
             string prompt;
-            LlmChunk? startupError = null;
+            TextChunk? startupError = null;
             try
             {
                 executor = EnsureLoaded();
@@ -94,7 +94,7 @@ public sealed class LlamaSharpProvider(
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "{Id}: local model load failed", Id);
-                startupError = LlmChunk.Error(ProviderVerdict.Failed, $"{Id}: model load failed — {ex.Message}");
+                startupError = TextChunk.Error(ProviderVerdict.Failed, $"{Id}: model load failed — {ex.Message}");
                 executor = null!;
                 prompt = "";
             }
@@ -116,12 +116,12 @@ public sealed class LlamaSharpProvider(
             await using (enumerator.ConfigureAwait(false))
             {
                 // the guarded loop (arm/read/stop + caller-cancel rethrow + fault→terminal) lives once in Core
-                var guarded = GuardedStream.ReadAll<string, LlmChunk>(
+                var guarded = GuardedStream.ReadAll<string, TextChunk>(
                     async () => await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null,
                     ex =>
                     {
                         var timedOut = timeoutCts.IsCancellationRequested;
-                        return LlmChunk.Error(timedOut ? ProviderVerdict.Timeout : ProviderVerdict.Failed,
+                        return TextChunk.Error(timedOut ? ProviderVerdict.Timeout : ProviderVerdict.Failed,
                             timedOut ? $"{Id}: no token within {timeout}" : $"{Id}: generation broke — {ex.Message}");
                     },
                     ct, new InactivityClock(timeoutCts, timeout));
@@ -134,7 +134,7 @@ public sealed class LlamaSharpProvider(
                     }
                     if (piece!.Length == 0) continue; // decoder can emit empty pieces mid multi-byte token
                     sawContent = true;
-                    yield return LlmChunk.Content(piece);
+                    yield return TextChunk.Content(piece);
                 }
             }
 
@@ -142,10 +142,10 @@ public sealed class LlamaSharpProvider(
             // can fall over pre-content instead of reporting a clean empty answer
             if (!sawContent)
             {
-                yield return LlmChunk.Error(ProviderVerdict.Failed, $"{Id}: no output produced");
+                yield return TextChunk.Error(ProviderVerdict.Failed, $"{Id}: no output produced");
                 yield break;
             }
-            yield return LlmChunk.Final();
+            yield return TextChunk.Final();
         }
         finally
         {
@@ -171,14 +171,14 @@ public sealed class LlamaSharpProvider(
 
     /// <summary>Apply the model's OWN chat template (from its GGUF metadata) so instruct-tuned models
     /// get the exact prompt format they were trained on — a naive role flatten degrades output badly.</summary>
-    private string BuildPrompt(LlmRequest req)
+    private string BuildPrompt(TextRequest req)
     {
         var template = new LLamaTemplate(_weights!) { AddAssistant = true };
         foreach (var m in req.Messages) template.Add(m.Role, m.Content);
         return Encoding.UTF8.GetString(template.Apply());
     }
 
-    private InferenceParams BuildInferenceParams(LlmRequest req) => new()
+    private InferenceParams BuildInferenceParams(TextRequest req) => new()
     {
         MaxTokens = req.MaxTokens ?? options.MaxTokens ?? -1, // -1 = run to EOS
         AntiPrompts = options.StopSequences,

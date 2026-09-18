@@ -27,7 +27,7 @@ public class ProviderPresetsTests
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>()
-            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.StartsWith("https://api.openai.com", handler.Requests[0].Uri!.ToString());
@@ -46,7 +46,7 @@ public class ProviderPresetsTests
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>()
-            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("http://localhost:11434/api/chat", handler.Requests[0].Uri!.ToString()); // Ollama dialect
@@ -64,7 +64,7 @@ public class ProviderPresetsTests
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>()
-            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         // llama-server speaks the OpenAI schema off its ROOT — never Ollama's native /api/chat, which is
@@ -83,7 +83,7 @@ public class ProviderPresetsTests
             .UseDefaultCandidates("llama"));
         using var sp = services.BuildServiceProvider();
 
-        await sp.GetRequiredService<ILlmClient>().CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+        await sp.GetRequiredService<ILlmClient>().CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal("http://gpu-box:9001/v1/chat/completions", handler.Requests[0].Uri!.ToString());
     }
@@ -98,7 +98,7 @@ public class ProviderPresetsTests
             .UseDefaultCandidates("openrouter"));
         using var sp = services.BuildServiceProvider();
 
-        await sp.GetRequiredService<ILlmClient>().CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+        await sp.GetRequiredService<ILlmClient>().CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.StartsWith("https://openrouter.ai/api/v1", handler.Requests[0].Uri!.ToString());
     }
@@ -108,7 +108,7 @@ public class ProviderPresetsTests
     {
         // several presets + a fully custom IModelProvider, all behind one router — the BYO path stays open
         var custom = new FakeLlmProvider("custom");
-        custom.Replies.Enqueue(new LlmReply("from a custom provider", ProviderVerdict.Ok));
+        custom.Replies.Enqueue(new TextResponse("from a custom provider", ProviderVerdict.Ok));
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
 
         var services = new ServiceCollection();
@@ -119,7 +119,7 @@ public class ProviderPresetsTests
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>()
-            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal("from a custom provider", reply.Text); // the custom provider served; no HTTP call
         Assert.Empty(handler.Requests);

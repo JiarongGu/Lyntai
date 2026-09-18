@@ -2,11 +2,12 @@ using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Lyntai.Inference;
 
 namespace Lyntai.Llm.Caching;
 
 /// <summary>
-/// A cache of completed <see cref="LlmReply"/>s keyed by a stable hash of the output-determining request
+/// A cache of completed <see cref="TextResponse"/>s keyed by a stable hash of the output-determining request
 /// fields (see <see cref="ResponseCacheKey"/>). The built-in <see cref="InMemoryResponseCache"/> is what
 /// <c>AddResponseCache()</c> registers; register your own <see cref="IResponseCache"/> first (Redis, a
 /// distributed KV, a persistent store) to override it — the front door then caches through it transparently.
@@ -16,11 +17,11 @@ public interface IResponseCache
     /// <summary>The cached reply for <paramref name="key"/>, or null on a miss / expired entry.
     /// (Named like <c>IKeyValueStore.GetAsync</c>/<c>ISecretVault.GetAsync</c> — null-on-miss, no
     /// <c>Try</c> prefix.)</summary>
-    Task<LlmReply?> GetAsync(string key, CancellationToken ct = default);
+    Task<TextResponse?> GetAsync(string key, CancellationToken ct = default);
 
     /// <summary>Store <paramref name="reply"/> under <paramref name="key"/> with a freshness window
     /// (<paramref name="ttl"/>; null = the cache's own default).</summary>
-    Task SetAsync(string key, LlmReply reply, TimeSpan? ttl = null, CancellationToken ct = default);
+    Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default);
 
     /// <summary>Evict one entry — the escape hatch for a poisoned/stale reply that must not be served
     /// for the rest of its TTL. A missing key is a no-op.</summary>
@@ -28,9 +29,9 @@ public interface IResponseCache
 }
 
 /// <summary>
-/// Computes a stable, collision-resistant cache key from the fields of an <see cref="LlmRequest"/> that
+/// Computes a stable, collision-resistant cache key from the fields of an <see cref="TextRequest"/> that
 /// determine the model's output — messages (role / content / tool calls / tool-result id / attachments),
-/// model, max tokens, temperature, JSON schema. Deliberately EXCLUDES <see cref="LlmRequest.Consumer"/>
+/// model, max tokens, temperature, JSON schema. Deliberately EXCLUDES <see cref="TextRequest.Consumer"/>
 /// (a telemetry/routing tag, not an output determinant) so two consumers issuing the same request share a
 /// hit. Every field is length-framed before hashing, so no field-boundary shifts a value into another and
 /// collides (e.g. content "ab"+"c" vs "a"+"bc"). SHA-256 → lowercase hex.
@@ -39,9 +40,9 @@ public static class ResponseCacheKey
 {
     /// <summary>Compute the key. Pass <paramref name="effectiveModel"/> (the model the router will actually
     /// use, e.g. <c>options.ResolveModel(req.Consumer, req.Model)</c>) so two consumers whose per-consumer
-    /// DEFAULT models differ don't collide on a null <see cref="LlmRequest.Model"/> — the effective model is
+    /// DEFAULT models differ don't collide on a null <see cref="TextRequest.Model"/> — the effective model is
     /// an output determinant, the raw one isn't. Consumer itself stays OUT (two consumers resolving to the
-    /// same model still share a hit). Falls back to <see cref="LlmRequest.Model"/> when not supplied.
+    /// same model still share a hit). Falls back to <see cref="TextRequest.Model"/> when not supplied.
     /// <para><b>The CLIENT NAME and the resolved BACKEND are deliberately out too</b>, which reads like an
     /// oversight and is not. Every named client shares one cache instance by design — see
     /// <see cref="Lyntai.Llm.ILlmClientFactory"/>: a name selects backends, never permissions, so it is not a
@@ -49,9 +50,9 @@ public static class ResponseCacheKey
     /// all: this cache sits IN FRONT of the router, which is free to pick any candidate and to fall back
     /// across them mid-request, so there is no backend to key on when the lookup happens.</para>
     /// <para>If you need entries isolated per tenant, the isolating field is
-    /// <see cref="LlmRequest.Consumer"/> and the seam is your own <see cref="IResponseCache"/> — not this
+    /// <see cref="TextRequest.Consumer"/> and the seam is your own <see cref="IResponseCache"/> — not this
     /// key.</para></summary>
-    public static string For(LlmRequest req, string? effectiveModel = null)
+    public static string For(TextRequest req, string? effectiveModel = null)
     {
         using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         AddString(h, "lyntai-cache-v1"); // version prefix — bump to invalidate the whole keyspace on a shape change

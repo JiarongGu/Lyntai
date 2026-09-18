@@ -9,7 +9,7 @@ namespace Lyntai.Providers.CodexCli;
 
 /// <summary>
 /// Spawns the authenticated OpenAI <c>codex</c> CLI (no API key) and maps its <c>exec --json</c> JSONL to
-/// <see cref="LlmReply"/>/<see cref="LlmChunk"/> + verdict. The command resolves from (in order): the ctor
+/// <see cref="TextResponse"/>/<see cref="TextChunk"/> + verdict. The command resolves from (in order): the ctor
 /// override, <c>LYNTAI_PROVIDER_CMD</c>, <c>CODEX_CMD</c>, then a plain <c>codex</c> from PATH.
 ///
 /// Like <see cref="Providers.ClaudeCli.ClaudeCliProvider"/>, this type is only the composition of
@@ -65,11 +65,11 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
     public bool IsAvailable => _engine.IsAvailable;
 
     /// <inheritdoc/>
-    public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+    public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
         _engine.CompleteAsync(req, ct);
 
     /// <inheritdoc/>
-    public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+    public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
         _engine.StreamAsync(req, ct);
 
     /// <summary>Report the installed CLI without running a turn (<c>codex --version</c> →

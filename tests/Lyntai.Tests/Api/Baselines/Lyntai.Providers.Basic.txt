@@ -32,7 +32,7 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
 sealed class Lyntai.Providers.ClaudeCli.ClaudeCliDialect
     .ctor()
     AuthStatusArgs : IReadOnlyList<String>
-    BuildCompletionArgs(LlmRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
+    BuildCompletionArgs(TextRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
     CommandEnvironmentVariables : IReadOnlyList<String>
     DefaultCommand : String
     Id : String
@@ -49,7 +49,7 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeCliMcpDialect
 sealed class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<ClaudeCliProvider> logger = null, String command = null, ICliToolProvisioner provisioner = null, IReadOnlyDictionary<String,String> environment = null)
     Capabilities : ProviderCapabilities
-    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
     Id : String
     InstallAsync(ProviderInstallRequest request = null, CancellationToken ct = default) : Task<ProviderUpdateResult>
     IsAvailable : Boolean
@@ -58,7 +58,7 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
     ProviderId : String const
     StatusAsync(CancellationToken ct = default) : Task<ProviderAuthStatus>
-    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
     UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
 static class Lyntai.Providers.ClaudeCli.ClaudeToolCalls
     static FilePathOf(ToolCall call) : String
@@ -78,7 +78,7 @@ sealed class Lyntai.Providers.CodexCli.CodexAgentSession
 sealed class Lyntai.Providers.CodexCli.CodexCliDialect
     .ctor()
     AuthStatusArgs : IReadOnlyList<String>
-    BuildCompletionArgs(LlmRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
+    BuildCompletionArgs(TextRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
     CommandEnvironmentVariables : IReadOnlyList<String>
     DefaultCommand : String
     Id : String
@@ -91,7 +91,7 @@ sealed class Lyntai.Providers.CodexCli.CodexCliDialect
 sealed class Lyntai.Providers.CodexCli.CodexCliProvider
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<CodexCliProvider> logger = null, String command = null, ICliToolProvisioner provisioner = null, IReadOnlyDictionary<String,String> environment = null, CodexCliDialect dialect = null)
     Capabilities : ProviderCapabilities
-    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
     Id : String
     IsAvailable : Boolean
     LoginAsync(ProviderLoginRequest request = null, CancellationToken ct = default) : Task<ProviderAuthResult>
@@ -99,7 +99,7 @@ sealed class Lyntai.Providers.CodexCli.CodexCliProvider
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
     ProviderId : String const
     StatusAsync(CancellationToken ct = default) : Task<ProviderAuthStatus>
-    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
     UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
 enum Lyntai.Providers.Http.HttpDialect
     Auto : HttpDialect const
@@ -124,10 +124,10 @@ sealed class Lyntai.Providers.Http.HttpModelProvider
     CallAsync(ScoreRequest request, CancellationToken ct = default) : Task<ScoreResponse>
     CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>
     Capabilities : ProviderCapabilities
-    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
     Id : String
     IsAvailable : Boolean
-    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
 sealed class Lyntai.Providers.Model2Vec.Model2VecProvider
     CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>
     Capabilities : ProviderCapabilities

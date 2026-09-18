@@ -3,6 +3,7 @@ using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Providers.Http.Payloads;
 using Lyntai.Tests.Fakes;
+using Lyntai.Inference;
 
 namespace Lyntai.Tests.Providers;
 
@@ -15,7 +16,7 @@ public class MultimodalTests
     [Fact]
     public void UserWithImage_carries_the_inline_attachment()
     {
-        var m = LlmMessage.UserWithImage("what is this?", Png, "image/png");
+        var m = TextMessage.UserWithImage("what is this?", Png, "image/png");
         var a = Assert.Single(m.Attachments!);
         Assert.Equal("image/png", a.MediaType);
         Assert.StartsWith("data:image/png;base64,", a.DataUrl());
@@ -24,7 +25,7 @@ public class MultimodalTests
     [Fact]
     public void Openai_payload_renders_text_then_image_url_parts()
     {
-        var req = new LlmRequest { Messages = [LlmMessage.UserWithImage("describe", Png, "image/png")] };
+        var req = new TextRequest { Messages = [TextMessage.UserWithImage("describe", Png, "image/png")] };
 
         var msg = OpenAiPayload.Build(req, "gpt-4o", stream: false)["messages"]!.AsArray()[0]!;
         var parts = msg["content"]!.AsArray();
@@ -38,7 +39,7 @@ public class MultimodalTests
     [Fact]
     public void Openai_payload_uses_a_remote_image_url_when_given()
     {
-        var req = new LlmRequest { Messages = [LlmMessage.UserWithImageUrl("describe", "https://example.com/i.jpg")] };
+        var req = new TextRequest { Messages = [TextMessage.UserWithImageUrl("describe", "https://example.com/i.jpg")] };
         var parts = OpenAiPayload.Build(req, "m", stream: false)["messages"]!.AsArray()[0]!["content"]!.AsArray();
         Assert.Equal("https://example.com/i.jpg", (string)parts[1]!["image_url"]!["url"]!);
     }
@@ -46,16 +47,16 @@ public class MultimodalTests
     [Fact]
     public void Attachment_with_neither_data_nor_uri_throws_rather_than_send_empty()
     {
-        Assert.Throws<InvalidOperationException>(() => new LlmAttachment("image/png").Url());
+        Assert.Throws<InvalidOperationException>(() => new TextAttachment("image/png").Url());
     }
 
     [Fact]
     public void Openai_drops_images_on_a_non_user_role()
     {
         // OpenAI rejects image parts on assistant/system; the payload must fall back to plain text
-        var req = new LlmRequest
+        var req = new TextRequest
         {
-            Messages = [new LlmMessage("assistant", "sure") { Attachments = [new LlmAttachment("image/png", Png)] }],
+            Messages = [new TextMessage("assistant", "sure") { Attachments = [new TextAttachment("image/png", Png)] }],
         };
         var content = OpenAiPayload.Build(req, "m", stream: false)["messages"]!.AsArray()[0]!["content"];
         Assert.Equal("sure", (string)content!); // a plain string, not a parts array

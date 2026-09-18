@@ -12,7 +12,7 @@ namespace Lyntai.Tests.Lifecycle;
 /// delegate for.</para></summary>
 public class BridgeProviderTests
 {
-    private static LlmRequest Ask(string text = "hello") => new() { Messages = [LlmMessage.User(text)] };
+    private static TextRequest Ask(string text = "hello") => new() { Messages = [TextMessage.User(text)] };
 
     private static ServiceProvider Build(Action<LyntaiBuilder> configure)
     {
@@ -26,7 +26,7 @@ public class BridgeProviderTests
     {
         using var sp = Build(b => b
             .AddBridgeProvider("vendor", (req, _) =>
-                Task.FromResult(new LlmReply($"echo: {req.Messages[^1].Content}", ProviderVerdict.Ok)))
+                Task.FromResult(new TextResponse($"echo: {req.Messages[^1].Content}", ProviderVerdict.Ok)))
             .UseDefaultCandidates("vendor"));
 
         var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Ask("hello"));
@@ -39,7 +39,7 @@ public class BridgeProviderTests
     public void Without_a_stream_delegate_it_declares_NO_stream_so_a_router_never_asks()
     {
         using var sp = Build(b => b.AddBridgeProvider("vendor", (_, _) =>
-            Task.FromResult(new LlmReply("x", ProviderVerdict.Ok))));
+            Task.FromResult(new TextResponse("x", ProviderVerdict.Ok))));
 
         var caps = Assert.Single(sp.GetServices<IModelProvider>()).Capabilities;
 
@@ -51,17 +51,17 @@ public class BridgeProviderTests
     public void Supplying_a_stream_delegate_declares_the_operation()
     {
         using var sp = Build(b => b.AddBridgeProvider("vendor",
-            (_, _) => Task.FromResult(new LlmReply("x", ProviderVerdict.Ok)),
+            (_, _) => Task.FromResult(new TextResponse("x", ProviderVerdict.Ok)),
             (_, _) => Chunks()));
 
         var caps = Assert.Single(sp.GetServices<IModelProvider>()).Capabilities;
 
         Assert.True(caps.Supports(ProviderKinds.Text, ProviderOperation.Stream));
 
-        static async IAsyncEnumerable<LlmChunk> Chunks()
+        static async IAsyncEnumerable<TextChunk> Chunks()
         {
             await Task.CompletedTask;
-            yield return LlmChunk.Content("x");
+            yield return TextChunk.Content("x");
         }
     }
 
@@ -72,8 +72,8 @@ public class BridgeProviderTests
         // something it can read, and this is what makes a bridge a first-class backend rather than a leaf.
         using var sp = Build(b => b
             .AddBridgeProvider("down", (_, _) =>
-                Task.FromResult(new LlmReply("", ProviderVerdict.Failed, Detail: "vendor is down")))
-            .AddBridgeProvider("up", (_, _) => Task.FromResult(new LlmReply("served", ProviderVerdict.Ok)))
+                Task.FromResult(new TextResponse("", ProviderVerdict.Failed, Detail: "vendor is down")))
+            .AddBridgeProvider("up", (_, _) => Task.FromResult(new TextResponse("served", ProviderVerdict.Ok)))
             .UseDefaultCandidates("down", "up"));
 
         var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Ask());
@@ -88,7 +88,7 @@ public class BridgeProviderTests
         // A bridge over an embedding SDK is the same mechanism with a different declaration — nothing here
         // is text-specific except the default.
         using var sp = Build(b => b.AddBridgeProvider("scorer",
-            (_, _) => Task.FromResult(new LlmReply("", ProviderVerdict.Unsupported)),
+            (_, _) => Task.FromResult(new TextResponse("", ProviderVerdict.Unsupported)),
             capabilities: new ProviderCapabilities
             {
                 Accepts = [ProviderKinds.Text],
@@ -108,7 +108,7 @@ public class BridgeProviderTests
     {
         var b = new ServiceCollection();
         Assert.Throws<ArgumentException>(() =>
-            b.AddLyntai(cfg => cfg.AddBridgeProvider("  ", (_, _) => Task.FromResult(new LlmReply("", ProviderVerdict.Ok)))));
+            b.AddLyntai(cfg => cfg.AddBridgeProvider("  ", (_, _) => Task.FromResult(new TextResponse("", ProviderVerdict.Ok)))));
         Assert.Throws<ArgumentNullException>(() =>
             b.AddLyntai(cfg => cfg.AddBridgeProvider("id", null!)));
     }

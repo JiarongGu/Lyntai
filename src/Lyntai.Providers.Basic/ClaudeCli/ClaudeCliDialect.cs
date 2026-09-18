@@ -1,5 +1,6 @@
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
+using Lyntai.Inference;
 
 namespace Lyntai.Providers.ClaudeCli;
 
@@ -29,7 +30,7 @@ public sealed class ClaudeCliDialect : CliProviderDialectBase
     /// correct here — which is exactly why the engine appending them for every dialect went unnoticed: the
     /// only CLI that had driven that path is the one where it happens to work.</para></summary>
     public override IReadOnlyList<string> BuildCompletionArgs(
-        LlmRequest request, IReadOnlyList<string> toolHostArgs) =>
+        TextRequest request, IReadOnlyList<string> toolHostArgs) =>
         [.. ClaudeArgs.Build(request.Model), .. toolHostArgs];
 
     /// <summary>Decode one <c>stream-json</c> line into the engine's vocabulary.</summary>

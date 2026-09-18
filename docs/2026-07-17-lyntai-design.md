@@ -138,29 +138,29 @@ store* (route each domain to a different backend) can be layered on later withou
 ```csharp
 public enum LlmVerdict { Ok, RateLimited, Refused, Failed, Timeout }
 
-public sealed record LlmRequest {
-    public required IReadOnlyList<LlmMessage> Messages { get; init; }
+public sealed record TextRequest {
+    public required IReadOnlyList<TextMessage> Messages { get; init; }
     public string? Model { get; init; }           // provider resolves null → its default
     public int? MaxTokens { get; init; }
     public double? Temperature { get; init; }
     public string? JsonSchema { get; init; }       // structured output (optional)
-    public IReadOnlyList<LlmTool>? Tools { get; init; }
+    public IReadOnlyList<TextTool>? Tools { get; init; }
     public string Consumer { get; init; } = "default";  // per-feature routing/telemetry tag
 }
 
-public sealed record LlmReply(string Text, LlmVerdict Verdict, LlmUsage? Usage = null, string? Detail = null);
+public sealed record TextResponse(string Text, LlmVerdict Verdict, TextUsage? Usage = null, string? Detail = null);
 
 public interface ILlmProvider {
     string Id { get; }                             // "claude-cli" | "openai" | "ollama" | …
     bool IsAvailable { get; }
-    Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default);
-    IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default);
+    Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default);
+    IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default);
 }
 
 // Ordered candidates → fallback. See §6 for the routing semantics.
 public interface ILlmRouter {
-    Task<LlmReply> CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default);
-    IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default);
+    Task<TextResponse> CompleteAsync(IReadOnlyList<LlmCandidate> candidates, TextRequest req, CancellationToken ct = default);
+    IAsyncEnumerable<TextChunk> StreamAsync(IReadOnlyList<LlmCandidate> candidates, TextRequest req, CancellationToken ct = default);
 }
 public sealed record LlmCandidate(string ProviderId, string? Model = null);
 ```
@@ -415,7 +415,7 @@ call per recall, which is why the seam ships OFF and is a lever a deployment opt
 <br>**Do not put a REASONING model in this seam** — `docs/memory.md` records ~25s per judgement against
 gemma3's ~1.5s, disqualifying whatever it scores when it sits in the latency path of every recall.
 Re-confirmed 2026-08-15: qwen3:4b emits ~2,200 output tokens for a four-note question whose answer is about
-8, and `LlmRequest.Reasoning` (which `LlmMemoryVerificationPolicy` already sets to `Suppress`) does not stop
+8, and `TextRequest.Reasoning` (which `LlmMemoryVerificationPolicy` already sets to `Suppress`) does not stop
 Ollama's qwen3 reasoning anyway.
 
 **The difficulty axis is INERT at shipped defaults (measured 2026-08-15).** `DsrRetrievability.Reinforce`'s
@@ -979,7 +979,7 @@ these later without breaking changes.
 > registry as the agentic tool loop + native tool-calling + an MCP-client tool source + CLI tool-hosting
 > (v0.9–v0.13, `Lyntai.Agents` / `Lyntai.Tools.Mcp` / `Lyntai.Tools.Mcp.Hosting`); durable jobs
 > (v0.14, `Lyntai.Jobs` + `IJobStore`); then guards (`Lyntai.Guards`), two-gate `IChatOrchestrator`,
-> the secret vault (`Lyntai.Secrets`), and vision/multimodal (`LlmMessage.Attachments`) in v0.15. See
+> the secret vault (`Lyntai.Secrets`), and vision/multimodal (`TextMessage.Attachments`) in v0.15. See
 > `CHANGELOG.md` / `ROADMAP.md`. The **only** §9 item still deliberately out of scope is the
 > **server/host/launcher + auto-update** — that's an application concern, not a library's (Lyntai stays
 > host-free; the one scoped exception is the ephemeral, opt-in localhost MCP listener the
@@ -992,7 +992,7 @@ these later without breaking changes.
 > `CHANGELOG.md`/`ROADMAP.md`, rationale in `docs/DECISIONS.md` D5–D14:
 > **`ILlmClient` front door + `AsChatClient()`** (inject the front door, not `ILlmRouter` — D5) ·
 > **OTel telemetry** (`LyntaiDiagnostics`: `Lyntai.Llm` + `Lyntai.Agents` sources/meters, `RunTrace.TraceId`) ·
-> **native tool-calling contract** (`LlmToolCall`, `LlmReply.ToolCalls`, tool/assistant turns,
+> **native tool-calling contract** (`TextToolCall`, `TextResponse.ToolCalls`, tool/assistant turns,
 > `SupportsToolCalls` on provider/router/client) · **governance decorators** (response cache / usage
 > budget / rate limit behind `IResponseCache`/`IUsageTracker`/`IRateLimiter`; deterministic fold, cache
 > outermost; SQLite/PG persistence) · **semantic memory** (BYO `IEmbedder`, `ISemanticMemory`,
@@ -1001,7 +1001,7 @@ these later without breaking changes.
 > actor/mailbox `PartitionKey`; the last deferral, cross-process global limits, shipped in 3.0 as a slot
 > table — see the 3.0 amendment below) · **secrets expansion**
 > (DEK-envelope vault + recovery key; `Lyntai.Secrets.Dpapi`) · **refusal screening**
-> (`LlmRequest.RefusalPattern` + `IRefusalMatcher`) · **curated memory** (`ICuratedMemoryStore`) ·
+> (`TextRequest.RefusalPattern` + `IRefusalMatcher`) · **curated memory** (`ICuratedMemoryStore`) ·
 > **conversation event store v2** (GUID id + per-thread seq + kind/payload/metadata,
 > `IConversationEnricher`, keyset paging — D10; dates the in-body §5.4 edit) · **`StorageFeature`
 > toggles** (tag-driven selective registration + migration — D12; dates the in-body §5.5 edit) ·
@@ -1010,8 +1010,8 @@ these later without breaking changes.
 > `ToolLoopResult.Usage`) · **BYO resources** (v0.7: `IProcessRunner`, BYO `HttpClient`, BYO
 > `IDbConnectionFactory` + `migrate:false`, provider presets).
 > **§5 additive shape drift** (current shape = the baselines): `LlmVerdict` +`ContextWindowExceeded`/
-> `AuthFailed`/`Unsupported`/`NotConfigured`; `LlmRequest` +`TimeoutSeconds`/`RefusalPattern`; `LlmReply` +`ToolCalls`;
-> `LlmMessage` tool turns + `Attachments`; `IPromptRegistry.ValidateOverride`; `IScoringService`
+> `AuthFailed`/`Unsupported`/`NotConfigured`; `TextRequest` +`TimeoutSeconds`/`RefusalPattern`; `TextResponse` +`ToolCalls`;
+> `TextMessage` tool turns + `Attachments`; `IPromptRegistry.ValidateOverride`; `IScoringService`
 > read/aggregate/export members; new storage domains `IJobStore`/`IPromptVersionStore`/`ICuratedMemoryStore`;
 > three storage backends, 11 packages **as of v0.30** (adapter→Core-only rule unchanged and verified; twelve
 > today — see the §3 amendment).

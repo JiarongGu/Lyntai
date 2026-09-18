@@ -1,4 +1,5 @@
 using Lyntai.Llm;
+using Lyntai.Inference;
 
 namespace Lyntai.Guards;
 
@@ -11,27 +12,27 @@ public sealed class DenylistGuard(IReadOnlyList<string> terms, string? name = nu
 
     public string Name => name ?? "denylist";
 
-    public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default) =>
+    public Task<GuardOutcome> InspectRequestAsync(TextRequest req, CancellationToken ct = default) =>
         // scan EVERY scannable string across EVERY message role, not just "user" content — a denied term can
         // hide in an assistant tool-call turn (Content="" with the payload on ToolCalls) or an image
         // attachment URI, not only in text. Scans each segment directly (no whole-transcript join) and
         // short-circuits on the first hit.
         Task.FromResult(Check(req.Messages.SelectMany(Segments)));
 
-    public Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) =>
+    public Task<GuardOutcome> InspectResponseAsync(TextResponse reply, CancellationToken ct = default) =>
         // also scan the error detail (may echo content) AND the reply's own tool calls
         Task.FromResult(Check([reply.Text, reply.Detail ?? "", .. ToolCallSegments(reply.ToolCalls)]));
 
     // every scannable string in a message: content, each tool call's name + JSON arguments, each
     // attachment's URI
-    private static IEnumerable<string> Segments(LlmMessage m)
+    private static IEnumerable<string> Segments(TextMessage m)
     {
         yield return m.Content;
         foreach (var s in ToolCallSegments(m.ToolCalls)) yield return s;
         foreach (var a in m.Attachments ?? []) yield return a.Uri ?? "";
     }
 
-    private static IEnumerable<string> ToolCallSegments(IReadOnlyList<LlmToolCall>? calls) =>
+    private static IEnumerable<string> ToolCallSegments(IReadOnlyList<TextToolCall>? calls) =>
         calls is null ? [] : calls.Select(c => c.Name + " " + c.ArgumentsJson);
 
     private GuardOutcome Check(IEnumerable<string> segments)

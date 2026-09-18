@@ -116,18 +116,18 @@ public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBia
 
     private async Task<PairwiseResult> JudgeAsync(string input, string a, string b, CancellationToken ct)
     {
-        var req = new LlmRequest
+        var req = new TextRequest
         {
             Messages =
             [
-                LlmMessage.System(
+                TextMessage.System(
                     "You are a strict evaluator performing a SCORING TASK: pick which reply better answers " +
                     "the request. Reply with exactly one JSON object " +
                     """{"winner": "a" | "b" | "tie", "reason": "<short reason>"} and nothing else."""),
-                LlmMessage.User($"[request]\n{input}\n\n[reply a]\n{a}\n\n[reply b]\n{b}"),
+                TextMessage.User($"[request]\n{input}\n\n[reply a]\n{a}\n\n[reply b]\n{b}"),
             ],
             JsonSchema = """{"type":"object","properties":{"winner":{"type":"string","enum":["a","b","tie"]},"reason":{"type":"string"}},"required":["winner"]}""",
-            Consumer = LlmConsumers.Scoring,
+            Consumer = ProviderConsumers.Scoring,
         };
 
         var reply = await llm.CompleteJsonAsync(req, ct).ConfigureAwait(false);

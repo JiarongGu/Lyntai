@@ -717,6 +717,19 @@ export default {
         + '`AddOnnxProvider`, `AddModel2VecProvider`, `AddLlamaSharpProvider`, `HttpVectorTransport`',
     },
     {
+      // D154 NS-3a. The TEXT call shape is named for what it produces, like Vector/Score/Media, and lives
+      // with them. `Llm` named a model CLASS, not a content kind. `LlmConsumers` is NOT in this list under
+      // a Text* name on purpose: GenerationTools uses it too, so it is cross-domain and became
+      // `ProviderConsumers`. The FRONT DOOR (`ILlmClient`, `LlmRouter`, …) is untouched here — NS-4.
+      term: '\\bLlmRequest\\b|\\bLlmReply\\b|\\bLlmChunkKind\\b|\\bLlmChunk\\b|\\bLlmToolCall\\b'
+        + '|\\bLlmTool\\b|\\bLlmUsage\\b|\\bLlmMessage\\b|\\bLlmAttachment\\b|\\bLlmReasoning\\b'
+        + '|\\bLlmConsumers\\b',
+      why: 'a call shape is named for what it PRODUCES and sits with its peers; Llm named a model class '
+        + 'rather than a content kind (D154)',
+      use: '`TextRequest` / `TextResponse` / `TextChunk` / `TextToolCall` / `TextTool` / `TextUsage` / '
+        + '`TextMessage` / `TextAttachment` / `TextReasoning`, and `ProviderConsumers`',
+    },
+    {
       // D154 NS-1. The namespace said LIFECYCLE and held the provider seam, the verdict taxonomy and four
       // call shapes; only about a third of it — pools, admission, cooldown, candidates — was lifecycle.
       // Historical records keep the old spelling on purpose: a decision that moved a type INTO

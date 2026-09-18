@@ -17,7 +17,7 @@ public sealed record ChatTurn
 
     public string MemoryScope { get; init; } = "chat";
 
-    public string Consumer { get; init; } = LlmConsumers.Chat;
+    public string Consumer { get; init; } = ProviderConsumers.Chat;
 
     /// <summary>Route through the tool loop when tools are registered (the model can call them). If false,
     /// a plain completion.</summary>
@@ -43,11 +43,11 @@ public sealed record ChatResult(
 
     /// <summary>Aggregate token/cost usage for the turn — <see cref="ToolLoopResult.Usage"/> when the turn
     /// went through the tool loop (already summed across every call the loop made), else the single
-    /// completion's <see cref="LlmReply.Usage"/>. Shaped like the loop's: null when no provider reported
+    /// completion's <see cref="TextResponse.Usage"/>. Shaped like the loop's: null when no provider reported
     /// usage at all (e.g. a CLI provider that doesn't surface tokens), never a misleading all-zero figure.
     /// <para>It is what the turn COST, not what it returned: a non-Ok verdict and an output-gate block both
     /// carry the tokens they spent. Null when the turn never reached a provider — an input gate that blocked
     /// before the model. Gives a chat consumer a per-turn token/cost figure without wrapping
     /// <see cref="Lyntai.Llm.ILlmClient"/> in its own front-door decorator.</para></summary>
-    public LlmUsage? Usage { get; init; }
+    public TextUsage? Usage { get; init; }
 }

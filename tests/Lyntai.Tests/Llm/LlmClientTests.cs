@@ -10,7 +10,7 @@ namespace Lyntai.Tests.Llm;
 /// list at call sites, fallback happening invisibly behind <see cref="ILlmClient"/>.</summary>
 public class LlmClientTests
 {
-    private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")] };
+    private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
     private static ServiceProvider Build(params FakeLlmProvider[] providers)
     {
@@ -27,7 +27,7 @@ public class LlmClientTests
     public async Task Complete_routes_over_default_candidates_without_passing_them()
     {
         var p = new FakeLlmProvider("only");
-        p.Replies.Enqueue(new LlmReply("front door", ProviderVerdict.Ok));
+        p.Replies.Enqueue(new TextResponse("front door", ProviderVerdict.Ok));
         using var sp = Build(p);
 
         var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Req);
@@ -39,9 +39,9 @@ public class LlmClientTests
     public async Task Fallback_happens_invisibly_behind_the_facade()
     {
         var p1 = new FakeLlmProvider("p1");
-        p1.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down"));
+        p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down"));
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("second served", ProviderVerdict.Ok));
+        p2.Replies.Enqueue(new TextResponse("second served", ProviderVerdict.Ok));
         using var sp = Build(p1, p2);
 
         var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Req);
@@ -54,15 +54,15 @@ public class LlmClientTests
     {
         var p = new FakeLlmProvider("only")
         {
-            StreamScript = _ => [LlmChunk.Content("a"), LlmChunk.Content("b"), LlmChunk.Final()],
+            StreamScript = _ => [TextChunk.Content("a"), TextChunk.Content("b"), TextChunk.Final()],
         };
         using var sp = Build(p);
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in sp.GetRequiredService<ILlmClient>().StreamAsync(Req)) chunks.Add(c);
 
-        Assert.Equal("ab", string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+        Assert.Equal("ab", string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
     }
 
     [Fact]

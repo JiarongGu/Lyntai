@@ -1,3 +1,4 @@
+using Lyntai.Inference;
 namespace Lyntai.Llm.RateLimiting;
 
 /// <summary>Gates the rate of front-door calls. The built-in <see cref="TokenBucketRateLimiter"/> is what

@@ -26,8 +26,8 @@ public class AddToolTests
     public async Task AddTool_registers_tools_the_loop_can_call_end_to_end()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok));
-        provider.Replies.Enqueue(new LlmReply("""{"final":"HI"}""", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new TextResponse("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new TextResponse("""{"final":"HI"}""", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
@@ -39,7 +39,7 @@ public class AddToolTests
         Assert.Contains(sp.GetRequiredService<IToolRegistry>().Tools, t => t.Name == "shout");
 
         var result = await sp.GetRequiredService<IToolLoop>()
-            .RunAsync(new LlmRequest { Messages = [LlmMessage.User("shout hi")] });
+            .RunAsync(new TextRequest { Messages = [TextMessage.User("shout hi")] });
 
         Assert.True(result.Ok);
         Assert.Equal("HI", result.Answer);

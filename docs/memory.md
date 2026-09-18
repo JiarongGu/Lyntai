@@ -383,7 +383,7 @@ preference: a model failing any of them is unsuitable however well it scores.
 3. **Answers in the languages you store.** Three of the models tested pass English and fail elsewhere —
    `llama3.2:3b` misses the answer entirely in Japanese, `qwen2.5-vl:7b` returns an empty verdict.
 
-`LlmRequest.Reasoning = Suppress` is set by both policies already, so the library asks. Ollama's qwen-family
+`TextRequest.Reasoning = Suppress` is set by both policies already, so the library asks. Ollama's qwen-family
 models reason regardless — asking is not the same as being obeyed.
 
 #### It is a policy, so switching is one line

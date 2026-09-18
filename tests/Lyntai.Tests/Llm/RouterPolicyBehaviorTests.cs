@@ -10,7 +10,7 @@ namespace Lyntai.Tests.Llm;
 /// per-(provider, model) cooldown granularity, and the sole-candidate exemption.</summary>
 public class RouterPolicyBehaviorTests
 {
-    private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")] };
+    private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
     private static LlmRouter Router(LyntaiOptions options, DeadHostTracker? tracker, params IModelProvider[] providers) =>
         new(providers, tracker ?? new DeadHostTracker(), options);
@@ -22,9 +22,9 @@ public class RouterPolicyBehaviorTests
         options.Routing.Retry(ProviderVerdict.Failed, 2); // up to 2 retries → 3 attempts total
 
         var flaky = new FakeLlmProvider("flaky");
-        flaky.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "blip 1"));
-        flaky.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "blip 2"));
-        flaky.Replies.Enqueue(new LlmReply("recovered on the third try", ProviderVerdict.Ok));
+        flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "blip 1"));
+        flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "blip 2"));
+        flaky.Replies.Enqueue(new TextResponse("recovered on the third try", ProviderVerdict.Ok));
         var backup = new FakeLlmProvider("backup");
 
         var reply = await Router(options, null, flaky, backup).CompleteAsync([new("flaky"), new("backup")], Req);
@@ -41,10 +41,10 @@ public class RouterPolicyBehaviorTests
         options.Routing.Retry(ProviderVerdict.Failed, 1); // 1 retry → 2 attempts, both fail
 
         var flaky = new FakeLlmProvider("flaky");
-        flaky.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down 1"));
-        flaky.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down 2"));
+        flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down 1"));
+        flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down 2"));
         var backup = new FakeLlmProvider("backup");
-        backup.Replies.Enqueue(new LlmReply("from backup", ProviderVerdict.Ok));
+        backup.Replies.Enqueue(new TextResponse("from backup", ProviderVerdict.Ok));
 
         var reply = await Router(options, null, flaky, backup).CompleteAsync([new("flaky"), new("backup")], Req);
 
@@ -59,9 +59,9 @@ public class RouterPolicyBehaviorTests
         options.Routing.Retry(ProviderVerdict.RateLimited, 5); // ignored — cooled verdicts don't retry
 
         var limited = new FakeLlmProvider("limited");
-        limited.Replies.Enqueue(new LlmReply("", ProviderVerdict.RateLimited, Detail: "429"));
+        limited.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
         var backup = new FakeLlmProvider("backup");
-        backup.Replies.Enqueue(new LlmReply("from backup", ProviderVerdict.Ok));
+        backup.Replies.Enqueue(new TextResponse("from backup", ProviderVerdict.Ok));
 
         var reply = await Router(options, null, limited, backup).CompleteAsync([new("limited"), new("backup")], Req);
 
@@ -78,8 +78,8 @@ public class RouterPolicyBehaviorTests
 
         // one provider, two models; the small model gets rate-limited, the large one must stay live
         var host = new FakeLlmProvider("host");
-        host.Replies.Enqueue(new LlmReply("", ProviderVerdict.RateLimited, Detail: "429 small"));
-        host.Replies.Enqueue(new LlmReply("large model served", ProviderVerdict.Ok));
+        host.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429 small"));
+        host.Replies.Enqueue(new TextResponse("large model served", ProviderVerdict.Ok));
 
         var reply = await Router(options, tracker, host).CompleteAsync([new("host", "small"), new("host", "large")], Req);
 
@@ -95,8 +95,8 @@ public class RouterPolicyBehaviorTests
         var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
 
         var host = new FakeLlmProvider("host");
-        host.Replies.Enqueue(new LlmReply("", ProviderVerdict.RateLimited, Detail: "429"));
-        host.Replies.Enqueue(new LlmReply("second model", ProviderVerdict.Ok));
+        host.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
+        host.Replies.Enqueue(new TextResponse("second model", ProviderVerdict.Ok));
 
         // first candidate rate-limited cools the whole provider; the second (same provider) is skipped,
         // no live candidate remains → the rate-limit surfaces
@@ -114,7 +114,7 @@ public class RouterPolicyBehaviorTests
         tracker.MarkDead("only"); // already cooled
 
         var only = new FakeLlmProvider("only");
-        only.Replies.Enqueue(new LlmReply("served despite cooldown", ProviderVerdict.Ok));
+        only.Replies.Enqueue(new TextResponse("served despite cooldown", ProviderVerdict.Ok));
 
         var reply = await Router(options, tracker, only).CompleteAsync([new("only")], Req);
 
@@ -131,7 +131,7 @@ public class RouterPolicyBehaviorTests
         tracker.MarkDead("only");
 
         var only = new FakeLlmProvider("only");
-        only.Replies.Enqueue(new LlmReply("should not be reached", ProviderVerdict.Ok));
+        only.Replies.Enqueue(new TextResponse("should not be reached", ProviderVerdict.Ok));
 
         var reply = await Router(options, tracker, only).CompleteAsync([new("only")], Req);
 
@@ -146,9 +146,9 @@ public class RouterPolicyBehaviorTests
         options.Routing.On(ProviderVerdict.Failed, FallbackAction.Surface); // don't fall back on Failed
 
         var p1 = new FakeLlmProvider("p1");
-        p1.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "surfaced"));
+        p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "surfaced"));
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("should not be reached", ProviderVerdict.Ok));
+        p2.Replies.Enqueue(new TextResponse("should not be reached", ProviderVerdict.Ok));
 
         var reply = await Router(options, null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
@@ -166,9 +166,9 @@ public class RouterPolicyBehaviorTests
         var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
 
         var flaky = new FakeLlmProvider("flaky");
-        for (var i = 0; i < 3; i++) flaky.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: $"blip {i}"));
+        for (var i = 0; i < 3; i++) flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: $"blip {i}"));
         var backup = new FakeLlmProvider("backup");
-        backup.Replies.Enqueue(new LlmReply("from backup", ProviderVerdict.Ok));
+        backup.Replies.Enqueue(new TextResponse("from backup", ProviderVerdict.Ok));
 
         await Router(options, tracker, flaky, backup).CompleteAsync([new("flaky"), new("backup")], Req);
 
@@ -183,16 +183,16 @@ public class RouterPolicyBehaviorTests
         var p = new FakeLlmProvider("p")
         {
             // an empty/role-only chunk, then real content — the empty one must not leak downstream
-            StreamScript = _ => [LlmChunk.Content(""), LlmChunk.Content("real answer"), LlmChunk.Final()],
+            StreamScript = _ => [TextChunk.Content(""), TextChunk.Content("real answer"), TextChunk.Final()],
         };
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in Router(options, null, p).StreamAsync([new("p")], Req)) chunks.Add(c);
 
-        var contents = chunks.Where(c => c.Kind == LlmChunkKind.Content).ToList();
+        var contents = chunks.Where(c => c.Kind == TextChunkKind.Content).ToList();
         Assert.Single(contents);                        // the empty chunk was filtered
         Assert.Equal("real answer", contents[0].Text);
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
     }
 
     [Fact]
@@ -201,19 +201,19 @@ public class RouterPolicyBehaviorTests
         var options = new LyntaiOptions();
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Content(""), LlmChunk.Error(ProviderVerdict.Failed, "cold")],
+            StreamScript = _ => [TextChunk.Content(""), TextChunk.Error(ProviderVerdict.Failed, "cold")],
         };
         var p2 = new FakeLlmProvider("p2")
         {
-            StreamScript = _ => [LlmChunk.Content("served by fallback"), LlmChunk.Final()],
+            StreamScript = _ => [TextChunk.Content("served by fallback"), TextChunk.Final()],
         };
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in Router(options, null, p1, p2).StreamAsync([new("p1"), new("p2")], Req)) chunks.Add(c);
 
         // no empty chunk from p1 leaked before p2's real content
         Assert.Equal("served by fallback",
-            string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
+            string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
     }
 
     [Fact]
@@ -225,15 +225,15 @@ public class RouterPolicyBehaviorTests
         var flaky = new FakeLlmProvider("flaky");
         var attempt = 0;
         flaky.StreamScript = _ => ++attempt == 1
-            ? [LlmChunk.Error(ProviderVerdict.Failed, "cold start")]
-            : [LlmChunk.Content("second attempt streamed"), LlmChunk.Final()];
+            ? [TextChunk.Error(ProviderVerdict.Failed, "cold start")]
+            : [TextChunk.Content("second attempt streamed"), TextChunk.Final()];
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in Router(options, null, flaky).StreamAsync([new("flaky")], Req))
             chunks.Add(c);
 
         Assert.Equal("second attempt streamed",
-            string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
+            string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
         Assert.Equal(2, flaky.StreamCalls); // reconnected the same candidate before the first token
     }
 }

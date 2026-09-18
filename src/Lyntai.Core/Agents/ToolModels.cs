@@ -48,11 +48,11 @@ public sealed record ToolLoopResult(
     public bool Ok => Verdict == ProviderVerdict.Ok;
 
     /// <summary>Aggregate token/cost usage across EVERY front-door call the loop made (summed
-    /// input/output/cache-read tokens; <see cref="LlmUsage.CostUsd"/> summed when any call reported one, else
+    /// input/output/cache-read tokens; <see cref="TextUsage.CostUsd"/> summed when any call reported one, else
     /// null). Null when no provider reported usage at all (e.g. a CLI provider that doesn't surface tokens).
     /// Gives a tool-loop consumer a per-run token/cost figure without wrapping <see cref="ILlmClient"/> in its
     /// own front-door decorator.</summary>
-    public LlmUsage? Usage { get; init; }
+    public TextUsage? Usage { get; init; }
 
     /// <summary>Which transport carried this run, or <c>null</c> when the loop did not report one.
     /// <para><b>Null and <see cref="ToolTransport.None"/> are not the same</b> and must not be collapsed:

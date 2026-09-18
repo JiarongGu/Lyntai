@@ -1,4 +1,4 @@
-namespace Lyntai.Llm;
+namespace Lyntai.Inference;
 
 /// <summary>Whether a call wants the model's intermediate reasoning.
 ///
@@ -20,7 +20,7 @@ namespace Lyntai.Llm;
 /// penalty is disqualifying whatever the accuracy — and before this option there was no way to ask for the
 /// cheap behaviour except by avoiding a whole class of models.</para>
 /// </summary>
-public enum LlmReasoning
+public enum TextReasoning
 {
     /// <summary>Whatever the backend and model do by default. No request field is sent.</summary>
     Default = 0,

@@ -25,7 +25,7 @@ public class LlmScorerBaseTests
     private static FakeLlmClient ClientReturning(double score)
     {
         var llm = new FakeLlmClient();
-        llm.Replies.Enqueue(new LlmReply($$"""{"score":{{score}}}""", ProviderVerdict.Ok));
+        llm.Replies.Enqueue(new TextResponse($$"""{"score":{{score}}}""", ProviderVerdict.Ok));
         return llm;
     }
 

@@ -49,11 +49,11 @@ public class OllamaToolCallLiveTests
         using var sp = services.BuildServiceProvider();
 
         // the Ollama provider advertises native tool-calling, so the loop takes the native path
-        Assert.True(sp.GetRequiredService<ILlmClient>().SupportsToolCalls(new LlmRequest { Messages = [LlmMessage.User("x")] }));
+        Assert.True(sp.GetRequiredService<ILlmClient>().SupportsToolCalls(new TextRequest { Messages = [TextMessage.User("x")] }));
 
-        var result = await sp.GetRequiredService<IToolLoop>().RunAsync(new LlmRequest
+        var result = await sp.GetRequiredService<IToolLoop>().RunAsync(new TextRequest
         {
-            Messages = [LlmMessage.User("What is 17 plus 25? Use the add tool, then state the result.")],
+            Messages = [TextMessage.User("What is 17 plus 25? Use the add tool, then state the result.")],
             Temperature = 0,
         });
 

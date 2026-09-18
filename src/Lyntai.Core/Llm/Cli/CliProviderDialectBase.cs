@@ -1,3 +1,4 @@
+using Lyntai.Inference;
 namespace Lyntai.Llm.Cli;
 
 /// <summary>Convenience base for an <see cref="ICliProviderDialect"/>: everything OPTIONAL already has a
@@ -38,11 +39,11 @@ public abstract class CliProviderDialectBase : ICliProviderDialect
 
     /// <inheritdoc/>
     public abstract IReadOnlyList<string> BuildCompletionArgs(
-        LlmRequest request, IReadOnlyList<string> toolHostArgs);
+        TextRequest request, IReadOnlyList<string> toolHostArgs);
 
     /// <summary>The shared flattening: a lone user message verbatim, otherwise role-labeled blocks, plus the
-    /// structured-output instruction for a <see cref="LlmRequest.JsonSchema"/> request.</summary>
-    public virtual string BuildPrompt(LlmRequest request) => CliPrompt.Flatten(request);
+    /// structured-output instruction for a <see cref="TextRequest.JsonSchema"/> request.</summary>
+    public virtual string BuildPrompt(TextRequest request) => CliPrompt.Flatten(request);
 
     /// <inheritdoc/>
     public abstract CliOutputEvent ParseLine(string line);

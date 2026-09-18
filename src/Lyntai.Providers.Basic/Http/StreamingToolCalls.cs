@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace Lyntai.Llm;
+namespace Lyntai.Inference;
 
 /// <summary>One line's worth of a streamed tool call. Vendors send these in PIECES — an id and name on the
 /// first line for a given <paramref name="Index"/>, then argument text a few characters at a time — so a
@@ -14,9 +14,9 @@ namespace Lyntai.Llm;
 /// arguments member (which arrives complete) and a string fragment accumulate through the same path.</param>
 internal sealed record ToolCallDelta(int Index, string? Id, string? Name, string? Arguments);
 
-/// <summary>Assembles <see cref="ToolCallDelta"/>s into COMPLETE <see cref="LlmToolCall"/>s.
+/// <summary>Assembles <see cref="ToolCallDelta"/>s into COMPLETE <see cref="TextToolCall"/>s.
 ///
-/// <para><b>Why the provider does this rather than the consumer.</b> <see cref="LlmChunk.ToolCall"/> promises
+/// <para><b>Why the provider does this rather than the consumer.</b> <see cref="TextChunk.ToolCall"/> promises
 /// a complete call, so partial JSON never reaches a consumer who would then have to buffer it, know the
 /// vendor's fragmentation rules, and get the join right. Doing it once here is the same reasoning that puts
 /// the terminal-chunk guarantee in the generation router rather than in every backend.</para>
@@ -56,14 +56,14 @@ internal sealed class StreamingToolCalls
 
     /// <summary>The assembled calls, in slot order. A slot with no NAME is dropped: it is not a call anything
     /// can act on, and inventing one would fabricate an action.</summary>
-    public IReadOnlyList<LlmToolCall> Build()
+    public IReadOnlyList<TextToolCall> Build()
     {
-        var calls = new List<LlmToolCall>();
+        var calls = new List<TextToolCall>();
         foreach (var (index, slot) in _slots.OrderBy(e => e.Key))
         {
             if (slot.Name is not { Length: > 0 }) continue;
             var arguments = slot.Arguments.ToString();
-            calls.Add(new LlmToolCall(
+            calls.Add(new TextToolCall(
                 slot.Id ?? $"call_{index}",          // matches ExtractToolCalls' synthesized id exactly
                 slot.Name,
                 arguments.Length > 0 ? arguments : "{}"));

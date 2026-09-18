@@ -47,7 +47,7 @@ public class LiveModelRoutingTests
         var router = new LlmRouter([provider], new DeadHostTracker(), options,
             modelRouting: new KeyValueModelRoutingStore(kv));
         IReadOnlyList<ProviderCandidate> candidates = [new ProviderCandidate("p")];
-        var req = new LlmRequest { Messages = [LlmMessage.User("hi")], Consumer = "scoring" };
+        var req = new TextRequest { Messages = [TextMessage.User("hi")], Consumer = "scoring" };
 
         await router.CompleteAsync(candidates, req);
         Assert.Equal("config-model", provider.Calls[^1].Model);            // no override → configured default

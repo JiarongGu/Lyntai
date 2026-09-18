@@ -28,14 +28,14 @@ public sealed class LlmClient : ILlmClient
 
     private IReadOnlyList<ProviderCandidate> Candidates => _candidates ?? _options.DefaultCandidates;
 
-    public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+    public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
         _router.CompleteAsync(Candidates, req, ct);
 
-    public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+    public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
         _router.StreamAsync(Candidates, req, ct);
 
-    public bool SupportsToolCalls(LlmRequest req) => _router.SupportsToolCalls(Candidates, req);
+    public bool SupportsToolCalls(TextRequest req) => _router.SupportsToolCalls(Candidates, req);
 
-    public bool SupportsStreamingToolCalls(LlmRequest req) =>
+    public bool SupportsStreamingToolCalls(TextRequest req) =>
         _router.SupportsStreamingToolCalls(Candidates, req);
 }

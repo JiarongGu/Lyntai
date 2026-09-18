@@ -1,3 +1,4 @@
+using Lyntai.Inference;
 namespace Lyntai.Agents;
 
 /// <summary>
@@ -21,7 +22,7 @@ public interface ICliToolProvisioner
 /// needs (e.g. <c>--mcp-config &lt;file&gt;</c>), and an async-disposable that tears the host and temp
 /// files down. <paramref name="dispose"/> runs on <see cref="DisposeAsync"/>.
 /// <para><b>These are HANDED TO THE DIALECT, never appended to its argv</b> — they reach
-/// <see cref="Lyntai.Llm.Cli.ICliProviderDialect.BuildCompletionArgs(Lyntai.Llm.LlmRequest, IReadOnlyList{string})"/>
+/// <see cref="Lyntai.Llm.Cli.ICliProviderDialect.BuildCompletionArgs(Lyntai.Inference.TextRequest, IReadOnlyList{string})"/>
 /// and the dialect decides where they may legally go (<c>docs/DECISIONS.md</c> D65). Only the backend knows
 /// its own argv grammar: claude's ends in options, so appending is right there, while codex's ends in the
 /// <c>-</c> stdin positional, where anything after it is read as PROMPT TEXT — and on that CLI a swallowed

@@ -25,7 +25,7 @@ public class ClaudeCliProviderTests
             new LyntaiOptions { ProviderTimeout = timeout ?? TimeSpan.FromSeconds(60) },
             command: StubCommand);
 
-    private static LlmRequest Req(string prompt) => new() { Messages = [LlmMessage.User(prompt)] };
+    private static TextRequest Req(string prompt) => new() { Messages = [TextMessage.User(prompt)] };
 
     [Fact]
     public async Task Completion_returns_stub_text_with_ok_verdict_and_usage()
@@ -59,14 +59,14 @@ public class ClaudeCliProviderTests
     [Fact]
     public async Task Streaming_yields_content_then_final_with_usage()
     {
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in Provider().StreamAsync(Req("stream me")))
             chunks.Add(c);
 
         Assert.True(chunks.Count >= 2);
-        Assert.Equal(LlmChunkKind.Content, chunks[0].Kind);
-        Assert.Equal("stub reply: stream me", string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+        Assert.Equal(TextChunkKind.Content, chunks[0].Kind);
+        Assert.Equal("stub reply: stream me", string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
         Assert.NotNull(chunks[^1].Usage);
         Assert.Equal(340, chunks[^1].Usage!.OutputTokens);
     }
@@ -76,23 +76,23 @@ public class ClaudeCliProviderTests
     {
         // a CLI/wrapper that exits 0 after assistant text but without the terminal result event
         // delivered a full answer — ending it with Error would record a success as a failed run
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in Provider().StreamAsync(Req("NO_RESULT please")))
             chunks.Add(c);
 
-        Assert.Contains(chunks, c => c.Kind == LlmChunkKind.Content);
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
-        Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Error);
+        Assert.Contains(chunks, c => c.Kind == TextChunkKind.Content);
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
+        Assert.DoesNotContain(chunks, c => c.Kind == TextChunkKind.Error);
     }
 
     [Fact]
     public async Task Streaming_timeout_surfaces_an_error_chunk()
     {
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in Provider(timeout: TimeSpan.FromSeconds(2)).StreamAsync(Req("SLOW stream")))
             chunks.Add(c);
 
-        Assert.Equal(LlmChunkKind.Error, chunks[^1].Kind);
+        Assert.Equal(TextChunkKind.Error, chunks[^1].Kind);
         Assert.Equal(ProviderVerdict.Timeout, chunks[^1].Verdict);
     }
 

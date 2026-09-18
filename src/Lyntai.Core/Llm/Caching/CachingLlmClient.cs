@@ -23,7 +23,7 @@ public sealed class CachingLlmClient(
 {
     private readonly ILogger _logger = logger ?? NullLogger<CachingLlmClient>.Instance;
 
-    public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public override async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         if (!IsCacheable(req)) return await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
 
@@ -51,5 +51,5 @@ public sealed class CachingLlmClient(
     // StreamAsync/SupportsToolCalls: base pass-through (streaming is delivered live; not a cache unit).
 
     // Native tool requests bypass the cache (the loop is stateful); everything else is cacheable.
-    private static bool IsCacheable(LlmRequest req) => req.Tools is null or { Count: 0 };
+    private static bool IsCacheable(TextRequest req) => req.Tools is null or { Count: 0 };
 }

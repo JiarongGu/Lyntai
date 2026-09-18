@@ -9,7 +9,7 @@ namespace Lyntai.Providers.ClaudeCli;
 
 /// <summary>
 /// Spawns the authenticated `claude` CLI (no API key) and maps its stream-json to
-/// <see cref="LlmReply"/>/<see cref="LlmChunk"/> + verdict. The command resolves from (in order): the ctor
+/// <see cref="TextResponse"/>/<see cref="TextChunk"/> + verdict. The command resolves from (in order): the ctor
 /// override, <c>LYNTAI_PROVIDER_CMD</c>, <c>CLAUDE_CMD</c>, then a plain <c>claude</c> from PATH — the env
 /// seams are what let tests/e2e point at the deterministic stub.
 ///
@@ -63,11 +63,11 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
     public bool IsAvailable => _engine.IsAvailable;
 
     /// <inheritdoc/>
-    public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+    public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
         _engine.CompleteAsync(req, ct);
 
     /// <inheritdoc/>
-    public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+    public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
         _engine.StreamAsync(req, ct);
 
     /// <summary>Report the installed CLI without running a turn (<c>claude --version</c>).</summary>

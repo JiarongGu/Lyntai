@@ -253,7 +253,7 @@ public static class LyntaiServiceCollectionExtensions
             ILlmClient client = new LlmClient(router, options, candidates);
             foreach (var (_, decorate) in builder.FrontDoorDecorators.OrderBy(d => d.Order))
                 client = decorate(sp, client);
-            // refusal screening (per-request LlmRequest.RefusalPattern + any registered IRefusalMatcher) is
+            // refusal screening (per-request TextRequest.RefusalPattern + any registered IRefusalMatcher) is
             // OUTERMOST + always on (the pattern is a request field), so it re-screens even a cached hit.
             // Deliberately NOT in FrontDoorDecorators, so it doesn't trip the "decorators configured but
             // ILlmClient pre-registered" guard above.

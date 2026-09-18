@@ -29,9 +29,9 @@ public class LlamaSharpProviderLiveTests
         new LlamaSharpOptions { ModelPath = ModelPath!, ContextSize = 2048, MaxTokens = 48 },
         new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(5) }); // CPU generation can be slow
 
-    private static LlmRequest Ask(string prompt) => new()
+    private static TextRequest Ask(string prompt) => new()
     {
-        Messages = [LlmMessage.User(prompt)],
+        Messages = [TextMessage.User(prompt)],
         MaxTokens = 48,
         Temperature = 0,
     };
@@ -54,11 +54,11 @@ public class LlamaSharpProviderLiveTests
         Skip.IfNot(Live, Reason);
 
         using var provider = Provider();
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in provider.StreamAsync(Ask("List three colors, comma separated.")))
             chunks.Add(c);
 
-        Assert.Contains(chunks, c => c.Kind == LlmChunkKind.Content && c.Text.Length > 0);
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+        Assert.Contains(chunks, c => c.Kind == TextChunkKind.Content && c.Text.Length > 0);
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
     }
 }

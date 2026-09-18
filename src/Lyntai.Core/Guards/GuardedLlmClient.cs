@@ -13,11 +13,11 @@ namespace Lyntai.Guards;
 /// </summary>
 public sealed class GuardedLlmClient(ILlmClient inner, IGuardRail rail) : DelegatingLlmClient(inner)
 {
-    public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public override async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         var pre = await rail.InspectRequestAsync(req, ct).ConfigureAwait(false);
         if (pre.Result == GuardOutcome.Kind.Block)
-            return new LlmReply("", ProviderVerdict.Refused, Detail: $"blocked by guard: {pre.Reason}");
+            return new TextResponse("", ProviderVerdict.Refused, Detail: $"blocked by guard: {pre.Reason}");
         var effective = pre.Result == GuardOutcome.Kind.Replace ? GuardRail.RewriteLastUser(req, pre.Replacement!) : req;
 
         var reply = await Inner.CompleteAsync(effective, ct).ConfigureAwait(false);
@@ -26,18 +26,18 @@ public sealed class GuardedLlmClient(ILlmClient inner, IGuardRail rail) : Delega
         var post = await rail.InspectResponseAsync(reply, ct).ConfigureAwait(false);
         return post.Result switch
         {
-            GuardOutcome.Kind.Block => new LlmReply("", ProviderVerdict.Refused, reply.Usage, $"blocked by guard: {post.Reason}"),
+            GuardOutcome.Kind.Block => new TextResponse("", ProviderVerdict.Refused, reply.Usage, $"blocked by guard: {post.Reason}"),
             GuardOutcome.Kind.Replace => GuardRail.Redact(reply, post.Replacement!), // whole-reply redaction (shared)
             _ => reply,
         };
     }
 
-    public override async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
+    public override async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var pre = await rail.InspectRequestAsync(req, ct).ConfigureAwait(false);
         if (pre.Result == GuardOutcome.Kind.Block)
         {
-            yield return LlmChunk.Error(ProviderVerdict.Refused, $"blocked by guard: {pre.Reason}");
+            yield return TextChunk.Error(ProviderVerdict.Refused, $"blocked by guard: {pre.Reason}");
             yield break;
         }
         var effective = pre.Result == GuardOutcome.Kind.Replace ? GuardRail.RewriteLastUser(req, pre.Replacement!) : req;

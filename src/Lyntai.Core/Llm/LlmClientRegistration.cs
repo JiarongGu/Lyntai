@@ -22,7 +22,7 @@ public sealed class LlmClientBuilder
     /// order, exactly as it is for the default client.
     ///
     /// <para><b>Ids, not instances</b>, matching how <see cref="ILlmRouter"/> already selects candidates and
-    /// how a consumer already names backends everywhere else (<c>LlmRequest.Candidates</c>, the routing
+    /// how a consumer already names backends everywhere else (<c>TextRequest.Candidates</c>, the routing
     /// policy). It also means a client can be configured before the backends it names are registered, so
     /// composition-root ORDER does not become load-bearing.</para>
     ///

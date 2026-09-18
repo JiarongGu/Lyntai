@@ -1,10 +1,11 @@
 using System.Text.Json.Nodes;
 using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
+using Lyntai.Inference;
 
 namespace Lyntai.Providers.Http.Payloads;
 
-/// <summary>Canonical <see cref="LlmRequest"/> → Ollama /api/chat schema: sampling knobs live under
+/// <summary>Canonical <see cref="TextRequest"/> → Ollama /api/chat schema: sampling knobs live under
 /// <c>options</c> (num_predict/num_ctx), structured output is a top-level <c>format</c> schema object.</summary>
 internal static class OllamaPayload
 {
@@ -15,7 +16,7 @@ internal static class OllamaPayload
     /// <param name="numCtx">Ollama's context window (<c>options.num_ctx</c>), when configured.</param>
     /// <param name="logger">Where an attachment this schema cannot carry is REPORTED — see
     /// <see cref="ToMessage"/>. Null logs nothing.</param>
-    public static JsonObject Build(LlmRequest req, string model, bool stream, int? numCtx = null,
+    public static JsonObject Build(TextRequest req, string model, bool stream, int? numCtx = null,
         ILogger? logger = null)
     {
         var options = new JsonObject();
@@ -33,8 +34,8 @@ internal static class OllamaPayload
         // Ollama's own vocabulary for "do not emit intermediate reasoning" is a TOP-LEVEL `think`, not a
         // sampling option — and it is sent only when the caller actually asked, so a model that has no
         // thinking mode is never handed a field it does not understand. Advisory by contract
-        // (see LlmReasoning): a model that reasons anyway is not a defect here.
-        if (req.Reasoning == LlmReasoning.Suppress) payload["think"] = false;
+        // (see TextReasoning): a model that reasons anyway is not a defect here.
+        if (req.Reasoning == TextReasoning.Suppress) payload["think"] = false;
 
         if (options.Count > 0) payload["options"] = options;
 
@@ -65,7 +66,7 @@ internal static class OllamaPayload
     /// <c>images</c> array of raw base64, not in an OpenAI-style content-parts array.</summary>
     /// <param name="m">The canonical message.</param>
     /// <param name="logger">Where an attachment this schema cannot carry is reported. Null logs nothing.</param>
-    internal static JsonNode ToMessage(LlmMessage m, ILogger? logger = null)
+    internal static JsonNode ToMessage(TextMessage m, ILogger? logger = null)
     {
         if (m.ToolCalls is { Count: > 0 })
             return new JsonObject
@@ -100,7 +101,7 @@ internal static class OllamaPayload
                 logger?.LogWarning(
                     "ollama /api/chat cannot deliver {Count} attachment(s) on this turn: its images array " +
                     "takes inline base64 only, and these carry no bytes (a remote Uri). Inline them " +
-                    "(LlmMessage.UserWithImage) or point the provider at Ollama's OpenAI-compatible /v1 " +
+                    "(TextMessage.UserWithImage) or point the provider at Ollama's OpenAI-compatible /v1 " +
                     "surface via AddHttpProvider, which accepts an image URL.", undeliverable);
 
             if (images.Length > 0)

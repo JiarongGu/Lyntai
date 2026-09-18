@@ -72,11 +72,11 @@ public sealed class LlmRouter(
         return map;
     });
 
-    public async Task<LlmReply> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default)
+    public async Task<TextResponse> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default)
     {
         var liveModel = await LiveModelAsync(req.Consumer, ct).ConfigureAwait(false);
-        LlmReply? last = null;           // the last SUBSTANTIVE failure — what the caller is told
-        LlmReply? lastBlameless = null;  // …kept apart, so it can answer only when there was no real failure
+        TextResponse? last = null;           // the last SUBSTANTIVE failure — what the caller is told
+        TextResponse? lastBlameless = null;  // …kept apart, so it can answer only when there was no real failure
 
         foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req, liveModel))
         {
@@ -128,10 +128,10 @@ public sealed class LlmRouter(
         // honest answer (a host turns "not configured" into a setup prompt), and only a candidate list that
         // produced nothing at all falls through to the synthetic reply
         return last ?? lastBlameless
-            ?? new LlmReply("", ProviderVerdict.Failed, Detail: "no live candidate (all skipped: unknown, unavailable, or dead)");
+            ?? new TextResponse("", ProviderVerdict.Failed, Detail: "no live candidate (all skipped: unknown, unavailable, or dead)");
     }
 
-    public async IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req,
+    public async IAsyncEnumerable<TextChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var liveModel = await LiveModelAsync(req.Consumer, ct).ConfigureAwait(false);
@@ -175,14 +175,14 @@ public sealed class LlmRouter(
     /// the two streaming invariants, and leave <paramref name="attempt"/> saying what the caller should do
     /// next — <see cref="StreamAttempt.Done"/> when the router's own stream is over, otherwise
     /// <see cref="StreamAttempt.RetryVerdict"/> for the retry-vs-advance decision.</summary>
-    private async IAsyncEnumerable<LlmChunk> StreamOnceAsync(
-        IModelProvider provider, LlmRequest effective, string key, StreamFailures failures, StreamAttempt attempt,
+    private async IAsyncEnumerable<TextChunk> StreamOnceAsync(
+        IModelProvider provider, TextRequest effective, string key, StreamFailures failures, StreamAttempt attempt,
         [EnumeratorCancellation] CancellationToken ct)
     {
         var activity = LyntaiDiagnostics.StartChat(provider.Id, effective.Model);
         var start = Stopwatch.GetTimestamp();
         ProviderVerdict outcome = ProviderVerdict.Ok;
-        LlmUsage? usage = null;
+        TextUsage? usage = null;
         string? outcomeDetail = null;
         try
         {
@@ -197,17 +197,17 @@ public sealed class LlmRouter(
                     // Trust boundary: a Final with NO preceding content is the empty-reply trap in
                     // stream form (pitfalls: empty output must be fall-over-able, never a clean end) —
                     // convert it to an Error so the pre-content fallback path below handles it.
-                    if (chunk.Kind == LlmChunkKind.Final && !attempt.Committed)
-                        chunk = LlmChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (Final with no content)");
+                    if (chunk.Kind == TextChunkKind.Final && !attempt.Committed)
+                        chunk = TextChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (Final with no content)");
 
-                    if (chunk.Kind == LlmChunkKind.Error)
+                    if (chunk.Kind == TextChunkKind.Error)
                     {
                         outcome = chunk.Verdict;
                         outcomeDetail = chunk.Detail;
                     }
-                    if (chunk.Kind == LlmChunkKind.Final) usage = chunk.Usage;
+                    if (chunk.Kind == TextChunkKind.Final) usage = chunk.Usage;
 
-                    if (chunk.Kind == LlmChunkKind.Error && !attempt.Committed)
+                    if (chunk.Kind == TextChunkKind.Error && !attempt.Committed)
                     {
                         if (!MayFallOver(provider, chunk, key, failures, attempt))
                         {
@@ -224,13 +224,13 @@ public sealed class LlmRouter(
                     // side effect twice. Content only duplicates tokens; this duplicates actions.
                     // A malformed ToolCall chunk carrying no call is dropped rather than committing,
                     // the same trust-boundary rule the empty content chunk below follows.
-                    if (chunk.Kind == LlmChunkKind.ToolCall && chunk.ToolCall is null) continue;
+                    if (chunk.Kind == TextChunkKind.ToolCall && chunk.ToolCall is null) continue;
 
-                    if (chunk.Kind is LlmChunkKind.Content or LlmChunkKind.ToolCall)
+                    if (chunk.Kind is TextChunkKind.Content or TextChunkKind.ToolCall)
                     {
                         // an empty/role-only content chunk is NOT real content: never yield it
                         // (no leak to the consumer) and it must not commit the stream / disable fallback
-                        if (chunk.Kind == LlmChunkKind.Content && chunk.Text.Length == 0) continue;
+                        if (chunk.Kind == TextChunkKind.Content && chunk.Text.Length == 0) continue;
                         if (!attempt.Committed)
                         {
                             attempt.Committed = true;
@@ -263,7 +263,7 @@ public sealed class LlmRouter(
                 attempt.RetryVerdict = ProviderVerdict.Failed;
                 outcome = ProviderVerdict.Failed;
                 outcomeDetail = "empty stream (no chunks)";
-                failures.LastError = LlmChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (no chunks)");
+                failures.LastError = TextChunk.Error(ProviderVerdict.Failed, $"{provider.Id}: empty stream (no chunks)");
                 _logger.LogWarning("router: {Provider} produced an empty stream (no chunks); treating as Failed", provider.Id);
             }
         }
@@ -281,7 +281,7 @@ public sealed class LlmRouter(
     /// timeout) becomes a fall-over-able Error chunk rather than an abort of the whole stream. Any
     /// mid-iteration throw is classified through the shared taxonomy (thrown 429→RateLimited,
     /// provider-internal OCE→Timeout, …).</para></summary>
-    private static async ValueTask<LlmChunk?> ReadNextAsync(IAsyncEnumerator<LlmChunk> enumerator, CancellationToken ct)
+    private static async ValueTask<TextChunk?> ReadNextAsync(IAsyncEnumerator<TextChunk> enumerator, CancellationToken ct)
     {
         try
         {
@@ -289,7 +289,7 @@ public sealed class LlmRouter(
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            return LlmChunk.Error(ProviderVerdictClassifier.FromThrown(ex), ex.Message);
+            return TextChunk.Error(ProviderVerdictClassifier.FromThrown(ex), ex.Message);
         }
     }
 
@@ -297,7 +297,7 @@ public sealed class LlmRouter(
     /// in, apply the policy's host penalty, and say whether the router may fall over. <c>false</c> is
     /// <see cref="FallbackAction.Surface"/> — the caller yields the chunk as-is and ends, exactly as the
     /// non-streaming path surfaces a refusal.</summary>
-    private bool MayFallOver(IModelProvider provider, LlmChunk error, string key, StreamFailures failures,
+    private bool MayFallOver(IModelProvider provider, TextChunk error, string key, StreamFailures failures,
         StreamAttempt attempt)
     {
         failures.Record(error);
@@ -317,21 +317,21 @@ public sealed class LlmRouter(
     private sealed class StreamFailures
     {
         /// <summary>The last SUBSTANTIVE failure — what the caller is told.</summary>
-        public LlmChunk? LastError { get; set; }
+        public TextChunk? LastError { get; set; }
 
         /// <summary>…kept apart, so it answers only when there was no real failure.</summary>
-        public LlmChunk? LastBlameless { get; set; }
+        public TextChunk? LastBlameless { get; set; }
 
         /// <summary>File an error into the slot its verdict belongs in.</summary>
-        public void Record(LlmChunk error)
+        public void Record(TextChunk error)
         {
             if (error.Verdict.IsBlameless()) LastBlameless = error; else LastError = error;
         }
 
         /// <summary>A real failure outranks a blameless one; only a candidate list that produced nothing at
         /// all falls through to the synthetic chunk.</summary>
-        public LlmChunk Closing() => LastError ?? LastBlameless
-            ?? LlmChunk.Error(ProviderVerdict.Failed, "no live candidate (all skipped: unknown, unavailable, or dead)");
+        public TextChunk Closing() => LastError ?? LastBlameless
+            ?? TextChunk.Error(ProviderVerdict.Failed, "no live candidate (all skipped: unknown, unavailable, or dead)");
     }
 
     /// <summary>One attempt's own state, carried out of <see cref="StreamOnceAsync"/> because an async
@@ -355,7 +355,7 @@ public sealed class LlmRouter(
     /// it resolves against the CONFIGURED default model (no live <see cref="IModelRoutingStore"/> read) —
     /// under <see cref="CooldownScope.ProviderAndModel"/> plus a live override, the probe's cooldown key
     /// can differ from the completion's.</summary>
-    public bool SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req)
+    public bool SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req)
     {
         foreach (var candidate in LiveCandidates(candidates, req, liveModel: null))
             return candidate.Provider.Capabilities.SupportsToolCalls; // first live candidate decides
@@ -363,7 +363,7 @@ public sealed class LlmRouter(
     }
 
     /// <inheritdoc/>
-    public bool SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req)
+    public bool SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req)
     {
         foreach (var candidate in LiveCandidates(candidates, req, liveModel: null))
             return candidate.Provider.Capabilities.SupportsStreamingToolCalls; // first live candidate decides, as above
@@ -375,7 +375,7 @@ public sealed class LlmRouter(
     /// consumer default → live override when supplied), skip unknown/unavailable/cooling providers (with
     /// the sole-candidate exemption), and pair each survivor with its cooldown key.</summary>
     private IEnumerable<(IModelProvider Provider, string? Model, string Key)> LiveCandidates(
-        IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, string? liveModel)
+        IReadOnlyList<ProviderCandidate> candidates, TextRequest req, string? liveModel)
     {
         var deduped = CandidateDedup.Dedup(candidates);
         var soleCandidate = deduped.Count == 1;
@@ -392,7 +392,7 @@ public sealed class LlmRouter(
         }
     }
 
-    private async Task<LlmReply> TryCompleteAsync(IModelProvider provider, string? effectiveModel, LlmRequest req, CancellationToken ct)
+    private async Task<TextResponse> TryCompleteAsync(IModelProvider provider, string? effectiveModel, TextRequest req, CancellationToken ct)
     {
         // the permit is taken BEFORE the span opens, so a queued call's wait never inflates the backend's
         // reported latency. Scoped with `using`, so the verdict return, the rethrown caller cancel and the
@@ -402,7 +402,7 @@ public sealed class LlmRouter(
         var effective = req with { Model = effectiveModel };
         using var activity = LyntaiDiagnostics.StartChat(provider.Id, effective.Model);
         var start = Stopwatch.GetTimestamp();
-        LlmReply reply;
+        TextResponse reply;
         try
         {
             reply = await provider.CompleteAsync(effective, ct).ConfigureAwait(false);
@@ -417,7 +417,7 @@ public sealed class LlmRouter(
             // OCE→Timeout, …) — a provider that THROWS must get the same fallback policy as one that
             // returns a verdict reply; hand-rolling Failed here would hammer a rate-limited host
             // instead of cooling it (see llm-and-router.md).
-            reply = new LlmReply("", ProviderVerdictClassifier.FromThrown(ex), Detail: $"{provider.Id}: {ex.Message}");
+            reply = new TextResponse("", ProviderVerdictClassifier.FromThrown(ex), Detail: $"{provider.Id}: {ex.Message}");
         }
         LyntaiDiagnostics.RecordOutcome(activity, provider.Id, effective.Model, reply.Verdict, reply.Usage,
             Stopwatch.GetElapsedTime(start).TotalSeconds, reply.Detail);

@@ -29,7 +29,7 @@ public interface IToolSelector
     /// <returns>A subset, ideally in the order it should be shown. Returning every tool is always valid and
     /// is what an implementation should do when it cannot decide.</returns>
     Task<IReadOnlyList<ITool>> SelectAsync(
-        LlmRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default);
+        TextRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default);
 }
 
 /// <summary>Knobs for <see cref="VectorToolSelector"/>.</summary>
@@ -63,7 +63,7 @@ public sealed class VectorToolSelector(
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<ITool>> SelectAsync(
-        LlmRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default)
+        TextRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(tools);

@@ -38,9 +38,9 @@ public class ClaudeCliMcpLiveTests
             .UseDefaultCandidates("claude-cli"));
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(new LlmRequest
+        var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(new TextRequest
         {
-            Messages = [LlmMessage.User("Call the get_secret_word tool, then tell me the secret word.")],
+            Messages = [TextMessage.User("Call the get_secret_word tool, then tell me the secret word.")],
         });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);

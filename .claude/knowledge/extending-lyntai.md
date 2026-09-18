@@ -74,7 +74,7 @@ public sealed class MyCliDialect : CliProviderDialectBase
     public override string DefaultCommand => "mycli";                   // resolved on PATH (shim-safe)
     public override IReadOnlyList<string> CommandEnvironmentVariables    // shared stub seam first
         => ["LYNTAI_PROVIDER_CMD", "MYCLI_CMD"];
-    public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest r) => ["exec", "--json"];
+    public override IReadOnlyList<string> BuildCompletionArgs(TextRequest r) => ["exec", "--json"];
     public override CliOutputEvent ParseLine(string line) => /* → Content / Result / Ignored */;
 
     // OPTIONAL, and only when VERIFIED against the real binary (see below):
@@ -130,8 +130,8 @@ public sealed class MyProvider(string id, /* options, factory */, LyntaiOptions 
 {
     public string Id => id;                 // the candidate id the router selects on
     public bool IsAvailable => /* cheap check; real failures surface as verdicts, not here */;
-    public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default);
-    public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default);
+    public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default);
+    public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default);
 }
 ```
 
@@ -158,7 +158,7 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
   re-arm before each read, `CancelAfter(Timeout.InfiniteTimeSpan)` after it returns. A single deadline
   counts consumer dwell time and kills healthy streams. Copy the shape from
   `HttpModelProvider.StreamAsync` / `ProcessRunner.StreamLinesAsync`.
-- **Only yield `LlmChunk.Content` for non-empty text**; end with exactly one `Final` (with usage) or
+- **Only yield `TextChunk.Content` for non-empty text**; end with exactly one `Final` (with usage) or
   `Error`.
 - Spawning a CLI? Go through `ProcessRunner` (ArgumentList only, prompt via stdin, BOM-less UTF-8,
   kill-tree). Never build a provider that shells out directly.

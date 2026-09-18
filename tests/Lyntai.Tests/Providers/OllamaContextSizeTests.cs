@@ -72,5 +72,5 @@ public class OllamaContextSizeTests
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
 
-    private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")], Model = "gpt-x" };
+    private static TextRequest Req => new() { Messages = [TextMessage.User("hi")], Model = "gpt-x" };
 }

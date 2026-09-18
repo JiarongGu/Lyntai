@@ -23,7 +23,7 @@ public class SqliteGovernanceStoreTests : IDisposable
     public async Task ResponseCache_persists_a_reply_across_store_instances()
     {
         var options = new LyntaiOptions();
-        var reply = new LlmReply("cached answer", ProviderVerdict.Ok, new LlmUsage(10, 5, CostUsd: 0.02));
+        var reply = new TextResponse("cached answer", ProviderVerdict.Ok, new TextUsage(10, 5, CostUsd: 0.02));
         await new SqliteResponseCache(_db.Factory, options).SetAsync("k", reply);
 
         // a FRESH store over the same db reads it back — proves it's on disk, not in the store instance
@@ -40,7 +40,7 @@ public class SqliteGovernanceStoreTests : IDisposable
     {
         var clock = new MutableClock();
         var cache = new SqliteResponseCache(_db.Factory, new LyntaiOptions(), clock.Get);
-        await cache.SetAsync("k", new LlmReply("x", ProviderVerdict.Ok), TimeSpan.FromMinutes(5));
+        await cache.SetAsync("k", new TextResponse("x", ProviderVerdict.Ok), TimeSpan.FromMinutes(5));
         clock.Advance(TimeSpan.FromMinutes(4));
         Assert.NotNull(await cache.GetAsync("k")); // still fresh
         clock.Advance(TimeSpan.FromMinutes(2));       // past 5m
@@ -54,9 +54,9 @@ public class SqliteGovernanceStoreTests : IDisposable
         options.Cache.MaxEntries = 2;
         var clock = new MutableClock();
         var cache = new SqliteResponseCache(_db.Factory, options, clock.Get);
-        await cache.SetAsync("a", new LlmReply("a", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
-        await cache.SetAsync("b", new LlmReply("b", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
-        await cache.SetAsync("c", new LlmReply("c", ProviderVerdict.Ok)); // over cap → oldest ("a") trimmed
+        await cache.SetAsync("a", new TextResponse("a", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
+        await cache.SetAsync("b", new TextResponse("b", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
+        await cache.SetAsync("c", new TextResponse("c", ProviderVerdict.Ok)); // over cap → oldest ("a") trimmed
 
         Assert.Null(await cache.GetAsync("a"));
         Assert.NotNull(await cache.GetAsync("b"));
@@ -68,8 +68,8 @@ public class SqliteGovernanceStoreTests : IDisposable
     {
         var options = new LyntaiOptions();
         var cache = new SqliteResponseCache(_db.Factory, options);
-        await cache.SetAsync("keep", new LlmReply("keep", ProviderVerdict.Ok));
-        await cache.SetAsync("poisoned", new LlmReply("bad", ProviderVerdict.Ok));
+        await cache.SetAsync("keep", new TextResponse("keep", ProviderVerdict.Ok));
+        await cache.SetAsync("poisoned", new TextResponse("bad", ProviderVerdict.Ok));
 
         await cache.RemoveAsync("poisoned");
         await cache.RemoveAsync("never-set"); // no-op, no throw
@@ -83,9 +83,9 @@ public class SqliteGovernanceStoreTests : IDisposable
     [Fact]
     public async Task UsageTracker_accumulates_per_consumer_and_globally_persisted()
     {
-        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new LlmUsage(10, 5, CostUsd: 0.10));
-        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new LlmUsage(20, 5, CostUsd: 0.20));
-        await new SqliteUsageTracker(_db.Factory).RecordAsync("b", new LlmUsage(1, 1, CostUsd: 0.01));
+        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new TextUsage(10, 5, CostUsd: 0.10));
+        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new TextUsage(20, 5, CostUsd: 0.20));
+        await new SqliteUsageTracker(_db.Factory).RecordAsync("b", new TextUsage(1, 1, CostUsd: 0.01));
 
         var tracker = new SqliteUsageTracker(_db.Factory); // fresh instance reads persisted totals
         var a = (await tracker.TotalAsync("a"));
@@ -105,8 +105,8 @@ public class SqliteGovernanceStoreTests : IDisposable
         IUsageTracker[] trackers = [new InMemoryUsageTracker(), new SqliteUsageTracker(_db.Factory)];
         foreach (var t in trackers)
         {
-            await t.RecordAsync("App", new LlmUsage(10, 0, CostUsd: 0.10));
-            await t.RecordAsync("app", new LlmUsage(20, 0, CostUsd: 0.20));
+            await t.RecordAsync("App", new TextUsage(10, 0, CostUsd: 0.10));
+            await t.RecordAsync("app", new TextUsage(20, 0, CostUsd: 0.20));
             Assert.Equal(2, (await t.TotalAsync("App")).Calls);           // ONE consumer identity, either casing
             Assert.Equal(2, (await t.TotalAsync("app")).Calls);
             Assert.Equal(30, (await t.TotalAsync("APP")).InputTokens);
@@ -118,8 +118,8 @@ public class SqliteGovernanceStoreTests : IDisposable
     public async Task UsageTracker_reset_clears_a_consumer_or_all()
     {
         var t = new SqliteUsageTracker(_db.Factory);
-        await t.RecordAsync("a", new LlmUsage(10, 0, CostUsd: 0.10));
-        await t.RecordAsync("b", new LlmUsage(20, 0, CostUsd: 0.20));
+        await t.RecordAsync("a", new TextUsage(10, 0, CostUsd: 0.10));
+        await t.RecordAsync("b", new TextUsage(20, 0, CostUsd: 0.20));
 
         await t.ResetAsync("a");
         Assert.Equal(UsageTotals.Empty, (await t.TotalAsync("a")));

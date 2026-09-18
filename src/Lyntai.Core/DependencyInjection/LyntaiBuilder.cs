@@ -145,8 +145,8 @@ public sealed class LyntaiBuilder
     /// <see cref="ProviderKinds"/>, a model list, declared limits.</param>
     public LyntaiBuilder AddBridgeProvider(
         string id,
-        Func<Llm.LlmRequest, CancellationToken, Task<Llm.LlmReply>> complete,
-        Func<Llm.LlmRequest, CancellationToken, IAsyncEnumerable<Llm.LlmChunk>>? stream = null,
+        Func<TextRequest, CancellationToken, Task<TextResponse>> complete,
+        Func<TextRequest, CancellationToken, IAsyncEnumerable<TextChunk>>? stream = null,
         ProviderCapabilities? capabilities = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);

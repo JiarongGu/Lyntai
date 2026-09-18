@@ -206,7 +206,7 @@ public class GenerationGovernanceTests
         // question nobody asks
         var backend = new FakeGenerationProvider { Id = "hosted", CostUsd = 0.25 };
         var (router, tracker) = Budgeted(backend, _ => { });
-        await tracker.RecordAsync("default", new Lyntai.Llm.LlmUsage(100, 50, 0, 0.01));
+        await tracker.RecordAsync("default", new Lyntai.Inference.TextUsage(100, 50, 0, 0.01));
 
         await router.GenerateAsync(Order("hosted"), Image);
 
@@ -222,7 +222,7 @@ public class GenerationGovernanceTests
         // governance by coincidence
         var backend = new FakeGenerationProvider { Id = "hosted" };
         var (router, tracker) = Budgeted(backend, options => options.Budget.MaxTokens = 10);
-        await tracker.RecordAsync("default", new Lyntai.Llm.LlmUsage(1_000, 1_000));
+        await tracker.RecordAsync("default", new Lyntai.Inference.TextUsage(1_000, 1_000));
 
         var result = await router.GenerateAsync(Order("hosted"), Image);
 
@@ -251,7 +251,7 @@ public class GenerationGovernanceTests
     {
         var backend = new FakeGenerationJobProvider { Id = "video" };
         var (router, tracker) = Budgeted(backend, options => options.Budget.MaxCostUsd = 1.0);
-        await tracker.RecordAsync("default", new Lyntai.Llm.LlmUsage(0, 0, 0, 2.0));
+        await tracker.RecordAsync("default", new Lyntai.Inference.TextUsage(0, 0, 0, 2.0));
 
         var submission = await router.SubmitAsync(Order("video"), Video);
 
@@ -466,7 +466,7 @@ public class GenerationGovernanceTests
             Script = [GenerationChunk.Content([1]), GenerationChunk.Completed()],
         };
         var (router, tracker) = Budgeted(backend, o => o.Budget.MaxCostUsd = 1.0);
-        await tracker.RecordAsync("default", new LlmUsage(0, 0, 0, 1.0));
+        await tracker.RecordAsync("default", new TextUsage(0, 0, 0, 1.0));
 
         var chunks = await Collect(router.StreamAsync(Order("tts"), Speech));
 

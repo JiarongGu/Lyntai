@@ -1,17 +1,18 @@
 using System.Text.Json.Nodes;
 using Lyntai.Llm;
 using Lyntai.Providers.Http.Payloads;
+using Lyntai.Inference;
 
 namespace Lyntai.Tests.Providers;
 
 public class PayloadTests
 {
-    private static LlmRequest Req => new()
+    private static TextRequest Req => new()
     {
-        Messages = [LlmMessage.System("be brief"), LlmMessage.User("hi")],
+        Messages = [TextMessage.System("be brief"), TextMessage.User("hi")],
         MaxTokens = 128,
         Temperature = 0.3,
-        Tools = [new LlmTool("lookup", "find things", """{"type":"object","properties":{"q":{"type":"string"}}}""")],
+        Tools = [new TextTool("lookup", "find things", """{"type":"object","properties":{"q":{"type":"string"}}}""")],
         JsonSchema = """{"type":"object","properties":{"ok":{"type":"boolean"}}}""",
     };
 
@@ -64,7 +65,7 @@ public class PayloadTests
         Assert.Equal("boolean", (string)p["format"]!["properties"]!["ok"]!["type"]!);
     }
 
-    /// <summary><b><see cref="LlmReasoning.Suppress"/> becomes Ollama's TOP-LEVEL <c>think: false</c>, and
+    /// <summary><b><see cref="TextReasoning.Suppress"/> becomes Ollama's TOP-LEVEL <c>think: false</c>, and
     /// the default sends nothing at all.</b>
     /// <para>Both halves matter. Sending <c>think</c> unconditionally would hand the field to every model
     /// including ones with no thinking mode; omitting it when asked would silently leave a reasoning model
@@ -75,7 +76,7 @@ public class PayloadTests
     public void Ollama_maps_suppressed_reasoning_to_a_top_level_think_false()
     {
         var suppressed = OllamaPayload.Build(
-            Req with { Reasoning = LlmReasoning.Suppress }, "m", stream: false);
+            Req with { Reasoning = TextReasoning.Suppress }, "m", stream: false);
         var byDefault = OllamaPayload.Build(Req, "m", stream: false);
 
         Assert.False((bool)suppressed["think"]!);
@@ -96,9 +97,9 @@ public class PayloadTests
     [Fact]
     public void Openai_serializes_an_assistant_tool_call_turn_with_null_content()
     {
-        var req = new LlmRequest
+        var req = new TextRequest
         {
-            Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("call_1", "get_weather", """{"city":"Paris"}""")])],
+            Messages = [TextMessage.AssistantToolCalls([new TextToolCall("call_1", "get_weather", """{"city":"Paris"}""")])],
         };
 
         var msg = OpenAiPayload.Build(req, "m", stream: false)["messages"]!.AsArray()[0]!;
@@ -115,7 +116,7 @@ public class PayloadTests
     [Fact]
     public void Openai_serializes_a_tool_result_turn_with_tool_call_id()
     {
-        var req = new LlmRequest { Messages = [LlmMessage.ToolResult("call_1", "18C sunny")] };
+        var req = new TextRequest { Messages = [TextMessage.ToolResult("call_1", "18C sunny")] };
 
         var msg = OpenAiPayload.Build(req, "m", stream: false)["messages"]!.AsArray()[0]!;
 
@@ -127,12 +128,12 @@ public class PayloadTests
     [Fact]
     public void Ollama_serializes_tool_call_arguments_as_an_object()
     {
-        var req = new LlmRequest
+        var req = new TextRequest
         {
             Messages =
             [
-                LlmMessage.AssistantToolCalls([new LlmToolCall("call_1", "get_weather", """{"city":"Paris"}""")]),
-                LlmMessage.ToolResult("call_1", "18C"),
+                TextMessage.AssistantToolCalls([new TextToolCall("call_1", "get_weather", """{"city":"Paris"}""")]),
+                TextMessage.ToolResult("call_1", "18C"),
             ],
         };
 

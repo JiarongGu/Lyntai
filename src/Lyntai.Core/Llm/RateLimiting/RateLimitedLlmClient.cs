@@ -19,32 +19,32 @@ public sealed class RateLimitedLlmClient(
     private readonly ILogger _logger = logger ?? NullLogger<RateLimitedLlmClient>.Instance;
     private const string Reason = "client-side rate limit exceeded";
 
-    public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public override async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         if (!await limiter.AcquireAsync(req.Consumer, ct).ConfigureAwait(false))
             return Throttled(req.Consumer);
         return await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
     }
 
-    public override async IAsyncEnumerable<LlmChunk> StreamAsync(
-        LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
+    public override async IAsyncEnumerable<TextChunk> StreamAsync(
+        TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         if (!await limiter.AcquireAsync(req.Consumer, ct).ConfigureAwait(false))
         {
             // Build the refusal through the same helper the buffered door uses: a hand-rolled chunk here
             // would neither log nor count, so lyntai.ratelimit.refusals would miss a streamed workload.
             var refusal = Throttled(req.Consumer);
-            yield return LlmChunk.Error(refusal.Verdict, refusal.Detail!);
+            yield return TextChunk.Error(refusal.Verdict, refusal.Detail!);
             yield break;
         }
         await foreach (var chunk in Inner.StreamAsync(req, ct).ConfigureAwait(false))
             yield return chunk;
     }
 
-    private LlmReply Throttled(string consumer)
+    private TextResponse Throttled(string consumer)
     {
         _logger.LogInformation("{Reason} for consumer {Consumer}", Reason, consumer);
         LyntaiDiagnostics.RecordRateLimitRefusal(consumer);
-        return new LlmReply("", ProviderVerdict.RateLimited, Detail: Reason);
+        return new TextResponse("", ProviderVerdict.RateLimited, Detail: Reason);
     }
 }

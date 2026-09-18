@@ -1,4 +1,5 @@
 using Lyntai.Llm;
+using Lyntai.Inference;
 
 namespace Lyntai.Guards;
 
@@ -15,9 +16,9 @@ public interface IGuard
 
     /// <summary>Inspect an outbound request before it reaches the model. Block to refuse it; Replace to
     /// rewrite the last user message (e.g. redact).</summary>
-    Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default) => Task.FromResult(GuardOutcome.Allow);
+    Task<GuardOutcome> InspectRequestAsync(TextRequest req, CancellationToken ct = default) => Task.FromResult(GuardOutcome.Allow);
 
     /// <summary>Inspect an inbound reply before it reaches the caller. Block to withhold it; Replace to
     /// substitute safe/redacted text.</summary>
-    Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) => Task.FromResult(GuardOutcome.Allow);
+    Task<GuardOutcome> InspectResponseAsync(TextResponse reply, CancellationToken ct = default) => Task.FromResult(GuardOutcome.Allow);
 }

@@ -46,7 +46,7 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         var options = new LyntaiOptions();
         var key = Uid();
         await new PostgresResponseCache(pg.Factory, options)
-            .SetAsync(key, new LlmReply("pg cached", ProviderVerdict.Ok, new LlmUsage(3, 4, CostUsd: 0.05)));
+            .SetAsync(key, new TextResponse("pg cached", ProviderVerdict.Ok, new TextUsage(3, 4, CostUsd: 0.05)));
 
         var got = await new PostgresResponseCache(pg.Factory, options).GetAsync(key); // fresh instance
 
@@ -68,9 +68,9 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         var cache = new PostgresResponseCache(pg.Factory, options, clock.Get);
         var (a, b, c) = (Uid(), Uid(), Uid());
 
-        await cache.SetAsync(a, new LlmReply("a", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
-        await cache.SetAsync(b, new LlmReply("b", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
-        await cache.SetAsync(c, new LlmReply("c", ProviderVerdict.Ok)); // over cap → oldest (a) trimmed
+        await cache.SetAsync(a, new TextResponse("a", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
+        await cache.SetAsync(b, new TextResponse("b", ProviderVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
+        await cache.SetAsync(c, new TextResponse("c", ProviderVerdict.Ok)); // over cap → oldest (a) trimmed
 
         Assert.Null(await cache.GetAsync(a));
         Assert.NotNull(await cache.GetAsync(b));
@@ -107,7 +107,7 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var consumer = Uid();
-        await new PostgresUsageTracker(pg.Factory).RecordAsync(consumer, new LlmUsage(10, 5, CostUsd: 0.10));
+        await new PostgresUsageTracker(pg.Factory).RecordAsync(consumer, new TextUsage(10, 5, CostUsd: 0.10));
 
         Assert.Equal(15, (await new PostgresUsageTracker(pg.Factory).TotalAsync(consumer)).TotalTokens);
     }

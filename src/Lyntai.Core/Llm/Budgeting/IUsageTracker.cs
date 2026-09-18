@@ -1,3 +1,4 @@
+using Lyntai.Inference;
 namespace Lyntai.Llm.Budgeting;
 
 /// <summary>Accumulates token/cost usage across front-door calls, per consumer and globally. The
@@ -11,7 +12,7 @@ namespace Lyntai.Llm.Budgeting;
 public interface IUsageTracker
 {
     /// <summary>Record one call's usage under a consumer tag.</summary>
-    ValueTask RecordAsync(string consumer, LlmUsage usage, CancellationToken ct = default);
+    ValueTask RecordAsync(string consumer, TextUsage usage, CancellationToken ct = default);
 
     /// <summary>Accumulated totals for <paramref name="consumer"/>, or the global total across all
     /// consumers when null. Consumer identity is case-INSENSITIVE (totals aggregate across casings,

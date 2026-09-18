@@ -14,7 +14,7 @@ public class RouterBenchmarks
 {
     private LlmRouter _router = null!;
     private LlmRouter _routerFallover = null!;
-    private readonly LlmRequest _req = new() { Messages = [LlmMessage.User("bench")] };
+    private readonly TextRequest _req = new() { Messages = [TextMessage.User("bench")] };
     private readonly IReadOnlyList<ProviderCandidate> _single = [new ProviderCandidate("ok")];
     private readonly IReadOnlyList<ProviderCandidate> _two = [new ProviderCandidate("down"), new ProviderCandidate("ok")];
 
@@ -29,17 +29,17 @@ public class RouterBenchmarks
     }
 
     [Benchmark(Baseline = true)]
-    public async Task<LlmReply> SingleCandidate_Ok() => await _router.CompleteAsync(_single, _req);
+    public async Task<TextResponse> SingleCandidate_Ok() => await _router.CompleteAsync(_single, _req);
 
     [Benchmark]
-    public async Task<LlmReply> TwoCandidates_FirstFails() => await _routerFallover.CompleteAsync(_two, _req);
+    public async Task<TextResponse> TwoCandidates_FirstFails() => await _routerFallover.CompleteAsync(_two, _req);
 
     [Benchmark]
     public async Task<string> Streaming_SingleCandidate()
     {
         var last = "";
         await foreach (var chunk in _router.StreamAsync(_single, _req))
-            if (chunk.Kind == LlmChunkKind.Content) last = chunk.Text;
+            if (chunk.Kind == TextChunkKind.Content) last = chunk.Text;
         return last;
     }
 
@@ -55,16 +55,16 @@ public class RouterBenchmarks
         };
         public bool IsAvailable => true;
 
-        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
             Task.FromResult(verdict == ProviderVerdict.Ok
-                ? new LlmReply("ok", ProviderVerdict.Ok, new LlmUsage(10, 5))
-                : new LlmReply("", verdict, Detail: "noop-down"));
+                ? new TextResponse("ok", ProviderVerdict.Ok, new TextUsage(10, 5))
+                : new TextResponse("", verdict, Detail: "noop-down"));
 
-        public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
+        public async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
         {
-            if (verdict != ProviderVerdict.Ok) { yield return LlmChunk.Error(verdict, "noop-down"); yield break; }
-            yield return LlmChunk.Content("chunk");
-            yield return LlmChunk.Final(new LlmUsage(10, 5));
+            if (verdict != ProviderVerdict.Ok) { yield return TextChunk.Error(verdict, "noop-down"); yield break; }
+            yield return TextChunk.Content("chunk");
+            yield return TextChunk.Final(new TextUsage(10, 5));
             await Task.CompletedTask;
         }
     }

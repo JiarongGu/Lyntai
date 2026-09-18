@@ -32,13 +32,13 @@ public sealed record GenerationRequest
     /// <summary>Per-request budget in seconds, applied by the SELECTED BACKEND where it supports one: the HTTP
     /// backends resolve it against their own configured <c>Timeout</c> option (a positive value here wins; a
     /// non-positive one is not a budget and is ignored), while a backend that owns its own clocks may ignore it
-    /// entirely — the local engine does today. Unlike <c>LlmRequest.TimeoutSeconds</c> there is no
+    /// entirely — the local engine does today. Unlike <c>TextRequest.TimeoutSeconds</c> there is no
     /// platform-level default and no ceiling for generation: nothing clamps this to
     /// <c>LyntaiOptions.MaxProviderTimeout</c>, which governs the LLM domain only.</summary>
     public int? TimeoutSeconds { get; init; }
 
     /// <summary>Who this render is for — the tag spend caps and rate limits are keyed by, exactly as on the
-    /// LLM side (<c>LlmRequest.Consumer</c>), and matched case-insensitively by both. Governance is why this
+    /// LLM side (<c>TextRequest.Consumer</c>), and matched case-insensitively by both. Governance is why this
     /// exists: without it every render in a process bills to one bucket, and the runaway-spend case (an agent
     /// loop rendering in a retry) can't be capped separately from a user pressing a button.</summary>
     public string Consumer { get; init; } = "default";

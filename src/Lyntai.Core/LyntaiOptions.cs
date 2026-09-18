@@ -27,11 +27,11 @@ namespace Lyntai;
 public sealed class LyntaiOptions
 {
     /// <summary>Per-call provider timeout (CLI spawn / HTTP call) — the default when a request/consumer
-    /// doesn't override it. See <see cref="ResolveTimeout(LlmRequest)"/> / <see cref="LlmRequest.TimeoutSeconds"/> /
+    /// doesn't override it. See <see cref="ResolveTimeout(TextRequest)"/> / <see cref="TextRequest.TimeoutSeconds"/> /
     /// <see cref="TimeoutByConsumer"/>.</summary>
     public TimeSpan ProviderTimeout { get; set; } = TimeSpan.FromMinutes(2);
 
-    /// <summary>Ceiling that clamps a caller-supplied per-request timeout (<see cref="LlmRequest.TimeoutSeconds"/>)
+    /// <summary>Ceiling that clamps a caller-supplied per-request timeout (<see cref="TextRequest.TimeoutSeconds"/>)
     /// — so a stray/large value can't hang a call indefinitely. App-configured timeouts (the global +
     /// <see cref="TimeoutByConsumer"/>) are trusted and NOT clamped.</summary>
     public TimeSpan MaxProviderTimeout { get; set; } = TimeSpan.FromMinutes(30);
@@ -55,7 +55,7 @@ public sealed class LyntaiOptions
 
     /// <summary>Provider timeout per consumer tag ("default" applies when the tag has no entry) — e.g. give a
     /// long-running CLI-agent consumer a bigger budget than the short-call ones. A request's own
-    /// <see cref="LlmRequest.TimeoutSeconds"/> still wins over this. Mirrors <see cref="DefaultModelByConsumer"/>.</summary>
+    /// <see cref="TextRequest.TimeoutSeconds"/> still wins over this. Mirrors <see cref="DefaultModelByConsumer"/>.</summary>
     public Dictionary<string, TimeSpan> TimeoutByConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>KV key namespace the prompt registry reads/writes overrides under. Defaults to
@@ -132,11 +132,11 @@ public sealed class LyntaiOptions
         return DefaultModelByConsumer.TryGetValue("default", out var d) ? d : null;
     }
 
-    /// <summary>Resolve the provider timeout for a request: an explicit <see cref="LlmRequest.TimeoutSeconds"/>
+    /// <summary>Resolve the provider timeout for a request: an explicit <see cref="TextRequest.TimeoutSeconds"/>
     /// wins (clamped to <see cref="MaxProviderTimeout"/>), then the consumer's <see cref="TimeoutByConsumer"/>
     /// entry, then the "default" consumer entry, then the global <see cref="ProviderTimeout"/>. The
     /// app-configured values are trusted (not clamped); only the per-request override is.</summary>
-    public TimeSpan ResolveTimeout(LlmRequest req)
+    public TimeSpan ResolveTimeout(TextRequest req)
     {
         if (req.TimeoutSeconds is { } s && s > 0) return ResolveTimeout(s);
         if (TimeoutByConsumer.TryGetValue(req.Consumer, out var t)) return t;
@@ -145,7 +145,7 @@ public sealed class LyntaiOptions
 
     /// <summary>Resolve a provider timeout from an explicit per-call seconds value: the value wins (clamped
     /// to <see cref="MaxProviderTimeout"/>), else the global <see cref="ProviderTimeout"/>. (The consumer-tier
-    /// resolution lives only in the <see cref="ResolveTimeout(Lyntai.Llm.LlmRequest)"/> overload.)</summary>
+    /// resolution lives only in the <see cref="ResolveTimeout(Lyntai.Inference.TextRequest)"/> overload.)</summary>
     public TimeSpan ResolveTimeout(int? seconds)
     {
         if (seconds is { } s && s > 0)

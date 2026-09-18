@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Lyntai.Llm;
+using Lyntai.Inference;
 
 namespace Lyntai.Providers.CodexCli;
 

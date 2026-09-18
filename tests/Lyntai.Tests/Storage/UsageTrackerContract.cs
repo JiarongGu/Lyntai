@@ -1,5 +1,6 @@
 using Lyntai.Llm;
 using Lyntai.Llm.Budgeting;
+using Lyntai.Inference;
 
 namespace Lyntai.Tests.Storage;
 
@@ -18,7 +19,7 @@ namespace Lyntai.Tests.Storage;
 /// see <see cref="PostgresContractCoverageTests"/>, which fails if an exclusion stops matching.</para></summary>
 public static class UsageTrackerContract
 {
-    private static LlmUsage Call(long input, long output, double cost) =>
+    private static TextUsage Call(long input, long output, double cost) =>
         new(input, output, CostUsd: cost);
 
     public static async Task Records_accumulate_per_consumer(IUsageTracker tracker, string consumer)

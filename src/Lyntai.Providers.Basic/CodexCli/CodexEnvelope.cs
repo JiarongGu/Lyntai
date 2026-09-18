@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Lyntai.Inference;
 
 namespace Lyntai.Providers.CodexCli;
 
@@ -76,7 +77,7 @@ internal static class CodexEnvelope
     /// <param name="CacheRead">codex's <c>cached_input_tokens</c>.</param>
     /// <param name="CacheCreate">codex's <c>cache_write_input_tokens</c>.</param>
     /// <remarks>codex also reports <c>reasoning_output_tokens</c>, which neither
-    /// <see cref="Lyntai.Llm.LlmUsage"/> nor <see cref="Lyntai.Agents.UsageFinal"/> has a slot for. It is
+    /// <see cref="Lyntai.Inference.TextUsage"/> nor <see cref="Lyntai.Agents.UsageFinal"/> has a slot for. It is
     /// DROPPED rather than folded into <paramref name="Output"/> — whether <c>output_tokens</c> already
     /// includes it is unmeasured, and adding it would double-count if it does.</remarks>
     public readonly record struct Usage(long Input, long Output, long CacheRead, long CacheCreate);

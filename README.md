@@ -185,7 +185,7 @@ public sealed class MyFeature(
         prompt = await composer.ComposeAsync(prompt, taskKey: "myfeature", ct: ct); // + learned facts
 
         var reply = await llm.CompleteAsync(
-            new LlmRequest { Messages = [LlmMessage.User(prompt)], Consumer = "myfeature" }, ct);
+            new TextRequest { Messages = [TextMessage.User(prompt)], Consumer = "myfeature" }, ct);
         return reply.Verdict.IsOk() ? reply.Text : throw new InvalidOperationException(reply.Detail);
     }
 }
@@ -197,8 +197,8 @@ public sealed class MyFeature(
 succeed later?", true for `Failed`/`Timeout`/`RateLimited`) and `IsBlameless()` (the backend declined without
 anything being wrong with it). They are categories rather than one method per
 verdict, on purpose: the enum grows, and a single member is already best expressed as
-`verdict == ProviderVerdict.RateLimited`. They hang off the enum, so they read the same off `LlmReply`,
-`LlmChunk`, `SessionEnded`, `AgentSessionResult` and `ToolLoopResult`.
+`verdict == ProviderVerdict.RateLimited`. They hang off the enum, so they read the same off `TextResponse`,
+`TextChunk`, `SessionEnded`, `AgentSessionResult` and `ToolLoopResult`.
 
 ### The semantics you're getting (design §6)
 
@@ -215,11 +215,11 @@ verdict, on purpose: the enum grows, and a single member is already best express
   unconfigured, you're told about the outage, not sent to check a key.
 - **Streaming never falls back after the first token** — pre-content failures move to the next
   candidate, mid-stream errors pass through unchanged (your consumer never sees duplicated output).
-- **Per-request refusal check** — set `LlmRequest.RefusalPattern` (a regex) and an otherwise-`Ok` reply
+- **Per-request refusal check** — set `TextRequest.RefusalPattern` (a regex) and an otherwise-`Ok` reply
   whose text matches surfaces as `Refused` (e.g. a per-language "I can't help with that"). Screened at the
   outermost front-door layer, so even a cached hit is re-checked.
 - **Dead-host cooldown** instead of exponential backoff; any success resets.
-- **Per-request timeout** — set `LlmRequest.TimeoutSeconds` (or a per-consumer `TimeoutByConsumer` default)
+- **Per-request timeout** — set `TextRequest.TimeoutSeconds` (or a per-consumer `TimeoutByConsumer` default)
   when one call legitimately runs far longer than the global `ProviderTimeout` (e.g. a CLI-agent run),
   without inflating every short call. Precedence: request → consumer → global; clamped to `MaxProviderTimeout`.
 - **All of the above is the default `RoutingPolicy` — tune it without a fork.** Retry a transient
@@ -264,7 +264,7 @@ verdict, on purpose: the enum grows, and a single member is already best express
   junk, the hosted one finds the most answers.
   <br>Costs one model call per recall, in the latency path of an answer (~1.5 s locally), so point it at a
   small fast backend with `ClientName`. **Avoid a *thinking* model** — one spent ~25 s per judgement against
-  another's ~1.5 s; `LlmRequest.Reasoning` asks a backend to skip it where the backend can. A failure leaves
+  another's ~1.5 s; `TextRequest.Reasoning` asks a backend to skip it where the backend can. A failure leaves
   the ranking untouched, and a judgement never removes a result unless you set `VerificationFilters`.
   Verified to work in English, Chinese, Japanese and Korean.
 - **Name an LLM client per use.** `AddLlmClient("memory-fast", c => c.UseProviders("ollama", "openai"))`,
@@ -307,9 +307,9 @@ verdict, on purpose: the enum grows, and a single member is already best express
 ### Structured output
 
 ```csharp
-var reply = await llm.CompleteJsonAsync(new LlmRequest
+var reply = await llm.CompleteJsonAsync(new TextRequest
 {
-    Messages = [LlmMessage.User("Summarize as JSON.")],
+    Messages = [TextMessage.User("Summarize as JSON.")],
     JsonSchema = """{"type":"object","properties":{"summary":{"type":"string"}}}""",
 });
 // reply.Verdict == Ok guarantees reply.Text parses as a single JSON object
@@ -993,7 +993,7 @@ public sealed class MyCliDialect : CliProviderDialectBase
     // WHERE they go is yours to decide, because only you know your CLI's grammar: append when your argv
     // ends in options, place them earlier when it ends in a positional — anything after a positional is
     // read as prompt text by some CLIs, and on codex a swallowed flag costs a turn rather than erroring.
-    public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest r, IReadOnlyList<string> toolHostArgs) =>
+    public override IReadOnlyList<string> BuildCompletionArgs(TextRequest r, IReadOnlyList<string> toolHostArgs) =>
         ["exec", "--json", .. toolHostArgs];
     public override CliOutputEvent ParseLine(string line) =>   // → Content / Result / Failure / Ignored
         MyWireFormat.Read(line);
@@ -1010,7 +1010,7 @@ has (`ClaudeCliProvider` is exactly this, and nothing else):
      {
          public override string Id => "my-cli";
          public override string DefaultCommand => "mycli";
-         public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest r, IReadOnlyList<string> toolHostArgs) => [];
+         public override IReadOnlyList<string> BuildCompletionArgs(TextRequest r, IReadOnlyList<string> toolHostArgs) => [];
          public override CliOutputEvent ParseLine(string line) => CliOutputEvent.Ignored;
      } -->
 ```csharp
@@ -1029,8 +1029,8 @@ public sealed class MyCliProvider(IProcessRunner runner, LyntaiOptions options) 
     };
 
     public bool IsAvailable => _engine.IsAvailable;
-    public Task<LlmReply> CompleteAsync(LlmRequest r, CancellationToken ct = default) => _engine.CompleteAsync(r, ct);
-    public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest r, CancellationToken ct = default) => _engine.StreamAsync(r, ct);
+    public Task<TextResponse> CompleteAsync(TextRequest r, CancellationToken ct = default) => _engine.CompleteAsync(r, ct);
+    public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest r, CancellationToken ct = default) => _engine.StreamAsync(r, ct);
     public Task<ProviderUpdateResult> UpdateAsync(CancellationToken ct = default) => _engine.UpdateAsync(ct);
 }
 ```
@@ -1284,12 +1284,12 @@ services.AddLyntai(cfg => cfg
         try
         {
             var text = await Vendor.AskAsync(req.Messages[^1].Content, ct);
-            return new LlmReply(text, ProviderVerdict.Ok);
+            return new TextResponse(text, ProviderVerdict.Ok);
         }
         catch (HttpRequestException ex)
         {
             // a VERDICT, not a throw — it is what lets the router advance to the next candidate
-            return new LlmReply("", ProviderVerdict.Failed, Detail: ex.Message);
+            return new TextResponse("", ProviderVerdict.Failed, Detail: ex.Message);
         }
     })
     .UseDefaultCandidates("vendor"));
@@ -1351,9 +1351,9 @@ services.AddLyntai(cfg =>
 });
 
 // inject IToolLoop:
-var result = await toolLoop.RunAsync(new LlmRequest
+var result = await toolLoop.RunAsync(new TextRequest
 {
-    Messages = [LlmMessage.User("What should I wear in Paris today?")],
+    Messages = [TextMessage.User("What should I wear in Paris today?")],
 });
 Console.WriteLine(result.Answer);          // the model's final answer after any tool round-trips
 foreach (var step in result.Steps)         // every tool call it made, for tracing
@@ -1624,7 +1624,7 @@ await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunA
   sealed to the host *and* backed by a one-time recovery key for off-machine recovery; on Windows,
   `AddDpapiSecretVault()` (`Lyntai.Secrets.Dpapi`) binds it with DPAPI. Call `GenerateMasterKeyAsync()`
   once (record the recovery key), `RecoverAsync(key)` on migration.
-- **Vision** — `LlmMessage.UserWithImage(text, bytes, "image/png")` (or `UserWithImageUrl`); the
+- **Vision** — `TextMessage.UserWithImage(text, bytes, "image/png")` (or `UserWithImageUrl`); the
   OpenAI-compatible providers send it as image content, and the **Ollama-native** flavour
   (`AddOllamaProvider`, or any base URL detected as Ollama) sends it as `/api/chat`'s own `images` array.
   Pair it with a vision model (`llava` and friends). **One shape does not travel on the Ollama-native path:**

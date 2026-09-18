@@ -33,8 +33,8 @@ public class ConfigureRoutingTests
     public async Task ConfigureRouting_retry_takes_effect_end_to_end()
     {
         var flaky = new FakeLlmProvider("flaky");
-        flaky.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "blip"));
-        flaky.Replies.Enqueue(new LlmReply("recovered", ProviderVerdict.Ok));
+        flaky.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "blip"));
+        flaky.Replies.Enqueue(new TextResponse("recovered", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
@@ -44,7 +44,7 @@ public class ConfigureRoutingTests
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>()
-            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal("recovered", reply.Text);
         Assert.Equal(2, flaky.Calls.Count);

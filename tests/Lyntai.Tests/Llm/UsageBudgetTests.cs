@@ -13,11 +13,11 @@ namespace Lyntai.Tests.Llm;
 /// the composed order (cache outermost, so a cached hit is free and never counts toward the budget).</summary>
 public class UsageBudgetTests
 {
-    private static LlmRequest Ask(string consumer = "default") =>
-        new() { Messages = [LlmMessage.User("q")], Consumer = consumer };
+    private static TextRequest Ask(string consumer = "default") =>
+        new() { Messages = [TextMessage.User("q")], Consumer = consumer };
 
-    private static LlmReply Ok(double cost, long tokens = 0) =>
-        new("ok", ProviderVerdict.Ok, new LlmUsage(tokens, 0, CostUsd: cost));
+    private static TextResponse Ok(double cost, long tokens = 0) =>
+        new("ok", ProviderVerdict.Ok, new TextUsage(tokens, 0, CostUsd: cost));
 
     // ---- tracker -------------------------------------------------------------------------------------
 
@@ -25,9 +25,9 @@ public class UsageBudgetTests
     public async Task Tracker_accumulates_per_consumer_and_globally()
     {
         var tracker = new InMemoryUsageTracker();
-        await tracker.RecordAsync("a", new LlmUsage(10, 5, CostUsd: 0.10));
-        await tracker.RecordAsync("a", new LlmUsage(20, 5, CostUsd: 0.20));
-        await tracker.RecordAsync("b", new LlmUsage(1, 1, CostUsd: 0.01));
+        await tracker.RecordAsync("a", new TextUsage(10, 5, CostUsd: 0.10));
+        await tracker.RecordAsync("a", new TextUsage(20, 5, CostUsd: 0.20));
+        await tracker.RecordAsync("b", new TextUsage(1, 1, CostUsd: 0.01));
 
         var a = (await tracker.TotalAsync("a"));
         Assert.Equal(30, a.InputTokens);
@@ -45,8 +45,8 @@ public class UsageBudgetTests
     public async Task Reset_of_one_consumer_subtracts_from_the_global_total()
     {
         var tracker = new InMemoryUsageTracker();
-        await tracker.RecordAsync("a", new LlmUsage(10, 0, CostUsd: 0.10));
-        await tracker.RecordAsync("b", new LlmUsage(20, 0, CostUsd: 0.20));
+        await tracker.RecordAsync("a", new TextUsage(10, 0, CostUsd: 0.10));
+        await tracker.RecordAsync("b", new TextUsage(20, 0, CostUsd: 0.20));
 
         await tracker.ResetAsync("a");
 
@@ -95,7 +95,7 @@ public class UsageBudgetTests
     public async Task Refuses_once_the_global_token_cap_is_reached()
     {
         var (client, inner, _) = Budgeted(b => b.MaxTokens = 100);
-        inner.Replies.Enqueue(new LlmReply("ok", ProviderVerdict.Ok, new LlmUsage(80, 40))); // 120 > 100
+        inner.Replies.Enqueue(new TextResponse("ok", ProviderVerdict.Ok, new TextUsage(80, 40))); // 120 > 100
 
         await client.CompleteAsync(Ask());
         var second = await client.CompleteAsync(Ask());
@@ -123,18 +123,18 @@ public class UsageBudgetTests
     public async Task Streaming_refuses_over_budget_and_records_final_usage()
     {
         var (client, inner, tracker) = Budgeted(b => b.MaxCostUsd = 1.0);
-        inner.StreamScript = _ => [LlmChunk.Content("hi"), LlmChunk.Final(new LlmUsage(5, 5, CostUsd: 0.25))];
+        inner.StreamScript = _ => [TextChunk.Content("hi"), TextChunk.Final(new TextUsage(5, 5, CostUsd: 0.25))];
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in client.StreamAsync(Ask())) chunks.Add(c);
         Assert.Equal(0.25, (await tracker.TotalAsync()).CostUsd, 5);   // usage recorded from the Final chunk
-        Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Error);
+        Assert.DoesNotContain(chunks, c => c.Kind == TextChunkKind.Error);
 
-        await tracker.RecordAsync("default", new LlmUsage(0, 0, CostUsd: 1.0)); // push over the cap
-        var over = new List<LlmChunk>();
+        await tracker.RecordAsync("default", new TextUsage(0, 0, CostUsd: 1.0)); // push over the cap
+        var over = new List<TextChunk>();
         await foreach (var c in client.StreamAsync(Ask())) over.Add(c);
         var only = Assert.Single(over);
-        Assert.Equal(LlmChunkKind.Error, only.Kind);
+        Assert.Equal(TextChunkKind.Error, only.Kind);
         Assert.Equal(ProviderVerdict.Refused, only.Verdict);
     }
 
@@ -167,7 +167,7 @@ public class UsageBudgetTests
         // re-counts toward the budget)
         Assert.IsType<RefusalScreeningLlmClient>(client);
 
-        var req = new LlmRequest { Messages = [LlmMessage.User("hi")] };
+        var req = new TextRequest { Messages = [TextMessage.User("hi")] };
         await client.CompleteAsync(req); // miss → provider hit, cost recorded
         await client.CompleteAsync(req); // hit → served from cache, must NOT re-count toward the budget
 

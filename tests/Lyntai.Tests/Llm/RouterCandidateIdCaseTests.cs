@@ -20,7 +20,7 @@ namespace Lyntai.Tests.Llm;
 /// endpoint.</para></summary>
 public class RouterCandidateIdCaseTests
 {
-    private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")] };
+    private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
     private static LlmRouter Router(params IModelProvider[] providers) =>
         new(providers, new DeadHostTracker(), new LyntaiOptions());
@@ -29,7 +29,7 @@ public class RouterCandidateIdCaseTests
     public async Task A_candidate_cased_differently_from_the_providers_own_Id_still_selects_it()
     {
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("served", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new TextResponse("served", ProviderVerdict.Ok));
 
         var reply = await Router(provider).CompleteAsync([new ProviderCandidate("OpenAI")], Req);
 
@@ -57,12 +57,12 @@ public class RouterCandidateIdCaseTests
         // LiveCandidates is shared, so this is a guard against the two doors drifting apart again
         var provider = new FakeLlmProvider("openai");
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var chunk in Router(provider).StreamAsync([new ProviderCandidate("OPENAI")], Req))
             chunks.Add(chunk);
 
         Assert.Equal(1, provider.StreamCalls);
-        Assert.Contains(chunks, c => c.Kind == LlmChunkKind.Content && c.Text.Length > 0);
+        Assert.Contains(chunks, c => c.Kind == TextChunkKind.Content && c.Text.Length > 0);
     }
 
     [Fact]
@@ -95,8 +95,8 @@ public class RouterCandidateIdCaseTests
         // sole-candidate exemption from being silently withdrawn by a duplicate spelling
         var tracker = new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5));
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "boom"));
-        provider.Replies.Enqueue(new LlmReply("recovered", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "boom"));
+        provider.Replies.Enqueue(new TextResponse("recovered", ProviderVerdict.Ok));
         var router = new LlmRouter([provider], tracker, new LyntaiOptions());
         ProviderCandidate[] listedTwice = [new("openai"), new("OpenAI")];
 

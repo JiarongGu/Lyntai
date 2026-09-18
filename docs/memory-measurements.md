@@ -223,7 +223,7 @@ Three things this table says that a single number would not:
   Which is "best" depends on which failure your application pays for.
 
 **Avoid a *thinking* model here.** `qwen3:4b` spent ~25 s per judgement against gemma3's ~1.5 s — a seam in
-the latency path of every recall makes that disqualifying whatever it scores. `LlmRequest.Reasoning` asks a
+the latency path of every recall makes that disqualifying whatever it scores. `TextRequest.Reasoning` asks a
 backend to skip reasoning where it can.
 
 Verified to judge correctly in **English, Chinese, Japanese and Korean**.

@@ -39,12 +39,12 @@ public class AgentDiagnosticsTests
         ActivitySource.AddActivityListener(listener);
 
         var client = new FakeLlmClient();
-        client.Replies.Enqueue(new LlmReply("""{"tool":"echo-tl","arguments":{}}""", ProviderVerdict.Ok));
-        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", ProviderVerdict.Ok));
+        client.Replies.Enqueue(new TextResponse("""{"tool":"echo-tl","arguments":{}}""", ProviderVerdict.Ok));
+        client.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
         var tool = new FunctionTool("echo-tl", (a, _) => Task.FromResult($"observed:{a}"), "echoes");
         var loop = new ToolLoop(client, new ToolRegistry([tool]), new LyntaiOptions());
 
-        await loop.RunAsync(new LlmRequest { Consumer = "tl-consumer", Messages = [LlmMessage.User("go")] });
+        await loop.RunAsync(new TextRequest { Consumer = "tl-consumer", Messages = [TextMessage.User("go")] });
 
         var loopSpan = Assert.Single(SpansWith(spans, "lyntai.consumer", "tl-consumer"));
         Assert.Equal("tool_loop", loopSpan.DisplayName);
@@ -74,11 +74,11 @@ public class AgentDiagnosticsTests
         });
 
         var client = new FakeLlmClient();
-        client.Replies.Enqueue(new LlmReply("""{"tool":"boom-tl","arguments":{}}""", ProviderVerdict.Ok));
-        client.Replies.Enqueue(new LlmReply("""{"final":"handled"}""", ProviderVerdict.Ok));
+        client.Replies.Enqueue(new TextResponse("""{"tool":"boom-tl","arguments":{}}""", ProviderVerdict.Ok));
+        client.Replies.Enqueue(new TextResponse("""{"final":"handled"}""", ProviderVerdict.Ok));
         var tool = new FunctionTool("boom-tl", (_, _) => throw new InvalidOperationException("kaboom"));
         await new ToolLoop(client, new ToolRegistry([tool]), new LyntaiOptions())
-            .RunAsync(new LlmRequest { Messages = [LlmMessage.User("go")] });
+            .RunAsync(new TextRequest { Messages = [TextMessage.User("go")] });
 
         lock (invocations) Assert.Contains(("boom-tl", true), invocations); // throwing tool → error=true
     }
@@ -138,7 +138,7 @@ public class AgentDiagnosticsTests
         });
 
         var rail = new GuardRail([new BlockGuard("guard-tel")]);
-        await rail.InspectRequestAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+        await rail.InspectRequestAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         lock (decisions) Assert.Contains(("input", "guard-tel", "block"), decisions);
     }
@@ -146,7 +146,7 @@ public class AgentDiagnosticsTests
     private sealed class BlockGuard(string name) : IGuard
     {
         public string Name => name;
-        public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default) =>
+        public Task<GuardOutcome> InspectRequestAsync(TextRequest req, CancellationToken ct = default) =>
             Task.FromResult(GuardOutcome.Block("nope"));
     }
 

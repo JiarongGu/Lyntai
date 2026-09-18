@@ -23,28 +23,28 @@ public sealed class BudgetedLlmClient(
 {
     private readonly ILogger _logger = logger ?? NullLogger<BudgetedLlmClient>.Instance;
 
-    public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public override async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         if (await OverBudgetAsync(req.Consumer, ct).ConfigureAwait(false) is { } reason)
-            return new LlmReply("", ProviderVerdict.Refused, Detail: reason);
+            return new TextResponse("", ProviderVerdict.Refused, Detail: reason);
 
         var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
         if (reply.Usage is not null) await tracker.RecordAsync(req.Consumer, reply.Usage, ct).ConfigureAwait(false);
         return reply;
     }
 
-    public override async IAsyncEnumerable<LlmChunk> StreamAsync(
-        LlmRequest req, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
+    public override async IAsyncEnumerable<TextChunk> StreamAsync(
+        TextRequest req, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
     {
         if (await OverBudgetAsync(req.Consumer, ct).ConfigureAwait(false) is { } reason)
         {
-            yield return LlmChunk.Error(ProviderVerdict.Refused, reason);
+            yield return TextChunk.Error(ProviderVerdict.Refused, reason);
             yield break;
         }
 
         await foreach (var chunk in Inner.StreamAsync(req, ct).ConfigureAwait(false))
         {
-            if (chunk is { Kind: LlmChunkKind.Final, Usage: not null })
+            if (chunk is { Kind: TextChunkKind.Final, Usage: not null })
                 await tracker.RecordAsync(req.Consumer, chunk.Usage, ct).ConfigureAwait(false);
             yield return chunk;
         }

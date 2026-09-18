@@ -22,16 +22,16 @@ public class CliProviderEngineStreamBoundsTests
     private static CliProviderEngine Engine(FakeProcessRunner runner, LyntaiOptions? options = null) =>
         new(new FakeCliDialect(), runner, options ?? new LyntaiOptions(), command: "fakecli");
 
-    private static LlmRequest Ask(string prompt = "hello", string consumer = "default") =>
-        new() { Messages = [LlmMessage.User(prompt)], Consumer = consumer };
+    private static TextRequest Ask(string prompt = "hello", string consumer = "default") =>
+        new() { Messages = [TextMessage.User(prompt)], Consumer = consumer };
 
     /// <summary>Drain a stream under a HARD budget, so a regression arrives as a failed assertion rather
     /// than as a hung <c>verify</c> run (`pitfalls.md`: a test that hangs on the failure it detects is worse
     /// than no test — the next person bisects the harness instead of reading the failure).</summary>
-    private static async Task<List<LlmChunk>> DrainAsync(CliProviderEngine engine, LlmRequest req)
+    private static async Task<List<TextChunk>> DrainAsync(CliProviderEngine engine, TextRequest req)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var chunk in engine.StreamAsync(req, cts.Token))
             chunks.Add(chunk);
         Assert.False(cts.IsCancellationRequested, "the stream did not finish within the test's budget");
@@ -89,8 +89,8 @@ public class CliProviderEngineStreamBoundsTests
 
         var chunks = await DrainAsync(Engine(runner), Ask());
 
-        Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Content);
-        Assert.Equal(LlmChunkKind.Error, Assert.Single(chunks).Kind);
+        Assert.DoesNotContain(chunks, c => c.Kind == TextChunkKind.Content);
+        Assert.Equal(TextChunkKind.Error, Assert.Single(chunks).Kind);
         Assert.Equal(ProviderVerdict.Failed, chunks[^1].Verdict);
     }
 
@@ -104,8 +104,8 @@ public class CliProviderEngineStreamBoundsTests
 
         var chunks = await DrainAsync(Engine(runner), Ask());
 
-        Assert.Equal(["the answer"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+        Assert.Equal(["the answer"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class CliProviderEngineStreamBoundsTests
 
         var chunks = await DrainAsync(Engine(runner), Ask());
 
-        Assert.Equal([" "], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+        Assert.Equal([" "], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
     }
 }

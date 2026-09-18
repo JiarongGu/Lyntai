@@ -37,9 +37,9 @@ public class OllamaLiveTests
     /// and silently skip another.</summary>
     private static Task<bool> LiveAsync() => Lyntai.Tests.Live.OllamaLive.IsAvailableAsync();
 
-    private static LlmRequest Ask(string prompt) => new()
+    private static TextRequest Ask(string prompt) => new()
     {
-        Messages = [LlmMessage.User(prompt)],
+        Messages = [TextMessage.User(prompt)],
         MaxTokens = 32,
         Temperature = 0,
     };
@@ -64,16 +64,16 @@ public class OllamaLiveTests
         Skip.IfNot(await LiveAsync(), Reason);
 
         var content = new System.Text.StringBuilder();
-        LlmChunk? last = null;
+        TextChunk? last = null;
         await foreach (var chunk in Provider().StreamAsync(Ask("Count from 1 to 3.")))
         {
-            if (chunk.Kind == LlmChunkKind.Content) content.Append(chunk.Text);
+            if (chunk.Kind == TextChunkKind.Content) content.Append(chunk.Text);
             last = chunk;
         }
 
         Assert.False(string.IsNullOrWhiteSpace(content.ToString()), "expected streamed content");
         Assert.NotNull(last);
-        Assert.Equal(LlmChunkKind.Final, last!.Kind); // clean termination, not an error
+        Assert.Equal(TextChunkKind.Final, last!.Kind); // clean termination, not an error
     }
 
     [SkippableFact]

@@ -90,7 +90,7 @@ public sealed class CliProviderEngine(
     // ── completion ───────────────────────────────────────────────────────────
 
     /// <summary>Run one buffered completion.</summary>
-    public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         WarnIfRequestToolsIgnored(req);
         // when a provisioner is registered, it stands up a tool host and hands back the CLI args; the
@@ -114,11 +114,11 @@ public sealed class CliProviderEngine(
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            return new LlmReply("", ProviderVerdict.Failed, Detail: $"spawn failed: {ex.Message}");
+            return new TextResponse("", ProviderVerdict.Failed, Detail: $"spawn failed: {ex.Message}");
         }
 
         if (result.TimedOut)
-            return new LlmReply("", ProviderVerdict.Timeout,
+            return new TextResponse("", ProviderVerdict.Timeout,
                 Detail: result.TimeoutKind == ProcessTimeoutKind.MaxDuration
                     ? $"{dialect.Id} exceeded max duration {maxDuration}"
                     : $"{dialect.Id} stalled — no output for {timeout}");
@@ -126,7 +126,7 @@ public sealed class CliProviderEngine(
         var stderrTail = Tail(result.StdErr);
 
         string text = "", contentText = "";
-        LlmUsage? usage = null;
+        TextUsage? usage = null;
         string? failure = null;
         var sawResult = false;
         foreach (var raw in result.StdOut.Split('\n'))
@@ -160,22 +160,22 @@ public sealed class CliProviderEngine(
         // advances instead of cooling the host and the caller is told the CLI is broken when the remedy is
         // to log in again. The exit code is kept in the detail — it is context, not the reason.
         if (failure is { Length: > 0 })
-            return new LlmReply("", ProviderVerdictClassifier.FromErrorText(failure),
+            return new TextResponse("", ProviderVerdictClassifier.FromErrorText(failure),
                 Detail: result.ExitCode != 0 ? $"exit {result.ExitCode}: {failure}" : failure);
 
         // No in-band account of the failure: the exit code and stderr are all there is. (A backend that
         // exits non-zero after printing a complete answer is still a failed run — a truncated answer
         // labelled complete is the outcome this prevents.)
         if (result.ExitCode != 0)
-            return new LlmReply("", ProviderVerdictClassifier.FromErrorText(stderrTail), Detail: $"exit {result.ExitCode}: {stderrTail}");
+            return new TextResponse("", ProviderVerdictClassifier.FromErrorText(stderrTail), Detail: $"exit {result.ExitCode}: {stderrTail}");
 
         if (text.Length == 0)
         {
             _logger.LogWarning("{Provider} produced no content ({SawResult}); stderr: {Tail}", dialect.Id, sawResult, stderrTail);
-            return new LlmReply("", ProviderVerdict.Failed,
+            return new TextResponse("", ProviderVerdict.Failed,
                 Detail: stderrTail.Length > 0 ? stderrTail : "no output produced");
         }
-        return new LlmReply(text, ProviderVerdict.Ok, usage);
+        return new TextResponse(text, ProviderVerdict.Ok, usage);
     }
 
     /// <summary>Stream one completion. Content chunks arrive as the CLI prints them, followed by exactly one
@@ -183,7 +183,7 @@ public sealed class CliProviderEngine(
     /// <remarks>Bounded by the same two clocks as <see cref="CompleteAsync"/> — the resolved timeout as an
     /// inactivity window, <see cref="LyntaiOptions.MaxProviderTimeout"/> as the absolute backstop — plus
     /// caller cancellation, which also kills the process tree when the enumerator is abandoned.</remarks>
-    public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         WarnIfRequestToolsIgnored(req);
         // the host lives for the whole stream (the CLI calls tools throughout); torn down when this iterator
@@ -194,7 +194,7 @@ public sealed class CliProviderEngine(
 
         var sawContent = false;
         string resultText = "";
-        LlmUsage? usage = null;
+        TextUsage? usage = null;
 
         // Two clocks, the same pair the buffered path uses. `timeout` is the INACTIVITY window, so a
         // slow-but-alive turn (a long tool loop, a big prompt) re-arms it and finishes; `maxDuration` is the
@@ -217,15 +217,15 @@ public sealed class CliProviderEngine(
             // the guarded loop lives once in Core. No clock here — the inactivity window is the RUNNER's
             // (its timeout arrives as ProcessTimeoutException), so ANY OperationCanceledException is
             // cancellation and PROPAGATES: onFault returns null for it (the router decides — T8).
-            var guarded = GuardedStream.ReadAll<string, LlmChunk>(
+            var guarded = GuardedStream.ReadAll<string, TextChunk>(
                 async () => await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null,
                 ex => ex switch
                 {
                     OperationCanceledException => null,
-                    ProcessTimeoutException => LlmChunk.Error(ProviderVerdict.Timeout, ex.Message),
-                    ProcessRunException pre => LlmChunk.Error(
+                    ProcessTimeoutException => TextChunk.Error(ProviderVerdict.Timeout, ex.Message),
+                    ProcessRunException pre => TextChunk.Error(
                         ProviderVerdictClassifier.FromErrorText(pre.StdErrTail), $"exit {pre.ExitCode}: {pre.StdErrTail}"),
-                    _ => LlmChunk.Error(ProviderVerdict.Failed, $"spawn failed: {ex.Message}"),
+                    _ => TextChunk.Error(ProviderVerdict.Failed, $"spawn failed: {ex.Message}"),
                 },
                 ct);
             await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
@@ -249,7 +249,7 @@ public sealed class CliProviderEngine(
                 if (evt.Kind == CliOutputEventKind.Content && evt.Text.Length > 0)
                 {
                     sawContent = true;
-                    yield return LlmChunk.Content(evt.Text);
+                    yield return TextChunk.Content(evt.Text);
                 }
                 else if (evt.Kind == CliOutputEventKind.Result)
                 {
@@ -262,7 +262,7 @@ public sealed class CliProviderEngine(
                     // delivered (it can't be unsent — and per design §6 the router won't fall back after the
                     // first token anyway), but the stream must END as an Error so the consumer isn't handed a
                     // truncated answer labelled complete.
-                    yield return LlmChunk.Error(ProviderVerdictClassifier.FromErrorText(evt.Text), evt.Text);
+                    yield return TextChunk.Error(ProviderVerdictClassifier.FromErrorText(evt.Text), evt.Text);
                     yield break;
                 }
             }
@@ -270,22 +270,22 @@ public sealed class CliProviderEngine(
 
         if (!sawContent && resultText.Length > 0)
         {
-            yield return LlmChunk.Content(resultText); // result-only stream still delivers the text
+            yield return TextChunk.Content(resultText); // result-only stream still delivers the text
             sawContent = true;
         }
 
         // content that arrived without a terminal result event is still a successful stream — a trailing
         // Error here would mark a fully-delivered answer as a failed run
         if (sawContent)
-            yield return LlmChunk.Final(usage);
+            yield return TextChunk.Final(usage);
         else
-            yield return LlmChunk.Error(ProviderVerdict.Failed, "no output produced");
+            yield return TextChunk.Error(ProviderVerdict.Failed, "no output produced");
     }
 
     /// <summary>Assemble argv + stdin for one call: prefix args, the dialect's completion args, any tool-host
     /// args, and the prompt — which goes LAST when this CLI takes it positionally.</summary>
     private (List<string> Argv, string? Stdin) BuildInvocation(
-        LlmRequest req, IReadOnlyList<string> prefixArgs, IReadOnlyList<string>? extraArgs)
+        TextRequest req, IReadOnlyList<string> prefixArgs, IReadOnlyList<string>? extraArgs)
     {
         var prompt = dialect.BuildPrompt(req);
         // the tool-host args go THROUGH the dialect, never around it: only the dialect knows whether its
@@ -461,11 +461,11 @@ public sealed class CliProviderEngine(
 
     /// <summary>A CLI that doesn't take request-level tool declarations must not drop them SILENTLY — a
     /// caller that put tools on the request and routed here gets a diagnostic instead of a mystery.</summary>
-    private void WarnIfRequestToolsIgnored(LlmRequest req)
+    private void WarnIfRequestToolsIgnored(TextRequest req)
     {
         if (!dialect.SupportsToolCalls && req.Tools is { Count: > 0 })
             _logger.LogWarning(
-                "{Provider} ignores LlmRequest.Tools ({Count} declaration(s) dropped) — this CLI provider " +
+                "{Provider} ignores TextRequest.Tools ({Count} declaration(s) dropped) — this CLI provider " +
                 "doesn't take request-level tool declarations; expose tools via AddMcpToolHost(<its dialect>) instead.",
                 dialect.Id, req.Tools.Count);
     }

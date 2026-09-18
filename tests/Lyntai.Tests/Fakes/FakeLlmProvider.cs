@@ -29,9 +29,9 @@ public sealed class FakeLlmProvider(string id) : IModelProvider
         set => Capabilities = Capabilities with { SupportsToolCalls = value };
     }
 
-    public Queue<LlmReply> Replies { get; } = new();
+    public Queue<TextResponse> Replies { get; } = new();
 
-    public Func<LlmRequest, IReadOnlyList<LlmChunk>>? StreamScript { get; set; }
+    public Func<TextRequest, IReadOnlyList<TextChunk>>? StreamScript { get; set; }
 
     /// <summary>When set, StreamAsync throws this BEFORE yielding (a provider-side stream failure).</summary>
     public Exception? StreamThrow { get; set; }
@@ -39,25 +39,25 @@ public sealed class FakeLlmProvider(string id) : IModelProvider
     /// <summary>When set, CompleteAsync throws this (a provider that throws instead of returning a verdict reply).</summary>
     public Exception? CompleteThrow { get; set; }
 
-    public List<LlmRequest> Calls { get; } = [];
+    public List<TextRequest> Calls { get; } = [];
 
     public int StreamCalls { get; private set; }
 
-    public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         Calls.Add(req);
         if (CompleteThrow is not null) throw CompleteThrow;
         return Task.FromResult(Replies.Count > 0
             ? Replies.Dequeue()
-            : new LlmReply($"{Id} default reply", ProviderVerdict.Ok));
+            : new TextResponse($"{Id} default reply", ProviderVerdict.Ok));
     }
 
-    public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         StreamCalls++;
         Calls.Add(req);
         if (StreamThrow is not null) throw StreamThrow; // provider-side failure before any content
-        var chunks = StreamScript?.Invoke(req) ?? [LlmChunk.Content($"{Id} stream"), LlmChunk.Final()];
+        var chunks = StreamScript?.Invoke(req) ?? [TextChunk.Content($"{Id} stream"), TextChunk.Final()];
         foreach (var chunk in chunks)
         {
             await Task.Yield();

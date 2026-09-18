@@ -14,7 +14,7 @@ namespace Lyntai.Agents;
 /// <summary>
 /// Default <see cref="IToolLoop"/>. Uses <b>native</b> tool-calling when the routing supports it
 /// (<see cref="ILlmClient.SupportsToolCalls"/>): tool declarations go to the model and its structured
-/// <see cref="LlmReply.ToolCalls"/> drive execution, with results fed back as tool-role messages.
+/// <see cref="TextResponse.ToolCalls"/> drive execution, with results fed back as tool-role messages.
 /// Otherwise it falls back to a provider-agnostic <b>prompt protocol</b> over the text contract (the
 /// model replies with one JSON object, <c>{"tool":…}</c> or <c>{"final":…}</c>, via
 /// <see cref="LlmStructuredExtensions.CompleteJsonAsync"/>). Both paths execute the same registered
@@ -34,7 +34,7 @@ public sealed class ToolLoop(
     /// <summary>Result door: drives the shared core to completion and folds its event stream into a
     /// <see cref="ToolLoopResult"/> (steps + usage are populated as the core runs; the terminal
     /// <see cref="SessionEnded"/> carries the answer/verdict/detail).</summary>
-    public async Task<ToolLoopResult> RunAsync(LlmRequest req, int? maxIterations = null, CancellationToken ct = default)
+    public async Task<ToolLoopResult> RunAsync(TextRequest req, int? maxIterations = null, CancellationToken ct = default)
     {
         var steps = new List<ToolStep>();
         var usage = new UsageSum();
@@ -52,7 +52,7 @@ public sealed class ToolLoop(
     }
 
     /// <summary>Live door (TL2): the shared core's events, streamed as they happen.</summary>
-    public IAsyncEnumerable<AgentStreamEvent> StreamAsync(LlmRequest req, int? maxIterations = null, CancellationToken ct = default)
+    public IAsyncEnumerable<AgentStreamEvent> StreamAsync(TextRequest req, int? maxIterations = null, CancellationToken ct = default)
         => RunCoreAsync(req, maxIterations, [], new UsageSum(), new TransportChoice(), ct);
 
     /// <summary>The transport the core chose, carried out as a side output the way <c>steps</c> and
@@ -74,7 +74,7 @@ public sealed class ToolLoop(
     /// yield the full list. Only the caller's own cancellation propagates — a selector's own deadline is a
     /// fault, and a fault here must cost tokens rather than the answer.</para></summary>
     private async Task<IReadOnlyList<ITool>> NarrowAsync(
-        LlmRequest req, IReadOnlyList<ITool> tools, CancellationToken ct)
+        TextRequest req, IReadOnlyList<ITool> tools, CancellationToken ct)
     {
         if (selector is null || tools.Count == 0) return tools;
 
@@ -110,7 +110,7 @@ public sealed class ToolLoop(
     /// the same run. Always ends with exactly one terminal <see cref="SessionEnded"/> (preceded by a
     /// <see cref="UsageFinal"/> when any provider reported usage).</summary>
     private async IAsyncEnumerable<AgentStreamEvent> RunCoreAsync(
-        LlmRequest req, int? maxIterations, List<ToolStep> steps, UsageSum usage, TransportChoice transport,
+        TextRequest req, int? maxIterations, List<ToolStep> steps, UsageSum usage, TransportChoice transport,
         [EnumeratorCancellation] CancellationToken ct)
     {
         using var activity = LyntaiDiagnostics.StartToolLoop(req.Consumer);
@@ -176,16 +176,16 @@ public sealed class ToolLoop(
     }
 
     /// <summary>The NATIVE turn loop: tool declarations go to the model, its structured
-    /// <see cref="LlmReply.ToolCalls"/> drive execution, and each observation is fed back as a tool-role
+    /// <see cref="TextResponse.ToolCalls"/> drive execution, and each observation is fed back as a tool-role
     /// message. Ends by re-yielding <paramref name="finish"/>, or simply runs out — which is
     /// <see cref="RunCoreAsync"/>'s signal that the budget was exhausted.</summary>
     private async IAsyncEnumerable<AgentStreamEvent> RunNativeAsync(
-        LlmRequest req, IReadOnlyList<ITool> tools, int budget, List<ToolStep> steps, UsageSum usage,
+        TextRequest req, IReadOnlyList<ITool> tools, int budget, List<ToolStep> steps, UsageSum usage,
         Action enter, Func<ProviderVerdict, string?, string?, IEnumerable<AgentStreamEvent>> finish,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var declarations = tools.Select(t => new LlmTool(t.Name, t.Description, t.ParametersJsonSchema)).ToList();
-        var messages = new List<LlmMessage>(req.Messages); // no protocol prompt — the model calls tools natively
+        var declarations = tools.Select(t => new TextTool(t.Name, t.Description, t.ParametersJsonSchema)).ToList();
+        var messages = new List<TextMessage>(req.Messages); // no protocol prompt — the model calls tools natively
 
         // Can this provider's STREAM carry tool calls? Until 3.0 nothing could, so this path always
         // buffered the whole turn through CompleteAsync — and an agentic answer therefore had no
@@ -222,7 +222,7 @@ public sealed class ToolLoop(
             // any prose the model emitted alongside the calls is surfaced (and preserved in the transcript);
             // then one tool-result per call (a missing tool_call_id makes providers reject the next request)
             if (!streaming && !string.IsNullOrEmpty(turn.Text)) yield return new TextDelta(turn.Text);
-            messages.Add(LlmMessage.AssistantToolCalls(turn.Calls, turn.Text));
+            messages.Add(TextMessage.AssistantToolCalls(turn.Calls, turn.Text));
             foreach (var call in turn.Calls)
             {
                 yield return new ToolCall(call.Name, call.ArgumentsJson, call.Id);
@@ -236,7 +236,7 @@ public sealed class ToolLoop(
                 }
                 steps.Add(new ToolStep(call.Name, gated.Args, gated.Observation));
                 yield return new ToolResult(call.Id, gated.Observation, IsErrorObservation(gated.Observation));
-                messages.Add(LlmMessage.ToolResult(call.Id, gated.Observation));
+                messages.Add(TextMessage.ToolResult(call.Id, gated.Observation));
             }
         }
     }
@@ -246,7 +246,7 @@ public sealed class ToolLoop(
     /// <paramref name="result"/> and its tokens in <paramref name="usage"/>, an async iterator having no
     /// return value to put either in.</summary>
     private async IAsyncEnumerable<AgentStreamEvent> ReadNativeTurnAsync(
-        LlmRequest turn, bool streaming, UsageSum usage, NativeTurnResult result,
+        TextRequest turn, bool streaming, UsageSum usage, NativeTurnResult result,
         [EnumeratorCancellation] CancellationToken ct)
     {
         if (!streaming)
@@ -263,26 +263,26 @@ public sealed class ToolLoop(
         }
 
         var prose = new StringBuilder();
-        var streamed = new List<LlmToolCall>();
-        LlmUsage? turnUsage = null;
+        var streamed = new List<TextToolCall>();
+        TextUsage? turnUsage = null;
 
         await foreach (var chunk in client.StreamAsync(turn, ct).ConfigureAwait(false))
         {
             switch (chunk.Kind)
             {
-                case LlmChunkKind.Content:
+                case TextChunkKind.Content:
                     // THE POINT of this path: prose reaches the caller as the model writes it,
                     // rather than after the turn's last tool call has been decided.
                     prose.Append(chunk.Text);
                     yield return new TextDelta(chunk.Text);
                     break;
-                case LlmChunkKind.ToolCall:
+                case TextChunkKind.ToolCall:
                     if (chunk.ToolCall is { } streamedCall) streamed.Add(streamedCall);
                     break;
-                case LlmChunkKind.Final:
+                case TextChunkKind.Final:
                     turnUsage = chunk.Usage;
                     break;
-                case LlmChunkKind.Error:
+                case TextChunkKind.Error:
                     result.Verdict = chunk.Verdict;
                     result.Detail = chunk.Detail;
                     break;
@@ -300,7 +300,7 @@ public sealed class ToolLoop(
     {
         public string Text { get; set; } = "";
 
-        public IReadOnlyList<LlmToolCall> Calls { get; set; } = [];
+        public IReadOnlyList<TextToolCall> Calls { get; set; } = [];
 
         /// <summary>Ok until an Error chunk (or a buffered reply) says otherwise — a stream that carried no
         /// error leaves this as the turn's verdict.</summary>
@@ -314,13 +314,13 @@ public sealed class ToolLoop(
     /// <see cref="LlmStructuredExtensions.CompleteJsonAsync"/>. Terminates through <paramref name="finish"/>
     /// or runs out, exactly as the native loop does.</summary>
     private async IAsyncEnumerable<AgentStreamEvent> RunPromptAsync(
-        LlmRequest req, IReadOnlyList<ITool> tools, int budget, List<ToolStep> steps, UsageSum usage,
+        TextRequest req, IReadOnlyList<ITool> tools, int budget, List<ToolStep> steps, UsageSum usage,
         Action enter, Func<ProviderVerdict, string?, string?, IEnumerable<AgentStreamEvent>> finish,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        var messages = new List<LlmMessage>
+        var messages = new List<TextMessage>
         {
-            LlmMessage.System(BuildSystemPrompt(tools, options.ToolProtocolPreamble)),
+            TextMessage.System(BuildSystemPrompt(tools, options.ToolProtocolPreamble)),
         };
         messages.AddRange(req.Messages);
 
@@ -364,8 +364,8 @@ public sealed class ToolLoop(
             yield return new ToolResult(null, gated.Observation, IsErrorObservation(gated.Observation));
 
             // feed the model its own tool-call turn, then the observation, and continue
-            messages.Add(LlmMessage.Assistant(reply.Text));
-            messages.Add(LlmMessage.User($"Tool \"{call.ToolName}\" returned:\n{gated.Observation}"));
+            messages.Add(TextMessage.Assistant(reply.Text));
+            messages.Add(TextMessage.User($"Tool \"{call.ToolName}\" returned:\n{gated.Observation}"));
         }
     }
 
@@ -411,21 +411,21 @@ public sealed class ToolLoop(
         public static Gated Ok(string observation, string args) => new(false, null, observation, args);
     }
 
-    /// <summary>Folds each front-door reply's <see cref="LlmUsage"/> into a running total (TL1). Stays null
+    /// <summary>Folds each front-door reply's <see cref="TextUsage"/> into a running total (TL1). Stays null
     /// until at least one reply reports usage, so a run over providers that surface no tokens yields a null
     /// <see cref="ToolLoopResult.Usage"/> rather than a misleading all-zero figure.</summary>
     private sealed class UsageSum
     {
-        public LlmUsage? Value { get; private set; }
+        public TextUsage? Value { get; private set; }
 
-        public void Add(LlmUsage? next)
+        public void Add(TextUsage? next)
         {
             if (next is null) return;
             if (Value is null) { Value = next; return; }
             var a = Value;
             // CostUsd sums only when at least one side reported one; both-null stays null (not 0).
             var cost = a.CostUsd is null && next.CostUsd is null ? (double?)null : (a.CostUsd ?? 0) + (next.CostUsd ?? 0);
-            Value = new LlmUsage(
+            Value = new TextUsage(
                 a.InputTokens + next.InputTokens,
                 a.OutputTokens + next.OutputTokens,
                 a.CacheReadTokens + next.CacheReadTokens,

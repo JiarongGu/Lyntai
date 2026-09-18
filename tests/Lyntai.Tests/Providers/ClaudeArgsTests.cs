@@ -1,6 +1,7 @@
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
 using Lyntai.Providers.ClaudeCli;
+using Lyntai.Inference;
 
 namespace Lyntai.Tests.Providers;
 
@@ -30,7 +31,7 @@ public class ClaudeArgsTests
     public void Prompt_never_lands_in_argv()
     {
         const string prompt = "tell me a secret\nwith a newline & | metachars";
-        var req = new LlmRequest { Messages = [LlmMessage.User(prompt)] };
+        var req = new TextRequest { Messages = [TextMessage.User(prompt)] };
 
         var args = ClaudeArgs.Build(req.Model);
 
@@ -41,9 +42,9 @@ public class ClaudeArgsTests
     [Fact]
     public void Multi_message_prompts_are_role_labeled()
     {
-        var req = new LlmRequest
+        var req = new TextRequest
         {
-            Messages = [LlmMessage.System("be brief"), LlmMessage.User("hi")],
+            Messages = [TextMessage.System("be brief"), TextMessage.User("hi")],
         };
 
         var prompt = CliPrompt.Flatten(req);
@@ -55,9 +56,9 @@ public class ClaudeArgsTests
     [Fact]
     public void Json_schema_appends_the_structured_output_instruction()
     {
-        var req = new LlmRequest
+        var req = new TextRequest
         {
-            Messages = [LlmMessage.User("score it")],
+            Messages = [TextMessage.User("score it")],
             JsonSchema = """{"type":"object"}""",
         };
 

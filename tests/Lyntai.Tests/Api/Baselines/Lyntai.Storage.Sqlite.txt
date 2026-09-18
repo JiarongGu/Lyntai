@@ -112,9 +112,9 @@ sealed class Lyntai.Storage.Sqlite.SqlitePromptVersionStore
     SaveAsync(String name, String template, String author = null, CancellationToken ct = default) : Task<PromptVersion>
 sealed class Lyntai.Storage.Sqlite.SqliteResponseCache
     .ctor(IDbConnectionFactory factory, LyntaiOptions options, Func<DateTimeOffset> clock = null)
-    GetAsync(String key, CancellationToken ct = default) : Task<LlmReply>
+    GetAsync(String key, CancellationToken ct = default) : Task<TextResponse>
     RemoveAsync(String key, CancellationToken ct = default) : Task
-    SetAsync(String key, LlmReply reply, Nullable<TimeSpan> ttl = null, CancellationToken ct = default) : Task
+    SetAsync(String key, TextResponse reply, Nullable<TimeSpan> ttl = null, CancellationToken ct = default) : Task
 static class Lyntai.Storage.Sqlite.SqliteRuntime
     static DisableMemoryStatistics() : Boolean
 sealed class Lyntai.Storage.Sqlite.SqliteScoreStore
@@ -129,7 +129,7 @@ sealed class Lyntai.Storage.Sqlite.SqliteTraceStore
     SaveAsync(RunTrace trace, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteUsageTracker
     .ctor(IDbConnectionFactory factory)
-    RecordAsync(String consumer, LlmUsage usage, CancellationToken ct = default) : ValueTask
+    RecordAsync(String consumer, TextUsage usage, CancellationToken ct = default) : ValueTask
     ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
     TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
 sealed class Lyntai.Storage.Sqlite.SqliteVectorStore

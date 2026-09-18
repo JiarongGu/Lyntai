@@ -1,3 +1,4 @@
+using Lyntai.Inference;
 namespace Lyntai.Llm;
 
 /// <summary>
@@ -12,13 +13,13 @@ public abstract class DelegatingLlmClient(ILlmClient inner) : ILlmClient
     /// <summary>The wrapped client the pass-throughs delegate to.</summary>
     protected ILlmClient Inner { get; } = inner;
 
-    public virtual Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+    public virtual Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
         Inner.CompleteAsync(req, ct);
 
-    public virtual IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+    public virtual IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
         Inner.StreamAsync(req, ct);
 
-    public virtual bool SupportsToolCalls(LlmRequest req) => Inner.SupportsToolCalls(req);
+    public virtual bool SupportsToolCalls(TextRequest req) => Inner.SupportsToolCalls(req);
 
-    public virtual bool SupportsStreamingToolCalls(LlmRequest req) => Inner.SupportsStreamingToolCalls(req);
+    public virtual bool SupportsStreamingToolCalls(TextRequest req) => Inner.SupportsStreamingToolCalls(req);
 }

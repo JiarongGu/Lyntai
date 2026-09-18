@@ -8,13 +8,13 @@ namespace Lyntai.Tests.Fakes;
 /// queue replies for CompleteAsync; records every request.</summary>
 public sealed class FakeLlmClient : ILlmClient
 {
-    public Queue<LlmReply> Replies { get; } = new();
-    public List<LlmRequest> Calls { get; } = [];
+    public Queue<TextResponse> Replies { get; } = new();
+    public List<TextRequest> Calls { get; } = [];
 
     /// <summary>Backs the <see cref="ILlmClient.Capabilities.SupportsToolCalls"/> method (a settable flag for tests).</summary>
     public bool SupportsToolCallsResult { get; set; }
 
-    public bool SupportsToolCalls(LlmRequest req) => SupportsToolCallsResult;
+    public bool SupportsToolCalls(TextRequest req) => SupportsToolCallsResult;
 
     /// <summary>Backs <see cref="ILlmClient.Capabilities.SupportsStreamingToolCalls"/>. SEPARATE from
     /// <see cref="SupportsToolCallsResult"/> on purpose — the two are independent in the contract, and a
@@ -22,20 +22,20 @@ public sealed class FakeLlmClient : ILlmClient
     /// tool-calling whose STREAM drops the calls.</summary>
     public bool SupportsStreamingToolCallsResult { get; set; }
 
-    public bool SupportsStreamingToolCalls(LlmRequest req) => SupportsStreamingToolCallsResult;
+    public bool SupportsStreamingToolCalls(TextRequest req) => SupportsStreamingToolCallsResult;
 
-    public Func<LlmRequest, IReadOnlyList<LlmChunk>>? StreamScript { get; set; }
+    public Func<TextRequest, IReadOnlyList<TextChunk>>? StreamScript { get; set; }
 
-    public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         Calls.Add(req);
-        return Task.FromResult(Replies.Count > 0 ? Replies.Dequeue() : new LlmReply("fake", ProviderVerdict.Ok));
+        return Task.FromResult(Replies.Count > 0 ? Replies.Dequeue() : new TextResponse("fake", ProviderVerdict.Ok));
     }
 
-    public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         Calls.Add(req);
-        var chunks = StreamScript?.Invoke(req) ?? [LlmChunk.Content("fake stream"), LlmChunk.Final()];
+        var chunks = StreamScript?.Invoke(req) ?? [TextChunk.Content("fake stream"), TextChunk.Final()];
         foreach (var c in chunks) { await Task.Yield(); yield return c; }
     }
 }

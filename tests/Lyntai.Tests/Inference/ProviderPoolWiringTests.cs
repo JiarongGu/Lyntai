@@ -370,7 +370,7 @@ public class ProviderPoolWiringTests
         var router = sp.GetRequiredService<ILlmRouterFactory>().For([
             new ProviderRegistration<IModelProvider>(key, () => new FakeLlmProvider("openai"))]);
         var reply = await router.CompleteAsync([new ProviderCandidate("openai")],
-            new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal(key, Assert.Single(admission.Entered));
@@ -417,7 +417,7 @@ public class ProviderPoolWiringTests
             new ProviderRegistration<IModelProvider>(
                 ProviderKey.For("openai").With("tenant", "a").Build(), () => provider)]);
         var reply = await router.CompleteAsync([new ProviderCandidate("openai")],
-            new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Single(provider.Calls);

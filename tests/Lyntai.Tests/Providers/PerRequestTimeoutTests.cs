@@ -10,13 +10,13 @@ using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 
-/// <summary>Per-request timeout override (C1): a call can carry its own budget (LlmRequest.TimeoutSeconds)
+/// <summary>Per-request timeout override (C1): a call can carry its own budget (TextRequest.TimeoutSeconds)
 /// or inherit a per-consumer default, resolved over the global ProviderTimeout — so a long CLI-agent run
 /// isn't killed by a short global while short calls don't over-wait.</summary>
 public class PerRequestTimeoutTests
 {
-    private static LlmRequest Req(int? timeoutSeconds = null, string consumer = "default") =>
-        new() { Messages = [LlmMessage.User("hi")], Consumer = consumer, TimeoutSeconds = timeoutSeconds };
+    private static TextRequest Req(int? timeoutSeconds = null, string consumer = "default") =>
+        new() { Messages = [TextMessage.User("hi")], Consumer = consumer, TimeoutSeconds = timeoutSeconds };
 
     // ---- ResolveTimeout precedence + clamp (pure logic) ----
 

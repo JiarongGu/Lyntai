@@ -16,24 +16,24 @@ public class LlmMemoryAnnotationPolicyTests
 {
     private sealed class ScriptedClient(string text, ProviderVerdict verdict = ProviderVerdict.Ok) : ILlmClient
     {
-        public LlmRequest? Last { get; private set; }
+        public TextRequest? Last { get; private set; }
 
-        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
         {
             Last = req;
-            return Task.FromResult(new LlmReply(text, verdict));
+            return Task.FromResult(new TextResponse(text, verdict));
         }
 
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
 
     private sealed class ThrowingClient : ILlmClient
     {
-        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
             throw new HttpRequestException("the backend is unreachable");
 
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
 
@@ -42,13 +42,13 @@ public class LlmMemoryAnnotationPolicyTests
     /// ahead of the fail-open catch), and a client that ignored the token would make it pass vacuously.</summary>
     private sealed class CancellingClient : ILlmClient
     {
-        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
-            return Task.FromResult(new LlmReply("""{"subjects":["spouse"]}""", ProviderVerdict.Ok));
+            return Task.FromResult(new TextResponse("""{"subjects":["spouse"]}""", ProviderVerdict.Ok));
         }
 
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
 
@@ -58,11 +58,11 @@ public class LlmMemoryAnnotationPolicyTests
     /// being "swallow every cancellation".</summary>
     private sealed class TimingOutClient : ILlmClient
     {
-        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
             throw new TaskCanceledException(
                 "The request was canceled due to the configured HttpClient.Timeout of 300 seconds elapsing.");
 
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
 

@@ -24,24 +24,24 @@ public class LlmMemoryVerificationPolicyTests
 {
     private sealed class ScriptedClient(string text, ProviderVerdict verdict = ProviderVerdict.Ok) : ILlmClient
     {
-        public LlmRequest? Last { get; private set; }
+        public TextRequest? Last { get; private set; }
 
-        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
         {
             Last = req;
-            return Task.FromResult(new LlmReply(text, verdict));
+            return Task.FromResult(new TextResponse(text, verdict));
         }
 
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
 
     private sealed class ThrowingClient : ILlmClient
     {
-        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
             throw new HttpRequestException("the backend is unreachable");
 
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
 
@@ -50,13 +50,13 @@ public class LlmMemoryVerificationPolicyTests
     /// it pass vacuously.</summary>
     private sealed class CancellingClient : ILlmClient
     {
-        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
-            return Task.FromResult(new LlmReply("""{"relevant":[1]}""", ProviderVerdict.Ok));
+            return Task.FromResult(new TextResponse("""{"relevant":[1]}""", ProviderVerdict.Ok));
         }
 
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
 
@@ -66,11 +66,11 @@ public class LlmMemoryVerificationPolicyTests
     /// being "swallow every cancellation".</summary>
     private sealed class TimingOutClient : ILlmClient
     {
-        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
             throw new TaskCanceledException(
                 "The request was canceled due to the configured HttpClient.Timeout of 300 seconds elapsing.");
 
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
 
@@ -266,7 +266,7 @@ public class LlmMemoryVerificationPolicyTests
 
         await VerifyAsync(client);
 
-        Assert.Equal(LlmConsumers.Memory, client.Last!.Consumer);
-        Assert.Equal(LlmReasoning.Suppress, client.Last.Reasoning);
+        Assert.Equal(ProviderConsumers.Memory, client.Last!.Consumer);
+        Assert.Equal(TextReasoning.Suppress, client.Last.Reasoning);
     }
 }

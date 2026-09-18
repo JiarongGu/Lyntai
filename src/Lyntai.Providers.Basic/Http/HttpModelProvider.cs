@@ -79,7 +79,7 @@ public sealed class HttpModelProvider(
 
     /// <inheritdoc/>
     /// <remarks>True since 3.0: the stream assembles a vendor's tool-call fragments and yields complete
-    /// calls as <see cref="LlmChunkKind.ToolCall"/> chunks. Both dialects — OpenAI SSE, which fragments
+    /// calls as <see cref="TextChunkKind.ToolCall"/> chunks. Both dialects — OpenAI SSE, which fragments
     /// arguments across lines, and Ollama NDJSON, which sends them complete — go through the same
     /// accumulator.</remarks>
 
@@ -111,7 +111,7 @@ public sealed class HttpModelProvider(
             + "registered with Produces = ProviderKinds.Score."))
         .CallAsync(request, ct);
 
-    public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         var model = req.Model ?? config.Model ?? "";
         var timeout = options.ResolveTimeout(req);
@@ -139,11 +139,11 @@ public sealed class HttpModelProvider(
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (OperationCanceledException)
             {
-                return new LlmReply("", ProviderVerdict.Timeout, Detail: $"{id}: no response within {timeout}");
+                return new TextResponse("", ProviderVerdict.Timeout, Detail: $"{id}: no response within {timeout}");
             }
             catch (HttpRequestException ex)
             {
-                return new LlmReply("", ProviderVerdict.Failed, Detail: $"{id}: {ex.Message}");
+                return new TextResponse("", ProviderVerdict.Failed, Detail: $"{id}: {ex.Message}");
             }
 
             if (TryExtract(body, out var text, out var usage, out var finishReason, out var toolCalls))
@@ -151,13 +151,13 @@ public sealed class HttpModelProvider(
                 // a content filter often arrives as HTTP 200 + finish_reason with EMPTY content —
                 // it must classify as Refused (no fallback) before any empty-text handling
                 if (finishReason == "content_filter")
-                    return new LlmReply(text, ProviderVerdict.Refused, usage, $"{id}: content filter");
+                    return new TextResponse(text, ProviderVerdict.Refused, usage, $"{id}: content filter");
                 // a tool-call turn is a SUCCESSFUL reply with empty text — surface it before the
                 // empty-text→Failed/retry path (the tool loop drives the next turn)
                 if (toolCalls is { Count: > 0 })
-                    return new LlmReply(text, ProviderVerdict.Ok, usage) { ToolCalls = toolCalls };
+                    return new TextResponse(text, ProviderVerdict.Ok, usage) { ToolCalls = toolCalls };
                 if (text.Length > 0)
-                    return new LlmReply(text, ProviderVerdict.Ok, usage);
+                    return new TextResponse(text, ProviderVerdict.Ok, usage);
                 // well-formed but empty and not filtered — same retry-once as a malformed body
             }
 
@@ -170,11 +170,11 @@ public sealed class HttpModelProvider(
                 _logger.LogWarning("{Id}: malformed or empty response body; retrying once", id);
                 continue; // one retry on a malformed/empty body
             }
-            return new LlmReply("", ProviderVerdict.Failed, Detail: $"{id}: malformed or empty response after retry");
+            return new TextResponse("", ProviderVerdict.Failed, Detail: $"{id}: malformed or empty response after retry");
         }
     }
 
-    public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
+    public async IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var model = req.Model ?? config.Model ?? "";
         var timeout = options.ResolveTimeout(req);
@@ -201,9 +201,9 @@ public sealed class HttpModelProvider(
 
         var progress = new StreamProgress();
         // the guarded loop (arm/read/stop + caller-cancel rethrow + fault→terminal) lives once in Core
-        var guarded = GuardedStream.ReadAll<string, LlmChunk>(
+        var guarded = GuardedStream.ReadAll<string, TextChunk>(
             async () => await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false),
-            ex => LlmChunk.Error(
+            ex => TextChunk.Error(
                 timeoutCts.IsCancellationRequested ? ProviderVerdict.Timeout : ProviderVerdict.Failed,
                 $"{id}: stream broke — {ex.Message}"),
             ct, new InactivityClock(timeoutCts, timeout));
@@ -229,7 +229,7 @@ public sealed class HttpModelProvider(
             if (text is { Length: > 0 })
             {
                 progress.SawContent = true;
-                yield return LlmChunk.Content(text);
+                yield return TextChunk.Content(text);
             }
             // finish_reason terminates an NDJSON (Ollama) stream. An SSE stream instead runs on to its
             // [DONE] sentinel (or EOF) so the trailing stream_options usage chunk — sent AFTER the
@@ -243,12 +243,12 @@ public sealed class HttpModelProvider(
     /// <summary>Open the streaming response: the connect plus the status check, both still under the armed
     /// inactivity clock. Exactly one half of the pair is non-null — a failure disposes the response itself,
     /// so the caller only ever owns one it can read.</summary>
-    private async Task<(HttpResponseMessage? Response, LlmChunk? Error)> OpenStreamAsync(
-        LlmRequest req, string model, TimeSpan timeout, HttpClient http,
+    private async Task<(HttpResponseMessage? Response, TextChunk? Error)> OpenStreamAsync(
+        TextRequest req, string model, TimeSpan timeout, HttpClient http,
         CancellationTokenSource timeoutCts, CancellationToken ct)
     {
         HttpResponseMessage? response = null;
-        LlmChunk? startupError = null;
+        TextChunk? startupError = null;
         try
         {
             response = await http.SendAsync(BuildRequest(req, model, stream: true),
@@ -257,17 +257,17 @@ public sealed class HttpModelProvider(
             {
                 var errorBody = await HttpBody.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
                 var mapped = MapHttpFailure(response.StatusCode, errorBody);
-                startupError = LlmChunk.Error(mapped.Verdict, mapped.Detail);
+                startupError = TextChunk.Error(mapped.Verdict, mapped.Detail);
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
         {
-            startupError = LlmChunk.Error(ProviderVerdict.Timeout, $"{id}: no response within {timeout}");
+            startupError = TextChunk.Error(ProviderVerdict.Timeout, $"{id}: no response within {timeout}");
         }
         catch (HttpRequestException ex)
         {
-            startupError = LlmChunk.Error(ProviderVerdict.Failed, $"{id}: {ex.Message}");
+            startupError = TextChunk.Error(ProviderVerdict.Failed, $"{id}: {ex.Message}");
         }
 
         if (startupError is null) return (response, null);
@@ -285,7 +285,7 @@ public sealed class HttpModelProvider(
 
         /// <summary>The last usage any line carried — on SSE that is the trailing
         /// <c>stream_options</c> chunk, which arrives AFTER the finish reason.</summary>
-        public LlmUsage? Usage { get; set; }
+        public TextUsage? Usage { get; set; }
 
         /// <summary>The backend's own reason for stopping, or null where it gave none (Ollama sends none).</summary>
         public string? FinishReason { get; set; }
@@ -304,32 +304,32 @@ public sealed class HttpModelProvider(
     }
 
     /// <summary>How a stream ENDS: the assembled tool calls, then exactly one terminal chunk — a
-    /// <see cref="LlmChunkKind.Final"/> or an <see cref="LlmChunkKind.Error"/>, never both and never
+    /// <see cref="TextChunkKind.Final"/> or an <see cref="TextChunkKind.Error"/>, never both and never
     /// neither.</summary>
-    private IEnumerable<LlmChunk> TerminalChunks(StreamProgress progress)
+    private IEnumerable<TextChunk> TerminalChunks(StreamProgress progress)
     {
         // a streamed content filter must end as Refused, not a benign Final — same verdict the
         // non-streaming path gives the identical finish_reason
         if (progress.FinishReason == "content_filter")
         {
-            yield return LlmChunk.Error(ProviderVerdict.Refused, $"{id}: content filter");
+            yield return TextChunk.Error(ProviderVerdict.Refused, $"{id}: content filter");
             yield break;
         }
         // TOOL CALLS, assembled from their fragments and delivered before the terminal chunk (3.0). Until
-        // then LlmChunk had no tool-call payload, and the two shapes this replaces were both wrong: a
+        // then TextChunk had no tool-call payload, and the two shapes this replaces were both wrong: a
         // tool-call-only turn reported Unsupported and told the caller to use CompleteAsync, while a turn
         // that streamed prose ALONGSIDE a call fell through to a benign Final and SILENTLY DROPPED the call.
         // The second is why this is a fix and not only a feature.
         //
         // They are yielded here rather than as they arrive because a vendor sends arguments in pieces and
-        // LlmChunk.ToolCall promises a COMPLETE call — the assembly is the provider's job so no consumer has
+        // TextChunk.ToolCall promises a COMPLETE call — the assembly is the provider's job so no consumer has
         // to know a vendor's fragmentation rules. `finish_reason` is not required: Ollama sends none, and a
         // stream that produced complete calls has produced them whatever it says about why it stopped.
         var assembled = progress.ToolCalls.Any ? progress.ToolCalls.Build() : [];
-        foreach (var call in assembled) yield return LlmChunk.Tool(call);
+        foreach (var call in assembled) yield return TextChunk.Tool(call);
         if (assembled.Count > 0)
         {
-            yield return LlmChunk.Final(progress.Usage);
+            yield return TextChunk.Final(progress.Usage);
             yield break;
         }
 
@@ -341,7 +341,7 @@ public sealed class HttpModelProvider(
         // terminal chunk, which the router passes through unchanged post-commit.
         if (progress.FinishReason == "tool_calls")
         {
-            yield return LlmChunk.Error(ProviderVerdict.Failed,
+            yield return TextChunk.Error(ProviderVerdict.Failed,
                 $"{id}: the stream finished for tool calls but none could be assembled from its deltas");
             yield break;
         }
@@ -353,14 +353,14 @@ public sealed class HttpModelProvider(
         {
             var reply = progress.InBandError is not null
                 ? InBandFailure(progress.InBandError)
-                : new LlmReply("", ProviderVerdict.Failed, Detail: $"{id}: no output produced");
-            yield return LlmChunk.Error(reply.Verdict, reply.Detail);
+                : new TextResponse("", ProviderVerdict.Failed, Detail: $"{id}: no output produced");
+            yield return TextChunk.Error(reply.Verdict, reply.Detail);
             yield break;
         }
-        yield return LlmChunk.Final(progress.Usage);
+        yield return TextChunk.Final(progress.Usage);
     }
 
-    private HttpRequestMessage BuildRequest(LlmRequest req, string model, bool stream)
+    private HttpRequestMessage BuildRequest(TextRequest req, string model, bool stream)
     {
         // the logger travels into the Ollama payload so an attachment /api/chat cannot carry is reported
         // rather than dropped in silence (its images array is inline base64 only — no remote URL form)
@@ -393,29 +393,29 @@ public sealed class HttpModelProvider(
     /// applies on the status path, restated here because that overload needs a FAILED status to key on and
     /// this path has none. Keeping the two in step matters: NotConfigured skips a candidate blamelessly and
     /// lets a host offer setup, while AuthFailed benches it for the cooldown window.</para></summary>
-    private LlmReply InBandFailure(string error)
+    private TextResponse InBandFailure(string error)
     {
         var verdict = ProviderVerdictClassifier.FromErrorText(error);
         if (verdict == ProviderVerdict.AuthFailed && !HasCredentials) verdict = ProviderVerdict.NotConfigured;
-        return new LlmReply("", verdict, Detail: $"{id}: {HttpBody.Head(error)}");
+        return new TextResponse("", verdict, Detail: $"{id}: {HttpBody.Head(error)}");
     }
 
-    private LlmReply MapHttpFailure(HttpStatusCode status, string body)
+    private TextResponse MapHttpFailure(HttpStatusCode status, string body)
     {
         var detail = $"{id}: HTTP {(int)status} {HttpBody.Head(body)}";
         // typed status wins; body text goes through the ONE shared classifier (never local heuristics).
         // hasCredentials separates "never set up" (NotConfigured — skipped blamelessly) from "your key was
         // rejected" (AuthFailed — benched for the cooldown window). A local OpenAI-compatible server needs no
         // key, so the missing key only means unconfigured once the server has actually demanded one.
-        return new LlmReply("", ProviderVerdictClassifier.FromHttpFailure(status, body, HasCredentials), Detail: detail);
+        return new TextResponse("", ProviderVerdictClassifier.FromHttpFailure(status, body, HasCredentials), Detail: detail);
     }
 
     /// <summary>Tolerant extraction covering both response shapes:
     /// OpenAI <c>choices[0].message.content</c> and Ollama <c>message.content</c>. Also surfaces native
     /// <c>tool_calls</c> when present (id/function.name/function.arguments — arguments as a string on
     /// OpenAI, an object on Ollama, both normalized to a JSON string).</summary>
-    private static bool TryExtract(string body, out string text, out LlmUsage? usage, out string? finishReason,
-        out IReadOnlyList<LlmToolCall>? toolCalls)
+    private static bool TryExtract(string body, out string text, out TextUsage? usage, out string? finishReason,
+        out IReadOnlyList<TextToolCall>? toolCalls)
     {
         text = "";
         usage = null;
@@ -461,12 +461,12 @@ public sealed class HttpModelProvider(
 
     /// <summary>Parse <c>message.tool_calls</c> (both dialects). OpenAI carries an id and string
     /// arguments; Ollama carries no id (synthesize one) and object arguments (serialize to a string).</summary>
-    private static IReadOnlyList<LlmToolCall>? ExtractToolCalls(JsonElement message)
+    private static IReadOnlyList<TextToolCall>? ExtractToolCalls(JsonElement message)
     {
         if (!message.TryGetProperty("tool_calls", out var calls) || calls.ValueKind != JsonValueKind.Array || calls.GetArrayLength() == 0)
             return null;
 
-        var result = new List<LlmToolCall>();
+        var result = new List<TextToolCall>();
         var index = 0;
         foreach (var call in calls.EnumerateArray())
         {
@@ -487,28 +487,28 @@ public sealed class HttpModelProvider(
                     JsonValueKind.Object => argEl.GetRawText(),                                // Ollama: an object → its JSON text
                     _ => "{}",
                 };
-            result.Add(new LlmToolCall(id, nameEl.GetString()!, args));
+            result.Add(new TextToolCall(id, nameEl.GetString()!, args));
             index++;
         }
         return result.Count > 0 ? result : null;
     }
 
-    private static LlmUsage? ExtractUsage(JsonElement root)
+    private static TextUsage? ExtractUsage(JsonElement root)
     {
         // WireJson.Long (package-wide) rather than a local read: a token count that is not an integral long
         // (a fractional count from a proxy, an exponent form) must not throw out of an otherwise good reply —
         // nothing here catches a FormatException, so it escaped CompleteAsync and the stream enumerator alike
         if (root.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object)
-            return new LlmUsage(WireJson.Long(u, "prompt_tokens"), WireJson.Long(u, "completion_tokens"));
+            return new TextUsage(WireJson.Long(u, "prompt_tokens"), WireJson.Long(u, "completion_tokens"));
         if (root.TryGetProperty("prompt_eval_count", out _) || root.TryGetProperty("eval_count", out _))
-            return new LlmUsage(WireJson.Long(root, "prompt_eval_count"), WireJson.Long(root, "eval_count"));
+            return new TextUsage(WireJson.Long(root, "prompt_eval_count"), WireJson.Long(root, "eval_count"));
         return null;
     }
 
     /// <summary>One streaming line → (delta text, usage if present, is-final, finish reason). The
     /// finish reason travels out so the stream can classify a content_filter as Refused — a string
     /// finish_reason is a stream terminator, never automatically a benign one.</summary>
-    private static (string? Text, LlmUsage? Usage, bool IsFinal, string? FinishReason,
+    private static (string? Text, TextUsage? Usage, bool IsFinal, string? FinishReason,
         IReadOnlyList<ToolCallDelta>? ToolCalls) ParseStreamLine(string payload)
     {
         try

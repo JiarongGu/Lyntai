@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Llm;
 /// and the DI wiring — all deterministic via a scripted inner client + injected clock.</summary>
 public class ResponseCacheTests
 {
-    private static LlmRequest Req(params LlmMessage[] msgs) => new() { Messages = msgs };
+    private static TextRequest Req(params TextMessage[] msgs) => new() { Messages = msgs };
 
     // ---- key -----------------------------------------------------------------------------------------
 
@@ -21,36 +21,36 @@ public class ResponseCacheTests
     public void Key_is_stable_for_identical_requests()
     {
         Assert.Equal(
-            ResponseCacheKey.For(Req(LlmMessage.User("hello"))),
-            ResponseCacheKey.For(Req(LlmMessage.User("hello"))));
+            ResponseCacheKey.For(Req(TextMessage.User("hello"))),
+            ResponseCacheKey.For(Req(TextMessage.User("hello"))));
     }
 
     [Fact]
     public void Key_ignores_the_consumer_tag()
     {
         // consumer is a routing/telemetry tag, not an output determinant → two consumers share a hit
-        var a = ResponseCacheKey.For(new LlmRequest { Messages = [LlmMessage.User("hi")], Consumer = "chat" });
-        var b = ResponseCacheKey.For(new LlmRequest { Messages = [LlmMessage.User("hi")], Consumer = "scoring" });
+        var a = ResponseCacheKey.For(new TextRequest { Messages = [TextMessage.User("hi")], Consumer = "chat" });
+        var b = ResponseCacheKey.For(new TextRequest { Messages = [TextMessage.User("hi")], Consumer = "scoring" });
         Assert.Equal(a, b);
     }
 
     [Fact]
     public void Key_differs_on_every_output_determining_field()
     {
-        var baseReq = Req(LlmMessage.User("hi"));
+        var baseReq = Req(TextMessage.User("hi"));
         var key = ResponseCacheKey.For(baseReq);
-        Assert.NotEqual(key, ResponseCacheKey.For(Req(LlmMessage.User("bye"))));         // content
+        Assert.NotEqual(key, ResponseCacheKey.For(Req(TextMessage.User("bye"))));         // content
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { Model = "gpt-4" }));    // model
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { Temperature = 0.5 }));  // temperature
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { JsonSchema = "{}" }));  // schema
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { MaxTokens = 10 }));     // max tokens
     }
 
-    // R21b — guard against a NEW LlmRequest field being added but not folded into the cache key (a silent
+    // R21b — guard against a NEW TextRequest field being added but not folded into the cache key (a silent
     // collision: two requests differing only in the new field would share a cached hit). Every field must be
     // either hashed by ResponseCacheKey.For or consciously listed here as excluded (with a reason).
     [Fact]
-    public void Every_LlmRequest_field_is_classified_for_the_cache_key()
+    public void Every_TextRequest_field_is_classified_for_the_cache_key()
     {
         var hashed = new HashSet<string>
         {
@@ -71,11 +71,11 @@ public class ResponseCacheTests
         var classified = new HashSet<string>(hashed);
         classified.UnionWith(excluded);
 
-        var actual = typeof(LlmRequest).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        var actual = typeof(TextRequest).GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Select(p => p.Name).ToHashSet();
 
         Assert.True(actual.SetEquals(classified),
-            "LlmRequest fields not classified for ResponseCacheKey — hash them in ResponseCacheKey.For or add " +
+            "TextRequest fields not classified for ResponseCacheKey — hash them in ResponseCacheKey.For or add " +
             $"to the excluded set with a reason. Unclassified: [{string.Join(", ", actual.Except(classified))}]; " +
             $"stale: [{string.Join(", ", classified.Except(actual))}]");
     }
@@ -87,7 +87,7 @@ public class ResponseCacheTests
         options.DefaultModelByConsumer["a"] = "model-a";
         options.DefaultModelByConsumer["b"] = "model-b";
         options.DefaultModelByConsumer["c"] = "model-a"; // resolves to the same model as "a"
-        var msg = new LlmRequest { Messages = [LlmMessage.User("same")] };
+        var msg = new TextRequest { Messages = [TextMessage.User("same")] };
 
         var keyA = ResponseCacheKey.For(msg with { Consumer = "a" }, options.ResolveModel("a", null));
         var keyB = ResponseCacheKey.For(msg with { Consumer = "b" }, options.ResolveModel("b", null));
@@ -101,16 +101,16 @@ public class ResponseCacheTests
     public async Task Cache_does_not_cross_serve_consumers_with_different_default_models()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("answer-for-a", ProviderVerdict.Ok));
-        inner.Replies.Enqueue(new LlmReply("answer-for-b", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("answer-for-a", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("answer-for-b", ProviderVerdict.Ok));
         var options = new LyntaiOptions();
         options.DefaultModelByConsumer["a"] = "model-a";
         options.DefaultModelByConsumer["b"] = "model-b";
         var client = new CachingLlmClient(inner, new InMemoryResponseCache(options), options);
-        LlmMessage[] same = [LlmMessage.User("same question")];
+        TextMessage[] same = [TextMessage.User("same question")];
 
-        var a = await client.CompleteAsync(new LlmRequest { Messages = same, Consumer = "a" }); // model-a
-        var b = await client.CompleteAsync(new LlmRequest { Messages = same, Consumer = "b" }); // model-b
+        var a = await client.CompleteAsync(new TextRequest { Messages = same, Consumer = "a" }); // model-a
+        var b = await client.CompleteAsync(new TextRequest { Messages = same, Consumer = "b" }); // model-b
 
         Assert.Equal("answer-for-a", a.Text);
         Assert.Equal("answer-for-b", b.Text); // NOT served a's cached reply — different resolved model
@@ -121,8 +121,8 @@ public class ResponseCacheTests
     public void Key_is_not_fooled_by_message_boundary_shifts()
     {
         // "ab"+"c" must not collide with "a"+"bc" — length-framing prevents the concatenation collision
-        var a = ResponseCacheKey.For(Req(LlmMessage.User("ab"), LlmMessage.User("c")));
-        var b = ResponseCacheKey.For(Req(LlmMessage.User("a"), LlmMessage.User("bc")));
+        var a = ResponseCacheKey.For(Req(TextMessage.User("ab"), TextMessage.User("c")));
+        var b = ResponseCacheKey.For(Req(TextMessage.User("a"), TextMessage.User("bc")));
         Assert.NotEqual(a, b);
     }
 
@@ -140,7 +140,7 @@ public class ResponseCacheTests
     public async Task Stores_and_returns_a_reply_misses_on_unknown_key()
     {
         var (cache, _) = NewCache();
-        var reply = new LlmReply("cached", ProviderVerdict.Ok);
+        var reply = new TextResponse("cached", ProviderVerdict.Ok);
         await cache.SetAsync("k", reply);
         Assert.Same(reply, await cache.GetAsync("k"));
         Assert.Null(await cache.GetAsync("missing"));
@@ -150,7 +150,7 @@ public class ResponseCacheTests
     public async Task Entry_expires_after_its_ttl()
     {
         var (cache, clock) = NewCache();
-        await cache.SetAsync("k", new LlmReply("x", ProviderVerdict.Ok), TimeSpan.FromMinutes(5));
+        await cache.SetAsync("k", new TextResponse("x", ProviderVerdict.Ok), TimeSpan.FromMinutes(5));
         clock.Advance(TimeSpan.FromMinutes(4));
         Assert.NotNull(await cache.GetAsync("k")); // still fresh
         clock.Advance(TimeSpan.FromMinutes(2));       // now past 5m
@@ -161,7 +161,7 @@ public class ResponseCacheTests
     public async Task Non_positive_ttl_disables_caching()
     {
         var (cache, _) = NewCache(c => c.Ttl = TimeSpan.Zero);
-        await cache.SetAsync("k", new LlmReply("x", ProviderVerdict.Ok)); // uses default ttl = Zero
+        await cache.SetAsync("k", new TextResponse("x", ProviderVerdict.Ok)); // uses default ttl = Zero
         Assert.Null(await cache.GetAsync("k"));
     }
 
@@ -169,8 +169,8 @@ public class ResponseCacheTests
     public async Task Remove_evicts_one_entry_and_a_missing_key_is_a_no_op()
     {
         var (cache, _) = NewCache();
-        await cache.SetAsync("keep", new LlmReply("keep", ProviderVerdict.Ok));
-        await cache.SetAsync("poisoned", new LlmReply("bad", ProviderVerdict.Ok));
+        await cache.SetAsync("keep", new TextResponse("keep", ProviderVerdict.Ok));
+        await cache.SetAsync("poisoned", new TextResponse("bad", ProviderVerdict.Ok));
 
         await cache.RemoveAsync("poisoned");
         await cache.RemoveAsync("never-set"); // no-op, no throw
@@ -183,9 +183,9 @@ public class ResponseCacheTests
     public async Task Evicts_the_oldest_beyond_the_size_cap()
     {
         var (cache, _) = NewCache(c => c.MaxEntries = 2);
-        await cache.SetAsync("a", new LlmReply("a", ProviderVerdict.Ok));
-        await cache.SetAsync("b", new LlmReply("b", ProviderVerdict.Ok));
-        await cache.SetAsync("c", new LlmReply("c", ProviderVerdict.Ok)); // over cap → shed the oldest ("a")
+        await cache.SetAsync("a", new TextResponse("a", ProviderVerdict.Ok));
+        await cache.SetAsync("b", new TextResponse("b", ProviderVerdict.Ok));
+        await cache.SetAsync("c", new TextResponse("c", ProviderVerdict.Ok)); // over cap → shed the oldest ("a")
         Assert.Null(await cache.GetAsync("a"));
         Assert.NotNull(await cache.GetAsync("b"));
         Assert.NotNull(await cache.GetAsync("c"));
@@ -204,8 +204,8 @@ public class ResponseCacheTests
     public async Task Second_identical_completion_is_served_from_cache()
     {
         var (client, inner) = Decorated();
-        inner.Replies.Enqueue(new LlmReply("answer", ProviderVerdict.Ok));
-        var req = Req(LlmMessage.User("q"));
+        inner.Replies.Enqueue(new TextResponse("answer", ProviderVerdict.Ok));
+        var req = Req(TextMessage.User("q"));
 
         var first = await client.CompleteAsync(req);
         var second = await client.CompleteAsync(req);
@@ -219,9 +219,9 @@ public class ResponseCacheTests
     public async Task A_non_Ok_reply_is_not_cached()
     {
         var (client, inner) = Decorated();
-        inner.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "boom"));
-        inner.Replies.Enqueue(new LlmReply("recovered", ProviderVerdict.Ok));
-        var req = Req(LlmMessage.User("q"));
+        inner.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "boom"));
+        inner.Replies.Enqueue(new TextResponse("recovered", ProviderVerdict.Ok));
+        var req = Req(TextMessage.User("q"));
 
         var first = await client.CompleteAsync(req);
         var second = await client.CompleteAsync(req);
@@ -235,9 +235,9 @@ public class ResponseCacheTests
     public async Task Native_tool_requests_bypass_the_cache()
     {
         var (client, inner) = Decorated();
-        inner.Replies.Enqueue(new LlmReply("a", ProviderVerdict.Ok));
-        inner.Replies.Enqueue(new LlmReply("b", ProviderVerdict.Ok));
-        var req = new LlmRequest { Messages = [LlmMessage.User("q")], Tools = [new LlmTool("echo")] };
+        inner.Replies.Enqueue(new TextResponse("a", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("b", ProviderVerdict.Ok));
+        var req = new TextRequest { Messages = [TextMessage.User("q")], Tools = [new TextTool("echo")] };
 
         var first = await client.CompleteAsync(req);
         var second = await client.CompleteAsync(req);
@@ -251,7 +251,7 @@ public class ResponseCacheTests
     public async Task Streaming_is_not_cached_and_passes_through()
     {
         var (client, inner) = Decorated();
-        var req = Req(LlmMessage.User("q"));
+        var req = Req(TextMessage.User("q"));
         await foreach (var _ in client.StreamAsync(req)) { }
         await foreach (var _ in client.StreamAsync(req)) { }
         Assert.Equal(2, inner.Calls.Count); // both streamed straight through the inner client
@@ -262,7 +262,7 @@ public class ResponseCacheTests
     {
         var (client, inner) = Decorated();
         inner.SupportsToolCallsResult = true;
-        Assert.True(client.SupportsToolCalls(Req(LlmMessage.User("q"))));
+        Assert.True(client.SupportsToolCalls(Req(TextMessage.User("q"))));
     }
 
     // ---- DI wiring -----------------------------------------------------------------------------------
@@ -271,7 +271,7 @@ public class ResponseCacheTests
     public async Task AddResponseCache_wires_a_caching_front_door()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("once", ProviderVerdict.Ok)); // exactly one scripted reply
+        provider.Replies.Enqueue(new TextResponse("once", ProviderVerdict.Ok)); // exactly one scripted reply
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => provider)
@@ -283,7 +283,7 @@ public class ResponseCacheTests
         // the always-on refusal screen wraps the front door; the caching behavior is proven below
         Assert.IsType<RefusalScreeningLlmClient>(client);
 
-        var req = new LlmRequest { Messages = [LlmMessage.User("hi")] };
+        var req = new TextRequest { Messages = [TextMessage.User("hi")] };
         var first = await client.CompleteAsync(req);
         var second = await client.CompleteAsync(req);
 

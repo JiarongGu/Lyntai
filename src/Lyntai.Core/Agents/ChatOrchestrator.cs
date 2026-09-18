@@ -27,12 +27,12 @@ public sealed class ChatOrchestrator(
         // GATE 1a — input, on the RAW user message (BEFORE memory composition): a Replace then maps 1:1 to
         // the text we run AND remember. Gating only the composed prompt used to persist the whole redacted
         // COMPOSED text — re-storing the recalled facts as a new record every Replace turn (compounding growth).
-        var messages = new List<LlmMessage>();
-        if (!string.IsNullOrEmpty(turn.System)) messages.Add(LlmMessage.System(turn.System));
-        messages.Add(LlmMessage.User(turn.Message));
+        var messages = new List<TextMessage>();
+        if (!string.IsNullOrEmpty(turn.System)) messages.Add(TextMessage.System(turn.System));
+        messages.Add(TextMessage.User(turn.Message));
 
         var pre = await guards.InspectRequestAsync(
-            new LlmRequest { Messages = messages, Consumer = turn.Consumer }, ct).ConfigureAwait(false);
+            new TextRequest { Messages = messages, Consumer = turn.Consumer }, ct).ConfigureAwait(false);
         if (pre.Result == GuardOutcome.Kind.Block)
             // no Usage on either gate-1 exit, deliberately: the turn never reached a provider, and an
             // all-zero figure would read as "the model answered for free" (see ChatResult.Usage).
@@ -45,7 +45,7 @@ public sealed class ChatOrchestrator(
         var userText = turn.TaskKey is null
             ? rememberedQuestion
             : await composer.ComposeAsync(rememberedQuestion, turn.TaskKey, turn.MemoryScope, rememberedQuestion, ct: ct).ConfigureAwait(false);
-        var req = new LlmRequest { Messages = [.. messages[..^1], LlmMessage.User(userText)], Consumer = turn.Consumer };
+        var req = new TextRequest { Messages = [.. messages[..^1], TextMessage.User(userText)], Consumer = turn.Consumer };
 
         // GATE 1b — the COMPOSED prompt, when composition actually added recalled memory: facts written
         // through the PUBLIC memory seams (or before a guard existed) were never input-gated, so the full
@@ -57,7 +57,7 @@ public sealed class ChatOrchestrator(
             if (preComposed.Result == GuardOutcome.Kind.Block)
                 return new ChatResult("", ProviderVerdict.Refused, Blocked: true, preComposed.Reason, []);
             if (preComposed.Result == GuardOutcome.Kind.Replace)
-                req = req with { Messages = [.. messages[..^1], LlmMessage.User(preComposed.Replacement!)] };
+                req = req with { Messages = [.. messages[..^1], TextMessage.User(preComposed.Replacement!)] };
         }
 
         // run: the tool loop (model can call tools) or a plain completion. `usage` is carried out of BOTH
@@ -68,7 +68,7 @@ public sealed class ChatOrchestrator(
         ProviderVerdict verdict;
         string? detail;
         IReadOnlyList<ToolStep> steps;
-        LlmUsage? usage;
+        TextUsage? usage;
         if (turn.UseTools && tools.Tools.Count > 0)
         {
             var result = await toolLoop.RunAsync(req, ct: ct).ConfigureAwait(false);
@@ -83,7 +83,7 @@ public sealed class ChatOrchestrator(
             return new ChatResult("", verdict, Blocked: false, detail, steps) { Usage = usage };
 
         // GATE 2 — output
-        var post = await guards.InspectResponseAsync(new LlmReply(answer, ProviderVerdict.Ok), ct).ConfigureAwait(false);
+        var post = await guards.InspectResponseAsync(new TextResponse(answer, ProviderVerdict.Ok), ct).ConfigureAwait(false);
         if (post.Result == GuardOutcome.Kind.Block)
             return new ChatResult("", ProviderVerdict.Refused, Blocked: true, post.Reason, steps) { Usage = usage };
         if (post.Result == GuardOutcome.Kind.Replace)

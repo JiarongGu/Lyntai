@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Lyntai.Inference;
 
 namespace Lyntai.Llm.Caching;
 
@@ -11,25 +12,25 @@ namespace Lyntai.Llm.Caching;
 /// </summary>
 public sealed class InMemoryResponseCache(LyntaiOptions options, Func<DateTimeOffset>? clock = null) : IResponseCache
 {
-    private readonly record struct Entry(LlmReply Reply, DateTimeOffset ExpiresAt, long Seq);
+    private readonly record struct Entry(TextResponse Reply, DateTimeOffset ExpiresAt, long Seq);
 
     private readonly ConcurrentDictionary<string, Entry> _entries = new();
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private long _seq;
 
-    public Task<LlmReply?> GetAsync(string key, CancellationToken ct = default)
+    public Task<TextResponse?> GetAsync(string key, CancellationToken ct = default)
     {
         if (_entries.TryGetValue(key, out var e))
         {
-            if (e.ExpiresAt > _clock()) return Task.FromResult<LlmReply?>(e.Reply);
+            if (e.ExpiresAt > _clock()) return Task.FromResult<TextResponse?>(e.Reply);
             // lazily drop the expired entry on the way past — compare-and-remove (not TryRemove(key)),
             // so a fresh entry a concurrent SetAsync just wrote between our read and this remove survives
             _entries.TryRemove(KeyValuePair.Create(key, e));
         }
-        return Task.FromResult<LlmReply?>(null);
+        return Task.FromResult<TextResponse?>(null);
     }
 
-    public Task SetAsync(string key, LlmReply reply, TimeSpan? ttl = null, CancellationToken ct = default)
+    public Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default)
     {
         var window = ttl ?? options.Cache.Ttl;
         if (window <= TimeSpan.Zero) return Task.CompletedTask; // non-positive TTL disables caching

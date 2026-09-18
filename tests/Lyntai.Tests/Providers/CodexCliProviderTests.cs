@@ -33,7 +33,7 @@ public class CodexCliProviderTests
         var dialect = new CodexCliDialect();
 
         var argv = dialect.BuildCompletionArgs(
-            new LlmRequest { Messages = [LlmMessage.User("hi")] },
+            new TextRequest { Messages = [TextMessage.User("hi")] },
             ["-c", "mcp_servers.lyntai.command=\"node\""]).ToList();
 
         var dash = argv.IndexOf("-");
@@ -49,7 +49,7 @@ public class CodexCliProviderTests
     {
         // The control: the seam change must be free for every caller that hosts no tools, which is most.
         var argv = new CodexCliDialect()
-            .BuildCompletionArgs(new LlmRequest { Messages = [LlmMessage.User("hi")] }, []).ToList();
+            .BuildCompletionArgs(new TextRequest { Messages = [TextMessage.User("hi")] }, []).ToList();
 
         Assert.Equal("-", argv[^1]);
         Assert.DoesNotContain("-c", argv);
@@ -70,8 +70,8 @@ public class CodexCliProviderTests
     private static CodexCliProvider StubProvider() =>
         new(new ProcessRunner(), new LyntaiOptions(), command: StubCommand);
 
-    private static LlmRequest Ask(string prompt = "hello", string? model = null) =>
-        new() { Messages = [LlmMessage.User(prompt)], Model = model };
+    private static TextRequest Ask(string prompt = "hello", string? model = null) =>
+        new() { Messages = [TextMessage.User(prompt)], Model = model };
 
     private static ProcessResult Ok(string stdout) => new(0, stdout, "");
 
@@ -420,12 +420,12 @@ public class CodexCliProviderTests
     [Fact]
     public async Task Streaming_against_the_stub_delivers_content_then_final()
     {
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in StubProvider().StreamAsync(Ask("stream please")))
             chunks.Add(c);
 
-        Assert.Contains(chunks, c => c.Kind == LlmChunkKind.Content);
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+        Assert.Contains(chunks, c => c.Kind == TextChunkKind.Content);
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
     }
 
     [Fact]

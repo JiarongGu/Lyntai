@@ -217,13 +217,13 @@ public class RouterCooldownKeyTests
     {
         var tracker = new DeadHostTracker(threshold: 1);
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("nope", ProviderVerdict.RateLimited));
+        provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var router = new LlmRouter([provider], tracker, new LyntaiOptions(), configuration: _ => cfg);
 
         await router.CompleteAsync([new ProviderCandidate("openai")],
-            new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.True(tracker.IsDead(cfg.ToString()));
         Assert.False(tracker.IsDead("openai"));
@@ -244,12 +244,12 @@ public class RouterCooldownKeyTests
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("nope", ProviderVerdict.RateLimited));
+        provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
 
         var router = new LlmRouter([provider], tracker, options, configuration: _ => cfg);
 
         await router.CompleteAsync([new ProviderCandidate("openai", "gpt-5")],
-            new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.True(tracker.IsDead($"{cfg}::gpt-5"));      // the configuration AND the model
         Assert.False(tracker.IsDead(cfg.ToString()));      // not the configuration alone
@@ -268,13 +268,13 @@ public class RouterCooldownKeyTests
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("nope", ProviderVerdict.RateLimited));
+        provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
 
         var router = new LlmRouter([provider], new DeadHostTracker(), new LyntaiOptions(),
             configuration: _ => cfg, admission: admission);
 
         await router.CompleteAsync([new ProviderCandidate("openai")],
-            new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal(0, admission.GateCount);
     }
@@ -293,9 +293,9 @@ public class RouterCooldownKeyTests
         var router = new LlmRouter([new FakeLlmProvider("openai")], new DeadHostTracker(), new LyntaiOptions(),
             configuration: _ => cfg, admission: admission);
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var chunk in router.StreamAsync([new ProviderCandidate("openai")],
-                           new LlmRequest { Messages = [LlmMessage.User("hi")] }))
+                           new TextRequest { Messages = [TextMessage.User("hi")] }))
         {
             // mid-stream the gate must be untouched — the stream never entered it
             Assert.Equal(0, admission.GateCount);

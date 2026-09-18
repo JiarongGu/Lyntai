@@ -1393,7 +1393,7 @@ blocks a fix, separate what it was written to prove from what it happens to asse
 ## D65 — the DIALECT places tool-host args, because only it knows where they may legally go (2026-08-15)
 
 **`ICliProviderDialect.BuildCompletionArgs` now takes the tool-host args**
-(`BuildCompletionArgs(LlmRequest request, IReadOnlyList<string> toolHostArgs)`), and `CliProviderEngine` no
+(`BuildCompletionArgs(LlmRequest request, IReadOnlyList<string> toolHostArgs)`), and `CliProviderEngine` no <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 longer appends them itself. Breaking for a BYO dialect; the in-tree implementors are two.
 
 **The defect this closes was documented in one file and committed in another.** `CodexExecArgs` takes an
@@ -1448,7 +1448,7 @@ five references are all in the file that declares it) and `BudgetedGenerationRou
 doc said *"public so the durable-render handler can record …"*, and that handler is in the same assembly, so
 the stated reason was satisfied by `internal` all along.
 
-**Deliberately NOT changed, and this half is the decision.** `LlmRequest req` versus `request` splits the
+**Deliberately NOT changed, and this half is the decision.** `LlmRequest req` versus `request` splits the <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 LLM domain against itself across 74 signatures; `httpClient` names a `Func<…,HttpClient>` on ten builder
 extensions whose constructors call it `httpFactory`; `AgentStreamEvent`'s eight subtypes carry no `*Event`
 suffix. Every one is a genuine inconsistency and none of them makes a reader believe a false thing — a
@@ -1673,12 +1673,12 @@ comparing D25's wording against a frozen package should find this paragraph rath
 
 ## D71 — the streaming contract carries tool calls, and a SECOND capability says whether a stream delivers them (2026-08-16)
 
-**The decision.** `LlmChunk` gains a `ToolCall` kind and payload, so a provider's stream can deliver native
+**The decision.** `LlmChunk` gains a `ToolCall` kind and payload, so a provider's stream can deliver native <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 tool calls. `ToolLoop`'s native path runs over `StreamAsync` when — and only when — the provider declares
 `SupportsStreamingToolCalls`, a capability separate from `SupportsToolCalls`.
 
 **It is a fix before it is a feature, and that was not how the backlog described it.** The ROADMAP carried
-this as "streaming tool-calls (the `LlmChunk` contract carries no tool-call payload) — low value, revisit on
+this as "streaming tool-calls (the `LlmChunk` contract carries no tool-call payload) — low value, revisit on <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 demand". The code said something worse, in a comment: *"if content ALSO streamed, don't clobber it — fall
 through to a benign Final (**tool call dropped**)."* A model that streamed prose alongside a tool call had
 the call **silently discarded** — no error, no verdict, no log. The caller asked for an agent and got a
@@ -1698,7 +1698,7 @@ know each vendor's fragmentation rules — the same reasoning that puts the term
 generation router rather than in every backend (**D67**).
 
 **Why a SECOND capability rather than reusing `SupportsToolCalls`.** They are genuinely independent: a
-provider can surface calls on `LlmReply.ToolCalls` while its stream drops them — which is what every provider
+provider can surface calls on `LlmReply.ToolCalls` while its stream drops them — which is what every provider <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 in this library did until now. Answering one for the other would make an agentic turn look like a plain
 answer: no call chunk arrives, the loop sees zero calls, and it reports the turn's prose as the final answer
 while the tool never runs. **That failure is silent, which is why it gets its own question and why the
@@ -1865,7 +1865,7 @@ is installed on this machine (v2.1.220), so unlike the codex item this one was m
 what killed it.
 
 **What the flag actually means, and why turning it on would be a REGRESSION.**
-`IModelProvider.SupportsToolCalls` means *"I return the model's calls on `LlmReply.ToolCalls` for YOUR loop to
+`IModelProvider.SupportsToolCalls` means *"I return the model's calls on `LlmReply.ToolCalls` for YOUR loop to <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 execute"*. `ToolLoop` branches on it. Flipping it true on a backend that cannot do that makes the loop take
 the native path, send tool declarations the backend ignores, and wait for calls that never arrive — so every
 agentic turn silently degrades to "the model answered in prose" and **no tool ever runs**. The item as
@@ -1879,7 +1879,7 @@ run. There is no mode that yields control back.
 **The real need was already met, by a different mechanism, three releases ago.** An application's own
 `ITool`s must be reachable BY the CLI — which is exactly what `ICliToolProvisioner` does (1.1): it stands up
 an in-process MCP server and passes `--mcp-config`. The tools therefore run in this process, with the host's
-guards applied. They are simply not shaped as `LlmReply.ToolCalls`, and the seam's own summary said so all
+guards applied. They are simply not shaped as `LlmReply.ToolCalls`, and the seam's own summary said so all <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 along: *"a CLI-spawning provider whose model runs its OWN agent loop … which can't hand tool calls back to
 the caller and reaches custom tools only over MCP."* The roadmap line and that summary had contradicted each
 other since 1.1; nobody reconciled them because nobody tried to do the work.
@@ -1988,7 +1988,7 @@ read against the same test. **One more failed it: `LocalDiffusionOptions.Flags` 
 the options learns the wrong thing about the type. Registered in `retiredApiNames` like the rest.
 
 **And one was deliberately LEFT, which is the half that shows the rule cuts both ways.**
-`LlmChunk.Tool(call)` breaks the sibling pattern where a factory is named for its kind
+`LlmChunk.Tool(call)` breaks the sibling pattern where a factory is named for its kind <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 (`Content`/`Final`/`Error`), because the kind here is `ToolCall` and a type cannot carry a method and a
 property of that one name — and `ToolCall` is the better name for the PAYLOAD. It differs from the pattern
 without misleading anyone about what it does, which is precisely the case D66 says NOT to spend a rename on.
@@ -3997,7 +3997,7 @@ everywhere would be noise. It earns its place on the image→video edge, where a
 be handed an image.
 
 **What does NOT change is `EmbedAsync` the METHOD**, and the reason is a language constraint rather than a
-modelling one: its return type is `Task<IReadOnlyList<float[]>>` where chat's is `Task<LlmReply>`, so the
+modelling one: its return type is `Task<IReadOnlyList<float[]>>` where chat's is `Task<LlmReply>`, so the <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 two cannot be one member. What changed is that the method is now justified by `Produces: vector` instead of
 by a bespoke enum member that did not fit.
 

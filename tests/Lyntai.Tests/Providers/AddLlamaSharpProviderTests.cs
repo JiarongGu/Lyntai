@@ -15,7 +15,7 @@ namespace Lyntai.Tests.Providers;
 /// </summary>
 public class AddLlamaSharpTests
 {
-    private static LlmRequest Ask(string prompt = "hi") => new() { Messages = [LlmMessage.User(prompt)] };
+    private static TextRequest Ask(string prompt = "hi") => new() { Messages = [TextMessage.User(prompt)] };
 
     // scratch under devtools/_* (family rule: never OS temp), gitignored
     private static string ScratchDir() => TestPaths.DevtoolsDir("_test-models");

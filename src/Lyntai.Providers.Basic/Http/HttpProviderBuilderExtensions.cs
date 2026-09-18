@@ -83,7 +83,7 @@ public static class HttpProviderBuilderExtensions
     /// its <c>/v1</c> OpenAI-compatible surface: the pin is applied over whatever URL you pass, so a
     /// <c>/v1</c> base composes to <c>…/v1/api/chat</c> and 404s on the first call. Send a <c>/v1</c> base
     /// through <see cref="AddHttpProvider"/> instead, whose detection resolves it correctly.</para>
-    /// <para>Attachments are carried: an <see cref="Lyntai.Llm.LlmAttachment"/> with <c>Data</c> travels in
+    /// <para>Attachments are carried: an <see cref="Lyntai.Inference.TextAttachment"/> with <c>Data</c> travels in
     /// Ollama's own <c>images</c> array on a user turn (pair it with a vision model — <c>llava</c> and
     /// friends). An attachment carrying only a remote <c>Uri</c> is the one shape this endpoint cannot take,
     /// since <c>/api/chat</c> has no URL form; it is logged as undeliverable rather than dropped in

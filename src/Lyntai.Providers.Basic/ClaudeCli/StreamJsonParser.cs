@@ -26,7 +26,7 @@ internal enum StreamJsonEventKind
     Other,
 }
 
-internal sealed record StreamJsonEvent(StreamJsonEventKind Kind, string Text = "", LlmUsage? Usage = null);
+internal sealed record StreamJsonEvent(StreamJsonEventKind Kind, string Text = "", TextUsage? Usage = null);
 
 /// <summary>Translates one line of `claude --output-format stream-json` output into a provider event.
 /// Tolerant: unknown/malformed lines become <see cref="StreamJsonEventKind.Other"/>, never a throw.</summary>
@@ -74,9 +74,9 @@ internal static class StreamJsonParser
             ? r.GetString() ?? ""
             : "";
 
-        // shared wire read; LlmUsage projects cost + cache-read (it has no cache-create field)
+        // shared wire read; TextUsage projects cost + cache-read (it has no cache-create field)
         var usage = StreamJsonFields.ReadUsage(root) is { } w
-            ? new LlmUsage(w.Input, w.Output, w.CacheRead, w.CostUsd)
+            ? new TextUsage(w.Input, w.Output, w.CacheRead, w.CostUsd)
             : null;
 
         // The backend's own failure flag OUTRANKS the presence of text: a run that produced partial output

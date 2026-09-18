@@ -1,14 +1,15 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lyntai.Llm;
+using Lyntai.Inference;
 
 namespace Lyntai.Providers.Http.Payloads;
 
-/// <summary>Canonical <see cref="LlmRequest"/> → OpenAI chat-completions schema.
+/// <summary>Canonical <see cref="TextRequest"/> → OpenAI chat-completions schema.
 /// Tool parameter schemas embed as JSON objects; structured output uses response_format.json_schema.</summary>
 internal static class OpenAiPayload
 {
-    public static JsonObject Build(LlmRequest req, string model, bool stream)
+    public static JsonObject Build(TextRequest req, string model, bool stream)
     {
         var payload = new JsonObject
         {
@@ -54,7 +55,7 @@ internal static class OpenAiPayload
     /// <summary>One canonical message → OpenAI schema. A plain turn is {role, content}; an assistant
     /// tool-call turn is {role:"assistant", content:null, tool_calls:[…]} with arguments as a STRING
     /// (OpenAI's shape); a tool-result turn is {role:"tool", tool_call_id, content}.</summary>
-    internal static JsonNode ToMessage(LlmMessage m)
+    internal static JsonNode ToMessage(TextMessage m)
     {
         if (m.ToolCalls is { Count: > 0 })
             return new JsonObject

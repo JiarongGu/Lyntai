@@ -88,12 +88,12 @@ public class WireNumberToleranceTests
             """;
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
 
-        Assert.Equal(["hi"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(["hi"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         var final = chunks[^1];
-        Assert.Equal(LlmChunkKind.Final, final.Kind);   // was: FormatException out of the enumerator
+        Assert.Equal(TextChunkKind.Final, final.Kind);   // was: FormatException out of the enumerator
         Assert.Equal(0, final.Usage!.InputTokens);
         Assert.Equal(3, final.Usage.OutputTokens);
     }
@@ -174,5 +174,5 @@ public class WireNumberToleranceTests
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
 
-    private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")], Model = "gpt-x" };
+    private static TextRequest Req => new() { Messages = [TextMessage.User("hi")], Model = "gpt-x" };
 }

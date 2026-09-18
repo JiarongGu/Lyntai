@@ -18,7 +18,7 @@ namespace Lyntai.Inference;
 ///
 /// <para><b>Every operation here is DEFAULTED to <c>Unsupported</c></b>, so a backend implements only what
 /// it does — a CLI chat backend overrides <see cref="CompleteAsync"/> and
-/// <see cref="StreamAsync(LlmRequest,CancellationToken)"/> and nothing else. A backend whose SIGNATURE
+/// <see cref="StreamAsync(TextRequest,CancellationToken)"/> and nothing else. A backend whose SIGNATURE
 /// differs implements its own seam instead: <see cref="IVectorProvider"/> is the worked example
 /// (<c>docs/DECISIONS.md</c> D153).</para>
 ///
@@ -50,12 +50,12 @@ public interface IModelProvider : IProviderIdentity
         Task.FromResult(new ProviderProbeResult(IsAvailable));
 
     /// <summary>Text in, text out — one request, one reply.</summary>
-    Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
-        Task.FromResult(new LlmReply("", ProviderVerdict.Unsupported, Detail: ProviderDefaults.NotServed(Id, nameof(CompleteAsync))));
+    Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
+        Task.FromResult(new TextResponse("", ProviderVerdict.Unsupported, Detail: ProviderDefaults.NotServed(Id, nameof(CompleteAsync))));
 
     /// <summary>Text in, text out incrementally. Ends with exactly one terminal chunk either way.</summary>
-    IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
-        ProviderDefaults.One(LlmChunk.Error(ProviderVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
+    IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
+        ProviderDefaults.One(TextChunk.Error(ProviderVerdict.Unsupported, ProviderDefaults.NotServed(Id, nameof(StreamAsync))));
 
     /// <summary>Media in, media out — one request, artifacts back.</summary>
     Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>

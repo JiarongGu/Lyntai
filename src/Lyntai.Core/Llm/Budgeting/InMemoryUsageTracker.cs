@@ -1,3 +1,4 @@
+using Lyntai.Inference;
 namespace Lyntai.Llm.Budgeting;
 
 /// <summary>A process-local <see cref="IUsageTracker"/>: per-consumer running totals plus a global sum,
@@ -16,7 +17,7 @@ public sealed class InMemoryUsageTracker : IUsageTracker
     private readonly Dictionary<string, Totals> _byConsumer = new(StringComparer.OrdinalIgnoreCase);
     private readonly Totals _global = new();
 
-    public ValueTask RecordAsync(string consumer, LlmUsage usage, CancellationToken ct = default)
+    public ValueTask RecordAsync(string consumer, TextUsage usage, CancellationToken ct = default)
     {
         lock (_gate)
         {

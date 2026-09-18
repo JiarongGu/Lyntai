@@ -318,7 +318,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   selection, dead-host cooldown, admission and fallback from the shared router **without this library
   knowing its kind exists** — today it gets none of that, because both routers are typed to Core's own
   request and reply types.
-  <br>`LlmReply` and `GenerationResult` now declare `IProviderOutcome`. Both already had `Verdict` and
+  <br>`TextResponse` and `GenerationResult` now declare `IProviderOutcome`. Both already had `Verdict` and
   `Detail`, so nothing about either type changes — that they satisfied it unmodified is the evidence the
   contract is the right one.
   <br>**Moved:** `QueuedOperation` and `QueuedOperationStatus` `Lyntai.Generation` → `Lyntai.Inference`. A <!-- drift-ok: the entry ANNOUNCING the move has to name both sides -->
@@ -471,7 +471,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   A `Limit` of zero or less narrows nothing. Unregistered by default; the loop is unchanged without it.
 
 - **A memory seam's `Model` that its client can never honour now FAILS at composition** (**D119**).
-  `AddMemoryVerification`/`AddMemoryAnnotation` set `LlmRequest.Model`, but the router resolves
+  `AddMemoryVerification`/`AddMemoryAnnotation` set `TextRequest.Model`, but the router resolves
   `candidate.Model ?? request.Model` — so on any deployment whose candidates pin models globally the setting
   did nothing, and both seams are fail-open, so the judge ran on another model and nothing reported it.
   Composition now throws when EVERY candidate the seam's client routes over pins a model and none is the one
@@ -514,15 +514,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   100%, the other was significant in 0 of 10 paired cells. **Prompt wording is not the lever**, so no wording
   earned the default; the option exists so a deployment can try its own and measure it.
 
-- **`LlmConsumers.Chat` — the tag the library was already emitting now has a constant to cap it with.**
+- **`ProviderConsumers.Chat` — the tag the library was already emitting now has a constant to cap it with.**
   `ChatTurn.Consumer` defaulted to a bare `"chat"` literal and `IChatOrchestrator` puts it straight onto the
   request, so it reached the usage tracker and the budget layer as a fifth library-emitted tag with nothing
-  to key on — the exact hazard `LlmConsumers`' own remarks describe, *"a bucket no cap covers and no report
+  to key on — the exact hazard `ProviderConsumers`' own remarks describe, *"a bucket no cap covers and no report
   names"*. The value is unchanged, so nothing moves for an existing deployment; what changes is that
-  `Budget.PerConsumer[LlmConsumers.Chat]` and its three siblings now bind something nameable.
+  `Budget.PerConsumer[ProviderConsumers.Chat]` and its three siblings now bind something nameable.
   <br>**The four per-consumer maps are how a deployment DECLARES that one workload is latency-critical and
   another is background** — per-workload, which is finer than a per-process profile. `GenerationTools` now
-  references `LlmConsumers.Agent` rather than repeating the literal, and `Agent`'s own docs record what it
+  references `ProviderConsumers.Agent` rather than repeating the literal, and `Agent`'s own docs record what it
   does NOT cover: the tool loop forwards the CALLER's tag, so its iterations bill to whatever the caller
   set. That is deliberate — re-tagging would silently move spend out of a cap someone already configured.
 

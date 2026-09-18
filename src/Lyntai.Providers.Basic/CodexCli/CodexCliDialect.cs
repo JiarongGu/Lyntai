@@ -1,5 +1,6 @@
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
+using Lyntai.Inference;
 
 namespace Lyntai.Providers.CodexCli;
 
@@ -44,7 +45,7 @@ public sealed class CodexCliDialect : CliProviderDialectBase
     /// has always placed its MCP args this way; the completion path could not until the dialect seam
     /// carried them.</remarks>
     public override IReadOnlyList<string> BuildCompletionArgs(
-        LlmRequest request, IReadOnlyList<string> toolHostArgs) =>
+        TextRequest request, IReadOnlyList<string> toolHostArgs) =>
         CodexExecArgs.Build(SandboxMode, request.Model, toolHostArgs);
 
     /// <inheritdoc/>

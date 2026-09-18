@@ -113,7 +113,7 @@ public class TwoBackendsOneHostTests
         Assert.Equal(["local-chat", "local-embed"], providers.Select(p => p.Id));
 
         var chat = providers.Single(p => p.Capabilities.Produces.Contains(ProviderKinds.Text));
-        var reply = await chat.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+        var reply = await chat.CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
         var vectors = await EmbeddingRouting.EmbedAsync(sp.GetServices<IModelProvider>(), ["a"]);
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);

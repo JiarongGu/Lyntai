@@ -113,7 +113,7 @@ public class LlmClientFactoryTests
             .AddLlmClient("memory", c => c.UseProviders("cheap")));
 
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("memory")
-            .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
+            .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
@@ -135,7 +135,7 @@ public class LlmClientFactoryTests
             .AddLlmClient("memory", c => c.UseProviders("cheap")));
 
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("memory")
-            .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
+            .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
@@ -156,7 +156,7 @@ public class LlmClientFactoryTests
             .Services.AddSingleton<IModelProvider>(cli).AddSingleton<IModelProvider>(ollama));
 
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
-            .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
+            .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Single(ollama.Calls);
@@ -177,7 +177,7 @@ public class LlmClientFactoryTests
             .Services.AddSingleton<IModelProvider>(cli).AddSingleton<IModelProvider>(ollama));
 
         await sp.GetRequiredService<ILlmClient>()
-            .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
+            .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Single(cli.Calls);
         Assert.Empty(ollama.Calls);
@@ -196,7 +196,7 @@ public class LlmClientFactoryTests
                      .AddSingleton<IModelProvider>(small));
 
         await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
-            .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
+            .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal("qwen3:4b", Assert.Single(small.Calls).Model);
     }
@@ -209,7 +209,7 @@ public class LlmClientFactoryTests
     public async Task A_named_clients_fallback_order_is_the_order_it_declared()
     {
         var first = new FakeLlmProvider("b");
-        first.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down"));
+        first.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down"));
         var second = new FakeLlmProvider("a");
         using var sp = Build(b => b
             .UseDefaultCandidates("a", "b")                    // the GLOBAL order is a, then b
@@ -217,7 +217,7 @@ public class LlmClientFactoryTests
             .Services.AddSingleton<IModelProvider>(second).AddSingleton<IModelProvider>(first));
 
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
-            .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
+            .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Single(first.Calls);       // tried first, failed
@@ -231,7 +231,7 @@ public class LlmClientFactoryTests
     public async Task A_pooled_backend_absent_from_the_default_list_is_still_reachable()
     {
         var known = new FakeLlmProvider("a");
-        known.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down"));
+        known.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down"));
         var unlisted = new FakeLlmProvider("c");
         using var sp = Build(b => b
             .UseDefaultCandidates("a", "b")
@@ -241,7 +241,7 @@ public class LlmClientFactoryTests
                      .AddSingleton<IModelProvider>(unlisted));
 
         var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
-            .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
+            .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Single(unlisted.Calls);
@@ -261,7 +261,7 @@ public class LlmClientFactoryTests
             .Services.AddSingleton<IModelProvider>(primary).AddSingleton<IModelProvider>(other));
 
         await sp.GetRequiredService<ILlmClientFactory>().Get("everything")
-            .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
+            .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Single(primary.Calls);
         Assert.Empty(other.Calls);
@@ -280,7 +280,7 @@ public class LlmClientFactoryTests
             .Services.AddSingleton<IModelProvider>(backend));
 
         await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
-            .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
+            .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal("small", Assert.Single(backend.Calls).Model);
     }
@@ -322,7 +322,7 @@ public class LlmClientFactoryTests
 
     private sealed class AlwaysRefuses : IRefusalMatcher
     {
-        public bool IsRefusal(LlmRequest request, string replyText) => true;
+        public bool IsRefusal(TextRequest request, string replyText) => true;
     }
 
     [Fact]

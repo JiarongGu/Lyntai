@@ -15,7 +15,7 @@ public class AddLyntaiTests
     public async Task Minimal_setup_resolves_router_and_round_trips_a_completion()
     {
         var fake = new FakeLlmProvider("fake");
-        fake.Replies.Enqueue(new LlmReply("routed!", ProviderVerdict.Ok));
+        fake.Replies.Enqueue(new TextResponse("routed!", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
@@ -26,7 +26,7 @@ public class AddLyntaiTests
         var router = sp.GetRequiredService<ILlmRouter>();
         var options = sp.GetRequiredService<LyntaiOptions>();
         var reply = await router.CompleteAsync(options.DefaultCandidates,
-            new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal("routed!", reply.Text);
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
@@ -131,19 +131,19 @@ public class AddLyntaiTests
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>()
-            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.StartsWith("[tagged]", reply.Text); // the custom decorator ran
     }
 
     private sealed class TagDecorator(ILlmClient inner) : ILlmClient
     {
-        public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+        public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
         {
             var r = await inner.CompleteAsync(req, ct);
             return r with { Text = "[tagged] " + r.Text };
         }
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) => inner.StreamAsync(req, ct);
-        public bool SupportsToolCalls(LlmRequest req) => inner.SupportsToolCalls(req);
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) => inner.StreamAsync(req, ct);
+        public bool SupportsToolCalls(TextRequest req) => inner.SupportsToolCalls(req);
     }
 }

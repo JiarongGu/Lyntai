@@ -618,7 +618,7 @@ internal static class ToolAffordanceSweep
                             var loop = new ToolLoop(client, registry,
                                 new LyntaiOptions { ToolProtocolPreamble = preamble });
                             run = await loop.RunAsync(
-                                new LlmRequest { Messages = [LlmMessage.User(item.Request)] },
+                                new TextRequest { Messages = [TextMessage.User(item.Request)] },
                                 LoopIterations, ct);
                         }
                         finally { gate.Release(); }
@@ -701,7 +701,7 @@ internal static class ToolAffordanceSweep
     {
         var registry = new ToolRegistry(roster.Select(t => new ToolAffordanceCorpus.SyntheticTool(t)));
         var loop = new ToolLoop(client, registry, new LyntaiOptions { ToolProtocolPreamble = preamble });
-        var request = new LlmRequest { Messages = [LlmMessage.User(trial.Request)] };
+        var request = new TextRequest { Messages = [TextMessage.User(trial.Request)] };
 
         var result = await loop.RunAsync(request, LoopIterations, ct);
         var first = result.Steps.Count > 0 ? result.Steps[0] : null;
@@ -850,7 +850,7 @@ internal static class ToolAffordanceSweep
         /// is reported separately and is never scored as the model declining.</summary>
         public int Errors { get; private set; }
 
-        public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+        public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
         {
             Calls++;
             if (Calls == 1) FirstPromptChars = req.Messages.Sum(m => (long)m.Content.Length);
@@ -871,11 +871,11 @@ internal static class ToolAffordanceSweep
             if (Calls == 1) FirstReply = text ?? "(null)";
 
             return text is null
-                ? new LlmReply("", ProviderVerdict.Failed, Detail: "bench chat returned nothing")
-                : new LlmReply(text, ProviderVerdict.Ok);
+                ? new TextResponse("", ProviderVerdict.Failed, Detail: "bench chat returned nothing")
+                : new TextResponse(text, ProviderVerdict.Ok);
         }
 
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException("the affordance arm drives the loop's completion path");
     }
 
@@ -905,9 +905,9 @@ internal static class ToolAffordanceSweep
         /// <c>tool_calls</c> cannot tell apart, and the difference between a finding and an artifact.</summary>
         internal int Truncated { get; private set; }
 
-        public bool SupportsToolCalls(LlmRequest req) => true;
+        public bool SupportsToolCalls(TextRequest req) => true;
 
-        public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+        public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
         {
             Calls++;
             // The DECLARATIONS are counted here and not just the messages, because on this transport the
@@ -932,13 +932,13 @@ internal static class ToolAffordanceSweep
                 {
                     Errors++;
                     if (Calls == 1) FirstReply = "(no answer)";
-                    return new LlmReply("", ProviderVerdict.Failed, Detail: "bench native chat returned nothing");
+                    return new TextResponse("", ProviderVerdict.Failed, Detail: "bench native chat returned nothing");
                 }
                 if (Calls == 1)
                     FirstReply = calls.Count > 0
                         ? string.Join("; ", calls.Select(c => $"{c.Name} {c.ArgumentsJson}"))
                         : content ?? "";
-                return new LlmReply(content ?? "", ProviderVerdict.Ok) { ToolCalls = calls };
+                return new TextResponse(content ?? "", ProviderVerdict.Ok) { ToolCalls = calls };
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException
                                            && !ct.IsCancellationRequested)
@@ -946,11 +946,11 @@ internal static class ToolAffordanceSweep
                 // Never swallow the CALLER's cancellation — that belongs to whoever asked to stop.
                 Errors++;
                 if (Calls == 1) FirstReply = "(no answer)";
-                return new LlmReply("", ProviderVerdict.Failed, Detail: "bench native chat returned nothing");
+                return new TextResponse("", ProviderVerdict.Failed, Detail: "bench native chat returned nothing");
             }
         }
 
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException("the affordance arm drives the loop's completion path");
     }
 
@@ -965,15 +965,15 @@ internal static class ToolAffordanceSweep
     {
         private int _calls;
 
-        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
         {
             var text = _calls++ == 0
                 ? $"{{\"tool\":\"{choice.Name}\",\"arguments\":{SampleArguments(choice)}}}"
                 : "{\"final\":\"done\"}";
-            return Task.FromResult(new LlmReply(text, ProviderVerdict.Ok));
+            return Task.FromResult(new TextResponse(text, ProviderVerdict.Ok));
         }
 
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new NotSupportedException("the scripted control drives the loop's completion path");
     }
 

@@ -28,20 +28,20 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 224 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
 | 243 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
 | 302 | 103 | NS-2 — the governance sub-namespaces move WITH the front door, not before it | startable |  |
-| 315 | 103 | NS-3 — the call shapes: rename AND move in ONE pass | startable |  |
-| 322 | 103 | NS-4 — the front door: `ILlmClient` → `ITextClient` | startable |  |
-| 326 | 103 | NS-5 — `Lyntai.Providers` stops meaning three things | startable |  |
-| 332 | 103 | ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING | startable |  |
-| 350 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
-| 365 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
-| 374 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
-| 381 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
-| 390 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
-| 419 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 479 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 534 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 557 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 614 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 315 | 103 | NS-3b — the MEDIA call shape: rename AND move in one pass | startable |  |
+| 323 | 103 | NS-4 — the front door: `ILlmClient` → `ITextClient` | startable |  |
+| 327 | 103 | NS-5 — `Lyntai.Providers` stops meaning three things | startable |  |
+| 333 | 103 | ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING | startable |  |
+| 351 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
+| 366 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
+| 375 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
+| 382 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
+| 391 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
+| 420 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 480 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 535 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 558 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 615 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -302,22 +302,23 @@ harder to spot inside a combined rename-and-move pass._
 - [ ] **NS-2 — the governance sub-namespaces move WITH the front door, not before it.** <!-- item: state=startable -->
   **REFUTED as originally scoped, 2026-09-17**, which is why this now reads as a constraint on NS-4 rather
   than as its own move. The claim was that `Lyntai.Llm.{Caching,Budgeting,RateLimiting,Streaming,Cli}` are
-  not text-specific. Four of the five are: `IResponseCache` traffics in `LlmReply`, `IUsageTracker` in
-  `LlmUsage`, `CliProviderEngine` returns `LlmReply`/`LlmChunk`, and each of Caching/Budgeting/RateLimiting
+  not text-specific. Four of the five are: `IResponseCache` traffics in `TextResponse`, `IUsageTracker` in
+  `TextUsage`, `CliProviderEngine` returns `TextResponse`/`TextChunk`, and each of Caching/Budgeting/RateLimiting
   holds an `*LlmClient` DECORATOR that wraps the text front door by definition. Only `Streaming`
   (`GuardedStream.ReadAll<TItem,TTerminal>`) was neutral, and it moved.
   <br>**So they belong wherever the text front door belongs**, and they move in NS-4 with it — their names
   and their payload types change in the same pass. Doing it earlier would put `Lyntai.Inference.Caching`
-  around a seam typed to `LlmReply`, which reads as a layering claim the code does not support.
+  around a seam typed to `TextResponse`, which reads as a layering claim the code does not support.
   <br>_`IRateLimiter` alone is genuinely generic (`AcquireAsync(consumer)`). Splitting it from its decorator
   is defensible later; it is not worth a split namespace for one interface now._
 
-- [ ] **NS-3 — the call shapes: rename AND move in ONE pass.** <!-- item: state=startable -->
-  `Llm{Request,Reply,Chunk,ChunkKind,Usage,Message,ToolCall,Tool,Attachment,Reasoning}` → `Text*`,
-  `Generation{Request,Result,Chunk,Usage,Artifact,Input,InputRoles}` → `Media*`, all landing in
-  `Lyntai.Inference`. **One rewrite per file** — splitting the rename from the move doubles the churn.
-  `LlmReply` → `TextResponse` and `GenerationResult` → `MediaResponse` also fix a violation of
-  `dotnet-package-layout.md` §Naming, which must be amended to `*Request`/`*Response` in the same change.
+- [ ] **NS-3b — the MEDIA call shape: rename AND move in one pass.** <!-- item: state=startable -->
+  `Generation{Request,Result,Chunk,Usage,Artifact,Input,InputRoles}` → `Media*`, landing in
+  `Lyntai.Inference` beside the text and vector shapes. `GenerationResult` → `MediaResponse` is the half of
+  the `*Result` rule violation still outstanding. **One rewrite per file** — splitting the rename from the
+  move doubles the churn.
+  <br>_The TEXT half landed 2026-09-17; `dotnet-package-layout.md` §Naming was amended with it, so the rule
+  already reads `*Request`/`*Response` and `GenerationResult` is now the only name disagreeing with it._
 
 - [ ] **NS-4 — the front door: `ILlmClient` → `ITextClient`.** <!-- item: state=startable -->
   With `LlmClient`, `ILlmRouter`, `LlmRouter` and the factories. **The library's primary consumer type** —

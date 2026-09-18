@@ -1,4 +1,5 @@
 using System.Text;
+using Lyntai.Inference;
 
 namespace Lyntai.Llm.Cli;
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Lyntai.Inference;
 
 namespace Lyntai.Providers.ClaudeCli;
 
@@ -8,7 +9,7 @@ namespace Lyntai.Providers.ClaudeCli;
 internal static class StreamJsonFields
 {
     /// <summary>Every usage field a terminal <c>result</c> line can carry. Each reader PROJECTS what its
-    /// event type holds (the provider's <c>LlmUsage</c> has cost but no cache-create; the agent session's
+    /// event type holds (the provider's <c>TextUsage</c> has cost but no cache-create; the agent session's
     /// <c>UsageFinal</c> has cache-create but deliberately no cost) — the wire-format knowledge lives here
     /// once so the two can't drift on field names.</summary>
     public readonly record struct WireUsage(long Input, long Output, long CacheRead, long CacheCreate, double? CostUsd);

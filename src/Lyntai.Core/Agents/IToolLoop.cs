@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Lyntai.Llm;
+using Lyntai.Inference;
 
 namespace Lyntai.Agents;
 
@@ -14,10 +15,10 @@ namespace Lyntai.Agents;
 public interface IToolLoop
 {
     /// <summary>Run the loop for <paramref name="req"/> (its messages are the task; the tools come from
-    /// the registry, not <see cref="LlmRequest.Tools"/>). <paramref name="maxIterations"/> overrides the
+    /// the registry, not <see cref="TextRequest.Tools"/>). <paramref name="maxIterations"/> overrides the
     /// configured default budget. The whole outcome (answer, verdict, steps, usage) folds into the returned
     /// <see cref="ToolLoopResult"/>; for LIVE progress use <see cref="StreamAsync"/>.</summary>
-    Task<ToolLoopResult> RunAsync(LlmRequest req, int? maxIterations = null, CancellationToken ct = default);
+    Task<ToolLoopResult> RunAsync(TextRequest req, int? maxIterations = null, CancellationToken ct = default);
 
     /// <summary>Live-progress overload: run the loop and yield <see cref="AgentStreamEvent"/>s as they happen —
     /// a <see cref="ToolCall"/> then a <see cref="ToolResult"/> per tool round-trip (so an interactive UI can
@@ -32,7 +33,7 @@ public interface IToolLoop
     /// <see cref="RunAsync"/> still gets a working stream. The built-in <see cref="ToolLoop"/> overrides this
     /// with a genuinely live stream.</para></summary>
     async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
-        LlmRequest req, int? maxIterations = null, [EnumeratorCancellation] CancellationToken ct = default)
+        TextRequest req, int? maxIterations = null, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var result = await RunAsync(req, maxIterations, ct).ConfigureAwait(false);
         foreach (var s in result.Steps)

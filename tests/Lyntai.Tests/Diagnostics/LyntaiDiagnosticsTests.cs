@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Diagnostics;
 /// router tests emit spans/metrics concurrently.</summary>
 public class LyntaiDiagnosticsTests
 {
-    private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")] };
+    private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
     private static LlmRouter Router(params IModelProvider[] providers) =>
         new(providers, new DeadHostTracker(), new LyntaiOptions());
@@ -53,7 +53,7 @@ public class LyntaiDiagnosticsTests
         ActivitySource.AddActivityListener(listener);
 
         var p = new FakeLlmProvider("p1");
-        p.Replies.Enqueue(new LlmReply("hi", ProviderVerdict.Ok, new LlmUsage(100, 20)));
+        p.Replies.Enqueue(new TextResponse("hi", ProviderVerdict.Ok, new TextUsage(100, 20)));
         await Router(p).CompleteAsync([new("p1", "m-span-ok")], Req);
 
         var span = Assert.Single(SpansFor(spans, "m-span-ok"));
@@ -73,7 +73,7 @@ public class LyntaiDiagnosticsTests
         ActivitySource.AddActivityListener(listener);
 
         var p = new FakeLlmProvider("p1");
-        p.Replies.Enqueue(new LlmReply("", ProviderVerdict.Timeout, Detail: "too slow"));
+        p.Replies.Enqueue(new TextResponse("", ProviderVerdict.Timeout, Detail: "too slow"));
         await Router(p).CompleteAsync([new("p1", "m-span-err")], Req);
 
         var span = Assert.Single(SpansFor(spans, "m-span-err"));
@@ -106,7 +106,7 @@ public class LyntaiDiagnosticsTests
         meterListener.Start();
 
         var p = new FakeLlmProvider("p1");
-        p.Replies.Enqueue(new LlmReply("hi", ProviderVerdict.Ok, new LlmUsage(7, 3)));
+        p.Replies.Enqueue(new TextResponse("hi", ProviderVerdict.Ok, new TextUsage(7, 3)));
         await Router(p).CompleteAsync([new("p1", "m-metrics")], Req);
 
         Assert.Equal(1, durations);
@@ -136,7 +136,7 @@ public class LyntaiDiagnosticsTests
 
         var p = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Content("a"), LlmChunk.Content("b"), LlmChunk.Final()],
+            StreamScript = _ => [TextChunk.Content("a"), TextChunk.Content("b"), TextChunk.Final()],
         };
         await foreach (var _ in Router(p).StreamAsync([new("p1", "m-ttfc")], Req)) { }
 

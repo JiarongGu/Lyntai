@@ -29,7 +29,7 @@ public class ToolSelectorTests
     private static readonly FunctionTool Recipes =
         Tool("recipes", "find a cooking recipe ingredients oven bake dinner");
 
-    private static LlmRequest Ask(string prompt) => new() { Messages = [LlmMessage.User(prompt)] };
+    private static TextRequest Ask(string prompt) => new() { Messages = [TextMessage.User(prompt)] };
 
     private static VectorToolSelector Selector(int limit) =>
         new([new FakeVectorProvider()], new ToolSelectorOptions { Limit = limit });
@@ -95,7 +95,7 @@ public class ToolSelectorTests
     private static FakeLlmClient Answering()
     {
         var client = new FakeLlmClient();
-        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", ProviderVerdict.Ok));
+        client.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
         return client;
     }
 
@@ -104,7 +104,7 @@ public class ToolSelectorTests
         internal static int LastRosterSize { get; private set; }
 
         public Task<IReadOnlyList<ITool>> SelectAsync(
-            LlmRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default)
+            TextRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default)
         {
             LastRosterSize = tools.Count;
             throw new InvalidOperationException("selector is down");

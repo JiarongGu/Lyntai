@@ -125,18 +125,18 @@ public sealed class LlmMemoryAnnotationPolicy(
         try
         {
             var client = _options.ClientName is { } name ? clients.Get(name) : clients.Get();
-            var reply = await client.CompleteAsync(new LlmRequest
+            var reply = await client.CompleteAsync(new TextRequest
             {
                 Messages =
                 [
-                    new LlmMessage("system", _options.SuggestGrade ? System + GradeInstruction : System),
-                    new LlmMessage("user", Compose(request)),
+                    new TextMessage("system", _options.SuggestGrade ? System + GradeInstruction : System),
+                    new TextMessage("user", Compose(request)),
                 ],
                 Model = _options.Model,
                 // Tagged so memory's spend is separable in the ledger. It was the library's only untagged
                 // internal caller besides the verifier — scoring and chat both tag — so memory billed to
                 // "default" and could not be capped or observed apart from the app's own traffic.
-                Consumer = LlmConsumers.Memory,
+                Consumer = ProviderConsumers.Memory,
                 // Same reasoning, and the same measured stakes, as LlmMemoryVerificationPolicy's own
                 // Suppress: this call's value is a short structured label, and it sits in the latency path
                 // of every WRITE — the higher-traffic seam of the two, since a store takes many more writes
@@ -144,7 +144,7 @@ public sealed class LlmMemoryAnnotationPolicy(
                 // 2026-08-15); a thinking model spent ~25s per judgement against ~1.5s for one that answers
                 // directly (docs/memory-measurements.md §5). Advisory: a backend that cannot express it ignores it, and
                 // the parser below still tolerates a reply that reasons anyway.
-                Reasoning = LlmReasoning.Suppress,
+                Reasoning = TextReasoning.Suppress,
             }, ct).ConfigureAwait(false);
 
             if (reply.Verdict != ProviderVerdict.Ok || string.IsNullOrWhiteSpace(reply.Text))

@@ -8,7 +8,7 @@ namespace Lyntai.Tests.Llm;
 
 public class LlmRouterStreamTests
 {
-    private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")] };
+    private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
     private static LlmRouter Router(params IModelProvider[] providers) =>
         new(providers, new DeadHostTracker(), new LyntaiOptions());
@@ -18,17 +18,17 @@ public class LlmRouterStreamTests
     {
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Failed, "cold start")],
+            StreamScript = _ => [TextChunk.Error(ProviderVerdict.Failed, "cold start")],
         };
         var p2 = new FakeLlmProvider("p2")
         {
-            StreamScript = _ => [LlmChunk.Content("hello "), LlmChunk.Content("world"), LlmChunk.Final()],
+            StreamScript = _ => [TextChunk.Content("hello "), TextChunk.Content("world"), TextChunk.Final()],
         };
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
-        Assert.Equal(["hello ", "world"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+        Assert.Equal(["hello ", "world"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
         Assert.Equal(1, p2.StreamCalls);
     }
 
@@ -40,17 +40,17 @@ public class LlmRouterStreamTests
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var unset = new FakeLlmProvider("unset")
         {
-            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.NotConfigured, "no api key")],
+            StreamScript = _ => [TextChunk.Error(ProviderVerdict.NotConfigured, "no api key")],
         };
         var configured = new FakeLlmProvider("configured")
         {
-            StreamScript = _ => [LlmChunk.Content("served"), LlmChunk.Final()],
+            StreamScript = _ => [TextChunk.Content("served"), TextChunk.Final()],
         };
 
         var chunks = await new LlmRouter([unset, configured], tracker, new LyntaiOptions())
             .StreamAsync([new("unset"), new("configured")], Req).ToListAsync();
 
-        Assert.Equal(["served"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(["served"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         Assert.False(tracker.IsDead("unset")); // threshold is 1 — ANY recorded failure or cooldown benches it
     }
 
@@ -60,16 +60,16 @@ public class LlmRouterStreamTests
         // same masking trap as the non-streaming path, and its own lastError accumulation to get wrong
         var down = new FakeLlmProvider("down")
         {
-            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Failed, "connection refused")],
+            StreamScript = _ => [TextChunk.Error(ProviderVerdict.Failed, "connection refused")],
         };
         var unset = new FakeLlmProvider("unset")
         {
-            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.NotConfigured, "no api key")],
+            StreamScript = _ => [TextChunk.Error(ProviderVerdict.NotConfigured, "no api key")],
         };
 
         var chunks = await Router(down, unset).StreamAsync([new("down"), new("unset")], Req).ToListAsync();
 
-        var error = chunks.Single(c => c.Kind == LlmChunkKind.Error);
+        var error = chunks.Single(c => c.Kind == TextChunkKind.Error);
         Assert.Equal(ProviderVerdict.Failed, error.Verdict);
         Assert.Equal("connection refused", error.Detail);
     }
@@ -77,12 +77,12 @@ public class LlmRouterStreamTests
     [Fact]
     public async Task Every_streamed_candidate_unconfigured_still_reports_not_configured()
     {
-        var a = new FakeLlmProvider("a") { StreamScript = _ => [LlmChunk.Error(ProviderVerdict.NotConfigured, "a: no api key")] };
-        var b = new FakeLlmProvider("b") { StreamScript = _ => [LlmChunk.Error(ProviderVerdict.NotConfigured, "b: no api key")] };
+        var a = new FakeLlmProvider("a") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.NotConfigured, "a: no api key")] };
+        var b = new FakeLlmProvider("b") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.NotConfigured, "b: no api key")] };
 
         var chunks = await Router(a, b).StreamAsync([new("a"), new("b")], Req).ToListAsync();
 
-        var error = chunks.Single(c => c.Kind == LlmChunkKind.Error);
+        var error = chunks.Single(c => c.Kind == TextChunkKind.Error);
         Assert.Equal(ProviderVerdict.NotConfigured, error.Verdict); // not swallowed into a generic "no live candidate"
     }
 
@@ -90,12 +90,12 @@ public class LlmRouterStreamTests
     public async Task Provider_side_cancellation_pre_content_falls_over_to_next_candidate()
     {
         var p1 = new FakeLlmProvider("p1") { StreamThrow = new OperationCanceledException("provider gave up") };
-        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Content("hi"), LlmChunk.Final()] };
+        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [TextChunk.Content("hi"), TextChunk.Final()] };
 
         // no caller cancellation → the provider's OWN OCE must not abort the router; it falls over to p2
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
-        Assert.Equal(["hi"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(["hi"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         Assert.Equal(1, p2.StreamCalls);
     }
 
@@ -106,17 +106,17 @@ public class LlmRouterStreamTests
         // (shipped providers guard this, but a third-party IModelProvider may yield an empty first chunk)
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Content(""), LlmChunk.Error(ProviderVerdict.Failed, "empty then died")],
+            StreamScript = _ => [TextChunk.Content(""), TextChunk.Error(ProviderVerdict.Failed, "empty then died")],
         };
         var p2 = new FakeLlmProvider("p2")
         {
-            StreamScript = _ => [LlmChunk.Content("recovered"), LlmChunk.Final()],
+            StreamScript = _ => [TextChunk.Content("recovered"), TextChunk.Final()],
         };
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Equal("recovered",
-            string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content && c.Text.Length > 0).Select(c => c.Text)));
+            string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content && c.Text.Length > 0).Select(c => c.Text)));
         Assert.Equal(1, p2.StreamCalls); // the empty chunk didn't commit, so it fell over
     }
 
@@ -124,11 +124,11 @@ public class LlmRouterStreamTests
     public async Task Zero_chunk_stream_falls_over_to_the_next_candidate()
     {
         var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [] };
-        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Content("recovered"), LlmChunk.Final()] };
+        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [TextChunk.Content("recovered"), TextChunk.Final()] };
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
-        Assert.Equal("recovered", string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
+        Assert.Equal("recovered", string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
         Assert.Equal(1, p2.StreamCalls);
     }
 
@@ -140,19 +140,19 @@ public class LlmRouterStreamTests
         var chunks = await Router(p1).StreamAsync([new("p1")], Req).ToListAsync();
 
         var only = Assert.Single(chunks);
-        Assert.Equal(LlmChunkKind.Error, only.Kind);
+        Assert.Equal(TextChunkKind.Error, only.Kind);
         Assert.Equal(ProviderVerdict.Failed, only.Verdict);
     }
 
     [Fact] // L4: a Final with NO preceding content is the empty-reply trap at the trust boundary → falls over
     public async Task Pre_content_final_falls_over_instead_of_passing_an_empty_end_through()
     {
-        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [LlmChunk.Final()] };
-        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Content("recovered"), LlmChunk.Final()] };
+        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [TextChunk.Final()] };
+        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [TextChunk.Content("recovered"), TextChunk.Final()] };
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
-        Assert.Equal("recovered", string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
+        Assert.Equal("recovered", string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
         Assert.Equal(1, p2.StreamCalls);
     }
 
@@ -161,7 +161,7 @@ public class LlmRouterStreamTests
     {
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Content("partial"), LlmChunk.Error(ProviderVerdict.Failed, "died mid-stream")],
+            StreamScript = _ => [TextChunk.Content("partial"), TextChunk.Error(ProviderVerdict.Failed, "died mid-stream")],
         };
         var p2 = new FakeLlmProvider("p2");
 
@@ -169,7 +169,7 @@ public class LlmRouterStreamTests
 
         Assert.Equal(2, chunks.Count);
         Assert.Equal("partial", chunks[0].Text);
-        Assert.Equal(LlmChunkKind.Error, chunks[1].Kind);   // error passed through unchanged
+        Assert.Equal(TextChunkKind.Error, chunks[1].Kind);   // error passed through unchanged
         Assert.Equal(0, p2.StreamCalls);                    // never falls back after the first token
     }
 
@@ -179,11 +179,11 @@ public class LlmRouterStreamTests
         using var cts = new CancellationTokenSource();
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Content("partial"), LlmChunk.Content("never delivered"), LlmChunk.Final()],
+            StreamScript = _ => [TextChunk.Content("partial"), TextChunk.Content("never delivered"), TextChunk.Final()],
         };
         var p2 = new FakeLlmProvider("p2");
 
-        var received = new List<LlmChunk>();
+        var received = new List<TextChunk>();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             await foreach (var chunk in Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req, cts.Token))
@@ -195,7 +195,7 @@ public class LlmRouterStreamTests
 
         Assert.Single(received);                     // the committed chunk arrived, then the cancel propagated
         Assert.Equal("partial", received[0].Text);
-        Assert.All(received, c => Assert.NotEqual(LlmChunkKind.Error, c.Kind)); // no fabricated terminal Error
+        Assert.All(received, c => Assert.NotEqual(TextChunkKind.Error, c.Kind)); // no fabricated terminal Error
         Assert.Equal(0, p2.StreamCalls);             // and never a fallback for a caller-cancelled stream
     }
 
@@ -204,13 +204,13 @@ public class LlmRouterStreamTests
     {
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Content("a"), LlmChunk.Content("b"), LlmChunk.Content("c"),
-                LlmChunk.Final(new LlmUsage(10, 3))],
+            StreamScript = _ => [TextChunk.Content("a"), TextChunk.Content("b"), TextChunk.Content("c"),
+                TextChunk.Final(new TextUsage(10, 3))],
         };
 
         var chunks = await Router(p1).StreamAsync([new("p1")], Req).ToListAsync();
 
-        Assert.Equal(["a", "b", "c"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(["a", "b", "c"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         Assert.Equal(10, chunks[^1].Usage!.InputTokens);
     }
 
@@ -220,17 +220,17 @@ public class LlmRouterStreamTests
         // amended §6: RateLimited advances like Failed/Timeout (the host cools, the fleet serves)
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.RateLimited, "429")],
+            StreamScript = _ => [TextChunk.Error(ProviderVerdict.RateLimited, "429")],
         };
         var p2 = new FakeLlmProvider("p2")
         {
-            StreamScript = _ => [LlmChunk.Content("fallback stream"), LlmChunk.Final()],
+            StreamScript = _ => [TextChunk.Content("fallback stream"), TextChunk.Final()],
         };
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Equal("fallback stream",
-            string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
+            string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
         Assert.Equal(1, p2.StreamCalls);
     }
 
@@ -239,7 +239,7 @@ public class LlmRouterStreamTests
     {
         var p1 = new FakeLlmProvider("p1")
         {
-            StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Refused, "content policy")],
+            StreamScript = _ => [TextChunk.Error(ProviderVerdict.Refused, "content policy")],
         };
         var p2 = new FakeLlmProvider("p2");
 
@@ -253,8 +253,8 @@ public class LlmRouterStreamTests
     [Fact]
     public async Task All_candidates_fail_pre_content_yields_last_error()
     {
-        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Failed, "one")] };
-        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Error(ProviderVerdict.Timeout, "two")] };
+        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.Failed, "one")] };
+        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [TextChunk.Error(ProviderVerdict.Timeout, "two")] };
 
         var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 

@@ -86,7 +86,7 @@ public class CodexAgentSessionTests
 
         var providerRunner = new FakeProcessRunner { RunResult = new ProcessResult(0, "", "") };
         await new CodexCliProvider(providerRunner, new LyntaiOptions(), command: "codex")
-            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Contains("--skip-git-repo-check", sessionRunner.LastArgs!);
         Assert.Contains("--skip-git-repo-check", providerRunner.LastArgs!);

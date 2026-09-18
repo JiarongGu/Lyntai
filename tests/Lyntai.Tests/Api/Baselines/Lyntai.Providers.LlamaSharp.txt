@@ -11,8 +11,8 @@ sealed class Lyntai.Providers.LlamaSharp.LlamaSharpOptions
 sealed class Lyntai.Providers.LlamaSharp.LlamaSharpProvider
     .ctor(String id, LlamaSharpOptions options, LyntaiOptions lyntai, ILogger<LlamaSharpProvider> logger = null)
     Capabilities : ProviderCapabilities
-    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
     Dispose() : Void
     Id : String
     IsAvailable : Boolean
-    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>

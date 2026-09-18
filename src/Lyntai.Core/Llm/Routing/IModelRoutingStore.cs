@@ -1,6 +1,7 @@
 using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Lyntai.Inference;
 
 namespace Lyntai.Llm.Routing;
 

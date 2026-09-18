@@ -88,7 +88,7 @@ recorder.Record(new TraceStep { Kind = "phase", Label = "compose" });
 var llm = sp.GetRequiredService<ILlmClient>();
 var stopwatch = Stopwatch.StartNew();
 var reply = await llm.CompleteAsync(
-    new LlmRequest { Messages = [LlmMessage.User(prompt)], Consumer = "playground" });
+    new TextRequest { Messages = [TextMessage.User(prompt)], Consumer = "playground" });
 recorder.Record(new TraceStep
 {
     Kind = "llm",
@@ -133,14 +133,14 @@ Console.WriteLine($"playground: memory recall={recalled.Count}");
 var streamedChunks = 0;
 var streamedText = new System.Text.StringBuilder();
 await foreach (var chunk in llm.StreamAsync(
-    new LlmRequest { Messages = [LlmMessage.User("Stream one short sentence.")], Consumer = "playground" }))
+    new TextRequest { Messages = [TextMessage.User("Stream one short sentence.")], Consumer = "playground" }))
 {
-    if (chunk.Kind == LlmChunkKind.Content)
+    if (chunk.Kind == TextChunkKind.Content)
     {
         streamedChunks++;
         streamedText.Append(chunk.Text);
     }
-    else if (chunk.Kind == LlmChunkKind.Error)
+    else if (chunk.Kind == TextChunkKind.Error)
     {
         Console.Error.WriteLine($"playground: stream error — {chunk.Verdict}: {chunk.Detail}");
     }
@@ -160,10 +160,10 @@ Console.WriteLine($"playground: job status={finishedJob?.Status} checkpoint={fin
 // 8. agentic tool loop — the model calls the registered "echo" tool, gets the observation fed back, then
 // answers. The CLI provider isn't native-tool-capable, so this drives the prompt-protocol fallback path.
 var toolLoop = sp.GetRequiredService<IToolLoop>();
-var toolResult = await toolLoop.RunAsync(new LlmRequest
+var toolResult = await toolLoop.RunAsync(new TextRequest
 {
     Consumer = "playground",
-    Messages = [LlmMessage.User("Use your tools to greet the project, then report the result. TOOL_DEMO")],
+    Messages = [TextMessage.User("Use your tools to greet the project, then report the result. TOOL_DEMO")],
 });
 Console.WriteLine($"playground: toolloop verdict={toolResult.Verdict} steps={toolResult.Steps.Count} answer={toolResult.Answer}");
 
@@ -271,7 +271,7 @@ static class GovernanceDemo
         services.AddLyntai(b => b.AddClaudeCliProvider().AddResponseCache().UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();
         var llm = sp.GetRequiredService<ILlmClient>();
-        var req = new LlmRequest { Messages = [LlmMessage.User("cache me please")], Consumer = "gov" };
+        var req = new TextRequest { Messages = [TextMessage.User("cache me please")], Consumer = "gov" };
 
         var first = await llm.CompleteAsync(req);
         var second = await llm.CompleteAsync(req); // identical → cache hit, no provider call
@@ -287,8 +287,8 @@ static class GovernanceDemo
         await using var sp = services.BuildServiceProvider();
         var llm = sp.GetRequiredService<ILlmClient>();
 
-        var first = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("spend one")] });
-        var second = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("spend two")] });
+        var first = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("spend one")] });
+        var second = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("spend two")] });
         var spent = (await sp.GetRequiredService<IUsageTracker>().TotalAsync()).CostUsd;
         return first.Verdict == ProviderVerdict.Ok && second.Verdict == ProviderVerdict.Refused && spent > 0;
     }
@@ -304,8 +304,8 @@ static class GovernanceDemo
         await using var sp = services.BuildServiceProvider();
         var llm = sp.GetRequiredService<ILlmClient>();
 
-        var first = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("a")] });
-        var second = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("b")] });
+        var first = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("a")] });
+        var second = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("b")] });
         return first.Verdict == ProviderVerdict.Ok && second.Verdict == ProviderVerdict.RateLimited;
     }
 

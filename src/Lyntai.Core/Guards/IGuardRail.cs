@@ -13,10 +13,10 @@ public interface IGuardRail
 {
     /// <summary>Run the request guards (the input gate). Returns the effective outcome; on Replace, the
     /// returned <see cref="GuardOutcome.Replacement"/> is the rewritten last-user text.</summary>
-    Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default);
+    Task<GuardOutcome> InspectRequestAsync(TextRequest req, CancellationToken ct = default);
 
     /// <summary>Run the response guards (the output gate).</summary>
-    Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default);
+    Task<GuardOutcome> InspectResponseAsync(TextResponse reply, CancellationToken ct = default);
 
     /// <summary>Gate a tool call the model wants to make (its name + JSON arguments) BEFORE it executes —
     /// inside the agent tool loop, not just at the chat boundary. Modelled as an outbound request carrying
@@ -26,13 +26,13 @@ public interface IGuardRail
     /// gate's re-thread to rewrite, so each guard sees the original args) — the built-in <see cref="GuardRail"/>
     /// overrides it with an args-aware re-thread; a BYO rail with multiple rewriting guards should too.</summary>
     Task<GuardOutcome> InspectToolCallAsync(string toolName, string argumentsJson, CancellationToken ct = default) =>
-        InspectRequestAsync(new LlmRequest { Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("", toolName, argumentsJson)])] }, ct);
+        InspectRequestAsync(new TextRequest { Messages = [TextMessage.AssistantToolCalls([new TextToolCall("", toolName, argumentsJson)])] }, ct);
 
     /// <summary>Gate a tool's observation BEFORE it is fed back to the model — so a denied term can't be
     /// exfiltrated through a tool result. Modelled as an inbound reply, so existing response guards inspect
     /// it. Block to withhold it; Replace to substitute redacted text.</summary>
     Task<GuardOutcome> InspectToolResultAsync(string toolName, string result, CancellationToken ct = default) =>
-        InspectResponseAsync(new LlmReply(result, ProviderVerdict.Ok), ct);
+        InspectResponseAsync(new TextResponse(result, ProviderVerdict.Ok), ct);
 }
 
 /// <inheritdoc/>
@@ -41,12 +41,12 @@ public sealed class GuardRail(IEnumerable<IGuard> guards, ILogger<GuardRail>? lo
     private readonly IReadOnlyList<IGuard> _guards = [.. guards];
     private readonly ILogger _logger = logger ?? NullLogger<GuardRail>.Instance;
 
-    public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default) =>
+    public Task<GuardOutcome> InspectRequestAsync(TextRequest req, CancellationToken ct = default) =>
         InspectCoreAsync(req, "input", "request",
             static (g, cur, ct) => g.InspectRequestAsync(cur, ct),
             static (cur, replacement) => RewriteLastUser(cur, replacement), ct);
 
-    public Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) =>
+    public Task<GuardOutcome> InspectResponseAsync(TextResponse reply, CancellationToken ct = default) =>
         InspectCoreAsync(reply, "output", "response",
             static (g, cur, ct) => g.InspectResponseAsync(cur, ct),
             static (cur, replacement) => Redact(cur, replacement), ct);
@@ -55,7 +55,7 @@ public sealed class GuardRail(IEnumerable<IGuard> guards, ILogger<GuardRail>? lo
     /// and Detail are cleared too, or denied content the output gate also scans (a tool call's args, an
     /// error detail) would pass through un-redacted. Shared by the rail's re-thread and
     /// <see cref="GuardedLlmClient"/>'s applied result so the two can't drift.</summary>
-    internal static LlmReply Redact(LlmReply reply, string replacement) =>
+    internal static TextResponse Redact(TextResponse reply, string replacement) =>
         reply with { Text = replacement, ToolCalls = null, Detail = null };
 
     /// <summary>Tool-call gate with an ARGS-aware re-thread: a Replace rewrites the arguments JSON, and
@@ -95,12 +95,12 @@ public sealed class GuardRail(IEnumerable<IGuard> guards, ILogger<GuardRail>? lo
         return effective;
     }
 
-    private static LlmRequest ToolCallProbe(string toolName, string argumentsJson) =>
-        new() { Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("", toolName, argumentsJson)])] };
+    private static TextRequest ToolCallProbe(string toolName, string argumentsJson) =>
+        new() { Messages = [TextMessage.AssistantToolCalls([new TextToolCall("", toolName, argumentsJson)])] };
 
     /// <summary>Rewrite the LAST user message's content (request-gate Replace only rewrites the last user
     /// turn — a guard can't redact an earlier one through this contract).</summary>
-    internal static LlmRequest RewriteLastUser(LlmRequest req, string replacement)
+    internal static TextRequest RewriteLastUser(TextRequest req, string replacement)
     {
         var msgs = req.Messages.ToList();
         for (var i = msgs.Count - 1; i >= 0; i--)

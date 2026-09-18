@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Providers;
 /// <para><b>This exists because the roadmap asked for the opposite.</b> "Native tool-calling for the
 /// ClaudeCli/Local providers (both stay on the prompt fallback)" sat under §9 as a low-value deferral until
 /// 2026-08-16, when acting on it showed the request was misframed and would have made things WORSE.
-/// <c>IModelProvider.Capabilities.SupportsToolCalls</c> means "I return the model's calls on <c>LlmReply.ToolCalls</c> for
+/// <c>IModelProvider.Capabilities.SupportsToolCalls</c> means "I return the model's calls on <c>TextResponse.ToolCalls</c> for
 /// YOUR loop to execute". Flipping it true on a provider that cannot do that makes <c>ToolLoop</c> take the
 /// native path, send tool declarations the backend ignores, and then wait for calls that never arrive — so
 /// every agentic turn silently degrades to "the model answered in prose" and no tool ever runs.</para>
@@ -30,7 +30,7 @@ public class NativeToolCallPostureTests
         //
         // The real need — an app's own ITools reachable by the CLI — is met by ICliToolProvisioner, which
         // stands up an in-process MCP server and passes --mcp-config (shipped 1.1). So the tools do run in
-        // this process, with the host's guards applied; they simply are not shaped as LlmReply.ToolCalls.
+        // this process, with the host's guards applied; they simply are not shaped as TextResponse.ToolCalls.
         Assert.False(new ClaudeCliDialect().SupportsToolCalls);
     }
 

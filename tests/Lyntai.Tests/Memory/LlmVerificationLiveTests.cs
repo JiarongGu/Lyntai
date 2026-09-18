@@ -9,6 +9,7 @@ using Lyntai.Tests.Live;
 using Lyntai.Tests.Memory.Corpus;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Lyntai.Inference;
 
 namespace Lyntai.Tests.Memory;
 
@@ -70,7 +71,7 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     /// in the latency path of EVERY recall makes that disqualifying whatever it scores. Re-confirmed
     /// 2026-08-15 the hard way: qwen3 emits ~2,200 output tokens for a four-note question whose answer is
     /// about 8, and two full ceiling runs were abandoned after 40+ and 55+ minutes. The policy already sets
-    /// <c>LlmReasoning.Suppress</c>; Ollama's qwen3 reasons regardless.</para>
+    /// <c>TextReasoning.Suppress</c>; Ollama's qwen3 reasons regardless.</para>
     /// <para><b>One narrow observation worth keeping, and NOT a precision failure:</b> on this file's
     /// adversarial four-note fixture <c>gemma3:4b</c> also takes the trivia distractor (<c>[3,4]</c> in
     /// Chinese, Japanese and Korean) where <c>qwen3:4b</c> answers <c>[3]</c>. That is a LEXICALLY ADJACENT

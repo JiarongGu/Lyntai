@@ -152,13 +152,13 @@ public class RateLimitTests
     public async Task Over_the_rate_the_decorator_refuses_without_calling_the_provider()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("first", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("first", ProviderVerdict.Ok));
         // fixed clock → no refill between the two calls, MaxWait 0 → the 2nd refuses immediately
         var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.Zero; });
         var client = new RateLimitedLlmClient(inner, limiter);
 
-        var first = await client.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("a")] });
-        var second = await client.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("b")] });
+        var first = await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("a")] });
+        var second = await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("b")] });
 
         Assert.Equal("first", first.Text);
         Assert.Equal(ProviderVerdict.RateLimited, second.Verdict);
@@ -172,12 +172,12 @@ public class RateLimitTests
         var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.Zero; });
         var client = new RateLimitedLlmClient(inner, limiter);
 
-        await client.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("a")] }); // spend the permit
-        var chunks = new List<LlmChunk>();
-        await foreach (var c in client.StreamAsync(new LlmRequest { Messages = [LlmMessage.User("b")] })) chunks.Add(c);
+        await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("a")] }); // spend the permit
+        var chunks = new List<TextChunk>();
+        await foreach (var c in client.StreamAsync(new TextRequest { Messages = [TextMessage.User("b")] })) chunks.Add(c);
 
         var only = Assert.Single(chunks);
-        Assert.Equal(LlmChunkKind.Error, only.Kind);
+        Assert.Equal(TextChunkKind.Error, only.Kind);
         Assert.Equal(ProviderVerdict.RateLimited, only.Verdict);
     }
 
@@ -206,7 +206,7 @@ public class RateLimitTests
 
         var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.Zero; });
         var client = new RateLimitedLlmClient(new FakeLlmClient(), limiter);
-        var request = new LlmRequest { Messages = [LlmMessage.User("a")], Consumer = consumer };
+        var request = new TextRequest { Messages = [TextMessage.User("a")], Consumer = consumer };
 
         await client.CompleteAsync(request);                        // spends the one permit — not a refusal
         await foreach (var _ in client.StreamAsync(request)) { }     // refused at the gate
@@ -219,7 +219,7 @@ public class RateLimitTests
     {
         var inner = new FakeLlmClient { SupportsToolCallsResult = true };
         var client = new RateLimitedLlmClient(inner, Limiter(_ => { }));
-        Assert.True(client.SupportsToolCalls(new LlmRequest { Messages = [LlmMessage.User("a")] }));
+        Assert.True(client.SupportsToolCalls(new TextRequest { Messages = [TextMessage.User("a")] }));
     }
 
     // ---- DI + composition with the cache -------------------------------------------------------------
@@ -254,7 +254,7 @@ public class RateLimitTests
             .UseDefaultCandidates("p")); // each call would spend TWO permits, exhausting burst 2 in one call)
         using var sp = services.BuildServiceProvider();
         var client = sp.GetRequiredService<ILlmClient>();
-        var req = new LlmRequest { Messages = [LlmMessage.User("q")] };
+        var req = new TextRequest { Messages = [TextMessage.User("q")] };
 
         Assert.Equal(ProviderVerdict.Ok, (await client.CompleteAsync(req)).Verdict);          // burst 2 → 1 left
         Assert.Equal(ProviderVerdict.Ok, (await client.CompleteAsync(req)).Verdict);          // 1 → 0 (only if single limiter)
@@ -300,7 +300,7 @@ public class RateLimitTests
         using var sp = services.BuildServiceProvider();
 
         var client = sp.GetRequiredService<ILlmClient>(); // resolution folds the decorators → warning fires here
-        var reply = await client.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("q")] });
+        var reply = await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("q")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict); // still serves (a no-op passthrough, not a hard failure)
         Assert.Contains(logs, l => l.Contains("no effective limit", StringComparison.OrdinalIgnoreCase));
@@ -343,7 +343,7 @@ public class RateLimitTests
     public async Task A_cached_hit_does_not_spend_a_rate_limit_permit()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("answer", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new TextResponse("answer", ProviderVerdict.Ok));
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => provider)
@@ -353,9 +353,9 @@ public class RateLimitTests
         using var sp = services.BuildServiceProvider();
         var client = sp.GetRequiredService<ILlmClient>();
 
-        var a1 = await client.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("a")] }); // miss → permit → provider
-        var a2 = await client.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("a")] }); // HIT → no permit spent
-        var b = await client.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("b")] });  // miss → no permit left → refused
+        var a1 = await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("a")] }); // miss → permit → provider
+        var a2 = await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("a")] }); // HIT → no permit spent
+        var b = await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("b")] });  // miss → no permit left → refused
 
         Assert.Equal("answer", a1.Text);
         Assert.Equal("answer", a2.Text);                    // served from cache

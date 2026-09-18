@@ -1,3 +1,4 @@
+using Lyntai.Inference;
 namespace Lyntai.Llm;
 
 /// <summary>

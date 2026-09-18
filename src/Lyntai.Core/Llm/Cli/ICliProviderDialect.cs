@@ -32,7 +32,7 @@ public interface ICliProviderDialect
     IReadOnlyList<string> CommandEnvironmentVariables { get; }
 
     /// <summary>Whether this CLI accepts request-level tool DECLARATIONS
-    /// (<see cref="LlmRequest.Tools"/>). False for CLIs that expose tools their own way (e.g. over MCP via
+    /// (<see cref="TextRequest.Tools"/>). False for CLIs that expose tools their own way (e.g. over MCP via
     /// an <see cref="Agents.ICliToolProvisioner"/>) — the engine then warns rather than dropping them
     /// silently. That warning is ALL this flag drives: a dialect returning true must have its composing
     /// <see cref="IModelProvider"/> declare <c>SupportsToolCalls =&gt; true</c> itself (per <c>DECISIONS.md</c>
@@ -66,10 +66,10 @@ public interface ICliProviderDialect
     /// <c>extraOptions</c> parameter for exactly this reason — and the agent path honoured it while the
     /// completion path had no way to. Appending is still the right answer for most CLIs; it is now a choice
     /// each dialect makes rather than one the engine makes for all of them.</para></param>
-    IReadOnlyList<string> BuildCompletionArgs(LlmRequest request, IReadOnlyList<string> toolHostArgs);
+    IReadOnlyList<string> BuildCompletionArgs(TextRequest request, IReadOnlyList<string> toolHostArgs);
 
     /// <summary>Flatten the request's messages into the single prompt this CLI takes.</summary>
-    string BuildPrompt(LlmRequest request);
+    string BuildPrompt(TextRequest request);
 
     /// <summary>Decode ONE line of the CLI's output. Must be tolerant: an unknown or malformed line is
     /// <see cref="CliOutputEvent.Ignored"/>, never a throw — a stream carries plenty that isn't the answer.

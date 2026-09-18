@@ -1,6 +1,7 @@
 using Dapper;
 using Lyntai.Llm;
 using Lyntai.Llm.Caching;
+using Lyntai.Inference;
 
 namespace Lyntai.Storage.Sqlite;
 
@@ -15,16 +16,16 @@ public sealed class SqliteResponseCache(IDbConnectionFactory factory, LyntaiOpti
 {
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
-    public async Task<LlmReply?> GetAsync(string key, CancellationToken ct = default)
+    public async Task<TextResponse?> GetAsync(string key, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var json = await conn.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
             "SELECT reply_json FROM lyntai_response_cache WHERE cache_key = @key AND expires_at > @now",
             new { key, now = _clock() }, cancellationToken: ct)).ConfigureAwait(false);
-        return json is null ? null : SqliteJson.Deserialize<LlmReply>(json);
+        return json is null ? null : SqliteJson.Deserialize<TextResponse>(json);
     }
 
-    public async Task SetAsync(string key, LlmReply reply, TimeSpan? ttl = null, CancellationToken ct = default)
+    public async Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default)
     {
         var window = ttl ?? options.Cache.Ttl;
         if (window <= TimeSpan.Zero) return; // non-positive TTL disables caching

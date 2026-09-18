@@ -276,7 +276,7 @@ public class RouterFactoryTests
     private static LlmRouterFactory LlmFactory(IProviderPool<IModelProvider> pool, DeadHostTracker tracker) =>
         new(pool, tracker, new LyntaiOptions());
 
-    private static LlmRequest Prompt() => new() { Messages = [LlmMessage.User("hi")] };
+    private static TextRequest Prompt() => new() { Messages = [TextMessage.User("hi")] };
 
     [Fact]
     public async Task The_llm_pooled_overload_routes_over_the_pooled_instance_and_benches_its_configuration()
@@ -286,7 +286,7 @@ public class RouterFactoryTests
         var key = ProviderKey.For("openai").With("tenant", "a").Build();
 
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("nope", ProviderVerdict.RateLimited));
+        provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
 
         var router = LlmFactory(pool, tracker)
             .For([new ProviderRegistration<IModelProvider>(key, () => provider)]);
@@ -304,7 +304,7 @@ public class RouterFactoryTests
         var tracker = new DeadHostTracker(threshold: 1);
 
         var provider = new FakeLlmProvider("openai");
-        provider.Replies.Enqueue(new LlmReply("nope", ProviderVerdict.RateLimited));
+        provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
 
         var router = LlmFactory(pool, tracker).For([(IModelProvider)provider]);
         await router.CompleteAsync([new ProviderCandidate("openai")], Prompt());

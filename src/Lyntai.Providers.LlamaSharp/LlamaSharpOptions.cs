@@ -1,3 +1,4 @@
+using Lyntai.Inference;
 namespace Lyntai.Providers.LlamaSharp;
 
 /// <summary>
@@ -19,7 +20,7 @@ public sealed class LlamaSharpOptions
     public int GpuLayerCount { get; set; }
 
     /// <summary>Default cap on generated tokens when a request does not set
-    /// <see cref="Lyntai.Llm.LlmRequest.MaxTokens"/>. Null lets generation run to the model's EOS.</summary>
+    /// <see cref="Lyntai.Inference.TextRequest.MaxTokens"/>. Null lets generation run to the model's EOS.</summary>
     public int? MaxTokens { get; set; }
 
     /// <summary>Default sampling temperature when a request does not set one.</summary>

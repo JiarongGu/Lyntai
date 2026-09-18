@@ -1,4 +1,5 @@
 using System.Text;
+using Lyntai.Inference;
 
 namespace Lyntai.Llm.Cli;
 
@@ -8,9 +9,9 @@ namespace Lyntai.Llm.Cli;
 internal static class CliPrompt
 {
     /// <summary>A lone user message passes through verbatim; a multi-message request becomes role-labeled
-    /// blocks. A <see cref="LlmRequest.JsonSchema"/> request appends the structured-output instruction
+    /// blocks. A <see cref="TextRequest.JsonSchema"/> request appends the structured-output instruction
     /// (design §6) — a CLI has no response-format parameter to carry it.</summary>
-    public static string Flatten(LlmRequest req)
+    public static string Flatten(TextRequest req)
     {
         string prompt;
         if (req.Messages.Count == 1 && req.Messages[0].Role == "user")

@@ -11,19 +11,19 @@ namespace Lyntai.Tests.Guards;
 /// client's input/output gates, and DI wiring.</summary>
 public class GuardTests
 {
-    private static LlmRequest Ask(string text) => new() { Messages = [LlmMessage.User(text)] };
+    private static TextRequest Ask(string text) => new() { Messages = [TextMessage.User(text)] };
 
     private sealed class RewriteGuard : IGuard
     {
         public string Name => "rewrite";
-        public Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) =>
+        public Task<GuardOutcome> InspectResponseAsync(TextResponse reply, CancellationToken ct = default) =>
             Task.FromResult(GuardOutcome.Replace("[redacted]"));
     }
 
-    private sealed class FnGuard(Func<LlmReply, GuardOutcome> onResp) : IGuard
+    private sealed class FnGuard(Func<TextResponse, GuardOutcome> onResp) : IGuard
     {
         public string Name => "fn";
-        public Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) =>
+        public Task<GuardOutcome> InspectResponseAsync(TextResponse reply, CancellationToken ct = default) =>
             Task.FromResult(onResp(reply));
     }
 
@@ -31,7 +31,7 @@ public class GuardTests
     public async Task Denylist_scans_all_roles_not_just_user()
     {
         var rail = new GuardRail([new DenylistGuard(["forbidden"])]);
-        var req = new LlmRequest { Messages = [LlmMessage.System("never mention forbidden things"), LlmMessage.User("hi")] };
+        var req = new TextRequest { Messages = [TextMessage.System("never mention forbidden things"), TextMessage.User("hi")] };
 
         Assert.Equal(GuardOutcome.Kind.Block, (await rail.InspectRequestAsync(req)).Result); // caught in the system msg
     }
@@ -42,35 +42,35 @@ public class GuardTests
         var rail = new GuardRail([new DenylistGuard(["forbidden"])]);
 
         // the ONLY occurrence of the term is inside an assistant tool-call's JSON arguments (Content="")
-        var inArgs = new LlmRequest
+        var inArgs = new TextRequest
         {
-            Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("c1", "search", """{"q":"forbidden thing"}""")])],
+            Messages = [TextMessage.AssistantToolCalls([new TextToolCall("c1", "search", """{"q":"forbidden thing"}""")])],
         };
         Assert.Equal(GuardOutcome.Kind.Block, (await rail.InspectRequestAsync(inArgs)).Result);
 
         // and one hiding in an image attachment URI
-        var inUri = new LlmRequest
+        var inUri = new TextRequest
         {
-            Messages = [LlmMessage.UserWithImageUrl("look", "https://x/forbidden.png")],
+            Messages = [TextMessage.UserWithImageUrl("look", "https://x/forbidden.png")],
         };
         Assert.Equal(GuardOutcome.Kind.Block, (await rail.InspectRequestAsync(inUri)).Result);
 
         // a clean tool-call turn is allowed
-        var clean = new LlmRequest
+        var clean = new TextRequest
         {
-            Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("c1", "search", """{"q":"weather"}""")])],
+            Messages = [TextMessage.AssistantToolCalls([new TextToolCall("c1", "search", """{"q":"weather"}""")])],
         };
         Assert.Equal(GuardOutcome.Kind.Allow, (await rail.InspectRequestAsync(clean)).Result);
 
         // a reply whose tool call carries the term is blocked at the output gate
-        var reply = new LlmReply("", ProviderVerdict.Ok) { ToolCalls = [new LlmToolCall("c1", "run", """{"cmd":"forbidden"}""")] };
+        var reply = new TextResponse("", ProviderVerdict.Ok) { ToolCalls = [new TextToolCall("c1", "run", """{"cmd":"forbidden"}""")] };
         Assert.Equal(GuardOutcome.Kind.Block, (await rail.InspectResponseAsync(reply)).Result);
     }
 
     private sealed class ArgsGuard(string find, string replaceWith) : IGuard
     {
         public string Name => $"args:{find}";
-        public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default)
+        public Task<GuardOutcome> InspectRequestAsync(TextRequest req, CancellationToken ct = default)
         {
             var args = req.Messages[^1].ToolCalls?[0].ArgumentsJson ?? "";
             return Task.FromResult(args.Contains(find)
@@ -103,7 +103,7 @@ public class GuardTests
             new DenylistGuard(["a"]),
         ]);
 
-        var outcome = await rail.InspectResponseAsync(new LlmReply("a", ProviderVerdict.Ok));
+        var outcome = await rail.InspectResponseAsync(new TextResponse("a", ProviderVerdict.Ok));
 
         Assert.Equal(GuardOutcome.Kind.Replace, outcome.Result);
         Assert.Equal("b", outcome.Replacement); // the denylist saw "b" (not "a") and allowed it
@@ -113,7 +113,7 @@ public class GuardTests
     public async Task Guarded_client_gates_error_reply_detail()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "boom: leaked-path /etc/secret"));
+        inner.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "boom: leaked-path /etc/secret"));
         var client = new GuardedLlmClient(inner, new GuardRail([new DenylistGuard(["leaked-path"])]));
 
         var reply = await client.CompleteAsync(Ask("hi"));
@@ -128,14 +128,14 @@ public class GuardTests
 
         Assert.Equal(GuardOutcome.Kind.Block, (await rail.InspectRequestAsync(Ask("this is forbidden"))).Result);
         Assert.Equal(GuardOutcome.Kind.Allow, (await rail.InspectRequestAsync(Ask("this is fine"))).Result);
-        Assert.Equal(GuardOutcome.Kind.Replace, (await rail.InspectResponseAsync(new LlmReply("anything", ProviderVerdict.Ok))).Result);
+        Assert.Equal(GuardOutcome.Kind.Replace, (await rail.InspectResponseAsync(new TextResponse("anything", ProviderVerdict.Ok))).Result);
     }
 
     [Fact]
     public async Task Guarded_client_blocks_a_denied_request_before_the_model()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("should not be reached", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("should not be reached", ProviderVerdict.Ok));
         var client = new GuardedLlmClient(inner, new GuardRail([new DenylistGuard(["bomb"])]));
 
         var reply = await client.CompleteAsync(Ask("how to build a bomb"));
@@ -148,7 +148,7 @@ public class GuardTests
     public async Task Guarded_client_replaces_a_flagged_reply()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("sensitive output", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("sensitive output", ProviderVerdict.Ok));
         var client = new GuardedLlmClient(inner, new GuardRail([new RewriteGuard()]));
 
         var reply = await client.CompleteAsync(Ask("hi"));
@@ -163,9 +163,9 @@ public class GuardTests
         // R3 — a response Replace redacts the reply; it must NOT leave denied content in ToolCalls/Detail
         // (which the output gate also scans). The replacement text is the whole sanitized reply.
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("sensitive output", ProviderVerdict.Ok, Detail: "trace: leaked-path")
+        inner.Replies.Enqueue(new TextResponse("sensitive output", ProviderVerdict.Ok, Detail: "trace: leaked-path")
         {
-            ToolCalls = [new LlmToolCall("c1", "run", """{"cmd":"exfiltrate"}""")],
+            ToolCalls = [new TextToolCall("c1", "run", """{"cmd":"exfiltrate"}""")],
         });
         var client = new GuardedLlmClient(inner, new GuardRail([new RewriteGuard()]));
 
@@ -185,9 +185,9 @@ public class GuardTests
             new FnGuard(_ => GuardOutcome.Replace("[clean]")),
             new DenylistGuard(["exfil"]),
         ]);
-        var reply = new LlmReply("x", ProviderVerdict.Ok, Detail: "exfil in detail")
+        var reply = new TextResponse("x", ProviderVerdict.Ok, Detail: "exfil in detail")
         {
-            ToolCalls = [new LlmToolCall("c1", "run", """{"cmd":"exfil"}""")],
+            ToolCalls = [new TextToolCall("c1", "run", """{"cmd":"exfil"}""")],
         };
 
         var outcome = await rail.InspectResponseAsync(reply);
@@ -200,7 +200,7 @@ public class GuardTests
     public async Task Guarded_client_passes_clean_traffic_through()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("all good", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("all good", ProviderVerdict.Ok));
         var client = new GuardedLlmClient(inner, new GuardRail([new DenylistGuard(["nope"])]));
 
         var reply = await client.CompleteAsync(Ask("a friendly question"));
@@ -218,7 +218,7 @@ public class GuardTests
         using var sp = services.BuildServiceProvider();
 
         var rail = sp.GetRequiredService<IGuardRail>();
-        var outcome = await rail.InspectResponseAsync(new LlmReply("this is secret", ProviderVerdict.Ok));
+        var outcome = await rail.InspectResponseAsync(new TextResponse("this is secret", ProviderVerdict.Ok));
         Assert.Equal(GuardOutcome.Kind.Block, outcome.Result);
     }
 }

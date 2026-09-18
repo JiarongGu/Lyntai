@@ -3,7 +3,7 @@ using Lyntai.Inference;
 namespace Lyntai.Generation;
 
 /// <summary>One piece of a streamed generation, or its terminal marker. Modelled ON the LLM side's chunk
-/// contract, but NOT identical to it: <c>LlmChunk</c> carries a required <c>Kind</c> discriminator, whereas a
+/// contract, but NOT identical to it: <c>TextChunk</c> carries a required <c>Kind</c> discriminator, whereas a
 /// chunk here is terminal when <see cref="Final"/> is true or <see cref="Error"/> is set. Code ported from LLM
 /// streaming has to switch on that pair rather than on a kind.</summary>
 /// <param name="Data">Media bytes, for a content chunk.</param>

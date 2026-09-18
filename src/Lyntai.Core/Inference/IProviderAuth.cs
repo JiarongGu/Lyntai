@@ -1,5 +1,5 @@
 using Lyntai.Inference;
-namespace Lyntai.Llm;
+namespace Lyntai.Inference;
 
 /// <summary>
 /// OPTIONAL capability of an <see cref="IModelProvider"/> whose backend owns its own credentials and can

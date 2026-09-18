@@ -8,7 +8,7 @@ namespace Lyntai.Llm;
 /// <summary>
 /// Front-door decorator that screens an otherwise-<c>Ok</c> completion for a refusal — surfacing it as
 /// <see cref="ProviderVerdict.Refused"/> — via two layers: the request's optional
-/// <see cref="LlmRequest.RefusalPattern"/> regex, then every registered <see cref="IRefusalMatcher"/> (the
+/// <see cref="TextRequest.RefusalPattern"/> regex, then every registered <see cref="IRefusalMatcher"/> (the
 /// typed seam an app registers with <c>AddRefusalMatcher</c>). These are the caller-supplied refusal checks
 /// (e.g. an app's own per-language "I can't help" phrasing) layered on the central patterns. It sits OUTERMOST
 /// (above the response cache), so even a cached hit is re-screened. A malformed pattern or a matcher that
@@ -25,7 +25,7 @@ public sealed class RefusalScreeningLlmClient(
     private readonly IReadOnlyList<IRefusalMatcher> _matchers = [.. matchers ?? []];
     private readonly ILogger _logger = logger ?? NullLogger<RefusalScreeningLlmClient>.Instance;
 
-    public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public override async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
     {
         var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
         if (reply.Verdict != ProviderVerdict.Ok || string.IsNullOrEmpty(reply.Text))

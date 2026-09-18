@@ -34,8 +34,8 @@ public class ByoHttpClientTests
         using var sp = services.BuildServiceProvider();
         var llm = sp.GetRequiredService<ILlmClient>();
 
-        var first = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("one")], Model = "gpt-x" });
-        var second = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("two")], Model = "gpt-x" });
+        var first = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("one")], Model = "gpt-x" });
+        var second = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("two")], Model = "gpt-x" });
 
         Assert.Equal(ProviderVerdict.Ok, first.Verdict);
         Assert.Equal(ProviderVerdict.Ok, second.Verdict);      // client was NOT disposed after the first call
@@ -56,7 +56,7 @@ public class ByoHttpClientTests
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>()
-            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+            .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
         // EITHER verdict proves the claim: DI resolved a real client and it TRIED. Pinning `Failed` alone
         // races the timeout — on a loaded machine the connect to a closed port can outlast the 5s budget,
         // and `Timeout` is then the correct answer. Only `Ok` would refute this test.

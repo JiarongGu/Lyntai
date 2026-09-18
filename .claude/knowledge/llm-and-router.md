@@ -101,7 +101,7 @@ Three properties of that split are load-bearing:
   `Surface` returns the reply as-is (no host penalty, no fallback), so the app sees `RateLimited` and can
   back off on its own schedule. (Leave `ExemptSoleCandidate` alone — it only matters for cooldown/advance
   actions, which `Surface` no longer triggers.)
-- **Caller-supplied refusal check on the reply text**: set `LlmRequest.RefusalPattern` (a case-insensitive
+- **Caller-supplied refusal check on the reply text**: set `TextRequest.RefusalPattern` (a case-insensitive
   regex, e.g. a per-language "I can't help with that"). An otherwise-`Ok` reply whose text matches is
   surfaced as `Refused` (no fallback). Applied by `RefusalScreeningLlmClient` — the always-on OUTERMOST
   front-door layer (above the response cache), so a cached hit is re-screened too. Completion-path only

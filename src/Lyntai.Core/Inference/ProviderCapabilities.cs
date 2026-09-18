@@ -104,7 +104,7 @@ public sealed record ProviderCapabilities
     public bool SupportsInputs { get; init; }
 
     /// <summary>Whether the backend sends tools to the model and surfaces its calls on
-    /// <c>LlmReply.ToolCalls</c>. Coarse — provider-level, not per-model: a model that ignores tools just
+    /// <c>TextResponse.ToolCalls</c>. Coarse — provider-level, not per-model: a model that ignores tools just
     /// answers in prose, which the tool loop treats as a final answer.</summary>
     public bool SupportsToolCalls { get; init; }
 

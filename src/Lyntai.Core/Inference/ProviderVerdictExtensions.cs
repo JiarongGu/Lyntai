@@ -5,8 +5,8 @@ namespace Lyntai.Inference;
 
 /// <summary>
 /// Call-site predicates over <see cref="ProviderVerdict"/>, so the common branches read as questions rather
-/// than as a chain of enum comparisons. They hang off the ENUM, not off <see cref="LlmReply"/>, because
-/// five released types carry a verdict (<see cref="LlmReply"/>, <see cref="LlmChunk"/>,
+/// than as a chain of enum comparisons. They hang off the ENUM, not off <see cref="TextResponse"/>, because
+/// five released types carry a verdict (<see cref="TextResponse"/>, <see cref="TextChunk"/>,
 /// <see cref="Agents.SessionEnded"/>, <see cref="Agents.AgentSessionResult"/>,
 /// <see cref="Agents.ToolLoopResult"/>) and one definition should serve all of them.
 /// <para><b>Why categories and not one method per verdict.</b> <see cref="ProviderVerdict"/> grows —

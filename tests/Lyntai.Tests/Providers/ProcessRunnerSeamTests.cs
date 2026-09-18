@@ -32,7 +32,7 @@ public class ProcessRunnerSeamTests
         var runner = CannedRunner();
         var provider = new ClaudeCliProvider(runner, new LyntaiOptions(), command: "claude");
 
-        var reply = await provider.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+        var reply = await provider.CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("served by a custom runner", reply.Text);
@@ -63,7 +63,7 @@ public class ProcessRunnerSeamTests
         Assert.Same(runner, sp.GetRequiredService<IProcessRunner>());
 
         var reply = await sp.GetRequiredService<ILlmClient>()
-            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("via di")] });
+            .CompleteAsync(new TextRequest { Messages = [TextMessage.User("via di")] });
         Assert.Equal("served by a custom runner", reply.Text);
     }
 }

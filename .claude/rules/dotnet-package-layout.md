@@ -31,9 +31,13 @@ someone else's build.** Each rule below was violated once and the cost landed do
 - **Never name a type for the layer it crosses.** No `Dto`, no `Model` used as a suffix for "bag of fields
   in transit" — a name says what the thing *is* in the domain. Say "the row type" or "the request record"
   in prose too, or the name creeps back in on the next change.
-- Reach for the established suffix vocabulary: `*Options` (configuration), `*Request` / `*Reply` (a call's
-  in and out), `*Result` (an operation's outcome), `*Entry` / `*Record` (a stored item), `*Row` (a
+- Reach for the established suffix vocabulary: `*Options` (configuration), `*Request` / `*Response` (a
+  call's in and out), `*Result` (an operation's outcome), `*Entry` / `*Record` (a stored item), `*Row` (a
   materialization type), `*Event`, `*Args`, `*Policy`.
+  <br>**`*Reply` was the pair's other half until 2026-09-17 and is retired**, because two spellings for one <!-- drift-ok: the rule quotes the suffix it bans -->
+  role is how the text and media sides came to name the same thing differently — one `*Reply`, one
+  `*Result` — and `*Result` was the wrong one of the two, since both come back from a CALL rather than from
+  a tracked operation.
 - Otherwise standard conventions: interfaces prefixed `I`, awaitables suffixed `Async`, PascalCase
   members, underscore-prefixed camelCase private fields.
 

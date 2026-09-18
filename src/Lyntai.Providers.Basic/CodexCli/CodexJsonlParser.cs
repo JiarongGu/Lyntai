@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
+using Lyntai.Inference;
 
 namespace Lyntai.Providers.CodexCli;
 
@@ -69,9 +70,9 @@ internal static class CodexJsonlParser
     }
 
     /// <summary><c>{"usage":{"input_tokens":…,"cached_input_tokens":…,"output_tokens":…}}</c>. Codex reports no
-    /// cost, so <see cref="LlmUsage.CostUsd"/> stays null rather than being invented from a token price.</summary>
-    private static LlmUsage? ReadUsage(JsonElement root) =>
+    /// cost, so <see cref="TextUsage.CostUsd"/> stays null rather than being invented from a token price.</summary>
+    private static TextUsage? ReadUsage(JsonElement root) =>
         CodexEnvelope.ReadUsage(root) is { } usage
-            ? new LlmUsage(usage.Input, usage.Output, usage.CacheRead)
+            ? new TextUsage(usage.Input, usage.Output, usage.CacheRead)
             : null;
 }

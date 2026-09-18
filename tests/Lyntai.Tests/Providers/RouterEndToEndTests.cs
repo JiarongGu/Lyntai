@@ -43,7 +43,7 @@ public class RouterEndToEndTests : IDisposable
         return services.BuildServiceProvider();
     }
 
-    private static LlmRequest Req(string prompt) => new() { Messages = [LlmMessage.User(prompt)] };
+    private static TextRequest Req(string prompt) => new() { Messages = [TextMessage.User(prompt)] };
 
     [Fact]
     public async Task Primary_cli_fails_secondary_http_serves()
@@ -87,14 +87,14 @@ public class RouterEndToEndTests : IDisposable
         using var sp = BuildStack();
         var router = sp.GetRequiredService<ILlmRouter>();
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in router.StreamAsync([new("claude-cli"), new("openai")], Req("FORCE_ERROR stream")))
             chunks.Add(c);
 
         Assert.Equal("streamed by http",
-            string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
-        Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Error); // clean fallover, no leak
+            string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
+        Assert.DoesNotContain(chunks, c => c.Kind == TextChunkKind.Error); // clean fallover, no leak
     }
 
     [Fact]
@@ -104,12 +104,12 @@ public class RouterEndToEndTests : IDisposable
         var router = sp.GetRequiredService<ILlmRouter>();
 
         // healthy CLI stream commits immediately — the HTTP provider must never be touched
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in router.StreamAsync([new("claude-cli"), new("openai")], Req("commit to me")))
             chunks.Add(c);
 
         Assert.Equal("stub reply: commit to me",
-            string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
+            string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
         Assert.Empty(_http.Requests);
     }
 

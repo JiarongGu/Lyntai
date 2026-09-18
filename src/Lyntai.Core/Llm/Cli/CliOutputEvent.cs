@@ -33,7 +33,7 @@ public enum CliOutputEventKind
 /// <param name="Kind">What this line was.</param>
 /// <param name="Text">The content or final text; empty for <see cref="CliOutputEventKind.Ignored"/>.</param>
 /// <param name="Usage">Token/cost usage, when the line carries it (typically only the result line).</param>
-public sealed record CliOutputEvent(CliOutputEventKind Kind, string Text = "", LlmUsage? Usage = null)
+public sealed record CliOutputEvent(CliOutputEventKind Kind, string Text = "", TextUsage? Usage = null)
 {
     /// <summary>A line the provider should skip.</summary>
     public static readonly CliOutputEvent Ignored = new(CliOutputEventKind.Ignored);
@@ -45,7 +45,7 @@ public sealed record CliOutputEvent(CliOutputEventKind Kind, string Text = "", L
     public static CliOutputEvent Content(string text) => new(CliOutputEventKind.Content, text);
 
     /// <summary>The terminal line carrying the final text (+ usage, where reported).</summary>
-    public static CliOutputEvent Result(string text, LlmUsage? usage = null) =>
+    public static CliOutputEvent Result(string text, TextUsage? usage = null) =>
         new(CliOutputEventKind.Result, text, usage);
 
     /// <summary>The backend reported a TERMINAL turn failure. <paramref name="message"/> is classified by

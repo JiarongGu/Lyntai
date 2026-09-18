@@ -8,9 +8,9 @@ namespace Lyntai.Tests.Llm;
 
 public class RefusalScreeningTests
 {
-    private static LlmRequest Req(string? refusalPattern = null) => new()
+    private static TextRequest Req(string? refusalPattern = null) => new()
     {
-        Messages = [LlmMessage.User("hi")],
+        Messages = [TextMessage.User("hi")],
         RefusalPattern = refusalPattern,
     };
 
@@ -18,7 +18,7 @@ public class RefusalScreeningTests
     public async Task Reply_matching_the_per_request_pattern_is_refused()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("Lo siento, no puedo ayudar con eso.", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("Lo siento, no puedo ayudar con eso.", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "no puedo ayudar"));
@@ -31,7 +31,7 @@ public class RefusalScreeningTests
     public async Task Reply_not_matching_stays_ok()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("Sure, here is the answer.", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("Sure, here is the answer.", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "no puedo ayudar"));
@@ -42,7 +42,7 @@ public class RefusalScreeningTests
     public async Task No_pattern_passes_through()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("no puedo ayudar", ProviderVerdict.Ok)); // would match, but no pattern set
+        inner.Replies.Enqueue(new TextResponse("no puedo ayudar", ProviderVerdict.Ok)); // would match, but no pattern set
         var screened = new RefusalScreeningLlmClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: null));
@@ -53,7 +53,7 @@ public class RefusalScreeningTests
     public async Task Malformed_pattern_is_ignored_fail_open()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("anything", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("anything", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "(unclosed[")); // invalid regex
@@ -64,7 +64,7 @@ public class RefusalScreeningTests
     public async Task A_non_ok_reply_is_left_untouched()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("", ProviderVerdict.RateLimited, Detail: "429"));
+        inner.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
         var screened = new RefusalScreeningLlmClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "429"));
@@ -75,7 +75,7 @@ public class RefusalScreeningTests
     public async Task Wired_through_AddLyntai_the_front_door_screens_the_reply()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("I cannot help with that request.", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new TextResponse("I cannot help with that request.", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b.AddProvider(_ => provider).UseDefaultCandidates("p"));
@@ -90,19 +90,19 @@ public class RefusalScreeningTests
 
     private sealed class ContainsMatcher(string needle) : IRefusalMatcher
     {
-        public bool IsRefusal(LlmRequest request, string replyText) => replyText.Contains(needle, StringComparison.Ordinal);
+        public bool IsRefusal(TextRequest request, string replyText) => replyText.Contains(needle, StringComparison.Ordinal);
     }
 
     private sealed class ThrowingMatcher : IRefusalMatcher
     {
-        public bool IsRefusal(LlmRequest request, string replyText) => throw new InvalidOperationException("boom");
+        public bool IsRefusal(TextRequest request, string replyText) => throw new InvalidOperationException("boom");
     }
 
     [Fact]
     public async Task A_registered_matcher_downgrades_an_ok_reply_to_refused()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("well, NOPE, not doing that", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("well, NOPE, not doing that", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner, [new ContainsMatcher("NOPE")]);
 
         var reply = await screened.CompleteAsync(Req());
@@ -113,7 +113,7 @@ public class RefusalScreeningTests
     public async Task A_matcher_that_does_not_match_leaves_the_reply_ok()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("sure thing", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("sure thing", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner, [new ContainsMatcher("NOPE")]);
 
         var reply = await screened.CompleteAsync(Req());
@@ -124,7 +124,7 @@ public class RefusalScreeningTests
     public async Task A_throwing_matcher_fails_open()
     {
         var inner = new FakeLlmClient();
-        inner.Replies.Enqueue(new LlmReply("anything", ProviderVerdict.Ok));
+        inner.Replies.Enqueue(new TextResponse("anything", ProviderVerdict.Ok));
         var screened = new RefusalScreeningLlmClient(inner, [new ThrowingMatcher()]);
 
         var reply = await screened.CompleteAsync(Req());
@@ -145,7 +145,7 @@ public class RefusalScreeningTests
     public async Task Matchers_registered_via_AddRefusalMatcher_screen_at_the_front_door()
     {
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("here is my NOPE answer", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new TextResponse("here is my NOPE answer", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b

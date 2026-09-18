@@ -49,8 +49,8 @@ public class McpToolsTests
 
         // FakeLlmProvider (no native tools) → the loop takes the prompt path; script its protocol turns
         var provider = new FakeLlmProvider("p");
-        provider.Replies.Enqueue(new LlmReply("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok));
-        provider.Replies.Enqueue(new LlmReply("""{"final":"done"}""", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new TextResponse("""{"tool":"shout","arguments":{"s":"hi"}}""", ProviderVerdict.Ok));
+        provider.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b.AddProvider(_ => provider).AddMcpTools(mcpTools).UseDefaultCandidates("p"));
@@ -59,7 +59,7 @@ public class McpToolsTests
         Assert.Contains(sp.GetRequiredService<IToolRegistry>().Tools, t => t.Name == "shout");
 
         var result = await sp.GetRequiredService<IToolLoop>()
-            .RunAsync(new LlmRequest { Messages = [LlmMessage.User("shout hi")] });
+            .RunAsync(new TextRequest { Messages = [TextMessage.User("shout hi")] });
 
         Assert.True(result.Ok);
         Assert.Equal("done", result.Answer);

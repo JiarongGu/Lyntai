@@ -20,8 +20,8 @@ public class CliProviderEngineTests
     private static CliProviderEngine Engine(FakeProcessRunner runner, FakeCliDialect dialect, string? command = "fakecli") =>
         new(dialect, runner, new LyntaiOptions(), command: command);
 
-    private static LlmRequest Ask(string prompt = "hello", string? model = null) =>
-        new() { Messages = [LlmMessage.User(prompt)], Model = model };
+    private static TextRequest Ask(string prompt = "hello", string? model = null) =>
+        new() { Messages = [TextMessage.User(prompt)], Model = model };
 
     private static ProcessResult Ok(string stdout) => new(0, stdout, "");
 
@@ -160,13 +160,13 @@ public class CliProviderEngineTests
     {
         var runner = new FakeProcessRunner(["text:one ", "text:two", "result:one two"]);
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in Engine(runner, new FakeCliDialect()).StreamAsync(Ask()))
             chunks.Add(c);
 
-        Assert.Equal(["one ", "two"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
-        Assert.Single(chunks, c => c.Kind == LlmChunkKind.Final);
+        Assert.Equal(["one ", "two"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
+        Assert.Single(chunks, c => c.Kind == TextChunkKind.Final);
     }
 
     [Fact]
@@ -174,11 +174,11 @@ public class CliProviderEngineTests
     {
         var runner = new FakeProcessRunner([]);
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in Engine(runner, new FakeCliDialect()).StreamAsync(Ask()))
             chunks.Add(c);
 
-        Assert.Equal(LlmChunkKind.Error, Assert.Single(chunks).Kind);
+        Assert.Equal(TextChunkKind.Error, Assert.Single(chunks).Kind);
     }
 
     // ── in-band failure: a CLI that reports its own turn failure ─────────────
@@ -252,14 +252,14 @@ public class CliProviderEngineTests
     {
         var runner = new FakeProcessRunner(["text:partial answer", "fail:rate limit exceeded"]);
 
-        var chunks = new List<LlmChunk>();
+        var chunks = new List<TextChunk>();
         await foreach (var c in Engine(runner, new FakeCliDialect()).StreamAsync(Ask()))
             chunks.Add(c);
 
-        Assert.Equal(LlmChunkKind.Content, chunks[0].Kind);   // already delivered — can't be unsent
-        Assert.Equal(LlmChunkKind.Error, chunks[^1].Kind);
+        Assert.Equal(TextChunkKind.Content, chunks[0].Kind);   // already delivered — can't be unsent
+        Assert.Equal(TextChunkKind.Error, chunks[^1].Kind);
         Assert.Equal(ProviderVerdict.RateLimited, chunks[^1].Verdict);
-        Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Final);
+        Assert.DoesNotContain(chunks, c => c.Kind == TextChunkKind.Final);
     }
 
     // ── portable installs: a bundled binary, not a global one ────────────────

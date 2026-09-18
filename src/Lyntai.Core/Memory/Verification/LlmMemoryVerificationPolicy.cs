@@ -116,24 +116,24 @@ public sealed class LlmMemoryVerificationPolicy(
         try
         {
             var client = _options.ClientName is { } name ? clients.Get(name) : clients.Get();
-            var reply = await client.CompleteAsync(new LlmRequest
+            var reply = await client.CompleteAsync(new TextRequest
             {
                 Messages =
                 [
-                    new LlmMessage("system", System),
-                    new LlmMessage("user", Compose(request)),
+                    new TextMessage("system", System),
+                    new TextMessage("user", Compose(request)),
                 ],
                 Model = _options.Model,
                 // Tagged for the same reason the annotator is: this one fires on EVERY recall, and
                 // `docs/memory.md` prices a hosted judge in dollars per thousand recalls, so it is precisely
                 // the spend an operator needs to see and cap on its own.
-                Consumer = LlmConsumers.Memory,
+                Consumer = ProviderConsumers.Memory,
                 // This call's value is a short structured verdict, and it sits in the latency path of every
                 // recall — so it asks for no intermediate reasoning. Advisory: a backend that cannot
                 // express it ignores it, and Parse below still tolerates a reply that reasons anyway.
                 // Measured stakes: a thinking model spent ~25 s per judgement against ~1.5 s for one that
                 // answers directly (docs/DECISIONS.md D59).
-                Reasoning = LlmReasoning.Suppress,
+                Reasoning = TextReasoning.Suppress,
             }, ct).ConfigureAwait(false);
 
             if (reply.Verdict != ProviderVerdict.Ok || string.IsNullOrWhiteSpace(reply.Text))

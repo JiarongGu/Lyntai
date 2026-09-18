@@ -24,7 +24,7 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
 
     /// <summary>The consumer tag for this judge's calls — drives per-consumer model + timeout routing.
     /// Default <c>"scoring"</c>; override per scorer to route different judges differently.</summary>
-    protected virtual string Consumer => LlmConsumers.Scoring;
+    protected virtual string Consumer => ProviderConsumers.Scoring;
 
     /// <summary>Whether this dimension applies to <paramref name="ctx"/> — checked BEFORE the judge call, so
     /// a conditional scorer (e.g. a "faithfulness" dimension that applies to a plan but not a code-edit turn)
@@ -60,12 +60,12 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
     {
         if (!Applies(ctx)) return null; // not applicable to this context — don't spend tokens on the judge
 
-        var req = new LlmRequest
+        var req = new TextRequest
         {
             Messages =
             [
-                LlmMessage.System(JudgeSystemPrompt),
-                LlmMessage.User(BuildJudgePrompt(ctx)),
+                TextMessage.System(JudgeSystemPrompt),
+                TextMessage.User(BuildJudgePrompt(ctx)),
             ],
             JsonSchema = """{"type":"object","properties":{"score":{"type":"number"},"reason":{"type":"string"}},"required":["score"]}""",
             Model = Model,

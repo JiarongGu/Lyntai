@@ -8,7 +8,7 @@ namespace Lyntai.Tests.Cortex;
 
 public class PairwiseComparerTests
 {
-    private static LlmReply Json(string winner) =>
+    private static TextResponse Json(string winner) =>
         new($$"""{"winner":"{{winner}}","reason":"because"}""", ProviderVerdict.Ok);
 
     [Fact]
@@ -129,7 +129,7 @@ public class PairwiseComparerTests
     public async Task A_failed_judge_verdict_is_a_tie()
     {
         var llm = new FakeLlmClient();
-        llm.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down"));
+        llm.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down"));
         var comparer = new LlmPairwiseComparer(llm, mitigatePositionBias: false);
 
         var result = await comparer.CompareAsync("q", "a", "b");
@@ -147,7 +147,7 @@ public class PairwiseComparerTests
     public async Task An_unparseable_reply_is_NOT_a_judgement_even_though_the_call_succeeded()
     {
         var llm = new FakeLlmClient();
-        llm.Replies.Enqueue(new LlmReply("I'd rather not pick, sorry.", ProviderVerdict.Ok));
+        llm.Replies.Enqueue(new TextResponse("I'd rather not pick, sorry.", ProviderVerdict.Ok));
         var comparer = new LlmPairwiseComparer(llm, mitigatePositionBias: false);
 
         var result = await comparer.CompareAsync("q", "a", "b");
@@ -196,7 +196,7 @@ public class PairwiseComparerTests
     {
         var llm = new FakeLlmClient();
         llm.Replies.Enqueue(Json("a"));
-        llm.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "down"));
+        llm.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "down"));
         var comparer = new LlmPairwiseComparer(llm);
 
         var result = await comparer.CompareAsync("q", "answer A", "answer B");
@@ -226,7 +226,7 @@ public class PairwiseComparerTests
     public async Task A_cheap_judge_is_reached_by_registering_one_over_a_NAMED_client()
     {
         var asked = new List<string>();
-        LlmReply Verdict(string id) { asked.Add(id); return Json("a"); }
+        TextResponse Verdict(string id) { asked.Add(id); return Json("a"); }
 
         var services = new ServiceCollection();
         services.AddLyntai(b =>

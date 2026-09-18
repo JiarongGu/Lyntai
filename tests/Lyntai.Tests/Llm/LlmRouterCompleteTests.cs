@@ -8,7 +8,7 @@ namespace Lyntai.Tests.Llm;
 
 public class LlmRouterCompleteTests
 {
-    private static LlmRequest Req => new() { Messages = [LlmMessage.User("hi")] };
+    private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
     private static LlmRouter Router(DeadHostTracker? tracker, params IModelProvider[] providers) =>
         new(providers, tracker ?? new DeadHostTracker(), new LyntaiOptions());
@@ -17,7 +17,7 @@ public class LlmRouterCompleteTests
     public async Task First_ok_is_returned_and_second_not_called()
     {
         var p1 = new FakeLlmProvider("p1");
-        p1.Replies.Enqueue(new LlmReply("from p1", ProviderVerdict.Ok));
+        p1.Replies.Enqueue(new TextResponse("from p1", ProviderVerdict.Ok));
         var p2 = new FakeLlmProvider("p2");
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
@@ -31,9 +31,9 @@ public class LlmRouterCompleteTests
     public async Task Failed_advances_to_second_which_serves()
     {
         var p1 = new FakeLlmProvider("p1");
-        p1.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "boom"));
+        p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "boom"));
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("from p2", ProviderVerdict.Ok));
+        p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
@@ -49,7 +49,7 @@ public class LlmRouterCompleteTests
         var p1 = new FakeLlmProvider("p1")
         { CompleteThrow = new HttpRequestException("throttled", null, System.Net.HttpStatusCode.TooManyRequests) };
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("from p2", ProviderVerdict.Ok));
+        p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(tracker, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
@@ -65,7 +65,7 @@ public class LlmRouterCompleteTests
         var p1 = new FakeLlmProvider("p1")
         { CompleteThrow = new HttpRequestException("<html>Blocked by corporate content filter</html>") };
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("from p2", ProviderVerdict.Ok));
+        p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
@@ -77,9 +77,9 @@ public class LlmRouterCompleteTests
     public async Task All_failed_returns_the_last_error()
     {
         var p1 = new FakeLlmProvider("p1");
-        p1.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "first"));
+        p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "first"));
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("", ProviderVerdict.Timeout, Detail: "second"));
+        p2.Replies.Enqueue(new TextResponse("", ProviderVerdict.Timeout, Detail: "second"));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
@@ -93,9 +93,9 @@ public class LlmRouterCompleteTests
         // amended §6: a 429 is terminal for the host's window, transient for the fleet
         var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var p1 = new FakeLlmProvider("p1");
-        p1.Replies.Enqueue(new LlmReply("", ProviderVerdict.RateLimited, Detail: "429"));
+        p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("served by fallback", ProviderVerdict.Ok));
+        p2.Replies.Enqueue(new TextResponse("served by fallback", ProviderVerdict.Ok));
 
         var router = Router(tracker, p1, p2);
         var reply = await router.CompleteAsync([new("p1"), new("p2")], Req);
@@ -104,7 +104,7 @@ public class LlmRouterCompleteTests
         Assert.True(tracker.IsDead("p1")); // ONE 429 → immediate cooldown, no threshold counting
 
         // the next call must skip p1 entirely — never re-ask inside the rate-limit window
-        p2.Replies.Enqueue(new LlmReply("again", ProviderVerdict.Ok));
+        p2.Replies.Enqueue(new TextResponse("again", ProviderVerdict.Ok));
         await router.CompleteAsync([new("p1"), new("p2")], Req);
         Assert.Single(p1.Calls);
     }
@@ -115,9 +115,9 @@ public class LlmRouterCompleteTests
         // too-big-for-model is not a host fault: the correct remedy is a larger-context candidate
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var small = new FakeLlmProvider("small");
-        small.Replies.Enqueue(new LlmReply("", ProviderVerdict.ContextWindowExceeded, Detail: "context_length_exceeded"));
+        small.Replies.Enqueue(new TextResponse("", ProviderVerdict.ContextWindowExceeded, Detail: "context_length_exceeded"));
         var big = new FakeLlmProvider("big");
-        big.Replies.Enqueue(new LlmReply("handled by the big model", ProviderVerdict.Ok));
+        big.Replies.Enqueue(new TextResponse("handled by the big model", ProviderVerdict.Ok));
 
         var reply = await Router(tracker, small, big).CompleteAsync([new("small"), new("big")], Req);
 
@@ -130,9 +130,9 @@ public class LlmRouterCompleteTests
     {
         var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var badKey = new FakeLlmProvider("bad-key");
-        badKey.Replies.Enqueue(new LlmReply("", ProviderVerdict.AuthFailed, Detail: "401"));
+        badKey.Replies.Enqueue(new TextResponse("", ProviderVerdict.AuthFailed, Detail: "401"));
         var goodKey = new FakeLlmProvider("good-key");
-        goodKey.Replies.Enqueue(new LlmReply("authorized", ProviderVerdict.Ok));
+        goodKey.Replies.Enqueue(new TextResponse("authorized", ProviderVerdict.Ok));
 
         var reply = await Router(tracker, badKey, goodKey).CompleteAsync([new("bad-key"), new("good-key")], Req);
 
@@ -148,9 +148,9 @@ public class LlmRouterCompleteTests
         // no cooldown — the same thing the generation router already does (GenerationRoutingPolicy).
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var unset = new FakeLlmProvider("unset");
-        unset.Replies.Enqueue(new LlmReply("", ProviderVerdict.NotConfigured, Detail: "no api key"));
+        unset.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "no api key"));
         var configured = new FakeLlmProvider("configured");
-        configured.Replies.Enqueue(new LlmReply("served", ProviderVerdict.Ok));
+        configured.Replies.Enqueue(new TextResponse("served", ProviderVerdict.Ok));
 
         var reply = await Router(tracker, unset, configured).CompleteAsync([new("unset"), new("configured")], Req);
 
@@ -165,9 +165,9 @@ public class LlmRouterCompleteTests
         // a key — while the backend they HAD configured is the one that is down. GenerationRouter already
         // guards this ("aren't faults worth reporting over a real failure"); the LLM router must too.
         var down = new FakeLlmProvider("down");
-        down.Replies.Enqueue(new LlmReply("", ProviderVerdict.Failed, Detail: "connection refused"));
+        down.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "connection refused"));
         var unset = new FakeLlmProvider("unset");
-        unset.Replies.Enqueue(new LlmReply("", ProviderVerdict.NotConfigured, Detail: "no api key"));
+        unset.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "no api key"));
 
         var reply = await Router(null, down, unset).CompleteAsync([new("down"), new("unset")], Req);
 
@@ -188,9 +188,9 @@ public class LlmRouterCompleteTests
         // guard against a well-meant harmonisation of the two routers; they are not redundant with this one,
         // and deleting either would let last-wins silently become first-wins with every test still green.
         var unset = new FakeLlmProvider("unset");
-        unset.Replies.Enqueue(new LlmReply("", ProviderVerdict.NotConfigured, Detail: "no api key"));
+        unset.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "no api key"));
         var down = new FakeLlmProvider("down");
-        down.Replies.Enqueue(new LlmReply("", ProviderVerdict.Timeout, Detail: "timed out"));
+        down.Replies.Enqueue(new TextResponse("", ProviderVerdict.Timeout, Detail: "timed out"));
 
         var reply = await Router(null, unset, down).CompleteAsync([new("unset"), new("down")], Req);
 
@@ -203,9 +203,9 @@ public class LlmRouterCompleteTests
         // …and with no real failure to report, the blameless verdict IS the honest answer — a host turns it
         // into a setup prompt. Keeping it out of the reply entirely would be a regression, not a fix.
         var a = new FakeLlmProvider("a");
-        a.Replies.Enqueue(new LlmReply("", ProviderVerdict.NotConfigured, Detail: "a: no api key"));
+        a.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "a: no api key"));
         var b = new FakeLlmProvider("b");
-        b.Replies.Enqueue(new LlmReply("", ProviderVerdict.NotConfigured, Detail: "b: no api key"));
+        b.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "b: no api key"));
 
         var reply = await Router(null, a, b).CompleteAsync([new("a"), new("b")], Req);
 
@@ -217,9 +217,9 @@ public class LlmRouterCompleteTests
     public async Task All_candidates_rate_limited_surfaces_the_rate_limit()
     {
         var p1 = new FakeLlmProvider("p1");
-        p1.Replies.Enqueue(new LlmReply("", ProviderVerdict.RateLimited, Detail: "429 p1"));
+        p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429 p1"));
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("", ProviderVerdict.RateLimited, Detail: "429 p2"));
+        p2.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429 p2"));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
@@ -231,7 +231,7 @@ public class LlmRouterCompleteTests
     public async Task Refused_surfaces_without_fallback()
     {
         var p1 = new FakeLlmProvider("p1");
-        p1.Replies.Enqueue(new LlmReply("", ProviderVerdict.Refused, Detail: "policy"));
+        p1.Replies.Enqueue(new TextResponse("", ProviderVerdict.Refused, Detail: "policy"));
         var p2 = new FakeLlmProvider("p2");
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
@@ -248,7 +248,7 @@ public class LlmRouterCompleteTests
 
         var p1 = new FakeLlmProvider("p1");
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("from p2", ProviderVerdict.Ok));
+        p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(tracker, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
@@ -261,7 +261,7 @@ public class LlmRouterCompleteTests
     {
         var p1 = new FakeLlmProvider("p1") { IsAvailable = false };
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("from p2", ProviderVerdict.Ok));
+        p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
@@ -274,7 +274,7 @@ public class LlmRouterCompleteTests
     {
         var p1 = new ThrowingProvider("p1");
         var p2 = new FakeLlmProvider("p2");
-        p2.Replies.Enqueue(new LlmReply("from p2", ProviderVerdict.Ok));
+        p2.Replies.Enqueue(new TextResponse("from p2", ProviderVerdict.Ok));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
@@ -302,9 +302,9 @@ public class LlmRouterCompleteTests
             Operations = [ProviderOperation.Complete, ProviderOperation.Stream],
         };
         public bool IsAvailable => true;
-        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default) =>
+        public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
             throw new InvalidOperationException("kaboom");
-        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+        public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
             throw new InvalidOperationException("kaboom");
     }
 }

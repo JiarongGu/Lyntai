@@ -606,9 +606,9 @@ internal static class SweepDoubles
         /// <param name="maxTokens">Output cap. <c>FinishReason</c> comes back so a caller can tell a model
         /// that CHOSE not to call a tool from one the cap cut off mid-generation — two very different
         /// findings that a bare empty <c>tool_calls</c> reports identically.</param>
-        public async Task<(string? Content, IReadOnlyList<LlmToolCall>? Calls, string? FinishReason)>
+        public async Task<(string? Content, IReadOnlyList<TextToolCall>? Calls, string? FinishReason)>
             AskWithToolsAsync(
-            IReadOnlyList<LlmMessage> messages, IReadOnlyList<LlmTool> tools,
+            IReadOnlyList<TextMessage> messages, IReadOnlyList<TextTool> tools,
             CancellationToken ct = default, int maxTokens = 192)
         {
             using var response = await http.PostAsJsonAsync($"{baseUrl}/v1/chat/completions",
@@ -641,7 +641,7 @@ internal static class SweepDoubles
             var content = message.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String
                 ? c.GetString() : null;
 
-            var calls = new List<LlmToolCall>();
+            var calls = new List<TextToolCall>();
             if (message.TryGetProperty("tool_calls", out var raw) && raw.ValueKind == JsonValueKind.Array)
             {
                 var index = 0;
@@ -649,7 +649,7 @@ internal static class SweepDoubles
                 {
                     if (!call.TryGetProperty("function", out var fn)) continue;
                     var id = call.TryGetProperty("id", out var i) ? i.GetString() : null;
-                    calls.Add(new LlmToolCall(
+                    calls.Add(new TextToolCall(
                         string.IsNullOrEmpty(id) ? $"call_{index}" : id,
                         fn.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
                         fn.TryGetProperty("arguments", out var a) ? a.GetString() ?? "{}" : "{}"));
@@ -661,7 +661,7 @@ internal static class SweepDoubles
 
         /// <summary>A message in OpenAI wire shape. Three cases, because an assistant tool-call turn and a
         /// tool-result turn are not plain text ones and a provider rejects a transcript missing either.</summary>
-        private static object WireMessage(LlmMessage m)
+        private static object WireMessage(TextMessage m)
         {
             if (m.Role == "tool")
                 return new { role = "tool", content = m.Content, tool_call_id = m.ToolCallId ?? "" };
@@ -724,7 +724,7 @@ internal static class SweepDoubles
 
         private sealed class BenchClient(OpenAiCompatibleChat chat, int? budget) : ILlmClient
         {
-            public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+            public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
             {
                 // Into the SYSTEM message, so the budget sits with the other rules and AHEAD of the notes —
                 // where the library's own const would put it. Appending it after 80 notes would be a
@@ -745,14 +745,14 @@ internal static class SweepDoubles
                 var text = await chat.AskAsync(prompt, ct, maxTokens: 256).ConfigureAwait(false);
 
                 return text is null
-                    ? new LlmReply("", ProviderVerdict.Failed, Detail: "bench chat returned nothing")
-                    : new LlmReply(text, ProviderVerdict.Ok);
+                    ? new TextResponse("", ProviderVerdict.Failed, Detail: "bench chat returned nothing")
+                    : new TextResponse(text, ProviderVerdict.Ok);
             }
 
             /// <summary>The verification policy never streams — it asks one bounded question and parses the
             /// whole answer. Throwing rather than returning an empty sequence is deliberate: a silent empty
             /// stream would let a future caller believe it had read something.</summary>
-            public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+            public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
                 throw new NotSupportedException(
                     "the bench client backs a verification judge, which does not stream");
         }

@@ -50,7 +50,7 @@ public static class LyntaiDiagnostics
     }
 
     internal static void RecordOutcome(Activity? activity, string providerId, string? model,
-        ProviderVerdict verdict, LlmUsage? usage, double elapsedSeconds, string? detail = null)
+        ProviderVerdict verdict, TextUsage? usage, double elapsedSeconds, string? detail = null)
     {
         var errorType = verdict == ProviderVerdict.Ok ? null : verdict.ToString();
 

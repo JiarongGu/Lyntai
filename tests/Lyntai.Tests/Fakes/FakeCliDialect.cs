@@ -1,5 +1,6 @@
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
+using Lyntai.Inference;
 
 namespace Lyntai.Tests.Fakes;
 
@@ -49,7 +50,7 @@ public sealed class FakeCliDialect : CliProviderDialectBase
     /// <summary>Appends the tool-host args, like the claude dialect and unlike the codex one — this fake
     /// stands in for an ordinary options-terminated CLI.</summary>
     public override IReadOnlyList<string> BuildCompletionArgs(
-        LlmRequest request, IReadOnlyList<string> toolHostArgs) =>
+        TextRequest request, IReadOnlyList<string> toolHostArgs) =>
         request.Model is { Length: > 0 } model
             ? ["run", "--model", model, .. toolHostArgs]
             : ["run", .. toolHostArgs];
@@ -57,7 +58,7 @@ public sealed class FakeCliDialect : CliProviderDialectBase
     public override CliOutputEvent ParseLine(string line) => line switch
     {
         var l when l.StartsWith("text:") => CliOutputEvent.Content(l["text:".Length..]),
-        var l when l.StartsWith("result:") => CliOutputEvent.Result(l["result:".Length..], new LlmUsage(1, 2)),
+        var l when l.StartsWith("result:") => CliOutputEvent.Result(l["result:".Length..], new TextUsage(1, 2)),
         var l when l.StartsWith("fail:") => CliOutputEvent.Failure(l["fail:".Length..]),
         _ => CliOutputEvent.Ignored,
     };

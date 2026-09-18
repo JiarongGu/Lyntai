@@ -27,7 +27,7 @@ public class OllamaAttachmentTests
     [Fact]
     public void An_inline_image_rides_the_user_turn_as_raw_base64()
     {
-        var req = new LlmRequest { Messages = [LlmMessage.UserWithImage("describe", Png, "image/png")] };
+        var req = new TextRequest { Messages = [TextMessage.UserWithImage("describe", Png, "image/png")] };
 
         var msg = OllamaPayload.Build(req, "llava", stream: false)["messages"]!.AsArray()[0]!;
 
@@ -43,7 +43,7 @@ public class OllamaAttachmentTests
     {
         // `data:image/png;base64,…` is the OpenAI image_url shape; Ollama wants the payload alone, and a
         // prefixed string decodes to garbage rather than failing loudly
-        var req = new LlmRequest { Messages = [LlmMessage.UserWithImage("describe", Png, "image/png")] };
+        var req = new TextRequest { Messages = [TextMessage.UserWithImage("describe", Png, "image/png")] };
 
         var image = (string)OllamaPayload.Build(req, "llava", stream: false)["messages"]!
             .AsArray()[0]!["images"]!.AsArray()[0]!;
@@ -56,13 +56,13 @@ public class OllamaAttachmentTests
     public void Several_images_all_travel_in_one_array()
     {
         var second = Encoding.UTF8.GetBytes("second-image");
-        var req = new LlmRequest
+        var req = new TextRequest
         {
             Messages =
             [
-                new LlmMessage("user", "compare these")
+                new TextMessage("user", "compare these")
                 {
-                    Attachments = [new LlmAttachment("image/png", Png), new LlmAttachment("image/png", second)],
+                    Attachments = [new TextAttachment("image/png", Png), new TextAttachment("image/png", second)],
                 },
             ],
         };
@@ -77,7 +77,7 @@ public class OllamaAttachmentTests
     [Fact]
     public void A_turn_with_no_attachments_is_untouched()
     {
-        var req = new LlmRequest { Messages = [LlmMessage.User("plain text")] };
+        var req = new TextRequest { Messages = [TextMessage.User("plain text")] };
 
         var msg = OllamaPayload.Build(req, "llama3", stream: false)["messages"]!.AsArray()[0]!;
 
@@ -89,9 +89,9 @@ public class OllamaAttachmentTests
     public void An_attachment_on_a_non_user_role_is_not_sent()
     {
         // /api/chat documents images on the USER turn; mirrors OpenAiPayload's same restriction
-        var req = new LlmRequest
+        var req = new TextRequest
         {
-            Messages = [new LlmMessage("assistant", "sure") { Attachments = [new LlmAttachment("image/png", Png)] }],
+            Messages = [new TextMessage("assistant", "sure") { Attachments = [new TextAttachment("image/png", Png)] }],
         };
 
         var msg = OllamaPayload.Build(req, "llava", stream: false)["messages"]!.AsArray()[0]!;
@@ -104,7 +104,7 @@ public class OllamaAttachmentTests
     public void A_uri_only_attachment_is_reported_as_undeliverable_rather_than_dropped_in_silence()
     {
         var logs = new List<string>();
-        var req = new LlmRequest { Messages = [LlmMessage.UserWithImageUrl("describe", "https://example.com/i.jpg")] };
+        var req = new TextRequest { Messages = [TextMessage.UserWithImageUrl("describe", "https://example.com/i.jpg")] };
 
         var msg = OllamaPayload.Build(req, "llava", stream: false, logger: new CapturingLogger(logs))["messages"]!
             .AsArray()[0]!;
@@ -119,16 +119,16 @@ public class OllamaAttachmentTests
     public void A_mixed_turn_sends_what_it_can_and_reports_what_it_cannot()
     {
         var logs = new List<string>();
-        var req = new LlmRequest
+        var req = new TextRequest
         {
             Messages =
             [
-                new LlmMessage("user", "compare these")
+                new TextMessage("user", "compare these")
                 {
                     Attachments =
                     [
-                        new LlmAttachment("image/png", Png),
-                        new LlmAttachment("image/jpeg", Uri: "https://example.com/i.jpg"),
+                        new TextAttachment("image/png", Png),
+                        new TextAttachment("image/jpeg", Uri: "https://example.com/i.jpg"),
                     ],
                 },
             ],
@@ -147,7 +147,7 @@ public class OllamaAttachmentTests
     public void No_logger_configured_still_builds_the_payload()
     {
         // the report is diagnostics, never a precondition — a provider with no logger must not change shape
-        var req = new LlmRequest { Messages = [LlmMessage.UserWithImageUrl("describe", "https://example.com/i.jpg")] };
+        var req = new TextRequest { Messages = [TextMessage.UserWithImageUrl("describe", "https://example.com/i.jpg")] };
 
         var msg = OllamaPayload.Build(req, "llava", stream: false)["messages"]!.AsArray()[0]!;
 
@@ -167,9 +167,9 @@ public class OllamaAttachmentTests
             () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
 
-        var reply = await provider.CompleteAsync(new LlmRequest
+        var reply = await provider.CompleteAsync(new TextRequest
         {
-            Messages = [LlmMessage.UserWithImage("what is this?", Png, "image/png")],
+            Messages = [TextMessage.UserWithImage("what is this?", Png, "image/png")],
             Model = "llava",
         });
 

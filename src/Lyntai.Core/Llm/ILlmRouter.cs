@@ -12,9 +12,9 @@ namespace Lyntai.Llm;
 /// window.</summary>
 public interface ILlmRouter
 {
-    Task<LlmReply> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default);
+    Task<TextResponse> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default);
 
-    IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req, CancellationToken ct = default);
+    IAsyncEnumerable<TextChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default);
 
     /// <summary>Whether native tool-calling is available for <paramref name="candidates"/> serving
     /// <paramref name="req"/> — true iff the first live (registered + available + not on cooldown)
@@ -22,9 +22,9 @@ public interface ILlmRouter
     /// effective model / cooldown key that <see cref="CompleteAsync"/> will. Caveat: being a sync probe,
     /// it does NOT read a live <c>IModelRoutingStore</c> override — under <c>ProviderAndModel</c> cooldown
     /// scope plus a live override, the probe's cooldown key can differ from the completion's. Default false.</summary>
-    bool SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req) => false;
+    bool SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req) => false;
 
     /// <summary>Whether the first live candidate's STREAM delivers native tool calls. Same selection rule
     /// and same caveats as <see cref="SupportsToolCalls"/>; default false.</summary>
-    bool SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, LlmRequest req) => false;
+    bool SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req) => false;
 }

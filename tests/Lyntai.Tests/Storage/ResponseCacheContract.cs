@@ -19,8 +19,8 @@ namespace Lyntai.Tests.Storage;
 /// own container requires.</para></summary>
 public static class ResponseCacheContract
 {
-    private static LlmReply Reply(string text) =>
-        new(text, ProviderVerdict.Ok, new LlmUsage(3, 4, CostUsd: 0.05));
+    private static TextResponse Reply(string text) =>
+        new(text, ProviderVerdict.Ok, new TextUsage(3, 4, CostUsd: 0.05));
 
     /// <summary>A hit returns what was stored, USAGE included — the field a persistent backend is most
     /// likely to lose, since cost is a floating column and SQLite stores `1.0` as an INTEGER in the same

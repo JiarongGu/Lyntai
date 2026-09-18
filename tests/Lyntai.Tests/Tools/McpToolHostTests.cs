@@ -3,6 +3,7 @@ using Lyntai.Tools.Mcp;
 using Lyntai.Tools.Mcp.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
+using Lyntai.Inference;
 
 namespace Lyntai.Tests.Tools;
 
@@ -209,19 +210,19 @@ public class McpToolHostTests
 
     private sealed class BlockingRail : Lyntai.Guards.IGuardRail
     {
-        public Task<Lyntai.Guards.GuardOutcome> InspectRequestAsync(Lyntai.Llm.LlmRequest req, CancellationToken ct = default) =>
+        public Task<Lyntai.Guards.GuardOutcome> InspectRequestAsync(Lyntai.Inference.TextRequest req, CancellationToken ct = default) =>
             Task.FromResult(Lyntai.Guards.GuardOutcome.Block("blocked by policy"));
 
-        public Task<Lyntai.Guards.GuardOutcome> InspectResponseAsync(Lyntai.Llm.LlmReply reply, CancellationToken ct = default) =>
+        public Task<Lyntai.Guards.GuardOutcome> InspectResponseAsync(Lyntai.Inference.TextResponse reply, CancellationToken ct = default) =>
             Task.FromResult(Lyntai.Guards.GuardOutcome.Allow);
     }
 
     private sealed class RedactingRail : Lyntai.Guards.IGuardRail
     {
-        public Task<Lyntai.Guards.GuardOutcome> InspectRequestAsync(Lyntai.Llm.LlmRequest req, CancellationToken ct = default) =>
+        public Task<Lyntai.Guards.GuardOutcome> InspectRequestAsync(Lyntai.Inference.TextRequest req, CancellationToken ct = default) =>
             Task.FromResult(Lyntai.Guards.GuardOutcome.Allow);
 
-        public Task<Lyntai.Guards.GuardOutcome> InspectResponseAsync(Lyntai.Llm.LlmReply reply, CancellationToken ct = default) =>
+        public Task<Lyntai.Guards.GuardOutcome> InspectResponseAsync(Lyntai.Inference.TextResponse reply, CancellationToken ct = default) =>
             Task.FromResult(Lyntai.Guards.GuardOutcome.Replace("[redacted]"));
     }
 
