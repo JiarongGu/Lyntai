@@ -39,7 +39,7 @@ green on all 24 gates. It reconciled to the real numbers by arithmetic — +204 
 — and the attestation was still withheld until Docker came up, because this line takes a MEASUREMENT and
 an arithmetic that happens to work is the most tempting way to break that rule. Every skip is live-backend gated (a live model, embedder, reranker, Ollama, MCP or CLI), so
 nothing is skipping for another reason. **The gated-on-a-model-DIRECTORY suites are now four**:
-`OnnxProviderLiveTests` is FIVE (**D124**), `OnnxCrossEncoderProviderLiveTests` four, beside
+`OnnxProviderLiveTests` is FIVE (**D124**), `OnnxCrossEncoderLiveTests` four, beside
 `WordPieceTokenizerLiveTests` (**D122**) and `Model2VecProviderLiveTests` (**D121**).
 **Run with `LYNTAI_ONNX_MODEL_DIR`, `LYNTAI_STATIC_MODEL_DIR` and `LYNTAI_ONNX_RERANK_MODEL_DIR` set and
 the count reads 22 skipped** — measured at `c1a62871`, where the passing total was 3751; the

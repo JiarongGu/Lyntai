@@ -1,6 +1,6 @@
 namespace Lyntai.Providers.Onnx;
 
-/// <summary>Knobs for <see cref="OnnxCrossEncoderProvider"/>. <b>Separate from
+/// <summary>Knobs for <see cref="OnnxCrossEncoder"/>. <b>Separate from
 /// <see cref="OnnxProviderOptions"/> rather than shared with it</b>: pooling and normalization are an
 /// vector backend's questions, and a cross-encoder has no answer to either — its head emits the score
 /// directly.</summary>

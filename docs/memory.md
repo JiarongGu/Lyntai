@@ -407,7 +407,7 @@ services.AddLyntai(b => b
 wins.** `AddMemoryScoringVerification` points the same seam at any backend producing `ProviderKinds.Score`
 instead of at an instruct model: it scores `(query, candidate)` pairs and never generates, so it needs a
 fraction of the memory and pays none of generation's latency. **That backend need not be a server** — a
-`/v1/rerank` endpoint through `AddHttpProvider`, or `AddOnnxCrossEncoderProvider` running the model in process. A sub-500 MB cross-encoder captured **6.0 of the 7.0 points**
+`/v1/rerank` endpoint through `AddHttpProvider`, or `AddOnnxCrossEncoder` running the model in process. A sub-500 MB cross-encoder captured **6.0 of the 7.0 points**
 a perfect judge offers on LoCoMo, where the 4B instruct judge *spends* 10.5 at the shipped depth — figures
 and their limits in `docs/memory-measurements.md` §5, and both are ladder rungs rather than defaults, since
 this seam still ships empty. **Set `EndorseCount` to your recall limit**: a fixed count keeps promotion a

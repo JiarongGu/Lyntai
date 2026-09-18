@@ -182,21 +182,6 @@ export default {
         + '(D154)',
     },
     {
-      // REL3 (D137's suffix rule, applied to the one backend D137 and D138 both passed over). Measured
-      // 2026-09-18: six public provider classes, five carried `Provider` and this one did not; sixteen
-      // named-backend registrations ended in `Provider`, and `AddOnnxCrossEncoder` did not.
-      //
-      // `OnnxCrossEncoderOptions` is deliberately NOT here. `<Backend>Options` is what the five media
-      // backends use (`Automatic1111Provider` ↔ `Automatic1111Options`), so the options name was already
-      // right; `OnnxProviderOptions` is the odd one, and it earns its suffix by disambiguating two ONNX
-      // backends. The WORD "cross-encoder" is untouched either way — D139 kept it as the right name for
-      // what the model IS, and only the missing provider suffix was ever the defect.
-      names: ['OnnxCrossEncoder', 'AddOnnxCrossEncoder'],
-      use: '`OnnxCrossEncoderProvider` and `AddOnnxCrossEncoderProvider`',
-      why: 'every shipped backend type and every named-backend registration carries the Provider suffix; '
-        + 'this was the one the D137→D138 sweep missed, and after the major it costs another rename (D137)',
-    },
-    {
       // D151. `EmbeddingRole` is deliberately NOT here: it survives on IModelProvider's role-aware
       // overload, and whole-identifier equality keeps it live without an allowance. D152 re-examined that
       // and kept it — the word belongs on the OPERATION, only not on a provider.

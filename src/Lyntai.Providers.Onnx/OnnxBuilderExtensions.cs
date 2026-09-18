@@ -92,7 +92,7 @@ public static class OnnxBuilderExtensions
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="modelDirectory">A directory holding a cross-encoder ONNX graph and <c>vocab.txt</c>.</param>
     /// <param name="configure">Knobs; null takes the model's own configuration.</param>
-    public static LyntaiBuilder AddOnnxCrossEncoderProvider(this LyntaiBuilder builder, string modelDirectory,
+    public static LyntaiBuilder AddOnnxCrossEncoder(this LyntaiBuilder builder, string modelDirectory,
         Action<OnnxCrossEncoderOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -101,6 +101,6 @@ public static class OnnxBuilderExtensions
         var options = new OnnxCrossEncoderOptions();
         configure?.Invoke(options);
 
-        return RegisterOwned(builder, OnnxCrossEncoderProvider.FromDirectory(modelDirectory, options));
+        return RegisterOwned(builder, OnnxCrossEncoder.FromDirectory(modelDirectory, options));
     }
 }
