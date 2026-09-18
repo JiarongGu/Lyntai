@@ -145,7 +145,7 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<ITextRouter>(sp => new TextRouter(
             sp.GetServices<IModelProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
             sp.GetService<ILogger<TextRouter>>(), modelRouting: sp.GetService<Lyntai.Inference.IModelRoutingStore>()));
-        // The chat counterpart of IGenerationRouterFactory: a router per CALLER's provider set, over the
+        // The chat counterpart of IMediaRouterFactory: a router per CALLER's provider set, over the
         // ONE tracker and the ONE admission table registered above — which is the bookkeeping a consumer
         // hand-building a router per call inevitably rebuilds, and thereby throws away. Registered for the
         // same reason the generation one is: without it half the feature is unreachable through DI.

@@ -188,7 +188,7 @@ public class ScoringVerificationPolicyTests
     [Fact]
     public void A_named_backend_is_matched_case_insensitively_like_every_other_id_lookup_here()
     {
-        // TextRouter, GenerationRouter, IToolRegistry and BoundedProviderPool all fold case; an ordinal
+        // TextRouter, MediaRouter, IToolRegistry and BoundedProviderPool all fold case; an ordinal
         // table here would make a backend reachable by the router and invisible to this seam.
         _ = Policy([new FakeScorer(_ => [1.0], "Accurate")], "accurate");
     }

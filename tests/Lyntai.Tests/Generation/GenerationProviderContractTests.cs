@@ -102,7 +102,7 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
 
         if (provider.Capabilities.Operations.Contains(ProviderOperation.Complete))
             await provider.GenerateAsync(ask);
-        else if (provider is IGenerationJobProvider jobs)
+        else if (provider is IMediaJobProvider jobs)
             await jobs.SubmitAsync(ask);
 
         GenerationProviderContract.A_handed_input_is_consumed_or_refused(
@@ -131,7 +131,7 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
     {
         var http = new StubHttpHandler();
         http.Enqueue(_ => GenerationProviderContract.Unauthorized());
-        if (New(http) is not IGenerationJobProvider jobs) return;
+        if (New(http) is not IMediaJobProvider jobs) return;
 
         var result = await jobs.FetchAsync(OperationId);
 

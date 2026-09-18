@@ -58,7 +58,7 @@ public sealed class TextRouter(
     // provider lookup by id, built once — O(1) per candidate/retry instead of a linear scan. First
     // registration wins on a duplicate id (preserving the prior FirstOrDefault semantics).
     //
-    // Keyed CASE-INSENSITIVELY, like every other id lookup in the tree (GenerationRouter, ProviderPoolGuard,
+    // Keyed CASE-INSENSITIVELY, like every other id lookup in the tree (MediaRouter, ProviderPoolGuard,
     // IToolRegistry, IJobHandlerRegistry, BoundedProviderPool). An ordinal table made a pool slot cased
     // differently from the provider's own Id — which ProviderPoolGuard deliberately ACCEPTS — reachable by
     // the guard, poolable, and then never selected here: the backend was simply never tried, with no error

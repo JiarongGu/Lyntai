@@ -1,11 +1,10 @@
-using Lyntai.Inference;
 
-namespace Lyntai.Generation.Routing;
+namespace Lyntai.Inference;
 
 /// <summary>Picks a capable media backend and falls over when one fails. The media counterpart of
 /// <c>ITextRouter</c>, kept separate because media routing must filter on CAPABILITY first — a chat model
 /// always takes text, whereas a video backend simply cannot serve an image request.</summary>
-public interface IGenerationRouter
+public interface IMediaRouter
 {
     /// <summary>Generate inline through the first capable candidate, advancing on a fallible verdict.</summary>
     /// <remarks>When no candidate succeeds, the reported result is the first SUBSTANTIVE failure — a blameless
@@ -31,11 +30,11 @@ public interface IGenerationRouter
     /// (<see cref="QueuedOperation.Inconclusive"/>) surfaces rather than advancing, and is not held
     /// against the backend, because trying the next candidate could buy the same render twice — that is
     /// decided BEFORE the verdict is. And when no candidate accepted the job, the returned
-    /// <see cref="GenerationSubmission.ProviderId"/> is EMPTY; the first rejecting backend and its reason are
+    /// <see cref="MediaSubmission.ProviderId"/> is EMPTY; the first rejecting backend and its reason are
     /// folded into the operation's detail instead, so the id field keeps meaning exactly one thing — the first
     /// SUBSTANTIVE rejection where there was one, otherwise a blameless rejection that still explained itself,
     /// on the same rule <see cref="GenerateAsync"/> follows.</para></remarks>
-    Task<GenerationSubmission> SubmitAsync(
+    Task<MediaSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default);
 
     /// <summary>Stream through the first capable <see cref="ProviderOperation.Stream"/> candidate, emitting
@@ -69,4 +68,4 @@ public interface IGenerationRouter
 /// is meaningless without knowing who issued it.</summary>
 /// <param name="ProviderId">The backend holding the operation; empty when no candidate accepted the job.</param>
 /// <param name="Operation">The operation handle.</param>
-public sealed record GenerationSubmission(string ProviderId, QueuedOperation Operation);
+public sealed record MediaSubmission(string ProviderId, QueuedOperation Operation);

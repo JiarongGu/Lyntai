@@ -1,12 +1,12 @@
-using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Tests.Fakes;
+using Lyntai.Generation;
 
 namespace Lyntai.Tests.Generation;
 
 /// <summary>The pipeline runner: ordered stages, each feeding the next through
-/// <see cref="MediaArtifact.ToInput"/>. Driven through a scripted <see cref="IGenerationRouter"/> so a
+/// <see cref="MediaArtifact.ToInput"/>. Driven through a scripted <see cref="IMediaRouter"/> so a
 /// fact can stage the artifact counts a real backend produces — and, for the governance fact, through the
 /// REAL router under the budget decorator.</summary>
 public class GenerationPipelineTests
@@ -306,14 +306,14 @@ public class GenerationPipelineTests
     {
         // The fact this whole design exists to keep. `pitfalls.md` § Second doors: a capability enforced at
         // one entry point is not enforced when a second reaches the same objects, and a pipeline is a new
-        // door. This FAILS the day anyone moves the runner below IGenerationRouter — which no review
+        // door. This FAILS the day anyone moves the runner below IMediaRouter — which no review
         // reliably catches, because the two paths share state rather than code.
         var backend = new FakeGenerationProvider { Id = "hosted", CostUsd = 0.40 };
         var options = new LyntaiOptions();
         options.Budget.MaxCostUsd = 0.30;
         var tracker = new InMemoryUsageTracker();
-        var router = new BudgetedGenerationRouter(
-            new GenerationRouter([backend], null,
+        var router = new BudgetedMediaRouter(
+            new MediaRouter([backend], null,
                 new DeadHostTracker(threshold: 5, cooldown: TimeSpan.FromMinutes(5))),
             tracker, options);
 
@@ -334,7 +334,7 @@ public class GenerationPipelineTests
     /// proves a stage did — or did NOT — reach a backend.
     /// <para>The submit and stream doors THROW: the pipeline drives the inline door only, so reaching either
     /// is the defect, and a plausible return value would hide it.</para></summary>
-    private sealed class ScriptedRouter(params MediaResponse[] script) : IGenerationRouter
+    private sealed class ScriptedRouter(params MediaResponse[] script) : IMediaRouter
     {
         private readonly Queue<MediaResponse> _script = new(script);
 
@@ -356,7 +356,7 @@ public class GenerationPipelineTests
                 : MediaResponse.Failure(ProviderVerdict.Failed, "the script ran out"));
         }
 
-        public Task<GenerationSubmission> SubmitAsync(
+        public Task<MediaSubmission> SubmitAsync(
             IReadOnlyList<ProviderCandidate> candidates, MediaRequest request,
             CancellationToken ct = default) =>
             throw new NotSupportedException("the pipeline must drive the inline door");

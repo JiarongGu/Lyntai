@@ -4405,3 +4405,29 @@ the text one, which is why NS-4 left its name alone.
 
 - **NS-4 — the front door: `ILlmClient` → `ITextClient`.**
 - **NS-2 — the governance sub-namespaces move WITH the front door, not before it.**
+
+## Part 249 — the media router joins its peer: `GenerationRouter` → `MediaRouter` (D154, the spec's step 5)
+
+✅ done 2026-09-18 — **Outcome:** the media router family moved to `Lyntai.Inference` as `Media*` —
+`IMediaRouter`, `MediaRouter`, `IMediaRouterFactory`/`MediaRouterFactory`, `BudgetedMediaRouter`,
+`RateLimitedMediaRouter`, `MediaRoutingPolicy`, `MediaSubmission` — plus `IMediaJobProvider`, a provider
+seam typed entirely in Inference types. `GenerationOptions` → `MediaOptions` with the four registrations
+that configure the router. 378 occurrences over 69 files. `Lyntai.Generation.Routing` is gone: the pipeline
+moved to the `Lyntai.Generation` root rather than being left alone in a namespace that no longer had a
+router in it. `TextRouter` and `MediaRouter` are now neighbours, which is what D153 refusing to MERGE them
+always implied. Detail in `CHANGELOG.md` §Unreleased.
+
+**What kept the word is the test D154 states:** the pipeline, the render job, the artifact sink and the
+`generate_*` tools RUN a generation — the act, not the shape of a call. The tools' wire names and the
+`lyntai.generation.*` telemetry are untouchable for the separate reason that a consumer subscribes to them
+by string.
+
+**One name was deliberately NOT swept and is now an open item:** `AddGenerationProvider`. It would have
+become `AddMediaProvider`, which is the exact shape D152 retired `AddEmbeddingProvider` for — a
+registration named for what a provider produces. A sweep that renames it answers a question nobody asked;
+leaving it visibly odd among five `Media*` siblings is the honest state for an undecided one.
+
+**The partially-qualified `<see cref>` bit for the THIRD time in this restructure**, and the reusable half
+is in `.claude/knowledge/pitfalls.md` §Refactoring & namespace moves.
+
+- **NS-6 — the MEDIA router joins its peer: `GenerationRouter` → `MediaRouter`.**

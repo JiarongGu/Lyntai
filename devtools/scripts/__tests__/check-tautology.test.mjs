@@ -21,7 +21,7 @@ const run = (repo, files) => checkTautology(repo, () => {}, files);
 // is how a test for a backreference silently stops testing anything — it would assert on two DIFFERENT
 // names, which no pattern here matches, and pass against a gate that does nothing.
 const NAME = 'IModelProvider';
-const OTHER = 'IGenerationJobProvider';
+const OTHER = 'IMediaJobProvider';
 
 test('a backticked pair joined by "and" FAILS, and two different names PASS', () => {
   withRepo({ 'a.md': `the \`Id\` that \`${NAME}\` and \`${NAME}\` already have\n` }, (repo) => {

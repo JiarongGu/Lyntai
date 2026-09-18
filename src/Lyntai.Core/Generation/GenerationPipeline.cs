@@ -1,6 +1,6 @@
 using Lyntai.Inference;
 
-namespace Lyntai.Generation.Routing;
+namespace Lyntai.Generation;
 
 /// <summary>One stage of a pipeline: what to generate, and which backends may serve it.</summary>
 /// <param name="Request">The generation. A later stage's chained inputs are APPENDED to its own
@@ -63,7 +63,7 @@ public sealed record GenerationPipelineResult(
 
 /// <summary>Runs ordered generation stages, feeding each one's artifact into the next through
 /// <see cref="MediaArtifact.ToInput"/>.
-/// <para>This COMPOSES <see cref="IGenerationRouter.GenerateAsync"/> and adds nothing to it — every stage is
+/// <para>This COMPOSES <see cref="IMediaRouter.GenerateAsync"/> and adds nothing to it — every stage is
 /// an ordinary routed call, so per-stage fallback, dead-host cooldown, spend caps and throttling govern a
 /// pipeline exactly as they govern one render.</para></summary>
 public static class GenerationPipeline
@@ -79,7 +79,7 @@ public static class GenerationPipeline
     /// <see cref="GenerationStage.InputRole"/> or <see cref="GenerationStage.SelectInput"/> — which chain
     /// from nothing there, so a caller who set one believes something is happening.</exception>
     public static Task<GenerationPipelineResult> RunPipelineAsync(
-        this IGenerationRouter router, IReadOnlyList<GenerationStage> stages, CancellationToken ct = default)
+        this IMediaRouter router, IReadOnlyList<GenerationStage> stages, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(router);
         ArgumentNullException.ThrowIfNull(stages);
@@ -94,7 +94,7 @@ public static class GenerationPipeline
     }
 
     private static async Task<GenerationPipelineResult> Run(
-        IGenerationRouter router, IReadOnlyList<GenerationStage> stages, CancellationToken ct)
+        IMediaRouter router, IReadOnlyList<GenerationStage> stages, CancellationToken ct)
     {
         var results = new List<MediaResponse>(stages.Count);
 

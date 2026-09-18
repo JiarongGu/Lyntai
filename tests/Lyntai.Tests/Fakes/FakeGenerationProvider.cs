@@ -56,7 +56,7 @@ public sealed class FakeGenerationProvider : IModelProvider
 }
 
 /// <summary>An ASYNC-JOB backend: submit → queued, first poll → succeeded, fetch → an mp4.</summary>
-public sealed class FakeGenerationJobProvider : IModelProvider, IGenerationJobProvider
+public sealed class FakeGenerationJobProvider : IModelProvider, IMediaJobProvider
 {
     public string Id { get; init; } = "fake-video";
 

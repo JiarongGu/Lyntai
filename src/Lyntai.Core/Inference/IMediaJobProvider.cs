@@ -1,5 +1,4 @@
-using Lyntai.Inference;
-namespace Lyntai.Generation;
+namespace Lyntai.Inference;
 
 /// <summary>
 /// OPTIONAL capability of an <see cref="IModelProvider"/> whose backend generates ASYNCHRONOUSLY: submit a
@@ -16,7 +15,7 @@ namespace Lyntai.Generation;
 /// library and hosts nothing — the APP owns that endpoint, and calls <see cref="FetchAsync"/> with the
 /// operation id when it fires. That is why fetch-by-id is on this contract rather than hidden inside a poll
 /// loop.</remarks>
-public interface IGenerationJobProvider
+public interface IMediaJobProvider
 {
     /// <summary>Submit the request and return immediately with an operation to track. Fails safe: a rejected
     /// submission comes back as a <see cref="QueuedOperationStatus.Failed"/> operation with a reason.</summary>

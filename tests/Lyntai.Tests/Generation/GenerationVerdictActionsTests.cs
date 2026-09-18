@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using System.Net;
-using Lyntai.Generation.Routing;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
@@ -57,7 +56,7 @@ public class GenerationVerdictActionsTests
         var verdict = ProviderVerdictClassifier.FromErrorText("maximum context length exceeded");
 
         Assert.Equal(ProviderVerdict.ContextWindowExceeded, verdict);
-        Assert.Equal(FallbackAction.Advance, new GenerationRoutingPolicy().ActionFor(verdict));
+        Assert.Equal(FallbackAction.Advance, new MediaRoutingPolicy().ActionFor(verdict));
     }
 
     [Fact]
@@ -94,7 +93,7 @@ public class GenerationVerdictActionsTests
 
         Assert.Equal(ProviderVerdict.Unsupported, verdict);
         // the mapping only matters because of what routing does with it
-        Assert.Equal(FallbackAction.Advance, new GenerationRoutingPolicy().ActionFor(verdict));
+        Assert.Equal(FallbackAction.Advance, new MediaRoutingPolicy().ActionFor(verdict));
     }
 
     /// <summary>The mapping's POINT, end to end: a translated capability gap must not count toward the
@@ -116,7 +115,7 @@ public class GenerationVerdictActionsTests
         var gap = new FakeGenerationProvider { Id = "a" };
         gap.Verdicts.Enqueue(verdict);
         var working = new FakeGenerationProvider { Id = "b" };
-        var router = new GenerationRouter([gap, working], deadHosts: deadHosts);
+        var router = new MediaRouter([gap, working], deadHosts: deadHosts);
         ProviderCandidate[] candidates = [new("a"), new("b")];
         var request = new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a red square" };
 

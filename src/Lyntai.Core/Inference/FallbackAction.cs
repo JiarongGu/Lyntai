@@ -5,7 +5,7 @@ namespace Lyntai.Inference;
 ///
 /// <para><b>The mapping is the POLICY; these are the moves it can choose from.</b> Each domain keeps its own
 /// table — <c>RoutingPolicy</c> surfaces <see cref="ProviderVerdict.Unsupported"/> where
-/// <c>GenerationRoutingPolicy</c> advances on it, and their defaults for an UNMAPPED verdict differ too. That
+/// <c>MediaRoutingPolicy</c> advances on it, and their defaults for an UNMAPPED verdict differ too. That
 /// is table content, not vocabulary: **D139** merged the table's key and left its value duplicated, which is
 /// the same shape one layer down (<c>docs/DECISIONS.md</c> D140).</para></summary>
 public enum FallbackAction

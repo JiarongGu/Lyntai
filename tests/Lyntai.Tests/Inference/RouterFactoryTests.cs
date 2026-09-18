@@ -1,4 +1,3 @@
-using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,7 +19,7 @@ public class RouterFactoryTests
         ProviderKey.For(slot).With("v", value).Build();
 
     // every remaining constructor parameter is optional: no policy, no governance, no admission
-    private static GenerationRouterFactory Factory(
+    private static MediaRouterFactory Factory(
         IProviderPool<IModelProvider> pool, DeadHostTracker? tracker = null) =>
         new(pool, tracker ?? new DeadHostTracker());
 
@@ -229,15 +228,15 @@ public class RouterFactoryTests
         var services = new ServiceCollection();
         services.AddLyntai(cfg => cfg
             .AddGenerationProvider(_ => backend)
-            .AddGenerationUsageBudget(budget => budget.MaxCostUsd = 1.0)
-            .AddGenerationRateLimit(limits =>
+            .AddMediaUsageBudget(budget => budget.MaxCostUsd = 1.0)
+            .AddMediaRateLimit(limits =>
             {
                 limits.PermitsPerSecond = 1;      // one permit, and no refill inside a test's microseconds
                 limits.Burst = 1;
                 limits.MaxWait = TimeSpan.Zero;   // over the rate = refused immediately, never queued
             }));
         using var sp = services.BuildServiceProvider();
-        var router = sp.GetRequiredService<IGenerationRouter>();
+        var router = sp.GetRequiredService<IMediaRouter>();
 
         var first = await router.GenerateAsync([new ProviderCandidate("hosted")], Request());
         var second = await router.GenerateAsync([new ProviderCandidate("hosted")], Request());

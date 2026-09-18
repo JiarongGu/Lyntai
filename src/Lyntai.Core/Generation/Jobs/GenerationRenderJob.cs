@@ -9,7 +9,7 @@ namespace Lyntai.Generation.Jobs;
 /// than reflection-serialized, matching <c>MemoryPruneJobHandler</c>: Core claims trim/AOT compatibility, and a
 /// reflection serializer here would quietly make that claim false.</remarks>
 /// <param name="Candidates">Candidate specs in routing order — <c>"provider"</c> or <c>"provider:model"</c>,
-/// the same shape <c>UseDefaultGenerationCandidates</c> accepts.</param>
+/// the same shape <c>UseDefaultMediaCandidates</c> accepts.</param>
 /// <param name="Request">What to generate.</param>
 public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, MediaRequest Request)
 {

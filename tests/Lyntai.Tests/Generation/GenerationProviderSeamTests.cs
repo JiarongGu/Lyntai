@@ -21,7 +21,7 @@ public class GenerationProviderSeamTests
         Assert.IsAssignableFrom<IModelProvider>(provider);
 
         // the JOB protocol is still a type question — it is a contract shape, not a content type
-        Assert.IsNotAssignableFrom<IGenerationJobProvider>(provider);
+        Assert.IsNotAssignableFrom<IMediaJobProvider>(provider);
 
         // …while streaming is now a DATA question. Asserting the absence this way is what the old
         // type-based check bought, and it survives the fold that removed the interface it tested.

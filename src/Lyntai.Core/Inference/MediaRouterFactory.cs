@@ -1,11 +1,10 @@
-using Lyntai.Inference;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Inference.RateLimiting;
 using Microsoft.Extensions.Logging;
 
-namespace Lyntai.Generation.Routing;
+namespace Lyntai.Inference;
 
-/// <summary>Builds a fully-governed <see cref="IGenerationRouter"/> over a provider set the CALLER chooses.
+/// <summary>Builds a fully-governed <see cref="IMediaRouter"/> over a provider set the CALLER chooses.
 ///
 /// <para>Needed because a router snapshots its provider set at construction, and once several
 /// configurations are live only the caller knows which ones are its own. Building a router per call is
@@ -18,7 +17,7 @@ namespace Lyntai.Generation.Routing;
 /// — because <c>For([])</c> matches both overloads equally and fails to compile (CS0121); write
 /// <c>For(Array.Empty&lt;ProviderRegistration&lt;IModelProvider&gt;&gt;())</c> or
 /// <c>For(Array.Empty&lt;IModelProvider&gt;())</c> to say which one you mean.</para></summary>
-public interface IGenerationRouterFactory
+public interface IMediaRouterFactory
 {
     /// <summary>Route over POOLED backends: each registration is resolved through the pool, and each
     /// provider's dead-host cooldown is keyed on its <see cref="ProviderKey"/> — so one tenant's rate
@@ -30,18 +29,18 @@ public interface IGenerationRouterFactory
     /// <param name="providers">The caller's backends, at most one per backend id.</param>
     /// <exception cref="ArgumentException">Two registrations share a <see cref="ProviderKey.Slot"/>
     /// (compared case-insensitively).</exception>
-    IGenerationRouter For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers);
+    IMediaRouter For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers);
 
     /// <summary>Route over already-constructed backends — the container-composed path. No pool is
     /// involved and cooldown stays keyed on the provider id, exactly as it was before pooling existed.</summary>
-    IGenerationRouter For(IReadOnlyList<IModelProvider> providers);
+    IMediaRouter For(IReadOnlyList<IModelProvider> providers);
 }
 
-/// <inheritdoc cref="IGenerationRouterFactory"/>
+/// <inheritdoc cref="IMediaRouterFactory"/>
 /// <param name="pool">Owns backend lifetime for the pooled overload.</param>
 /// <param name="deadHosts">Cooldown bookkeeping, SHARED by every router this hands out — see the type
 /// summary for why sharing it is the whole point.</param>
-/// <param name="policy">Per-verdict fallback behaviour; null = the <see cref="GenerationRoutingPolicy"/>
+/// <param name="policy">Per-verdict fallback behaviour; null = the <see cref="MediaRoutingPolicy"/>
 /// defaults.</param>
 /// <param name="rateLimiter">The generation limiter (its own instance and rate — never the chat one). Null =
 /// no throttling decorator.</param>
@@ -51,18 +50,18 @@ public interface IGenerationRouterFactory
 /// <param name="admission">Bounds concurrent attempts per configuration; shared for the same reason the
 /// tracker is. Null = unbounded. Applies to the pooled overload only, because it needs a configuration to
 /// key on.</param>
-public sealed class GenerationRouterFactory(
+public sealed class MediaRouterFactory(
     IProviderPool<IModelProvider> pool,
     DeadHostTracker deadHosts,
-    GenerationRoutingPolicy? policy = null,
+    MediaRoutingPolicy? policy = null,
     IRateLimiter? rateLimiter = null,
     IUsageTracker? usage = null,
     LyntaiOptions? options = null,
     ILoggerFactory? loggers = null,
-    IProviderAdmission? admission = null) : IGenerationRouterFactory
+    IProviderAdmission? admission = null) : IMediaRouterFactory
 {
     /// <inheritdoc/>
-    public IGenerationRouter For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers)
+    public IMediaRouter For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers)
     {
         ArgumentNullException.ThrowIfNull(providers);
         // checked BEFORE anything is built, so a rejected call pools nothing
@@ -74,30 +73,30 @@ public sealed class GenerationRouterFactory(
         foreach (var registration in providers)
             instances.Add(pool.GetOrAdd(registration.Key, registration.Create));
 
-        return Compose(new GenerationRouter(instances, policy, deadHosts,
+        return Compose(new MediaRouter(instances, policy, deadHosts,
             // TryGetKey answers from a table independent of the pool's entries, so an instance whose
             // configuration was retired mid-call still attributes its cooldown correctly
             p => pool.TryGetKey(p, out var key) ? key : null, admission));
     }
 
     /// <inheritdoc/>
-    public IGenerationRouter For(IReadOnlyList<IModelProvider> providers)
+    public IMediaRouter For(IReadOnlyList<IModelProvider> providers)
     {
         ArgumentNullException.ThrowIfNull(providers);
-        return Compose(new GenerationRouter(providers, policy, deadHosts));
+        return Compose(new MediaRouter(providers, policy, deadHosts));
     }
 
     /// <summary>Governance, in the order the LLM front door uses: the limiter sits INSIDE the budget, so a
     /// call refused for spend never spends a permit.</summary>
-    private IGenerationRouter Compose(IGenerationRouter router)
+    private IMediaRouter Compose(IMediaRouter router)
     {
         if (rateLimiter is not null)
-            router = new RateLimitedGenerationRouter(router, rateLimiter,
-                loggers?.CreateLogger<RateLimitedGenerationRouter>());
+            router = new RateLimitedMediaRouter(router, rateLimiter,
+                loggers?.CreateLogger<RateLimitedMediaRouter>());
 
         if (usage is not null && options is not null)
-            router = new BudgetedGenerationRouter(router, usage, options,
-                loggers?.CreateLogger<BudgetedGenerationRouter>());
+            router = new BudgetedMediaRouter(router, usage, options,
+                loggers?.CreateLogger<BudgetedMediaRouter>());
 
         return router;
     }

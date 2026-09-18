@@ -60,7 +60,7 @@ public class LocalDiffusionProviderTests
         Assert.Equal([ProviderKinds.Image], provider.Capabilities.Produces);
         Assert.Equal([ProviderOperation.Complete], provider.Capabilities.Operations);
         Assert.True(provider.Capabilities.SupportsInputs);
-        Assert.IsNotAssignableFrom<IGenerationJobProvider>(provider);
+        Assert.IsNotAssignableFrom<IMediaJobProvider>(provider);
     }
 
     [Fact]

@@ -17,7 +17,7 @@ separate enums with the same members plus a translation layer between them, and 
 reported a capability gap as a hard failure for a whole release. **What a verdict MEANS is shared; what a
 router DOES about it is not** — `RoutingPolicy` is the default table `TextRouter` and every
 `ProviderRouter<,>` start from (it surfaces `Unsupported`), and the media domain overrides it with
-`GenerationRoutingPolicy`, which advances on it instead. **`RoutingPolicy` is NOT the text one**, which is
+`MediaRoutingPolicy`, which advances on it instead. **`RoutingPolicy` is NOT the text one**, which is
 why NS-4 left its name alone while renaming the router that reads it; three sites called it
 `LlmRoutingPolicy`, a type that has never existed.
 
@@ -86,7 +86,7 @@ Three properties of that split are load-bearing:
 - **It is keyed on the VERDICT, not on `FallbackAction.Advance`.** Keying on the action would also swallow
   `ContextWindowExceeded`, and "your prompt is too big" is a real, actionable answer that must still surface.
 - **Only ELIGIBILITY is decided there.** Which substantive failure wins is untouched and the two domains
-  differ on purpose: this router keeps the LAST (`last = reply` each time), `GenerationRouter` keeps the FIRST
+  differ on purpose: this router keeps the LAST (`last = reply` each time), `MediaRouter` keeps the FIRST
   (`firstFailure ??= result`) — the first backend's error explains a media run better than the last one's.
 - **It is ONE function since D136** — `ProviderVerdict.IsBlameless()` in `Lyntai.Inference`, called by both
   routers. Each carried a private copy whose docblock pointed at the other for parity, because the two domains
@@ -157,7 +157,7 @@ Supply the delegate when **several configurations of one backend id are live at 
 polled store owns the configuration; tenants carry their own credentials and endpoints). Then the id is the
 wrong unit twice over: one tenant exhausting its quota benches every other tenant on that backend, and two
 consumers pointing at the *same* downed self-hosted host fail to share a bench that would have spared them
-both. `IProviderPool<T>.TryGetKey` is the intended source, and `ITextRouterFactory` / `IGenerationRouterFactory`
+both. `IProviderPool<T>.TryGetKey` is the intended source, and `ITextRouterFactory` / `IMediaRouterFactory`
 bind it for you on their pooled overloads — see `docs/DECISIONS.md` D30.
 
 Two properties to hold on to when touching this:

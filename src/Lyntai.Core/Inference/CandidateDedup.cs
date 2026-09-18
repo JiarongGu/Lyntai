@@ -13,7 +13,7 @@ namespace Lyntai.Inference;
 /// request — which is not an <see cref="ProviderCandidate"/> at all.</para>
 ///
 /// <para><b>The provider-id half compares case-INSENSITIVELY</b>, matching how every other id in the tree is
-/// matched (<c>GenerationRouter</c>, <c>ProviderPoolGuard</c>, <c>IToolRegistry</c>,
+/// matched (<c>MediaRouter</c>, <c>ProviderPoolGuard</c>, <c>IToolRegistry</c>,
 /// <c>IJobHandlerRegistry</c>, <c>BoundedProviderPool</c>) and how <see cref="Lyntai.Inference.TextRouter"/> resolves one.
 /// Otherwise <c>[openai, OpenAI]</c> would survive dedup as two candidates that both select the one provider
 /// — re-attempting a backend that just failed, and inflating the count that

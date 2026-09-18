@@ -10,7 +10,7 @@ namespace Lyntai.Inference;
 /// cooldown, admission and fallback from here, without Core knowing what the kind is
 /// (<c>docs/DECISIONS.md</c> <b>D153</b>). Core uses it for the kinds that had no routing of their own.</para>
 ///
-/// <para><b>It does NOT replace <c>TextRouter</c> or <c>GenerationRouter</c>, deliberately.</b> Those two
+/// <para><b>It does NOT replace <c>TextRouter</c> or <c>MediaRouter</c>, deliberately.</b> Those two
 /// differ in eight ways that are each recorded and load-bearing — last-versus-first failure, retries present
 /// versus absent, one synthetic failure versus two, and so on — and folding them in would mean eight
 /// injection points on the most load-bearing code here. Converging them is its own decision, not a

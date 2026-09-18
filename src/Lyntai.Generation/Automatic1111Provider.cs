@@ -48,7 +48,7 @@ public sealed class Automatic1111Options
 ///
 /// No API key and no content policy sit in this path: the server is the host's own. That makes it the
 /// candidate a host puts AFTER a hosted backend when it wants a refusal to be picked up locally
-/// (<see cref="Routing.GenerationRoutingPolicy"/>).
+/// (<see cref="MediaRoutingPolicy"/>).
 ///
 /// <b>The loaded checkpoint decides the model, not the request.</b> The payload carries prompt, size, steps and
 /// CFG only, so <see cref="MediaRequest.Model"/> is NOT honoured — including a candidate's

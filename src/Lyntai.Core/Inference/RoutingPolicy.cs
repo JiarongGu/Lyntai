@@ -45,7 +45,7 @@ public sealed class RoutingPolicy
 
     /// <summary>The action for a verdict; unmapped verdicts fall back to
     /// <see cref="FallbackAction.PenalizeAndAdvance"/> (treat the unknown as a transient fault).
-    /// <para>That fallback DIFFERS from <c>GenerationRoutingPolicy.ActionFor</c>, which advances without
+    /// <para>That fallback DIFFERS from <c>MediaRoutingPolicy.ActionFor</c>, which advances without
     /// blame instead — so every new <see cref="ProviderVerdict"/> MUST be given an explicit entry in the table
     /// above, or it silently counts toward the dead-host threshold.
     /// <see cref="ProviderVerdict.NotConfigured"/> is the precedent: it is mapped explicitly for exactly that

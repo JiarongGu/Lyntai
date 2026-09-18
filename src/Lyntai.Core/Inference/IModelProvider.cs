@@ -21,7 +21,7 @@ namespace Lyntai.Inference;
 /// differs implements its own seam instead: <see cref="IVectorProvider"/> is the worked example
 /// (<c>docs/DECISIONS.md</c> D153).</para>
 ///
-/// <para><b>The stateful JOB protocol is NOT here</b> — <see cref="IGenerationJobProvider"/> keeps
+/// <para><b>The stateful JOB protocol is NOT here</b> — <see cref="IMediaJobProvider"/> keeps
 /// submit/poll/fetch/cancel, because that is an operation SHAPE keyed on a handle rather than a content
 /// type, and it is meaningless one method at a time.</para></summary>
 public interface IModelProvider : IProviderIdentity

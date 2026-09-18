@@ -1,4 +1,3 @@
-using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
@@ -39,7 +38,7 @@ public class RouterCooldownKeyTests
         var failing = new FakeGenerationProvider { Id = "a1111" };
         failing.Verdicts.Enqueue(ProviderVerdict.Failed);
         var spare = new FakeGenerationProvider { Id = "comfyui" };
-        var router = new GenerationRouter([failing, spare], null, tracker);
+        var router = new MediaRouter([failing, spare], null, tracker);
 
         await router.GenerateAsync(Candidates("a1111", "comfyui"), Request());
 
@@ -58,7 +57,7 @@ public class RouterCooldownKeyTests
         var tenantA = new FakeGenerationProvider { Id = "openai-images" };
         tenantA.Verdicts.Enqueue(ProviderVerdict.RateLimited);
 
-        var router = new GenerationRouter([tenantA], null, tracker, _ => cfgA);
+        var router = new MediaRouter([tenantA], null, tracker, _ => cfgA);
         await router.GenerateAsync(Candidates("openai-images"), Request());
 
         Assert.True(tracker.IsDead($"generation::{cfgA}"));
@@ -74,7 +73,7 @@ public class RouterCooldownKeyTests
         var failing = new FakeGenerationProvider { Id = "a1111" };
         failing.Verdicts.Enqueue(ProviderVerdict.RateLimited);
 
-        var router = new GenerationRouter([failing], null, tracker, _ => null);
+        var router = new MediaRouter([failing], null, tracker, _ => null);
         await router.GenerateAsync(Candidates("a1111"), Request());
 
         Assert.True(tracker.IsDead("generation::a1111"));
@@ -90,7 +89,7 @@ public class RouterCooldownKeyTests
         var key = ProviderKey.For("a1111").With("v", "a").Build();
 
         var backend = new BlockingGenerationProvider { Id = "a1111" };
-        var router = new GenerationRouter([backend], null, new DeadHostTracker(), _ => key, admission);
+        var router = new MediaRouter([backend], null, new DeadHostTracker(), _ => key, admission);
 
         var first = router.GenerateAsync(Candidates("a1111"), Request());
         await backend.Entered.Task.WaitAsync(GateWait);   // first attempt is inside the provider
@@ -118,7 +117,7 @@ public class RouterCooldownKeyTests
 
         var failing = new FakeGenerationProvider { Id = "a1111" };
         failing.Verdicts.Enqueue(ProviderVerdict.Refused);       // Surface: returns from mid-attempt
-        var router = new GenerationRouter([failing], null, new DeadHostTracker(), _ => key, admission);
+        var router = new MediaRouter([failing], null, new DeadHostTracker(), _ => key, admission);
 
         await router.GenerateAsync(Candidates("a1111"), Request());
 
@@ -143,7 +142,7 @@ public class RouterCooldownKeyTests
         var admission = new ProviderAdmission(options);
         var key = ProviderKey.For("a1111").With("v", "a").Build();
 
-        var router = new GenerationRouter(
+        var router = new MediaRouter(
             [new FakeGenerationProvider { Id = "a1111", Throws = new InvalidOperationException("backend blew up") }],
             null, new DeadHostTracker(), _ => key, admission);
 
@@ -170,7 +169,7 @@ public class RouterCooldownKeyTests
         var key = ProviderKey.For("fake-video").With("v", "a").Build();
 
         var backend = new FakeGenerationJobProvider { SubmitStatus = QueuedOperationStatus.Failed };
-        var router = new GenerationRouter([backend], null, new DeadHostTracker(), _ => key, admission);
+        var router = new MediaRouter([backend], null, new DeadHostTracker(), _ => key, admission);
 
         var submission = await router.SubmitAsync(Candidates("fake-video"), VideoRequest()).WaitAsync(GateWait);
 
@@ -197,7 +196,7 @@ public class RouterCooldownKeyTests
             SubmitStatus = QueuedOperationStatus.Failed,
             SubmitInconclusive = true,
         };
-        var router = new GenerationRouter([backend], null, new DeadHostTracker(), _ => key, admission);
+        var router = new MediaRouter([backend], null, new DeadHostTracker(), _ => key, admission);
 
         var submission = await router.SubmitAsync(Candidates("fake-video"), VideoRequest()).WaitAsync(GateWait);
 

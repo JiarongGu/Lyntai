@@ -32,8 +32,8 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `GenerationInput`→`MediaInput`, `GenerationInputRoles`→`MediaInputRoles`. `MediaResponse` also closes the <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
   last disagreement with the `*Request`/`*Response` naming rule — both come back from a CALL, not from a
   tracked operation, so `*Result` was the wrong spelling of the pair.
-  <br>**Unchanged, and deliberately:** the media DOMAIN keeps the word — `GenerationRouter`,
-  `GenerationPipeline`, `GenerationStage`, `GenerationRenderJob`, `IGenerationJobProvider` and the media
+  <br>**Unchanged, and deliberately:** the media DOMAIN keeps the word — `MediaRouter`,
+  `GenerationPipeline`, `GenerationStage`, `GenerationRenderJob`, `IMediaJobProvider` and the media
   tools are machinery for running a generation rather than the shape of the call. So are the telemetry
   names: `LyntaiDiagnostics.GenerationActivitySourceName` is still `"Lyntai.Generation"` and the metrics
   are still `lyntai.generation.*`, because a consumer subscribes to those by string.
@@ -51,9 +51,25 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   ASKS a language model — `LlmScorerBase`, `LlmPairwiseComparer`, `LlmMemoryVerificationPolicy`,
   `LlmMemoryAnnotationPolicy`, and `IScorer.IsLlm`, whose stored form is the `is_llm` column. No schema
   changed and nothing a scorer implements moved.
+  <br>**Renamed and moved, the MEDIA ROUTER:** `IGenerationRouter`→`IMediaRouter`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `GenerationRouter`→`MediaRouter`, with `IGenerationRouterFactory`/`GenerationRouterFactory`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `BudgetedGenerationRouter`, `RateLimitedGenerationRouter`, `GenerationRoutingPolicy`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `GenerationSubmission`, `IGenerationJobProvider`→`IMediaJobProvider`, and `GenerationOptions`→ <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `MediaOptions` with the four registrations that configure the router — `AddGenerationUsageBudget`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `AddGenerationRateLimit`, `ConfigureGenerationRouting` and `UseDefaultGenerationCandidates` become <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `AddMediaUsageBudget`, `AddMediaRateLimit`, `ConfigureMediaRouting` and `UseDefaultMediaCandidates`.
+  `Lyntai.Generation.Routing` is gone; `TextRouter` and `MediaRouter` are finally neighbours, which is what <!-- drift-ok: the entry ANNOUNCING the move has to name the namespace it retired -->
+  D153 refusing to MERGE them always implied.
+  <br>**`AddGenerationProvider` is UNCHANGED, and that is deliberate.** Renaming it to `AddMediaProvider`
+  would ship the shape **D152** retired `AddEmbeddingProvider` for — a registration named for what a <!-- drift-ok: the entry explains why it did NOT repeat a retired name -->
+  provider produces. It is the one media registration still reading `Generation*`, pending that decision.
+  <br>**What KEEPS the word, on the media side:** `GenerationPipeline`, `GenerationStage`,
+  `GenerationRenderJob`, `IGenerationArtifactSink` and the media tools — they RUN a generation rather than
+  being the shape of a call — plus the tools' wire names (`generate`, `generate_submit`, `generate_status`,
+  `generate_fetch`) and the `lyntai.generation.*` telemetry.
   <br>**One doc-comment correction ships with it:** `ProviderVerdict`'s summary named `LlmRoutingPolicy` as <!-- drift-ok: the correction has to name the type it corrects -->
   the text action table. No such type exists — `RoutingPolicy` is the SHARED default every router starts
-  from, and `GenerationRoutingPolicy` is the media domain's override.
+  from, and `MediaRoutingPolicy` is the media domain's override.
 
 ### Added
 
@@ -342,7 +358,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   kind exists. `VectorRequest`/`VectorResponse` and `IVectorProvider` are its first call shape —
   `VectorResponse` carries the verdict **beside** the vectors, because there is no vector meaning "I could
   not" and a zero compares as real.
-  <br>**It does NOT replace `TextRouter` or `GenerationRouter`.** Those differ in eight recorded,
+  <br>**It does NOT replace `TextRouter` or `MediaRouter`.** Those differ in eight recorded,
   load-bearing ways — last-versus-first failure, retries present versus absent, one synthetic failure versus
   two — and folding them in would mean eight injection points on the most load-bearing code here.
   Converging them is its own decision.
@@ -419,7 +435,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `ProviderCapabilities.SupportsToolCalls` / `.SupportsStreamingToolCalls`.
   <br>**Named `IModelProvider` rather than `IProvider`** because the bare word collides with
   `IServiceProvider` and every DI sense of "provider", while these are specifically model backends.
-  <br>**`IGenerationJobProvider` SURVIVES** — submit/poll/fetch/cancel is a stateful protocol keyed on a
+  <br>**`IMediaJobProvider` SURVIVES** — submit/poll/fetch/cancel is a stateful protocol keyed on a
   handle, which is a contract shape rather than a content type, and the whole point of this change is that
   content type belongs in data. `GenerationProbeResult` merges into `ProviderProbeResult`, which the LLM
   domain had been duplicating in a different field order.
@@ -439,7 +455,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   (**D125**). The two were byte-identical records — `(string ProviderId, string? Model = null)` — one per
   domain, and the generation one's own doc said the pair was the routing unit "exactly as on the LLM side".
   Migration is a type name and a `using Lyntai.Inference;`; the members, the case-insensitive id matching
-  and the ordinal model comparison are unchanged. `UseDefaultGenerationCandidates` is NOT affected — it is a
+  and the ordinal model comparison are unchanged. `UseDefaultMediaCandidates` is NOT affected — it is a
   builder method, not the type. **This is the first step of unifying the provider layer**: one candidate,
   then one routing spine, then capabilities declared as data rather than as a type hierarchy.
 
@@ -677,10 +693,10 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   positional caller passing `ct` fourth also breaks, loudly, at compile time.
 
 - **`RunPipelineAsync` — ordered generation stages, each feeding the next.** An extension over
-  `IGenerationRouter` running `GenerationStage`s in order and chaining each one's artifact into the next
+  `IMediaRouter` running `GenerationStage`s in order and chaining each one's artifact into the next
   through `MediaArtifact.ToInput(role)`. Every stage carries its OWN candidates and routes
   independently, because an image backend and a video backend are rarely the same vendor.
-  <br>**Nothing was added to `IGenerationRouter`** — every stage is an ordinary routed call, which is what
+  <br>**Nothing was added to `IMediaRouter`** — every stage is an ordinary routed call, which is what
   keeps spend caps, throttling and dead-host cooldown governing a pipeline exactly as they govern one render.
   A test pins that a cost cap reached by stage 1 refuses stage 2.
   <br>**A stage that cannot identify a single artifact to chain REFUSES** (`Unsupported`, without calling a

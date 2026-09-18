@@ -5,7 +5,7 @@ namespace Lyntai.Inference;
 ///
 /// <para><b>What a verdict MEANS is shared; what a router DOES about it is not.</b> <see cref="RoutingPolicy"/>
 /// is the default action table every router starts from — it surfaces <see cref="Unsupported"/> — and
-/// <c>GenerationRoutingPolicy</c> is the media domain's own, which advances on it instead. Never read a
+/// <c>MediaRoutingPolicy</c> is the media domain's own, which advances on it instead. Never read a
 /// verdict as a promise about what happens next; read the policy. Why it is named for no domain:
 /// <c>docs/DECISIONS.md</c> D136.</para>
 ///

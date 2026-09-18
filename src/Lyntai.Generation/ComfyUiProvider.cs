@@ -83,7 +83,7 @@ public sealed class ComfyUiOptions
 }
 
 /// <summary>
-/// An <see cref="IModelProvider"/> + <see cref="IGenerationJobProvider"/> over a locally-run **ComfyUI**.
+/// An <see cref="IModelProvider"/> + <see cref="IMediaJobProvider"/> over a locally-run **ComfyUI**.
 /// Three things make it unlike the other HTTP backends:
 ///
 /// <list type="number">
@@ -94,7 +94,7 @@ public sealed class ComfyUiOptions
 /// <item><b>Asynchronous, locally.</b> <see cref="ProviderOperation.Queued"/> delivery on a machine you own,
 ///   composing with <c>Lyntai.Jobs</c> exactly like a hosted render.</item>
 /// <item><b>No content policy in the path</b>, which makes it the candidate to place after a hosted backend
-///   when a refusal should be picked up locally (<see cref="Routing.GenerationRoutingPolicy"/>).</item>
+///   when a refusal should be picked up locally (<see cref="MediaRoutingPolicy"/>).</item>
 /// </list>
 /// </summary>
 /// <remarks>
@@ -115,7 +115,7 @@ public sealed class ComfyUiOptions
 /// <see cref="ObjectDisposedException"/>. <c>AddComfyUiProvider</c> sets this for you.</param>
 public sealed class ComfyUiProvider(
     ComfyUiOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
-    : IModelProvider, IGenerationJobProvider
+    : IModelProvider, IMediaJobProvider
 {
     /// <inheritdoc/>
     public string Id => options.Id;
@@ -164,7 +164,7 @@ public sealed class ComfyUiProvider(
     /// call (which would lose progress, cancellation and restart-survival).</summary>
     public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
         Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported,
-            "ComfyUI generates asynchronously: use submit → poll → fetch (IGenerationJobProvider)"));
+            "ComfyUI generates asynchronously: use submit → poll → fetch (IMediaJobProvider)"));
 
     /// <inheritdoc/>
     /// <remarks>Bounded by the request's <see cref="MediaRequest.TimeoutSeconds"/> if it carries one, else

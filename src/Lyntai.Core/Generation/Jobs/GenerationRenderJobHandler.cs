@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using System.Text.Json;
-using Lyntai.Generation.Routing;
 using Lyntai.Jobs;
 using Lyntai.Inference.Budgeting;
 
@@ -39,9 +38,9 @@ public sealed record GenerationRenderJobOptions(TimeSpan? PollDelay = null)
 /// <param name="options">Poll cadence.</param>
 /// <param name="usage">Optional spend ledger. A durable render's cost is only known when it FINISHES, and by
 /// then the request that submitted it is long gone — so the handler is the only place that can bill it. Wired
-/// automatically when <c>AddGenerationUsageBudget()</c> is configured.</param>
+/// automatically when <c>AddMediaUsageBudget()</c> is configured.</param>
 public sealed class GenerationRenderJobHandler(
-    IGenerationRouter router,
+    IMediaRouter router,
     IEnumerable<IModelProvider> providers,
     IGenerationArtifactSink sink,
     GenerationRenderJobOptions? options = null,
@@ -153,7 +152,7 @@ public sealed class GenerationRenderJobHandler(
                 // already spent either way — recording it after delivery would lose it on that retry, while
                 // recording it here at worst double-counts a render whose delivery keeps failing
                 if (usage is not null)
-                    await BudgetedGenerationRouter.RecordAsync(usage, job.Request.Consumer, result.Usage, ct)
+                    await BudgetedMediaRouter.RecordAsync(usage, job.Request.Consumer, result.Usage, ct)
                         .ConfigureAwait(false);
 
                 // the sink may throw — a store that is momentarily unavailable should retry, not lose the render
@@ -171,9 +170,9 @@ public sealed class GenerationRenderJobHandler(
         }
     }
 
-    private IGenerationJobProvider? Backend(string providerId) => providers
+    private IMediaJobProvider? Backend(string providerId) => providers
         .FirstOrDefault(p => string.Equals(p.Id, providerId, StringComparison.OrdinalIgnoreCase))
-        as IGenerationJobProvider;
+        as IMediaJobProvider;
 
     /// <summary>What the job remembers between polls: WHICH backend holds the render, and its operation id.
     /// Both, because an operation id is meaningless without its issuer.</summary>

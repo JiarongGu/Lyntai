@@ -86,7 +86,7 @@ public class OpenAiImageProviderTests
         Assert.Equal([ProviderOperation.Complete], provider.Capabilities.Operations);
         Assert.True(provider.Capabilities.SupportsInputs);          // /images/edits
         Assert.Empty(provider.Capabilities.Models);                 // catalogue not mirrored
-        Assert.IsNotAssignableFrom<IGenerationJobProvider>(provider);   // the job PROTOCOL is still a type
+        Assert.IsNotAssignableFrom<IMediaJobProvider>(provider);   // the job PROTOCOL is still a type
         Assert.DoesNotContain(ProviderOperation.Stream, provider.Capabilities.Operations);
     }
 

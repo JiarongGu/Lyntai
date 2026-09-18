@@ -21,7 +21,7 @@ public class GenerationBackendsToolTests
 {
     private static GenerationBackendsTool Tool(TimeSpan deadline, params IModelProvider[] providers)
     {
-        var options = new GenerationOptions { ProbeDeadline = deadline };
+        var options = new MediaOptions { ProbeDeadline = deadline };
         return new GenerationBackendsTool(providers, options);
     }
 
@@ -83,7 +83,7 @@ public class GenerationBackendsToolTests
     }
 
     /// <summary><b>One backend's defect does not discard the listing of every other.</b>
-    /// <c>GenerationRouter</c> names itself the trust boundary for a BYO backend that throws instead of
+    /// <c>MediaRouter</c> names itself the trust boundary for a BYO backend that throws instead of
     /// returning a verdict (<c>docs/DECISIONS.md</c> D64); this is a SECOND reader of the same registered
     /// collection, and it applied none of that — so a single throwing provider took the whole tool down with
     /// an exception the agent could do nothing with.</summary>

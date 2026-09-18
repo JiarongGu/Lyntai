@@ -93,7 +93,7 @@ export const PREAMBLE = [
   ['Lyntai.Memory.IMemoryEngine', 'memory'],
   ['Lyntai.Memory.IMemoryEngine', 'engine'],
   ['Lyntai.Agents.IToolLoop', 'toolLoop'],
-  ['Lyntai.Generation.Routing.IGenerationRouter', 'router'],
+  ['Lyntai.Inference.IMediaRouter', 'router'],
   ['Microsoft.Extensions.AI.IChatClient', 'chat'],
 ];
 

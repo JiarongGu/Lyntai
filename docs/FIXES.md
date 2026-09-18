@@ -117,7 +117,7 @@ between `ProviderVerdict` and `ProviderVerdict`"* — a decision about a transla
 translated to itself. Six sentences across `DECISIONS.md`, `CHANGELOG.md`, `pitfalls.md` and a shipped
 `Lyntai.Core` comment had the same shape. The README's capability-probe sample shipped
 `if (provider is not IModelProvider installation) continue;` against a variable already typed
-`IModelProvider`, and `check-samples` compiled it happily. `GenerationRouter.StreamAsync` carried the same
+`IModelProvider`, and `check-samples` compiled it happily. `MediaRouter.StreamAsync` carried the same
 test as a live branch with an error message naming a case that could no longer occur, and
 `GenerationProviderContract` asserted `Assert.True(provider is IModelProvider)` on an `IModelProvider`
 parameter — a contract fact that could not fail.
@@ -944,7 +944,7 @@ the second added a projection the first's removal path could not know about, whi
 
 ## 2026-08-17 — a pre-commit connection failure escaped the generation stream door raw
 
-**Symptom.** With two stream candidates where the first is unreachable, `IGenerationRouter.StreamAsync`
+**Symptom.** With two stream candidates where the first is unreachable, `IMediaRouter.StreamAsync`
 threw a raw `SocketException` out of the enumerable instead of falling over: the healthy candidate was
 never tried, no cooldown was recorded, and the caller got an exception where the contract promises exactly
 one terminal chunk.
@@ -1207,11 +1207,11 @@ timeout honestly; the COMPOSITION disclosed nothing, and serial execution multip
 
 **Why nothing caught it.** No test registered a backend that stalls, and the per-backend suites each assert
 their own probe in isolation — the failure is a property of the composition, which nothing owned.
-`GenerationRouter` names itself the trust boundary for a backend that throws instead of returning a verdict
+`MediaRouter` names itself the trust boundary for a backend that throws instead of returning a verdict
 (**D64**); this is a SECOND reader of the same registered collection and applied none of it. `pitfalls.md`
 §"Second doors" again.
 
-**Fix.** Probes run concurrently under one `GenerationOptions.ProbeDeadline` (new; 20s, non-positive means
+**Fix.** Probes run concurrently under one `MediaOptions.ProbeDeadline` (new; 20s, non-positive means
 none), each wrapped so a throw or an overrun becomes `usable: false` WITH the reason rather than an
 exception or an omission — omitting the backend would tell the model it does not exist, which is a different
 and worse answer than "it is not answering". The caller's own cancellation still propagates, told apart from
@@ -1275,7 +1275,7 @@ configured, enforced on paper, and read a number that could not move. Within ONE
 registration, the inline `generate` tool billed correctly and the async pair did not.
 
 **Why nothing caught it.** `GenerationToolsTests` already exercised submit → status → fetch end to end and
-asserted nothing about usage — the path was covered, the accounting was not. `BudgetedGenerationRouter`
+asserted nothing about usage — the path was covered, the accounting was not. `BudgetedMediaRouter`
 names the job handler as *the* recorder for the submit path and never mentions that `AddGenerationTools`
 ships a second fetch door. Textbook `pitfalls.md` §"Second doors".
 
@@ -1283,7 +1283,7 @@ ships a second fetch door. Textbook `pitfalls.md` §"Second doors".
 `"agent"` tag its sibling tools already use) and records before delivery, matching the job handler's own
 documented ordering — the money is spent either way, and a sink that throws would lose the record.
 
-**Verification.** A new test configures `AddGenerationUsageBudget` and drives submit → fetch against a
+**Verification.** A new test configures `AddMediaUsageBudget` and drives submit → fetch against a
 backend that prices the render at $0.50. It failed with `Expected: 0.5, Actual: 0` before the fix.
 
 **Introduced by.** The commit that added `AddGenerationTools`; the asymmetry has existed for as long as both
@@ -1481,7 +1481,7 @@ queue does not know this id) or the unconfigured pre-check, and nothing else. Th
 unconfigured only — the two regimes where terminal IS right, which is `pitfalls.md`'s "pick fixture values
 from the regime where they DISAGREE" exactly.
 
-**2. A transport blip dead-lettered a durable job.** `GenerationRouter.SubmitAsync`'s new catch mapped EVERY
+**2. A transport blip dead-lettered a durable job.** `MediaRouter.SubmitAsync`'s new catch mapped EVERY
 throw to `Inconclusive`, which surfaces, which the handler fails. Before round 1 the throw propagated and
 `JobRunner` retried it. A connection-refused during a deploy went from "retries and succeeds" to "dead-
 lettered, permanently". The duplicate-charge reasoning was right for an ambiguous failure and wrong for one

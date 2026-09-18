@@ -92,7 +92,9 @@ Namespace map (Core): `Lyntai.Inference` — everything about CALLING a backend,
 (**D154**): the provider seam, the verdict taxonomy, all four call shapes, the text front door and the
 routing machinery, flat, because `TextRouter` and `RoutingPolicy` are the same subject (+ `.Cli` — a new CLI
 backend is a DIALECT, never a new provider — `.Caching` / `.Budgeting` / `.RateLimiting` / `.Streaming`,
-which decorate the text front door and moved WITH it) / `Lyntai.Generation` (+ `.Routing` / `.Jobs` /
+which decorate the text front door and moved WITH it; **both ROUTERS live here** — `TextRouter` and
+`MediaRouter` are peers D153 refused to merge, so they are neighbours rather than one class) /
+`Lyntai.Generation` — what RUNS a generation, never the shape of the call (+ `.Jobs` /
 `.Tools`; the CONTRACTS are in Core, the BACKENDS are the separate `Lyntai.Generation` package, split by
 dependency footprint) / `Lyntai.Memory` (semantic memory + vector store; the
 graph-memory DOMAINS are SEVEN: `.Interference` / `.Forgetting` / `.Modulation` / `.Salience` /

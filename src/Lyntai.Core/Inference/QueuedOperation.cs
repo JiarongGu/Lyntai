@@ -49,7 +49,7 @@ public sealed record QueuedOperation(
     /// reasoning that makes a timed-out POLL report <see cref="QueuedOperationStatus.Running"/>: no answer
     /// is not evidence of failure.</para>
     ///
-    /// <para><b>What acts on it:</b> <c>GenerationRouter.SubmitAsync</c> surfaces such a submission instead of
+    /// <para><b>What acts on it:</b> <c>MediaRouter.SubmitAsync</c> surfaces such a submission instead of
     /// advancing to the next candidate, and does not count it against the backend's dead-host cooldown — no
     /// answer is no evidence of ill health either. The <see cref="Status"/> stays
     /// <see cref="QueuedOperationStatus.Failed"/> on purpose, so every existing status check behaves

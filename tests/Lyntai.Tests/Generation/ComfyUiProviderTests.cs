@@ -46,7 +46,7 @@ public class ComfyUiProviderTests
         Assert.Contains(ProviderKinds.Image, provider.Capabilities.Produces);
         Assert.Contains(ProviderKinds.Video, provider.Capabilities.Produces);   // local video via a workflow
         Assert.Equal([ProviderOperation.Queued], provider.Capabilities.Operations);
-        Assert.IsAssignableFrom<IGenerationJobProvider>(provider);
+        Assert.IsAssignableFrom<IMediaJobProvider>(provider);
     }
 
     [Fact]

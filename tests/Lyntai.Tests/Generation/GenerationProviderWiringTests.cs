@@ -132,7 +132,7 @@ public class GenerationProviderWiringTests
             .AddFalProvider(o => { o.ApiKey = "k"; })
             .AddAutomatic1111Provider(o => { o.BaseUrl = "http://127.0.0.1:7860"; })
             .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "byo" })   // the BYO seam stays open
-            .UseDefaultGenerationCandidates("fal", "a1111", "byo"));
+            .UseDefaultMediaCandidates("fal", "a1111", "byo"));
         using var sp = services.BuildServiceProvider();
 
         Assert.Equal(["fal", "a1111", "byo"], sp.GetServices<IModelProvider>().Select(p => p.Id));

@@ -1,9 +1,8 @@
-using Lyntai.Inference;
 
-namespace Lyntai.Generation.Routing;
+namespace Lyntai.Inference;
 
 
-/// <summary>Per-verdict fallback behaviour for <see cref="GenerationRouter"/> — a POLICY, not a law.
+/// <summary>Per-verdict fallback behaviour for <see cref="MediaRouter"/> — a POLICY, not a law.
 ///
 /// The defaults follow the SHAPE of the LLM router's (design §6), so one mental model carries across most of
 /// both domains: a <see cref="ProviderVerdict.Refused"/> SURFACES (a content refusal is the backend's
@@ -19,7 +18,7 @@ namespace Lyntai.Generation.Routing;
 /// one has no policy against. Then <c>On(Refused, Advance)</c> is exactly right — and it is the HOST's call,
 /// not Lyntai's. Same reasoning, and the same shape, as the LLM router's policy
 /// (<c>docs/DECISIONS.md</c> D3).</summary>
-public sealed class GenerationRoutingPolicy
+public sealed class MediaRoutingPolicy
 {
     private readonly Dictionary<ProviderVerdict, FallbackAction> _actions = new()
     {
@@ -51,7 +50,7 @@ public sealed class GenerationRoutingPolicy
         _actions.TryGetValue(verdict, out var action) ? action : FallbackAction.Advance;
 
     /// <summary>Set the action for a verdict. Fluent, so a host can chain a couple of overrides.</summary>
-    public GenerationRoutingPolicy On(ProviderVerdict verdict, FallbackAction action)
+    public MediaRoutingPolicy On(ProviderVerdict verdict, FallbackAction action)
     {
         _actions[verdict] = action;
         return this;

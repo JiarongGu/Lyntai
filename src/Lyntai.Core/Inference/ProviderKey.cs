@@ -32,7 +32,7 @@ public readonly record struct ProviderKey(string Slot, string Fingerprint)
     ///
     /// <para><b>Also load-bearing, so it is not free to change for presentation.</b> Both routers key a
     /// pooled provider's dead-host cooldown on exactly this string — <c>TextRouter</c> on it as-is,
-    /// <c>GenerationRouter</c> on it behind a <c>generation::</c> prefix — including the 12-character
+    /// <c>MediaRouter</c> on it behind a <c>generation::</c> prefix — including the 12-character
     /// fingerprint prefix. Re-formatting it to read better in a log re-keys every bench in flight, silently
     /// clearing the cooldowns the tracker is holding.</para></summary>
     public override string ToString() =>

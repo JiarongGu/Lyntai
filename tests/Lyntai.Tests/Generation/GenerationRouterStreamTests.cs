@@ -1,4 +1,3 @@
-using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
@@ -17,7 +16,7 @@ namespace Lyntai.Tests.Generation;
 /// ended because the media finished or because the backend died.</para></summary>
 public class GenerationRouterStreamTests
 {
-    private static GenerationRouter Router(params IModelProvider[] providers) => new(providers);
+    private static MediaRouter Router(params IModelProvider[] providers) => new(providers);
 
     private static MediaRequest Speech() =>
         new() { Kind = ProviderKinds.Audio, Prompt = "read this aloud" };

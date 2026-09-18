@@ -162,6 +162,15 @@ export default {
         'LlmClientRegistration', 'LlmStructuredExtensions', 'AddLlmClient',
         'DelegatingLlmClient', 'RefusalScreeningLlmClient', 'GuardedLlmClient',
         'CachingLlmClient', 'BudgetedLlmClient', 'RateLimitedLlmClient',
+        // NS-6. The media ROUTER family. `AddGenerationProvider` is deliberately absent and still LIVE —
+        // renaming it is an open decision (`TASKS.md` Part 103), and D152's rule is why: a registration
+        // named for what a provider PRODUCES is the shape `AddEmbeddingProvider` was retired for, so
+        // `AddMediaProvider` is not automatically the answer.
+        'IGenerationRouter', 'GenerationRouter', 'IGenerationRouterFactory', 'GenerationRouterFactory',
+        'BudgetedGenerationRouter', 'RateLimitedGenerationRouter', 'GenerationRoutingPolicy',
+        'GenerationSubmission', 'IGenerationJobProvider', 'GenerationOptions',
+        'ConfigureGenerationRouting', 'UseDefaultGenerationCandidates',
+        'AddGenerationUsageBudget', 'AddGenerationRateLimit',
       ],
       use: '`TextRequest` / `TextResponse` / `TextChunk` / `TextChunkKind` / `TextUsage` / `TextMessage` / '
         + '`TextAttachment` / `TextReasoning` / `TextTool` / `TextToolCall`, `ProviderConsumers`, '
@@ -354,7 +363,7 @@ export default {
     {
       // D125's provider unification. These were two BYTE-IDENTICAL records — `(string ProviderId, string?
       // Model = null)` — one per domain, and the generation one's own XML doc admitted it behaved "exactly
-      // as on the LLM side". Whole-identifier equality is what lets `UseDefaultGenerationCandidates` (a
+      // as on the LLM side". Whole-identifier equality is what lets `UseDefaultMediaCandidates` (a
       // generation BUILDER method, not the type) stay live without needing an allowance.
       names: ['LlmCandidate', 'GenerationCandidate', 'GenerationCandidateSpec'],
       use: '`Lyntai.Inference.ProviderCandidate` / `ProviderCandidateSpec`',
@@ -379,7 +388,7 @@ export default {
       // D127's collapse. FIVE seams became one: the two domain provider interfaces, the optional streaming
       // one (streaming is an OPERATION now, declared in data), and the LLM probe seam with its own probe
       // record — which had duplicated the generation one in a different field order, and was found only by
-      // a compile collision. `IGenerationJobProvider` deliberately SURVIVES and is not listed: a stateful
+      // a compile collision. `IMediaJobProvider` deliberately SURVIVES and is not listed: a stateful
       // submit/poll/fetch/cancel protocol is a contract shape, not a content type.
       names: [
         'ILlmProvider', 'IGenerationProvider', 'IGenerationStreamProvider',
@@ -771,8 +780,8 @@ export default {
       // domain first — the NS-3a lesson — and all seven were media-only; the shared seam reading them
       // (IModelProvider, LyntaiDiagnostics) is exactly why they belong in Lyntai.Inference.
       //
-      // The DOMAIN machinery keeps the word and is NOT matched here: GenerationRouter, GenerationPipeline,
-      // GenerationStage, GenerationRenderJob, IGenerationJobProvider, the *Tool classes. Nor is the
+      // The DOMAIN machinery keeps the word and is NOT matched here: MediaRouter, GenerationPipeline,
+      // GenerationStage, GenerationRenderJob, IMediaJobProvider, the *Tool classes. Nor is the
       // TELEMETRY: `Lyntai.Generation` is a live ActivitySource/Meter name and `lyntai.generation.*` are
       // live metric names, which a consumer subscribes to by string — someone else's wire, not ours.
       term: '\\bGenerationRequest\\b|\\bGenerationResult\\b|\\bGenerationChunk\\b|\\bGenerationUsage\\b'
@@ -781,6 +790,28 @@ export default {
         + 'and *Result disagreed with the *Request/*Response rule (D154)',
       use: '`MediaRequest` / `MediaResponse` / `MediaChunk` / `MediaUsage` / `MediaArtifact` / '
         + '`MediaInput` / `MediaInputRoles`, all in `Lyntai.Inference`',
+    },
+    {
+      // D154 NS-6 (the design's step 5). The media ROUTER family joins TextRouter in Lyntai.Inference —
+      // the two peers D153 refused to merge become neighbours. `Lyntai.Generation.Routing` disappears
+      // with it: the pipeline moved to the Generation root rather than being left alone in a namespace
+      // whose router had gone.
+      //
+      // The ACT keeps the word and is NOT matched: GenerationPipeline, GenerationStage,
+      // GenerationPipelineResult, GenerationRenderJob*, IGenerationArtifactSink, GenerationArtifactDelivery
+      // and the *Tool classes all RUN a generation. Nor is `AddGenerationProvider`, which is LIVE pending a
+      // decision, nor the tools' wire names `generate` / `generate_submit` / `generate_status` /
+      // `generate_fetch`, which are lowercase and so unreachable by any rule here anyway.
+      term: '\\bIGenerationRouterFactory\\b|\\bGenerationRouterFactory\\b|\\bIGenerationRouter\\b'
+        + '|\\bGenerationRouter\\b|\\bBudgetedGenerationRouter\\b|\\bRateLimitedGenerationRouter\\b'
+        + '|\\bGenerationRoutingPolicy\\b|\\bGenerationSubmission\\b|\\bIGenerationJobProvider\\b'
+        + '|\\bGenerationOptions\\b|\\bConfigureGenerationRouting\\b|\\bUseDefaultGenerationCandidates\\b'
+        + '|\\bAddGenerationUsageBudget\\b|\\bAddGenerationRateLimit\\b|\\bLyntai\\.Generation\\.Routing\\b',
+      why: 'a router is named for the call it routes, so the media one sits beside the text one; what '
+        + 'remains in Lyntai.Generation is what RUNS a generation (D154)',
+      use: '`IMediaRouter` / `MediaRouter` / `MediaRouterFactory` / `MediaRoutingPolicy` / '
+        + '`MediaSubmission` / `IMediaJobProvider` / `MediaOptions`, and `AddMediaUsageBudget` / '
+        + '`AddMediaRateLimit` / `ConfigureMediaRouting` / `UseDefaultMediaCandidates`',
     },
     {
       // D154 NS-4. The text FRONT DOOR is named for what it serves, like the call shape it carries, and
@@ -848,7 +879,7 @@ export default {
       // exists. Historical records (CHANGELOG below the Unreleased boundary, the task archive) are exempt
       // by file; a deliberate mention inside a maintained document takes `drift-ok` on its line.
       // D127. The SURFACE half is in `retiredApiNames`; this is the prose half. A document naming any of
-      // these is describing a seam the tree no longer has. `IGenerationJobProvider` is deliberately NOT
+      // these is describing a seam the tree no longer has. `IMediaJobProvider` is deliberately NOT
       // matched — it survives, and a pattern that swept it up would fire on every correct mention.
       term: '\\bILlmProvider\\b|\\bIGenerationProvider\\b|\\bIGenerationStreamProvider\\b|\\bIProviderProbe\\b',
       why: 'the domain provider seams collapsed into one IModelProvider (D127), with what a backend serves '

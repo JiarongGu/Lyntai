@@ -51,8 +51,8 @@ public static class GenerationProviderContract
             switch (delivery)
             {
                 case ProviderOperation.Queued:
-                    Assert.True(provider is IGenerationJobProvider,
-                        $"{provider.Id} declares Job delivery but does not implement IGenerationJobProvider");
+                    Assert.True(provider is IMediaJobProvider,
+                        $"{provider.Id} declares Job delivery but does not implement IMediaJobProvider");
                     break;
                 case ProviderOperation.Stream:
                     Assert.True(ServesMediaStream(provider),

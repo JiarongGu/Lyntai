@@ -225,7 +225,7 @@ What a backend implements:
 - **Inline and STREAMING are declared in DATA, the stateful JOB protocol is still an interface** — and
   which of the two a mode is decides how it breaks. `ProviderOperation.Complete` / `.Stream` go in
   `ProviderCapabilities.Operations`, so the failure is a DECLARATION/IMPLEMENTATION mismatch the router
-  reports ("advertises Stream delivery but does not implement"). `IGenerationJobProvider`
+  reports ("advertises Stream delivery but does not implement"). `IMediaJobProvider`
   (submit → poll → fetch, for queued/long renders) is an ADDITIONAL interface the router type-tests, which
   is why nothing may wrap a provider in a decorator implementing only the base seam (see `pitfalls.md`) —
   a decorator erases the type test and every video render silently stops routing while image renders keep
@@ -248,8 +248,8 @@ What a backend implements:
 
 Before writing code, read the four generation traps already recorded in `pitfalls.md` — `TimeSpan.Zero` means
 "no deadline" here and "cancel instantly" on the LLM side; a cooldown keyed on the provider id benches other
-tenants; decorating a provider erases `IGenerationJobProvider` so every video render silently stops routing
-while every image render keeps working; and `GenerationRouter`'s `Surface` arm returns one frame shallower
+tenants; decorating a provider erases `IMediaJobProvider` so every video render silently stops routing
+while every image render keeps working; and `MediaRouter`'s `Surface` arm returns one frame shallower
 than the admission permit it depends on.
 
 ---

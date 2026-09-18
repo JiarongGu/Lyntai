@@ -1,4 +1,3 @@
-using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
@@ -9,7 +8,7 @@ namespace Lyntai.Tests.Generation;
 /// spent — capability first, verdict-driven fallback second.</summary>
 public class GenerationRouterTests
 {
-    private static GenerationRouter Router(params IModelProvider[] providers) => new(providers);
+    private static MediaRouter Router(params IModelProvider[] providers) => new(providers);
 
     private static MediaRequest Image() => new() { Kind = ProviderKinds.Image, Prompt = "a red square" };
 
@@ -33,7 +32,7 @@ public class GenerationRouterTests
     {
         // THE TRUST BOUNDARY, found 2026-08-15. TextRouter.TryCompleteAsync has caught and classified a
         // thrown provider since it shipped, with the reason written out: "a provider that THROWS must get
-        // the same fallback policy as one that returns a verdict reply". GenerationRouter had NO try/catch
+        // the same fallback policy as one that returns a verdict reply". MediaRouter had NO try/catch
         // at all, so one buggy BYO backend — AddGenerationProvider is a documented extension point — killed
         // the whole chain: the healthy candidate was never tried, no telemetry was recorded, and the caller
         // got a raw exception from a contract whose whole point is "a verdict, never a throw".

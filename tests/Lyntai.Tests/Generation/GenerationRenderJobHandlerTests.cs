@@ -1,7 +1,6 @@
 using Lyntai.Generation.Jobs;
-using Lyntai.Generation.Routing;
-using Lyntai.Jobs;
 using Lyntai.Inference;
+using Lyntai.Jobs;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
@@ -45,7 +44,7 @@ public class GenerationRenderJobHandlerTests
         backend ??= new FakeGenerationJobProvider { Id = "video" };
         IModelProvider[] providers = [backend];
         var sink = new CollectingSink();
-        var handler = new GenerationRenderJobHandler(new GenerationRouter(providers), providers, sink);
+        var handler = new GenerationRenderJobHandler(new MediaRouter(providers), providers, sink);
         return (handler, backend, sink);
     }
 
@@ -139,7 +138,7 @@ public class GenerationRenderJobHandlerTests
         // no capable backend is a configuration problem: retrying cannot fix it, so don't burn the queue on it
         var image = new FakeGenerationProvider { Id = "image-only" };
         IModelProvider[] providers = [image];
-        var handler = new GenerationRenderJobHandler(new GenerationRouter(providers), providers, new CollectingSink());
+        var handler = new GenerationRenderJobHandler(new MediaRouter(providers), providers, new CollectingSink());
 
         var outcome = await handler.HandleAsync(new RecordingContext().Build(
             new GenerationRenderJob(["image-only"], new MediaRequest { Kind = ProviderKinds.Video }).ToJson()));

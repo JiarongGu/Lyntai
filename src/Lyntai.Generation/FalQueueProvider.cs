@@ -97,7 +97,7 @@ public sealed class FalQueueOptions
 }
 
 /// <summary>
-/// An <see cref="IModelProvider"/> + <see cref="IGenerationJobProvider"/> over <b>fal.ai's queue API</b> —
+/// An <see cref="IModelProvider"/> + <see cref="IMediaJobProvider"/> over <b>fal.ai's queue API</b> —
 /// the aggregator chosen as the first remote backend because one integration reaches the Wan/Kling/Veo-class
 /// models behind a single queue shape (submit → poll → fetch, or a webhook the app owns).
 ///
@@ -125,7 +125,7 @@ public sealed class FalQueueOptions
 /// <see cref="ObjectDisposedException"/>. <c>AddFalProvider</c> sets this for you.</param>
 public sealed class FalQueueProvider(
     FalQueueOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
-    : IModelProvider, IGenerationJobProvider
+    : IModelProvider, IMediaJobProvider
 {
     /// <summary>Separates the model id from the queue's request id inside an operation id.</summary>
     private const char ModelSeparator = '#';
@@ -157,7 +157,7 @@ public sealed class FalQueueProvider(
     /// <summary>Inline delivery is not this backend's mode — the queue is asynchronous by design.</summary>
     public Task<MediaResponse> GenerateAsync(MediaRequest request, CancellationToken ct = default) =>
         Task.FromResult(MediaResponse.Failure(ProviderVerdict.Unsupported,
-            "fal's queue is asynchronous: use submit → poll → fetch (IGenerationJobProvider), or the durable " +
+            "fal's queue is asynchronous: use submit → poll → fetch (IMediaJobProvider), or the durable " +
             "GenerationRenderJobHandler"));
 
     /// <inheritdoc/>

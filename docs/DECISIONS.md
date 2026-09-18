@@ -566,7 +566,7 @@ core was still uncommitted to consumers.
 - **Media CHAINS.** `3d → image → video` is a first-class use case, which is why an artifact can become the
   next stage's input rather than only a result.
 
-**Fallback is a POLICY, not a law** — `GenerationRoutingPolicy` makes the per-verdict action configurable,
+**Fallback is a POLICY, not a law** — `GenerationRoutingPolicy` makes the per-verdict action configurable, <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 the same shape the LLM side uses (D3).
 
 ## D25 — packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size (2026-08-04)
@@ -1445,7 +1445,7 @@ a sibling.
 | `UseDefaultGenerationCandidates(candidates:)` | `providerIds:` | its own doc asserts it matches `UseDefaultCandidates(providerIds:)` "exactly", and `GenerationCandidate` is a real type in that namespace | <!-- drift-ok: a 2026-08-11 audit row recording the surface AS IT WAS; D125 renamed the type afterwards -->
 
 **Made internal, having never earned their surface:** `MemoryEngineComposition` (a DI carrier record whose
-five references are all in the file that declares it) and `BudgetedGenerationRouter.RecordAsync` — whose own
+five references are all in the file that declares it) and `BudgetedGenerationRouter.RecordAsync` — whose own <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 doc said *"public so the durable-render handler can record …"*, and that handler is in the same assembly, so
 the stated reason was satisfied by `internal` all along.
 
@@ -1484,7 +1484,7 @@ was the only way to SET the characters one.
 
 ## D67 — the stream seam is wired through the platform rather than frozen unreachable (2026-08-16)
 
-**The decision.** `IGenerationRouter` gains a third door, `StreamAsync`, and 3.0 ships the streaming path
+**The decision.** `IGenerationRouter` gains a third door, `StreamAsync`, and 3.0 ships the streaming path <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 wired: capability pre-filter, verdict-driven fallback, dead-host cooldown, budget and rate limiting, all on
 the same terms as the inline and submit doors. `IModelProvider` stays in `Lyntai.Core` under the
 full SemVer promise.
@@ -1525,7 +1525,7 @@ two-slot reason is consulted *before* the synthetic message, not after. A first 
 and a test caught it: the one sentence naming the actual problem was replaced by "no capable media backend".
 
 **Measured while implementing, and worth recording:** the compiler named **two** decorators, not one.
-`RateLimitedGenerationRouter` was as much a second door as `BudgetedGenerationRouter`, and only an abstract
+`RateLimitedGenerationRouter` was as much a second door as `BudgetedGenerationRouter`, and only an abstract <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 interface member — no default body, the same choice `IMemoryGraphStore`'s five members took in this major —
 made that failure a build error instead of a silently ungoverned path. Behaviour is pinned per door anyway,
 because the compiler forces a decorator to *have* a `StreamAsync` and cannot tell a governed one from a
@@ -3788,7 +3788,7 @@ then; **D127** has since collapsed them into `IModelProvider`).
 **Changing `IEmbedder` itself was refused**: those two could adopt `IProviderIdentity` as a base because
 they already declared `Id`, and `IEmbedder` does not — adding it would introduce a REQUIRED member and
 break every bring-your-own embedder at compile. This is the optional-capability pattern Core already uses
-for `IGenerationJobProvider`. `Model2VecProvider` adopts it too, so the family is consistent rather than the
+for `IGenerationJobProvider`. `Model2VecProvider` adopts it too, so the family is consistent rather than the <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 new arrival being special.
 
 **Registered through a FACTORY, not as an instance, and that is a resource decision rather than style.**
@@ -3815,7 +3815,7 @@ library has one consumer today, so the window for this is now.
 
 **They were BYTE-IDENTICAL, and each admitted it.** Same two members, same case-insensitive id matching,
 same ordinal model comparison; the generation one's own XML doc said the pair was the routing unit
-"exactly as on the LLM side", and `GenerationRouter` already imported the LLM router's `CandidateDedup`
+"exactly as on the LLM side", and `GenerationRouter` already imported the LLM router's `CandidateDedup` <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 rather than copying it. Two copies of one rule drift; one cannot.
 
 **This is the first step of a larger correction, and recording that is the point.** The provider layer grew
@@ -3871,7 +3871,7 @@ for a direct call.
 **Cost, declared rather than buried:** `GenerationCapabilitiesTests` is deleted, not ported — its six cases
 are `ProviderCapabilitiesTests` verbatim, and keeping both would be the duplication this decision removes.
 The one thing they covered that the generic tests cannot is the request→capability MAPPING, which now lives
-in `GenerationRouter.Capable` and gained its own router test there.
+in `GenerationRouter.Capable` and gained its own router test there. <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 
 ## D127 — ONE provider interface: IModelProvider, with every operation defaulted to Unsupported (2026-09-14)
 
@@ -3890,7 +3890,7 @@ dispatching. Declining costs no code because the default body is already there. 
 generation backend has lived under since the platform shipped; it is now the contract for all of them.
 
 **What is NOT folded in, and the line is content-type versus contract-shape.**
-`IGenerationJobProvider` keeps submit/poll/fetch/cancel: that is a stateful protocol keyed on a handle,
+`IGenerationJobProvider` keeps submit/poll/fetch/cancel: that is a stateful protocol keyed on a handle, <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 meaningless one method at a time, and nothing about it is a content type. Streaming folded in because it
 IS an operation over a kind — which is exactly what `ProviderOperation.Stream` says.
 
@@ -4195,7 +4195,7 @@ move **D127**/**D128** made for `ILlmProvider`/`IGenerationProvider` → `IModel
 was not visible then because the shared provider vocabulary did not exist yet.
 
 **What a verdict MEANS is now shared; what a router DOES about it is still per-domain, and that is the
-distinction that makes this safe.** `LlmRoutingPolicy` surfaces `Unsupported` where `GenerationRoutingPolicy`
+distinction that makes this safe.** `LlmRoutingPolicy` surfaces `Unsupported` where `GenerationRoutingPolicy` <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 advances on it; `LlmRouter` keeps the LAST substantive failure where `GenerationRouter` keeps the FIRST. <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 None of that moved. A policy is a table over the enum, not a second enum.
 
@@ -4210,7 +4210,7 @@ count.
 **The one behaviour change a consumer can see:** a media backend reporting an oversized prompt now yields
 `ContextWindowExceeded` rather than the translated `Unsupported`, and it is SUBSTANTIVE rather than
 blameless, so it reaches the caller through `firstFailure`. It still advances without a dead-host penalty —
-`GenerationRoutingPolicy` now says so with an explicit entry rather than leaving it to the unmapped default,
+`GenerationRoutingPolicy` now says so with an explicit entry rather than leaving it to the unmapped default, <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 because a silent default is how the benching bug happened the first time.
 
 ## D137 — a registration names what it REGISTERS, so every backend carries `Provider` (2026-09-14)
@@ -4323,7 +4323,7 @@ capabilities — adjacent fields of one record, a coin-flip at each registration
 
 **The test that separates this from a real distinction is whether the DIFFERENCE is in the table or the
 vocabulary.** The two routing policies genuinely differ — `RoutingPolicy` surfaces `Unsupported` where
-`GenerationRoutingPolicy` advances on it, and their unmapped defaults differ too — and none of that moved.
+`GenerationRoutingPolicy` advances on it, and their unmapped defaults differ too — and none of that moved. <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 A policy is a table over a shared vocabulary, exactly as **D136** said of the verdicts.
 
 **What is NOT merged, and the reason it looks like it should be:** `GenerationInputRoles` sits in the same <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
@@ -4780,26 +4780,19 @@ what it held. `Llm` named a model CLASS and `Generation` named the ACT, where `V
 named the content — and `Produces` is the axis a router selects on, so the content kind is the one the code
 agrees with (**D152** reached the same rule from the provider side).
 
-**The prefix trap, and it is the reusable half.** A domain prefix is evidence of where a type was BORN, not
-of what it belongs to. `LlmConsumers` is read by the media tools, so it became `ProviderConsumers`; a sweep <!-- drift-ok: the record names the type it renamed, which is this paragraph's whole subject -->
-trusting the prefix would have produced `TextConsumers`, which compiles, passes and then argues for a
-second media-side copy of a type that is already shared. Nothing here can catch that —
-`check-api-vocabulary` enforces retired names, not whether a kept name is true — so every member of a
-family is checked against its READERS before the rename. `.claude/knowledge/pitfalls.md` §Refactoring &
-namespace moves carries the procedure.
+**A prefix is evidence of where a type was BORN, not of what it belongs to** — so every member is checked
+against its READERS before renaming, and the scope comes from what the word MEANS at each site. Both
+directions bit: `LlmConsumers` is read by the media tools and became `ProviderConsumers`, not <!-- drift-ok: the record names the type it renamed, which is this paragraph's whole subject -->
+`TextConsumers`; and `Llm` is retired only as a PREFIX, staying live wherever it means *"asks a language
+model"* — `LlmScorerBase`, `IScorer.IsLlm` — which is also PERSISTED, as `is_llm` in both SQL backends.
+**A persisted spelling is the site that cannot move cheaply, so it decides how wide a rename may be.**
+No gate can see any of this: `check-api-vocabulary` enforces retired names, never whether a kept name is
+true. `.claude/knowledge/pitfalls.md` §Refactoring & namespace moves carries the procedure.
 
-**What KEEPS a domain word is the machinery, not the call.** `GenerationRouter`, `GenerationPipeline`,
-`GenerationRenderJob` and the media tools run a generation; they are not the shape of one. So are the
-telemetry names — `Lyntai.Generation` is an `ActivitySource` a consumer subscribes to by STRING, and
-renaming it would break a subscription no compiler can see.
-
-**And `Llm` is retired as a PREFIX, never as a word** — the same test applied to the other family. It is
-live wherever it means *"this asks a language model"*: `LlmScorerBase`, `LlmPairwiseComparer`, the two
-`LlmMemory*Policy` types, `IScorer.IsLlm`. That last one settles it rather than merely illustrating it —
-`IsLlm` is PERSISTED, as the `is_llm` column in both SQL backends and the `"llm"` score group, so renaming
-the types alone would split one vocabulary across two words and renaming the column would cost a migration
-for a word that was never wrong. **A rename's scope is decided by what the word MEANS at each site, and a
-persisted spelling is the site that cannot move cheaply.**
+**What KEEPS a domain word is the machinery, not the call.** `GenerationPipeline`, `GenerationRenderJob`
+and the media tools RUN a generation; they are not the shape of one. So are the telemetry names —
+`Lyntai.Generation` is an `ActivitySource` a consumer subscribes to by STRING, and the tools' wire names
+are `generate_*`; renaming either breaks a subscription no compiler can see.
 
 **The step that looked cheapest was REFUTED at implementation, and that is why the order was pure moves
 first.** `Lyntai.Llm.{Caching,Budgeting,RateLimiting,Cli}` were claimed to be domain-neutral; four of the <!-- drift-ok: the record names the namespace it retired -->
@@ -4808,3 +4801,11 @@ implementation is specific — the seam's SIGNATURE settles it, never the namesp
 
 **It does NOT merge `TextRouter` and `MediaRouter`.** D153 refused that on eight recorded differences and
 nothing here changes them; they become neighbours, not one class.
+
+**The last question this rule answers is where a REGISTRATION sits, and it is the one place the sweep
+stopped.** `AddMediaUsageBudget` and its three siblings configure the router, so they follow it.
+`AddGenerationProvider` does not follow, because a registration named for what a provider PRODUCES is the
+shape **D152** retired `AddEmbeddingProvider` for — `AddMediaProvider` would be the same defect respelt. <!-- drift-ok: the record names the registration D152 retired, which is the comparison being drawn -->
+It is left visibly odd among five renamed siblings rather than settled by momentum, and the option plus its
+trigger is in `TASKS.md` Part 103. **A sweep that renames a name it never examined has decided something,
+and the decision is invisible precisely because everything around it moved too.**

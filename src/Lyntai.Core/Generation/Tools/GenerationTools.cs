@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using Lyntai.Agents;
 using Lyntai.Generation.Jobs;
-using Lyntai.Generation.Routing;
 
 namespace Lyntai.Generation.Tools;
 
@@ -135,7 +134,7 @@ internal static class GenerationToolJson
     public static bool TryReadOperation(
         JsonDocument args,
         IEnumerable<IModelProvider> providers,
-        [NotNullWhen(true)] out IGenerationJobProvider? backend,
+        [NotNullWhen(true)] out IMediaJobProvider? backend,
         out string backendId,
         out string operationId,
         [NotNullWhen(false)] out string? error)
@@ -169,7 +168,7 @@ internal static class GenerationToolJson
 /// picks a backend that exists and supports the medium instead of guessing a name.
 ///
 /// <para><b>The listing is bounded as a WHOLE and never fails because one backend did.</b> Probes run
-/// concurrently under a single <see cref="GenerationOptions.ProbeDeadline"/>; a backend that overruns it, or
+/// concurrently under a single <see cref="MediaOptions.ProbeDeadline"/>; a backend that overruns it, or
 /// that throws, is reported <c>usable: false</c> with the reason rather than omitted. Omitting it would tell
 /// the model the backend does not exist, which is a different and worse answer than "it is not answering".</para></summary>
 /// <param name="providers">The registered backends.</param>
@@ -184,9 +183,9 @@ internal static class GenerationToolJson
 /// whose count this type does not choose, so one slow backend would eat the budget of every backend after
 /// it — and which ones those are would depend on registration order.</para></remarks>
 public sealed class GenerationBackendsTool(
-    IEnumerable<IModelProvider> providers, GenerationOptions? options = null) : ITool
+    IEnumerable<IModelProvider> providers, MediaOptions? options = null) : ITool
 {
-    private readonly GenerationOptions _options = options ?? new GenerationOptions();
+    private readonly MediaOptions _options = options ?? new MediaOptions();
 
     /// <inheritdoc/>
     public string Name => "generate_backends";
@@ -250,7 +249,7 @@ public sealed class GenerationBackendsTool(
     /// <remarks>The two tokens are told apart the same way <c>GenerationDeadline</c> does it: if the caller's
     /// own token is cancelled the exception is theirs and propagates; otherwise the only clock left is this
     /// listing's, and that is a report rather than a failure.
-    /// <para>A THROWN probe is an observation too. <c>GenerationRouter</c> is documented as the trust boundary
+    /// <para>A THROWN probe is an observation too. <c>MediaRouter</c> is documented as the trust boundary
     /// for a BYO backend that throws instead of returning a verdict, and this is a second reader of the same
     /// registered collection — it applied none of it, so one third-party defect discarded the listing of every
     /// other backend.</para></remarks>
@@ -268,7 +267,7 @@ public sealed class GenerationBackendsTool(
         catch (OperationCanceledException)
         {
             return (provider, new ProviderProbeResult(false,
-                "the probe did not answer within this listing's deadline (GenerationOptions.ProbeDeadline)"));
+                "the probe did not answer within this listing's deadline (MediaOptions.ProbeDeadline)"));
         }
         catch (Exception ex)
         {
@@ -281,8 +280,8 @@ public sealed class GenerationBackendsTool(
 /// batch music) an agent uses <see cref="GenerationSubmitTool"/> instead; this reports that rather than
 /// blocking.</summary>
 public sealed class GenerationInlineTool(
-    IGenerationRouter router,
-    GenerationOptions options,
+    IMediaRouter router,
+    MediaOptions options,
     IGenerationArtifactSink? sink = null,
     string consumer = ProviderConsumers.Agent) : ITool
 {
@@ -346,7 +345,7 @@ public sealed class GenerationInlineTool(
 /// <summary>Submits an ASYNCHRONOUS generation and returns the handle to poll. The shape a video render
 /// actually has — an agent that tried to wait inline would block for minutes.</summary>
 public sealed class GenerationSubmitTool(
-    IGenerationRouter router, GenerationOptions options, string consumer = ProviderConsumers.Agent) : ITool
+    IMediaRouter router, MediaOptions options, string consumer = ProviderConsumers.Agent) : ITool
 {
     /// <summary>The spend/rate-limit tag submissions from this tool bill to — see
     /// <see cref="GenerationInlineTool.Consumer"/>.</summary>
@@ -456,7 +455,7 @@ public sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) 
 
 /// <summary>Collects a finished generation's artifacts, and BILLS what they cost.
 /// <para>This tool reaches the backend directly rather than through
-/// <see cref="Lyntai.Generation.Routing.IGenerationRouter"/> — there is nothing left to route once an
+/// <see cref="Lyntai.Inference.IMediaRouter"/> — there is nothing left to route once an
 /// operation id exists — so it must record usage itself. A queue backend prices at FETCH, because that is
 /// the only point the total is known, which makes this the one place a submitted render's cost can be
 /// observed at all.</para>
@@ -506,7 +505,7 @@ public sealed class GenerationFetchTool(
         // Bill BEFORE delivery, for the reason GenerationRenderJobHandler states on its own fetch: the money
         // is spent either way, and a sink that throws would lose the record.
         if (usage is not null)
-            await Lyntai.Generation.Routing.BudgetedGenerationRouter
+            await Lyntai.Inference.BudgetedMediaRouter
                 .RecordAsync(usage, Consumer, result.Usage, ct).ConfigureAwait(false);
 
         var delivered = false;
@@ -530,7 +529,7 @@ internal static class GenerationToolRegistry
 {
     /// <summary>The registered backend with this id, IF it is asynchronous. Null covers both "no such backend"
     /// and "that one is inline-only" — a model gets one clear message either way.</summary>
-    public static IGenerationJobProvider? JobBackend(IEnumerable<IModelProvider> providers, string id) =>
+    public static IMediaJobProvider? JobBackend(IEnumerable<IModelProvider> providers, string id) =>
         providers.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase))
-            as IGenerationJobProvider;
+            as IMediaJobProvider;
 }

@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (47) — 57 · 124 · 133 · 153 · 166 · 175 · 188 · 194 · 217 · 227 · 234 · 249 · 259 · 305 · 325 · 371 · 389 · 550 · 635 · 644 · 654 · 708 · 722 · 792 · 806 · 1121 · 1248 · 1344 · 1357 · 1384 · 1405 · 1422 · 1439 · 1481 · 1654 · 2665 · 2689 · 2699 · 2725 · 2736 · 2755 · 2771 · 2782 · 2809 · 3180 · 3221 · 3230
-- **`encoding`** (7) — 75 · 117 · 122 · 661 · 669 · 944 · 2809
+- **`gates`** (47) — 57 · 124 · 133 · 153 · 166 · 175 · 188 · 194 · 217 · 227 · 234 · 249 · 259 · 305 · 325 · 371 · 389 · 550 · 635 · 644 · 654 · 708 · 722 · 792 · 806 · 1121 · 1248 · 1344 · 1357 · 1384 · 1405 · 1422 · 1439 · 1481 · 1654 · 2665 · 2689 · 2699 · 2731 · 2742 · 2761 · 2777 · 2788 · 2815 · 3186 · 3227 · 3236
+- **`encoding`** (7) — 75 · 117 · 122 · 661 · 669 · 944 · 2815
 - **`git`** (8) — 249 · 274 · 305 · 330 · 669 · 691 · 949 · 2665
 - **`build`** (12) — 122 · 635 · 644 · 654 · 708 · 1113 · 1405 · 1422 · 1654 · 2644 · 2674 · 2708
 - **`router`** (6) — 1497 · 1502 · 1511 · 1513 · 1516 · 1646
 - **`cli`** (19) — 75 · 821 · 944 · 1497 · 1518 · 1526 · 1535 · 1539 · 1551 · 1555 · 1562 · 1566 · 1573 · 1577 · 1610 · 1629 · 1633 · 1638 · 2490
 - **`lifetime`** (6) — 1677 · 1686 · 1691 · 1696 · 1709 · 1717
-- **`storage`** (18) — 1467 · 1589 · 1726 · 1828 · 1856 · 1858 · 1859 · 1861 · 1863 · 1881 · 1892 · 2121 · 2133 · 2403 · 2520 · 2791 · 2973 · 3157
-- **`memory`** (41) — 429 · 462 · 493 · 621 · 1196 · 1589 · 1760 · 1779 · 1790 · 1816 · 1828 · 1843 · 1864 · 1881 · 1892 · 1931 · 1946 · 1953 · 1972 · 1983 · 2001 · 2014 · 2027 · 2085 · 2140 · 2160 · 2196 · 2232 · 2250 · 2257 · 2302 · 2324 · 2352 · 2424 · 2499 · 2520 · 2618 · 2866 · 3025 · 3053 · 3136
+- **`storage`** (18) — 1467 · 1589 · 1726 · 1828 · 1856 · 1858 · 1859 · 1861 · 1863 · 1881 · 1892 · 2121 · 2133 · 2403 · 2520 · 2797 · 2979 · 3163
+- **`memory`** (41) — 429 · 462 · 493 · 621 · 1196 · 1589 · 1760 · 1779 · 1790 · 1816 · 1828 · 1843 · 1864 · 1881 · 1892 · 1931 · 1946 · 1953 · 1972 · 1983 · 2001 · 2014 · 2027 · 2085 · 2140 · 2160 · 2196 · 2232 · 2250 · 2257 · 2302 · 2324 · 2352 · 2424 · 2499 · 2520 · 2618 · 2872 · 3031 · 3059 · 3142
 - **`generation`** (12) — 1181 · 1241 · 1324 · 1502 · 1709 · 2232 · 2288 · 2437 · 2449 · 2473 · 2580 · 2605
 - **`di`** (12) — 1696 · 1946 · 1972 · 2152 · 2154 · 2157 · 2160 · 2178 · 2257 · 2302 · 2449 · 2499
-- **`measurement`** (69) — 153 · 414 · 429 · 447 · 462 · 470 · 476 · 493 · 534 · 564 · 580 · 599 · 611 · 621 · 742 · 821 · 828 · 833 · 842 · 848 · 875 · 888 · 899 · 907 · 923 · 930 · 967 · 977 · 997 · 1008 · 1042 · 1069 · 1075 · 1091 · 1108 · 1113 · 1152 · 1181 · 1196 · 1226 · 1241 · 1256 · 1274 · 1289 · 1306 · 1324 · 1526 · 1726 · 1745 · 1816 · 1983 · 2014 · 2041 · 2052 · 2067 · 2085 · 2140 · 2196 · 2725 · 2842 · 2893 · 2908 · 2932 · 2952 · 2973 · 3003 · 3040 · 3104 · 3136
-- **`docs`** (31) — 95 · 166 · 194 · 217 · 338 · 691 · 722 · 742 · 792 · 1121 · 1132 · 1137 · 1144 · 1248 · 1357 · 1384 · 1481 · 1790 · 2288 · 2324 · 2391 · 2555 · 2565 · 2689 · 2699 · 2736 · 2755 · 2771 · 2782 · 2791 · 3062
-- **`tests`** (26) — 95 · 1439 · 1453 · 1467 · 1610 · 1802 · 1843 · 1864 · 1931 · 1953 · 2121 · 2133 · 2403 · 2855 · 2866 · 2877 · 3053 · 3075 · 3157 · 3165 · 3173 · 3177 · 3180 · 3192 · 3203 · 3216
+- **`measurement`** (69) — 153 · 414 · 429 · 447 · 462 · 470 · 476 · 493 · 534 · 564 · 580 · 599 · 611 · 621 · 742 · 821 · 828 · 833 · 842 · 848 · 875 · 888 · 899 · 907 · 923 · 930 · 967 · 977 · 997 · 1008 · 1042 · 1069 · 1075 · 1091 · 1108 · 1113 · 1152 · 1181 · 1196 · 1226 · 1241 · 1256 · 1274 · 1289 · 1306 · 1324 · 1526 · 1726 · 1745 · 1816 · 1983 · 2014 · 2041 · 2052 · 2067 · 2085 · 2140 · 2196 · 2731 · 2848 · 2899 · 2914 · 2938 · 2958 · 2979 · 3009 · 3046 · 3110 · 3142
+- **`docs`** (31) — 95 · 166 · 194 · 217 · 338 · 691 · 722 · 742 · 792 · 1121 · 1132 · 1137 · 1144 · 1248 · 1357 · 1384 · 1481 · 1790 · 2288 · 2324 · 2391 · 2555 · 2565 · 2689 · 2699 · 2742 · 2761 · 2777 · 2788 · 2797 · 3068
+- **`tests`** (26) — 95 · 1439 · 1453 · 1467 · 1610 · 1802 · 1843 · 1864 · 1931 · 1953 · 2121 · 2133 · 2403 · 2861 · 2872 · 2883 · 3059 · 3081 · 3163 · 3171 · 3179 · 3183 · 3186 · 3198 · 3209 · 3222
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (23) — 249 · 429 · 462 · 493 · 722 · 842 · 1152 · 1324 · 1511 · 1516 · 1535 · 1610 · 1691 · 1779 · 2027 · 2160 · 2196 · 2437 · 2449 · 2499 · 2605 · 2618 · 3025
+- **`fail-open`** (23) — 249 · 429 · 462 · 493 · 722 · 842 · 1152 · 1324 · 1511 · 1516 · 1535 · 1610 · 1691 · 1779 · 2027 · 2160 · 2196 · 2437 · 2449 · 2499 · 2605 · 2618 · 3031
 - **`cancellation`** (5) — 1497 · 1502 · 1760 · 1779 · 1802
-- **`vacuous`** (49) — 153 · 227 · 234 · 414 · 470 · 476 · 534 · 564 · 644 · 848 · 888 · 907 · 997 · 1181 · 1196 · 1226 · 1241 · 1274 · 1344 · 1357 · 1422 · 1453 · 1566 · 1629 · 1646 · 1802 · 1843 · 1864 · 1931 · 1953 · 2041 · 2052 · 2085 · 2196 · 2324 · 2791 · 2866 · 2877 · 2908 · 3040 · 3053 · 3075 · 3104 · 3157 · 3180 · 3192 · 3203 · 3221 · 3230
-- **`scope-blind`** (43) — 124 · 175 · 188 · 194 · 217 · 227 · 249 · 259 · 305 · 371 · 389 · 669 · 792 · 806 · 1289 · 1357 · 1405 · 1481 · 1654 · 1946 · 2014 · 2121 · 2133 · 2288 · 2324 · 2352 · 2403 · 2520 · 2689 · 2699 · 2708 · 2725 · 2736 · 2755 · 2771 · 2782 · 2791 · 2877 · 3040 · 3053 · 3177 · 3221 · 3230
+- **`vacuous`** (49) — 153 · 227 · 234 · 414 · 470 · 476 · 534 · 564 · 644 · 848 · 888 · 907 · 997 · 1181 · 1196 · 1226 · 1241 · 1274 · 1344 · 1357 · 1422 · 1453 · 1566 · 1629 · 1646 · 1802 · 1843 · 1864 · 1931 · 1953 · 2041 · 2052 · 2085 · 2196 · 2324 · 2797 · 2872 · 2883 · 2914 · 3046 · 3059 · 3081 · 3110 · 3163 · 3186 · 3198 · 3209 · 3227 · 3236
+- **`scope-blind`** (43) — 124 · 175 · 188 · 194 · 217 · 227 · 249 · 259 · 305 · 371 · 389 · 669 · 792 · 806 · 1289 · 1357 · 1405 · 1481 · 1654 · 1946 · 2014 · 2121 · 2133 · 2288 · 2324 · 2352 · 2403 · 2520 · 2689 · 2699 · 2708 · 2731 · 2742 · 2761 · 2777 · 2788 · 2797 · 2883 · 3046 · 3059 · 3183 · 3227 · 3236
 - **`second-door`** (20) — 1513 · 1551 · 1555 · 1566 · 1573 · 1633 · 1638 · 1717 · 1859 · 1881 · 2160 · 2302 · 2403 · 2424 · 2437 · 2449 · 2473 · 2520 · 2555 · 2580
-- **`stale-claim`** (23) — 57 · 194 · 274 · 338 · 742 · 899 · 930 · 949 · 1121 · 1137 · 1422 · 1790 · 2157 · 2288 · 2391 · 2424 · 2473 · 2555 · 2736 · 2755 · 2771 · 3062 · 3192
-- **`silent-loss`** (64) — 75 · 95 · 117 · 122 · 166 · 325 · 330 · 371 · 389 · 447 · 462 · 611 · 661 · 708 · 722 · 821 · 833 · 888 · 944 · 977 · 1008 · 1042 · 1108 · 1152 · 1241 · 1248 · 1256 · 1324 · 1384 · 1405 · 1439 · 1539 · 1555 · 1589 · 1677 · 1709 · 1745 · 1816 · 1856 · 1858 · 1859 · 1861 · 1881 · 1892 · 1931 · 2067 · 2140 · 2152 · 2157 · 2178 · 2250 · 2302 · 2352 · 2490 · 2580 · 2618 · 2644 · 2674 · 2689 · 2699 · 2809 · 2893 · 2973 · 3104
-- **`wrong-subject`** (68) — 57 · 95 · 133 · 153 · 330 · 414 · 447 · 476 · 493 · 550 · 564 · 580 · 599 · 611 · 621 · 635 · 654 · 848 · 875 · 907 · 923 · 930 · 977 · 1008 · 1042 · 1069 · 1075 · 1132 · 1144 · 1181 · 1196 · 1226 · 1256 · 1274 · 1289 · 1306 · 1384 · 1467 · 1513 · 1562 · 1654 · 1686 · 1696 · 1726 · 1816 · 1864 · 1972 · 1983 · 2001 · 2014 · 2041 · 2052 · 2085 · 2232 · 2257 · 2605 · 2644 · 2665 · 2674 · 2842 · 2893 · 2908 · 2932 · 2952 · 2973 · 3075 · 3136 · 3180
-- **`unmeasured`** (17) — 580 · 621 · 691 · 742 · 792 · 828 · 1091 · 1113 · 1518 · 1526 · 1535 · 1577 · 1629 · 2001 · 2232 · 2565 · 3062
-- **`ordering`** (10) — 654 · 1539 · 1638 · 1828 · 1863 · 2178 · 2490 · 2499 · 2855 · 3003
-- **`resource`** (14) — 635 · 669 · 708 · 967 · 1075 · 1306 · 1518 · 1610 · 1717 · 1726 · 2154 · 3165 · 3173 · 3216
+- **`stale-claim`** (23) — 57 · 194 · 274 · 338 · 742 · 899 · 930 · 949 · 1121 · 1137 · 1422 · 1790 · 2157 · 2288 · 2391 · 2424 · 2473 · 2555 · 2742 · 2761 · 2777 · 3068 · 3198
+- **`silent-loss`** (64) — 75 · 95 · 117 · 122 · 166 · 325 · 330 · 371 · 389 · 447 · 462 · 611 · 661 · 708 · 722 · 821 · 833 · 888 · 944 · 977 · 1008 · 1042 · 1108 · 1152 · 1241 · 1248 · 1256 · 1324 · 1384 · 1405 · 1439 · 1539 · 1555 · 1589 · 1677 · 1709 · 1745 · 1816 · 1856 · 1858 · 1859 · 1861 · 1881 · 1892 · 1931 · 2067 · 2140 · 2152 · 2157 · 2178 · 2250 · 2302 · 2352 · 2490 · 2580 · 2618 · 2644 · 2674 · 2689 · 2699 · 2815 · 2899 · 2979 · 3110
+- **`wrong-subject`** (68) — 57 · 95 · 133 · 153 · 330 · 414 · 447 · 476 · 493 · 550 · 564 · 580 · 599 · 611 · 621 · 635 · 654 · 848 · 875 · 907 · 923 · 930 · 977 · 1008 · 1042 · 1069 · 1075 · 1132 · 1144 · 1181 · 1196 · 1226 · 1256 · 1274 · 1289 · 1306 · 1384 · 1467 · 1513 · 1562 · 1654 · 1686 · 1696 · 1726 · 1816 · 1864 · 1972 · 1983 · 2001 · 2014 · 2041 · 2052 · 2085 · 2232 · 2257 · 2605 · 2644 · 2665 · 2674 · 2848 · 2899 · 2914 · 2938 · 2958 · 2979 · 3081 · 3142 · 3186
+- **`unmeasured`** (17) — 580 · 621 · 691 · 742 · 792 · 828 · 1091 · 1113 · 1518 · 1526 · 1535 · 1577 · 1629 · 2001 · 2232 · 2565 · 3068
+- **`ordering`** (10) — 654 · 1539 · 1638 · 1828 · 1863 · 2178 · 2490 · 2499 · 2861 · 3009
+- **`resource`** (14) — 635 · 669 · 708 · 967 · 1075 · 1306 · 1518 · 1610 · 1717 · 1726 · 2154 · 3171 · 3179 · 3222
 
 <!-- facets:end -->
 
@@ -1708,13 +1708,13 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   empty paths keeps failing forever).
 - **Decorating a provider erases its optional capability interfaces.** The generation seam expresses <!-- trap: sub=lifetime,generation shape=silent-loss -->
   long-running and streaming delivery as *additional* interfaces the router type-tests:
-  `if (provider is not IGenerationJobProvider job) continue;` (`GenerationRouter.SubmitAsync`). Any wrapper
+  `if (provider is not IMediaJobProvider job) continue;` (`MediaRouter.SubmitAsync`). Any wrapper
   implementing only `IModelProvider` makes a queue backend invisible, so **every video render stops
   routing while every image render keeps working and every inline-only test stays green.** This is why
   admission is applied by the router rather than by a decorator — and the trap applies to *any* future
   wrapper (telemetry, retries, redaction), not just this one. If you must wrap, forward every optional
   interface the wrapped instance implements, and prove it with a test that submits a job.
-- **A `using` that is one frame shallower than you think.** `GenerationRouter.GenerateAsync`'s `Surface` arm <!-- trap: sub=lifetime shape=resource,second-door -->
+- **A `using` that is one frame shallower than you think.** `MediaRouter.GenerateAsync`'s `Surface` arm <!-- trap: sub=lifetime shape=resource,second-door -->
   `return`s from inside the fallback switch, which is safe **only** because the admission permit is held in
   `AttemptAsync`, one frame deeper. Inlining `AttemptAsync` in the name of simplification turns that return
   into a permanent gate leak. More generally: every `ProviderAdmission.EnterAsync` result must reach a
@@ -2259,7 +2259,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   alone says a policy can judge nothing else — and a sweep was designed around adding surface before anyone
   read the method signature, which already passes the whole `MemoryWrite`. **The seam is the signature, not
   the context type**; check what a policy is HANDED before concluding it needs more.
-  <br>**Fifth instance, 2026-08-17, found by review rather than by a consumer:** `GenerationRouter.StreamAsync`
+  <br>**Fifth instance, 2026-08-17, found by review rather than by a consumer:** `MediaRouter.StreamAsync`
   carried the SUBMIT door's `NeverReachedTheBackend` filter on its catch — a filter whose premise is "the
   act of asking may have been billed", true of a queue submission and false of a stream open — so the one
   failure class fallback most exists for (a refused connection before the first byte) was the one that
@@ -2462,9 +2462,9 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   rate limits, redaction. Each is enforced by a specific wrapper at a specific door, and adding a door is
   the cheapest way to lose one.
   <br>**Third instance, 2026-08-16 — and this time the compiler found it, which is the point.** Adding
-  `IGenerationRouter.StreamAsync` as a required member with NO default body turned "a decorator silently
+  `IMediaRouter.StreamAsync` as a required member with NO default body turned "a decorator silently
   fails to govern the new door" into a build error naming both offenders — and there were **two**,
-  `BudgetedGenerationRouter` and `RateLimitedGenerationRouter`, where only the first had been anticipated. A
+  `BudgetedMediaRouter` and `RateLimitedMediaRouter`, where only the first had been anticipated. A
   default interface implementation would have compiled clean and shipped an ungoverned path. **When adding a
   member to an interface the library itself decorates, no default body is the cheap gate**; it costs BYO
   implementers a compile error in a major, which is exactly when that is affordable. Note the limit, though:
@@ -2710,7 +2710,13 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `.Interference`/`.Forgetting`/`.Modulation`/`.Salience` sub-namespaces): **(1) it cannot see warnings.**
   `CS1574` (an unresolved doc `<see cref>`) is a *warning*, so a file that references a moved type only
   inside an XML comment produces zero errors and never shows up — three such files were missed this way,
-  one of them in a different package from the one being edited. **(2) it truncates across projects.**
+  one of them in a different package from the one being edited.
+  <br>**And the cref that survives a namespace sweep is the PARTIALLY-qualified one.** Hit three times in
+  one restructure (**D154**): `Generation.MediaRequest`, `Llm.Cli.ICliProviderDialect.ParseAuthStatus`,
+  `Routing.MediaRoutingPolicy` — each written relative to the enclosing namespace, so a pattern anchored on
+  `Lyntai.<Old>` cannot see any of them, and each surfaced only as a CS1574 after the build. **Grep the
+  partial forms** (`(^|[^\w.])<Segment>\.[A-Z]`) as well as the qualified one; three of three were in a
+  DIFFERENT package from the types being moved. **(2) it truncates across projects.**
   MSBuild stops building a dependent project once its own dependency fails, so one build surfaced 4 of 78
   true sites and the rest arrived only after those 4 were fixed and the build ran a second time. **(3) it
   truncates within a single line.** A line with three unresolved names produced only one reported error, so

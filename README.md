@@ -1053,7 +1053,7 @@ services.AddLyntai(cfg => cfg
     .AddOpenAiImageProvider(o => { o.ApiKey = key; o.Model = "gpt-image-1"; })
     // local: a Stable Diffusion WebUI on this machine
     .AddAutomatic1111Provider(o => { })
-    .UseDefaultGenerationCandidates("openai-images", "a1111"));
+    .UseDefaultMediaCandidates("openai-images", "a1111"));
 ```
 
 Each backend has an `Add*` of its own — `AddOpenAiImageProvider`, `AddAutomatic1111Provider`,
@@ -1134,7 +1134,7 @@ force the others to lie:
 | Mode | Interface | Typical of |
 |---|---|---|
 | Inline | `IModelProvider.GenerateAsync` | image generation |
-| Async job | `IGenerationJobProvider` (submit → poll → fetch) | video, batch music — renders take minutes |
+| Async job | `IMediaJobProvider` (submit → poll → fetch) | video, batch music — renders take minutes |
 | Streaming | `IModelProvider.StreamAsync` | text-to-speech, where playback starts before generation ends |
 
 A backend declares which of the three it serves in `ProviderCapabilities.Operations` — data, not a type
@@ -1180,7 +1180,7 @@ contract change.
 
 Every backend answers **"are you usable?"** without generating anything (`ProbeAsync`), so a setup screen
 never has to pay for a test image. The `generate_backends` tool asks all of them **concurrently, under one
-aggregate `GenerationOptions.ProbeDeadline`** (20s) — a backend that overruns it or throws is listed
+aggregate `MediaOptions.ProbeDeadline`** (20s) — a backend that overruns it or throws is listed
 `usable: false` with the reason rather than dropped, because telling a model a configured backend does not
 exist is worse than telling it one is not answering.
 
@@ -1189,7 +1189,7 @@ than being re-submitted elsewhere), but if you deliberately pair a hosted backen
 is your call to change:
 
 ```csharp
-cfg.ConfigureGenerationRouting(p =>
+cfg.ConfigureMediaRouting(p =>
     p.On(ProviderVerdict.Refused, FallbackAction.Advance));   // local backend picks it up
 ```
 
@@ -1235,7 +1235,7 @@ var localKey = ProviderKey.For(cfg.Local.Id)
     .With("steps", cfg.Local.Steps)
     .Build();
 
-var router = _routers.For([                                // IGenerationRouterFactory, injected
+var router = _routers.For([                                // IMediaRouterFactory, injected
     new(openAiKey, () => new OpenAiImageProvider(cfg.OpenAi, _httpFactory, disposeHttpClient: false)),
     new(localKey,  () => new LocalDiffusionProvider(cfg.Local, _runner)),
 ]);

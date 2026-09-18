@@ -126,7 +126,7 @@ fs.writeFileSync(path.join(app, 'Program.cs'), `using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
-using Lyntai.Generation.Routing;
+using Lyntai.Inference;
 using Lyntai.Inference;
 using Lyntai.Inference;
 using Lyntai.Storage;
@@ -141,7 +141,7 @@ services.AddLyntai(cfg => cfg
     // BaseUrl blanked deliberately: the assertion below is that an UNCONFIGURED backend reports a verdict a
     // host can act on. The default is the vendor's API root, so it has to be cleared to reach that state.
     .AddOpenAiImageProvider(o => { o.BaseUrl = ""; o.ApiKey = null; })
-    .UseDefaultGenerationCandidates("openai-images"));
+    .UseDefaultMediaCandidates("openai-images"));
 using var sp = services.BuildServiceProvider();
 
 // the front door and its decorator chain resolve through the PACKAGE graph
@@ -156,7 +156,7 @@ if (sp.GetRequiredService<IKeyValueStore>() is null) throw new Exception("no IKe
 
 // the generation domain wires and ROUTES through the package graph, and an unconfigured backend reports a
 // verdict a host can act on rather than throwing or inventing an artifact
-var render = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
+var render = await sp.GetRequiredService<IMediaRouter>().GenerateAsync(
     [new ProviderCandidate("openai-images")],
     new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a red square" });
 if (render.Verdict != ProviderVerdict.NotConfigured)

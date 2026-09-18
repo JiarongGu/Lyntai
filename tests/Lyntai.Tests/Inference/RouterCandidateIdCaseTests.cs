@@ -6,7 +6,7 @@ namespace Lyntai.Tests.Inference;
 
 /// <summary>A candidate id is matched CASE-INSENSITIVELY, in the LLM router as everywhere else.
 ///
-/// <para>Every other id lookup in the tree already worked this way — <c>GenerationRouter</c>,
+/// <para>Every other id lookup in the tree already worked this way — <c>MediaRouter</c>,
 /// <c>ProviderPoolGuard</c>, <c>IToolRegistry</c>, <c>IJobHandlerRegistry</c>, <c>BoundedProviderPool</c> — and
 /// <c>TextRouter</c> alone did not. The gap was REACHABLE rather than theoretical: <c>ProviderPoolGuard</c>
 /// deliberately accepts a pool slot whose case differs from the provider's own <c>Id</c>, so such an instance

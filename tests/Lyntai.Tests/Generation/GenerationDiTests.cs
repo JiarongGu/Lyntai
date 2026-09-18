@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Generation.Routing;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -32,13 +31,13 @@ public class GenerationDiTests
         services.AddLyntai(cfg => cfg.AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a" }));
         using var sp = services.BuildServiceProvider();
 
-        Assert.NotNull(sp.GetRequiredService<IGenerationRouter>());
+        Assert.NotNull(sp.GetRequiredService<IMediaRouter>());
     }
 
-    /// <summary><b>A pre-registered <see cref="GenerationOptions"/> is REUSED, not replaced</b> — the
+    /// <summary><b>A pre-registered <see cref="MediaOptions"/> is REUSED, not replaced</b> — the
     /// documented way to set a knob the builder exposes no dedicated method for, and the same DI-registration
     /// path <c>SalienceOptions</c> and <c>DsrOptions</c> take. Asserted because the doc on
-    /// <see cref="GenerationOptions.ProbeDeadline"/> tells a consumer to do exactly this, and it holds only
+    /// <see cref="MediaOptions.ProbeDeadline"/> tells a consumer to do exactly this, and it holds only
     /// while the builder's get-or-register keeps preferring an existing instance.
     /// <para>The second half is what makes it worth a test rather than a comment: the builder's OWN
     /// configuration must land on that same object, or a consumer who sets one knob this way silently loses
@@ -46,15 +45,15 @@ public class GenerationDiTests
     [Fact]
     public void A_pre_registered_GenerationOptions_is_reused_so_both_sides_configure_one_instance()
     {
-        var mine = new GenerationOptions { ProbeDeadline = TimeSpan.FromSeconds(3) };
+        var mine = new MediaOptions { ProbeDeadline = TimeSpan.FromSeconds(3) };
         var services = new ServiceCollection();
         services.AddSingleton(mine);
         services.AddLyntai(cfg => cfg
             .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a" })
-            .UseDefaultGenerationCandidates("a"));
+            .UseDefaultMediaCandidates("a"));
         using var sp = services.BuildServiceProvider();
 
-        var resolved = sp.GetRequiredService<GenerationOptions>();
+        var resolved = sp.GetRequiredService<MediaOptions>();
 
         Assert.Same(mine, resolved);
         Assert.Equal(TimeSpan.FromSeconds(3), resolved.ProbeDeadline);   // the consumer's knob survived
@@ -67,11 +66,11 @@ public class GenerationDiTests
         var services = new ServiceCollection();
         services.AddLyntai(cfg => cfg
             .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a" })
-            .UseDefaultGenerationCandidates("a"));
+            .UseDefaultMediaCandidates("a"));
         using var sp = services.BuildServiceProvider();
 
-        var options = sp.GetRequiredService<GenerationOptions>();
-        var router = sp.GetRequiredService<IGenerationRouter>();
+        var options = sp.GetRequiredService<MediaOptions>();
+        var router = sp.GetRequiredService<IMediaRouter>();
 
         var result = await router.GenerateAsync(options.DefaultCandidates,
             new MediaRequest { Kind = ProviderKinds.Image, Prompt = "x" });
@@ -86,10 +85,10 @@ public class GenerationDiTests
         var services = new ServiceCollection();
         services.AddLyntai(cfg => cfg
             .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "aggregator" })
-            .UseDefaultGenerationCandidates("aggregator:sdxl"));
+            .UseDefaultMediaCandidates("aggregator:sdxl"));
         using var sp = services.BuildServiceProvider();
 
-        var candidate = sp.GetRequiredService<GenerationOptions>().DefaultCandidates.Single();
+        var candidate = sp.GetRequiredService<MediaOptions>().DefaultCandidates.Single();
 
         Assert.Equal("aggregator", candidate.ProviderId);
         Assert.Equal("sdxl", candidate.Model);
@@ -104,10 +103,10 @@ public class GenerationDiTests
         services.AddLyntai(cfg => cfg
             .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a" })
             .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "b" })
-            .UseDefaultGenerationCandidates("a")
-            .UseDefaultGenerationCandidates("b"));
+            .UseDefaultMediaCandidates("a")
+            .UseDefaultMediaCandidates("b"));
         using var sp = services.BuildServiceProvider();
 
-        Assert.Equal(["b"], sp.GetRequiredService<GenerationOptions>().DefaultCandidates.Select(c => c.ProviderId));
+        Assert.Equal(["b"], sp.GetRequiredService<MediaOptions>().DefaultCandidates.Select(c => c.ProviderId));
     }
 }

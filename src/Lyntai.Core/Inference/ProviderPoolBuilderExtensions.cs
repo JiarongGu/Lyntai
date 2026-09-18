@@ -13,7 +13,7 @@ namespace Lyntai;
 /// <para>Everything here registers a STRATEGY, never a call. That is the whole point of the seam: which
 /// strategy is registered is the only thing that decides whether a backend is reused or rebuilt, so
 /// switching costs one line at startup and no edit at any call site — including inside
-/// <see cref="Lyntai.Generation.Routing.IGenerationRouterFactory"/> and
+/// <see cref="Lyntai.Inference.IMediaRouterFactory"/> and
 /// <see cref="Lyntai.Inference.ITextRouterFactory"/>, which simply keep calling
 /// <see cref="IProviderPool{TProvider}.GetOrAdd"/>.</para>
 ///
@@ -77,7 +77,7 @@ public static class ProviderPoolBuilderExtensions
         ArgumentNullException.ThrowIfNull(configure);
 
         // The singleton INSTANCE (not a factory) is what lets configure-time mutation be visible to the
-        // resolved ProviderAdmission — the same immediate-mutation model GenerationOptions uses.
+        // resolved ProviderAdmission — the same immediate-mutation model MediaOptions uses.
         var options = builder.Services
             .FirstOrDefault(d => d.ServiceType == typeof(ProviderAdmissionOptions) && !d.IsKeyedService)
             ?.ImplementationInstance as ProviderAdmissionOptions;

@@ -1,14 +1,13 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
-using Lyntai.Inference;
 
-namespace Lyntai.Generation.Routing;
+namespace Lyntai.Inference;
 
-/// <summary>The default <see cref="IGenerationRouter"/>: capability pre-filter, then verdict-driven fallback
+/// <summary>The default <see cref="IMediaRouter"/>: capability pre-filter, then verdict-driven fallback
 /// with dead-host cooldown, plus a span and metrics per attempt.
 ///
-/// <para>Per-verdict fallback semantics are <see cref="GenerationRoutingPolicy"/>'s, including where they
+/// <para>Per-verdict fallback semantics are <see cref="MediaRoutingPolicy"/>'s, including where they
 /// deliberately diverge from the LLM router's on <see cref="ProviderVerdict.Unsupported"/>.</para>
 ///
 /// <para><b>Reporting keeps TWO slots, and a blameless one never outranks a real failure.</b> The first
@@ -24,13 +23,13 @@ namespace Lyntai.Generation.Routing;
 /// <see cref="QueuedOperationStatus"/>, not a verdict, so a rejection is classified from the backend's
 /// own <see cref="QueuedOperation.Detail"/> and answered by the same table. Two things hold whatever the
 /// text says: Inconclusive is decided BEFORE the verdict, and a submission the router does not accept
-/// reports an EMPTY <see cref="GenerationSubmission.ProviderId"/> — <see cref="IGenerationRouter"/>'s "no
+/// reports an EMPTY <see cref="MediaSubmission.ProviderId"/> — <see cref="IMediaRouter"/>'s "no
 /// candidate accepted" — with the first rejection folded into the detail by the two-slot rule above.</para>
 ///
 /// <para><b>The candidate list is deduped on the RESOLVED (backend, model) pair</b>, so two entries naming
-/// one backend cannot inflate the count <see cref="GenerationRoutingPolicy.ExemptSoleCandidate"/> reads.</para></summary>
+/// one backend cannot inflate the count <see cref="MediaRoutingPolicy.ExemptSoleCandidate"/> reads.</para></summary>
 /// <param name="providers">The registered backends.</param>
-/// <param name="policy">Per-verdict fallback behaviour; null = <see cref="GenerationRoutingPolicy"/>'s
+/// <param name="policy">Per-verdict fallback behaviour; null = <see cref="MediaRoutingPolicy"/>'s
 /// defaults.</param>
 /// <param name="deadHosts">Cooldown bookkeeping — the SAME <see cref="DeadHostTracker"/> the LLM router uses,
 /// deliberately: "this host keeps failing, stop asking" is transport bookkeeping keyed by a string, not an LLM
@@ -55,7 +54,7 @@ namespace Lyntai.Generation.Routing;
 /// <param name="admission">Bounds concurrent attempts per configuration — for a locally-run engine where
 /// simultaneous renders contend for one CPU or GPU. Null = unbounded. Applied HERE rather than by
 /// wrapping a provider, because a wrapper implementing only <see cref="IModelProvider"/> erases the
-/// optional capability interfaces (<see cref="IGenerationJobProvider"/>) this router type-tests, which
+/// optional capability interfaces (<see cref="IMediaJobProvider"/>) this router type-tests, which
 /// would silently stop every queued render from routing.
 ///
 /// <para><b><see cref="GenerateAsync"/> and <see cref="SubmitAsync"/> only —
@@ -64,15 +63,15 @@ namespace Lyntai.Generation.Routing;
 /// for the whole response, so a consumer that simply stops enumerating would pin it until the enumerator is
 /// finally disposed. Bounding a long-lived stream needs a lease the consumer cannot forget, which this is
 /// not.</para></param>
-public sealed class GenerationRouter(
+public sealed class MediaRouter(
     IEnumerable<IModelProvider> providers,
-    GenerationRoutingPolicy? policy = null,
+    MediaRoutingPolicy? policy = null,
     DeadHostTracker? deadHosts = null,
     Func<IModelProvider, ProviderKey?>? configuration = null,
-    IProviderAdmission? admission = null) : IGenerationRouter
+    IProviderAdmission? admission = null) : IMediaRouter
 {
     private readonly IReadOnlyList<IModelProvider> _providers = [.. providers];
-    private readonly GenerationRoutingPolicy _policy = policy ?? new GenerationRoutingPolicy();
+    private readonly MediaRoutingPolicy _policy = policy ?? new MediaRoutingPolicy();
 
     // resolved once: the no-delegate case must cost nothing per attempt, and a null-returning delegate must
     // be indistinguishable from no delegate at all
@@ -143,7 +142,7 @@ public sealed class GenerationRouter(
     }
 
     /// <inheritdoc/>
-    public async Task<GenerationSubmission> SubmitAsync(
+    public async Task<MediaSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         var capable = Capable(candidates, request, ProviderOperation.Queued);
@@ -163,7 +162,7 @@ public sealed class GenerationRouter(
 
         foreach (var (provider, resolved) in capable)
         {
-            if (provider is not IGenerationJobProvider job) continue;   // capability says Job; the type must agree
+            if (provider is not IMediaJobProvider job) continue;   // capability says Job; the type must agree
             if (IsBenched(provider, capable.Count)) { benched++; continue; }
 
             // submitting is what commits the money, so it respects the same bound as an inline render. The
@@ -200,7 +199,7 @@ public sealed class GenerationRouter(
                 if (operation.Status != QueuedOperationStatus.Failed)
                 {
                     deadHosts?.RecordSuccess(CooldownKey(provider));
-                    return new GenerationSubmission(provider.Id, operation);
+                    return new MediaSubmission(provider.Id, operation);
                 }
 
                 // An INCONCLUSIVE submission SURFACES, like a refusal does: the backend never answered, so it
@@ -209,7 +208,7 @@ public sealed class GenerationRouter(
                 // exists to prevent. The provider id rides along because "who might have it?" is the only
                 // question worth asking next. No RecordFailure either: no answer is no evidence of ill health,
                 // and benching a working backend on a slow network helps nobody.
-                if (operation.Inconclusive) return new GenerationSubmission(provider.Id, operation);
+                if (operation.Inconclusive) return new MediaSubmission(provider.Id, operation);
 
                 // A rejected submission gets a VERDICT, because "advance and always take a dead-host strike"
                 // is wrong for the same reason it is wrong inline: an unconfigured queue backend
@@ -235,7 +234,7 @@ public sealed class GenerationRouter(
                         // next vendor is not a library's decision — the same rule the inline path follows,
                         // and overridable the same way (On(Refused, Advance)). ProviderId stays empty: it
                         // means "no candidate accepted", and a refusal is a refusal, not an acceptance.
-                        return new GenerationSubmission("", operation);
+                        return new MediaSubmission("", operation);
                     case FallbackAction.CooldownAndAdvance:
                         deadHosts?.MarkDead(CooldownKey(provider));
                         break;
@@ -248,7 +247,7 @@ public sealed class GenerationRouter(
             }
         }
 
-        return new GenerationSubmission("", new QueuedOperation("", QueuedOperationStatus.Failed,
+        return new MediaSubmission("", new QueuedOperation("", QueuedOperationStatus.Failed,
             Detail: (benched > 0
                 ? $"every capable media backend for a '{request.Kind}' job is on dead-host cooldown"
                 : $"no capable media backend accepted a '{request.Kind}' job among " +
@@ -427,7 +426,7 @@ public sealed class GenerationRouter(
     /// <para>The reasonless branch below is therefore reached only by a SUBSTANTIVE rejection that said
     /// nothing: a blameless one with an empty detail is never remembered at all, because naming a backend
     /// that was merely skipped blamelessly would read as an accusation.</para>
-    /// <para><see cref="GenerationSubmission.ProviderId"/> stays EMPTY regardless: <see cref="IGenerationRouter"/>
+    /// <para><see cref="MediaSubmission.ProviderId"/> stays EMPTY regardless: <see cref="IMediaRouter"/>
     /// documents empty as "no candidate accepted", and both callers branch on it. The id belongs in the
     /// sentence, not in that field.</para></summary>
     private static string Because((string ProviderId, string? Detail)? failure)
@@ -537,7 +536,7 @@ public sealed class GenerationRouter(
     /// <para><b>Dedup happens on the RESOLVED pair, and it happens HERE.</b> Resolved, because that is the
     /// pair that decides what is actually called: <c>"fal"</c> and <c>"FAL"</c> select one provider (ids match
     /// case-insensitively), and a candidate pinning the model the request already names resolves to the same
-    /// call as one that pins nothing. Here, because <see cref="GenerationRoutingPolicy.ExemptSoleCandidate"/>
+    /// call as one that pins nothing. Here, because <see cref="MediaRoutingPolicy.ExemptSoleCandidate"/>
     /// reads the COUNT of this list — so two entries naming one backend would both re-attempt a backend that
     /// just failed AND make the sole capable backend look like two, silently withdrawing the exemption. A
     /// dedup applied after the count is taken fixes neither.</para>

@@ -1,4 +1,3 @@
-using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
@@ -6,7 +5,7 @@ namespace Lyntai.Tests.Generation;
 
 /// <summary>The generation router deduplicates its candidate list, the way the LLM router always has — and it
 /// does it on the RESOLVED (backend, model) pair, before the count that
-/// <see cref="GenerationRoutingPolicy.ExemptSoleCandidate"/> reads is taken.
+/// <see cref="MediaRoutingPolicy.ExemptSoleCandidate"/> reads is taken.
 ///
 /// <para>Both halves matter, and the second is the sharper one. A repeated entry re-attempting a backend that
 /// just failed is merely wasteful; a repeated entry making the SOLE capable backend look like two silently
@@ -27,7 +26,7 @@ public class GenerationRouterDedupTests
         failing.Verdicts.Enqueue(ProviderVerdict.Failed);
         var working = new FakeGenerationProvider { Id = "b" };
 
-        var result = await new GenerationRouter([failing, working]).GenerateAsync(
+        var result = await new MediaRouter([failing, working]).GenerateAsync(
             [new ProviderCandidate("a"), new ProviderCandidate("a"), new ProviderCandidate("b")], Image());
 
         Assert.True(result.IsOk);
@@ -42,7 +41,7 @@ public class GenerationRouterDedupTests
         // and the caller is told "everything is on cooldown" instead of the rate limit it could act on.
         var sole = new FakeGenerationProvider { Id = "sole" };
         sole.Verdicts.Enqueue(ProviderVerdict.RateLimited);
-        var router = new GenerationRouter([sole], deadHosts: Benching());
+        var router = new MediaRouter([sole], deadHosts: Benching());
         ProviderCandidate[] listedTwice = [new("sole"), new("sole")];
 
         await router.GenerateAsync(listedTwice, Image());
@@ -62,7 +61,7 @@ public class GenerationRouterDedupTests
         failing.Verdicts.Enqueue(ProviderVerdict.Failed);
         var working = new FakeGenerationProvider { Id = "local" };
 
-        var result = await new GenerationRouter([failing, working]).GenerateAsync(
+        var result = await new MediaRouter([failing, working]).GenerateAsync(
             [new ProviderCandidate("a1111"), new ProviderCandidate("A1111"), new ProviderCandidate("local")],
             Image());
 
@@ -79,7 +78,7 @@ public class GenerationRouterDedupTests
         aggregator.Verdicts.Enqueue(ProviderVerdict.Failed);
         var working = new FakeGenerationProvider { Id = "b" };
 
-        var result = await new GenerationRouter([aggregator, working]).GenerateAsync(
+        var result = await new MediaRouter([aggregator, working]).GenerateAsync(
             [new ProviderCandidate("aggregator", "sdxl"), new ProviderCandidate("aggregator"),
              new ProviderCandidate("b")],
             Image() with { Model = "sdxl" });
@@ -97,7 +96,7 @@ public class GenerationRouterDedupTests
         aggregator.Verdicts.Enqueue(ProviderVerdict.Failed);
         aggregator.Verdicts.Enqueue(ProviderVerdict.Ok);
 
-        var result = await new GenerationRouter([aggregator]).GenerateAsync(
+        var result = await new MediaRouter([aggregator]).GenerateAsync(
             [new ProviderCandidate("aggregator", "flux-1"), new ProviderCandidate("aggregator", "sdxl")],
             Image());
 

@@ -1,5 +1,4 @@
 using Lyntai.Generation;
-using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
@@ -43,7 +42,7 @@ public class GenerationBlamelessReportingTests
             Id = "b", Verdict = ProviderVerdict.Unsupported, Detail = "1024x1792 is past this model's limit",
         };
 
-        var result = await new GenerationRouter([first, second]).GenerateAsync(Order("a", "b"), Image());
+        var result = await new MediaRouter([first, second]).GenerateAsync(Order("a", "b"), Image());
 
         Assert.Equal(ProviderVerdict.Unsupported, result.Verdict);
         Assert.Contains("prompt is too long", result.Detail);
@@ -67,7 +66,7 @@ public class GenerationBlamelessReportingTests
             Id = "b", Verdict = ProviderVerdict.Failed, Detail = "connection reset by peer",
         };
 
-        var result = await new GenerationRouter([gap, broken]).GenerateAsync(Order("a", "b"), Image());
+        var result = await new MediaRouter([gap, broken]).GenerateAsync(Order("a", "b"), Image());
 
         Assert.Equal(ProviderVerdict.Failed, result.Verdict);
         Assert.Contains("connection reset", result.Detail);
@@ -81,7 +80,7 @@ public class GenerationBlamelessReportingTests
         // the blameless slot takes only a result that actually explained itself
         var silent = new SayingProvider { Id = "a", Verdict = ProviderVerdict.NotConfigured, Detail = null };
 
-        var result = await new GenerationRouter([silent]).GenerateAsync(Order("a"), Image());
+        var result = await new MediaRouter([silent]).GenerateAsync(Order("a"), Image());
 
         Assert.Equal(ProviderVerdict.NotConfigured, result.Verdict);
         Assert.Contains("every capable backend reported it is not configured", result.Detail);
@@ -101,7 +100,7 @@ public class GenerationBlamelessReportingTests
         {
             Id = "b", Verdict = ProviderVerdict.NotConfigured, Detail = "no BaseUrl configured",
         };
-        var router = new GenerationRouter([gap, unconfigured], deadHosts: tracker);
+        var router = new MediaRouter([gap, unconfigured], deadHosts: tracker);
 
         await router.GenerateAsync(Order("a", "b"), Image());
         await router.GenerateAsync(Order("a", "b"), Image());
@@ -131,7 +130,7 @@ public class GenerationBlamelessReportingTests
             Id = "hosted", Verdict = oversizedVerdict, Detail = "prompt is too long: 210000 tokens",
         };
         var working = new FakeGenerationProvider { Id = "local" };
-        var router = new GenerationRouter([oversized, working], deadHosts: tracker);
+        var router = new MediaRouter([oversized, working], deadHosts: tracker);
 
         var first = await router.GenerateAsync(Order("hosted", "local"), Image());
         var second = await router.GenerateAsync(Order("hosted", "local"), Image());
@@ -154,7 +153,7 @@ public class GenerationBlamelessReportingTests
             Detail = "prompt is too long: 210000 tokens",
         };
 
-        var result = await new GenerationRouter([oversized]).GenerateAsync(Order("hosted"), Image());
+        var result = await new MediaRouter([oversized]).GenerateAsync(Order("hosted"), Image());
 
         // the member itself now, where a translation used to flatten it to Unsupported — and it is
         // SUBSTANTIVE rather than blameless, which is right: "too big for this backend" is actionable,
@@ -223,7 +222,7 @@ public class GenerationSubmitBlamelessReportingTests
             Id = "needs-setup", Detail = "queue-blameless-probe: BaseUrl and ApiKey are both required",
         };
 
-        var submission = await new GenerationRouter([unconfigured]).SubmitAsync(Order("needs-setup"), Video());
+        var submission = await new MediaRouter([unconfigured]).SubmitAsync(Order("needs-setup"), Video());
 
         Assert.Equal("", submission.ProviderId);   // still "no candidate accepted" — the id belongs in the sentence
         Assert.Contains("no capable", submission.Operation.Detail);
@@ -240,7 +239,7 @@ public class GenerationSubmitBlamelessReportingTests
         var unconfigured = new RejectingJobBackend { Id = "needs-setup", Detail = "queue-blameless-probe: no key" };
         var broken = new RejectingJobBackend { Id = "broken", Detail = "queue is full" };
 
-        var submission = await new GenerationRouter([unconfigured, broken])
+        var submission = await new MediaRouter([unconfigured, broken])
             .SubmitAsync(Order("needs-setup", "broken"), Video());
 
         Assert.Contains("'broken' said: queue is full", submission.Operation.Detail);
@@ -250,7 +249,7 @@ public class GenerationSubmitBlamelessReportingTests
     /// <summary>A job backend that always rejects the submission, with a detail the test chooses — the text
     /// the router classifies. Conclusive on purpose: an inconclusive rejection is decided BEFORE the verdict
     /// is, and is covered by <c>GenerationTimeoutTests</c>.</summary>
-    private sealed class RejectingJobBackend : IModelProvider, IGenerationJobProvider
+    private sealed class RejectingJobBackend : IModelProvider, IMediaJobProvider
     {
         public string Id { get; init; } = "rejecting";
 

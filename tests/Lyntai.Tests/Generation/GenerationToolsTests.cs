@@ -30,7 +30,7 @@ public class GenerationToolsTests
         services.AddLyntai(cfg =>
         {
             foreach (var backend in backends) cfg.AddGenerationProvider(_ => backend);
-            cfg.UseDefaultGenerationCandidates([.. backends.Select(b => b.Id)]);
+            cfg.UseDefaultMediaCandidates([.. backends.Select(b => b.Id)]);
             cfg.AddGenerationTools();
         });
         if (sink is not null) services.AddSingleton<IGenerationArtifactSink>(sink);
@@ -49,7 +49,7 @@ public class GenerationToolsTests
     ///
     /// <para>Why that breaks a promise rather than merely under-reporting. <c>GenerationInlineTool.Consumer</c>
     /// tells the reader to "set <c>Budget.PerConsumer["agent"]</c> and it binds agent-driven renders", and
-    /// <c>AddGenerationUsageBudget</c> promises that "what has this app spent" stays ONE number across chat
+    /// <c>AddMediaUsageBudget</c> promises that "what has this app spent" stays ONE number across chat
     /// and media. With the fetch unrecorded, <c>SubmitAsync</c> re-checks a cap against a total that never
     /// grows, so a configured cap never fires and spend is unbounded underneath it — while the SAME tool set's
     /// inline <c>generate</c> is billed correctly. One registration, two delivery modes, one of them metered.
@@ -63,8 +63,8 @@ public class GenerationToolsTests
         services.AddLyntai(cfg =>
         {
             cfg.AddGenerationProvider(_ => backend);
-            cfg.UseDefaultGenerationCandidates(["video"]);
-            cfg.AddGenerationUsageBudget();   // the registration whose whole promise is ONE spend number
+            cfg.UseDefaultMediaCandidates(["video"]);
+            cfg.AddMediaUsageBudget();   // the registration whose whole promise is ONE spend number
             cfg.AddGenerationTools();
         });
         services.AddSingleton<IGenerationArtifactSink>(sink);

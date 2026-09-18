@@ -1,4 +1,3 @@
-using Lyntai.Inference;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
@@ -6,12 +5,12 @@ using Lyntai.Inference.Budgeting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Lyntai.Generation.Routing;
+namespace Lyntai.Inference;
 
 /// <summary>
 /// Wraps generation routing in spend governance: before a render it checks the applicable accumulated cost
 /// against the configured caps and, if one is reached, REFUSES without calling a backend; after a render it
-/// records what the backend reported costing. Wired by <c>AddGenerationUsageBudget()</c>.
+/// records what the backend reported costing. Wired by <c>AddMediaUsageBudget()</c>.
 ///
 /// <para>It records into the SAME <see cref="IUsageTracker"/> the LLM front door uses, on purpose: "what has
 /// this app spent" has to be one number, and a host that pays one vendor for both chat and images would
@@ -31,13 +30,13 @@ namespace Lyntai.Generation.Routing;
 /// <param name="tracker">Shared spend ledger — the LLM front door's tracker.</param>
 /// <param name="options">Where the caps live (<see cref="LyntaiOptions.Budget"/>).</param>
 /// <param name="logger">Optional; one line per refusal.</param>
-public sealed class BudgetedGenerationRouter(
-    IGenerationRouter inner,
+public sealed class BudgetedMediaRouter(
+    IMediaRouter inner,
     IUsageTracker tracker,
     LyntaiOptions options,
-    ILogger<BudgetedGenerationRouter>? logger = null) : IGenerationRouter
+    ILogger<BudgetedMediaRouter>? logger = null) : IMediaRouter
 {
-    private readonly ILogger _logger = logger ?? NullLogger<BudgetedGenerationRouter>.Instance;
+    private readonly ILogger _logger = logger ?? NullLogger<BudgetedMediaRouter>.Instance;
 
     /// <inheritdoc/>
     public async Task<MediaResponse> GenerateAsync(
@@ -56,11 +55,11 @@ public sealed class BudgetedGenerationRouter(
     /// whether or not anyone ever fetches it — so the check belongs here rather than at fetch time. The cost
     /// itself is only known when the render finishes, which is why <c>GenerationRenderJobHandler</c> records
     /// it: this decorator never sees the completed result.</remarks>
-    public async Task<GenerationSubmission> SubmitAsync(
+    public async Task<MediaSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
-            return new GenerationSubmission("",
+            return new MediaSubmission("",
                 new QueuedOperation("", QueuedOperationStatus.Failed, Detail: reason));
 
         return await inner.SubmitAsync(candidates, request, ct).ConfigureAwait(false);

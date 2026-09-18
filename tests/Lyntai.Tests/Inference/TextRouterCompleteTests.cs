@@ -143,7 +143,7 @@ public class TextRouterCompleteTests
     {
         // the asymmetry this closes: a consumer who LISTS a backend they have not configured had it benched
         // on cooldown for a fact the router knew before calling. NotConfigured advances with no penalty and
-        // no cooldown — the same thing the generation router already does (GenerationRoutingPolicy).
+        // no cooldown — the same thing the generation router already does (MediaRoutingPolicy).
         var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var unset = new FakeTextProvider("unset");
         unset.Replies.Enqueue(new TextResponse("", ProviderVerdict.NotConfigured, Detail: "no api key"));
@@ -160,7 +160,7 @@ public class TextRouterCompleteTests
     public async Task A_real_failure_is_reported_over_a_later_unconfigured_candidate()
     {
         // the masking trap a blameless verdict introduces: told "not configured", a caller goes and sets up
-        // a key — while the backend they HAD configured is the one that is down. GenerationRouter already
+        // a key — while the backend they HAD configured is the one that is down. MediaRouter already
         // guards this ("aren't faults worth reporting over a real failure"); the LLM router must too.
         var down = new FakeTextProvider("down");
         down.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "connection refused"));
@@ -180,7 +180,7 @@ public class TextRouterCompleteTests
         // either. ONLY eligibility is at stake here — with a single real failure in the set, this test cannot
         // and does not say which substantive failure wins when there are several.
         //
-        // That invariant — the LAST substantive failure wins, unlike GenerationRouter's first — is held by
+        // That invariant — the LAST substantive failure wins, unlike MediaRouter's first — is held by
         // `All_failed_returns_the_last_error` (above) and its streaming twin
         // `TextRouterStreamTests.All_candidates_fail_pre_content_yields_last_error`. Those two are the ONLY
         // guard against a well-meant harmonisation of the two routers; they are not redundant with this one,

@@ -1,4 +1,3 @@
-using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
@@ -77,7 +76,7 @@ public class ProviderPoolWiringTests
                 configure(b);
                 b.AddGenerationProvider(_ => new FakeGenerationProvider { Id = "unused" });
             });
-            var factory = sp.GetRequiredService<IGenerationRouterFactory>();
+            var factory = sp.GetRequiredService<IMediaRouterFactory>();
 
             var built = 0;
             for (var i = 0; i < 3; i++)
@@ -279,7 +278,7 @@ public class ProviderPoolWiringTests
         public void Release() => _gate.TrySetResult();
     }
 
-    // Admission binds to the router factories' POOLED overloads only; the CONTAINER-composed IGenerationRouter
+    // Admission binds to the router factories' POOLED overloads only; the CONTAINER-composed IMediaRouter
     // is built through the INSTANCE overload and is handed no admission at all, so a configured limit does not
     // bound it. Four doc sites say so and nothing asserted it — pinned here so the single-deployment case is a
     // decision on record rather than an assumption, and so a change that starts gating the container path
@@ -291,7 +290,7 @@ public class ProviderPoolWiringTests
         using var sp = Provider(b => b
             .ConfigureProviderAdmission(o => o.BySlot["a1111"] = 1)
             .AddGenerationProvider(_ => backend));
-        var router = sp.GetRequiredService<IGenerationRouter>();
+        var router = sp.GetRequiredService<IMediaRouter>();
         var request = new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a cat" };
 
         var first = router.GenerateAsync([new ProviderCandidate("a1111")], request);
@@ -382,7 +381,7 @@ public class ProviderPoolWiringTests
             b => b.AddGenerationProvider(_ => new FakeGenerationProvider { Id = "unused" }));
         var key = Key("a");
 
-        var router = sp.GetRequiredService<IGenerationRouterFactory>().For([
+        var router = sp.GetRequiredService<IMediaRouterFactory>().For([
             new ProviderRegistration<IModelProvider>(key, () => new FakeGenerationProvider { Id = "a1111" })]);
         var result = await router.GenerateAsync([new ProviderCandidate("a1111")],
             new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a cat" });
@@ -400,7 +399,7 @@ public class ProviderPoolWiringTests
         using var sp = Provider(b => b.AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a1111" }));
 
         Assert.NotNull(sp.GetRequiredService<ITextRouterFactory>());
-        Assert.NotNull(sp.GetRequiredService<IGenerationRouterFactory>());
+        Assert.NotNull(sp.GetRequiredService<IMediaRouterFactory>());
     }
 
     // The chat factory is registered even for an app with no generation domain at all.
@@ -428,7 +427,7 @@ public class ProviderPoolWiringTests
         var backend = new FakeGenerationProvider { Id = "a1111" };
         using var sp = Provider(b => b.AddGenerationProvider(_ => backend));
 
-        var result = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
+        var result = await sp.GetRequiredService<IMediaRouter>().GenerateAsync(
             [new ProviderCandidate("a1111")],
             new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a cat" });
 

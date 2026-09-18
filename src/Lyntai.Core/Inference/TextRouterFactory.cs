@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 namespace Lyntai.Inference;
 
 /// <summary>Builds an <see cref="ITextRouter"/> over a provider set the CALLER chooses — the chat counterpart
-/// of <see cref="Lyntai.Generation.Routing.IGenerationRouterFactory"/>.
+/// of <see cref="Lyntai.Inference.IMediaRouterFactory"/>.
 ///
 /// <para>Needed because a router snapshots its provider set at construction, and once several
 /// configurations are live only the caller knows which ones are its own. Building a router per call is

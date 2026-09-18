@@ -4,7 +4,6 @@ using System.Diagnostics.Metrics;
 using Lyntai.Diagnostics;
 using Lyntai.Generation;
 using Lyntai.Generation.Jobs;
-using Lyntai.Generation.Routing;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Inference.RateLimiting;
 using Lyntai.Tests.Fakes;
@@ -265,7 +264,7 @@ public class GenerationGovernanceTests
     {
         var backend = new FakeGenerationProvider { Id = "hosted" };
         var limits = new RateLimitOptions { PermitsPerSecond = 1, Burst = 1, MaxWait = TimeSpan.Zero };
-        var router = new RateLimitedGenerationRouter(Router([backend]), new TokenBucketRateLimiter(limits, () => FrozenNow));
+        var router = new RateLimitedMediaRouter(Router([backend]), new TokenBucketRateLimiter(limits, () => FrozenNow));
 
         var first = await router.GenerateAsync(Order("hosted"), Image);
         var second = await router.GenerateAsync(Order("hosted"), Image);
@@ -283,10 +282,10 @@ public class GenerationGovernanceTests
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
         services.AddLyntai(cfg => cfg
             .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "hosted" })
-            .AddGenerationRateLimit(limits => limits.PermitsPerSecond = 3));
+            .AddMediaRateLimit(limits => limits.PermitsPerSecond = 3));
         using var sp = services.BuildServiceProvider();
 
-        Assert.Equal(3, sp.GetRequiredService<GenerationOptions>().RateLimit.PermitsPerSecond);
+        Assert.Equal(3, sp.GetRequiredService<MediaOptions>().RateLimit.PermitsPerSecond);
         Assert.Equal(0, sp.GetRequiredService<LyntaiOptions>().RateLimit.PermitsPerSecond);   // chat untouched
     }
 
@@ -298,11 +297,11 @@ public class GenerationGovernanceTests
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
         services.AddLyntai(cfg => cfg
             .AddGenerationProvider(_ => backend)
-            .UseDefaultGenerationCandidates("hosted")
-            .AddGenerationUsageBudget(budget => budget.MaxCostUsd = 1.0)
-            .AddGenerationRateLimit(limits => limits.PermitsPerSecond = 100));
+            .UseDefaultMediaCandidates("hosted")
+            .AddMediaUsageBudget(budget => budget.MaxCostUsd = 1.0)
+            .AddMediaRateLimit(limits => limits.PermitsPerSecond = 100));
         using var sp = services.BuildServiceProvider();
-        var router = sp.GetRequiredService<IGenerationRouter>();
+        var router = sp.GetRequiredService<IMediaRouter>();
 
         var first = await router.GenerateAsync(Order("hosted"), Image);
         var second = await router.GenerateAsync(Order("hosted"), Image);
@@ -432,7 +431,7 @@ public class GenerationGovernanceTests
         // the runaway-spend risk is a tool loop, not a human clicking a button — so agent renders are
         // capped separately out of the box
         var tool = new Lyntai.Generation.Tools.GenerationInlineTool(
-            Router([new FakeGenerationProvider { Id = "hosted" }]), new GenerationOptions());
+            Router([new FakeGenerationProvider { Id = "hosted" }]), new MediaOptions());
 
         Assert.Equal("agent", tool.Consumer);
     }
@@ -500,7 +499,7 @@ public class GenerationGovernanceTests
             Script = [MediaChunk.Content([1]), MediaChunk.Completed()],
         };
         var limits = new RateLimitOptions { PermitsPerSecond = 1, Burst = 1, MaxWait = TimeSpan.Zero };
-        var router = new RateLimitedGenerationRouter(Router([backend]), new TokenBucketRateLimiter(limits, () => FrozenNow));
+        var router = new RateLimitedMediaRouter(Router([backend]), new TokenBucketRateLimiter(limits, () => FrozenNow));
 
         var first = await Collect(router.StreamAsync(Order("tts"), Speech));
         var second = await Collect(router.StreamAsync(Order("tts"), Speech));
@@ -514,16 +513,16 @@ public class GenerationGovernanceTests
 
     /// <summary>A router over <paramref name="backends"/> with cooldown enabled (threshold 1 unless a tracker
     /// is supplied — one failure benches, which is what makes the cooldown tests short).</summary>
-    private static GenerationRouter Router(IModelProvider[] backends, DeadHostTracker? deadHosts = null) =>
+    private static MediaRouter Router(IModelProvider[] backends, DeadHostTracker? deadHosts = null) =>
         new(backends, null, deadHosts ?? new DeadHostTracker(threshold: 1, cooldown: TimeSpan.FromMinutes(5)));
 
-    private static (IGenerationRouter Router, IUsageTracker Tracker) Budgeted(
+    private static (IMediaRouter Router, IUsageTracker Tracker) Budgeted(
         IModelProvider backend, Action<LyntaiOptions> configure)
     {
         var options = new LyntaiOptions();
         configure(options);
         var tracker = new InMemoryUsageTracker();
-        return (new BudgetedGenerationRouter(Router([backend]), tracker, options), tracker);
+        return (new BudgetedMediaRouter(Router([backend]), tracker, options), tracker);
     }
 
     private static ActivityListener SpanListener(List<Activity> sink) => new()
@@ -556,7 +555,7 @@ public class GenerationGovernanceTests
     }
 
     /// <summary>A job backend whose submissions always fail — the submit-path counterpart of a dead host.</summary>
-    private sealed class BrokenSubmitProvider : IModelProvider, IGenerationJobProvider
+    private sealed class BrokenSubmitProvider : IModelProvider, IMediaJobProvider
     {
         public string Id { get; init; } = "broken";
         public int SubmitCalls { get; private set; }

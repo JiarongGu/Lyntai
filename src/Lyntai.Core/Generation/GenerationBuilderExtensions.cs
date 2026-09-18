@@ -1,4 +1,3 @@
-using Lyntai.Generation.Routing;
 using Lyntai.Inference;
 using Lyntai.Inference.Budgeting;
 using Lyntai.Inference.RateLimiting;
@@ -10,7 +9,7 @@ using Microsoft.Extensions.Logging;
 namespace Lyntai;
 
 /// <summary>Platform configuration for the media domain.</summary>
-public sealed class GenerationOptions
+public sealed class MediaOptions
 {
     /// <summary>Candidate order used when a caller doesn't name one — the media counterpart of
     /// <c>LyntaiOptions.DefaultCandidates</c>, and mutable for the same reason: the builder sets it at
@@ -20,7 +19,7 @@ public sealed class GenerationOptions
     /// <summary>Throttling for generation, SEPARATE from <c>LyntaiOptions.RateLimit</c> (which governs chat).
     /// A render and a chat turn hit different vendors' limits — often different accounts — so one shared
     /// bucket would have an image render starve the chat that asked for it. Applied by
-    /// <c>AddGenerationRateLimit()</c>; the machinery is the same token bucket.</summary>
+    /// <c>AddMediaRateLimit()</c>; the machinery is the same token bucket.</summary>
     public RateLimitOptions RateLimit { get; } = new();
 
     /// <summary>How long <c>generate_backends</c> may take IN TOTAL to probe every registered backend.
@@ -34,10 +33,10 @@ public sealed class GenerationOptions
     /// answer in seconds is not usable for the render that would follow. A backend that overruns is reported
     /// unusable WITH the reason, never dropped from the listing.</para>
     /// <para><b>To change it, register the options instance before <c>AddLyntai</c></b> —
-    /// <c>services.AddSingleton(new GenerationOptions { ProbeDeadline = … })</c> — the same DI-registration
+    /// <c>services.AddSingleton(new MediaOptions { ProbeDeadline = … })</c> — the same DI-registration
     /// path <c>SalienceOptions</c> and <c>DsrOptions</c> take. The builder reuses a pre-registered instance
     /// rather than replacing it, so the candidate order and rate limit configured through
-    /// <c>UseDefaultGenerationCandidates</c>/<c>AddGenerationRateLimit</c> still land on the same
+    /// <c>UseDefaultMediaCandidates</c>/<c>AddMediaRateLimit</c> still land on the same
     /// object.</para></summary>
     public TimeSpan ProbeDeadline { get; set; } = TimeSpan.FromSeconds(20);
 }
@@ -65,40 +64,40 @@ public static class GenerationBuilderExtensions
     /// and before a SUBMISSION — submitting is what commits the money for a hosted video, whether or not
     /// anyone fetches the result. Register your own <see cref="IUsageTracker"/> before this to share spend
     /// across processes.</para></summary>
-    public static LyntaiBuilder AddGenerationUsageBudget(this LyntaiBuilder builder, Action<BudgetOptions>? configure = null)
+    public static LyntaiBuilder AddMediaUsageBudget(this LyntaiBuilder builder, Action<BudgetOptions>? configure = null)
     {
         configure?.Invoke(builder.Options.Budget);
         builder.Services.TryAddSingleton<IUsageTracker, InMemoryUsageTracker>();
-        builder.Services.TryAddSingleton<GenerationBudgetGovernance>();
+        builder.Services.TryAddSingleton<MediaBudgetGovernance>();
         EnsureRouter(builder);
         return builder;
     }
 
     /// <summary>Throttle generation with a token-bucket limiter on its OWN rate
-    /// (<see cref="GenerationOptions.RateLimit"/> — not the chat one; see that property for why). Over the
+    /// (<see cref="MediaOptions.RateLimit"/> — not the chat one; see that property for why). Over the
     /// rate a call waits up to <see cref="RateLimitOptions.MaxWait"/> and is then refused with
     /// <c>RateLimited</c> without hitting a backend.</summary>
     /// <param name="builder">The builder.</param>
     /// <param name="configure">Tune the generation rate.</param>
     /// <param name="limiter">BYO limiter (a distributed one shared across processes). Null = the built-in
-    /// token bucket over <see cref="GenerationOptions.RateLimit"/>. Deliberately a PARAMETER rather than an
+    /// token bucket over <see cref="MediaOptions.RateLimit"/>. Deliberately a PARAMETER rather than an
     /// <see cref="IRateLimiter"/> registration: the LLM front door already owns that service, and two
     /// registrations of it would silently make one domain throttle at the other's rate.</param>
-    public static LyntaiBuilder AddGenerationRateLimit(
+    public static LyntaiBuilder AddMediaRateLimit(
         this LyntaiBuilder builder,
         Action<RateLimitOptions>? configure = null,
         Func<IServiceProvider, IRateLimiter>? limiter = null)
     {
-        var options = GenerationOptionsFor(builder);
+        var options = MediaOptionsFor(builder);
         configure?.Invoke(options.RateLimit);
-        builder.Services.TryAddSingleton(sp => new GenerationRateLimitGovernance(
+        builder.Services.TryAddSingleton(sp => new MediaRateLimitGovernance(
             limiter?.Invoke(sp) ?? new TokenBucketRateLimiter(options.RateLimit)));
         EnsureRouter(builder);
         return builder;
     }
 
-    /// <summary>Register the <see cref="IGenerationRouterFactory"/> that composes governance, and the
-    /// <see cref="IGenerationRouter"/> it builds over the REGISTERED backends. One registration for every
+    /// <summary>Register the <see cref="IMediaRouterFactory"/> that composes governance, and the
+    /// <see cref="IMediaRouter"/> it builds over the REGISTERED backends. One registration for every
     /// entry point (a provider, a budget, a rate limit) because <c>TryAddSingleton</c> keeps the FIRST
     /// factory — so the factory has to be the composing one no matter which <c>Add*</c> ran first, and it
     /// reads the governance markers at RESOLVE time.
@@ -112,7 +111,7 @@ public static class GenerationBuilderExtensions
     /// spend never consumes a permit.</para></summary>
     private static void EnsureRouter(LyntaiBuilder builder)
     {
-        GenerationOptionsFor(builder);   // ensure the options singleton exists even with nothing configured
+        MediaOptionsFor(builder);   // ensure the options singleton exists even with nothing configured
 
         // The pool the factory needs to be constructible. Registered here rather than left to the caller so
         // the pooled overload works out of the box; a host swaps the strategy by registering its own.
@@ -121,32 +120,32 @@ public static class GenerationBuilderExtensions
         // silently discard the configured threshold, cooldown and logger for BOTH domains.
         builder.Services.TryAddSingleton(typeof(IProviderPool<>), typeof(BoundedProviderPool<>));
 
-        builder.Services.TryAddSingleton<IGenerationRouterFactory>(sp =>
+        builder.Services.TryAddSingleton<IMediaRouterFactory>(sp =>
         {
-            var budgeted = sp.GetService<GenerationBudgetGovernance>() is not null;
-            return new GenerationRouterFactory(
+            var budgeted = sp.GetService<MediaBudgetGovernance>() is not null;
+            return new MediaRouterFactory(
                 sp.GetRequiredService<IProviderPool<IModelProvider>>(),
                 sp.GetRequiredService<DeadHostTracker>(),
-                sp.GetService<GenerationRoutingPolicy>(),
-                sp.GetService<GenerationRateLimitGovernance>()?.Limiter,
+                sp.GetService<MediaRoutingPolicy>(),
+                sp.GetService<MediaRateLimitGovernance>()?.Limiter,
                 budgeted ? sp.GetRequiredService<IUsageTracker>() : null,
                 budgeted ? sp.GetRequiredService<LyntaiOptions>() : null,
                 sp.GetService<ILoggerFactory>(),
                 sp.GetService<IProviderAdmission>());
         });
 
-        builder.Services.TryAddSingleton<IGenerationRouter>(sp =>
-            sp.GetRequiredService<IGenerationRouterFactory>().For([.. sp.GetServices<IModelProvider>()]));
+        builder.Services.TryAddSingleton<IMediaRouter>(sp =>
+            sp.GetRequiredService<IMediaRouterFactory>().For([.. sp.GetServices<IModelProvider>()]));
     }
 
     /// <summary>Tune per-verdict fallback for generation routing. The defaults follow the SHAPE of the LLM
     /// router's §6 semantics and deliberately differ on <c>Unsupported</c> (which advances here rather than
-    /// surfacing — see <see cref="GenerationRoutingPolicy"/>); the override that matters in practice is
+    /// surfacing — see <see cref="MediaRoutingPolicy"/>); the override that matters in practice is
     /// <c>p.On(ProviderVerdict.Refused, FallbackAction.Advance)</c>, for a host that deliberately
     /// pairs a hosted backend (which refuses some content) with a locally-run one (which doesn't) — that is
     /// the host's policy call, not the library's.</summary>
-    public static LyntaiBuilder ConfigureGenerationRouting(
-        this LyntaiBuilder builder, Action<GenerationRoutingPolicy> configure)
+    public static LyntaiBuilder ConfigureMediaRouting(
+        this LyntaiBuilder builder, Action<MediaRoutingPolicy> configure)
     {
         configure(RoutingPolicyFor(builder));
         return builder;
@@ -155,9 +154,9 @@ public static class GenerationBuilderExtensions
     /// <summary>Set the media candidate order used when a caller doesn't pass one. SETS (clears + replaces) —
     /// the last call wins, it does not append — matching <c>LyntaiBuilder.UseDefaultCandidates</c> exactly, so
     /// the two domains behave identically. Each entry is a provider id, optionally <c>"provider:model"</c>.</summary>
-    public static LyntaiBuilder UseDefaultGenerationCandidates(this LyntaiBuilder builder, params string[] providerIds)
+    public static LyntaiBuilder UseDefaultMediaCandidates(this LyntaiBuilder builder, params string[] providerIds)
     {
-        var options = GenerationOptionsFor(builder);
+        var options = MediaOptionsFor(builder);
         options.DefaultCandidates.Clear();
         options.DefaultCandidates.AddRange(providerIds.Select(ProviderCandidateSpec.Parse));
         return builder;
@@ -178,14 +177,14 @@ public static class GenerationBuilderExtensions
     {
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationBackendsTool(
             sp.GetServices<IModelProvider>(),
-            GenerationOptionsFor(sp)));   // the listing's aggregate ProbeDeadline lives here
+            MediaOptionsFor(sp)));   // the listing's aggregate ProbeDeadline lives here
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationInlineTool(
-            sp.GetRequiredService<Lyntai.Generation.Routing.IGenerationRouter>(),
-            GenerationOptionsFor(sp),
+            sp.GetRequiredService<Lyntai.Inference.IMediaRouter>(),
+            MediaOptionsFor(sp),
             sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>()));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationSubmitTool(
-            sp.GetRequiredService<Lyntai.Generation.Routing.IGenerationRouter>(),
-            GenerationOptionsFor(sp)));
+            sp.GetRequiredService<Lyntai.Inference.IMediaRouter>(),
+            MediaOptionsFor(sp)));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationStatusTool(
             sp.GetServices<IModelProvider>()));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationFetchTool(
@@ -197,34 +196,34 @@ public static class GenerationBuilderExtensions
 
     /// <summary>Resolved options, or defaults — the tools work before any candidate order is configured (a model
     /// can always name backends explicitly).</summary>
-    private static GenerationOptions GenerationOptionsFor(IServiceProvider sp) =>
-        sp.GetService<GenerationOptions>() ?? new GenerationOptions();
+    private static MediaOptions MediaOptionsFor(IServiceProvider sp) =>
+        sp.GetService<MediaOptions>() ?? new MediaOptions();
 
-    /// <summary>The single <see cref="GenerationOptions"/> instance for this builder, registered as a singleton
+    /// <summary>The single <see cref="MediaOptions"/> instance for this builder, registered as a singleton
     /// INSTANCE. Registering the instance (not a factory) is what lets configure-time mutation be visible to
     /// the resolved service — the same immediate-mutation model the builder's own <c>Options</c> uses.</summary>
-    private static GenerationOptions GenerationOptionsFor(LyntaiBuilder builder) =>
-        InstanceFor(builder, () => new GenerationOptions());
+    private static MediaOptions MediaOptionsFor(LyntaiBuilder builder) =>
+        InstanceFor(builder, () => new MediaOptions());
 
-    /// <summary>The single <see cref="GenerationRoutingPolicy"/> for this builder, so
-    /// <see cref="ConfigureGenerationRouting"/> and <see cref="AddGenerationProvider"/> agree on one
+    /// <summary>The single <see cref="MediaRoutingPolicy"/> for this builder, so
+    /// <see cref="ConfigureMediaRouting"/> and <see cref="AddGenerationProvider"/> agree on one
     /// instance regardless of call order.</summary>
-    private static GenerationRoutingPolicy RoutingPolicyFor(LyntaiBuilder builder) =>
-        InstanceFor(builder, () => new GenerationRoutingPolicy());
+    private static MediaRoutingPolicy RoutingPolicyFor(LyntaiBuilder builder) =>
+        InstanceFor(builder, () => new MediaRoutingPolicy());
 
     /// <summary>Marker: spend governance is configured. INTERNAL — it is wiring state, not a knob, and the
     /// public surface should not grow a type whose only job is to exist.</summary>
-    internal sealed class GenerationBudgetGovernance;
+    internal sealed class MediaBudgetGovernance;
 
     /// <summary>Marker carrying the generation limiter — carried rather than registered as
     /// <see cref="IRateLimiter"/> so it can never be mistaken for (or overwrite) the chat limiter.</summary>
-    internal sealed class GenerationRateLimitGovernance(IRateLimiter limiter)
+    internal sealed class MediaRateLimitGovernance(IRateLimiter limiter)
     {
         public IRateLimiter Limiter { get; } = limiter;
     }
 
     /// <summary>Get-or-register a singleton INSTANCE for this builder — an instance rather than a factory, for
-    /// the reason <see cref="GenerationOptionsFor(LyntaiBuilder)"/> gives.</summary>
+    /// the reason <see cref="MediaOptionsFor(LyntaiBuilder)"/> gives.</summary>
     private static T InstanceFor<T>(LyntaiBuilder builder, Func<T> create) where T : class
     {
         foreach (var descriptor in builder.Services)

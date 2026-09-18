@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using System.Text.Json;
 using Lyntai.Generation.Providers;
-using Lyntai.Generation.Routing;
 using Lyntai.Generation.Tools;
 using Lyntai.Tests.Fakes;
 
@@ -240,7 +239,7 @@ public class GenerationTimeoutTests
     public async Task A_timed_out_submit_does_not_cause_a_SECOND_backend_to_be_submitted_to()
     {
         var second = new FakeGenerationJobProvider { Id = "fake-video" };
-        var router = new GenerationRouter([StalledFal(), second]);
+        var router = new MediaRouter([StalledFal(), second]);
 
         var submission = await router.SubmitAsync(
             [new ProviderCandidate("fal"), new ProviderCandidate("fake-video")], Video());
@@ -255,7 +254,7 @@ public class GenerationTimeoutTests
     {
         // no answer is no evidence of ill health — benching on it would take a working backend out of rotation
         var tracker = new DeadHostTracker(threshold: 1);
-        var router = new GenerationRouter([StalledFal(), new FakeGenerationJobProvider { Id = "fake-video" }],
+        var router = new MediaRouter([StalledFal(), new FakeGenerationJobProvider { Id = "fake-video" }],
             deadHosts: tracker);
 
         await router.SubmitAsync(
@@ -271,8 +270,8 @@ public class GenerationTimeoutTests
         // call the tool again — which re-submits, which is the double charge everything above exists to stop.
         // So the observation must carry the backend the router deliberately kept, and must INSTRUCT rather
         // than merely inform.
-        var options = new GenerationOptions();
-        var router = new GenerationRouter([StalledFal(), new FakeGenerationJobProvider { Id = "fake-video" }]);
+        var options = new MediaOptions();
+        var router = new MediaRouter([StalledFal(), new FakeGenerationJobProvider { Id = "fake-video" }]);
         var tool = new GenerationSubmitTool(router, options);
 
         var observation = JsonDocument.Parse(await tool.InvokeAsync(

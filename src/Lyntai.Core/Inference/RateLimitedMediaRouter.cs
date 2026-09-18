@@ -1,17 +1,16 @@
-using Lyntai.Inference;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
 using Lyntai.Inference.RateLimiting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Lyntai.Generation.Routing;
+namespace Lyntai.Inference;
 
 /// <summary>
 /// Wraps generation routing in client-side throttling: before a render (or a submission) it acquires a permit,
 /// waiting up to the configured max wait; if none frees in time the call is refused with
 /// <see cref="ProviderVerdict.RateLimited"/> rather than hitting a backend. Wired by
-/// <c>AddGenerationRateLimit()</c>.
+/// <c>AddMediaRateLimit()</c>.
 ///
 /// <para>It uses its OWN limiter with its own rate — NOT the LLM front door's. A render and a chat turn hit
 /// different vendors' limits (often different accounts), and one shared bucket would have an image render
@@ -24,12 +23,12 @@ namespace Lyntai.Generation.Routing;
 /// <param name="inner">The router being throttled.</param>
 /// <param name="limiter">The generation limiter (its own instance and rate — see above).</param>
 /// <param name="logger">Optional; one line per refusal.</param>
-public sealed class RateLimitedGenerationRouter(
-    IGenerationRouter inner,
+public sealed class RateLimitedMediaRouter(
+    IMediaRouter inner,
     IRateLimiter limiter,
-    ILogger<RateLimitedGenerationRouter>? logger = null) : IGenerationRouter
+    ILogger<RateLimitedMediaRouter>? logger = null) : IMediaRouter
 {
-    private readonly ILogger _logger = logger ?? NullLogger<RateLimitedGenerationRouter>.Instance;
+    private readonly ILogger _logger = logger ?? NullLogger<RateLimitedMediaRouter>.Instance;
     private const string Reason = "client-side generation rate limit exceeded";
 
     /// <inheritdoc/>
@@ -45,13 +44,13 @@ public sealed class RateLimitedGenerationRouter(
     }
 
     /// <inheritdoc/>
-    public async Task<GenerationSubmission> SubmitAsync(
+    public async Task<MediaSubmission> SubmitAsync(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default)
     {
         if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
         {
             Throttled(request.Consumer);
-            return new GenerationSubmission("",
+            return new MediaSubmission("",
                 new QueuedOperation("", QueuedOperationStatus.Failed, Detail: Reason));
         }
         return await inner.SubmitAsync(candidates, request, ct).ConfigureAwait(false);
@@ -59,7 +58,7 @@ public sealed class RateLimitedGenerationRouter(
 
     /// <inheritdoc/>
     /// <remarks>Throttled on the SAME terms as the other two doors — see
-    /// <c>BudgetedGenerationRouter.StreamAsync</c> for why a decorator may not pass one door straight
+    /// <c>BudgetedMediaRouter.StreamAsync</c> for why a decorator may not pass one door straight
     /// through. ONE permit per stream, taken before the first chunk: a stream is one call to one backend, so
     /// charging it per chunk would let the length of the media decide the rate rather than the rate deciding
     /// it.</remarks>

@@ -511,11 +511,33 @@ static class Lyntai.Diagnostics.LyntaiDiagnostics
     GenerationActivitySourceName : String const
     GenerationMeterName : String const
     MeterName : String const
-interface Lyntai.Generation.IGenerationJobProvider
-    CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
-    FetchAsync(String operationId, CancellationToken ct = default) : Task<MediaResponse>
-    PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
-    SubmitAsync(MediaRequest request, CancellationToken ct = default) : Task<QueuedOperation>
+static class Lyntai.Generation.GenerationPipeline
+    static RunPipelineAsync(IMediaRouter router, IReadOnlyList<GenerationStage> stages, CancellationToken ct = default) : Task<GenerationPipelineResult>
+sealed class Lyntai.Generation.GenerationPipelineResult
+    .ctor(IReadOnlyList<MediaResponse> Stages, Nullable<Int32> FailedAt, MediaUsage Usage)
+    Artifacts : IReadOnlyList<MediaArtifact>
+    Deconstruct(IReadOnlyList`1& Stages, Nullable`1& FailedAt, MediaUsage& Usage) : Void
+    Detail : String
+    Equals(GenerationPipelineResult other) : Boolean
+    Equals(Object obj) : Boolean
+    FailedAt : Nullable<Int32>
+    GetHashCode() : Int32
+    IsOk : Boolean
+    Stages : IReadOnlyList<MediaResponse>
+    ToString() : String
+    Usage : MediaUsage
+    Verdict : ProviderVerdict
+sealed class Lyntai.Generation.GenerationStage
+    .ctor(MediaRequest Request, IReadOnlyList<ProviderCandidate> Candidates)
+    Candidates : IReadOnlyList<ProviderCandidate>
+    Deconstruct(MediaRequest& Request, IReadOnlyList`1& Candidates) : Void
+    Equals(GenerationStage other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    InputRole : String
+    Request : MediaRequest
+    SelectInput : Func<MediaResponse,IEnumerable<MediaArtifact>>
+    ToString() : String
 sealed class Lyntai.Generation.Jobs.GenerationArtifactDelivery
     .ctor(Guid JobId, String ProviderId, String OperationId, IReadOnlyList<MediaArtifact> Artifacts, MediaUsage Usage = null)
     Artifacts : IReadOnlyList<MediaArtifact>
@@ -540,7 +562,7 @@ sealed class Lyntai.Generation.Jobs.GenerationRenderJob
     ToString() : String
     static Parse(String payload) : GenerationRenderJob
 sealed class Lyntai.Generation.Jobs.GenerationRenderJobHandler
-    .ctor(IGenerationRouter router, IEnumerable<IModelProvider> providers, IGenerationArtifactSink sink, GenerationRenderJobOptions options = null, IUsageTracker usage = null)
+    .ctor(IMediaRouter router, IEnumerable<IModelProvider> providers, IGenerationArtifactSink sink, GenerationRenderJobOptions options = null, IUsageTracker usage = null)
     HandleAsync(JobContext ctx, CancellationToken ct = default) : Task<JobOutcome>
     JobType : String const
     Type : String
@@ -555,75 +577,8 @@ sealed class Lyntai.Generation.Jobs.GenerationRenderJobOptions
     ToString() : String
 interface Lyntai.Generation.Jobs.IGenerationArtifactSink
     ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default) : Task
-sealed class Lyntai.Generation.Routing.BudgetedGenerationRouter
-    .ctor(IGenerationRouter inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedGenerationRouter> logger = null)
-    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
-    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
-    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
-static class Lyntai.Generation.Routing.GenerationPipeline
-    static RunPipelineAsync(IGenerationRouter router, IReadOnlyList<GenerationStage> stages, CancellationToken ct = default) : Task<GenerationPipelineResult>
-sealed class Lyntai.Generation.Routing.GenerationPipelineResult
-    .ctor(IReadOnlyList<MediaResponse> Stages, Nullable<Int32> FailedAt, MediaUsage Usage)
-    Artifacts : IReadOnlyList<MediaArtifact>
-    Deconstruct(IReadOnlyList`1& Stages, Nullable`1& FailedAt, MediaUsage& Usage) : Void
-    Detail : String
-    Equals(GenerationPipelineResult other) : Boolean
-    Equals(Object obj) : Boolean
-    FailedAt : Nullable<Int32>
-    GetHashCode() : Int32
-    IsOk : Boolean
-    Stages : IReadOnlyList<MediaResponse>
-    ToString() : String
-    Usage : MediaUsage
-    Verdict : ProviderVerdict
-sealed class Lyntai.Generation.Routing.GenerationRouter
-    .ctor(IEnumerable<IModelProvider> providers, GenerationRoutingPolicy policy = null, DeadHostTracker deadHosts = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, IProviderAdmission admission = null)
-    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
-    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
-    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
-sealed class Lyntai.Generation.Routing.GenerationRouterFactory
-    .ctor(IProviderPool<IModelProvider> pool, DeadHostTracker deadHosts, GenerationRoutingPolicy policy = null, IRateLimiter rateLimiter = null, IUsageTracker usage = null, LyntaiOptions options = null, ILoggerFactory loggers = null, IProviderAdmission admission = null)
-    For(IReadOnlyList<IModelProvider> providers) : IGenerationRouter
-    For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers) : IGenerationRouter
-sealed class Lyntai.Generation.Routing.GenerationRoutingPolicy
-    .ctor()
-    ActionFor(ProviderVerdict verdict) : FallbackAction
-    ExemptSoleCandidate : Boolean
-    On(ProviderVerdict verdict, FallbackAction action) : GenerationRoutingPolicy
-sealed class Lyntai.Generation.Routing.GenerationStage
-    .ctor(MediaRequest Request, IReadOnlyList<ProviderCandidate> Candidates)
-    Candidates : IReadOnlyList<ProviderCandidate>
-    Deconstruct(MediaRequest& Request, IReadOnlyList`1& Candidates) : Void
-    Equals(GenerationStage other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    InputRole : String
-    Request : MediaRequest
-    SelectInput : Func<MediaResponse,IEnumerable<MediaArtifact>>
-    ToString() : String
-sealed class Lyntai.Generation.Routing.GenerationSubmission
-    .ctor(String ProviderId, QueuedOperation Operation)
-    Deconstruct(String& ProviderId, QueuedOperation& Operation) : Void
-    Equals(GenerationSubmission other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    Operation : QueuedOperation
-    ProviderId : String
-    ToString() : String
-interface Lyntai.Generation.Routing.IGenerationRouter
-    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
-    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
-    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
-interface Lyntai.Generation.Routing.IGenerationRouterFactory
-    For(IReadOnlyList<IModelProvider> providers) : IGenerationRouter
-    For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers) : IGenerationRouter
-sealed class Lyntai.Generation.Routing.RateLimitedGenerationRouter
-    .ctor(IGenerationRouter inner, IRateLimiter limiter, ILogger<RateLimitedGenerationRouter> logger = null)
-    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
-    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
-    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Tools.GenerationBackendsTool
-    .ctor(IEnumerable<IModelProvider> providers, GenerationOptions options = null)
+    .ctor(IEnumerable<IModelProvider> providers, MediaOptions options = null)
     Description : String
     InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
     Name : String
@@ -636,7 +591,7 @@ sealed class Lyntai.Generation.Tools.GenerationFetchTool
     Name : String
     ParametersJsonSchema : String
 sealed class Lyntai.Generation.Tools.GenerationInlineTool
-    .ctor(IGenerationRouter router, GenerationOptions options, IGenerationArtifactSink sink = null, String consumer = "agent")
+    .ctor(IMediaRouter router, MediaOptions options, IGenerationArtifactSink sink = null, String consumer = "agent")
     Consumer : String
     Description : String
     InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
@@ -649,7 +604,7 @@ sealed class Lyntai.Generation.Tools.GenerationStatusTool
     Name : String
     ParametersJsonSchema : String
 sealed class Lyntai.Generation.Tools.GenerationSubmitTool
-    .ctor(IGenerationRouter router, GenerationOptions options, String consumer = "agent")
+    .ctor(IMediaRouter router, MediaOptions options, String consumer = "agent")
     Consumer : String
     Description : String
     InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
@@ -657,16 +612,11 @@ sealed class Lyntai.Generation.Tools.GenerationSubmitTool
     ParametersJsonSchema : String
 static class Lyntai.GenerationBuilderExtensions
     static AddGenerationProvider(LyntaiBuilder builder, Func<IServiceProvider,IModelProvider> factory) : LyntaiBuilder
-    static AddGenerationRateLimit(LyntaiBuilder builder, Action<RateLimitOptions> configure = null, Func<IServiceProvider,IRateLimiter> limiter = null) : LyntaiBuilder
     static AddGenerationTools(LyntaiBuilder builder) : LyntaiBuilder
-    static AddGenerationUsageBudget(LyntaiBuilder builder, Action<BudgetOptions> configure = null) : LyntaiBuilder
-    static ConfigureGenerationRouting(LyntaiBuilder builder, Action<GenerationRoutingPolicy> configure) : LyntaiBuilder
-    static UseDefaultGenerationCandidates(LyntaiBuilder builder, String[] providerIds) : LyntaiBuilder
-sealed class Lyntai.GenerationOptions
-    .ctor()
-    DefaultCandidates : List<ProviderCandidate>
-    ProbeDeadline : TimeSpan
-    RateLimit : RateLimitOptions
+    static AddMediaRateLimit(LyntaiBuilder builder, Action<RateLimitOptions> configure = null, Func<IServiceProvider,IRateLimiter> limiter = null) : LyntaiBuilder
+    static AddMediaUsageBudget(LyntaiBuilder builder, Action<BudgetOptions> configure = null) : LyntaiBuilder
+    static ConfigureMediaRouting(LyntaiBuilder builder, Action<MediaRoutingPolicy> configure) : LyntaiBuilder
+    static UseDefaultMediaCandidates(LyntaiBuilder builder, String[] providerIds) : LyntaiBuilder
 sealed class Lyntai.Guards.DenylistGuard
     .ctor(IReadOnlyList<String> terms, String name = null)
     InspectRequestAsync(TextRequest req, CancellationToken ct = default) : Task<GuardOutcome>
@@ -713,6 +663,11 @@ sealed class Lyntai.Inference.BoundedProviderPool`1
     RetireSlot(String slot) : Int32
     Statistics : ProviderPoolStatistics
     TryGetKey(TProvider instance, ProviderKey& key) : Boolean
+sealed class Lyntai.Inference.BudgetedMediaRouter
+    .ctor(IMediaRouter inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedMediaRouter> logger = null)
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaSubmission>
 sealed class Lyntai.Inference.Budgeting.BudgetedTextClient
     .ctor(ITextClient inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedTextClient> logger = null)
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
@@ -861,6 +816,18 @@ enum Lyntai.Inference.FallbackAction
     PenalizeAndAdvance : FallbackAction const
     Surface : FallbackAction const
     value__ : Int32
+interface Lyntai.Inference.IMediaJobProvider
+    CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
+    FetchAsync(String operationId, CancellationToken ct = default) : Task<MediaResponse>
+    PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
+    SubmitAsync(MediaRequest request, CancellationToken ct = default) : Task<QueuedOperation>
+interface Lyntai.Inference.IMediaRouter
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaSubmission>
+interface Lyntai.Inference.IMediaRouterFactory
+    For(IReadOnlyList<IModelProvider> providers) : IMediaRouter
+    For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers) : IMediaRouter
 interface Lyntai.Inference.IModelProvider
     Capabilities : ProviderCapabilities
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
@@ -1011,6 +978,29 @@ sealed class Lyntai.Inference.MediaResponse
     Verdict : ProviderVerdict
     static Failure(ProviderVerdict verdict, String detail = null) : MediaResponse
     static Success(IReadOnlyList<MediaArtifact> artifacts, MediaUsage usage = null, String detail = null) : MediaResponse
+sealed class Lyntai.Inference.MediaRouter
+    .ctor(IEnumerable<IModelProvider> providers, MediaRoutingPolicy policy = null, DeadHostTracker deadHosts = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, IProviderAdmission admission = null)
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaSubmission>
+sealed class Lyntai.Inference.MediaRouterFactory
+    .ctor(IProviderPool<IModelProvider> pool, DeadHostTracker deadHosts, MediaRoutingPolicy policy = null, IRateLimiter rateLimiter = null, IUsageTracker usage = null, LyntaiOptions options = null, ILoggerFactory loggers = null, IProviderAdmission admission = null)
+    For(IReadOnlyList<IModelProvider> providers) : IMediaRouter
+    For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers) : IMediaRouter
+sealed class Lyntai.Inference.MediaRoutingPolicy
+    .ctor()
+    ActionFor(ProviderVerdict verdict) : FallbackAction
+    ExemptSoleCandidate : Boolean
+    On(ProviderVerdict verdict, FallbackAction action) : MediaRoutingPolicy
+sealed class Lyntai.Inference.MediaSubmission
+    .ctor(String ProviderId, QueuedOperation Operation)
+    Deconstruct(String& ProviderId, QueuedOperation& Operation) : Void
+    Equals(MediaSubmission other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Operation : QueuedOperation
+    ProviderId : String
+    ToString() : String
 sealed class Lyntai.Inference.MediaUsage
     .ctor(Nullable<Int32> Count = null, Nullable<Double> Seconds = null, Nullable<Double> CostUsd = null)
     CostUsd : Nullable<Double>
@@ -1221,6 +1211,11 @@ enum Lyntai.Inference.QueuedOperationStatus
     Running : QueuedOperationStatus const
     Succeeded : QueuedOperationStatus const
     value__ : Int32
+sealed class Lyntai.Inference.RateLimitedMediaRouter
+    .ctor(IMediaRouter inner, IRateLimiter limiter, ILogger<RateLimitedMediaRouter> logger = null)
+    GenerateAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
+    StreamAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
+    SubmitAsync(IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, CancellationToken ct = default) : Task<MediaSubmission>
 interface Lyntai.Inference.RateLimiting.IRateLimiter
     AcquireAsync(String consumer, CancellationToken ct = default) : Task<Boolean>
 sealed class Lyntai.Inference.RateLimiting.RateLimitedTextClient
@@ -1681,6 +1676,11 @@ sealed class Lyntai.LyntaiOptions
     TimeoutByConsumer : Dictionary<String,TimeSpan>
     ToolLoopMaxIterations : Int32
     ToolProtocolPreamble : String
+sealed class Lyntai.MediaOptions
+    .ctor()
+    DefaultCandidates : List<ProviderCandidate>
+    ProbeDeadline : TimeSpan
+    RateLimit : RateLimitOptions
 interface Lyntai.Memory.Annotation.IMemoryAnnotationPolicy
     AnnotateAsync(MemoryAnnotationRequest request, CancellationToken ct = default) : Task<MemoryAnnotation>
 sealed class Lyntai.Memory.Annotation.LlmAnnotationOptions
