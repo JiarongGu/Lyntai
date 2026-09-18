@@ -15,28 +15,34 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 15 across 6 Parts: 8 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 21 across 7 Parts: 14 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 116 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 133 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 166 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 219 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 238 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 287 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
-| 302 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
-| 311 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
-| 318 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
-| 327 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
-| 356 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 416 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 471 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 494 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 551 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 122 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 139 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 172 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 225 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 244 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 296 | 103 | NS-1 — `Lyntai.Lifecycle` → `Lyntai.Inference`, namespace only | startable |  |
+| 301 | 103 | NS-2 — the governance sub-namespaces leave `Lyntai.Llm` | startable |  |
+| 307 | 103 | NS-3 — the call shapes: rename AND move in ONE pass | startable |  |
+| 314 | 103 | NS-4 — the front door: `ILlmClient` → `ITextClient` | startable |  |
+| 318 | 103 | NS-5 — `Lyntai.Providers` stops meaning three things | startable |  |
+| 324 | 103 | ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING | startable |  |
+| 342 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
+| 357 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
+| 366 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
+| 373 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
+| 382 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
+| 411 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 471 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 526 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 549 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 606 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -52,9 +58,9 @@ history rather than context (`repo-mechanics.md`)._
 `<!-- item: state=… kind=… needs="…" -->` marker; `node devtools/dev.mjs check-backlog --write` rebuilds the
 table from those markers and `verify` fails while the two disagree, so the roster and the items can no
 longer drift apart. Edit the marker, never the table — the COUNT lives there and nowhere else, so this
-sentence names no number. Most of what is startable today is Part 102, the pre-release review's open calls.
-**The accumulation that hid them is now GATED rather than watched for**: `check-backlog` fails a
-`## Part` holding no open checkbox.
+sentence names no number — **nor a Part**, the same rot one step out: it named Part 102 as "most of what is
+startable" until Part 103 opened bigger. **The accumulation that hid these is GATED, not watched for**:
+`check-backlog` fails a `## Part` holding no open checkbox.
 
 **Re-checking an `env` item asks whether the artifact is OBTAINABLE, not whether it is installed** —
 `task-lifecycle.md` §A blocked item, which two re-checks here got wrong before a reader did.
@@ -273,6 +279,55 @@ fourth such surface — a consuming app measured it 2026-08-04 and it is now con
 > `[x]` here.
 
 ---
+
+## Part 103 — the namespace restructure, and D153's unfinished wiring (2026-09-17)
+
+_Opened by **D153**, which gave every call family the same SHAPE and left them in three different
+namespaces — because that is where each already lived. The design is
+`local/superpowers/specs/2026-09-17-namespace-restructure-design.md`, which measures the five problems and
+sequences the work; **read it before starting any item below**, because the ORDER is the point. Renaming
+types and moving namespaces touch the same ~231 files, so the wrong order rewrites the same `using` lines
+twice._
+
+_**Every item here is BREAKING and needs this release window or the next major.** They are listed in the
+order the spec establishes; NS-1 and NS-2 are pure moves with no rename, which is why they come first — the
+cheapest place to discover a problem._
+
+- [ ] **NS-1 — `Lyntai.Lifecycle` → `Lyntai.Inference`, namespace only.** <!-- item: state=startable -->
+  29 namespace declarations, ~231 `using` lines, ~75 qualified references. No type renames. The name is
+  wrong today: roughly a third of what it holds is lifecycle (pools, admission, cooldown, candidates) and
+  the rest is the provider seam, the verdict taxonomy and four call shapes.
+
+- [ ] **NS-2 — the governance sub-namespaces leave `Lyntai.Llm`.** <!-- item: state=startable -->
+  `Lyntai.Llm.{Caching,Budgeting,RateLimiting,Streaming,Cli}` → `Lyntai.Inference.*`. None of them is
+  text-specific: a response cache and a usage budget are front-door governance for any call. They sit under
+  `Llm` for the reason `RoutingPolicy` sat under `Llm.Routing` until D153 moved it — the domain that
+  happened to need them first.
+
+- [ ] **NS-3 — the call shapes: rename AND move in ONE pass.** <!-- item: state=startable -->
+  `Llm{Request,Reply,Chunk,ChunkKind,Usage,Message,ToolCall,Tool,Attachment,Reasoning}` → `Text*`,
+  `Generation{Request,Result,Chunk,Usage,Artifact,Input,InputRoles}` → `Media*`, all landing in
+  `Lyntai.Inference`. **One rewrite per file** — splitting the rename from the move doubles the churn.
+  `LlmReply` → `TextResponse` and `GenerationResult` → `MediaResponse` also fix a violation of
+  `dotnet-package-layout.md` §Naming, which must be amended to `*Request`/`*Response` in the same change.
+
+- [ ] **NS-4 — the front door: `ILlmClient` → `ITextClient`.** <!-- item: state=startable -->
+  With `LlmClient`, `ILlmRouter`, `LlmRouter` and the factories. **The library's primary consumer type** —
+  its own commit and its own changelog entry, never folded into NS-3.
+
+- [ ] **NS-5 — `Lyntai.Providers` stops meaning three things.** <!-- item: state=startable -->
+  The bare root holds `AgentMcpServers`, `CliAgentTerminal`, `CliTempFile`, `WireJson` — shared CLI helpers,
+  not contracts — while `Lyntai.Providers.Onnx` and friends are backends and `Lyntai.Generation.Providers`
+  is a third family. Move the helpers under a named adapter namespace so the root means adapters and
+  nothing else.
+
+- [ ] **ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING.** <!-- item: state=startable -->
+  `EmbeddingRouting` and `ScoringVerificationPolicy` build a `ProviderRouter` with no `DeadHostTracker` and
+  no admission, because their call sites have neither to hand — so those two kinds still get no cooldown and
+  no concurrency bound in a real deployment. Closing it means four PUBLIC constructors taking a router
+  instead of `IEnumerable<IModelProvider>`: `SemanticMemory`, `SemanticSeedSource`, `VectorToolSelector`,
+  `GraphMemoryEngine`. Mostly test churn — `GraphMemoryEngine` is constructed across dozens of memory tests.
+  <br>_Do it AFTER NS-3, which rewrites those same constructors and their call sites._
 
 ## Part 102 — the pre-release review's open calls, one decision each (2026-09-17)
 
