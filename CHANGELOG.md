@@ -14,6 +14,17 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **`MemoryReview.Grade` is `ReviewGrade`**, on `MemoryReview`, `MemoryReviewWrite` and `MemoryReviewRow`.
+  The qualifier distinguishes FSRS's review RATING from the entry's own `MemoryGrade`, which the bare word
+  did not. **`MemoryReviewWrite` is constructed by every BYO `IMemoryGraphStore`**, so this is a compile
+  break on the implementer path rather than only on the consuming one — rename the argument and recompile.
+
+- **`GraphNode` gained a trailing `bool? Matched = true`** — whether the read that produced the node asked
+  a relevance question of it at all, so "not asked" is distinguishable from "asked and scored zero". It is
+  a RETURN type, so a BYO `IMemoryGraphStore` constructs it: a positional `new GraphNode(…)` still compiles
+  and a positional deconstruction does not. The sibling break class is listed for four write-side types
+  below; this is the read-side one, omitted until now.
+
 - **One namespace for everything about CALLING a backend, and every call shape named for what it
   PRODUCES** (**D154**). Four peer call families sat in three namespaces because that is where each one
   grew up, so the map contradicted the model: `Lyntai.Lifecycle` held the provider seam, the verdicts and <!-- drift-ok: the entry ANNOUNCING the move has to name the namespace it retired -->
@@ -79,154 +90,6 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   bare root moved to `Lyntai.Providers.Basic`, so that family is one segment per adapter. All four are
   internal — **no public surface changed**, and nothing a consumer imports moves.
 
-### Added
-
-- **`IProviderRouterFactory` — dead-host cooldown and admission finally reach the vector and score kinds,
-  and any kind an application defines** (**D155**). **D153** gave every kind the routing mechanism and left
-  the bookkeeping to whatever the call site had, which was nothing: embedding and reranking each built a
-  router per call with no tracker and no admission, so a backend that answered 429 was asked again on the
-  very next recall while the chat path would have benched it. The factory binds the ONE `DeadHostTracker`,
-  the ONE `IProviderAdmission` and the pool's configuration key — so one tenant's exhausted quota no longer
-  benches another's on these paths either.
-  <br>**Nothing you have written changes.** `SemanticMemory`, `SemanticSeedSource`, `VectorToolSelector`,
-  `GraphMemoryEngine` and `ScoringVerificationPolicy` each gain ONE optional trailing parameter, supplied
-  automatically by `AddLyntai`; no existing parameter moved, was renamed or changed type, and passing no
-  factory still routes exactly as before.
-  <br>**For an application-defined kind**, this is the seam that makes D153's promise true: close
-  `IProviderCall<TRequest,TResponse>` over your own types, inject `IProviderRouterFactory`, and
-  `For<TRequest,TResponse>(providers, synthesize, serves)` returns a router with candidate selection,
-  cooldown, admission and fallback — without this library knowing your kind exists.
-
-- **`ScoringVerificationOptions.ProviderId` names WHICH backend verifies a recall** (**D148**). Unset it
-  still takes the first registered backend that produces `ProviderKinds.Score`, so nothing moves for a
-  deployment with one — but with two, that was registration ORDER deciding what verifies memory, reported
-  nowhere. D139 makes a second one likely rather than hypothetical: a cross-encoder registered for a tool
-  selector became the memory verifier as a side effect of existing. A name matching no registered backend,
-  or one that does not declare `Score`, throws where the policy is composed rather than reporting
-  `NoOpinion` on every recall.
-
-- **An OpenAI-compatible backend declares what it `Produces`** (**D130**, **D131**, **D133**). One
-  registration is one backend: `o.Produces = ProviderKinds.Vector` posts to `/embeddings` instead of
-  `/chat/completions`, declares `Complete` alone (there is no partial embedding), and enters the routed
-  `IEmbedder`. A host answering BOTH routes is registered twice, under two ids, so a trace names the
-  backend that answered.
-
-### Fixed
-
-- **Documentation that survived two seam unifications and said things that are no longer true.** The
-  `README.md` offered a capability-probe sample whose `provider is not IModelProvider` type test is always
-  true (`ProbeAsync` moved onto the base seam in **D127**, so there are three optional capabilities, not
-  four), listed streaming generation under an interface that no longer exists, and advertised the
-  `Microsoft.Extensions.AI` bridge **D146** deleted — as did `IProviderIdentity`'s and
-  `LyntaiDiagnostics`' shipped XML docs. The package count was one too high. Nothing about the library's
-  behaviour changed; what a consumer reads about it did. Two new gates (`check-tautology`, and a
-  `check-backlog` rule) make the shapes behind those two classes fail rather than ship.
-
-- **…and the rest of it, in the tiers that sweep did not read.** `README.md` still labelled
-  `Lyntai.Generation` **Experimental** and justified its package boundary by the release cadence **D70** <!-- drift-ok: the entry ANNOUNCING this retirement has to name the label it removes -->
-  withdrew with the carve-out — in a table cell the `retiredTerms` rule could not match, now widened.
-  `Lyntai.Providers.Basic`'s package description still called itself "the default set" (**D144** renamed it
-  for exactly that reason), and four `*.csproj` comments were a rename behind: the bundle advertising the
-  deleted `Microsoft.Extensions.AI` bridge, the `Microsoft.Extensions.AI.Abstractions` justification left
-  annotating the reference that outlived it, `Providers.Default`, and a namespace the HTTP family left in
-  **D135**. No prose gate reads a `*.csproj`; measured at 0 hits over 18 files, so these were corrected by
-  hand rather than by widening one. Detail in `docs/task-archive.md` Part 240.
-
-- **Contract rules that existed only inside the two SQL backends are now on the seams themselves.**
-  `IMemoryGraphStore.UpsertAsync` states that the engine advances FIRST and atomically and that only the
-  position comes from `GraphNodeWrite.Advance` (the three policy-independent primitives never do, which is
-  what makes the age policy swappable); `TouchAsync` states that a touch advances the engine on NO scale, so
-  a recall cannot age every other entry; `LinkManyAsync` states that one position snapshot per batch is more
-  CORRECT rather than merely faster, which an override must keep. `IJobStore.ListAsync` states that a
-  non-positive limit returns empty on every backend and `ReportStepAsync` that the capped step log is a
-  read-modify-write an implementation must serialize per JOB; `ITraceStore` states the step-ordinal fallback;
-  `MemoryEvictionPolicy.TracksAccess` states that a queried recall is use and a list-all is not. A BYO store
-  reads the seam, not somebody else's backend. Detail in `docs/task-archive.md` Part 241, and the
-  Governance-guard design in **D150**.
-
-- **A cross-encoder export whose head cannot carry one score per pair is now refused at COMPOSITION.**
-  `AddOnnxCrossEncoder` pointed at a multi-label (NLI) model used to load cleanly and refuse on the first
-  score — into `AddMemoryScoringVerification`, which is fail-open and reported `NoOpinion`, so every recall
-  came back silently unverified and looked exactly like having no scoring backend registered.
-  `OnnxCrossEncoder.FromDirectory` now reads the label axis the graph itself declares and throws there. An
-  export that declares a DYNAMIC label axis is unaffected — it states too little to refuse on and is still
-  judged against the tensor it returns. Separately, `ScoringVerificationPolicy` still fails open but now
-  logs a backend that declares `ProviderKinds.Score` without serving it at **Warning** rather than Debug: it
-  is a permanent wiring defect, not a transient failure. Detail in `docs/FIXES.md`.
-
-- **A graph engine's vector collections could be forgotten ACROSS a task boundary.** The similarity-index
-  address was `{engine}|{taskKey}|{scope}`, so two different triples composed to one collection — task `a` +
-  scope `b|c` and task `a|b` + scope `c` — and forgetting either erased the other's enrichment vectors,
-  while the unscoped semantic seed prefix-swept into a neighbouring task. The separator is now U+001F and
-  the address has ONE owner used by both the write and read sides. **Vectors persisted under the old address
-  are orphaned rather than migrated**: a deployment re-indexes, and enrichment rebuilds them on the next
-  write. Task isolation itself (`docs/memory.md` §7) is unchanged — it was the address that leaked, not the
-  rule. Detail in `docs/FIXES.md`.
-
-### Added
-
-- **A reranker is a provider like any other: `ProviderKinds.Score`** (**D139**). `IModelProvider` gains
-  `ScoreAsync(query, documents)` — one score per document, in INPUT order — and an HTTP reranker is
-  `AddHttpProvider("rerank", o => { o.BaseUrl = …; o.Produces = ProviderKinds.Score; })`. No new
-  registration method, no new options type, no new package: `Produces` picks the `/v1/rerank` route exactly
-  as it picks `/embeddings`. This is D130's prediction collected, and it makes a cross-encoder reachable by
-  anything — a ranking policy, a scorer, a tool selector — rather than by memory alone.
-
-- **`VectorMath.NormalizeInPlace`** (**D141**) — the L2-normalization every embedder backend needs, in the
-  one package both can reach. The ONNX and model2vec adapters each carried a copy; a BYO `IEmbedder` that
-  normalizes should use this one, for the same reason `VectorMath.Cosine` exists: two backends that
-  normalize differently do not rank identically.
-
-### Added
-
-- **`AddBridgeProvider(id, complete, stream?, capabilities?)`** (**D147**) — register a backend from a
-  FUNCTION. Whatever can already answer (a vendor SDK, an in-house service, a `Microsoft.Extensions.AI`
-  `IChatClient`), you write the few lines of mapping you need and routing, fallback, dead-host cooldown,
-  admission and the ops layer come along. **It costs no dependency**, which is why it lives in `Lyntai.Core`
-  where the ecosystem-specific bridge D146 deleted never could. A bridge declares only the operations it was
-  handed a delegate for; pass `capabilities` to declare anything other than text in, text out.
-
-### Added
-
-- **`AddOnnxCrossEncoder(dir)` — an in-process RERANKER.** A cross-encoder export runs through ONNX Runtime
-  beside the embedder `AddOnnxProvider` already registers: `[CLS] query [SEP] document [SEP]` in, one
-  relevance logit out, declaring `ProviderKinds.Score`. **That declaration is the whole of the wiring** —
-  `AddMemoryScoringVerification()` selects any backend producing scores (**D139**), so a recall is reranked
-  by a local file with no server, no port and no `/v1/rerank` endpoint. A multi-label head is REFUSED rather
-  than read at column 0: which label means relevance is the model's own convention, and guessing returns
-  well-formed numbers in the wrong order. **No quality figure is claimed** — the shipped assertion is that
-  it reproduces a published reference pair, which is a screen rather than a measurement.
-
-- **`WordPieceTokenizer.Encode(a, b, maxTokens)` — a PAIR, which is what a cross-encoder scores.** Emits
-  `token_type_ids` 0 across `[CLS] a [SEP]` and 1 across `b [SEP]` — the segment signal telling a query from
-  a document, and precisely what llama.cpp's GGUF conversion zeroes. **The truncation budget is spent on
-  `b`**, and `a` is shortened only when it cannot fit alone: losing a long document's tail costs some
-  evidence, while losing the query's changes the question being asked. The reference implementation
-  truncates longest-first; this states the rule a reranker actually wants rather than inheriting one.
-
-### Added
-
-- **`LlmPairwiseComparer` answers an IDENTICAL pair itself, and asks no judge.** Two identical outputs
-  cost two model calls under the default position-bias mitigation — and could come back WRONG: on identical
-  text there is no signal for a judge to overcome its position bias with, so it can answer "a", and the
-  two-pass check cannot catch it because both passes see the same two strings. It is now a `Tie`, `Judged`,
-  with no call. **Ordinal equality only** — whether trailing whitespace or casing matters is a judgement
-  about the caller's domain, so anything short of identical still reaches the model.
-
-- **`JsonExtract.TryReadObject` — CODE repairs the punctuation a model gets wrong, instead of paying a
-  second call for it.** `CompleteJsonAsync` extracted the object out of prose and then asked the model to
-  try again whenever what it found did not parse STRICTLY — so a trailing comma or a stray `//` comment
-  cost a whole repair round trip, which is fail-closed where every other seam is fail-open, spends a second
-  usage-budget and rate-limit charge, and never returns a cached hit. Those are punctuation, not missing
-  meaning. The read now tolerates them and **re-serializes**, so the standing guarantee that an `Ok` verdict
-  means `JsonDocument.Parse(reply.Text)` succeeds is unchanged — an already-strict object is handed back
-  byte for byte, and only a repaired one is reformatted.
-  <br>**A TRUNCATED object still retries**, deliberately: it is missing content rather than commas, and only
-  the model can supply it. And `JsonExtract.IsValid` stays STRICT — `StructureScorer` uses it to GRADE
-  whether a model emitted well-formed JSON, so a grader that accepted a trailing comma would score
-  malformed output as perfect. One helper, two questions, kept apart.
-
-### Breaking
 
 - **The Microsoft.Extensions.AI bridge is removed** (**D146**). `AddExtensionsAiProvider`, <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `ExtensionsAiProvider`, `AsChatClient()` and `LlmVerdictException` are gone. No provider used it — 0 of <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
@@ -264,7 +127,9 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `GenerationFallbackAction` becomes `Lyntai.Inference.FallbackAction` — the same four members it always <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   had — and `GenerationKinds.Image/Video/Audio/Model3d` become `ProviderKinds.*`, which declared the same <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   names with the same values. D136 merged the routing table's key and left its value duplicated; this is
-  that, one layer out. **The two routing POLICIES are untouched** — they differ on `Unsupported` and on
+  that, one layer out. **The LLM-side type moved too** — `Lyntai.Llm.Routing.FallbackAction` is now <!-- drift-ok: the entry ANNOUNCING the move has to name where the type came from -->
+  `Lyntai.Inference.FallbackAction`, the same type under one name; a consumer who configured routing by
+  `FallbackAction` edits the `using` even though nothing on the generation side told them to. **The two routing POLICIES are untouched** — they differ on `Unsupported` and on
   their unmapped defaults, and that is table content rather than vocabulary. `MediaInputRoles`
   (`init`/`first-frame`/`reference`/`voice`) is NOT merged: those say what an input IS to a generation, not
   what a backend produces.
@@ -463,6 +328,11 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   handle, which is a contract shape rather than a content type, and the whole point of this change is that
   content type belongs in data. `GenerationProbeResult` merges into `ProviderProbeResult`, which the LLM
   domain had been duplicating in a different field order.
+  <br>**The survivor took GENERATION's order, and a positional caller must be edited:**
+  `(Available, Version, Model, Detail)` is now **`(bool Available, string? Detail, string? Version,
+  string? Model)`**. Every member is a `string?` except the first, so a call written for the old order
+  still COMPILES and files your version string into `Detail` — a silent data defect on upgrade rather than
+  a build failure. Use named arguments, or check every `new ProviderProbeResult(…)` with more than one.
 
 - **`GenerationCapabilities` and `GenerationDelivery` are replaced by `Lyntai.Inference.ProviderCapabilities` <!-- drift-ok: the entry announcing a rename has to name what it renamed -->
   and `ProviderOperation`** (**D126**). Capability is DATA in every domain now, not just in generation: a
@@ -500,7 +370,273 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   old signature. Consumers reach the loop through `AddLyntai`, and the constructor already grew this way for
   `logger` and `guards`. An overload was refused deliberately: it would pay for a caller that does not exist.
 
+
+- **`MemoryQuery`'s primary constructor gained an optional parameter**, so a caller compiled against the old
+  signature must be RECOMPILED (source-compatible; binary-incompatible). Shipping this in a minor is the
+  deferred-SemVer-strictness rule at the top of this file, and an overload preserving the old signature was
+  deliberately not added — `repo-mechanics.md` §"Everything before 3.0 is HISTORY" refuses to pay a real
+  surface cost for a pre-compiled caller that does not exist.
+- **`IExpandableMemory.ExpandAsync` gained a `detail` parameter before its `CancellationToken`.** This is the
+  wider of the two breaks: a BYO implementation of that seam must add the parameter to COMPILE, not merely be
+  recompiled. It is deliberate — expansion is where the walk discovers, and a caller who asked for whole
+  entries on the query was silently getting headlines for everything discovered after the first step. A
+  positional caller passing `ct` fourth also breaks, loudly, at compile time.
+
+- **`RunPipelineAsync` — ordered generation stages, each feeding the next.** An extension over
+  `IMediaRouter` running `GenerationStage`s in order and chaining each one's artifact into the next
+  through `MediaArtifact.ToInput(role)`. Every stage carries its OWN candidates and routes
+  independently, because an image backend and a video backend are rarely the same vendor.
+  <br>**Nothing was added to `IMediaRouter`** — every stage is an ordinary routed call, which is what
+  keeps spend caps, throttling and dead-host cooldown governing a pipeline exactly as they govern one render.
+  A test pins that a cost cap reached by stage 1 refuses stage 2.
+  <br>**A stage that cannot identify a single artifact to chain REFUSES** (`Unsupported`, without calling a
+  backend) rather than guessing. There is deliberately no cleverer default: a media type cannot be branched
+  on — a mesh backend reports a GLB as `application/octet-stream` — and "the first `image/*`" picks a UV
+  texture atlas, which chains, renders, and is wrong. `GenerationStage.SelectInput` is where a caller who has
+  a rule states it, and `InputRole` is theirs too, since the same PNG is a first frame to one backend and an
+  init image to another.
+  <br>**Nothing is ever re-run**, so a failure at a later stage keeps what earlier stages already paid for:
+  `GenerationPipelineResult.Stages` holds every stage that ran, including the one that failed, and
+  `FailedAt` says which. Retry WITHIN a stage stays the router's fallback across that stage's candidates.
+  Chained inputs are APPENDED to a stage's own `Inputs`, so a style reference the caller attached survives,
+  and the caller's `MediaRequest` is never mutated.
+- **`WalkAsync` — the n-shot walk, as a surface rather than a loop every consumer writes.** An extension over
+  `IMemoryEngine` yielding `IAsyncEnumerable<MemoryWalkStep>`: a recall, then expansions outward from what it
+  turned up. **Your `break` is the stop condition**, because how far a walk is worth taking is a property of
+  the question rather than a constant — and the sequence is finite whether or not you break, since a step
+  that moves nothing ends it and `MemoryWalkOptions.MaxItems` bounds what it may hold.
+  <br>**Nothing was added to `IMemoryEngine`, `IExpandableMemory`, `MemoryQuery` or `MemoryItem`** — it
+  composes the two seams that already existed, the way `MemoryComposition` composes a recall and a rendering.
+  An engine that is not `IExpandableMemory` yields exactly one step rather than failing, and a faulting recall
+  still yields step 1 reporting `MemorySources.None`.
+  <br>**The merge is the payload.** A step both DISCOVERS entries and UPGRADES held ones from a headline to
+  full content, so `MemoryWalkStep` reports both — a count of new entries alone cannot see the upgrade, which
+  is the whole point of expanding something you already hold. Identity is the entry's whole `MemoryRef`, so a
+  composite's members may each own the same id.
+  <br>`MemoryWalkOptions.SeedSelector` replaces the default selection outright, count included; the default
+  takes the newly-discovered entries in arrival order, capped at `SeedsPerStep`. It deliberately does not
+  order by `MemoryItem.Relevance` — an expanded neighbour carries a relevance from a read that never asked
+  one (**D97**).
+- **`IMemoryGraphStore.WriteBackAsync` — a recall's whole write-back as ONE store call** (`docs/DECISIONS.md`
+  **D101**), with `GraphWriteBack` carrying the touch, the co-activation edges and the review-log rows
+  together. **It has a default body** running the three existing members in that order, so a BYO store keeps
+  compiling and keeps behaving identically; the SQLite and Postgres stores override it to open one connection
+  and read the position totals once. Those three calls previously cost three connection opens and two totals
+  reads per recall. **No latency claim is made** — as with `LinkManyAsync` the guarantee is a round-trip
+  COUNT: a test counts what the store asks its connection factory for and pins it at one, having read three
+  before the override existed. (The totals read is a code fact, not a counted one — nothing observes it.)
+  <br>**The review log is written LAST, and that order is contract.** It is the part a caller may lose
+  (`RecordReviewsAsync` is best-effort), so writing it after the touch and the edges is what keeps a broken
+  log from costing either — previously bought with a second `try/catch` inside the engine, which is now gone.
+  An implementation must not reorder it. The one visible consequence: the warning logged when a write-back
+  fails no longer claims the recall returned "without learning", which was false whenever a later part was
+  the one that failed.
+
+- **`IMemoryGraphStore.LinkManyAsync` — write several edges as one unit of work** (`docs/DECISIONS.md`
+  **D99**), with `GraphEdgeWrite` carrying one edge's arguments. **It has a default body** that loops
+  `LinkAsync`, so a BYO store keeps compiling and keeps behaving identically; the SQLite and Postgres stores
+  override it to open one connection and read the position totals once. A recall links its top hits pairwise
+  — ten edges at the shipped `CoActivationCap` — which previously cost ten connection opens and ten totals
+  reads. **No latency claim is made**: `memory-scale` cannot resolve the change above its own run-to-run
+  noise, so the guarantee is a round-trip COUNT and a test pins it.
+
+- **`GraphMemoryOptions.ExpansionRetrievabilityFloor` — the retrievability a neighbour must still have to be
+  walked to** (`docs/DECISIONS.md` **D98**). Default `0`, which admits every neighbour and is what every
+  release through 3.0.2 did, so nothing changes unless a deployment asks. `EdgeHalfLife` decays the EDGE and
+  nothing consulted the ENTRY on that path, so a recall could bury a superseded fact and an expansion of its
+  neighbour handed it straight back. It EXCLUDES from the walk rather than deleting, and never filters the
+  entry the caller named — only the walk out from it. Measured on LongMemEval's knowledge-update class: a
+  context holding the current value and not the superseded one held flat at 40.0% across three shots instead
+  of falling to 36.0%, at a cost of 4 points of current-fact hit rate.
+
+- **`SalienceContext.SimilarCount` — how many stored entries actually resemble a write**, as opposed to
+  `ComparableCount`, which is the raw return of a search asking for `SimilarityK + 1` with no floor and
+  therefore saturates: it reports the same number for a write resembling one thing and a write resembling
+  many. The filtered count separates those, which the raw one structurally cannot.
+  <br>Bounded by however many neighbours that search actually returned, so it is a floor on density and never
+  a census — read it as "at least this many". Not by `SimilarityK`: the request is `SimilarityK + 1` so that a
+  re-remember can lose one to self-exclusion and still see `SimilarityK`, and a fresh write, having nothing to
+  exclude, can therefore report `SimilarityK + 1`. `0` when no similarity search ran, exactly as `Novelty`
+  already reports that case.
+
+- **`MemoryItem.Metadata` — a recall now returns what the write put in `MemoryWrite.Metadata`.** The write
+  side has promised "an engine whose store cannot hold it ignores it" since it shipped and the read side said
+  nothing, so metadata was **writable and unreadable**: `GraphNode.Metadata` was persisted, returned by the
+  store, and dropped at all three of the places the engine projects it onto `MemoryItem` — one in
+  `RecallAsync` and two in `ExpandAsync`, which projects the entry the caller NAMED separately from its
+  neighbours. A consumer wanting a kind, a source or its own ordering key back had to keep a second copy
+  outside the library.
+  <br>Graph and curated engines round-trip it; lexical and semantic return `null`, because `MemoryEntry` and a
+  vector hit have nowhere to keep it. **`null` means the engine does not carry metadata, never that the caller
+  wrote none** — write a sentinel key if you need those apart. **A recall and an expansion answer alike.**
+  Pinned for every engine by `MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent`, which
+  asserts the round trip where it is supported and asserts `null` where it is not, so neither answer can pass
+  vacuously — and by `Metadata_survives_an_EXPANSION_not_only_a_recall` for the expansion path the first one
+  does not call. `docs/DECISIONS.md` **D93**.
+
+- **`MemoryVerificationCandidate.Relevance` — a verifier is shown the score the caller will see.** A candidate
+  carried an id and a headline, so the only route from those to *did anything answer this* is reading the
+  text, which means an LLM, and `LlmMemoryVerificationPolicy` was the one shipped implementation. The engine
+  had each candidate's score and did not pass it; a policy can now read the distribution too.
+  <br>**It is not a model-free ANSWER, and nothing here claims one.** Its scale and shape are source- and
+  backend-specific: one request mixes a graph store's normalized rank POSITION, a real cosine on a semantic
+  seed, a flat `1` on a graph-walk or subject seed, and `0` for a grade-admitted non-match. Rank position puts
+  the best row at exactly `1` whatever the query, so a top score of `1` is not evidence of a good match, and
+  no absolute floor can be derived from this number alone — prefer a RELATIVE test, and read it as an ordering
+  rather than a fit. **No score-floor policy ships**: the threshold is a property of the deployment's embedder
+  and corpus (`generic-library` rule 7). `docs/DECISIONS.md` **D93**.
+
+- **`IMemorySeedSource` — seed retrieval is now a registered, PLURAL collection of retrieval channels, and
+  `ReciprocalRankFusionPolicy` fuses the RANKED LISTS they return** instead of one pooled `Relevance` field
+  (`docs/DECISIONS.md` **D103**). Three ship: `LexicalSeedSource` (the store's own text read, registered
+  unconditionally — the channel every graph engine already had), `SemanticSeedSource`
+  (`AddMemorySemanticSeeds`, still NOT registered by default — an embedder registered for its own reasons
+  must not silently start steering recall), and `SubjectSeedSource` (`AddMemoryEngine` registers this channel
+  unconditionally; `AddMemorySubjectSeeds` only CONFIGURES it, since a subject exists only because an
+  annotator was already paid for). `UseGraph(..., seedSources: …)` overrides the set per engine.
+  <br>**Within one source, a candidate is ranked by that source's OWN `GraphNode.Relevance` gradient, never by
+  list position** — competition-ranked, ties sharing a rank; a node the source did not MATCH earns no rank at
+  all, and a source whose matched nodes all carry one value is UNORDERED and earns none either. A candidate
+  found by two sources scores the SUM of both reciprocal-rank terms, so agreement between channels is
+  rewarded — something a single pooled field could not express. `MemoryCandidate.Ranks` (`MemorySeedRanks`)
+  carries the evidence; a candidate carrying no ranks at all — a hand-built engine, a BYO gather — falls back
+  to today's pooled-relevance term, byte-identical to before this shipped.
+  <br>**Measured on LoCoMo evidence-hit@20** (`docs/memory-measurements.md` §5): the semantic channel was previously
+  unreachable — a real cosine could never outrank a fabricated pooled value — and with per-source fusion its
+  `+sem+rel-only` arm now reads **83.0%**, above plain cosine's own **80.5%**, the first mechanical arm to
+  clear it. **No default moved** — `SemanticSeedOptions` still ships unregistered.
+  <br>**83.0% is a SQLite figure.** Under the shipped default registration (lexical + subject, no semantic)
+  against `InMemoryMemoryGraphStore`, no candidate carries a rank, so the whole recall still runs the pooled
+  fallback this change replaces — one of three shipped backends is unaffected.
+
+
+- **`SalienceContext` gains one trailing member**, widening its constructor and its `Deconstruct`. Additive
+  for construction by name or position — the default reproduces today's behaviour — and a source break only
+  for code that positionally DECONSTRUCTS it.
+
+- **`MemoryItem` and `MemoryVerificationCandidate` each gain one trailing member**, widening their
+  constructors and their `Deconstruct`. Additive for anyone constructing them by name or positionally — both
+  defaults reproduce today's behaviour exactly — and a **source break only for code that positionally
+  DECONSTRUCTS** either record: `var (reference, headline, …) = item` now needs one more slot. The same shape
+  `GraphNodeWrite`'s two flags take below.
+
+- **`IMemoryGraphStore.NeighboursAsync` gains a `taskKey` parameter, and `ILinkableMemory.LinkAsync` now
+  REFUSES a cross-task link.** A `taskKey` was the isolation boundary of every read except traversal, which
+  followed edges wherever they led — so an application that linked across tasks made those entries reachable
+  from each other's recalls. A half-boundary is worse than none, because consumers reason about it as a whole
+  one. `docs/DECISIONS.md` **D92**.
+  <br>**A BYO `IMemoryGraphStore` gets a compile error** naming the member, deliberately: a default body
+  would have compiled and silently kept the hole. Pass the `taskKey` through to your node predicate.
+  <br>**The capability lost** is asserting an association between facts in DIFFERENT tasks. Keep that in your
+  own data — two facts that belong together belong in one task. Traversal is scoped as well as the link
+  refused, so an edge an existing database already holds is never walked either.
+
+- **`GraphNodeWrite` gains two trailing flags, `bool GradeStated = true` and `bool HeadlineStated = true`**,
+  which widen its constructor and its `Deconstruct`. Additive for anyone constructing it by name or positionally (the default reproduces the old
+  behaviour exactly), and a **source break only for code that positionally DECONSTRUCTS the record** —
+  `var (engine, task, …) = write` now needs one more slot. A BYO `IMemoryGraphStore` that ignores the new
+  member keeps the old grade-overwriting behaviour, which is the bug below; honour it to get the fix.
+
+- **`GraphMemoryOptions.SemanticSeedK`, `.SubjectSeedK` and `.SubjectSeedScan` are REMOVED**, replaced by a <!-- drift-ok link-ok: the entry announcing a removal must name what was removed, and none of the three exists any more -->
+  registered `IMemorySeedSource` collection, each source carrying its own options record:
+  `SemanticSeedOptions.K` (`AddMemorySemanticSeeds`, NOT registered by default — an embedder registered for
+  its own reasons must not silently start steering recall) and `SubjectSeedOptions.K` / `.Scan` (on by
+  default — `AddMemoryEngine` registers this channel unconditionally, and `AddMemorySubjectSeeds` only
+  configures it, since a subject exists only because an annotator was already paid for). Both new records
+  ship the same defaults the removed properties carried, including
+  `SubjectSeedOptions.K = 0` as the off-switch. `UseGraph(..., seedSources: …)` overrides the set per engine.
+
 ### Added
+
+- **`IProviderRouterFactory` — dead-host cooldown and admission finally reach the vector and score kinds,
+  and any kind an application defines** (**D155**). **D153** gave every kind the routing mechanism and left
+  the bookkeeping to whatever the call site had, which was nothing: embedding and reranking each built a
+  router per call with no tracker and no admission, so a backend that answered 429 was asked again on the
+  very next recall while the chat path would have benched it. The factory binds the ONE `DeadHostTracker`,
+  the ONE `IProviderAdmission` and the pool's configuration key — so one tenant's exhausted quota no longer
+  benches another's on these paths either.
+  <br>**Nothing you have written changes.** `SemanticMemory`, `SemanticSeedSource`, `VectorToolSelector`,
+  `GraphMemoryEngine` and `ScoringVerificationPolicy` each gain ONE optional trailing parameter, supplied
+  automatically by `AddLyntai`; no existing parameter moved, was renamed or changed type, and passing no
+  factory still routes exactly as before.
+  <br>**For an application-defined kind**, this is the seam that makes D153's promise true: close
+  `IProviderCall<TRequest,TResponse>` over your own types, inject `IProviderRouterFactory`, and
+  `For<TRequest,TResponse>(providers, synthesize, serves)` returns a router with candidate selection,
+  cooldown, admission and fallback — without this library knowing your kind exists.
+
+- **`ScoringVerificationOptions.ProviderId` names WHICH backend verifies a recall** (**D148**). Unset it
+  still takes the first registered backend that produces `ProviderKinds.Score`, so nothing moves for a
+  deployment with one — but with two, that was registration ORDER deciding what verifies memory, reported
+  nowhere. D139 makes a second one likely rather than hypothetical: a cross-encoder registered for a tool
+  selector became the memory verifier as a side effect of existing. A name matching no registered backend,
+  or one that does not declare `Score`, throws where the policy is composed rather than reporting
+  `NoOpinion` on every recall.
+
+- **An OpenAI-compatible backend declares what it `Produces`** (**D130**, **D131**, **D133**). One
+  registration is one backend: `o.Produces = ProviderKinds.Vector` posts to `/embeddings` instead of
+  `/chat/completions`, declares `Complete` alone (there is no partial embedding), and enters the routed
+  `IEmbedder`. A host answering BOTH routes is registered twice, under two ids, so a trace names the
+  backend that answered.
+
+
+- **A reranker is a provider like any other: `ProviderKinds.Score`** (**D139**). `IModelProvider` gains
+  `ScoreAsync(query, documents)` — one score per document, in INPUT order — and an HTTP reranker is
+  `AddHttpProvider("rerank", o => { o.BaseUrl = …; o.Produces = ProviderKinds.Score; })`. No new
+  registration method, no new options type, no new package: `Produces` picks the `/v1/rerank` route exactly
+  as it picks `/embeddings`. This is D130's prediction collected, and it makes a cross-encoder reachable by
+  anything — a ranking policy, a scorer, a tool selector — rather than by memory alone.
+
+- **`VectorMath.NormalizeInPlace`** (**D141**) — the L2-normalization every embedder backend needs, in the
+  one package both can reach. The ONNX and model2vec adapters each carried a copy; a BYO `IEmbedder` that
+  normalizes should use this one, for the same reason `VectorMath.Cosine` exists: two backends that
+  normalize differently do not rank identically.
+
+
+- **`AddBridgeProvider(id, complete, stream?, capabilities?)`** (**D147**) — register a backend from a
+  FUNCTION. Whatever can already answer (a vendor SDK, an in-house service, a `Microsoft.Extensions.AI`
+  `IChatClient`), you write the few lines of mapping you need and routing, fallback, dead-host cooldown,
+  admission and the ops layer come along. **It costs no dependency**, which is why it lives in `Lyntai.Core`
+  where the ecosystem-specific bridge D146 deleted never could. A bridge declares only the operations it was
+  handed a delegate for; pass `capabilities` to declare anything other than text in, text out.
+
+
+- **`AddOnnxCrossEncoder(dir)` — an in-process RERANKER.** A cross-encoder export runs through ONNX Runtime
+  beside the embedder `AddOnnxProvider` already registers: `[CLS] query [SEP] document [SEP]` in, one
+  relevance logit out, declaring `ProviderKinds.Score`. **That declaration is the whole of the wiring** —
+  `AddMemoryScoringVerification()` selects any backend producing scores (**D139**), so a recall is reranked
+  by a local file with no server, no port and no `/v1/rerank` endpoint. A multi-label head is REFUSED rather
+  than read at column 0: which label means relevance is the model's own convention, and guessing returns
+  well-formed numbers in the wrong order. **No quality figure is claimed** — the shipped assertion is that
+  it reproduces a published reference pair, which is a screen rather than a measurement.
+
+- **`WordPieceTokenizer.Encode(a, b, maxTokens)` — a PAIR, which is what a cross-encoder scores.** Emits
+  `token_type_ids` 0 across `[CLS] a [SEP]` and 1 across `b [SEP]` — the segment signal telling a query from
+  a document, and precisely what llama.cpp's GGUF conversion zeroes. **The truncation budget is spent on
+  `b`**, and `a` is shortened only when it cannot fit alone: losing a long document's tail costs some
+  evidence, while losing the query's changes the question being asked. The reference implementation
+  truncates longest-first; this states the rule a reranker actually wants rather than inheriting one.
+
+
+- **`LlmPairwiseComparer` answers an IDENTICAL pair itself, and asks no judge.** Two identical outputs
+  cost two model calls under the default position-bias mitigation — and could come back WRONG: on identical
+  text there is no signal for a judge to overcome its position bias with, so it can answer "a", and the
+  two-pass check cannot catch it because both passes see the same two strings. It is now a `Tie`, `Judged`,
+  with no call. **Ordinal equality only** — whether trailing whitespace or casing matters is a judgement
+  about the caller's domain, so anything short of identical still reaches the model.
+
+- **`JsonExtract.TryReadObject` — CODE repairs the punctuation a model gets wrong, instead of paying a
+  second call for it.** `CompleteJsonAsync` extracted the object out of prose and then asked the model to
+  try again whenever what it found did not parse STRICTLY — so a trailing comma or a stray `//` comment
+  cost a whole repair round trip, which is fail-closed where every other seam is fail-open, spends a second
+  usage-budget and rate-limit charge, and never returns a cached hit. Those are punctuation, not missing
+  meaning. The read now tolerates them and **re-serializes**, so the standing guarantee that an `Ok` verdict
+  means `JsonDocument.Parse(reply.Text)` succeeds is unchanged — an already-strict object is handed back
+  byte for byte, and only a repaired one is reformatted.
+  <br>**A TRUNCATED object still retries**, deliberately: it is missing content rather than commas, and only
+  the model can supply it. And `JsonExtract.IsValid` stays STRICT — `StructureScorer` uses it to GRADE
+  whether a model emitted well-formed JSON, so a grader that accepted a trailing comma would score
+  malformed output as perfect. One helper, two questions, kept apart.
+
 
 - **An in-process embedder with NO server, GPU or port** (**D121**, **D122**).
   `AddModel2VecProvider(modelDirectory)` over a `model2vec` lookup table, **in `Lyntai.Providers.Basic`** —
@@ -703,185 +839,58 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   inherits it, with the graph engine additionally pinning that the DEFAULT still withholds.
   `MemoryQuery.CharBudget` prices the extra text, so the same budget admits fewer items.
 
-### Breaking
-
-- **`MemoryQuery`'s primary constructor gained an optional parameter**, so a caller compiled against the old
-  signature must be RECOMPILED (source-compatible; binary-incompatible). Shipping this in a minor is the
-  deferred-SemVer-strictness rule at the top of this file, and an overload preserving the old signature was
-  deliberately not added — `repo-mechanics.md` §"Everything before 3.0 is HISTORY" refuses to pay a real
-  surface cost for a pre-compiled caller that does not exist.
-- **`IExpandableMemory.ExpandAsync` gained a `detail` parameter before its `CancellationToken`.** This is the
-  wider of the two breaks: a BYO implementation of that seam must add the parameter to COMPILE, not merely be
-  recompiled. It is deliberate — expansion is where the walk discovers, and a caller who asked for whole
-  entries on the query was silently getting headlines for everything discovered after the first step. A
-  positional caller passing `ct` fourth also breaks, loudly, at compile time.
-
-- **`RunPipelineAsync` — ordered generation stages, each feeding the next.** An extension over
-  `IMediaRouter` running `GenerationStage`s in order and chaining each one's artifact into the next
-  through `MediaArtifact.ToInput(role)`. Every stage carries its OWN candidates and routes
-  independently, because an image backend and a video backend are rarely the same vendor.
-  <br>**Nothing was added to `IMediaRouter`** — every stage is an ordinary routed call, which is what
-  keeps spend caps, throttling and dead-host cooldown governing a pipeline exactly as they govern one render.
-  A test pins that a cost cap reached by stage 1 refuses stage 2.
-  <br>**A stage that cannot identify a single artifact to chain REFUSES** (`Unsupported`, without calling a
-  backend) rather than guessing. There is deliberately no cleverer default: a media type cannot be branched
-  on — a mesh backend reports a GLB as `application/octet-stream` — and "the first `image/*`" picks a UV
-  texture atlas, which chains, renders, and is wrong. `GenerationStage.SelectInput` is where a caller who has
-  a rule states it, and `InputRole` is theirs too, since the same PNG is a first frame to one backend and an
-  init image to another.
-  <br>**Nothing is ever re-run**, so a failure at a later stage keeps what earlier stages already paid for:
-  `GenerationPipelineResult.Stages` holds every stage that ran, including the one that failed, and
-  `FailedAt` says which. Retry WITHIN a stage stays the router's fallback across that stage's candidates.
-  Chained inputs are APPENDED to a stage's own `Inputs`, so a style reference the caller attached survives,
-  and the caller's `MediaRequest` is never mutated.
-- **`WalkAsync` — the n-shot walk, as a surface rather than a loop every consumer writes.** An extension over
-  `IMemoryEngine` yielding `IAsyncEnumerable<MemoryWalkStep>`: a recall, then expansions outward from what it
-  turned up. **Your `break` is the stop condition**, because how far a walk is worth taking is a property of
-  the question rather than a constant — and the sequence is finite whether or not you break, since a step
-  that moves nothing ends it and `MemoryWalkOptions.MaxItems` bounds what it may hold.
-  <br>**Nothing was added to `IMemoryEngine`, `IExpandableMemory`, `MemoryQuery` or `MemoryItem`** — it
-  composes the two seams that already existed, the way `MemoryComposition` composes a recall and a rendering.
-  An engine that is not `IExpandableMemory` yields exactly one step rather than failing, and a faulting recall
-  still yields step 1 reporting `MemorySources.None`.
-  <br>**The merge is the payload.** A step both DISCOVERS entries and UPGRADES held ones from a headline to
-  full content, so `MemoryWalkStep` reports both — a count of new entries alone cannot see the upgrade, which
-  is the whole point of expanding something you already hold. Identity is the entry's whole `MemoryRef`, so a
-  composite's members may each own the same id.
-  <br>`MemoryWalkOptions.SeedSelector` replaces the default selection outright, count included; the default
-  takes the newly-discovered entries in arrival order, capped at `SeedsPerStep`. It deliberately does not
-  order by `MemoryItem.Relevance` — an expanded neighbour carries a relevance from a read that never asked
-  one (**D97**).
-- **`IMemoryGraphStore.WriteBackAsync` — a recall's whole write-back as ONE store call** (`docs/DECISIONS.md`
-  **D101**), with `GraphWriteBack` carrying the touch, the co-activation edges and the review-log rows
-  together. **It has a default body** running the three existing members in that order, so a BYO store keeps
-  compiling and keeps behaving identically; the SQLite and Postgres stores override it to open one connection
-  and read the position totals once. Those three calls previously cost three connection opens and two totals
-  reads per recall. **No latency claim is made** — as with `LinkManyAsync` the guarantee is a round-trip
-  COUNT: a test counts what the store asks its connection factory for and pins it at one, having read three
-  before the override existed. (The totals read is a code fact, not a counted one — nothing observes it.)
-  <br>**The review log is written LAST, and that order is contract.** It is the part a caller may lose
-  (`RecordReviewsAsync` is best-effort), so writing it after the touch and the edges is what keeps a broken
-  log from costing either — previously bought with a second `try/catch` inside the engine, which is now gone.
-  An implementation must not reorder it. The one visible consequence: the warning logged when a write-back
-  fails no longer claims the recall returned "without learning", which was false whenever a later part was
-  the one that failed.
-
-- **`IMemoryGraphStore.LinkManyAsync` — write several edges as one unit of work** (`docs/DECISIONS.md`
-  **D99**), with `GraphEdgeWrite` carrying one edge's arguments. **It has a default body** that loops
-  `LinkAsync`, so a BYO store keeps compiling and keeps behaving identically; the SQLite and Postgres stores
-  override it to open one connection and read the position totals once. A recall links its top hits pairwise
-  — ten edges at the shipped `CoActivationCap` — which previously cost ten connection opens and ten totals
-  reads. **No latency claim is made**: `memory-scale` cannot resolve the change above its own run-to-run
-  noise, so the guarantee is a round-trip COUNT and a test pins it.
-
-- **`GraphMemoryOptions.ExpansionRetrievabilityFloor` — the retrievability a neighbour must still have to be
-  walked to** (`docs/DECISIONS.md` **D98**). Default `0`, which admits every neighbour and is what every
-  release through 3.0.2 did, so nothing changes unless a deployment asks. `EdgeHalfLife` decays the EDGE and
-  nothing consulted the ENTRY on that path, so a recall could bury a superseded fact and an expansion of its
-  neighbour handed it straight back. It EXCLUDES from the walk rather than deleting, and never filters the
-  entry the caller named — only the walk out from it. Measured on LongMemEval's knowledge-update class: a
-  context holding the current value and not the superseded one held flat at 40.0% across three shots instead
-  of falling to 36.0%, at a cost of 4 points of current-fact hit rate.
-
-- **`SalienceContext.SimilarCount` — how many stored entries actually resemble a write**, as opposed to
-  `ComparableCount`, which is the raw return of a search asking for `SimilarityK + 1` with no floor and
-  therefore saturates: it reports the same number for a write resembling one thing and a write resembling
-  many. The filtered count separates those, which the raw one structurally cannot.
-  <br>Bounded by however many neighbours that search actually returned, so it is a floor on density and never
-  a census — read it as "at least this many". Not by `SimilarityK`: the request is `SimilarityK + 1` so that a
-  re-remember can lose one to self-exclusion and still see `SimilarityK`, and a fresh write, having nothing to
-  exclude, can therefore report `SimilarityK + 1`. `0` when no similarity search ran, exactly as `Novelty`
-  already reports that case.
-
-- **`MemoryItem.Metadata` — a recall now returns what the write put in `MemoryWrite.Metadata`.** The write
-  side has promised "an engine whose store cannot hold it ignores it" since it shipped and the read side said
-  nothing, so metadata was **writable and unreadable**: `GraphNode.Metadata` was persisted, returned by the
-  store, and dropped at all three of the places the engine projects it onto `MemoryItem` — one in
-  `RecallAsync` and two in `ExpandAsync`, which projects the entry the caller NAMED separately from its
-  neighbours. A consumer wanting a kind, a source or its own ordering key back had to keep a second copy
-  outside the library.
-  <br>Graph and curated engines round-trip it; lexical and semantic return `null`, because `MemoryEntry` and a
-  vector hit have nowhere to keep it. **`null` means the engine does not carry metadata, never that the caller
-  wrote none** — write a sentinel key if you need those apart. **A recall and an expansion answer alike.**
-  Pinned for every engine by `MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent`, which
-  asserts the round trip where it is supported and asserts `null` where it is not, so neither answer can pass
-  vacuously — and by `Metadata_survives_an_EXPANSION_not_only_a_recall` for the expansion path the first one
-  does not call. `docs/DECISIONS.md` **D93**.
-
-- **`MemoryVerificationCandidate.Relevance` — a verifier is shown the score the caller will see.** A candidate
-  carried an id and a headline, so the only route from those to *did anything answer this* is reading the
-  text, which means an LLM, and `LlmMemoryVerificationPolicy` was the one shipped implementation. The engine
-  had each candidate's score and did not pass it; a policy can now read the distribution too.
-  <br>**It is not a model-free ANSWER, and nothing here claims one.** Its scale and shape are source- and
-  backend-specific: one request mixes a graph store's normalized rank POSITION, a real cosine on a semantic
-  seed, a flat `1` on a graph-walk or subject seed, and `0` for a grade-admitted non-match. Rank position puts
-  the best row at exactly `1` whatever the query, so a top score of `1` is not evidence of a good match, and
-  no absolute floor can be derived from this number alone — prefer a RELATIVE test, and read it as an ordering
-  rather than a fit. **No score-floor policy ships**: the threshold is a property of the deployment's embedder
-  and corpus (`generic-library` rule 7). `docs/DECISIONS.md` **D93**.
-
-- **`IMemorySeedSource` — seed retrieval is now a registered, PLURAL collection of retrieval channels, and
-  `ReciprocalRankFusionPolicy` fuses the RANKED LISTS they return** instead of one pooled `Relevance` field
-  (`docs/DECISIONS.md` **D103**). Three ship: `LexicalSeedSource` (the store's own text read, registered
-  unconditionally — the channel every graph engine already had), `SemanticSeedSource`
-  (`AddMemorySemanticSeeds`, still NOT registered by default — an embedder registered for its own reasons
-  must not silently start steering recall), and `SubjectSeedSource` (`AddMemoryEngine` registers this channel
-  unconditionally; `AddMemorySubjectSeeds` only CONFIGURES it, since a subject exists only because an
-  annotator was already paid for). `UseGraph(..., seedSources: …)` overrides the set per engine.
-  <br>**Within one source, a candidate is ranked by that source's OWN `GraphNode.Relevance` gradient, never by
-  list position** — competition-ranked, ties sharing a rank; a node the source did not MATCH earns no rank at
-  all, and a source whose matched nodes all carry one value is UNORDERED and earns none either. A candidate
-  found by two sources scores the SUM of both reciprocal-rank terms, so agreement between channels is
-  rewarded — something a single pooled field could not express. `MemoryCandidate.Ranks` (`MemorySeedRanks`)
-  carries the evidence; a candidate carrying no ranks at all — a hand-built engine, a BYO gather — falls back
-  to today's pooled-relevance term, byte-identical to before this shipped.
-  <br>**Measured on LoCoMo evidence-hit@20** (`docs/memory-measurements.md` §5): the semantic channel was previously
-  unreachable — a real cosine could never outrank a fabricated pooled value — and with per-source fusion its
-  `+sem+rel-only` arm now reads **83.0%**, above plain cosine's own **80.5%**, the first mechanical arm to
-  clear it. **No default moved** — `SemanticSeedOptions` still ships unregistered.
-  <br>**83.0% is a SQLite figure.** Under the shipped default registration (lexical + subject, no semantic)
-  against `InMemoryMemoryGraphStore`, no candidate carries a rank, so the whole recall still runs the pooled
-  fallback this change replaces — one of three shipped backends is unaffected.
-
-### Breaking
-
-- **`SalienceContext` gains one trailing member**, widening its constructor and its `Deconstruct`. Additive
-  for construction by name or position — the default reproduces today's behaviour — and a source break only
-  for code that positionally DECONSTRUCTS it.
-
-- **`MemoryItem` and `MemoryVerificationCandidate` each gain one trailing member**, widening their
-  constructors and their `Deconstruct`. Additive for anyone constructing them by name or positionally — both
-  defaults reproduce today's behaviour exactly — and a **source break only for code that positionally
-  DECONSTRUCTS** either record: `var (reference, headline, …) = item` now needs one more slot. The same shape
-  `GraphNodeWrite`'s two flags take below.
-
-- **`IMemoryGraphStore.NeighboursAsync` gains a `taskKey` parameter, and `ILinkableMemory.LinkAsync` now
-  REFUSES a cross-task link.** A `taskKey` was the isolation boundary of every read except traversal, which
-  followed edges wherever they led — so an application that linked across tasks made those entries reachable
-  from each other's recalls. A half-boundary is worse than none, because consumers reason about it as a whole
-  one. `docs/DECISIONS.md` **D92**.
-  <br>**A BYO `IMemoryGraphStore` gets a compile error** naming the member, deliberately: a default body
-  would have compiled and silently kept the hole. Pass the `taskKey` through to your node predicate.
-  <br>**The capability lost** is asserting an association between facts in DIFFERENT tasks. Keep that in your
-  own data — two facts that belong together belong in one task. Traversal is scoped as well as the link
-  refused, so an edge an existing database already holds is never walked either.
-
-- **`GraphNodeWrite` gains two trailing flags, `bool GradeStated = true` and `bool HeadlineStated = true`**,
-  which widen its constructor and its `Deconstruct`. Additive for anyone constructing it by name or positionally (the default reproduces the old
-  behaviour exactly), and a **source break only for code that positionally DECONSTRUCTS the record** —
-  `var (engine, task, …) = write` now needs one more slot. A BYO `IMemoryGraphStore` that ignores the new
-  member keeps the old grade-overwriting behaviour, which is the bug below; honour it to get the fix.
-
-- **`GraphMemoryOptions.SemanticSeedK`, `.SubjectSeedK` and `.SubjectSeedScan` are REMOVED**, replaced by a <!-- drift-ok link-ok: the entry announcing a removal must name what was removed, and none of the three exists any more -->
-  registered `IMemorySeedSource` collection, each source carrying its own options record:
-  `SemanticSeedOptions.K` (`AddMemorySemanticSeeds`, NOT registered by default — an embedder registered for
-  its own reasons must not silently start steering recall) and `SubjectSeedOptions.K` / `.Scan` (on by
-  default — `AddMemoryEngine` registers this channel unconditionally, and `AddMemorySubjectSeeds` only
-  configures it, since a subject exists only because an annotator was already paid for). Both new records
-  ship the same defaults the removed properties carried, including
-  `SubjectSeedOptions.K = 0` as the off-switch. `UseGraph(..., seedSources: …)` overrides the set per engine.
-
 ### Fixed
+
+- **Documentation that survived two seam unifications and said things that are no longer true.** The
+  `README.md` offered a capability-probe sample whose `provider is not IModelProvider` type test is always
+  true (`ProbeAsync` moved onto the base seam in **D127**, so there are three optional capabilities, not
+  four), listed streaming generation under an interface that no longer exists, and advertised the
+  `Microsoft.Extensions.AI` bridge **D146** deleted — as did `IProviderIdentity`'s and
+  `LyntaiDiagnostics`' shipped XML docs. The package count was one too high. Nothing about the library's
+  behaviour changed; what a consumer reads about it did. Two new gates (`check-tautology`, and a
+  `check-backlog` rule) make the shapes behind those two classes fail rather than ship.
+
+- **…and the rest of it, in the tiers that sweep did not read.** `README.md` still labelled
+  `Lyntai.Generation` **Experimental** and justified its package boundary by the release cadence **D70** <!-- drift-ok: the entry ANNOUNCING this retirement has to name the label it removes -->
+  withdrew with the carve-out — in a table cell the `retiredTerms` rule could not match, now widened.
+  `Lyntai.Providers.Basic`'s package description still called itself "the default set" (**D144** renamed it
+  for exactly that reason), and four `*.csproj` comments were a rename behind: the bundle advertising the
+  deleted `Microsoft.Extensions.AI` bridge, the `Microsoft.Extensions.AI.Abstractions` justification left
+  annotating the reference that outlived it, `Providers.Default`, and a namespace the HTTP family left in
+  **D135**. No prose gate reads a `*.csproj`; measured at 0 hits over 18 files, so these were corrected by
+  hand rather than by widening one. Detail in `docs/task-archive.md` Part 240.
+
+- **Contract rules that existed only inside the two SQL backends are now on the seams themselves.**
+  `IMemoryGraphStore.UpsertAsync` states that the engine advances FIRST and atomically and that only the
+  position comes from `GraphNodeWrite.Advance` (the three policy-independent primitives never do, which is
+  what makes the age policy swappable); `TouchAsync` states that a touch advances the engine on NO scale, so
+  a recall cannot age every other entry; `LinkManyAsync` states that one position snapshot per batch is more
+  CORRECT rather than merely faster, which an override must keep. `IJobStore.ListAsync` states that a
+  non-positive limit returns empty on every backend and `ReportStepAsync` that the capped step log is a
+  read-modify-write an implementation must serialize per JOB; `ITraceStore` states the step-ordinal fallback;
+  `MemoryEvictionPolicy.TracksAccess` states that a queried recall is use and a list-all is not. A BYO store
+  reads the seam, not somebody else's backend. Detail in `docs/task-archive.md` Part 241, and the
+  Governance-guard design in **D150**.
+
+- **A cross-encoder export whose head cannot carry one score per pair is now refused at COMPOSITION.**
+  `AddOnnxCrossEncoder` pointed at a multi-label (NLI) model used to load cleanly and refuse on the first
+  score — into `AddMemoryScoringVerification`, which is fail-open and reported `NoOpinion`, so every recall
+  came back silently unverified and looked exactly like having no scoring backend registered.
+  `OnnxCrossEncoder.FromDirectory` now reads the label axis the graph itself declares and throws there. An
+  export that declares a DYNAMIC label axis is unaffected — it states too little to refuse on and is still
+  judged against the tensor it returns. Separately, `ScoringVerificationPolicy` still fails open but now
+  logs a backend that declares `ProviderKinds.Score` without serving it at **Warning** rather than Debug: it
+  is a permanent wiring defect, not a transient failure. Detail in `docs/FIXES.md`.
+
+- **A graph engine's vector collections could be forgotten ACROSS a task boundary.** The similarity-index
+  address was `{engine}|{taskKey}|{scope}`, so two different triples composed to one collection — task `a` +
+  scope `b|c` and task `a|b` + scope `c` — and forgetting either erased the other's enrichment vectors,
+  while the unscoped semantic seed prefix-swept into a neighbouring task. The separator is now U+001F and
+  the address has ONE owner used by both the write and read sides. **Vectors persisted under the old address
+  are orphaned rather than migrated**: a deployment re-indexes, and enrichment rebuilds them on the next
+  write. Task isolation itself (`docs/memory.md` §7) is unchanged — it was the address that leaked, not the
+  rule. Detail in `docs/FIXES.md`.
+
 
 - **A slow annotator or judge no longer fails the write or the recall it was only meant to advise.** Both
   model-in-the-loop memory seams are documented fail-open — a failing model degrades to "no subjects" or

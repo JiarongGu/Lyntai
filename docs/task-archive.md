@@ -4499,3 +4499,27 @@ it rather than moving it. That is the state's whole purpose — a sweep that ren
 has decided something invisibly.
 
 - **What `AddGenerationProvider` should be called, or whether it should exist.**
+
+## Part 253 — REL1, and the two halves of REL2 that survived re-checking
+
+✅ done 2026-09-18 — **Outcome:** the Unreleased changelog now announces the four surface changes it was
+silent on, and its thirteen `###` headings are four. REL1's claims were re-verified against the tree before
+acting, as Part 102 requires: all four held.
+
+**The sharp one was sharp.** `ProviderProbeResult`'s entry said the LLM domain had duplicated it *"in a
+different field order"* and never said the survivor took GENERATION's. Every member but the first is
+`string?`, so a positional call written for `(Available, Version, Model, Detail)` still COMPILES against
+`(Available, Detail, Version, Model)` and files the version string into `Detail` — a silent data defect on
+upgrade. The entry now states the surviving order and says to check every multi-argument construction.
+The other three: `MemoryReview.Grade` → `ReviewGrade` (unannounced, and `MemoryReviewWrite` is constructed
+by every BYO graph store), `GraphNode`'s trailing `Matched` (the read-side member of a break class already
+listed for four write-side types), and the LLM-side `FallbackAction` namespace move, which D140's entry
+described only from the generation side.
+
+**REL2's third half was REFUTED and is now a decision, not work.** It claimed nine `### Breaking` entries
+are additive; five genuinely are source-compatible to construct — but the same release files
+`GraphNodeWrite gains two trailing flags` under Breaking, which is the identical shape. The repository has
+never written down what Breaking MEANS here, so re-filing on a review's assertion would ship a migration
+path resting on an unstated rule. The rule goes first; `TASKS.md` Part 102 carries the two candidates.
+
+- **REL1 — four surface changes since `v3.1.0` that NO changelog entry announces.**

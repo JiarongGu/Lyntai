@@ -4453,6 +4453,12 @@ ids had been silently rewritten by rename sweeps (**D142**).
 
 ## D145 — the Microsoft.Extensions.AI module is a BRIDGE, not a provider (2026-09-15)
 
+> **SUPERSEDED by D146, which DELETED the bridge.** Everything below describes where those four types were
+> moved to; none of them exists now, so the move it instructs has no destination and no subject. Reach an
+> OpenAI-compatible backend with `AddHttpProvider`, or bridge anything that can already answer with
+> `AddBridgeProvider` (**D147**). Kept because the reasoning — a bridge is not a provider — is what **D146**
+> then acted on, and because a reader arrives here from a grep rather than at the top of the file.
+
 `Lyntai.Providers.ExtensionsAi` becomes `Lyntai.ExtensionsAi`, and `AsChatClient()` moves to `Lyntai.Llm` <!-- drift-ok: this entry RETIRES the namespace, so it has to say it -->
 beside the `ILlmClient` it extends. The code stays in `Lyntai.Providers.Basic`; only the namespace moves. <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 

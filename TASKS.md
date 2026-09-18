@@ -15,28 +15,27 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 15 across 6 Parts: 8 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 14 across 6 Parts: 6 startable, 4 blocked, 2 watch, 2 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 116 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 133 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 166 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 219 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 238 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 288 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
-| 304 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
-| 313 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
-| 320 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
-| 329 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
-| 358 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 418 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 473 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 496 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 553 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 115 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 132 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 165 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 218 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 237 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 288 | 102 | REL2 — what counts as BREAKING here has never been written down | decision-only · decision | a ruling on whether a trailing defaulted record member is Breaking or Added… |
+| 305 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
+| 312 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
+| 321 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
+| 350 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 410 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 465 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 488 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 545 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -285,30 +284,23 @@ names or shapes, so they ship in the major or wait for the next one._
 _**Read the evidence before deciding, and re-verify it.** These came out of a review, not out of a gate;
 the line numbers and counts were true on 2026-09-17 and rot the way any measurement does._
 
-- [ ] **REL1 — four surface changes since `v3.1.0` that NO changelog entry announces.** <!-- item: state=startable -->
-  The changelog IS the migration path for this major (**D149** — there is deliberately no separate guide),
-  so an unannounced break is a consumer hitting it with nothing to read.
-  1. **`MemoryReview.Grade` → `ReviewGrade`** on `MemoryReview`, `MemoryReviewWrite` and `MemoryReviewRow`
-     (commit `94f89b2c`, marked `!`). `MemoryReviewWrite` is constructed by every BYO `IMemoryGraphStore`.
-  2. **`ProviderProbeResult`'s positional parameter ORDER changed** — `(Available, Version, Model, Detail)`
-     became `(Available, Detail, Version, Model)`. **The sharp one**: D127's entry mentions the two domains
-     had different field orders but never says the survivor took generation's, so a consumer who follows
-     its stated migration recompiles CLEAN and files their version string into `Detail`. A silent data
-     defect on upgrade, not a compile break.
-  3. **`GraphNode` gained a trailing `Matched` member** — the Breaking section lists this exact break class
-     for four sibling types and omits the one a BYO graph store RETURNS.
-  4. **`Lyntai.Llm.Routing.FallbackAction` → `Lyntai.Inference.FallbackAction`.** D140's entry names only <!-- drift-ok: the item is ABOUT the move, so it must name where the type came from · tautology-ok: the two sides are the two namespaces -->
-     the generation-side type as moving. (The source namespace has since been retired outright by D154
-     NS-4, which does not change what D140's entry failed to say.)
 
-- [ ] **REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describes a dead migration.** <!-- item: state=startable -->
-  `RunPipelineAsync`, `WalkAsync`, `WriteBackAsync`, `LinkManyAsync`, `ExpansionRetrievabilityFloor`,
-  `SalienceContext.SimilarCount`, `MemoryItem.Metadata`, `MemoryVerificationCandidate.Relevance` and
-  `IMemorySeedSource` all sit under a `### Breaking` heading. For a release whose changelog is the
-  migration path, a consumer reading that heading gets nine non-breaks mixed into the list. Separately,
-  **D145's entry instructs a migration D146 deleted fifteen lines above it** — D123 and D128 both carry a
-  supersession note and D145 does not, so it reads as live guidance. The Unreleased section also has six
-  `### Added` headings and three `### Breaking`; worth collapsing before the cut.
+- [ ] **REL2 — what counts as BREAKING here has never been written down.** <!-- item: state=decision-only kind=decision needs="a ruling on whether a trailing defaulted record member is Breaking or Added, given ApiSurfaceTests moves for both" -->
+  Two of its three halves landed 2026-09-18 (`docs/task-archive.md` Part 253): the
+  thirteen `###` headings collapsed to four, and D145 gained the supersession note D123 and D128 already
+  had. **The third half did not, because re-checking refuted its premise.**
+  <br>It claimed nine entries under `### Breaking` are ADDITIVE. Checked: `WriteBackAsync` and
+  `LinkManyAsync` carry interface DEFAULT BODIES, and `MemoryItem.Metadata`,
+  `MemoryVerificationCandidate.Relevance` and `ExpansionRetrievabilityFloor` are trailing and defaulted —
+  so all five are source-compatible to CONSTRUCT. But a trailing record member still breaks positional
+  deconstruction, is binary-breaking, and moves the `ApiSurfaceTests` baseline; and the same release files
+  **`GraphNodeWrite` gains two trailing flags** under `### Breaking`, which is the identical shape. **The
+  repository's own practice contradicts the item**, so re-filing nine entries on a review's assertion would
+  ship a migration path built on an unstated rule.
+  <br>**Decide the rule first, then apply it to all of them at once.** The candidates: "Breaking = a
+  consumer must edit source" (moves all five out, and `GraphNodeWrite` with them) or "Breaking = anything
+  that moves the frozen baseline" (all five stay, and the entries should say what the reader must DO, which
+  is the complaint underneath the original item).
 
 - [ ] **REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep missed.** <!-- item: state=startable -->
   `AddOnnxCrossEncoder` / `OnnxCrossEncoder` / `OnnxCrossEncoderOptions`, beside `AddOnnxProvider` /
