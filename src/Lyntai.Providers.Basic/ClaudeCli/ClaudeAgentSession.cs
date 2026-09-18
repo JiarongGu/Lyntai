@@ -5,6 +5,7 @@ using Lyntai.Inference.Streaming;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.ClaudeCli;
 

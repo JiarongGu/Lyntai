@@ -1,6 +1,6 @@
 using Lyntai.Agents;
 
-namespace Lyntai.Providers;
+namespace Lyntai.Providers.Basic;
 
 /// <summary>Validation of <see cref="AgentSessionOptions.McpServers"/> shared by every CLI agent session in
 /// this package, so the two backends refuse the SAME inputs for the same reasons. Rendering stays

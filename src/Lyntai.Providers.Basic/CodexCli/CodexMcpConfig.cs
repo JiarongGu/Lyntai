@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Lyntai.Agents;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.CodexCli;
 

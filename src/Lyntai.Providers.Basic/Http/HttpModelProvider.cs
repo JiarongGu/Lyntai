@@ -7,6 +7,7 @@ using Lyntai.Inference.Streaming;
 using Lyntai.Providers.Http.Payloads;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.Http;
 

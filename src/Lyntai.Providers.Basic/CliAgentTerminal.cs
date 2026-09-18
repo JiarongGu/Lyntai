@@ -2,7 +2,7 @@ using Lyntai.Inference;
 using Lyntai.Agents;
 using Lyntai.Processes;
 
-namespace Lyntai.Providers;
+namespace Lyntai.Providers.Basic;
 
 /// <summary>The fault → terminal translation the two CLI agent sessions share. Both spawn a CLI, both read
 /// its output through <c>GuardedStream.ReadAll</c>, and both owe the caller exactly one

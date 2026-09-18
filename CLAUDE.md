@@ -116,7 +116,9 @@ line a sweep crosses without failing anything: it is live wherever it means *"th
 and the `"llm"` score group. Renaming the types without the column would split one vocabulary in two.
 **TWO namespaces above are not Core's alone.** `Lyntai.Secrets` is shared (Core's envelope +
 `Lyntai.Secrets.Dpapi`'s public protector) and `Lyntai.Inference` is entered by an INTERNAL type in
-`Lyntai.Providers.Basic`. **A third is simply gone: nothing inhabits an embedding-named root any more**
+`Lyntai.Providers.Basic` — which is now a NAMESPACE as well as a package id (**D154** emptied the bare
+`Lyntai.Providers` root, so that family means ADAPTERS and nothing else, one segment per adapter).
+**A third is simply gone: nothing inhabits an embedding-named root any more**
 (**D152**) — the role-named namespace, registration and selector are retired, and both in-process vector
 backends now sit under `Lyntai.Providers.*` (`.Model2Vec`, `.Onnx`) like every other adapter.
 **A PROVIDER is named for its BACKEND; what it produces is said in `ProviderCapabilities`** — so a role word

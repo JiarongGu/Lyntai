@@ -15,31 +15,30 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 18 across 7 Parts: 10 startable, 4 blocked, 2 watch, 2 decision-only
+## Open items — 17 across 7 Parts: 9 startable, 4 blocked, 2 watch, 2 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 119 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 136 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 169 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 222 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 241 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 311 | 103 | What `AddGenerationProvider` should be called, or whether it should exist | decision-only · decision | a ruling on whether a media registration is named for the ROUTER it wires o… |
-| 323 | 103 | NS-5 — `Lyntai.Providers` stops meaning three things | startable |  |
-| 329 | 103 | ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING | startable |  |
-| 348 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
-| 364 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
-| 373 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
-| 380 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
-| 389 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
-| 418 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 478 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 533 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 556 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 613 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 118 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 135 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 168 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 221 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 240 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 296 | 103 | What `AddGenerationProvider` should be called, or whether it should exist | decision-only · decision | a ruling on whether a media registration is named for the ROUTER it wires o… |
+| 308 | 103 | ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING | startable |  |
+| 327 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
+| 343 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
+| 352 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
+| 359 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
+| 368 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
+| 397 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 457 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 512 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 535 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 592 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -280,33 +279,19 @@ fourth such surface — a consuming app measured it 2026-08-04 and it is now con
 ## Part 103 — the namespace restructure, and D153's unfinished wiring (2026-09-17)
 
 _Opened by **D153**, which gave every call family the same SHAPE and left them in three different
-namespaces — because that is where each already lived. The design is
-`local/superpowers/specs/2026-09-17-namespace-restructure-design.md`, which measures the five problems and
-sequences the work; **read it before starting any item below**, because the ORDER is the point. Renaming
-types and moving namespaces touch the same ~231 files, so the wrong order rewrites the same `using` lines
-twice._
+namespaces — because that is where each already lived. **The rule that settled it is `docs/DECISIONS.md`
+D154**, which is the tracked record; the design that sequenced the work was
+`local/superpowers/specs/2026-09-17-namespace-restructure-design.md` and is finished._
 
-_**Every item here is BREAKING and needs this release window or the next major.** They are listed in the
-order the spec establishes; the pure moves come first — the cheapest place to discover a problem._
+_**The RESTRUCTURE itself is finished** — every NS item closed 2026-09-17/18 as `docs/task-archive.md`
+Parts 246–250, and the rule it encodes is **D154**. What is left below is not part of it: one question the
+sweeps deliberately declined to answer, and one wiring gap D153 left. Neither is a namespace move._
 
-_**NS-1 landed 2026-09-17** — `Lyntai.Lifecycle` → `Lyntai.Inference`, namespace only, 279 files._ <!-- drift-ok: the entry RECORDS the name it retired -->
-_It paid for itself as the first step exactly as intended: it found a `check-decision-claims` predicate
-reading a hardcoded `src/…/Lifecycle/…` path — a slashed PATH, which a dotted-namespace rewrite does not
-touch — and a `check-tautology` hit where this very item had collapsed to `X → X`. Both would have been far
-harder to spot inside a combined rename-and-move pass._
-
-
-
-_**NS-2 and NS-4 landed together 2026-09-18** (`docs/task-archive.md` Part 248) — the front door became
-`ITextClient`/`TextRouter` and the whole `Lyntai.Llm` family folded into `Lyntai.Inference`, which is what <!-- drift-ok: the entry RECORDS the namespace it retired -->
-NS-2's refutation had said it must: a decorator that wraps the text front door is text-specific whatever
-its namespace is called. `IRateLimiter` alone is genuinely generic (`AcquireAsync(consumer)`); splitting it
-from its decorator stayed undone, and is a decision rather than a leftover._
-
-_**NS-6 landed 2026-09-18** (`docs/task-archive.md` Part 249) — the media router family became `Media*`
-in `Lyntai.Inference`, so `TextRouter` and `MediaRouter` are finally neighbours, and `Lyntai.Generation` is
-what RUNS a generation and nothing else. It was the spec's step 5 and had no backlog item until the day it
-closed, which is what two numbering schemes cost one level below the one `task-lifecycle.md` warns about._
+_**Two things that carry forward, because a closed Part is not where anyone looks for them.** The `NS-n`
+ids here and the design's step numbers **diverged at 5**, so one whole step existed in no tracked file
+until the day it closed — write one set of numbers or name the file every time. And only three of the six
+steps were BREAKING in the way the Part originally claimed: the last one moved four INTERNAL types and the
+API baseline did not move at all._
 
 - [ ] **What `AddGenerationProvider` should be called, or whether it should exist.** <!-- item: state=decision-only kind=decision needs="a ruling on whether a media registration is named for the ROUTER it wires or folds into AddProvider(factory, declares)" -->
   It registers any factory into the media candidate pool AND ensures the media router is wired — two jobs,
@@ -319,12 +304,6 @@ closed, which is what two numbering schemes cost one level below the one `task-l
   <br>_The two candidate answers: name it for what it DOES to the router (it is the only registration that
   calls `EnsureRouter`), or delete it and let `AddProvider(factory, declares)` plus explicit router wiring
   do the job. The second is smaller surface and more typing for the consumer._
-
-- [ ] **NS-5 — `Lyntai.Providers` stops meaning three things.** <!-- item: state=startable -->
-  The bare root holds `AgentMcpServers`, `CliAgentTerminal`, `CliTempFile`, `WireJson` — shared CLI helpers,
-  not contracts — while `Lyntai.Providers.Onnx` and friends are backends and `Lyntai.Generation.Providers`
-  is a third family. Move the helpers under a named adapter namespace so the root means adapters and
-  nothing else.
 
 - [ ] **ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING.** <!-- item: state=startable -->
   `EmbeddingRouting` and `ScoringVerificationPolicy` build a `ProviderRouter` with no `DeadHostTracker` and

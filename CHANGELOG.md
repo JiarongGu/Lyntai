@@ -70,6 +70,9 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   <br>**One doc-comment correction ships with it:** `ProviderVerdict`'s summary named `LlmRoutingPolicy` as <!-- drift-ok: the correction has to name the type it corrects -->
   the text action table. No such type exists — `RoutingPolicy` is the SHARED default every router starts
   from, and `MediaRoutingPolicy` is the media domain's override.
+  <br>**Finally, `Lyntai.Providers` means ADAPTERS and nothing else.** Four shared helpers that sat in the
+  bare root moved to `Lyntai.Providers.Basic`, so that family is one segment per adapter. All four are
+  internal — **no public surface changed**, and nothing a consumer imports moves.
 
 ### Added
 

@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Lyntai.Providers;
+namespace Lyntai.Providers.Basic;
 
 /// <summary>The "read a number off a backend's wire object" helper this package shares — one
 /// implementation, because it had three and they did not agree.

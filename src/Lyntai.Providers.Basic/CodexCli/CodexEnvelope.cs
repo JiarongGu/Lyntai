@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Lyntai.Inference;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.CodexCli;
 

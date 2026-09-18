@@ -1,4 +1,5 @@
 using Lyntai.Agents;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.CodexCli;
 

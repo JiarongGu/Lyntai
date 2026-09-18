@@ -2,6 +2,7 @@ using Lyntai.Inference;
 using System.Text;
 using System.Text.Json;
 using Lyntai.Agents;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.ClaudeCli;
 

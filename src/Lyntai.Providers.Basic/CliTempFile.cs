@@ -1,4 +1,4 @@
-namespace Lyntai.Providers;
+namespace Lyntai.Providers.Basic;
 
 /// <summary>Writes a CLI config file that may carry a credential, and removes it again.
 ///

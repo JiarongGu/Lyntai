@@ -4431,3 +4431,25 @@ leaving it visibly odd among five `Media*` siblings is the honest state for an u
 is in `.claude/knowledge/pitfalls.md` §Refactoring & namespace moves.
 
 - **NS-6 — the MEDIA router joins its peer: `GenerationRouter` → `MediaRouter`.**
+
+## Part 250 — `Lyntai.Providers` means adapters and nothing else (D154, the last step)
+
+✅ done 2026-09-18 — **Outcome:** `AgentMcpServers`, `CliAgentTerminal`, `CliTempFile` and `WireJson` moved
+from the bare `Lyntai.Providers` root to `Lyntai.Providers.Basic`, the package that owns them, so that
+family is now one segment per adapter with no root tenants. Eleven files gained an import; **all four types
+are internal, so the API baseline did not move** — the one step of this restructure that broke nothing.
+
+**The item's own description was wrong, and checking it is what picked the home.** It called them "shared
+CLI helpers", which is **D144**'s stated invariant — *"a file arriving there is making a claim a reviewer
+can check: every CLI backend in this package uses it"*. Nobody checked it: `WireJson` is read by
+`HttpModelProvider`. So a CLI-named namespace would have been false for one of the four, and the package
+that owns them is the only thing true of all four. D144 now carries the supersession at the paragraph that
+made the claim, because a reader arrives inside a record from a grep.
+
+**Nothing was added to `retiredTerms` or `retiredApiNames`, deliberately:** no name was retired here.
+`Lyntai.Providers` is still live as the family parent and all four types kept their names — only their
+namespace changed, and it was never public.
+
+**With this, D154 is fully executed** and its six steps are Parts 246–250 plus the NS-4 follow-up.
+
+- **NS-5 — `Lyntai.Providers` stops meaning three things.**

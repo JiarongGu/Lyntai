@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Lyntai.Agents;
+using Lyntai.Providers.Basic;
 
 namespace Lyntai.Providers.ClaudeCli;
 

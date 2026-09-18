@@ -4440,6 +4440,10 @@ root the only folder a reader had to scan to answer "what is in here".
 **What stays at the root is what is genuinely SHARED** — `AgentMcpServers`, `CliAgentTerminal`,
 `CliTempFile`, `WireJson`, in namespace `Lyntai.Providers`. That is now the root's whole meaning, so a file
 arriving there is making a claim a reviewer can check: every CLI backend in this package uses it.
+<br>**Superseded by D154 (2026-09-18), and the checkable claim above is why.** Nobody checked it: `WireJson`
+is read by `HttpModelProvider`, so the root's meaning was never "CLI helpers" in the first place. All four
+moved to `Lyntai.Providers.Basic` — the package that owns them, which is the one true thing about all four
+— leaving `Lyntai.Providers.*` meaning ADAPTERS and nothing else. Internal types, so no surface moved.
 
 **The package id is burned** (**D23**) and registered in `nuget-unlist.mjs`'s `RETIRED` array (**D44**) —
 the fourth entry added this session, and the array itself had to be repaired first: two of its published
