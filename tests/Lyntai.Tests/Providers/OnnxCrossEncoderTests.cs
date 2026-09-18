@@ -190,13 +190,13 @@ public class OnnxCrossEncoderCompositionTests : IDisposable
     public void A_MISSING_directory_says_so_rather_than_null_referencing()
     {
         Assert.Throws<DirectoryNotFoundException>(
-            () => OnnxCrossEncoder.FromDirectory(Path.Combine(_dir, "nope")));
+            () => OnnxProvider.FromDirectory(Path.Combine(_dir, "nope")));
     }
 
     [Fact]
     public void No_GRAPH_names_both_layouts_it_looked_for()
     {
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxCrossEncoder.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(_dir));
 
         Assert.Contains("onnx/model.onnx", error.Message, StringComparison.Ordinal);
     }
@@ -207,7 +207,7 @@ public class OnnxCrossEncoderCompositionTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_dir, "onnx"));
         File.WriteAllText(Path.Combine(_dir, "onnx", "model.onnx"), "not really a graph");
 
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxCrossEncoder.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxProvider.FromDirectory(_dir));
 
         Assert.Contains("vocab.txt", error.Message, StringComparison.Ordinal);
     }
@@ -227,7 +227,7 @@ public class OnnxCrossEncoderReachabilityTests
     private sealed class DeclaredLikeTheCrossEncoder : IScoreProvider
     {
         public string Id => "onnx-rerank";
-        public ProviderCapabilities Capabilities => OnnxCrossEncoder.Declared;
+        public ProviderCapabilities Capabilities => ScoreDeclaration;
 
         public Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default) =>
             Task.FromResult(ScoreResponse.Success(
@@ -251,12 +251,27 @@ public class OnnxCrossEncoderReachabilityTests
         Assert.Equal(["b"], verdict.RelevantIds);
     }
 
-    [Fact]
-    public void It_declares_SCORE_and_nothing_else_so_no_router_sends_it_a_chat_or_an_embedding()
+    /// <summary>What a provider running the cross-encoder dialect declares. Built from the DIALECT rather
+    /// than copied, because the dialect is what decides it (<c>docs/DECISIONS.md</c> <b>D157</b>) — a copy
+    /// would go on passing after the thing it describes changed.</summary>
+    internal static readonly ProviderCapabilities ScoreDeclaration = new()
     {
-        Assert.Equal([ProviderKinds.Score], OnnxCrossEncoder.Declared.Produces);
-        Assert.Equal([ProviderKinds.Text], OnnxCrossEncoder.Declared.Accepts);
-        Assert.Equal([ProviderOperation.Complete], OnnxCrossEncoder.Declared.Operations);
+        Accepts = [ProviderKinds.Text],
+        Produces = [new OnnxCrossEncoderDialect().Produces],
+        Operations = [ProviderOperation.Complete],
+    };
+
+    /// <summary>The DIALECT is what decides the kind, so this is the claim worth pinning: the same provider
+    /// class produces vectors or scores according to which one it was given, and never both.</summary>
+    [Fact]
+    public void The_dialect_decides_the_kind_so_no_router_sends_it_a_chat_or_the_wrong_call()
+    {
+        Assert.Equal(ProviderKinds.Score, new OnnxCrossEncoderDialect().Produces);
+        Assert.Equal(ProviderKinds.Vector, new OnnxPoolingDialect(OnnxPooling.Mean, true).Produces);
+
+        Assert.Equal([ProviderKinds.Score], ScoreDeclaration.Produces);
+        Assert.Equal([ProviderKinds.Text], ScoreDeclaration.Accepts);
+        Assert.Equal([ProviderOperation.Complete], ScoreDeclaration.Operations);
     }
 }
 
@@ -347,10 +362,26 @@ public class OnnxCrossEncoderLiveTests
 
     private static string? ModelDirectory => Environment.GetEnvironmentVariable("LYNTAI_ONNX_RERANK_MODEL_DIR");
 
-    private static OnnxCrossEncoder Load()
+    /// <summary>The cross-encoder DIALECT is not optional here, and nothing but a real model would say so:
+    /// the default is the bi-encoder one, so omitting it opens a reranker export and reads the wrong
+    /// tensor. This suite is env-gated, so that mistake survives a green <c>verify</c>.</summary>
+    private static OnnxProvider Load()
     {
         Skip.If(string.IsNullOrWhiteSpace(ModelDirectory), "set LYNTAI_ONNX_RERANK_MODEL_DIR to a cross-encoder export");
-        return OnnxCrossEncoder.FromDirectory(ModelDirectory!);
+        return OnnxProvider.FromDirectory(ModelDirectory!, new OnnxProviderOptions
+        {
+            Id = "onnx-rerank",
+            Produces = ProviderKinds.Score,
+        });
+    }
+
+    /// <summary>The whole of D157 in one assertion: one provider class, and what it PRODUCES came from the
+    /// dialect it was handed.</summary>
+    [SkippableFact]
+    public void The_same_provider_class_declares_SCORE_when_given_the_cross_encoder_dialect()
+    {
+        using var provider = Load();
+        Assert.Equal([ProviderKinds.Score], provider.Capabilities.Produces);
     }
 
     /// <summary>The load-bearing one: agreement with the model's OWN PUBLISHED SCORES, not merely a

@@ -14,6 +14,26 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **One ONNX provider, and `Produces` says which kind it serves** (**D157**). `OnnxCrossEncoder`, <!-- drift-ok: the entry ANNOUNCING the removal has to name what it removes -->
+  `AddOnnxCrossEncoder` and `OnnxCrossEncoderOptions` are **gone**. A cross-encoder was never a second <!-- drift-ok: the entry ANNOUNCING the removal has to name what it removes -->
+  BACKEND — both classes ran the identical session over the identical feed, and only how a call was encoded
+  and how the output was read differed. What differs is the weights on disk.
+  <!-- compile-given: string embedDir = ""; string rerankDir = ""; -->
+  ```csharp
+  cfg.AddOnnxProvider(embedDir);                                     // Produces = Vector (default)
+  cfg.AddOnnxProvider(rerankDir, o =>
+  {
+      o.Id = "onnx-rerank";                                          // one session is one graph
+      o.Produces = ProviderKinds.Score;                              // the same class, reranking
+  });
+  ```
+  <br>**`OnnxProviderOptions.Produces` is the same field, doing the same job, as `HttpModelOptions.Produces`
+  one package over** — it decides how a call is encoded, which graph output is read, and which methods the
+  provider answers. A kind it does not serve is refused at composition, naming the two it does.
+  <br>**The model is EF Core's provider**: the core is provider-agnostic, a provider is a package with one
+  `Add<Backend>Provider(…)` named for the backend, and provider-specific knobs live in that call's options
+  action. EF has no `UseSqlServerForReads()`, and there is no `Add<Kind>Provider` here either.
+
 - **`MemoryReview.Grade` is `ReviewGrade`**, on `MemoryReview`, `MemoryReviewWrite` and `MemoryReviewRow`.
   The qualifier distinguishes FSRS's review RATING from the entry's own `MemoryGrade`, which the bare word
   did not. **`MemoryReviewWrite` is constructed by every BYO `IMemoryGraphStore`**, so this is a compile

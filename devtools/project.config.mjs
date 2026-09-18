@@ -182,6 +182,20 @@ export default {
         + '(D154)',
     },
     {
+      // D157. The cross-encoder was never a second BACKEND — both classes ran the identical
+      // session.Run(OnnxGraph.Feed(...)); only encode-in and read-out differed. One provider, and an
+      // `Produces` says which kind the registration serves — the same field, doing the same job, as
+      // HttpModelOptions.Produces. Which internal dialect serves it is not consumer surface at all.
+      //
+      // `CrossEncoderLogits` and the WORD cross-encoder are untouched (D139): the technique keeps its name,
+      // and `OnnxCrossEncoderDialect` is where it now lives.
+      names: ['OnnxCrossEncoder', 'AddOnnxCrossEncoder', 'OnnxCrossEncoderOptions'],
+      use: '`AddOnnxProvider(dir, o => o.Produces = ProviderKinds.Score)`, and `OnnxProviderOptions` '
+        + 'for its knobs',
+      why: 'a provider is the ENGINE and stays pure; what it PRODUCES is the dialect it was given, not a '
+        + 'reason to fork the class — the shape D152 retired AddEmbeddingProvider for, one layer down (D157)',
+    },
+    {
       // D151. `EmbeddingRole` is deliberately NOT here: it survives on IModelProvider's role-aware
       // overload, and whole-identifier equality keeps it live without an allowance. D152 re-examined that
       // and kept it — the word belongs on the OPERATION, only not on a provider.

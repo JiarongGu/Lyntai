@@ -4523,3 +4523,28 @@ never written down what Breaking MEANS here, so re-filing on a review's assertio
 path resting on an unstated rule. The rule goes first; `TASKS.md` Part 102 carries the two candidates.
 
 - **REL1 — four surface changes since `v3.1.0` that NO changelog entry announces.**
+
+## Part 254 — REL3 answered by DELETING the fork: one ONNX provider, `Produces` says the kind (D157)
+
+✅ done 2026-09-18 — **Outcome:** `OnnxCrossEncoder`, `AddOnnxCrossEncoder` and `OnnxCrossEncoderOptions`
+are gone. `OnnxProvider` is the engine — session, tokenizer, feed, run — and `OnnxProviderOptions.Produces`
+says whether a registration embeds or reranks, exactly as `HttpModelOptions.Produces` does one package
+over. Which internal dialect serves it is `internal`. Reasoning, and the EF Core model it follows, in
+**D157**; the consumer story is in `CHANGELOG.md` §Unreleased.
+
+**REL3 asked the wrong question and the owner caught it.** The item proposed renaming
+`OnnxCrossEncoder` → `OnnxCrossEncoderProvider` for suffix consistency; that shipped and was **reverted the
+same day**. The objection: generation and media are not KINDS of provider, each backend is named for its
+ENGINE — and both ONNX classes ran the IDENTICAL `session.Run(OnnxGraph.Feed(…))`. They were one backend
+split by what they produced, which is the shape **D152** retired `AddEmbeddingProvider` for. A rename would
+have made the wrong split permanent and tidier.
+
+**Three passes of naming before it settled, and each was refuted by the library itself:** `Pipeline` (a word
+this codebase does not use), then `Dialect` (matching `ICliProviderDialect` — but EF exposes no such option,
+and neither should this), and finally `Produces` — which `HttpModelOptions` had been doing all along.
+**The answer was already in the sibling provider both times.**
+
+**A gated suite hid a defect mid-refactor:** the live cross-encoder tests loaded a reranker export with the
+default vector dialect and would have stayed SKIPPED, green, in `verify`. Caught by reading, not by a gate.
+
+- **REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep missed.**

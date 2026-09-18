@@ -226,8 +226,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D154](#d154--a-namespace-names-a-subject-a-consumer-has-and-a-call-shape-is-named-for-what-it-produces-2026-09-18) | 2026-09-18 | a namespace names a SUBJECT a consumer has, and a call shape is named for what it PRODUCES |
 | [D155](#d155--the-generic-router-gets-a-factory-because-what-must-not-be-rebuilt-is-the-bookkeeping-2026-09-18) | 2026-09-18 | the generic router gets a FACTORY, because what must not be rebuilt is the bookkeeping |
 | [D156](#d156--a-domain-is-not-a-kind-of-provider-so-the-media-registration-is-deleted-rather-than-renamed-2026-09-18) | 2026-09-18 | a domain is not a kind of provider, so the media registration is deleted rather than renamed |
+| [D157](#d157--a-provider-is-the-engine-and-stays-pure-a-dialect-decides-what-it-produces-2026-09-18) | 2026-09-18 | a provider is the ENGINE and stays pure; a DIALECT decides what it produces |
 
-_All 156 entries are live decisions._
+_All 157 entries are live decisions._
 
 <!-- index:end -->
 
@@ -4882,3 +4883,41 @@ exactly one way to register a backend, so "how do I add one" has a single answer
 
 **`AddMediaRouting()` is idempotent** and safe with no media backend registered: the router resolves and
 reports that nothing serves the request, which is what it already says when every backend is down.
+
+## D157 — a provider is the ENGINE and stays pure; a DIALECT decides what it produces (2026-09-18)
+
+**The decision.** A provider class is the backend and nothing else: it opens the session, tokenizes, feeds
+and runs. What a call means at each END — how a request becomes tensors, how a tensor becomes an answer —
+is an `IOnnxProviderDialect`, set on the provider's own options. The dialect states what it `Produces`, the
+provider copies that into `Capabilities`, and routing selects on it. **So a kind is never a reason to fork
+a provider class.** `OnnxCrossEncoder` is deleted; `OnnxProvider` with `OnnxCrossEncoderDialect` is a <!-- drift-ok: the entry names the class it deletes, which is its subject -->
+reranker and the same class with the default `OnnxPoolingDialect` is an embedder.
+
+**What was wrong.** Two classes on one runtime, split by what they produced. Both ran the IDENTICAL
+`_session.Run(OnnxGraph.Feed(session, encodings, width), [output])`; only encode-in and read-out differed.
+The backend never differed at all — the weights on disk did. Naming the second class for its output is the
+shape **D152** retired `AddEmbeddingProvider` for, one layer down. <!-- drift-ok: the entry names the registration D152 retired, which is the comparison being drawn -->
+
+**The model is EF Core's provider, and naming it is the point.** EF's core is provider-agnostic; a provider
+is a PACKAGE with one `Use<Backend>(…)` entry point named for the backend; provider-specific knobs live in
+that call's options action; and the provider supplies its own services behind interfaces the core never
+sees. Here: `Lyntai.Providers.Onnx` is the package, `AddOnnxProvider(dir, o => …)` the entry point,
+`o.Dialect` the knob, and `IOnnxProviderDialect` lives in that package rather than in `Lyntai.Core`. EF has
+no `UseSqlServerForReads()`, which is why there is no second registration here either.
+
+**Where the analogy STOPS, so it is not over-applied.** EF binds ONE provider per `DbContext`. Lyntai
+registers many and ROUTES across them with capability selection, fallback and cooldown, so a provider here
+is a candidate rather than a choice. `Produces` is what makes that routing possible, which is precisely why
+it must be data the dialect states rather than a class the consumer picks between.
+
+**A provider MAY serve several kinds, and that is said in DATA.** `ProviderCapabilities.Produces` is a
+LIST for exactly that — one call returning text and an image. Whether a backend's OPTIONS take one kind
+or several mirrors what that backend can actually do: `ComfyUiOptions`/`FalQueueOptions` take a list
+because one workflow host serves image AND video; `HttpModelOptions` and `OnnxProviderOptions` take one,
+because one registration is one route and one session is one graph. **Never flatten that to a rule about
+the library** — it is a fact about each backend.
+
+**The vocabulary is the library's own, not new.** `ICliProviderDialect` already describes the varying half
+of a shared engine — *"a dialect is a stateless description; the engine holds the resources"* — and
+`HttpModelOptions.Dialect` already carries one as an option. The ONNX seam is the same idea in the same
+words. A provider package may expose its own dialect seam; Core does not know it exists.

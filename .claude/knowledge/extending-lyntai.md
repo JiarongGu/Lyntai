@@ -32,7 +32,7 @@ dictionary deliberately (see its own comment on why an ordinal table was worse),
 cooldown paths key on the same id.
 
 **What this costs you when adding a backend: give every `*Options.Id` a distinct value per registration.**
-Two `AddOnnxCrossEncoder` calls left on the default id are two backends where the second is invisible to the
+Two `AddOnnxProvider` calls left on the default id are two backends where the second is invisible to the
 router — and, since **D139** makes a capability declaration the wiring, it also decides which one
 `AddMemoryScoringVerification` picks unless `ScoringVerificationOptions.ProviderId` names one (**D148**).
 Nothing warns; the second model simply loads, occupies memory, and is never called.
@@ -184,7 +184,7 @@ real number (`IModelProvider`'s own remarks). What you write is the method plus
 `Produces = [ProviderKinds.Vector]` or `[ProviderKinds.Score]`, and **the declaration is the wiring**: a
 seam that consumes the kind finds you, so a cross-encoder needs no reranker-shaped registration and no
 policy of its own — `AddMemoryScoringVerification` already selects on `Score` (**D139**), and
-`OnnxCrossEncoder` is the worked example. Register with `AddProvider` like every other backend — there is
+`OnnxProvider` with an `OnnxCrossEncoderDialect` is the worked example. Register with `AddProvider` like every other backend — there is
 no role-named registration to choose between (**D152**). **Pass `declares` when a FACTORY produces
 `Vector`**: `AddSemanticMemory` decides at composition time, before anything is built, so an undeclared
 factory reads as "does not embed" and that call fails fast naming the argument. A backend built eagerly
@@ -195,6 +195,43 @@ the footprint test. `check-packages` gates the nine a new package must enter; a 
 already isolates the same dependency enters none of them, and the only generated artifact to refresh is the
 API-surface baseline (run the test, promote the emitted `.actual`, and read the diff: purely additive lines
 are a minor, a changed or missing line is a break).
+
+### A provider is the ENGINE and stays pure — the model is EF Core's (D157)
+
+**Never fork a provider class because it produces a different kind.** The pattern to copy is EF Core's:
+the core is provider-agnostic; a provider is a PACKAGE with one `Add<Backend>Provider(…)` entry point named
+for the backend; provider-specific knobs live in that call's options action; and the provider supplies its
+own seams behind interfaces `Lyntai.Core` never sees. EF has no `UseSqlServerForReads()`, and there is no
+`Add<Kind>Provider` here for the same reason.
+
+So when one runtime serves two kinds, what varies is a **dialect**, not a class:
+
+<!-- compile-given: string embedDir = ""; string rerankDir = ""; -->
+<!-- compile-given: string embedDir = ""; string rerankDir = ""; -->
+```csharp
+cfg.AddOnnxProvider(embedDir);                                  // default: Produces = Vector
+cfg.AddOnnxProvider(rerankDir, o =>                             // same class, same engine
+{
+    o.Id = "onnx-rerank";                                       // one session is one graph, so one id each
+    o.Produces = ProviderKinds.Score;                           //             → Score
+});
+```
+
+**`Produces` is the whole of the consumer surface** — the same field, doing the same job, as
+`HttpModelOptions.Produces`: *the field that decides how a call is encoded, which output is read, and which
+methods the provider answers*. Which internal dialect serves it is not consumer surface at all; the seam
+lives in `Lyntai.Providers.Onnx` and is `internal`, which is the EF property — a provider package grows its
+own seams without Core, or a consumer, learning they exist.
+
+**A backend MAY serve several kinds, and that is said in data.** `ProviderCapabilities.Produces` is a LIST
+for one call returning several. Whether a backend's OPTIONS take one kind or many mirrors what it can
+actually do — `ComfyUiOptions`/`FalQueueOptions` take a list because one workflow host serves image AND
+video; `HttpModelOptions` and `OnnxProviderOptions` take one, because one registration is one route and one
+session is one graph. Copy the side your backend is actually on.
+
+**Where the EF analogy STOPS:** EF binds one provider per `DbContext`; Lyntai registers many and ROUTES
+across them with fallback and cooldown. A provider here is a candidate, not a choice — which is exactly why
+what it produces must be DATA the dialect states rather than a class the consumer picks between.
 
 ---
 

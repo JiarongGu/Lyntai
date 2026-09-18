@@ -610,7 +610,7 @@ recorded as the floor.
    seam hands a verifier `Content`.
 4. ~~**It was measured in Python, not through this library's seam.**~~ **CLOSED 2026-09-15**, and by
    neither route this caveat named: not an in-process `IMemoryVerificationPolicy` and nothing hosting the
-   file. `AddOnnxCrossEncoder` is an `IModelProvider` declaring `ProviderKinds.Score`, which
+   file. `AddOnnxProvider` with an `OnnxCrossEncoderDialect` is an `IModelProvider` declaring `ProviderKinds.Score`, which
    `AddMemoryScoringVerification` already selects on (**D139**, not the D115 this caveat read from).
    <br>**The .NET path reproduces the same pair**, so the segment signal survives this library's own
    WordPiece pair encoding and session and not only Python's — asserted against the published figures by

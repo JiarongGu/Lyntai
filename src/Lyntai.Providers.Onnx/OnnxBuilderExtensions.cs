@@ -24,12 +24,17 @@ public static class OnnxBuilderExtensions
     /// <para><b>Loaded EAGERLY</b>, so a missing, truncated or non-ONNX model is a composition error heard
     /// at startup rather than on the first recall. The native session therefore exists before the container
     /// does, and a composition step that throws AFTER this call strands one — kept deliberately, because
-    /// loading lazily trades a loud startup failure for a quiet first-recall one. Pooling, normalization and
-    /// the sequence limit come from the model's own files unless <paramref name="configure"/> overrides
-    /// them.</para>
+    /// loading lazily trades a loud startup failure for a quiet first-recall one. Every knob defaults to
+    /// the model's own files; see <see cref="OnnxProviderOptions"/>.</para>
     ///
-    /// <para>Registered with <c>TryAdd</c>, so an an embedding backend registered before this call
-    /// wins — the BYO story every seam here has.</para>
+    /// <para>Registered with <c>TryAdd</c>, so a backend registered before this call wins — the BYO story
+    /// every seam here has.</para>
+    ///
+    /// <para><b>The SAME call registers a reranker</b>: set <see cref="OnnxProviderOptions.Produces"/> to
+    /// <see cref="Lyntai.Inference.ProviderKinds.Score"/>, with its own <see cref="OnnxProviderOptions.Id"/>
+    /// because one session holds one graph (<b>D157</b>). <c>AddMemoryScoringVerification()</c> selects it
+    /// on that alone (<b>D139</b>), and a head that cannot carry one score per pair is refused HERE — that
+    /// seam is fail-open, so a later refusal is a recall silently never verified.</para>
     /// </summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="modelDirectory">A directory holding an ONNX graph and <c>vocab.txt</c>.</param>
@@ -66,41 +71,4 @@ public static class OnnxBuilderExtensions
     internal static LyntaiBuilder RegisterOwned(LyntaiBuilder builder, IModelProvider provider) =>
         builder.AddProvider(_ => provider, provider.Capabilities);
 
-    /// <summary>
-    /// Score <c>(query, document)</c> pairs IN PROCESS with a cross-encoder through ONNX Runtime — the
-    /// reranker half of this package, and a different backend from
-    /// <see cref="AddOnnxProvider"/> rather than a mode of it.
-    ///
-    /// <para><b>Registering it is all that reaching it takes.</b> It declares
-    /// <see cref="Lyntai.Inference.ProviderKinds.Score"/>, so
-    /// <c>AddMemoryScoringVerification()</c> selects it with no endpoint and no second seam
-    /// (<c>docs/DECISIONS.md</c> D139) — that call decides what memory DOES with the scores, this one says
-    /// what produces them.</para>
-    ///
-    /// <para><b>The same native-backend requirement as <see cref="AddOnnxProvider"/> applies</b>: this
-    /// package references the MANAGED half of ONNX Runtime only, so the application adds exactly one native
-    /// backend. <b>Loaded EAGERLY</b> too, with the same trade recorded there.</para>
-    ///
-    /// <para><b>An export whose head cannot carry one score per pair is refused HERE</b>, not on the first
-    /// recall — a multi-label (NLI) model above all, which otherwise loads, scores, and ranks backwards.
-    /// It has to be composition: the seam below is fail-open, so the same refusal raised later arrives as a
-    /// recall that is silently never verified.</para>
-    ///
-    /// <para><b>Registered as a plain provider, not an embedding one</b> — it produces scores, so it must not
-    /// be what makes a deployment think it can embed.</para>
-    /// </summary>
-    /// <param name="builder">The Lyntai builder.</param>
-    /// <param name="modelDirectory">A directory holding a cross-encoder ONNX graph and <c>vocab.txt</c>.</param>
-    /// <param name="configure">Knobs; null takes the model's own configuration.</param>
-    public static LyntaiBuilder AddOnnxCrossEncoder(this LyntaiBuilder builder, string modelDirectory,
-        Action<OnnxCrossEncoderOptions>? configure = null)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentException.ThrowIfNullOrWhiteSpace(modelDirectory);
-
-        var options = new OnnxCrossEncoderOptions();
-        configure?.Invoke(options);
-
-        return RegisterOwned(builder, OnnxCrossEncoder.FromDirectory(modelDirectory, options));
-    }
 }

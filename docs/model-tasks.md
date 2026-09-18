@@ -221,7 +221,7 @@ the measured floor, with sub-100 MB blocked by an unmerged patch rather than by 
 > `/v1/rerank` endpoint and an ONNX file has no server.
 >
 > **BOTH CLOSED 2026-09-15, so the sentence above is fully spent.** Reachability needed no new seam —
-> `AddOnnxCrossEncoder` loads a cross-encoder in process and declares `ProviderKinds.Score`, which
+> `AddOnnxProvider` with an `OnnxCrossEncoderDialect` loads a cross-encoder in process and declares `ProviderKinds.Score`, which
 > `AddMemoryScoringVerification` already selects on (**D139** replaced D115's endpoint-shaped reading).
 > <br>**And the quality figure now exists** (`locomo-onnx-sub100mb-n200`): **+3.0** evidence-hit at
 > 23,200,716 B against `LAMAR-600m`'s **+9.0** at 468,393,760 B on the same tree and embedder, of 9.5
@@ -289,7 +289,7 @@ multilingual export, and the caveat in D122 is that those are usually SentencePi
    exists to prevent.
 3. **You can now reach it from configuration** — `AddMemoryScoringVerification` fills the verification
    seam from ANY backend producing `ProviderKinds.Score`: a `/v1/rerank` endpoint through
-   `AddHttpProvider`, or an in-process ONNX cross-encoder through `AddOnnxCrossEncoder`, which needs no
+   `AddHttpProvider`, or an in-process ONNX cross-encoder through `AddOnnxProvider` + `OnnxCrossEncoderDialect`, which needs no
    server at all. Until it shipped, the only code that could call one was a bench
    harness, so this row's measurement described something a consumer could not have. **Set
    `ScoringVerificationOptions.EndorseCount` to your recall limit**: it is a fixed count so that

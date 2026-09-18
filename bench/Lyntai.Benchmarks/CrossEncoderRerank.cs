@@ -57,7 +57,7 @@ internal sealed class CrossEncoderReranker(HttpClient http, string baseUrl, stri
     private int _calls;
     private int _scored;
     private int _truncated;
-    private OnnxCrossEncoder? _local;
+    private OnnxProvider? _local;
     private WordPieceTokenizer? _tokenizer;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<double, byte> _values = new();
 
@@ -71,8 +71,11 @@ internal sealed class CrossEncoderReranker(HttpClient http, string baseUrl, stri
         if (OnnxDirectory is not { Length: > 0 } directory) return null;
 
         var file = Environment.GetEnvironmentVariable(OnnxFileVariable);
-        _local = OnnxCrossEncoder.FromDirectory(directory,
-            new OnnxCrossEncoderOptions { ModelFile = string.IsNullOrWhiteSpace(file) ? null : file });
+        _local = OnnxProvider.FromDirectory(directory, new OnnxProviderOptions
+        {
+            ModelFile = string.IsNullOrWhiteSpace(file) ? null : file,
+            Produces = ProviderKinds.Score,
+        });
 
         // The library's own tokenizer, for the TRUNCATION control below — the same vocabulary the session
         // will use, so the count is exact rather than a character-length proxy.

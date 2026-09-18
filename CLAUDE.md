@@ -14,12 +14,12 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 ## Current state
 
 **Released: v3.1.0 (2026-08-23).** Eleven packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D156** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D157** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3830 passed / 3863 total, 33 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 860/860, doc samples 58/58. **The xUnit trio is held by no
+**The baseline a green run should match:** `3830 passed / 3864 total, 34 skipped` (the skips are
+live-backend only), e2e 3/3, guard-script tests 860/860, doc samples 60/60. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED with Docker up, re-attested 2026-09-18 at `77376423`** (+4 against `5c45c84c`: four tests for
@@ -32,14 +32,16 @@ accepted against a NAMED cause** — +3 here, three tests added for a new guard 
 big diff with a small named movement is the normal case, as is a diff that touches `src/` heavily and moves
 the trio not at all, because what moves these numbers is a test being ADDED or REMOVED and a
 refactor does neither.
-**Two review passes moved this line 3750 → 3780 → 3817 in one day** and the skip count has never changed —
-that invariance is the half worth checking, since it is what a Docker-down run would break first.
+**Two review passes moved this line 3750 → 3780 → 3817 in one day**, and for a long time the skip count
+did not move at all. **It moved on 2026-09-18, 33 → 34** (**D157** added one live-gated ONNX test), so the
+invariance is a HABIT rather than a law: a skip count that rises by one against a named new gated test is
+fine, and one that rises by HUNDREDS is Docker being down, which is what this check is really for.
 **The Docker-down run is not hypothetical: the FIRST attempt that day read `3616 / 3853 / 237`** and was
 green on all 24 gates. It reconciled to the real numbers by arithmetic — +204 skipped is the Postgres leg
 — and the attestation was still withheld until Docker came up, because this line takes a MEASUREMENT and
 an arithmetic that happens to work is the most tempting way to break that rule. Every skip is live-backend gated (a live model, embedder, reranker, Ollama, MCP or CLI), so
 nothing is skipping for another reason. **The gated-on-a-model-DIRECTORY suites are now four**:
-`OnnxProviderLiveTests` is FIVE (**D124**), `OnnxCrossEncoderLiveTests` four, beside
+`OnnxProviderLiveTests` is FIVE (**D124**), `OnnxCrossEncoderLiveTests` FIVE (**D157**), beside
 `WordPieceTokenizerLiveTests` (**D122**) and `Model2VecProviderLiveTests` (**D121**).
 **Run with `LYNTAI_ONNX_MODEL_DIR`, `LYNTAI_STATIC_MODEL_DIR` and `LYNTAI_ONNX_RERANK_MODEL_DIR` set and
 the count reads 22 skipped** — measured at `c1a62871`, where the passing total was 3751; the
@@ -124,6 +126,14 @@ and the `"llm"` score group. Renaming the types without the column would split o
 backends now sit under `Lyntai.Providers.*` (`.Model2Vec`, `.Onnx`) like every other adapter.
 **A PROVIDER is named for its BACKEND; what it produces is said in `ProviderCapabilities`** — so a role word
 on a provider type, namespace or registration is a defect rather than a style choice.
+**And a kind is never a reason to FORK a provider class** (**D157**): the provider is the engine and stays
+pure, while an options field says which kind that registration serves — `HttpModelOptions.Produces` and
+`OnnxProviderOptions.Produces` are the two worked examples, and whichever internal dialect serves it is not
+consumer surface. **The model is EF Core's provider**: core is provider-agnostic, one
+`Add<Backend>Provider(…)` per package named for the backend, knobs in that call's options action, and the
+package owns its own seams. EF has no `UseSqlServerForReads()` and there is no `Add<Kind>Provider` here.
+A backend that genuinely serves SEVERAL kinds says so in data — `ProviderCapabilities.Produces` is a list,
+and an options field is a list only where the backend really is (`ComfyUiOptions`), never as a rule.
 **The rest of the vocabulary splits NOUN from VERB, and the line is easy to cross in both directions**: the
 noun is `Vector` — it is what `Produces` selects on — and the verb is `Embed`, the call that yields one. So
 `ProviderKinds.Vector`, `VectorToolSelector`, `IVectorStore`; but `EmbedAsync`, `CanEmbed`. Two passes
