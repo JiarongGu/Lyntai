@@ -15,25 +15,26 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 6 Parts: 4 startable, 4 blocked, 2 watch, 2 decision-only
+## Open items — 13 across 6 Parts: 3 startable, 4 blocked, 2 watch, 4 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 113 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 130 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 163 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 216 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 235 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 286 | 102 | REL2 — what counts as BREAKING here has never been written down | decision-only · decision | a ruling on whether a trailing defaulted record member is Breaking or Added… |
-| 304 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
-| 334 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 394 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 449 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 472 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 529 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 114 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 131 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 164 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 217 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 236 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 287 | 102 | REL2 — what counts as BREAKING here has never been written down | decision-only · decision | a ruling on whether a trailing defaulted record member is Breaking or Added… |
+| 305 | 102 | DIALECT-1 — does this library HAVE a "dialect" concept, or only providers? … | decision-only · decision | a ruling on whether `dialect` is public vocabulary at all; REL5 and the D21… |
+| 330 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | decision-only · decision | DIALECT-1's ruling, which decides whether the replacement is a seam, a set … |
+| 363 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 423 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 478 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 501 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 558 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -301,19 +302,47 @@ the line numbers and counts were true on 2026-09-17 and rot the way any measurem
   is the complaint underneath the original item).
 
 
-- [ ] **REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belongs.** <!-- item: state=startable -->
+- [ ] **DIALECT-1 — does this library HAVE a "dialect" concept, or only providers? Decide before REL5.** <!-- item: state=decision-only kind=decision needs="a ruling on whether `dialect` is public vocabulary at all; REL5 and the D21/CLAUDE.md doctrine both follow from it" -->
+  **The owner's position, 2026-09-19:** *we should not call things "Dialect" because we don't really have
+  one — what we have is a different interface and a different provider.* That is a claim about the PUBLIC
+  vocabulary, and it cannot be settled per-seam, because the three so-named seams are three different
+  shapes. **Do not start REL5 until this is ruled**: REL5 presupposes that "dialect" is the right concept.
+
+  | seam | visibility | size | implementations | what it actually is |
+  |---|---|---|---|---|
+  | `ICliProviderDialect` | **public** | 114 | `ClaudeCliDialect`, `CodexCliDialect` (+ a base) | real reuse — `CliProviderEngine` owns spawn, verdicts, streaming, clocks |
+  | `HttpDialect` | **public** | 41 (5 members) | none — a closed enum | a SWITCH, read at 5 files; not a seam at all |
+  | `IOnnxProviderDialect` | internal | 62 | `OnnxPoolingDialect`, `OnnxCrossEncoderDialect` | a private strategy, selected by `Produces` (**D157**) |
+
+  **The leading candidate, and it is consistent with everything already decided:** *the public extension
+  point is always a PROVIDER; any dialect-like split is an implementation detail INSIDE a provider package.*
+  That is EF Core's shape — the anchor **D157** already adopted — and `IOnnxProviderDialect` is already
+  internal, so one of the three needs no change.
+  <br>**What it would cost, stated so the ruling is informed.** `HttpDialect` goes internal and the five
+  read-sites become per-wire strategies or separate provider classes (that is REL5, with its answer
+  supplied). `ICliProviderDialect` goes internal and adding a CLI backend becomes "write a provider that
+  composes `CliProviderEngine`" — which **retires `CLAUDE.md:97` and D21's "a new CLI backend is a DIALECT,
+  never a new provider"**, the one place this doctrine is stated as always-on. Both are breaking.
+  <br>_The counter-argument to weigh: the CLI dialect is genuine reuse — two backends share ~400 lines of
+  engine, and a consumer writing a provider instead must be told how to compose it. Making it internal
+  without giving that composition a documented shape trades a clear seam for a worse one._
+
+- [ ] **REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belongs.** <!-- item: state=decision-only kind=decision needs="DIALECT-1's ruling, which decides whether the replacement is a seam, a set of provider classes, or an internal strategy" -->
   `src/Lyntai.Providers.Basic/Http/HttpDialect.cs:11`, with the conditionals at `Http/ProviderDetect.cs`,
   `Http/HttpEndpoint.cs` and `Http/HttpModelProvider.cs`. `dotnet-package-layout.md` §Variation points:
   *"If adding a backend requires editing existing code, the seam is in the wrong place."* Adding
   Ollama-native required edits at five sites, so the test is met by history rather than hypothesis — and
   one directory up, `ICliProviderDialect` is the same idea done as an interface. The enum is PUBLIC, so
   shipping again freezes it for the major.
-  <br>**Its recorded counter-argument is GONE as of D158**, which makes this a straight call rather than a
-  fork. That argument ran: *the family's membership rule is "OpenAI-compatible", so a foreign wire schema
-  belongs in its own provider class.* But the membership rule is the DIALECT and always was — the family is
-  named for its TRANSPORT, and `HttpDialect.Ollama` is already a member that is not OpenAI's schema at all.
-  A foreign wire schema is therefore exactly what a new dialect IS, and the enum is what makes adding one an
-  edit to four existing files.
+  <br>**Its ORIGINAL counter-argument died with D158** — *"the family's membership rule is
+  OpenAI-compatible, so a foreign wire schema belongs in its own provider class"* only stood while that
+  phrase was the rule, and the rule is the transport. **But the replacement shape is now DIALECT-1's to
+  decide**, not this item's: if `dialect` is not public vocabulary, the answer here is separate provider
+  classes or an internal strategy rather than the `ICliProviderDialect`-shaped seam this item assumed.
+  The DEFECT is unchanged and independently true: a closed public enum read at five sites, where
+  `dotnet-package-layout.md` §Variation points says *"if adding a backend requires editing existing code,
+  the seam is in the wrong place"* — and adding Ollama-native took edits at five, so the test is met by
+  history rather than hypothesis.
 
 
 ## Part 41 — CLI backends: the codex surface still to MEASURE (2026-08-05)
