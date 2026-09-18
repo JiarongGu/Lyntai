@@ -11,10 +11,10 @@ namespace Lyntai.Inference;
 /// returning 429 was retried on the next recall exactly as if it had not, where the chat path would have
 /// benched it.</para>
 ///
-/// <para><b>What it still does NOT get, stated so the gap is not mistaken for finished work:</b> the
-/// routers built here carry no <c>DeadHostTracker</c> and no admission, because these call sites have
-/// neither to hand. Wiring one through DI is the remaining step; the mechanism is now in one place to
-/// receive it.</para>
+/// <para><b>The bookkeeping arrives through <see cref="IProviderRouterFactory"/></b>, which is the half
+/// D153 left open: a router built here used to carry no <c>DeadHostTracker</c> and no admission, so a
+/// backend that returned 429 was asked again on the very next recall. Passing no factory still works and
+/// still routes — it is the bare behaviour, for a caller composing by hand.</para>
 ///
 /// <para>Availability is read per call rather than cached: a backend can become usable between one recall
 /// and the next, and a cached "unavailable" would outlive the outage that caused it.</para></summary>
@@ -28,12 +28,14 @@ internal static class EmbeddingRouting
         ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text);
 
     private static ProviderRouter<VectorRequest, VectorResponse> Router(
-        IEnumerable<IModelProvider>? providers, ILogger? logger) =>
-        new(providers ?? [], VectorResponse.Failure, Embeds, logger: logger);
+        IEnumerable<IModelProvider>? providers, ILogger? logger, IProviderRouterFactory? routing) =>
+        routing?.For<VectorRequest, VectorResponse>(providers, VectorResponse.Failure, Embeds, logger: logger)
+        ?? new ProviderRouter<VectorRequest, VectorResponse>(
+            providers ?? [], VectorResponse.Failure, Embeds, logger: logger);
 
     /// <summary>The registered backends that turn text into vectors, in registration order.</summary>
     public static IReadOnlyList<IModelProvider> Capable(IEnumerable<IModelProvider>? providers) =>
-        [.. Router(providers, null).Capable().Cast<IModelProvider>()];
+        [.. Router(providers, null, null).Capable().Cast<IModelProvider>()];
 
     /// <summary>Whether anything can embed at all — what a consumer asks instead of null-checking a seam.
     ///
@@ -59,10 +61,10 @@ internal static class EmbeddingRouting
     public static async Task<IReadOnlyList<float[]>> EmbedAsync(
         IEnumerable<IModelProvider>? providers, IReadOnlyList<string> texts,
         EmbeddingRole role = EmbeddingRole.Document, ILogger? logger = null,
-        CancellationToken ct = default)
+        IProviderRouterFactory? routing = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(texts);
-        var router = Router(providers, logger);
+        var router = Router(providers, logger, routing);
         if (!router.CanServe()) throw new InvalidOperationException(NothingEmbeds);
 
         var response = await router.CallAsync(new VectorRequest(texts, role), ct).ConfigureAwait(false);
@@ -77,8 +79,8 @@ internal static class EmbeddingRouting
     public static async Task<float[]> EmbedOneAsync(
         IEnumerable<IModelProvider>? providers, string text,
         EmbeddingRole role = EmbeddingRole.Document, ILogger? logger = null,
-        CancellationToken ct = default) =>
-        (await EmbedAsync(providers, [text], role, logger, ct).ConfigureAwait(false))[0];
+        IProviderRouterFactory? routing = null, CancellationToken ct = default) =>
+        (await EmbedAsync(providers, [text], role, logger, routing, ct).ConfigureAwait(false))[0];
 
     /// <summary>Names every shipped way to get an embedding backend, because "nothing can embed" is
     /// otherwise a dead end for a consumer who does not know the capability model.</summary>

@@ -285,7 +285,7 @@ sealed class Lyntai.Agents.UsageLive
     PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
 sealed class Lyntai.Agents.VectorToolSelector
-    .ctor(IEnumerable<IModelProvider> providers, ToolSelectorOptions options = null)
+    .ctor(IEnumerable<IModelProvider> providers, ToolSelectorOptions options = null, IProviderRouterFactory routing = null)
     SelectAsync(TextRequest request, IReadOnlyList<ITool> tools, CancellationToken ct = default) : Task<IReadOnlyList<ITool>>
 sealed class Lyntai.BudgetOptions
     .ctor()
@@ -863,6 +863,8 @@ interface Lyntai.Inference.IProviderQueue`2
     FetchAsync(String operationId, CancellationToken ct = default) : Task<TResponse>
     PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     SubmitAsync(TRequest request, CancellationToken ct = default) : Task<QueuedOperation>
+interface Lyntai.Inference.IProviderRouterFactory
+    For<TRequest,TResponse>(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, ILogger logger = null) : ProviderRouter<TRequest,TResponse>
 interface Lyntai.Inference.IProviderStream`2
     StreamAsync(TRequest request, CancellationToken ct = default) : IAsyncEnumerable<TChunk>
 interface Lyntai.Inference.IProviderUpdater
@@ -1153,6 +1155,9 @@ struct Lyntai.Inference.ProviderRegistration`1
     GetHashCode() : Int32
     Key : ProviderKey
     ToString() : String
+sealed class Lyntai.Inference.ProviderRouterFactory
+    .ctor(DeadHostTracker deadHosts, IProviderPool<IModelProvider> pool = null, IProviderAdmission admission = null)
+    For<TRequest,TResponse>(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, ILogger logger = null) : ProviderRouter<TRequest,TResponse>
 sealed class Lyntai.Inference.ProviderRouter`2
     .ctor(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, DeadHostTracker deadHosts = null, IProviderAdmission admission = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, ILogger logger = null)
     CallAsync(TRequest request, CancellationToken ct = default) : Task<TResponse>
@@ -1739,7 +1744,7 @@ sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.GraphMemoryEngine
-    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IMemoryRetrievabilityPolicy retrievability = null, IEnumerable<IMemoryAgePolicy> agePolicies = null, ILogger<GraphMemoryEngine> logger = null, IEnumerable<IModelProvider> providers = null, IVectorStore vectors = null, IEnumerable<IMemorySaliencePolicy> saliencePolicies = null, IMemoryRankingPolicy ranking = null, IMemoryAgeCompositionPolicy ageComposition = null, IMemorySalienceCompositionPolicy salienceComposition = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, Func<DateTimeOffset> clock = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null, IEnumerable<IMemoryRetentionPolicy> retentionPolicies = null, IMemoryRetentionCompositionPolicy retentionComposition = null, IEnumerable<IMemorySeedSource> seedSources = null)
+    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IMemoryRetrievabilityPolicy retrievability = null, IEnumerable<IMemoryAgePolicy> agePolicies = null, ILogger<GraphMemoryEngine> logger = null, IEnumerable<IModelProvider> providers = null, IVectorStore vectors = null, IEnumerable<IMemorySaliencePolicy> saliencePolicies = null, IMemoryRankingPolicy ranking = null, IMemoryAgeCompositionPolicy ageComposition = null, IMemorySalienceCompositionPolicy salienceComposition = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, Func<DateTimeOffset> clock = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null, IEnumerable<IMemoryRetentionPolicy> retentionPolicies = null, IMemoryRetentionCompositionPolicy retentionComposition = null, IEnumerable<IMemorySeedSource> seedSources = null, IProviderRouterFactory routing = null)
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, MemoryDetail detail = MemoryDetail.Headline, CancellationToken ct = default) : Task<MemoryRecall>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -2487,7 +2492,7 @@ sealed class Lyntai.Memory.Seeding.SemanticSeedOptions
     K : Int32
     ToString() : String
 sealed class Lyntai.Memory.Seeding.SemanticSeedSource
-    .ctor(IEnumerable<IModelProvider> providers, IVectorStore vectors, SemanticSeedOptions options = null, ILogger<SemanticSeedSource> logger = null)
+    .ctor(IEnumerable<IModelProvider> providers, IVectorStore vectors, SemanticSeedOptions options = null, ILogger<SemanticSeedSource> logger = null, IProviderRouterFactory routing = null)
     Kind : MemorySeedKind
     Name : String
     SeedAsync(MemorySeedRequest request, CancellationToken ct) : Task<IReadOnlyList<GraphNode>>
@@ -2515,7 +2520,7 @@ sealed class Lyntai.Memory.SemanticHit
     Score : Double
     ToString() : String
 sealed class Lyntai.Memory.SemanticMemory
-    .ctor(IEnumerable<IModelProvider> providers, IVectorStore vectors, ILogger<SemanticMemory> logger = null)
+    .ctor(IEnumerable<IModelProvider> providers, IVectorStore vectors, ILogger<SemanticMemory> logger = null, IProviderRouterFactory routing = null)
     ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
     RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
     RememberAsync(String taskKey, String scope, String content, CancellationToken ct = default) : Task
@@ -2582,7 +2587,7 @@ sealed class Lyntai.Memory.Verification.ScoringVerificationOptions
     EndorseCount : Int32
     ProviderId : String
 sealed class Lyntai.Memory.Verification.ScoringVerificationPolicy
-    .ctor(IEnumerable<IModelProvider> providers, ScoringVerificationOptions config, ILogger<ScoringVerificationPolicy> logger = null)
+    .ctor(IEnumerable<IModelProvider> providers, ScoringVerificationOptions config, ILogger<ScoringVerificationPolicy> logger = null, IProviderRouterFactory routing = null)
     VerifyAsync(MemoryVerificationRequest request, CancellationToken ct = default) : Task<MemoryVerification>
 static class Lyntai.MemoryAnnotationRegistration
     static AddMemoryAnnotation(LyntaiBuilder builder, Action<LlmAnnotationOptions> configure = null) : LyntaiBuilder

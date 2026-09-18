@@ -39,7 +39,8 @@ public static class ToolSelectorRegistration
         // TryAdd, so a consumer's own IToolSelector registered before this call wins outright — the same
         // BYO story every other seam in this library has.
         builder.Services.TryAddSingleton<IToolSelector>(sp =>
-            new VectorToolSelector(sp.GetServices<IModelProvider>(), options));
+            new VectorToolSelector(sp.GetServices<IModelProvider>(), options,
+                sp.GetService<IProviderRouterFactory>()));
 
         return builder;
     }

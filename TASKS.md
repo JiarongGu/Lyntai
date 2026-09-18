@@ -15,30 +15,29 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 17 across 7 Parts: 9 startable, 4 blocked, 2 watch, 2 decision-only
+## Open items — 16 across 7 Parts: 8 startable, 4 blocked, 2 watch, 2 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 118 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 135 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 168 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 221 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 240 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 117 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 134 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 167 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 220 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 239 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
 | 296 | 103 | What `AddGenerationProvider` should be called, or whether it should exist | decision-only · decision | a ruling on whether a media registration is named for the ROUTER it wires o… |
-| 308 | 103 | ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING | startable |  |
-| 327 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
-| 343 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
-| 352 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
-| 359 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
-| 368 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
-| 397 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 457 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 512 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 535 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 592 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 319 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
+| 335 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
+| 344 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
+| 351 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
+| 360 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
+| 389 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 449 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 504 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 527 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 584 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -283,9 +282,10 @@ namespaces — because that is where each already lived. **The rule that settled
 D154**, which is the tracked record; the design that sequenced the work was
 `local/superpowers/specs/2026-09-17-namespace-restructure-design.md` and is finished._
 
-_**The RESTRUCTURE itself is finished** — every NS item closed 2026-09-17/18 as `docs/task-archive.md`
-Parts 246–250, and the rule it encodes is **D154**. What is left below is not part of it: one question the
-sweeps deliberately declined to answer, and one wiring gap D153 left. Neither is a namespace move._
+_**The RESTRUCTURE is finished, and so is D153's wiring** — Parts 246–251, under **D154** (the namespaces
+and names) and **D155** (the router factory that finally gave vector, score and app-defined kinds their
+cooldown and admission). What is left below is neither: one question the sweeps deliberately declined to
+answer rather than settle by momentum._
 
 _**Two things that carry forward, because a closed Part is not where anyone looks for them.** The `NS-n`
 ids here and the design's step numbers **diverged at 5**, so one whole step existed in no tracked file
@@ -305,14 +305,6 @@ API baseline did not move at all._
   calls `EnsureRouter`), or delete it and let `AddProvider(factory, declares)` plus explicit router wiring
   do the job. The second is smaller surface and more typing for the consumer._
 
-- [ ] **ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING.** <!-- item: state=startable -->
-  `EmbeddingRouting` and `ScoringVerificationPolicy` build a `ProviderRouter` with no `DeadHostTracker` and
-  no admission, because their call sites have neither to hand — so those two kinds still get no cooldown and
-  no concurrency bound in a real deployment. Closing it means four PUBLIC constructors taking a router
-  instead of `IEnumerable<IModelProvider>`: `SemanticMemory`, `SemanticSeedSource`, `VectorToolSelector`,
-  `GraphMemoryEngine`. Mostly test churn — `GraphMemoryEngine` is constructed across dozens of memory tests.
-  <br>_NS-3 has landed on both halves (`docs/task-archive.md` Part 247), so the constructors it rewrites are
-  the ones in the tree now — this no longer waits on anything in this Part._
 
 ## Part 102 — the pre-release review's open calls, one decision each (2026-09-17)
 

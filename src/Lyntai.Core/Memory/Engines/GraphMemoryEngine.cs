@@ -110,6 +110,10 @@ namespace Lyntai.Memory.Engines;
 /// existed. Two sources sharing a <see cref="IMemorySeedSource.Name"/> throws.
 /// <para>Appended LAST on purpose (<c>docs/DECISIONS.md</c> D50): inserting it beside the other collections
 /// would silently re-bind every positional caller.</para></param>
+/// <param name="routing">Supplies the SHARED dead-host cooldown and admission for the embedding calls
+/// similarity enrichment makes. Null routes over <paramref name="providers"/> with neither, which is what
+/// this engine did before — a vector backend that rate-limited was asked again on the very next write.
+/// Appended last for the same reason <paramref name="seedSources"/> was.</param>
 /// <exception cref="ArgumentException">Two <paramref name="seedSources"/> share a name.</exception>
 public sealed class GraphMemoryEngine(
     string name,
@@ -130,7 +134,8 @@ public sealed class GraphMemoryEngine(
     IMemoryVerificationPolicy? verification = null,
     IEnumerable<IMemoryRetentionPolicy>? retentionPolicies = null,
     IMemoryRetentionCompositionPolicy? retentionComposition = null,
-    IEnumerable<IMemorySeedSource>? seedSources = null)
+    IEnumerable<IMemorySeedSource>? seedSources = null,
+    IProviderRouterFactory? routing = null)
     : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
@@ -501,7 +506,7 @@ public sealed class GraphMemoryEngine(
         try
         {
             var vector = await EmbeddingRouting.EmbedOneAsync(
-                providers, write.Content, EmbeddingRole.Document, _logger, ct).ConfigureAwait(false);
+                providers, write.Content, EmbeddingRole.Document, _logger, routing, ct).ConfigureAwait(false);
             var near = await vectors!
                 .SearchAsync(VectorCollection(write.TaskKey, write.Scope), vector, _options.SimilarityK + 1, ct)
                 .ConfigureAwait(false);

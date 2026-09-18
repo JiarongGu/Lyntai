@@ -248,7 +248,10 @@ public sealed class MemoryEngineBuilder
             // a retention or age dimension is a property of the deployment, while which channels a recall
             // pays for is a property of the ENGINE — a blend can hold one graph member that consults vectors
             // beside one that must not. Naming it replaces the whole set for this member.
-            seedSources: seedSources ?? sp.GetServices<Lyntai.Memory.Seeding.IMemorySeedSource>());
+            seedSources: seedSources ?? sp.GetServices<Lyntai.Memory.Seeding.IMemorySeedSource>(),
+            // The shared cooldown and admission for the embedding calls enrichment makes. Absent from the
+            // container means bare routing, which is what this path had before ROUTE-1.
+            routing: sp.GetService<Lyntai.Inference.IProviderRouterFactory>());
 
     /// <summary>The zero-configuration member: the graph engine when an <see cref="IMemoryGraphStore"/>
     /// reached the container, the keyword store otherwise. Resolved when the container is BUILT, not when

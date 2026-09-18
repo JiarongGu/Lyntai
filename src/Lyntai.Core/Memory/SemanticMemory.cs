@@ -12,7 +12,8 @@ namespace Lyntai.Memory;
 /// but a call throws a clear error if none was registered.</summary>
 public sealed class SemanticMemory(
     IEnumerable<IModelProvider>? providers, IVectorStore vectors,
-    ILogger<SemanticMemory>? logger = null) : ISemanticMemory
+    ILogger<SemanticMemory>? logger = null,
+    IProviderRouterFactory? routing = null) : ISemanticMemory
 {
     // U+001F unit separator between task + scope so ("ab","c") and ("a","bc") can't collide onto one
     // collection. Built from (char)0x1f so the source stays plain-ASCII (no inline control byte / escape).
@@ -38,7 +39,7 @@ public sealed class SemanticMemory(
         // mismatched row last via Cosine=0; pgvector rejects it), so REINDEX (ForgetAsync + re-Remember).
         if (string.IsNullOrWhiteSpace(content)) return;
         var vector = await EmbeddingRouting.EmbedOneAsync(
-            ProvidersOrThrow, content, EmbeddingRole.Document, _logger, ct).ConfigureAwait(false);
+            ProvidersOrThrow, content, EmbeddingRole.Document, _logger, routing, ct).ConfigureAwait(false);
         await vectors.UpsertAsync(Collection(taskKey, scope), IdFor(content), vector, content, ct).ConfigureAwait(false);
         _logger.LogDebug("semantic memory: remembered {Chars} chars in {Task}/{Scope}", content.Length, taskKey, scope);
     }
@@ -50,7 +51,7 @@ public sealed class SemanticMemory(
         try
         {
             var qv = await EmbeddingRouting.EmbedOneAsync(
-                ProvidersOrThrow, query, EmbeddingRole.Query, _logger, ct).ConfigureAwait(false);
+                ProvidersOrThrow, query, EmbeddingRole.Query, _logger, routing, ct).ConfigureAwait(false);
             if (scope is null) return await AcrossScopesAsync(taskKey, qv, k, minScore, ct).ConfigureAwait(false);
             var matches = await vectors.SearchAsync(Collection(taskKey, scope), qv, k, ct).ConfigureAwait(false);
             return [.. matches.Where(m => m.Score >= minScore).Select(m => new SemanticHit(m.Payload, m.Score))];

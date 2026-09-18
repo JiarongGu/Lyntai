@@ -55,7 +55,8 @@ public sealed class ToolSelectorOptions
 /// each tool is FOR cannot be narrowed well by this — which is a property of the descriptions rather than
 /// of the vector backend, and the one thing a deployment can fix directly.</para></summary>
 public sealed class VectorToolSelector(
-    IEnumerable<IModelProvider> providers, ToolSelectorOptions? options = null)
+    IEnumerable<IModelProvider> providers, ToolSelectorOptions? options = null,
+    IProviderRouterFactory? routing = null)
     : IToolSelector
 {
     private readonly ToolSelectorOptions _options = options ?? new ToolSelectorOptions();
@@ -80,10 +81,10 @@ public sealed class VectorToolSelector(
         // Role-aware (D116): the request is the QUERY side and the descriptions are DOCUMENTS. On a
         // symmetric model the default body makes this identical to the role-less call.
         var queryVector = await EmbeddingRouting.EmbedOneAsync(
-            providers, query, EmbeddingRole.Query, ct: ct).ConfigureAwait(false);
+            providers, query, EmbeddingRole.Query, routing: routing, ct: ct).ConfigureAwait(false);
         var described = tools.Select(Describe).ToList();
         var toolVectors = await EmbeddingRouting.EmbedAsync(
-            providers, described, EmbeddingRole.Document, ct: ct).ConfigureAwait(false);
+            providers, described, EmbeddingRole.Document, routing: routing, ct: ct).ConfigureAwait(false);
 
         // Ordered by score, then by ORIGINAL POSITION so a tie is broken the way the registry listed them
         // rather than arbitrarily — two tools with identical descriptions must not reorder run to run.

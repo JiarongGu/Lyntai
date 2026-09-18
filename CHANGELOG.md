@@ -76,6 +76,22 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`IProviderRouterFactory` — dead-host cooldown and admission finally reach the vector and score kinds,
+  and any kind an application defines** (**D155**). **D153** gave every kind the routing mechanism and left
+  the bookkeeping to whatever the call site had, which was nothing: embedding and reranking each built a
+  router per call with no tracker and no admission, so a backend that answered 429 was asked again on the
+  very next recall while the chat path would have benched it. The factory binds the ONE `DeadHostTracker`,
+  the ONE `IProviderAdmission` and the pool's configuration key — so one tenant's exhausted quota no longer
+  benches another's on these paths either.
+  <br>**Nothing you have written changes.** `SemanticMemory`, `SemanticSeedSource`, `VectorToolSelector`,
+  `GraphMemoryEngine` and `ScoringVerificationPolicy` each gain ONE optional trailing parameter, supplied
+  automatically by `AddLyntai`; no existing parameter moved, was renamed or changed type, and passing no
+  factory still routes exactly as before.
+  <br>**For an application-defined kind**, this is the seam that makes D153's promise true: close
+  `IProviderCall<TRequest,TResponse>` over your own types, inject `IProviderRouterFactory`, and
+  `For<TRequest,TResponse>(providers, synthesize, serves)` returns a router with candidate selection,
+  cooldown, admission and fallback — without this library knowing your kind exists.
+
 - **`ScoringVerificationOptions.ProviderId` names WHICH backend verifies a recall** (**D148**). Unset it
   still takes the first registered backend that produces `ProviderKinds.Score`, so nothing moves for a
   deployment with one — but with two, that was registration ORDER deciding what verifies memory, reported

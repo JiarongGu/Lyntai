@@ -74,7 +74,7 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D2](#d2--storage-is-per-domain-interfaces-and-a-backend-implements-as-many-as-it-wants) | — | storage is per-domain interfaces, and a backend implements as many as it wants |
 | [D3](#d3--fallback-is-verdict-driven-through-one-shared-classifier-and-the-policy-is-replaceable) | — | fallback is verdict-driven, through one shared classifier, and the policy is REPLACEABLE |
 | [D4](#d4--streaming-no-fallback-after-the-first-token-and-the-timeout-is-an-inactivity-clock) | — | streaming: no fallback after the first token, and the timeout is an inactivity clock |
-| [D5](#d5--illmclient-is-the-front-door) | — | `ILlmClient` is the front door | <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
+| [D5](#d5--illmclient-is-the-front-door----drift-ok-the-record-names-the-type-as-it-was-d154-renamed-it-after---) | — | `ILlmClient` is the front door <!-- drift-ok: the record names the type AS IT WAS; D154 renamed i… |
 | [D6](#d6--every-sqlite-object-is-lyntai-prefixed) | — | every SQLite object is `lyntai_`-prefixed |
 | [D7](#d7--trimaot-posture-annotate-honestly-and-never-make-a-false-promise) | — | trim/AOT posture: annotate honestly, and never make a false promise |
 | [D8](#d8--the-public-api-is-snapshot-tested-update-the-baseline-deliberately) | — | the public API is snapshot-tested; update the baseline deliberately |
@@ -224,8 +224,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D152](#d152--a-provider-is-named-for-its-backend-the-noun-is-vector-the-verb-is-embed-2026-09-17) | 2026-09-17 | a PROVIDER is named for its backend; the NOUN is `Vector`, the VERB is `Embed` |
 | [D153](#d153--a-seam-per-signature-over-a-generic-routed-base-2026-09-17) | 2026-09-17 | a seam per SIGNATURE, over a generic routed base |
 | [D154](#d154--a-namespace-names-a-subject-a-consumer-has-and-a-call-shape-is-named-for-what-it-produces-2026-09-18) | 2026-09-18 | a namespace names a SUBJECT a consumer has, and a call shape is named for what it PRODUCES |
+| [D155](#d155--the-generic-router-gets-a-factory-because-what-must-not-be-rebuilt-is-the-bookkeeping-2026-09-18) | 2026-09-18 | the generic router gets a FACTORY, because what must not be rebuilt is the bookkeeping |
 
-_All 154 entries are live decisions._
+_All 155 entries are live decisions._
 
 <!-- index:end -->
 
@@ -4813,3 +4814,37 @@ shape **D152** retired `AddEmbeddingProvider` for — `AddMediaProvider` would b
 It is left visibly odd among five renamed siblings rather than settled by momentum, and the option plus its
 trigger is in `TASKS.md` Part 103. **A sweep that renames a name it never examined has decided something,
 and the decision is invisible precisely because everything around it moved too.**
+
+## D155 — the generic router gets a FACTORY, because what must not be rebuilt is the bookkeeping (2026-09-18)
+
+**The decision.** `IProviderRouterFactory` builds a `ProviderRouter<TRequest,TResponse>` over a provider set
+the caller chooses, binding the ONE `DeadHostTracker`, the ONE `IProviderAdmission` and the pool's
+configuration key. It is the generic counterpart of `ITextRouterFactory` and `IMediaRouterFactory`, and the
+kinds that had neither — vector, score, and whatever an application closes `IProviderCall<,>` over — reach
+it through one optional constructor parameter rather than through a router or a pair of policy objects.
+
+**What was wrong.** **D153** gave every kind the routing MECHANISM and left the bookkeeping to whatever the
+call site had, which was nothing: `EmbeddingRouting` and `ScoringVerificationPolicy` each built a router per
+call with `deadHosts: null, admission: null`. A vector backend answering 429 was therefore asked again on
+the very next recall — the exact failure D153 opens by naming. `ITextRouterFactory`'s own doc had already
+stated the rule both of them broke: *"Building a router per call is cheap; what must NOT be rebuilt is the
+bookkeeping."* The rule existed, on the text side, and was never carried across.
+
+**Why a factory rather than passing the router, or the two policy objects.** Passing a built
+`ProviderRouter<,>` changes four public parameters' TYPE and NAME — and a named argument is
+source-compatible surface, which **D47** already paid for once. Passing `DeadHostTracker` plus
+`IProviderAdmission` threads two parameters into four constructors and still leaves the cooldown keyed on
+the backend id, so one tenant's exhausted quota benches another's. The factory is one parameter, carries
+the key as well, and is the shape this library already uses twice and the platform uses for
+`IHttpClientFactory`. Every existing call site compiles unchanged.
+
+**It is ADDITIVE on purpose, and that is what makes it the general fix.** Passing no factory still routes,
+which is the behaviour a hand-composing caller had. So the same seam that closes this also makes D153's
+promise to an application-defined kind true for the first time: the app injects the factory and gets
+cooldown, admission and the configuration key without this library knowing its kind exists.
+
+**What it does NOT do.** There is no `IProviderRouter<,>` interface: nothing consumes one, and a public
+type with no consumer does not earn its keep (`library-api-design.md`). A pooled overload like
+`ITextRouterFactory`'s is also absent — the key is bound from `IProviderPool.TryGetKey`, which answers for
+any instance the pool built and falls back to the id for the rest, so the overload would add surface
+without adding an answer.

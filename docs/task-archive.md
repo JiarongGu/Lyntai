@@ -4453,3 +4453,27 @@ namespace changed, and it was never public.
 **With this, D154 is fully executed** and its six steps are Parts 246–250 plus the NS-4 follow-up.
 
 - **NS-5 — `Lyntai.Providers` stops meaning three things.**
+
+## Part 251 — ROUTE-1: the generic router gets a factory, so cooldown and admission reach every kind
+
+✅ done 2026-09-18 — **Outcome:** `IProviderRouterFactory` + `ProviderRouterFactory` in `Lyntai.Inference`,
+binding the ONE `DeadHostTracker`, the ONE `IProviderAdmission` and the pool's configuration key.
+`EmbeddingRouting` and `ScoringVerificationPolicy` route through it; `SemanticMemory`, `SemanticSeedSource`,
+`VectorToolSelector`, `GraphMemoryEngine` and `ScoringVerificationPolicy` each gained ONE optional trailing
+parameter, wired by `AddLyntai`. Reasoning and the alternatives that lost are **D155**.
+
+**The item's own plan was not what shipped, and the reason is the deliverable.** It said to change four
+public constructors to take a router instead of `IEnumerable<IModelProvider>`. That changes each
+parameter's TYPE *and* NAME — and a named argument is source-compatible surface, the bill **D47** already
+paid once — for 39 call sites, while still leaving cooldown keyed on the backend id. The library already
+had the right answer twice (`ITextRouterFactory`, `IMediaRouterFactory`) and `ITextRouterFactory`'s own doc
+already stated the rule both broken call sites violated: *"building a router per call is cheap; what must
+NOT be rebuilt is the bookkeeping."* **A backlog item is a plan, not a ruling** — this one was written
+before the precedent was looked for.
+
+**Additive, so it is the general fix rather than a patch for two kinds.** Passing no factory still routes,
+and an application closing `IProviderCall<,>` over its own kind can now inject the same factory — which is
+what D153 promised and could not deliver. Pinned by a BEFORE/AFTER pair: a per-call tracker asks the failing
+backend all three times, the shared one asks it once.
+
+- **ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING.**

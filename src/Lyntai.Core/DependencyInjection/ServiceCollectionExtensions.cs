@@ -132,6 +132,18 @@ public static class LyntaiServiceCollectionExtensions
         // working — but the interface is what anything downstream asks for.
         services.TryAddSingleton<Lyntai.Inference.IProviderAdmission>(
             sp => sp.GetRequiredService<Lyntai.Inference.ProviderAdmission>());
+
+        // The generic counterpart of ITextRouterFactory / IMediaRouterFactory, for the kinds with no named
+        // router of their own — vector, score, and whatever an application closes IProviderCall<,> over.
+        // Without it those kinds hand-build a router per call and rebuild the BOOKKEEPING with it, which is
+        // how a rate-limited embedding backend was asked again on the very next recall (ROUTE-1).
+        // Resolved lazily, so the DeadHostTracker the text front door registers below is in place by the
+        // time anything asks: this method runs first, and a TryAdd is about the registration, not the graph.
+        services.TryAddSingleton<Lyntai.Inference.IProviderRouterFactory>(sp =>
+            new Lyntai.Inference.ProviderRouterFactory(
+                sp.GetRequiredService<DeadHostTracker>(),
+                sp.GetService<Lyntai.Inference.IProviderPool<IModelProvider>>(),
+                sp.GetService<Lyntai.Inference.IProviderAdmission>()));
     }
 
     /// <summary>The LLM front door: process runner, dead-host tracker, router, and the consumer
@@ -415,7 +427,8 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<Lyntai.Memory.IVectorStore, Lyntai.Memory.InMemoryVectorStore>();
         services.TryAddSingleton<Lyntai.Memory.ISemanticMemory>(sp => new Lyntai.Memory.SemanticMemory(
             sp.GetServices<Lyntai.Inference.IModelProvider>(), sp.GetRequiredService<Lyntai.Memory.IVectorStore>(),
-            sp.GetService<ILogger<Lyntai.Memory.SemanticMemory>>()));
+            sp.GetService<ILogger<Lyntai.Memory.SemanticMemory>>(),
+            sp.GetService<Lyntai.Inference.IProviderRouterFactory>()));
     }
 
     /// <summary>Agentic tool-calling: the registry gathers any registered ITools; the loop runs provider-

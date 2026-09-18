@@ -153,6 +153,13 @@ happens to share its id.
 container-composed path) is the historical behaviour — `p => p.Id`, one bench per backend — and is correct
 for a deployment that configures each backend once.
 
+**The generic kinds get all of this through `IProviderRouterFactory`** (**D155**) — vector, score, and
+whatever an application closes `IProviderCall<,>` over. It is the counterpart of the two named factories and
+exists for the same reason: *building a router per call is cheap; the BOOKKEEPING must not be rebuilt with
+it.* Until it existed those kinds passed `deadHosts: null, admission: null`, so a rate-limited embedding
+backend was asked again on the next recall. **Reach for it rather than `new ProviderRouter<,>(…)`** anywhere
+a container is available; the bare constructor is for a caller composing by hand.
+
 Supply the delegate when **several configurations of one backend id are live at once** (an end user or a
 polled store owns the configuration; tenants carry their own credentials and endpoints). Then the id is the
 wrong unit twice over: one tenant exhausting its quota benches every other tenant on that backend, and two

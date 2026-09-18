@@ -47,7 +47,8 @@ public static class ScoringVerificationRegistration
         builder.Services.TryAddSingleton<IMemoryVerificationPolicy>(sp => new ScoringVerificationPolicy(
             sp.GetServices<IModelProvider>(),
             config,
-            sp.GetService<ILogger<ScoringVerificationPolicy>>()));
+            sp.GetService<ILogger<ScoringVerificationPolicy>>(),
+            sp.GetService<IProviderRouterFactory>()));
 
         return builder;
     }

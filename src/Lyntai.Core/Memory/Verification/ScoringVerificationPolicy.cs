@@ -23,7 +23,8 @@ namespace Lyntai.Memory.Verification;
 public sealed class ScoringVerificationPolicy(
     IEnumerable<IModelProvider> providers,
     ScoringVerificationOptions config,
-    ILogger<ScoringVerificationPolicy>? logger = null) : IMemoryVerificationPolicy
+    ILogger<ScoringVerificationPolicy>? logger = null,
+    IProviderRouterFactory? routing = null) : IMemoryVerificationPolicy
 {
     private readonly ILogger _logger = logger ?? NullLogger<ScoringVerificationPolicy>.Instance;
 
@@ -78,9 +79,12 @@ public sealed class ScoringVerificationPolicy(
         // consumer is waiting on and wrong here: this seam is FAIL-OPEN and runs on every recall, so a
         // transport blip would become per-recall noise at Warning. The outcome is logged below at debug,
         // carrying the verdict and the backend's own words, which is what a reader of this seam needs.
-        var router = new ProviderRouter<ScoreRequest, ScoreResponse>(
-            _backends, ScoreResponse.Failure,
-            c => c.Supports(ProviderKinds.Score, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+        var router = routing?.For<ScoreRequest, ScoreResponse>(
+                _backends, ScoreResponse.Failure,
+                c => c.Supports(ProviderKinds.Score, ProviderOperation.Complete, accepts: ProviderKinds.Text))
+            ?? new ProviderRouter<ScoreRequest, ScoreResponse>(
+                _backends, ScoreResponse.Failure,
+                c => c.Supports(ProviderKinds.Score, ProviderOperation.Complete, accepts: ProviderKinds.Text));
 
         if (!router.CanServe())
         {
