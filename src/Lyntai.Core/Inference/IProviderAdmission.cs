@@ -9,7 +9,7 @@ namespace Lyntai.Inference;
 /// with (a distributed lock, a lease service, a shared counter) and registers it; the routers and the router
 /// factories take this interface, so nothing above changes. Every other governance component here is
 /// replaceable the same way (<see cref="IProviderPool{TProvider}"/>,
-/// <see cref="Lyntai.Llm.RateLimiting.IRateLimiter"/>, <see cref="Lyntai.Llm.Budgeting.IUsageTracker"/>) —
+/// <see cref="Lyntai.Inference.RateLimiting.IRateLimiter"/>, <see cref="Lyntai.Inference.Budgeting.IUsageTracker"/>) —
 /// admission has the strongest case of the three.</para></summary>
 public interface IProviderAdmission
 {

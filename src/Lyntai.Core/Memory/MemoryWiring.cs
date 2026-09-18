@@ -129,7 +129,7 @@ internal static class MemoryWiring
             : [engine];
 
     // IServiceProviderIsService answers without CONSTRUCTING the service, which matters here: the shipped
-    // verification policy resolves an ILlmClientFactory with GetRequiredService, so asking for the instance
+    // verification policy resolves an ITextClientFactory with GetRequiredService, so asking for the instance
     // would turn a diagnostic into the startup failure it is meant to describe. A container that does not
     // offer it leaves both checks silent rather than guessing.
     private static bool Registered<T>(IServiceProvider sp) =>

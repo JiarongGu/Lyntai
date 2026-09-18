@@ -1,7 +1,7 @@
 namespace Lyntai;
 
 /// <summary>Tuning for the opt-in response cache (<c>AddResponseCache</c>). Read at runtime by the built-in
-/// <see cref="Lyntai.Llm.Caching.InMemoryResponseCache"/>, so <c>LYNTAI_CACHE_*</c> env overrides applied
+/// <see cref="Lyntai.Inference.Caching.InMemoryResponseCache"/>, so <c>LYNTAI_CACHE_*</c> env overrides applied
 /// after configuration still take effect.</summary>
 public sealed class CacheOptions
 {

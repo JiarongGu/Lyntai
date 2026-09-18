@@ -1,7 +1,6 @@
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
-using Lyntai.Llm.Budgeting;
-using Lyntai.Llm.Routing;
+using Lyntai.Inference.Budgeting;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;

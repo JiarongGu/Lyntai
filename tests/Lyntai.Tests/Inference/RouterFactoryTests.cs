@@ -1,7 +1,5 @@
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -199,7 +197,7 @@ public class RouterFactoryTests
     }
 
     // The same guard on the LLM side, and here it is STRICTER than the router it feeds rather than an echo
-    // of it: LlmRouter._byId is an ORDINAL dictionary, so "openai" and "OpenAI" would both be stored and both
+    // of it: TextRouter._byId is an ORDINAL dictionary, so "openai" and "OpenAI" would both be stored and both
     // be reachable — no first-wins collapse to lean on. The factory rejects the pair up front because the
     // router downstream would not notice it.
     [Fact]
@@ -272,7 +270,7 @@ public class RouterFactoryTests
 
     // ---- the LLM factory ------------------------------------------------------------------------------
 
-    private static LlmRouterFactory LlmFactory(IProviderPool<IModelProvider> pool, DeadHostTracker tracker) =>
+    private static TextRouterFactory LlmFactory(IProviderPool<IModelProvider> pool, DeadHostTracker tracker) =>
         new(pool, tracker, new LyntaiOptions());
 
     private static TextRequest Prompt() => new() { Messages = [TextMessage.User("hi")] };

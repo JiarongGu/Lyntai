@@ -3,8 +3,6 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Lyntai;
 using Lyntai.Diagnostics;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Diagnostics;
@@ -15,7 +13,7 @@ public class LyntaiDiagnosticsTests
 {
     private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
-    private static LlmRouter Router(params IModelProvider[] providers) =>
+    private static TextRouter Router(params IModelProvider[] providers) =>
         new(providers, new DeadHostTracker(), new LyntaiOptions());
 
     private static ActivityListener SpanListener(List<Activity> sink) => new()
@@ -37,8 +35,8 @@ public class LyntaiDiagnosticsTests
     [Fact]
     public void The_otel_source_and_meter_names_are_pinned_literals()
     {
-        Assert.Equal("Lyntai.Llm", LyntaiDiagnostics.ActivitySourceName);
-        Assert.Equal("Lyntai.Llm", LyntaiDiagnostics.MeterName);
+        Assert.Equal("Lyntai.Inference", LyntaiDiagnostics.ActivitySourceName);
+        Assert.Equal("Lyntai.Inference", LyntaiDiagnostics.MeterName);
         Assert.Equal("Lyntai.Agents", LyntaiDiagnostics.AgentActivitySourceName);
         Assert.Equal("Lyntai.Agents", LyntaiDiagnostics.AgentMeterName);
         Assert.Equal("Lyntai.Generation", LyntaiDiagnostics.GenerationActivitySourceName);

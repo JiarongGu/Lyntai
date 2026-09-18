@@ -1,8 +1,7 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Budgeting;
-using Lyntai.Llm.Caching;
+using Lyntai.Inference.Budgeting;
+using Lyntai.Inference.Caching;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -57,13 +56,13 @@ public class UsageBudgetTests
 
     // ---- decorator -----------------------------------------------------------------------------------
 
-    private static (BudgetedLlmClient client, FakeLlmClient inner, IUsageTracker tracker) Budgeted(Action<BudgetOptions> tune)
+    private static (BudgetedTextClient client, FakeLlmClient inner, IUsageTracker tracker) Budgeted(Action<BudgetOptions> tune)
     {
         var inner = new FakeLlmClient();
         var options = new LyntaiOptions();
         tune(options.Budget);
         var tracker = new InMemoryUsageTracker();
-        return (new BudgetedLlmClient(inner, tracker, options), inner, tracker);
+        return (new BudgetedTextClient(inner, tracker, options), inner, tracker);
     }
 
     [Fact]
@@ -161,11 +160,11 @@ public class UsageBudgetTests
             .UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
-        var client = sp.GetRequiredService<ILlmClient>();
+        var client = sp.GetRequiredService<ITextClient>();
         // the always-on refusal screen is the outermost layer; the cache is the outermost GOVERNANCE
         // decorator inside it (proven behaviorally below: a hit reaches the provider 0 extra times and never
         // re-counts toward the budget)
-        Assert.IsType<RefusalScreeningLlmClient>(client);
+        Assert.IsType<RefusalScreeningTextClient>(client);
 
         var req = new TextRequest { Messages = [TextMessage.User("hi")] };
         await client.CompleteAsync(req); // miss → provider hit, cost recorded

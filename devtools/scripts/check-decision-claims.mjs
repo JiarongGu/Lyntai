@@ -42,7 +42,12 @@ const read = (r, ...p) => fs.readFileSync(path.join(r, ...p), 'utf8');
  * itself. A USE is `JsonSerializer.`; the bare word is prose.
  */
 export function wireJsonSerializerUses(r) {
-  const roots = ['src/Lyntai.Core/Llm', 'src/Lyntai.Core/Generation', 'src/Lyntai.Generation',
+  // `walk` returns silently on a path that does not exist, so a root renamed out from under this list
+  // makes the predicate scan NOTHING there and still report clean. That has now happened twice to this
+  // same function — D154 NS-1 (`Lifecycle` → `Inference`) and NS-4 (`Llm` → `Inference`) — because a
+  // slashed PATH is invisible to a dotted-namespace rewrite. Check these against the tree when a
+  // directory moves.
+  const roots = ['src/Lyntai.Core/Inference', 'src/Lyntai.Core/Generation', 'src/Lyntai.Generation',
     'src/Lyntai.Providers.Basic', 'src/Lyntai.Providers.LlamaSharp'];
   const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   const hits = [];

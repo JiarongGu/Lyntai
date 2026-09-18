@@ -1,7 +1,6 @@
 using Lyntai.Agents;
 using Lyntai.Inference;
-using Lyntai.Llm;
-using Lyntai.Llm.Cli;
+using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
 

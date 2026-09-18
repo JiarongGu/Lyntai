@@ -1,13 +1,12 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Llm;
 
 /// <summary>The front-door contract: to a consumer, Lyntai behaves like ONE provider — no candidate
-/// list at call sites, fallback happening invisibly behind <see cref="ILlmClient"/>.</summary>
+/// list at call sites, fallback happening invisibly behind <see cref="ITextClient"/>.</summary>
 public class LlmClientTests
 {
     private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
@@ -30,7 +29,7 @@ public class LlmClientTests
         p.Replies.Enqueue(new TextResponse("front door", ProviderVerdict.Ok));
         using var sp = Build(p);
 
-        var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Req);
+        var reply = await sp.GetRequiredService<ITextClient>().CompleteAsync(Req);
 
         Assert.Equal("front door", reply.Text);
     }
@@ -44,7 +43,7 @@ public class LlmClientTests
         p2.Replies.Enqueue(new TextResponse("second served", ProviderVerdict.Ok));
         using var sp = Build(p1, p2);
 
-        var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Req);
+        var reply = await sp.GetRequiredService<ITextClient>().CompleteAsync(Req);
 
         Assert.Equal("second served", reply.Text); // caller never saw a candidate list
     }
@@ -59,7 +58,7 @@ public class LlmClientTests
         using var sp = Build(p);
 
         var chunks = new List<TextChunk>();
-        await foreach (var c in sp.GetRequiredService<ILlmClient>().StreamAsync(Req)) chunks.Add(c);
+        await foreach (var c in sp.GetRequiredService<ITextClient>().StreamAsync(Req)) chunks.Add(c);
 
         Assert.Equal("ab", string.Concat(chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text)));
         Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
@@ -72,7 +71,7 @@ public class LlmClientTests
         services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("unrouted")));
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Req);
+        var reply = await sp.GetRequiredService<ITextClient>().CompleteAsync(Req);
 
         Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
     }
@@ -81,7 +80,7 @@ public class LlmClientTests
     public void SupportsToolCalls_is_false_when_the_default_provider_has_no_native_support()
     {
         using var sp = Build(new FakeLlmProvider("plain")); // DIM default false
-        Assert.False(sp.GetRequiredService<ILlmClient>().SupportsToolCalls(Req));
+        Assert.False(sp.GetRequiredService<ITextClient>().SupportsToolCalls(Req));
     }
 
     [Fact]
@@ -90,7 +89,7 @@ public class LlmClientTests
         var native = new FakeLlmProvider("native") { SupportsToolCalls = true };
         var plain = new FakeLlmProvider("plain");
         using var sp = Build(native, plain);
-        Assert.True(sp.GetRequiredService<ILlmClient>().SupportsToolCalls(Req));
+        Assert.True(sp.GetRequiredService<ITextClient>().SupportsToolCalls(Req));
     }
 
     [Fact]
@@ -100,6 +99,6 @@ public class LlmClientTests
         var down = new FakeLlmProvider("down") { IsAvailable = false, SupportsToolCalls = true };
         var plain = new FakeLlmProvider("plain");
         using var sp = Build(down, plain);
-        Assert.False(sp.GetRequiredService<ILlmClient>().SupportsToolCalls(Req)); // the reachable one isn't tool-capable
+        Assert.False(sp.GetRequiredService<ITextClient>().SupportsToolCalls(Req)); // the reachable one isn't tool-capable
     }
 }

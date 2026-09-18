@@ -1,5 +1,4 @@
 using Lyntai.Inference;
-using Lyntai.Llm;
 
 namespace Lyntai.Tests.Lifecycle;
 
@@ -48,7 +47,7 @@ public class ProviderVerdictExtensionsTests
     /// <summary>The documented over-report, pinned so it stays a KNOWN cost rather than a surprise.
     /// <c>FromErrorText</c> falls back to <see cref="ProviderVerdict.Failed"/> for anything it cannot recognize,
     /// so that bucket holds permanent errors as well as transient ones. Kept deliberately:
-    /// <see cref="Lyntai.Llm.Routing.RoutingPolicy"/> only ever re-sends to the SAME candidate for
+    /// <see cref="Lyntai.Inference.RoutingPolicy"/> only ever re-sends to the SAME candidate for
     /// <c>Failed</c>/<c>Timeout</c>, so a predicate that said otherwise would contradict the router's own
     /// retry rule.</summary>
     [Fact]

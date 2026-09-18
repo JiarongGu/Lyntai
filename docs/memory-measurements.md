@@ -2332,7 +2332,7 @@ different sequences reaching the same reading — and identical evidence recall 
 The shipped judge prompt says **"Be selective"** and names no count, which is the tell
 `.claude/knowledge/pitfalls.md` records for a model that stops discriminating. The extractor's budget worked
 (§5, `--facts`), so the same question was put to this seam. **The budget is injected into the SYSTEM message
-at the `ILlmClient` boundary**, so the shipped policy still composes, sends, parses and fails open — a
+at the `ITextClient` boundary**, so the shipped policy still composes, sends, parses and fails open — a
 bench-local judge would have measured a prompt invented for the bench.
 
 **Instrument.** `memory-locomo --retrieval --n 200 --arms +sem+rel-only,+sem+rel-only+judge,+sem+rel-only+judge+budget20,+sem+rel-only+judge+budget5,vector`,

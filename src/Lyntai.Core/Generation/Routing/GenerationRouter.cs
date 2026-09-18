@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
 using Lyntai.Inference;
-using Lyntai.Llm.Routing;
 
 namespace Lyntai.Generation.Routing;
 
@@ -15,7 +14,7 @@ namespace Lyntai.Generation.Routing;
 /// <para><b>Reporting keeps TWO slots, and a blameless one never outranks a real failure.</b> The first
 /// substantive failure is what the caller is told; the first BLAMELESS result that explained itself is kept
 /// apart and reported only when nothing substantive failed (<c>docs/DECISIONS.md</c> D31).
-/// <c>LlmRouter.CompleteAsync</c> holds the same two slots, so change one and check the other.</para>
+/// <c>TextRouter.CompleteAsync</c> holds the same two slots, so change one and check the other.</para>
 ///
 /// <para><b>Submission has one rule of its own:</b> a failed submission marked
 /// <see cref="QueuedOperation.Inconclusive"/> SURFACES rather than advancing, because a backend that
@@ -61,7 +60,7 @@ namespace Lyntai.Generation.Routing;
 ///
 /// <para><b><see cref="GenerateAsync"/> and <see cref="SubmitAsync"/> only —
 /// <see cref="StreamAsync"/> is deliberately NOT gated</b>, the same carve-out
-/// <c>LlmRouter</c> states for its own streaming path and for the same reason: a stream holds its permit
+/// <c>TextRouter</c> states for its own streaming path and for the same reason: a stream holds its permit
 /// for the whole response, so a consumer that simply stops enumerating would pin it until the enumerator is
 /// finally disposed. Bounding a long-lived stream needs a lease the consumer cannot forget, which this is
 /// not.</para></param>
@@ -138,7 +137,7 @@ public sealed class GenerationRouter(
         // a real failure outranks a blameless reason; with no real failure the blameless backend's own words
         // are the honest answer (a host turns "not configured" into a setup prompt, and "too long" into a
         // shorter prompt), and only a run in which nothing said anything at all falls through to the
-        // synthetic reply. Same three-slot rule as LlmRouter.CompleteAsync's last ?? lastBlameless ?? …
+        // synthetic reply. Same three-slot rule as TextRouter.CompleteAsync's last ?? lastBlameless ?? …
         return firstFailure ?? firstBlameless ?? MediaResponse.Failure(ProviderVerdict.NotConfigured,
             "every capable backend reported it is not configured");
     }

@@ -1,4 +1,3 @@
-using Lyntai.Llm;
 using Lyntai.Inference;
 
 namespace Lyntai.Guards;
@@ -6,7 +5,7 @@ namespace Lyntai.Guards;
 /// <summary>
 /// A scope-guard / jail hook — inspects an outbound request and/or an inbound reply and can allow, block,
 /// or replace it. Registered into a DI collection via <c>builder.AddGuard&lt;T&gt;()</c> and applied at the
-/// two gates of the chat orchestration (or directly by a <see cref="GuardedLlmClient"/>). A guard that only
+/// two gates of the chat orchestration (or directly by a <see cref="GuardedTextClient"/>). A guard that only
 /// cares about one direction overrides just that method; the other defaults to allow.
 /// </summary>
 public interface IGuard

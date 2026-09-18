@@ -3,7 +3,7 @@ using Lyntai.Inference;
 namespace Lyntai.Generation.Routing;
 
 /// <summary>Picks a capable media backend and falls over when one fails. The media counterpart of
-/// <c>ILlmRouter</c>, kept separate because media routing must filter on CAPABILITY first — a chat model
+/// <c>ITextRouter</c>, kept separate because media routing must filter on CAPABILITY first — a chat model
 /// always takes text, whereas a video backend simply cannot serve an image request.</summary>
 public interface IGenerationRouter
 {

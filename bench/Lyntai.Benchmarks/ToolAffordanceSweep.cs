@@ -3,7 +3,6 @@ using System.Globalization;
 using System.Text.Json;
 using Lyntai;
 using Lyntai.Agents;
-using Lyntai.Llm;
 
 namespace Lyntai.Benchmarks;
 
@@ -17,7 +16,7 @@ namespace Lyntai.Benchmarks;
 /// repository owns.</para>
 ///
 /// <para><b>Every loop arm runs the REAL <see cref="ToolLoop"/> over a real <see cref="ToolRegistry"/>.</b>
-/// Only the <see cref="ILlmClient"/> is the bench's, which is what puts the loop on its prompt path
+/// Only the <see cref="ITextClient"/> is the bench's, which is what puts the loop on its prompt path
 /// (<c>SupportsToolCalls</c> defaults to false) and what lets the prompt the transport actually sent be
 /// counted rather than reconstructed.</para>
 ///
@@ -571,7 +570,7 @@ internal static class ToolAffordanceSweep
         // One flat list of (arm, how to build its client, which preamble), because the arms are no longer
         // one grid: the baseline models vary the PREAMBLE and the tool-capable one varies the TRANSPORT.
         // Nesting two loops produced the cross product of both, which is three arms nobody asked for.
-        var arms = new List<(string Name, Func<ILlmClient> Client, string? Preamble)>();
+        var arms = new List<(string Name, Func<ITextClient> Client, string? Preamble)>();
         foreach (var (label, chat) in new[] { ("4b", big), ("1b", small) }.Where(p => p.Item2 is not null))
         {
             arms.Add(($"loop-{label}", () => new BenchLoopClient(chat!), null));
@@ -695,7 +694,7 @@ internal static class ToolAffordanceSweep
     /// <para>The FIRST step is the affordance choice. No step at all is a DECLINE (the model answered from
     /// its own knowledge), and a name that resolved to nothing is a decline too — both are counted, neither
     /// is scored as a wrong choice. A step whose tool is in the roster is FIRED, right or wrong.</para></summary>
-    private static async Task LoopArmAsync(Cell cell, ILlmClient client,
+    private static async Task LoopArmAsync(Cell cell, ITextClient client,
         IReadOnlyList<ToolAffordanceCorpus.ToolSpec> roster, Trial trial, int goldSlot, int index,
         CancellationToken ct, string? preamble = null)
     {
@@ -837,7 +836,7 @@ internal static class ToolAffordanceSweep
     /// <para>One instance per loop run, so no locking is needed — a run is sequential. The prompt is counted
     /// from the REQUEST rather than composed here, so a change to the protocol's own system prompt moves
     /// this number instead of going unnoticed.</para></summary>
-    private sealed class BenchLoopClient(SweepDoubles.OpenAiCompatibleChat chat) : ILlmClient, ICountedLoopClient
+    private sealed class BenchLoopClient(SweepDoubles.OpenAiCompatibleChat chat) : ITextClient, ICountedLoopClient
     {
         public int Calls { get; private set; }
 
@@ -890,7 +889,7 @@ internal static class ToolAffordanceSweep
     /// <para><c>SupportsStreamingToolCalls</c> stays false: the streaming half would deliver the same
     /// choice through a second code path, and guessing wrong there fails SILENTLY — no call chunk arrives
     /// and the turn's prose reads as a final answer.</para></summary>
-    private sealed class NativeBenchLoopClient(SweepDoubles.OpenAiCompatibleChat chat) : ILlmClient, ICountedLoopClient
+    private sealed class NativeBenchLoopClient(SweepDoubles.OpenAiCompatibleChat chat) : ITextClient, ICountedLoopClient
     {
         public int Calls { get; private set; }
 
@@ -961,7 +960,7 @@ internal static class ToolAffordanceSweep
     /// schema, so a break anywhere in the path — the protocol grammar, the registry lookup, the argument
     /// validator, the step recording, the slot arithmetic — fails <c>loop-oracle</c> loudly instead of
     /// collapsing every real arm while a hardcoded control still printed 100%.</para></summary>
-    private sealed class ScriptedToolClient(ToolAffordanceCorpus.ToolSpec choice) : ILlmClient
+    private sealed class ScriptedToolClient(ToolAffordanceCorpus.ToolSpec choice) : ITextClient
     {
         private int _calls;
 

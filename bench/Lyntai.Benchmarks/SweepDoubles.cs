@@ -6,7 +6,6 @@ using System.Text.Json;
 using Lyntai.Memory;
 using Lyntai.Memory.Salience;
 
-using Lyntai.Llm;
 namespace Lyntai.Benchmarks;
 
 /// <summary>
@@ -706,15 +705,15 @@ internal static class SweepDoubles
     /// <param name="chat">The local chat model.</param>
     /// <param name="budget">Endorsements the prompt asks for at most; null leaves the shipped prompt.</param>
     internal sealed class BenchClientFactory(OpenAiCompatibleChat chat, int? budget = null)
-        : ILlmClientFactory
+        : ITextClientFactory
     {
         private readonly BenchClient _client = new(chat, budget);
 
-        public ILlmClient Get(string name) => _client;
+        public ITextClient Get(string name) => _client;
 
-        public ILlmClient Get() => _client;
+        public ITextClient Get() => _client;
 
-        public bool TryGet(string name, out ILlmClient client)
+        public bool TryGet(string name, out ITextClient client)
         {
             client = _client;
             return true;
@@ -722,7 +721,7 @@ internal static class SweepDoubles
 
         public IReadOnlyList<string> Names => ["bench"];
 
-        private sealed class BenchClient(OpenAiCompatibleChat chat, int? budget) : ILlmClient
+        private sealed class BenchClient(OpenAiCompatibleChat chat, int? budget) : ITextClient
         {
             public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
             {

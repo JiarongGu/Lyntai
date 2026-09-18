@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using System.Net;
 using Lyntai;
-using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,7 +25,7 @@ public class ProviderPresetsTests
             .UseDefaultCandidates("openai"));
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>()
+        var reply = await sp.GetRequiredService<ITextClient>()
             .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
@@ -45,7 +44,7 @@ public class ProviderPresetsTests
             .UseDefaultCandidates("ollama"));
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>()
+        var reply = await sp.GetRequiredService<ITextClient>()
             .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
@@ -63,7 +62,7 @@ public class ProviderPresetsTests
             .UseDefaultCandidates("llama"));
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>()
+        var reply = await sp.GetRequiredService<ITextClient>()
             .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
@@ -83,7 +82,7 @@ public class ProviderPresetsTests
             .UseDefaultCandidates("llama"));
         using var sp = services.BuildServiceProvider();
 
-        await sp.GetRequiredService<ILlmClient>().CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
+        await sp.GetRequiredService<ITextClient>().CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal("http://gpu-box:9001/v1/chat/completions", handler.Requests[0].Uri!.ToString());
     }
@@ -98,7 +97,7 @@ public class ProviderPresetsTests
             .UseDefaultCandidates("openrouter"));
         using var sp = services.BuildServiceProvider();
 
-        await sp.GetRequiredService<ILlmClient>().CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
+        await sp.GetRequiredService<ITextClient>().CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.StartsWith("https://openrouter.ai/api/v1", handler.Requests[0].Uri!.ToString());
     }
@@ -118,7 +117,7 @@ public class ProviderPresetsTests
             .UseDefaultCandidates("custom", "openai"));  // custom first
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>()
+        var reply = await sp.GetRequiredService<ITextClient>()
             .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal("from a custom provider", reply.Text); // the custom provider served; no HTTP call

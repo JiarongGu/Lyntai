@@ -4,8 +4,6 @@ using Lyntai.Agents;
 using Lyntai.Cortex;
 using Lyntai.Guards;
 using Lyntai.Jobs;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Processes;
 using Lyntai.Prompts;
 using Lyntai.Storage;
@@ -36,13 +34,13 @@ public static class LyntaiServiceCollectionExtensions
                 "callback — or a LyntaiOptions was registered by hand, which AddLyntai's own registration would " +
                 "shadow; configure it inside the callback with builder.Configure(...) instead.");
 
-        // a consumer-supplied ILlmClient registered BEFORE AddLyntai would make the base TryAddSingleton
+        // a consumer-supplied ITextClient registered BEFORE AddLyntai would make the base TryAddSingleton
         // below no-op — silently dropping any front-door decorators (cache/budget/rate-limit). Catch that
         // contradiction rather than let governance vanish without a trace. Captured HERE, before the
         // callback runs, so it observes pre-AddLyntai registrations ONLY: a client registered on
         // builder.Services inside the callback, or on the collection after AddLyntai returns, discards the
         // same decorators and no predicate placed in this method could see it.
-        var hadPreexistingClient = services.Any(d => d.ServiceType == typeof(ILlmClient));
+        var hadPreexistingClient = services.Any(d => d.ServiceType == typeof(ITextClient));
 
         var options = new LyntaiOptions();
         var builder = new LyntaiBuilder(services, options);
@@ -52,9 +50,9 @@ public static class LyntaiServiceCollectionExtensions
         if (hadPreexistingClient && builder.FrontDoorDecorators.Count > 0)
             throw new InvalidOperationException(
                 "A front-door decorator (AddResponseCache / AddUsageBudget / AddRateLimit) was configured, but an " +
-                "ILlmClient was registered BEFORE AddLyntai — the decorators would be silently ignored. Either don't " +
-                "pre-register ILlmClient, or use the BYO seams (IResponseCache / IUsageTracker / IRateLimiter) instead. " +
-                "This check sees pre-AddLyntai registrations only: registering ILlmClient on builder.Services inside " +
+                "ITextClient was registered BEFORE AddLyntai — the decorators would be silently ignored. Either don't " +
+                "pre-register ITextClient, or use the BYO seams (IResponseCache / IUsageTracker / IRateLimiter) instead. " +
+                "This check sees pre-AddLyntai registrations only: registering ITextClient on builder.Services inside " +
                 "the configure callback, or on the collection after AddLyntai returns, drops every front-door " +
                 "decorator with no error at all — layer your own with AddFrontDoorDecorator instead.");
 
@@ -81,19 +79,19 @@ public static class LyntaiServiceCollectionExtensions
                 + " Or drop the AddSemanticMemory call.");
 
         // same contradiction for refusal screening: it wraps Lyntai's OWN client inside the factory below,
-        // so with a pre-registered ILlmClient every AddRefusalMatcher registration would silently do nothing
+        // so with a pre-registered ITextClient every AddRefusalMatcher registration would silently do nothing
         if (hadPreexistingClient && services.Any(d => d.ServiceType == typeof(IRefusalMatcher)))
             throw new InvalidOperationException(
-                "An IRefusalMatcher was registered (AddRefusalMatcher), but an ILlmClient was registered BEFORE " +
+                "An IRefusalMatcher was registered (AddRefusalMatcher), but an ITextClient was registered BEFORE " +
                 "AddLyntai — refusal screening wraps Lyntai's own front door and would be silently ignored. Either " +
-                "don't pre-register ILlmClient, or screen replies in your own client. As above, only pre-AddLyntai " +
+                "don't pre-register ITextClient, or screen replies in your own client. As above, only pre-AddLyntai " +
                 "registrations are visible here.");
 
         // Compose per feature area — each block is self-contained and order-independent across areas (they
         // register distinct service types; the front-door decorators fold at resolution, not registration).
         services.AddSingleton(options);
         RegisterProviderLifetime(services);
-        RegisterLlmFrontDoor(services, builder, options);
+        RegisterTextFrontDoor(services, builder, options);
         RegisterCortex(services, options);
         RegisterConversationEnrichment(services);
         RegisterSemanticMemory(services, builder);
@@ -137,50 +135,50 @@ public static class LyntaiServiceCollectionExtensions
     }
 
     /// <summary>The LLM front door: process runner, dead-host tracker, router, and the consumer
-    /// <see cref="ILlmClient"/> — Lyntai behaving like ONE provider, with any front-door decorators folded
+    /// <see cref="ITextClient"/> — Lyntai behaving like ONE provider, with any front-door decorators folded
     /// over the base client.</summary>
-    private static void RegisterLlmFrontDoor(IServiceCollection services, LyntaiBuilder builder, LyntaiOptions options)
+    private static void RegisterTextFrontDoor(IServiceCollection services, LyntaiBuilder builder, LyntaiOptions options)
     {
         services.TryAddSingleton<IProcessRunner, ProcessRunner>(); // BYO: register your own IProcessRunner first to override spawning
         services.TryAddSingleton(sp => new DeadHostTracker(
             options.DeadHostThreshold, options.DeadHostCooldown, logger: sp.GetService<ILogger<DeadHostTracker>>()));
-        services.TryAddSingleton<ILlmRouter>(sp => new LlmRouter(
+        services.TryAddSingleton<ITextRouter>(sp => new TextRouter(
             sp.GetServices<IModelProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
-            sp.GetService<ILogger<LlmRouter>>(), modelRouting: sp.GetService<Lyntai.Llm.Routing.IModelRoutingStore>()));
+            sp.GetService<ILogger<TextRouter>>(), modelRouting: sp.GetService<Lyntai.Inference.IModelRoutingStore>()));
         // The chat counterpart of IGenerationRouterFactory: a router per CALLER's provider set, over the
         // ONE tracker and the ONE admission table registered above — which is the bookkeeping a consumer
         // hand-building a router per call inevitably rebuilds, and thereby throws away. Registered for the
         // same reason the generation one is: without it half the feature is unreachable through DI.
-        // The container's own ILlmRouter above is left exactly as it was — no governance composes here (chat
-        // spend/caching/throttling live on the ILlmClient front door), so routing it through the factory
+        // The container's own ITextRouter above is left exactly as it was — no governance composes here (chat
+        // spend/caching/throttling live on the ITextClient front door), so routing it through the factory
         // would change the wiring of every existing app to no end.
-        services.TryAddSingleton<ILlmRouterFactory>(sp => new LlmRouterFactory(
+        services.TryAddSingleton<ITextRouterFactory>(sp => new TextRouterFactory(
             sp.GetRequiredService<Lyntai.Inference.IProviderPool<IModelProvider>>(),
             sp.GetRequiredService<DeadHostTracker>(), options,
-            sp.GetService<ILoggerFactory>(), sp.GetService<Lyntai.Llm.Routing.IModelRoutingStore>(),
+            sp.GetService<ILoggerFactory>(), sp.GetService<Lyntai.Inference.IModelRoutingStore>(),
             sp.GetService<Lyntai.Inference.IProviderAdmission>()));
         // Default candidates internal. Any registered front-door decorators (response cache, usage budget, …)
         // are folded over the base client in ascending Order (the decorator's declared position — NOT raw
         // registration order), so they compose predictably instead of clobbering.
-        services.TryAddSingleton<ILlmClient>(sp => Compose(sp, sp.GetRequiredService<ILlmRouter>()));
+        services.TryAddSingleton<ITextClient>(sp => Compose(sp, sp.GetRequiredService<ITextRouter>()));
 
-        // Named clients (AddLlmClient) — the chat counterpart of the memory engine registry. Each is the
+        // Named clients (AddTextClient) — the chat counterpart of the memory engine registry. Each is the
         // SAME composition as the default client over a narrower provider set: base client, the same
         // front-door decorators in the same order, the same outermost refusal screening. Sharing the fold
         // rather than re-deriving it is what keeps a name from silently meaning "fewer rules"; see
-        // ILlmClientFactory on why a name selects backends and never permissions.
+        // ITextClientFactory on why a name selects backends and never permissions.
         //
         // A name narrows the PROVIDER set and its CANDIDATE list together. Narrowing only the first is what
         // made a client pooled outside the global candidate list resolve and then fail every call —
         // ClientCandidates.Resolve is where that pairing lives.
-        services.TryAddSingleton<ILlmClientFactory>(sp =>
+        services.TryAddSingleton<ITextClientFactory>(sp =>
         {
-            var named = builder.NamedLlmClients.ToDictionary(
+            var named = builder.NamedTextClients.ToDictionary(
                 entry => entry.Key,
                 entry => ComposeNamed(sp, entry.Key, entry.Value),
                 StringComparer.Ordinal);
             VerifySeamModelPins(sp);
-            return new LlmClientFactory(named, sp.GetRequiredService<ILlmClient>());
+            return new TextClientFactory(named, sp.GetRequiredService<ITextClient>());
         });
 
         // A seam that pinned a MODEL its client can never honour, failed here rather than per call (D119).
@@ -198,7 +196,7 @@ public static class LyntaiServiceCollectionExtensions
                 // A named client's OWN list, never the global one — a name narrows candidates as well as
                 // providers, so checking the global list would both miss a real contradiction and invent a
                 // false one.
-                var candidates = clientName is { } name && builder.NamedLlmClients.TryGetValue(name, out var c)
+                var candidates = clientName is { } name && builder.NamedTextClients.TryGetValue(name, out var c)
                     ? ClientCandidates.Resolve(c.ProviderIds, c.Candidates, options.DefaultCandidates)
                     : options.DefaultCandidates;
 
@@ -215,7 +213,7 @@ public static class LyntaiServiceCollectionExtensions
             }
         }
 
-        ILlmClient ComposeNamed(IServiceProvider sp, string name, LlmClientBuilder client)
+        ITextClient ComposeNamed(IServiceProvider sp, string name, TextClientBuilder client)
         {
             // Checked against the RESOLVED pool, never against the declared ids: naming no provider pools
             // every registered one, so a stated candidate is outside it exactly when nothing registered
@@ -230,13 +228,13 @@ public static class LyntaiServiceCollectionExtensions
                     "A candidate the router cannot select fails every call; add it to UseProviders, register " +
                     "it, or drop it.");
 
-            var router = sp.GetRequiredService<ILlmRouterFactory>().For(providers);
+            var router = sp.GetRequiredService<ITextRouterFactory>().For(providers);
             return Compose(sp, router,
                 ClientCandidates.Resolve(client.ProviderIds, client.Candidates, options.DefaultCandidates));
         }
 
         // THE FRONT DOOR, built ONCE for every client this container hands out. Only the ROUTER differs
-        // between the default client and a named one — the default takes the container's own ILlmRouter,
+        // between the default client and a named one — the default takes the container's own ITextRouter,
         // a name takes one narrowed to its provider set — and that difference is the whole point of a name,
         // so it is the parameter. Everything outside it is the governance promise and must not vary.
         //
@@ -247,18 +245,18 @@ public static class LyntaiServiceCollectionExtensions
         // AddMemoryAnnotation and AddMemoryVerification resolve through. Same shape as MemoryEngineBuilder's
         // two construction sites (docs/FIXES.md), where an optional argument added to one path and not the
         // other left a documented knob unwired and the compiler could not see it.
-        ILlmClient Compose(IServiceProvider sp, ILlmRouter router,
+        ITextClient Compose(IServiceProvider sp, ITextRouter router,
             IReadOnlyList<ProviderCandidate>? candidates = null)
         {
-            ILlmClient client = new LlmClient(router, options, candidates);
+            ITextClient client = new TextClient(router, options, candidates);
             foreach (var (_, decorate) in builder.FrontDoorDecorators.OrderBy(d => d.Order))
                 client = decorate(sp, client);
             // refusal screening (per-request TextRequest.RefusalPattern + any registered IRefusalMatcher) is
             // OUTERMOST + always on (the pattern is a request field), so it re-screens even a cached hit.
             // Deliberately NOT in FrontDoorDecorators, so it doesn't trip the "decorators configured but
-            // ILlmClient pre-registered" guard above.
-            return new RefusalScreeningLlmClient(client, sp.GetServices<IRefusalMatcher>(),
-                sp.GetService<ILogger<RefusalScreeningLlmClient>>());
+            // ITextClient pre-registered" guard above.
+            return new RefusalScreeningTextClient(client, sp.GetServices<IRefusalMatcher>(),
+                sp.GetService<ILogger<RefusalScreeningTextClient>>());
         }
 
         // An id naming no registered provider THROWS rather than narrowing to whatever does exist: a
@@ -295,7 +293,7 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<IPromptComposer>(sp => new MemoryPromptComposer(
             sp.GetService<IMemoryStore>(), sp.GetService<Lyntai.Memory.ISemanticMemory>(),
             sp.GetService<ILogger<MemoryPromptComposer>>()));
-        services.TryAddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(sp.GetRequiredService<ILlmClient>()));
+        services.TryAddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(sp.GetRequiredService<ITextClient>()));
     }
 
     /// <summary>When any <see cref="IConversationEnricher"/> is registered, decorate the resolved
@@ -428,7 +426,7 @@ public static class LyntaiServiceCollectionExtensions
         // GetService for the selector, never GetRequiredService: it is opt-in, and an unregistered one means
         // "show every tool", which is what the loop did before the seam existed.
         services.TryAddSingleton<IToolLoop>(sp => new ToolLoop(
-            sp.GetRequiredService<ILlmClient>(), sp.GetRequiredService<IToolRegistry>(), options,
+            sp.GetRequiredService<ITextClient>(), sp.GetRequiredService<IToolRegistry>(), options,
             sp.GetService<ILogger<ToolLoop>>(), guards: sp.GetService<Lyntai.Guards.IGuardRail>(),
             selector: sp.GetService<IToolSelector>()));
     }
@@ -458,7 +456,7 @@ public static class LyntaiServiceCollectionExtensions
         // the rail gathers any registered IGuards (empty = allow everything)
         services.TryAddSingleton<IGuardRail>(sp => new GuardRail(sp.GetServices<IGuard>(), sp.GetService<ILogger<GuardRail>>()));
         services.TryAddSingleton<IChatOrchestrator>(sp => new ChatOrchestrator(
-            sp.GetRequiredService<ILlmClient>(), sp.GetRequiredService<IToolLoop>(), sp.GetRequiredService<IToolRegistry>(),
+            sp.GetRequiredService<ITextClient>(), sp.GetRequiredService<IToolLoop>(), sp.GetRequiredService<IToolRegistry>(),
             sp.GetRequiredService<IGuardRail>(), sp.GetRequiredService<IPromptComposer>(),
             sp.GetService<IMemoryStore>(), sp.GetService<Lyntai.Memory.ISemanticMemory>(),
             sp.GetService<ILogger<ChatOrchestrator>>()));

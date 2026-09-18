@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
@@ -23,7 +22,7 @@ public class AddClaudeCliTests
             var provider = sp.GetServices<IModelProvider>().Single();
             Assert.Equal("claude-cli", provider.Id);
 
-            var router = sp.GetRequiredService<ILlmRouter>();
+            var router = sp.GetRequiredService<ITextRouter>();
             var reply = await router.CompleteAsync([new("claude-cli")],
                 new TextRequest { Messages = [TextMessage.User("via router")] });
 

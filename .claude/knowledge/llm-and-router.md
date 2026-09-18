@@ -6,7 +6,7 @@ enforces: classify through the one ProviderVerdictClassifier; a blameless verdic
 
 # LLM & router internals
 
-The load-bearing correctness rules for `Lyntai.Core/Llm/**`. These are invariants — tests pass while
+The load-bearing correctness rules for `src/Lyntai.Core/Inference/**`. These are invariants — tests pass while
 subtly violating them, so hold them in mind when touching the router or a provider. Reference:
 design spec §6 (amended 2026-07-17).
 
@@ -15,8 +15,11 @@ design spec §6 (amended 2026-07-17).
 **`ProviderVerdict` is ONE enum for every domain, in `Lyntai.Inference`** (**D136**). Chat and media carried
 separate enums with the same members plus a translation layer between them, and a missing arm in that table
 reported a capability gap as a hard failure for a whole release. **What a verdict MEANS is shared; what a
-router DOES about it is not** — each domain keeps its own action table, and they differ on purpose
-(`LlmRoutingPolicy` surfaces `Unsupported`, `GenerationRoutingPolicy` advances on it).
+router DOES about it is not** — `RoutingPolicy` is the default table `TextRouter` and every
+`ProviderRouter<,>` start from (it surfaces `Unsupported`), and the media domain overrides it with
+`GenerationRoutingPolicy`, which advances on it instead. **`RoutingPolicy` is NOT the text one**, which is
+why NS-4 left its name alone while renaming the router that reads it; three sites called it
+`LlmRoutingPolicy`, a type that has never existed.
 
 One enum drives all router behavior. Classify through the **one** `ProviderVerdictClassifier` (typed HTTP
 status wins over text; text heuristics are deliberately conservative — "429" in a stack frame stays
@@ -33,7 +36,7 @@ host).
 | `Refused` | content policy follows the prompt, not the host — **surface as-is, never fall back** |
 | `Unsupported` | a capability/transport gap — **surfaces like `Refused`** (no fallback, no cooldown; another candidate has the same limitation, so advancing just churns), but stays a DISTINCT verdict so telemetry/scorers don't conflate a capability gap with a policy refusal |
 
-`NotConfigured` and `Unsupported` are also the two **blameless** verdicts (`LlmRouter.IsBlameless`) — they are
+`NotConfigured` and `Unsupported` are also the two **blameless** verdicts (`TextRouter.IsBlameless`) — they are
 not faults, so they are remembered apart from real failures when the router decides what to REPORT. The table
 above is per-verdict ACTION; the reporting half is under Fallback below, and a reader who stops at the table
 sees only one of the pair (`Unsupported` reaches the blameless slot only where a host has overridden its
@@ -48,7 +51,7 @@ because treating them alike leads to either bloating a consuming story or wrongl
 | Site | What it is | Obligation when a verdict is added |
 |---|---|---|
 | `Lifecycle/ProviderVerdict.cs` | the CANONICAL statement, and the IntelliSense a consumer reads | the member, with its own doc |
-| `ILlmRouter.cs`'s XML doc | the contract a consumer reads — genuinely ENUMERATES all nine | add it to the enumeration |
+| `ITextRouter.cs`'s XML doc | the contract a consumer reads — genuinely ENUMERATES all nine | add it to the enumeration |
 | design §5.1 + §6 | the frozen v0.1 record | a DATED amendment, never a rewrite (§5.1 already carries the "now nine members" note) |
 | `README.md` §The semantics you're getting | a consuming-story SUMMARY, deliberately not an enumeration — it names six of nine and omits `Unsupported`/`ContextWindowExceeded` on purpose | only if the new verdict changes what a consumer must DO; silence here is not drift |
 
@@ -56,12 +59,12 @@ because treating them alike leads to either bloating a consuming story or wrongl
 => verdict?)` registers a process-wide matcher consulted BEFORE the built-in (English) patterns, first non-null
 wins, and returns an `IDisposable` so a test can scope its registration (an app registers once at startup and
 never disposes). It teaches every domain at once, there being one classifier. **A matcher MUST NOT throw.** Classification runs inside the router's own `catch`, so a throw propagates
-out of `ILlmClient.CompleteAsync`/`StreamAsync` and aborts the whole routing attempt — the remaining candidates
+out of `ITextClient.CompleteAsync`/`StreamAsync` and aborts the whole routing attempt — the remaining candidates
 included. That deliberately differs from `IRefusalMatcher` (below), whose seam logs a throwing matcher and
 fails open: the classifier is static and has no logger, so swallowing there would hide the bug rather than
 report it.
 
-## Fallback (`LlmRouter.CompleteAsync`)
+## Fallback (`TextRouter.CompleteAsync`)
 
 Dedup candidates by `(providerId, model)` (first wins — a mis-ordered list that re-prepends the primary
 won't retry it), then try in order, skipping providers that are unregistered / `!IsAvailable` / in
@@ -73,7 +76,7 @@ SUBSTANTIVE failure; a `Failed` "no live candidate" reply if none were even elig
 
 **"The last reply" is not the rule — a blameless verdict is kept apart from a real failure.** `CompleteAsync`
 holds two slots, `last` (the last substantive failure — what the caller is told) and `lastBlameless`, and
-returns `last ?? lastBlameless ?? synthetic`. `LlmRouter.IsBlameless` is `NotConfigured or Unsupported`.
+returns `last ?? lastBlameless ?? synthetic`. `TextRouter.IsBlameless` is `NotConfigured or Unsupported`.
 Without the split, `[downHost → Failed, neverConfigured → NotConfigured]` would tell the caller "not
 configured" and send them off to set up a key, while the backend they HAD configured is the one that is down.
 `StreamAsync` mirrors it exactly (`lastError ?? lastBlameless ?? synthetic`, on pre-content errors only).
@@ -103,7 +106,7 @@ Three properties of that split are load-bearing:
   actions, which `Surface` no longer triggers.)
 - **Caller-supplied refusal check on the reply text**: set `TextRequest.RefusalPattern` (a case-insensitive
   regex, e.g. a per-language "I can't help with that"). An otherwise-`Ok` reply whose text matches is
-  surfaced as `Refused` (no fallback). Applied by `RefusalScreeningLlmClient` — the always-on OUTERMOST
+  surfaced as `Refused` (no fallback). Applied by `RefusalScreeningTextClient` — the always-on OUTERMOST
   front-door layer (above the response cache), so a cached hit is re-screened too. Completion-path only
   (streaming isn't screened); a malformed pattern is logged and ignored (fail-open).
   **`IRefusalMatcher` is the structured alternative** (not a preferred one — the code ranks neither):
@@ -113,7 +116,7 @@ Three properties of that split are load-bearing:
   returns true surfaces the reply as `Refused`. Same two fences as the regex — completion-path only, and
   fail-open (a throwing matcher is logged and the reply passes through unchanged).
 
-## Streaming (`LlmRouter.StreamAsync`) — two invariants
+## Streaming (`TextRouter.StreamAsync`) — two invariants
 
 1. **No fallback after the first content token.** Once a *real* content chunk is yielded (`committed`),
    every later chunk — including an `Error` — passes through unchanged and the stream ends; no second
@@ -154,7 +157,7 @@ Supply the delegate when **several configurations of one backend id are live at 
 polled store owns the configuration; tenants carry their own credentials and endpoints). Then the id is the
 wrong unit twice over: one tenant exhausting its quota benches every other tenant on that backend, and two
 consumers pointing at the *same* downed self-hosted host fail to share a bench that would have spared them
-both. `IProviderPool<T>.TryGetKey` is the intended source, and `ILlmRouterFactory` / `IGenerationRouterFactory`
+both. `IProviderPool<T>.TryGetKey` is the intended source, and `ITextRouterFactory` / `IGenerationRouterFactory`
 bind it for you on their pooled overloads — see `docs/DECISIONS.md` D30.
 
 Two properties to hold on to when touching this:
@@ -213,9 +216,9 @@ are forwarding members; the clocks are the engine's, D21). Do NOT reintroduce a 
 buffered call — it kills healthy slow turns (the streaming-timeout trap, same failure mode). Tests stub the
 CLI via `LYNTAI_PROVIDER_CMD`.
 
-## Front door (`ILlmClient` / `LlmClient`)
+## Front door (`ITextClient` / `TextClient`)
 
-To a consumer, Lyntai behaves like **one** provider: `ILlmClient` wraps the router with the default
+To a consumer, Lyntai behaves like **one** provider: `ITextClient` wraps the router with the default
 candidate list so callers don't thread candidates through. New consumer-facing surface (structured
 output, etc.) hangs off the front door, not the raw router. There is no MEAI bridge in either direction since **D146** deleted it; an OpenAI-compatible backend is
 reached with `AddHttpProvider`.

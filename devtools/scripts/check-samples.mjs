@@ -85,7 +85,7 @@ export const PREAMBLE = [
   ['Lyntai.LyntaiBuilder', 'cfg'],
   ['Lyntai.LyntaiBuilder', 'b'],
   ['Lyntai.LyntaiBuilder', 'builder'],
-  ['Lyntai.Llm.ILlmClient', 'llm'],
+  ['Lyntai.Inference.ITextClient', 'llm'],
   ['Lyntai.Inference.IModelProvider', 'provider'],
   ['Lyntai.Jobs.IJobQueue', 'queue'],
   ['Lyntai.Jobs.IJobRunner', 'runner'],

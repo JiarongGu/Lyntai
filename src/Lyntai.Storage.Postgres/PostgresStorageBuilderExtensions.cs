@@ -107,7 +107,7 @@ public static class PostgresStorageBuilderExtensions
     public static LyntaiBuilder UsePostgresResponseCache(this LyntaiBuilder builder)
     {
         RequireGovernance(builder, nameof(UsePostgresResponseCache));
-        builder.Services.AddSingleton<Lyntai.Llm.Caching.IResponseCache>(sp => new PostgresResponseCache(
+        builder.Services.AddSingleton<Lyntai.Inference.Caching.IResponseCache>(sp => new PostgresResponseCache(
             sp.GetRequiredService<IDbConnectionFactory>(), sp.GetRequiredService<LyntaiOptions>()));
         return builder;
     }
@@ -119,7 +119,7 @@ public static class PostgresStorageBuilderExtensions
     public static LyntaiBuilder UsePostgresUsageTracking(this LyntaiBuilder builder)
     {
         RequireGovernance(builder, nameof(UsePostgresUsageTracking));
-        builder.Services.AddSingleton<Lyntai.Llm.Budgeting.IUsageTracker>(sp => new PostgresUsageTracker(
+        builder.Services.AddSingleton<Lyntai.Inference.Budgeting.IUsageTracker>(sp => new PostgresUsageTracker(
             sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
     }

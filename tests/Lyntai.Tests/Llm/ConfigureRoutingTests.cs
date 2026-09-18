@@ -1,7 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -43,7 +41,7 @@ public class ConfigureRoutingTests
             .ConfigureRouting(r => r.Retry(ProviderVerdict.Failed, 1)));
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>()
+        var reply = await sp.GetRequiredService<ITextClient>()
             .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.Equal("recovered", reply.Text);

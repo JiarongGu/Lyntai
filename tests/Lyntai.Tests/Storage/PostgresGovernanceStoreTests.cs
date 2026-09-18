@@ -1,8 +1,7 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Budgeting;
-using Lyntai.Llm.Caching;
+using Lyntai.Inference.Budgeting;
+using Lyntai.Inference.Caching;
 using Lyntai.Memory;
 using Lyntai.Storage.Postgres;
 using Lyntai.Tests.Fakes;

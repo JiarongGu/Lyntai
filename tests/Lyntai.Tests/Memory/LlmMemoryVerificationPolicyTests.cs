@@ -1,5 +1,4 @@
 using Lyntai.Inference;
-using Lyntai.Llm;
 using Lyntai.Memory.Verification;
 
 namespace Lyntai.Tests.Memory;
@@ -22,7 +21,7 @@ namespace Lyntai.Tests.Memory;
 /// </summary>
 public class LlmMemoryVerificationPolicyTests
 {
-    private sealed class ScriptedClient(string text, ProviderVerdict verdict = ProviderVerdict.Ok) : ILlmClient
+    private sealed class ScriptedClient(string text, ProviderVerdict verdict = ProviderVerdict.Ok) : ITextClient
     {
         public TextRequest? Last { get; private set; }
 
@@ -36,7 +35,7 @@ public class LlmMemoryVerificationPolicyTests
             throw new NotSupportedException();
     }
 
-    private sealed class ThrowingClient : ILlmClient
+    private sealed class ThrowingClient : ITextClient
     {
         public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
             throw new HttpRequestException("the backend is unreachable");
@@ -48,7 +47,7 @@ public class LlmMemoryVerificationPolicyTests
     /// <summary>Honours the token, which the shared <c>FakeLlmClient</c> deliberately does not — the point of
     /// the cancellation fact is the POLICY's catch ordering, and a client that ignored the token would make
     /// it pass vacuously.</summary>
-    private sealed class CancellingClient : ILlmClient
+    private sealed class CancellingClient : ITextClient
     {
         public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
         {
@@ -64,7 +63,7 @@ public class LlmMemoryVerificationPolicyTests
     /// nobody asked for — while the caller's token stays uncancelled. That is what makes it a MODEL failure
     /// rather than a cancel, and the pair with <see cref="CancellingClient"/> is what stops the fix for one
     /// being "swallow every cancellation".</summary>
-    private sealed class TimingOutClient : ILlmClient
+    private sealed class TimingOutClient : ITextClient
     {
         public Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default) =>
             throw new TaskCanceledException(
@@ -74,11 +73,11 @@ public class LlmMemoryVerificationPolicyTests
             throw new NotSupportedException();
     }
 
-    private sealed class SingleClientFactory(ILlmClient client) : ILlmClientFactory
+    private sealed class SingleClientFactory(ITextClient client) : ITextClientFactory
     {
-        public ILlmClient Get(string name) => client;
-        public ILlmClient Get() => client;
-        public bool TryGet(string name, out ILlmClient c) { c = client; return true; }
+        public ITextClient Get(string name) => client;
+        public ITextClient Get() => client;
+        public bool TryGet(string name, out ITextClient c) { c = client; return true; }
         public IReadOnlyList<string> Names => [];
     }
 
@@ -92,10 +91,10 @@ public class LlmMemoryVerificationPolicyTests
     // Spelled out rather than target-typed on purpose: PolicyContractCoverageTests proves coverage by
     // looking for `new <Implementation>(` in a file that also references the contract, so a `new(...)` here
     // would leave the seam reported as uncovered.
-    private static LlmMemoryVerificationPolicy Policy(ILlmClient client) =>
+    private static LlmMemoryVerificationPolicy Policy(ITextClient client) =>
         new LlmMemoryVerificationPolicy(new SingleClientFactory(client));
 
-    private static Task<MemoryVerification> VerifyAsync(ILlmClient client, string query = "where is the review?") =>
+    private static Task<MemoryVerification> VerifyAsync(ITextClient client, string query = "where is the review?") =>
         Policy(client).VerifyAsync(new MemoryVerificationRequest(query, Notes));
 
     // ---- the contract, on a working policy and on a broken one --------------------------------------

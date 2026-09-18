@@ -1,8 +1,6 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
@@ -18,7 +16,7 @@ namespace Lyntai.Tests.Generation;
 /// synthetic "every capable backend reported it is not configured" was not even accurate for a run in which
 /// every candidate said <see cref="ProviderVerdict.Unsupported"/>.</para>
 ///
-/// <para>So the router keeps a second slot, exactly as <c>LlmRouter.CompleteAsync</c> already did
+/// <para>So the router keeps a second slot, exactly as <c>TextRouter.CompleteAsync</c> already did
 /// (<c>last ?? lastBlameless ?? synthetic</c>) — and only once that was in place could
 /// <see cref="ProviderVerdict.ContextWindowExceeded"/> become <see cref="ProviderVerdict.Unsupported"/>, which is
 /// what stops repeated oversized prompts from benching a healthy backend. Doing the mapping first would just

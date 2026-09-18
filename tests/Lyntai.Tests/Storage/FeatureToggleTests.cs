@@ -250,8 +250,8 @@ public class FeatureToggleTests : IDisposable
         using var sp = services.BuildServiceProvider();
 
         Assert.NotNull(sp.GetService<Lyntai.Memory.IVectorStore>());
-        Assert.NotNull(sp.GetService<Lyntai.Llm.Caching.IResponseCache>());
-        Assert.NotNull(sp.GetService<Lyntai.Llm.Budgeting.IUsageTracker>());
+        Assert.NotNull(sp.GetService<Lyntai.Inference.Caching.IResponseCache>());
+        Assert.NotNull(sp.GetService<Lyntai.Inference.Budgeting.IUsageTracker>());
     }
 
     private static void Apply(LyntaiBuilder b, string helper)

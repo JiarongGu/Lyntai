@@ -1,6 +1,5 @@
-using Lyntai.Llm;
-using Lyntai.Llm.Budgeting;
 using Lyntai.Inference;
+using Lyntai.Inference.Budgeting;
 
 namespace Lyntai.Tests.Storage;
 
@@ -11,7 +10,7 @@ namespace Lyntai.Tests.Storage;
 /// contract facts are the dedup mechanism holding the relational pair to one behaviour. This domain had
 /// none: it was held by two hand-maintained per-backend suites which had already diverged 11 facts to 8,
 /// and three SQLite assertions had no Postgres counterpart at all. The domain backs
-/// <c>BudgetedLlmClient</c>, which REFUSES calls at a cap, so a drift here ends in overspend rather than in
+/// <c>BudgetedTextClient</c>, which REFUSES calls at a cap, so a drift here ends in overspend rather than in
 /// a wrong answer.</para>
 ///
 /// <para>Every fact is scoped to a caller-supplied <paramref name="consumer"/> so it is safe on the shared
@@ -69,7 +68,7 @@ public static class UsageTrackerContract
     /// <summary><b>The fact this contract was written for.</b> A scoped reset must not clear the ledger of
     /// every OTHER consumer — and on Postgres nothing asserted it, so a <c>ResetAsync(consumer)</c> that
     /// dropped the whole table would have passed. That failure is silent and expensive in one direction: a
-    /// cleared ledger stops the cap binding, and `BudgetedLlmClient` stops refusing.</summary>
+    /// cleared ledger stops the cap binding, and `BudgetedTextClient` stops refusing.</summary>
     public static async Task Resetting_ONE_consumer_leaves_the_others_intact(IUsageTracker tracker, string consumer)
     {
         var other = consumer + "-kept";

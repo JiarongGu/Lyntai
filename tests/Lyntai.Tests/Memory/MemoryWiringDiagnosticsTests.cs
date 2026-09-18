@@ -261,7 +261,7 @@ public class MemoryWiringDiagnosticsTests
     }
 
     /// <summary>Asking whether a policy is REGISTERED must not CONSTRUCT it: the shipped verification policy
-    /// resolves an <c>ILlmClientFactory</c> with <c>GetRequiredService</c>, so a check that asked for the
+    /// resolves an <c>ITextClientFactory</c> with <c>GetRequiredService</c>, so a check that asked for the
     /// instance would turn a diagnostic into the startup failure it exists to describe. The doubles here
     /// throw from their factories, so constructing either fails this test rather than passing quietly.</summary>
     [Fact]

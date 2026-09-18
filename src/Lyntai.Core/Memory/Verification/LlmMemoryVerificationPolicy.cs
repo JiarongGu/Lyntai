@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using System.Globalization;
 using System.Text.Json;
-using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -10,7 +9,7 @@ namespace Lyntai.Memory.Verification;
 /// <summary>Knobs for <see cref="LlmMemoryVerificationPolicy"/>.</summary>
 public sealed class LlmVerificationOptions
 {
-    /// <summary>The named <see cref="ILlmClient"/> to judge with (<c>AddLlmClient</c>). Null uses the
+    /// <summary>The named <see cref="ITextClient"/> to judge with (<c>AddTextClient</c>). Null uses the
     /// default client.
     /// <para>Naming one matters more here than anywhere else in this library, because verification runs on
     /// every recall and sits in the latency path of an answer — so the judge should be sized DELIBERATELY
@@ -79,7 +78,7 @@ public sealed class LlmVerificationOptions
 /// <param name="options">Knobs; null takes the defaults.</param>
 /// <param name="logger">Null logs nothing.</param>
 public sealed class LlmMemoryVerificationPolicy(
-    ILlmClientFactory clients,
+    ITextClientFactory clients,
     LlmVerificationOptions? options = null,
     ILogger<LlmMemoryVerificationPolicy>? logger = null) : IMemoryVerificationPolicy
 {

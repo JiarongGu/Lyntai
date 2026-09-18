@@ -2,7 +2,7 @@ namespace Lyntai.Providers.CodexCli;
 
 /// <summary>The ONE place that knows how to ask the <c>codex</c> CLI for a non-interactive turn. Both codex
 /// seams build their argv here — the text completion (<see cref="CodexCliDialect.BuildCompletionArgs"/>,
-/// through <see cref="Lyntai.Llm.Cli.CliProviderEngine"/>) and the self-driving agent session
+/// through <see cref="Lyntai.Inference.Cli.CliProviderEngine"/>) and the self-driving agent session
 /// (<see cref="CodexAgentSession"/>) — so a flag can never be present on one path and missing from the other.
 ///
 /// <para>That is not tidiness. <c>--skip-git-repo-check</c> is the flag a consuming app's hand-rolled codex

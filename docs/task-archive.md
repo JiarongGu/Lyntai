@@ -4381,3 +4381,27 @@ is `Lyntai.Inference` types sitting alone under a domain root is the same shape 
 `IVectorProvider`'s home.
 
 - **NS-3b — the MEDIA call shape: rename AND move in one pass.**
+
+## Part 248 — the text FRONT DOOR is `ITextClient`, and `Lyntai.Llm` is gone (D154 NS-4, carrying NS-2)
+
+✅ done 2026-09-18 — **Outcome:** `ILlmClient`/`LlmClient`/`ILlmRouter`/`LlmRouter` and their factories,
+builder, registration and five decorators became `Text*`; `Lyntai.Llm{,.Routing,.Caching,.Budgeting,
+.RateLimiting,.Cli}` folded into `Lyntai.Inference{,.Caching,.Budgeting,.RateLimiting,.Cli}`, with Routing
+flattened into the root because `RoutingPolicy` and `DeadHostTracker` were already there. 782 occurrences
+over 224 files. NS-2 closed inside it, as its own refutation required. Detail in `CHANGELOG.md` §Unreleased.
+
+**The rename has a BOUNDARY, and it is the deliverable a later sweep needs:** `Llm` is retired as a
+call-shape and front-door prefix only. It stays live where it means *"asks a language model"* —
+`LlmScorerBase`, `LlmPairwiseComparer`, the two `LlmMemory*Policy` types, and `IScorer.IsLlm`, which is also
+the `is_llm` COLUMN in both SQL backends and the `"llm"` score group. Renaming the types alone would split
+one vocabulary across two words and strand the persisted half.
+
+**Three defects the move surfaced, none of which any gate could see beforehand:** `check-decision-claims`
+had a hardcoded `src/Lyntai.Core/Llm` root that would have scanned NOTHING and reported clean — the SECOND
+time that function has been broken this way by a directory move, now commented in place; a `<see cref>`
+written `Llm.Cli.…` rather than fully qualified, which a `Lyntai.Llm` pattern cannot match; and three sites
+naming `LlmRoutingPolicy`, a type that has never existed — `RoutingPolicy` is the SHARED default table, not
+the text one, which is why NS-4 left its name alone.
+
+- **NS-4 — the front door: `ILlmClient` → `ITextClient`.**
+- **NS-2 — the governance sub-namespaces move WITH the front door, not before it.**

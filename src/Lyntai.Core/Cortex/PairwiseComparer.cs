@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using System.Text.Json;
-using Lyntai.Llm;
 using Lyntai.Text;
 
 namespace Lyntai.Cortex;
@@ -44,7 +43,7 @@ public interface IPairwiseComparer
 }
 
 /// <summary>
-/// Default comparer over <see cref="ILlmClient"/>. Position bias (LLM judges favor whichever answer
+/// Default comparer over <see cref="ITextClient"/>. Position bias (LLM judges favor whichever answer
 /// is shown first) is a documented failure mode, so by default this runs BOTH orders and only returns
 /// a winner when the two passes agree on the same actual output — a disagreement is reported as a
 /// <see cref="PairwiseWinner.Tie"/> (the judge isn't discriminating reliably). Set
@@ -55,15 +54,15 @@ public interface IPairwiseComparer
 /// the two-pass check cannot catch the resulting false winner because both passes see the same two
 /// strings.</para>
 ///
-/// <para><b>To judge on a CHEAP backend, hand this one.</b> It takes an <see cref="ILlmClient"/> on a public
+/// <para><b>To judge on a CHEAP backend, hand this one.</b> It takes an <see cref="ITextClient"/> on a public
 /// constructor and the container registration is try-add, so
 /// <c>services.AddSingleton&lt;IPairwiseComparer&gt;(sp =&gt; new LlmPairwiseComparer(
-/// sp.GetRequiredService&lt;ILlmClientFactory&gt;().Get("judge")))</c> wins over the default. That is the
+/// sp.GetRequiredService&lt;ITextClientFactory&gt;().Get("judge")))</c> wins over the default. That is the
 /// composition-root route <c>docs/model-tasks.md</c> §5 prescribes for every seam without a
 /// <c>ClientName</c> option, and it matters here because the default mitigation costs TWO calls per
 /// comparison.</para>
 /// </summary>
-public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBias = true) : IPairwiseComparer
+public sealed class LlmPairwiseComparer(ITextClient llm, bool mitigatePositionBias = true) : IPairwiseComparer
 {
     /// <summary>The verdict for an identical pair, reached without a judge — see the type's own remarks for
     /// why that is correctness rather than thrift. <b>Matched ORDINALLY and deliberately nothing looser</b>:

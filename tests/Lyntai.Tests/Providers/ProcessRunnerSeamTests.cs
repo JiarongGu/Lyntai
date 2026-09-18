@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Tests.Fakes;
@@ -62,7 +61,7 @@ public class ProcessRunnerSeamTests
         // the TryAdd default must not shadow the app's runner
         Assert.Same(runner, sp.GetRequiredService<IProcessRunner>());
 
-        var reply = await sp.GetRequiredService<ILlmClient>()
+        var reply = await sp.GetRequiredService<ITextClient>()
             .CompleteAsync(new TextRequest { Messages = [TextMessage.User("via di")] });
         Assert.Equal("served by a custom runner", reply.Text);
     }

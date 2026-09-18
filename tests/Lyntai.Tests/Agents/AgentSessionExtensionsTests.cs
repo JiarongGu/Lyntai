@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai.Agents;
-using Lyntai.Llm;
 
 namespace Lyntai.Tests.Agents;
 

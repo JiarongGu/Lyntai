@@ -1,4 +1,4 @@
-using Lyntai.Llm;
+using Lyntai.Inference;
 using Lyntai.Memory;
 using Lyntai.Memory.Annotation;
 using Lyntai.Tests.Live;

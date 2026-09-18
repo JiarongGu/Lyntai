@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai.Cortex;
-using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Cortex;
@@ -9,7 +8,7 @@ public class LlmScorerBaseTests
 {
     // a concrete judge whose model/consumer come from ctor args (via the prop overrides) — the "subclass/ctor
     // sets it" path. `applies` gates whether the judge runs at all.
-    private sealed class Judge(ILlmClient llm, string? model = null, string consumer = "scoring", bool applies = true)
+    private sealed class Judge(ITextClient llm, string? model = null, string consumer = "scoring", bool applies = true)
         : LlmScorerBase(llm)
     {
         public override string Id => "judge";

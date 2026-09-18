@@ -31,7 +31,7 @@ public class GenerationRouterTests
     [Fact]
     public async Task A_throwing_backend_is_classified_and_fallen_over_rather_than_propagated()
     {
-        // THE TRUST BOUNDARY, found 2026-08-15. LlmRouter.TryCompleteAsync has caught and classified a
+        // THE TRUST BOUNDARY, found 2026-08-15. TextRouter.TryCompleteAsync has caught and classified a
         // thrown provider since it shipped, with the reason written out: "a provider that THROWS must get
         // the same fallback policy as one that returns a verdict reply". GenerationRouter had NO try/catch
         // at all, so one buggy BYO backend — AddGenerationProvider is a documented extension point — killed
@@ -50,7 +50,7 @@ public class GenerationRouterTests
     [Fact]
     public async Task A_thrown_refusal_is_clamped_so_a_keyword_cannot_stop_the_chain()
     {
-        // The same clamp LlmRouter.ClassifyThrown documents: a throw is transport-layer — an error page
+        // The same clamp TextRouter.ClassifyThrown documents: a throw is transport-layer — an error page
         // mentioning "content filter" at a proxy or CDN, not the model declining — and Refused is TERMINAL
         // (Surface, no fallback). A keyword match in an exception message must never bench the chain.
         var broken = new FakeGenerationProvider
@@ -70,7 +70,7 @@ public class GenerationRouterTests
     [Fact]
     public async Task A_caller_cancellation_still_propagates_rather_than_becoming_a_verdict()
     {
-        // The one throw that must NOT be swallowed — the same carve-out LlmRouter makes. Without it, a
+        // The one throw that must NOT be swallowed — the same carve-out TextRouter makes. Without it, a
         // cancelled render would report a verdict and the caller could not tell it was their own cancel.
         var slow = new FakeGenerationProvider { Id = "byo", Throws = new OperationCanceledException() };
         using var cts = new CancellationTokenSource();

@@ -44,7 +44,7 @@ public class GenerationToolsTests
     ///
     /// <para>The defect: <c>GenerationFetchTool</c> called <c>backend.FetchAsync</c> directly, bypassing the
     /// router, and handed <c>result.Usage</c> to the artifact sink without ever reaching
-    /// <see cref="Lyntai.Llm.Budgeting.IUsageTracker"/>. A queue backend prices at FETCH — that is the only
+    /// <see cref="Lyntai.Inference.Budgeting.IUsageTracker"/>. A queue backend prices at FETCH — that is the only
     /// point the total is known — so the entire cost of every tool-driven async render was invisible.</para>
     ///
     /// <para>Why that breaks a promise rather than merely under-reporting. <c>GenerationInlineTool.Consumer</c>
@@ -69,7 +69,7 @@ public class GenerationToolsTests
         });
         services.AddSingleton<IGenerationArtifactSink>(sink);
         using var sp = services.BuildServiceProvider();
-        var usage = sp.GetRequiredService<Lyntai.Llm.Budgeting.IUsageTracker>();
+        var usage = sp.GetRequiredService<Lyntai.Inference.Budgeting.IUsageTracker>();
 
         var submitted = Json(await Tool(sp, "generate_submit")
             .InvokeAsync("""{"kind":"video","prompt":"a cat surfing"}"""));

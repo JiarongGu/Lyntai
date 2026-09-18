@@ -46,7 +46,7 @@ you actually AOT-publish an app that uses `Lyntai.Storage.Sqlite`.
   in it, so the table cannot silently omit one — a hand-kept enumeration in this sentence can, and did (it
   named three of the six).
 - **What trimming actually buys, measured** on a console app that references the `Lyntai` bundle but calls only
-  `AddLyntai` + `ILlmClient`:
+  `AddLyntai` + `ITextClient`:
 
   | | Plain `publish` | `PublishTrimmed=true` |
   |---|---|---|

@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 using Lyntai.Diagnostics;
 using Lyntai.Guards;
-using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -13,16 +12,16 @@ namespace Lyntai.Agents;
 
 /// <summary>
 /// Default <see cref="IToolLoop"/>. Uses <b>native</b> tool-calling when the routing supports it
-/// (<see cref="ILlmClient.SupportsToolCalls"/>): tool declarations go to the model and its structured
+/// (<see cref="ITextClient.SupportsToolCalls"/>): tool declarations go to the model and its structured
 /// <see cref="TextResponse.ToolCalls"/> drive execution, with results fed back as tool-role messages.
 /// Otherwise it falls back to a provider-agnostic <b>prompt protocol</b> over the text contract (the
 /// model replies with one JSON object, <c>{"tool":…}</c> or <c>{"final":…}</c>, via
-/// <see cref="LlmStructuredExtensions.CompleteJsonAsync"/>). Both paths execute the same registered
+/// <see cref="TextStructuredExtensions.CompleteJsonAsync"/>). Both paths execute the same registered
 /// <see cref="ITool"/>s. Unknown tools and tools that throw become <c>error: …</c> observations fed back
 /// to the model (it can recover) rather than exceptions; a non-Ok LLM verdict is surfaced as-is.
 /// </summary>
 public sealed class ToolLoop(
-    ILlmClient client,
+    ITextClient client,
     IToolRegistry registry,
     LyntaiOptions options,
     ILogger<ToolLoop>? logger = null,
@@ -242,7 +241,7 @@ public sealed class ToolLoop(
     }
 
     /// <summary>One native turn, read from the provider's STREAM when it carries tool calls and buffered
-    /// through <see cref="ILlmClient.CompleteAsync"/> otherwise. What the turn produced lands in
+    /// through <see cref="ITextClient.CompleteAsync"/> otherwise. What the turn produced lands in
     /// <paramref name="result"/> and its tokens in <paramref name="usage"/>, an async iterator having no
     /// return value to put either in.</summary>
     private async IAsyncEnumerable<AgentStreamEvent> ReadNativeTurnAsync(
@@ -311,7 +310,7 @@ public sealed class ToolLoop(
 
     /// <summary>The PROMPT-PROTOCOL turn loop, for providers without native tool-calling:
     /// <c>{"tool":…}</c>/<c>{"final":…}</c> over the text contract via
-    /// <see cref="LlmStructuredExtensions.CompleteJsonAsync"/>. Terminates through <paramref name="finish"/>
+    /// <see cref="TextStructuredExtensions.CompleteJsonAsync"/>. Terminates through <paramref name="finish"/>
     /// or runs out, exactly as the native loop does.</summary>
     private async IAsyncEnumerable<AgentStreamEvent> RunPromptAsync(
         TextRequest req, IReadOnlyList<ITool> tools, int budget, List<ToolStep> steps, UsageSum usage,

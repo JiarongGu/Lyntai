@@ -1,6 +1,6 @@
 using System.Reflection;
 using Lyntai.Cortex;
-using Lyntai.Llm;
+using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Cortex;
@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Cortex;
 /// </summary>
 public class ScorerAppliesTests
 {
-    private sealed class Judge(ILlmClient llm, bool applies) : LlmScorerBase(llm)
+    private sealed class Judge(ITextClient llm, bool applies) : LlmScorerBase(llm)
     {
         public override string Id => "judge";
         public override string Name => "Judge";
@@ -23,7 +23,7 @@ public class ScorerAppliesTests
 
     // A gate that is itself a bug. A predicate is contractually pure and cheap, which is why ScoringService
     // calls it OUTSIDE its per-scorer try — a broken one must surface, not be logged away.
-    private sealed class ThrowingGateJudge(ILlmClient llm) : LlmScorerBase(llm)
+    private sealed class ThrowingGateJudge(ITextClient llm) : LlmScorerBase(llm)
     {
         public override string Id => "throwing-gate";
         public override string Name => "Throwing gate";

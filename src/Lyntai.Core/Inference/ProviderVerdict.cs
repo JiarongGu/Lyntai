@@ -3,10 +3,11 @@ namespace Lyntai.Inference;
 /// <summary>Why a backend call ended the way it did — ONE taxonomy for every domain this library routes
 /// over, read by every router to decide fallback.
 ///
-/// <para><b>What a verdict MEANS is shared; what a router DOES about it is not.</b> Each domain keeps its
-/// own action table — <c>LlmRoutingPolicy</c> surfaces <see cref="Unsupported"/> while
-/// <c>GenerationRoutingPolicy</c> advances on it. Never read a verdict as a promise about what happens
-/// next; read the policy. Why it is named for no domain: <c>docs/DECISIONS.md</c> D136.</para>
+/// <para><b>What a verdict MEANS is shared; what a router DOES about it is not.</b> <see cref="RoutingPolicy"/>
+/// is the default action table every router starts from — it surfaces <see cref="Unsupported"/> — and
+/// <c>GenerationRoutingPolicy</c> is the media domain's own, which advances on it instead. Never read a
+/// verdict as a promise about what happens next; read the policy. Why it is named for no domain:
+/// <c>docs/DECISIONS.md</c> D136.</para>
 ///
 /// <list type="bullet">
 /// <item><see cref="Failed"/>/<see cref="Timeout"/> — availability problem: count toward the

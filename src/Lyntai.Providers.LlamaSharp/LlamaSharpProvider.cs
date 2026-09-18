@@ -4,7 +4,6 @@ using System.Text;
 using LLama;
 using LLama.Common;
 using LLama.Sampling;
-using Lyntai.Llm;
 using Lyntai.Inference.Streaming;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

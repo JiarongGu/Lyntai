@@ -1,7 +1,7 @@
 using Lyntai.Inference;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
-using Lyntai.Llm.RateLimiting;
+using Lyntai.Inference.RateLimiting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 

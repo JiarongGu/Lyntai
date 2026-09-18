@@ -1,8 +1,7 @@
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
-using Lyntai.Llm.Budgeting;
-using Lyntai.Llm.RateLimiting;
-using Lyntai.Llm.Routing;
+using Lyntai.Inference.Budgeting;
+using Lyntai.Inference.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -192,7 +191,7 @@ public static class GenerationBuilderExtensions
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationFetchTool(
             sp.GetServices<IModelProvider>(),
             sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>(),
-            sp.GetService<Lyntai.Llm.Budgeting.IUsageTracker>()));
+            sp.GetService<Lyntai.Inference.Budgeting.IUsageTracker>()));
         return builder;
     }
 

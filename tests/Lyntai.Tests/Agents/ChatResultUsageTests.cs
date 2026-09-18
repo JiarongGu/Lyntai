@@ -2,7 +2,6 @@ using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Guards;
-using Lyntai.Llm;
 using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,7 +11,7 @@ namespace Lyntai.Tests.Agents;
 /// <summary>What a chat turn cost. <see cref="ToolLoopResult.Usage"/> has always carried the loop's summed
 /// token/cost figure, but <see cref="ChatResult"/> had nowhere to put it — so <see cref="ChatOrchestrator"/>
 /// dropped it (and the plain-completion path's <see cref="TextResponse.Usage"/> with it), and a chat consumer had
-/// to wrap <see cref="ILlmClient"/> in its own front-door decorator to learn the number the loop had already
+/// to wrap <see cref="ITextClient"/> in its own front-door decorator to learn the number the loop had already
 /// computed. These pin <see cref="ChatResult.Usage"/> on every exit that reached a provider — and pin it null
 /// on the one that never did.</summary>
 public class ChatResultUsageTests

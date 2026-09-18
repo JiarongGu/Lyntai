@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using System.Text.Json;
-using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -9,7 +8,7 @@ namespace Lyntai.Memory.Annotation;
 /// <summary>Knobs for <see cref="LlmMemoryAnnotationPolicy"/>.</summary>
 public sealed class LlmAnnotationOptions
 {
-    /// <summary>The named <see cref="ILlmClient"/> to annotate with (<c>AddLlmClient</c>). Null uses the
+    /// <summary>The named <see cref="ITextClient"/> to annotate with (<c>AddTextClient</c>). Null uses the
     /// default client.
     /// <para>Naming one is the point of the factory existing: annotation runs on EVERY write, so it belongs
     /// on a small fast backend rather than on whichever model the application made default for chat.</para>
@@ -69,7 +68,7 @@ public sealed class LlmAnnotationOptions
 /// <param name="options">Knobs; null takes the defaults.</param>
 /// <param name="logger">Null logs nothing.</param>
 public sealed class LlmMemoryAnnotationPolicy(
-    ILlmClientFactory clients,
+    ITextClientFactory clients,
     LlmAnnotationOptions? options = null,
     ILogger<LlmMemoryAnnotationPolicy>? logger = null) : IMemoryAnnotationPolicy
 {

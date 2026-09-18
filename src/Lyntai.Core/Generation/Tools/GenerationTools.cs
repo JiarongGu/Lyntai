@@ -5,7 +5,6 @@ using System.Text.Json;
 using Lyntai.Agents;
 using Lyntai.Generation.Jobs;
 using Lyntai.Generation.Routing;
-using Lyntai.Llm;
 
 namespace Lyntai.Generation.Tools;
 
@@ -468,7 +467,7 @@ public sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) 
 /// them metered.</para></summary>
 /// <param name="providers">The registered backends; the tool resolves the one named in its arguments.</param>
 /// <param name="sink">Where artifacts are delivered, if the app registered one.</param>
-/// <param name="usage">Usage ledger (<see cref="Lyntai.Llm.Budgeting.IUsageTracker"/>). Null means no budget
+/// <param name="usage">Usage ledger (<see cref="Lyntai.Inference.Budgeting.IUsageTracker"/>). Null means no budget
 /// is configured and nothing is recorded — the same optionality the router's own budgeting has.</param>
 /// <param name="consumer">Whose spend this is, defaulting to the same <c>"agent"</c> tag its sibling tools
 /// use, so one <c>Budget.PerConsumer["agent"]</c> entry binds every agent-driven render regardless of which
@@ -476,7 +475,7 @@ public sealed class GenerationStatusTool(IEnumerable<IModelProvider> providers) 
 public sealed class GenerationFetchTool(
     IEnumerable<IModelProvider> providers,
     IGenerationArtifactSink? sink = null,
-    Lyntai.Llm.Budgeting.IUsageTracker? usage = null,
+    Lyntai.Inference.Budgeting.IUsageTracker? usage = null,
     string consumer = ProviderConsumers.Agent) : ITool
 {
     /// <summary>Whose spend a fetched render is billed to.</summary>

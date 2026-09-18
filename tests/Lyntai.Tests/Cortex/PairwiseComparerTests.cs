@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai.Cortex;
-using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -234,12 +233,12 @@ public class PairwiseComparerTests
             b.AddBridgeProvider("big", (_, _) => Task.FromResult(Verdict("big")));
             b.AddBridgeProvider("cheap", (_, _) => Task.FromResult(Verdict("cheap")));
             b.UseDefaultCandidates("big");
-            b.AddLlmClient("judge", c => c.UseProviders("cheap"));
+            b.AddTextClient("judge", c => c.UseProviders("cheap"));
 
             // The documented route: resolve the factory, ask it for the name you want, hand it in. TryAdd in
             // RegisterCortex means this registration — made inside the callback, which runs first — wins.
             b.Services.AddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(
-                sp.GetRequiredService<ILlmClientFactory>().Get("judge"), mitigatePositionBias: false));
+                sp.GetRequiredService<ITextClientFactory>().Get("judge"), mitigatePositionBias: false));
         });
 
         using var provider = services.BuildServiceProvider();

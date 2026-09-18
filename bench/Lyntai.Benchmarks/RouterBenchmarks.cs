@@ -2,8 +2,6 @@ using Lyntai.Inference;
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 
 namespace Lyntai.Benchmarks;
 
@@ -12,8 +10,8 @@ namespace Lyntai.Benchmarks;
 [MemoryDiagnoser]
 public class RouterBenchmarks
 {
-    private LlmRouter _router = null!;
-    private LlmRouter _routerFallover = null!;
+    private TextRouter _router = null!;
+    private TextRouter _routerFallover = null!;
     private readonly TextRequest _req = new() { Messages = [TextMessage.User("bench")] };
     private readonly IReadOnlyList<ProviderCandidate> _single = [new ProviderCandidate("ok")];
     private readonly IReadOnlyList<ProviderCandidate> _two = [new ProviderCandidate("down"), new ProviderCandidate("ok")];
@@ -24,8 +22,8 @@ public class RouterBenchmarks
         var options = new LyntaiOptions();
         var ok = new NoopProvider("ok", ProviderVerdict.Ok);
         var down = new NoopProvider("down", ProviderVerdict.Failed);
-        _router = new LlmRouter([ok], new DeadHostTracker(), options);
-        _routerFallover = new LlmRouter([down, ok], new DeadHostTracker(), options);
+        _router = new TextRouter([ok], new DeadHostTracker(), options);
+        _routerFallover = new TextRouter([down, ok], new DeadHostTracker(), options);
     }
 
     [Benchmark(Baseline = true)]

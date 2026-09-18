@@ -1,5 +1,4 @@
 using Lyntai.Inference;
-using Lyntai.Llm;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Lifecycle;
@@ -29,7 +28,7 @@ public class BridgeProviderTests
                 Task.FromResult(new TextResponse($"echo: {req.Messages[^1].Content}", ProviderVerdict.Ok)))
             .UseDefaultCandidates("vendor"));
 
-        var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Ask("hello"));
+        var reply = await sp.GetRequiredService<ITextClient>().CompleteAsync(Ask("hello"));
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("echo: hello", reply.Text);
@@ -76,7 +75,7 @@ public class BridgeProviderTests
             .AddBridgeProvider("up", (_, _) => Task.FromResult(new TextResponse("served", ProviderVerdict.Ok)))
             .UseDefaultCandidates("down", "up"));
 
-        var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Ask());
+        var reply = await sp.GetRequiredService<ITextClient>().CompleteAsync(Ask());
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("served", reply.Text);

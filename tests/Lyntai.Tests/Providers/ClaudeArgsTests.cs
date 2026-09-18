@@ -1,7 +1,6 @@
-using Lyntai.Llm;
-using Lyntai.Llm.Cli;
-using Lyntai.Providers.ClaudeCli;
 using Lyntai.Inference;
+using Lyntai.Inference.Cli;
+using Lyntai.Providers.ClaudeCli;
 
 namespace Lyntai.Tests.Providers;
 

@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Cli;
+using Lyntai.Inference.Cli;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
@@ -83,7 +82,7 @@ public class CliProviderEngineStreamBoundsTests
     {
         // Regression: the engine counted Content EVENTS rather than their length, so a zero-content event
         // marked the stream answered — it ended `Final` (a successful EMPTY answer the router would never
-        // fall over from), and through LlmRouter a zero-content FIRST chunk committed the stream and
+        // fall over from), and through TextRouter a zero-content FIRST chunk committed the stream and
         // disabled fallback outright. The dialect's "text:" line parses to Content("").
         var runner = new FakeProcessRunner(["text:"]);
 

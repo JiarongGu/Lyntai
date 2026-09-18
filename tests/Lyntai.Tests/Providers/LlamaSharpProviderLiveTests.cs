@@ -1,5 +1,4 @@
 using Lyntai.Inference;
-using Lyntai.Llm;
 using Lyntai.Providers.LlamaSharp;
 
 namespace Lyntai.Tests.Providers;

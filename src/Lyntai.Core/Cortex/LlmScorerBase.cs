@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using System.Text.Json;
-using Lyntai.Llm;
 using Lyntai.Text;
 
 namespace Lyntai.Cortex;
@@ -8,10 +7,10 @@ namespace Lyntai.Cortex;
 /// <summary>
 /// Base for LLM-judge scorers: one-shot call through the front door (the configured default
 /// candidates), expecting a <c>{"score": 0..1, "reason": "…"}</c> verdict. Extraction + the
-/// one-retry-on-parse-failure contract come from <see cref="LlmStructuredExtensions.CompleteJsonAsync"/>;
+/// one-retry-on-parse-failure contract come from <see cref="TextStructuredExtensions.CompleteJsonAsync"/>;
 /// anything unusable → null (the dimension is skipped, never sinks the evaluation).
 /// </summary>
-public abstract class LlmScorerBase(ILlmClient llm) : IScorer
+public abstract class LlmScorerBase(ITextClient llm) : IScorer
 {
     public abstract string Id { get; }
     public abstract string Name { get; }

@@ -1,7 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Llm;
@@ -10,7 +8,7 @@ namespace Lyntai.Tests.Llm;
 ///
 /// <para>Every other id lookup in the tree already worked this way — <c>GenerationRouter</c>,
 /// <c>ProviderPoolGuard</c>, <c>IToolRegistry</c>, <c>IJobHandlerRegistry</c>, <c>BoundedProviderPool</c> — and
-/// <c>LlmRouter</c> alone did not. The gap was REACHABLE rather than theoretical: <c>ProviderPoolGuard</c>
+/// <c>TextRouter</c> alone did not. The gap was REACHABLE rather than theoretical: <c>ProviderPoolGuard</c>
 /// deliberately accepts a pool slot whose case differs from the provider's own <c>Id</c>, so such an instance
 /// was validated, built and pooled, and then never selected — the backend was simply never tried, with no error
 /// and one debug line.</para>
@@ -22,7 +20,7 @@ public class RouterCandidateIdCaseTests
 {
     private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
-    private static LlmRouter Router(params IModelProvider[] providers) =>
+    private static TextRouter Router(params IModelProvider[] providers) =>
         new(providers, new DeadHostTracker(), new LyntaiOptions());
 
     [Fact]
@@ -97,7 +95,7 @@ public class RouterCandidateIdCaseTests
         var provider = new FakeLlmProvider("openai");
         provider.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "boom"));
         provider.Replies.Enqueue(new TextResponse("recovered", ProviderVerdict.Ok));
-        var router = new LlmRouter([provider], tracker, new LyntaiOptions());
+        var router = new TextRouter([provider], tracker, new LyntaiOptions());
         ProviderCandidate[] listedTwice = [new("openai"), new("OpenAI")];
 
         await router.CompleteAsync(listedTwice, Req);

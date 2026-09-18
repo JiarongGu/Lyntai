@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Cli;
+using Lyntai.Inference.Cli;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Tests.Fakes;

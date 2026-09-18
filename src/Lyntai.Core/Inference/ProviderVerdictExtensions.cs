@@ -1,4 +1,3 @@
-using Lyntai.Llm;
 using Lyntai.Agents;
 
 namespace Lyntai.Inference;
@@ -35,7 +34,7 @@ public static class ProviderVerdictExtensions
     /// real, actionable answer that must still surface.</para>
     ///
     /// <para><b>It decides ELIGIBILITY only, never which failure wins.</b> The two routers differ there on
-    /// purpose — <c>LlmRouter</c> keeps the LAST substantive failure, <c>GenerationRouter</c> the FIRST,
+    /// purpose — <c>TextRouter</c> keeps the LAST substantive failure, <c>GenerationRouter</c> the FIRST,
     /// because the first backend's error explains a media run better. That difference is untouched.</para>
     ///
     /// <para>It is ONE function since <b>D136</b>. Both routers carried a private copy, each docblock

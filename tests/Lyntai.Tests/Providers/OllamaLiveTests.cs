@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
 using Lyntai.Providers.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Lyntai.Tests.Fakes;
@@ -107,7 +106,7 @@ public class OllamaLiveTests
             .Configure(o => o.ProviderTimeout = TimeSpan.FromMinutes(3)));
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Ask("Say hi in one word."));
+        var reply = await sp.GetRequiredService<ITextClient>().CompleteAsync(Ask("Say hi in one word."));
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.False(string.IsNullOrWhiteSpace(reply.Text));

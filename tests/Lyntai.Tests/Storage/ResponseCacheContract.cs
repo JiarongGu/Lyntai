@@ -1,6 +1,5 @@
 using Lyntai.Inference;
-using Lyntai.Llm;
-using Lyntai.Llm.Caching;
+using Lyntai.Inference.Caching;
 
 namespace Lyntai.Tests.Storage;
 

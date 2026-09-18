@@ -1,7 +1,5 @@
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -366,7 +364,7 @@ public class ProviderPoolWiringTests
         using var sp = ProviderWithHostAdmission(admission, _ => { });
         var key = ProviderKey.For("openai").With("tenant", "a").Build();
 
-        var router = sp.GetRequiredService<ILlmRouterFactory>().For([
+        var router = sp.GetRequiredService<ITextRouterFactory>().For([
             new ProviderRegistration<IModelProvider>(key, () => new FakeLlmProvider("openai"))]);
         var reply = await router.CompleteAsync([new ProviderCandidate("openai")],
             new TextRequest { Messages = [TextMessage.User("hi")] });
@@ -401,7 +399,7 @@ public class ProviderPoolWiringTests
     {
         using var sp = Provider(b => b.AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a1111" }));
 
-        Assert.NotNull(sp.GetRequiredService<ILlmRouterFactory>());
+        Assert.NotNull(sp.GetRequiredService<ITextRouterFactory>());
         Assert.NotNull(sp.GetRequiredService<IGenerationRouterFactory>());
     }
 
@@ -412,7 +410,7 @@ public class ProviderPoolWiringTests
         using var sp = Provider(_ => { });
         var provider = new FakeLlmProvider("openai");
 
-        var router = sp.GetRequiredService<ILlmRouterFactory>().For([
+        var router = sp.GetRequiredService<ITextRouterFactory>().For([
             new ProviderRegistration<IModelProvider>(
                 ProviderKey.For("openai").With("tenant", "a").Build(), () => provider)]);
         var reply = await router.CompleteAsync([new ProviderCandidate("openai")],

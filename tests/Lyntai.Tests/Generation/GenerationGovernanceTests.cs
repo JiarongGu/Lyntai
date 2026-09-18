@@ -5,10 +5,8 @@ using Lyntai.Diagnostics;
 using Lyntai.Generation;
 using Lyntai.Generation.Jobs;
 using Lyntai.Generation.Routing;
-using Lyntai.Llm;
-using Lyntai.Llm.Budgeting;
-using Lyntai.Llm.RateLimiting;
-using Lyntai.Llm.Routing;
+using Lyntai.Inference.Budgeting;
+using Lyntai.Inference.RateLimiting;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 

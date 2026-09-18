@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Cortex;
-using Lyntai.Llm;
 using Lyntai.Prompts;
 using Lyntai.Storage;
 using Lyntai.Tests.Fakes;
@@ -23,7 +22,7 @@ public class AddLyntaiTests
             .UseDefaultCandidates("fake"));
         using var sp = services.BuildServiceProvider();
 
-        var router = sp.GetRequiredService<ILlmRouter>();
+        var router = sp.GetRequiredService<ITextRouter>();
         var options = sp.GetRequiredService<LyntaiOptions>();
         var reply = await router.CompleteAsync(options.DefaultCandidates,
             new TextRequest { Messages = [TextMessage.User("hi")] });
@@ -119,7 +118,7 @@ public class AddLyntaiTests
     }
 
     // R11 — a custom cross-cutting decorator folds over the front door via the public seam, without the app
-    // pre-registering a whole ILlmClient (which would trip the governance guard).
+    // pre-registering a whole ITextClient (which would trip the governance guard).
     [Fact]
     public async Task Custom_front_door_decorator_wraps_the_client()
     {
@@ -130,13 +129,13 @@ public class AddLyntaiTests
             .AddFrontDoorDecorator(25, (_, inner) => new TagDecorator(inner))); // 25 = outside the cache slot
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>()
+        var reply = await sp.GetRequiredService<ITextClient>()
             .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
 
         Assert.StartsWith("[tagged]", reply.Text); // the custom decorator ran
     }
 
-    private sealed class TagDecorator(ILlmClient inner) : ILlmClient
+    private sealed class TagDecorator(ITextClient inner) : ITextClient
     {
         public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
         {

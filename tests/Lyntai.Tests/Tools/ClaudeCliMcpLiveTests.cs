@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Agents;
-using Lyntai.Llm;
 using Lyntai.Providers.ClaudeCli;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -38,7 +37,7 @@ public class ClaudeCliMcpLiveTests
             .UseDefaultCandidates("claude-cli"));
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(new TextRequest
+        var reply = await sp.GetRequiredService<ITextClient>().CompleteAsync(new TextRequest
         {
             Messages = [TextMessage.User("Call the get_secret_word tool, then tell me the secret word.")],
         });

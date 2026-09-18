@@ -12,8 +12,7 @@ using Lyntai.Cortex;
 using Lyntai.Cortex.Scorers;
 using Lyntai.Diagnostics;
 using Lyntai.Jobs;
-using Lyntai.Llm;
-using Lyntai.Llm.Budgeting;
+using Lyntai.Inference.Budgeting;
 using Lyntai.Memory;
 using Lyntai.Prompts;
 using Lyntai.Providers.ClaudeCli;
@@ -39,7 +38,7 @@ if (Environment.GetEnvironmentVariable("LYNTAI_DEMO") == "governance")
 if (Environment.GetEnvironmentVariable("LYNTAI_DEMO") == "agent-session")
     return await AgentSessionDemo.RunAsync();
 
-// Observability: subscribe BCL listeners to BOTH telemetry surfaces (GenAI "Lyntai.Llm" + agentic
+// Observability: subscribe BCL listeners to BOTH telemetry surfaces (GenAI "Lyntai.Inference" + agentic
 // "Lyntai.Agents"). This is what wiring the OpenTelemetry SDK's AddSource/AddMeter subscribes to (see
 // README); counting in-process keeps the sample dependency-free while proving spans/metrics really fire.
 // Attached before the first LLM call so no span is missed.
@@ -84,8 +83,8 @@ var prompt = await composer.ComposeAsync(basePrompt, "playground", scope: "demo"
 recorder.Record(new TraceStep { Kind = "phase", Label = "compose" });
 
 // 2. completion through the front door — Lyntai behaving like one provider
-//    (fallback across claude-cli → ollama happens invisibly behind ILlmClient)
-var llm = sp.GetRequiredService<ILlmClient>();
+//    (fallback across claude-cli → ollama happens invisibly behind ITextClient)
+var llm = sp.GetRequiredService<ITextClient>();
 var stopwatch = Stopwatch.StartNew();
 var reply = await llm.CompleteAsync(
     new TextRequest { Messages = [TextMessage.User(prompt)], Consumer = "playground" });
@@ -195,7 +194,7 @@ sealed class DemoJobHandler : IJobHandler
     }
 }
 
-/// <summary>In-process tally of both Lyntai OTel surfaces — the GenAI source/meter ("Lyntai.Llm") and the
+/// <summary>In-process tally of both Lyntai OTel surfaces — the GenAI source/meter ("Lyntai.Inference") and the
 /// agentic one ("Lyntai.Agents"). A real app would AddSource/AddMeter these into the OpenTelemetry SDK
 /// instead; the BCL listeners here keep the sample dependency-free while proving the instrumentation
 /// fires. Counters are interlocked because the job runner + streaming produce activity off the main flow.</summary>
@@ -270,7 +269,7 @@ static class GovernanceDemo
         var services = new ServiceCollection();
         services.AddLyntai(b => b.AddClaudeCliProvider().AddResponseCache().UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();
-        var llm = sp.GetRequiredService<ILlmClient>();
+        var llm = sp.GetRequiredService<ITextClient>();
         var req = new TextRequest { Messages = [TextMessage.User("cache me please")], Consumer = "gov" };
 
         var first = await llm.CompleteAsync(req);
@@ -285,7 +284,7 @@ static class GovernanceDemo
         var services = new ServiceCollection();
         services.AddLyntai(b => b.AddClaudeCliProvider().AddUsageBudget(o => o.MaxCostUsd = 0.01).UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();
-        var llm = sp.GetRequiredService<ILlmClient>();
+        var llm = sp.GetRequiredService<ITextClient>();
 
         var first = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("spend one")] });
         var second = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("spend two")] });
@@ -302,7 +301,7 @@ static class GovernanceDemo
             .AddRateLimit(o => { o.PermitsPerSecond = 0.0001; o.Burst = 1; o.MaxWait = TimeSpan.Zero; })
             .UseDefaultCandidates("claude-cli"));
         await using var sp = services.BuildServiceProvider();
-        var llm = sp.GetRequiredService<ILlmClient>();
+        var llm = sp.GetRequiredService<ITextClient>();
 
         var first = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("a")] });
         var second = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("b")] });

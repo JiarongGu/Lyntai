@@ -88,8 +88,11 @@ of them is gated, which is why these five are here and the ones a gate or a test
    `.claude/knowledge/extending-lyntai.md` §Add a storage backend before starting one — which members take
    no default body, which three do and what each default silently costs, and `WriteBackAsync`'s ORDER.
 
-Namespace map (Core): `Lyntai.Llm` (+ `.Cli` — a new CLI backend is a DIALECT, never a new provider —
-`.Routing` / `.Caching` / `.Budgeting` / `.RateLimiting`) / `Lyntai.Generation` (+ `.Routing` / `.Jobs` /
+Namespace map (Core): `Lyntai.Inference` — everything about CALLING a backend, which is ONE subject
+(**D154**): the provider seam, the verdict taxonomy, all four call shapes, the text front door and the
+routing machinery, flat, because `TextRouter` and `RoutingPolicy` are the same subject (+ `.Cli` — a new CLI
+backend is a DIALECT, never a new provider — `.Caching` / `.Budgeting` / `.RateLimiting` / `.Streaming`,
+which decorate the text front door and moved WITH it) / `Lyntai.Generation` (+ `.Routing` / `.Jobs` /
 `.Tools`; the CONTRACTS are in Core, the BACKENDS are the separate `Lyntai.Generation` package, split by
 dependency footprint) / `Lyntai.Memory` (semantic memory + vector store; the
 graph-memory DOMAINS are SEVEN: `.Interference` / `.Forgetting` / `.Modulation` / `.Salience` /
@@ -102,10 +105,15 @@ BLEND concern, asked by `CompositeMemoryEngine` which MEMBERS a forget or prune 
 stage of the decay pipeline the seven describe — and its namespace is frozen
 either way. A root-level `IMemory*Policy` without a recorded reason now RAISES the count and fails
 `check-counts`, which it previously could not see at all) / `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` / `Lyntai.Jobs` /
-`Lyntai.Guards` / `Lyntai.Secrets` / `Lyntai.Inference` / `Lyntai.Storage` / `Lyntai.Processes` /
+`Lyntai.Guards` / `Lyntai.Secrets` / `Lyntai.Storage` / `Lyntai.Processes` /
 `Lyntai.Text`; builder + `Add*`/`Use*` extensions live in the `Lyntai` namespace.
+**A CALL SHAPE is named for what it PRODUCES** — `Text*`, `Vector*`, `Score*`, `Media*` — and so is the
+front door it belongs to (`ITextClient`, `TextRouter`). **But `Llm` is NOT retired as a word**, which is the
+line a sweep crosses without failing anything: it is live wherever it means *"this asks a language model"* —
+`LlmScorerBase`, `LlmMemoryVerificationPolicy`, `IScorer.IsLlm`, the `is_llm` COLUMN in both SQL backends
+and the `"llm"` score group. Renaming the types without the column would split one vocabulary in two.
 **TWO namespaces above are not Core's alone.** `Lyntai.Secrets` is shared (Core's envelope +
-`Lyntai.Secrets.Dpapi`'s public protector) and `Lyntai.Llm` is entered by an INTERNAL type in
+`Lyntai.Secrets.Dpapi`'s public protector) and `Lyntai.Inference` is entered by an INTERNAL type in
 `Lyntai.Providers.Basic`. **A third is simply gone: nothing inhabits an embedding-named root any more**
 (**D152**) — the role-named namespace, registration and selector are retired, and both in-process vector
 backends now sit under `Lyntai.Providers.*` (`.Model2Vec`, `.Onnx`) like every other adapter.

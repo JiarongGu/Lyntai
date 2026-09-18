@@ -1,8 +1,7 @@
 using Lyntai.Inference;
 using System.Reflection;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Caching;
+using Lyntai.Inference.Caching;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -64,7 +63,7 @@ public class ResponseCacheTests
         var excluded = new HashSet<string>
         {
             "Consumer",       // captured via the effective model; two consumers → same model share a hit
-            "Tools",          // native-tool requests are never cached (CachingLlmClient bypasses them)
+            "Tools",          // native-tool requests are never cached (CachingTextClient bypasses them)
             "TimeoutSeconds", // not output-determining
             "RefusalPattern", // applied post-hoc at the front door — re-screens even a cached hit
         };
@@ -106,7 +105,7 @@ public class ResponseCacheTests
         var options = new LyntaiOptions();
         options.DefaultModelByConsumer["a"] = "model-a";
         options.DefaultModelByConsumer["b"] = "model-b";
-        var client = new CachingLlmClient(inner, new InMemoryResponseCache(options), options);
+        var client = new CachingTextClient(inner, new InMemoryResponseCache(options), options);
         TextMessage[] same = [TextMessage.User("same question")];
 
         var a = await client.CompleteAsync(new TextRequest { Messages = same, Consumer = "a" }); // model-a
@@ -193,11 +192,11 @@ public class ResponseCacheTests
 
     // ---- decorator -----------------------------------------------------------------------------------
 
-    private static (CachingLlmClient client, FakeLlmClient inner) Decorated()
+    private static (CachingTextClient client, FakeLlmClient inner) Decorated()
     {
         var inner = new FakeLlmClient();
         var options = new LyntaiOptions();
-        return (new CachingLlmClient(inner, new InMemoryResponseCache(options), options), inner);
+        return (new CachingTextClient(inner, new InMemoryResponseCache(options), options), inner);
     }
 
     [Fact]
@@ -279,9 +278,9 @@ public class ResponseCacheTests
             .UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
-        var client = sp.GetRequiredService<ILlmClient>();
+        var client = sp.GetRequiredService<ITextClient>();
         // the always-on refusal screen wraps the front door; the caching behavior is proven below
-        Assert.IsType<RefusalScreeningLlmClient>(client);
+        Assert.IsType<RefusalScreeningTextClient>(client);
 
         var req = new TextRequest { Messages = [TextMessage.User("hi")] };
         var first = await client.CompleteAsync(req);

@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai.Diagnostics;
-using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -54,7 +53,7 @@ public sealed class GuardRail(IEnumerable<IGuard> guards, ILogger<GuardRail>? lo
     /// <summary>Apply a whole-reply redaction: the rewritten text REPLACES everything scannable — ToolCalls
     /// and Detail are cleared too, or denied content the output gate also scans (a tool call's args, an
     /// error detail) would pass through un-redacted. Shared by the rail's re-thread and
-    /// <see cref="GuardedLlmClient"/>'s applied result so the two can't drift.</summary>
+    /// <see cref="GuardedTextClient"/>'s applied result so the two can't drift.</summary>
     internal static TextResponse Redact(TextResponse reply, string replacement) =>
         reply with { Text = replacement, ToolCalls = null, Detail = null };
 

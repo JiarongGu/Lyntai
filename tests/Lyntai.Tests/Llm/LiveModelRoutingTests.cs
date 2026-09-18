@@ -1,7 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 using InMemoryKeyValueStore = Lyntai.Storage.InMemory.InMemoryKeyValueStore;
 
@@ -44,7 +42,7 @@ public class LiveModelRoutingTests
         var provider = new FakeLlmProvider("p"); // its Calls capture the request the router built (with the effective model)
         var options = new LyntaiOptions();
         options.DefaultModelByConsumer["scoring"] = "config-model";
-        var router = new LlmRouter([provider], new DeadHostTracker(), options,
+        var router = new TextRouter([provider], new DeadHostTracker(), options,
             modelRouting: new KeyValueModelRoutingStore(kv));
         IReadOnlyList<ProviderCandidate> candidates = [new ProviderCandidate("p")];
         var req = new TextRequest { Messages = [TextMessage.User("hi")], Consumer = "scoring" };

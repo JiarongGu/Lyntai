@@ -1,7 +1,5 @@
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Lifecycle;
@@ -219,7 +217,7 @@ public class RouterCooldownKeyTests
         provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
-        var router = new LlmRouter([provider], tracker, new LyntaiOptions(), configuration: _ => cfg);
+        var router = new TextRouter([provider], tracker, new LyntaiOptions(), configuration: _ => cfg);
 
         await router.CompleteAsync([new ProviderCandidate("openai")],
             new TextRequest { Messages = [TextMessage.User("hi")] });
@@ -245,7 +243,7 @@ public class RouterCooldownKeyTests
         var provider = new FakeLlmProvider("openai");
         provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
 
-        var router = new LlmRouter([provider], tracker, options, configuration: _ => cfg);
+        var router = new TextRouter([provider], tracker, options, configuration: _ => cfg);
 
         await router.CompleteAsync([new ProviderCandidate("openai", "gpt-5")],
             new TextRequest { Messages = [TextMessage.User("hi")] });
@@ -269,7 +267,7 @@ public class RouterCooldownKeyTests
         var provider = new FakeLlmProvider("openai");
         provider.Replies.Enqueue(new TextResponse("nope", ProviderVerdict.RateLimited));
 
-        var router = new LlmRouter([provider], new DeadHostTracker(), new LyntaiOptions(),
+        var router = new TextRouter([provider], new DeadHostTracker(), new LyntaiOptions(),
             configuration: _ => cfg, admission: admission);
 
         await router.CompleteAsync([new ProviderCandidate("openai")],
@@ -289,7 +287,7 @@ public class RouterCooldownKeyTests
         var admission = new ProviderAdmission(options);
         var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
 
-        var router = new LlmRouter([new FakeLlmProvider("openai")], new DeadHostTracker(), new LyntaiOptions(),
+        var router = new TextRouter([new FakeLlmProvider("openai")], new DeadHostTracker(), new LyntaiOptions(),
             configuration: _ => cfg, admission: admission);
 
         var chunks = new List<TextChunk>();

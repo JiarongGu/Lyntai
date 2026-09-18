@@ -1,11 +1,10 @@
 using System.Runtime.CompilerServices;
-using Lyntai.Llm;
 using Lyntai.Inference;
 
 namespace Lyntai.Agents;
 
 /// <summary>
-/// A tool-calling (ReAct-style) loop over the <see cref="ILlmClient"/> front door: it makes the
+/// A tool-calling (ReAct-style) loop over the <see cref="ITextClient"/> front door: it makes the
 /// registered tools available to the model, executes the tool the model chooses, feeds the observation
 /// back, and repeats until the model finishes or the iteration budget is hit. It prefers <b>native</b>
 /// function-calling (when the provider supports it) and falls back to a <b>prompt protocol</b> over the

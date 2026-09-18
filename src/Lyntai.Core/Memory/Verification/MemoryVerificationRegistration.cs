@@ -1,4 +1,4 @@
-using Lyntai.Llm;
+using Lyntai.Inference;
 using Lyntai.Memory.Verification;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -45,7 +45,7 @@ public static class MemoryVerificationRegistration
         // TryAdd, so a consumer's own IMemoryVerificationPolicy registered before this call wins outright —
         // the same BYO story every other seam in this subsystem has.
         builder.Services.TryAddSingleton<IMemoryVerificationPolicy>(sp => new LlmMemoryVerificationPolicy(
-            sp.GetRequiredService<ILlmClientFactory>(), options,
+            sp.GetRequiredService<ITextClientFactory>(), options,
             sp.GetService<ILogger<LlmMemoryVerificationPolicy>>()));
 
         return builder;

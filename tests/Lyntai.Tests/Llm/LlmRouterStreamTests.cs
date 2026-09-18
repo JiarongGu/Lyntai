@@ -1,7 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Llm;
@@ -10,7 +8,7 @@ public class LlmRouterStreamTests
 {
     private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
-    private static LlmRouter Router(params IModelProvider[] providers) =>
+    private static TextRouter Router(params IModelProvider[] providers) =>
         new(providers, new DeadHostTracker(), new LyntaiOptions());
 
     [Fact]
@@ -47,7 +45,7 @@ public class LlmRouterStreamTests
             StreamScript = _ => [TextChunk.Content("served"), TextChunk.Final()],
         };
 
-        var chunks = await new LlmRouter([unset, configured], tracker, new LyntaiOptions())
+        var chunks = await new TextRouter([unset, configured], tracker, new LyntaiOptions())
             .StreamAsync([new("unset"), new("configured")], Req).ToListAsync();
 
         Assert.Equal(["served"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));

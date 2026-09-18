@@ -1,7 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 using Lyntai.Text;
 
@@ -15,11 +13,11 @@ public class LlmStructuredExtensionsTests
         JsonSchema = """{"type":"object"}""",
     };
 
-    private static ILlmClient Client(FakeLlmProvider provider)
+    private static ITextClient Client(FakeLlmProvider provider)
     {
         var options = new LyntaiOptions();
         options.DefaultCandidates.Add(new ProviderCandidate(provider.Id));
-        return new LlmClient(new LlmRouter([provider], new DeadHostTracker(), options), options);
+        return new TextClient(new TextRouter([provider], new DeadHostTracker(), options), options);
     }
 
     [Fact]

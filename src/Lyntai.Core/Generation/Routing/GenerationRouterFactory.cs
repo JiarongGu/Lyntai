@@ -1,7 +1,6 @@
 using Lyntai.Inference;
-using Lyntai.Llm.Budgeting;
-using Lyntai.Llm.RateLimiting;
-using Lyntai.Llm.Routing;
+using Lyntai.Inference.Budgeting;
+using Lyntai.Inference.RateLimiting;
 using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Generation.Routing;

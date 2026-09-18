@@ -169,12 +169,12 @@ services.AddLyntai(cfg =>
 });
 ```
 
-Then inject the front door. **To your app, Lyntai behaves like one LLM provider** — `ILlmClient` has
+Then inject the front door. **To your app, Lyntai behaves like one LLM provider** — `ITextClient` has
 `IModelProvider`'s shape, and candidate order, fallback, and dead-host handling happen invisibly behind it:
 
 ```csharp
 public sealed class MyFeature(
-    ILlmClient llm,
+    ITextClient llm,
     IPromptRegistry prompts, IPromptComposer composer,
     IScoringService scoring, ITraceService traces, IMemoryStore memory)
 {
@@ -191,7 +191,7 @@ public sealed class MyFeature(
 }
 ```
 
-(`ILlmRouter` stays available for call sites that genuinely need their own candidate list.)
+(`ITextRouter` stays available for call sites that genuinely need their own candidate list.)
 
 `ProviderVerdict` also carries three call-site predicates — `IsOk()`, `IsTransient()` ("may the same request
 succeed later?", true for `Failed`/`Timeout`/`RateLimited`) and `IsBlameless()` (the backend declined without
@@ -246,7 +246,7 @@ verdict, on purpose: the enum grows, and a single member is already best express
   its subjects and links entries that share one, so a cue about a person reaches facts that never named
   them — `"my spouse"` finds "she works as an anaesthetist". Nothing lexical can do that: those sentences
   share only pronouns, in any language. Costs one model call per write; point it at a cheap backend with
-  `AddLlmClient("memory-fast", …)` and `ClientName`. Absent, memory behaves exactly as it always has.
+  `AddTextClient("memory-fast", …)` and `ClientName`. Absent, memory behaves exactly as it always has.
   <br>Those subjects are **searchable, not just linkable**: a recall matches its query against the handles in
   use and seeds the entries recorded under whichever ones it names, so `"配偶"` reaches the fact whose text
   says `"太太"`. On by default (`SubjectSeedOptions.K`) — `AddMemoryEngine` registers this channel
@@ -267,8 +267,8 @@ verdict, on purpose: the enum grows, and a single member is already best express
   another's ~1.5 s; `TextRequest.Reasoning` asks a backend to skip it where the backend can. A failure leaves
   the ranking untouched, and a judgement never removes a result unless you set `VerificationFilters`.
   Verified to work in English, Chinese, Japanese and Korean.
-- **Name an LLM client per use.** `AddLlmClient("memory-fast", c => c.UseProviders("ollama", "openai"))`,
-  resolved through `ILlmClientFactory` — the counterpart of named memory engines. A name selects backends,
+- **Name an LLM client per use.** `AddTextClient("memory-fast", c => c.UseProviders("ollama", "openai"))`,
+  resolved through `ITextClientFactory` — the counterpart of named memory engines. A name selects backends,
   never permissions: every named client carries the same cache, budget, rate limit and refusal screening as
   the default one. The ids you name are also its **fallback order**, so a client narrowed onto a local
   backend routes there whatever `UseDefaultCandidates` says globally; `UseCandidates(…)` states the list
@@ -775,7 +775,7 @@ limiter shared across processes.
 **A layer of your own goes on the same chain:** `AddFrontDoorDecorator(order, (sp, inner) => …)` folds PII
 redaction, request logging or a bespoke cache in beside the built-ins — higher `order` = further out, with
 the built-ins at 5 (rate limit) / 10 (budget) / 20 (cache), so 15 sits between budget and cache and 25
-outside the cache. It is what to reach for *instead of* pre-registering an `ILlmClient`, which discards every
+outside the cache. It is what to reach for *instead of* pre-registering an `ITextClient`, which discards every
 front-door decorator with no error at all. One trap: taking a built-in's order silently disables one of the
 two — first writer wins per slot — and the loser's options are still applied and its `IResponseCache` /
 `IUsageTracker` / `IRateLimiter` still registered, so the wiring reads as complete while that governance
@@ -801,7 +801,7 @@ in one backend. Nothing is emitted unless you subscribe:
      compile-given can declare them: this library takes no OpenTelemetry dependency (it emits over
      System.Diagnostics), so the types are not in the compilation at all. -->
 ```csharp
-tracerProviderBuilder.AddSource(LyntaiDiagnostics.ActivitySourceName);        // "Lyntai.Llm" spans
+tracerProviderBuilder.AddSource(LyntaiDiagnostics.ActivitySourceName);        // "Lyntai.Inference" spans
 meterProviderBuilder.AddMeter(LyntaiDiagnostics.MeterName);                   // duration, token usage,
                                                                               // time_to_first_chunk
 
@@ -980,7 +980,7 @@ environment, so they report the portable install's state rather than a global on
 directory, prompt over stdin (or as an argument), timeouts as an *inactivity* clock, verdicts from the shared
 classifier, empty output as a failure, an in-band `turn failed` event classified rather than swallowed,
 exactly one terminal stream chunk, and probe → run → re-probe for self-maintenance. Those live once, in
-`CliProviderEngine` (`Lyntai.Llm.Cli`). A new CLI supplies only its own vocabulary:
+`CliProviderEngine` (`Lyntai.Inference.Cli`). A new CLI supplies only its own vocabulary:
 
 <!-- compile-given: static class MyWireFormat { public static CliOutputEvent Read(string line) => CliOutputEvent.Ignored; } -->
 ```csharp
@@ -1258,7 +1258,7 @@ services.AddLyntai(b => b.UseTransientProviders());  // a fresh instance every c
 
 That is the point of the seam: choosing wrong is a one-line change at startup rather than a rewrite, and
 `IProviderPool<TProvider>` is there for a strategy of your own. The same factory exists for chat
-(`ILlmRouterFactory`).
+(`ITextRouterFactory`).
 
 What you get either way, and what a hand-rolled per-call cache gets wrong: **dead-host cooldown and
 concurrency admission are keyed on the configuration, not on the backend id** — so one tenant's rate limit
@@ -1334,7 +1334,7 @@ model first, `"local"` as an offline backstop.
 
 ### Tool-calling (`Lyntai.Agents`)
 
-Give the model tools and let it work in a loop. `IToolLoop` runs over the `ILlmClient` front door, so
+Give the model tools and let it work in a loop. `IToolLoop` runs over the `ITextClient` front door, so
 it works with **any** provider (CLI, HTTP, bridged, local) — no native tool-calling required.
 
 ```csharp
@@ -1365,7 +1365,7 @@ The loop executes the tool the model chooses, feeds the result back, and repeats
 (OpenAI-compatible / Ollama, and anything you reach with `AddBridgeProvider` that declares it — structured
 `tool_calls`, parallel calls supported) and falls back to a **prompt protocol** over the text contract
 for providers without it (CLI, basic local models) — same `ITool`s either way, chosen transparently
-behind the front door (`ILlmClient.SupportsToolCalls`). An
+behind the front door (`ITextClient.SupportsToolCalls`). An
 unknown or throwing tool becomes a recoverable `error: …` observation rather than a crash; a refusal or
 all-providers-down verdict surfaces on `result.Verdict`.
 
@@ -1615,7 +1615,7 @@ await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunA
 ### Guards, orchestration, secrets, vision
 
 - **Guards** (`Lyntai.Guards`) — `IGuard`s inspect requests/replies and Allow/Block/Replace; `AddGuard<T>()`
-  registers them, `GuardedLlmClient` gates any completion, and the chat orchestrator applies them as gates.
+  registers them, `GuardedTextClient` gates any completion, and the chat orchestrator applies them as gates.
 - **Two-gate chat** (`IChatOrchestrator`) — one call runs: input gate → memory recall → model (via the
   tool loop) → output gate → remember. A batteries-included, guarded chat entry point.
 - **Secret vault** (`Lyntai.Secrets`) — `AddSecretVault(key)` gives an `ISecretVault` encrypted at rest

@@ -1,22 +1,21 @@
 using Lyntai.Inference;
 using System.Runtime.CompilerServices;
-using Lyntai.Llm;
 
 namespace Lyntai.Tests.Fakes;
 
-/// <summary>Scripted <see cref="ILlmClient"/> for cortex tests that don't need the real router:
+/// <summary>Scripted <see cref="ITextClient"/> for cortex tests that don't need the real router:
 /// queue replies for CompleteAsync; records every request.</summary>
-public sealed class FakeLlmClient : ILlmClient
+public sealed class FakeLlmClient : ITextClient
 {
     public Queue<TextResponse> Replies { get; } = new();
     public List<TextRequest> Calls { get; } = [];
 
-    /// <summary>Backs the <see cref="ILlmClient.Capabilities.SupportsToolCalls"/> method (a settable flag for tests).</summary>
+    /// <summary>Backs the <see cref="ITextClient.Capabilities.SupportsToolCalls"/> method (a settable flag for tests).</summary>
     public bool SupportsToolCallsResult { get; set; }
 
     public bool SupportsToolCalls(TextRequest req) => SupportsToolCallsResult;
 
-    /// <summary>Backs <see cref="ILlmClient.Capabilities.SupportsStreamingToolCalls"/>. SEPARATE from
+    /// <summary>Backs <see cref="ITextClient.Capabilities.SupportsStreamingToolCalls"/>. SEPARATE from
     /// <see cref="SupportsToolCallsResult"/> on purpose — the two are independent in the contract, and a
     /// fake that conflated them could not express the case that matters most: a provider doing native
     /// tool-calling whose STREAM drops the calls.</summary>

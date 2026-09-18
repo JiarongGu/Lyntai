@@ -1,7 +1,7 @@
 using Lyntai;
 using Lyntai.Cortex;
 using Lyntai.Cortex.Scorers;
-using Lyntai.Llm;
+using Lyntai.Inference;
 using Lyntai.Prompts;
 using Lyntai.Storage;
 using Lyntai.Tests.Storage;
@@ -55,7 +55,7 @@ public class CortexIntegrationTests : IDisposable
     [Fact] // 5.3 — the LLM judge runs through the router against the stub's SCORING TASK path
     public async Task Llm_judge_scorer_returns_the_stub_verdict()
     {
-        var judge = new RelevancyScorer(_sp.GetRequiredService<ILlmClient>());
+        var judge = new RelevancyScorer(_sp.GetRequiredService<ITextClient>());
 
         var result = await judge.ScoreAsync(
             new ScoreContext { SessionId = "s", Input = "question", Output = "answer" }, CancellationToken.None);

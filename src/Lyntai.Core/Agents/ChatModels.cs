@@ -1,5 +1,4 @@
 using Lyntai.Inference;
-using Lyntai.Llm;
 
 namespace Lyntai.Agents;
 
@@ -48,6 +47,6 @@ public sealed record ChatResult(
     /// <para>It is what the turn COST, not what it returned: a non-Ok verdict and an output-gate block both
     /// carry the tokens they spent. Null when the turn never reached a provider — an input gate that blocked
     /// before the model. Gives a chat consumer a per-turn token/cost figure without wrapping
-    /// <see cref="Lyntai.Llm.ILlmClient"/> in its own front-door decorator.</para></summary>
+    /// <see cref="Lyntai.Inference.ITextClient"/> in its own front-door decorator.</para></summary>
     public TextUsage? Usage { get; init; }
 }

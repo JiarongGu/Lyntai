@@ -1,8 +1,6 @@
 using Lyntai.Inference;
 using System.Globalization;
 using Lyntai.Jobs;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Storage;
 
 namespace Lyntai;
@@ -122,7 +120,7 @@ public sealed class LyntaiOptions
     public string? ResolveModel(string consumer, string? requestModel) => ResolveModel(consumer, requestModel, null);
 
     /// <summary>Resolve the model with an optional LIVE <paramref name="liveOverride"/> (from an
-    /// <see cref="Lyntai.Llm.Routing.IModelRoutingStore"/>): explicit request model wins, then the live
+    /// <see cref="Lyntai.Inference.IModelRoutingStore"/>): explicit request model wins, then the live
     /// override, then the consumer's configured default, then the "default" entry, then null.</summary>
     public string? ResolveModel(string consumer, string? requestModel, string? liveOverride)
     {

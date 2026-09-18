@@ -5,7 +5,7 @@ namespace Lyntai.Memory;
 /// A named memory system: something that can be told a fact and asked for the relevant ones. Registered as
 /// a DI collection and keyed by <see cref="Name"/> through <see cref="IMemoryEngineFactory"/> — the same
 /// variation-point shape as <see cref="Lyntai.Inference.IModelProvider"/> keyed by <c>Id</c> and picked by
-/// <see cref="Lyntai.Llm.ILlmRouter"/>. Adding a kind of memory is a class plus a registration, never an
+/// <see cref="Lyntai.Inference.ITextRouter"/>. Adding a kind of memory is a class plus a registration, never an
 /// edit to a conditional.
 /// <para>Several engines coexist in one application, so a chat memory and a project memory can differ in
 /// content, retention and purpose without either wrapping the other.</para>

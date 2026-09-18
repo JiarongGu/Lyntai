@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,7 +18,7 @@ public class RefusalScreeningTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("Lo siento, no puedo ayudar con eso.", ProviderVerdict.Ok));
-        var screened = new RefusalScreeningLlmClient(inner);
+        var screened = new RefusalScreeningTextClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "no puedo ayudar"));
 
@@ -32,7 +31,7 @@ public class RefusalScreeningTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("Sure, here is the answer.", ProviderVerdict.Ok));
-        var screened = new RefusalScreeningLlmClient(inner);
+        var screened = new RefusalScreeningTextClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "no puedo ayudar"));
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
@@ -43,7 +42,7 @@ public class RefusalScreeningTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("no puedo ayudar", ProviderVerdict.Ok)); // would match, but no pattern set
-        var screened = new RefusalScreeningLlmClient(inner);
+        var screened = new RefusalScreeningTextClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: null));
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
@@ -54,7 +53,7 @@ public class RefusalScreeningTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("anything", ProviderVerdict.Ok));
-        var screened = new RefusalScreeningLlmClient(inner);
+        var screened = new RefusalScreeningTextClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "(unclosed[")); // invalid regex
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);                                   // passes through, no throw
@@ -65,7 +64,7 @@ public class RefusalScreeningTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("", ProviderVerdict.RateLimited, Detail: "429"));
-        var screened = new RefusalScreeningLlmClient(inner);
+        var screened = new RefusalScreeningTextClient(inner);
 
         var reply = await screened.CompleteAsync(Req(refusalPattern: "429"));
         Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict); // screening only downgrades Ok replies
@@ -80,7 +79,7 @@ public class RefusalScreeningTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b.AddProvider(_ => provider).UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
-        var client = sp.GetRequiredService<ILlmClient>();
+        var client = sp.GetRequiredService<ITextClient>();
 
         var reply = await client.CompleteAsync(Req(refusalPattern: "cannot help"));
         Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
@@ -103,7 +102,7 @@ public class RefusalScreeningTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("well, NOPE, not doing that", ProviderVerdict.Ok));
-        var screened = new RefusalScreeningLlmClient(inner, [new ContainsMatcher("NOPE")]);
+        var screened = new RefusalScreeningTextClient(inner, [new ContainsMatcher("NOPE")]);
 
         var reply = await screened.CompleteAsync(Req());
         Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
@@ -114,7 +113,7 @@ public class RefusalScreeningTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("sure thing", ProviderVerdict.Ok));
-        var screened = new RefusalScreeningLlmClient(inner, [new ContainsMatcher("NOPE")]);
+        var screened = new RefusalScreeningTextClient(inner, [new ContainsMatcher("NOPE")]);
 
         var reply = await screened.CompleteAsync(Req());
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
@@ -125,17 +124,17 @@ public class RefusalScreeningTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("anything", ProviderVerdict.Ok));
-        var screened = new RefusalScreeningLlmClient(inner, [new ThrowingMatcher()]);
+        var screened = new RefusalScreeningTextClient(inner, [new ThrowingMatcher()]);
 
         var reply = await screened.CompleteAsync(Req());
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict); // matcher blew up → reply passes through unchanged
     }
 
-    [Fact] // I3: a matcher registered against a PRE-REGISTERED ILlmClient would be silently ignored — guard it
+    [Fact] // I3: a matcher registered against a PRE-REGISTERED ITextClient would be silently ignored — guard it
     public void A_pre_registered_front_door_with_a_refusal_matcher_throws()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<ILlmClient>(new FakeLlmClient()); // BYO ILlmClient before AddLyntai
+        services.AddSingleton<ITextClient>(new FakeLlmClient()); // BYO ITextClient before AddLyntai
         Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
             .AddRefusalMatcher(new ContainsMatcher("NOPE")))); // screening wraps Lyntai's client → dropped → guarded
@@ -152,7 +151,7 @@ public class RefusalScreeningTests
             .AddProvider(_ => provider).UseDefaultCandidates("p")
             .AddRefusalMatcher(new ContainsMatcher("NOPE")));
         using var sp = services.BuildServiceProvider();
-        var client = sp.GetRequiredService<ILlmClient>();
+        var client = sp.GetRequiredService<ITextClient>();
 
         var reply = await client.CompleteAsync(Req());
         Assert.Equal(ProviderVerdict.Refused, reply.Verdict);

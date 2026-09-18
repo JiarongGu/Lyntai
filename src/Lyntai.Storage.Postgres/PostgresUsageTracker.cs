@@ -1,7 +1,6 @@
 using Dapper;
-using Lyntai.Llm;
-using Lyntai.Llm.Budgeting;
 using Lyntai.Inference;
+using Lyntai.Inference.Budgeting;
 
 namespace Lyntai.Storage.Postgres;
 

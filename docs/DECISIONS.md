@@ -74,7 +74,7 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D2](#d2--storage-is-per-domain-interfaces-and-a-backend-implements-as-many-as-it-wants) | — | storage is per-domain interfaces, and a backend implements as many as it wants |
 | [D3](#d3--fallback-is-verdict-driven-through-one-shared-classifier-and-the-policy-is-replaceable) | — | fallback is verdict-driven, through one shared classifier, and the policy is REPLACEABLE |
 | [D4](#d4--streaming-no-fallback-after-the-first-token-and-the-timeout-is-an-inactivity-clock) | — | streaming: no fallback after the first token, and the timeout is an inactivity clock |
-| [D5](#d5--illmclient-is-the-front-door) | — | `ILlmClient` is the front door |
+| [D5](#d5--illmclient-is-the-front-door) | — | `ILlmClient` is the front door | <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 | [D6](#d6--every-sqlite-object-is-lyntai-prefixed) | — | every SQLite object is `lyntai_`-prefixed |
 | [D7](#d7--trimaot-posture-annotate-honestly-and-never-make-a-false-promise) | — | trim/AOT posture: annotate honestly, and never make a false promise |
 | [D8](#d8--the-public-api-is-snapshot-tested-update-the-baseline-deliberately) | — | the public API is snapshot-tested; update the baseline deliberately |
@@ -263,10 +263,10 @@ the error. "Real" means `Text.Length > 0`: committing on an empty chunk disables
 zero-content first chunk. The timeout is a per-chunk **inactivity** window, re-armed on each read, so a
 slow-but-alive child is not killed like a dead one.
 
-## D5 — `ILlmClient` is the front door
+## D5 — `ILlmClient` is the front door <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 To a consuming application Lyntai looks like *one* provider; candidates, fallback and cooldowns are
 internal. Governance (response cache, usage budget, rate limiting, refusal screening) composes as
-decorators over this front door, which is why pre-registering your own `ILlmClient` silently discards them
+decorators over this front door, which is why pre-registering your own `ILlmClient` silently discards them <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 — `AddLyntai` now throws rather than letting that happen quietly.
 
 ## D6 — every SQLite object is `lyntai_`-prefixed
@@ -1349,7 +1349,7 @@ added anywhere in this library, the wrapper over it gets a line in the same chan
 
 ## D64 — the generation router is a TRUST BOUNDARY, and a thrown SUBMIT is inconclusive rather than failed (2026-08-15)
 
-**`GenerationRouter` now catches, classifies and falls over a backend that throws, exactly as `LlmRouter`
+**`GenerationRouter` now catches, classifies and falls over a backend that throws, exactly as `LlmRouter` <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 has since it shipped.** It previously contained no `try`/`catch` at all, so one throwing backend killed the
 whole chain: the healthy candidate was never tried, `RecordGeneration` never fired so the attempt was
 invisible in telemetry, and the caller received a raw exception from a contract whose stated promise is *"a
@@ -1360,7 +1360,7 @@ shipped behaviour: `IModelProvider` documents that a backend must fail safe, so 
 letting a bug surface loudly rather than degrading it into a verdict is a real position. It loses on one
 fact — **`AddGenerationProvider` is a documented BYO seam**, so the throwing party is frequently not this
 library and not the caller either. Punishing a caller for a third-party backend's defect by discarding every
-remaining candidate is the outcome fallback exists to prevent. `LlmRouter` reached the same conclusion first
+remaining candidate is the outcome fallback exists to prevent. `LlmRouter` reached the same conclusion first <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 and wrote the reason down: *"a provider that THROWS must get the same fallback policy as one that returns a
 verdict reply; hand-rolling `Failed` here would hammer a rate-limited host instead of cooling it."*
 
@@ -2274,7 +2274,7 @@ on, which is worse than having no check; this repository has already paid for a 
 (`.claude/knowledge/pitfalls.md`, the `check-warnings` ENOBUFS entry).
 
 **Registration is asked with `IServiceProviderIsService`, never by resolving the service.** The shipped
-verification policy resolves an `ILlmClientFactory` with `GetRequiredService`, so asking for the instance
+verification policy resolves an `ILlmClientFactory` with `GetRequiredService`, so asking for the instance <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 would turn a diagnostic into the startup failure it exists to describe. A container that does not offer that
 service leaves both policy checks silent rather than guessing.
 
@@ -2342,10 +2342,10 @@ sites here read `query.Scope` and only one of them was in the first fix's diff.
 
 ## D87 — a named LLM client's CANDIDATES are derived from its own pool, not from the global list (2026-08-23)
 
-`AddLlmClient(name, c => c.UseProviders(…))` narrowed the router's PROVIDER set and left its candidate list
+`AddLlmClient(name, c => c.UseProviders(…))` narrowed the router's PROVIDER set and left its candidate list <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 as `LyntaiOptions.DefaultCandidates`. So a client pooled over `["ollama-chat"]` on a host whose defaults name
 `claude-cli` resolved cleanly, logged `router: skipping claude-cli — no provider with this id registered` on
-every call, and could never route. That is the wiring `LlmClientBuilder.UseProviders` documents — its own doc
+every call, and could never route. That is the wiring `LlmClientBuilder.UseProviders` documents — its own doc <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 has said "in the order given — **which is also the fallback order**" since it shipped — and it could not work
 as written. Reported by an adopter moving a memory judge onto a local Ollama; because both memory policies are
 fail-open, the visible symptom was **zero model calls and no error**.
@@ -2363,7 +2363,7 @@ better diagnostic than a per-call skip but answers a question the wiring already
 the list to be stated outright makes every named client carry boilerplate to say what its own ids already
 said.
 
-**`LlmClientBuilder.UseCandidates` exists anyway, for the one thing derivation cannot express**: two MODELS
+**`LlmClientBuilder.UseCandidates` exists anyway, for the one thing derivation cannot express**: two MODELS <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 of one backend. A derived list carries one entry per pooled id, so "the big model for chat, the small one for
 extraction" is unsayable when both live behind a single id — which is precisely the split naming a client
 exists for. A stated candidate outside the client's own pool throws at composition, because the router can
@@ -3509,7 +3509,7 @@ still exactly what an unprefixed deployment does.
 ## D117 — a tool loop REPORTS its transport, because the fallback is silent and not a degradation of degree (2026-09-13)
 
 `ToolLoopResult` gains `Transport` (`ToolTransport?` — `None` / `Native` / `Prompt`), as an init-only
-property. `ToolLoop` sets it at the one point it already decides: `ILlmClient.SupportsToolCalls` says
+property. `ToolLoop` sets it at the one point it already decides: `ILlmClient.SupportsToolCalls` says <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 native, or the loop falls back to its own prompt protocol. Nothing else changes, and no default moves.
 
 **The gap was that the fallback is invisible and expensive.** Measured on one model through both transports
@@ -3580,7 +3580,7 @@ property is the worse trade — the vocabulary question stays open rather than b
 The router's precedence is unchanged and correct: `candidate.Model ?? request.Model`, so a candidate that
 pins a model outranks a seam's. What changes is that the PROVABLY inert case stops being silent —
 `AddMemoryVerification` and `AddMemoryAnnotation` record a stated `Model`, and composing
-`ILlmClientFactory` throws when every candidate the seam's client routes over pins a model of its own and
+`ILlmClientFactory` throws when every candidate the seam's client routes over pins a model of its own and <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 none is the one asked for.
 
 **The precedence was never the defect.** A candidate IS a provider-and-model pair; letting the request win
@@ -3596,7 +3596,7 @@ configuration that could never work, never one that is merely fragile — which 
 to a shipped library: a deployment that set only one of the two values is untouched, and one that set both
 meant something and is currently getting the other.
 
-**Composition, not first call**, and the precedent is one file away: `LlmClientBuilder.UseCandidates`
+**Composition, not first call**, and the precedent is one file away: `LlmClientBuilder.UseCandidates` <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 already throws for a candidate naming a backend outside the client's pool, because *"a candidate the router
 cannot select fails every call, and that failure is worth having at startup rather than per request"*. An
 inert model pin is the same shape with a quieter failure.
@@ -3946,7 +3946,7 @@ providers only; `AddEmbeddingProvider` registers them and states, at composition
 embed.
 
 **One type was doing two jobs, and that is why embeddings had no fallback.** Chat has always separated them
-— consumers resolve `ILlmClient`, backends implement the provider seam — while embedding had `IEmbedder` on
+— consumers resolve `ILlmClient`, backends implement the provider seam — while embedding had `IEmbedder` on <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 both sides, so a consumer held a BACKEND directly. `HttpEmbeddingsTransport`'s own shipped doc admitted the <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
 consequence: *"there is one embedder slot, so a later registration wins"*. Registering a second endpoint
 silently replaced the first instead of giving it a fallback.
@@ -4196,7 +4196,7 @@ was not visible then because the shared provider vocabulary did not exist yet.
 
 **What a verdict MEANS is now shared; what a router DOES about it is still per-domain, and that is the
 distinction that makes this safe.** `LlmRoutingPolicy` surfaces `Unsupported` where `GenerationRoutingPolicy`
-advances on it; `LlmRouter` keeps the LAST substantive failure where `GenerationRouter` keeps the FIRST.
+advances on it; `LlmRouter` keeps the LAST substantive failure where `GenerationRouter` keeps the FIRST. <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 None of that moved. A policy is a table over the enum, not a second enum.
 
 **What collapsed for free:** `IsBlameless` became `ProviderVerdict.IsBlameless()` — both private copies
@@ -4405,7 +4405,7 @@ they had been filed by what USES the type rather than by what it is.
 **Both halves had drifted the same way, from opposite directions.** The provider package accreted 49 files
 in one folder while already having a `Payloads/` subfolder — so the pattern was intended and simply stopped
 being followed. `tests/Core/` was the mirror image: a bucket named for a PACKAGE while every other test
-folder is named for a NAMESPACE, holding tests for `Lyntai.Storage`, `Lyntai.Llm.Routing`, `Lyntai.Cortex`,
+folder is named for a NAMESPACE, holding tests for `Lyntai.Storage`, `Lyntai.Llm.Routing`, `Lyntai.Cortex`, <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 `Lyntai.Prompts` and `Lyntai.Processes` — each of which has had its own folder for some time.
 
 **Nothing about this is gated, and that is why it drifted.** Folder placement compiles either way, and C#
@@ -4448,7 +4448,7 @@ ids had been silently rewritten by rename sweeps (**D142**).
 ## D145 — the Microsoft.Extensions.AI module is a BRIDGE, not a provider (2026-09-15)
 
 `Lyntai.Providers.ExtensionsAi` becomes `Lyntai.ExtensionsAi`, and `AsChatClient()` moves to `Lyntai.Llm` <!-- drift-ok: this entry RETIRES the namespace, so it has to say it -->
-beside the `ILlmClient` it extends. The code stays in `Lyntai.Providers.Basic`; only the namespace moves.
+beside the `ILlmClient` it extends. The code stays in `Lyntai.Providers.Basic`; only the namespace moves. <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 
 **Three of the module's four types are not providers.** `ExtensionsAiProvider` bridges an `IChatClient` INTO <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 Lyntai; `LyntaiChatClient` exposes Lyntai AS an `IChatClient`; `LyntaiToolDeclaration` maps `LlmTool` to <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
@@ -4459,13 +4459,13 @@ whatever `IChatClient` the consumer hands in.
 **The false claim had a measurable cost.** `AsChatClient()` is an extension on `ILlmClient` — Core's front <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 door, which `LlmVerdictException`'s own doc in Core calls "the reverse bridge". Living in <!-- drift-ok: the bridge as it stood when this entry was written; D146 deleted it -->
 `Lyntai.Providers.ExtensionsAi`, calling it required a consumer to import a PROVIDERS namespace for a <!-- drift-ok: names what this entry retires -->
-front-door call, and the README's sample never said so. It now sits in `Lyntai.Llm`, for the same reason the
+front-door call, and the README's sample never said so. It now sits in `Lyntai.Llm`, for the same reason the <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 `Add*` extensions sit in `Lyntai`: a capability of a type belongs where that type is.
 
 **`check-samples` could not have caught it, and that is worth knowing about the gate.** Its scratch project
 opens EVERY `Lyntai.*` namespace, so a sample compiles wherever a member lives — the gate proves a sample is
 type-correct, never that a consumer could write it. The proof had to be a throwaway project importing
-`Lyntai.Llm` alone.
+`Lyntai.Llm` alone. <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 
 **The package does NOT move, and the distinction is the point.** A namespace says what a thing IS; a package
 says which dependency it isolates. `Microsoft.Extensions.AI.Abstractions` is 669 KB and must stay out of
@@ -4561,7 +4561,7 @@ two model-backed sibling seams had always been able to say (`LlmVerificationOpti
 `LlmAnnotationOptions.ClientName`); this one was the odd seam out.
 
 **A provider id rather than a client name, because the two select differently.** A judge is ROUTED, so it
-names an `ILlmClientFactory` client and inherits candidates, fallback and governance. A scoring backend is
+names an `ILlmClientFactory` client and inherits candidates, fallback and governance. A scoring backend is <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 not routed at all — it is picked by what it `Produces` and called directly — so the only thing there is to
 name is `IModelProvider.Id`. Reusing `ClientName` here would have implied a routing story that does not
 exist.
@@ -4756,7 +4756,7 @@ shipped sample exactly that during this change. **The same asymmetry is why `Add
 argument survives** rather than being replaced by reading `typeof(T)`: a type test answers what a class CAN
 do, and composition needs what this REGISTRATION does.
 
-**It does NOT merge `LlmRouter` and `GenerationRouter`, and the refusal is the recorded part.** They differ
+**It does NOT merge `LlmRouter` and `GenerationRouter`, and the refusal is the recorded part.** They differ <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 in eight deliberate ways — last- versus first-substantive failure, blameless slot semantics, retries present
 versus absent, id-resolution versus capability-filtering, one synthetic failure versus two, tried/benched
 counting, filing order around the `Surface` check, and admission one frame deeper. Folding those in means
@@ -4792,6 +4792,14 @@ namespace moves carries the procedure.
 `GenerationRenderJob` and the media tools run a generation; they are not the shape of one. So are the
 telemetry names — `Lyntai.Generation` is an `ActivitySource` a consumer subscribes to by STRING, and
 renaming it would break a subscription no compiler can see.
+
+**And `Llm` is retired as a PREFIX, never as a word** — the same test applied to the other family. It is
+live wherever it means *"this asks a language model"*: `LlmScorerBase`, `LlmPairwiseComparer`, the two
+`LlmMemory*Policy` types, `IScorer.IsLlm`. That last one settles it rather than merely illustrating it —
+`IsLlm` is PERSISTED, as the `is_llm` column in both SQL backends and the `"llm"` score group, so renaming
+the types alone would split one vocabulary across two words and renaming the column would cost a migration
+for a word that was never wrong. **A rename's scope is decided by what the word MEANS at each site, and a
+persisted spelling is the site that cannot move cheaply.**
 
 **The step that looked cheapest was REFUTED at implementation, and that is why the order was pure moves
 first.** `Lyntai.Llm.{Caching,Budgeting,RateLimiting,Cli}` were claimed to be domain-neutral; four of the <!-- drift-ok: the record names the namespace it retired -->

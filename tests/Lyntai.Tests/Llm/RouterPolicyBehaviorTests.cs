@@ -1,7 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Llm;
@@ -12,7 +10,7 @@ public class RouterPolicyBehaviorTests
 {
     private static TextRequest Req => new() { Messages = [TextMessage.User("hi")] };
 
-    private static LlmRouter Router(LyntaiOptions options, DeadHostTracker? tracker, params IModelProvider[] providers) =>
+    private static TextRouter Router(LyntaiOptions options, DeadHostTracker? tracker, params IModelProvider[] providers) =>
         new(providers, tracker ?? new DeadHostTracker(), options);
 
     [Fact]

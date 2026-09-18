@@ -24,10 +24,10 @@ inferred from whichever seam you happened to read.
 
 | seam | a duplicate | why |
 |---|---|---|
-| `CompositeMemoryEngine` members, `AddLlmClient` names | **throws** | the name is an ADDRESS a caller uses — an entry's `MemoryRef` must name one owner, and a client name must resolve to one client |
-| `IModelProvider` ids (`LlmRouter`), `ITool` names, `IJobHandler` types | **first-wins, silent** | the collection is a FALLBACK LIST the router walks; it also folds case, so refusing would reject registrations that differ only in case and are already merged one step earlier |
+| `CompositeMemoryEngine` members, `AddTextClient` names | **throws** | the name is an ADDRESS a caller uses — an entry's `MemoryRef` must name one owner, and a client name must resolve to one client |
+| `IModelProvider` ids (`TextRouter`), `ITool` names, `IJobHandler` types | **first-wins, silent** | the collection is a FALLBACK LIST the router walks; it also folds case, so refusing would reject registrations that differ only in case and are already merged one step earlier |
 
-**Do not "fix" the second row.** `LlmRouter` builds its lookup with `TryAdd` over a case-insensitive
+**Do not "fix" the second row.** `TextRouter` builds its lookup with `TryAdd` over a case-insensitive
 dictionary deliberately (see its own comment on why an ordinal table was worse), and the pooling and
 cooldown paths key on the same id.
 
@@ -60,7 +60,7 @@ delegate for — omit `stream` and no router will ask it to stream.
 
 **A2. A SPAWNED CLI → write a DIALECT, not a provider.** If the backend is a command-line agent
 (`claude`, `codex`, or a sibling), do NOT re-implement the spawn/verdict/streaming rules — they are already in
-`CliProviderEngine` (Core, `Lyntai.Llm.Cli`), and re-deriving them is exactly how they drifted apart before
+`CliProviderEngine` (Core, `Lyntai.Inference.Cli`), and re-deriving them is exactly how they drifted apart before
 (D21). Read `ClaudeCliDialect` and `CodexCliDialect` side by side first: they are the two worked examples, and
 their differences (stdin vs. required repo-check flag, JSON vs. prose auth, `auth logout` vs. top-level
 `logout`, pinning vs. no pinning) show what a dialect is for. Derive from `CliProviderDialectBase` and supply
@@ -106,7 +106,7 @@ Rules specific to this path:
 - **`SupportsToolCalls` on the dialect drives ONLY the engine's ignored-tools warning.** If your dialect
   returns `true`, the composing `IModelProvider` must declare `public bool SupportsToolCalls => true;` itself —
   the provider is the capability declarer (D21), and the engine does not forward the dialect's answer.
-  Otherwise `LlmRouter.SupportsToolCalls` reports false and `ToolLoop` silently takes the prompt-based
+  Otherwise `TextRouter.SupportsToolCalls` reports false and `ToolLoop` silently takes the prompt-based
   fallback on a backend that can do native tool calls.
 - **Portable installs are free if you don't fight them** — the host passes `command` (+ `environment`) to your
   builder extension (D22); pass both straight through to the engine and don't read env vars yourself.

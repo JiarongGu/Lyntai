@@ -15,32 +15,30 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 19 across 7 Parts: 12 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 17 across 7 Parts: 10 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 120 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 137 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 170 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 223 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 242 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 301 | 103 | NS-2 — the governance sub-namespaces move WITH the front door, not before it | startable |  |
-| 314 | 103 | NS-4 — the front door: `ILlmClient` → `ITextClient` | startable |  |
-| 318 | 103 | NS-5 — `Lyntai.Providers` stops meaning three things | startable |  |
-| 324 | 103 | ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING | startable |  |
-| 343 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
-| 358 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
-| 367 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
-| 374 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
-| 383 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
-| 412 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 472 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 527 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 550 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 607 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 118 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 135 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 168 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 221 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 240 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 305 | 103 | NS-5 — `Lyntai.Providers` stops meaning three things | startable |  |
+| 311 | 103 | ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING | startable |  |
+| 330 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
+| 346 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
+| 355 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
+| 362 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
+| 371 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
+| 400 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 460 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 515 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 538 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 595 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -298,22 +296,11 @@ harder to spot inside a combined rename-and-move pass._
 
 
 
-- [ ] **NS-2 — the governance sub-namespaces move WITH the front door, not before it.** <!-- item: state=startable -->
-  **REFUTED as originally scoped, 2026-09-17**, which is why this now reads as a constraint on NS-4 rather
-  than as its own move. The claim was that `Lyntai.Llm.{Caching,Budgeting,RateLimiting,Streaming,Cli}` are
-  not text-specific. Four of the five are: `IResponseCache` traffics in `TextResponse`, `IUsageTracker` in
-  `TextUsage`, `CliProviderEngine` returns `TextResponse`/`TextChunk`, and each of Caching/Budgeting/RateLimiting
-  holds an `*LlmClient` DECORATOR that wraps the text front door by definition. Only `Streaming`
-  (`GuardedStream.ReadAll<TItem,TTerminal>`) was neutral, and it moved.
-  <br>**So they belong wherever the text front door belongs**, and they move in NS-4 with it — their names
-  and their payload types change in the same pass. Doing it earlier would put `Lyntai.Inference.Caching`
-  around a seam typed to `TextResponse`, which reads as a layering claim the code does not support.
-  <br>_`IRateLimiter` alone is genuinely generic (`AcquireAsync(consumer)`). Splitting it from its decorator
-  is defensible later; it is not worth a split namespace for one interface now._
-
-- [ ] **NS-4 — the front door: `ILlmClient` → `ITextClient`.** <!-- item: state=startable -->
-  With `LlmClient`, `ILlmRouter`, `LlmRouter` and the factories. **The library's primary consumer type** —
-  its own commit and its own changelog entry, never folded into NS-3.
+_**NS-2 and NS-4 landed together 2026-09-18** (`docs/task-archive.md` Part 248) — the front door became
+`ITextClient`/`TextRouter` and the whole `Lyntai.Llm` family folded into `Lyntai.Inference`, which is what <!-- drift-ok: the entry RECORDS the namespace it retired -->
+NS-2's refutation had said it must: a decorator that wraps the text front door is text-specific whatever
+its namespace is called. `IRateLimiter` alone is genuinely generic (`AcquireAsync(consumer)`); splitting it
+from its decorator stayed undone, and is a decision rather than a leftover._
 
 - [ ] **NS-5 — `Lyntai.Providers` stops meaning three things.** <!-- item: state=startable -->
   The bare root holds `AgentMcpServers`, `CliAgentTerminal`, `CliTempFile`, `WireJson` — shared CLI helpers,
@@ -352,8 +339,9 @@ the line numbers and counts were true on 2026-09-17 and rot the way any measurem
      defect on upgrade, not a compile break.
   3. **`GraphNode` gained a trailing `Matched` member** — the Breaking section lists this exact break class
      for four sibling types and omits the one a BYO graph store RETURNS.
-  4. **`Lyntai.Llm.Routing.FallbackAction` → `Lyntai.Inference.FallbackAction`.** D140's entry names only
-     the generation-side type as moving.
+  4. **`Lyntai.Llm.Routing.FallbackAction` → `Lyntai.Inference.FallbackAction`.** D140's entry names only <!-- drift-ok: the item is ABOUT the move, so it must name where the type came from · tautology-ok: the two sides are the two namespaces -->
+     the generation-side type as moving. (The source namespace has since been retired outright by D154
+     NS-4, which does not change what D140's entry failed to say.)
 
 - [ ] **REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describes a dead migration.** <!-- item: state=startable -->
   `RunPipelineAsync`, `WalkAsync`, `WriteBackAsync`, `LinkManyAsync`, `ExpansionRetrievabilityFloor`,
@@ -665,7 +653,7 @@ exist reads exactly like one about a Part that does._
 - **Commit per task.** **Never commit without the user's approval.** Describe changes structurally in the
   message (no dev-machine paths / private tokens — the pre-commit guard enforces this).
 - **This is a generic library** — every task must be a reusable, app-agnostic improvement behind the
-  `ILlmClient` front door / a BYO seam, never app-specific code. Update the `ApiSurface` baselines
+  `ITextClient` front door / a BYO seam, never app-specific code. Update the `ApiSurface` baselines
   deliberately on any public-surface change.
 - **Deviate from a task's suggested steps when the code disagrees** — the spec's *contract* (interfaces,
   semantics) is authoritative; a task's step list is a suggestion. Record real deviations in the commit

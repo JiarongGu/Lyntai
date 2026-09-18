@@ -2300,7 +2300,7 @@ Two consequences, not one. The detail was wrong (chatter instead of the reason),
 `AuthFailed` benches the host for the cooldown window, `Failed` merely advances — so a fleet-wide credential
 problem kept being retried against the same backend.
 
-**Fix.** `src/Lyntai.Core/Llm/Cli/CliProviderEngine.cs` — parse stdout first; a reported in-band failure wins
+**Fix.** `src/Lyntai.Core/Llm/Cli/CliProviderEngine.cs` — parse stdout first; a reported in-band failure wins <!-- link-ok: the entry names the path AS IT WAS; D154 NS-4 moved the directory to src/Lyntai.Core/Inference/Cli -->
 and is classified, with the exit code kept in the detail as context (`exit {code}: {message}`). The exit-code
 reply is unchanged when the backend reported nothing in band. This is the ordering `StatusAsync` already
 used ("parse the answer, then fall back to the exit code"); the completion path simply never had it.

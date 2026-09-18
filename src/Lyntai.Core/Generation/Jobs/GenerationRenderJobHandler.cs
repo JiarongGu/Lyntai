@@ -2,7 +2,7 @@ using Lyntai.Inference;
 using System.Text.Json;
 using Lyntai.Generation.Routing;
 using Lyntai.Jobs;
-using Lyntai.Llm.Budgeting;
+using Lyntai.Inference.Budgeting;
 
 namespace Lyntai.Generation.Jobs;
 

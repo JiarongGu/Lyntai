@@ -10,7 +10,7 @@ The PRINCIPLE is `.claude/knowledge/library-api-design.md`; this document is how
 here — the same rule with Lyntai's own types, red flags and worked consumer asks.
 
 **Lyntai is a reusable, publishable library. Every change must be an app-agnostic improvement behind the
-`ILlmClient` front door or a BYO seam — NEVER app-specific code, and never a consumer's domain concept
+`ITextClient` front door or a BYO seam — NEVER app-specific code, and never a consumer's domain concept
 leaked into the surface.** Most tasks arrive as "app X needs Y"; your job is to ship the *general Y*, not
 X's Y.
 
@@ -23,13 +23,13 @@ posture) the library rots into a private fork with public packaging: the next ad
 feature, the `ApiSurface` baseline accumulates app-specific noise, and Core stops being neutral. The whole
 value proposition — "a new project gets this without rebuilding it" — depends on refusing that. This is the
 standing rule stated in `TASKS.md` ("**This is a generic library** — every task must be a reusable,
-app-agnostic improvement behind the `ILlmClient` front door / a BYO seam"); this doc is *how* to satisfy it.
+app-agnostic improvement behind the `ITextClient` front door / a BYO seam"); this doc is *how* to satisfy it.
 
 ## How to apply
 
 When a task says "app X wants Y," run it through this before writing code:
 
-1. **Name the universal need behind X's request.** "The desktop app had to wrap `ILlmClient` to sum
+1. **Name the universal need behind X's request.** "The desktop app had to wrap `ITextClient` to sum
    `reply.Usage`" → *every* tool-loop consumer wants per-run token accounting → put `Usage` on
    `ToolLoopResult`. Strip the app's name; if the generalized sentence still reads as a real need, it
    belongs in the library. If it only makes sense for that one app, it does **not** — help them do it in
@@ -96,7 +96,7 @@ notice, because there is no outside voice to disagree with.
 | The app-specific shape | Generalized to | Where it lives |
 |---|---|---|
 | WinForms app hangs in headless `claude -p` because every tool prompts | opt-in `SkipAllPermissions` bypass posture | `ClaudeAgentOptions` (adapter) |
-| App wrapped `ILlmClient` to sum tokens per tool-loop run | `Usage` on the run result | `ToolLoopResult` (Core) |
+| App wrapped `ITextClient` to sum tokens per tool-loop run | `Usage` on the run result | `ToolLoopResult` (Core) |
 | App's "typing" UI needs live tool-loop progress | `IToolLoop.StreamAsync` yielding neutral `AgentStreamEvent`s | Core, mirrors `IAgentSession` |
 | App needed a full BYO runner for Windows `.cmd`/CJK | default `ProcessRunner` resolves shims + forces UTF-8 for everyone | Core |
 | Source-study tool re-`List`s to dedup a note | `dedup`/`scope` params, defaulted off | `ICuratedMemoryStore` (Core) |
@@ -114,5 +114,5 @@ notice, because there is no outside voice to disagree with.
   repo's package names and entry points.
 - `.claude/knowledge/extending-lyntai.md` — the six extension seams a generalization usually rides on
   (provider, generation backend, storage backend, scorer, CLI tool-hosting dialect, migration).
-- `docs/2026-07-17-lyntai-design.md` — the `ILlmClient` "behaves like one provider" front door.
+- `docs/2026-07-17-lyntai-design.md` — the `ITextClient` "behaves like one provider" front door.
 - `ApiSurfaceTests` — the baseline gate that surfaces an app-specific leak in review.

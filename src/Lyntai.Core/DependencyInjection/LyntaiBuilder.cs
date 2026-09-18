@@ -4,11 +4,9 @@ using Lyntai.Agents;
 using Lyntai.Cortex;
 using Lyntai.Guards;
 using Lyntai.Jobs;
-using Lyntai.Llm;
-using Lyntai.Llm.Budgeting;
-using Lyntai.Llm.Caching;
-using Lyntai.Llm.RateLimiting;
-using Lyntai.Llm.Routing;
+using Lyntai.Inference.Budgeting;
+using Lyntai.Inference.Caching;
+using Lyntai.Inference.RateLimiting;
 using Lyntai.Memory;
 using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,18 +36,18 @@ public sealed class LyntaiBuilder
     /// client by <c>AddLyntai</c> in ascending <c>Order</c> (lower = innermost, higher = outermost) — so
     /// multiple compose deterministically regardless of the order they were added, instead of clobbering
     /// one another.</summary>
-    internal List<(int Order, Func<IServiceProvider, ILlmClient, ILlmClient> Decorate)> FrontDoorDecorators { get; } = [];
+    internal List<(int Order, Func<IServiceProvider, ITextClient, ITextClient> Decorate)> FrontDoorDecorators { get; } = [];
 
-    /// <summary>Named LLM clients (<c>AddLlmClient</c>) → what each was configured with: the backend ids it
+    /// <summary>Named LLM clients (<c>AddTextClient</c>) → what each was configured with: the backend ids it
     /// routes over (empty meaning "every registered provider") and any candidate list it stated outright.
-    /// Composed by <c>AddLyntai</c> into <see cref="Lyntai.Llm.ILlmClientFactory"/> — the chat counterpart of
+    /// Composed by <c>AddLyntai</c> into <see cref="Lyntai.Inference.ITextClientFactory"/> — the chat counterpart of
     /// the memory engine registry.</summary>
-    internal Dictionary<string, LlmClientBuilder> NamedLlmClients { get; } = new(StringComparer.Ordinal);
+    internal Dictionary<string, TextClientBuilder> NamedTextClients { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Every seam that pinned a MODEL, recorded so composition can check it against the candidates
     /// its client actually routes over. Recorded rather than checked on the spot because the client may be
     /// registered AFTER the seam — composition-root order is deliberately not load-bearing here, which is
-    /// the same promise <see cref="LlmClientBuilder.UseProviders"/> makes about naming backends.</summary>
+    /// the same promise <see cref="TextClientBuilder.UseProviders"/> makes about naming backends.</summary>
     internal List<(string Seam, string? ClientName, string Model)> SeamModelPins { get; } = [];
 
     // Fold order (higher = outer). The cache is OUTERMOST so a hit returns without touching inner
@@ -320,7 +318,7 @@ public sealed class LyntaiBuilder
     }
 
     /// <summary>Register a scope-guard / jail hook into the guard-rail collection (applied at the chat
-    /// orchestration's gates, or by a <c>GuardedLlmClient</c>).</summary>
+    /// orchestration's gates, or by a <c>GuardedTextClient</c>).</summary>
     public LyntaiBuilder AddGuard<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
         where T : class, IGuard
     {
@@ -350,10 +348,10 @@ public sealed class LyntaiBuilder
         configure?.Invoke(Options.Cache);
         Services.TryAddSingleton<IResponseCache>(_ => new InMemoryResponseCache(Options));
         // Decorate the front door (folded over the base client by AddLyntai, so it composes with any other
-        // decorator) — every ILlmClient resolution (tool loop, orchestrator, scorers) reads through it.
-        AddFrontDoorDecorator(CacheDecoratorOrder, (sp, inner) => new CachingLlmClient(
+        // decorator) — every ITextClient resolution (tool loop, orchestrator, scorers) reads through it.
+        AddFrontDoorDecorator(CacheDecoratorOrder, (sp, inner) => new CachingTextClient(
             inner, sp.GetRequiredService<IResponseCache>(), Options,
-            sp.GetService<ILogger<CachingLlmClient>>(),
+            sp.GetService<ILogger<CachingTextClient>>(),
             sp.GetService<IModelRoutingStore>()));
         return this;
     }
@@ -375,9 +373,9 @@ public sealed class LyntaiBuilder
     }
 
     /// <summary>Register a custom cross-cutting front-door decorator (PII redaction, request logging, a
-    /// bespoke cache, …) folded over the base router-backed <see cref="ILlmClient"/> along the SAME ordered
+    /// bespoke cache, …) folded over the base router-backed <see cref="ITextClient"/> along the SAME ordered
     /// chain as the built-in governance decorators — so it composes with them instead of forcing the app to
-    /// pre-register a whole <see cref="ILlmClient"/> (which trips the governance guard). <paramref name="order"/>
+    /// pre-register a whole <see cref="ITextClient"/> (which trips the governance guard). <paramref name="order"/>
     /// positions it: higher = outer; the built-ins are <see cref="RateLimitDecoratorOrder"/> (5) /
     /// <see cref="BudgetDecoratorOrder"/> (10) / <see cref="CacheDecoratorOrder"/> (20). Idempotent per
     /// order — one decorator per slot (a repeated Add of the same order is ignored), so pick a distinct
@@ -389,10 +387,10 @@ public sealed class LyntaiBuilder
     /// registered, so the wiring reads as complete while that governance layer is simply not in the
     /// chain.</para>
     /// <para>This is also the supported way to add a layer at all: the governance guard in <c>AddLyntai</c>
-    /// observes only an <see cref="ILlmClient"/> registered BEFORE the call, so registering one on
+    /// observes only an <see cref="ITextClient"/> registered BEFORE the call, so registering one on
     /// <see cref="Services"/> inside the configure callback — or on the collection after <c>AddLyntai</c>
     /// returns — discards every front-door decorator with no error at all.</para></summary>
-    public LyntaiBuilder AddFrontDoorDecorator(int order, Func<IServiceProvider, ILlmClient, ILlmClient> decorate)
+    public LyntaiBuilder AddFrontDoorDecorator(int order, Func<IServiceProvider, ITextClient, ITextClient> decorate)
     {
         // idempotent per order: a repeated Add* still re-applies its options but must NOT stack a second
         // decorator in the same slot — two rate limiters in series would double-charge permits.
@@ -416,9 +414,9 @@ public sealed class LyntaiBuilder
     {
         configure?.Invoke(Options.Budget);
         Services.TryAddSingleton<IUsageTracker, InMemoryUsageTracker>();
-        AddFrontDoorDecorator(BudgetDecoratorOrder, (sp, inner) => new BudgetedLlmClient(
+        AddFrontDoorDecorator(BudgetDecoratorOrder, (sp, inner) => new BudgetedTextClient(
             inner, sp.GetRequiredService<IUsageTracker>(), Options,
-            sp.GetService<ILogger<BudgetedLlmClient>>()));
+            sp.GetService<ILogger<BudgetedTextClient>>()));
         return this;
     }
 
@@ -445,12 +443,12 @@ public sealed class LyntaiBuilder
             // ours. A per-consumer entry with a ZERO rate is deliberate burst-then-block, i.e. an effective
             // limit — hence "entry", not "rate".
             if (limiter is TokenBucketRateLimiter { HasEffectiveLimit: false })
-                sp.GetService<ILogger<RateLimitedLlmClient>>()?.LogWarning(
+                sp.GetService<ILogger<RateLimitedTextClient>>()?.LogWarning(
                     "AddRateLimit resolved to no effective limit (RateLimit.PermitsPerSecond=0 and no per-consumer " +
                     "entry) — it will not throttle. Set RateLimit.PermitsPerSecond (or a PerConsumer entry, or the " +
                     "LYNTAI_RATELIMIT_PERMITS_PER_SECOND env var) to enable throttling.");
-            return new RateLimitedLlmClient(
-                inner, limiter, sp.GetService<ILogger<RateLimitedLlmClient>>());
+            return new RateLimitedTextClient(
+                inner, limiter, sp.GetService<ILogger<RateLimitedTextClient>>());
         });
         return this;
     }

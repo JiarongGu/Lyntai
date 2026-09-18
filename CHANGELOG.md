@@ -17,10 +17,10 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 - **One namespace for everything about CALLING a backend, and every call shape named for what it
   PRODUCES** (**D154**). Four peer call families sat in three namespaces because that is where each one
   grew up, so the map contradicted the model: `Lyntai.Lifecycle` held the provider seam, the verdicts and <!-- drift-ok: the entry ANNOUNCING the move has to name the namespace it retired -->
-  the vector/score shapes; `Lyntai.Llm` held the text shapes; `Lyntai.Generation` held the media ones. They
-  are peers, so they share one home — `Lyntai.Inference`.
-  <br>**Moved, namespace only:** `Lyntai.Lifecycle` → `Lyntai.Inference`, and `Lyntai.Llm.Streaming` → <!-- drift-ok: the entry ANNOUNCING the move has to name both sides -->
-  `Lyntai.Inference.Streaming`. No type changed; a consumer edits the `using` and nothing else.
+  the vector/score shapes; `Lyntai.Llm` held the text shapes and the front door; `Lyntai.Generation` held <!-- drift-ok: the entry ANNOUNCING the move has to name the namespace it retired -->
+  the media ones. They are peers, so they share one home — `Lyntai.Inference`.
+  <br>**Moved, namespace only:** `Lyntai.Lifecycle` → `Lyntai.Inference`. No type changed; a consumer edits <!-- drift-ok: the entry ANNOUNCING the move has to name both sides -->
+  the `using` and nothing else.
   <br>**Renamed and moved, text:** `LlmRequest`→`TextRequest`, `LlmReply`→`TextResponse`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
   `LlmChunk`→`TextChunk`, `LlmChunkKind`→`TextChunkKind`, `LlmUsage`→`TextUsage`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
   `LlmMessage`→`TextMessage`, `LlmAttachment`→`TextAttachment`, `LlmReasoning`→`TextReasoning`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
@@ -37,8 +37,23 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   tools are machinery for running a generation rather than the shape of the call. So are the telemetry
   names: `LyntaiDiagnostics.GenerationActivitySourceName` is still `"Lyntai.Generation"` and the metrics
   are still `lyntai.generation.*`, because a consumer subscribes to those by string.
-  <br>**Still to come in this sequence:** the front door (`ILlmClient` and the text router) has not moved
-  yet, so `Lyntai.Llm` remains a live namespace.
+  <br>**Renamed and moved, the FRONT DOOR — the library's primary consumer type:** `ILlmClient`→`ITextClient`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `LlmClient`→`TextClient`, `ILlmRouter`→`ITextRouter`, `LlmRouter`→`TextRouter`, with <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `ILlmClientFactory`/`LlmClientFactory`, `ILlmRouterFactory`/`LlmRouterFactory`, `LlmClientBuilder`, <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `LlmClientRegistration`, `LlmStructuredExtensions`, the registration `AddLlmClient`→`AddTextClient`, and <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  the six decorators — `Delegating`, `RefusalScreening`, `Caching`, `Budgeted`, `RateLimited` and
+  `Guarded` — whose `LlmClient` suffix becomes `TextClient`. <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  <br>**`Lyntai.Llm` is GONE**, with its whole family: `.Routing` folds into `Lyntai.Inference` itself <!-- drift-ok: the entry ANNOUNCING the move has to name the namespace it retired -->
+  (`RoutingPolicy` and `DeadHostTracker` were already there), while `.Caching`, `.Budgeting`,
+  `.RateLimiting` and `.Cli` keep their shape as `Lyntai.Inference.*`. Those four move because their
+  decorators wrap the text front door BY DEFINITION — not because caching or budgeting is text-specific.
+  <br>**`Llm` is NOT retired as a word, and this is the line a consumer needs**: it stays on everything that
+  ASKS a language model — `LlmScorerBase`, `LlmPairwiseComparer`, `LlmMemoryVerificationPolicy`,
+  `LlmMemoryAnnotationPolicy`, and `IScorer.IsLlm`, whose stored form is the `is_llm` column. No schema
+  changed and nothing a scorer implements moved.
+  <br>**One doc-comment correction ships with it:** `ProviderVerdict`'s summary named `LlmRoutingPolicy` as <!-- drift-ok: the correction has to name the type it corrects -->
+  the text action table. No such type exists — `RoutingPolicy` is the SHARED default every router starts
+  from, and `GenerationRoutingPolicy` is the media domain's override.
 
 ### Added
 
@@ -184,7 +199,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 - **The Microsoft.Extensions.AI module is a bridge, not a provider** (**D145**).
   `Lyntai.Providers.ExtensionsAi` becomes `Lyntai.ExtensionsAi`, and **`AsChatClient()` moves to <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
-  `Lyntai.Llm`** beside the `ILlmClient` it extends — so consuming Lyntai as an `IChatClient` no longer
+  `Lyntai.Inference`** beside the `ITextClient` it extends — so consuming Lyntai as an `IChatClient` no longer
   needs an import from a providers namespace. Three of the module's four types never were providers: the
   reverse bridge and the tool-declaration adapter do not implement `IModelProvider` at all. The code stays
   in `Lyntai.Providers.Basic`; only the namespace moves.
@@ -327,17 +342,17 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   kind exists. `VectorRequest`/`VectorResponse` and `IVectorProvider` are its first call shape —
   `VectorResponse` carries the verdict **beside** the vectors, because there is no vector meaning "I could
   not" and a zero compares as real.
-  <br>**It does NOT replace `LlmRouter` or `GenerationRouter`.** Those differ in eight recorded,
+  <br>**It does NOT replace `TextRouter` or `GenerationRouter`.** Those differ in eight recorded,
   load-bearing ways — last-versus-first failure, retries present versus absent, one synthetic failure versus
   two — and folding them in would mean eight injection points on the most load-bearing code here.
   Converging them is its own decision.
 
-- **The cross-domain routing types leave `Lyntai.Llm.Routing`** (**D153**). `RoutingPolicy`,
+- **The cross-domain routing types leave `Lyntai.Inference`** (**D153**). `RoutingPolicy`,
   `DeadHostTracker` and `CooldownScope` move to `Lyntai.Inference`; edit the `using`, the types are
   unchanged. They were never LLM-specific — the generation router and its factory use all three — and
   `Lyntai.Inference` was importing the LLM namespace to reach them, which put the neutral taxonomy
-  downstream of one domain. That is the inversion **D140** removed one layer up. `LlmRouter`, `LlmClient`
-  and `ILlmRouterFactory` stay where they are; those genuinely are the LLM front door.
+  downstream of one domain. That is the inversion **D140** removed one layer up. `TextRouter`, `TextClient`
+  and `ITextRouterFactory` stay where they are; those genuinely are the LLM front door.
 
 - **A generic provider base, so a consuming app can define its OWN kind** (**D153**). Four additive seams in
   `Lyntai.Inference`: `IProviderOutcome` (`Verdict` + `Detail` — what routing needs from any response, and
@@ -519,7 +534,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 - **`ToolLoopResult.Transport` and the `ToolTransport` enum — a tool loop now reports which transport ran**
   (**D117**). `ToolLoop` prefers native function-calling and silently falls back to its own prompt protocol
-  when `ILlmClient.SupportsToolCalls` says no. That fallback is not a degradation of degree: measured on one
+  when `ITextClient.SupportsToolCalls` says no. That fallback is not a degradation of degree: measured on one
   model both ways (`docs/memory-measurements.md` §5), it takes false calls from 20-30% to **90-100%**,
   convergence from 99.4-100% down to **11.3-24.4%**, and bills an extra repair round. Until now the choice
   reached an OpenTelemetry span tag and never the caller.

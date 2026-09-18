@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using System.Net;
 using Lyntai;
-using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -32,7 +31,7 @@ public class ByoHttpClientTests
                 httpClient: _ => appClient) // BYO
             .UseDefaultCandidates("openai"));
         using var sp = services.BuildServiceProvider();
-        var llm = sp.GetRequiredService<ILlmClient>();
+        var llm = sp.GetRequiredService<ITextClient>();
 
         var first = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("one")], Model = "gpt-x" });
         var second = await llm.CompleteAsync(new TextRequest { Messages = [TextMessage.User("two")], Model = "gpt-x" });
@@ -55,7 +54,7 @@ public class ByoHttpClientTests
             .Configure(o => o.ProviderTimeout = TimeSpan.FromSeconds(5)));
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>()
+        var reply = await sp.GetRequiredService<ITextClient>()
             .CompleteAsync(new TextRequest { Messages = [TextMessage.User("hi")] });
         // EITHER verdict proves the claim: DI resolved a real client and it TRIED. Pinning `Failed` alone
         // races the timeout — on a loaded machine the connect to a closed port can outlast the 5s budget,

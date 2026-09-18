@@ -1,13 +1,12 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Llm;
 
 /// <summary>
-/// Named <see cref="ILlmClient"/>s, the chat counterpart of named memory engines.
+/// Named <see cref="ITextClient"/>s, the chat counterpart of named memory engines.
 /// <para>The facts worth pinning are the ones that make a name SAFE: that it selects backends and not
 /// permissions, and that a name pointing at a backend nobody registered fails loudly instead of quietly
 /// running on the app's default.</para>
@@ -30,8 +29,8 @@ public class LlmClientFactoryTests
     [Fact]
     public void A_named_client_resolves_by_name()
     {
-        using var sp = Build(b => WithProviders(b, "cheap", "best").AddLlmClient("memory", c => c.UseProviders("cheap")));
-        var factory = sp.GetRequiredService<ILlmClientFactory>();
+        using var sp = Build(b => WithProviders(b, "cheap", "best").AddTextClient("memory", c => c.UseProviders("cheap")));
+        var factory = sp.GetRequiredService<ITextClientFactory>();
 
         Assert.Equal(["memory"], factory.Names);
         Assert.NotNull(factory.Get("memory"));
@@ -44,10 +43,10 @@ public class LlmClientFactoryTests
     public void The_default_client_is_available_with_no_named_registrations()
     {
         using var sp = Build(b => WithProviders(b, "only"));
-        var factory = sp.GetRequiredService<ILlmClientFactory>();
+        var factory = sp.GetRequiredService<ITextClientFactory>();
 
         Assert.Empty(factory.Names);
-        Assert.Same(sp.GetRequiredService<ILlmClient>(), factory.Get());
+        Assert.Same(sp.GetRequiredService<ITextClient>(), factory.Get());
         Assert.False(factory.TryGet("nope", out _));
     }
 
@@ -56,8 +55,8 @@ public class LlmClientFactoryTests
     [Fact]
     public void An_unknown_name_throws_and_says_what_is_registered()
     {
-        using var sp = Build(b => WithProviders(b, "cheap").AddLlmClient("memory", c => c.UseProviders("cheap")));
-        var factory = sp.GetRequiredService<ILlmClientFactory>();
+        using var sp = Build(b => WithProviders(b, "cheap").AddTextClient("memory", c => c.UseProviders("cheap")));
+        var factory = sp.GetRequiredService<ITextClientFactory>();
 
         var ex = Assert.Throws<KeyNotFoundException>(() => factory.Get("typo"));
         Assert.Contains("memory", ex.Message, StringComparison.Ordinal);
@@ -69,9 +68,9 @@ public class LlmClientFactoryTests
     [Fact]
     public void A_name_pointing_at_an_unregistered_backend_throws()
     {
-        using var sp = Build(b => WithProviders(b, "cheap").AddLlmClient("memory", c => c.UseProviders("ghost")));
+        using var sp = Build(b => WithProviders(b, "cheap").AddTextClient("memory", c => c.UseProviders("ghost")));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ILlmClientFactory>());
+        var ex = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ITextClientFactory>());
         Assert.Contains("ghost", ex.Message, StringComparison.Ordinal);
         Assert.Contains("cheap", ex.Message, StringComparison.Ordinal);   // and says what IS available
     }
@@ -84,8 +83,8 @@ public class LlmClientFactoryTests
         var services = new ServiceCollection();
 
         var ex = Assert.Throws<ArgumentException>(() => services.AddLyntai(b => b
-            .AddLlmClient("memory")
-            .AddLlmClient("memory")));
+            .AddTextClient("memory")
+            .AddTextClient("memory")));
 
         Assert.Contains("already registered", ex.Message, StringComparison.Ordinal);
     }
@@ -95,9 +94,9 @@ public class LlmClientFactoryTests
     [Fact]
     public void Naming_no_provider_routes_over_all_of_them()
     {
-        using var sp = Build(b => WithProviders(b, "a", "b").AddLlmClient("everything"));
+        using var sp = Build(b => WithProviders(b, "a", "b").AddTextClient("everything"));
 
-        Assert.NotNull(sp.GetRequiredService<ILlmClientFactory>().Get("everything"));
+        Assert.NotNull(sp.GetRequiredService<ITextClientFactory>().Get("everything"));
     }
 
     /// <summary><b>A named client is governed exactly like the default one.</b> The front-door decorators are
@@ -110,16 +109,16 @@ public class LlmClientFactoryTests
     {
         using var sp = Build(b => WithProviders(b, "cheap")
             .AddUsageBudget(o => o.MaxTokens = 0)               // nothing may be spent
-            .AddLlmClient("memory", c => c.UseProviders("cheap")));
+            .AddTextClient("memory", c => c.UseProviders("cheap")));
 
-        var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("memory")
+        var reply = await sp.GetRequiredService<ITextClientFactory>().Get("memory")
             .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
     }
 
     /// <summary><b>The other half of that promise, and the half nothing asserted.</b>
-    /// <c>LlmClientRegistration</c>'s own doc says every named client carries "the same outermost refusal
+    /// <c>TextClientRegistration</c>'s own doc says every named client carries "the same outermost refusal
     /// screening as the default one" — and the fold was written TWICE, so deleting the screening from the
     /// named copy left the entire suite green. The budget fact above covers the decorator half; this covers
     /// the layer that sits outside them, which is the one a second copy loses first because it is added last.
@@ -132,9 +131,9 @@ public class LlmClientFactoryTests
         using var sp = Build(b => WithProviders(b, "cheap")
             .UseDefaultCandidates("cheap")
             .AddRefusalMatcher(new AlwaysRefuses())
-            .AddLlmClient("memory", c => c.UseProviders("cheap")));
+            .AddTextClient("memory", c => c.UseProviders("cheap")));
 
-        var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("memory")
+        var reply = await sp.GetRequiredService<ITextClientFactory>().Get("memory")
             .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
@@ -152,10 +151,10 @@ public class LlmClientFactoryTests
         var ollama = new FakeLlmProvider("ollama-chat");
         using var sp = Build(b => b
             .UseDefaultCandidates("claude-cli")
-            .AddLlmClient("judge", c => c.UseProviders("ollama-chat"))
+            .AddTextClient("judge", c => c.UseProviders("ollama-chat"))
             .Services.AddSingleton<IModelProvider>(cli).AddSingleton<IModelProvider>(ollama));
 
-        var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
+        var reply = await sp.GetRequiredService<ITextClientFactory>().Get("judge")
             .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
@@ -173,10 +172,10 @@ public class LlmClientFactoryTests
         var ollama = new FakeLlmProvider("ollama-chat");
         using var sp = Build(b => b
             .UseDefaultCandidates("claude-cli")
-            .AddLlmClient("judge", c => c.UseProviders("ollama-chat"))
+            .AddTextClient("judge", c => c.UseProviders("ollama-chat"))
             .Services.AddSingleton<IModelProvider>(cli).AddSingleton<IModelProvider>(ollama));
 
-        await sp.GetRequiredService<ILlmClient>()
+        await sp.GetRequiredService<ITextClient>()
             .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Single(cli.Calls);
@@ -191,11 +190,11 @@ public class LlmClientFactoryTests
         var small = new FakeLlmProvider("local");
         using var sp = Build(b => b
             .UseDefaultCandidates(new ProviderCandidate("hosted"), new ProviderCandidate("local", "qwen3:4b"))
-            .AddLlmClient("judge", c => c.UseProviders("local"))
+            .AddTextClient("judge", c => c.UseProviders("local"))
             .Services.AddSingleton<IModelProvider>(new FakeLlmProvider("hosted"))
                      .AddSingleton<IModelProvider>(small));
 
-        await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
+        await sp.GetRequiredService<ITextClientFactory>().Get("judge")
             .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal("qwen3:4b", Assert.Single(small.Calls).Model);
@@ -213,10 +212,10 @@ public class LlmClientFactoryTests
         var second = new FakeLlmProvider("a");
         using var sp = Build(b => b
             .UseDefaultCandidates("a", "b")                    // the GLOBAL order is a, then b
-            .AddLlmClient("judge", c => c.UseProviders("b", "a"))
+            .AddTextClient("judge", c => c.UseProviders("b", "a"))
             .Services.AddSingleton<IModelProvider>(second).AddSingleton<IModelProvider>(first));
 
-        var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
+        var reply = await sp.GetRequiredService<ITextClientFactory>().Get("judge")
             .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
@@ -235,12 +234,12 @@ public class LlmClientFactoryTests
         var unlisted = new FakeLlmProvider("c");
         using var sp = Build(b => b
             .UseDefaultCandidates("a", "b")
-            .AddLlmClient("judge", c => c.UseProviders("a", "c"))
+            .AddTextClient("judge", c => c.UseProviders("a", "c"))
             .Services.AddSingleton<IModelProvider>(known)
                      .AddSingleton<IModelProvider>(new FakeLlmProvider("b"))
                      .AddSingleton<IModelProvider>(unlisted));
 
-        var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
+        var reply = await sp.GetRequiredService<ITextClientFactory>().Get("judge")
             .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
@@ -257,10 +256,10 @@ public class LlmClientFactoryTests
         var other = new FakeLlmProvider("b");
         using var sp = Build(b => b
             .UseDefaultCandidates("a")
-            .AddLlmClient("everything")
+            .AddTextClient("everything")
             .Services.AddSingleton<IModelProvider>(primary).AddSingleton<IModelProvider>(other));
 
-        await sp.GetRequiredService<ILlmClientFactory>().Get("everything")
+        await sp.GetRequiredService<ITextClientFactory>().Get("everything")
             .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Single(primary.Calls);
@@ -268,7 +267,7 @@ public class LlmClientFactoryTests
     }
 
     /// <summary><b>The explicit seam.</b> Derivation cannot express two models of ONE backend — the exact
-    /// split <c>AddLlmClient</c> exists for, when the small model and the big one live behind the same id — so
+    /// split <c>AddTextClient</c> exists for, when the small model and the big one live behind the same id — so
     /// a name can state its candidates outright.</summary>
     [Fact]
     public async Task A_named_client_can_state_its_candidates_outright()
@@ -276,10 +275,10 @@ public class LlmClientFactoryTests
         var backend = new FakeLlmProvider("local");
         using var sp = Build(b => b
             .UseDefaultCandidates(new ProviderCandidate("local", "big"))
-            .AddLlmClient("judge", c => c.UseCandidates(new ProviderCandidate("local", "small")))
+            .AddTextClient("judge", c => c.UseCandidates(new ProviderCandidate("local", "small")))
             .Services.AddSingleton<IModelProvider>(backend));
 
-        await sp.GetRequiredService<ILlmClientFactory>().Get("judge")
+        await sp.GetRequiredService<ITextClientFactory>().Get("judge")
             .CompleteAsync(new TextRequest { Messages = [new TextMessage("user", "anything")] });
 
         Assert.Equal("small", Assert.Single(backend.Calls).Model);
@@ -292,9 +291,9 @@ public class LlmClientFactoryTests
     public void A_candidate_outside_the_clients_own_pool_is_refused()
     {
         using var sp = Build(b => WithProviders(b, "a", "b")
-            .AddLlmClient("judge", c => c.UseProviders("a").UseCandidates(new ProviderCandidate("b"))));
+            .AddTextClient("judge", c => c.UseProviders("a").UseCandidates(new ProviderCandidate("b"))));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ILlmClientFactory>());
+        var ex = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ITextClientFactory>());
         Assert.Contains("judge", ex.Message, StringComparison.Ordinal);
         Assert.Contains("b", ex.Message, StringComparison.Ordinal);
     }
@@ -313,9 +312,9 @@ public class LlmClientFactoryTests
     public void A_stated_candidate_naming_no_registered_backend_is_refused_even_with_no_pool()
     {
         using var sp = Build(b => WithProviders(b, "a")
-            .AddLlmClient("judge", c => c.UseCandidates(new ProviderCandidate("ghost"))));
+            .AddTextClient("judge", c => c.UseCandidates(new ProviderCandidate("ghost"))));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ILlmClientFactory>());
+        var ex = Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<ITextClientFactory>());
         Assert.Contains("ghost", ex.Message, StringComparison.Ordinal);
         Assert.Contains("a", ex.Message, StringComparison.Ordinal);   // and says what IS available
     }
@@ -337,7 +336,7 @@ public class LlmClientFactoryTests
             WithProviders(b, "cheap");
             b.Options.DefaultCandidates.Add(new ProviderCandidate("cheap", "big-model"));
             b.AddMemoryVerification(o => o.Model = "small-model");
-        }).GetRequiredService<ILlmClientFactory>());
+        }).GetRequiredService<ITextClientFactory>());
 
         Assert.Contains("small-model", error.Message, StringComparison.Ordinal);
         Assert.Contains("AddMemoryVerification", error.Message, StringComparison.Ordinal);
@@ -354,7 +353,7 @@ public class LlmClientFactoryTests
             b.Options.DefaultCandidates.Add(new ProviderCandidate("cheap", "small-model"));
             b.AddMemoryVerification(o => o.Model = "small-model");
         });
-        Assert.NotNull(matches.GetRequiredService<ILlmClientFactory>());
+        Assert.NotNull(matches.GetRequiredService<ITextClientFactory>());
 
         using var unpinned = Build(b =>           // a candidate pins nothing, so the seam's Model is used
         {
@@ -362,7 +361,7 @@ public class LlmClientFactoryTests
             b.Options.DefaultCandidates.Add(new ProviderCandidate("cheap"));
             b.AddMemoryVerification(o => o.Model = "small-model");
         });
-        Assert.NotNull(unpinned.GetRequiredService<ILlmClientFactory>());
+        Assert.NotNull(unpinned.GetRequiredService<ITextClientFactory>());
 
         using var partial = Build(b =>            // one pinned, one not - the seam still applies to the second
         {
@@ -371,7 +370,7 @@ public class LlmClientFactoryTests
             b.Options.DefaultCandidates.Add(new ProviderCandidate("spare"));
             b.AddMemoryVerification(o => o.Model = "small-model");
         });
-        Assert.NotNull(partial.GetRequiredService<ILlmClientFactory>());
+        Assert.NotNull(partial.GetRequiredService<ITextClientFactory>());
     }
 
     [Fact]
@@ -383,9 +382,9 @@ public class LlmClientFactoryTests
         {
             WithProviders(b, "cheap", "best");
             b.Options.DefaultCandidates.Add(new ProviderCandidate("best"));        // unpinned - would NOT throw
-            b.AddLlmClient("judge", c => c.UseCandidates(new ProviderCandidate("cheap", "big-model")));
+            b.AddTextClient("judge", c => c.UseCandidates(new ProviderCandidate("cheap", "big-model")));
             b.AddMemoryVerification(o => { o.ClientName = "judge"; o.Model = "small-model"; });
-        }).GetRequiredService<ILlmClientFactory>());
+        }).GetRequiredService<ITextClientFactory>());
 
         Assert.Contains("judge", error.Message, StringComparison.Ordinal);
     }

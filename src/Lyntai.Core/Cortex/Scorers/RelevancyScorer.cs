@@ -1,11 +1,11 @@
-using Lyntai.Llm;
+using Lyntai.Inference;
 
 namespace Lyntai.Cortex.Scorers;
 
 /// <summary>LLM-judge dimension: how relevant is the output to the input? One-shot call through the
 /// front door, expecting the standard <c>{score,reason}</c> verdict — everything inherited from
 /// <see cref="LlmScorerBase"/>. Register with <c>builder.AddScorer&lt;RelevancyScorer&gt;()</c>.</summary>
-public sealed class RelevancyScorer(ILlmClient llm) : LlmScorerBase(llm)
+public sealed class RelevancyScorer(ITextClient llm) : LlmScorerBase(llm)
 {
     public override string Id => "relevancy";
     public override string Name => "Relevancy";

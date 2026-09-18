@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
 using Lyntai.Providers.LlamaSharp;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
@@ -85,7 +84,7 @@ public class AddLlamaSharpTests
             .UseDefaultCandidates("local"));
         using var sp = services.BuildServiceProvider();
 
-        var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Ask());
+        var reply = await sp.GetRequiredService<ITextClient>().CompleteAsync(Ask());
 
         Assert.NotEqual(ProviderVerdict.Ok, reply.Verdict); // no live candidate remained
     }

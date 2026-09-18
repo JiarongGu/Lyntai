@@ -1,7 +1,6 @@
 using System.Text.Json.Nodes;
-using Lyntai.Llm;
-using Lyntai.Providers.Http.Payloads;
 using Lyntai.Inference;
+using Lyntai.Providers.Http.Payloads;
 
 namespace Lyntai.Tests.Providers;
 

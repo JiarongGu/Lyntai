@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using Lyntai.Llm;
 
 namespace Lyntai.Diagnostics;
 
@@ -14,8 +13,8 @@ namespace Lyntai.Diagnostics;
 /// </summary>
 public static class LyntaiDiagnostics
 {
-    public const string ActivitySourceName = "Lyntai.Llm";
-    public const string MeterName = "Lyntai.Llm";
+    public const string ActivitySourceName = "Lyntai.Inference";
+    public const string MeterName = "Lyntai.Inference";
 
     internal static readonly ActivitySource Source = new(ActivitySourceName);
     internal static readonly Meter Meter = new(MeterName);

@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Agents;
-using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 

@@ -2,8 +2,7 @@ using Lyntai.Inference;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
-using Lyntai.Llm;
-using Lyntai.Llm.Budgeting;
+using Lyntai.Inference.Budgeting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 

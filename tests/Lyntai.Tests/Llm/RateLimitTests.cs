@@ -2,9 +2,8 @@ using Lyntai.Inference;
 using System.Diagnostics.Metrics;
 using Lyntai;
 using Lyntai.Diagnostics;
-using Lyntai.Llm;
-using Lyntai.Llm.Caching;
-using Lyntai.Llm.RateLimiting;
+using Lyntai.Inference.Caching;
+using Lyntai.Inference.RateLimiting;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -155,7 +154,7 @@ public class RateLimitTests
         inner.Replies.Enqueue(new TextResponse("first", ProviderVerdict.Ok));
         // fixed clock → no refill between the two calls, MaxWait 0 → the 2nd refuses immediately
         var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.Zero; });
-        var client = new RateLimitedLlmClient(inner, limiter);
+        var client = new RateLimitedTextClient(inner, limiter);
 
         var first = await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("a")] });
         var second = await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("b")] });
@@ -170,7 +169,7 @@ public class RateLimitTests
     {
         var inner = new FakeLlmClient();
         var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.Zero; });
-        var client = new RateLimitedLlmClient(inner, limiter);
+        var client = new RateLimitedTextClient(inner, limiter);
 
         await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("a")] }); // spend the permit
         var chunks = new List<TextChunk>();
@@ -205,7 +204,7 @@ public class RateLimitTests
         meterListener.Start();
 
         var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.Zero; });
-        var client = new RateLimitedLlmClient(new FakeLlmClient(), limiter);
+        var client = new RateLimitedTextClient(new FakeLlmClient(), limiter);
         var request = new TextRequest { Messages = [TextMessage.User("a")], Consumer = consumer };
 
         await client.CompleteAsync(request);                        // spends the one permit — not a refusal
@@ -218,7 +217,7 @@ public class RateLimitTests
     public async Task SupportsToolCalls_delegates_to_the_inner_client()
     {
         var inner = new FakeLlmClient { SupportsToolCallsResult = true };
-        var client = new RateLimitedLlmClient(inner, Limiter(_ => { }));
+        var client = new RateLimitedTextClient(inner, Limiter(_ => { }));
         Assert.True(client.SupportsToolCalls(new TextRequest { Messages = [TextMessage.User("a")] }));
     }
 
@@ -253,7 +252,7 @@ public class RateLimitTests
             .AddRateLimit()          // duplicate — must be ignored (a 2nd limiter shares the singleton →
             .UseDefaultCandidates("p")); // each call would spend TWO permits, exhausting burst 2 in one call)
         using var sp = services.BuildServiceProvider();
-        var client = sp.GetRequiredService<ILlmClient>();
+        var client = sp.GetRequiredService<ITextClient>();
         var req = new TextRequest { Messages = [TextMessage.User("q")] };
 
         Assert.Equal(ProviderVerdict.Ok, (await client.CompleteAsync(req)).Verdict);          // burst 2 → 1 left
@@ -265,7 +264,7 @@ public class RateLimitTests
     public void A_pre_registered_front_door_with_a_decorator_throws()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<ILlmClient>(new FakeLlmClient()); // BYO ILlmClient before AddLyntai
+        services.AddSingleton<ITextClient>(new FakeLlmClient()); // BYO ITextClient before AddLyntai
         Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
             .AddResponseCache())); // decorator would be silently dropped → guarded
@@ -299,7 +298,7 @@ public class RateLimitTests
             .UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
-        var client = sp.GetRequiredService<ILlmClient>(); // resolution folds the decorators → warning fires here
+        var client = sp.GetRequiredService<ITextClient>(); // resolution folds the decorators → warning fires here
         var reply = await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("q")] });
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict); // still serves (a no-op passthrough, not a hard failure)
@@ -319,7 +318,7 @@ public class RateLimitTests
             .UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
-        _ = sp.GetRequiredService<ILlmClient>();
+        _ = sp.GetRequiredService<ITextClient>();
         Assert.DoesNotContain(logs, l => l.Contains("no effective limit", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -351,7 +350,7 @@ public class RateLimitTests
             .AddRateLimit(o => { o.PermitsPerSecond = 0.0001; o.Burst = 1; o.MaxWait = TimeSpan.Zero; }) // ~1 real call
             .UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
-        var client = sp.GetRequiredService<ILlmClient>();
+        var client = sp.GetRequiredService<ITextClient>();
 
         var a1 = await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("a")] }); // miss → permit → provider
         var a2 = await client.CompleteAsync(new TextRequest { Messages = [TextMessage.User("a")] }); // HIT → no permit spent

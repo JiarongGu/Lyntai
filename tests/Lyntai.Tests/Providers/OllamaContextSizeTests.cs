@@ -2,7 +2,6 @@ using Lyntai.Inference;
 using System.Net;
 using System.Text.Json.Nodes;
 using Lyntai;
-using Lyntai.Llm;
 using Lyntai.Providers.Http;
 using Lyntai.Tests.Fakes;
 

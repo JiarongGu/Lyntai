@@ -2,7 +2,6 @@ using Lyntai.Inference;
 using System.Net;
 using System.Text.Json;
 using Lyntai.Agents;
-using Lyntai.Llm;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Providers.CodexCli;
 using Lyntai.Providers.Http;

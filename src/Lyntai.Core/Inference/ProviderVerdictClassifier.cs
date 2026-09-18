@@ -27,9 +27,9 @@ public static partial class ProviderVerdictClassifier
     /// the built-in patterns, first non-null wins. Dispose the returned handle to unregister (an app
     /// registers once at startup and never disposes; a test disposes to isolate).
     /// <para>A matcher MUST NOT throw. Classification runs inside the router's own <c>catch</c>, so a throw
-    /// PROPAGATES out of <c>ILlmClient.CompleteAsync</c>/<c>StreamAsync</c> and aborts the whole routing
+    /// PROPAGATES out of <c>ITextClient.CompleteAsync</c>/<c>StreamAsync</c> and aborts the whole routing
     /// attempt — the remaining candidates included. This deliberately differs from
-    /// <see cref="Lyntai.Llm.IRefusalMatcher"/>, whose seam logs a throwing matcher and fails open: this class is static
+    /// <see cref="Lyntai.Inference.IRefusalMatcher"/>, whose seam logs a throwing matcher and fails open: this class is static
     /// and has no logger, so swallowing here would hide the bug rather than report it.</para></summary>
     public static IDisposable AddErrorTextMatcher(Func<string, ProviderVerdict?> matcher)
     {

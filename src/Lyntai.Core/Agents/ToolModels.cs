@@ -1,5 +1,4 @@
 using Lyntai.Inference;
-using Lyntai.Llm;
 
 namespace Lyntai.Agents;
 
@@ -27,7 +26,7 @@ public enum ToolTransport
     None,
 
     /// <summary>The provider's own function-calling, selected because
-    /// <see cref="ILlmClient.SupportsToolCalls"/> said it was available.</summary>
+    /// <see cref="ITextClient.SupportsToolCalls"/> said it was available.</summary>
     Native,
 
     /// <summary>The loop's own prompt protocol, used because the provider declared no native support — the
@@ -50,7 +49,7 @@ public sealed record ToolLoopResult(
     /// <summary>Aggregate token/cost usage across EVERY front-door call the loop made (summed
     /// input/output/cache-read tokens; <see cref="TextUsage.CostUsd"/> summed when any call reported one, else
     /// null). Null when no provider reported usage at all (e.g. a CLI provider that doesn't surface tokens).
-    /// Gives a tool-loop consumer a per-run token/cost figure without wrapping <see cref="ILlmClient"/> in its
+    /// Gives a tool-loop consumer a per-run token/cost figure without wrapping <see cref="ITextClient"/> in its
     /// own front-door decorator.</summary>
     public TextUsage? Usage { get; init; }
 

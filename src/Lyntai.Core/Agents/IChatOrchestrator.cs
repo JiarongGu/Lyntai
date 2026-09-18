@@ -11,10 +11,10 @@ namespace Lyntai.Agents;
 /// (<see cref="Lyntai.Guards.IGuardRail.InspectToolCallAsync"/>) and every observation before it is fed back
 /// (<see cref="Lyntai.Guards.IGuardRail.InspectToolResultAsync"/>). What is NOT individually gated is the
 /// loop's intermediate MODEL turns — the assistant messages between tool round-trips. To gate every model
-/// turn, layer <c>GuardedLlmClient</c> onto the front door with
-/// <c>AddFrontDoorDecorator(order, (sp, inner) =&gt; new GuardedLlmClient(inner, rail))</c>; don't ALSO rely
+/// turn, layer <c>GuardedTextClient</c> onto the front door with
+/// <c>AddFrontDoorDecorator(order, (sp, inner) =&gt; new GuardedTextClient(inner, rail))</c>; don't ALSO rely
 /// on these gates for that content, to avoid double-gating.
-/// <para><b>Do NOT register your own <see cref="Lyntai.Llm.ILlmClient"/> to achieve this</b>, which is what
+/// <para><b>Do NOT register your own <see cref="Lyntai.Inference.ITextClient"/> to achieve this</b>, which is what
 /// this paragraph advised until 2026-08-16. A pre-registered client THROWS when any front-door decorator is
 /// configured — <c>AddLyntai</c> refuses the contradiction rather than let governance vanish — and when none
 /// is, it silently loses refusal screening, which is applied inside the front-door fold rather than through

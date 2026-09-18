@@ -14,7 +14,7 @@ namespace Lyntai;
 /// strategy is registered is the only thing that decides whether a backend is reused or rebuilt, so
 /// switching costs one line at startup and no edit at any call site — including inside
 /// <see cref="Lyntai.Generation.Routing.IGenerationRouterFactory"/> and
-/// <see cref="Lyntai.Llm.Routing.ILlmRouterFactory"/>, which simply keep calling
+/// <see cref="Lyntai.Inference.ITextRouterFactory"/>, which simply keep calling
 /// <see cref="IProviderPool{TProvider}.GetOrAdd"/>.</para>
 ///
 /// <para>The pool is registered as an OPEN generic, so one registration serves every provider seam —

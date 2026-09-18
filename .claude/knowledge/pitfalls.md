@@ -20,35 +20,35 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (47) — 57 · 124 · 133 · 153 · 166 · 175 · 188 · 194 · 217 · 227 · 234 · 249 · 259 · 305 · 325 · 371 · 389 · 550 · 635 · 644 · 654 · 708 · 722 · 792 · 806 · 1121 · 1248 · 1344 · 1357 · 1384 · 1405 · 1422 · 1439 · 1481 · 1654 · 2657 · 2681 · 2691 · 2717 · 2728 · 2747 · 2763 · 2774 · 2801 · 3172 · 3213 · 3222
-- **`encoding`** (7) — 75 · 117 · 122 · 661 · 669 · 944 · 2801
-- **`git`** (8) — 249 · 274 · 305 · 330 · 669 · 691 · 949 · 2657
-- **`build`** (12) — 122 · 635 · 644 · 654 · 708 · 1113 · 1405 · 1422 · 1654 · 2644 · 2666 · 2700
+- **`gates`** (47) — 57 · 124 · 133 · 153 · 166 · 175 · 188 · 194 · 217 · 227 · 234 · 249 · 259 · 305 · 325 · 371 · 389 · 550 · 635 · 644 · 654 · 708 · 722 · 792 · 806 · 1121 · 1248 · 1344 · 1357 · 1384 · 1405 · 1422 · 1439 · 1481 · 1654 · 2665 · 2689 · 2699 · 2725 · 2736 · 2755 · 2771 · 2782 · 2809 · 3180 · 3221 · 3230
+- **`encoding`** (7) — 75 · 117 · 122 · 661 · 669 · 944 · 2809
+- **`git`** (8) — 249 · 274 · 305 · 330 · 669 · 691 · 949 · 2665
+- **`build`** (12) — 122 · 635 · 644 · 654 · 708 · 1113 · 1405 · 1422 · 1654 · 2644 · 2674 · 2708
 - **`router`** (6) — 1497 · 1502 · 1511 · 1513 · 1516 · 1646
 - **`cli`** (19) — 75 · 821 · 944 · 1497 · 1518 · 1526 · 1535 · 1539 · 1551 · 1555 · 1562 · 1566 · 1573 · 1577 · 1610 · 1629 · 1633 · 1638 · 2490
 - **`lifetime`** (6) — 1677 · 1686 · 1691 · 1696 · 1709 · 1717
-- **`storage`** (18) — 1467 · 1589 · 1726 · 1828 · 1856 · 1858 · 1859 · 1861 · 1863 · 1881 · 1892 · 2121 · 2133 · 2403 · 2520 · 2783 · 2965 · 3149
-- **`memory`** (41) — 429 · 462 · 493 · 621 · 1196 · 1589 · 1760 · 1779 · 1790 · 1816 · 1828 · 1843 · 1864 · 1881 · 1892 · 1931 · 1946 · 1953 · 1972 · 1983 · 2001 · 2014 · 2027 · 2085 · 2140 · 2160 · 2196 · 2232 · 2250 · 2257 · 2302 · 2324 · 2352 · 2424 · 2499 · 2520 · 2618 · 2858 · 3017 · 3045 · 3128
+- **`storage`** (18) — 1467 · 1589 · 1726 · 1828 · 1856 · 1858 · 1859 · 1861 · 1863 · 1881 · 1892 · 2121 · 2133 · 2403 · 2520 · 2791 · 2973 · 3157
+- **`memory`** (41) — 429 · 462 · 493 · 621 · 1196 · 1589 · 1760 · 1779 · 1790 · 1816 · 1828 · 1843 · 1864 · 1881 · 1892 · 1931 · 1946 · 1953 · 1972 · 1983 · 2001 · 2014 · 2027 · 2085 · 2140 · 2160 · 2196 · 2232 · 2250 · 2257 · 2302 · 2324 · 2352 · 2424 · 2499 · 2520 · 2618 · 2866 · 3025 · 3053 · 3136
 - **`generation`** (12) — 1181 · 1241 · 1324 · 1502 · 1709 · 2232 · 2288 · 2437 · 2449 · 2473 · 2580 · 2605
 - **`di`** (12) — 1696 · 1946 · 1972 · 2152 · 2154 · 2157 · 2160 · 2178 · 2257 · 2302 · 2449 · 2499
-- **`measurement`** (69) — 153 · 414 · 429 · 447 · 462 · 470 · 476 · 493 · 534 · 564 · 580 · 599 · 611 · 621 · 742 · 821 · 828 · 833 · 842 · 848 · 875 · 888 · 899 · 907 · 923 · 930 · 967 · 977 · 997 · 1008 · 1042 · 1069 · 1075 · 1091 · 1108 · 1113 · 1152 · 1181 · 1196 · 1226 · 1241 · 1256 · 1274 · 1289 · 1306 · 1324 · 1526 · 1726 · 1745 · 1816 · 1983 · 2014 · 2041 · 2052 · 2067 · 2085 · 2140 · 2196 · 2717 · 2834 · 2885 · 2900 · 2924 · 2944 · 2965 · 2995 · 3032 · 3096 · 3128
-- **`docs`** (31) — 95 · 166 · 194 · 217 · 338 · 691 · 722 · 742 · 792 · 1121 · 1132 · 1137 · 1144 · 1248 · 1357 · 1384 · 1481 · 1790 · 2288 · 2324 · 2391 · 2555 · 2565 · 2681 · 2691 · 2728 · 2747 · 2763 · 2774 · 2783 · 3054
-- **`tests`** (26) — 95 · 1439 · 1453 · 1467 · 1610 · 1802 · 1843 · 1864 · 1931 · 1953 · 2121 · 2133 · 2403 · 2847 · 2858 · 2869 · 3045 · 3067 · 3149 · 3157 · 3165 · 3169 · 3172 · 3184 · 3195 · 3208
+- **`measurement`** (69) — 153 · 414 · 429 · 447 · 462 · 470 · 476 · 493 · 534 · 564 · 580 · 599 · 611 · 621 · 742 · 821 · 828 · 833 · 842 · 848 · 875 · 888 · 899 · 907 · 923 · 930 · 967 · 977 · 997 · 1008 · 1042 · 1069 · 1075 · 1091 · 1108 · 1113 · 1152 · 1181 · 1196 · 1226 · 1241 · 1256 · 1274 · 1289 · 1306 · 1324 · 1526 · 1726 · 1745 · 1816 · 1983 · 2014 · 2041 · 2052 · 2067 · 2085 · 2140 · 2196 · 2725 · 2842 · 2893 · 2908 · 2932 · 2952 · 2973 · 3003 · 3040 · 3104 · 3136
+- **`docs`** (31) — 95 · 166 · 194 · 217 · 338 · 691 · 722 · 742 · 792 · 1121 · 1132 · 1137 · 1144 · 1248 · 1357 · 1384 · 1481 · 1790 · 2288 · 2324 · 2391 · 2555 · 2565 · 2689 · 2699 · 2736 · 2755 · 2771 · 2782 · 2791 · 3062
+- **`tests`** (26) — 95 · 1439 · 1453 · 1467 · 1610 · 1802 · 1843 · 1864 · 1931 · 1953 · 2121 · 2133 · 2403 · 2855 · 2866 · 2877 · 3053 · 3075 · 3157 · 3165 · 3173 · 3177 · 3180 · 3192 · 3203 · 3216
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
 of the two: most of these traps recur in a subsystem that had never met them.
 
-- **`fail-open`** (23) — 249 · 429 · 462 · 493 · 722 · 842 · 1152 · 1324 · 1511 · 1516 · 1535 · 1610 · 1691 · 1779 · 2027 · 2160 · 2196 · 2437 · 2449 · 2499 · 2605 · 2618 · 3017
+- **`fail-open`** (23) — 249 · 429 · 462 · 493 · 722 · 842 · 1152 · 1324 · 1511 · 1516 · 1535 · 1610 · 1691 · 1779 · 2027 · 2160 · 2196 · 2437 · 2449 · 2499 · 2605 · 2618 · 3025
 - **`cancellation`** (5) — 1497 · 1502 · 1760 · 1779 · 1802
-- **`vacuous`** (49) — 153 · 227 · 234 · 414 · 470 · 476 · 534 · 564 · 644 · 848 · 888 · 907 · 997 · 1181 · 1196 · 1226 · 1241 · 1274 · 1344 · 1357 · 1422 · 1453 · 1566 · 1629 · 1646 · 1802 · 1843 · 1864 · 1931 · 1953 · 2041 · 2052 · 2085 · 2196 · 2324 · 2783 · 2858 · 2869 · 2900 · 3032 · 3045 · 3067 · 3096 · 3149 · 3172 · 3184 · 3195 · 3213 · 3222
-- **`scope-blind`** (43) — 124 · 175 · 188 · 194 · 217 · 227 · 249 · 259 · 305 · 371 · 389 · 669 · 792 · 806 · 1289 · 1357 · 1405 · 1481 · 1654 · 1946 · 2014 · 2121 · 2133 · 2288 · 2324 · 2352 · 2403 · 2520 · 2681 · 2691 · 2700 · 2717 · 2728 · 2747 · 2763 · 2774 · 2783 · 2869 · 3032 · 3045 · 3169 · 3213 · 3222
+- **`vacuous`** (49) — 153 · 227 · 234 · 414 · 470 · 476 · 534 · 564 · 644 · 848 · 888 · 907 · 997 · 1181 · 1196 · 1226 · 1241 · 1274 · 1344 · 1357 · 1422 · 1453 · 1566 · 1629 · 1646 · 1802 · 1843 · 1864 · 1931 · 1953 · 2041 · 2052 · 2085 · 2196 · 2324 · 2791 · 2866 · 2877 · 2908 · 3040 · 3053 · 3075 · 3104 · 3157 · 3180 · 3192 · 3203 · 3221 · 3230
+- **`scope-blind`** (43) — 124 · 175 · 188 · 194 · 217 · 227 · 249 · 259 · 305 · 371 · 389 · 669 · 792 · 806 · 1289 · 1357 · 1405 · 1481 · 1654 · 1946 · 2014 · 2121 · 2133 · 2288 · 2324 · 2352 · 2403 · 2520 · 2689 · 2699 · 2708 · 2725 · 2736 · 2755 · 2771 · 2782 · 2791 · 2877 · 3040 · 3053 · 3177 · 3221 · 3230
 - **`second-door`** (20) — 1513 · 1551 · 1555 · 1566 · 1573 · 1633 · 1638 · 1717 · 1859 · 1881 · 2160 · 2302 · 2403 · 2424 · 2437 · 2449 · 2473 · 2520 · 2555 · 2580
-- **`stale-claim`** (23) — 57 · 194 · 274 · 338 · 742 · 899 · 930 · 949 · 1121 · 1137 · 1422 · 1790 · 2157 · 2288 · 2391 · 2424 · 2473 · 2555 · 2728 · 2747 · 2763 · 3054 · 3184
-- **`silent-loss`** (64) — 75 · 95 · 117 · 122 · 166 · 325 · 330 · 371 · 389 · 447 · 462 · 611 · 661 · 708 · 722 · 821 · 833 · 888 · 944 · 977 · 1008 · 1042 · 1108 · 1152 · 1241 · 1248 · 1256 · 1324 · 1384 · 1405 · 1439 · 1539 · 1555 · 1589 · 1677 · 1709 · 1745 · 1816 · 1856 · 1858 · 1859 · 1861 · 1881 · 1892 · 1931 · 2067 · 2140 · 2152 · 2157 · 2178 · 2250 · 2302 · 2352 · 2490 · 2580 · 2618 · 2644 · 2666 · 2681 · 2691 · 2801 · 2885 · 2965 · 3096
-- **`wrong-subject`** (68) — 57 · 95 · 133 · 153 · 330 · 414 · 447 · 476 · 493 · 550 · 564 · 580 · 599 · 611 · 621 · 635 · 654 · 848 · 875 · 907 · 923 · 930 · 977 · 1008 · 1042 · 1069 · 1075 · 1132 · 1144 · 1181 · 1196 · 1226 · 1256 · 1274 · 1289 · 1306 · 1384 · 1467 · 1513 · 1562 · 1654 · 1686 · 1696 · 1726 · 1816 · 1864 · 1972 · 1983 · 2001 · 2014 · 2041 · 2052 · 2085 · 2232 · 2257 · 2605 · 2644 · 2657 · 2666 · 2834 · 2885 · 2900 · 2924 · 2944 · 2965 · 3067 · 3128 · 3172
-- **`unmeasured`** (17) — 580 · 621 · 691 · 742 · 792 · 828 · 1091 · 1113 · 1518 · 1526 · 1535 · 1577 · 1629 · 2001 · 2232 · 2565 · 3054
-- **`ordering`** (10) — 654 · 1539 · 1638 · 1828 · 1863 · 2178 · 2490 · 2499 · 2847 · 2995
-- **`resource`** (14) — 635 · 669 · 708 · 967 · 1075 · 1306 · 1518 · 1610 · 1717 · 1726 · 2154 · 3157 · 3165 · 3208
+- **`stale-claim`** (23) — 57 · 194 · 274 · 338 · 742 · 899 · 930 · 949 · 1121 · 1137 · 1422 · 1790 · 2157 · 2288 · 2391 · 2424 · 2473 · 2555 · 2736 · 2755 · 2771 · 3062 · 3192
+- **`silent-loss`** (64) — 75 · 95 · 117 · 122 · 166 · 325 · 330 · 371 · 389 · 447 · 462 · 611 · 661 · 708 · 722 · 821 · 833 · 888 · 944 · 977 · 1008 · 1042 · 1108 · 1152 · 1241 · 1248 · 1256 · 1324 · 1384 · 1405 · 1439 · 1539 · 1555 · 1589 · 1677 · 1709 · 1745 · 1816 · 1856 · 1858 · 1859 · 1861 · 1881 · 1892 · 1931 · 2067 · 2140 · 2152 · 2157 · 2178 · 2250 · 2302 · 2352 · 2490 · 2580 · 2618 · 2644 · 2674 · 2689 · 2699 · 2809 · 2893 · 2973 · 3104
+- **`wrong-subject`** (68) — 57 · 95 · 133 · 153 · 330 · 414 · 447 · 476 · 493 · 550 · 564 · 580 · 599 · 611 · 621 · 635 · 654 · 848 · 875 · 907 · 923 · 930 · 977 · 1008 · 1042 · 1069 · 1075 · 1132 · 1144 · 1181 · 1196 · 1226 · 1256 · 1274 · 1289 · 1306 · 1384 · 1467 · 1513 · 1562 · 1654 · 1686 · 1696 · 1726 · 1816 · 1864 · 1972 · 1983 · 2001 · 2014 · 2041 · 2052 · 2085 · 2232 · 2257 · 2605 · 2644 · 2665 · 2674 · 2842 · 2893 · 2908 · 2932 · 2952 · 2973 · 3075 · 3136 · 3180
+- **`unmeasured`** (17) — 580 · 621 · 691 · 742 · 792 · 828 · 1091 · 1113 · 1518 · 1526 · 1535 · 1577 · 1629 · 2001 · 2232 · 2565 · 3062
+- **`ordering`** (10) — 654 · 1539 · 1638 · 1828 · 1863 · 2178 · 2490 · 2499 · 2855 · 3003
+- **`resource`** (14) — 635 · 669 · 708 · 967 · 1075 · 1306 · 1518 · 1610 · 1717 · 1726 · 2154 · 3165 · 3173 · 3216
 
 <!-- facets:end -->
 
@@ -1549,7 +1549,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   pin it with a test.** The backend's own words outrank the exit code every time; the exit code is context
   for the detail, not the reason.
 - **Re-implementing the CLI rules for a new CLI backend.** Everything above lives in <!-- trap: sub=cli shape=second-door -->
-  `CliProviderEngine` (Core, `Lyntai.Llm.Cli`); a new CLI is an `ICliProviderDialect`, never a fresh
+  `CliProviderEngine` (Core, `Lyntai.Inference.Cli`); a new CLI is an `ICliProviderDialect`, never a fresh
   `IModelProvider` (`docs/DECISIONS.md` D21). The reason these traps were fixable at all is that there is now
   ONE copy.
 - **Assuming a non-zero exit means failure — a CLI can report failure IN BAND and exit 0.** Measured on <!-- trap: sub=cli shape=second-door,silent-loss -->
@@ -1668,7 +1668,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   slots — so an implementor-only compatibility check proves nothing about callers.
   **The next two places this can happen, named so nobody has to rediscover them:** `IScorer`
   (`src/Lyntai.Core/Cortex/IScorer.cs`) and `ICliProviderDialect`
-  (`src/Lyntai.Core/Llm/Cli/ICliProviderDialect.cs`) each declare their own `string Id { get; }` with exactly
+  (`src/Lyntai.Core/Inference/Cli/ICliProviderDialect.cs`) each declare their own `string Id { get; }` with exactly
   the shape `IProviderIdentity` supplies, so both look like leftovers a tidy-up should hoist. Neither derives
   from `IProviderIdentity` today, and neither should be *changed to derive from it by deleting its own
   declaration* — that is the same `MissingMethodException` for every pre-compiled caller of `scorer.Id` or
@@ -2177,12 +2177,12 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   here it was read on one path of two.
 - **A `TryAddSingleton` reached during `configure(builder)` BEATS `AddLyntai`'s own options-built <!-- trap: sub=di shape=ordering,silent-loss -->
   registration.** All of this is in `src/Lyntai.Core/DependencyInjection/ServiceCollectionExtensions.cs`:
-  `AddLyntai` invokes `configure(builder)` well before it calls `RegisterLlmFrontDoor`, and that method is
+  `AddLyntai` invokes `configure(builder)` well before it calls `RegisterTextFrontDoor`, and that method is
   where the `DeadHostTracker` built from `LyntaiOptions` is registered. **Names first, lines second** — these
   numbers rot, and this very entry was made stale by a change inside the branch that added it; follow the
   method names if a line disagrees. **It has now rotted TWICE** (a 2026-08-05 audit found all four numbers
   pointing at a blank line, a doc comment and unrelated calls), so the numbers are gone: cite `AddLyntai`,
-  `RegisterLlmFrontDoor` and `RegisterProviderLifetime` by name, which is the only form that cannot rot a
+  `RegisterTextFrontDoor` and `RegisterProviderLifetime` by name, which is the only form that cannot rot a
   third time. So a `TryAddSingleton<DeadHostTracker>()` added inside a `Use*`/`Add*` extension reaches the
   collection FIRST, and `TryAdd` keeps the first — silently swapping the configured `DeadHostThreshold`,
   `DeadHostCooldown` and logger for the parameterless defaults, **for both domains**. Nothing in 1427 tests
@@ -2654,6 +2654,14 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   kept name is true.
   <br>**Check each member's READERS before the sweep, not its name** — one grep per type for uses outside
   the domain being renamed. Cheap, and it is the only thing that separates the two cases.
+  <br>**The same question has a SECOND answer, found at NS-4: the word can mean two things, and one of them
+  is PERSISTED.** `Llm` is retired as a call-shape and front-door prefix, and live wherever it means "asks a
+  language model" — `LlmScorerBase`, `IScorer.IsLlm`. `IsLlm` is also the `is_llm` COLUMN in two SQL
+  backends and the `"llm"` score group, so a sweep wide enough to catch `LlmClient` would have renamed <!-- drift-ok: the trap names the retired prefix to contrast it with the live one -->
+  types whose stored spelling it cannot reach, splitting one vocabulary across two words with no gate able
+  to see it. **Before setting a rename's scope, grep the token in the MIGRATIONS and the wire**, not only in
+  the code: a persisted spelling is the site that cannot move cheaply, so it is the one that decides how
+  wide the rename is allowed to be.
 - **Deleting a tracked source file with `rm` instead of `git rm` breaks the GUARD TESTS, and the error <!-- trap: sub=gates,git shape=wrong-subject -->
   names a path that is plainly gone — which sends you looking at the wrong thing.** Several guard tests
   enumerate sources through git rather than the filesystem, so an unstaged deletion leaves the file in the

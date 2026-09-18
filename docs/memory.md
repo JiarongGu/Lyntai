@@ -291,7 +291,7 @@ policies or control for salience explicitly (`docs/task-archive.md` Part 54).
 | `AddMemoryAnnotation()` | every WRITE | one model call; links entries about the same entity |
 | `AddMemoryVerification()` | every RECALL | one model call; promotes buried answers |
 
-Both take `ClientName` to point at a named `AddLlmClient`, so judging runs on a backend you size
+Both take `ClientName` to point at a named `AddTextClient`, so judging runs on a backend you size
 deliberately. **Absent, the engine behaves exactly as it always has** — the model-free floor is a supported
 configuration, not a degraded one.
 

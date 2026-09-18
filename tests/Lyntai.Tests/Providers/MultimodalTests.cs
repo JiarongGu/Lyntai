@@ -1,9 +1,8 @@
 using System.Text;
 using Lyntai;
-using Lyntai.Llm;
+using Lyntai.Inference;
 using Lyntai.Providers.Http.Payloads;
 using Lyntai.Tests.Fakes;
-using Lyntai.Inference;
 
 namespace Lyntai.Tests.Providers;
 

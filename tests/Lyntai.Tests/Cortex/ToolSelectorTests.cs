@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using Lyntai.Agents;
-using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Cortex;

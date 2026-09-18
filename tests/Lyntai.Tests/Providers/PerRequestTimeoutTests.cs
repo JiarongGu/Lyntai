@@ -2,7 +2,6 @@ using Lyntai.Inference;
 using System.Net;
 using System.Text;
 using Lyntai;
-using Lyntai.Llm;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Providers.Http;

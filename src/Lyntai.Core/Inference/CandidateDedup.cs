@@ -1,4 +1,3 @@
-using Lyntai.Inference;
 
 namespace Lyntai.Inference;
 
@@ -15,7 +14,7 @@ namespace Lyntai.Inference;
 ///
 /// <para><b>The provider-id half compares case-INSENSITIVELY</b>, matching how every other id in the tree is
 /// matched (<c>GenerationRouter</c>, <c>ProviderPoolGuard</c>, <c>IToolRegistry</c>,
-/// <c>IJobHandlerRegistry</c>, <c>BoundedProviderPool</c>) and how <see cref="Lyntai.Llm.Routing.LlmRouter"/> resolves one.
+/// <c>IJobHandlerRegistry</c>, <c>BoundedProviderPool</c>) and how <see cref="Lyntai.Inference.TextRouter"/> resolves one.
 /// Otherwise <c>[openai, OpenAI]</c> would survive dedup as two candidates that both select the one provider
 /// — re-attempting a backend that just failed, and inflating the count that
 /// <see cref="RoutingPolicy.ExemptSoleCandidate"/> reads. The MODEL half stays ORDINAL: a model id is a

@@ -1,4 +1,4 @@
-using Lyntai.Llm;
+using Lyntai.Inference;
 using Lyntai.Memory.Annotation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -24,7 +24,7 @@ public static class MemoryAnnotationRegistration
     ///
     /// <para><b>Costs one model call per WRITE</b> (plus one read for context), which is why
     /// <see cref="LlmAnnotationOptions.ClientName"/> exists: name a client registered with
-    /// <c>AddLlmClient</c> and annotation runs on a small fast backend instead of whichever model the
+    /// <c>AddTextClient</c> and annotation runs on a small fast backend instead of whichever model the
     /// application made default for chat.</para>
     ///
     /// <para><b>Use a MULTILINGUAL model if the application stores non-Latin text.</b> This library detects
@@ -49,7 +49,7 @@ public static class MemoryAnnotationRegistration
         // TryAdd, so a consumer's own IMemoryAnnotationPolicy registered before this call wins outright —
         // the same BYO story every other seam in this subsystem has.
         builder.Services.TryAddSingleton<IMemoryAnnotationPolicy>(sp => new LlmMemoryAnnotationPolicy(
-            sp.GetRequiredService<ILlmClientFactory>(), options,
+            sp.GetRequiredService<ITextClientFactory>(), options,
             sp.GetService<ILogger<LlmMemoryAnnotationPolicy>>()));
 
         return builder;

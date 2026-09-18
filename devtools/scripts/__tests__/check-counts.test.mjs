@@ -261,10 +261,10 @@ describe('check-counts — the counters, pinned against the real tree', () => {
         'catch (OperationCanceledException) { throw; }\ncatch (OperationCanceledException ex) { }\n',
       'src/Lyntai.Core/Memory/Guarded.cs':
         'catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }\n',
-      'src/Lyntai.Core/Llm/Elsewhere.cs': 'catch (OperationCanceledException) { throw; }\n',
+      'src/Lyntai.Core/Inference/Elsewhere.cs': 'catch (OperationCanceledException) { throw; }\n',
     });
     try {
-      // three bare under Memory (recursively), the guarded one rejected, and Llm out of scope entirely
+      // three bare under Memory (recursively), the guarded one rejected, and Inference out of scope entirely
       assert.equal(countBareCancellationCatches(dir), 3);
     } finally { removeTree(dir); }
 

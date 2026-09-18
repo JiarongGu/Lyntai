@@ -1,5 +1,4 @@
 using Lyntai.Inference;
-using Lyntai.Llm;
 
 namespace Lyntai.Agents;
 
@@ -9,7 +8,7 @@ namespace Lyntai.Agents;
 /// the result-door <c>RunAsync</c> extension folds the stream for callers that just want the outcome.
 ///
 /// <para><b>A session is NOT bound by the front door.</b> <c>AddUsageBudget</c> and <c>AddRateLimit</c>
-/// decorate <see cref="Lyntai.Llm.ILlmClient"/>, and a session never goes through one — it spawns a CLI that
+/// decorate <see cref="Lyntai.Inference.ITextClient"/>, and a session never goes through one — it spawns a CLI that
 /// runs its own loop — so a configured cap does not cap it and a configured limiter does not throttle it.
 /// Stated here because nothing else says so, and "the app has one budget" is the reasonable thing to assume.
 /// <list type="bullet">

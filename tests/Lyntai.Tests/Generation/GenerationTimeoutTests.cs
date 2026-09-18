@@ -3,7 +3,6 @@ using System.Text.Json;
 using Lyntai.Generation.Providers;
 using Lyntai.Generation.Routing;
 using Lyntai.Generation.Tools;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;

@@ -1,4 +1,4 @@
-using Lyntai.Llm.Budgeting;
+using Lyntai.Inference.Budgeting;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Inference;
 

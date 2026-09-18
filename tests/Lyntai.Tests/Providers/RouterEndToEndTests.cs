@@ -1,8 +1,6 @@
 using Lyntai.Inference;
 using System.Net;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -50,7 +48,7 @@ public class RouterEndToEndTests : IDisposable
     {
         _http.Enqueue(HttpStatusCode.OK, HttpOkBody);
         using var sp = BuildStack();
-        var router = sp.GetRequiredService<ILlmRouter>();
+        var router = sp.GetRequiredService<ITextRouter>();
 
         // FORCE_ERROR makes the CLI stub produce no content → Failed → advance
         var reply = await router.CompleteAsync([new("claude-cli"), new("openai")], Req("FORCE_ERROR now"));
@@ -64,7 +62,7 @@ public class RouterEndToEndTests : IDisposable
     public async Task Healthy_primary_cli_serves_and_http_is_never_called()
     {
         using var sp = BuildStack();
-        var router = sp.GetRequiredService<ILlmRouter>();
+        var router = sp.GetRequiredService<ITextRouter>();
 
         var reply = await router.CompleteAsync([new("claude-cli"), new("openai")], Req("all good"));
 
@@ -85,7 +83,7 @@ public class RouterEndToEndTests : IDisposable
             """;
         _http.Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
         using var sp = BuildStack();
-        var router = sp.GetRequiredService<ILlmRouter>();
+        var router = sp.GetRequiredService<ITextRouter>();
 
         var chunks = new List<TextChunk>();
         await foreach (var c in router.StreamAsync([new("claude-cli"), new("openai")], Req("FORCE_ERROR stream")))
@@ -101,7 +99,7 @@ public class RouterEndToEndTests : IDisposable
     public async Task Streaming_never_falls_back_after_the_first_token()
     {
         using var sp = BuildStack();
-        var router = sp.GetRequiredService<ILlmRouter>();
+        var router = sp.GetRequiredService<ITextRouter>();
 
         // healthy CLI stream commits immediately — the HTTP provider must never be touched
         var chunks = new List<TextChunk>();
@@ -136,7 +134,7 @@ public class RouterEndToEndTests : IDisposable
         services.AddHttpClient(HttpProviderBuilderExtensions.HttpClientName("openai"))
             .ConfigurePrimaryHttpMessageHandler(() => _http);
         using var sp = services.BuildServiceProvider();
-        var router = sp.GetRequiredService<ILlmRouter>();
+        var router = sp.GetRequiredService<ITextRouter>();
         var candidates = new List<ProviderCandidate> { new("openai"), new("claude-cli") };
 
         var r1 = await router.CompleteAsync(candidates, Req("first"));

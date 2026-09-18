@@ -52,7 +52,7 @@ public static class MemoryAnnotationPolicyContract
     /// that a live test cannot produce on demand and the one whose violation is worst — memory that stops
     /// accepting facts because a model is down is worse than memory with no model at all.
     /// <para>The driver supplies a policy it has broken however its implementation can be broken (for the
-    /// shipped one, an <c>ILlmClient</c> that throws). That indirection is the point: the promise is about
+    /// shipped one, an <c>ITextClient</c> that throws). That indirection is the point: the promise is about
     /// the SEAM, and each implementation knows its own failure mode.</para></summary>
     public static async Task A_failing_policy_yields_no_opinion_rather_than_throwing(
         IMemoryAnnotationPolicy failing)

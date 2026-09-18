@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using Lyntai.Cortex;
 using Lyntai.Guards;
-using Lyntai.Llm;
 using Lyntai.Memory;
 using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
@@ -11,7 +10,7 @@ namespace Lyntai.Agents;
 
 /// <inheritdoc cref="IChatOrchestrator"/>
 public sealed class ChatOrchestrator(
-    ILlmClient llm,
+    ITextClient llm,
     IToolLoop toolLoop,
     IToolRegistry tools,
     IGuardRail guards,
@@ -62,7 +61,7 @@ public sealed class ChatOrchestrator(
 
         // run: the tool loop (model can call tools) or a plain completion. `usage` is carried out of BOTH
         // arms and onto every remaining exit: the tokens were spent whatever the turn then does with them,
-        // and the loop already summed its own — dropping it made a chat consumer wrap ILlmClient in a
+        // and the loop already summed its own — dropping it made a chat consumer wrap ITextClient in a
         // front-door decorator to recompute a figure the loop had handed us.
         string answer;
         ProviderVerdict verdict;

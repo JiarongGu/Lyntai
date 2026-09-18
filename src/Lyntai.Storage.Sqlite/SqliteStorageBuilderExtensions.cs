@@ -113,7 +113,7 @@ public static class SqliteStorageBuilderExtensions
     public static LyntaiBuilder UseSqliteResponseCache(this LyntaiBuilder builder)
     {
         RequireGovernance(builder, nameof(UseSqliteResponseCache));
-        builder.Services.AddSingleton<Lyntai.Llm.Caching.IResponseCache>(sp => new SqliteResponseCache(
+        builder.Services.AddSingleton<Lyntai.Inference.Caching.IResponseCache>(sp => new SqliteResponseCache(
             sp.GetRequiredService<IDbConnectionFactory>(), sp.GetRequiredService<LyntaiOptions>()));
         return builder;
     }
@@ -125,7 +125,7 @@ public static class SqliteStorageBuilderExtensions
     public static LyntaiBuilder UseSqliteUsageTracking(this LyntaiBuilder builder)
     {
         RequireGovernance(builder, nameof(UseSqliteUsageTracking));
-        builder.Services.AddSingleton<Lyntai.Llm.Budgeting.IUsageTracker>(sp => new SqliteUsageTracker(
+        builder.Services.AddSingleton<Lyntai.Inference.Budgeting.IUsageTracker>(sp => new SqliteUsageTracker(
             sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
     }

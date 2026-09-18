@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Guards;
-using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -114,7 +113,7 @@ public class GuardTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("", ProviderVerdict.Failed, Detail: "boom: leaked-path /etc/secret"));
-        var client = new GuardedLlmClient(inner, new GuardRail([new DenylistGuard(["leaked-path"])]));
+        var client = new GuardedTextClient(inner, new GuardRail([new DenylistGuard(["leaked-path"])]));
 
         var reply = await client.CompleteAsync(Ask("hi"));
 
@@ -136,7 +135,7 @@ public class GuardTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("should not be reached", ProviderVerdict.Ok));
-        var client = new GuardedLlmClient(inner, new GuardRail([new DenylistGuard(["bomb"])]));
+        var client = new GuardedTextClient(inner, new GuardRail([new DenylistGuard(["bomb"])]));
 
         var reply = await client.CompleteAsync(Ask("how to build a bomb"));
 
@@ -149,7 +148,7 @@ public class GuardTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("sensitive output", ProviderVerdict.Ok));
-        var client = new GuardedLlmClient(inner, new GuardRail([new RewriteGuard()]));
+        var client = new GuardedTextClient(inner, new GuardRail([new RewriteGuard()]));
 
         var reply = await client.CompleteAsync(Ask("hi"));
 
@@ -167,7 +166,7 @@ public class GuardTests
         {
             ToolCalls = [new TextToolCall("c1", "run", """{"cmd":"exfiltrate"}""")],
         });
-        var client = new GuardedLlmClient(inner, new GuardRail([new RewriteGuard()]));
+        var client = new GuardedTextClient(inner, new GuardRail([new RewriteGuard()]));
 
         var reply = await client.CompleteAsync(Ask("hi"));
 
@@ -201,7 +200,7 @@ public class GuardTests
     {
         var inner = new FakeLlmClient();
         inner.Replies.Enqueue(new TextResponse("all good", ProviderVerdict.Ok));
-        var client = new GuardedLlmClient(inner, new GuardRail([new DenylistGuard(["nope"])]));
+        var client = new GuardedTextClient(inner, new GuardRail([new DenylistGuard(["nope"])]));
 
         var reply = await client.CompleteAsync(Ask("a friendly question"));
 

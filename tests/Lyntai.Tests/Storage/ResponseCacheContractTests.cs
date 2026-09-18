@@ -1,5 +1,5 @@
 using Lyntai;
-using Lyntai.Llm.Caching;
+using Lyntai.Inference.Caching;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Fakes;
 

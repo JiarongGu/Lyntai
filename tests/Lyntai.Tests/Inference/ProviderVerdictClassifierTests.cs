@@ -1,6 +1,5 @@
 using Lyntai.Inference;
 using System.Net;
-using Lyntai.Llm;
 
 namespace Lyntai.Tests.Lifecycle;
 

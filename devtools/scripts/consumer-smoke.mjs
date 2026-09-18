@@ -128,7 +128,7 @@ using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Generation.Routing;
 using Lyntai.Inference;
-using Lyntai.Llm;
+using Lyntai.Inference;
 using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -145,8 +145,8 @@ services.AddLyntai(cfg => cfg
 using var sp = services.BuildServiceProvider();
 
 // the front door and its decorator chain resolve through the PACKAGE graph
-var client = sp.GetRequiredService<ILlmClient>();
-if (client is null) throw new Exception("no ILlmClient");
+var client = sp.GetRequiredService<ITextClient>();
+if (client is null) throw new Exception("no ITextClient");
 
 // the tool contract lives in Core and is reachable from the bundle
 _ = sp.GetServices<ITool>().Count();

@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Llm;
-using Lyntai.Llm.Budgeting;
+using Lyntai.Inference.Budgeting;
 using Lyntai.Memory;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Fakes;

@@ -140,26 +140,37 @@ export default {
 
   retiredApiNames: [
     {
-      // D154 NS-3a and NS-3b, the SURFACE half of both. Every one of these was a public type on the frozen
-      // baseline, so a reintroduction is a break nothing else would name: the baseline reports THAT a name
-      // changed, never that it should not have come back.
+      // D154 NS-3a, NS-3b and NS-4, the SURFACE half of all three. Every one of these was a public type on
+      // the frozen baseline, so a reintroduction is a break nothing else would name: the baseline reports
+      // THAT a name changed, never that it should not have come back. `LlmConsumers` is here under a name
+      // that is neither Text* nor Media*: it is cross-domain vocabulary and became `ProviderConsumers`.
       //
-      // The FRONT DOOR is deliberately absent and must stay absent until NS-4 lands — `ILlmClient`,
-      // `LlmClient`, `ILlmRouter` and `LlmRouter` are LIVE surface today, and a rule naming them would fail
-      // this gate against a tree that is correct. `LlmConsumers` is here under a name that is neither
-      // Text* nor Media*: it is cross-domain vocabulary and became `ProviderConsumers`.
+      // WHAT IS DELIBERATELY ABSENT, and the LINE matters more than the list: `Llm` is retired as a
+      // CALL-SHAPE and FRONT-DOOR prefix only. It stays LIVE wherever it means "this asks a language
+      // model" — `LlmScorerBase`, `LlmPairwiseComparer`, `LlmMemory{Verification,Annotation}Policy`,
+      // `Llm{Verification,Annotation}Options`, and `IScorer.IsLlm`, which is ALSO the `is_llm` column in
+      // both SQL backends and the `"llm"` score group. Retiring the word wholesale would fail this gate
+      // against a correct tree; renaming those types alone would split one vocabulary across two words
+      // and leave the persisted half behind.
       names: [
         'LlmRequest', 'LlmReply', 'LlmChunk', 'LlmChunkKind', 'LlmUsage', 'LlmMessage',
         'LlmAttachment', 'LlmReasoning', 'LlmTool', 'LlmToolCall', 'LlmConsumers',
         'GenerationRequest', 'GenerationResult', 'GenerationChunk', 'GenerationUsage',
         'GenerationArtifact', 'GenerationInput', 'GenerationInputRoles',
+        'ILlmClient', 'ILlmRouter', 'ILlmClientFactory', 'ILlmRouterFactory',
+        'LlmClient', 'LlmRouter', 'LlmClientFactory', 'LlmRouterFactory', 'LlmClientBuilder',
+        'LlmClientRegistration', 'LlmStructuredExtensions', 'AddLlmClient',
+        'DelegatingLlmClient', 'RefusalScreeningLlmClient', 'GuardedLlmClient',
+        'CachingLlmClient', 'BudgetedLlmClient', 'RateLimitedLlmClient',
       ],
       use: '`TextRequest` / `TextResponse` / `TextChunk` / `TextChunkKind` / `TextUsage` / `TextMessage` / '
-        + '`TextAttachment` / `TextReasoning` / `TextTool` / `TextToolCall`, `ProviderConsumers`, and '
+        + '`TextAttachment` / `TextReasoning` / `TextTool` / `TextToolCall`, `ProviderConsumers`, '
         + '`MediaRequest` / `MediaResponse` / `MediaChunk` / `MediaUsage` / `MediaArtifact` / `MediaInput` '
-        + '/ `MediaInputRoles` — all in `Lyntai.Inference`',
-      why: 'a call shape is named for what it PRODUCES and sits with its peers: Llm named a model CLASS and '
-        + 'Generation named the ACT, while Vector and Score already named the content kind (D154)',
+        + '/ `MediaInputRoles`, and `ITextClient` / `TextRouter` / `AddTextClient` with the `*TextClient` '
+        + 'decorators — all in `Lyntai.Inference`',
+      why: 'a call shape is named for what it PRODUCES and so is the front door it belongs to: Llm named a '
+        + 'model CLASS and Generation named the ACT, while Vector and Score already named the content kind '
+        + '(D154)',
     },
     {
       // D151. `EmbeddingRole` is deliberately NOT here: it survives on IModelProvider's role-aware
@@ -638,7 +649,7 @@ export default {
     {
       // D145 retired this namespace and D146 then deleted the module under it, so there is no replacement
       // NAME to offer — only the thing a reader reaching for it actually wants. `use` said
-      // "`Lyntai.ExtensionsAi`, and `Lyntai.Llm` for `AsChatClient()`" until 2026-09-16: a prescription
+      // "`Lyntai.ExtensionsAi`, and `Lyntai.Inference` for `AsChatClient()`" until 2026-09-16: a prescription
       // naming two things the tree no longer has, one of them retired by the entry directly above.
       term: '\\bLyntai[.]Providers[.]ExtensionsAi\\b',
       why: 'the module is a two-way BRIDGE and three of its four types are not providers (D145); D146 then '
@@ -745,7 +756,7 @@ export default {
       // D154 NS-3a. The TEXT call shape is named for what it produces, like Vector/Score/Media, and lives
       // with them. `Llm` named a model CLASS, not a content kind. `LlmConsumers` is NOT in this list under
       // a Text* name on purpose: GenerationTools uses it too, so it is cross-domain and became
-      // `ProviderConsumers`. The FRONT DOOR (`ILlmClient`, `LlmRouter`, …) is untouched here — NS-4.
+      // `ProviderConsumers`. The FRONT DOOR followed in NS-4 — its own entry below.
       term: '\\bLlmRequest\\b|\\bLlmReply\\b|\\bLlmChunkKind\\b|\\bLlmChunk\\b|\\bLlmToolCall\\b'
         + '|\\bLlmTool\\b|\\bLlmUsage\\b|\\bLlmMessage\\b|\\bLlmAttachment\\b|\\bLlmReasoning\\b'
         + '|\\bLlmConsumers\\b',
@@ -770,6 +781,29 @@ export default {
         + 'and *Result disagreed with the *Request/*Response rule (D154)',
       use: '`MediaRequest` / `MediaResponse` / `MediaChunk` / `MediaUsage` / `MediaArtifact` / '
         + '`MediaInput` / `MediaInputRoles`, all in `Lyntai.Inference`',
+    },
+    {
+      // D154 NS-4. The text FRONT DOOR is named for what it serves, like the call shape it carries, and
+      // the whole Lyntai.Llm namespace family folds into Lyntai.Inference with it — including the four
+      // governance sub-namespaces, whose decorators wrap the front door BY DEFINITION (NS-2's premise was
+      // that they were domain-neutral; four of five were refuted on their own signatures).
+      //
+      // THE LINE, and it is the part to read before widening this: `Llm` is retired as a CALL-SHAPE and
+      // FRONT-DOOR prefix ONLY. A bare `\bLlm` pattern would fire on `LlmScorerBase`,
+      // `LlmMemoryVerificationPolicy` and `IScorer.IsLlm`, where the word means "asks a language model" —
+      // live vocabulary, and persisted as the `is_llm` column and the `"llm"` score group. The prose noun
+      // "LLM" is untouched for the same reason, as is `llm-and-router.md`, a document about exactly that.
+      term: '\\bILlmClientFactory\\b|\\bILlmRouterFactory\\b|\\bILlmClient\\b|\\bILlmRouter\\b'
+        + '|\\bLlmClientRegistration\\b|\\bLlmStructuredExtensions\\b|\\bLlmClientBuilder\\b'
+        + '|\\bLlmClientFactory\\b|\\bLlmRouterFactory\\b|\\bLlmClient\\b|\\bLlmRouter\\b'
+        + '|\\bDelegatingLlmClient\\b|\\bRefusalScreeningLlmClient\\b|\\bGuardedLlmClient\\b'
+        + '|\\bCachingLlmClient\\b|\\bBudgetedLlmClient\\b|\\bRateLimitedLlmClient\\b'
+        + '|\\bAddLlmClient\\b|\\bLyntai\\.Llm\\b',
+      why: 'the front door is named for what it serves, and everything about CALLING a backend lives in '
+        + 'one namespace; Llm named a model class rather than a content kind (D154)',
+      use: '`ITextClient` / `TextClient` / `ITextRouter` / `TextRouter`, `AddTextClient`, the '
+        + '`*TextClient` decorators, and `Lyntai.Inference` (+ `.Cli` / `.Caching` / `.Budgeting` / '
+        + '`.RateLimiting` / `.Streaming`)',
     },
     {
       // D154 NS-1. The namespace said LIFECYCLE and held the provider seam, the verdict taxonomy and four

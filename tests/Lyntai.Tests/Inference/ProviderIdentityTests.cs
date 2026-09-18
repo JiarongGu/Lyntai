@@ -1,6 +1,5 @@
 using System.Reflection;
 using Lyntai.Inference;
-using Lyntai.Llm;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Lifecycle;

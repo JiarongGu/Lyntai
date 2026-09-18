@@ -1,7 +1,6 @@
 using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Agents;
-using Lyntai.Llm;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
@@ -49,7 +48,7 @@ public class OllamaToolCallLiveTests
         using var sp = services.BuildServiceProvider();
 
         // the Ollama provider advertises native tool-calling, so the loop takes the native path
-        Assert.True(sp.GetRequiredService<ILlmClient>().SupportsToolCalls(new TextRequest { Messages = [TextMessage.User("x")] }));
+        Assert.True(sp.GetRequiredService<ITextClient>().SupportsToolCalls(new TextRequest { Messages = [TextMessage.User("x")] }));
 
         var result = await sp.GetRequiredService<IToolLoop>().RunAsync(new TextRequest
         {
