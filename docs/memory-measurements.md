@@ -610,15 +610,15 @@ recorded as the floor.
    seam hands a verifier `Content`.
 4. ~~**It was measured in Python, not through this library's seam.**~~ **CLOSED 2026-09-15**, and by
    neither route this caveat named: not an in-process `IMemoryVerificationPolicy` and nothing hosting the
-   file. `AddOnnxCrossEncoder` is an `IModelProvider` declaring `ProviderKinds.Score`, which
+   file. `AddOnnxCrossEncoderProvider` is an `IModelProvider` declaring `ProviderKinds.Score`, which
    `AddMemoryScoringVerification` already selects on (**D139**, not the D115 this caveat read from).
    <br>**The .NET path reproduces the same pair**, so the segment signal survives this library's own
    WordPiece pair encoding and session and not only Python's — asserted against the published figures by
-   `OnnxCrossEncoderLiveTests`, gated on `LYNTAI_ONNX_RERANK_MODEL_DIR`. That is the same SCREEN as the
+   `OnnxCrossEncoderProviderLiveTests`, gated on `LYNTAI_ONNX_RERANK_MODEL_DIR`. That is the same SCREEN as the
    table above, re-run one layer over; caveat 1 is untouched and is now the only thing left in this row.
 5. `ships=no`. Nothing here recommends a default.
 
-#### A sub-100 MB cross-encoder WORKS and captures a THIRD of what 468 MB does — and the 68 MB of extra precision buys nothing (`memory-locomo --retrieval`, 2026-09-15) <!-- result: id=locomo-onnx-sub100mb-n200 arm="`ms-marco-MiniLM-L6-v2` int8 and fp32 ONNX exports scored IN PROCESS through `AddOnnxCrossEncoder`, against `LAMAR-600m` Q5_K_M over `llama-server --reranking` — same tree, same `nomic-embed-text` embedder, byte-identical retrieval" metric=evidence-hit@k n="200" value="+3.0 (both exports) against the 468,393,760 B arm's +9.0, of 9.5 reachable" ships=no status=CURRENT -->
+#### A sub-100 MB cross-encoder WORKS and captures a THIRD of what 468 MB does — and the 68 MB of extra precision buys nothing (`memory-locomo --retrieval`, 2026-09-15) <!-- result: id=locomo-onnx-sub100mb-n200 arm="`ms-marco-MiniLM-L6-v2` int8 and fp32 ONNX exports scored IN PROCESS through `AddOnnxCrossEncoderProvider`, against `LAMAR-600m` Q5_K_M over `llama-server --reranking` — same tree, same `nomic-embed-text` embedder, byte-identical retrieval" metric=evidence-hit@k n="200" value="+3.0 (both exports) against the 468,393,760 B arm's +9.0, of 9.5 reachable" ships=no status=CURRENT -->
 
 **The first evidence-hit figure any sub-100 MB reranker has, through any runtime.** Three runs, one ladder
 (`+sem+rel-only` / `+rerank` / `+oracle`), `--arms`-narrowed, n = 200, k = 20, seed 12345. The retrieval

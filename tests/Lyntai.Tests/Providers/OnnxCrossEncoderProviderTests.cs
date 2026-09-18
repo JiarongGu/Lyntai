@@ -176,7 +176,7 @@ public class CrossEncoderShapeDeclarationTests
 /// <summary>Composition failures — the ones a partial download actually produces. The cross-encoder loads
 /// eagerly for the same reason the vector backend does: a bad model directory is a startup error, not a recall
 /// that silently stops being verified.</summary>
-public class OnnxCrossEncoderCompositionTests : IDisposable
+public class OnnxCrossEncoderProviderCompositionTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("lyntai-onnx-ce-").FullName;
 
@@ -190,13 +190,13 @@ public class OnnxCrossEncoderCompositionTests : IDisposable
     public void A_MISSING_directory_says_so_rather_than_null_referencing()
     {
         Assert.Throws<DirectoryNotFoundException>(
-            () => OnnxCrossEncoder.FromDirectory(Path.Combine(_dir, "nope")));
+            () => OnnxCrossEncoderProvider.FromDirectory(Path.Combine(_dir, "nope")));
     }
 
     [Fact]
     public void No_GRAPH_names_both_layouts_it_looked_for()
     {
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxCrossEncoder.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxCrossEncoderProvider.FromDirectory(_dir));
 
         Assert.Contains("onnx/model.onnx", error.Message, StringComparison.Ordinal);
     }
@@ -207,7 +207,7 @@ public class OnnxCrossEncoderCompositionTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_dir, "onnx"));
         File.WriteAllText(Path.Combine(_dir, "onnx", "model.onnx"), "not really a graph");
 
-        var error = Assert.Throws<FileNotFoundException>(() => OnnxCrossEncoder.FromDirectory(_dir));
+        var error = Assert.Throws<FileNotFoundException>(() => OnnxCrossEncoderProvider.FromDirectory(_dir));
 
         Assert.Contains("vocab.txt", error.Message, StringComparison.Ordinal);
     }
@@ -220,14 +220,14 @@ public class OnnxCrossEncoderCompositionTests : IDisposable
 /// backend declaring <see cref="ProviderKinds.Score"/>. That is a claim about one capability declaration
 /// meeting one predicate, and both are cheap — so it is asserted against the REAL declaration and the REAL
 /// policy rather than left to a test that skips wherever the model is absent.</para></summary>
-public class OnnxCrossEncoderReachabilityTests
+public class OnnxCrossEncoderProviderReachabilityTests
 {
     /// <summary>Carries the cross-encoder's own declaration, so the predicate below is exercised against
     /// what the class really says rather than against a copy of it.</summary>
     private sealed class DeclaredLikeTheCrossEncoder : IScoreProvider
     {
         public string Id => "onnx-rerank";
-        public ProviderCapabilities Capabilities => OnnxCrossEncoder.Declared;
+        public ProviderCapabilities Capabilities => OnnxCrossEncoderProvider.Declared;
 
         public Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default) =>
             Task.FromResult(ScoreResponse.Success(
@@ -254,9 +254,9 @@ public class OnnxCrossEncoderReachabilityTests
     [Fact]
     public void It_declares_SCORE_and_nothing_else_so_no_router_sends_it_a_chat_or_an_embedding()
     {
-        Assert.Equal([ProviderKinds.Score], OnnxCrossEncoder.Declared.Produces);
-        Assert.Equal([ProviderKinds.Text], OnnxCrossEncoder.Declared.Accepts);
-        Assert.Equal([ProviderOperation.Complete], OnnxCrossEncoder.Declared.Operations);
+        Assert.Equal([ProviderKinds.Score], OnnxCrossEncoderProvider.Declared.Produces);
+        Assert.Equal([ProviderKinds.Text], OnnxCrossEncoderProvider.Declared.Accepts);
+        Assert.Equal([ProviderOperation.Complete], OnnxCrossEncoderProvider.Declared.Operations);
     }
 }
 
@@ -288,7 +288,7 @@ public class OnnxOwnershipTests
 
     [Theory]
     [InlineData(ProviderKinds.Vector)]   // AddOnnxProvider's path
-    [InlineData(ProviderKinds.Score)]    // AddOnnxCrossEncoder's path
+    [InlineData(ProviderKinds.Score)]    // AddOnnxCrossEncoderProvider's path
     public void The_CONTAINER_owns_what_either_builder_call_registers(string produces)
     {
         // Both hold a native InferenceSession, so "the container will clean it up" has to be true rather
@@ -336,7 +336,7 @@ public class OnnxOwnershipTests
 /// <para>Skipped without <c>LYNTAI_ONNX_RERANK_MODEL_DIR</c>. Point it at a cross-encoder export holding an
 /// ONNX graph plus <c>vocab.txt</c> — <c>cross-encoder/ms-marco-MiniLM-L6-v2</c> is what the reference
 /// figures below were taken against.</para></summary>
-public class OnnxCrossEncoderLiveTests
+public class OnnxCrossEncoderProviderLiveTests
 {
     private const string Query = "How many people live in Berlin?";
 
@@ -347,10 +347,10 @@ public class OnnxCrossEncoderLiveTests
 
     private static string? ModelDirectory => Environment.GetEnvironmentVariable("LYNTAI_ONNX_RERANK_MODEL_DIR");
 
-    private static OnnxCrossEncoder Load()
+    private static OnnxCrossEncoderProvider Load()
     {
         Skip.If(string.IsNullOrWhiteSpace(ModelDirectory), "set LYNTAI_ONNX_RERANK_MODEL_DIR to a cross-encoder export");
-        return OnnxCrossEncoder.FromDirectory(ModelDirectory!);
+        return OnnxCrossEncoderProvider.FromDirectory(ModelDirectory!);
     }
 
     /// <summary>The load-bearing one: agreement with the model's OWN PUBLISHED SCORES, not merely a

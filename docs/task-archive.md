@@ -4523,3 +4523,24 @@ never written down what Breaking MEANS here, so re-filing on a review's assertio
 path resting on an unstated rule. The rule goes first; `TASKS.md` Part 102 carries the two candidates.
 
 - **REL1 — four surface changes since `v3.1.0` that NO changelog entry announces.**
+
+## Part 254 — REL3: the one backend the suffix sweep missed
+
+✅ done 2026-09-18 — **Outcome:** `OnnxCrossEncoder` → `OnnxCrossEncoderProvider` and
+`AddOnnxCrossEncoder` → `AddOnnxCrossEncoderProvider`, with the three test classes in that file following
+the sibling convention (`OnnxProviderCompositionTests`/`OnnxProviderLiveTests`). 40 sites over 17 files.
+Both retirement registries gained the pair. Detail in `CHANGELOG.md` §Unreleased.
+
+**The claim was re-counted before acting, and it held exactly.** Six public provider classes —
+`ClaudeCliProvider`, `CodexCliProvider`, `LocalDiffusionProvider`, `Model2VecProvider`, `OnnxProvider` and
+this one — five with the suffix, one without. Seventeen named-backend registrations, sixteen ending in
+`Provider`. Sixteen-to-one is why **D137** restored the suffix "on all seventeen" and **D138** renamed the
+sibling in this very file without either noticing this one.
+
+**`OnnxCrossEncoderOptions` deliberately keeps its name**, which is the half a blanket sweep would have got
+wrong: `<Backend>Options` is what the five media backends use (`Automatic1111Provider` ↔
+`Automatic1111Options`), so the options name was already correct and `OnnxProviderOptions` is the odd one —
+it earns its suffix by disambiguating two ONNX backends. "Cross-encoder" the TECHNIQUE is untouched for the
+reason **D139** already recorded: it is the right word for what the model IS.
+
+- **REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep missed.**

@@ -14,6 +14,13 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **`OnnxCrossEncoder` is `OnnxCrossEncoderProvider`, and `AddOnnxCrossEncoder` is <!-- drift-ok: the entry ANNOUNCING the rename has to name both sides -->
+  `AddOnnxCrossEncoderProvider`.** It was the one shipped backend the **D137**→**D138** suffix sweep passed
+  over: measured before the rename, five of six public provider classes carried `Provider` and this one did
+  not, and sixteen of seventeen named-backend registrations ended in it. `OnnxCrossEncoderOptions` keeps its
+  name — `<Backend>Options` is what the media backends use, so it was already right. "Cross-encoder" the
+  TECHNIQUE is untouched (**D139**); only the missing suffix was ever the defect.
+
 - **`MemoryReview.Grade` is `ReviewGrade`**, on `MemoryReview`, `MemoryReviewWrite` and `MemoryReviewRow`.
   The qualifier distinguishes FSRS's review RATING from the entry's own `MemoryGrade`, which the bare word
   did not. **`MemoryReviewWrite` is constructed by every BYO `IMemoryGraphStore`**, so this is a compile
@@ -600,7 +607,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   handed a delegate for; pass `capabilities` to declare anything other than text in, text out.
 
 
-- **`AddOnnxCrossEncoder(dir)` — an in-process RERANKER.** A cross-encoder export runs through ONNX Runtime
+- **`AddOnnxCrossEncoderProvider(dir)` — an in-process RERANKER.** A cross-encoder export runs through ONNX Runtime
   beside the embedder `AddOnnxProvider` already registers: `[CLS] query [SEP] document [SEP]` in, one
   relevance logit out, declaring `ProviderKinds.Score`. **That declaration is the whole of the wiring** —
   `AddMemoryScoringVerification()` selects any backend producing scores (**D139**), so a recall is reranked
@@ -873,10 +880,10 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   Governance-guard design in **D150**.
 
 - **A cross-encoder export whose head cannot carry one score per pair is now refused at COMPOSITION.**
-  `AddOnnxCrossEncoder` pointed at a multi-label (NLI) model used to load cleanly and refuse on the first
+  `AddOnnxCrossEncoderProvider` pointed at a multi-label (NLI) model used to load cleanly and refuse on the first
   score — into `AddMemoryScoringVerification`, which is fail-open and reported `NoOpinion`, so every recall
   came back silently unverified and looked exactly like having no scoring backend registered.
-  `OnnxCrossEncoder.FromDirectory` now reads the label axis the graph itself declares and throws there. An
+  `OnnxCrossEncoderProvider.FromDirectory` now reads the label axis the graph itself declares and throws there. An
   export that declares a DYNAMIC label axis is unaffected — it states too little to refuse on and is still
   judged against the tensor it returns. Separately, `ScoringVerificationPolicy` still fails open but now
   logs a backend that declares `ProviderKinds.Score` without serving it at **Warning** rather than Debug: it

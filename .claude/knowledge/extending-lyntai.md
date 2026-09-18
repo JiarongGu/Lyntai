@@ -32,7 +32,7 @@ dictionary deliberately (see its own comment on why an ordinal table was worse),
 cooldown paths key on the same id.
 
 **What this costs you when adding a backend: give every `*Options.Id` a distinct value per registration.**
-Two `AddOnnxCrossEncoder` calls left on the default id are two backends where the second is invisible to the
+Two `AddOnnxCrossEncoderProvider` calls left on the default id are two backends where the second is invisible to the
 router — and, since **D139** makes a capability declaration the wiring, it also decides which one
 `AddMemoryScoringVerification` picks unless `ScoringVerificationOptions.ProviderId` names one (**D148**).
 Nothing warns; the second model simply loads, occupies memory, and is never called.
@@ -184,7 +184,7 @@ real number (`IModelProvider`'s own remarks). What you write is the method plus
 `Produces = [ProviderKinds.Vector]` or `[ProviderKinds.Score]`, and **the declaration is the wiring**: a
 seam that consumes the kind finds you, so a cross-encoder needs no reranker-shaped registration and no
 policy of its own — `AddMemoryScoringVerification` already selects on `Score` (**D139**), and
-`OnnxCrossEncoder` is the worked example. Register with `AddProvider` like every other backend — there is
+`OnnxCrossEncoderProvider` is the worked example. Register with `AddProvider` like every other backend — there is
 no role-named registration to choose between (**D152**). **Pass `declares` when a FACTORY produces
 `Vector`**: `AddSemanticMemory` decides at composition time, before anything is built, so an undeclared
 factory reads as "does not embed" and that call fails fast naming the argument. A backend built eagerly

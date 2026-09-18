@@ -1,19 +1,19 @@
 static class Lyntai.OnnxBuilderExtensions
-    static AddOnnxCrossEncoder(LyntaiBuilder builder, String modelDirectory, Action<OnnxCrossEncoderOptions> configure = null) : LyntaiBuilder
+    static AddOnnxCrossEncoderProvider(LyntaiBuilder builder, String modelDirectory, Action<OnnxCrossEncoderOptions> configure = null) : LyntaiBuilder
     static AddOnnxProvider(LyntaiBuilder builder, String modelDirectory, Action<OnnxProviderOptions> configure = null) : LyntaiBuilder
-sealed class Lyntai.Providers.Onnx.OnnxCrossEncoder
+sealed class Lyntai.Providers.Onnx.OnnxCrossEncoderOptions
+    .ctor()
+    Id : String
+    MaxTokens : Nullable<Int32>
+    ModelFile : String
+sealed class Lyntai.Providers.Onnx.OnnxCrossEncoderProvider
     CallAsync(ScoreRequest request, CancellationToken ct = default) : Task<ScoreResponse>
     Capabilities : ProviderCapabilities
     Dispose() : Void
     Id : String
     IsAvailable : Boolean
     MaxTokens : Int32
-    static FromDirectory(String directory, OnnxCrossEncoderOptions options = null) : OnnxCrossEncoder
-sealed class Lyntai.Providers.Onnx.OnnxCrossEncoderOptions
-    .ctor()
-    Id : String
-    MaxTokens : Nullable<Int32>
-    ModelFile : String
+    static FromDirectory(String directory, OnnxCrossEncoderOptions options = null) : OnnxCrossEncoderProvider
 enum Lyntai.Providers.Onnx.OnnxPooling
     Cls : OnnxPooling const
     Mean : OnnxPooling const

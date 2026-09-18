@@ -24,14 +24,14 @@ namespace Lyntai.Providers.Onnx;
 ///
 /// <para><b>Inference runs on the calling thread</b>, as with the vector backend: the async signature is the
 /// seam's, not a promise to yield.</para></summary>
-public sealed class OnnxCrossEncoder : IScoreProvider, IDisposable
+public sealed class OnnxCrossEncoderProvider : IScoreProvider, IDisposable
 {
     private readonly InferenceSession _session;
     private readonly WordPieceTokenizer _tokenizer;
     private readonly int _maxTokens;
     private readonly string _outputName;
 
-    private OnnxCrossEncoder(
+    private OnnxCrossEncoderProvider(
         InferenceSession session, WordPieceTokenizer tokenizer, int maxTokens, OnnxCrossEncoderOptions options)
     {
         _session = session;
@@ -74,7 +74,7 @@ public sealed class OnnxCrossEncoder : IScoreProvider, IDisposable
     /// <exception cref="InvalidOperationException">The graph has no output this can read a score from, or
     /// the one it has DECLARES a shape that cannot carry one score per pair — a multi-label (NLI) head above
     /// all, which otherwise loads, scores, and ranks backwards.</exception>
-    public static OnnxCrossEncoder FromDirectory(string directory, OnnxCrossEncoderOptions? options = null)
+    public static OnnxCrossEncoderProvider FromDirectory(string directory, OnnxCrossEncoderOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         if (!Directory.Exists(directory)) throw new DirectoryNotFoundException($"No model directory at '{directory}'.");
@@ -88,7 +88,7 @@ public sealed class OnnxCrossEncoder : IScoreProvider, IDisposable
         // reader — but max_position_embeddings lives in the same config.json and one reader cannot drift.
         var maxTokens = SentenceTransformerConfig.FromDirectory(directory).MaxTokens;
 
-        return new OnnxCrossEncoder(new InferenceSession(model), tokenizer, maxTokens, options);
+        return new OnnxCrossEncoderProvider(new InferenceSession(model), tokenizer, maxTokens, options);
     }
 
     /// <inheritdoc />
