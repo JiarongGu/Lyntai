@@ -27,21 +27,21 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 171 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
 | 224 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
 | 243 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 302 | 103 | NS-2 — the governance sub-namespaces leave `Lyntai.Llm` | startable |  |
-| 308 | 103 | NS-3 — the call shapes: rename AND move in ONE pass | startable |  |
-| 315 | 103 | NS-4 — the front door: `ILlmClient` → `ITextClient` | startable |  |
-| 319 | 103 | NS-5 — `Lyntai.Providers` stops meaning three things | startable |  |
-| 325 | 103 | ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING | startable |  |
-| 343 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
-| 358 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
-| 367 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
-| 374 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
-| 383 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
-| 412 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 472 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 527 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 550 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 607 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 302 | 103 | NS-2 — the governance sub-namespaces move WITH the front door, not before it | startable |  |
+| 315 | 103 | NS-3 — the call shapes: rename AND move in ONE pass | startable |  |
+| 322 | 103 | NS-4 — the front door: `ILlmClient` → `ITextClient` | startable |  |
+| 326 | 103 | NS-5 — `Lyntai.Providers` stops meaning three things | startable |  |
+| 332 | 103 | ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING | startable |  |
+| 350 | 102 | REL1 — four surface changes since `v3.1.0` that NO changelog entry announces | startable |  |
+| 365 | 102 | REL2 — `### Breaking` carries nine ADDITIVE entries, and one entry describe… | startable |  |
+| 374 | 102 | REL3 — the cross-encoder is the one backend the D137→D138 suffix sweep miss… | startable |  |
+| 381 | 102 | REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belo… | startable |  |
+| 390 | 102 | REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-… | startable |  |
+| 419 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 479 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 534 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 557 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 614 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -299,11 +299,18 @@ harder to spot inside a combined rename-and-move pass._
 
 
 
-- [ ] **NS-2 — the governance sub-namespaces leave `Lyntai.Llm`.** <!-- item: state=startable -->
-  `Lyntai.Llm.{Caching,Budgeting,RateLimiting,Streaming,Cli}` → `Lyntai.Inference.*`. None of them is
-  text-specific: a response cache and a usage budget are front-door governance for any call. They sit under
-  `Llm` for the reason `RoutingPolicy` sat under `Llm.Routing` until D153 moved it — the domain that
-  happened to need them first.
+- [ ] **NS-2 — the governance sub-namespaces move WITH the front door, not before it.** <!-- item: state=startable -->
+  **REFUTED as originally scoped, 2026-09-17**, which is why this now reads as a constraint on NS-4 rather
+  than as its own move. The claim was that `Lyntai.Llm.{Caching,Budgeting,RateLimiting,Streaming,Cli}` are
+  not text-specific. Four of the five are: `IResponseCache` traffics in `LlmReply`, `IUsageTracker` in
+  `LlmUsage`, `CliProviderEngine` returns `LlmReply`/`LlmChunk`, and each of Caching/Budgeting/RateLimiting
+  holds an `*LlmClient` DECORATOR that wraps the text front door by definition. Only `Streaming`
+  (`GuardedStream.ReadAll<TItem,TTerminal>`) was neutral, and it moved.
+  <br>**So they belong wherever the text front door belongs**, and they move in NS-4 with it — their names
+  and their payload types change in the same pass. Doing it earlier would put `Lyntai.Inference.Caching`
+  around a seam typed to `LlmReply`, which reads as a layering claim the code does not support.
+  <br>_`IRateLimiter` alone is genuinely generic (`AcquireAsync(consumer)`). Splitting it from its decorator
+  is defensible later; it is not worth a split namespace for one interface now._
 
 - [ ] **NS-3 — the call shapes: rename AND move in ONE pass.** <!-- item: state=startable -->
   `Llm{Request,Reply,Chunk,ChunkKind,Usage,Message,ToolCall,Tool,Attachment,Reasoning}` → `Text*`,

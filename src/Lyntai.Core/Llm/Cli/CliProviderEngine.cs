@@ -1,7 +1,7 @@
 using Lyntai.Inference;
 using System.Runtime.CompilerServices;
 using Lyntai.Agents;
-using Lyntai.Llm.Streaming;
+using Lyntai.Inference.Streaming;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

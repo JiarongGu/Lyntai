@@ -1031,6 +1031,12 @@ sealed class Lyntai.Inference.ScoreResponse
     Verdict : ProviderVerdict
     static Failure(ProviderVerdict verdict, String detail = null) : ScoreResponse
     static Success(IReadOnlyList<Double> scores, String detail = null) : ScoreResponse
+static class Lyntai.Inference.Streaming.GuardedStream
+    static ReadAll<TItem,TTerminal>(Func<ValueTask<TItem>> readNext, Func<Exception,TTerminal> onFault, CancellationToken callerCt, InactivityClock clock = null) : IAsyncEnumerable<ValueTuple<TItem,TTerminal>>
+sealed class Lyntai.Inference.Streaming.InactivityClock
+    .ctor(CancellationTokenSource cts, TimeSpan timeout)
+    Arm() : Void
+    Stop() : Void
 sealed class Lyntai.Inference.TransientProviderPool`1
     .ctor()
     GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
@@ -1610,12 +1616,6 @@ sealed class Lyntai.Llm.Routing.LlmRouterFactory
     .ctor(IProviderPool<IModelProvider> pool, DeadHostTracker deadHosts, LyntaiOptions options, ILoggerFactory loggers = null, IModelRoutingStore modelRouting = null, IProviderAdmission admission = null)
     For(IReadOnlyList<IModelProvider> providers) : ILlmRouter
     For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers) : ILlmRouter
-static class Lyntai.Llm.Streaming.GuardedStream
-    static ReadAll<TItem,TTerminal>(Func<ValueTask<TItem>> readNext, Func<Exception,TTerminal> onFault, CancellationToken callerCt, InactivityClock clock = null) : IAsyncEnumerable<ValueTuple<TItem,TTerminal>>
-sealed class Lyntai.Llm.Streaming.InactivityClock
-    .ctor(CancellationTokenSource cts, TimeSpan timeout)
-    Arm() : Void
-    Stop() : Void
 sealed class Lyntai.LlmClientBuilder
     Name : String
     UseCandidates(ProviderCandidate[] candidates) : LlmClientBuilder

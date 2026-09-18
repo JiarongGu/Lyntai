@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Lyntai.Llm;
-using Lyntai.Llm.Streaming;
+using Lyntai.Inference.Streaming;
 using Lyntai.Providers.Http.Payloads;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Lyntai.Llm.Streaming;
+namespace Lyntai.Inference.Streaming;
 
 /// <summary>The inactivity clock a streaming provider arms around each read (design §6): <see cref="Arm"/>
 /// immediately before a read, <see cref="Stop"/> immediately after it returns — so the window measures

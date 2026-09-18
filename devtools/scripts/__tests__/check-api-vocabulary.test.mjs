@@ -29,7 +29,7 @@ const LIVE = [
   '    .ctor(IMemoryRetrievabilityPolicy inner, IEnumerable<IMemoryRetentionPolicy> retentionPolicies,'
     + ' IMemoryRetentionCompositionPolicy composition = null)',
   'sealed class Lyntai.Memory.Modulation.SalienceRetentionPolicy',
-  'sealed class Lyntai.Llm.Streaming.InactivityClock',
+  'sealed class Lyntai.Inference.Streaming.InactivityClock',
   'sealed class Lyntai.Storage.MemoryEvictionPolicy',
   // The one ALLOWED line in the shipped registry, carried here on purpose. `Compose` is retired as a
   // composition-seam method name (D48's policies are named for what they RETURN), while this static

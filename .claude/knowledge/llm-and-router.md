@@ -130,7 +130,7 @@ A stream's timeout must measure **provider inactivity**, not wall-clock or consu
 immediately after it returns (while you and the consumer process the chunk). A single `CancelAfter` over
 the whole enumeration kills slow-but-healthy streams — this bug shipped in two providers and was fixed;
 don't reintroduce it. **The guarded read loop now lives ONCE in Core:
-`Lyntai.Llm.Streaming.GuardedStream.ReadAll` (+ `InactivityClock`)** — arm/read/stop, caller-cancel
+`Lyntai.Inference.Streaming.GuardedStream.ReadAll` (+ `InactivityClock`)** — arm/read/stop, caller-cancel
 rethrow, per-provider fault→terminal mapping (return null from `onFault` to propagate, e.g. a
 provider-side OCE the router handles). Every streaming provider iterates it; a NEW provider should too,
 not hand-roll the loop. The CLI providers pass NO clock (their window is `ProcessRunner`'s, arriving as
