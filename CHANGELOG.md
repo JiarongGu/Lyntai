@@ -178,7 +178,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 
 - **The routing ACTION and the media KINDS join the taxonomy they duplicated** (**D140**).
-  `GenerationFallbackAction` becomes `Lyntai.Lifecycle.FallbackAction` — the same four members it always <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `GenerationFallbackAction` becomes `Lyntai.Inference.FallbackAction` — the same four members it always <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   had — and `GenerationKinds.Image/Video/Audio/Model3d` become `ProviderKinds.*`, which declared the same <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   names with the same values. D136 merged the routing table's key and left its value duplicated; this is
   that, one layer out. **The two routing POLICIES are untouched** — they differ on `Unsupported` and on
@@ -205,7 +205,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   host-supplied binary rather than standing in for a vendor.
 
 - **One verdict taxonomy for every domain** (**D136**). `LlmVerdict` and `GenerationVerdict` become <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
-  `Lyntai.Lifecycle.ProviderVerdict`; `LlmVerdictClassifier` and `GenerationVerdictClassifier` become <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
+  `Lyntai.Inference.ProviderVerdict`; `LlmVerdictClassifier` and `GenerationVerdictClassifier` become <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `ProviderVerdictClassifier`, and the 101-line translation layer between the two enums is deleted.
   `LlmVerdictExtensions` becomes `ProviderVerdictExtensions` and gains `IsBlameless()`, which both routers <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   now share. **What a verdict MEANS is shared; what a router DOES about it is still per-domain policy** —
@@ -305,14 +305,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   Converging them is its own decision.
 
 - **The cross-domain routing types leave `Lyntai.Llm.Routing`** (**D153**). `RoutingPolicy`,
-  `DeadHostTracker` and `CooldownScope` move to `Lyntai.Lifecycle`; edit the `using`, the types are
+  `DeadHostTracker` and `CooldownScope` move to `Lyntai.Inference`; edit the `using`, the types are
   unchanged. They were never LLM-specific — the generation router and its factory use all three — and
-  `Lyntai.Lifecycle` was importing the LLM namespace to reach them, which put the neutral taxonomy
+  `Lyntai.Inference` was importing the LLM namespace to reach them, which put the neutral taxonomy
   downstream of one domain. That is the inversion **D140** removed one layer up. `LlmRouter`, `LlmClient`
   and `ILlmRouterFactory` stay where they are; those genuinely are the LLM front door.
 
 - **A generic provider base, so a consuming app can define its OWN kind** (**D153**). Four additive seams in
-  `Lyntai.Lifecycle`: `IProviderOutcome` (`Verdict` + `Detail` — what routing needs from any response, and
+  `Lyntai.Inference`: `IProviderOutcome` (`Verdict` + `Detail` — what routing needs from any response, and
   the whole of it), `IProviderCall<TRequest,TResponse>`, `IProviderStream<TRequest,TChunk>` and
   `IProviderQueue<TRequest,TResponse>`. An application closing these over its own types gets candidate
   selection, dead-host cooldown, admission and fallback from the shared router **without this library
@@ -321,7 +321,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   <br>`LlmReply` and `GenerationResult` now declare `IProviderOutcome`. Both already had `Verdict` and
   `Detail`, so nothing about either type changes — that they satisfied it unmodified is the evidence the
   contract is the right one.
-  <br>**Moved:** `QueuedOperation` and `QueuedOperationStatus` `Lyntai.Generation` → `Lyntai.Lifecycle`. A <!-- drift-ok: the entry ANNOUNCING the move has to name both sides -->
+  <br>**Moved:** `QueuedOperation` and `QueuedOperationStatus` `Lyntai.Generation` → `Lyntai.Inference`. A <!-- drift-ok: the entry ANNOUNCING the move has to name both sides -->
   queue any kind can serve cannot live in the generation namespace. Edit the `using`; the types are
   unchanged.
 
@@ -366,12 +366,12 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   distinguishable by id. (This entry originally kept a minimal bring-your-own interface beside the provider
   seam; **D151** removed it — see the entry above for what replaces it.)
 
-- **ONE provider interface: `Lyntai.Lifecycle.IModelProvider`** (**D127**). It replaces `ILlmProvider`, <!-- drift-ok: the entry announcing a removal has to name what it removed -->
+- **ONE provider interface: `Lyntai.Inference.IModelProvider`** (**D127**). It replaces `ILlmProvider`, <!-- drift-ok: the entry announcing a removal has to name what it removed -->
   `IGenerationProvider`, `IGenerationStreamProvider` and `IProviderProbe`. <!-- drift-ok: the removal entry names what it removed --> A backend now declares `Id`,
   `IsAvailable` and `Capabilities`, and overrides only the operations it serves — `CompleteAsync`,
   `StreamAsync`, `EmbedAsync`, `GenerateAsync` and `ProbeAsync` all have default bodies reporting
   `Unsupported`, and a router filters on the declaration before dispatching, so an unserved operation is
-  never called. **Migration** is the interface name, a `using Lyntai.Lifecycle;`, and adding a
+  never called. **Migration** is the interface name, a `using Lyntai.Inference;`, and adding a
   `Capabilities` property; the tool-call flags move from ad-hoc properties into
   `ProviderCapabilities.SupportsToolCalls` / `.SupportsStreamingToolCalls`.
   <br>**Named `IModelProvider` rather than `IProvider`** because the bare word collides with
@@ -381,21 +381,21 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   content type belongs in data. `GenerationProbeResult` merges into `ProviderProbeResult`, which the LLM
   domain had been duplicating in a different field order.
 
-- **`GenerationCapabilities` and `GenerationDelivery` are replaced by `Lyntai.Lifecycle.ProviderCapabilities` <!-- drift-ok: the entry announcing a rename has to name what it renamed -->
+- **`GenerationCapabilities` and `GenerationDelivery` are replaced by `Lyntai.Inference.ProviderCapabilities` <!-- drift-ok: the entry announcing a rename has to name what it renamed -->
   and `ProviderOperation`** (**D126**). Capability is DATA in every domain now, not just in generation: a
   backend declares which content `Kinds` it serves, which `Operations`, and which `Models`, and a router
   asks before spending anything. **Two renames inside it are not cosmetic** — `Deliveries` became
   `Operations` because the list must now hold `Embed`, which is a different ask rather than a third way of
   delivering the same one; and `Inline` became `Complete` because a chat completion and an inline image
   render are the same operation over different `Kinds`. `GenerationProbeResult` is unmoved. Migration is
-  the type names plus `using Lyntai.Lifecycle;`, and `Supports(request, delivery)` becomes
+  the type names plus `using Lyntai.Inference;`, and `Supports(request, delivery)` becomes
   `Supports(kind, operation, model, hasInputs)` — the request-shaped overload is gone, because the mapping
   from a domain request to a capability query belongs to the domain's router.
 
-- **`LlmCandidate` and `GenerationCandidate` are replaced by `Lyntai.Lifecycle.ProviderCandidate`** <!-- drift-ok: the entry announcing a rename has to name what it renamed -->
+- **`LlmCandidate` and `GenerationCandidate` are replaced by `Lyntai.Inference.ProviderCandidate`** <!-- drift-ok: the entry announcing a rename has to name what it renamed -->
   (**D125**). The two were byte-identical records — `(string ProviderId, string? Model = null)` — one per
   domain, and the generation one's own doc said the pair was the routing unit "exactly as on the LLM side".
-  Migration is a type name and a `using Lyntai.Lifecycle;`; the members, the case-insensitive id matching
+  Migration is a type name and a `using Lyntai.Inference;`; the members, the case-insensitive id matching
   and the ordinal model comparison are unchanged. `UseDefaultGenerationCandidates` is NOT affected — it is a
   builder method, not the type. **This is the first step of unifying the provider layer**: one candidate,
   then one routing spine, then capabilities declared as data rather than as a type hierarchy.
@@ -1844,7 +1844,7 @@ No API changed. These were all sentences a consumer or a maintainer would have a
   unhonoured (codex's gate is the sandbox); `SystemPrompt` travels as a leading block of the prompt.
   Internally both codex paths now build argv from one source, so `--skip-git-repo-check` — the flag whose
   absence works in a dev git repo and breaks in a shipped bundle — cannot go missing from one of them.
-- **Provider lifetime as a library seam (`Lyntai.Lifecycle`)** — for the app whose backend configuration is
+- **Provider lifetime as a library seam (`Lyntai.Inference`)** — for the app whose backend configuration is
   owned **outside** the deployment (an end user, or a store the process polls), where several configurations
   of one backend are live at once and any of them can change mid-render. `IProviderPool<TProvider>` takes a
   `ProviderKey` and a factory and hands back the instance for that configuration; `BoundedProviderPool` (the

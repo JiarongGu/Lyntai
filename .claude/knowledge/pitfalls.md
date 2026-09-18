@@ -1426,7 +1426,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   runs it is somebody remembering. Nobody did through the D125–D147 rename campaign, and on 2026-09-17 it
   failed with FOUR compile errors: its consumer fixture still named `GenerationCandidate` (**D125** replaced <!-- drift-ok: the retired name the fixture still held is the subject -->
   it), passed a `defaultModel:` argument (**D132** reshaped the registrations), and was missing the `using`
-  for two types that had moved to `Lyntai.Lifecycle`.
+  for two types that had moved to `Lyntai.Inference`.
   <br>**The fixture is written in the library's own public API, so it is a CONSUMER — and every sweep that
   updates callers has to update it too.** It lives in `devtools/`, which no prose gate scans and which a
   solution-wide build never compiles, so it is invisible to all three of the mechanisms that would otherwise
@@ -1646,7 +1646,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
 - The retry in `CompleteJsonAsync` must **differ** from the first attempt (feed back the bad reply + a <!-- trap: sub=router shape=vacuous -->
   corrective instruction) — re-sending the identical request to a temperature-0 model just repeats it.
 
-## Provider lifetime, cooldown & admission (`Lyntai.Lifecycle`; details in `docs/DECISIONS.md` D30)
+## Provider lifetime, cooldown & admission (`Lyntai.Inference`; details in `docs/DECISIONS.md` D30)
 
 Every one of these is a *silent* failure: the build is green, the tests are green, and the damage is a
 benched tenant, an unbounded engine or a render nobody cancelled.

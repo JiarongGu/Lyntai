@@ -2,7 +2,7 @@ using Lyntai.Generation;
 using Lyntai.Generation.Jobs;
 using Lyntai.Generation.Routing;
 using Lyntai.Jobs;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;

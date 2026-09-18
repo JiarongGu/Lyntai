@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.Http.Json;

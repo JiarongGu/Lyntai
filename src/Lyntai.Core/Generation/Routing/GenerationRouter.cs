@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Llm.Routing;
 
 namespace Lyntai.Generation.Routing;
@@ -42,7 +42,7 @@ namespace Lyntai.Generation.Routing;
 /// id. Null disables cooldown entirely (a hand-built router in a test).</param>
 /// <param name="configuration">Which CONFIGURATION a provider is running under, used to key dead-host
 /// cooldown and admission. Null (or a null return) = key cooldown on
-/// <see cref="Lyntai.Lifecycle.IProviderIdentity.Id"/> and apply no admission, which is the historical
+/// <see cref="Lyntai.Inference.IProviderIdentity.Id"/> and apply no admission, which is the historical
 /// behaviour and correct for a single-configuration deployment. Supply one when several configurations of a
 /// backend id are live at once — otherwise one tenant's rate limit benches every other tenant sharing that
 /// backend, and two consumers of one downed self-hosted host fail to share a bench that would have spared

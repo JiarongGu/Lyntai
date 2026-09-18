@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Lyntai.Providers.Model2Vec;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Microsoft.Extensions.DependencyInjection;
 using Lyntai.Tests.Fakes;
 

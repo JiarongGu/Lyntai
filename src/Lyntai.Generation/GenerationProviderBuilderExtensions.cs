@@ -1,6 +1,6 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Processes;
 using Microsoft.Extensions.DependencyInjection;
 

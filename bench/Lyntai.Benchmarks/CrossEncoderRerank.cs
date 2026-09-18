@@ -1,6 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Memory.Verification;
 using Lyntai.Providers.Onnx;
 using Lyntai.Text;

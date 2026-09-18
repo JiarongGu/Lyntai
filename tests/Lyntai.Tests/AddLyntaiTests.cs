@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai;
 using Lyntai.Cortex;
 using Lyntai.Llm;

@@ -3,7 +3,7 @@
 // completion via the router → scoring (incl. an LLM judge) → trace persist/read → memory recall.
 // Honors LYNTAI_PROVIDER_CMD (the devtools e2e harness points it at the deterministic stub, so a
 // run spends no real tokens) and LYNTAI_DATA (isolated data folder).
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Lyntai;

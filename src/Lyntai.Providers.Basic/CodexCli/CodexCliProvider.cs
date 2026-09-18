@@ -1,5 +1,5 @@
 using Lyntai.Agents;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Llm;
 using Lyntai.Llm.Cli;
 using Lyntai.Processes;

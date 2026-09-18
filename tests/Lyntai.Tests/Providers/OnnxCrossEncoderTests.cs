@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using Lyntai.Memory.Verification;
 using Lyntai.Providers.Onnx;

@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Text.RegularExpressions;
 
 namespace Lyntai.Llm.Cli;

@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Diagnostics;
 using Lyntai.Processes;
 using Lyntai.Tests.Fakes;

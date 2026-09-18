@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Text.Json;
 
 using Lyntai.Generation;

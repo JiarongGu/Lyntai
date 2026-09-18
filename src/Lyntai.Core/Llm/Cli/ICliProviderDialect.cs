@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 namespace Lyntai.Llm.Cli;
 
 /// <summary>

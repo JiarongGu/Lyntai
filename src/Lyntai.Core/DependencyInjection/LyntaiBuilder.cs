@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Diagnostics.CodeAnalysis;
 using Lyntai.Agents;
 using Lyntai.Cortex;

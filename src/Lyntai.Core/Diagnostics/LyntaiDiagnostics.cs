@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Lyntai.Generation;

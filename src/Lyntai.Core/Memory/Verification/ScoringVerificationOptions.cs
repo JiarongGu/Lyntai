@@ -13,8 +13,8 @@ namespace Lyntai.Memory.Verification;
 /// LLM judge; a reranker is the other half of the same choice.</para></summary>
 public sealed class ScoringVerificationOptions
 {
-    /// <summary>WHICH registered backend scores, by <see cref="Lyntai.Lifecycle.IModelProvider.Id"/>. Null —
-    /// the default — takes the first registered one that produces <see cref="Lyntai.Lifecycle.ProviderKinds.Score"/>, which
+    /// <summary>WHICH registered backend scores, by <see cref="Lyntai.Inference.IModelProvider.Id"/>. Null —
+    /// the default — takes the first registered one that produces <see cref="Lyntai.Inference.ProviderKinds.Score"/>, which
     /// is what a deployment with exactly one wants and what this seam did before the option existed.
     ///
     /// <para><b>Name it as soon as a second scoring backend exists for ANY reason.</b> Under the default,
@@ -25,7 +25,7 @@ public sealed class ScoringVerificationOptions
     /// than a client name, because a scoring backend is selected by what it PRODUCES and never routed.</para>
     ///
     /// <para>An id naming no registered backend — or one that does not declare
-    /// <see cref="Lyntai.Lifecycle.ProviderKinds.Score"/> — THROWS when the policy is composed, rather than reporting
+    /// <see cref="Lyntai.Inference.ProviderKinds.Score"/> — THROWS when the policy is composed, rather than reporting
     /// <c>NoOpinion</c> on every recall, which is the silent degradation this option exists to remove.
     /// Matched case-insensitively, like every other id lookup here.</para></summary>
     public string? ProviderId { get; set; }

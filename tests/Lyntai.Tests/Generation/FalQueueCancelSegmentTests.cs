@@ -1,7 +1,7 @@
 using System.Net;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;

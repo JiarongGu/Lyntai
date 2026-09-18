@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Providers.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -13,7 +13,7 @@ public static class HttpProviderBuilderExtensions
     /// different ids — e.g. one "openai" and one "ollama", or a chat and an embedding backend on one
     /// server).
     /// <para><b>This one KEEPS the <c>Provider</c> suffix</b> where a named backend drops it (<b>D134</b>):
-    /// like <see cref="LyntaiBuilder.AddProvider(Func{IServiceProvider,Lyntai.Lifecycle.IModelProvider},Lyntai.Lifecycle.ProviderCapabilities)"/>
+    /// like <see cref="LyntaiBuilder.AddProvider(Func{IServiceProvider,Lyntai.Inference.IModelProvider},Lyntai.Inference.ProviderCapabilities)"/>
     /// it is the GENERIC registration, so <c>Provider</c> is the noun it takes rather than a suffix on a
     /// vendor's name. The vendor presets below — <see cref="AddOpenAiProvider"/>, <see cref="AddOllamaProvider"/> — name a
     /// backend, so they do not carry it.</para>

@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 
 namespace Lyntai.Providers.Http;
 
@@ -55,7 +55,7 @@ public sealed class HttpModelOptions
     /// historically at 16). <c>0</c> (default) sends the whole batch in a single request.</summary>
     public int BatchSize { get; set; }
 
-    /// <summary>Prepended, VERBATIM, to text embedded as <see cref="Lyntai.Lifecycle.EmbeddingRole.Document"/>
+    /// <summary>Prepended, VERBATIM, to text embedded as <see cref="Lyntai.Inference.EmbeddingRole.Document"/>
     /// — the storing side. Null or empty (the default) sends the text unchanged.
     ///
     /// <para><b>What this is for.</b> Asymmetric models want a different instruction per side and score
@@ -69,7 +69,7 @@ public sealed class HttpModelOptions
     /// is not comparable to one embedded under another — re-index rather than mixing.</para></summary>
     public string? DocumentPrefix { get; set; }
 
-    /// <summary>Prepended, VERBATIM, to text embedded as <see cref="Lyntai.Lifecycle.EmbeddingRole.Query"/>
+    /// <summary>Prepended, VERBATIM, to text embedded as <see cref="Lyntai.Inference.EmbeddingRole.Query"/>
     /// — the searching side. Null or empty (the default) sends the text unchanged.
     /// <para>Set independently of <see cref="DocumentPrefix"/>: a model may instruct one side only, which is
     /// the BGE shape, and an unset side must stay verbatim rather than inherit the other.</para></summary>

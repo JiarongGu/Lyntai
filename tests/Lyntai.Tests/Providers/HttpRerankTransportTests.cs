@@ -1,5 +1,5 @@
 using System.Net;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Providers.Http;
 using Lyntai.Tests.Fakes;
 

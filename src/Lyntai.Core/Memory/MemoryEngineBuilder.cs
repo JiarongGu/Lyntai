@@ -225,7 +225,7 @@ public sealed class MemoryEngineBuilder
             ageComposition: sp.GetService<IMemoryAgeCompositionPolicy>(),
             logger: sp.GetService<ILogger<GraphMemoryEngine>>(),
             // similarity enrichment turns itself on when both are present, and is simply absent otherwise
-            providers: sp.GetServices<Lyntai.Lifecycle.IModelProvider>(),
+            providers: sp.GetServices<Lyntai.Inference.IModelProvider>(),
             vectors: sp.GetService<IVectorStore>(),
             // salience is a DI collection too, same reasoning as agePolicies above
             saliencePolicies: sp.GetServices<IMemorySaliencePolicy>(),

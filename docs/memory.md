@@ -780,7 +780,7 @@ removed, which a deployment with no vector store does not pay.
 A graph member for decay and links, a semantic member for meaning — over the same facts. Both hold
 associative material, so by default the graph takes every write and the semantic store stays empty.
 
-<!-- compile-given: class MyVectorBackend : Lyntai.Lifecycle.IModelProvider { public string Id => "mine"; public static readonly Lyntai.Lifecycle.ProviderCapabilities Declared = new() { Accepts = [Lyntai.Lifecycle.ProviderKinds.Text], Produces = [Lyntai.Lifecycle.ProviderKinds.Vector], Operations = [Lyntai.Lifecycle.ProviderOperation.Complete] }; public Lyntai.Lifecycle.ProviderCapabilities Capabilities => Declared; public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<float[]>>([]); } -->
+<!-- compile-given: class MyVectorBackend : Lyntai.Inference.IModelProvider { public string Id => "mine"; public static readonly Lyntai.Inference.ProviderCapabilities Declared = new() { Accepts = [Lyntai.Inference.ProviderKinds.Text], Produces = [Lyntai.Inference.ProviderKinds.Vector], Operations = [Lyntai.Inference.ProviderOperation.Complete] }; public Lyntai.Inference.ProviderCapabilities Capabilities => Declared; public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<float[]>>([]); } -->
 ```csharp
 services.AddLyntai(cfg => cfg
     .UseSqliteStorage("Data Source=app.db")

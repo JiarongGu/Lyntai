@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Text.Json;
 using Lyntai.Agents;
 using Microsoft.Extensions.AI;
@@ -13,7 +13,7 @@ namespace Lyntai.Tools.Mcp.Hosting;
 ///
 /// <para><b>A guard <c>Block</c> is ADVISORY here and TERMINAL in the tool loop, and that difference is
 /// deliberate — it follows from who owns the loop.</b> <c>ToolLoop</c> drives the turn, so it can end it
-/// with <see cref="Lyntai.Lifecycle.ProviderVerdict.Refused"/>. This is one MCP function invocation inside a loop the
+/// with <see cref="Lyntai.Inference.ProviderVerdict.Refused"/>. This is one MCP function invocation inside a loop the
 /// CLIENT owns, and MCP has no "abandon the session" response: a tool may return content or an error, and
 /// nothing else. So a refusal here can only be reported, never enforced by termination. Making it "terminal"
 /// would mean throwing, which the client is equally free to catch and retry — the appearance of force

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -22,7 +22,7 @@ namespace Lyntai.Llm.Routing;
 /// <param name="modelRouting">Live per-consumer model overrides; null = the configured defaults alone.</param>
 /// <param name="configuration">Which CONFIGURATION a provider is running under, used to key dead-host
 /// cooldown and admission. Null (or a null return) = key cooldown on
-/// <see cref="Lyntai.Lifecycle.IProviderIdentity.Id"/> and apply no admission — correct for a
+/// <see cref="Lyntai.Inference.IProviderIdentity.Id"/> and apply no admission — correct for a
 /// single-configuration deployment. Supply one when several configurations of a backend id are live at once,
 /// or one tenant's rate limit benches every other tenant sharing that backend.
 /// <see cref="IProviderPool{TProvider}.TryGetKey"/> is the intended source; composes with

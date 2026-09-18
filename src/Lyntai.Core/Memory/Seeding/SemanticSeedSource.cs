@@ -1,5 +1,5 @@
 using System.Globalization;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 

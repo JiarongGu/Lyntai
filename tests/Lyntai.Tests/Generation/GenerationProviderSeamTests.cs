@@ -1,5 +1,5 @@
 using Lyntai.Generation;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;

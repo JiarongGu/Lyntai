@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Globalization;
 using Lyntai.Diagnostics;
 using Microsoft.Extensions.Logging;

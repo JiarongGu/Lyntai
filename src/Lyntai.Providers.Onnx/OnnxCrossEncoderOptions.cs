@@ -7,7 +7,7 @@ namespace Lyntai.Providers.Onnx;
 public sealed class OnnxCrossEncoderOptions
 {
     /// <summary>The provider id this backend reports as
-    /// <see cref="Lyntai.Lifecycle.IModelProvider.Id"/>. It is a LABEL for one configured backend, so two
+    /// <see cref="Lyntai.Inference.IModelProvider.Id"/>. It is a LABEL for one configured backend, so two
     /// rerankers loaded at once are two ids.</summary>
     public string Id { get; set; } = "onnx-rerank";
 

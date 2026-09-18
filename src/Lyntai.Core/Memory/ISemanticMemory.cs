@@ -3,7 +3,7 @@ namespace Lyntai.Memory;
 /// <summary>
 /// Meaning-based task memory: remembers facts by their embedding and recalls them by semantic similarity
 /// to a query (not keyword overlap, unlike the lexical <see cref="Lyntai.Storage.IMemoryStore"/>). Composes
-/// any registered backend producing <see cref="Lyntai.Lifecycle.ProviderKinds.Vector"/> with an
+/// any registered backend producing <see cref="Lyntai.Inference.ProviderKinds.Vector"/> with an
 /// <see cref="IVectorStore"/>; wired when one is registered (<c>builder.AddProvider(factory, declares)</c>,
 /// or a package's own <c>Add…Provider</c>). Scoped by (taskKey, scope) like the
 /// lexical store; re-remembering identical content overwrites rather than duplicating.

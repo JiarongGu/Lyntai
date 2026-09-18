@@ -243,7 +243,7 @@ export function coreThirdPartyRefs(r) {
  * and strips comments first, because the XML docs here quote member signatures.
  */
 export function requiredModelProviderMembers(r) {
-  const src = read(r, 'src/Lyntai.Core/Lifecycle/IModelProvider.cs')
+  const src = read(r, 'src/Lyntai.Core/Inference/IModelProvider.cs')
     .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/\/\/.*$/gm, '');
   const open = src.indexOf('public interface IModelProvider');
   if (open < 0) return ['(IModelProvider not found)'];

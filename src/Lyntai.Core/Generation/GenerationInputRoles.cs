@@ -3,7 +3,7 @@ namespace Lyntai.Generation;
 /// <summary>Well-known roles for a <see cref="GenerationInput"/> — what an input IS to the generation, which is
 /// what distinguishes a backend's modes from each other (one video backend offers text→video,
 /// image→video-from-first-frame AND reference→video). Open strings, for the same reason as
-/// <see cref="Lyntai.Lifecycle.ProviderKinds"/>.
+/// <see cref="Lyntai.Inference.ProviderKinds"/>.
 ///
 /// <para><b>A separate vocabulary from what a backend PRODUCES, not an oversight.</b> These say what an
 /// input IS TO a generation; the kinds say what comes out. They shared a file until <b>D140</b> merged the

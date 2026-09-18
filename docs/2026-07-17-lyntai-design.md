@@ -169,7 +169,7 @@ public sealed record LlmCandidate(string ProviderId, string? Model = null);
 statement**; §9's 2026-07-26 amendment lists the additions and §6 gives each one's routing action. The block
 above is the v0.1 seed, kept for its semantic commentary per the reading note at the top of this doc.)*
 
-*(2026-09-15: the enum is `Lyntai.Lifecycle.ProviderVerdict` and **`src/Lyntai.Core/Lifecycle/ProviderVerdict.cs`
+*(2026-09-15: the enum is `Lyntai.Inference.ProviderVerdict` and **`src/Lyntai.Core/Inference/ProviderVerdict.cs`
 is the canonical statement**, superseding the path named above. It was `Lyntai.Llm.LlmVerdict`, with
 `Lyntai.Generation.GenerationVerdict` carrying the same members under a second name and a translation layer
 between them; one taxonomy serves every domain, and what a router DOES about a verdict stays per-domain
@@ -259,7 +259,7 @@ tools), **D31** (a verdict for "never set up", in both domains) and **D36** (the
 verdict taxonomies). The plan of record is `docs/2026-08-04-generation-platform-plan.md`.*
 
 ```csharp
-public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
+public interface IGenerationProvider : Lyntai.Inference.IProviderIdentity {
     new string Id { get; }                            // "openai-images" | "a1111" | "local-diffusion" | …
     GenerationCapabilities Capabilities { get; }      // read by the router BEFORE spending anything
     Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default);   // no-cost; never generates
@@ -1022,7 +1022,7 @@ these later without breaking changes.
 > (D4) · front-door decorators fold deterministically, cache outermost (D11) · `RefusalPattern` screening
 > re-screens even cached hits · usage-tracker totals are async by contract and case-insensitive per
 > consumer identity (v0.30).
-> **Provider LIFETIME is a seam this design did not have** (2026-08-05, `Lyntai.Lifecycle`, D30). §4 assumed
+> **Provider LIFETIME is a seam this design did not have** (2026-08-05, `Lyntai.Inference`, D30). §4 assumed
 > configuration is owned by the DEPLOYMENT, so a provider could be registered once at `AddLyntai` time. Where
 > it is owned EXTERNALLY — an end user, or a store the process polls — several configurations of one backend
 > are live at once and the set changes while the process runs. `IProviderPool<TProvider>` owns those

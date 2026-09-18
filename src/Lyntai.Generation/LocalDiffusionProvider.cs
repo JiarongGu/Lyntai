@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Processes;
 
 namespace Lyntai.Generation.Providers;

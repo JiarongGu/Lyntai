@@ -12,7 +12,7 @@ design spec §6 (amended 2026-07-17).
 
 ## Verdict taxonomy (`ProviderVerdict`)
 
-**`ProviderVerdict` is ONE enum for every domain, in `Lyntai.Lifecycle`** (**D136**). Chat and media carried
+**`ProviderVerdict` is ONE enum for every domain, in `Lyntai.Inference`** (**D136**). Chat and media carried
 separate enums with the same members plus a translation layer between them, and a missing arm in that table
 reported a capability gap as a hard failure for a whole release. **What a verdict MEANS is shared; what a
 router DOES about it is not** — each domain keeps its own action table, and they differ on purpose
@@ -85,7 +85,7 @@ Three properties of that split are load-bearing:
 - **Only ELIGIBILITY is decided there.** Which substantive failure wins is untouched and the two domains
   differ on purpose: this router keeps the LAST (`last = reply` each time), `GenerationRouter` keeps the FIRST
   (`firstFailure ??= result`) — the first backend's error explains a media run better than the last one's.
-- **It is ONE function since D136** — `ProviderVerdict.IsBlameless()` in `Lyntai.Lifecycle`, called by both
+- **It is ONE function since D136** — `ProviderVerdict.IsBlameless()` in `Lyntai.Inference`, called by both
   routers. Each carried a private copy whose docblock pointed at the other for parity, because the two domains
   had separate verdict enums; that is precisely the cost a duplicated taxonomy imposes downstream.
 

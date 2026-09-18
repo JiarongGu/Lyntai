@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 namespace Lyntai.Generation;
 
 /// <summary>One generation request, for ANY medium. The medium is <see cref="Kind"/>; everything a specific

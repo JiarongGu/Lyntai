@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Tests.Fakes;
 using Lyntai.Providers.Onnx;
 using Microsoft.Extensions.DependencyInjection;

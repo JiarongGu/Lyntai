@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Llm;
 using Lyntai.Storage.InMemory;
 using Lyntai.Storage.Postgres;

@@ -1,5 +1,5 @@
 using System.Globalization;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Forgetting;
 using Lyntai.Memory.Interference;

@@ -1,5 +1,5 @@
 using Lyntai.Tests.Fakes;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Seeding;

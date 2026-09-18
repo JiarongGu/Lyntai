@@ -1,5 +1,5 @@
 using Lyntai.Agents;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 

@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Net;
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;

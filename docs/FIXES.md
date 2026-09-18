@@ -54,7 +54,7 @@ green on all 24 gates, twice a day.
 packed nuspecs. That fixture is a CONSUMER, so every sweep that updates call sites has to update it — and
 none did: it still constructed `GenerationCandidate` (**D125** replaced it with `ProviderCandidate`), passed <!-- drift-ok: the retired name the fixture held is the defect -->
 `AddOllamaProvider(defaultModel:)` (**D132**/**D133** reshaped the registrations to `model:`), and lacked
-the `using` for `ProviderKinds` and `ProviderVerdict` after both moved to `Lyntai.Lifecycle`
+the `using` for `ProviderKinds` and `ProviderVerdict` after both moved to `Lyntai.Lifecycle` <!-- drift-ok: the record names where the type went AT THE TIME; D154 renamed it after -->
 (**D127**/**D136**/**D140**).
 
 **Why nothing caught it.** Three mechanisms all miss `devtools/`: no prose gate scans it, the solution build
@@ -63,7 +63,7 @@ deliberately, because it is minutes. So the only thing that could have reported 
 which is what "run it before a release" actually means.
 
 **Fix.** The template updated against the shipped API baselines rather than by guessing: `ProviderCandidate`,
-`model:`, and `using Lyntai.Lifecycle`. The gate then passes end to end — pack, symbol-package check,
+`model:`, and `using Lyntai.Lifecycle`. The gate then passes end to end — pack, symbol-package check, <!-- drift-ok: the record names where the type went AT THE TIME; D154 renamed it after -->
 restore, build, run.
 
 **Verify.** `consumer-smoke` green, exit 0: 11 packages, 10 symbol packages each carrying a PDB, and the app

@@ -1,0 +1,85 @@
+using Lyntai.Inference;
+
+namespace Lyntai.Inference;
+
+/// <summary>
+/// The router's fallback policy: how each <see cref="ProviderVerdict"/> maps to a <see cref="FallbackAction"/>,
+/// how many times to retry the same candidate before advancing, the cooldown-key granularity, and
+/// whether to exempt a sole candidate from cooldown. The defaults reproduce design §6 exactly, so a
+/// consumer that never touches this gets the documented behavior; overriding turns the hard-coded
+/// policy into just the default.
+/// </summary>
+public sealed class RoutingPolicy
+{
+    // Defaults mirror the pre-policy router switch: Failed/Timeout penalize + advance, RateLimited/
+    // AuthFailed cool + advance, ContextWindowExceeded advance (not a host fault), Refused surface.
+    private readonly Dictionary<ProviderVerdict, FallbackAction> _actions = new()
+    {
+        [ProviderVerdict.Failed] = FallbackAction.PenalizeAndAdvance,
+        [ProviderVerdict.Timeout] = FallbackAction.PenalizeAndAdvance,
+        [ProviderVerdict.RateLimited] = FallbackAction.CooldownAndAdvance,
+        [ProviderVerdict.AuthFailed] = FallbackAction.CooldownAndAdvance,
+        [ProviderVerdict.ContextWindowExceeded] = FallbackAction.Advance,
+        // "never set up" is not a fault and not a rejected credential — advance WITHOUT blame. Mapped
+        // explicitly because the ActionFor fallback is PenalizeAndAdvance: an unmapped NotConfigured would
+        // still count toward the dead-host threshold, which is the whole thing this verdict exists to avoid.
+        [ProviderVerdict.NotConfigured] = FallbackAction.Advance,
+        [ProviderVerdict.Refused] = FallbackAction.Surface,
+        // a capability/transport gap (not a host fault) surfaces like Refused — another candidate has the
+        // same limitation, so advancing would just churn — but stays a distinct verdict for telemetry.
+        [ProviderVerdict.Unsupported] = FallbackAction.Surface,
+    };
+
+    private readonly Dictionary<ProviderVerdict, int> _retries = [];
+
+    /// <summary>Dead-host key granularity (default <see cref="CooldownScope.Provider"/>).</summary>
+    public CooldownScope CooldownScope { get; set; } = CooldownScope.Provider;
+
+    /// <summary>Never skip the ONLY configured candidate for being on cooldown (default true).
+    /// Benching the sole option just converts "try and maybe succeed / get a real error" into an
+    /// instant synthetic failure — LiteLLM exempts single-deployment groups for the same reason.</summary>
+    public bool ExemptSoleCandidate { get; set; } = true;
+
+    /// <summary>Delay between same-candidate retries (default zero — no backoff). Applies only to
+    /// verdicts with a configured retry count.</summary>
+    public TimeSpan RetryBackoff { get; set; } = TimeSpan.Zero;
+
+    /// <summary>The action for a verdict; unmapped verdicts fall back to
+    /// <see cref="FallbackAction.PenalizeAndAdvance"/> (treat the unknown as a transient fault).
+    /// <para>That fallback DIFFERS from <c>GenerationRoutingPolicy.ActionFor</c>, which advances without
+    /// blame instead — so every new <see cref="ProviderVerdict"/> MUST be given an explicit entry in the table
+    /// above, or it silently counts toward the dead-host threshold.
+    /// <see cref="ProviderVerdict.NotConfigured"/> is the precedent: it is mapped explicitly for exactly that
+    /// reason.</para></summary>
+    public FallbackAction ActionFor(ProviderVerdict verdict) =>
+        _actions.TryGetValue(verdict, out var a) ? a : FallbackAction.PenalizeAndAdvance;
+
+    /// <summary>Same-candidate retries before advancing for this verdict (default 0 = immediate
+    /// advance). Retries only make sense for transient faults; a cooled/surfaced verdict ignores it.</summary>
+    public int RetriesFor(ProviderVerdict verdict) =>
+        _retries.TryGetValue(verdict, out var r) ? r : 0;
+
+    /// <summary>Override the action for a verdict.</summary>
+    public RoutingPolicy On(ProviderVerdict verdict, FallbackAction action)
+    {
+        _actions[verdict] = action;
+        return this;
+    }
+
+    /// <summary>Retry the same candidate up to <paramref name="count"/> times on this verdict before
+    /// advancing (a single transient blip shouldn't fail over). Only honored for verdicts whose
+    /// action advances after penalizing — a cooled or surfaced verdict never retries the same host.</summary>
+    public RoutingPolicy Retry(ProviderVerdict verdict, int count)
+    {
+        _retries[verdict] = count < 0 ? 0 : count;
+        return this;
+    }
+
+    /// <summary>True when this verdict should retry the SAME candidate again — only transient
+    /// availability faults (<see cref="FallbackAction.PenalizeAndAdvance"/>) with retry budget left.
+    /// A cooled, surfaced, or plain-advance verdict never retries the same host (retrying a
+    /// too-big-context request or a rate-limited window on the same model can't help).</summary>
+    internal bool ShouldRetrySameCandidate(ProviderVerdict verdict, int attemptsSoFar) =>
+        ActionFor(verdict) == FallbackAction.PenalizeAndAdvance
+        && attemptsSoFar <= RetriesFor(verdict);
+}

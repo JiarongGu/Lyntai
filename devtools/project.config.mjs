@@ -217,7 +217,7 @@ export default {
         'GenerationFallbackAction',
         'GenerationKinds',
       ],
-      use: '`Lyntai.Lifecycle.FallbackAction` and `Lyntai.Lifecycle.ProviderKinds`',
+      use: '`Lyntai.Inference.FallbackAction` and `Lyntai.Inference.ProviderKinds`',
       why: 'four identically-named, identically-meaning members each; D136 merged the routing table key '
         + 'and left its value and its kinds duplicated (D140)',
     },
@@ -261,7 +261,7 @@ export default {
         'GenerationVerdictClassifier',
         'LlmVerdictExtensions',
       ],
-      use: '`Lyntai.Lifecycle.ProviderVerdict` / `ProviderVerdictClassifier` / `ProviderVerdictExtensions`',
+      use: '`Lyntai.Inference.ProviderVerdict` / `ProviderVerdictClassifier` / `ProviderVerdictExtensions`',
       why: 'the media enum was the LLM one minus ContextWindowExceeded, member for member, with a 101-line '
         + 'translation between them whose missing arm reported a capability gap as a hard failure for a '
         + 'whole release (D136)',
@@ -322,7 +322,7 @@ export default {
       // as on the LLM side". Whole-identifier equality is what lets `UseDefaultGenerationCandidates` (a
       // generation BUILDER method, not the type) stay live without needing an allowance.
       names: ['LlmCandidate', 'GenerationCandidate', 'GenerationCandidateSpec'],
-      use: '`Lyntai.Lifecycle.ProviderCandidate` / `ProviderCandidateSpec`',
+      use: '`Lyntai.Inference.ProviderCandidate` / `ProviderCandidateSpec`',
       why: 'which backend and which of its models is ONE routing rule, not one per domain — two copies of '
         + 'it drift and a single type cannot (D125)',
     },
@@ -336,7 +336,7 @@ export default {
       // gave embedders an Id by minting a THIRD provider family, when what they needed was one enum member
       // on the capability object they already had. An embedder is an IModelProvider declaring Embed.
       names: ['IEmbeddingProvider'],
-      use: '`Lyntai.Lifecycle.IModelProvider` declaring `ProviderKinds.Vector` in `Produces`',
+      use: '`Lyntai.Inference.IModelProvider` declaring `ProviderKinds.Vector` in `Produces`',
       why: 'an embedding model is a TEXT backend like a chat model — giving it its own provider family '
         + 'splits by domain what belongs in data (D128)',
     },
@@ -350,13 +350,13 @@ export default {
         'ILlmProvider', 'IGenerationProvider', 'IGenerationStreamProvider',
         'IProviderProbe', 'GenerationProbeResult',
       ],
-      use: '`Lyntai.Lifecycle.IModelProvider` / `ProviderProbeResult`',
+      use: '`Lyntai.Inference.IModelProvider` / `ProviderProbeResult`',
       why: 'one backend seam for every domain, with what it serves declared in ProviderCapabilities rather '
         + 'than encoded as a type — an embedder and a chat model are one interface apart only in data (D127)',
     },
     {
       names: ['GenerationCapabilities', 'GenerationDelivery', 'Deliveries'],
-      use: '`Lyntai.Lifecycle.ProviderCapabilities` / `ProviderOperation` / `ProviderCapabilities.Operations`',
+      use: '`Lyntai.Inference.ProviderCapabilities` / `ProviderOperation` / `ProviderCapabilities.Operations`',
       why: 'capability belongs to every provider seam, not to one domain — and a per-domain capability '
         + 'type forces embedding into a parallel stack (D125)',
     },
@@ -668,7 +668,7 @@ export default {
     {
       // D140. The prose half; `GenerationInputRoles` absent for the reason on the surface rule above.
       term: '\\bGenerationFallbackAction\\b|\\bGenerationKinds\\b',
-      why: 'the routing action and the media kinds are one vocabulary each, in Lyntai.Lifecycle (D140)',
+      why: 'the routing action and the media kinds are one vocabulary each, in Lyntai.Inference (D140)',
       use: '`FallbackAction` / `ProviderKinds`',
     },
     {
@@ -715,6 +715,16 @@ export default {
         + 'they produce — the taxonomy D130 deleted from the types and D132 from the surface',
       use: '`AddHttpProvider` (with `Chat`/`Embeddings` saying which routes), '
         + '`AddOnnxProvider`, `AddModel2VecProvider`, `AddLlamaSharpProvider`, `HttpVectorTransport`',
+    },
+    {
+      // D154 NS-1. The namespace said LIFECYCLE and held the provider seam, the verdict taxonomy and four
+      // call shapes; only about a third of it — pools, admission, cooldown, candidates — was lifecycle.
+      // Historical records keep the old spelling on purpose: a decision that moved a type INTO
+      // Lyntai.Lifecycle did exactly that, and rewriting it would falsify the record rather than update it.
+      term: '\\bLyntai\\.Lifecycle\\b',
+      why: 'the namespace was named for a third of what it held; everything about CALLING a backend now '
+        + 'lives in Lyntai.Inference (D154)',
+      use: '`Lyntai.Inference`',
     },
     {
       // D153 step 1, the prose half. `ProviderOperation.Job` is matched QUALIFIED so that the whole of

@@ -102,7 +102,7 @@ BLEND concern, asked by `CompositeMemoryEngine` which MEMBERS a forget or prune 
 stage of the decay pipeline the seven describe — and its namespace is frozen
 either way. A root-level `IMemory*Policy` without a recorded reason now RAISES the count and fails
 `check-counts`, which it previously could not see at all) / `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` / `Lyntai.Jobs` /
-`Lyntai.Guards` / `Lyntai.Secrets` / `Lyntai.Lifecycle` / `Lyntai.Storage` / `Lyntai.Processes` /
+`Lyntai.Guards` / `Lyntai.Secrets` / `Lyntai.Inference` / `Lyntai.Storage` / `Lyntai.Processes` /
 `Lyntai.Text`; builder + `Add*`/`Use*` extensions live in the `Lyntai` namespace.
 **TWO namespaces above are not Core's alone.** `Lyntai.Secrets` is shared (Core's envelope +
 `Lyntai.Secrets.Dpapi`'s public protector) and `Lyntai.Llm` is entered by an INTERNAL type in

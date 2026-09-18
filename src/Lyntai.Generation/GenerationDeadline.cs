@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 namespace Lyntai.Generation.Providers;
 
 /// <summary>The per-call deadline every HTTP generation backend runs under, in one place.

@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Text.Json;
 
 namespace Lyntai.Providers.Http;
@@ -33,7 +33,7 @@ internal static class HttpBody
     /// success.</b> Gateways and aggregators routinely answer <c>200</c> carrying
     /// <c>{"error":{"code":429,…}}</c>. Reading only the status meant such a reply reached the
     /// "malformed or empty body" path, which RE-SENT the identical request to a host that had just said it
-    /// was rate-limited and then reported <see cref="Lyntai.Lifecycle.ProviderVerdict.Failed"/> — which ADVANCES and
+    /// was rate-limited and then reported <see cref="Lyntai.Inference.ProviderVerdict.Failed"/> — which ADVANCES and
     /// takes a dead-host strike where <c>RateLimited</c> COOLS. This is the same defect class the CLI engine
     /// shipped twice (codex, then claude); the general rule from <c>pitfalls.md</c> is that whenever a
     /// backend can answer in two channels, the precedence is decided explicitly and pinned by a test.</para>

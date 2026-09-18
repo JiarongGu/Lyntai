@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Ranking;

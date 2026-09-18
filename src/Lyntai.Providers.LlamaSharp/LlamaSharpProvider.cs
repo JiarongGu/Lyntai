@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Runtime.CompilerServices;
 using System.Text;
 using LLama;

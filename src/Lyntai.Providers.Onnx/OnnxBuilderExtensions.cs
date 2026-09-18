@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Providers.Onnx;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -72,7 +72,7 @@ public static class OnnxBuilderExtensions
     /// <see cref="AddOnnxProvider"/> rather than a mode of it.
     ///
     /// <para><b>Registering it is all that reaching it takes.</b> It declares
-    /// <see cref="Lyntai.Lifecycle.ProviderKinds.Score"/>, so
+    /// <see cref="Lyntai.Inference.ProviderKinds.Score"/>, so
     /// <c>AddMemoryScoringVerification()</c> selects it with no endpoint and no second seam
     /// (<c>docs/DECISIONS.md</c> D139) — that call decides what memory DOES with the scores, this one says
     /// what produces them.</para>

@@ -17,7 +17,7 @@ public enum OnnxPooling
 public sealed class OnnxProviderOptions
 {
     /// <summary>The provider id this backend reports as
-    /// <see cref="Lyntai.Lifecycle.IModelProvider.Id"/>.</summary>
+    /// <see cref="Lyntai.Inference.IModelProvider.Id"/>.</summary>
     public string Id { get; set; } = "onnx";
 
     /// <summary>Pooling mode. Null reads <c>1_Pooling/config.json</c>, defaulting to

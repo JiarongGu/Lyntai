@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Providers.ClaudeCli;
 
 namespace Lyntai.Tests.Providers;

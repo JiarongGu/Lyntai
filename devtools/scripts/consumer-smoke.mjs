@@ -127,7 +127,7 @@ using Lyntai.Agents;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Generation.Routing;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using Lyntai.Llm;
 using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;

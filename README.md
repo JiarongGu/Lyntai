@@ -1213,7 +1213,7 @@ failure rather than inventing an artifact.
 **Not in scope, by design:** generation itself, downloading engines or model weights, hosting a webhook
 endpoint, storing artifacts, or holding your credentials — see `docs/DECISIONS.md` D20 and D24.
 
-### When your users own the backend configuration (`Lyntai.Lifecycle`)
+### When your users own the backend configuration (`Lyntai.Inference`)
 
 Everything above assumes the *deployment* configures the backends: you call `Add*` once and the container
 holds them. If instead an **end user** — or a store your process polls — owns that configuration, the

@@ -1,5 +1,5 @@
 using Lyntai.Tests.Fakes;
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 
 namespace Lyntai.Tests.Embeddings;
 

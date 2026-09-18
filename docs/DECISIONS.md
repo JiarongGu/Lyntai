@@ -672,7 +672,7 @@ later, in someone else's code, as an intermittent "cannot access a disposed obje
 in one direction reproduces exactly that.
 
 ## D30 — provider LIFETIME is a registered strategy, keyed on the CONFIGURATION (2026-08-05)
-`Lyntai.Lifecycle` adds a provider pool with a `ProviderKey`, for an application whose backend
+`Lyntai.Lifecycle` adds a provider pool with a `ProviderKey`, for an application whose backend <!-- drift-ok: the record names where the type went AT THE TIME; D154 renamed it after -->
 configuration is owned outside the deployment. Everything — cooldown, admission, reuse — is keyed on the
 **configuration**, not the provider id: with two configurations of one backend live under different
 credentials, keying on the id lets one tenant's rate limit bench the other.
@@ -3842,7 +3842,7 @@ how a provider says "not mine", and the vocabulary for it shipped long ago.
 
 ## D126 — capability is DATA: ProviderCapabilities generalizes the model the generation domain already had (2026-09-14)
 
-`Lyntai.Lifecycle.ProviderCapabilities` replaces `GenerationCapabilities`, and `ProviderOperation` replaces
+`Lyntai.Lifecycle.ProviderCapabilities` replaces `GenerationCapabilities`, and `ProviderOperation` replaces <!-- drift-ok: the record names where the type went AT THE TIME; D154 renamed it after -->
 `GenerationDelivery`. A backend declares which content `Kinds` it serves, which `Operations`, and which
 `Models`; a router asks `Supports(kind, operation, model, hasInputs)` before spending anything.
 
@@ -3875,7 +3875,7 @@ in `GenerationRouter.Capable` and gained its own router test there.
 ## D127 — ONE provider interface: IModelProvider, with every operation defaulted to Unsupported (2026-09-14)
 
 `ILlmProvider`, `IGenerationProvider`, `IGenerationStreamProvider` and `IProviderProbe` are gone. <!-- drift-ok: the entry RETIRING these seams has to name them -->
-`Lyntai.Lifecycle.IModelProvider` is the single backend seam: `Id`, `IsAvailable`, `Capabilities`, and
+`Lyntai.Lifecycle.IModelProvider` is the single backend seam: `Id`, `IsAvailable`, `Capabilities`, and <!-- drift-ok: the record names where the type went AT THE TIME; D154 renamed it after -->
 `CompleteAsync` / `StreamAsync` / `EmbedAsync` / `GenerateAsync` / `ProbeAsync` — **every operation with a
 default body reporting `Unsupported`**, so a backend implements only what it serves.
 

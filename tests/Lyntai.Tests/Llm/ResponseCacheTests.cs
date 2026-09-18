@@ -1,4 +1,4 @@
-using Lyntai.Lifecycle;
+using Lyntai.Inference;
 using System.Reflection;
 using Lyntai;
 using Lyntai.Llm;

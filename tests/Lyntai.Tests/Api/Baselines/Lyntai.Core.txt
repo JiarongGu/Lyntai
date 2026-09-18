@@ -798,6 +798,268 @@ interface Lyntai.Guards.IGuardRail
     InspectResponseAsync(LlmReply reply, CancellationToken ct = default) : Task<GuardOutcome>
     InspectToolCallAsync(String toolName, String argumentsJson, CancellationToken ct = default) : Task<GuardOutcome>
     InspectToolResultAsync(String toolName, String result, CancellationToken ct = default) : Task<GuardOutcome>
+sealed class Lyntai.Inference.BoundedProviderPool`1
+    .ctor(ProviderPoolOptions options = null, Func<DateTimeOffset> clock = null)
+    GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
+    Retire(ProviderKey key) : Boolean
+    RetireSlot(String slot) : Int32
+    Statistics : ProviderPoolStatistics
+    TryGetKey(TProvider instance, ProviderKey& key) : Boolean
+enum Lyntai.Inference.CooldownScope
+    Provider : CooldownScope const
+    ProviderAndModel : CooldownScope const
+    value__ : Int32
+sealed class Lyntai.Inference.DeadHostTracker
+    .ctor(Int32 threshold = 3, Nullable<TimeSpan> cooldown = null, Func<DateTimeOffset> clock = null, ILogger<DeadHostTracker> logger = null)
+    IsDead(String key) : Boolean
+    MarkDead(String key) : Void
+    RecordFailure(String key) : Void
+    RecordSuccess(String key) : Void
+enum Lyntai.Inference.EmbeddingRole
+    Document : EmbeddingRole const
+    Query : EmbeddingRole const
+    value__ : Int32
+enum Lyntai.Inference.FallbackAction
+    Advance : FallbackAction const
+    CooldownAndAdvance : FallbackAction const
+    PenalizeAndAdvance : FallbackAction const
+    Surface : FallbackAction const
+    value__ : Int32
+interface Lyntai.Inference.IModelProvider
+    Capabilities : ProviderCapabilities
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    Id : String
+    IsAvailable : Boolean
+    ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
+    StreamAsync(GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+interface Lyntai.Inference.IProviderAdmission
+    EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>
+interface Lyntai.Inference.IProviderCall`2
+    CallAsync(TRequest request, CancellationToken ct = default) : Task<TResponse>
+interface Lyntai.Inference.IProviderIdentity
+    Id : String
+interface Lyntai.Inference.IProviderOutcome
+    Detail : String
+    Verdict : ProviderVerdict
+interface Lyntai.Inference.IProviderPool`1
+    GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
+    Retire(ProviderKey key) : Boolean
+    RetireSlot(String slot) : Int32
+    Statistics : ProviderPoolStatistics
+    TryGetKey(TProvider instance, ProviderKey& key) : Boolean
+interface Lyntai.Inference.IProviderQueue`2
+    CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
+    FetchAsync(String operationId, CancellationToken ct = default) : Task<TResponse>
+    PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
+    SubmitAsync(TRequest request, CancellationToken ct = default) : Task<QueuedOperation>
+interface Lyntai.Inference.IProviderStream`2
+    StreamAsync(TRequest request, CancellationToken ct = default) : IAsyncEnumerable<TChunk>
+interface Lyntai.Inference.IScoreProvider
+interface Lyntai.Inference.IVectorProvider
+sealed class Lyntai.Inference.ProviderAdmission
+    .ctor(ProviderAdmissionOptions options = null)
+    EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>
+sealed class Lyntai.Inference.ProviderAdmissionOptions
+    .ctor()
+    BySlot : IDictionary<String,Int32>
+    Default : Int32
+sealed class Lyntai.Inference.ProviderCandidate
+    .ctor(String ProviderId, String Model = null)
+    Deconstruct(String& ProviderId, String& Model) : Void
+    Equals(Object obj) : Boolean
+    Equals(ProviderCandidate other) : Boolean
+    GetHashCode() : Int32
+    Model : String
+    ProviderId : String
+    ToString() : String
+sealed class Lyntai.Inference.ProviderCapabilities
+    .ctor()
+    Accepts : IReadOnlyList<String>
+    Equals(Object obj) : Boolean
+    Equals(ProviderCapabilities other) : Boolean
+    GetHashCode() : Int32
+    Limits : IReadOnlyDictionary<String,String>
+    Models : IReadOnlyList<String>
+    Operations : IReadOnlyList<ProviderOperation>
+    Produces : IReadOnlyList<String>
+    Supports(String produces, ProviderOperation operation, String accepts = null, String model = null, Boolean hasInputs = false) : Boolean
+    SupportsInputs : Boolean
+    SupportsStreamingToolCalls : Boolean
+    SupportsToolCalls : Boolean
+    ToString() : String
+struct Lyntai.Inference.ProviderKey
+    .ctor(String Slot, String Fingerprint)
+    Deconstruct(String& Slot, String& Fingerprint) : Void
+    Equals(Object obj) : Boolean
+    Equals(ProviderKey other) : Boolean
+    Fingerprint : String
+    GetHashCode() : Int32
+    Slot : String
+    ToString() : String
+    static For(String slot) : ProviderKeyBuilder
+sealed class Lyntai.Inference.ProviderKeyBuilder
+    Build() : ProviderKey
+    With(String name, Boolean value) : ProviderKeyBuilder
+    With(String name, Double value) : ProviderKeyBuilder
+    With(String name, Int32 value) : ProviderKeyBuilder
+    With(String name, String value) : ProviderKeyBuilder
+    WithSecret(String name, String value) : ProviderKeyBuilder
+static class Lyntai.Inference.ProviderKinds
+    Audio : String const
+    Image : String const
+    Model3d : String const
+    Score : String const
+    Text : String const
+    Vector : String const
+    Video : String const
+enum Lyntai.Inference.ProviderOperation
+    Complete : ProviderOperation const
+    Queued : ProviderOperation const
+    Stream : ProviderOperation const
+    value__ : Int32
+sealed class Lyntai.Inference.ProviderPoolOptions
+    .ctor()
+    IdleTimeout : Nullable<TimeSpan>
+    MaxEntries : Nullable<Int32>
+struct Lyntai.Inference.ProviderPoolStatistics
+    .ctor(Int32 Live, Int64 Created, Int64 Reused, Int64 Retired)
+    Created : Int64
+    Deconstruct(Int32& Live, Int64& Created, Int64& Reused, Int64& Retired) : Void
+    Equals(Object obj) : Boolean
+    Equals(ProviderPoolStatistics other) : Boolean
+    GetHashCode() : Int32
+    Live : Int32
+    Retired : Int64
+    Reused : Int64
+    ToString() : String
+sealed class Lyntai.Inference.ProviderProbeResult
+    .ctor(Boolean Available, String Detail = null, String Version = null, String Model = null)
+    Available : Boolean
+    Deconstruct(Boolean& Available, String& Detail, String& Version, String& Model) : Void
+    Detail : String
+    Equals(Object obj) : Boolean
+    Equals(ProviderProbeResult other) : Boolean
+    GetHashCode() : Int32
+    Model : String
+    ToString() : String
+    Version : String
+struct Lyntai.Inference.ProviderRegistration`1
+    .ctor(ProviderKey Key, Func<TProvider> Create)
+    Create : Func<TProvider>
+    Deconstruct(ProviderKey& Key, Func`1& Create) : Void
+    Equals(Object obj) : Boolean
+    Equals(ProviderRegistration<TProvider> other) : Boolean
+    GetHashCode() : Int32
+    Key : ProviderKey
+    ToString() : String
+sealed class Lyntai.Inference.ProviderRouter`2
+    .ctor(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, DeadHostTracker deadHosts = null, IProviderAdmission admission = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, ILogger logger = null)
+    CallAsync(TRequest request, CancellationToken ct = default) : Task<TResponse>
+    CanServe() : Boolean
+    Capable() : IReadOnlyList<IProviderCall<TRequest,TResponse>>
+enum Lyntai.Inference.ProviderVerdict
+    AuthFailed : ProviderVerdict const
+    ContextWindowExceeded : ProviderVerdict const
+    Failed : ProviderVerdict const
+    NotConfigured : ProviderVerdict const
+    Ok : ProviderVerdict const
+    RateLimited : ProviderVerdict const
+    Refused : ProviderVerdict const
+    Timeout : ProviderVerdict const
+    Unsupported : ProviderVerdict const
+    value__ : Int32
+static class Lyntai.Inference.ProviderVerdictClassifier
+    static AddErrorTextMatcher(Func<String,Nullable<ProviderVerdict>> matcher) : IDisposable
+    static FromErrorText(String text, ProviderVerdict fallback = ProviderVerdict.Failed) : ProviderVerdict
+    static FromException(Exception ex) : ProviderVerdict
+    static FromHttpFailure(HttpStatusCode status, String body) : ProviderVerdict
+    static FromHttpFailure(HttpStatusCode status, String body, Boolean hasCredentials) : ProviderVerdict
+static class Lyntai.Inference.ProviderVerdictExtensions
+    static IsBlameless(ProviderVerdict verdict) : Boolean
+    static IsOk(ProviderVerdict verdict) : Boolean
+    static IsTransient(ProviderVerdict verdict) : Boolean
+sealed class Lyntai.Inference.QueuedOperation
+    .ctor(String Id, QueuedOperationStatus Status, Nullable<Double> Progress = null, String Detail = null)
+    Deconstruct(String& Id, QueuedOperationStatus& Status, Nullable`1& Progress, String& Detail) : Void
+    Detail : String
+    Equals(Object obj) : Boolean
+    Equals(QueuedOperation other) : Boolean
+    GetHashCode() : Int32
+    Id : String
+    Inconclusive : Boolean
+    IsTerminal : Boolean
+    Progress : Nullable<Double>
+    Status : QueuedOperationStatus
+    ToString() : String
+enum Lyntai.Inference.QueuedOperationStatus
+    Cancelled : QueuedOperationStatus const
+    Failed : QueuedOperationStatus const
+    Queued : QueuedOperationStatus const
+    Running : QueuedOperationStatus const
+    Succeeded : QueuedOperationStatus const
+    value__ : Int32
+sealed class Lyntai.Inference.RoutingPolicy
+    .ctor()
+    ActionFor(ProviderVerdict verdict) : FallbackAction
+    CooldownScope : CooldownScope
+    ExemptSoleCandidate : Boolean
+    On(ProviderVerdict verdict, FallbackAction action) : RoutingPolicy
+    RetriesFor(ProviderVerdict verdict) : Int32
+    Retry(ProviderVerdict verdict, Int32 count) : RoutingPolicy
+    RetryBackoff : TimeSpan
+sealed class Lyntai.Inference.ScoreRequest
+    .ctor(String Query, IReadOnlyList<String> Documents)
+    Deconstruct(String& Query, IReadOnlyList`1& Documents) : Void
+    Documents : IReadOnlyList<String>
+    Equals(Object obj) : Boolean
+    Equals(ScoreRequest other) : Boolean
+    GetHashCode() : Int32
+    Query : String
+    ToString() : String
+sealed class Lyntai.Inference.ScoreResponse
+    .ctor(ProviderVerdict Verdict, IReadOnlyList<Double> Scores, String Detail = null)
+    Deconstruct(ProviderVerdict& Verdict, IReadOnlyList`1& Scores, String& Detail) : Void
+    Detail : String
+    Equals(Object obj) : Boolean
+    Equals(ScoreResponse other) : Boolean
+    GetHashCode() : Int32
+    IsOk : Boolean
+    Scores : IReadOnlyList<Double>
+    ToString() : String
+    Verdict : ProviderVerdict
+    static Failure(ProviderVerdict verdict, String detail = null) : ScoreResponse
+    static Success(IReadOnlyList<Double> scores, String detail = null) : ScoreResponse
+sealed class Lyntai.Inference.TransientProviderPool`1
+    .ctor()
+    GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
+    Retire(ProviderKey key) : Boolean
+    RetireSlot(String slot) : Int32
+    Statistics : ProviderPoolStatistics
+    TryGetKey(TProvider instance, ProviderKey& key) : Boolean
+sealed class Lyntai.Inference.VectorRequest
+    .ctor(IReadOnlyList<String> Texts, EmbeddingRole Role = EmbeddingRole.Document)
+    Deconstruct(IReadOnlyList`1& Texts, EmbeddingRole& Role) : Void
+    Equals(Object obj) : Boolean
+    Equals(VectorRequest other) : Boolean
+    GetHashCode() : Int32
+    Role : EmbeddingRole
+    Texts : IReadOnlyList<String>
+    ToString() : String
+sealed class Lyntai.Inference.VectorResponse
+    .ctor(ProviderVerdict Verdict, IReadOnlyList<Single[]> Vectors, String Detail = null)
+    Deconstruct(ProviderVerdict& Verdict, IReadOnlyList`1& Vectors, String& Detail) : Void
+    Detail : String
+    Equals(Object obj) : Boolean
+    Equals(VectorResponse other) : Boolean
+    GetHashCode() : Int32
+    IsOk : Boolean
+    ToString() : String
+    Vectors : IReadOnlyList<Single[]>
+    Verdict : ProviderVerdict
+    static Failure(ProviderVerdict verdict, String detail = null) : VectorResponse
+    static Success(IReadOnlyList<Single[]> vectors, String detail = null) : VectorResponse
 sealed class Lyntai.Jobs.AdmitAllAdmissionController
     .ctor()
     CanClaimAsync(String lane, CancellationToken ct = default) : ValueTask<Boolean>
@@ -974,268 +1236,6 @@ static class Lyntai.Jobs.JobStepLog
     DefaultCap : Int32 const
     static Append(String json, String message, DateTimeOffset at, Int32 cap = 200) : String
     static Parse(String json) : IReadOnlyList<JobStep>
-sealed class Lyntai.Lifecycle.BoundedProviderPool`1
-    .ctor(ProviderPoolOptions options = null, Func<DateTimeOffset> clock = null)
-    GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
-    Retire(ProviderKey key) : Boolean
-    RetireSlot(String slot) : Int32
-    Statistics : ProviderPoolStatistics
-    TryGetKey(TProvider instance, ProviderKey& key) : Boolean
-enum Lyntai.Lifecycle.CooldownScope
-    Provider : CooldownScope const
-    ProviderAndModel : CooldownScope const
-    value__ : Int32
-sealed class Lyntai.Lifecycle.DeadHostTracker
-    .ctor(Int32 threshold = 3, Nullable<TimeSpan> cooldown = null, Func<DateTimeOffset> clock = null, ILogger<DeadHostTracker> logger = null)
-    IsDead(String key) : Boolean
-    MarkDead(String key) : Void
-    RecordFailure(String key) : Void
-    RecordSuccess(String key) : Void
-enum Lyntai.Lifecycle.EmbeddingRole
-    Document : EmbeddingRole const
-    Query : EmbeddingRole const
-    value__ : Int32
-enum Lyntai.Lifecycle.FallbackAction
-    Advance : FallbackAction const
-    CooldownAndAdvance : FallbackAction const
-    PenalizeAndAdvance : FallbackAction const
-    Surface : FallbackAction const
-    value__ : Int32
-interface Lyntai.Lifecycle.IModelProvider
-    Capabilities : ProviderCapabilities
-    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
-    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
-    Id : String
-    IsAvailable : Boolean
-    ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
-    StreamAsync(GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
-    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
-interface Lyntai.Lifecycle.IProviderAdmission
-    EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>
-interface Lyntai.Lifecycle.IProviderCall`2
-    CallAsync(TRequest request, CancellationToken ct = default) : Task<TResponse>
-interface Lyntai.Lifecycle.IProviderIdentity
-    Id : String
-interface Lyntai.Lifecycle.IProviderOutcome
-    Detail : String
-    Verdict : ProviderVerdict
-interface Lyntai.Lifecycle.IProviderPool`1
-    GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
-    Retire(ProviderKey key) : Boolean
-    RetireSlot(String slot) : Int32
-    Statistics : ProviderPoolStatistics
-    TryGetKey(TProvider instance, ProviderKey& key) : Boolean
-interface Lyntai.Lifecycle.IProviderQueue`2
-    CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
-    FetchAsync(String operationId, CancellationToken ct = default) : Task<TResponse>
-    PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
-    SubmitAsync(TRequest request, CancellationToken ct = default) : Task<QueuedOperation>
-interface Lyntai.Lifecycle.IProviderStream`2
-    StreamAsync(TRequest request, CancellationToken ct = default) : IAsyncEnumerable<TChunk>
-interface Lyntai.Lifecycle.IScoreProvider
-interface Lyntai.Lifecycle.IVectorProvider
-sealed class Lyntai.Lifecycle.ProviderAdmission
-    .ctor(ProviderAdmissionOptions options = null)
-    EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>
-sealed class Lyntai.Lifecycle.ProviderAdmissionOptions
-    .ctor()
-    BySlot : IDictionary<String,Int32>
-    Default : Int32
-sealed class Lyntai.Lifecycle.ProviderCandidate
-    .ctor(String ProviderId, String Model = null)
-    Deconstruct(String& ProviderId, String& Model) : Void
-    Equals(Object obj) : Boolean
-    Equals(ProviderCandidate other) : Boolean
-    GetHashCode() : Int32
-    Model : String
-    ProviderId : String
-    ToString() : String
-sealed class Lyntai.Lifecycle.ProviderCapabilities
-    .ctor()
-    Accepts : IReadOnlyList<String>
-    Equals(Object obj) : Boolean
-    Equals(ProviderCapabilities other) : Boolean
-    GetHashCode() : Int32
-    Limits : IReadOnlyDictionary<String,String>
-    Models : IReadOnlyList<String>
-    Operations : IReadOnlyList<ProviderOperation>
-    Produces : IReadOnlyList<String>
-    Supports(String produces, ProviderOperation operation, String accepts = null, String model = null, Boolean hasInputs = false) : Boolean
-    SupportsInputs : Boolean
-    SupportsStreamingToolCalls : Boolean
-    SupportsToolCalls : Boolean
-    ToString() : String
-struct Lyntai.Lifecycle.ProviderKey
-    .ctor(String Slot, String Fingerprint)
-    Deconstruct(String& Slot, String& Fingerprint) : Void
-    Equals(Object obj) : Boolean
-    Equals(ProviderKey other) : Boolean
-    Fingerprint : String
-    GetHashCode() : Int32
-    Slot : String
-    ToString() : String
-    static For(String slot) : ProviderKeyBuilder
-sealed class Lyntai.Lifecycle.ProviderKeyBuilder
-    Build() : ProviderKey
-    With(String name, Boolean value) : ProviderKeyBuilder
-    With(String name, Double value) : ProviderKeyBuilder
-    With(String name, Int32 value) : ProviderKeyBuilder
-    With(String name, String value) : ProviderKeyBuilder
-    WithSecret(String name, String value) : ProviderKeyBuilder
-static class Lyntai.Lifecycle.ProviderKinds
-    Audio : String const
-    Image : String const
-    Model3d : String const
-    Score : String const
-    Text : String const
-    Vector : String const
-    Video : String const
-enum Lyntai.Lifecycle.ProviderOperation
-    Complete : ProviderOperation const
-    Queued : ProviderOperation const
-    Stream : ProviderOperation const
-    value__ : Int32
-sealed class Lyntai.Lifecycle.ProviderPoolOptions
-    .ctor()
-    IdleTimeout : Nullable<TimeSpan>
-    MaxEntries : Nullable<Int32>
-struct Lyntai.Lifecycle.ProviderPoolStatistics
-    .ctor(Int32 Live, Int64 Created, Int64 Reused, Int64 Retired)
-    Created : Int64
-    Deconstruct(Int32& Live, Int64& Created, Int64& Reused, Int64& Retired) : Void
-    Equals(Object obj) : Boolean
-    Equals(ProviderPoolStatistics other) : Boolean
-    GetHashCode() : Int32
-    Live : Int32
-    Retired : Int64
-    Reused : Int64
-    ToString() : String
-sealed class Lyntai.Lifecycle.ProviderProbeResult
-    .ctor(Boolean Available, String Detail = null, String Version = null, String Model = null)
-    Available : Boolean
-    Deconstruct(Boolean& Available, String& Detail, String& Version, String& Model) : Void
-    Detail : String
-    Equals(Object obj) : Boolean
-    Equals(ProviderProbeResult other) : Boolean
-    GetHashCode() : Int32
-    Model : String
-    ToString() : String
-    Version : String
-struct Lyntai.Lifecycle.ProviderRegistration`1
-    .ctor(ProviderKey Key, Func<TProvider> Create)
-    Create : Func<TProvider>
-    Deconstruct(ProviderKey& Key, Func`1& Create) : Void
-    Equals(Object obj) : Boolean
-    Equals(ProviderRegistration<TProvider> other) : Boolean
-    GetHashCode() : Int32
-    Key : ProviderKey
-    ToString() : String
-sealed class Lyntai.Lifecycle.ProviderRouter`2
-    .ctor(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, DeadHostTracker deadHosts = null, IProviderAdmission admission = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, ILogger logger = null)
-    CallAsync(TRequest request, CancellationToken ct = default) : Task<TResponse>
-    CanServe() : Boolean
-    Capable() : IReadOnlyList<IProviderCall<TRequest,TResponse>>
-enum Lyntai.Lifecycle.ProviderVerdict
-    AuthFailed : ProviderVerdict const
-    ContextWindowExceeded : ProviderVerdict const
-    Failed : ProviderVerdict const
-    NotConfigured : ProviderVerdict const
-    Ok : ProviderVerdict const
-    RateLimited : ProviderVerdict const
-    Refused : ProviderVerdict const
-    Timeout : ProviderVerdict const
-    Unsupported : ProviderVerdict const
-    value__ : Int32
-static class Lyntai.Lifecycle.ProviderVerdictClassifier
-    static AddErrorTextMatcher(Func<String,Nullable<ProviderVerdict>> matcher) : IDisposable
-    static FromErrorText(String text, ProviderVerdict fallback = ProviderVerdict.Failed) : ProviderVerdict
-    static FromException(Exception ex) : ProviderVerdict
-    static FromHttpFailure(HttpStatusCode status, String body) : ProviderVerdict
-    static FromHttpFailure(HttpStatusCode status, String body, Boolean hasCredentials) : ProviderVerdict
-static class Lyntai.Lifecycle.ProviderVerdictExtensions
-    static IsBlameless(ProviderVerdict verdict) : Boolean
-    static IsOk(ProviderVerdict verdict) : Boolean
-    static IsTransient(ProviderVerdict verdict) : Boolean
-sealed class Lyntai.Lifecycle.QueuedOperation
-    .ctor(String Id, QueuedOperationStatus Status, Nullable<Double> Progress = null, String Detail = null)
-    Deconstruct(String& Id, QueuedOperationStatus& Status, Nullable`1& Progress, String& Detail) : Void
-    Detail : String
-    Equals(Object obj) : Boolean
-    Equals(QueuedOperation other) : Boolean
-    GetHashCode() : Int32
-    Id : String
-    Inconclusive : Boolean
-    IsTerminal : Boolean
-    Progress : Nullable<Double>
-    Status : QueuedOperationStatus
-    ToString() : String
-enum Lyntai.Lifecycle.QueuedOperationStatus
-    Cancelled : QueuedOperationStatus const
-    Failed : QueuedOperationStatus const
-    Queued : QueuedOperationStatus const
-    Running : QueuedOperationStatus const
-    Succeeded : QueuedOperationStatus const
-    value__ : Int32
-sealed class Lyntai.Lifecycle.RoutingPolicy
-    .ctor()
-    ActionFor(ProviderVerdict verdict) : FallbackAction
-    CooldownScope : CooldownScope
-    ExemptSoleCandidate : Boolean
-    On(ProviderVerdict verdict, FallbackAction action) : RoutingPolicy
-    RetriesFor(ProviderVerdict verdict) : Int32
-    Retry(ProviderVerdict verdict, Int32 count) : RoutingPolicy
-    RetryBackoff : TimeSpan
-sealed class Lyntai.Lifecycle.ScoreRequest
-    .ctor(String Query, IReadOnlyList<String> Documents)
-    Deconstruct(String& Query, IReadOnlyList`1& Documents) : Void
-    Documents : IReadOnlyList<String>
-    Equals(Object obj) : Boolean
-    Equals(ScoreRequest other) : Boolean
-    GetHashCode() : Int32
-    Query : String
-    ToString() : String
-sealed class Lyntai.Lifecycle.ScoreResponse
-    .ctor(ProviderVerdict Verdict, IReadOnlyList<Double> Scores, String Detail = null)
-    Deconstruct(ProviderVerdict& Verdict, IReadOnlyList`1& Scores, String& Detail) : Void
-    Detail : String
-    Equals(Object obj) : Boolean
-    Equals(ScoreResponse other) : Boolean
-    GetHashCode() : Int32
-    IsOk : Boolean
-    Scores : IReadOnlyList<Double>
-    ToString() : String
-    Verdict : ProviderVerdict
-    static Failure(ProviderVerdict verdict, String detail = null) : ScoreResponse
-    static Success(IReadOnlyList<Double> scores, String detail = null) : ScoreResponse
-sealed class Lyntai.Lifecycle.TransientProviderPool`1
-    .ctor()
-    GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
-    Retire(ProviderKey key) : Boolean
-    RetireSlot(String slot) : Int32
-    Statistics : ProviderPoolStatistics
-    TryGetKey(TProvider instance, ProviderKey& key) : Boolean
-sealed class Lyntai.Lifecycle.VectorRequest
-    .ctor(IReadOnlyList<String> Texts, EmbeddingRole Role = EmbeddingRole.Document)
-    Deconstruct(IReadOnlyList`1& Texts, EmbeddingRole& Role) : Void
-    Equals(Object obj) : Boolean
-    Equals(VectorRequest other) : Boolean
-    GetHashCode() : Int32
-    Role : EmbeddingRole
-    Texts : IReadOnlyList<String>
-    ToString() : String
-sealed class Lyntai.Lifecycle.VectorResponse
-    .ctor(ProviderVerdict Verdict, IReadOnlyList<Single[]> Vectors, String Detail = null)
-    Deconstruct(ProviderVerdict& Verdict, IReadOnlyList`1& Vectors, String& Detail) : Void
-    Detail : String
-    Equals(Object obj) : Boolean
-    Equals(VectorResponse other) : Boolean
-    GetHashCode() : Int32
-    IsOk : Boolean
-    ToString() : String
-    Vectors : IReadOnlyList<Single[]>
-    Verdict : ProviderVerdict
-    static Failure(ProviderVerdict verdict, String detail = null) : VectorResponse
-    static Success(IReadOnlyList<Single[]> vectors, String detail = null) : VectorResponse
 sealed class Lyntai.Llm.Budgeting.BudgetedLlmClient
     .ctor(ILlmClient inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedLlmClient> logger = null)
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>

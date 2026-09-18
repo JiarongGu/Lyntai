@@ -86,7 +86,7 @@ export const PREAMBLE = [
   ['Lyntai.LyntaiBuilder', 'b'],
   ['Lyntai.LyntaiBuilder', 'builder'],
   ['Lyntai.Llm.ILlmClient', 'llm'],
-  ['Lyntai.Lifecycle.IModelProvider', 'provider'],
+  ['Lyntai.Inference.IModelProvider', 'provider'],
   ['Lyntai.Jobs.IJobQueue', 'queue'],
   ['Lyntai.Jobs.IJobRunner', 'runner'],
   ['Lyntai.Jobs.IJobScheduler', 'scheduler'],

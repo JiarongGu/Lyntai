@@ -686,7 +686,7 @@ deliberately out of `verify`; run it before a release or after touching packagin
 BROKEN and nothing said so.** Its consumer app is a fixture written in the library's own public API, and the
 D125–D147 rename campaign went straight past it — `GenerationCandidate` after **D125** replaced it, a <!-- drift-ok: the retired name is what the fixture still held -->
 `defaultModel:` argument after **D132** reshaped the registrations, and two types that had moved to
-`Lyntai.Lifecycle`. Four compile errors, sitting there across the largest breaking change in the project's
+`Lyntai.Inference`. Four compile errors, sitting there across the largest breaking change in the project's
 history, discovered only when someone ran it. **A gate nothing schedules rots exactly as an unrun test
 does** — and this one surfaces its rot at release time, which is the worst moment to meet it. The trap is in
 `.claude/knowledge/pitfalls.md`; the fixture's own staleness is `docs/FIXES.md`.

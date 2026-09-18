@@ -324,8 +324,8 @@ describe('coreThirdPartyRefs (D25)', () => {
 
 describe('requiredModelProviderMembers (D127)', () => {
   const iface = (body) => ({
-    'src/Lyntai.Core/Lifecycle/IModelProvider.cs':
-      `namespace Lyntai.Lifecycle;\npublic interface IModelProvider : IProviderIdentity\n{\n${body}}\n`
+    'src/Lyntai.Core/Inference/IModelProvider.cs':
+      `namespace Lyntai.Inference;\npublic interface IModelProvider : IProviderIdentity\n{\n${body}}\n`
       + 'internal static class ProviderDefaults { public static string X => "y"; }\n',
   });
 
