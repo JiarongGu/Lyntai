@@ -43,8 +43,8 @@ public static class GenerationProviderBuilderExtensions
         ArgumentNullException.ThrowIfNull(configure);
         var options = new OpenAiImageOptions();
         configure(options);
-        return builder.AddGenerationProvider(HttpBackend(builder, options.Id, httpClient,
-            (client, dispose) => new OpenAiImageProvider(options, client, dispose)));
+        return builder.AddProvider(HttpBackend(builder, options.Id, httpClient,
+            (client, dispose) => new OpenAiImageProvider(options, client, dispose))).AddMediaRouting();
     }
 
     /// <summary>A locally-run Stable Diffusion WebUI (Automatic1111). Default id <c>"a1111"</c>
@@ -58,8 +58,8 @@ public static class GenerationProviderBuilderExtensions
         ArgumentNullException.ThrowIfNull(configure);
         var options = new Automatic1111Options();
         configure(options);
-        return builder.AddGenerationProvider(HttpBackend(builder, options.Id, httpClient,
-            (client, dispose) => new Automatic1111Provider(options, client, dispose)));
+        return builder.AddProvider(HttpBackend(builder, options.Id, httpClient,
+            (client, dispose) => new Automatic1111Provider(options, client, dispose))).AddMediaRouting();
     }
 
     /// <summary>A ComfyUI server, driven by workflow graphs the HOST supplies. Default id <c>"comfyui"</c>
@@ -74,8 +74,8 @@ public static class GenerationProviderBuilderExtensions
         ArgumentNullException.ThrowIfNull(configure);
         var options = new ComfyUiOptions();
         configure(options);
-        return builder.AddGenerationProvider(HttpBackend(builder, options.Id, httpClient,
-            (client, dispose) => new ComfyUiProvider(options, client, dispose)));
+        return builder.AddProvider(HttpBackend(builder, options.Id, httpClient,
+            (client, dispose) => new ComfyUiProvider(options, client, dispose))).AddMediaRouting();
     }
 
     /// <summary>The fal.ai queue — submit/poll/fetch, which is the shape a video render needs. Default id
@@ -90,8 +90,8 @@ public static class GenerationProviderBuilderExtensions
         ArgumentNullException.ThrowIfNull(configure);
         var options = new FalQueueOptions();
         configure(options);
-        return builder.AddGenerationProvider(HttpBackend(builder, options.Id, httpClient,
-            (client, dispose) => new FalQueueProvider(options, client, dispose)));
+        return builder.AddProvider(HttpBackend(builder, options.Id, httpClient,
+            (client, dispose) => new FalQueueProvider(options, client, dispose))).AddMediaRouting();
     }
 
     /// <summary>A locally-installed <c>stable-diffusion.cpp</c> (<c>sd-cli</c>) — image generation with no key,
@@ -116,8 +116,8 @@ public static class GenerationProviderBuilderExtensions
         ArgumentNullException.ThrowIfNull(configure);
         var options = new LocalDiffusionOptions();
         configure(options);
-        return builder.AddGenerationProvider(sp => new LocalDiffusionProvider(options,
-            runner?.Invoke(sp) ?? sp.GetRequiredService<IProcessRunner>()));
+        return builder.AddProvider(sp => new LocalDiffusionProvider(options,
+            runner?.Invoke(sp) ?? sp.GetRequiredService<IProcessRunner>())).AddMediaRouting();
     }
 
     /// <summary>The name of the <see cref="IHttpClientFactory"/> client Lyntai registers for a backend id.

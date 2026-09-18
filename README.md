@@ -1061,7 +1061,8 @@ Each backend has an `Add*` of its own — `AddOpenAiImageProvider`, `AddAutomati
 callback**, the same shape as `AddHttpProvider(id, o => …)` on the LLM side. Every option has a
 default (each backend's conventional local URL, or the vendor's API root), so a registration sets only what
 differs from it; a blank base URL reports `NotConfigured` rather than failing.
-`AddGenerationProvider(sp => …)` remains the BYO seam for a backend of your own.
+For a render backend of your own, `AddProvider(sp => …, declares: …)` registers it — the one door every
+backend comes through, whatever it produces — and `AddMediaRouting()` wires the media router to route it.
 
 BYO `HttpClient` is optional on every one of the four HTTP backends — `AddLocalDiffusionProvider` takes a BYO
 `IProcessRunner` instead, because it spawns a binary and never makes a request — and Lyntai **never disposes a

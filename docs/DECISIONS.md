@@ -225,8 +225,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D153](#d153--a-seam-per-signature-over-a-generic-routed-base-2026-09-17) | 2026-09-17 | a seam per SIGNATURE, over a generic routed base |
 | [D154](#d154--a-namespace-names-a-subject-a-consumer-has-and-a-call-shape-is-named-for-what-it-produces-2026-09-18) | 2026-09-18 | a namespace names a SUBJECT a consumer has, and a call shape is named for what it PRODUCES |
 | [D155](#d155--the-generic-router-gets-a-factory-because-what-must-not-be-rebuilt-is-the-bookkeeping-2026-09-18) | 2026-09-18 | the generic router gets a FACTORY, because what must not be rebuilt is the bookkeeping |
+| [D156](#d156--a-domain-is-not-a-kind-of-provider-so-the-media-registration-is-deleted-rather-than-renamed-2026-09-18) | 2026-09-18 | a domain is not a kind of provider, so the media registration is deleted rather than renamed |
 
-_All 155 entries are live decisions._
+_All 156 entries are live decisions._
 
 <!-- index:end -->
 
@@ -1359,7 +1360,7 @@ value with a verdict, never a throw"*.
 **Why this is a decision and not merely a bug fix.** The alternative is defensible on its face and was the
 shipped behaviour: `IModelProvider` documents that a backend must fail safe, so a throw is a *bug*, and
 letting a bug surface loudly rather than degrading it into a verdict is a real position. It loses on one
-fact — **`AddGenerationProvider` is a documented BYO seam**, so the throwing party is frequently not this
+fact — **`AddGenerationProvider` is a documented BYO seam**, so the throwing party is frequently not this <!-- drift-ok: the record names the registration AS IT WAS; D156 deleted it after -->
 library and not the caller either. Punishing a caller for a third-party backend's defect by discarding every
 remaining candidate is the outcome fallback exists to prevent. `LlmRouter` reached the same conclusion first <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 and wrote the reason down: *"a provider that THROWS must get the same fallback policy as one that returns a
@@ -4133,7 +4134,7 @@ generic and became `IModelProvider`; `AddXProvider` is the same word doing the s
 means applying the reason, not the spelling.
 
 **Three names KEEP the suffix, and the rule is what they take.** `AddProvider`, `AddEmbeddingProvider` and <!-- drift-ok: the entry RECORDS this spelling (D152 retired it) -->
-`AddGenerationProvider` accept a FACTORY — they are the generic primitives a BYO backend registers through,
+`AddGenerationProvider` accept a FACTORY — they are the generic primitives a BYO backend registers through, <!-- drift-ok: the record names the registration AS IT WAS; D156 deleted it after -->
 where `Provider` is the noun the method takes rather than a suffix on a vendor's name. `AddOllamaProvider` names a
 backend; `AddProvider` names the act. Whole-identifier matching in both registries keeps them live with no
 allowance, which is the test that the distinction is real rather than convenient.
@@ -4167,7 +4168,7 @@ and now says so.
 
 **`AddHttpProvider` KEEPS the suffix `AddOllamaProvider` drops**, which is **D134**'s rule rather than an exception
 to it: the generic registration is where `Provider` is the NOUN, exactly as in `AddProvider` and
-`AddGenerationProvider`. A vendor preset names a backend and takes no suffix; the generic one names the act.
+`AddGenerationProvider`. A vendor preset names a backend and takes no suffix; the generic one names the act. <!-- drift-ok: the record names the registration AS IT WAS; D156 deleted it after -->
 
 **What keeps the OpenAI name, because it earns it:** `OpenAiPayload` builds OpenAI's actual schema, and
 `HttpDialect.OpenAi` is the member for it. The PHRASE "OpenAI-compatible" also stays wherever it describes
@@ -4809,11 +4810,11 @@ nothing here changes them; they become neighbours, not one class.
 
 **The last question this rule answers is where a REGISTRATION sits, and it is the one place the sweep
 stopped.** `AddMediaUsageBudget` and its three siblings configure the router, so they follow it.
-`AddGenerationProvider` does not follow, because a registration named for what a provider PRODUCES is the
+`AddGenerationProvider` did not follow, because a registration named for what a provider PRODUCES is the <!-- drift-ok: the record names the registration D156 deleted, which is this paragraph's subject -->
 shape **D152** retired `AddEmbeddingProvider` for — `AddMediaProvider` would be the same defect respelt. <!-- drift-ok: the record names the registration D152 retired, which is the comparison being drawn -->
-It is left visibly odd among five renamed siblings rather than settled by momentum, and the option plus its
-trigger is in `TASKS.md` Part 103. **A sweep that renames a name it never examined has decided something,
-and the decision is invisible precisely because everything around it moved too.**
+It was left visibly odd among five renamed siblings rather than settled by momentum; **D156** then answered
+it by DELETING the method. **A sweep that renames a name it never examined has decided something, and the
+decision is invisible precisely because everything around it moved too.**
 
 ## D155 — the generic router gets a FACTORY, because what must not be rebuilt is the bookkeeping (2026-09-18)
 
@@ -4848,3 +4849,30 @@ type with no consumer does not earn its keep (`library-api-design.md`). A pooled
 `ITextRouterFactory`'s is also absent — the key is bound from `IProviderPool.TryGetKey`, which answers for
 any instance the pool built and falls back to the id for the rest, so the overload would add surface
 without adding an answer.
+
+## D156 — a domain is not a kind of provider, so the media registration is deleted rather than renamed (2026-09-18)
+
+**The decision.** A media backend is registered through `AddProvider(factory, declares)` like every other
+backend, and `AddMediaRouting()` wires the media router. `AddGenerationProvider` — which did both under a <!-- drift-ok: the entry names the registration it deletes, which is its subject -->
+name describing neither — is gone. The five vendor presets call both internally, so
+`AddOpenAiImageProvider(…)` and its siblings are unchanged for a consumer.
+
+**Why not `AddMediaProvider`.** **D152** retired `AddEmbeddingProvider` on the rule that a provider is named <!-- drift-ok: the entry names the registration D152 retired, which is the comparison being drawn -->
+for its BACKEND, never for what it produces. `Generation`/`Media` names an output domain, so the rename
+would have respelt the defect D152 removed, in the same builder, four decisions later. **The evidence is
+the file itself:** `AddOpenAiImageProvider`, `AddAutomatic1111Provider`, `AddComfyUiProvider`,
+`AddFalProvider` and `AddLocalDiffusionProvider` each name an ENGINE. One method named a domain, and it was
+the one with no engine to name — because there was no provider there to name at all.
+
+**What the name was hiding is the better argument.** `AddProvider`'s own shipped doc calls it *"the one door
+every backend comes through, whatever it produces"*, so a second door for one domain contradicted a
+sentence this library already published. And the method did TWO things: registered a factory, and called
+`EnsureRouter`. The second is a routing concern with no provider in it, which is why no name for the pair
+could be honest. Splitting them gave each half a true name.
+
+**The cost, stated rather than discovered:** a BYO render backend is two calls instead of one. That is the
+same bill D152 accepted for embedding, and it buys the property that makes the registry legible — there is
+exactly one way to register a backend, so "how do I add one" has a single answer no domain can fork.
+
+**`AddMediaRouting()` is idempotent** and safe with no media backend registered: the router resolves and
+reports that nothing serves the request, which is what it already says when every backend is down.

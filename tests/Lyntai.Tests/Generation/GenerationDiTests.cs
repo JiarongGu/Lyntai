@@ -14,8 +14,9 @@ public class GenerationDiTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(cfg => cfg
-            .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a" })
-            .AddGenerationProvider(_ => new FakeGenerationJobProvider { Id = "b" }));
+            .AddProvider(_ => new FakeGenerationProvider { Id = "a" })
+            .AddProvider(_ => new FakeGenerationJobProvider { Id = "b" })
+            .AddMediaRouting());
         using var sp = services.BuildServiceProvider();
 
         var ids = sp.GetServices<IModelProvider>().Select(p => p.Id).ToList();
@@ -28,7 +29,7 @@ public class GenerationDiTests
     public void The_router_is_registered_and_sees_every_backend()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(cfg => cfg.AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a" }));
+        services.AddLyntai(cfg => cfg.AddProvider(_ => new FakeGenerationProvider { Id = "a" }).AddMediaRouting());
         using var sp = services.BuildServiceProvider();
 
         Assert.NotNull(sp.GetRequiredService<IMediaRouter>());
@@ -49,8 +50,9 @@ public class GenerationDiTests
         var services = new ServiceCollection();
         services.AddSingleton(mine);
         services.AddLyntai(cfg => cfg
-            .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a" })
-            .UseDefaultMediaCandidates("a"));
+            .AddProvider(_ => new FakeGenerationProvider { Id = "a" })
+            .UseDefaultMediaCandidates("a")
+            .AddMediaRouting());
         using var sp = services.BuildServiceProvider();
 
         var resolved = sp.GetRequiredService<MediaOptions>();
@@ -65,8 +67,9 @@ public class GenerationDiTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(cfg => cfg
-            .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a" })
-            .UseDefaultMediaCandidates("a"));
+            .AddProvider(_ => new FakeGenerationProvider { Id = "a" })
+            .UseDefaultMediaCandidates("a")
+            .AddMediaRouting());
         using var sp = services.BuildServiceProvider();
 
         var options = sp.GetRequiredService<MediaOptions>();
@@ -84,8 +87,9 @@ public class GenerationDiTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(cfg => cfg
-            .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "aggregator" })
-            .UseDefaultMediaCandidates("aggregator:sdxl"));
+            .AddProvider(_ => new FakeGenerationProvider { Id = "aggregator" })
+            .UseDefaultMediaCandidates("aggregator:sdxl")
+            .AddMediaRouting());
         using var sp = services.BuildServiceProvider();
 
         var candidate = sp.GetRequiredService<MediaOptions>().DefaultCandidates.Single();
@@ -101,10 +105,11 @@ public class GenerationDiTests
         // the same way and a re-configuration can't silently accumulate a stale backend
         var services = new ServiceCollection();
         services.AddLyntai(cfg => cfg
-            .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a" })
-            .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "b" })
+            .AddProvider(_ => new FakeGenerationProvider { Id = "a" })
+            .AddProvider(_ => new FakeGenerationProvider { Id = "b" })
             .UseDefaultMediaCandidates("a")
-            .UseDefaultMediaCandidates("b"));
+            .UseDefaultMediaCandidates("b")
+            .AddMediaRouting());
         using var sp = services.BuildServiceProvider();
 
         Assert.Equal(["b"], sp.GetRequiredService<MediaOptions>().DefaultCandidates.Select(c => c.ProviderId));

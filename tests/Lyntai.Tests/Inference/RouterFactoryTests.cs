@@ -227,7 +227,7 @@ public class RouterFactoryTests
         var backend = new FakeGenerationProvider { Id = "hosted", CostUsd = 5.0 };
         var services = new ServiceCollection();
         services.AddLyntai(cfg => cfg
-            .AddGenerationProvider(_ => backend)
+            .AddProvider(_ => backend)
             .AddMediaUsageBudget(budget => budget.MaxCostUsd = 1.0)
             .AddMediaRateLimit(limits =>
             {
@@ -257,7 +257,7 @@ public class RouterFactoryTests
         services.AddLyntai(cfg =>
         {
             cfg.Options.DeadHostThreshold = 1;   // the default is 3
-            cfg.AddGenerationProvider(_ => new FakeGenerationProvider { Id = "hosted" });
+            cfg.AddProvider(_ => new FakeGenerationProvider { Id = "hosted" });
         });
         using var sp = services.BuildServiceProvider();
 

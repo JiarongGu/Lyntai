@@ -611,9 +611,9 @@ sealed class Lyntai.Generation.Tools.GenerationSubmitTool
     Name : String
     ParametersJsonSchema : String
 static class Lyntai.GenerationBuilderExtensions
-    static AddGenerationProvider(LyntaiBuilder builder, Func<IServiceProvider,IModelProvider> factory) : LyntaiBuilder
     static AddGenerationTools(LyntaiBuilder builder) : LyntaiBuilder
     static AddMediaRateLimit(LyntaiBuilder builder, Action<RateLimitOptions> configure = null, Func<IServiceProvider,IRateLimiter> limiter = null) : LyntaiBuilder
+    static AddMediaRouting(LyntaiBuilder builder) : LyntaiBuilder
     static AddMediaUsageBudget(LyntaiBuilder builder, Action<BudgetOptions> configure = null) : LyntaiBuilder
     static ConfigureMediaRouting(LyntaiBuilder builder, Action<MediaRoutingPolicy> configure) : LyntaiBuilder
     static UseDefaultMediaCandidates(LyntaiBuilder builder, String[] providerIds) : LyntaiBuilder

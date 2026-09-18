@@ -88,14 +88,15 @@ public class GenerationRoutingPolicyTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(cfg => cfg
-            .AddGenerationProvider(_ =>
+            .AddProvider(_ =>
             {
                 var refusing = new FakeGenerationProvider { Id = "hosted" };
                 refusing.Verdicts.Enqueue(ProviderVerdict.Refused);
                 return refusing;
             })
-            .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "local" })
-            .ConfigureMediaRouting(p => p.On(ProviderVerdict.Refused, FallbackAction.Advance)));
+            .AddProvider(_ => new FakeGenerationProvider { Id = "local" })
+            .ConfigureMediaRouting(p => p.On(ProviderVerdict.Refused, FallbackAction.Advance))
+            .AddMediaRouting());
         using var sp = services.BuildServiceProvider();
 
         var result = await sp.GetRequiredService<IMediaRouter>().GenerateAsync(

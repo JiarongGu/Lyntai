@@ -74,7 +74,7 @@ public class ProviderPoolWiringTests
             using var sp = Provider(b =>
             {
                 configure(b);
-                b.AddGenerationProvider(_ => new FakeGenerationProvider { Id = "unused" });
+                b.AddProvider(_ => new FakeGenerationProvider { Id = "unused" }).AddMediaRouting();
             });
             var factory = sp.GetRequiredService<IMediaRouterFactory>();
 
@@ -178,7 +178,8 @@ public class ProviderPoolWiringTests
     public void The_strategy_survives_a_generation_registration_made_before_it()
     {
         using var sp = Provider(b => b
-            .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a1111" })
+            .AddProvider(_ => new FakeGenerationProvider { Id = "a1111" })
+            .AddMediaRouting()
             .UseTransientProviders());
 
         Assert.IsType<TransientProviderPool<IModelProvider>>(sp.GetRequiredService<IProviderPool<IModelProvider>>());
@@ -289,7 +290,7 @@ public class ProviderPoolWiringTests
         var backend = new GatedGenerationProvider { Id = "a1111" };
         using var sp = Provider(b => b
             .ConfigureProviderAdmission(o => o.BySlot["a1111"] = 1)
-            .AddGenerationProvider(_ => backend));
+            .AddProvider(_ => backend).AddMediaRouting());
         var router = sp.GetRequiredService<IMediaRouter>();
         var request = new MediaRequest { Kind = ProviderKinds.Image, Prompt = "a cat" };
 
@@ -378,7 +379,7 @@ public class ProviderPoolWiringTests
     {
         var admission = new RecordingAdmission();
         using var sp = ProviderWithHostAdmission(admission,
-            b => b.AddGenerationProvider(_ => new FakeGenerationProvider { Id = "unused" }));
+            b => b.AddProvider(_ => new FakeGenerationProvider { Id = "unused" }).AddMediaRouting());
         var key = Key("a");
 
         var router = sp.GetRequiredService<IMediaRouterFactory>().For([
@@ -396,7 +397,7 @@ public class ProviderPoolWiringTests
     [Fact]
     public void Both_router_factories_resolve()
     {
-        using var sp = Provider(b => b.AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a1111" }));
+        using var sp = Provider(b => b.AddProvider(_ => new FakeGenerationProvider { Id = "a1111" }).AddMediaRouting());
 
         Assert.NotNull(sp.GetRequiredService<ITextRouterFactory>());
         Assert.NotNull(sp.GetRequiredService<IMediaRouterFactory>());
@@ -425,7 +426,7 @@ public class ProviderPoolWiringTests
     public async Task An_app_that_opts_into_nothing_still_routes_over_its_registered_backends()
     {
         var backend = new FakeGenerationProvider { Id = "a1111" };
-        using var sp = Provider(b => b.AddGenerationProvider(_ => backend));
+        using var sp = Provider(b => b.AddProvider(_ => backend).AddMediaRouting());
 
         var result = await sp.GetRequiredService<IMediaRouter>().GenerateAsync(
             [new ProviderCandidate("a1111")],

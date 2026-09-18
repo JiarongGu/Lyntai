@@ -203,8 +203,12 @@ are a minor, a changed or missing line is a break).
 The media seam (image / video / audio / 3d) behind one capability-aware contract. Same shape as everything
 else: **the CONTRACTS are in `Lyntai.Core`** (namespaces `Lyntai.Generation`, `.Routing`, `.Jobs`, `.Tools`),
 the BACKENDS live in the `Lyntai.Generation` package under `Lyntai.Generation.Providers`, and each ships a
-one-line `builder.Add<Name>Provider(...)` shim over `AddGenerationProvider(sp => …)`. Every builder method
-names what it REGISTERS with the vendor as the qualifier (**D137**), so the suffix is on both.
+one-line `builder.Add<Name>Provider(...)` shim over `AddProvider(sp => …)` plus `AddMediaRouting()`. Every
+builder method names what it REGISTERS with the vendor as the qualifier (**D137**), so the suffix is on
+both — and the qualifier names the ENGINE, never what the backend produces (**D152**, **D156**): every
+shipped media preset is `AddOpenAiImageProvider`, `AddAutomatic1111Provider`, `AddComfyUiProvider`,
+`AddFalProvider`, `AddLocalDiffusionProvider`. There is no `Add<Domain>Provider`, because a domain is not a
+kind of provider — it is a `ProviderCapabilities.Produces` value.
 
 **A generation backend needs a MAJOR to reshape, like everything else.** `Lyntai.Generation` was EXEMPT as a
 **PACKAGE** from 2.0.1 — the backends were written from vendor docs with no key to call, and

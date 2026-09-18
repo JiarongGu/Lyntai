@@ -464,7 +464,7 @@ public sealed class MediaRouter(
         catch (Exception ex)
         {
             // THE TRUST BOUNDARY. IModelProvider documents "a value with a verdict, never a throw", and
-            // AddGenerationProvider is a documented BYO seam — so a backend that breaks that contract is a
+            // AddProvider is a documented BYO seam — so a backend that breaks that contract is a
             // case this router HANDLES rather than a case that cannot happen. Without this, one throwing
             // backend killed the whole chain: the healthy candidate was never tried, RecordGeneration never
             // fired so the attempt was invisible in telemetry, and the caller got a raw exception.

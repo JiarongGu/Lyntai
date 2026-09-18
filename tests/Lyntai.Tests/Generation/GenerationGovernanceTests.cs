@@ -281,7 +281,7 @@ public class GenerationGovernanceTests
         // render starve the chat that requested it
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
         services.AddLyntai(cfg => cfg
-            .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "hosted" })
+            .AddProvider(_ => new FakeGenerationProvider { Id = "hosted" })
             .AddMediaRateLimit(limits => limits.PermitsPerSecond = 3));
         using var sp = services.BuildServiceProvider();
 
@@ -296,7 +296,7 @@ public class GenerationGovernanceTests
         var backend = new FakeGenerationProvider { Id = "hosted", CostUsd = 5.0 };
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
         services.AddLyntai(cfg => cfg
-            .AddGenerationProvider(_ => backend)
+            .AddProvider(_ => backend)
             .UseDefaultMediaCandidates("hosted")
             .AddMediaUsageBudget(budget => budget.MaxCostUsd = 1.0)
             .AddMediaRateLimit(limits => limits.PermitsPerSecond = 100));

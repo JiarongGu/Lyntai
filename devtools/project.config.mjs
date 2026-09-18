@@ -162,15 +162,15 @@ export default {
         'LlmClientRegistration', 'LlmStructuredExtensions', 'AddLlmClient',
         'DelegatingLlmClient', 'RefusalScreeningLlmClient', 'GuardedLlmClient',
         'CachingLlmClient', 'BudgetedLlmClient', 'RateLimitedLlmClient',
-        // NS-6. The media ROUTER family. `AddGenerationProvider` is deliberately absent and still LIVE —
-        // renaming it is an open decision (`TASKS.md` Part 103), and D152's rule is why: a registration
-        // named for what a provider PRODUCES is the shape `AddEmbeddingProvider` was retired for, so
-        // `AddMediaProvider` is not automatically the answer.
+        // NS-6 and D156. `AddGenerationProvider` is here NOT renamed but DELETED: a registration named
+        // for what a provider produces is the shape `AddEmbeddingProvider` was retired for, so
+        // `AddMediaProvider` would have respelt the defect. A backend comes through `AddProvider`, the one
+        // door; `AddMediaRouting()` wires the router, which was the method's other, unnamed half.
         'IGenerationRouter', 'GenerationRouter', 'IGenerationRouterFactory', 'GenerationRouterFactory',
         'BudgetedGenerationRouter', 'RateLimitedGenerationRouter', 'GenerationRoutingPolicy',
         'GenerationSubmission', 'IGenerationJobProvider', 'GenerationOptions',
         'ConfigureGenerationRouting', 'UseDefaultGenerationCandidates',
-        'AddGenerationUsageBudget', 'AddGenerationRateLimit',
+        'AddGenerationUsageBudget', 'AddGenerationRateLimit', 'AddGenerationProvider',
       ],
       use: '`TextRequest` / `TextResponse` / `TextChunk` / `TextChunkKind` / `TextUsage` / `TextMessage` / '
         + '`TextAttachment` / `TextReasoning` / `TextTool` / `TextToolCall`, `ProviderConsumers`, '
@@ -799,19 +799,22 @@ export default {
       //
       // The ACT keeps the word and is NOT matched: GenerationPipeline, GenerationStage,
       // GenerationPipelineResult, GenerationRenderJob*, IGenerationArtifactSink, GenerationArtifactDelivery
-      // and the *Tool classes all RUN a generation. Nor is `AddGenerationProvider`, which is LIVE pending a
-      // decision, nor the tools' wire names `generate` / `generate_submit` / `generate_status` /
-      // `generate_fetch`, which are lowercase and so unreachable by any rule here anyway.
+      // and the *Tool classes all RUN a generation. Nor are the tools' wire names `generate` /
+      // `generate_submit` / `generate_status` / `generate_fetch`, which are lowercase and so unreachable by
+      // any rule here anyway. `AddGenerationProvider` IS matched — D156 DELETED it rather than renaming it,
+      // so prose offering it as a live registration is offering a door that no longer exists.
       term: '\\bIGenerationRouterFactory\\b|\\bGenerationRouterFactory\\b|\\bIGenerationRouter\\b'
         + '|\\bGenerationRouter\\b|\\bBudgetedGenerationRouter\\b|\\bRateLimitedGenerationRouter\\b'
         + '|\\bGenerationRoutingPolicy\\b|\\bGenerationSubmission\\b|\\bIGenerationJobProvider\\b'
         + '|\\bGenerationOptions\\b|\\bConfigureGenerationRouting\\b|\\bUseDefaultGenerationCandidates\\b'
-        + '|\\bAddGenerationUsageBudget\\b|\\bAddGenerationRateLimit\\b|\\bLyntai\\.Generation\\.Routing\\b',
+        + '|\\bAddGenerationUsageBudget\\b|\\bAddGenerationRateLimit\\b|\\bAddGenerationProvider\\b'
+        + '|\\bLyntai\\.Generation\\.Routing\\b',
       why: 'a router is named for the call it routes, so the media one sits beside the text one; what '
         + 'remains in Lyntai.Generation is what RUNS a generation (D154)',
       use: '`IMediaRouter` / `MediaRouter` / `MediaRouterFactory` / `MediaRoutingPolicy` / '
         + '`MediaSubmission` / `IMediaJobProvider` / `MediaOptions`, and `AddMediaUsageBudget` / '
-        + '`AddMediaRateLimit` / `ConfigureMediaRouting` / `UseDefaultMediaCandidates`',
+        + '`AddMediaRateLimit` / `ConfigureMediaRouting` / `UseDefaultMediaCandidates`, and '
+        + '`AddProvider(factory, declares)` + `AddMediaRouting()` where `AddGenerationProvider` was',
     },
     {
       // D154 NS-4. The text FRONT DOOR is named for what it serves, like the call shape it carries, and

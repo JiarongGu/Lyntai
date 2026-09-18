@@ -29,8 +29,9 @@ public class GenerationToolsTests
         var services = new ServiceCollection();
         services.AddLyntai(cfg =>
         {
-            foreach (var backend in backends) cfg.AddGenerationProvider(_ => backend);
+            foreach (var backend in backends) cfg.AddProvider(_ => backend);
             cfg.UseDefaultMediaCandidates([.. backends.Select(b => b.Id)]);
+            cfg.AddMediaRouting();
             cfg.AddGenerationTools();
         });
         if (sink is not null) services.AddSingleton<IGenerationArtifactSink>(sink);
@@ -62,7 +63,7 @@ public class GenerationToolsTests
         var services = new ServiceCollection();
         services.AddLyntai(cfg =>
         {
-            cfg.AddGenerationProvider(_ => backend);
+            cfg.AddProvider(_ => backend);
             cfg.UseDefaultMediaCandidates(["video"]);
             cfg.AddMediaUsageBudget();   // the registration whose whole promise is ONE spend number
             cfg.AddGenerationTools();

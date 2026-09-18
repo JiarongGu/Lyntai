@@ -33,7 +33,7 @@ public class GenerationRouterTests
         // THE TRUST BOUNDARY, found 2026-08-15. TextRouter.TryCompleteAsync has caught and classified a
         // thrown provider since it shipped, with the reason written out: "a provider that THROWS must get
         // the same fallback policy as one that returns a verdict reply". MediaRouter had NO try/catch
-        // at all, so one buggy BYO backend — AddGenerationProvider is a documented extension point — killed
+        // at all, so one buggy BYO backend — AddProvider is a documented extension point — killed
         // the whole chain: the healthy candidate was never tried, no telemetry was recorded, and the caller
         // got a raw exception from a contract whose whole point is "a verdict, never a throw".
         var broken = new FakeGenerationProvider { Id = "byo", Throws = new HttpRequestException("socket died") };

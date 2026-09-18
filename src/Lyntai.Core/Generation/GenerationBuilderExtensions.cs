@@ -43,13 +43,19 @@ public sealed class MediaOptions
 
 public static class GenerationBuilderExtensions
 {
-    /// <summary>Register a media backend into the <see cref="IModelProvider"/> collection. Adding a backend is
-    /// one registration — never an edit to a branch inside an existing provider (which is exactly the shape a
-    /// sibling app grew: one class with an <c>if (provider == "automatic1111")</c> inside).</summary>
-    public static LyntaiBuilder AddGenerationProvider(
-        this LyntaiBuilder builder, Func<IServiceProvider, IModelProvider> factory)
+    /// <summary>Wire media ROUTING: the router, its factory, the options and the pool it needs. Idempotent,
+    /// so every vendor preset calls it and a host may too.
+    ///
+    /// <para><b>Pair it with <c>AddProvider</c>, which is where a backend is registered</b> — media included
+    /// (<c>docs/DECISIONS.md</c> <b>D156</b>). A BYO render backend is two lines: <c>AddProvider(sp =&gt; new
+    /// MyBackend(…), declares: …)</c> registers it, and this makes the media router exist to route it. The
+    /// five shipped presets (<c>AddOpenAiImageProvider</c> and friends) do both for you.</para>
+    ///
+    /// <para>Calling it with no media backend registered is harmless: the router resolves and reports that
+    /// nothing serves the request, which is the same answer it gives when every backend is down.</para></summary>
+    public static LyntaiBuilder AddMediaRouting(this LyntaiBuilder builder)
     {
-        builder.Services.AddSingleton(factory);
+        ArgumentNullException.ThrowIfNull(builder);
         EnsureRouter(builder);
         return builder;
     }
@@ -206,7 +212,7 @@ public static class GenerationBuilderExtensions
         InstanceFor(builder, () => new MediaOptions());
 
     /// <summary>The single <see cref="MediaRoutingPolicy"/> for this builder, so
-    /// <see cref="ConfigureMediaRouting"/> and <see cref="AddGenerationProvider"/> agree on one
+    /// <see cref="ConfigureMediaRouting"/> and <see cref="AddMediaRouting"/> agree on one
     /// instance regardless of call order.</summary>
     private static MediaRoutingPolicy RoutingPolicyFor(LyntaiBuilder builder) =>
         InstanceFor(builder, () => new MediaRoutingPolicy());

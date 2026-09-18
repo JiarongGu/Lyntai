@@ -131,8 +131,9 @@ public class GenerationProviderWiringTests
         services.AddLyntai(b => b
             .AddFalProvider(o => { o.ApiKey = "k"; })
             .AddAutomatic1111Provider(o => { o.BaseUrl = "http://127.0.0.1:7860"; })
-            .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "byo" })   // the BYO seam stays open
-            .UseDefaultMediaCandidates("fal", "a1111", "byo"));
+            .AddProvider(_ => new FakeGenerationProvider { Id = "byo" })   // the BYO seam stays open
+            .UseDefaultMediaCandidates("fal", "a1111", "byo")
+            .AddMediaRouting());
         using var sp = services.BuildServiceProvider();
 
         Assert.Equal(["fal", "a1111", "byo"], sp.GetServices<IModelProvider>().Select(p => p.Id));

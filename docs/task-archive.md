@@ -4477,3 +4477,25 @@ what D153 promised and could not deliver. Pinned by a BEFORE/AFTER pair: a per-c
 backend all three times, the shared one asks it once.
 
 - **ROUTE-1 — vector and score have the routing MECHANISM but not the WIRING.**
+
+## Part 252 — `AddGenerationProvider` is deleted, not renamed (D156), closing Part 103
+
+✅ done 2026-09-18 — **Outcome:** the method is gone. A media backend is registered through
+`AddProvider(factory, declares)` — the one door every backend comes through — and `AddMediaRouting()` wires
+the media router, which was the deleted method's other, unnamed half. The five vendor presets call both, so
+`AddOpenAiImageProvider` and its siblings are unchanged. ~33 call sites and 14 test builders updated.
+Reasoning in **D156**; this closes the `decision-only` item NS-6 deliberately left open, and with it Part 103.
+
+**The owner's framing is what settled it:** generation and media are not KINDS of provider — each backend is
+named for its engine. The evidence was in the same file all along: `AddOpenAiImageProvider`,
+`AddAutomatic1111Provider`, `AddComfyUiProvider`, `AddFalProvider` and `AddLocalDiffusionProvider` each name
+an ENGINE; the one method naming a domain was the one with no engine to name, because there was no provider
+in it to name. So `AddMediaProvider` was never the answer — it would have respelt the defect **D152**
+removed from `AddEmbeddingProvider`, in the same builder, four decisions later.
+
+**A `decision-only` item earned its keep.** NS-6 could have renamed this in passing and nobody would have
+noticed; it was left visibly odd among five renamed siblings instead, and the ruling that followed deleted
+it rather than moving it. That is the state's whole purpose — a sweep that renames a name it never examined
+has decided something invisibly.
+
+- **What `AddGenerationProvider` should be called, or whether it should exist.**

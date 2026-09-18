@@ -60,9 +60,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `AddMediaUsageBudget`, `AddMediaRateLimit`, `ConfigureMediaRouting` and `UseDefaultMediaCandidates`.
   `Lyntai.Generation.Routing` is gone; `TextRouter` and `MediaRouter` are finally neighbours, which is what <!-- drift-ok: the entry ANNOUNCING the move has to name the namespace it retired -->
   D153 refusing to MERGE them always implied.
-  <br>**`AddGenerationProvider` is UNCHANGED, and that is deliberate.** Renaming it to `AddMediaProvider`
-  would ship the shape **D152** retired `AddEmbeddingProvider` for — a registration named for what a <!-- drift-ok: the entry explains why it did NOT repeat a retired name -->
-  provider produces. It is the one media registration still reading `Generation*`, pending that decision.
+  <br>**`AddGenerationProvider` is DELETED rather than renamed** (**D156**). `AddMediaProvider` would have <!-- drift-ok: the entry ANNOUNCING the removal has to name what it removes -->
+  shipped the shape **D152** retired `AddEmbeddingProvider` for — a registration named for what a provider <!-- drift-ok: the entry explains why it did NOT repeat a retired name -->
+  produces, when a domain is not a kind of provider at all. It also did two jobs: registering a backend, and
+  wiring the media router. Both halves now have true names — **`AddProvider(factory, declares)`** is the one
+  door every backend comes through, and **`AddMediaRouting()`** wires the router.
+  <br>**The five vendor presets are unchanged**: `AddOpenAiImageProvider`, `AddAutomatic1111Provider`,
+  `AddComfyUiProvider`, `AddFalProvider` and `AddLocalDiffusionProvider` do both for you, and each names an
+  ENGINE — which is the rule, and was the evidence. A BYO render backend is now two calls instead of one.
   <br>**What KEEPS the word, on the media side:** `GenerationPipeline`, `GenerationStage`,
   `GenerationRenderJob`, `IGenerationArtifactSink` and the media tools — they RUN a generation rather than
   being the shape of a call — plus the tools' wire names (`generate`, `generate_submit`, `generate_status`,
