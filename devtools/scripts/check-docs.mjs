@@ -45,6 +45,11 @@ export const HISTORICAL = [
   // and `IGenerationStreamProvider` to one name in a sentence that CONTRASTED them, and restating a 2.0.1
   // package merge under a name that package never had. A gate checking CURRENT vocabulary against a record
   // of its own day does not find drift; it manufactures it.
+  //
+  // NARROWED 2026-09-19 (D164): the seeds stay exempt, but the DATED AMENDMENTS are re-admitted through
+  // LIVE_REGIONS below — they are the file's live half, present-tense contract claims, and the 2026-09-19
+  // review found D152–D158 had left zero trace in them precisely because this whole-file hole hid them
+  // from every sweep. The exemption's reason only ever covered the seeds.
   /^docs\/2026-07-17-lyntai-design\.md$/,
 ];
 
@@ -68,9 +73,12 @@ export const LIVE_PREFIX = [
   { file: /^CHANGELOG\.md$/, until: /^## \d+\.\d+\.\d+/ },
 ];
 
-/** A file is READ when it is not wholly historical; a partly-historical one is read for its live prefix. */
+/** A file is READ when it is not wholly historical; a partly-historical one is read for its live
+ * prefix (CHANGELOG) or its live regions (the design record's dated amendments, D164). */
 export const IS_SCANNED = (path) =>
-  !HISTORICAL.some((re) => re.test(path)) || LIVE_PREFIX.some((r) => r.file.test(path));
+  !HISTORICAL.some((re) => re.test(path))
+  || LIVE_PREFIX.some((r) => r.file.test(path))
+  || LIVE_REGIONS.some((r) => r.file.test(path));
 
 /**
  * How many leading lines of `file` are maintained state: `Infinity` for an ordinary document, and for a
@@ -82,6 +90,66 @@ export function liveLineCount(file, lines) {
   if (!rule) return Infinity;
   const at = lines.findIndex((l) => rule.until.test(l));
   return at < 0 ? lines.length : at;
+}
+
+/**
+ * A file that is historical THROUGHOUT except for its INLINE dated amendments — the design record's
+ * shape, where seeds and live amendments INTERLEAVE, so no prefix boundary can express the split (D164).
+ * The mask keys on the syntax the document already uses, so re-scoping the exemption cost it no new
+ * markup: an inline `*(YYYY-MM-DD: …)*` runs to its closing `)*` and is LIVE — the document's convention
+ * makes that form the present-tense contract tier. A `> **Amendment (…)**` blockquote stays EXEMPT on a
+ * measurement: the seven of them are period records (shipping summaries, superseded policy statements —
+ * 157 lines carrying 49 retired-vocabulary hits that are each accurate for their day), which is the
+ * cry-wolf ratio D144/D158 refuse to gate. State the CURRENT contract inline; record a period in a
+ * blockquote.
+ */
+export const LIVE_REGIONS = [
+  { file: /^docs\/2026-07-17-lyntai-design\.md$/, mask: amendmentMask },
+];
+
+/** The line mask for a seeds-plus-amendments record: true exactly on the INLINE dated amendment units. */
+export function amendmentMask(lines) {
+  const mask = new Array(lines.length).fill(false);
+  let i = 0;
+  while (i < lines.length) {
+    if (/^\s*\*\(20\d\d-\d\d-\d\d/.test(lines[i])) {
+      // inline dated amendment, through its closing `)*` — which may be the same line
+      let j = i;
+      for (; j < lines.length; j++) {
+        mask[j] = true;
+        if (/\)\*\s*$/.test(lines[j])) break;
+      }
+      i = j + 1;
+      continue;
+    }
+    i++;
+  }
+  return mask;
+}
+
+/**
+ * The line-level answer to "which of this file's lines are maintained state": null for an ordinary
+ * document (all of it), a boolean per line otherwise — prefix-shaped files render as prefix-shaped masks,
+ * region-shaped files as their amendment units. The single source every prose gate reads, for the reason
+ * HISTORICAL's own note gives: answering it differently in two gates is how the permissive copy goes
+ * unnoticed.
+ */
+export function liveLineMask(file, lines) {
+  const region = LIVE_REGIONS.find((r) => r.file.test(file));
+  if (region) return region.mask(lines);
+  const prefix = liveLineCount(file, lines);
+  if (prefix === Infinity) return null;
+  return lines.map((_, i) => i < prefix);
+}
+
+/**
+ * The lines a prose gate should read, with the historical ones BLANKED rather than removed — a blank
+ * neutralizes content while keeping every index true, so `file:line` in a report still names the line a
+ * reader will find. (The prefix rules used to slice; slicing cannot express an interleaved mask.)
+ */
+export function liveLinesOnly(file, lines) {
+  const mask = liveLineMask(file, lines);
+  return mask === null ? lines : lines.map((l, i) => (mask[i] ? l : ''));
 }
 
 /**
@@ -212,10 +280,11 @@ export function checkDocs(repo, config, log = console.log, files = null) {
     const isCode = CODE_IN_SCOPE(file);
     if (!isCode && SUPERSEDED_BANNER.test(text)) { skipped++; continue; }
 
-    // A partly-historical file is scanned down to its boundary and no further, so the windows below never
-    // reach across it. Line numbers are unaffected — this is a PREFIX, so index i is still line i + 1.
+    // A partly-historical file is scanned only where it is LIVE — a prefix (CHANGELOG) or the dated
+    // amendment regions (the design record, D164) — with historical lines BLANKED rather than sliced, so
+    // index i is still line i + 1 and a window never joins live prose to a record's.
     const all = text.split(/\r?\n/);
-    const lines = isCode ? commentLinesOnly(all) : all.slice(0, liveLineCount(file, all));
+    const lines = isCode ? commentLinesOnly(all) : liveLinesOnly(file, all);
 
     // Each line is tested BOTH alone and soft-joined to the one after it. Line-only matching was a blind
     // spot that hid every rule in the registry from any claim spanning a wrap: these documents wrap at ~110

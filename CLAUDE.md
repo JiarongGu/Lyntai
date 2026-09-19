@@ -14,12 +14,12 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 ## Current state
 
 **Released: v3.1.0 (2026-08-23).** Eleven packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D163** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D164** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3848 passed / 3882 total, 34 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 860/860, doc samples 61/61. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 862/862, doc samples 61/61. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED with Docker up, re-attested 2026-09-19 at `e9716e66`** (+6 against `a6640a11`: five governance

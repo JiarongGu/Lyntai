@@ -4608,3 +4608,16 @@ consumer-tier ladder; and the score kind's compose-it-yourself recipe is in
 release-facing detail: `CHANGELOG.md` Unreleased.
 
 - Vector/score governance WIRING (the slots froze as D162; this is the behavior)
+
+## Part 259 — the design record's gate exemption, ruled and narrowed to its seeds (D164)
+
+✅ done 2026-09-19 — **Outcome:** closes `TASKS.md` Part 257's decision-only half, and with it the whole
+Part (both halves closed the day they were filed). The owner ruled for region-scoped scanning over a
+release-checklist read, a document restructure, and accepting the hole; `LIVE_REGIONS` + `liveLineMask`
+now serve all three prose gates from `check-docs.mjs`, the design record's eleven inline amendments are
+gated (seven announcing lines took `drift-ok`/`link-ok`, the standard pattern), its seven period
+blockquotes stay exempt on the 49-hits-in-157-lines measurement, and the reading note states the two-tier
+convention so the split is writable, not just inferable. Reasoning and alternatives: **D164**. Guard tests
+862/862 (two added for the mask).
+
+- The design contract is exempt from every prose gate — decide the exemption's scope

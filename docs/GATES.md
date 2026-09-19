@@ -606,7 +606,9 @@ and says nothing. The retired name is gone, so `check-docs` is happy; the surviv
 `check-links` is happy; prose was never on a baseline, so `check-api-vocabulary` never looked.
 
 **It has happened, and the first remedy treated one file.** `check-docs`' own `HISTORICAL` list records the
-2026-09-15 sweep collapsing a contrast in `docs/2026-07-17-lyntai-design.md`, and exempted that file. The
+2026-09-15 sweep collapsing a contrast in `docs/2026-07-17-lyntai-design.md`, and exempted that file —
+whole, until **D164** narrowed the exemption to its seeds and period blockquotes: the inline dated
+amendments, the file's present-tense contract tier, are scanned again through `LIVE_REGIONS`. The
 same sweep left **six** more — `docs/DECISIONS.md` (D36, D128, D130), `CHANGELOG.md`,
 `.claude/knowledge/pitfalls.md` and a shipped `//` comment in `Lyntai.Core` — plus four in `README.md` that
 this rule's shape does not reach, one of them a compiled sample type-testing `IModelProvider` against

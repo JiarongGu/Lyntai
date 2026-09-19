@@ -15,24 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 11 across 6 Parts: 3 startable, 4 blocked, 2 watch, 2 decision-only
+## Open items — 10 across 5 Parts: 3 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 112 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 129 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 162 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 215 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 234 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 279 | 257 | The design contract is exempt from every prose gate — decide the exemption'… | decision-only · decision | a ruling on whether the HISTORICAL exemption narrows to the v0.1 seed block… |
-| 303 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 363 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 418 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 441 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 498 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 111 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 128 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 161 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 214 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 233 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 288 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 348 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 403 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 426 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 483 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -270,20 +269,6 @@ fourth such surface — a consuming app measured it 2026-08-04 and it is now con
 
 ---
 
-
-## Part 257 — what the design-closure review filed (2026-09-19)
-
-_Opened by `docs/task-archive.md` **Part 256**, which closed all of Part 102. The startable half — the
-vector/score governance wiring — closed the same day as **Part 258** (D163); what remains needs a ruling._
-
-- [ ] **The design contract is exempt from every prose gate — decide the exemption's scope.** <!-- item: state=decision-only kind=decision needs="a ruling on whether the HISTORICAL exemption narrows to the v0.1 seed blocks, or a release-checklist human read replaces gating for docs/2026-07-17-lyntai-design.md" -->
-  `docs/2026-07-17-lyntai-design.md` sits in `check-docs`' HISTORICAL list, and `check-links` +
-  `check-samples` reuse that predicate — so since 2026-09-15 no sweep, rename or retired-term rule touches
-  the file `CLAUDE.md` says to read FIRST. The 2026-09-19 review found D152–D158 had left zero trace in it
-  (five dated amendments repaired §5.1/§5.5/§5.6/§6/§10), and the next sweep will skip it again. The
-  exemption exists because the v0.1 seed blocks must keep their day's wording; the cost is that the
-  AMENDMENTS — the live half — are unguarded too. Candidates: scope the exemption to fenced seed blocks,
-  or add the file to a release checklist as a human read. Neither is free; rule before the next sweep.
 
 ## Part 41 — CLI backends: the codex surface still to MEASURE (2026-08-05)
 

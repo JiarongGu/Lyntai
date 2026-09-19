@@ -58,7 +58,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLineCount, trackedFiles } from './check-docs.mjs';
+import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLineMask, trackedFiles } from './check-docs.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repoDefault = join(dirname(here), '..', '..');
@@ -524,13 +524,14 @@ export function checkSamples(repo, { log = console.log, files = null, compile = 
     let text;
     try { text = readFile(file); } catch { continue; }
     if (SUPERSEDED_BANNER.test(text)) { supersededDocs++; continue; }
-    // Shared with check-docs, deliberately: a partly-historical file (CHANGELOG.md) is live down to its
-    // first released heading, so a fenced sample under `## Unreleased` is compiled and one under a shipped
-    // version is left as the record it is. Answering this question differently in the two gates is how the
-    // permissive copy goes unnoticed — see check-docs.mjs's note on HISTORICAL.
-    const live = liveLineCount(file, text.split(/\r?\n/));
+    // Shared with check-docs, deliberately: a partly-historical file is live down to its boundary
+    // (CHANGELOG) or inside its dated amendment regions (the design record, D164), so a fenced sample
+    // under `## Unreleased` is compiled, a v0.1 seed block is left as the record it is, and a fence an
+    // amendment ever grows would be compiled like any other. Answering this question differently in the
+    // two gates is how the permissive copy goes unnoticed — see check-docs.mjs's note on HISTORICAL.
+    const mask = liveLineMask(file, text.split(/\r?\n/));
     for (const block of extractBlocks(text, file)) {
-      if (block.line > live) continue;
+      if (mask !== null && !mask[block.line - 1]) continue;
       if (block.conflict) { conflicts.push(block); continue; }
       if (!block.skip) { blocks.push(block); continue; }
       skipped.push(block);

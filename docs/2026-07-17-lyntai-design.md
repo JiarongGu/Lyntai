@@ -10,6 +10,13 @@ reconciles the later pre-1.0 line) · Date: 2026-07-17 · Scope: *Brain + persis
 > public-API baselines (`tests/Lyntai.Tests/Api/Baselines/`, D8) govern *shape*. Where a §5 snippet
 > differs from the baseline, the baseline is current and the snippet is the v0.1 seed kept for its
 > semantic commentary.
+>
+> **Amendments come in TWO tiers, and the prose gates read exactly one of them (D164).** An inline
+> `*(YYYY-MM-DD: …)*` states the CURRENT contract and is scanned like any maintained document — write one
+> when a decision changes what this file's section claims. A `> **Amendment (…)**` blockquote is a PERIOD
+> record (a shipping summary, a superseded policy statement), accurate by using the vocabulary of its day
+> and exempt with the seeds. Do not state new present-tense contract in a blockquote — the gates cannot
+> see it there.
 
 ---
 
@@ -164,14 +171,14 @@ public interface ILlmRouter {
 }
 public sealed record LlmCandidate(string ProviderId, string? Model = null);
 ```
-*(2026-08-05: `LlmVerdict` now has **nine** members — the five above plus `ContextWindowExceeded`,
-`AuthFailed`, `Unsupported` and `NotConfigured`. **`src/Lyntai.Core/Llm/LlmVerdict.cs` is the canonical
+*(2026-08-05: `LlmVerdict` now has **nine** members — the five above plus `ContextWindowExceeded`, <!-- drift-ok: the record names the enum of its day; the 2026-09-15 amendment below supersedes it -->
+`AuthFailed`, `Unsupported` and `NotConfigured`. **`src/Lyntai.Core/Llm/LlmVerdict.cs` is the canonical <!-- drift-ok: as above --><!-- link-ok: the canonical path as it stood that day; the 2026-09-15 amendment below repoints it -->
 statement**; §9's 2026-07-26 amendment lists the additions and §6 gives each one's routing action. The block
 above is the v0.1 seed, kept for its semantic commentary per the reading note at the top of this doc.)*
 
 *(2026-09-15: the enum is `Lyntai.Inference.ProviderVerdict` and **`src/Lyntai.Core/Inference/ProviderVerdict.cs`
-is the canonical statement**, superseding the path named above. It was `Lyntai.Llm.LlmVerdict`, with
-`Lyntai.Generation.GenerationVerdict` carrying the same members under a second name and a translation layer
+is the canonical statement**, superseding the path named above. It was `Lyntai.Llm.LlmVerdict`, with <!-- drift-ok: the amendment ANNOUNCING the supersession has to name both sides -->
+`Lyntai.Generation.GenerationVerdict` carrying the same members under a second name and a translation layer <!-- drift-ok: as above -->
 between them; one taxonomy serves every domain, and what a router DOES about a verdict stays per-domain
 policy — `docs/DECISIONS.md` **D136**. Every block above keeps its ORIGINAL spelling, as this record's
 reading note requires.)*
@@ -252,7 +259,7 @@ services.AddLyntai(cfg => {
 Options bind from config + env overrides (`LYNTAI_*`). Sensible defaults so the minimal setup is a
 provider + storage.
 
-*(2026-09-19: the snippet above is the v0.1 seed and two of its doors are gone — `AddOpenAiCompatibleProvider`
+*(2026-09-19: the snippet above is the v0.1 seed and two of its doors are gone — `AddOpenAiCompatibleProvider` <!-- drift-ok: the amendment ANNOUNCING the rename has to name it -->
 became `AddHttpProvider` (**D135**) and the `Microsoft.Extensions.AI` bridge was deleted outright (**D146**;
 bridging is `AddBridgeProvider("id", (req, ct) => …)`, a lambda that costs the library no dependency,
 **D147**). Today's registration story: `AddProvider(factory, declares)` is the one generic door every backend
@@ -913,7 +920,7 @@ count, a cooldown-key scope, and a sole-candidate exemption — overridable via 
 prompts carry newlines + metacharacters), prompt over **stdin**, **BOM-less UTF-8** both directions,
 resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`), `Kill(entireProcessTree:true)` on
 cancel, per-call timeout. Cheap utility calls run from a **neutral cwd** (no project config loaded).
-*(2026-08-04: these live once in `CliProviderEngine` (`Lyntai.Llm.Cli`); a new CLI backend is an
+*(2026-08-04: these live once in `CliProviderEngine` (`Lyntai.Llm.Cli`); a new CLI backend is an <!-- drift-ok: the record names the namespace of its day; D154 moved it -->
 `ICliProviderDialect`, never a second copy — D21/D22.)*
 
 **Structured output:** schema-constrained call, tolerant JSON extraction from prose/code-fences, one
@@ -957,15 +964,14 @@ retry on parse failure, else `Failed` verdict.
 > `docs/task-archive.md` **Part 40** — so the arm is settled: the reporting slot went in first and the
 > verdict mapping followed it, which was the load-bearing order.
 
-> **Amendment (2026-09-19): the TRANSLATION layer above is deleted, the divergences it protected are not.**
-> One `ProviderVerdict` serves every domain (**D136**), so `GenerationVerdictClassifier.Translate` and its
-> one-arm-per-member growth gate no longer exist — there is nothing to translate. What survives, verbatim, is
-> the per-domain ACTION split, now stated by `MediaRoutingPolicy` against the shared enum: `Unsupported`
-> advances on the media side and surfaces on the text side, an unmapped verdict advances here and is
-> penalized there, and `ContextWindowExceeded` — the member that used to collapse to `Failed` for lack of a
-> media counterpart — has its own explicit entry and ADVANCES with no dead-host penalty. And the BYO media
-> seam the 3.0 amendment below names is now two calls: `AddProvider(factory, declares)` +
-> `AddMediaRouting()` (**D156**).
+*(2026-09-19: the TRANSLATION layer above is deleted, the divergences it protected are not. One
+`ProviderVerdict` serves every domain — **D136** — so the translate step and its one-arm-per-member growth
+gate no longer exist; there is nothing to translate. What survives, verbatim, is the per-domain ACTION
+split, now stated by `MediaRoutingPolicy` against the shared enum: `Unsupported` advances on the media side
+and surfaces on the text side, an unmapped verdict advances here and is penalized there, and
+`ContextWindowExceeded` — the member that used to collapse to `Failed` for lack of a media counterpart —
+has its own explicit entry and ADVANCES with no dead-host penalty. And the BYO media seam the 3.0 amendment
+below names is now two calls: `AddProvider(factory, declares)` + `AddMediaRouting()` — **D156**.)*
 
 ## 7. Storage conventions (from the family)
 
@@ -1122,7 +1128,7 @@ implements the domain interfaces. Adding a provider = a new `ILlmProvider` or an
 through the bridge.
 
 *(2026-09-19: the ergonomics hold; three names moved under them. The front door is `ITextClient` — inject it,
-never the router — and the seed's `ILlmClient` spelling is the D154 rename's before-side. The bridge PACKAGE
+never the router — and the seed's `ILlmClient` spelling is the D154 rename's before-side. The bridge PACKAGE <!-- drift-ok: the amendment names the seed spelling to say what replaced it (D154) -->
 is gone: bridging any `IChatClient`, SDK or in-house service is `AddBridgeProvider("id", (req, ct) => …)`, a
 delegate the consumer owns (**D146**/**D147**). Adding a provider is a new `IModelProvider` registered with
 `AddProvider(factory, declares)` — or, for a spawned CLI, an `ICliBackend` plus a thin provider composing

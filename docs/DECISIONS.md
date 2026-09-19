@@ -233,8 +233,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D161](#d161---breaking-means-names-an-action-a-consumer-or-implementer-must-take-2026-09-19) | 2026-09-19 | `### Breaking` means "names an action a consumer or implementer must take" |
 | [D162](#d162--the-ledger-is-shape-neutral-and-every-call-shape-carries-governance-slots-2026-09-19) | 2026-09-19 | the ledger is shape-neutral, and every call shape carries governance slots |
 | [D163](#d163--the-one-wallet-reaches-every-kind-a-router-can-attribute-2026-09-19) | 2026-09-19 | the one wallet reaches every kind a router can ATTRIBUTE |
+| [D164](#d164--the-design-records-exemption-narrows-to-its-seeds-inline-amendments-are-gated-2026-09-19) | 2026-09-19 | the design record's exemption narrows to its seeds; inline amendments are gated |
 
-_All 163 entries are live decisions._
+_All 164 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5088,3 +5089,28 @@ carries `ProviderConsumers.Memory`; the tool selector's embeds carry `ProviderCo
 operator's `Budget.PerConsumer["memory"]` cap now genuinely fences memory spend — and a reached cap
 degrades a recall through the seams' existing fail-open paths rather than failing it, which is why routing
 the refusal as a verdict (never a throw) is load-bearing.
+
+## D164 — the design record's exemption narrows to its seeds; inline amendments are gated (2026-09-19)
+
+**The decision.** `docs/2026-07-17-lyntai-design.md` was exempt from every prose gate — `check-docs`'
+HISTORICAL list, whose predicate `check-links` and `check-samples` share — so its LIVE half rotted
+invisibly: the 2026-09-19 review found D152–D158 had left zero trace in the file `CLAUDE.md` says to read
+first. The exemption's reason only ever covered the v0.1 seeds, so it narrows to them: a `LIVE_REGIONS`
+rule beside `LIVE_PREFIX` re-admits the file's INLINE dated amendments (`*(YYYY-MM-DD: …)*` to its closing
+`)*`), keyed on the syntax the document already uses — no new markup — with historical lines BLANKED
+rather than sliced so `file:line` reports stay true. One `liveLineMask` serves all three gates, for the
+reason the HISTORICAL note already gives: answering scope differently in two gates is how the permissive
+copy goes unnoticed.
+
+**The `> **Amendment (…)**` blockquotes stay exempt, on a measurement.** The amendments turned out to be
+two tiers: eleven inline units (65 lines) of present-tense contract, and seven blockquotes (157 lines) of
+period record — shipping summaries, superseded policy statements — carrying 49 retired-vocabulary hits
+that are each accurate for their day. Gating those is the cry-wolf ratio D144/D158 refuse twice over; the
+reading note now states the convention (current contract inline, period record blockquote), so the split
+is a rule a writer can follow rather than a fact a reader must infer.
+
+**Alternatives weighed**: a release-checklist human read (the shape this repository distrusts — a rule
+written down and still violated is a missing gate); restructuring the document into a frozen record plus a
+maintained twin (changes the file's role and re-fights D114's split traps for less coverage than the mask
+buys); accepting the hole (what the review just measured the cost of). Gating the inline tier keeps the
+seeds' protection and makes the live half fail loudly, which is the whole of what was asked.

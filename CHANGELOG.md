@@ -1158,6 +1158,12 @@ every addition.
 
 ### Internal (no public surface change)
 
+- **The design record's prose-gate exemption narrowed to its seeds** (**D164**): the file's INLINE dated
+  amendments — its present-tense contract tier — are scanned by `check-docs`/`check-links`/`check-samples`
+  through a shared line mask, while the v0.1 seeds and the period-record blockquotes stay the record they
+  are. The 2026-09-19 review found the whole-file hole had hidden D152–D158 from the file consumers are
+  told to read first.
+
 - **The always-on documentation tier is 60% smaller** — `CLAUDE.md` plus `.claude/rules/*` went from
   141,330 to 55,828 characters (~35k tokens to ~14k), which is what every session pays before it does
   anything. Nothing was deleted without a home: the per-gate narrative moved to the new **`docs/GATES.md`**,

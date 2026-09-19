@@ -9,7 +9,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { HISTORICAL, IN_SCOPE, IS_SCANNED, checkDocs, liveLineCount, trackedFiles } from '../check-docs.mjs';
+import { HISTORICAL, IN_SCOPE, IS_SCANNED, checkDocs, liveLineCount, liveLineMask, trackedFiles } from '../check-docs.mjs';
 import { git, makeRepo, makeTree, recorder, removeTree } from './_fixtures.mjs';
 
 /** One rule, phrased like a real registry entry: a CLAIM shape, short enough to sit inside one wrapped line. */
@@ -191,6 +191,59 @@ describe('check-docs — CHANGELOG.md is historical only BELOW its first release
   it('honours drift-ok inside the live prefix', () => {
     const { code } = run(changelog('## Unreleased', '', `- ${stale} <!-- drift-ok -->`, '', '## 2.5.0 — x'));
     assert.equal(code, 0);
+  });
+
+  it('masks the design record so ONLY its INLINE dated amendments are live (D164)', () => {
+    // The frozen v0.1 design record interleaves seeds (kept verbatim, exempt) with dated amendments —
+    // and the amendments come in TWO tiers the document's own convention distinguishes. An inline
+    // `*(date: …)*` states the CURRENT contract and is live; a `> **Amendment**` blockquote is a period
+    // record (a shipping summary, a superseded policy statement), measured at 49 retired-vocabulary hits
+    // across 157 lines that are each accurate for their day — the cry-wolf ratio this repository refuses
+    // to gate. The mask keys on that existing syntax, so re-scoping the exemption cost no new markup.
+    const lines = [
+      '## 5.1 The seam',                                        // 0: seed prose — historical
+      'public interface ILlmProvider { }',                      // 1: seed code — historical
+      '',                                                       // 2
+      '*(2026-09-15: the enum is now `ProviderVerdict` and',    // 3: inline amendment — LIVE
+      'the canonical statement moved.)*',                       // 4: …to its closing `)*` — LIVE
+      '',                                                       // 5
+      'More seed prose kept verbatim.',                         // 6: historical
+      '> **Amendment (2026-08-04): the router grew a door.**',  // 7: blockquote amendment — a period RECORD
+      '> Its second line is still that record.',                // 8: exempt with it
+      '',                                                       // 9
+      'Trailing seed prose.',                                   // 10: historical
+    ];
+    const mask = liveLineMask('docs/2026-07-17-lyntai-design.md', lines);
+    assert.deepEqual(
+      mask,
+      [false, false, false, true, true, false, false, false, false, false, false],
+      'inline amendment units live, everything else — seeds and period blockquotes — record');
+
+    assert.equal(liveLineMask('docs/anything-else.md', lines), null, 'an ordinary document has no mask');
+    const changelog = ['# Changelog', '## Unreleased', '- a thing', '## 2.5.0 — x', '- old'];
+    assert.deepEqual(
+      liveLineMask('CHANGELOG.md', changelog),
+      [true, true, true, false, false],
+      'a prefix-shaped file renders as a prefix-shaped mask');
+  });
+
+  it('flags a retired claim inside a design-record AMENDMENT, and not in the seed beside it', () => {
+    const seedOnly = [
+      '# design', '',
+      `The seed says: ${stale}.`, '',
+      '*(2026-09-19: this amendment is clean.)*', '',
+    ].join('\n');
+    const clean = run({ 'docs/2026-07-17-lyntai-design.md': seedOnly });
+    assert.equal(clean.code, 0, clean.out);
+
+    const inAmendment = [
+      '# design', '',
+      'Seed prose, kept verbatim.', '',
+      `*(2026-09-19: today ${stale}, which is a live claim.)*`, '',
+    ].join('\n');
+    const dirty = run({ 'docs/2026-07-17-lyntai-design.md': inAmendment });
+    assert.equal(dirty.code, 1, dirty.out);
+    assert.match(dirty.out, /2026-07-17-lyntai-design\.md:5/);
   });
 
   it('counts the live lines: everything above the first `## <major>.<minor>.<patch>` heading', () => {

@@ -22,7 +22,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HISTORICAL, IN_SCOPE, IS_SCANNED, LIVE_PREFIX, liveLineCount } from './check-docs.mjs';
+import { HISTORICAL, IN_SCOPE, IS_SCANNED, LIVE_PREFIX, liveLinesOnly } from './check-docs.mjs';
 import { repoFiles, twoLineWindows } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
@@ -372,10 +372,12 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     let text;
     try { text = readFileSync(join(repo, file), 'utf8'); } catch { continue; }
 
-    // A partly-historical file is read down to its boundary and no further — the released half of a
-    // CHANGELOG names paths that were right on the day, which is the whole reason it is exempt at all.
+    // A partly-historical file is read only where it is LIVE — a prefix (CHANGELOG's unreleased half)
+    // or the dated amendment regions (the design record, D164) — with historical lines BLANKED so line
+    // numbers stay true: the released half of a CHANGELOG and a v0.1 seed both name paths that were right
+    // on the day, which is the whole reason either is exempt at all.
     const all = text.split(/\r?\n/);
-    const lines = all.slice(0, liveLineCount(file, all));
+    const lines = liveLinesOnly(file, all);
     const windows = twoLineWindows(lines);
 
     for (const [i, line] of lines.entries()) {
