@@ -34,7 +34,8 @@ per-version design record, where one exists, is indexed in `docs/superpowers/IND
 | v3.0.1 (2026-08-21) | **five memory seams two adopting applications had to work around**, all one shape — a registration that resolves and can never run (D83–D86): the composition renderer reachable without an engine, per-entry grades for a curated catalog that mixes provenance, fan-out writes so a blend's second member is not silently empty, a wiring check for a member or policy nothing can reach, and a scope-optional semantic recall. Additive throughout |
 
 | v3.0.2 (2026-08-22) | the adopting applications' next round, same shape as 3.0.1 — a seam that resolves and cannot run (see `CHANGELOG.md`) |
-| **v3.1.0** (2026-08-23) | **the current release.** Detail is `CHANGELOG.md`; this table is one line per version, deliberately |
+| v3.1.0 (2026-08-23) | see `CHANGELOG.md`; this table is one line per version, deliberately |
+| **v3.2.0** (2026-09-19) | **the current release** — the design-closure window (D159–D165): the wire is a provider and "dialect" leaves the vocabulary, one wallet reaching every attributable kind, the design record's gate exemption narrowed to its seeds, and a BINARY process stream. The generation backends stopped being documented-not-measured — `sd-cli`, ComfyUI (image and video) and a streaming piper TTS backend all measured against real engines — leaving fal's wire the only unmeasured one. Detail is `CHANGELOG.md` |
 
 ## Planned
 
