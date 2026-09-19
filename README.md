@@ -772,6 +772,18 @@ spend, throughput) and compose on one chain — **cache outermost, rate-limit in
 spends nothing: no budget accounting and no rate-limit permit. Register your own `IRateLimiter` for a
 limiter shared across processes.
 
+**The same wallet reaches beyond the text front door** (`docs/DECISIONS.md` **D163**). A factory-built
+`ProviderRouter<,>` — what an embed or a rerank routes through — budgets, rate-limits and records spend for
+any request it can ATTRIBUTE, checked *before* the candidate loop, so a refusal costs no backend call and
+benches no host. Both token and cost caps bind there (an embed is token-metered, where a render is
+cost-only). **The library stamps its own traffic**, so those caps are usable by name: every memory-seam
+embed, semantic recall and scoring verification bills to `"memory"`, and the tool selector's embeds to
+`"agent"` — `b.PerConsumer["memory"]` genuinely fences memory spend, and a reached cap degrades a recall
+through the seams' existing fail-open paths rather than failing it. All of this is reached by the same
+opt-in you already made: call neither `AddUsageBudget()` nor `AddRateLimit()` and nothing changes. **The one
+thing to expect after opting in** is that embedding spend now appears in `IUsageTracker` totals under those
+tags, where it was previously untracked.
+
 **A layer of your own goes on the same chain:** `AddFrontDoorDecorator(order, (sp, inner) => …)` folds PII
 redaction, request logging or a bespoke cache in beside the built-ins — higher `order` = further out, with
 the built-ins at 5 (rate limit) / 10 (budget) / 20 (cache), so 15 sits between budget and cache and 25
@@ -832,8 +844,8 @@ want your own queryable trace timeline; reach for OTel for live tracing/metrics.
 Lyntai defines the interfaces; your app owns the resource lifecycle wherever that matters.
 
 <!-- compile-skip: a tour of BYO seams. compile-given was measured and rejected here: IProcessRunner
-     alone is two eight-parameter methods, and with MyCustomProvider (IModelProvider, four members) and a
-     connection factory the context runs to ~26 lines for a 16-line sample — a whole program, not a few
+     alone is three eight-parameter methods, and with MyCustomProvider (IModelProvider, four members) and a
+     connection factory the context runs past 26 lines for a 16-line sample — a whole program, not a few
      declarations. -->
 ```csharp
 services.AddLyntai(cfg =>
@@ -866,6 +878,13 @@ cancelled, and the default `StorageFeature.All` is a single pass.
 
 Anything you register wins over Lyntai's default (the defaults use `TryAdd`), and every storage domain
 is itself an interface (`IKeyValueStore`, `IMemoryStore`, …) you can implement wholesale.
+
+**One obligation a BYO `IProcessRunner` acquired in 3.2.0:** `StreamBytesAsync` — the binary sibling of the
+line-shaped stream, for a child whose stdout is DATA rather than text (piper's PCM). It is a DEFAULTED
+member, so an existing runner compiles untouched; its default REFUSES with a `NotSupportedException` rather
+than degrading, because binary cannot be served through the buffered member's string-typed stdout — a
+decode is corruption, not a slower answer. Implement it only if a byte-streaming backend routes through
+your runner (**D165**).
 
 ### Backend self-maintenance: version · upgrade · pinned install · auth
 
@@ -1057,8 +1076,8 @@ services.AddLyntai(cfg => cfg
 ```
 
 Each backend has an `Add*` of its own — `AddOpenAiImageProvider`, `AddAutomatic1111Provider`,
-`AddComfyUiProvider`, `AddFalProvider`, `AddLocalDiffusionProvider`, `AddPiperProvider` — and each takes a **configure
-callback**, the same shape as `AddHttpProvider(id, o => …)` on the LLM side. Every option has a
+`AddComfyUiProvider`, `AddFalProvider`, `AddLocalDiffusionProvider`, `AddPiperProvider` — and each takes a
+**configure callback**, the same shape as `AddHttpProvider(id, o => …)` on the LLM side. Every option has a
 default (each backend's conventional local URL, or the vendor's API root), so a registration sets only what
 differs from it; a blank base URL reports `NotConfigured` rather than failing.
 For a render backend of your own, `AddProvider(sp => …, declares: …)` registers it — the one door every

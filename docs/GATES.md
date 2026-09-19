@@ -208,6 +208,16 @@ the vocabulary of their day; `CHANGELOG.md`'s live `## Unreleased` prefix is sca
 describes behaviour that has not shipped and can still change under the words describing it. The design
 records are untracked (`local/superpowers/`) and never scanned.
 
+**A partly-historical file is scanned exactly where it is LIVE**, and that answer is computed ONCE —
+`liveLineMask`, with `liveLinesOnly` over it — for this gate, `check-links` and `check-samples` alike.
+Answering it differently in three places is how the permissive copy goes unnoticed on whichever was
+forgotten. Two shapes qualify: a live
+PREFIX (`CHANGELOG.md`, down to its first version heading) and live REGIONS (**D164** — the design
+contract's inline dated amendments, its present-tense tier). Historical lines are BLANKED rather than
+sliced out, so `file:line` stays true and a two-line window can never join live prose to a record's. **The
+prefix is transient and the regions are not**, which is why `check-samples` refuses a compiled sample in
+the former: the release stamp deletes that region on its way past.
+
 **It also scans code COMMENTS** in `src/`, `tests/` and `bench/` — the compiler resolves `<see cref>` and
 nothing else, so a retired CLAIM in a `<c>` tag or a `//` comment was checked by no one.
 
