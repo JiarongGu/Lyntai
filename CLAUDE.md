@@ -18,14 +18,13 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D164** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3848 passed / 3882 total, 34 skipped` (the skips are
+**The baseline a green run should match:** `3850 passed / 3884 total, 34 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 862/862, doc samples 61/61. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-19 at `e9716e66`** (+6 against `a6640a11`: five governance
-pins and the consumer-tier timeout ladder, **D163**; that commit's own line was +12 net against `77376423`
-— nineteen added with the `OllamaProvider` suite and the routing-fix and ledger pins, eight removed with
-the moved Ollama arms and the context-size runs **D160** made unrepresentable) — read off that run's own output, never
+**MEASURED with Docker up, re-attested 2026-09-19 at `76b68fca`** (+2 against `e9716e66`: two codex
+tool-turn tests for CLI12, **D35** — no `src/` logic changed, the mapping was confirmed not corrected) —
+read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
 easily breaks. **The Docker-down run happened AGAIN on this line's own watch** (D153 step 4): the same tree
 read `3622 / 237` and was green on all 24 gates, and the daemon had to be started and `verify` re-run before
