@@ -4676,3 +4676,21 @@ docblocks, README rows).
 - **Ratio:** one clone + one CPU-torch venv + one 12-second render against zero src/ changes and one live
   test — every documented default was already right.
 - GEN-VERIFY-COMFY stage 1 (HTTP surface) → confirmed; stage 2 (the video kind) remains open.
+
+## Part 264 — GEN-VERIFY-COMFY stage 2: the video half, measured WITHOUT a video model
+
+✅ done 2026-09-19 — **Outcome:** closes `TASKS.md` Part 33's GEN-VERIFY-COMFY entirely (stage 1 is Part
+262). The planned route — CUDA torch plus a video diffusion model, with the Wan-vs-LTX licence question —
+was REJECTED as unnecessary: the provider only ever reads the history DOCUMENT, so what stage 2 actually
+needed was a video FILE in outputs, not a video MODEL. An SD 1.5 frame batch through the core
+`CreateVideo`/`SaveVideo` nodes produced a real MP4; the journey ran as `Kind = Video` end to end
+(`ComfyUiLiveTests`, 50 s on CPU torch), and the artifact came back as a view URI with `video/mp4`,
+bytes staying behind the URI.
+The measured find: **0.36.0 files the MP4 under the collection named `images`**, beside an `animated`
+array of bare booleans — so the tolerant any-array-with-a-filename walk is load-bearing on measurement
+(a name-keyed walk misses every video; one assuming file objects chokes on the flags), and the subfolder
+field was exercised too (`video/` prefix). The 2026-09-16 Wan/LTX candidate survey stays in git history
+with the item; it answers a question the library turned out never to ask.
+
+- GEN-VERIFY-COMFY, the VIDEO half → measured; the item and its Part 33 caveat both close, leaving fal as
+  the one unmeasured backend, blocked on an account.

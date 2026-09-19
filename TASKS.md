@@ -15,22 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 5 Parts: 2 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 8 across 5 Parts: 1 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-COMFY — the VIDEO half: a video workflow against a live server | startable |  |
-| 137 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 190 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 209 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 256 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 311 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 334 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 391 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 442 | 263 | Pair `retiredApiNames` with `retiredTerms`, or gate the pairing | startable |  |
+| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 162 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 181 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 228 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 283 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 306 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 363 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 414 | 263 | Pair `retiredApiNames` with `retiredTerms`, or gate the pairing | startable |  |
 
 <!-- open-items:end -->
 
@@ -99,40 +98,13 @@ the core was built._
 _GEN3 (local `sd-cli`), GEN4 (durable renders + the fal.ai queue backend), GEN6's tool/MCP bridge half and
 GEN5 (governance + telemetry parity) all landed 2026-08-04 — see `docs/task-archive.md` Part 33._
 
-_**What remains unmeasured: ComfyUI's VIDEO kind, and fal — and only fal needs a vendor.** `sd-cli` left
-this list on 2026-09-19 (argv + clamp measured against a real engine, correcting the retired `img2img` mode
-value — `docs/task-archive.md` Part 261), and ComfyUI's whole HTTP surface followed the same day: probe,
-submit, poll, fetch, view and interrupt all answered as documented against a live 0.36.0
-(`docs/task-archive.md` Part 262, `ComfyUiLiveTests`). The fal-first naming that once hid ComfyUI inside
-this list is recorded in `.claude/knowledge/pitfalls.md`._
-
-- [ ] **GEN-VERIFY-COMFY — the VIDEO half: a video workflow against a live server.** The HTTP surface is <!-- item: state=startable -->
-  MEASURED (2026-09-19, ComfyUI 0.36.0, archive Part 262): every endpoint path, all four response field
-  names and the view URI answered as documented, exercised end to end by `ComfyUiLiveTests` over an SD 1.5
-  image graph. **What no image can settle is the VIDEO kind**: a video workflow exercises
-  `ProviderKinds.Video` routing and gives the view-URI rule its real justification (*"a local video is
-  easily 100 MB, and downloading it uninvited would be the platform spending the caller's memory"*) — no
-  image is big enough to make returning bytes obviously wrong. The install this repository now carries is
-  CPU-only torch in `local/comfyui`; a video model wants the CUDA build and a checkpoint that fits 12 GB.
-
-  _**Two open-weight video candidates, checked 2026-09-16, and the LICENCE is the axis that separates
-  them** — which is the plan's own Decision 3 test ("open weights … Apache-2.0 and ComfyUI-native" against
-  "closed-weight, hosted-only and moderated"). **Wan2.2-TI2V-5B is Apache-2.0**, ComfyUI-native, and
-  unifies text-to-video and image-to-video in one model, so it exercises both request shapes the router
-  can send; its card states 720P/24fps and **24 GB** VRAM, and reaching a 12 GB card is community GGUF
-  quantization at 480p — real, widely reported, and **not measured by us**, which is the caveat this whole
-  item exists to stop shipping unstated. **LTX-Video** is far faster and lighter but ships a CUSTOM
-  "LTX-Video Open-Weights License", so it is a licence someone must READ rather than a permissive default.
-  <br>**Neither is a library recommendation and neither may become a default** — which model serves a
-  deployment is the deployment's to answer (`model-decoupling.md`, `generic-library.md`). This names what
-  to install to RUN the verification, nothing more._
-
-  _**Why this was not filed until 2026-09-16**, which is the finding rather than the item: GEN-VERIFY was
-  written fal-first and split fal-first, so the ONE unverified backend that needs no vendor at all stayed
-  invisible inside it through two passes — including the pass that split it. **Three surfaces WERE
-  documented-not-measured at that date, not two**, with completely different costs: `sd-cli` needed two
-  downloads (measured since), ComfyUI needs a local server, and only fal needs an account. Sorting them by
-  what they COST is what the single item prevented._
+_**What remains unmeasured: fal's wire format, and it alone needs a vendor.** `sd-cli` left this list on
+2026-09-19 (argv + clamp measured against a real engine, correcting the retired `img2img` mode value —
+`docs/task-archive.md` Part 261), and ComfyUI followed the same day IN FULL: the HTTP surface over an image
+graph (Part 262), then a video-producing workflow (Part 264) — which needed no video MODEL, because the
+provider only ever reads the history document, and a core-node MP4 measures that document's video shape.
+The fal-first naming that once hid ComfyUI inside this list is recorded in
+`.claude/knowledge/pitfalls.md`._
 
 - [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=blocked kind=env needs="a fal.ai account and key — nobody here has one, and no download substitutes for it" -->
   vocabulary, the result field names and what `cost` reports. Then delete that backend's "unverified" notes

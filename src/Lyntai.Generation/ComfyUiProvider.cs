@@ -97,10 +97,11 @@ public sealed class ComfyUiOptions
 /// </list>
 /// </summary>
 /// <remarks>
-/// <para><b>MEASURED against a live server</b> (ComfyUI 0.36.0): probe, submit, poll, fetch and interrupt
-/// all answered on the documented paths, every response field name was confirmed as shipped, and the view
-/// URI served the rendered PNG (<c>ComfyUiLiveTests</c> is the measurement). The IMAGE kind is what ran;
-/// a VIDEO workflow has not, which is the half <c>TASKS.md</c> still holds. Every path stays an option
+/// <para><b>MEASURED against a live server</b> (ComfyUI 0.36.0), image and video both: probe, submit,
+/// poll, fetch and interrupt all answered on the documented paths, every response field name was confirmed
+/// as shipped, and the view URI served what its history entry named — a rendered PNG, and an MP4 a
+/// video-producing workflow filed under the collection called <c>images</c>
+/// (<c>ComfyUiLiveTests</c> is the measurement). Every path stays an option
 /// (<see cref="ComfyUiOptions"/>) because upstream can rename between releases, and the parsing stays
 /// defensive: an unrecognised history shape reports "not finished" rather than inventing an artifact.</para>
 /// <para>Produced files are returned as <b>view URIs</b>, not bytes — the same rule as a hosted backend's
@@ -424,8 +425,11 @@ public sealed class ComfyUiProvider(
 
     /// <summary>Walk <c>outputs.&lt;node&gt;.&lt;images|gifs|…&gt;[]</c> and turn each file reference into a
     /// view URI. Collection names vary by node pack, so ANY array of objects carrying a <c>filename</c>
-    /// counts — that tolerance is deliberate, and a measured 0.36.0 <c>SaveImage</c> run used
-    /// <c>images</c> with <c>filename</c>/<c>subfolder</c>/<c>type</c> exactly as read here.</summary>
+    /// counts — a tolerance MEASURED to be load-bearing on 0.36.0: the core <c>SaveVideo</c> node files an
+    /// MP4 under the collection named <c>images</c>, beside an <c>animated</c> array of bare booleans. A
+    /// name-keyed walk would misread every video as absent, and one assuming file objects would choke on
+    /// the flags — the <c>filename</c> test is the only reliable signal, on measurement and not merely on
+    /// caution.</summary>
     private IReadOnlyList<MediaArtifact> OutputArtifacts(JsonElement? entry)
     {
         if (entry is not { ValueKind: JsonValueKind.Object } value ||
