@@ -18,12 +18,13 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D164** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3850 passed / 3884 total, 34 skipped` (the skips are
+**The baseline a green run should match:** `3850 passed / 3885 total, 35 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 862/862, doc samples 61/61. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-19 at `76b68fca`** (+2 against `e9716e66`: two codex
-tool-turn tests for CLI12, **D35** — no `src/` logic changed, the mapping was confirmed not corrected) —
+**MEASURED with Docker up, re-attested 2026-09-19 at `1ca4460d`** (+1 total, +1 skipped against `76b68fca`:
+the live-gated `sd-cli` render test, archive Part 261 — no passing test moved, the img2img default was
+corrected under the existing exact-argv tests) —
 read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
 easily breaks. **The Docker-down run happened AGAIN on this line's own watch** (D153 step 4): the same tree
@@ -34,7 +35,8 @@ big diff with a small named movement is the normal case, as is a diff that touch
 the trio not at all, because what moves these numbers is a test being ADDED or REMOVED and a
 refactor does neither.
 **Two review passes moved this line 3750 → 3780 → 3817 in one day**, and for a long time the skip count
-did not move at all. **It moved on 2026-09-18, 33 → 34** (**D157** added one live-gated ONNX test), so the
+did not move at all. **It moved on 2026-09-18, 33 → 34** (**D157** added one live-gated ONNX test) and
+again on 2026-09-19, 34 → 35 (the live `sd-cli` render test), so the
 invariance is a HABIT rather than a law: a skip count that rises by one against a named new gated test is
 fine, and one that rises by HUNDREDS is Docker being down, which is what this check is really for.
 **The Docker-down run is not hypothetical: the FIRST attempt that day read `3616 / 3853 / 237`** and was
@@ -46,7 +48,10 @@ nothing is skipping for another reason. **The gated-on-a-model-DIRECTORY suites 
 `WordPieceTokenizerLiveTests` (**D122**) and `Model2VecProviderLiveTests` (**D121**).
 **Run with `LYNTAI_ONNX_MODEL_DIR`, `LYNTAI_STATIC_MODEL_DIR` and `LYNTAI_ONNX_RERANK_MODEL_DIR` set and
 the count reads 22 skipped** — measured at `c1a62871`, where the passing total was 3751; the
-SKIP count is the durable half and the total moves with the tree. A
+SKIP count is the durable half and the total moves with the tree — durable, that is, until the GATED ROSTER
+itself grows: `LocalDiffusionLiveTests` (2026-09-19) rides `LYNTAI_SD_CLI` + `LYNTAI_SD_MODEL`, not those
+three, so a rerun of that configuration on today's tree reads one higher, and only a re-measurement may
+write the new number here. A
 LOWER skip count is the live suites running, which is the one direction that needs no investigation.
 **Re-attest the COMMIT alongside the figures whenever they move**: a dated claim left standing over a
 changed number cannot be told from an extrapolated one, and that is how it read to a cold reader.
