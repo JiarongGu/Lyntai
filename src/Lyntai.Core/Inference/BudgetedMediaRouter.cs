@@ -113,31 +113,9 @@ public sealed class BudgetedMediaRouter(
         RecordAsync(tracker, consumer, usage, ct);
 
     /// <summary>The refusal reason when a COST cap that applies to <paramref name="consumer"/> has been
-    /// reached — the global cap (vs the global total) or the consumer's own (vs its total) — else null.</summary>
-    private async ValueTask<string?> OverBudgetAsync(string consumer, CancellationToken ct)
-    {
-        var budget = options.Budget;
-
-        if (budget.MaxCostUsd is { } cap)
-        {
-            var global = await tracker.TotalAsync(ct: ct).ConfigureAwait(false);
-            if (global.CostUsd >= cap) return Refuse("global cost budget", cap);
-        }
-
-        if (budget.PerConsumer.TryGetValue(consumer, out var mine) && mine.MaxCostUsd is { } consumerCap)
-        {
-            var spent = await tracker.TotalAsync(consumer, ct).ConfigureAwait(false);
-            if (spent.CostUsd >= consumerCap) return Refuse($"consumer '{consumer}' cost budget", consumerCap);
-        }
-
-        return null;
-    }
-
-    private string Refuse(string label, double cap)
-    {
-        var reason = $"{label} of {cap.ToString(CultureInfo.InvariantCulture)} reached";
-        _logger.LogInformation("generation usage budget refusal: {Reason}", reason);
-        LyntaiDiagnostics.RecordBudgetRefusal(label);
-        return reason;
-    }
+    /// reached — delegated to the ONE <see cref="Budgeting.BudgetGate"/> the text door and the generic
+    /// router's governance share, with token caps EXCLUDED: a render spends no tokens, and refusing one
+    /// because chat exhausted a token budget would be governance by coincidence.</summary>
+    private ValueTask<string?> OverBudgetAsync(string consumer, CancellationToken ct) =>
+        Budgeting.BudgetGate.OverBudgetAsync(options.Budget, tracker, consumer, includeTokens: false, _logger, ct);
 }

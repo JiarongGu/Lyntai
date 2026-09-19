@@ -16,7 +16,7 @@ public sealed record VectorRequest(
     IReadOnlyList<string> Texts,
     EmbeddingRole Role = EmbeddingRole.Document,
     string? Consumer = null,
-    int? TimeoutSeconds = null);
+    int? TimeoutSeconds = null) : IConsumerTagged;
 
 /// <summary>The outcome of an embed call.
 ///

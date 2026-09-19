@@ -15,25 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 12 across 6 Parts: 4 startable, 4 blocked, 2 watch, 2 decision-only
+## Open items — 11 across 6 Parts: 3 startable, 4 blocked, 2 watch, 2 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 113 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 130 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 163 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 216 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 235 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 281 | 257 | Vector/score governance WIRING | startable |  |
-| 292 | 257 | The design contract is exempt from every prose gate — decide the exemption'… | decision-only · decision | a ruling on whether the HISTORICAL exemption narrows to the v0.1 seed block… |
-| 316 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 376 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 431 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 454 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 511 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 112 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 129 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 162 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 215 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 234 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 279 | 257 | The design contract is exempt from every prose gate — decide the exemption'… | decision-only · decision | a ruling on whether the HISTORICAL exemption narrows to the v0.1 seed block… |
+| 303 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
+| 363 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 418 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 441 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 498 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -274,20 +273,8 @@ fourth such surface — a consuming app measured it 2026-08-04 and it is now con
 
 ## Part 257 — what the design-closure review filed (2026-09-19)
 
-_Opened by `docs/task-archive.md` **Part 256**, which closed all of Part 102. Both items below were found by
-that review and deliberately not folded into it — one is additive work someone could start today, the other
-needs a ruling._
-
-- [ ] **Vector/score governance WIRING.** **D162** froze the SLOTS — `VectorRequest`/`ScoreRequest` carry <!-- item: state=startable -->
-  `Consumer` + `TimeoutSeconds`, their responses carry `Usage`, and the HTTP transports honour the timeout
-  and surface reported prompt tokens — but nothing yet BUDGETS, rate-limits or attributes those calls: the
-  decorators exist on the text and media doors only, and consumer-tier timeout resolution
-  (`LyntaiOptions.TimeoutByConsumer`) is read by the text overload alone. Additive throughout: read
-  `Consumer` in the budget/rate-limit path for these kinds, record `Usage` into the ledger where a caller
-  opts in, and resolve the consumer tier for a vector/score call the way `ResolveTimeout(TextRequest)` does.
-  Also worth a documented recipe while there: the score kind has no front door at all — a consumer reranking
-  outside memory composes `IProviderRouterFactory` by hand, and nothing says so
-  (`.claude/knowledge/llm-and-router.md` is the home).
+_Opened by `docs/task-archive.md` **Part 256**, which closed all of Part 102. The startable half — the
+vector/score governance wiring — closed the same day as **Part 258** (D163); what remains needs a ruling._
 
 - [ ] **The design contract is exempt from every prose gate — decide the exemption's scope.** <!-- item: state=decision-only kind=decision needs="a ruling on whether the HISTORICAL exemption narrows to the v0.1 seed blocks, or a release-checklist human read replaces gating for docs/2026-07-17-lyntai-design.md" -->
   `docs/2026-07-17-lyntai-design.md` sits in `check-docs`' HISTORICAL list, and `check-links` +

@@ -51,35 +51,8 @@ public sealed class BudgetedTextClient(
     }
 
     /// <summary>The refusal reason when a cap that applies to <paramref name="consumer"/> has been reached
-    /// — the global caps (vs the global total) or the consumer's own caps (vs its total) — else null.
-    /// <para>A total is read only when a cap needs it: "record spend, cap nothing" and per-consumer-only
-    /// setups make no global query, which for a persisted tracker is a whole-table SUM per call.</para></summary>
-    private async ValueTask<string?> OverBudgetAsync(string consumer, CancellationToken ct)
-    {
-        var budget = options.Budget;
-
-        if (budget.MaxCostUsd is not null || budget.MaxTokens is not null)
-        {
-            var global = await tracker.TotalAsync(ct: ct).ConfigureAwait(false);
-            if (budget.MaxCostUsd is { } gc && global.CostUsd >= gc) return Refuse("global cost budget", gc);
-            if (budget.MaxTokens is { } gt && global.TotalTokens >= gt) return Refuse("global token budget", gt);
-        }
-
-        if (budget.PerConsumer.TryGetValue(consumer, out var cb))
-        {
-            var mine = await tracker.TotalAsync(consumer, ct).ConfigureAwait(false);
-            if (cb.MaxCostUsd is { } cc && mine.CostUsd >= cc) return Refuse($"consumer '{consumer}' cost budget", cc);
-            if (cb.MaxTokens is { } cct && mine.TotalTokens >= cct) return Refuse($"consumer '{consumer}' token budget", cct);
-        }
-
-        return null;
-    }
-
-    private string Refuse(string label, double cap)
-    {
-        var reason = $"{label} of {cap.ToString(CultureInfo.InvariantCulture)} reached";
-        _logger.LogInformation("usage budget refusal: {Reason}", reason);
-        LyntaiDiagnostics.RecordBudgetRefusal(label);
-        return reason;
-    }
+    /// — delegated to the ONE <see cref="BudgetGate"/> the media router and the generic router's
+    /// governance share, with token caps binding because a text call is token-metered.</summary>
+    private ValueTask<string?> OverBudgetAsync(string consumer, CancellationToken ct) =>
+        BudgetGate.OverBudgetAsync(options.Budget, tracker, consumer, includeTokens: true, _logger, ct);
 }

@@ -41,8 +41,9 @@ internal sealed class HttpRerankTransport(
         var documents = request.Documents;
         if (documents.Count == 0) return new ScoreResponse(ProviderVerdict.Ok, []);
 
-        // the same per-request override the text shape honours, clamped the same way (D162)
-        var timeout = options.ResolveTimeout(request.TimeoutSeconds);
+        // the same resolution ladder the text shape has always had — explicit seconds (clamped), the
+        // consumer's TimeoutByConsumer tier, the default tier, the global timeout (D162/D163)
+        var timeout = options.ResolveTimeout(request.TimeoutSeconds, request.Consumer);
         string body;
         try
         {

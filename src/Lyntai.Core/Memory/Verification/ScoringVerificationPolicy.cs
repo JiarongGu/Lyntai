@@ -99,7 +99,8 @@ public sealed class ScoringVerificationPolicy(
         ScoreResponse response;
         try
         {
-            response = await router.CallAsync(new ScoreRequest(request.Query, documents), ct).ConfigureAwait(false);
+            response = await router.CallAsync(
+                new ScoreRequest(request.Query, documents, Consumer: ProviderConsumers.Memory), ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)

@@ -4594,3 +4594,17 @@ now a filed decision item). Detail: `CHANGELOG.md` Unreleased; incidents: `docs/
 - DIALECT-1 — does this library HAVE a "dialect" concept, or only providers? → ruled: providers only (D159)
 - REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belongs → provider per wire (D160)
 - REL2 — what counts as BREAKING here has never been written down → the action rule (D161)
+
+## Part 258 — vector/score governance WIRING: the one wallet reaches every attributable kind (D163)
+
+✅ done 2026-09-19 — **Outcome:** closes `TASKS.md` Part 257's startable half, opened by Part 256 the same
+day. Factory-built `ProviderRouter<,>` routers now budget, rate-limit and record spend for any request they
+can attribute (`IConsumerTagged` + the defaulted `IProviderOutcome.Usage`), activated only by the host's
+existing `AddUsageBudget()`/`AddRateLimit()` opt-ins; token caps bind embeds/reranks while renders stay
+cost-only, enforced by the one shared `BudgetGate` all three doors now use; the library stamps its own
+traffic (`"memory"`, `"agent"`); `ResolveTimeout(int?, string?)` gives the transports the text shape's
+consumer-tier ladder; and the score kind's compose-it-yourself recipe is in
+`.claude/knowledge/llm-and-router.md` §Routing recipes. Reasoning and refusal boundaries: **D163**;
+release-facing detail: `CHANGELOG.md` Unreleased.
+
+- Vector/score governance WIRING (the slots froze as D162; this is the behavior)

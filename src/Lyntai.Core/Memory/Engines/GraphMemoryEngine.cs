@@ -506,7 +506,8 @@ public sealed class GraphMemoryEngine(
         try
         {
             var vector = await EmbeddingRouting.EmbedOneAsync(
-                providers, write.Content, EmbeddingRole.Document, _logger, routing, ct).ConfigureAwait(false);
+                providers, write.Content, EmbeddingRole.Document, _logger, routing,
+                ProviderConsumers.Memory, ct).ConfigureAwait(false);
             var near = await vectors!
                 .SearchAsync(VectorCollection(write.TaskKey, write.Scope), vector, _options.SimilarityK + 1, ct)
                 .ConfigureAwait(false);

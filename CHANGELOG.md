@@ -21,6 +21,11 @@ every addition.
 
 ### Breaking
 
+- **`ProviderRouter<,>`'s constructor gains `governance` before `logger`, and `ProviderRouterFactory` two
+  trailing parameters** (**D163**) — the plumbing for the governed routing under **Added**. **What to DO:**
+  a hand-composed `new ProviderRouter<,>(…)` passing `logger` positionally adds the slot; everything else —
+  including every factory call site — recompiles unchanged (the factory parameters are trailing).
+
 - **Ollama-native is its own provider, and the wire-format enum is gone** (**D160**, deciding REL5).
   `HttpDialect` and `HttpModelOptions.Dialect` are deleted; `HttpModelProvider` speaks the OpenAI-shaped <!-- link-ok: the entry ANNOUNCING the deletion has to name the member -->
   schema alone, and Ollama's native `/api/chat` + `/api/embed` wire is **`OllamaProvider`**
@@ -516,6 +521,24 @@ every addition.
   `SubjectSeedOptions.K = 0` as the off-switch. `UseGraph(..., seedSources: …)` overrides the set per engine.
 
 ### Added
+
+- **The one wallet reaches every kind a router can attribute** (**D163**). A factory-built
+  `ProviderRouter<,>` now budgets, rate-limits and records spend for any request it can ATTRIBUTE — checked
+  BEFORE the candidate loop, so a refusal costs no backend call and benches no host. Attribution is opt-in
+  by shape: implement the new `IConsumerTagged` on a request and expose `ProviderUsage? Usage` on a
+  response (a new DEFAULTED `IProviderOutcome` member — existing implementers compile unchanged and report
+  null); `VectorRequest`/`ScoreRequest` and their responses already do. Activation is the host's existing
+  opt-in — `AddUsageBudget()` / `AddRateLimit()`; a deployment that called neither routes exactly as before.
+  <br>**Token caps bind embeds and reranks** (they are token-metered), while renders stay cost-only —
+  `BudgetedMediaRouter`'s own rule, now enforced by the one shared budget check all three doors use.
+  <br>**The library stamps its own traffic**: memory-seam embeds, semantic recall and scoring verification
+  bill to `"memory"`, the tool selector's embeds to `"agent"` — so `Budget.PerConsumer["memory"]` genuinely
+  fences memory spend, and a reached cap degrades a recall through the seams' existing fail-open paths.
+  A behaviour you may notice after opting in: embedding spend appears in `IUsageTracker` totals under those
+  tags, where it was untracked before.
+  <br>**`RouterGovernance`** is public for a caller composing a router by hand, and
+  **`LyntaiOptions.ResolveTimeout(int? seconds, string? consumer)`** is the text shape's timeout ladder
+  over the two facts any shape now carries — both HTTP transports resolve the consumer tier through it.
 
 - **`AddOllamaProvider(id, configure)` — the options door for the Ollama-native provider** (**D160**): an
   embedding registration (`o.Produces = ProviderKinds.Vector`, one batched `/api/embed` call), the context

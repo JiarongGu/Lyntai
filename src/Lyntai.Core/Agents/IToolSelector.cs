@@ -81,10 +81,12 @@ public sealed class VectorToolSelector(
         // Role-aware (D116): the request is the QUERY side and the descriptions are DOCUMENTS. On a
         // symmetric model the default body makes this identical to the role-less call.
         var queryVector = await EmbeddingRouting.EmbedOneAsync(
-            providers, query, EmbeddingRole.Query, routing: routing, ct: ct).ConfigureAwait(false);
+            providers, query, EmbeddingRole.Query, routing: routing,
+            consumer: ProviderConsumers.Agent, ct: ct).ConfigureAwait(false);
         var described = tools.Select(Describe).ToList();
         var toolVectors = await EmbeddingRouting.EmbedAsync(
-            providers, described, EmbeddingRole.Document, routing: routing, ct: ct).ConfigureAwait(false);
+            providers, described, EmbeddingRole.Document, routing: routing,
+            consumer: ProviderConsumers.Agent, ct: ct).ConfigureAwait(false);
 
         // Ordered by score, then by ORIGINAL POSITION so a tie is broken the way the registry listed them
         // rather than arbitrarily — two tools with identical descriptions must not reorder run to run.

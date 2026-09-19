@@ -82,9 +82,9 @@ internal sealed class HttpVectorTransport(
         using var owned = OwnedClient();       // disposed only when Lyntai owns it
         var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
 
-        // the same per-request override the text shape honours, clamped the same way (D162); the
-        // consumer-tier resolution stays text-only until governance wiring lands for this kind
-        var timeout = options.ResolveTimeout(request.TimeoutSeconds);
+        // the same resolution ladder the text shape has always had — explicit seconds (clamped), the
+        // consumer's TimeoutByConsumer tier, the default tier, the global timeout (D162/D163)
+        var timeout = options.ResolveTimeout(request.TimeoutSeconds, request.Consumer);
 
         var batchSize = config.BatchSize;
         if (batchSize <= 0 || texts.Count <= batchSize)

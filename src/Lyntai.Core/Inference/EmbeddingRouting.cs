@@ -58,16 +58,25 @@ internal static class EmbeddingRouting
     /// <exception cref="InvalidOperationException">Nothing can embed, or every backend failed. <b>Thrown
     /// rather than returned</b> because these callers have no verdict to put it in — the routing beneath
     /// now has one, and a caller that wants it asks the router directly.</exception>
+    /// <param name="providers">The registered backends.</param>
+    /// <param name="texts">What to embed, in the order the vectors come back.</param>
+    /// <param name="role">Which side of a retrieval the texts are.</param>
+    /// <param name="logger">Optional diagnostics.</param>
+    /// <param name="routing">The factory carrying the shared bookkeeping and governance.</param>
+    /// <param name="consumer">Who is asking (<see cref="ProviderConsumers"/>) — stamped onto the request so
+    /// the library's own embedding traffic is attributable, budgetable and separable from the
+    /// application's (D163). Null bills to the default bucket.</param>
+    /// <param name="ct">Caller cancellation.</param>
     public static async Task<IReadOnlyList<float[]>> EmbedAsync(
         IEnumerable<IModelProvider>? providers, IReadOnlyList<string> texts,
         EmbeddingRole role = EmbeddingRole.Document, ILogger? logger = null,
-        IProviderRouterFactory? routing = null, CancellationToken ct = default)
+        IProviderRouterFactory? routing = null, string? consumer = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(texts);
         var router = Router(providers, logger, routing);
         if (!router.CanServe()) throw new InvalidOperationException(NothingEmbeds);
 
-        var response = await router.CallAsync(new VectorRequest(texts, role), ct).ConfigureAwait(false);
+        var response = await router.CallAsync(new VectorRequest(texts, role, consumer), ct).ConfigureAwait(false);
         return response.IsOk
             ? response.Vectors
             : throw new InvalidOperationException(
@@ -79,8 +88,8 @@ internal static class EmbeddingRouting
     public static async Task<float[]> EmbedOneAsync(
         IEnumerable<IModelProvider>? providers, string text,
         EmbeddingRole role = EmbeddingRole.Document, ILogger? logger = null,
-        IProviderRouterFactory? routing = null, CancellationToken ct = default) =>
-        (await EmbedAsync(providers, [text], role, logger, routing, ct).ConfigureAwait(false))[0];
+        IProviderRouterFactory? routing = null, string? consumer = null, CancellationToken ct = default) =>
+        (await EmbedAsync(providers, [text], role, logger, routing, consumer, ct).ConfigureAwait(false))[0];
 
     /// <summary>Names every shipped way to get an embedding backend, because "nothing can embed" is
     /// otherwise a dead end for a consumer who does not know the capability model.</summary>

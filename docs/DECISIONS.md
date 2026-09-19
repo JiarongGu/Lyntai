@@ -232,8 +232,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D160](#d160--a-wire-is-a-provider-ollama-native-is-its-own-class-and-the-wire-enum-is-deleted-2026-09-19) | 2026-09-19 | a wire is a PROVIDER: Ollama-native is its own class, and the wire enum is deleted |
 | [D161](#d161---breaking-means-names-an-action-a-consumer-or-implementer-must-take-2026-09-19) | 2026-09-19 | `### Breaking` means "names an action a consumer or implementer must take" |
 | [D162](#d162--the-ledger-is-shape-neutral-and-every-call-shape-carries-governance-slots-2026-09-19) | 2026-09-19 | the ledger is shape-neutral, and every call shape carries governance slots |
+| [D163](#d163--the-one-wallet-reaches-every-kind-a-router-can-attribute-2026-09-19) | 2026-09-19 | the one wallet reaches every kind a router can ATTRIBUTE |
 
-_All 162 entries are live decisions._
+_All 163 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5060,3 +5061,30 @@ ruling set and the owner declined it — the field order is now frozen for this 
 in `AddProvider` was considered and refused: the TryAdd/BYO-wins pattern makes duplicate ids transiently
 legitimate, and the cross-kind hazard it would have papered over is closed by the cooldown scoping under
 the same review (the `vector::`/`score::` key namespaces, `ProviderRouterFactory`).
+
+## D163 — the one wallet reaches every kind a router can ATTRIBUTE (2026-09-19)
+
+**The decision.** D162 froze the slots; this wires them. A factory-built `ProviderRouter<,>` carries a
+`RouterGovernance` — budget caps, the shared `IUsageTracker`, the client-side `IRateLimiter` — and applies
+it to any request it can attribute: budget checked and limiter asked BEFORE the candidate loop (a refusal
+costs no backend call and benches no host — a budget refusal is `Refused`, a rate refusal `RateLimited`,
+both returning before any host is tried), and the response's reported `Usage` recorded under the request's
+consumer afterward. Attribution is OPT-IN by shape: a request implements `IConsumerTagged`, a response
+exposes `ProviderUsage? Usage` (a defaulted `IProviderOutcome` member) — `VectorRequest`/`ScoreRequest` and
+their responses do; an application kind that says nothing stays ungoverned, because a wallet cannot bill a
+call nobody attributed. Activation is the host's existing opt-in: the tracker and limiter reach the factory
+only through `AddUsageBudget()`/`AddRateLimit()`, so a deployment that called neither routes exactly as
+before.
+
+**Token caps BIND these kinds where they stay off renders.** An embed or rerank is token-metered — the
+same currency the cap counts — so both cost and token caps apply, where `BudgetedMediaRouter`'s cost-only
+rule stands for renders (a render spends no tokens; the check is the shared internal `BudgetGate`, which
+this third consumer forced out of two private copies — the D77 rule). Consumer-tier timeout resolution
+travels the same road: `ResolveTimeout(int?, string?)` is the text ladder over the two facts any shape now
+carries, used by both HTTP transports.
+
+**The library stamps its own traffic**: every memory-seam embed, semantic recall and scoring verification
+carries `ProviderConsumers.Memory`; the tool selector's embeds carry `ProviderConsumers.Agent`. So an
+operator's `Budget.PerConsumer["memory"]` cap now genuinely fences memory spend — and a reached cap
+degrades a recall through the seams' existing fail-open paths rather than failing it, which is why routing
+the refusal as a verdict (never a throw) is load-bearing.

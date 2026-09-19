@@ -192,6 +192,155 @@ public class ProviderRouterFactoryTests
         Assert.False((await CallAsync(router)).IsOk);
     }
 
+    // ---- governance: the one wallet reaches these kinds (D163) ----------------------------------------
+
+    private sealed class StubLimiter(bool clears) : Lyntai.Inference.RateLimiting.IRateLimiter
+    {
+        public int Asked { get; private set; }
+        public string? LastConsumer { get; private set; }
+
+        public Task<bool> AcquireAsync(string consumer, CancellationToken ct = default)
+        {
+            Asked++;
+            LastConsumer = consumer;
+            return Task.FromResult(clears);
+        }
+    }
+
+    private sealed record AppRequest(string Payload); // deliberately NOT IConsumerTagged
+    private sealed record AppResponse(ProviderVerdict Verdict, string? Detail = null) : IProviderOutcome;
+
+    private sealed class AppProvider : IProviderCall<AppRequest, AppResponse>
+    {
+        public string Id => "app";
+        public bool IsAvailable => true;
+        public int Calls { get; private set; }
+        public ProviderCapabilities Capabilities { get; } = new()
+        {
+            Accepts = [ProviderKinds.Text],
+            Produces = ["app-kind"],
+            Operations = [ProviderOperation.Complete],
+        };
+
+        public Task<AppResponse> CallAsync(AppRequest request, CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult(new AppResponse(ProviderVerdict.Ok));
+        }
+    }
+
+    private static LyntaiOptions CappedOptions(double? costCap = null, long? tokenCap = null)
+    {
+        var options = new LyntaiOptions();
+        options.Budget.MaxCostUsd = costCap;
+        options.Budget.MaxTokens = tokenCap;
+        return options;
+    }
+
+    [Fact]
+    public async Task A_reached_COST_cap_refuses_a_vector_call_without_asking_a_backend()
+    {
+        var (_, good, all) = Backends();
+        var tracker = new Lyntai.Inference.Budgeting.InMemoryUsageTracker();
+        await tracker.RecordAsync("app", new ProviderUsage(CostUsd: 2.0));
+        var factory = new ProviderRouterFactory(new DeadHostTracker(),
+            options: CappedOptions(costCap: 1.0), tracker: tracker);
+
+        var router = factory.For<VectorRequest, VectorResponse>(all, VectorResponse.Failure,
+            c => c.Supports(ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+        var reply = await router.CallAsync(new VectorRequest(["a"], Consumer: "memory"));
+
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
+        Assert.Equal(0, good.Calls); // refused BEFORE any backend spent anything
+    }
+
+    [Fact]
+    public async Task A_reached_TOKEN_cap_binds_these_kinds_because_they_are_token_metered()
+    {
+        var (_, good, all) = Backends();
+        var tracker = new Lyntai.Inference.Budgeting.InMemoryUsageTracker();
+        await tracker.RecordAsync("chat", new ProviderUsage(900, 200)); // 1100 > 1000
+        var factory = new ProviderRouterFactory(new DeadHostTracker(),
+            options: CappedOptions(tokenCap: 1_000), tracker: tracker);
+
+        var router = factory.For<VectorRequest, VectorResponse>(all, VectorResponse.Failure,
+            c => c.Supports(ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+        var reply = await router.CallAsync(new VectorRequest(["a"], Consumer: "memory"));
+
+        Assert.Equal(ProviderVerdict.Refused, reply.Verdict);
+        Assert.Equal(0, good.Calls);
+    }
+
+    [Fact]
+    public async Task Usage_the_wire_reported_is_recorded_under_the_request_consumer()
+    {
+        var tracker = new Lyntai.Inference.Budgeting.InMemoryUsageTracker();
+        var reporting = new UsageReportingVectorProvider("v");
+        var factory = new ProviderRouterFactory(new DeadHostTracker(),
+            options: new LyntaiOptions(), tracker: tracker);
+
+        var router = factory.For<VectorRequest, VectorResponse>([reporting], VectorResponse.Failure,
+            c => c.Supports(ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+        var reply = await router.CallAsync(new VectorRequest(["a"], Consumer: "memory"));
+
+        Assert.True(reply.IsOk);
+        var totals = await tracker.TotalAsync("memory");
+        Assert.Equal(7, totals.InputTokens);   // recorded, and under the STAMPED consumer
+        Assert.Equal(1, totals.Calls);
+    }
+
+    private sealed class UsageReportingVectorProvider(string id) : IVectorProvider
+    {
+        public string Id { get; } = id;
+        public bool IsAvailable => true;
+        public ProviderCapabilities Capabilities { get; } = new()
+        {
+            Accepts = [ProviderKinds.Text],
+            Produces = [ProviderKinds.Vector],
+            Operations = [ProviderOperation.Complete],
+        };
+
+        public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default) =>
+            Task.FromResult(VectorResponse.Success([[1f]], usage: new ProviderUsage(7)));
+    }
+
+    [Fact]
+    public async Task A_rate_limiter_that_cannot_clear_refuses_as_RateLimited_without_benching_anyone()
+    {
+        var (_, good, all) = Backends();
+        var limiter = new StubLimiter(clears: false);
+        var deadHosts = new DeadHostTracker(threshold: 1);
+        var factory = new ProviderRouterFactory(deadHosts, options: new LyntaiOptions(), limiter: limiter);
+
+        var router = factory.For<VectorRequest, VectorResponse>(all, VectorResponse.Failure,
+            c => c.Supports(ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+        var reply = await router.CallAsync(new VectorRequest(["a"], Consumer: "memory"));
+
+        Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict); // a CLIENT-side refusal, like the text door
+        Assert.Equal("memory", limiter.LastConsumer);
+        Assert.Equal(0, good.Calls);
+        Assert.False(deadHosts.IsDead("vector::good")); // no host was at fault, so none is benched
+    }
+
+    [Fact]
+    public async Task An_UNTAGGED_application_kind_is_not_governed_even_with_caps_set()
+    {
+        // opting in is implementing IConsumerTagged on the request (and Usage on the response) — a kind
+        // that carries no tag has said nothing about who is spending, so the wallet cannot bill it
+        var tracker = new Lyntai.Inference.Budgeting.InMemoryUsageTracker();
+        await tracker.RecordAsync("x", new ProviderUsage(CostUsd: 99.0));
+        var provider = new AppProvider();
+        var factory = new ProviderRouterFactory(new DeadHostTracker(),
+            options: CappedOptions(costCap: 1.0), tracker: tracker, limiter: new StubLimiter(clears: false));
+
+        var router = factory.For<AppRequest, AppResponse>([provider],
+            (v, d) => new AppResponse(v, d));
+        var reply = await router.CallAsync(new AppRequest("go"));
+
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Equal(1, provider.Calls);
+    }
+
     [Fact]
     public void A_null_synthesize_is_refused_at_the_factory_rather_than_inside_the_router()
     {

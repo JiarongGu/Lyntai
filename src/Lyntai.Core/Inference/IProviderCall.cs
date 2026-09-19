@@ -22,6 +22,14 @@ public interface IProviderOutcome
 
     /// <summary>The backend's own words, or the failure reason. Surfaced verbatim, never parsed.</summary>
     string? Detail { get; }
+
+    /// <summary>What the call spent, in the ledger's currency — how a governed router records a response
+    /// without knowing its shape (<c>docs/DECISIONS.md</c> <b>D163</b>). DEFAULTED to null, so a response
+    /// type says nothing unless it chooses to: a type declaring its own <c>ProviderUsage? Usage</c>
+    /// implements this implicitly (<see cref="VectorResponse"/>, <see cref="ScoreResponse"/>), while one
+    /// whose usage is a richer shape (<see cref="TextResponse"/>, <see cref="MediaResponse"/>) reports null
+    /// here and is recorded by its own door instead — never twice.</summary>
+    ProviderUsage? Usage => null;
 }
 
 /// <summary>A backend that answers one request shape with one response shape — the single call seam every

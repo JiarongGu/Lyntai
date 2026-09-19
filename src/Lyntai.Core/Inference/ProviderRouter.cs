@@ -29,6 +29,11 @@ namespace Lyntai.Inference;
 /// shape and be CONFIGURED not to serve it — <c>HttpModelProvider</c> implements the vector shape whatever
 /// its <c>Produces</c> says — so the type test alone would route a chat-only endpoint an embed call. Null
 /// asks the type test only, which is right for a shape whose implementers always serve it.</param>
+/// <param name="governance">The one wallet, applied to any request the router can ATTRIBUTE
+/// (<see cref="IConsumerTagged"/>): budget caps checked before a backend spends, a client-side rate
+/// limiter, and the response's reported <see cref="IProviderOutcome.Usage"/> recorded under the request's
+/// consumer. Null — the hand-composed default — governs nothing; the factory supplies one from whatever
+/// the container holds (<c>docs/DECISIONS.md</c> <b>D163</b>).</param>
 /// <param name="cooldownScope">Prefix namespacing this router's cooldown keys per DOMAIN (the rule
 /// <c>MediaRouter</c>'s <c>generation::</c> prefix already applies), so a reranker's outage never benches
 /// an embedder that happens to share an id — reachable in a default configuration, because
@@ -43,6 +48,7 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     DeadHostTracker? deadHosts = null,
     IProviderAdmission? admission = null,
     Func<IModelProvider, ProviderKey?>? configuration = null,
+    RouterGovernance? governance = null,
     string? cooldownScope = null,
     ILogger? logger = null)
     where TResponse : class, IProviderOutcome
@@ -82,6 +88,33 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     /// <para>Cancellation belongs to the caller and propagates; a backend's own failure — thrown or
     /// returned — is classified through <see cref="ProviderVerdictClassifier"/> and routed on.</para></summary>
     public async Task<TResponse> CallAsync(TRequest request, CancellationToken ct = default)
+    {
+        // Governance first, and only for a request that can be ATTRIBUTED: a budget refusal must cost no
+        // backend call, and a client-side rate refusal is nobody's fault — both return before the loop, so
+        // no host is tried, penalized or benched for them (D163).
+        string? consumer = null;
+        if (governance is { } gov && request is IConsumerTagged tagged)
+        {
+            consumer = tagged.Consumer ?? ProviderConsumers.Default;
+            if (gov.Tracker is { } gate && await Budgeting.BudgetGate.OverBudgetAsync(
+                    gov.Options.Budget, gate, consumer, includeTokens: true, _logger, ct).ConfigureAwait(false)
+                is { } reason)
+                return synthesize(ProviderVerdict.Refused, reason);
+            if (gov.Limiter is { } limiter && !await limiter.AcquireAsync(consumer, ct).ConfigureAwait(false))
+            {
+                _logger.LogInformation("client-side rate limit exceeded for consumer {Consumer}", consumer);
+                Diagnostics.LyntaiDiagnostics.RecordRateLimitRefusal(consumer);
+                return synthesize(ProviderVerdict.RateLimited, "client-side rate limit exceeded");
+            }
+        }
+
+        var response = await RouteAsync(request, ct).ConfigureAwait(false);
+        if (consumer is not null && governance?.Tracker is { } tracker && response.Usage is { } usage)
+            await tracker.RecordAsync(consumer, usage, ct).ConfigureAwait(false);
+        return response;
+    }
+
+    private async Task<TResponse> RouteAsync(TRequest request, CancellationToken ct)
     {
         TResponse? last = default;          // the last SUBSTANTIVE failure — what the caller is told
         TResponse? lastBlameless = default; // …kept apart, so it answers only when nothing really failed

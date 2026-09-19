@@ -816,6 +816,8 @@ enum Lyntai.Inference.FallbackAction
     PenalizeAndAdvance : FallbackAction const
     Surface : FallbackAction const
     value__ : Int32
+interface Lyntai.Inference.IConsumerTagged
+    Consumer : String
 interface Lyntai.Inference.IMediaJobProvider
     CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
     FetchAsync(String operationId, CancellationToken ct = default) : Task<MediaResponse>
@@ -851,6 +853,7 @@ interface Lyntai.Inference.IProviderIdentity
     Id : String
 interface Lyntai.Inference.IProviderOutcome
     Detail : String
+    Usage : ProviderUsage
     Verdict : ProviderVerdict
 interface Lyntai.Inference.IProviderPool`1
     GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
@@ -1150,10 +1153,10 @@ struct Lyntai.Inference.ProviderRegistration`1
     Key : ProviderKey
     ToString() : String
 sealed class Lyntai.Inference.ProviderRouterFactory
-    .ctor(DeadHostTracker deadHosts, IProviderPool<IModelProvider> pool = null, IProviderAdmission admission = null, LyntaiOptions options = null)
+    .ctor(DeadHostTracker deadHosts, IProviderPool<IModelProvider> pool = null, IProviderAdmission admission = null, LyntaiOptions options = null, IUsageTracker tracker = null, IRateLimiter limiter = null)
     For<TRequest,TResponse>(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, ILogger logger = null) : ProviderRouter<TRequest,TResponse>
 sealed class Lyntai.Inference.ProviderRouter`2
-    .ctor(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, DeadHostTracker deadHosts = null, IProviderAdmission admission = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, String cooldownScope = null, ILogger logger = null)
+    .ctor(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, DeadHostTracker deadHosts = null, IProviderAdmission admission = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, RouterGovernance governance = null, String cooldownScope = null, ILogger logger = null)
     CallAsync(TRequest request, CancellationToken ct = default) : Task<TResponse>
     CanServe() : Boolean
     Capable() : IReadOnlyList<IProviderCall<TRequest,TResponse>>
@@ -1238,6 +1241,11 @@ sealed class Lyntai.Inference.RateLimiting.TokenBucketRateLimiter
 sealed class Lyntai.Inference.RefusalScreeningTextClient
     .ctor(ITextClient inner, IEnumerable<IRefusalMatcher> matchers = null, ILogger<RefusalScreeningTextClient> logger = null)
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
+sealed class Lyntai.Inference.RouterGovernance
+    .ctor(LyntaiOptions options, IUsageTracker tracker = null, IRateLimiter limiter = null)
+    Limiter : IRateLimiter
+    Options : LyntaiOptions
+    Tracker : IUsageTracker
 sealed class Lyntai.Inference.RoutingPolicy
     .ctor()
     ActionFor(ProviderVerdict verdict) : FallbackAction
@@ -1687,6 +1695,7 @@ sealed class Lyntai.LyntaiOptions
     ResolveModel(String consumer, String requestModel) : String
     ResolveModel(String consumer, String requestModel, String liveOverride) : String
     ResolveTimeout(Nullable<Int32> seconds) : TimeSpan
+    ResolveTimeout(Nullable<Int32> seconds, String consumer) : TimeSpan
     ResolveTimeout(TextRequest req) : TimeSpan
     Routing : RoutingPolicy
     TimeoutByConsumer : Dictionary<String,TimeSpan>

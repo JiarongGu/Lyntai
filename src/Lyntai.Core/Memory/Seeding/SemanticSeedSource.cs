@@ -55,7 +55,8 @@ public sealed class SemanticSeedSource(
         try
         {
             var vector = await EmbeddingRouting.EmbedOneAsync(
-                providers, request.Query.Query, EmbeddingRole.Query, _logger, routing, ct).ConfigureAwait(false);
+                providers, request.Query.Query, EmbeddingRole.Query, _logger, routing,
+                ProviderConsumers.Memory, ct).ConfigureAwait(false);
             // SEARCH width is _options.K alone, exactly what today's engine passes to every SearchAsync call
             // — never narrowed by request.Limit, or a small recall limit would silently shrink what this
             // source can ever consider before RETURN even enters the picture.

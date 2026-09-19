@@ -16,7 +16,7 @@ public sealed record ScoreRequest(
     string Query,
     IReadOnlyList<string> Documents,
     string? Consumer = null,
-    int? TimeoutSeconds = null);
+    int? TimeoutSeconds = null) : IConsumerTagged;
 
 /// <summary>The outcome of a rerank call.
 ///

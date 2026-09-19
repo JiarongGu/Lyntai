@@ -1,3 +1,5 @@
+using Lyntai.Inference.Budgeting;
+using Lyntai.Inference.RateLimiting;
 using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Inference;
@@ -52,14 +54,28 @@ public interface IProviderRouterFactory
 /// backend id, which is correct where each backend is configured once.</param>
 /// <param name="admission">Bounds concurrent calls per key. Null = unbounded, which is what these kinds
 /// had before.</param>
-/// <param name="options">Where the CONFIGURED routing policy lives (<see cref="LyntaiOptions.Routing"/>).
-/// Null routes on <see cref="RoutingPolicy"/>'s defaults, which is the bare-composition behaviour.</param>
+/// <param name="options">Where the CONFIGURED routing policy and the budget caps live
+/// (<see cref="LyntaiOptions.Routing"/>, <see cref="LyntaiOptions.Budget"/>). Null routes on
+/// <see cref="RoutingPolicy"/>'s defaults and governs nothing.</param>
+/// <param name="tracker">The shared spend ledger, when the host opted into usage budgeting
+/// (<c>AddUsageBudget()</c>). Null records and caps nothing — the pre-D163 behaviour.</param>
+/// <param name="limiter">Client-side throttling, when the host opted in (<c>AddRateLimit()</c>). Null
+/// throttles nothing.</param>
 public sealed class ProviderRouterFactory(
     DeadHostTracker deadHosts,
     IProviderPool<IModelProvider>? pool = null,
     IProviderAdmission? admission = null,
-    LyntaiOptions? options = null) : IProviderRouterFactory
+    LyntaiOptions? options = null,
+    IUsageTracker? tracker = null,
+    IRateLimiter? limiter = null) : IProviderRouterFactory
 {
+    // one wallet per factory: built once, shared by every router this hands out — null when the host
+    // opted into neither budgeting nor rate limiting, so ungoverned routing costs nothing new
+    private readonly RouterGovernance? _governance =
+        options is not null && (tracker is not null || limiter is not null)
+            ? new RouterGovernance(options, tracker, limiter)
+            : null;
+
     // TryGetKey answers from a table independent of the pool's entries, so an instance whose configuration
     // was retired mid-call still attributes its cooldown correctly.
     private readonly Func<IModelProvider, ProviderKey?>? _configuration =
@@ -77,7 +93,7 @@ public sealed class ProviderRouterFactory(
         ArgumentNullException.ThrowIfNull(synthesize);
         return new ProviderRouter<TRequest, TResponse>(
             providers ?? [], synthesize, serves, policy ?? options?.Routing, deadHosts, admission,
-            _configuration, Scope<TRequest>(), logger);
+            _configuration, _governance, Scope<TRequest>(), logger);
     }
 
     /// <summary>The cooldown namespace for one closed shape — <c>VectorRequest</c> → <c>vector::</c> —

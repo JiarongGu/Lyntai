@@ -134,16 +134,27 @@ public sealed class LyntaiOptions
     /// wins (clamped to <see cref="MaxProviderTimeout"/>), then the consumer's <see cref="TimeoutByConsumer"/>
     /// entry, then the "default" consumer entry, then the global <see cref="ProviderTimeout"/>. The
     /// app-configured values are trusted (not clamped); only the per-request override is.</summary>
-    public TimeSpan ResolveTimeout(TextRequest req)
+    public TimeSpan ResolveTimeout(TextRequest req) => ResolveTimeout(req.TimeoutSeconds, req.Consumer);
+
+    /// <summary>Resolve a provider timeout from the two facts any call shape carries: the explicit
+    /// per-call seconds win (clamped to <see cref="MaxProviderTimeout"/>), then the consumer's
+    /// <see cref="TimeoutByConsumer"/> entry, then the "default" consumer entry, then the global
+    /// <see cref="ProviderTimeout"/> — the same ladder the text shape has always had, reachable by the
+    /// vector and score transports since their requests carry a consumer too (D163).</summary>
+    public TimeSpan ResolveTimeout(int? seconds, string? consumer)
     {
-        if (req.TimeoutSeconds is { } s && s > 0) return ResolveTimeout(s);
-        if (TimeoutByConsumer.TryGetValue(req.Consumer, out var t)) return t;
+        if (seconds is { } s && s > 0)
+        {
+            var requested = TimeSpan.FromSeconds(s);
+            return requested > MaxProviderTimeout ? MaxProviderTimeout : requested;
+        }
+        if (consumer is not null && TimeoutByConsumer.TryGetValue(consumer, out var t)) return t;
         return TimeoutByConsumer.TryGetValue("default", out var d) ? d : ProviderTimeout;
     }
 
-    /// <summary>Resolve a provider timeout from an explicit per-call seconds value: the value wins (clamped
-    /// to <see cref="MaxProviderTimeout"/>), else the global <see cref="ProviderTimeout"/>. (The consumer-tier
-    /// resolution lives only in the <see cref="ResolveTimeout(Lyntai.Inference.TextRequest)"/> overload.)</summary>
+    /// <summary>Resolve a provider timeout from an explicit per-call seconds value alone: the value wins
+    /// (clamped to <see cref="MaxProviderTimeout"/>), else the global <see cref="ProviderTimeout"/> — no
+    /// consumer tier, for a caller that has no consumer to name.</summary>
     public TimeSpan ResolveTimeout(int? seconds)
     {
         if (seconds is { } s && s > 0)

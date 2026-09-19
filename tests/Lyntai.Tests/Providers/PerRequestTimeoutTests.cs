@@ -17,6 +17,26 @@ public class PerRequestTimeoutTests
     private static TextRequest Req(int? timeoutSeconds = null, string consumer = "default") =>
         new() { Messages = [TextMessage.User("hi")], Consumer = consumer, TimeoutSeconds = timeoutSeconds };
 
+    // ---- the SAME ladder off a vector/score shape's two facts (D163) ----
+
+    [Fact]
+    public void The_seconds_and_consumer_overload_walks_the_same_ladder_the_text_shape_does()
+    {
+        var opts = new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) };
+
+        Assert.Equal(TimeSpan.FromSeconds(30), opts.ResolveTimeout(null, "memory"));       // global
+        opts.TimeoutByConsumer["default"] = TimeSpan.FromSeconds(45);
+        Assert.Equal(TimeSpan.FromSeconds(45), opts.ResolveTimeout(null, "memory"));       // "default" tier
+        opts.TimeoutByConsumer["memory"] = TimeSpan.FromMinutes(10);
+        Assert.Equal(TimeSpan.FromMinutes(10), opts.ResolveTimeout(null, "memory"));       // exact tier wins
+        Assert.Equal(TimeSpan.FromSeconds(90), opts.ResolveTimeout(90, "memory"));         // explicit wins
+        Assert.Equal(TimeSpan.FromSeconds(45), opts.ResolveTimeout(null, null));           // no tag → default tier
+
+        opts.MaxProviderTimeout = TimeSpan.FromSeconds(60);
+        Assert.Equal(TimeSpan.FromSeconds(60), opts.ResolveTimeout(99_999, "memory"));     // explicit is clamped
+        Assert.Equal(TimeSpan.FromMinutes(10), opts.ResolveTimeout(null, "memory"));       // the tier is trusted
+    }
+
     // ---- ResolveTimeout precedence + clamp (pure logic) ----
 
     [Fact]

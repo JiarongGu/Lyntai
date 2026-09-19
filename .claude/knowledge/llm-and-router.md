@@ -104,6 +104,22 @@ Three properties of that split are load-bearing:
   `Surface` returns the reply as-is (no host penalty, no fallback), so the app sees `RateLimited` and can
   back off on its own schedule. (Leave `ExemptSoleCandidate` alone — it only matters for cooldown/advance
   actions, which `Surface` no longer triggers.)
+- **Rerank or embed OUTSIDE the memory seams** — the score kind deliberately has no front door, so a
+  consumer composes the factory (and gets cooldown, admission, the configured policy and D163's governance
+  with it):
+  <!-- compile-given: IProviderRouterFactory routerFactory;
+       IEnumerable<IModelProvider> providers;
+       string query;
+       IReadOnlyList<string> documents; -->
+  ```csharp
+  var router = routerFactory.For<ScoreRequest, ScoreResponse>(
+      providers, ScoreResponse.Failure,
+      c => c.Supports(ProviderKinds.Score, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+  var scores = await router.CallAsync(new ScoreRequest(query, documents, Consumer: "my-feature"), ct);
+  ```
+  Read the verdict rather than assuming scores; stamp your own `Consumer` so the spend lands in a bucket
+  your caps and reports can name. The vector twin is the same shape over
+  `For<VectorRequest, VectorResponse>`.
 - **Caller-supplied refusal check on the reply text**: set `TextRequest.RefusalPattern` (a case-insensitive
   regex, e.g. a per-language "I can't help with that"). An otherwise-`Ok` reply whose text matches is
   surfaced as `Refused` (no fallback). Applied by `RefusalScreeningTextClient` — the always-on OUTERMOST
@@ -162,6 +178,13 @@ exists for the same reason: *building a router per call is cheap; the BOOKKEEPIN
 it.* Until it existed those kinds passed `deadHosts: null, admission: null`, so a rate-limited embedding
 backend was asked again on the next recall. **Reach for it rather than `new ProviderRouter<,>(…)`** anywhere
 a container is available; the bare constructor is for a caller composing by hand.
+
+**Factory-built routers also carry the ONE WALLET** (**D163**): budget caps and the client-side rate
+limiter checked BEFORE the candidate loop (a refusal costs no backend call and benches no host), the
+response's reported usage recorded under the request's consumer. Only for a request the router can
+ATTRIBUTE — `IConsumerTagged` on the request, `IProviderOutcome.Usage` on the response — and only when the
+host opted in via `AddUsageBudget()`/`AddRateLimit()`. The library's own traffic is stamped: memory embeds,
+semantic recall and scoring verification bill to `"memory"`, tool-selector embeds to `"agent"`.
 
 Supply the delegate when **several configurations of one backend id are live at once** (an end user or a
 polled store owns the configuration; tenants carry their own credentials and endpoints). Then the id is the

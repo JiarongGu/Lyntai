@@ -146,7 +146,11 @@ public static class LyntaiServiceCollectionExtensions
                 sp.GetService<Lyntai.Inference.IProviderAdmission>(),
                 // the CONFIGURED routing policy (ConfigureRouting) reaches every kind through here —
                 // it used to reach chat alone, and an operator's retries were silently text-only
-                sp.GetService<LyntaiOptions>()));
+                sp.GetService<LyntaiOptions>(),
+                // the one wallet (D163): present exactly when the host opted in via AddUsageBudget /
+                // AddRateLimit, so a deployment that did neither routes exactly as before
+                sp.GetService<Lyntai.Inference.Budgeting.IUsageTracker>(),
+                sp.GetService<Lyntai.Inference.RateLimiting.IRateLimiter>()));
     }
 
     /// <summary>The LLM front door: process runner, dead-host tracker, router, and the consumer
