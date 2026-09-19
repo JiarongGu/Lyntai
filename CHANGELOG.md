@@ -73,7 +73,8 @@ every addition.
   budgeting, attribution and per-call deadlines. `TimeoutSeconds` is honoured today, clamped exactly as the
   text shape's; the HTTP embeddings transport surfaces the wire's reported prompt tokens (null where the
   endpoint reported nothing, which is a different fact from zero). Budget/rate-limit WIRING for these kinds
-  is additive and filed in the backlog — the record slots are the half the release window freezes.
+  landed in the same window — the governed routing under **Added** (**D163**); the record slots are the
+  half the release window freezes.
   **What to DO:** construction by name or position keeps compiling; add one slot wherever you positionally
   DECONSTRUCT any of the four records, and recompile a precompiled caller (the D120 rule).
 
