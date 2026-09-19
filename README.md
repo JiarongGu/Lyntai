@@ -66,7 +66,7 @@ version you installed.
 > it was withdrawn in 3.0 (`docs/DECISIONS.md` **D70**). It named three reasons and each is closed: the two
 > backends written from vendor documentation now expose every mapping they could have got wrong as a host
 > option, so a mismatch is a configuration edit rather than a release (**D69**); the same is true of the
-> third's ported argv; and streaming generation is reachable through the router (**D67**). What a real
+> third's argv, since measured against a real engine; and streaming generation is reachable through the router (**D67**). What a real
 > run can still surprise is a wire format's SHAPE, not a value — and that is now a major-version risk taken
 > deliberately rather than a caveat carried indefinitely.
 > **The carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE:** the generation *contracts* in that
@@ -1208,7 +1208,7 @@ failure rather than inventing an artifact.
 | `OpenAiImageProvider` | Inline | `/images/generations`, or `/images/edits` when the request carries an input image. A `url` response comes back as a URI artifact — never downloaded for you |
 | `Automatic1111Provider` | Inline | A locally-run SD WebUI: `txt2img` / `img2img`. Not running reports **NotConfigured** (skipped, not blamed), and its probe checks a checkpoint is *loaded* — "up" isn't "usable". The WebUI's currently-loaded checkpoint decides the model: `MediaRequest.Model`, including a candidate's `a1111:sd_xl_base` pin, is **not** sent |
 | `ComfyUiProvider` | **Job** | *Documented, not measured.* Local and workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs. A transport failure while polling reports **Running, not Failed** — an unanswered status call says nothing about a run still going — while a 4xx or an unconfigured base URL stays terminal, so a bad id never polls forever |
-| `LocalDiffusionProvider` | Inline | A local `sd-cli` / stable-diffusion.cpp subprocess through `IProcessRunner` — no key, no network, no content policy in the path. Argv and the multiple-of-64 size clamp are ported from a working implementation rather than measured here |
+| `LocalDiffusionProvider` | Inline | A local `sd-cli` / stable-diffusion.cpp subprocess through `IProcessRunner` — no key, no network, no content policy in the path. Argv and the multiple-of-64 size clamp are measured against a real engine (txt2img and img2img, end to end through the library) |
 | `FalQueueProvider` | **Job** | *Documented, not measured.* One aggregator queue reaching the Wan/Kling/Veo-class video models. The operation id **carries its model** (`"model#requestId"`) because a resumed job has only the id, and a transport failure while polling reports **Running, not Failed** — a 500 says nothing about a paid render still in flight |
 
 **Not in scope, by design:** generation itself, downloading engines or model weights, hosting a webhook

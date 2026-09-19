@@ -15,22 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 4 Parts: 2 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 8 across 4 Parts: 1 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 110 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 127 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 160 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 213 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 232 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 279 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 334 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 357 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 414 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 109 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 142 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 195 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 214 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 261 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 316 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 339 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 396 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -99,30 +98,13 @@ the core was built._
 _GEN3 (local `sd-cli`), GEN4 (durable renders + the fal.ai queue backend), GEN6's tool/MCP bridge half and
 GEN5 (governance + telemetry parity) all landed 2026-08-04 — see `docs/task-archive.md` Part 33._
 
-_**THREE surfaces are unmeasured, not two, and only ONE of them needs a vendor.** This paragraph named the
-`sd-cli` argv/clamp (ported-not-measured) and fal's wire format (documented-not-measured) and omitted
-**ComfyUI**, whose own class header says no instance was available to measure it — a self-hosted backend
-needing no account, declaring both Image and Video. Sorted by what each COSTS: ComfyUI is a local server,
-`sd-cli` is two downloads, fal is an account. Naming only the first and the last is how "we are waiting on
-fal" came to stand in for "the platform is unverified". (`sd-cli`'s binary-directory working dir was a
-fourth such surface — a consuming app measured it 2026-08-04 and it is now confirmed.)_
-
-- [ ] **GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the multiple-of-64 clamp.** <!-- item: state=startable -->
-  Then delete that backend's remaining "unverified" notes from the XML docs, or fix the mapping and keep
-  them. Two downloads, both named: the CPU build is
-  `sd-master-<rev>-bin-win-cpu-x64.zip` from `leejet/stable-diffusion.cpp`'s releases (**17.1 MB**, verified
-  2026-09-16), and any SD 1.5 checkpoint (~1.7 GB) satisfies the model. Point
-  `LocalDiffusionOptions.BinaryPath` at the extracted `sd-cli.exe` — there is no PATH probe and no prefix
-  match, deliberately, because the same zip ships `sd-server.exe` and a loose `sd`-prefix match would
-  select the SERVER and present as a HANG.
-
-  _**RE-FILED 2026-09-16 from `blocked · env` to STARTABLE, and the item was never blocked.**
-  `task-lifecycle.md` says it in as many words — "a DOWNLOAD is a step, not a blocker, unless you cannot
-  name the file" — and both files are nameable, public and small. **This is the SECOND time that exact
-  drift has been caught by a reader rather than a re-check**; the rule's own text records the first, where
-  "one item sat `startable` needing a model nobody had named, while its neighbour sat `blocked · env` for a
-  download". A re-check that confirms the artifact is still absent from the machine is answering the wrong
-  question: the test is whether someone could BEGIN today, not whether the work is already done._
+_**TWO surfaces remain unmeasured, and only ONE of them needs a vendor**: **ComfyUI**, a self-hosted local
+server declaring both Image and Video, and **fal**, an account. Sorted by what each COSTS, ComfyUI is the
+cheap one. `sd-cli` left this list on 2026-09-19: its argv and size clamp were measured against a real
+engine — one txt2img and one img2img render through the library, correcting the retired `img2img` mode
+value on the way (`docs/task-archive.md` Part 261) — after a consuming app had confirmed its
+binary-directory working dir on 2026-08-04. The fal-first naming that once hid ComfyUI inside this list is
+recorded in `.claude/knowledge/pitfalls.md`._
 
 - [ ] **GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server.** Its class header says <!-- item: state=startable -->
   *"No ComfyUI instance was available to measure when this was written"*, so the endpoint paths and the
@@ -152,10 +134,10 @@ fourth such surface — a consuming app measured it 2026-08-04 and it is now con
 
   _**Why this was not filed until 2026-09-16**, which is the finding rather than the item: GEN-VERIFY was
   written fal-first and split fal-first, so the ONE unverified backend that needs no vendor at all stayed
-  invisible inside it through two passes — including the pass that split it. **Three surfaces are
-  documented-not-measured, not two**, and they have completely different costs: `sd-cli` needs two
-  downloads, ComfyUI needs a local server, and only fal needs an account. Sorting them by what they COST
-  is what the single item prevented._
+  invisible inside it through two passes — including the pass that split it. **Three surfaces WERE
+  documented-not-measured at that date, not two**, with completely different costs: `sd-cli` needed two
+  downloads (measured since), ComfyUI needs a local server, and only fal needs an account. Sorting them by
+  what they COST is what the single item prevented._
 
 - [ ] **GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key**, checking the status <!-- item: state=blocked kind=env needs="a fal.ai account and key — nobody here has one, and no download substitutes for it" -->
   vocabulary, the result field names and what `cost` reports. Then delete that backend's "unverified" notes

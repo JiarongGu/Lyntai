@@ -74,9 +74,10 @@ the full promise and these are confirmations rather than repairs. In priority or
 1. **GEN-VERIFY** — run `sd-cli` and fal.ai for real and confirm the argv/clamp and the wire format. **A
    mismatch in any VALUE is now a host's configuration edit, not a release** (**D69**): the status vocabulary,
    the cost fields, ComfyUI's response field names and the whole `sd-cli` argv are options. What a real run
-   uniquely settles is whether a format differs STRUCTURALLY, which no per-field option can absorb. (One of
-   the three ported `sd-cli` details — the binary-directory working dir — was confirmed against a real release
-   by a consuming app in 2026-08; argv and the size clamp are what's left.)
+   uniquely settles is whether a format differs STRUCTURALLY, which no per-field option can absorb. (The
+   `sd-cli` half is DONE — the working dir was confirmed by a consuming app in 2026-08, and the argv and size
+   clamp were measured 2026-09-19 against a real engine, correcting the retired `img2img` mode value on the
+   way. ComfyUI and fal are what's left.)
 2. **Streaming TTS** — a real backend for `IModelProvider`. The PLATFORM half shipped in 3.0
    (**D67**): the router's stream door selects, falls over, governs and throttles a stream-capable backend and
    guarantees exactly one terminal chunk. What a vendor still settles is whether data-then-terminal is the

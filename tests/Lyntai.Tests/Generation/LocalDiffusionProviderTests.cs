@@ -10,10 +10,10 @@ namespace Lyntai.Tests.Generation;
 /// key, no network, no content policy. Driven through the BYO <see cref="IProcessRunner"/>, so no binary is
 /// spawned here.
 ///
-/// The argv and the size-clamping rules are PORTED from a sibling app's working implementation (the engine
-/// isn't installed on this dev machine, so they are production-proven rather than measured here). That is why
-/// they are pinned by exact-argv assertions: if a future edit drifts from the shape a real `sd-cli` accepts,
-/// these fail rather than a user's render failing.</summary>
+/// The argv and the size-clamping rules are MEASURED against a real engine (master-874-656a135) —
+/// <see cref="LocalDiffusionLiveTests"/> is the measurement, and these exact-argv assertions pin its result:
+/// if a future edit drifts from the shape that engine accepted, these fail rather than a user's render
+/// failing.</summary>
 public class LocalDiffusionProviderTests
 {
     private static (LocalDiffusionProvider Provider, FakeProcessRunner Runner, string Dir) Provider(
@@ -115,7 +115,9 @@ public class LocalDiffusionProviderTests
 
         Assert.True(result.IsOk, result.Detail);
         var args = runner.LastArgs!.ToList();
-        Assert.Equal("img2img", args[args.IndexOf("-M") + 1]);
+        // MEASURED (master-874-656a135): the engine selects img2img by the PRESENCE of the init flag; its
+        // mode values no longer include img2img, and passing one is an argv error, not a fallback.
+        Assert.DoesNotContain("-M", args);
         Assert.Equal("0.5", args[args.IndexOf("--strength") + 1]);
         Assert.NotNull(initPath);
         // the engine reads the source from disk, so the bytes must have been staged before the spawn
@@ -131,15 +133,16 @@ public class LocalDiffusionProviderTests
     [InlineData(null, 512, 512)]
     public void The_size_clamp_matches_the_engines_constraints(string? size, int width, int height)
     {
-        // sd.cpp requires multiples of 64; a CPU render at 1024+ is minutes of pointless waiting
+        // sd.cpp delivers only multiples of 64 (it rounds a non-multiple silently, measured 500->512);
+        // a CPU render at 1024+ is minutes of pointless waiting
         Assert.Equal((width, height), LocalDiffusionProvider.ClampSize(size));
     }
 
-    // ---- the ported argv is CORRECTABLE without a library release ------------------------------------
+    // ---- the argv is CORRECTABLE without a library release ---------------------------------------------
     //
-    // The class header says this argv is PORTED from a working implementation, not measured here. The
-    // engine is a third-party binary whose flags can be renamed upstream between releases, so a host that
-    // hits that must be able to edit configuration rather than wait for a Lyntai release.
+    // The engine is a third-party binary whose flags can be renamed upstream between releases — the retired
+    // img2img mode value is the measured example — so a host that hits the next rename must be able to edit
+    // configuration rather than wait for a Lyntai release.
 
     private static LocalDiffusionProvider Configured(Action<LocalDiffusionOptions> configure)
     {
@@ -158,24 +161,27 @@ public class LocalDiffusionProviderTests
         Assert.Contains("--cfg", args);
         Assert.DoesNotContain("--cfg-scale", args);
         Assert.Equal("7", args[args.IndexOf("--cfg") + 1]);
-        // everything NOT overridden keeps its ported spelling — a partial override is the common case
+        // everything NOT overridden keeps its measured spelling — a partial override is the common case
         Assert.Contains("--steps", args);
         Assert.Contains("-W", args);
     }
 
     [Fact]
-    public void A_host_can_rename_the_img2img_flags_and_the_mode_VALUE()
+    public void A_host_on_an_OLD_engine_build_can_restore_the_explicit_mode_pair()
     {
+        // Older engine builds required `-M img2img`; the current one REJECTS it (the mode value was retired
+        // upstream). The default is the current engine's shape, and this option is the escape hatch working
+        // in the direction it was designed for — an upstream argv change is a configuration edit here.
         var provider = Configured(o =>
         {
             o.ArgvFlags["init"] = "--init-img";
             o.ArgvFlags["mode"] = "--mode";
-            o.Img2ImgMode = "i2i";
+            o.Img2ImgMode = "img2img";
         });
 
         var args = provider.BuildArgs("model.gguf", "a cat", "out.png", 512, 512, initPath: "init.png");
 
-        Assert.Equal("i2i", args[args.IndexOf("--mode") + 1]);
+        Assert.Equal("img2img", args[args.IndexOf("--mode") + 1]);
         Assert.Equal("init.png", args[args.IndexOf("--init-img") + 1]);
     }
 
@@ -192,15 +198,17 @@ public class LocalDiffusionProviderTests
     }
 
     [Fact]
-    public void The_unconfigured_argv_is_byte_identical_to_the_ported_one()
+    public void The_unconfigured_argv_is_byte_identical_to_the_MEASURED_one()
     {
-        // The flags became a lookup rather than literals; an unconfigured host must not be able to tell.
-        var ported = Configured(_ => { }).BuildArgs("model.gguf", "a cat", "out.png", 512, 512, "init.png");
+        // The flags are a lookup rather than literals; an unconfigured host gets exactly the argv a real
+        // sd-cli accepted (master-874-656a135) — no mode pair, because the engine reads the init flag's
+        // presence as the img2img switch and rejects the retired `img2img` mode value.
+        var measured = Configured(_ => { }).BuildArgs("model.gguf", "a cat", "out.png", 512, 512, "init.png");
 
         Assert.Equal(
             ["-m", "model.gguf", "-p", "a cat", "-o", "out.png", "-W", "512", "-H", "512",
-             "--steps", "20", "--cfg-scale", "7", "-M", "img2img", "-i", "init.png", "--strength", "0.5"],
-            ported);
+             "--steps", "20", "--cfg-scale", "7", "-i", "init.png", "--strength", "0.5"],
+            measured);
     }
 
     // ---- the ceiling is the HOST's, and it has to reach both halves of the clamp ----------------------

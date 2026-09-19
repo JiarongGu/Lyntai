@@ -7,6 +7,32 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-19 — the default img2img argv passed a mode value the current engine rejects
+
+**Symptom.** An img2img render through `LocalDiffusionProvider` against a current stable-diffusion.cpp
+build fails immediately: `invalid mode img2img, must be one of [img_gen, adetailer, vid_gen, convert,
+upscale, metadata]`. txt2img was unaffected (it never passed a mode), and no test could see it — the argv
+was ported, and the unit tests pin what the backend BUILDS, not what an engine ACCEPTS.
+
+**Root cause.** Upstream folded txt2img/img2img into one `img_gen` mode and retired the `img2img` value;
+the engine now selects img2img by the PRESENCE of `-i` alone. The ported default (`Img2ImgMode =
+"img2img"`, always appended after `-M`) was correct for the build it was ported from and is an argv error
+on `master-874-656a135`. D69's escape hatch could already absorb it (`Img2ImgMode = "img_gen"` is
+accepted), but the shipped DEFAULT was broken against the engine a host downloads today.
+
+**Fix.** `Img2ImgMode` is nullable and defaults to null — the mode pair is omitted entirely, matching the
+measured engine; a host on an older build that still requires the pair sets `"img2img"` back. Found by
+GEN-VERIFY-SD's measurement (`docs/task-archive.md` Part 261), from the engine's own argv parse.
+
+**Verify.** Driven red first: the two exact-argv tests in `LocalDiffusionProviderTests` (no `-M` on the
+img2img path; byte-identical unconfigured argv without the pair). Then measured green:
+`LocalDiffusionLiveTests` ran txt2img and img2img end to end against the real engine, and the requested
+250×250 came back as the clamped 256×256 on both legs.
+
+**Introduced by.** The 2026-08-04 generation platform (archive Part 33), which ported the argv with its
+own header saying "confirm against a live engine" — this was that confirmation, thirty-one engine
+releases later.
+
 ## 2026-09-19 — `ConfigureRouting` reached chat alone; vector and score routed on the defaults, silently
 
 **Symptom.** An operator's routing configuration — `ConfigureRouting(p => p.Retry(Failed, 2))`, the

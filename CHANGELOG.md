@@ -83,6 +83,16 @@ every addition.
   hand-composed `new ProviderRouter<,>(…)` passing `logger` positionally adds the slot; the factory is the
   normal door and its call sites are unchanged.
 
+- **`LocalDiffusionOptions.Img2ImgMode` is nullable and defaults to null — the img2img argv is now the
+  MEASURED engine's.** A real stable-diffusion.cpp (`master-874-656a135`) ran txt2img and img2img end to
+  end through the library and corrected the one ported argv detail: upstream retired the `img2img` mode
+  value, the engine selects img2img by the init flag's PRESENCE, and the old explicit `-M img2img` is an
+  argv ERROR on current builds — so the default emits no mode pair at all. The size clamp is also measured:
+  the engine silently ROUNDS a non-multiple-of-64 (500→512), so the clamp is what keeps the delivered size
+  equal to the declared one. **What to DO:** nothing on a current engine — img2img now works where it
+  previously failed at the argv parse. A host running an engine build old enough to REQUIRE the explicit
+  pair sets `Img2ImgMode = "img2img"` back.
+
 - **One ONNX provider, and `Produces` says which kind it serves** (**D157**). `OnnxCrossEncoder`, <!-- drift-ok: the entry ANNOUNCING the removal has to name what it removes -->
   `AddOnnxCrossEncoder` and `OnnxCrossEncoderOptions` are **gone**. A cross-encoder was never a second <!-- drift-ok: the entry ANNOUNCING the removal has to name what it removes -->
   BACKEND — both classes ran the identical session over the identical feed, and only how a call was encoded

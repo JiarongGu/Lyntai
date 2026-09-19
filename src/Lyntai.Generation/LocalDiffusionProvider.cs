@@ -22,7 +22,7 @@ public sealed class LocalDiffusionOptions
     /// <summary>The candidate id this backend registers under.</summary>
     public string Id { get; set; } = "local-diffusion";
 
-    /// <summary>Sampling steps. 20 is the ported default — CPU diffusion makes each step expensive.</summary>
+    /// <summary>Sampling steps. 20 matches the engine's own default — CPU diffusion makes each step expensive.</summary>
     public int Steps { get; set; } = 20;
 
     /// <summary>Classifier-free guidance scale.</summary>
@@ -65,16 +65,17 @@ public sealed class LocalDiffusionOptions
 
     /// <summary>The argv flag tokens, keyed by what each one MEANS rather than by its spelling. A key absent
     /// here falls back to <see cref="DefaultArgvFlags"/>, so a host overrides one flag without restating ten.</summary>
-    /// <remarks><b>Settable because this argv is ported, not measured</b> — the same reason the ComfyUI and
-    /// fal backends make their paths and field names options. The engine is a third-party binary whose flags
-    /// can be renamed upstream between releases, and a host that hits that should edit configuration rather
-    /// than wait for a Lyntai release. Recognised keys: <c>model</c>, <c>prompt</c>, <c>output</c>,
+    /// <remarks><b>Settable because the engine renames things between releases, and it HAS</b>: upstream
+    /// retired the <c>img2img</c> mode value, and the correction this seam was built for arrived as a default
+    /// change here and remains a configuration edit for any host whose engine drifts next — never a wait for
+    /// a Lyntai release. Recognised keys: <c>model</c>, <c>prompt</c>, <c>output</c>,
     /// <c>width</c>, <c>height</c>, <c>steps</c>, <c>cfg-scale</c>, <c>mode</c>, <c>init</c>,
     /// <c>strength</c>.</remarks>
     public IDictionary<string, string> ArgvFlags { get; set; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The ported argv spellings, used for any key <see cref="ArgvFlags"/> does not override.</summary>
+    /// <summary>The measured argv spellings (<c>master-874-656a135</c>), used for any key
+    /// <see cref="ArgvFlags"/> does not override.</summary>
     internal static readonly IReadOnlyDictionary<string, string> DefaultArgvFlags =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -90,8 +91,11 @@ public sealed class LocalDiffusionOptions
             ["strength"] = "--strength",
         };
 
-    /// <summary>The value passed after the <c>mode</c> flag for an image-to-image run.</summary>
-    public string Img2ImgMode { get; set; } = "img2img";
+    /// <summary>The value passed after the <c>mode</c> flag for an image-to-image run — or <c>null</c>, the
+    /// default, to pass NO mode flag at all. The current engine (measured: <c>master-874-656a135</c>) selects
+    /// img2img by the PRESENCE of the init flag and REJECTS the retired <c>img2img</c> mode value as an argv
+    /// error; an older build that required the explicit pair gets it back by setting <c>"img2img"</c> here.</summary>
+    public string? Img2ImgMode { get; set; }
 
     /// <summary>Extra arguments appended verbatim to every render — a sampler, a seed, a VAE path, whatever
     /// this build accepts that the platform has no opinion about. Empty by default.</summary>
@@ -129,16 +133,18 @@ public enum DiffusionAccelerator
 /// delivery, because a local render blocks until the file exists; there is no operation id to resume.
 /// </summary>
 /// <remarks>
-/// <para>The argv and the size-clamping rules are <b>PORTED from a working implementation</b>, not measured here
-/// (the engine isn't installed on the machine where this was written). They are production-proven, and pinned by
-/// exact-argv tests so a later edit can't drift from the shape a real <c>sd-cli</c> accepts. Confirm against a
-/// live engine before relying on them in anger.</para>
+/// <para>The argv and the size-clamping rules are <b>MEASURED against a real engine</b>
+/// (<c>master-874-656a135</c>): one txt2img and one img2img render ran end to end through this class
+/// (<c>LocalDiffusionLiveTests</c>), and the exact-argv tests pin what that engine accepted. The measurement
+/// corrected one ported detail — img2img is selected by the init flag's PRESENCE, and the old explicit mode
+/// pair is an argv error (<see cref="LocalDiffusionOptions.Img2ImgMode"/> restores it for an older build).</para>
 /// <para>Two details that look incidental and are not. The spawn's working directory is the BINARY's
-/// directory, because the engine loads <c>ggml*.dll</c> from beside itself and fails at load time otherwise
-/// — CONFIRMED against a real release. And sizes round to multiples of 64 and floor at 256 because the
-/// engine requires it, then fit <see cref="LocalDiffusionOptions.MaxDimension"/> — 768 on the default CPU
-/// profile, where a larger render is minutes of pointless waiting, and unbounded on <c>Gpu</c>. The 768 is
-/// measured; the argv around it is still ported.</para>
+/// directory, because the engine loads <c>ggml*.dll</c> from beside itself and fails at load time otherwise.
+/// And the size clamp — multiples of 64, floored at 256, fitted to
+/// <see cref="LocalDiffusionOptions.MaxDimension"/> — exists because the engine ROUNDS silently rather than
+/// failing (a measured 500x500 request came back 512x512 with no warning), so without it the size a caller
+/// asked for and the size delivered diverge with nobody deciding that. 768 on the default CPU profile, where
+/// a larger render is minutes of pointless waiting; unbounded on <c>Gpu</c>.</para>
 /// <para>The executable is supplied by the host as a full path — deliberately no PATH probe and no name
 /// matching, because a real release ships <c>sd-cli.exe</c> AND <c>sd-server.exe</c> side by side, and a loose
 /// <c>sd</c>-prefix match would launch the server, which starts and then waits forever: a hang, not an
@@ -181,7 +187,7 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     {
         var limits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["size-multiple-of"] = "64",   // the engine's own requirement, true on every accelerator
+            ["size-multiple-of"] = "64",   // the engine delivers only multiples of 64, on every accelerator
         };
         if (maxDimension is { } cap)
         {
@@ -286,11 +292,12 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
         }
     }
 
-    /// <summary>The engine's argument list. PORTED verbatim in shape from a working implementation — txt2img by
-    /// default, switching to img2img when a source image is staged.</summary>
-    /// <remarks>Every FLAG is looked up in <see cref="LocalDiffusionOptions.ArgvFlags"/> rather than written here,
-    /// for the reason the class header gives: this argv is ported, not measured. An upstream rename is a
-    /// configuration edit, not a Lyntai release. The ORDER and the pairing stay this backend's — only the
+    /// <summary>The engine's argument list, MEASURED against a real engine — txt2img by default; a staged
+    /// source image adds the init flag, whose presence IS the img2img switch.</summary>
+    /// <remarks>Every FLAG is looked up in <see cref="LocalDiffusionOptions.ArgvFlags"/> rather than written
+    /// here, because the engine is a third-party binary that renames things between releases — the retired
+    /// <c>img2img</c> mode value is the measured example — so an upstream rename is a configuration edit, not
+    /// a Lyntai release. The ORDER and the pairing stay this backend's — only the
     /// tokens are the host's — because which flags may legally sit where is the engine's grammar
     /// (`docs/DECISIONS.md` D65 records what happens when a caller places argv it does not own).</remarks>
     internal List<string> BuildArgs(string model, string prompt, string output, int width, int height, string? initPath)
@@ -311,8 +318,13 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
         ];
         if (initPath is not null)
         {
-            args.Add(flag("mode"));
-            args.Add(options.Img2ImgMode);
+            // MEASURED: the engine reads the init flag's PRESENCE as the img2img switch. The mode pair is
+            // emitted only for a host that set Img2ImgMode — an older build that still requires it.
+            if (options.Img2ImgMode is { Length: > 0 } mode)
+            {
+                args.Add(flag("mode"));
+                args.Add(mode);
+            }
             args.Add(flag("init"));
             args.Add(initPath);
             args.Add(flag("strength"));
@@ -329,8 +341,10 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
 
     /// <summary>Parse <c>"WxH"</c> and fit it to what the configured engine can actually do: keep the aspect
     /// ratio, bring the longer side down to <paramref name="maxDimension"/> when one applies, floor at 256,
-    /// and round each side to a multiple of 64 (an engine requirement). An unparseable hint falls back to
-    /// 512×512 rather than failing — a bad size is not worth losing a render over.</summary>
+    /// and round each side to a multiple of 64 — the engine delivers only such sizes, and rounds a
+    /// non-multiple SILENTLY, so clamping here keeps the declared size and the delivered size the same.
+    /// An unparseable hint falls back to 512×512 rather than failing — a bad size is not worth losing a
+    /// render over.</summary>
     /// <param name="size">The caller's <c>"WxH"</c> hint, or null.</param>
     /// <param name="maxDimension">Longest permitted side, or null for no ceiling —
     /// <see cref="LocalDiffusionOptions.EffectiveMaxDimension"/>, which derives it from the declared

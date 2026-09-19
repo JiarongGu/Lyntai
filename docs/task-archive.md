@@ -4637,3 +4637,21 @@ and failure is the top-level `status`/`exit_code` the reader already read. Docs 
   behaviour changed — every inference was correct, so this is a confirmation, not a repair.
 - CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping → confirmed (D35).
   Part 41 also carried the CLI15 pointer (closed 2026-08-05 as archive Part 45); it retires here.
+
+## Part 261 — GEN-VERIFY-SD: the sd-cli argv and clamp, measured — and the mode pair corrected
+
+✅ done 2026-09-19 — **Outcome:** closes `TASKS.md` Part 33's GEN-VERIFY-SD item. A real engine
+(stable-diffusion.cpp `master-874-656a135`, CPU build) ran one txt2img and one img2img render end to end
+through the library (`LocalDiffusionLiveTests`, gated on `LYNTAI_SD_CLI` + `LYNTAI_SD_MODEL`). Nine of
+ten ported argv tokens confirmed verbatim; the tenth was wrong — upstream retired the `img2img` mode
+value, the engine selects img2img by the init flag's PRESENCE, and the explicit pair is an argv ERROR. The
+default argv now omits the pair; `Img2ImgMode` (nullable now) restores it for an older build
+(`docs/FIXES.md` 2026-09-19, D69 amended). The clamp's justification sharpened: the engine silently
+ROUNDS a non-multiple-of-64 (500→512, measured) rather than rejecting it, so the clamp is what keeps the
+declared size equal to the delivered one. Docs flipped ported→measured throughout.
+
+- **Ratio, per the measurement-task rule:** two downloads, three cheap probes and one live render pair,
+  against one corrected default and one live test. The actionable finding (the rejected mode value) came
+  from the engine's own argv parse, before the model had even finished downloading.
+- GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the multiple-of-64 clamp → done;
+  mapping fixed, the "unverified" notes replaced with measured claims.

@@ -1644,9 +1644,9 @@ per-field option saves it, and that is what a real run still has to confirm. The
 true: every *value* that could be wrong is now the host's to fix, so the residual risk is a shape, not a
 spelling.
 
-**Byte-identical unconfigured**, pinned per backend, including a test that reconstructs `sd-cli`'s full
-ported argv literally — the flags became a dictionary lookup rather than literals, and an unconfigured host
-must not be able to tell.
+**Byte-identical unconfigured**, pinned per backend — the flags became a dictionary lookup rather than
+literals, and an unconfigured host must not be able to tell. *(2026-09-19: MEASURED — upstream HAD retired
+the `img2img` mode value; the default now omits the mode pair, `Img2ImgMode` restores it for older builds.)*
 
 ---
 
