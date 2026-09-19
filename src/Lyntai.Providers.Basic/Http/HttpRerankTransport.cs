@@ -26,7 +26,7 @@ internal sealed class HttpRerankTransport(
     bool disposeHttpClient = true)
 {
     private readonly ILogger _logger = logger ?? NullLogger<HttpRerankTransport>.Instance;
-    private readonly HttpDialect _dialect = HttpEndpoint.ResolveDialect(config.Dialect, config.BaseUrl);
+    private readonly bool _azure = HttpEndpoint.AzureFor(config);
 
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
 
@@ -41,7 +41,8 @@ internal sealed class HttpRerankTransport(
         var documents = request.Documents;
         if (documents.Count == 0) return new ScoreResponse(ProviderVerdict.Ok, []);
 
-        var timeout = options.ProviderTimeout;
+        // the same per-request override the text shape honours, clamped the same way (D162)
+        var timeout = options.ResolveTimeout(request.TimeoutSeconds);
         string body;
         try
         {
@@ -89,14 +90,15 @@ internal sealed class HttpRerankTransport(
         {
             Content = new StringContent(payload.ToJsonString(), new UTF8Encoding(false), "application/json"),
         };
-        HttpEndpoint.ApplyAuth(request, config.ApiKey, _dialect);
+        HttpEndpoint.ApplyAuth(request, config.ApiKey, _azure);
         return request;
     }
 
-    /// <summary>Ollama serves no native rerank route, so every dialect composes the same
-    /// OpenAI/Cohere-shaped one.</summary>
+    /// <summary>The OpenAI/Cohere-shaped <c>rerank</c> route under the <c>/v1</c> convention. There is no
+    /// Ollama arm on purpose: Ollama serves no rerank surface, and its provider refuses a Score
+    /// registration at construction rather than guessing a route that 404s.</summary>
     private Uri Endpoint() =>
-        HttpEndpoint.Build(config.BaseUrl, _dialect, ollamaNativePath: "/v1/rerank", openAiRoute: "rerank");
+        HttpEndpoint.Build(config.BaseUrl, _azure, "rerank");
 
     /// <summary>Reads <c>results[].index</c> plus <c>relevance_score</c> (Cohere/llama.cpp) or <c>score</c>,
     /// and puts them back in INPUT order — the endpoint answers SORTED, and an index is only meaningful to

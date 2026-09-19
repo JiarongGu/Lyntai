@@ -29,7 +29,7 @@ public sealed class BudgetedTextClient(
             return new TextResponse("", ProviderVerdict.Refused, Detail: reason);
 
         var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
-        if (reply.Usage is not null) await tracker.RecordAsync(req.Consumer, reply.Usage, ct).ConfigureAwait(false);
+        if (reply.Usage is not null) await tracker.RecordAsync(req.Consumer, reply.Usage.ToProviderUsage(), ct).ConfigureAwait(false);
         return reply;
     }
 
@@ -45,7 +45,7 @@ public sealed class BudgetedTextClient(
         await foreach (var chunk in Inner.StreamAsync(req, ct).ConfigureAwait(false))
         {
             if (chunk is { Kind: TextChunkKind.Final, Usage: not null })
-                await tracker.RecordAsync(req.Consumer, chunk.Usage, ct).ConfigureAwait(false);
+                await tracker.RecordAsync(req.Consumer, chunk.Usage.ToProviderUsage(), ct).ConfigureAwait(false);
             yield return chunk;
         }
     }

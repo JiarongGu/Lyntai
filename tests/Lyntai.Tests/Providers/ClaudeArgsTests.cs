@@ -6,7 +6,7 @@ namespace Lyntai.Tests.Providers;
 
 /// <summary>The claude CLI's own argv vocabulary (<see cref="ClaudeArgs"/>) plus the SHARED prompt
 /// flattening it relies on (<see cref="CliPrompt"/>, which every CLI dialect gets from
-/// <see cref="CliProviderDialectBase"/> — a CLI takes one blob of text, so nothing about that is
+/// <see cref="CliBackendBase"/> — a CLI takes one blob of text, so nothing about that is
 /// claude-specific).</summary>
 public class ClaudeArgsTests
 {

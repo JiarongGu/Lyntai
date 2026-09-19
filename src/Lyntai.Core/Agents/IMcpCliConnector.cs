@@ -5,7 +5,7 @@ namespace Lyntai.Agents;
 /// The vendor-specific half of <see cref="ICliToolProvisioner"/>: how ONE CLI is told to connect to a
 /// running MCP tool endpoint. Everything else about hosting the app's <see cref="ITool"/>s — starting the
 /// server, minting the bearer token, writing and deleting temp files, tearing down after the process
-/// exits — is provider-neutral and belongs to the host package; a dialect contributes only the argv and
+/// exits — is provider-neutral and belongs to the host package; a connector contributes only the argv and
 /// config-file shapes.
 ///
 /// <para>The variation across CLIs is structural, not cosmetic, which is why this is an interface rather
@@ -13,16 +13,16 @@ namespace Lyntai.Agents;
 /// Implementing one is the whole cost of supporting a new CLI — there is no new package and no change to
 /// the host.</para>
 ///
-/// <para>Lives in Core so a provider package can ship its own dialect WITHOUT taking a dependency on the
+/// <para>Lives in Core so a provider package can ship its own connector WITHOUT taking a dependency on the
 /// MCP host (a loopback <c>HttpListener</c> server that pulls in <c>ModelContextProtocol.Core</c>) — that
 /// separation is the point of the <see cref="ICliToolProvisioner"/> seam.</para>
 /// </summary>
-public interface IMcpCliDialect
+public interface IMcpCliConnector
 {
     /// <summary>The <see cref="Lyntai.Inference.IModelProvider"/>'s <see cref="Lyntai.Inference.IProviderIdentity.Id"/> this
-    /// dialect configures (e.g. <c>claude-cli</c>).
+    /// connector configures (e.g. <c>claude-cli</c>).
     /// The provisioner is registered keyed on this, so several CLI providers can host tools side by side
-    /// with different dialects.</summary>
+    /// with different connectors.</summary>
     string ProviderId { get; }
 
     /// <summary>Produce the extra process args that point this CLI at <paramref name="context"/>'s live
@@ -37,7 +37,7 @@ public interface IMcpCliDialect
 /// build tool-permission patterns, e.g. <c>mcp__&lt;server&gt;__*</c>).</summary>
 public sealed record McpEndpoint(string Url, string AuthToken, string ServerName);
 
-/// <summary>What <see cref="IMcpCliDialect.BuildArgsAsync"/> is handed: the live
+/// <summary>What <see cref="IMcpCliConnector.BuildArgsAsync"/> is handed: the live
 /// <see cref="Endpoint"/> plus a temp-file writer whose output the caller tracks and deletes.</summary>
 /// <param name="endpoint">The running host the CLI should connect to.</param>
 /// <param name="writeTempFile">Given a short <c>kind</c> tag and the file's content, writes a temp file

@@ -27,9 +27,9 @@ public enum CliOutputEventKind
     Failure,
 }
 
-/// <summary>One line of a CLI's output, decoded by an <see cref="ICliProviderDialect"/> into the three
+/// <summary>One line of a CLI's output, decoded by an <see cref="ICliBackend"/> into the three
 /// things the provider engine acts on. The wire format itself (JSONL, framed text, whatever the backend
-/// emits) never leaves the dialect.</summary>
+/// emits) never leaves the backend.</summary>
 /// <param name="Kind">What this line was.</param>
 /// <param name="Text">The content or final text; empty for <see cref="CliOutputEventKind.Ignored"/>.</param>
 /// <param name="Usage">Token/cost usage, when the line carries it (typically only the result line).</param>

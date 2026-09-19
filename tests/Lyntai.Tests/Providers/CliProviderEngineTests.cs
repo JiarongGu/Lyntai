@@ -11,12 +11,12 @@ namespace Lyntai.Tests.Providers;
 /// the four self-maintenance seams. A dialect supplies only the vocabulary, so "add a CLI provider" is one
 /// dialect class rather than a re-implementation of these invariants (which is how they drifted before).
 ///
-/// Driven with <see cref="FakeCliDialect"/> so these assertions can't accidentally pass because of
+/// Driven with <see cref="FakeCliBackend"/> so these assertions can't accidentally pass because of
 /// something the claude dialect does; the claude-specific behaviour stays covered by
 /// <see cref="ClaudeCliProviderTests"/> / <see cref="ClaudeCliProbeTests"/> / <see cref="ClaudeCliAuthTests"/>.</summary>
 public class CliProviderEngineTests
 {
-    private static CliProviderEngine Engine(FakeProcessRunner runner, FakeCliDialect dialect, string? command = "fakecli") =>
+    private static CliProviderEngine Engine(FakeProcessRunner runner, FakeCliBackend dialect, string? command = "fakecli") =>
         new(dialect, runner, new LyntaiOptions(), command: command);
 
     private static TextRequest Ask(string prompt = "hello", string? model = null) =>
@@ -67,7 +67,7 @@ public class CliProviderEngineTests
     {
         var runner = new FakeProcessRunner { RunResult = Ok("result:hi") };
 
-        await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask("say hi"));
+        await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask("say hi"));
 
         Assert.Equal("say hi", runner.LastStdin);
         Assert.Equal(["run"], runner.LastArgs);
@@ -78,7 +78,7 @@ public class CliProviderEngineTests
     {
         // some CLIs take the prompt positionally rather than on stdin — the engine must not assume either
         var runner = new FakeProcessRunner { RunResult = Ok("result:hi") };
-        var dialect = new FakeCliDialect { Delivery = CliPromptDelivery.Argument };
+        var dialect = new FakeCliBackend { Delivery = CliPromptDelivery.Argument };
 
         await Engine(runner, dialect).CompleteAsync(Ask("say hi"));
 
@@ -92,7 +92,7 @@ public class CliProviderEngineTests
         // never the host app's cwd, whose project config a CLI would otherwise load into library calls
         var runner = new FakeProcessRunner { RunResult = Ok("result:hi") };
 
-        await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+        await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
 
         Assert.Equal(CliProviderEngine.NeutralWorkingDirectory, runner.LastWorkingDirectory);
     }
@@ -104,7 +104,7 @@ public class CliProviderEngineTests
     {
         var runner = new FakeProcessRunner { RunResult = Ok("text:partial\nresult:the answer") };
 
-        var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("the answer", reply.Text);
@@ -116,7 +116,7 @@ public class CliProviderEngineTests
     {
         var runner = new FakeProcessRunner { RunResult = Ok("text:only assistant text") };
 
-        var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("only assistant text", reply.Text);
@@ -128,7 +128,7 @@ public class CliProviderEngineTests
         // an empty Ok would let the router treat a dead backend as a successful answer
         var runner = new FakeProcessRunner { RunResult = Ok("") };
 
-        var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
 
         Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
     }
@@ -139,7 +139,7 @@ public class CliProviderEngineTests
         // no per-provider heuristics: 429 → RateLimited, so the router circuit-breaks instead of retrying
         var runner = new FakeProcessRunner { RunResult = new ProcessResult(1, "", "HTTP 429 rate limit exceeded") };
 
-        var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
 
         Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict);
     }
@@ -149,7 +149,7 @@ public class CliProviderEngineTests
     {
         var runner = new FakeProcessRunner { RunResult = new ProcessResult(0, "", "", ProcessTimeoutKind.Inactivity) };
 
-        var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
 
         Assert.Equal(ProviderVerdict.Timeout, reply.Verdict);
     }
@@ -160,7 +160,7 @@ public class CliProviderEngineTests
         var runner = new FakeProcessRunner(["text:one ", "text:two", "result:one two"]);
 
         var chunks = new List<TextChunk>();
-        await foreach (var c in Engine(runner, new FakeCliDialect()).StreamAsync(Ask()))
+        await foreach (var c in Engine(runner, new FakeCliBackend()).StreamAsync(Ask()))
             chunks.Add(c);
 
         Assert.Equal(["one ", "two"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
@@ -174,7 +174,7 @@ public class CliProviderEngineTests
         var runner = new FakeProcessRunner([]);
 
         var chunks = new List<TextChunk>();
-        await foreach (var c in Engine(runner, new FakeCliDialect()).StreamAsync(Ask()))
+        await foreach (var c in Engine(runner, new FakeCliBackend()).StreamAsync(Ask()))
             chunks.Add(c);
 
         Assert.Equal(TextChunkKind.Error, Assert.Single(chunks).Kind);
@@ -191,7 +191,7 @@ public class CliProviderEngineTests
         // reason and the verdict the router needs (AuthFailed cools the host; Failed just advances).
         var runner = new FakeProcessRunner { RunResult = Ok("fail:unexpected status 401 Unauthorized: missing bearer token") };
 
-        var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
 
         Assert.Equal(ProviderVerdict.AuthFailed, reply.Verdict);
         Assert.Contains("401 Unauthorized", reply.Detail);
@@ -204,7 +204,7 @@ public class CliProviderEngineTests
         // empty-Ok mistake in a different costume, and the router would never retry
         var runner = new FakeProcessRunner { RunResult = Ok("text:I was about to say\nfail:rate limit exceeded") };
 
-        var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
 
         Assert.Equal(ProviderVerdict.RateLimited, reply.Verdict);
     }
@@ -225,7 +225,7 @@ public class CliProviderEngineTests
                 "Reading prompt from stdin..."),
         };
 
-        var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
 
         Assert.Equal(ProviderVerdict.AuthFailed, reply.Verdict);
         Assert.Contains("401 Unauthorized", reply.Detail);
@@ -239,7 +239,7 @@ public class CliProviderEngineTests
         // does NOT change)
         var runner = new FakeProcessRunner { RunResult = new ProcessResult(9, "text:half an answer", "segfault") };
 
-        var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+        var reply = await Engine(runner, new FakeCliBackend()).CompleteAsync(Ask());
 
         Assert.Equal(ProviderVerdict.Failed, reply.Verdict);
         Assert.Contains("exit 9", reply.Detail);
@@ -252,7 +252,7 @@ public class CliProviderEngineTests
         var runner = new FakeProcessRunner(["text:partial answer", "fail:rate limit exceeded"]);
 
         var chunks = new List<TextChunk>();
-        await foreach (var c in Engine(runner, new FakeCliDialect()).StreamAsync(Ask()))
+        await foreach (var c in Engine(runner, new FakeCliBackend()).StreamAsync(Ask()))
             chunks.Add(c);
 
         Assert.Equal(TextChunkKind.Content, chunks[0].Kind);   // already delivered — can't be unsent
@@ -273,7 +273,7 @@ public class CliProviderEngineTests
         File.WriteAllText(exe, "");
         try
         {
-            var engine = new CliProviderEngine(new FakeCliDialect(), new ProcessRunner(), new LyntaiOptions(),
+            var engine = new CliProviderEngine(new FakeCliBackend(), new ProcessRunner(), new LyntaiOptions(),
                 command: $"\"{exe}\"");
 
             Assert.True(engine.IsAvailable);
@@ -291,7 +291,7 @@ public class CliProviderEngineTests
         // missing portable copy as a failed turn
         var missing = Path.Combine(TestPaths.TestScratchDir, $"absent-{Guid.NewGuid():N}", "mycli.exe");
 
-        var engine = new CliProviderEngine(new FakeCliDialect(), new ProcessRunner(), new LyntaiOptions(),
+        var engine = new CliProviderEngine(new FakeCliBackend(), new ProcessRunner(), new LyntaiOptions(),
             command: $"\"{missing}\"");
 
         Assert.False(engine.IsAvailable);
@@ -311,7 +311,7 @@ public class CliProviderEngineTests
         File.WriteAllText(shim + ".cmd", "@echo off\r\n");
         try
         {
-            var engine = new CliProviderEngine(new FakeCliDialect(), new ProcessRunner(), new LyntaiOptions(),
+            var engine = new CliProviderEngine(new FakeCliBackend(), new ProcessRunner(), new LyntaiOptions(),
                 command: $"\"{shim}\"");
 
             Assert.True(engine.IsAvailable);
@@ -329,7 +329,7 @@ public class CliProviderEngineTests
         // must apply to the maintenance spawns too, or a probe/auth check would read the GLOBAL install's state
         var env = new Dictionary<string, string> { ["MYCLI_HOME"] = "/portable/home" };
         var runner = new FakeProcessRunner { RunResult = Ok("result:hi") };
-        var engine = new CliProviderEngine(new FakeCliDialect(), runner, new LyntaiOptions(),
+        var engine = new CliProviderEngine(new FakeCliBackend(), runner, new LyntaiOptions(),
             command: "mycli", environment: env);
 
         await engine.CompleteAsync(Ask());
@@ -346,7 +346,7 @@ public class CliProviderEngineTests
     {
         var runner = new FakeProcessRunner { RunResult = Ok("9.9.9 (fake)") };
 
-        var probe = await Engine(runner, new FakeCliDialect()).ProbeAsync();
+        var probe = await Engine(runner, new FakeCliBackend()).ProbeAsync();
 
         Assert.True(probe.Available);
         Assert.Equal("9.9.9", probe.Version);          // the shared dotted-number parser, for free
@@ -358,7 +358,7 @@ public class CliProviderEngineTests
     public async Task A_backend_with_no_version_readout_reports_that_as_a_value_without_spawning()
     {
         var runner = new FakeProcessRunner();
-        var dialect = new FakeCliDialect { VersionArgsValue = null };
+        var dialect = new FakeCliBackend { VersionArgsValue = null };
 
         var probe = await Engine(runner, dialect).ProbeAsync();
 
@@ -372,7 +372,7 @@ public class CliProviderEngineTests
     {
         var runner = new FakeProcessRunner();
 
-        var result = await Engine(runner, new FakeCliDialect()).UpdateAsync();
+        var result = await Engine(runner, new FakeCliBackend()).UpdateAsync();
 
         Assert.False(result.Succeeded);
         Assert.False(result.Updated);
@@ -385,7 +385,7 @@ public class CliProviderEngineTests
     {
         var runner = new FakeProcessRunner();
 
-        var status = await Engine(runner, new FakeCliDialect()).StatusAsync();
+        var status = await Engine(runner, new FakeCliBackend()).StatusAsync();
 
         Assert.False(status.Authenticated);
         Assert.Contains("fake-cli", status.Detail);
@@ -397,7 +397,7 @@ public class CliProviderEngineTests
     {
         var runner = new FakeProcessRunner();
 
-        var result = await Engine(runner, new FakeCliDialect()).InstallAsync(new ProviderInstallRequest("1.2.3"));
+        var result = await Engine(runner, new FakeCliBackend()).InstallAsync(new ProviderInstallRequest("1.2.3"));
 
         Assert.False(result.Succeeded);
         Assert.Empty(runner.Calls);
@@ -406,7 +406,7 @@ public class CliProviderEngineTests
     [Fact]
     public async Task Auth_status_is_parsed_by_the_dialect_and_wins_over_the_exit_code()
     {
-        var dialect = new FakeCliDialect { AuthStatusArgsValue = ["whoami"] };
+        var dialect = new FakeCliBackend { AuthStatusArgsValue = ["whoami"] };
         var runner = new FakeProcessRunner { RunResult = new ProcessResult(3, "signed-in", "") };
 
         var status = await Engine(runner, dialect).StatusAsync();
@@ -419,7 +419,7 @@ public class CliProviderEngineTests
     [Fact]
     public async Task Login_and_logout_re_read_the_state_they_left_behind()
     {
-        var dialect = new FakeCliDialect { AuthStatusArgsValue = ["whoami"], LoginArgsValue = ["signin"], LogoutArgsValue = ["signout"] };
+        var dialect = new FakeCliBackend { AuthStatusArgsValue = ["whoami"], LoginArgsValue = ["signin"], LogoutArgsValue = ["signout"] };
         var runner = new FakeProcessRunner
         {
             RunHandler = (_, args) => args is ["whoami"] ? Ok("signed-in") : Ok("done"),
@@ -442,7 +442,7 @@ public class CliProviderEngineTests
     {
         // a probe is a stall detector, a login waits on a human — a dialect can tune both, and the engine
         // must apply the login budget to BOTH clocks (a browser wait is legitimately silent)
-        var dialect = new FakeCliDialect
+        var dialect = new FakeCliBackend
         {
             MaintenanceClock = TimeSpan.FromSeconds(7),
             LoginClock = TimeSpan.FromMinutes(3),

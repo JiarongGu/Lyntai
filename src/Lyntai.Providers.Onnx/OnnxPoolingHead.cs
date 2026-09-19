@@ -4,11 +4,11 @@ using Microsoft.ML.OnnxRuntime;
 
 namespace Lyntai.Providers.Onnx;
 
-/// <summary>The BI-ENCODER dialect: one text per row, the per-token output reduced to one vector.
+/// <summary>The BI-ENCODER head: one text per row, the per-token output reduced to one vector.
 /// <see cref="OnnxProvider"/>'s default, and what a sentence-transformer export is.</summary>
 /// <param name="pooling">How the token rows become one vector.</param>
 /// <param name="normalize">Whether to L2-normalize the result, so cosine is a dot product.</param>
-internal sealed class OnnxPoolingDialect(OnnxPooling pooling, bool normalize) : IOnnxVectorDialect
+internal sealed class OnnxPoolingHead(OnnxPooling pooling, bool normalize) : IOnnxVectorHead
 {
     /// <inheritdoc />
     public string Produces => ProviderKinds.Vector;

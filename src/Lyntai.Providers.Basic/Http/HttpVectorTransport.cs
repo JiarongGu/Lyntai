@@ -9,16 +9,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Providers.Http;
 
 /// <summary>
-/// The <c>/embeddings</c> WIRE SHAPE, composed by <see cref="HttpModelProvider"/> when a host
-/// declares that route. It is a transport rather than a backend — it has no id and no capabilities,
-/// because the provider that owns it is the backend (<c>docs/DECISIONS.md</c> D132). Posts
-/// <c>{model, input[]}</c> — batched — and extracts vectors tolerantly from either the OpenAI/LM-Studio
-/// <c>data[].embedding</c> shape or Ollama's <c>embeddings[[…]]</c> shape. Endpoint + dialect come from the
-/// same <see cref="ProviderDetect"/> the chat provider uses (Ollama → native <c>/api/embed</c>; a bare
-/// Azure resource → <c>/openai/v1/embeddings</c>; everything else → <c>/v1/embeddings</c>).
+/// The batched-embeddings WIRE SHAPE, composed by whichever provider owns the registration. It is a
+/// transport rather than a backend — it has no id and no capabilities, because the provider that owns it is
+/// the backend (<c>docs/DECISIONS.md</c> D132). Posts <c>{model, input[]}</c> — a body BOTH the OpenAI
+/// <c>/v1/embeddings</c> and the Ollama <c>/api/embed</c> routes accept verbatim, which is why one
+/// transport serves both providers: the OWNER decides the endpoint (<see cref="Settings.Endpoint"/>), and
+/// the response extraction tolerates either answer shape by its JSON structure.
 /// <see cref="LyntaiOptions.ProviderTimeout"/> is the deadline for one HTTP REQUEST, so a call that
-/// <see cref="HttpModelOptions.BatchSize"/> splits is bounded by batches × that value rather
-/// than by it once.
+/// <see cref="Settings.BatchSize"/> splits is bounded by batches × that value rather than by it once.
 /// <para><b>Failures come back as a <see cref="VectorResponse"/> verdict</b> (<c>docs/DECISIONS.md</c>
 /// <b>D153</b>), classified through the same
 /// <see cref="ProviderVerdictClassifier.FromHttpFailure(System.Net.HttpStatusCode,string,bool)"/> the
@@ -29,23 +27,39 @@ namespace Lyntai.Providers.Http;
 /// </summary>
 internal sealed class HttpVectorTransport(
     string id,
-    HttpModelOptions config,
+    HttpVectorTransport.Settings config,
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
     ILogger? logger = null,
     bool disposeHttpClient = true)
 {
-    private readonly ILogger _logger = logger ?? NullLogger<HttpVectorTransport>.Instance;
+    /// <summary>What the owning provider decides: the absolute endpoint and the auth convention, plus the
+    /// embed knobs every HTTP embeddings surface shares.</summary>
+    /// <param name="Endpoint">The absolute embeddings endpoint this registration POSTs to.</param>
+    /// <param name="ApiKey">Bearer token; null for a keyless local endpoint.</param>
+    /// <param name="AzureConventions">Whether key auth also travels in Azure's <c>api-key</c> header.</param>
+    /// <param name="Model">The model named on the wire, when the endpoint selects by name.</param>
+    /// <param name="BatchSize">Max inputs per request; <c>0</c> sends the whole batch at once.</param>
+    /// <param name="DocumentPrefix">Prepended verbatim to <see cref="EmbeddingRole.Document"/> text.</param>
+    /// <param name="QueryPrefix">Prepended verbatim to <see cref="EmbeddingRole.Query"/> text.</param>
+    internal sealed record Settings(
+        Uri Endpoint,
+        string? ApiKey,
+        bool AzureConventions,
+        string? Model,
+        int BatchSize,
+        string? DocumentPrefix,
+        string? QueryPrefix);
 
-    private readonly HttpDialect _dialect = HttpEndpoint.ResolveDialect(config.Dialect, config.BaseUrl);
+    private readonly ILogger _logger = logger ?? NullLogger<HttpVectorTransport>.Instance;
 
     /// <summary>Get the per-call HttpClient. Lyntai-created clients are disposed after each call; an
     /// APP-supplied (BYO) client is NEVER disposed — the app owns its lifetime.</summary>
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
 
     /// <summary>Embed a request's texts, one vector per input in the SAME order (batched per
-    /// <see cref="HttpModelOptions.BatchSize"/> and concatenated), applying the role's configured prefix
-    /// (<see cref="HttpModelOptions.DocumentPrefix"/> / <see cref="HttpModelOptions.QueryPrefix"/>) first.
+    /// <see cref="Settings.BatchSize"/> and concatenated), applying the role's configured prefix
+    /// (<see cref="Settings.DocumentPrefix"/> / <see cref="Settings.QueryPrefix"/>) first.
     /// With neither prefix set — the default, and every symmetric model — it forwards without allocating.
     ///
     /// <para><b>A failed BATCH fails the whole call.</b> Returning the batches that happened to succeed
@@ -68,25 +82,35 @@ internal sealed class HttpVectorTransport(
         using var owned = OwnedClient();       // disposed only when Lyntai owns it
         var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
 
+        // the same per-request override the text shape honours, clamped the same way (D162); the
+        // consumer-tier resolution stays text-only until governance wiring lands for this kind
+        var timeout = options.ResolveTimeout(request.TimeoutSeconds);
+
         var batchSize = config.BatchSize;
         if (batchSize <= 0 || texts.Count <= batchSize)
-            return await EmbedBatchAsync(texts, http, ct).ConfigureAwait(false);
+            return await EmbedBatchAsync(texts, http, timeout, ct).ConfigureAwait(false);
 
         // input list larger than the endpoint's per-request cap → split, concatenate in input order
         var result = new List<float[]>(texts.Count);
+        ProviderUsage? usage = null;
         for (var i = 0; i < texts.Count; i += batchSize)
         {
             var slice = texts.Skip(i).Take(batchSize).ToList();
-            var batch = await EmbedBatchAsync(slice, http, ct).ConfigureAwait(false);
+            var batch = await EmbedBatchAsync(slice, http, timeout, ct).ConfigureAwait(false);
             if (!batch.IsOk) return batch;
             result.AddRange(batch.Vectors);
+            if (batch.Usage is { } u)
+                usage = new ProviderUsage(
+                    (usage?.InputTokens ?? 0) + u.InputTokens,
+                    (usage?.OutputTokens ?? 0) + u.OutputTokens,
+                    usage?.CostUsd is { } c ? c + (u.CostUsd ?? 0) : u.CostUsd);
         }
-        return VectorResponse.Success(result);
+        return VectorResponse.Success(result, usage: usage);
     }
 
-    private async Task<VectorResponse> EmbedBatchAsync(IReadOnlyList<string> batch, HttpClient http, CancellationToken ct)
+    private async Task<VectorResponse> EmbedBatchAsync(IReadOnlyList<string> batch, HttpClient http,
+        TimeSpan timeout, CancellationToken ct)
     {
-        var timeout = options.ProviderTimeout;
         string body;
         try
         {
@@ -122,30 +146,47 @@ internal sealed class HttpVectorTransport(
             return VectorResponse.Failure(
                 ProviderVerdict.Failed, $"{id}: expected {batch.Count} embeddings, got {vectors.Count}");
         _logger.LogDebug("{Id}: embedded {Count} texts ({Dim}-dim)", id, vectors.Count, vectors[0].Length);
-        return VectorResponse.Success(vectors);
+        return VectorResponse.Success(vectors, usage: TryExtractUsage(body));
+    }
+
+    /// <summary>What the wire said this batch spent — OpenAI's <c>usage.prompt_tokens</c>, or Ollama's
+    /// <c>prompt_eval_count</c> on <c>/api/embed</c>. Null where the endpoint reported nothing, which is a
+    /// fact worth preserving rather than a zero (D162).</summary>
+    private static ProviderUsage? TryExtractUsage(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return null;
+            if (root.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object)
+                return new ProviderUsage(Lyntai.Providers.Basic.WireJson.Long(u, "prompt_tokens"));
+            if (root.TryGetProperty("prompt_eval_count", out _))
+                return new ProviderUsage(Lyntai.Providers.Basic.WireJson.Long(root, "prompt_eval_count"));
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private HttpRequestMessage BuildRequest(IReadOnlyList<string> texts)
     {
         // {model, input[]} — accepted verbatim by both the OpenAI /v1/embeddings and the Ollama /api/embed
-        // shapes, so one body serves every dialect; only the endpoint + response key differ.
+        // routes, so one body serves both owners; only the endpoint + response key differ.
         var payload = new JsonObject
         {
             ["model"] = config.Model ?? "",
             ["input"] = new JsonArray([.. texts.Select(t => (JsonNode)JsonValue.Create(t))]),
         };
-        var request = new HttpRequestMessage(HttpMethod.Post, Endpoint())
+        var request = new HttpRequestMessage(HttpMethod.Post, config.Endpoint)
         {
             Content = new StringContent(payload.ToJsonString(), new UTF8Encoding(false), "application/json"),
         };
-        HttpEndpoint.ApplyAuth(request, config.ApiKey, _dialect);
+        HttpEndpoint.ApplyAuth(request, config.ApiKey, config.AzureConventions);
         return request;
     }
-
-    /// <summary>The embeddings endpoint — Ollama's native batched <c>/api/embed</c> (parallel to the chat
-    /// provider's <c>/api/chat</c>), otherwise the OpenAI-shaped <c>embeddings</c> route.</summary>
-    private Uri Endpoint() =>
-        HttpEndpoint.Build(config.BaseUrl, _dialect, ollamaNativePath: "/api/embed", openAiRoute: "embeddings");
 
     /// <summary>Tolerant extraction covering the two response shapes: OpenAI/LM-Studio
     /// <c>data[].embedding</c> (ordered by the authoritative <c>index</c>) and Ollama <c>embeddings[[…]]</c>

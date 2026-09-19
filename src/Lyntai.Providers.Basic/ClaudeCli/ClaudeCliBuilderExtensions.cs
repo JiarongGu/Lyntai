@@ -12,7 +12,7 @@ public static class ClaudeCliBuilderExtensions
     /// <summary>Register the `claude` CLI provider (id "claude-cli"). With no arguments the spawned command
     /// honors <c>LYNTAI_PROVIDER_CMD</c> / <c>CLAUDE_CMD</c> env overrides (tests/e2e point these at the
     /// deterministic provider stub), then falls back to <c>claude</c> on PATH. If an
-    /// <see cref="ICliToolProvisioner"/> is registered — via <c>AddMcpToolHost(new ClaudeCliMcpDialect())</c>
+    /// <see cref="ICliToolProvisioner"/> is registered — via <c>AddMcpToolHost(new ClaudeCliMcpConnector())</c>
     /// from <c>Lyntai.Tools.Mcp</c> — the CLI is given the app's registered tools over MCP;
     /// otherwise it runs tool-free.</summary>
     /// <param name="builder">The Lyntai builder.</param>
@@ -37,9 +37,9 @@ public static class ClaudeCliBuilderExtensions
     }
 
     /// <summary>Prefer the provisioner registered for THIS provider's id — several CLI providers can each
-    /// host tools with their own dialect, and an unkeyed lookup would hand us whichever was registered
+    /// host tools with their own connector, and an unkeyed lookup would hand us whichever was registered
     /// first. The unkeyed service stays as the fallback so a hand-rolled
-    /// <see cref="ICliToolProvisioner"/> registration (no dialect, no key) keeps working.</summary>
+    /// <see cref="ICliToolProvisioner"/> registration (no connector, no key) keeps working.</summary>
     private static ICliToolProvisioner? ResolveProvisioner(IServiceProvider sp) =>
         sp.GetKeyedService<ICliToolProvisioner>(ClaudeCliProvider.ProviderId)
         ?? sp.GetService<ICliToolProvisioner>();

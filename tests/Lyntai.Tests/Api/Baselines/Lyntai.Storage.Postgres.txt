@@ -126,7 +126,7 @@ sealed class Lyntai.Storage.Postgres.PostgresTraceStore
     SaveAsync(RunTrace trace, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Postgres.PostgresUsageTracker
     .ctor(IDbConnectionFactory factory)
-    RecordAsync(String consumer, TextUsage usage, CancellationToken ct = default) : ValueTask
+    RecordAsync(String consumer, ProviderUsage usage, CancellationToken ct = default) : ValueTask
     ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
     TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
 sealed class Lyntai.Storage.Postgres.PostgresVectorStore

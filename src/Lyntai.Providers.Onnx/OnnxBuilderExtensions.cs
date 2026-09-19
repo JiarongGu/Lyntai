@@ -51,8 +51,8 @@ public static class OnnxBuilderExtensions
         return RegisterOwned(builder, OnnxProvider.FromDirectory(modelDirectory, options));
     }
 
-    /// <summary>Hands the container a built backend it will DISPOSE — the one registration site both calls
-    /// above share.
+    /// <summary>Hands the container a built backend it will DISPOSE — kept as its own seam so
+    /// `OnnxOwnershipTests` can assert the registration the method above really performs.
     ///
     /// <para><b>A FACTORY returning the already-built instance, and the distinction is the whole point.</b>
     /// Building eagerly is what makes a bad model directory fail at composition; registering through a
@@ -60,11 +60,8 @@ public static class OnnxBuilderExtensions
     /// <c>AddSingleton(instance)</c> does not dispose what it did not create and these hold a native session.
     /// Collapsing it reads as a tidy-up and leaks one per container.</para>
     ///
-    /// <para><b>One site rather than a copy in each call</b>, so the rule cannot be applied on one path and
-    /// missed on the other — and so `OnnxOwnershipTests` can assert the registration these methods really
-    /// perform instead of restating the DI rule beside them.</para>
     ///
-    /// <para><b>The capability is READ, never restated.</b> Both backends here are built before this runs,
+    /// <para><b>The capability is READ, never restated.</b> The backend is built before this runs,
     /// so the declaration handed to composition is the provider's own — there is no second place to get it
     /// wrong, and no parameter saying which kind this is (<c>docs/DECISIONS.md</c> <b>D152</b>). An earlier
     /// shape took an <c>embeds</c> bool, which is a fact the object already carried.</para></summary>

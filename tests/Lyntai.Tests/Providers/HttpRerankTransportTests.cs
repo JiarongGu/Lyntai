@@ -24,7 +24,6 @@ public class HttpRerankTransportTests
             {
                 BaseUrl = "http://localhost:8081",
                 Produces = ProviderKinds.Score,
-                Dialect = HttpDialect.OpenAi,
             },
             () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(5) },
@@ -198,7 +197,6 @@ public class HttpRerankTransportTests
             {
                 BaseUrl = "http://localhost:8081/",        // trailing slash must not double up
                 Produces = ProviderKinds.Score,
-                Dialect = HttpDialect.OpenAi,
                 Model = "bge-reranker-v2-m3",
                 ApiKey = "k",
             },

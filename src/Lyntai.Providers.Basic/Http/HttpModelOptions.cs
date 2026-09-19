@@ -2,7 +2,9 @@ using Lyntai.Inference;
 
 namespace Lyntai.Providers.Http;
 
-/// <summary>One BACKEND served over HTTP: an endpoint, a dialect, a model, and what that model puts out.
+/// <summary>One BACKEND served over HTTP in the OpenAI-shaped schema: an endpoint, a model, and what that
+/// model puts out. A backend speaking its OWN wire schema is its own provider with its own options —
+/// Ollama-native is <c>OllamaOptions</c> one namespace over (<c>docs/DECISIONS.md</c> D160).
 ///
 /// <para><b>One registration is one backend, and a shared hostname does not make two of them one.</b> A
 /// chat model and an embedding model are different models at different routes with different wire shapes;
@@ -17,38 +19,37 @@ namespace Lyntai.Providers.Http;
 /// kind.</para></summary>
 public sealed class HttpModelOptions
 {
-    /// <summary>Endpoint base, e.g. <c>https://api.openai.com</c>, <c>http://localhost:11434</c>,
-    /// <c>https://openrouter.ai/api/v1</c>. The dialect is detected from this URL unless pinned.</summary>
+    /// <summary>Endpoint base, e.g. <c>https://api.openai.com</c>, <c>http://localhost:8080</c>,
+    /// <c>https://openrouter.ai/api/v1</c>. Requests compose the <c>/v1</c> convention over it (a base
+    /// already ending in <c>/v1</c> is not doubled). An Ollama server ROOT given to <c>AddHttpProvider</c>
+    /// composes the Ollama-native provider instead — see <c>AddOllamaProvider</c>.</summary>
     public string BaseUrl { get; set; } = "https://api.openai.com";
 
-    /// <summary>Bearer token; null for keyless endpoints (local Ollama, LM Studio, llama-server).</summary>
+    /// <summary>Bearer token; null for keyless endpoints (LM Studio, llama-server).</summary>
     public string? ApiKey { get; set; }
 
-    /// <summary>The model this backend serves, e.g. <c>gpt-4o</c>, <c>llama3.1</c>,
-    /// <c>text-embedding-3-small</c>. Used when neither the request nor the candidate pins one.</summary>
+    /// <summary>The model this backend serves, e.g. <c>gpt-4o</c>, <c>text-embedding-3-small</c>. Used when
+    /// neither the request nor the candidate pins one.</summary>
     public string? Model { get; set; }
 
-    /// <summary>Pin the payload dialect; <see cref="HttpDialect.Auto"/> (default) detects it from BaseUrl.</summary>
-    public HttpDialect Dialect { get; set; } = HttpDialect.Auto;
+    /// <summary>Whether Azure's resource conventions apply: the OpenAI-shaped v1 surface under
+    /// <c>/openai/v1</c> on a bare resource URL, and key auth in the <c>api-key</c> header (sent beside the
+    /// Bearer token, so a BYO Entra-token flow shares one code path). Null (the default) derives it from the
+    /// BaseUrl host (<c>*.openai.azure.com</c>); set <see langword="true"/> for a custom domain fronting an
+    /// Azure resource, or <see langword="false"/> to suppress the conventions on an Azure-looking host.</summary>
+    public bool? AzureConventions { get; set; }
 
     /// <summary>What this backend puts out — <see cref="ProviderKinds.Text"/> (default) posts to
-    /// <c>/chat/completions</c>, <see cref="ProviderKinds.Vector"/> to <c>/embeddings</c>. It is the field
-    /// that decides the route, the wire shape, and which methods the provider answers.
+    /// <c>chat/completions</c>, <see cref="ProviderKinds.Vector"/> to <c>embeddings</c>,
+    /// <see cref="ProviderKinds.Score"/> to <c>rerank</c> (the route Cohere defined and llama.cpp's
+    /// <c>--reranking</c> mode serves). It is the field that decides the route, the wire shape, and which
+    /// methods the provider answers.
     ///
     /// <para>A single value rather than a list, because one registration is one backend. A LIST on
     /// <see cref="ProviderCapabilities.Produces"/> means something else and still holds: one CALL returning
     /// several kinds at once, as a multimodal model emitting text and an image does. Two endpoints behind
     /// one hostname is not that.</para></summary>
     public string Produces { get; set; } = ProviderKinds.Text;
-
-    /// <summary>Context-window override for <see cref="HttpDialect.Ollama"/> serving
-    /// <see cref="ProviderKinds.Text"/> ONLY — it becomes Ollama's <c>options.num_ctx</c> on the native
-    /// <c>/api/chat</c> payload. **Every other dialect IGNORES it silently**: the OpenAI-shaped payload has
-    /// no equivalent knob (the context window is a property of the deployed model there), and that includes
-    /// Ollama's own OpenAI-shaped <c>/v1</c> surface, which resolves to
-    /// <see cref="HttpDialect.OpenAi"/>. The name carries the backend for exactly that reason — a generic
-    /// one read as a portable setting and was not one.</summary>
-    public int? OllamaContextSize { get; set; }
 
     /// <summary>Max inputs per HTTP request when serving <see cref="ProviderKinds.Vector"/>; a larger call
     /// list is split into this many at a time (real endpoints cap input counts — OpenAI at 2048, Azure

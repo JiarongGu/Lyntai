@@ -19,7 +19,7 @@ namespace Lyntai.Tests.Providers;
 public class CliProviderEngineStreamBoundsTests
 {
     private static CliProviderEngine Engine(FakeProcessRunner runner, LyntaiOptions? options = null) =>
-        new(new FakeCliDialect(), runner, options ?? new LyntaiOptions(), command: "fakecli");
+        new(new FakeCliBackend(), runner, options ?? new LyntaiOptions(), command: "fakecli");
 
     private static TextRequest Ask(string prompt = "hello", string consumer = "default") =>
         new() { Messages = [TextMessage.User(prompt)], Consumer = consumer };

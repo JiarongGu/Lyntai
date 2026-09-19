@@ -8,7 +8,7 @@ namespace Lyntai.Providers.CodexCli;
 /// Unlike the claude CLI, codex has **no machine-readable auth readout** — measured on codex-cli 0.146.0
 /// (2026-08-04): <c>codex login status --json</c> is rejected (<c>error: unexpected argument '--json'</c>) and
 /// the command prints prose. Signed-out is exactly <c>"Not logged in"</c> with exit code 0. So this is
-/// deliberately a PROSE sniffer, which is why <see cref="Inference.Cli.ICliProviderDialect.ParseAuthStatus"/> takes
+/// deliberately a PROSE sniffer, which is why <see cref="Inference.Cli.ICliBackend.ParseAuthStatus"/> takes
 /// raw text rather than assuming JSON.
 ///
 /// Conservative by construction: an explicit negative marker means signed out, an explicit positive marker

@@ -15,7 +15,8 @@ public static class ScoringVerificationRegistration
     ///
     /// <para><b>Register the backend separately</b>, like any other:
     /// <c>AddHttpProvider("rerank", o =&gt; o.Produces = ProviderKinds.Score)</c>, or
-    /// <c>AddOnnxCrossEncoder</c> for one that never speaks HTTP. This call says only what MEMORY does with
+    /// <c>AddOnnxProvider(dir, o =&gt; o.Produces = ProviderKinds.Score)</c> for one that never speaks HTTP
+    /// (D157). This call says only what MEMORY does with
     /// the scores, which is why it takes no endpoint (<c>docs/DECISIONS.md</c> D139).</para>
     ///
     /// <para><b>The alternative to <c>AddMemoryVerification</c>, not a companion to it</b> — both fill the

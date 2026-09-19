@@ -3,7 +3,7 @@ using Lyntai.Inference;
 using Lyntai.Processes;
 using Microsoft.Extensions.DependencyInjection;
 
-// Lives in the Lyntai namespace so the Add* methods appear on the builder, exactly like the LLM-side presets.
+// Lives in the Lyntai namespace so the Add* methods appear on the builder, exactly like the text-side presets.
 namespace Lyntai;
 
 /// <summary>One-line registration per media backend — the generation counterpart of <c>AddOpenAiProvider()</c> /
@@ -30,7 +30,7 @@ namespace Lyntai;
 /// <see cref="ProviderVerdict.Timeout"/> result rather than a throw. That deadline is what makes the
 /// infinite client timeout safe. A BYO client keeps its own <see cref="HttpClient.Timeout"/> too;
 /// whichever fires first, the caller sees the same verdict.</para></summary>
-public static class GenerationProviderBuilderExtensions
+public static class MediaBackendBuilderExtensions
 {
     /// <summary>An OpenAI-shaped images endpoint — the cloud service, or any local server speaking the same
     /// shape. Default id <c>"openai-images"</c> (<see cref="OpenAiImageOptions.Id"/>).</summary>
@@ -123,7 +123,7 @@ public static class GenerationProviderBuilderExtensions
     /// <summary>The name of the <see cref="IHttpClientFactory"/> client Lyntai registers for a backend id.
     /// Exposed so a host can reach the SAME client the backend uses — to add a delegating handler, a Polly
     /// policy or a header — without replacing the wiring: <c>services.AddHttpClient(
-    /// GenerationProviderBuilderExtensions.HttpClientName("fal")).AddHttpMessageHandler(...)</c>.</summary>
+    /// MediaBackendBuilderExtensions.HttpClientName("fal")).AddHttpMessageHandler(...)</c>.</summary>
     /// <param name="id">The backend's candidate id.</param>
     public static string HttpClientName(string id) => $"lyntai.generation.{id}";
 

@@ -8,16 +8,18 @@ namespace Lyntai.Inference.Cli;
 /// every invariant that is NOT backend-specific (command resolution, timeouts as inactivity clocks, verdict
 /// classification, streaming order, empty-output-is-a-failure, probe → run → re-probe maintenance).
 ///
-/// This is the extension point for "add a CLI provider": one dialect class plus a builder extension, rather
+/// This is the extension point for "add a CLI provider": one backend class, a thin provider composing the
+/// engine, and a builder extension, rather
 /// than a second copy of the spawn/verdict/streaming rules — which is precisely how they drifted apart
 /// before (see `.claude/knowledge/pitfalls.md`). Prefer deriving from
-/// <see cref="CliProviderDialectBase"/>, which supplies sane defaults for everything optional.
+/// <see cref="CliBackendBase"/>, which supplies sane defaults for everything optional.
 ///
-/// A dialect is a stateless description; the engine holds the resources (runner, options, tool provisioner).
+/// An <see cref="ICliBackend"/> is a stateless description; the engine holds the resources (runner,
+/// options, tool provisioner).
 /// </summary>
-public interface ICliProviderDialect
+public interface ICliBackend
 {
-    /// <summary>The provider id this dialect produces (<c>"claude-cli"</c>), used for routing candidates,
+    /// <summary>The provider id this backend answers to (<c>"claude-cli"</c>), used for routing candidates,
     /// keyed DI lookups and diagnostics.</summary>
     string Id { get; }
 
@@ -34,7 +36,7 @@ public interface ICliProviderDialect
     /// <summary>Whether this CLI accepts request-level tool DECLARATIONS
     /// (<see cref="TextRequest.Tools"/>). False for CLIs that expose tools their own way (e.g. over MCP via
     /// an <see cref="Agents.ICliToolProvisioner"/>) — the engine then warns rather than dropping them
-    /// silently. That warning is ALL this flag drives: a dialect returning true must have its composing
+    /// silently. That warning is ALL this flag drives: a backend returning true must have its composing
     /// <see cref="IModelProvider"/> declare <c>SupportsToolCalls =&gt; true</c> itself (per <c>DECISIONS.md</c>
     /// D21 the provider is the capability declarer), or <see cref="ITextRouter.SupportsToolCalls"/> answers
     /// false and the tool loop silently takes its prompt-based fallback.</summary>
@@ -58,14 +60,14 @@ public interface ICliProviderDialect
     /// <param name="toolHostArgs">Args from an <see cref="Lyntai.Agents.ICliToolProvisioner"/> that point
     /// this CLI at the host's own MCP endpoint — empty when nothing is hosted.
     ///
-    /// <para><b>The DIALECT places these, because only the dialect knows where they may legally go.</b> The
+    /// <para><b>The BACKEND places these, because only it knows where they may legally go.</b> The
     /// engine used to append them after this method's return value, which is correct only for a CLI whose
     /// argv ends in options. It does not for <c>codex</c>, whose argv ends in the <c>-</c> stdin positional:
     /// everything after it is read as PROMPT text, and on that CLI a swallowed flag is a SPENT TURN rather
     /// than an error. That hazard was documented on <c>CodexExecArgs</c> — which takes its own
     /// <c>extraOptions</c> parameter for exactly this reason — and the agent path honoured it while the
     /// completion path had no way to. Appending is still the right answer for most CLIs; it is now a choice
-    /// each dialect makes rather than one the engine makes for all of them.</para></param>
+    /// each backend makes rather than one the engine makes for all of them.</para></param>
     IReadOnlyList<string> BuildCompletionArgs(TextRequest request, IReadOnlyList<string> toolHostArgs);
 
     /// <summary>Flatten the request's messages into the single prompt this CLI takes.</summary>

@@ -47,7 +47,7 @@ public class CliToolProvisionerResolutionTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddMcpToolHost(new StubDialect("gemini-cli", "--gemini-flag"))   // registered FIRST — owns the unkeyed slot
-            .AddMcpToolHost(new ClaudeCliMcpDialect())
+            .AddMcpToolHost(new ClaudeCliMcpConnector())
             .AddTool(_ => new FunctionTool("echo", (a, _) => Task.FromResult(a))));
         using var sp = services.BuildServiceProvider();
 
@@ -58,7 +58,7 @@ public class CliToolProvisionerResolutionTests
         Assert.DoesNotContain("--gemini-flag", session.ExtraArgs);
     }
 
-    private sealed class StubDialect(string providerId, string flag) : IMcpCliDialect
+    private sealed class StubDialect(string providerId, string flag) : IMcpCliConnector
     {
         public string ProviderId => providerId;
 

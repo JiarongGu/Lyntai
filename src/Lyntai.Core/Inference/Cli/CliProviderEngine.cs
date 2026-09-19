@@ -9,12 +9,12 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Inference.Cli;
 
 /// <summary>
-/// The generic engine behind every spawned-CLI provider. Give it an <see cref="ICliProviderDialect"/> (what
+/// The generic engine behind every spawned-CLI provider. Give it an <see cref="ICliBackend"/> (what
 /// this particular CLI is called, how to ask it, how to read it) and it supplies everything else — the parts
 /// that are the SAME for every CLI backend and must not be re-derived per provider:
 ///
 /// <list type="bullet">
-/// <item>command resolution (explicit override → the dialect's environment variables → its default exe),</item>
+/// <item>command resolution (explicit override → the backend's environment variables → its default exe),</item>
 /// <item>spawn hygiene: no shell, <c>ArgumentList</c> only, a neutral working directory, prompt over stdin
 ///   (or a trailing argument) — Windows launcher-shim handling included, via
 ///   <see cref="ProcessRunner"/>,</item>
@@ -30,18 +30,18 @@ namespace Lyntai.Inference.Cli;
 /// <item>fail-safe on every maintenance path (a value, never a throw) except caller cancellation.</item>
 /// </list>
 ///
-/// A provider package therefore contains a dialect plus a thin <see cref="IModelProvider"/> forwarding to this
-/// engine, declaring which OPTIONAL capability interfaces its backend actually has.
+/// A provider package therefore contains an <see cref="ICliBackend"/> plus a thin <see cref="IModelProvider"/>
+/// forwarding to this engine, declaring which OPTIONAL capability interfaces its backend actually has.
 /// </summary>
-/// <param name="dialect">The backend-specific vocabulary.</param>
+/// <param name="backend">The backend-specific half — everything about this particular CLI.</param>
 /// <param name="runner">Process execution — BYO to sandbox, audit or remote the spawn.</param>
 /// <param name="options">Timeout/model configuration.</param>
 /// <param name="logger">Optional diagnostics.</param>
-/// <param name="command">Explicit command override; wins over the dialect's environment variables. This is
+/// <param name="command">Explicit command override; wins over the backend's environment variables. This is
 /// how a host points at a PORTABLE copy of a CLI (a binary it ships or unpacks itself) instead of a global
 /// PATH install — quote a path containing spaces.</param>
 /// <param name="provisioner">Optional tool host (e.g. MCP) consulted per call, whose session lives for the
-/// length of the call. Its args are handed to the DIALECT (<c>BuildCompletionArgs</c>) rather than appended
+/// length of the call. Its args are handed to the BACKEND (<c>BuildCompletionArgs</c>) rather than appended
 /// here: where they may legally sit depends on that CLI's own argv grammar, and appending is wrong for one
 /// whose argv ends in a positional (<c>docs/DECISIONS.md</c> D65).</param>
 /// <param name="environment">Extra environment variables for EVERY spawn (completions and maintenance
@@ -50,7 +50,7 @@ namespace Lyntai.Inference.Cli;
 /// state. Applies to the maintenance spawns too, so a probe/auth check reports the PORTABLE install's state
 /// rather than the global one's.</param>
 public sealed class CliProviderEngine(
-    ICliProviderDialect dialect,
+    ICliBackend backend,
     IProcessRunner runner,
     LyntaiOptions options,
     ILogger? logger = null,
@@ -65,8 +65,8 @@ public sealed class CliProviderEngine(
 
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
 
-    /// <summary>The provider id this engine's dialect produces.</summary>
-    public string Id => dialect.Id;
+    /// <summary>The provider id this engine's backend produces.</summary>
+    public string Id => backend.Id;
 
     /// <summary>Whether the backend looks callable: for the built-in <see cref="ProcessRunner"/>, whether the
     /// resolved command is actually present — a bare name on PATH, or a PORTABLE copy at the path the host
@@ -85,7 +85,7 @@ public sealed class CliProviderEngine(
 
     /// <summary>Resolve the command override / environment seams into exe + prefix args.</summary>
     public (string Exe, IReadOnlyList<string> PrefixArgs) ResolveCommand() =>
-        CliCommand.Resolve(command, dialect.DefaultCommand, dialect.CommandEnvironmentVariables);
+        CliCommand.Resolve(command, backend.DefaultCommand, backend.CommandEnvironmentVariables);
 
     // ── completion ───────────────────────────────────────────────────────────
 
@@ -120,8 +120,8 @@ public sealed class CliProviderEngine(
         if (result.TimedOut)
             return new TextResponse("", ProviderVerdict.Timeout,
                 Detail: result.TimeoutKind == ProcessTimeoutKind.MaxDuration
-                    ? $"{dialect.Id} exceeded max duration {maxDuration}"
-                    : $"{dialect.Id} stalled — no output for {timeout}");
+                    ? $"{backend.Id} exceeded max duration {maxDuration}"
+                    : $"{backend.Id} stalled — no output for {timeout}");
 
         var stderrTail = Tail(result.StdErr);
 
@@ -131,10 +131,10 @@ public sealed class CliProviderEngine(
         var sawResult = false;
         foreach (var raw in result.StdOut.Split('\n'))
         {
-            // strip the terminator so a dialect sees the SAME line both paths hand it — the streamed path's
+            // strip the terminator so a backend sees the SAME line both paths hand it — the streamed path's
             // ReadLineAsync already drops it, so a CRLF-emitting child would otherwise leave a trailing '\r'
             // here and only here (an exact-match ParseLine would then work streamed and fail buffered)
-            var evt = dialect.ParseLine(raw.TrimEnd('\r'));
+            var evt = backend.ParseLine(raw.TrimEnd('\r'));
             if (evt.Kind == CliOutputEventKind.Content) contentText += evt.Text;
             if (evt.Kind == CliOutputEventKind.Failure) failure = evt.Text;
             if (evt.Kind == CliOutputEventKind.Result)
@@ -171,7 +171,7 @@ public sealed class CliProviderEngine(
 
         if (text.Length == 0)
         {
-            _logger.LogWarning("{Provider} produced no content ({SawResult}); stderr: {Tail}", dialect.Id, sawResult, stderrTail);
+            _logger.LogWarning("{Provider} produced no content ({SawResult}); stderr: {Tail}", backend.Id, sawResult, stderrTail);
             return new TextResponse("", ProviderVerdict.Failed,
                 Detail: stderrTail.Length > 0 ? stderrTail : "no output produced");
         }
@@ -236,15 +236,15 @@ public sealed class CliProviderEngine(
                     yield break;
                 }
 
-                var evt = dialect.ParseLine(line!);
+                var evt = backend.ParseLine(line!);
                 // The commit gate is the ROUTER's, to the letter: Kind == Content AND Text.Length > 0. An
-                // EMPTY content event is not delivered content, so it falls through as if the dialect had
+                // EMPTY content event is not delivered content, so it falls through as if the backend had
                 // reported Ignored — which is what a line carrying no content is supposed to be. Counting it
                 // did three wrong things at once: it disabled fallback for a zero-content FIRST chunk (the
                 // one case the router's gate exists for), it ended a no-output stream as `Final` — a fully
                 // successful empty answer — and it suppressed the result-only delivery below, dropping the
-                // answer of a stream whose text arrived on the terminal result line. A dialect is asked to
-                // report an empty line as Ignored, but a dialect is third-party code, so the engine holds
+                // answer of a stream whose text arrived on the terminal result line. A backend is asked to
+                // report an empty line as Ignored, but a backend is third-party code, so the engine holds
                 // whether it does or not.
                 if (evt.Kind == CliOutputEventKind.Content && evt.Text.Length > 0)
                 {
@@ -282,17 +282,17 @@ public sealed class CliProviderEngine(
             yield return TextChunk.Error(ProviderVerdict.Failed, "no output produced");
     }
 
-    /// <summary>Assemble argv + stdin for one call: prefix args, the dialect's completion args, any tool-host
+    /// <summary>Assemble argv + stdin for one call: prefix args, the backend's completion args, any tool-host
     /// args, and the prompt — which goes LAST when this CLI takes it positionally.</summary>
     private (List<string> Argv, string? Stdin) BuildInvocation(
         TextRequest req, IReadOnlyList<string> prefixArgs, IReadOnlyList<string>? extraArgs)
     {
-        var prompt = dialect.BuildPrompt(req);
-        // the tool-host args go THROUGH the dialect, never around it: only the dialect knows whether its
+        var prompt = backend.BuildPrompt(req);
+        // the tool-host args go THROUGH the backend, never around it: only the backend knows whether its
         // argv ends in options (append is fine) or in a positional (append feeds them to the model as
         // prompt text, and on codex a swallowed flag is a spent turn)
-        var argv = prefixArgs.Concat(dialect.BuildCompletionArgs(req, extraArgs ?? [])).ToList();
-        if (dialect.PromptDelivery != CliPromptDelivery.Argument) return (argv, prompt);
+        var argv = prefixArgs.Concat(backend.BuildCompletionArgs(req, extraArgs ?? [])).ToList();
+        if (backend.PromptDelivery != CliPromptDelivery.Argument) return (argv, prompt);
         argv.Add(prompt);
         return (argv, null);
     }
@@ -302,22 +302,22 @@ public sealed class CliProviderEngine(
     /// <summary>Report the installed backend without running a turn.</summary>
     public async Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
     {
-        if (dialect.VersionArgs is not { } versionArgs)
-            return new ProviderProbeResult(false, Detail: $"{dialect.Id} has no turn-free version readout");
+        if (backend.VersionArgs is not { } versionArgs)
+            return new ProviderProbeResult(false, Detail: $"{backend.Id} has no turn-free version readout");
 
-        var result = await RunMaintenanceAsync(versionArgs, dialect.MaintenanceTimeout, dialect.MaintenanceTimeout, ct)
+        var result = await RunMaintenanceAsync(versionArgs, backend.MaintenanceTimeout, backend.MaintenanceTimeout, ct)
             .ConfigureAwait(false);
         if (result.Failure is { } failure) return new ProviderProbeResult(false, Detail: $"probe failed: {failure}");
         if (result.Process!.TimedOut)
             return new ProviderProbeResult(false,
-                Detail: $"{dialect.Id} reported no version within {dialect.MaintenanceTimeout}");
+                Detail: $"{backend.Id} reported no version within {backend.MaintenanceTimeout}");
         if (result.Process.ExitCode != 0)
             return new ProviderProbeResult(false, Detail: $"exit {result.Process.ExitCode}: {Tail(result.Process.StdErr)}");
 
         // some launchers print the banner on stderr; the first non-empty line is the version line
         var line = CliVersionLine.FirstLine(result.Process.StdOut);
         if (line.Length == 0) line = CliVersionLine.FirstLine(result.Process.StdErr);
-        var (version, model) = dialect.ParseVersionLine(line);
+        var (version, model) = backend.ParseVersionLine(line);
         // NAMED, not positional: the merged record reorders what the LLM-side one declared, and every
         // field here is a string — so a positional call would still COMPILE and assign the wrong ones.
         return new ProviderProbeResult(
@@ -326,14 +326,14 @@ public sealed class CliProviderEngine(
 
     /// <summary>Run the backend's own updater.</summary>
     public Task<ProviderUpdateResult> UpdateAsync(CancellationToken ct = default) =>
-        dialect.UpdateArgs is { } updateArgs
-            ? SelfMaintainAsync(updateArgs, $"{dialect.Id} update", ct)
-            : Task.FromResult(new ProviderUpdateResult(false, false, Detail: $"{dialect.Id} has no self-updater to drive"));
+        backend.UpdateArgs is { } updateArgs
+            ? SelfMaintainAsync(updateArgs, $"{backend.Id} update", ct)
+            : Task.FromResult(new ProviderUpdateResult(false, false, Detail: $"{backend.Id} has no self-updater to drive"));
 
     /// <summary>Ask the backend to install a named version of itself.</summary>
     public Task<ProviderUpdateResult> InstallAsync(ProviderInstallRequest? request = null, CancellationToken ct = default) =>
-        dialect.TryBuildInstallArgs(request, out var installArgs, out var refusal)
-            ? SelfMaintainAsync(installArgs, $"{dialect.Id} install", ct)
+        backend.TryBuildInstallArgs(request, out var installArgs, out var refusal)
+            ? SelfMaintainAsync(installArgs, $"{backend.Id} install", ct)
             : Task.FromResult(new ProviderUpdateResult(false, false, Detail: refusal));
 
     /// <summary>The shared shape of every self-maintenance spawn (update / pinned install): probe → run the
@@ -369,25 +369,25 @@ public sealed class CliProviderEngine(
     // ── self-maintenance: auth ───────────────────────────────────────────────
 
     /// <summary>Report whether the backend is authenticated — and as whom — without running a turn.</summary>
-    /// <remarks>The dialect's parsed state WINS over the exit code: a signed-out backend may report its state
-    /// and still exit non-zero, and that is an answer, not a broken backend. An output shape the dialect can't
+    /// <remarks>The backend's parsed state WINS over the exit code: a signed-out backend may report its state
+    /// and still exit non-zero, and that is an answer, not a broken backend. An output shape the backend can't
     /// read reports <c>Authenticated: false</c> with the raw text — it never guesses a signed-in state.</remarks>
     public async Task<ProviderAuthStatus> StatusAsync(CancellationToken ct = default)
     {
-        if (dialect.AuthStatusArgs is not { } statusArgs)
-            return new ProviderAuthStatus(false, Detail: $"{dialect.Id} has no turn-free auth readout");
+        if (backend.AuthStatusArgs is not { } statusArgs)
+            return new ProviderAuthStatus(false, Detail: $"{backend.Id} has no turn-free auth readout");
 
-        var result = await RunMaintenanceAsync(statusArgs, dialect.MaintenanceTimeout, dialect.MaintenanceTimeout, ct)
+        var result = await RunMaintenanceAsync(statusArgs, backend.MaintenanceTimeout, backend.MaintenanceTimeout, ct)
             .ConfigureAwait(false);
         if (result.Failure is { } failure)
             return new ProviderAuthStatus(false, Detail: $"auth status failed: {failure}");
         if (result.Process!.TimedOut)
             return new ProviderAuthStatus(false,
-                Detail: $"{dialect.Id} reported no auth status within {dialect.MaintenanceTimeout}");
+                Detail: $"{backend.Id} reported no auth status within {backend.MaintenanceTimeout}");
 
         // parse the WHOLE body (Tail() keeps the LAST N chars and would decapitate a document)
         var body = result.Process.StdOut.Length > 0 ? result.Process.StdOut : result.Process.StdErr;
-        if (dialect.ParseAuthStatus(body) is { } status)
+        if (backend.ParseAuthStatus(body) is { } status)
             return status with { Detail = Tail(body) };
 
         if (result.Process.ExitCode != 0)
@@ -396,24 +396,24 @@ public sealed class CliProviderEngine(
         var tail = Tail(body);
         return new ProviderAuthStatus(false, Detail: tail.Length > 0
             ? $"unrecognized auth status output: {tail}"
-            : $"{dialect.Id} reported no auth status");
+            : $"{backend.Id} reported no auth status");
     }
 
     /// <summary>Start the backend's sign-in flow, then report the state it left behind. BLOCKS until the flow
-    /// completes, fails, or <see cref="ICliProviderDialect.LoginTimeout"/> expires; cancelling
+    /// completes, fails, or <see cref="ICliBackend.LoginTimeout"/> expires; cancelling
     /// <paramref name="ct"/> abandons the wait (and kills the process tree).</summary>
     public Task<ProviderAuthResult> LoginAsync(ProviderLoginRequest? request = null, CancellationToken ct = default) =>
-        dialect.TryBuildLoginArgs(request, out var loginArgs, out var refusal)
+        backend.TryBuildLoginArgs(request, out var loginArgs, out var refusal)
             // a login prints a URL and then goes SILENT while a human clicks, so the per-chunk inactivity
             // window a probe uses would kill a live flow — both clocks are the same bounded budget here
-            ? RunAuthCommandAsync(loginArgs, $"{dialect.Id} login", dialect.LoginTimeout, dialect.LoginTimeout, ct)
+            ? RunAuthCommandAsync(loginArgs, $"{backend.Id} login", backend.LoginTimeout, backend.LoginTimeout, ct)
             : Task.FromResult(new ProviderAuthResult(false, Detail: refusal));
 
     /// <summary>Sign the backend out, and report the state it left behind.</summary>
     public Task<ProviderAuthResult> LogoutAsync(CancellationToken ct = default) =>
-        dialect.LogoutArgs is { } logoutArgs
-            ? RunAuthCommandAsync(logoutArgs, $"{dialect.Id} logout", dialect.MaintenanceTimeout, dialect.MaintenanceTimeout, ct)
-            : Task.FromResult(new ProviderAuthResult(false, Detail: $"{dialect.Id} has no logout to drive"));
+        backend.LogoutArgs is { } logoutArgs
+            ? RunAuthCommandAsync(logoutArgs, $"{backend.Id} logout", backend.MaintenanceTimeout, backend.MaintenanceTimeout, ct)
+            : Task.FromResult(new ProviderAuthResult(false, Detail: $"{backend.Id} has no logout to drive"));
 
     /// <summary>Run one auth subcommand, then RE-READ the resulting state, so a caller learns what the backend
     /// is in rather than what the command claimed.</summary>
@@ -463,10 +463,10 @@ public sealed class CliProviderEngine(
     /// caller that put tools on the request and routed here gets a diagnostic instead of a mystery.</summary>
     private void WarnIfRequestToolsIgnored(TextRequest req)
     {
-        if (!dialect.SupportsToolCalls && req.Tools is { Count: > 0 })
+        if (!backend.SupportsToolCalls && req.Tools is { Count: > 0 })
             _logger.LogWarning(
                 "{Provider} ignores TextRequest.Tools ({Count} declaration(s) dropped) — this CLI provider " +
-                "doesn't take request-level tool declarations; expose tools via AddMcpToolHost(<its dialect>) instead.",
-                dialect.Id, req.Tools.Count);
+                "doesn't take request-level tool declarations; expose tools via AddMcpToolHost(<its connector>) instead.",
+                backend.Id, req.Tools.Count);
     }
 }

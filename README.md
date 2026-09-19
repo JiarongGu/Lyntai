@@ -943,7 +943,7 @@ never stores credentials**: the backend owns its own, and this seam only asks an
 `Authenticated: false` covers both "signed out" and "couldn't be asked", call `ProbeAsync` first when you
 need to tell those apart.
 
-### CLI backends: `claude`, `codex`, or your own (`CliProviderEngine` + a dialect)
+### CLI backends: `claude`, `codex`, or your own (`CliProviderEngine` + an `ICliBackend`)
 
 ```csharp
 services.AddLyntai(cfg => cfg
@@ -952,7 +952,7 @@ services.AddLyntai(cfg => cfg
     .UseDefaultCandidates("claude-cli", "codex-cli"));   // one falls over to the other
 ```
 
-Both are the same composition — a shared engine plus a per-CLI dialect — and each advertises only the
+Both are the same composition — a shared engine plus a per-CLI backend class — and each advertises only the
 capabilities its backend really has. `codex` has no way to install a *named* version of itself, so
 `CodexCliProvider` doesn't implement `IProviderVersionInstaller` at all; pattern-matching a capability is
 therefore a real answer, not a maybe.
@@ -984,7 +984,7 @@ exactly one terminal stream chunk, and probe → run → re-probe for self-maint
 
 <!-- compile-given: static class MyWireFormat { public static CliOutputEvent Read(string line) => CliOutputEvent.Ignored; } -->
 ```csharp
-public sealed class MyCliDialect : CliProviderDialectBase
+public sealed class MyCliBackend : CliBackendBase
 {
     public override string Id => "my-cli";
     public override string DefaultCommand => "mycli";
@@ -1006,7 +1006,7 @@ public sealed class MyCliDialect : CliProviderDialectBase
 …plus a provider that forwards to the engine and declares which capability interfaces that backend actually
 has (`ClaudeCliProvider` is exactly this, and nothing else):
 
-<!-- compile-given: sealed class MyCliDialect : CliProviderDialectBase
+<!-- compile-given: sealed class MyCliBackend : CliBackendBase
      {
          public override string Id => "my-cli";
          public override string DefaultCommand => "mycli";
@@ -1016,7 +1016,7 @@ has (`ClaudeCliProvider` is exactly this, and nothing else):
 ```csharp
 public sealed class MyCliProvider(IProcessRunner runner, LyntaiOptions options) : IModelProvider, IProviderUpdater
 {
-    private readonly CliProviderEngine _engine = new(new MyCliDialect(), runner, options);
+    private readonly CliProviderEngine _engine = new(new MyCliBackend(), runner, options);
     public string Id => "my-cli";
 
     // What you serve is DATA the router checks before dispatching — declare it, and every operation you
@@ -1037,7 +1037,7 @@ public sealed class MyCliProvider(IProcessRunner runner, LyntaiOptions options) 
 
 If your CLI takes the prompt positionally rather than on stdin, set `PromptDelivery = CliPromptDelivery.Argument`
 — the engine appends it last. Free-form values (`ProviderLoginRequest.Mode`, `ProviderInstallRequest.Version`)
-must be *refused* by the dialect when it doesn't recognize them, never turned into an invented flag.
+must be *refused* by the backend when it doesn't recognize them, never turned into an invented flag.
 
 ### Generation: image · video · audio · 3d (`Lyntai.Generation`)
 
@@ -1073,7 +1073,7 @@ instead of replacing it, reach it by name:
 
 <!-- compile-given: sealed class MyLoggingHandler : DelegatingHandler { } -->
 ```csharp
-services.AddHttpClient(GenerationProviderBuilderExtensions.HttpClientName("fal"))
+services.AddHttpClient(MediaBackendBuilderExtensions.HttpClientName("fal"))
         .AddHttpMessageHandler<MyLoggingHandler>();
 ```
 
@@ -1274,8 +1274,8 @@ services.AddLyntai(b => b.ConfigureProviderAdmission(a => a.BySlot["sd-local"] =
 ### Bridging a backend Lyntai has no provider for (`AddBridgeProvider`)
 
 Most vendors ship an endpoint speaking OpenAI's schema — what they market as "OpenAI-compatible" — so
-`AddHttpProvider` reaches them. Lyntai's own rule is the dialect, not the vendor: `HttpDialect` ships four,
-and Ollama's native surface is not OpenAI's at all. When a backend speaks none of them — its
+`AddHttpProvider` reaches them, and Ollama's native surface (not OpenAI's at all) has its own provider
+behind `AddOllamaProvider`. When a backend speaks neither wire — its
 own wire format, an in-house service, an SDK you already use — **a bridge is a lambda**, and the library
 takes no dependency on whatever you wrapped:
 
@@ -1394,20 +1394,20 @@ tools:
 services.AddLyntai(b => b
     .AddClaudeCliProvider()
     .AddTool(_ => new FunctionTool("get_weather", (a, ct) => Task.FromResult("""{"tempC":21}"""), "Current weather"))
-    .AddMcpToolHost(new ClaudeCliMcpDialect())   // hosts the tools over MCP for the CLI
+    .AddMcpToolHost(new ClaudeCliMcpConnector())   // hosts the tools over MCP for the CLI
     .UseDefaultCandidates("claude-cli"));
 // var reply = await llm.CompleteAsync(...);  → the CLI calls get_weather and answers
 ```
 
-The host is provider-neutral: **which** CLI connects and **how** it's told to is the `IMcpCliDialect` —
-flag names plus config-file shapes, and nothing else. `ClaudeCliMcpDialect` ships with the claude provider
+The host is provider-neutral: **which** CLI connects and **how** it's told to is the `IMcpCliConnector` —
+flag names plus config-file shapes, and nothing else. `ClaudeCliMcpConnector` ships with the claude provider
 package (it costs that package no extra dependencies; the host — and the `ModelContextProtocol.Core`
 reference it needs — stays here, so apps using the plain CLI provider carry neither). Supporting a different
 CLI is one small class, no new package and no change to the host:
 
 <!-- compile-skip: a type declaration and its registration statement in one fence — a block is wrapped at one scope -->
 ```csharp
-public sealed class MyCliMcpDialect : IMcpCliDialect
+public sealed class MyCliMcpConnector : IMcpCliConnector
 {
     public string ProviderId => "my-cli";
 
@@ -1419,11 +1419,11 @@ public sealed class MyCliMcpDialect : IMcpCliDialect
     }
 }
 
-services.AddLyntai(b => b.AddMcpToolHost(new MyCliMcpDialect()));
+services.AddLyntai(b => b.AddMcpToolHost(new MyCliMcpConnector()));
 ```
 
 The provisioner is registered keyed on `ProviderId`, so several CLI providers can host tools side by side
-with different dialects. (This runs an ephemeral `HttpListener` on loopback only during each CLI call —
+with different connectors. (This runs an ephemeral `HttpListener` on loopback only during each CLI call —
 a deliberate, scoped exception to Lyntai's otherwise host-free design, isolated in this opt-in package.)
 
 ### CLI-agent session vs `IToolLoop` (`IAgentSession`)

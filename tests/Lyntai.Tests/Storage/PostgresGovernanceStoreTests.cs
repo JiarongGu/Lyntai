@@ -106,7 +106,7 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var consumer = Uid();
-        await new PostgresUsageTracker(pg.Factory).RecordAsync(consumer, new TextUsage(10, 5, CostUsd: 0.10));
+        await new PostgresUsageTracker(pg.Factory).RecordAsync(consumer, new ProviderUsage(10, 5, CostUsd: 0.10));
 
         Assert.Equal(15, (await new PostgresUsageTracker(pg.Factory).TotalAsync(consumer)).TotalTokens);
     }

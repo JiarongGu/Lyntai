@@ -18,15 +18,33 @@ public class UsageBudgetTests
     private static TextResponse Ok(double cost, long tokens = 0) =>
         new("ok", ProviderVerdict.Ok, new TextUsage(tokens, 0, CostUsd: cost));
 
+    // ---- the ledger's currency is shape-neutral (D162) ------------------------------------------------
+
+    [Fact]
+    public void TextUsage_projects_into_the_ledger_without_its_cache_reads()
+    {
+        var projected = new TextUsage(10, 5, CacheReadTokens: 99, CostUsd: 0.10).ToProviderUsage();
+
+        Assert.Equal(new ProviderUsage(10, 5, 0.10), projected); // cache reads are a text-shape detail
+    }
+
+    [Fact]
+    public void MediaUsage_projects_its_cost_alone()
+    {
+        var projected = new MediaUsage(Count: 4, Seconds: 12.5, CostUsd: 0.30).ToProviderUsage();
+
+        Assert.Equal(new ProviderUsage(CostUsd: 0.30), projected); // counts and seconds are not tokens
+    }
+
     // ---- tracker -------------------------------------------------------------------------------------
 
     [Fact]
     public async Task Tracker_accumulates_per_consumer_and_globally()
     {
         var tracker = new InMemoryUsageTracker();
-        await tracker.RecordAsync("a", new TextUsage(10, 5, CostUsd: 0.10));
-        await tracker.RecordAsync("a", new TextUsage(20, 5, CostUsd: 0.20));
-        await tracker.RecordAsync("b", new TextUsage(1, 1, CostUsd: 0.01));
+        await tracker.RecordAsync("a", new ProviderUsage(10, 5, CostUsd: 0.10));
+        await tracker.RecordAsync("a", new ProviderUsage(20, 5, CostUsd: 0.20));
+        await tracker.RecordAsync("b", new ProviderUsage(1, 1, CostUsd: 0.01));
 
         var a = (await tracker.TotalAsync("a"));
         Assert.Equal(30, a.InputTokens);
@@ -44,8 +62,8 @@ public class UsageBudgetTests
     public async Task Reset_of_one_consumer_subtracts_from_the_global_total()
     {
         var tracker = new InMemoryUsageTracker();
-        await tracker.RecordAsync("a", new TextUsage(10, 0, CostUsd: 0.10));
-        await tracker.RecordAsync("b", new TextUsage(20, 0, CostUsd: 0.20));
+        await tracker.RecordAsync("a", new ProviderUsage(10, 0, CostUsd: 0.10));
+        await tracker.RecordAsync("b", new ProviderUsage(20, 0, CostUsd: 0.20));
 
         await tracker.ResetAsync("a");
 
@@ -129,7 +147,7 @@ public class UsageBudgetTests
         Assert.Equal(0.25, (await tracker.TotalAsync()).CostUsd, 5);   // usage recorded from the Final chunk
         Assert.DoesNotContain(chunks, c => c.Kind == TextChunkKind.Error);
 
-        await tracker.RecordAsync("default", new TextUsage(0, 0, CostUsd: 1.0)); // push over the cap
+        await tracker.RecordAsync("default", new ProviderUsage(0, 0, CostUsd: 1.0)); // push over the cap
         var over = new List<TextChunk>();
         await foreach (var c in client.StreamAsync(Ask())) over.Add(c);
         var only = Assert.Single(over);

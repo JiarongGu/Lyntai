@@ -1,14 +1,13 @@
 using Lyntai;
-using Lyntai.Providers.Http;
 
 namespace Lyntai.Tests.Live;
 
 /// <summary>
-/// The gate for a live test that needs A MODEL — any OpenAI-shaped local endpoint, so Ollama and
-/// llama.cpp's <c>llama-server</c> are both usable without editing a test.
+/// The gate for a live test that needs A MODEL — any local endpoint, so Ollama and llama.cpp's
+/// <c>llama-server</c> are both usable without editing a test.
 ///
 /// <para><b>Deliberately NOT merged with <see cref="OllamaLive"/>, which answers a different question.</b>
-/// That one gates suites that are ABOUT Ollama — they exercise <see cref="HttpDialect.Ollama"/>'s NATIVE
+/// That one gates suites that are ABOUT Ollama — they exercise <c>OllamaProvider</c>'s NATIVE
 /// routes, so "is Ollama up" is exactly the right probe and a llama.cpp endpoint should skip them. This one
 /// gates suites that merely need something to embed or judge with, where pinning the vendor is what stopped
 /// the harness running on a different backend at all. Two questions, two gates; collapsing them would either
@@ -35,8 +34,8 @@ public static class LiveModel
     /// <summary>Endpoint override; falls back to the legacy <c>LYNTAI_OLLAMA_URL</c>.</summary>
     public const string UrlVariable = "LYNTAI_LIVE_MODEL_URL";
 
-    /// <summary>Which dialect the endpoint speaks — <c>ollama</c> (the default, unchanged) or
-    /// <c>openai</c> for anything serving the OpenAI routes, llama-server included.</summary>
+    /// <summary>Which wire the endpoint speaks — <c>ollama</c> (the default, unchanged) for the native
+    /// provider, or <c>openai</c> for anything serving the OpenAI-shaped routes, llama-server included.</summary>
     public const string FlavorVariable = "LYNTAI_LIVE_MODEL_FLAVOR";
 
     /// <summary>Where the model is.</summary>
@@ -44,19 +43,15 @@ public static class LiveModel
         Read(UrlVariable) ?? Read("LYNTAI_OLLAMA_URL") ?? "http://localhost:11434";
 
     /// <summary>
-    /// Which dialect to speak. <b>Declared, never probed</b> — the same stance
+    /// Which PROVIDER to register. <b>Declared, never probed</b> — the same stance
     /// <c>LocalDiffusionOptions.Accelerator</c> takes (<c>docs/DECISIONS.md</c> D68): guessing from a port or
     /// a banner is a rule that is right until someone runs llama-server on 11434, and then it is wrong in a
     /// way that presents as a 404 rather than as a bad guess.
-    /// <para>Defaults to <see cref="HttpDialect.Ollama"/>, which is what every one of these suites did
-    /// before this type existed, so an unset variable changes nothing.</para>
+    /// <para>Defaults to the Ollama-native provider, which is what every one of these suites did before this
+    /// type existed, so an unset variable changes nothing.</para>
     /// </summary>
-    public static HttpDialect Dialect =>
-        Read(FlavorVariable)?.ToLowerInvariant() switch
-        {
-            "openai" or "llamacpp" or "llama.cpp" or "llama-server" => HttpDialect.OpenAi,
-            _ => HttpDialect.Ollama,
-        };
+    private static bool OpenAiShaped =>
+        Read(FlavorVariable)?.ToLowerInvariant() is "openai" or "llamacpp" or "llama.cpp" or "llama-server";
 
     /// <summary>The message a skip carries — one string, so a reader scanning skips sees one reason.</summary>
     public const string SkipReason =
@@ -84,19 +79,29 @@ public static class LiveModel
         }
     }
 
-    /// <summary>Register the live endpoint as a provider under <paramref name="id"/>, in whichever dialect
-    /// <see cref="Dialect"/> names. The one place a live suite says "give me a model", so adding a backend is
-    /// an environment variable rather than an edit to every suite.</summary>
+    /// <summary>Register the live endpoint as a provider under <paramref name="id"/>, on whichever wire the
+    /// flavor variable declares. The one place a live suite says "give me a model", so adding a backend is
+    /// an environment variable rather than an edit to every suite.
+    /// <para>The OpenAI-shaped flavor pins the base to its <c>/v1</c> surface so the declaration survives
+    /// any URL — an Ollama-port root would otherwise compose the native provider, and both server families
+    /// serve the OpenAI-shaped routes under <c>/v1</c> either way.</para></summary>
     /// <param name="builder">The builder to register into.</param>
     /// <param name="model">The model to default to.</param>
     /// <param name="id">The provider id; the default matches what these suites already used.</param>
     public static LyntaiBuilder AddLiveProvider(this LyntaiBuilder builder, string model, string id = "ollama") =>
-        builder.AddHttpProvider(id, o =>
-        {
-            o.BaseUrl = BaseUrl;
-            o.Model = model;
-            o.Dialect = Dialect;
-        });
+        OpenAiShaped
+            ? builder.AddHttpProvider(id, o =>
+            {
+                var b = BaseUrl.TrimEnd('/');
+                o.BaseUrl = b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase) ? b : b + "/v1";
+                o.Model = model;
+                o.ApiKey = null;
+            })
+            : builder.AddOllamaProvider(id, o =>
+            {
+                o.BaseUrl = BaseUrl;
+                o.Model = model;
+            });
 
     private static string? Read(string name) =>
         Environment.GetEnvironmentVariable(name) is { Length: > 0 } value ? value : null;

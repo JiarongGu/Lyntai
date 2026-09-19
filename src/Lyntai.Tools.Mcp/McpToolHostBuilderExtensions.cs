@@ -15,23 +15,23 @@ public static class McpToolHostBuilderExtensions
     /// <code>
     /// services.AddLyntai(b => b
     ///     .AddClaudeCliProvider()
-    ///     .AddMcpToolHost(new ClaudeCliMcpDialect())
+    ///     .AddMcpToolHost(new ClaudeCliMcpConnector())
     ///     .AddTool(_ => new FunctionTool("get_status", …)));
     /// </code>
-    /// <para>The provisioner is registered KEYED on <see cref="IMcpCliDialect.ProviderId"/>, so several CLI
-    /// providers can host tools side by side with different dialects; the FIRST registration additionally
+    /// <para>The provisioner is registered KEYED on <see cref="IMcpCliConnector.ProviderId"/>, so several CLI
+    /// providers can host tools side by side with different connectors; the FIRST registration additionally
     /// becomes the unkeyed fallback for any provider that resolves without a key.</para>
     /// <para>Note: this runs an ephemeral <c>HttpListener</c> (BCL — no ASP.NET Core, no framework
     /// reference) on loopback during each CLI completion — a deliberate, scoped exception to the library's
     /// otherwise host-free design.</para></summary>
     /// <param name="builder">The Lyntai builder.</param>
-    /// <param name="dialect">Supplies the CLI's flags and config-file shapes — e.g.
-    /// <c>ClaudeCliMcpDialect</c> from <c>Lyntai.Providers.ClaudeCli</c>.</param>
+    /// <param name="connector">Supplies the CLI's flags and config-file shapes — e.g.
+    /// <c>ClaudeCliMcpConnector</c> from <c>Lyntai.Providers.ClaudeCli</c>.</param>
     /// <param name="configure">Optional host tweaks (MCP server name, bind address).</param>
     public static LyntaiBuilder AddMcpToolHost(
-        this LyntaiBuilder builder, IMcpCliDialect dialect, Action<McpToolHostOptions>? configure = null)
+        this LyntaiBuilder builder, IMcpCliConnector connector, Action<McpToolHostOptions>? configure = null)
     {
-        ArgumentNullException.ThrowIfNull(dialect);
+        ArgumentNullException.ThrowIfNull(connector);
 
         var options = new McpToolHostOptions();
         configure?.Invoke(options);
@@ -42,15 +42,15 @@ public static class McpToolHostBuilderExtensions
         // The logger is resolved the same way and for the same reason: D75 added one line per guard BLOCK so
         // a refusal through THIS door is as visible as the tool loop's own, and leaving it null here made
         // that line unreachable through the only public wiring — the pinning test passed one in by hand.
-        builder.Services.AddKeyedSingleton<ICliToolProvisioner>(dialect.ProviderId,
-            (sp, _) => new McpToolHostProvisioner(sp.GetServices<ITool>(), dialect, options,
+        builder.Services.AddKeyedSingleton<ICliToolProvisioner>(connector.ProviderId,
+            (sp, _) => new McpToolHostProvisioner(sp.GetServices<ITool>(), connector, options,
                 sp.GetService<Lyntai.Guards.IGuardRail>(),
                 sp.GetService<Microsoft.Extensions.Logging.ILogger<McpToolHostProvisioner>>()));
 
-        // the first dialect registered also answers the unkeyed lookup, so a provider that doesn't ask by
+        // the first connector registered also answers the unkeyed lookup, so a provider that doesn't ask by
         // key (and the single-CLI case, which is most apps) keeps working with no extra wiring
         builder.Services.TryAddSingleton<ICliToolProvisioner>(sp =>
-            sp.GetRequiredKeyedService<ICliToolProvisioner>(dialect.ProviderId));
+            sp.GetRequiredKeyedService<ICliToolProvisioner>(connector.ProviderId));
 
         return builder;
     }

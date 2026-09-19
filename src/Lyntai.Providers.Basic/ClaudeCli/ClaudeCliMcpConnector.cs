@@ -4,22 +4,22 @@ using Lyntai.Agents;
 namespace Lyntai.Providers.ClaudeCli;
 
 /// <summary>
-/// The <see cref="IMcpCliDialect"/> for the <c>claude</c> CLI — the ONLY claude-specific part of the tool-
+/// The <see cref="IMcpCliConnector"/> for the <c>claude</c> CLI — the ONLY claude-specific part of the tool-
 /// hosting path: the <c>--mcp-config</c> / <c>--settings</c> / <c>--allowedTools</c> flags, the two config
 /// files' shapes, and the <c>mcp__&lt;server&gt;__*</c> permission pattern.
 ///
 /// <para>It ships in the provider package (not the host package) because it is knowledge about
 /// <c>claude</c>, and it costs this package NO new dependencies — it is JSON + strings over Core types.
 /// The host that consumes it lives in <c>Lyntai.Tools.Mcp</c> and runs on
-/// <c>System.Net.HttpListener</c> (BCL, no ASP.NET Core); keeping the dialect out of it is what keeps that
+/// <c>System.Net.HttpListener</c> (BCL, no ASP.NET Core); keeping the connector out of it is what keeps that
 /// package's <c>ModelContextProtocol.Core</c> dependency off the graph of apps that use the plain CLI
 /// provider.</para>
 ///
-/// <para>Wire it with <c>AddMcpToolHost(new ClaudeCliMcpDialect())</c> from
+/// <para>Wire it with <c>AddMcpToolHost(new ClaudeCliMcpConnector())</c> from
 /// <c>Lyntai.Tools.Mcp</c>, alongside <c>AddClaudeCliProvider()</c> and your tool
 /// registrations.</para>
 /// </summary>
-public sealed class ClaudeCliMcpDialect : IMcpCliDialect
+public sealed class ClaudeCliMcpConnector : IMcpCliConnector
 {
     /// <inheritdoc />
     public string ProviderId => ClaudeCliProvider.ProviderId;

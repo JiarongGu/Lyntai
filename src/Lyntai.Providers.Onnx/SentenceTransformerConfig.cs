@@ -10,7 +10,7 @@ namespace Lyntai.Providers.Onnx;
 /// <c>1_Pooling/config.json</c> names the pooling mode and <c>modules.json</c> lists whether a
 /// <c>Normalize</c> module follows.</para></summary>
 /// <param name="Pooling">Mean over attended tokens, or the classification token alone.</param>
-/// <param name="Normalize">Whether a <c>Normalize</c> module is in the dialect.</param>
+/// <param name="Normalize">Whether a <c>Normalize</c> module is in the model's module list.</param>
 /// <param name="MaxTokens">The architectural position limit, including both special tokens.</param>
 internal sealed record SentenceTransformerConfig(OnnxPooling Pooling, bool Normalize, int MaxTokens)
 {

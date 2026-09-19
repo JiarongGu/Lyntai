@@ -3,14 +3,14 @@ using Lyntai.Inference.Cli;
 
 namespace Lyntai.Tests.Fakes;
 
-/// <summary>A minimal <see cref="ICliProviderDialect"/> for exercising <see cref="CliProviderEngine"/>
+/// <summary>A minimal <see cref="ICliBackend"/> for exercising <see cref="CliProviderEngine"/>
 /// without any real CLI's vocabulary. Everything a dialect can vary is settable here, so an engine test
 /// can pin the GENERIC contract (prompt delivery, unsupported capabilities, clocks) rather than whatever
 /// the claude dialect happens to do.
 ///
 /// Its line protocol is deliberately trivial: <c>text:…</c> → content, <c>result:…</c> → the terminal
 /// result, anything else → ignored.</summary>
-public sealed class FakeCliDialect : CliProviderDialectBase
+public sealed class FakeCliBackend : CliBackendBase
 {
     public override string Id => IdValue;
     public string IdValue { get; set; } = "fake-cli";

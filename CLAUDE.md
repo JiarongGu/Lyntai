@@ -14,7 +14,7 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 ## Current state
 
 **Released: v3.1.0 (2026-08-23).** Eleven packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D158** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D162** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
@@ -81,7 +81,9 @@ of them is gated, which is why these five are here and the ones a gate or a test
    salience and retention are plural and each owns a **composition policy**; the engine composes nothing.
 2. **Age is DERIVED, not stored** — nodes carry primitives (encoding ordinal, cumulative characters,
    timestamp) and each policy projects its own view. **Except `BurstDampenedAgePolicy`**
-   (`MemoryAgeKind.Accumulating`), the shipped default, which is path-dependent and keeps an accumulator.
+   (`MemoryAgeKind.Accumulating`), the shipped default — the only `Accumulating` policy, whose AGE itself is
+   path-dependent. (`ElapsedAgePolicy` also keeps per-engine write-time state, but its age is a pure
+   projection, which is what `Derivable` actually claims.)
 3. **Each entry records WHICH policy computed its state** (`MemoryProvenance` flags), so "never computed"
    is distinguishable from "zero".
 4. **All three age axes speak one unit** (**D52**) — an edge carries the same primitives a node does, so
@@ -94,7 +96,8 @@ of them is gated, which is why these five are here and the ones a gate or a test
 Namespace map (Core): `Lyntai.Inference` — everything about CALLING a backend, which is ONE subject
 (**D154**): the provider seam, the verdict taxonomy, all four call shapes, the text front door and the
 routing machinery, flat, because `TextRouter` and `RoutingPolicy` are the same subject (+ `.Cli` — a new CLI
-backend is a DIALECT, never a new provider — `.Caching` / `.Budgeting` / `.RateLimiting` / `.Streaming`,
+backend is an `ICliBackend` plus a thin provider composing the ONE engine, never a second copy of the
+rules (D21/D159) — `.Caching` / `.Budgeting` / `.RateLimiting` / `.Streaming`,
 which decorate the text front door and moved WITH it; **both ROUTERS live here** — `TextRouter` and
 `MediaRouter` are peers D153 refused to merge, so they are neighbours rather than one class) /
 `Lyntai.Generation` — what RUNS a generation, never the shape of the call (+ `.Jobs` /
@@ -128,8 +131,8 @@ backends now sit under `Lyntai.Providers.*` (`.Model2Vec`, `.Onnx`) like every o
 on a provider type, namespace or registration is a defect rather than a style choice.
 **And a kind is never a reason to FORK a provider class** (**D157**): the provider is the engine and stays
 pure, while an options field says which kind that registration serves — `HttpModelOptions.Produces` and
-`OnnxProviderOptions.Produces` are the two worked examples, and whichever internal dialect serves it is not
-consumer surface. **The model is EF Core's provider**: core is provider-agnostic, one
+`OnnxProviderOptions.Produces` are the two worked examples, and whichever internal strategy serves it — an
+ONNX head, an HTTP wire — is not consumer surface. **The model is EF Core's provider**: core is provider-agnostic, one
 `Add<Backend>Provider(…)` per package named for the backend, knobs in that call's options action, and the
 package owns its own seams. EF has no `UseSqlServerForReads()` and there is no `Add<Kind>Provider` here.
 A backend that genuinely serves SEVERAL kinds says so in data — `ProviderCapabilities.Produces` is a list,

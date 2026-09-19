@@ -176,6 +176,13 @@ between them; one taxonomy serves every domain, and what a router DOES about a v
 policy — `docs/DECISIONS.md` **D136**. Every block above keeps its ORIGINAL spelling, as this record's
 reading note requires.)*
 
+*(2026-09-19: two facts a reader building a provider needs that the seed cannot hint at. `Capabilities` is a
+REQUIRED member with no default (`IModelProvider.Capabilities`): a backend that declares nothing is
+deliberately invisible to every router, because an empty declaration must be a composition mistake heard
+early rather than a backend handed every request. And selection is capability-filtered as well as typed —
+a router asks the type test AND the declared `ProviderCapabilities`, because one class can implement a call
+shape and be configured not to serve it. `docs/DECISIONS.md` **D125–D130**, **D153**.)*
+
 ### 5.2 Prompt registry
 ```csharp
 public interface IPromptRegistry {
@@ -245,6 +252,16 @@ services.AddLyntai(cfg => {
 Options bind from config + env overrides (`LYNTAI_*`). Sensible defaults so the minimal setup is a
 provider + storage.
 
+*(2026-09-19: the snippet above is the v0.1 seed and two of its doors are gone — `AddOpenAiCompatibleProvider`
+became `AddHttpProvider` (**D135**) and the `Microsoft.Extensions.AI` bridge was deleted outright (**D146**;
+bridging is `AddBridgeProvider("id", (req, ct) => …)`, a lambda that costs the library no dependency,
+**D147**). Today's registration story: `AddProvider(factory, declares)` is the one generic door every backend
+comes through (**D152**); `AddHttpProvider` serves any OpenAI-shaped endpoint and `AddOllamaProvider`
+Ollama's native wire (**D160**); vendor presets name their backend — `AddOpenAiProvider`, `AddLlamaProvider`,
+`AddOnnxProvider`, the CLI pair; a media backend registers through the same `AddProvider` plus
+`AddMediaRouting()` (**D156**). This file sits in the prose gates' historical exemption, so the block above
+is no longer compiled — read it as history, not as API.)*
+
 **Storage feature toggles** — `UseSqliteStorage(path, StorageFeature.Score | …)` (and the Postgres twin)
 select which storage domains to wire: a disabled feature registers no store AND lands no table (tag-driven
 selective migration; default `All`). Lyntai still OWNS the tables it creates — this just avoids unused
@@ -298,6 +315,21 @@ public interface IGenerationProvider : Lyntai.Inference.IProviderIdentity {
   data-then-terminal is the decomposition a real TTS wire format wants.
 - **The coupling to the LLM side is five `ITool`s** (`AddGenerationTools()`), and that is the *entire* coupling
   (D24) — the tool loop and an MCP-hosted CLI agent both drive media through the same five.
+
+*(2026-09-19: this subsection's SHAPES are the 2026-08-04 seed, and the seam has since INVERTED — read
+`src/Lyntai.Core/Inference/**` as the contract. There is ONE provider seam, `IModelProvider`, whose optional
+operations are DEFAULTED members answering `Unsupported`: capability is DATA — `ProviderCapabilities`, whose
+`Produces` list is the axis every router selects on — not a type hierarchy, so "does not implement the
+interface" is no longer how a backend declines (**D125–D130**). An interface exists only where the SIGNATURE
+differs: `IProviderCall<TRequest,TResponse>` is the generic call seam (**D153**), `IVectorProvider` /
+`IScoreProvider` close it for vectors and scores, the media call is `GenerateAsync(MediaRequest) →
+MediaResponse` on the base seam, and the queued door is `IMediaJobProvider`. The `Generation*` call shapes
+were renamed `Media*` and moved beside the text/vector/score shapes in `Lyntai.Inference` (**D154**); there
+is no `.Routing` namespace — both routers live flat in `Lyntai.Inference` — and Core's `Lyntai.Generation`
+holds what RUNS a generation (`.Jobs`, `.Tools`). The three delivery modes survive as
+`ProviderOperation.Complete`/`Stream`/`Queued` — data, not marker interfaces — and the D36 verdict
+translation was deleted with the second taxonomy (**D136**). A BYO backend registers with
+`AddProvider(factory, declares)` + `AddMediaRouting()` (**D156**).)*
 
 ### 5.7.0 What the memory engine is FOR — the objective optimization work is allowed to move (added 2026-08-12)
 
@@ -925,6 +957,16 @@ retry on parse failure, else `Failed` verdict.
 > `docs/task-archive.md` **Part 40** — so the arm is settled: the reporting slot went in first and the
 > verdict mapping followed it, which was the load-bearing order.
 
+> **Amendment (2026-09-19): the TRANSLATION layer above is deleted, the divergences it protected are not.**
+> One `ProviderVerdict` serves every domain (**D136**), so `GenerationVerdictClassifier.Translate` and its
+> one-arm-per-member growth gate no longer exist — there is nothing to translate. What survives, verbatim, is
+> the per-domain ACTION split, now stated by `MediaRoutingPolicy` against the shared enum: `Unsupported`
+> advances on the media side and surfaces on the text side, an unmapped verdict advances here and is
+> penalized there, and `ContextWindowExceeded` — the member that used to collapse to `Failed` for lack of a
+> media counterpart — has its own explicit entry and ADVANCES with no dead-host penalty. And the BYO media
+> seam the 3.0 amendment below names is now two calls: `AddProvider(factory, declares)` +
+> `AddMediaRouting()` (**D156**).
+
 ## 7. Storage conventions (from the family)
 
 - **Dapper** + hand-written SQL, `snake_case` columns ↔ PascalCase (`MatchNamesWithUnderscores`).
@@ -995,7 +1037,8 @@ these later without breaking changes.
 > **native tool-calling contract** (`TextToolCall`, `TextResponse.ToolCalls`, tool/assistant turns,
 > `SupportsToolCalls` on provider/router/client) · **governance decorators** (response cache / usage
 > budget / rate limit behind `IResponseCache`/`IUsageTracker`/`IRateLimiter`; deterministic fold, cache
-> outermost; SQLite/PG persistence) · **semantic memory** (BYO `IEmbedder`, `ISemanticMemory`,
+> outermost; SQLite/PG persistence) · **semantic memory** (BYO `IEmbedder` *(today: any backend declaring
+> `ProviderKinds.Vector` — the interface was deleted, D151/D153)*, `ISemanticMemory`,
 > `IVectorStore` incl. pgvector; hybrid composer + dual-write) · **durable-jobs expansion** (priorities,
 > DLQ, interval+cron schedules, cooperative cancellation, admission control, `Paused`, live progress,
 > actor/mailbox `PartitionKey`; the last deferral, cross-process global limits, shipped in 3.0 as a slot
@@ -1077,3 +1120,10 @@ call-site-specific candidate list), `IScoringService`, `IMemoryStore`, etc. No s
 copying, no rebuild of the substrate. Adding a storage backend = a new `Lyntai.Storage.X` package that
 implements the domain interfaces. Adding a provider = a new `ILlmProvider` or an MEAI `IChatClient`
 through the bridge.
+
+*(2026-09-19: the ergonomics hold; three names moved under them. The front door is `ITextClient` — inject it,
+never the router — and the seed's `ILlmClient` spelling is the D154 rename's before-side. The bridge PACKAGE
+is gone: bridging any `IChatClient`, SDK or in-house service is `AddBridgeProvider("id", (req, ct) => …)`, a
+delegate the consumer owns (**D146**/**D147**). Adding a provider is a new `IModelProvider` registered with
+`AddProvider(factory, declares)` — or, for a spawned CLI, an `ICliBackend` plus a thin provider composing
+the one `CliProviderEngine` (**D159**).)*

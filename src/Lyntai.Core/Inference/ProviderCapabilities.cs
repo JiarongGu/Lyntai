@@ -76,10 +76,11 @@ public static class ProviderKinds
 /// must be skipped rather than handed every request. An empty <see cref="Models"/> serves ANY — an
 /// aggregator fronts hundreds behind one id and cannot enumerate them.</para>
 ///
-/// <para><b><see cref="Produces"/> is a LIST, and that is load-bearing.</b> One backend can serve several
-/// output kinds: an OpenAI-shaped host answers <c>/chat/completions</c> AND <c>/embeddings</c>, so it
-/// declares <c>[text, vector]</c> and implements both methods off one configuration. Modelling embedding as
-/// its own operation made that inexpressible (<c>docs/DECISIONS.md</c> D130).</para></summary>
+/// <para><b><see cref="Produces"/> is a LIST, and that is load-bearing.</b> It means one CALL returning
+/// several kinds at once — a workflow host serving image AND video (<c>ComfyUiOptions</c> declares both), a
+/// multimodal model emitting text and an image. It does NOT mean two endpoints behind one hostname: a chat
+/// model and an embedding model on one server are two registrations under two ids, each declaring its one
+/// kind, so a trace can say which backend answered (<c>docs/DECISIONS.md</c> D130/D133).</para></summary>
 public sealed record ProviderCapabilities
 {
     /// <summary>The content types this backend takes IN (<see cref="ProviderKinds"/>), matched

@@ -5,7 +5,7 @@ namespace Lyntai.Inference;
 /// <para><b>Neutral by construction, because the vocabulary is not.</b> Every backend spells this
 /// differently — a request field, a sampling parameter, a magic token in the prompt — and several spell it
 /// not at all. This enum names the INTENT; each provider maps it to whatever it has, exactly as
-/// <c>ICliProviderDialect</c> maps per-CLI flags. A library-level string like <c>/no_think</c> would be one
+/// <c>ICliBackend</c> maps per-CLI flags. A library-level string like <c>/no_think</c> would be one
 /// model family's syntax baked into shared code, which is what <c>model-decoupling.md</c> forbids.</para>
 ///
 /// <para><b>ADVISORY, never a guarantee.</b> A provider that cannot express it ignores it, and a model that

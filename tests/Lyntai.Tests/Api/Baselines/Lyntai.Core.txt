@@ -106,7 +106,7 @@ interface Lyntai.Agents.IChatOrchestrator
     ChatAsync(ChatTurn turn, CancellationToken ct = default) : Task<ChatResult>
 interface Lyntai.Agents.ICliToolProvisioner
     ProvisionAsync(CancellationToken ct = default) : Task<CliToolSession>
-interface Lyntai.Agents.IMcpCliDialect
+interface Lyntai.Agents.IMcpCliConnector
     BuildArgsAsync(McpCliContext context, CancellationToken ct = default) : ValueTask<IReadOnlyList<String>>
     ProviderId : String
 interface Lyntai.Agents.ITool
@@ -673,12 +673,12 @@ sealed class Lyntai.Inference.Budgeting.BudgetedTextClient
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
 interface Lyntai.Inference.Budgeting.IUsageTracker
-    RecordAsync(String consumer, TextUsage usage, CancellationToken ct = default) : ValueTask
+    RecordAsync(String consumer, ProviderUsage usage, CancellationToken ct = default) : ValueTask
     ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
     TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
 sealed class Lyntai.Inference.Budgeting.InMemoryUsageTracker
     .ctor()
-    RecordAsync(String consumer, TextUsage usage, CancellationToken ct = default) : ValueTask
+    RecordAsync(String consumer, ProviderUsage usage, CancellationToken ct = default) : ValueTask
     ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
     TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
 sealed class Lyntai.Inference.Budgeting.UsageTotals
@@ -708,6 +708,27 @@ sealed class Lyntai.Inference.Caching.InMemoryResponseCache
     SetAsync(String key, TextResponse reply, Nullable<TimeSpan> ttl = null, CancellationToken ct = default) : Task
 static class Lyntai.Inference.Caching.ResponseCacheKey
     static For(TextRequest req, String effectiveModel = null) : String
+abstract class Lyntai.Inference.Cli.CliBackendBase
+    .ctor()
+    AuthStatusArgs : IReadOnlyList<String>
+    BuildCompletionArgs(TextRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
+    BuildPrompt(TextRequest request) : String
+    CommandEnvironmentVariables : IReadOnlyList<String>
+    DefaultCommand : String
+    Id : String
+    LoginTimeout : TimeSpan
+    LogoutArgs : IReadOnlyList<String>
+    MaintenanceTimeout : TimeSpan
+    ParseAuthStatus(String output) : ProviderAuthStatus
+    ParseLine(String line) : CliOutputEvent
+    ParseVersionLine(String line) : ValueTuple<String,String>
+    PromptDelivery : CliPromptDelivery
+    SupportsToolCalls : Boolean
+    TryBuildInstallArgs(ProviderInstallRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
+    TryBuildLoginArgs(ProviderLoginRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
+    UpdateArgs : IReadOnlyList<String>
+    VersionArgs : IReadOnlyList<String>
+    static FlagShaped(String value) : Boolean
 static class Lyntai.Inference.Cli.CliCommand
     static Resolve(String command, String defaultCommand, IReadOnlyList<String> environmentVariables, Func<String,String> environmentLookup = null) : ValueTuple<String,IReadOnlyList<String>>
     static Tokenize(String commandLine) : List<String>
@@ -735,29 +756,8 @@ enum Lyntai.Inference.Cli.CliPromptDelivery
     Argument : CliPromptDelivery const
     Stdin : CliPromptDelivery const
     value__ : Int32
-abstract class Lyntai.Inference.Cli.CliProviderDialectBase
-    .ctor()
-    AuthStatusArgs : IReadOnlyList<String>
-    BuildCompletionArgs(TextRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
-    BuildPrompt(TextRequest request) : String
-    CommandEnvironmentVariables : IReadOnlyList<String>
-    DefaultCommand : String
-    Id : String
-    LoginTimeout : TimeSpan
-    LogoutArgs : IReadOnlyList<String>
-    MaintenanceTimeout : TimeSpan
-    ParseAuthStatus(String output) : ProviderAuthStatus
-    ParseLine(String line) : CliOutputEvent
-    ParseVersionLine(String line) : ValueTuple<String,String>
-    PromptDelivery : CliPromptDelivery
-    SupportsToolCalls : Boolean
-    TryBuildInstallArgs(ProviderInstallRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
-    TryBuildLoginArgs(ProviderLoginRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
-    UpdateArgs : IReadOnlyList<String>
-    VersionArgs : IReadOnlyList<String>
-    static FlagShaped(String value) : Boolean
 sealed class Lyntai.Inference.Cli.CliProviderEngine
-    .ctor(ICliProviderDialect dialect, IProcessRunner runner, LyntaiOptions options, ILogger logger = null, String command = null, ICliToolProvisioner provisioner = null, IReadOnlyDictionary<String,String> environment = null)
+    .ctor(ICliBackend backend, IProcessRunner runner, LyntaiOptions options, ILogger logger = null, String command = null, ICliToolProvisioner provisioner = null, IReadOnlyDictionary<String,String> environment = null)
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
     Id : String
     InstallAsync(ProviderInstallRequest request = null, CancellationToken ct = default) : Task<ProviderUpdateResult>
@@ -770,7 +770,7 @@ sealed class Lyntai.Inference.Cli.CliProviderEngine
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
     UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
     static NeutralWorkingDirectory : String
-interface Lyntai.Inference.Cli.ICliProviderDialect
+interface Lyntai.Inference.Cli.ICliBackend
     AuthStatusArgs : IReadOnlyList<String>
     BuildCompletionArgs(TextRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
     BuildPrompt(TextRequest request) : String
@@ -858,15 +858,8 @@ interface Lyntai.Inference.IProviderPool`1
     RetireSlot(String slot) : Int32
     Statistics : ProviderPoolStatistics
     TryGetKey(TProvider instance, ProviderKey& key) : Boolean
-interface Lyntai.Inference.IProviderQueue`2
-    CancelAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
-    FetchAsync(String operationId, CancellationToken ct = default) : Task<TResponse>
-    PollAsync(String operationId, CancellationToken ct = default) : Task<QueuedOperation>
-    SubmitAsync(TRequest request, CancellationToken ct = default) : Task<QueuedOperation>
 interface Lyntai.Inference.IProviderRouterFactory
     For<TRequest,TResponse>(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, ILogger logger = null) : ProviderRouter<TRequest,TResponse>
-interface Lyntai.Inference.IProviderStream`2
-    StreamAsync(TRequest request, CancellationToken ct = default) : IAsyncEnumerable<TChunk>
 interface Lyntai.Inference.IProviderUpdater
     UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
 interface Lyntai.Inference.IProviderVersionInstaller
@@ -1012,6 +1005,7 @@ sealed class Lyntai.Inference.MediaUsage
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Seconds : Nullable<Double>
+    ToProviderUsage() : ProviderUsage
     ToString() : String
 sealed class Lyntai.Inference.ProviderAdmission
     .ctor(ProviderAdmissionOptions options = null)
@@ -1156,10 +1150,10 @@ struct Lyntai.Inference.ProviderRegistration`1
     Key : ProviderKey
     ToString() : String
 sealed class Lyntai.Inference.ProviderRouterFactory
-    .ctor(DeadHostTracker deadHosts, IProviderPool<IModelProvider> pool = null, IProviderAdmission admission = null)
+    .ctor(DeadHostTracker deadHosts, IProviderPool<IModelProvider> pool = null, IProviderAdmission admission = null, LyntaiOptions options = null)
     For<TRequest,TResponse>(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, ILogger logger = null) : ProviderRouter<TRequest,TResponse>
 sealed class Lyntai.Inference.ProviderRouter`2
-    .ctor(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, DeadHostTracker deadHosts = null, IProviderAdmission admission = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, ILogger logger = null)
+    .ctor(IEnumerable<IModelProvider> providers, Func<ProviderVerdict,String,TResponse> synthesize, Func<ProviderCapabilities,Boolean> serves = null, RoutingPolicy policy = null, DeadHostTracker deadHosts = null, IProviderAdmission admission = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, String cooldownScope = null, ILogger logger = null)
     CallAsync(TRequest request, CancellationToken ct = default) : Task<TResponse>
     CanServe() : Boolean
     Capable() : IReadOnlyList<IProviderCall<TRequest,TResponse>>
@@ -1175,6 +1169,16 @@ sealed class Lyntai.Inference.ProviderUpdateResult
     ToString() : String
     ToVersion : String
     Updated : Boolean
+sealed class Lyntai.Inference.ProviderUsage
+    .ctor(Int64 InputTokens = 0, Int64 OutputTokens = 0, Nullable<Double> CostUsd = null)
+    CostUsd : Nullable<Double>
+    Deconstruct(Int64& InputTokens, Int64& OutputTokens, Nullable`1& CostUsd) : Void
+    Equals(Object obj) : Boolean
+    Equals(ProviderUsage other) : Boolean
+    GetHashCode() : Int32
+    InputTokens : Int64
+    OutputTokens : Int64
+    ToString() : String
 enum Lyntai.Inference.ProviderVerdict
     AuthFailed : ProviderVerdict const
     ContextWindowExceeded : ProviderVerdict const
@@ -1244,17 +1248,19 @@ sealed class Lyntai.Inference.RoutingPolicy
     Retry(ProviderVerdict verdict, Int32 count) : RoutingPolicy
     RetryBackoff : TimeSpan
 sealed class Lyntai.Inference.ScoreRequest
-    .ctor(String Query, IReadOnlyList<String> Documents)
-    Deconstruct(String& Query, IReadOnlyList`1& Documents) : Void
+    .ctor(String Query, IReadOnlyList<String> Documents, String Consumer = null, Nullable<Int32> TimeoutSeconds = null)
+    Consumer : String
+    Deconstruct(String& Query, IReadOnlyList`1& Documents, String& Consumer, Nullable`1& TimeoutSeconds) : Void
     Documents : IReadOnlyList<String>
     Equals(Object obj) : Boolean
     Equals(ScoreRequest other) : Boolean
     GetHashCode() : Int32
     Query : String
+    TimeoutSeconds : Nullable<Int32>
     ToString() : String
 sealed class Lyntai.Inference.ScoreResponse
-    .ctor(ProviderVerdict Verdict, IReadOnlyList<Double> Scores, String Detail = null)
-    Deconstruct(ProviderVerdict& Verdict, IReadOnlyList`1& Scores, String& Detail) : Void
+    .ctor(ProviderVerdict Verdict, IReadOnlyList<Double> Scores, String Detail = null, ProviderUsage Usage = null)
+    Deconstruct(ProviderVerdict& Verdict, IReadOnlyList`1& Scores, String& Detail, ProviderUsage& Usage) : Void
     Detail : String
     Equals(Object obj) : Boolean
     Equals(ScoreResponse other) : Boolean
@@ -1262,9 +1268,10 @@ sealed class Lyntai.Inference.ScoreResponse
     IsOk : Boolean
     Scores : IReadOnlyList<Double>
     ToString() : String
+    Usage : ProviderUsage
     Verdict : ProviderVerdict
     static Failure(ProviderVerdict verdict, String detail = null) : ScoreResponse
-    static Success(IReadOnlyList<Double> scores, String detail = null) : ScoreResponse
+    static Success(IReadOnlyList<Double> scores, String detail = null, ProviderUsage usage = null) : ScoreResponse
 static class Lyntai.Inference.Streaming.GuardedStream
     static ReadAll<TItem,TTerminal>(Func<ValueTask<TItem>> readNext, Func<Exception,TTerminal> onFault, CancellationToken callerCt, InactivityClock clock = null) : IAsyncEnumerable<ValueTuple<TItem,TTerminal>>
 sealed class Lyntai.Inference.Streaming.InactivityClock
@@ -1410,6 +1417,7 @@ sealed class Lyntai.Inference.TextUsage
     GetHashCode() : Int32
     InputTokens : Int64
     OutputTokens : Int64
+    ToProviderUsage() : ProviderUsage
     ToString() : String
 sealed class Lyntai.Inference.TransientProviderPool`1
     .ctor()
@@ -1419,27 +1427,30 @@ sealed class Lyntai.Inference.TransientProviderPool`1
     Statistics : ProviderPoolStatistics
     TryGetKey(TProvider instance, ProviderKey& key) : Boolean
 sealed class Lyntai.Inference.VectorRequest
-    .ctor(IReadOnlyList<String> Texts, EmbeddingRole Role = EmbeddingRole.Document)
-    Deconstruct(IReadOnlyList`1& Texts, EmbeddingRole& Role) : Void
+    .ctor(IReadOnlyList<String> Texts, EmbeddingRole Role = EmbeddingRole.Document, String Consumer = null, Nullable<Int32> TimeoutSeconds = null)
+    Consumer : String
+    Deconstruct(IReadOnlyList`1& Texts, EmbeddingRole& Role, String& Consumer, Nullable`1& TimeoutSeconds) : Void
     Equals(Object obj) : Boolean
     Equals(VectorRequest other) : Boolean
     GetHashCode() : Int32
     Role : EmbeddingRole
     Texts : IReadOnlyList<String>
+    TimeoutSeconds : Nullable<Int32>
     ToString() : String
 sealed class Lyntai.Inference.VectorResponse
-    .ctor(ProviderVerdict Verdict, IReadOnlyList<Single[]> Vectors, String Detail = null)
-    Deconstruct(ProviderVerdict& Verdict, IReadOnlyList`1& Vectors, String& Detail) : Void
+    .ctor(ProviderVerdict Verdict, IReadOnlyList<Single[]> Vectors, String Detail = null, ProviderUsage Usage = null)
+    Deconstruct(ProviderVerdict& Verdict, IReadOnlyList`1& Vectors, String& Detail, ProviderUsage& Usage) : Void
     Detail : String
     Equals(Object obj) : Boolean
     Equals(VectorResponse other) : Boolean
     GetHashCode() : Int32
     IsOk : Boolean
     ToString() : String
+    Usage : ProviderUsage
     Vectors : IReadOnlyList<Single[]>
     Verdict : ProviderVerdict
     static Failure(ProviderVerdict verdict, String detail = null) : VectorResponse
-    static Success(IReadOnlyList<Single[]> vectors, String detail = null) : VectorResponse
+    static Success(IReadOnlyList<Single[]> vectors, String detail = null, ProviderUsage usage = null) : VectorResponse
 sealed class Lyntai.Jobs.AdmitAllAdmissionController
     .ctor()
     CanClaimAsync(String lane, CancellationToken ct = default) : ValueTask<Boolean>

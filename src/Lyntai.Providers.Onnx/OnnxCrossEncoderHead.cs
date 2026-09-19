@@ -4,12 +4,12 @@ using Microsoft.ML.OnnxRuntime;
 
 namespace Lyntai.Providers.Onnx;
 
-/// <summary>The CROSS-ENCODER dialect: a <c>[CLS] query [SEP] document [SEP]</c> pair per row, the
+/// <summary>The CROSS-ENCODER head: a <c>[CLS] query [SEP] document [SEP]</c> pair per row, the
 /// classification head read as one score per pair. Selected by
 /// <see cref="OnnxProviderOptions.Produces"/>, so the same <see cref="OnnxProvider"/> serves
 /// <see cref="ProviderKinds.Score"/> instead of vectors — the model on disk is what differs, not the
 /// backend (<c>docs/DECISIONS.md</c> <b>D157</b>).</summary>
-internal sealed class OnnxCrossEncoderDialect : IOnnxScoreDialect
+internal sealed class OnnxCrossEncoderHead : IOnnxScoreHead
 {
     /// <inheritdoc />
     public string Produces => ProviderKinds.Score;

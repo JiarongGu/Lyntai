@@ -102,7 +102,7 @@ public static class SqliteStorageBuilderExtensions
     }
 
     // --- persistent backends for the front-door governance + semantic-memory seams --------------------
-    // These override the in-memory defaults that AddResponseCache/AddUsageBudget/AddEmbeddings register in
+    // These override the in-memory defaults that AddResponseCache/AddUsageBudget register in
     // Core (plain AddSingleton wins over their TryAdd regardless of call order). Each needs the SQLite
     // connection factory + schema from UseSqliteStorage, so call that first.
 

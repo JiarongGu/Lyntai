@@ -7,6 +7,60 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-19 — `ConfigureRouting` reached chat alone; vector and score routed on the defaults, silently
+
+**Symptom.** An operator's routing configuration — `ConfigureRouting(p => p.Retry(Failed, 2))`, the
+`LYNTAI_RETRY_*` variables, a per-verdict `Surface` override, `ExemptSoleCandidate = false` — applied to the
+text front door and was silently ignored by every factory-built router: vector, score, and any kind an
+application closes `IProviderCall<,>` over. A vector backend that failed transiently was never retried,
+whatever the operator had configured. Nothing failed and nothing logged; the calls simply routed on
+`RoutingPolicy`'s defaults.
+
+**Root cause.** `TextRouter` reads its policy from `LyntaiOptions.Routing` live. `ProviderRouter<,>` takes a
+`policy` parameter defaulting to `new RoutingPolicy()`, and `ProviderRouterFactory` never passed one — it
+was built (D155) without `LyntaiOptions` in its constructor, so it had nothing to pass. The rule existed on
+the text side and was never carried across, the same one-sided shape D155's own entry records for the
+bookkeeping.
+
+**Fix.** The factory takes `LyntaiOptions` (optional, trailing) and defaults `For(...)`'s `policy` to
+`options?.Routing`; an explicit `policy:` argument still wins, and DI supplies the options. Found by the
+2026-09-19 design-closure review's call-shape symmetry pass (`docs/task-archive.md` Part 256).
+
+**Verify.** Driven red first: `The_CONFIGURED_routing_policy_reaches_a_factory_built_router` (a flaky
+vector backend heals on the configured retry) and `An_EXPLICIT_policy_still_wins_over_the_configured_one`,
+both in `ProviderRouterFactoryTests`. Full suite green with the change.
+
+**Introduced by.** D155's factory (2026-09-18) — one day old; found by review, not by a gate.
+
+## 2026-09-19 — two backends named "onnx" shared one bench, so a failing reranker silenced recalls
+
+**Symptom.** With an embedder and a reranker registered through `AddOnnxProvider` — both defaulting
+`Id = "onnx"`, which the registration's own doc suggests distinguishing but nothing enforces — a rate-limited
+or failing SCORE backend benched the VECTOR backend for the cooldown window: recalls quietly lost their
+semantic channel because a different kind's backend had a bad minute. Two shipped docs
+(`ProviderRouterFactory`'s parameter doc and `llm-and-router.md` §Dead-host tracker) claimed the tracker's
+keys were domain-prefixed, so a reader checking the claim would have been reassured by prose the code did
+not implement.
+
+**Root cause.** `MediaRouter` prefixes its cooldown keys (`generation::`) and `TextRouter`'s bare format is
+the historical one — but `ProviderRouter<,>` keyed on the bare configuration/id while sharing the ONE
+`DeadHostTracker`, so every kind routed through the generic router shared one bench namespace with every
+other. The prefixing rule existed, was documented as universal, and was applied in two of three routers.
+
+**Fix.** `ProviderRouter<,>` takes an optional `cooldownScope`; the factory derives it per closed shape
+(`vector::`, `score::`, an app kind's own request-type name), so an application-defined kind gets its own
+namespace without telling the factory anything. The two doc claims now describe code that exists. A
+duplicate-id guard in `AddProvider` was considered and refused — the TryAdd/BYO-wins pattern makes duplicate
+ids transiently legitimate (**D162** records the refusal).
+
+**Verify.** Driven red first: `A_score_failure_never_benches_a_vector_backend_sharing_the_same_id`
+(`ProviderRouterFactoryTests`) — a benched `score::onnx` leaves `vector::onnx` asked and answering. Full
+suite green with the change.
+
+**Introduced by.** D155's factory (2026-09-18), inheriting D153's bare keys; found by the same review pass.
+
+---
+
 ## 2026-09-17 — removing the embedder seam made a BYO backend invisible, and the error told you to use it
 
 **Symptom.** After **D151**, `AddSemanticMemory()` threw for a consumer who had registered their own

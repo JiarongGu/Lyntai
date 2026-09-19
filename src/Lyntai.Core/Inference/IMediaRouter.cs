@@ -42,7 +42,7 @@ public interface IMediaRouter
     /// <see cref="ProviderOperation.Stream"/> was unreachable through the platform and had to be driven
     /// directly, which made <see cref="IModelProvider"/> a seam nothing could use.</summary>
     /// <remarks><b>Fallback stops at the first byte, and that is the whole contract.</b> This path inherits
-    /// the two invariants the LLM router measured rather than inventing its own
+    /// the two invariants `TextRouter` measured rather than inventing its own
     /// (<c>.claude/knowledge/llm-and-router.md</c> § Streaming):
     /// <list type="number">
     /// <item><description><b>No fallback after commit.</b> Once a chunk carrying real data has been yielded,

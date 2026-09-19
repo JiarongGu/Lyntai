@@ -1,15 +1,15 @@
 using Lyntai.Inference;
 namespace Lyntai.Inference.Cli;
 
-/// <summary>Convenience base for an <see cref="ICliProviderDialect"/>: everything OPTIONAL already has a
+/// <summary>Convenience base for an <see cref="ICliBackend"/>: everything OPTIONAL already has a
 /// sane default, so a new CLI backend is typically four members — <see cref="Id"/>,
 /// <see cref="DefaultCommand"/>, <see cref="BuildCompletionArgs"/>, <see cref="ParseLine"/> — plus whichever
 /// self-maintenance commands that backend actually has.
 ///
 /// The defaults are deliberately CONSERVATIVE: no self-updater, no pinned install, no auth. A capability is
-/// only claimed by a dialect that names the command for it, so a backend never gets credited with a
+/// only claimed by a backend that names the command for it, so a backend never gets credited with a
 /// capability it hasn't been verified to have.</summary>
-public abstract class CliProviderDialectBase : ICliProviderDialect
+public abstract class CliBackendBase : ICliBackend
 {
     /// <inheritdoc/>
     public abstract string Id { get; }

@@ -5,8 +5,8 @@ namespace Lyntai.Inference.Cli;
 
 /// <summary>Resolves WHICH command a CLI-backed provider spawns, and splits it into an executable plus
 /// prefix args. One home for the precedence — an explicit override, then the environment variables the
-/// dialect names, then its default executable — so it can't be re-derived (differently) per call site.</summary>
-/// <remarks>The first environment variable a dialect names is conventionally
+/// backend names, then its default executable — so it can't be re-derived (differently) per call site.</summary>
+/// <remarks>The first environment variable a backend names is conventionally
 /// <c>LYNTAI_PROVIDER_CMD</c>: the shared seam that points tests and the e2e harness at the deterministic
 /// provider stub instead of a real backend.</remarks>
 public static class CliCommand

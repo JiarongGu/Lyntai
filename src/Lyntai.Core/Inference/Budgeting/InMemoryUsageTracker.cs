@@ -17,7 +17,7 @@ public sealed class InMemoryUsageTracker : IUsageTracker
     private readonly Dictionary<string, Totals> _byConsumer = new(StringComparer.OrdinalIgnoreCase);
     private readonly Totals _global = new();
 
-    public ValueTask RecordAsync(string consumer, TextUsage usage, CancellationToken ct = default)
+    public ValueTask RecordAsync(string consumer, ProviderUsage usage, CancellationToken ct = default)
     {
         lock (_gate)
         {

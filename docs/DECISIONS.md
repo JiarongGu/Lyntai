@@ -228,8 +228,12 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D156](#d156--a-domain-is-not-a-kind-of-provider-so-the-media-registration-is-deleted-rather-than-renamed-2026-09-18) | 2026-09-18 | a domain is not a kind of provider, so the media registration is deleted rather than renamed |
 | [D157](#d157--a-provider-is-the-engine-and-stays-pure-a-dialect-decides-what-it-produces-2026-09-18) | 2026-09-18 | a provider is the ENGINE and stays pure; a DIALECT decides what it produces |
 | [D158](#d158--the-http-family-is-named-for-its-transport-membership-is-a-dialect-not-a-vendors-compatibility-claim-2026-09-19) | 2026-09-19 | the HTTP family is named for its TRANSPORT; membership is a DIALECT, not a vendor's compatibility… |
+| [D159](#d159--dialect-is-not-public-vocabulary-the-extension-point-is-always-a-provider-2026-09-19) | 2026-09-19 | "dialect" is not public vocabulary; the extension point is always a PROVIDER |
+| [D160](#d160--a-wire-is-a-provider-ollama-native-is-its-own-class-and-the-wire-enum-is-deleted-2026-09-19) | 2026-09-19 | a wire is a PROVIDER: Ollama-native is its own class, and the wire enum is deleted |
+| [D161](#d161---breaking-means-names-an-action-a-consumer-or-implementer-must-take-2026-09-19) | 2026-09-19 | `### Breaking` means "names an action a consumer or implementer must take" |
+| [D162](#d162--the-ledger-is-shape-neutral-and-every-call-shape-carries-governance-slots-2026-09-19) | 2026-09-19 | the ledger is shape-neutral, and every call shape carries governance slots |
 
-_All 158 entries are live decisions._
+_All 162 entries are live decisions._
 
 <!-- index:end -->
 
@@ -523,6 +527,10 @@ instead of inheriting a claim it will fail at runtime.
 
 **Validated by a second implementer immediately**: the codex backend was built on the seam the claude one
 produced, which is the only real evidence that a seam generalises rather than describing its first case.
+
+*(2026-09-19, **D159**: the seam is `ICliBackend` and the doctrine sentence "a new CLI backend is a DIALECT,
+never a new provider" is retired — a new CLI backend is an `ICliBackend` plus a thin provider composing the
+one engine. The CONTENT here is unchanged: the rules live once in the engine.)*
 
 ## D22 — a CLI backend may be PORTABLE (application-bundled), not just a global install (2026-08-04)
 A host may ship or side-load its own copy of a CLI rather than depend on a machine-wide install. For a
@@ -4920,8 +4928,13 @@ the library** — it is a fact about each backend.
 
 **The vocabulary is the library's own, not new.** `ICliProviderDialect` already describes the varying half
 of a shared engine — *"a dialect is a stateless description; the engine holds the resources"* — and
-`HttpModelOptions.Dialect` already carries one as an option. The ONNX seam is the same idea in the same
+`HttpModelOptions.Dialect` already carries one as an option. The ONNX seam is the same idea in the same <!-- link-ok: the record names the member as it stood that day; D160 deleted it -->
 words. A provider package may expose its own dialect seam; Core does not know it exists.
+
+*(Correction, 2026-09-19: the worked example above misdescribed the shipped knob from the day it was written
+— `OnnxProviderOptions` never had a `Dialect` member; the knob is `o.Produces` and the strategy is INTERNAL,
+derived from it. **D159** then retired "dialect" entirely (`IOnnxHead`, `ICliBackend`), leaving this entry's
+substance intact: the provider is the engine and stays pure, and a kind never forks the class.)*
 
 ## D158 — the HTTP family is named for its TRANSPORT; membership is a DIALECT, not a vendor's compatibility claim (2026-09-19)
 
@@ -4954,3 +4967,96 @@ it, beside the rule this library actually applies.
 a false positive in `AOT.md` where "compatible" means AOT-compatible. A rule collecting twelve `drift-ok`s
 and one wrong hit is the shape this repository already refused for `Providers.Default` — fix by hand,
 record the refusal, do not ship a rule that will rot.
+
+*(2026-09-19: the naming half stands — the family is the TRANSPORT — and the membership half moved under
+**D159**/**D160**: membership is now which WIRES the library ships as providers, `HttpDialect` itself being
+deleted the same day this entry landed.)*
+
+## D159 — "dialect" is not public vocabulary; the extension point is always a PROVIDER (2026-09-19)
+
+**The decision.** The owner's ruling on DIALECT-1, executed in full: the library has no dialect concept —
+what it has is a different interface and a different provider — so no public name carries the word. The
+four so-named seams were four different things, and each rename says what its seam IS:
+`ICliProviderDialect`/`CliProviderDialectBase` → **`ICliBackend`**/**`CliBackendBase`** (a stateless
+DESCRIPTION of one CLI, run by the one engine — claude and codex are different programs, not variants of one
+tongue, and the shared thing is machinery, not a language); `IMcpCliDialect` → **`IMcpCliConnector`** (the
+argv/config shapes that CONNECT a CLI to the MCP tool host); `IOnnxProviderDialect` → **`IOnnxHead`**
+(internal; the model's head in the ML sense — the tree's own prose already said "head"); `HttpDialect` —
+the one that was never a seam at all — is deleted by **D160**. Parameter names moved with the types, and
+`GenerationProviderBuilderExtensions` → `MediaBackendBuilderExtensions` closes the same defect one step out
+(a "GenerationProvider" compound, D156's own rule). `CLAUDE.md`'s doctrine sentence is rewritten; D21's
+content survives verbatim.
+
+**The scope rule, so the next sweep neither under- nor over-reaches**: the word is retired where it names
+THIS library's variation seams, and live where it names someone else's language family — a SQL dialect in
+the storage packages, which is industry vocabulary about Postgres and SQLite, not a claim about a seam.
+
+**Examined and cleared, so it is not re-litigated**: `McpTransport` looks like the same shape (a public
+enum read by if/switches across a package boundary) and is not — its two members mirror MCP's own spec
+transports (stdio, streamable-HTTP), a discriminator on the `AgentMcpServer` data record; it grows when the
+SPEC grows, not when a backend is added. **Gating**: the identifiers went into `retiredApiNames` (the
+surface registry); a prose `retiredTerms` rule was measured and REFUSED — the identifiers appear ~30 times
+in records that must keep their day's wording, the cry-wolf ratio D144/D158 already refused twice.
+
+## D160 — a wire is a PROVIDER: Ollama-native is its own class, and the wire enum is deleted (2026-09-19)
+
+**The decision.** REL5's closure, with D159's answer supplied. `OllamaProvider` (`Lyntai.Providers.Ollama`,
+same package) speaks `/api/chat` + `/api/embed` with its own `OllamaOptions`; `HttpModelProvider` speaks the
+OpenAI-shaped schema alone; `HttpDialect` and `HttpModelOptions.Dialect` are deleted. This is the tree's <!-- link-ok: the entry ANNOUNCING the deletion has to name the member -->
+dominant convention applied to the one family that lacked it — every CLI and media backend was already its
+own class over shared machinery — and the shared machinery stays shared: an internal `HttpChatEngine` holds
+the invariants (status→verdict, retry-once, in-band precedence, the inactivity clock, exactly one terminal
+chunk) with an internal `IHttpChatWire` per backend, the CLI composition one directory over.
+
+**What the enum's members really were is why no rename could fix it**: `Ollama` was a wire schema,
+`AzureOpenAi` a URL/auth convention (now `HttpModelOptions.AzureConventions`, URL-derived by default),
+`OpenRouter` a vendor tag with zero behavior (now nothing but a preset), `Auto` a detection sentinel.
+Detection moved to COMPOSITION, where a provider class can be chosen: `AddHttpProvider` given an Ollama
+server ROOT composes the native provider through the same internal registration `AddOllamaProvider` uses,
+so the two doors cannot drift — and a `/v1` base stays OpenAI-shaped, which keeps "OpenAI-shaped on
+Ollama's port" expressible (the pin the deleted enum used to provide). The presets pin by CONSTRUCTION and
+never re-detect, so llama-server on port 11434 stays honest through `AddLlamaProvider`.
+
+**What the split made unrepresentable**: `OllamaContextSize` on a backend that silently ignores it (the
+knob is `OllamaOptions.ContextSize` now), and a `Score` registration against Ollama — the old arm posted
+`/v1/rerank` to a route that vendor does not serve and 404'd at first call; the new provider refuses it at
+composition. The alternative — one class with the strategy internal, the D157/ONNX shape — was weighed and
+lost: it keeps a backend-specific knob on the generic options record and keeps the dual-shape tolerant
+parser, and the class-per-backend answer is what the owner's ruling says in as many words.
+
+## D161 — `### Breaking` means "names an action a consumer or implementer must take" (2026-09-19)
+
+**The decision.** REL2's closure. A `CHANGELOG.md` entry belongs under `### Breaking` iff it names an ACTION
+someone must take — edit a call site / `using` / `PackageReference`, add a ctor-or-deconstruction slot,
+implement or accept a changed seam default, or recompile a precompiled caller — and every Breaking entry
+ends by naming that action. A pure addition goes under `### Added` even though it moves the
+`ApiSurfaceTests` baseline, because the baseline gates DELIBERATENESS (D8), not breakage, and it moves for
+every addition. The rule is written into the changelog's own header.
+
+**Both candidate rules the item carried were refuted by the file itself.** "Breaking = moves the baseline"
+cannot be the rule or `### Added` could not exist — every addition moves the baseline, and the section
+already held optional-trailing-parameter entries byte-identical in shape to ones filed under Breaking.
+"Breaking = must edit source" overturns D120's recorded ruling that a binary-breaking optional parameter is
+Breaking, and misses the implementer-only break (a BYO seam member with no default body). The action rule
+keeps both and matched 36 of the 47 entries as found; closure re-filed nine feature-shaped entries to
+Added, added the missing action sentences, and left each break-shaped companion entry where it was.
+
+## D162 — the ledger is shape-neutral, and every call shape carries governance slots (2026-09-19)
+
+**The decision.** `IUsageTracker.RecordAsync` takes **`ProviderUsage`** (`InputTokens`, `OutputTokens`,
+`CostUsd`) — the ledger serves every kind, and typing it to `TextUsage` had the media path fabricating a
+zero-token text record to satisfy a text-named signature, while blocking vector/score spend forever. The
+per-shape reports stay richer and project in (`TextUsage.ToProviderUsage()` drops cache reads;
+`MediaUsage.ToProviderUsage()` carries cost alone — counts and seconds are not tokens). The SQL trackers'
+schema was already neutral, so nothing persisted moves. And `VectorRequest`/`ScoreRequest` gain trailing
+`Consumer` + `TimeoutSeconds`, `VectorResponse`/`ScoreResponse` a trailing `Usage` — positional records, so
+the SLOTS are what this release window freezes; `TimeoutSeconds` is honoured now (same clamp as text), the
+HTTP embeddings transport surfaces reported prompt tokens, and the budget/rate-limit WIRING is additive,
+filed in the backlog.
+
+**Refused, recorded so neither is re-litigated**: `TextResponse` symmetry (adding `IsOk`/`Success`/
+`Failure` and fixing its inverted field order against the other three responses) was offered in the same
+ruling set and the owner declined it — the field order is now frozen for this major. A duplicate-id guard
+in `AddProvider` was considered and refused: the TryAdd/BYO-wins pattern makes duplicate ids transiently
+legitimate, and the cross-kind hazard it would have papered over is closed by the cooldown scoping under
+the same review (the `vector::`/`score::` key namespaces, `ProviderRouterFactory`).

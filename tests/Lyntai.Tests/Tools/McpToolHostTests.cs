@@ -12,7 +12,7 @@ namespace Lyntai.Tests.Tools;
 /// MCP host exposes the app's ITools over HTTP, and we connect with Lyntai's OWN MCP client (the exact
 /// thing a CLI's agent does) to list + call them. Also covers the provider-neutral half of the
 /// provisioner — endpoint hand-off to the dialect and temp-file lifecycle. Vendor-specific flags live in
-/// <see cref="ClaudeCliMcpDialectTests"/>.
+/// <see cref="ClaudeCliMcpConnectorTests"/>.
 /// </summary>
 public class McpToolHostTests
 {
@@ -309,9 +309,9 @@ public class McpToolHostTests
         Assert.All(dialect.WrittenPaths, p => Assert.False(File.Exists(p)));
     }
 
-    /// <summary>A stand-in for a vendor dialect: records what the provisioner handed it, writes whatever
+    /// <summary>A stand-in for a vendor connector: records what the provisioner handed it, writes whatever
     /// temp files it was told to, and returns fixed args.</summary>
-    private sealed class RecordingDialect : IMcpCliDialect
+    private sealed class RecordingDialect : IMcpCliConnector
     {
         private readonly List<string> _written = [];
 

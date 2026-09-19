@@ -121,7 +121,7 @@ public class GenerationProviderWiringTests
     {
         // a host that wants Polly or a logging handler on Lyntai's own client shouldn't have to abandon the
         // shim and hand-construct the backend
-        Assert.Equal("lyntai.generation.fal", GenerationProviderBuilderExtensions.HttpClientName("fal"));
+        Assert.Equal("lyntai.generation.fal", MediaBackendBuilderExtensions.HttpClientName("fal"));
     }
 
     [Fact]

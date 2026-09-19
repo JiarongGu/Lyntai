@@ -100,7 +100,7 @@ notice, because there is no outside voice to disagree with.
 | App's "typing" UI needs live tool-loop progress | `IToolLoop.StreamAsync` yielding neutral `AgentStreamEvent`s | Core, mirrors `IAgentSession` |
 | App needed a full BYO runner for Windows `.cmd`/CJK | default `ProcessRunner` resolves shims + forces UTF-8 for everyone | Core |
 | Source-study tool re-`List`s to dedup a note | `dedup`/`scope` params, defaulted off | `ICuratedMemoryStore` (Core) |
-| Desktop app drives codex with three `-c mcp_servers.<its-name>.*` overrides per turn | neutral `McpServers` (stdio **or** http), rendered per dialect | `AgentSessionOptions` (Core) + both adapters |
+| Desktop app drives codex with three `-c mcp_servers.<its-name>.*` overrides per turn | neutral `McpServers` (stdio **or** http), rendered per backend | `AgentSessionOptions` (Core) + both adapters |
 | **Self-inflicted:** the library itself declaring whether a memory engine's content is the user's to withdraw | `IMemoryRemovalPolicy`, asked per member **and** per verb | Core seam, DI-registered (D75) |
 | **Self-inflicted:** the library itself capping a local render at one size for every machine | host-declared `Accelerator` + `MaxDimension`; GPU derives **no** cap rather than an invented one | `LocalDiffusionOptions` (adapter, D68) |
 
@@ -113,6 +113,6 @@ notice, because there is no outside voice to disagree with.
   adapter→adapter), variation points = DI collections; `.claude/rules/repo-mechanics.md` binds it to this
   repo's package names and entry points.
 - `.claude/knowledge/extending-lyntai.md` — the six extension seams a generalization usually rides on
-  (provider, generation backend, storage backend, scorer, CLI tool-hosting dialect, migration).
+  (provider, generation backend, storage backend, scorer, CLI tool-hosting connector, migration).
 - `docs/2026-07-17-lyntai-design.md` — the `ITextClient` "behaves like one provider" front door.
 - `ApiSurfaceTests` — the baseline gate that surfaces an app-specific leak in review.

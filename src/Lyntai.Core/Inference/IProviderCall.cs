@@ -47,44 +47,9 @@ public interface IProviderCall<in TRequest, TResponse> : IModelProvider
     Task<TResponse> CallAsync(TRequest request, CancellationToken ct = default);
 }
 
-/// <summary>A backend that delivers its answer INCREMENTALLY. Declared separately from
-/// <see cref="IProviderCall{TRequest,TResponse}"/> because a backend may serve one and not the other, which
-/// <see cref="ProviderCapabilities.Operations"/> states in data.</summary>
-/// <typeparam name="TRequest">What the backend is asked for.</typeparam>
-/// <typeparam name="TChunk">One increment. The sequence ends with exactly one terminal chunk either way.</typeparam>
-public interface IProviderStream<in TRequest, out TChunk> : IModelProvider
-{
-    /// <summary>Stream one request. Ends with exactly one terminal chunk — a completion or an error — so a
-    /// consumer never has to infer the end from the sequence stopping.</summary>
-    IAsyncEnumerable<TChunk> StreamAsync(TRequest request, CancellationToken ct = default);
-}
-
-/// <summary>A backend that accepts now and answers later: submit, poll, fetch — with the operation id
-/// EXPOSED rather than hidden inside a wait loop.
-///
-/// <para><b>The id is the whole point.</b> Folding "submit and wait" into a single call would bury an
-/// unbounded poll inside one method: no progress, no way to cancel the remote work, and nothing left to
-/// resume after a process restart. With the id in hand a long render survives a restart, and an app that
-/// receives a completion WEBHOOK can fetch by id without ever polling.</para>
-///
-/// <para><b>Not media-specific, which is the change.</b> Queued delivery is a shape any kind can serve —
-/// a batch API that queues chat or embeddings is the same protocol over different types
-/// (<c>docs/DECISIONS.md</c> <b>D153</b>).</para></summary>
-public interface IProviderQueue<in TRequest, TResponse> : IModelProvider
-    where TResponse : IProviderOutcome
-{
-    /// <summary>Submit and return immediately with a handle. <b>Fails safe:</b> a rejected submission comes
-    /// back as a <see cref="QueuedOperationStatus.Failed"/> operation carrying the reason, never a throw.</summary>
-    Task<QueuedOperation> SubmitAsync(TRequest request, CancellationToken ct = default);
-
-    /// <summary>Where an operation is. Cheap and safe to call repeatedly.</summary>
-    Task<QueuedOperation> PollAsync(string operationId, CancellationToken ct = default);
-
-    /// <summary>Collect the answer of a succeeded operation. Callable from anywhere holding the id,
-    /// including a webhook handler that never polled.</summary>
-    Task<TResponse> FetchAsync(string operationId, CancellationToken ct = default);
-
-    /// <summary>Ask the backend to abandon the operation. A backend that cannot cancel says so in the
-    /// returned detail rather than throwing.</summary>
-    Task<QueuedOperation> CancelAsync(string operationId, CancellationToken ct = default);
-}
+// There is deliberately no IProviderStream<,> or IProviderQueue<,> beside this seam. Both shipped with
+// D153 as generic streaming/queued counterparts and were deleted before the freeze: nothing implemented or
+// consumed either — text and media streaming live on IModelProvider's defaulted members, the queue door is
+// IMediaJobProvider — and ProviderRouter<,> routes IProviderCall<,> only, so an application closing one over
+// its own types would have gotten no routing at all. A public type with no consumer does not earn its keep
+// (docs/DECISIONS.md D155); reintroduce one only WITH the router support that makes it true.

@@ -4,8 +4,8 @@ using Lyntai.Inference;
 namespace Lyntai.Inference.Cli;
 
 /// <summary>Flattens the canonical message list into the single prompt a print-mode CLI takes. Nothing here
-/// is backend-specific — a CLI accepts one blob of text, so every dialect gets the same flattening unless it
-/// overrides <see cref="ICliProviderDialect.BuildPrompt"/>.</summary>
+/// is backend-specific — a CLI accepts one blob of text, so every backend gets the same flattening unless it
+/// overrides <see cref="ICliBackend.BuildPrompt"/>.</summary>
 internal static class CliPrompt
 {
     /// <summary>A lone user message passes through verbatim; a multi-message request becomes role-labeled

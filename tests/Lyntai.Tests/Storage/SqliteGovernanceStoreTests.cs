@@ -82,9 +82,9 @@ public class SqliteGovernanceStoreTests : IDisposable
     [Fact]
     public async Task UsageTracker_accumulates_per_consumer_and_globally_persisted()
     {
-        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new TextUsage(10, 5, CostUsd: 0.10));
-        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new TextUsage(20, 5, CostUsd: 0.20));
-        await new SqliteUsageTracker(_db.Factory).RecordAsync("b", new TextUsage(1, 1, CostUsd: 0.01));
+        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new ProviderUsage(10, 5, CostUsd: 0.10));
+        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new ProviderUsage(20, 5, CostUsd: 0.20));
+        await new SqliteUsageTracker(_db.Factory).RecordAsync("b", new ProviderUsage(1, 1, CostUsd: 0.01));
 
         var tracker = new SqliteUsageTracker(_db.Factory); // fresh instance reads persisted totals
         var a = (await tracker.TotalAsync("a"));
@@ -104,8 +104,8 @@ public class SqliteGovernanceStoreTests : IDisposable
         IUsageTracker[] trackers = [new InMemoryUsageTracker(), new SqliteUsageTracker(_db.Factory)];
         foreach (var t in trackers)
         {
-            await t.RecordAsync("App", new TextUsage(10, 0, CostUsd: 0.10));
-            await t.RecordAsync("app", new TextUsage(20, 0, CostUsd: 0.20));
+            await t.RecordAsync("App", new ProviderUsage(10, 0, CostUsd: 0.10));
+            await t.RecordAsync("app", new ProviderUsage(20, 0, CostUsd: 0.20));
             Assert.Equal(2, (await t.TotalAsync("App")).Calls);           // ONE consumer identity, either casing
             Assert.Equal(2, (await t.TotalAsync("app")).Calls);
             Assert.Equal(30, (await t.TotalAsync("APP")).InputTokens);
@@ -117,8 +117,8 @@ public class SqliteGovernanceStoreTests : IDisposable
     public async Task UsageTracker_reset_clears_a_consumer_or_all()
     {
         var t = new SqliteUsageTracker(_db.Factory);
-        await t.RecordAsync("a", new TextUsage(10, 0, CostUsd: 0.10));
-        await t.RecordAsync("b", new TextUsage(20, 0, CostUsd: 0.20));
+        await t.RecordAsync("a", new ProviderUsage(10, 0, CostUsd: 0.10));
+        await t.RecordAsync("b", new ProviderUsage(20, 0, CostUsd: 0.20));
 
         await t.ResetAsync("a");
         Assert.Equal(UsageTotals.Empty, (await t.TotalAsync("a")));

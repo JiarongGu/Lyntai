@@ -10,9 +10,73 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+**What `### Breaking` MEANS here (`docs/DECISIONS.md` D161):** an entry is Breaking iff it names an ACTION
+some consumer or implementer must take — edit a call site / `using` / `PackageReference`, add a
+ctor-or-deconstruction slot, implement or accept a changed seam default, or recompile a precompiled caller —
+and every Breaking entry ends by naming that action. A pure addition goes under **Added** even though it
+moves the `ApiSurfaceTests` baseline: the baseline gates DELIBERATENESS (D8), not breakage, and it moves for
+every addition.
+
 ## Unreleased
 
 ### Breaking
+
+- **Ollama-native is its own provider, and the wire-format enum is gone** (**D160**, deciding REL5).
+  `HttpDialect` and `HttpModelOptions.Dialect` are deleted; `HttpModelProvider` speaks the OpenAI-shaped <!-- link-ok: the entry ANNOUNCING the deletion has to name the member -->
+  schema alone, and Ollama's native `/api/chat` + `/api/embed` wire is **`OllamaProvider`**
+  (`Lyntai.Providers.Ollama`) with its own `OllamaOptions` — the same rule that gives each CLI and media
+  backend its own class. A closed public enum read by if-chains across five files was a variation point in
+  the wrong place (`dotnet-package-layout.md` §Variation points): adding the Ollama arm itself took edits at
+  five sites, which is the test met by history.
+  <br>**What to DO:** for the presets, nothing — `AddOllamaProvider`, `AddLlamaProvider`,
+  `AddOpenRouterProvider` and `AddAzureOpenAiProvider` keep their signatures, and `AddHttpProvider` given an
+  Ollama server ROOT still composes the native wire (the detection moved to composition time, where a
+  provider class can be chosen). A registration that PINNED `o.Dialect` deletes the line — the preset or the
+  URL now says it; one that set `o.OllamaContextSize` moves to `AddOllamaProvider(id, o => o.ContextSize = …)`,
+  where the knob can no longer be set on a backend that silently ignores it, which is why it moved. Azure
+  behind a custom domain pins the new `HttpModelOptions.AzureConventions` (the Azure preset already does).
+  <br>**A `Produces = Score` registration against an Ollama root is REFUSED at composition** — Ollama serves
+  no rerank surface, and the old arm posted `/v1/rerank` to a route that cannot exist and 404'd on the first
+  call. Register an OpenAI-shaped reranker (`llama-server --reranking`, TEI, vLLM) instead.
+
+- **"Dialect" leaves the public vocabulary: the extension point is always a PROVIDER** (**D159**, deciding
+  DIALECT-1). The library never had one dialect concept — each so-named seam was something else, and the
+  renames say what each IS: `ICliProviderDialect` → **`ICliBackend`**, `CliProviderDialectBase` →
+  **`CliBackendBase`**, `ClaudeCliDialect` → **`ClaudeCliBackend`**, `CodexCliDialect` →
+  **`CodexCliBackend`** (a stateless DESCRIPTION of one CLI backend, run by the one engine);
+  `IMcpCliDialect` → **`IMcpCliConnector`**, `ClaudeCliMcpDialect` → **`ClaudeCliMcpConnector`** (the
+  argv/config shapes that CONNECT a CLI to the MCP tool host). The parameter names moved with the types —
+  `backend` on `CliProviderEngine`, `CodexCliProvider` and `AddCodexCliProvider`, `connector` on
+  `AddMcpToolHost` — because a named argument is public API (the D120 rule).
+  <br>**What to DO:** rename at your implementations, call sites and named arguments; nothing behaves
+  differently. The word survives only where it names someone else's language family — a SQL dialect in the
+  storage packages.
+  <br>**`GenerationProviderBuilderExtensions` is `MediaBackendBuilderExtensions`**, the same D156 rule one
+  step out: a "GenerationProvider" compound named a provider for its output domain, and the class name is
+  load-bearing surface through `HttpClientName(id)`. Respell it where you configure that named client.
+
+- **The spend ledger speaks a shape-neutral currency, and every call shape carries governance slots**
+  (**D162**). `IUsageTracker.RecordAsync` takes the new **`ProviderUsage`** (`InputTokens`, `OutputTokens`,
+  `CostUsd`) instead of `TextUsage` — the ledger serves every kind, and the media path was fabricating a
+  zero-token `TextUsage` to satisfy a text-named signature. `TextUsage.ToProviderUsage()` and
+  `MediaUsage.ToProviderUsage()` are the projections.
+  <br>**What to DO:** a BYO `IUsageTracker` changes that parameter's type and recompiles — the members it
+  reads are unchanged, and the SQL trackers' schema is untouched; a caller recording manually projects via
+  `ToProviderUsage()`.
+  <br>**`VectorRequest` and `ScoreRequest` gain trailing `Consumer` + `TimeoutSeconds`; `VectorResponse` and
+  `ScoreResponse` gain a trailing `Usage`** — an embed or rerank call is no longer structurally invisible to
+  budgeting, attribution and per-call deadlines. `TimeoutSeconds` is honoured today, clamped exactly as the
+  text shape's; the HTTP embeddings transport surfaces the wire's reported prompt tokens (null where the
+  endpoint reported nothing, which is a different fact from zero). Budget/rate-limit WIRING for these kinds
+  is additive and filed in the backlog — the record slots are the half the release window freezes.
+  **What to DO:** construction by name or position keeps compiling; add one slot wherever you positionally
+  DECONSTRUCT any of the four records, and recompile a precompiled caller (the D120 rule).
+
+- **`ProviderRouterFactory` takes the configured `LyntaiOptions`, and `ProviderRouter<,>` a `cooldownScope`**
+  — the surface half of the two routing fixes under **Fixed** below. **What to DO:** the factory's parameter
+  is trailing — recompile a precompiled caller. The router's `cooldownScope` sits BEFORE `logger`, so a
+  hand-composed `new ProviderRouter<,>(…)` passing `logger` positionally adds the slot; the factory is the
+  normal door and its call sites are unchanged.
 
 - **One ONNX provider, and `Produces` says which kind it serves** (**D157**). `OnnxCrossEncoder`, <!-- drift-ok: the entry ANNOUNCING the removal has to name what it removes -->
   `AddOnnxCrossEncoder` and `OnnxCrossEncoderOptions` are **gone**. A cross-encoder was never a second <!-- drift-ok: the entry ANNOUNCING the removal has to name what it removes -->
@@ -43,7 +107,8 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   a relevance question of it at all, so "not asked" is distinguishable from "asked and scored zero". It is
   a RETURN type, so a BYO `IMemoryGraphStore` constructs it: a positional `new GraphNode(…)` still compiles
   and a positional deconstruction does not. The sibling break class is listed for four write-side types
-  below; this is the read-side one, omitted until now.
+  below; this is the read-side one, omitted until now. **What to DO:** add the slot where you positionally
+  deconstruct a `GraphNode`, and recompile a precompiled caller.
 
 - **One namespace for everything about CALLING a backend, and every call shape named for what it
   PRODUCES** (**D154**). Four peer call families sat in three namespaces because that is where each one
@@ -184,16 +249,18 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 - **The HTTP backend is named for the transport, not for OpenAI** (**D135**). `AddOpenAiCompatible` → <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
   `AddHttpProvider`, `OpenAiCompatibleProvider` → `HttpModelProvider`, `OpenAiCompatibleOptions` → <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
-  `HttpModelOptions`, `OpenAiFlavor` → `HttpDialect` (and the `Flavor` property → `Dialect`), in the new <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
-  `Lyntai.Providers.Http` namespace. The old name was false for the `Ollama` dialect, which posts
+  `HttpModelOptions`, in the new <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
+  `Lyntai.Providers.Http` namespace; `OpenAiFlavor` and its `Flavor` property are deleted outright — the <!-- drift-ok: the entry ANNOUNCING this retirement has to name it -->
+  same release then made each wire a PROVIDER rather than a per-registration selector (**D160**, the entry
+  above). The old name was false for Ollama's native wire, which posts
   `/api/chat` and `/api/embed` — endpoints that vendor documents as distinct from its OpenAI-compatible
-  `/v1` surface. `OpenAiPayload` and the `HttpDialect.OpenAi` member keep the name: they denote OpenAI's
+  `/v1` surface. `OpenAiPayload` keeps the name: it denotes OpenAI's
   actual schema. Like every builder method it names what it
   REGISTERS, with the vendor as the qualifier (**D137**).
 
 - **There is one `Add*` per backend, and no route sub-objects** (**D132**, **D133**).
   `AddOpenAiCompatibleEmbedder` is removed and `HttpModelOptions` is flat — <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
-  `BaseUrl`, `ApiKey`, `Dialect`, `Model`, `Produces`, plus the route-specific knobs. `DefaultModel` is
+  `BaseUrl`, `ApiKey`, `Model`, `Produces`, `AzureConventions`, plus the route-specific knobs. `DefaultModel` is
   renamed `Model` and the presets' `defaultModel:` parameter `model:`. `HttpEmbedder` and <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `OpenAiCompatibleEmbedderOptions` are gone; the wire shape is the internal <!-- drift-ok: the entry ANNOUNCING these retirements has to name them -->
   `HttpVectorTransport`.
@@ -261,17 +328,6 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   test while `AddSemanticMemory` reads the declaration, so the backend satisfies startup and is never
   called. It cost the shipped sample exactly that during this change, which is why the guard exists.
 
-- **`ProviderRouter<TRequest,TResponse>` — fallback routing for any call shape** (**D153**). Candidate
-  selection, dead-host cooldown, admission and fallback, over whichever registered backends implement
-  `IProviderCall<,>`. An application closing it over its own types gets all of it without Core knowing its
-  kind exists. `VectorRequest`/`VectorResponse` and `IVectorProvider` are its first call shape —
-  `VectorResponse` carries the verdict **beside** the vectors, because there is no vector meaning "I could
-  not" and a zero compares as real.
-  <br>**It does NOT replace `TextRouter` or `MediaRouter`.** Those differ in eight recorded,
-  load-bearing ways — last-versus-first failure, retries present versus absent, one synthetic failure versus
-  two — and folding them in would mean eight injection points on the most load-bearing code here.
-  Converging them is its own decision.
-
 - **The cross-domain routing types leave `Lyntai.Inference`** (**D153**). `RoutingPolicy`,
   `DeadHostTracker` and `CooldownScope` move to `Lyntai.Inference`; edit the `using`, the types are
   unchanged. They were never LLM-specific — the generation router and its factory use all three — and
@@ -279,19 +335,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   downstream of one domain. That is the inversion **D140** removed one layer up. `TextRouter`, `TextClient`
   and `ITextRouterFactory` stay where they are; those genuinely are the LLM front door.
 
-- **A generic provider base, so a consuming app can define its OWN kind** (**D153**). Four additive seams in
-  `Lyntai.Inference`: `IProviderOutcome` (`Verdict` + `Detail` — what routing needs from any response, and
-  the whole of it), `IProviderCall<TRequest,TResponse>`, `IProviderStream<TRequest,TChunk>` and
-  `IProviderQueue<TRequest,TResponse>`. An application closing these over its own types gets candidate
-  selection, dead-host cooldown, admission and fallback from the shared router **without this library
-  knowing its kind exists** — today it gets none of that, because both routers are typed to Core's own
-  request and reply types.
-  <br>`TextResponse` and `MediaResponse` now declare `IProviderOutcome`. Both already had `Verdict` and
-  `Detail`, so nothing about either type changes — that they satisfied it unmodified is the evidence the
-  contract is the right one.
-  <br>**Moved:** `QueuedOperation` and `QueuedOperationStatus` `Lyntai.Generation` → `Lyntai.Inference`. A <!-- drift-ok: the entry ANNOUNCING the move has to name both sides -->
-  queue any kind can serve cannot live in the generation namespace. Edit the `using`; the types are
-  unchanged.
+- **`QueuedOperation` and `QueuedOperationStatus` moved `Lyntai.Generation` → `Lyntai.Inference`** <!-- drift-ok: the entry ANNOUNCING the move has to name both sides -->
+  (**D153**). A queue any kind can serve cannot live in the generation namespace. **What to DO:** edit the
+  `using`; the types are unchanged.
+  <br>The same change introduced the generic provider seams — `IProviderOutcome` (`Verdict` + `Detail`, what
+  routing needs from any response and the whole of it) and `IProviderCall<TRequest,TResponse>` — which are
+  additive and live under **Added** with the router that consumes them. `TextResponse` and `MediaResponse`
+  declare `IProviderOutcome`; both already had the members, so nothing about either type changes. Two sibling
+  seams D153 sketched beside them (a generic stream, a generic queue) were deleted before this release:
+  nothing implemented or consumed either, and a public type with no consumer does not earn its keep (D155).
 
 - **The queued delivery mode stops borrowing the word `Job`** (**D153**). `Lyntai.Jobs` is the durable job
   queue an *application* runs — `IJobStore`, `IJobQueue`, `IJobHandler`, `IJobRunner`, `IJobScheduler` — and
@@ -389,6 +441,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   Source-compatible — existing code keeps compiling — but BINARY-breaking for a pre-compiled caller of the
   old signature. Consumers reach the loop through `AddLyntai`, and the constructor already grew this way for
   `logger` and `guards`. An overload was refused deliberately: it would pay for a caller that does not exist.
+  **What to DO:** recompile; source is unchanged.
 
 
 - **`MemoryQuery`'s primary constructor gained an optional parameter**, so a caller compiled against the old
@@ -401,6 +454,83 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   recompiled. It is deliberate — expansion is where the walk discovers, and a caller who asked for whole
   entries on the query was silently getting headlines for everything discovered after the first step. A
   positional caller passing `ct` fourth also breaks, loudly, at compile time.
+
+- **`IMemorySeedSource` — seed retrieval is now a registered, PLURAL collection of retrieval channels, and
+  `ReciprocalRankFusionPolicy` fuses the RANKED LISTS they return** instead of one pooled `Relevance` field
+  (`docs/DECISIONS.md` **D103**). Three ship: `LexicalSeedSource` (the store's own text read, registered
+  unconditionally — the channel every graph engine already had), `SemanticSeedSource`
+  (`AddMemorySemanticSeeds`, still NOT registered by default — an embedder registered for its own reasons
+  must not silently start steering recall), and `SubjectSeedSource` (`AddMemoryEngine` registers this channel
+  unconditionally; `AddMemorySubjectSeeds` only CONFIGURES it, since a subject exists only because an
+  annotator was already paid for). `UseGraph(..., seedSources: …)` overrides the set per engine.
+  <br>**Within one source, a candidate is ranked by that source's OWN `GraphNode.Relevance` gradient, never by
+  list position** — competition-ranked, ties sharing a rank; a node the source did not MATCH earns no rank at
+  all, and a source whose matched nodes all carry one value is UNORDERED and earns none either. A candidate
+  found by two sources scores the SUM of both reciprocal-rank terms, so agreement between channels is
+  rewarded — something a single pooled field could not express. `MemoryCandidate.Ranks` (`MemorySeedRanks`)
+  carries the evidence; a candidate carrying no ranks at all — a hand-built engine, a BYO gather — falls back
+  to today's pooled-relevance term, byte-identical to before this shipped.
+  <br>**Measured on LoCoMo evidence-hit@20** (`docs/memory-measurements.md` §5): the semantic channel was previously
+  unreachable — a real cosine could never outrank a fabricated pooled value — and with per-source fusion its
+  `+sem+rel-only` arm now reads **83.0%**, above plain cosine's own **80.5%**, the first mechanical arm to
+  clear it. **No default moved** — `SemanticSeedOptions` still ships unregistered.
+  <br>**83.0% is a SQLite figure.** Under the shipped default registration (lexical + subject, no semantic)
+  against `InMemoryMemoryGraphStore`, no candidate carries a rank, so the whole recall still runs the pooled
+  fallback this change replaces — one of three shipped backends is unaffected.
+
+
+- **`SalienceContext` gains one trailing member**, widening its constructor and its `Deconstruct`. Additive
+  for construction by name or position — the default reproduces today's behaviour — and a source break only
+  for code that positionally DECONSTRUCTS it.
+
+- **`MemoryItem` and `MemoryVerificationCandidate` each gain one trailing member**, widening their
+  constructors and their `Deconstruct`. Additive for anyone constructing them by name or positionally — both
+  defaults reproduce today's behaviour exactly — and a **source break only for code that positionally
+  DECONSTRUCTS** either record: `var (reference, headline, …) = item` now needs one more slot. The same shape
+  `GraphNodeWrite`'s two flags take below.
+
+- **`IMemoryGraphStore.NeighboursAsync` gains a `taskKey` parameter, and `ILinkableMemory.LinkAsync` now
+  REFUSES a cross-task link.** A `taskKey` was the isolation boundary of every read except traversal, which
+  followed edges wherever they led — so an application that linked across tasks made those entries reachable
+  from each other's recalls. A half-boundary is worse than none, because consumers reason about it as a whole
+  one. `docs/DECISIONS.md` **D92**.
+  <br>**A BYO `IMemoryGraphStore` gets a compile error** naming the member, deliberately: a default body
+  would have compiled and silently kept the hole. Pass the `taskKey` through to your node predicate.
+  <br>**The capability lost** is asserting an association between facts in DIFFERENT tasks. Keep that in your
+  own data — two facts that belong together belong in one task. Traversal is scoped as well as the link
+  refused, so an edge an existing database already holds is never walked either.
+
+- **`GraphNodeWrite` gains two trailing flags, `bool GradeStated = true` and `bool HeadlineStated = true`**,
+  which widen its constructor and its `Deconstruct`. Additive for anyone constructing it by name or positionally (the default reproduces the old
+  behaviour exactly), and a **source break only for code that positionally DECONSTRUCTS the record** —
+  `var (engine, task, …) = write` now needs one more slot. A BYO `IMemoryGraphStore` that ignores the new
+  member keeps the old grade-overwriting behaviour, which is the bug below; honour it to get the fix.
+
+- **`GraphMemoryOptions.SemanticSeedK`, `.SubjectSeedK` and `.SubjectSeedScan` are REMOVED**, replaced by a <!-- drift-ok link-ok: the entry announcing a removal must name what was removed, and none of the three exists any more -->
+  registered `IMemorySeedSource` collection, each source carrying its own options record:
+  `SemanticSeedOptions.K` (`AddMemorySemanticSeeds`, NOT registered by default — an embedder registered for
+  its own reasons must not silently start steering recall) and `SubjectSeedOptions.K` / `.Scan` (on by
+  default — `AddMemoryEngine` registers this channel unconditionally, and `AddMemorySubjectSeeds` only
+  configures it, since a subject exists only because an annotator was already paid for). Both new records
+  ship the same defaults the removed properties carried, including
+  `SubjectSeedOptions.K = 0` as the off-switch. `UseGraph(..., seedSources: …)` overrides the set per engine.
+
+### Added
+
+- **`AddOllamaProvider(id, configure)` — the options door for the Ollama-native provider** (**D160**): an
+  embedding registration (`o.Produces = ProviderKinds.Vector`, one batched `/api/embed` call), the context
+  window (`o.ContextSize` → `options.num_ctx`), a proxied server's key. The positional preset is unchanged.
+
+- **`ProviderRouter<TRequest,TResponse>` — fallback routing for any call shape** (**D153**). Candidate
+  selection, dead-host cooldown, admission and fallback, over whichever registered backends implement
+  `IProviderCall<,>`. An application closing it over its own types gets all of it without Core knowing its
+  kind exists. `VectorRequest`/`VectorResponse` and `IVectorProvider` are its first call shape —
+  `VectorResponse` carries the verdict **beside** the vectors, because there is no vector meaning "I could
+  not" and a zero compares as real.
+  <br>**It does NOT replace `TextRouter` or `MediaRouter`.** Those differ in eight recorded,
+  load-bearing ways — last-versus-first failure, retries present versus absent, one synthetic failure versus
+  two — and folding them in would mean eight injection points on the most load-bearing code here.
+  Converging them is its own decision.
 
 - **`RunPipelineAsync` — ordered generation stages, each feeding the next.** An extension over
   `IMediaRouter` running `GenerationStage`s in order and chaining each one's artifact into the next
@@ -420,6 +550,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `FailedAt` says which. Retry WITHIN a stage stays the router's fallback across that stage's candidates.
   Chained inputs are APPENDED to a stage's own `Inputs`, so a style reference the caller attached survives,
   and the caller's `MediaRequest` is never mutated.
+
 - **`WalkAsync` — the n-shot walk, as a surface rather than a loop every consumer writes.** An extension over
   `IMemoryEngine` yielding `IAsyncEnumerable<MemoryWalkStep>`: a recall, then expansions outward from what it
   turned up. **Your `break` is the stop condition**, because how far a walk is worth taking is a property of
@@ -437,6 +568,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   takes the newly-discovered entries in arrival order, capped at `SeedsPerStep`. It deliberately does not
   order by `MemoryItem.Relevance` — an expanded neighbour carries a relevance from a read that never asked
   one (**D97**).
+
 - **`IMemoryGraphStore.WriteBackAsync` — a recall's whole write-back as ONE store call** (`docs/DECISIONS.md`
   **D101**), with `GraphWriteBack` carrying the touch, the co-activation edges and the review-log rows
   together. **It has a default body** running the three existing members in that order, so a BYO store keeps
@@ -505,68 +637,6 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   no absolute floor can be derived from this number alone — prefer a RELATIVE test, and read it as an ordering
   rather than a fit. **No score-floor policy ships**: the threshold is a property of the deployment's embedder
   and corpus (`generic-library` rule 7). `docs/DECISIONS.md` **D93**.
-
-- **`IMemorySeedSource` — seed retrieval is now a registered, PLURAL collection of retrieval channels, and
-  `ReciprocalRankFusionPolicy` fuses the RANKED LISTS they return** instead of one pooled `Relevance` field
-  (`docs/DECISIONS.md` **D103**). Three ship: `LexicalSeedSource` (the store's own text read, registered
-  unconditionally — the channel every graph engine already had), `SemanticSeedSource`
-  (`AddMemorySemanticSeeds`, still NOT registered by default — an embedder registered for its own reasons
-  must not silently start steering recall), and `SubjectSeedSource` (`AddMemoryEngine` registers this channel
-  unconditionally; `AddMemorySubjectSeeds` only CONFIGURES it, since a subject exists only because an
-  annotator was already paid for). `UseGraph(..., seedSources: …)` overrides the set per engine.
-  <br>**Within one source, a candidate is ranked by that source's OWN `GraphNode.Relevance` gradient, never by
-  list position** — competition-ranked, ties sharing a rank; a node the source did not MATCH earns no rank at
-  all, and a source whose matched nodes all carry one value is UNORDERED and earns none either. A candidate
-  found by two sources scores the SUM of both reciprocal-rank terms, so agreement between channels is
-  rewarded — something a single pooled field could not express. `MemoryCandidate.Ranks` (`MemorySeedRanks`)
-  carries the evidence; a candidate carrying no ranks at all — a hand-built engine, a BYO gather — falls back
-  to today's pooled-relevance term, byte-identical to before this shipped.
-  <br>**Measured on LoCoMo evidence-hit@20** (`docs/memory-measurements.md` §5): the semantic channel was previously
-  unreachable — a real cosine could never outrank a fabricated pooled value — and with per-source fusion its
-  `+sem+rel-only` arm now reads **83.0%**, above plain cosine's own **80.5%**, the first mechanical arm to
-  clear it. **No default moved** — `SemanticSeedOptions` still ships unregistered.
-  <br>**83.0% is a SQLite figure.** Under the shipped default registration (lexical + subject, no semantic)
-  against `InMemoryMemoryGraphStore`, no candidate carries a rank, so the whole recall still runs the pooled
-  fallback this change replaces — one of three shipped backends is unaffected.
-
-
-- **`SalienceContext` gains one trailing member**, widening its constructor and its `Deconstruct`. Additive
-  for construction by name or position — the default reproduces today's behaviour — and a source break only
-  for code that positionally DECONSTRUCTS it.
-
-- **`MemoryItem` and `MemoryVerificationCandidate` each gain one trailing member**, widening their
-  constructors and their `Deconstruct`. Additive for anyone constructing them by name or positionally — both
-  defaults reproduce today's behaviour exactly — and a **source break only for code that positionally
-  DECONSTRUCTS** either record: `var (reference, headline, …) = item` now needs one more slot. The same shape
-  `GraphNodeWrite`'s two flags take below.
-
-- **`IMemoryGraphStore.NeighboursAsync` gains a `taskKey` parameter, and `ILinkableMemory.LinkAsync` now
-  REFUSES a cross-task link.** A `taskKey` was the isolation boundary of every read except traversal, which
-  followed edges wherever they led — so an application that linked across tasks made those entries reachable
-  from each other's recalls. A half-boundary is worse than none, because consumers reason about it as a whole
-  one. `docs/DECISIONS.md` **D92**.
-  <br>**A BYO `IMemoryGraphStore` gets a compile error** naming the member, deliberately: a default body
-  would have compiled and silently kept the hole. Pass the `taskKey` through to your node predicate.
-  <br>**The capability lost** is asserting an association between facts in DIFFERENT tasks. Keep that in your
-  own data — two facts that belong together belong in one task. Traversal is scoped as well as the link
-  refused, so an edge an existing database already holds is never walked either.
-
-- **`GraphNodeWrite` gains two trailing flags, `bool GradeStated = true` and `bool HeadlineStated = true`**,
-  which widen its constructor and its `Deconstruct`. Additive for anyone constructing it by name or positionally (the default reproduces the old
-  behaviour exactly), and a **source break only for code that positionally DECONSTRUCTS the record** —
-  `var (engine, task, …) = write` now needs one more slot. A BYO `IMemoryGraphStore` that ignores the new
-  member keeps the old grade-overwriting behaviour, which is the bug below; honour it to get the fix.
-
-- **`GraphMemoryOptions.SemanticSeedK`, `.SubjectSeedK` and `.SubjectSeedScan` are REMOVED**, replaced by a <!-- drift-ok link-ok: the entry announcing a removal must name what was removed, and none of the three exists any more -->
-  registered `IMemorySeedSource` collection, each source carrying its own options record:
-  `SemanticSeedOptions.K` (`AddMemorySemanticSeeds`, NOT registered by default — an embedder registered for
-  its own reasons must not silently start steering recall) and `SubjectSeedOptions.K` / `.Scan` (on by
-  default — `AddMemoryEngine` registers this channel unconditionally, and `AddMemorySubjectSeeds` only
-  configures it, since a subject exists only because an annotator was already paid for). Both new records
-  ship the same defaults the removed properties carried, including
-  `SubjectSeedOptions.K = 0` as the off-switch. `UseGraph(..., seedSources: …)` overrides the set per engine.
-
-### Added
 
 - **`IProviderRouterFactory` — dead-host cooldown and admission finally reach the vector and score kinds,
   and any kind an application defines** (**D155**). **D153** gave every kind the routing mechanism and left
@@ -860,6 +930,29 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `MemoryQuery.CharBudget` prices the extra text, so the same budget admits fewer items.
 
 ### Fixed
+
+- **`ConfigureRouting` now reaches every kind.** Factory-built routers — vector, score, and any kind an
+  application defines — routed on `RoutingPolicy`'s defaults whatever the operator configured: retries, the
+  `LYNTAI_RETRY_*` variables and per-verdict overrides applied to chat alone, silently. The factory now
+  defaults its policy to `LyntaiOptions.Routing`; an explicit `policy:` argument still wins.
+
+- **A reranker's outage no longer benches the embedder beside it.** Factory-built routers keyed cooldown on
+  the bare configuration/id while sharing the ONE tracker, so two `AddOnnxProvider` registrations — both
+  defaulting `Id = "onnx"` — shared a bench ACROSS KINDS, and a failing reranker silenced recalls. Keys are
+  now namespaced per closed shape (`vector::`, `score::`), the rule `MediaRouter`'s `generation::` prefix
+  already applied; two docs that claimed this held everywhere now describe code that does.
+
+- **`AddHttpProvider`'s composition-time declaration silently dropped `Stream`** (and both tool-call flags):
+  the declaration restated `Produces` and hand-restated `Operations` as `[Complete]` while the built provider
+  declared `[Complete, Stream]`. Nothing read the operations half yet, so no consumer broke; the declaration
+  is now derived by the same code the built provider runs, so the two can no longer drift.
+
+- **`MediaResponse.Success(null!)` surfaced as an unnamed `NullReferenceException`** where its vector and
+  score twins name the argument; it now throws `ArgumentNullException` like them.
+
+- **Two shipped doc claims corrected**: `ProviderCapabilities`' worked example taught the one-host
+  `[text, vector]` declaration D133 retired (a host serving both routes is two registrations under two ids),
+  and the scoring-verification registration doc pointed at the cross-encoder registration D157 deleted.
 
 - **Documentation that survived two seam unifications and said things that are no longer true.** The
   `README.md` offered a capability-probe sample whose `provider is not IModelProvider` type test is always

@@ -26,7 +26,10 @@ public interface IProviderRouterFactory
     /// cannot construct, because only the kind knows what an empty response looks like.</param>
     /// <param name="serves">Whether a backend's DECLARED capabilities cover this call, asked in addition to
     /// the type test. Null asks the type test only.</param>
-    /// <param name="policy">Per-verdict fallback behaviour; null = <see cref="RoutingPolicy"/>'s defaults.</param>
+    /// <param name="policy">Per-verdict fallback behaviour; null takes the CONFIGURED policy
+    /// (<see cref="LyntaiOptions.Routing"/>, i.e. <c>ConfigureRouting</c>) where the factory was built with
+    /// one, else <see cref="RoutingPolicy"/>'s defaults — so an operator's retries and per-verdict overrides
+    /// reach every kind, not chat alone.</param>
     /// <param name="logger">Null = no logging. Pass none for a FAIL-OPEN seam that runs on every call,
     /// where a transport blip would otherwise become per-call noise at Warning.</param>
     ProviderRouter<TRequest, TResponse> For<TRequest, TResponse>(
@@ -42,16 +45,20 @@ public interface IProviderRouterFactory
 ///
 /// <para>Every dependency but the tracker is optional, so this composes in a container that registered
 /// none of them and in a test that wants bare routing.</para></summary>
-/// <param name="deadHosts">The ONE tracker. Shared with the text and media routers on purpose — its keys
-/// are domain-prefixed, so a chat outage never benches a vector backend that happens to share an id.</param>
+/// <param name="deadHosts">The ONE tracker. Shared with the text and media routers on purpose — every
+/// router this builds scopes its keys per closed shape (<c>vector::</c>, <c>score::</c>, …), so a chat
+/// outage never benches a vector backend that happens to share an id, nor a reranker an embedder.</param>
 /// <param name="pool">Used only to attribute cooldown and admission to a CONFIGURATION. Null keys on the
 /// backend id, which is correct where each backend is configured once.</param>
 /// <param name="admission">Bounds concurrent calls per key. Null = unbounded, which is what these kinds
 /// had before.</param>
+/// <param name="options">Where the CONFIGURED routing policy lives (<see cref="LyntaiOptions.Routing"/>).
+/// Null routes on <see cref="RoutingPolicy"/>'s defaults, which is the bare-composition behaviour.</param>
 public sealed class ProviderRouterFactory(
     DeadHostTracker deadHosts,
     IProviderPool<IModelProvider>? pool = null,
-    IProviderAdmission? admission = null) : IProviderRouterFactory
+    IProviderAdmission? admission = null,
+    LyntaiOptions? options = null) : IProviderRouterFactory
 {
     // TryGetKey answers from a table independent of the pool's entries, so an instance whose configuration
     // was retired mid-call still attributes its cooldown correctly.
@@ -69,6 +76,17 @@ public sealed class ProviderRouterFactory(
     {
         ArgumentNullException.ThrowIfNull(synthesize);
         return new ProviderRouter<TRequest, TResponse>(
-            providers ?? [], synthesize, serves, policy, deadHosts, admission, _configuration, logger);
+            providers ?? [], synthesize, serves, policy ?? options?.Routing, deadHosts, admission,
+            _configuration, Scope<TRequest>(), logger);
+    }
+
+    /// <summary>The cooldown namespace for one closed shape — <c>VectorRequest</c> → <c>vector::</c> —
+    /// derived from the request type so an application's own kind gets its own namespace without telling
+    /// this factory anything. Stable per closed type, which is what a cooldown key must be.</summary>
+    private static string Scope<TRequest>()
+    {
+        var name = typeof(TRequest).Name;
+        if (name.EndsWith("Request", StringComparison.Ordinal)) name = name[..^"Request".Length];
+        return name.ToLowerInvariant() + "::";
     }
 }

@@ -8,18 +8,18 @@ namespace Lyntai.Tests.Tools;
 /// config-file shapes). It lives in the provider package and needs no host to test: hand it an
 /// <see cref="McpCliContext"/> and assert the argv + files it asks for.
 /// </summary>
-public class ClaudeCliMcpDialectTests
+public class ClaudeCliMcpConnectorTests
 {
     [Fact]
     public void Targets_the_claude_cli_provider()
     {
-        Assert.Equal(ClaudeCliProvider.ProviderId, new ClaudeCliMcpDialect().ProviderId);
+        Assert.Equal(ClaudeCliProvider.ProviderId, new ClaudeCliMcpConnector().ProviderId);
     }
 
     [Fact]
     public void McpConfig_points_the_cli_at_the_host_over_http_with_the_bearer()
     {
-        var json = ClaudeCliMcpDialect.McpConfigJson(new McpEndpoint("http://127.0.0.1:1234/mcp", "sekret", "lyntai"));
+        var json = ClaudeCliMcpConnector.McpConfigJson(new McpEndpoint("http://127.0.0.1:1234/mcp", "sekret", "lyntai"));
         Assert.Contains("\"type\":\"http\"", json);
         Assert.Contains("http://127.0.0.1:1234/mcp", json);
         Assert.Contains("lyntai", json);
@@ -29,14 +29,14 @@ public class ClaudeCliMcpDialectTests
     [Fact]
     public void Settings_allow_list_only_our_server()
     {
-        Assert.Contains("mcp__lyntai__*", ClaudeCliMcpDialect.SettingsJson("lyntai"));
+        Assert.Contains("mcp__lyntai__*", ClaudeCliMcpConnector.SettingsJson("lyntai"));
     }
 
     [Fact]
     public void Config_shapes_follow_the_configured_server_name()
     {
-        Assert.Contains("my-tools", ClaudeCliMcpDialect.McpConfigJson(new McpEndpoint("http://x/mcp", "t", "my-tools")));
-        Assert.Contains("mcp__my-tools__*", ClaudeCliMcpDialect.SettingsJson("my-tools"));
+        Assert.Contains("my-tools", ClaudeCliMcpConnector.McpConfigJson(new McpEndpoint("http://x/mcp", "t", "my-tools")));
+        Assert.Contains("mcp__my-tools__*", ClaudeCliMcpConnector.SettingsJson("my-tools"));
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class ClaudeCliMcpDialectTests
             new McpEndpoint("http://127.0.0.1:1234/mcp", "sekret", "lyntai"),
             (kind, content) => { written[kind] = content; return $"/tmp/{kind}.json"; });
 
-        var args = await new ClaudeCliMcpDialect().BuildArgsAsync(context);
+        var args = await new ClaudeCliMcpConnector().BuildArgsAsync(context);
 
         Assert.Contains("--mcp-config", args);
         Assert.Contains("--settings", args);

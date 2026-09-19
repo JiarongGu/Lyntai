@@ -257,7 +257,7 @@ public class OnnxCrossEncoderReachabilityTests
     internal static readonly ProviderCapabilities ScoreDeclaration = new()
     {
         Accepts = [ProviderKinds.Text],
-        Produces = [new OnnxCrossEncoderDialect().Produces],
+        Produces = [new OnnxCrossEncoderHead().Produces],
         Operations = [ProviderOperation.Complete],
     };
 
@@ -266,8 +266,8 @@ public class OnnxCrossEncoderReachabilityTests
     [Fact]
     public void The_dialect_decides_the_kind_so_no_router_sends_it_a_chat_or_the_wrong_call()
     {
-        Assert.Equal(ProviderKinds.Score, new OnnxCrossEncoderDialect().Produces);
-        Assert.Equal(ProviderKinds.Vector, new OnnxPoolingDialect(OnnxPooling.Mean, true).Produces);
+        Assert.Equal(ProviderKinds.Score, new OnnxCrossEncoderHead().Produces);
+        Assert.Equal(ProviderKinds.Vector, new OnnxPoolingHead(OnnxPooling.Mean, true).Produces);
 
         Assert.Equal([ProviderKinds.Score], ScoreDeclaration.Produces);
         Assert.Equal([ProviderKinds.Text], ScoreDeclaration.Accepts);

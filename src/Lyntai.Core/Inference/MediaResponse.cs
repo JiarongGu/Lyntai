@@ -24,6 +24,8 @@ public sealed record MediaResponse(
     public static MediaResponse Success(
         IReadOnlyList<MediaArtifact> artifacts, MediaUsage? usage = null, string? detail = null)
     {
+        ArgumentNullException.ThrowIfNull(artifacts); // parity with the vector/score twins — a null must
+                                                      // name the argument, not surface as an NRE on .Count
         if (artifacts.Count == 0)
             throw new ArgumentException("a successful media result needs at least one artifact", nameof(artifacts));
         return new MediaResponse(ProviderVerdict.Ok, artifacts, usage, detail);

@@ -2,8 +2,8 @@ using Lyntai.Inference;
 using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
-using Lyntai.Providers.Http;
 using Lyntai.Providers.Http.Payloads;
+using Lyntai.Providers.Ollama;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.Logging;
 
@@ -155,14 +155,13 @@ public class OllamaAttachmentTests
     }
 
     [Fact]
-    public async Task The_ollama_flavour_provider_puts_the_image_on_the_wire()
+    public async Task The_ollama_provider_puts_the_image_on_the_wire()
     {
-        // pins the WIRING as well as the payload: the provider must reach the Ollama arm (and hand it the
-        // logger), or the payload fix ships while every real call still sends text only
+        // pins the WIRING as well as the payload: the provider must hand the payload builder its logger,
+        // or the payload fix ships while every real call still sends text only
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
             """{"message":{"role":"assistant","content":"a cat"},"done":true,"prompt_eval_count":7,"eval_count":3}""");
-        var config = new HttpModelOptions { BaseUrl = "http://localhost:11434", ApiKey = null };
-        var provider = new HttpModelProvider("ollama", config,
+        var provider = new OllamaProvider("ollama", new OllamaOptions(),
             () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
 

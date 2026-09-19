@@ -13,7 +13,7 @@ namespace Lyntai.Providers.CodexCli;
 ///
 /// Like <see cref="Providers.ClaudeCli.ClaudeCliProvider"/>, this type is only the composition of
 /// <see cref="CliProviderEngine"/> (everything generic about driving a CLI) and
-/// <see cref="CodexCliDialect"/> (everything specific to codex), plus the declaration of which OPTIONAL
+/// <see cref="CodexCliBackend"/> (everything specific to codex), plus the declaration of which OPTIONAL
 /// capabilities this backend actually has.
 ///
 /// Note what is ABSENT: no <see cref="IProviderVersionInstaller"/>, because <c>codex update</c> takes no
@@ -34,8 +34,8 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
     /// <param name="provisioner">Optional MCP tool host for this provider.</param>
     /// <param name="environment">Extra environment variables for every spawn — a portable install usually
     /// wants its own <c>CODEX_HOME</c> so it neither reads nor mutates the machine-wide install's state.</param>
-    /// <param name="dialect">A pre-configured dialect, to change codex-specific behaviour such as
-    /// <see cref="CodexCliDialect.SandboxMode"/>. Defaults to a read-only sandbox.</param>
+    /// <param name="backend">A pre-configured backend, to change codex-specific behaviour such as
+    /// <see cref="CodexCliBackend.SandboxMode"/>. Defaults to a read-only sandbox.</param>
     public CodexCliProvider(
         IProcessRunner runner,
         LyntaiOptions options,
@@ -43,8 +43,8 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
         string? command = null,
         ICliToolProvisioner? provisioner = null,
         IReadOnlyDictionary<string, string>? environment = null,
-        CodexCliDialect? dialect = null)
-        => _engine = new CliProviderEngine(dialect ?? new CodexCliDialect(), runner, options, logger, command,
+        CodexCliBackend? backend = null)
+        => _engine = new CliProviderEngine(backend ?? new CodexCliBackend(), runner, options, logger, command,
             provisioner, environment);
 
     /// <inheritdoc/>
@@ -90,7 +90,7 @@ public sealed class CodexCliProvider : IModelProvider, IProviderUpdater, IProvid
     public Task<ProviderAuthStatus> StatusAsync(CancellationToken ct = default) => _engine.StatusAsync(ct);
 
     /// <summary>Start the CLI's sign-in flow (<c>codex login</c>), then report the state it left behind.
-    /// BLOCKS until the flow completes, fails, or the dialect's 10-minute budget expires; cancelling
+    /// BLOCKS until the flow completes, fails, or the backend's 10-minute budget expires; cancelling
     /// <paramref name="ct"/> abandons the wait.</summary>
     /// <remarks>codex takes no account-kind, email or SSO options here, so a
     /// <see cref="ProviderLoginRequest"/> carrying any of them is REFUSED without spawning (rather than

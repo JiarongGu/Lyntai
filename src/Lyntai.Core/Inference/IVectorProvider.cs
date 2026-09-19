@@ -6,7 +6,17 @@ namespace Lyntai.Inference;
 /// <param name="Role">Which side of a retrieval this text is. Asymmetric models — E5, BGE, nomic, Arctic —
 /// are trained with a distinct instruction per side and score materially worse when both sides are embedded
 /// identically; a symmetric model ignores it.</param>
-public sealed record VectorRequest(IReadOnlyList<string> Texts, EmbeddingRole Role = EmbeddingRole.Document);
+/// <param name="Consumer">Who is asking — the same attribution tag <see cref="TextRequest.Consumer"/>
+/// carries, so an embed call is not structurally invisible to budgeting and telemetry (D162). The slot is
+/// the frozen part; governance wiring reads it as it lands.</param>
+/// <param name="TimeoutSeconds">Per-call deadline override, clamped to
+/// <see cref="LyntaiOptions.MaxProviderTimeout"/> exactly as on the text shape; null takes the configured
+/// default.</param>
+public sealed record VectorRequest(
+    IReadOnlyList<string> Texts,
+    EmbeddingRole Role = EmbeddingRole.Document,
+    string? Consumer = null,
+    int? TimeoutSeconds = null);
 
 /// <summary>The outcome of an embed call.
 ///
@@ -19,10 +29,13 @@ public sealed record VectorRequest(IReadOnlyList<string> Texts, EmbeddingRole Ro
 /// <param name="Vectors">One per input text, in input order. Empty unless <paramref name="Verdict"/> is
 /// <see cref="ProviderVerdict.Ok"/>.</param>
 /// <param name="Detail">The backend's own words, or the failure reason.</param>
+/// <param name="Usage">What the call spent, where the wire reported it (an HTTP embeddings endpoint
+/// reports prompt tokens); null from an in-process backend, which spends no tokens anywhere.</param>
 public sealed record VectorResponse(
     ProviderVerdict Verdict,
     IReadOnlyList<float[]> Vectors,
-    string? Detail = null) : IProviderOutcome
+    string? Detail = null,
+    ProviderUsage? Usage = null) : IProviderOutcome
 {
     /// <summary>Whether the call produced vectors.</summary>
     public bool IsOk => Verdict == ProviderVerdict.Ok;
@@ -30,12 +43,13 @@ public sealed record VectorResponse(
     /// <summary>A successful response. <b>Throws for an EMPTY vector list</b>: an "Ok" carrying nothing is
     /// the empty-Ok mistake the LLM side already paid for — it robs routing of its chance to fall over and
     /// hands the caller a successful nothing.</summary>
-    public static VectorResponse Success(IReadOnlyList<float[]> vectors, string? detail = null)
+    public static VectorResponse Success(IReadOnlyList<float[]> vectors, string? detail = null,
+        ProviderUsage? usage = null)
     {
         ArgumentNullException.ThrowIfNull(vectors);
         if (vectors.Count == 0)
             throw new ArgumentException("a successful embed needs at least one vector", nameof(vectors));
-        return new VectorResponse(ProviderVerdict.Ok, vectors, detail);
+        return new VectorResponse(ProviderVerdict.Ok, vectors, detail, usage);
     }
 
     /// <summary>A failed response, carrying no vectors.</summary>

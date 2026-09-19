@@ -128,7 +128,7 @@ public sealed class LyntaiBuilder
     /// dependency (<c>docs/DECISIONS.md</c> D147).</para>
     ///
     /// <para><b>For an OpenAI-shaped endpoint, use <c>AddHttpProvider</c> instead</b> — most vendors
-    /// ship one, and it already handles verdicts, streaming, usage, tool calls and the dialect
+    /// ship one, and it already handles verdicts, streaming, usage, tool calls and the per-wire
     /// differences.</para></summary>
     /// <param name="id">The router-facing id, as on any backend: a LABEL for one configured client, so two
     /// configurations of the same vendor are two bridges with two ids.</param>

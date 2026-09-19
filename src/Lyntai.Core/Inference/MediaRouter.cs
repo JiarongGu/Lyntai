@@ -8,7 +8,7 @@ namespace Lyntai.Inference;
 /// with dead-host cooldown, plus a span and metrics per attempt.
 ///
 /// <para>Per-verdict fallback semantics are <see cref="MediaRoutingPolicy"/>'s, including where they
-/// deliberately diverge from the LLM router's on <see cref="ProviderVerdict.Unsupported"/>.</para>
+/// deliberately diverge from <see cref="TextRouter"/>'s on <see cref="ProviderVerdict.Unsupported"/>.</para>
 ///
 /// <para><b>Reporting keeps TWO slots, and a blameless one never outranks a real failure.</b> The first
 /// substantive failure is what the caller is told; the first BLAMELESS result that explained itself is kept
@@ -31,7 +31,7 @@ namespace Lyntai.Inference;
 /// <param name="providers">The registered backends.</param>
 /// <param name="policy">Per-verdict fallback behaviour; null = <see cref="MediaRoutingPolicy"/>'s
 /// defaults.</param>
-/// <param name="deadHosts">Cooldown bookkeeping — the SAME <see cref="DeadHostTracker"/> the LLM router uses,
+/// <param name="deadHosts">Cooldown bookkeeping — the SAME <see cref="DeadHostTracker"/> <see cref="TextRouter"/> uses,
 /// deliberately: "this host keeps failing, stop asking" is transport bookkeeping keyed by a string, not an LLM
 /// concept, and a second copy would be a second set of bugs (and a second threshold to configure). A media key
 /// is prefixed <c>generation::</c> while a chat key is the BARE provider/configuration identity (plus
@@ -519,7 +519,7 @@ public sealed class MediaRouter(
         !(capableCount == 1 && _policy.ExemptSoleCandidate) &&
         deadHosts.IsDead(CooldownKey(provider));
 
-    /// <summary>The tracker is shared with the LLM router, so keys carry their domain: a host with a chat
+    /// <summary>The tracker is shared with <see cref="TextRouter"/>, so keys carry their domain: a host with a chat
     /// provider and an image backend both called "openai" must not have one bench the other.
     ///
     /// <para>Within the domain the key is the CONFIGURATION when one is known, falling back to the backend id
@@ -541,7 +541,7 @@ public sealed class MediaRouter(
     /// just failed AND make the sole capable backend look like two, silently withdrawing the exemption. A
     /// dedup applied after the count is taken fixes neither.</para>
     ///
-    /// <para>The dedup itself is the LLM router's (<see cref="CandidateDedup"/>) — first wins, order preserved
+    /// <para>The dedup itself is <see cref="TextRouter"/>'s (<see cref="CandidateDedup"/>) — first wins, order preserved
     /// — rather than a second copy of it here.</para></summary>
     private List<(IModelProvider Provider, MediaRequest Request)> Capable(
         IReadOnlyList<ProviderCandidate> candidates, MediaRequest request, ProviderOperation delivery)

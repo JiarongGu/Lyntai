@@ -6,7 +6,17 @@ namespace Lyntai.Inference;
 /// it</b> — a backend may serve the whole set in one request or one forward pass, so a payload, a context
 /// window or an activation buffer scales with what you send. Bound it before calling; the memory seam does,
 /// at <c>GraphMemoryOptions.VerificationDepth</c>.</param>
-public sealed record ScoreRequest(string Query, IReadOnlyList<string> Documents);
+/// <param name="Consumer">Who is asking — the same attribution tag <see cref="TextRequest.Consumer"/>
+/// carries, so a rerank call is not structurally invisible to budgeting and telemetry (D162). The slot is
+/// the frozen part; governance wiring reads it as it lands.</param>
+/// <param name="TimeoutSeconds">Per-call deadline override, clamped to
+/// <see cref="LyntaiOptions.MaxProviderTimeout"/> exactly as on the text shape; null takes the configured
+/// default.</param>
+public sealed record ScoreRequest(
+    string Query,
+    IReadOnlyList<string> Documents,
+    string? Consumer = null,
+    int? TimeoutSeconds = null);
 
 /// <summary>The outcome of a rerank call.
 ///
@@ -21,22 +31,26 @@ public sealed record ScoreRequest(string Query, IReadOnlyList<string> Documents)
 /// <param name="Scores">One per input document, IN INPUT ORDER. Empty unless <paramref name="Verdict"/> is
 /// <see cref="ProviderVerdict.Ok"/>.</param>
 /// <param name="Detail">The backend's own words, or the failure reason.</param>
+/// <param name="Usage">What the call spent, where the wire reported it; null from an in-process
+/// cross-encoder, which spends no tokens anywhere.</param>
 public sealed record ScoreResponse(
     ProviderVerdict Verdict,
     IReadOnlyList<double> Scores,
-    string? Detail = null) : IProviderOutcome
+    string? Detail = null,
+    ProviderUsage? Usage = null) : IProviderOutcome
 {
     /// <summary>Whether the call produced scores.</summary>
     public bool IsOk => Verdict == ProviderVerdict.Ok;
 
     /// <summary>A successful response. <b>Throws for an EMPTY score list</b>: an "Ok" carrying nothing robs
     /// routing of its chance to fall over and hands the caller a successful nothing.</summary>
-    public static ScoreResponse Success(IReadOnlyList<double> scores, string? detail = null)
+    public static ScoreResponse Success(IReadOnlyList<double> scores, string? detail = null,
+        ProviderUsage? usage = null)
     {
         ArgumentNullException.ThrowIfNull(scores);
         if (scores.Count == 0)
             throw new ArgumentException("a successful rerank needs at least one score", nameof(scores));
-        return new ScoreResponse(ProviderVerdict.Ok, scores, detail);
+        return new ScoreResponse(ProviderVerdict.Ok, scores, detail, usage);
     }
 
     /// <summary>A failed response, carrying no scores.</summary>

@@ -4,19 +4,19 @@ namespace Lyntai.Inference;
 
 /// <summary>Per-verdict fallback behaviour for <see cref="MediaRouter"/> — a POLICY, not a law.
 ///
-/// The defaults follow the SHAPE of the LLM router's (design §6), so one mental model carries across most of
+/// The defaults follow the SHAPE of <see cref="TextRouter"/>'s (design §6), so one mental model carries across most of
 /// both domains: a <see cref="ProviderVerdict.Refused"/> SURFACES (a content refusal is the backend's
 /// judgement, and quietly re-submitting the same prompt to another vendor is not a library's decision to make),
 /// a rate limit or a rejected key BENCHES the backend, a transient fault counts toward the threshold, and a
 /// backend that was never set up advances without blame. The deliberate divergence is
-/// <see cref="ProviderVerdict.Unsupported"/>: a capability gap ADVANCES here, where the LLM policy surfaces
+/// <see cref="ProviderVerdict.Unsupported"/>: a capability gap ADVANCES here, where <see cref="RoutingPolicy"/> surfaces
 /// it. <see cref="ProviderVerdictClassifier"/> carries the reason — chat candidates share a capability gap,
 /// media backends differ widely in what they accept.
 ///
 /// It is configurable because that Refused default is wrong for at least one real setup: a host that
 /// deliberately lists a hosted backend AND a locally-run one, where the hosted one refuses content the local
 /// one has no policy against. Then <c>On(Refused, Advance)</c> is exactly right — and it is the HOST's call,
-/// not Lyntai's. Same reasoning, and the same shape, as the LLM router's policy
+/// not Lyntai's. Same reasoning, and the same shape, as <see cref="TextRouter"/>'s policy
 /// (<c>docs/DECISIONS.md</c> D3).</summary>
 public sealed class MediaRoutingPolicy
 {

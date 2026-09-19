@@ -19,14 +19,14 @@ public static class CodexCliBuilderExtensions
     /// here — no process-wide environment variable needed.</param>
     /// <param name="environment">Extra environment variables for every spawn; a portable install usually wants
     /// its own <c>CODEX_HOME</c> so it neither reads nor mutates the machine-wide install's state.</param>
-    /// <param name="dialect">A pre-configured <see cref="CodexCliDialect"/> — e.g.
-    /// <c>new CodexCliDialect { SandboxMode = "workspace-write" }</c> to let codex act on disk. Defaults to a
+    /// <param name="backend">A pre-configured <see cref="CodexCliBackend"/> — e.g.
+    /// <c>new CodexCliBackend { SandboxMode = "workspace-write" }</c> to let codex act on disk. Defaults to a
     /// read-only sandbox, which is what a text completion should need.</param>
     public static LyntaiBuilder AddCodexCliProvider(
         this LyntaiBuilder builder,
         string? command = null,
         IReadOnlyDictionary<string, string>? environment = null,
-        CodexCliDialect? dialect = null)
+        CodexCliBackend? backend = null)
     {
         builder.AddProvider(sp => new CodexCliProvider(
             sp.GetRequiredService<IProcessRunner>(),
@@ -35,14 +35,14 @@ public static class CodexCliBuilderExtensions
             command,
             ResolveProvisioner(sp),
             environment,
-            dialect));
+            backend));
         return builder;
     }
 
     /// <summary>Prefer the provisioner registered for THIS provider's id — several CLI providers can each host
-    /// tools with their own dialect, and an unkeyed lookup would hand us whichever was registered first. The
+    /// tools with their own connector, and an unkeyed lookup would hand us whichever was registered first. The
     /// unkeyed service stays as the fallback so a hand-rolled <see cref="ICliToolProvisioner"/> registration
-    /// (no dialect, no key) keeps working.</summary>
+    /// (no connector, no key) keeps working.</summary>
     private static ICliToolProvisioner? ResolveProvisioner(IServiceProvider sp) =>
         sp.GetKeyedService<ICliToolProvisioner>(CodexCliProvider.ProviderId)
         ?? sp.GetService<ICliToolProvisioner>();

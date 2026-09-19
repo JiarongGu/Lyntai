@@ -3,16 +3,18 @@ static class Lyntai.ClaudeCliBuilderExtensions
     static AddClaudeCliProvider(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null) : LyntaiBuilder
 static class Lyntai.CodexCliBuilderExtensions
     static AddCodexCliAgentSession(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null) : LyntaiBuilder
-    static AddCodexCliProvider(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, CodexCliDialect dialect = null) : LyntaiBuilder
+    static AddCodexCliProvider(LyntaiBuilder builder, String command = null, IReadOnlyDictionary<String,String> environment = null, CodexCliBackend backend = null) : LyntaiBuilder
 static class Lyntai.HttpProviderBuilderExtensions
     static AddAzureOpenAiProvider(LyntaiBuilder builder, String endpoint, String apiKey, String model = null, String id = "azure-openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddHttpProvider(LyntaiBuilder builder, String id, Action<HttpModelOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddLlamaProvider(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "llama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddOllamaProvider(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "ollama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOpenAiProvider(LyntaiBuilder builder, String apiKey, String model = null, String id = "openai", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddOpenRouterProvider(LyntaiBuilder builder, String apiKey, String model = null, String id = "openrouter", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
 static class Lyntai.Model2VecBuilderExtensions
     static AddModel2VecProvider(LyntaiBuilder builder, String modelDirectory, Action<Model2VecProviderOptions> configure = null) : LyntaiBuilder
+static class Lyntai.OllamaBuilderExtensions
+    static AddOllamaProvider(LyntaiBuilder builder, String baseUrl = null, String model = null, String id = "ollama", Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddOllamaProvider(LyntaiBuilder builder, String id, Action<OllamaOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     .ctor()
     AllowedTools : IReadOnlyList<String>
@@ -29,7 +31,7 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<ClaudeAgentSession> logger = null, String command = null, IReadOnlyDictionary<String,String> environment = null)
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
-sealed class Lyntai.Providers.ClaudeCli.ClaudeCliDialect
+sealed class Lyntai.Providers.ClaudeCli.ClaudeCliBackend
     .ctor()
     AuthStatusArgs : IReadOnlyList<String>
     BuildCompletionArgs(TextRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
@@ -42,7 +44,7 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeCliDialect
     TryBuildInstallArgs(ProviderInstallRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
     TryBuildLoginArgs(ProviderLoginRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
     UpdateArgs : IReadOnlyList<String>
-sealed class Lyntai.Providers.ClaudeCli.ClaudeCliMcpDialect
+sealed class Lyntai.Providers.ClaudeCli.ClaudeCliMcpConnector
     .ctor()
     BuildArgsAsync(McpCliContext context, CancellationToken ct = default) : ValueTask<IReadOnlyList<String>>
     ProviderId : String
@@ -75,7 +77,7 @@ sealed class Lyntai.Providers.CodexCli.CodexAgentOptions
 sealed class Lyntai.Providers.CodexCli.CodexAgentSession
     .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<CodexAgentSession> logger = null, String command = null, IReadOnlyDictionary<String,String> environment = null)
     StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
-sealed class Lyntai.Providers.CodexCli.CodexCliDialect
+sealed class Lyntai.Providers.CodexCli.CodexCliBackend
     .ctor()
     AuthStatusArgs : IReadOnlyList<String>
     BuildCompletionArgs(TextRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
@@ -89,7 +91,7 @@ sealed class Lyntai.Providers.CodexCli.CodexCliDialect
     TryBuildLoginArgs(ProviderLoginRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
     UpdateArgs : IReadOnlyList<String>
 sealed class Lyntai.Providers.CodexCli.CodexCliProvider
-    .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<CodexCliProvider> logger = null, String command = null, ICliToolProvisioner provisioner = null, IReadOnlyDictionary<String,String> environment = null, CodexCliDialect dialect = null)
+    .ctor(IProcessRunner runner, LyntaiOptions options, ILogger<CodexCliProvider> logger = null, String command = null, ICliToolProvisioner provisioner = null, IReadOnlyDictionary<String,String> environment = null, CodexCliBackend backend = null)
     Capabilities : ProviderCapabilities
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
     Id : String
@@ -101,22 +103,14 @@ sealed class Lyntai.Providers.CodexCli.CodexCliProvider
     StatusAsync(CancellationToken ct = default) : Task<ProviderAuthStatus>
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
     UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
-enum Lyntai.Providers.Http.HttpDialect
-    Auto : HttpDialect const
-    AzureOpenAi : HttpDialect const
-    Ollama : HttpDialect const
-    OpenAi : HttpDialect const
-    OpenRouter : HttpDialect const
-    value__ : Int32
 sealed class Lyntai.Providers.Http.HttpModelOptions
     .ctor()
     ApiKey : String
+    AzureConventions : Nullable<Boolean>
     BaseUrl : String
     BatchSize : Int32
-    Dialect : HttpDialect
     DocumentPrefix : String
     Model : String
-    OllamaContextSize : Nullable<Int32>
     Produces : String
     QueryPrefix : String
 sealed class Lyntai.Providers.Http.HttpModelProvider
@@ -139,3 +133,21 @@ sealed class Lyntai.Providers.Model2Vec.Model2VecProviderOptions
     .ctor()
     Id : String
     Normalize : Nullable<Boolean>
+sealed class Lyntai.Providers.Ollama.OllamaOptions
+    .ctor()
+    ApiKey : String
+    BaseUrl : String
+    BatchSize : Int32
+    ContextSize : Nullable<Int32>
+    DocumentPrefix : String
+    Model : String
+    Produces : String
+    QueryPrefix : String
+sealed class Lyntai.Providers.Ollama.OllamaProvider
+    .ctor(String id, OllamaOptions config, Func<HttpClient> httpFactory, LyntaiOptions options, ILogger<OllamaProvider> logger = null, Boolean disposeHttpClient = true)
+    CallAsync(VectorRequest request, CancellationToken ct = default) : Task<VectorResponse>
+    Capabilities : ProviderCapabilities
+    CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
+    Id : String
+    IsAvailable : Boolean
+    StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>

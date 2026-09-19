@@ -1,14 +1,14 @@
 using Lyntai.Inference;
 using Lyntai;
-using Lyntai.Providers.Http;
+using Lyntai.Providers.Ollama;
 using Microsoft.Extensions.DependencyInjection;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 
 /// <summary>
-/// OPT-IN live integration against a real local Ollama — proves the OpenAI-shaped provider
-/// (Ollama dialect) works end-to-end against a real endpoint, not just a stubbed HttpMessageHandler.
+/// OPT-IN live integration against a real local Ollama — proves <see cref="OllamaProvider"/> works
+/// end-to-end against a real endpoint, not just a stubbed HttpMessageHandler.
 /// Runs only when <c>LYNTAI_LIVE_OLLAMA</c> is set AND the endpoint is reachable; otherwise it reports as
 /// SKIPPED (<c>Xunit.SkippableFact</c>), so the default test run stays fast, deterministic, and
 /// dependency-free (CI never runs the live path) while still saying honestly that it did not run.
@@ -24,9 +24,9 @@ public class OllamaLiveTests
     private static string Model => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_MODEL") ?? DefaultModel;
     private static string VectorModel => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL") ?? DefaultVectorModel;
 
-    private static HttpModelProvider Provider() =>
+    private static OllamaProvider Provider() =>
         new("ollama",
-            new HttpModelOptions { BaseUrl = BaseUrl, Model = Model },
+            new OllamaOptions { BaseUrl = BaseUrl, Model = Model },
             () => new HttpClient(),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(3) }); // cold model load can be slow
 
@@ -80,8 +80,8 @@ public class OllamaLiveTests
     {
         Skip.IfNot(await LiveAsync(), Reason); // also requires `ollama pull nomic-embed-text`
 
-        var vectorProvider = new HttpVectorTransport("ollama",
-            new HttpModelOptions { BaseUrl = BaseUrl, Model = VectorModel },
+        var vectorProvider = new OllamaProvider("ollama",
+            new OllamaOptions { BaseUrl = BaseUrl, Model = VectorModel, Produces = ProviderKinds.Vector },
             () => new HttpClient(),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(3) }); // cold model load can be slow
 

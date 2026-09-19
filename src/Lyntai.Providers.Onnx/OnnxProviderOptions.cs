@@ -32,7 +32,7 @@ public sealed class OnnxProviderOptions
 
     /// <summary>Maximum sequence length INCLUDING <c>[CLS]</c> and <c>[SEP]</c>. Null reads
     /// <c>config.json</c>'s <c>max_position_embeddings</c>, defaulting to 512.
-    /// <para><b>Longer text is TRUNCATED, not refused</b>, which is what every BERT dialect does — and the
+    /// <para><b>Longer text is TRUNCATED, not refused</b>, which is what every BERT-family encoder does — and the
     /// one capability a <c>model2vec</c> table has over this class is having no such limit at all.</para></summary>
     public int? MaxTokens { get; set; }
 

@@ -13,7 +13,7 @@ namespace Lyntai.Tools.Mcp.Hosting;
 /// An ephemeral, localhost-only HTTP MCP server exposing the given <see cref="ITool"/>s as MCP tools. Started
 /// on an OS-assigned port and stopped on dispose — it lives only for the duration of one CLI invocation, so
 /// nothing is exposed beyond that call. Provider-neutral: which CLI connects, and how it is told to, is the
-/// <see cref="IMcpCliDialect"/>'s business.
+/// <see cref="IMcpCliConnector"/>'s business.
 /// </summary>
 /// <remarks>
 /// <para>Hosted on <see cref="HttpListener"/> (BCL) rather than ASP.NET Core, deliberately. The MCP protocol

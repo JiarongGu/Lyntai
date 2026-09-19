@@ -26,7 +26,7 @@ public class ClaudeAgentSessionTests
 
     /// <summary>Build the argv with a RECORDING temp-file writer, so a test can assert what would have been
     /// written to the <c>--mcp-config</c> document without touching the disk — the same shape
-    /// <see cref="Tools.ClaudeCliMcpDialectTests"/> uses for the tool-host path. The returned path is
+    /// <see cref="Tools.ClaudeCliMcpConnectorTests"/> uses for the tool-host path. The returned path is
     /// deterministic so argv assertions can name it.</summary>
     private static IReadOnlyList<string> Args(
         AgentSessionOptions options, List<(string Kind, string Content)>? written = null) =>

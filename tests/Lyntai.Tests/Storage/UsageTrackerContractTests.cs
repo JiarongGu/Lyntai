@@ -32,7 +32,7 @@ public abstract class UsageTrackerContractFacts
     public async Task Totals_are_read_back_by_a_FRESH_handle_over_the_same_store()
     {
         var tracker = NewTracker();
-        await tracker.RecordAsync("persisted", new Lyntai.Inference.TextUsage(7, 3, CostUsd: 0.07));
+        await tracker.RecordAsync("persisted", new Lyntai.Inference.ProviderUsage(7, 3, CostUsd: 0.07));
 
         Assert.Equal(10, (await Reopen(tracker).TotalAsync("persisted")).TotalTokens);
     }

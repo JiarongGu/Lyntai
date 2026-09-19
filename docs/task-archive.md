@@ -4573,3 +4573,24 @@ paths (`Lifecycle/ProviderVerdict.cs`, `Llm/Caching/`, `Llm/Routing/`), invisibl
 rewrite for the third time in two days. `pitfalls.md` §Refactoring already records that shape.
 
 - **REL6 — the review's Tier-B list: ~30 internal how-to errors, none consumer-facing.**
+
+## Part 256 — the design-closure review: `TASKS.md` Part 102's three rulings, made and landed in one pass
+
+✅ done 2026-09-19 — **Outcome:** a full pre-release review (five parallel reviewers: post-D152–158 public
+surface, four-call-shape symmetry, design-doc coherence, REL2 changelog evidence, the five ungated memory
+invariants) put the three open Part 102 calls in front of the owner with costs attached, and all three were
+ruled and implemented the same day: **D159** ("dialect" is not public vocabulary; the seam renames, the
+`MediaBackendBuilderExtensions` rename, the `McpTransport` clearance and the refused prose gate),
+**D160** (`OllamaProvider` + `HttpDialect` deleted; detection moved to composition; internal
+`HttpChatEngine`/`IHttpChatWire` hold the shared invariants once), **D161** (the Breaking action rule,
+written into the changelog header; nine entries re-filed, three double-filings resolved, action sentences
+added), **D162** (shape-neutral `ProviderUsage`; governance slots on the vector/score shapes; the
+`TextResponse`-symmetry and duplicate-id-guard refusals). The review's additive findings landed with it:
+`ConfigureRouting` now reaches factory-built routers, cooldown keys are namespaced per closed shape
+(`vector::`/`score::`), `AddHttpProvider`'s declaration is derived from the built provider, and the design
+doc took five dated amendments (§5.1, §5.5, §5.6, §6, §10 — it is exempt from every prose gate, which is
+now a filed decision item). Detail: `CHANGELOG.md` Unreleased; incidents: `docs/FIXES.md` 2026-09-19.
+
+- DIALECT-1 — does this library HAVE a "dialect" concept, or only providers? → ruled: providers only (D159)
+- REL5 — `HttpDialect` is a closed enum plus an if-chain where a DI seam belongs → provider per wire (D160)
+- REL2 — what counts as BREAKING here has never been written down → the action rule (D161)

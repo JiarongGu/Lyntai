@@ -13,7 +13,7 @@ namespace Lyntai.Providers.ClaudeCli;
 /// <remarks>Every maintenance command here was verified against a live CLI (<c>--help</c> on v2.1.220)
 /// before being named. That matters more than usual for this backend: it treats an unrecognized token as a
 /// PROMPT and answers it, so a guessed subcommand costs tokens on every call while the build stays green.</remarks>
-public sealed class ClaudeCliDialect : CliProviderDialectBase
+public sealed class ClaudeCliBackend : CliBackendBase
 {
     /// <inheritdoc/>
     public override string Id => ClaudeCliProvider.ProviderId;
@@ -26,7 +26,7 @@ public sealed class ClaudeCliDialect : CliProviderDialectBase
 
     /// <summary>Print mode + stream-json, with interactive UI tools disallowed for a library call.
     /// <para>This argv ends in OPTIONS and takes its prompt on stdin, so appending the tool-host args is
-    /// correct here — which is exactly why the engine appending them for every dialect went unnoticed: the
+    /// correct here — which is exactly why the engine appending them for every backend went unnoticed: the
     /// only CLI that had driven that path is the one where it happens to work.</para></summary>
     public override IReadOnlyList<string> BuildCompletionArgs(
         TextRequest request, IReadOnlyList<string> toolHostArgs) =>
@@ -41,7 +41,7 @@ public sealed class ClaudeCliDialect : CliProviderDialectBase
             StreamJsonEventKind.AssistantText => CliOutputEvent.Content(evt.Text),
             StreamJsonEventKind.Result => CliOutputEvent.Result(evt.Text, evt.Usage),
             // The engine's in-band-failure precedence exists for exactly this and was unreachable from this
-            // dialect until 2026-08-14: a turn the CLI flagged `is_error` came back as an Ok reply carrying
+            // backend until 2026-08-14: a turn the CLI flagged `is_error` came back as an Ok reply carrying
             // whatever text had arrived. The message is the backend's OWN words, so a 401 classifies as
             // AuthFailed (which cools the host) rather than a bare Failed (which merely advances).
             StreamJsonEventKind.Failure => CliOutputEvent.Failure(evt.Text),

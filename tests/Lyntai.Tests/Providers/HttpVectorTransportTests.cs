@@ -28,12 +28,22 @@ public class HttpVectorTransportTests
         ],"model":"text-embedding-3-small","usage":{"prompt_tokens":2,"total_tokens":2}}
         """;
 
+    // Mirrors the mapping the OWNERS perform (HttpModelProvider composes the OpenAI-shaped/Azure route,
+    // OllamaProvider composes /api/embed), so these tests keep exercising the transport's wire behaviour —
+    // both response shapes, prefixes, batching, verdicts — under every endpoint an owner would hand it.
     private static HttpVectorTransport VectorProvider(StubHttpHandler handler, Action<HttpModelOptions>? configure = null)
     {
         var config = new HttpModelOptions
         { BaseUrl = "https://api.openai.com", ApiKey = "test-key", Model = "text-embedding-3-small" };
         configure?.Invoke(config);
-        return new HttpVectorTransport("openai", config, () => new HttpClient(handler, disposeHandler: false),
+        var azure = HttpEndpoint.AzureFor(config);
+        var endpoint = ProviderDetect.IsOllamaRoot(config.BaseUrl)
+            ? new Uri(config.BaseUrl.TrimEnd('/') + "/api/embed")
+            : HttpEndpoint.Build(config.BaseUrl, azure, "embeddings");
+        return new HttpVectorTransport("openai", new HttpVectorTransport.Settings(
+                endpoint, config.ApiKey, azure, config.Model,
+                config.BatchSize, config.DocumentPrefix, config.QueryPrefix),
+            () => new HttpClient(handler, disposeHandler: false),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
 
@@ -67,6 +77,48 @@ public class HttpVectorTransportTests
         var response = await vectorProvider.CallAsync(new VectorRequest(["a"]));
 
         Assert.Equal(ProviderVerdict.AuthFailed, response.Verdict);
+    }
+
+    [Fact]
+    public async Task Usage_reported_by_the_wire_reaches_the_response()
+    {
+        // the embeddings endpoint reports prompt tokens; since D162 the response carries them in the
+        // ledger's shape-neutral currency instead of dropping them on the floor
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OpenAiBodyOne);
+
+        var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
+
+        Assert.True(response.IsOk);
+        Assert.Equal(2, response.Usage!.InputTokens);   // OpenAiBodyOne says prompt_tokens: 2
+        Assert.Equal(0, response.Usage.OutputTokens);   // an embed has no completion side
+    }
+
+    [Fact]
+    public async Task Usage_is_SUMMED_across_split_batches()
+    {
+        var handler = new StubHttpHandler()
+            .Enqueue(HttpStatusCode.OK, OpenAiBodyOne)   // prompt_tokens: 2
+            .Enqueue(HttpStatusCode.OK, OpenAiBodyOne);  // prompt_tokens: 2
+
+        var response = await VectorProvider(handler, c => c.BatchSize = 1)
+            .CallAsync(new VectorRequest(["a", "b"]));
+
+        Assert.True(response.IsOk);
+        Assert.Equal(2, response.Vectors.Count);
+        Assert.Equal(4, response.Usage!.InputTokens);   // 2 + 2, one wire report per batch
+    }
+
+    [Fact]
+    public async Task A_wire_that_reports_no_usage_yields_null_rather_than_zero()
+    {
+        // "the endpoint said nothing" and "the endpoint said zero" are different facts (D162)
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
+            """{"data":[{"index":0,"embedding":[1.0,2.0,3.0]}]}""");
+
+        var response = await VectorProvider(handler).CallAsync(new VectorRequest(["a"]));
+
+        Assert.True(response.IsOk);
+        Assert.Null(response.Usage);
     }
 
     [Fact]
@@ -231,7 +283,7 @@ public class HttpVectorTransportTests
         Assert.Equal([4.0f, 5.0f, 6.0f], vectors[1]);
     }
 
-    [Fact] // Ollama dialect: the native batched /api/embed endpoint + its { embeddings: [[...]] } shape, no auth
+    [Fact] // Ollama-native wire: the batched /api/embed endpoint + its { embeddings: [[...]] } shape, no auth
     public async Task Ollama_flavor_hits_api_embed_and_parses_embeddings_array()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """

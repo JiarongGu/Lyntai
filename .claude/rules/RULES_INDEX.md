@@ -13,7 +13,7 @@ gone out of step with three of its own files before it was deleted.
 | Document | Applies when |
 |---|---|
 | [pitfalls](../knowledge/pitfalls.md) | **before extending or refactoring anything** — the traps that pass the build, and usually the tests, while being wrong |
-| [extending-lyntai](../knowledge/extending-lyntai.md) | adding a provider, generation backend, storage backend, scorer, CLI dialect, or migration |
+| [extending-lyntai](../knowledge/extending-lyntai.md) | adding a provider, generation backend, storage backend, scorer, CLI backend, or migration |
 | [llm-and-router](../knowledge/llm-and-router.md) | the router, a provider, the front door, streaming, cooldown, admission, or the CLI process runner |
 | [storage](../knowledge/storage.md) | writing SQL, adding a migration, or extending a `Lyntai.Storage.*` backend |
 | [sql-storage](../knowledge/sql-storage.md) | a query, a migration, or full-text search — the traps that return wrong data rather than failing |

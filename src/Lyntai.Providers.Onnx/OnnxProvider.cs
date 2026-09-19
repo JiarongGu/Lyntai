@@ -9,7 +9,7 @@ namespace Lyntai.Providers.Onnx;
 ///
 /// <para><b>This class is the ENGINE, and it is pure</b> (<c>docs/DECISIONS.md</c> <b>D157</b>): it opens
 /// a session, tokenizes, feeds and runs. It pools nothing and reads no logit. What a call means at each
-/// end belongs to a dialect chosen by <see cref="OnnxProviderOptions.Produces"/>, and that is what decides
+/// end belongs to a HEAD chosen by <see cref="OnnxProviderOptions.Produces"/>, and that is what decides
 /// what this provider PRODUCES — an embedding model and a reranker are the same backend with different
 /// weights, so a kind is never a reason to fork this class.</para>
 ///
@@ -28,24 +28,24 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
 {
     private readonly InferenceSession _session;
     private readonly WordPieceTokenizer _tokenizer;
-    private readonly IOnnxProviderDialect _dialect;
+    private readonly IOnnxHead _head;
     private readonly int _maxTokens;
     private readonly string _outputName;
 
     private OnnxProvider(InferenceSession session, WordPieceTokenizer tokenizer,
-        IOnnxProviderDialect dialect, int maxTokens, string id)
+        IOnnxHead head, int maxTokens, string id)
     {
         _session = session;
         _tokenizer = tokenizer;
-        _dialect = dialect;
+        _head = head;
         _maxTokens = maxTokens;
         Id = id;
-        // resolved ONCE, so a graph this dialect cannot read fails at composition rather than per call
-        _outputName = dialect.ResolveOutput(session);
+        // resolved ONCE, so a graph this head cannot read fails at composition rather than per call
+        _outputName = head.ResolveOutput(session);
         Capabilities = new ProviderCapabilities
         {
             Accepts = [ProviderKinds.Text],
-            Produces = [dialect.Produces],
+            Produces = [head.Produces],
             Operations = [ProviderOperation.Complete],
         };
     }
@@ -53,7 +53,7 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     /// <inheritdoc />
     public string Id { get; }
 
-    /// <summary>What this backend serves, DERIVED from the dialect it was given. Declaring one kind is how
+    /// <summary>What this backend serves, DERIVED from the head it was given. Declaring one kind is how
     /// it tells a router never to send it anything else; every operation it does not implement keeps
     /// <see cref="IModelProvider"/>'s default "I do not serve that" body, so declining costs no code.</summary>
     public ProviderCapabilities Capabilities { get; }
@@ -66,15 +66,15 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     public int MaxTokens => _maxTokens;
 
     /// <summary>Load an ONNX export: a graph plus <c>vocab.txt</c>, with the sequence limit — and, for the
-    /// default bi-encoder dialect, pooling and normalization — taken from the model's own
+    /// default bi-encoder (pooling) head, pooling mode and normalization — taken from the model's own
     /// <c>config.json</c>, <c>1_Pooling/config.json</c> and <c>modules.json</c>.</summary>
     /// <param name="directory">The model directory.</param>
     /// <param name="options">Knobs; null takes the model's own configuration throughout and embeds.</param>
     /// <exception cref="DirectoryNotFoundException">No such directory.</exception>
     /// <exception cref="FileNotFoundException">No ONNX graph, or no <c>vocab.txt</c> — named individually,
     /// because a partial download is the common case and its unguarded symptom is far away.</exception>
-    /// <exception cref="InvalidOperationException">The graph has no output the configured dialect can
-    /// read — for a cross-encoder, a head that cannot carry one score per pair.</exception>
+    /// <exception cref="InvalidOperationException">The graph has no output the configured head can
+    /// read — for a cross-encoder, one that cannot carry one score per pair.</exception>
     public static OnnxProvider FromDirectory(string directory, OnnxProviderOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
@@ -85,24 +85,24 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
             $"{nameof(OnnxProviderOptions)}.{nameof(OnnxProviderOptions.ModelFile)}");
         var tokenizer = WordPieceTokenizer.FromModelDirectory(directory);
 
-        // One reader for both dialects: a cross-encoder wants only the position limit, but
+        // One reader for both heads: a cross-encoder wants only the position limit, but
         // `max_position_embeddings` lives in the same config.json and one reader cannot drift.
         var config = SentenceTransformerConfig.FromDirectory(directory);
 
-        return new OnnxProvider(new InferenceSession(model), tokenizer, DialectFor(options, config),
+        return new OnnxProvider(new InferenceSession(model), tokenizer, HeadFor(options, config),
             options.MaxTokens ?? config.MaxTokens, options.Id);
     }
 
-    /// <summary>Which dialect serves the declared kind. An unknown one is refused HERE rather than
+    /// <summary>Which head serves the declared kind. An unknown one is refused HERE rather than
     /// defaulted: silently embedding for a consumer who asked to rerank is the failure this whole shape
     /// exists to avoid, and a typo in an open vocabulary is the likely way to reach it.</summary>
-    private static IOnnxProviderDialect DialectFor(OnnxProviderOptions options, SentenceTransformerConfig config)
+    private static IOnnxHead HeadFor(OnnxProviderOptions options, SentenceTransformerConfig config)
     {
         if (string.Equals(options.Produces, ProviderKinds.Vector, StringComparison.OrdinalIgnoreCase))
-            return new OnnxPoolingDialect(options.Pooling ?? config.Pooling, options.Normalize ?? config.Normalize);
+            return new OnnxPoolingHead(options.Pooling ?? config.Pooling, options.Normalize ?? config.Normalize);
 
         if (string.Equals(options.Produces, ProviderKinds.Score, StringComparison.OrdinalIgnoreCase))
-            return new OnnxCrossEncoderDialect();
+            return new OnnxCrossEncoderHead();
 
         throw new InvalidOperationException(
             $"{nameof(OnnxProviderOptions)}.{nameof(OnnxProviderOptions.Produces)} is '{options.Produces}', "
@@ -119,7 +119,7 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     {
         ArgumentNullException.ThrowIfNull(request);
         ct.ThrowIfCancellationRequested();
-        if (_dialect is not IOnnxVectorDialect vectors)
+        if (_head is not IOnnxVectorHead vectors)
             return Task.FromResult(VectorResponse.Failure(ProviderVerdict.Unsupported, NotServed(ProviderKinds.Vector)));
 
         return Task.FromResult(request.Texts.Count == 0
@@ -133,7 +133,7 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
     {
         ArgumentNullException.ThrowIfNull(request);
         ct.ThrowIfCancellationRequested();
-        if (_dialect is not IOnnxScoreDialect scores)
+        if (_head is not IOnnxScoreHead scores)
             return Task.FromResult(ScoreResponse.Failure(ProviderVerdict.Unsupported, NotServed(ProviderKinds.Score)));
 
         return Task.FromResult(request.Documents.Count == 0
@@ -141,14 +141,14 @@ public sealed class OnnxProvider : IVectorProvider, IScoreProvider, IDisposable
             : ScoreResponse.Success(scores.Score(Run, _outputName, request.Query ?? string.Empty, request.Documents)));
     }
 
-    /// <summary>The engine handed to a dialect for one call.</summary>
+    /// <summary>The engine handed to a head for one call.</summary>
     private OnnxRun Run => new(_session, _tokenizer, _maxTokens);
 
     /// <summary>Why a call was declined. <b>A router should never see this</b> — it selects on
-    /// <see cref="Capabilities"/>, which names the one kind this dialect serves, so reaching here means a
+    /// <see cref="Capabilities"/>, which names the one kind this head serves, so reaching here means a
     /// caller went round the router with the wrong call.</summary>
     private string NotServed(string kind) =>
-        $"{Id} runs a {_dialect.Produces} dialect, not {kind} — one model is one registration, so load "
+        $"{Id} runs a {_head.Produces} head, not {kind} — one model is one registration, so load "
         + $"the {kind} model under its own AddOnnxProvider call.";
 
     /// <summary>Releases the native session. Held for the container's life in normal use.</summary>

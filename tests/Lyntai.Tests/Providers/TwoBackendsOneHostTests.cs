@@ -12,7 +12,7 @@ namespace Lyntai.Tests.Providers;
 /// which methods answer — and that two of them against one server stay two, with two ids.</summary>
 public class TwoBackendsOneHostTests
 {
-    private const string Host = "http://localhost:11434";
+    private const string Host = "http://localhost:8080"; // llama-server: chat AND embeddings off one root
 
     private const string ChatBody = """
         {"choices":[{"message":{"role":"assistant","content":"hi"}}]}
@@ -78,7 +78,7 @@ public class TwoBackendsOneHostTests
 
         await provider.EmbedAsync(["a"]);
 
-        Assert.Equal($"{Host}/api/embed", Assert.Single(handler.Requests).Uri?.ToString());
+        Assert.Equal($"{Host}/v1/embeddings", Assert.Single(handler.Requests).Uri?.ToString());
     }
 
     // ---- two backends, one host ----------------------------------------------------------------------
@@ -97,14 +97,12 @@ public class TwoBackendsOneHostTests
             {
                 o.BaseUrl = Host;
                 o.Model = "llama3.1";
-                o.Dialect = HttpDialect.OpenAi;
             }, httpClient: _ => new HttpClient(handler, disposeHandler: false))
             .AddHttpProvider("local-embed", o =>
             {
                 o.BaseUrl = Host;
                 o.Model = "nomic-embed-text";
                 o.Produces = ProviderKinds.Vector;
-                o.Dialect = HttpDialect.OpenAi;
             }, httpClient: _ => new HttpClient(handler, disposeHandler: false)));
         using var sp = services.BuildServiceProvider();
 

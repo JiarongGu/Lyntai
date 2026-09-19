@@ -127,7 +127,7 @@ public class ClaudeCliProbeTests
     public void Version_line_parser_takes_the_dotted_number(string line, string? expected)
     {
         // the parse is a dotted number + an optionally LABELLED model, which is not claude-specific — it is
-        // the shared CliProviderDialectBase.ParseVersionLine every dialect inherits
+        // the shared CliBackendBase.ParseVersionLine every dialect inherits
         Assert.Equal(expected, CliVersionLine.Parse(line).Version);
     }
 

@@ -12,7 +12,7 @@ namespace Lyntai.Inference;
 /// against the configured caps and, if one is reached, REFUSES without calling a backend; after a render it
 /// records what the backend reported costing. Wired by <c>AddMediaUsageBudget()</c>.
 ///
-/// <para>It records into the SAME <see cref="IUsageTracker"/> the LLM front door uses, on purpose: "what has
+/// <para>It records into the SAME <see cref="IUsageTracker"/> the text front door (<see cref="ITextClient"/>) uses, on purpose: "what has
 /// this app spent" has to be one number, and a host that pays one vendor for both chat and images would
 /// otherwise have to add up two. A consequence worth knowing: renders and chat share the global cost cap, so
 /// an expensive render can refuse a subsequent chat call and vice versa. That is the intent — it's one
@@ -27,7 +27,7 @@ namespace Lyntai.Inference;
 /// the combined cost of the calls already in flight when the cap was crossed.</para>
 /// </summary>
 /// <param name="inner">The router being governed.</param>
-/// <param name="tracker">Shared spend ledger — the LLM front door's tracker.</param>
+/// <param name="tracker">Shared spend ledger — the text front door's tracker.</param>
 /// <param name="options">Where the caps live (<see cref="LyntaiOptions.Budget"/>).</param>
 /// <param name="logger">Optional; one line per refusal.</param>
 public sealed class BudgetedMediaRouter(
@@ -94,8 +94,10 @@ public sealed class BudgetedMediaRouter(
         }
     }
 
-    /// <summary>Record a reported cost into the shared ledger as a zero-token, cost-only entry — one place
-    /// that knows how generation spend maps onto the ledger.
+    /// <summary>Record a reported cost into the shared ledger as a cost-only entry — one place
+    /// that knows how generation spend maps onto the ledger, in the ledger's own currency
+    /// (<see cref="ProviderUsage"/> — it used to fabricate a zero-token <see cref="TextUsage"/>, the
+    /// shape-named type D162 retyped the ledger away from).
     /// <para><b>Internal.</b> Its previous doc said "public so the durable-render handler can record …", and
     /// that handler is <c>GenerationRenderJobHandler</c>, in THIS assembly — so the stated reason was
     /// satisfied by <c>internal</c> and the surface was a permanent promise nothing outside had asked for.
@@ -104,7 +106,7 @@ public sealed class BudgetedMediaRouter(
     internal static ValueTask RecordAsync(
         IUsageTracker tracker, string consumer, MediaUsage? usage, CancellationToken ct = default) =>
         usage?.CostUsd is { } cost && cost > 0
-            ? tracker.RecordAsync(consumer, new TextUsage(0, 0, 0, cost), ct)
+            ? tracker.RecordAsync(consumer, new ProviderUsage(CostUsd: cost), ct)
             : ValueTask.CompletedTask;
 
     private ValueTask RecordAsync(string consumer, MediaUsage? usage, CancellationToken ct) =>

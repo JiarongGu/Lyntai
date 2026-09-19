@@ -1,6 +1,6 @@
 ---
 name: extending-lyntai
-applies_when: adding an LLM provider, a storage backend, a scorer, a CLI tool-hosting dialect, a generation backend, or a migration
+applies_when: adding an LLM provider, a storage backend, a scorer, a CLI tool-hosting connector, a generation backend, or a migration
 enforces: an interface in Lyntai.Core + an implementation in an adapter (never adapter→adapter) + one LyntaiBuilder extension; a new package only when the dependency footprint earns one, scaffolded by new-package
 ---
 
@@ -43,12 +43,13 @@ Nothing warns; the second model simply loads, occupies memory, and is never call
 
 Four paths — pick the cheapest one that reaches your backend:
 
-**A. Is the backend reachable over HTTP in a dialect Lyntai already speaks? Then it is already supported
+**A. Is the backend reachable over HTTP on a wire Lyntai already speaks? Then it is already supported
 (preferred).** OpenAI, Azure, Ollama,
 OpenRouter, vLLM, llama-server, Groq, DeepSeek and most of the rest ship such an endpoint. You do *nothing*
-but register: `builder.AddHttpProvider("my-id", o => { o.BaseUrl = …; o.Dialect = …; })`, and one
+but register: `builder.AddHttpProvider("my-id", o => o.BaseUrl = …)` for anything OpenAI-shaped,
+`builder.AddOllamaProvider(…)` for Ollama-native (**D160**) — one
 registration serves chat, embeddings or reranking depending on `Produces`. **Only write a native provider if
-no dialect reaches it** — which, since **D146** deleted the Microsoft.Extensions.AI bridge, means a vendor
+no shipped wire reaches it** — which, since **D146** deleted the Microsoft.Extensions.AI bridge, means a vendor
 whose wire format is genuinely its own.
 
 **A3. Reachable but its OWN wire format → a BRIDGE, which is a lambda.**
@@ -59,17 +60,17 @@ no dependency on whatever you wrapped (**D147**). **Return a non-Ok `ProviderVer
 so the router can advance to the next candidate. A bridge declares only the operations you hand it a
 delegate for — omit `stream` and no router will ask it to stream.
 
-**A2. A SPAWNED CLI → write a DIALECT, not a provider.** If the backend is a command-line agent
+**A2. A SPAWNED CLI → an `ICliBackend` plus a thin provider.** If the backend is a command-line agent
 (`claude`, `codex`, or a sibling), do NOT re-implement the spawn/verdict/streaming rules — they are already in
 `CliProviderEngine` (Core, `Lyntai.Inference.Cli`), and re-deriving them is exactly how they drifted apart before
-(D21). Read `ClaudeCliDialect` and `CodexCliDialect` side by side first: they are the two worked examples, and
+(D21/D159). Read `ClaudeCliBackend` and `CodexCliBackend` side by side first: they are the two worked examples, and
 their differences (stdin vs. required repo-check flag, JSON vs. prose auth, `auth logout` vs. top-level
-`logout`, pinning vs. no pinning) show what a dialect is for. Derive from `CliProviderDialectBase` and supply
+`logout`, pinning vs. no pinning) show what a backend class is for. Derive from `CliBackendBase` and supply
 only what is specific to that CLI:
 
-<!-- compile-skip: a dialect sketch: its member bodies are elided for illustration -->
+<!-- compile-skip: a backend sketch: its member bodies are elided for illustration -->
 ```csharp
-public sealed class MyCliDialect : CliProviderDialectBase
+public sealed class MyCliBackend : CliBackendBase
 {
     public override string Id => "my-cli";
     public override string DefaultCommand => "mycli";                   // resolved on PATH (shim-safe)
@@ -85,7 +86,7 @@ public sealed class MyCliDialect : CliProviderDialectBase
 }
 ```
 
-Then a ~40-line provider that composes engine + dialect and declares which optional capabilities the
+Then a ~40-line provider that composes engine + backend and declares which optional capabilities the
 backend *actually* has (`IModelProvider` / `IProviderUpdater` / `IProviderVersionInstaller` /
 `IProviderAuth`) — copy `ClaudeCliProvider`, which is nothing but forwarding members. The engine owns:
 command resolution, neutral cwd, prompt delivery (stdin or trailing argument — set `PromptDelivery`),
@@ -105,10 +106,10 @@ Rules specific to this path:
   a warning item — must stay `Ignored`, or healthy calls fail on retries they recovered from.
 - **Check what your CLI assumes about its working directory.** The engine spawns from a neutral temp dir; codex
   needs `--skip-git-repo-check` because of it.
-- **`SupportsToolCalls` on the dialect drives ONLY the engine's ignored-tools warning.** If your dialect
+- **`SupportsToolCalls` on the backend drives ONLY the engine's ignored-tools warning.** If your backend
   returns `true`, the composing provider must declare it in its `ProviderCapabilities`
   (`SupportsToolCalls = true`) — the provider is the capability declarer (D21) and the engine does not
-  forward the dialect's answer. **It is NOT a member of `IModelProvider`**: writing
+  forward the backend's answer. **It is NOT a member of `IModelProvider`**: writing
   `public bool SupportsToolCalls => true;` on your provider compiles and is read by nothing.
   Otherwise `TextRouter.SupportsToolCalls` reports false and `ToolLoop` silently takes the prompt-based
   fallback on a backend that can do native tool calls.
@@ -116,9 +117,9 @@ Rules specific to this path:
   builder extension (D22); pass both straight through to the engine and don't read env vars yourself.
 
 **B. Native `IModelProvider`** for anything else (like `HttpModelProvider`). **Where it lives is a
-FOOTPRINT test, not one-package-per-backend** (`docs/DECISIONS.md` D25): a dialect or native provider that
+FOOTPRINT test, not one-package-per-backend** (`docs/DECISIONS.md` D25): a CLI backend or native provider that
 needs nothing beyond Core/BCL — or only managed `Microsoft.Extensions.Http` — is a class in
-`src/Lyntai.Providers.Basic/`, where `ClaudeCliDialect`, `CodexCliDialect`, `ClaudeCliProvider`,
+`src/Lyntai.Providers.Basic/`, where `ClaudeCliBackend`, `CodexCliBackend`, `ClaudeCliProvider`,
 `CodexCliProvider` and `HttpModelProvider` already live; namespaces stay `Lyntai.Providers.<Name>`
 inside the one assembly (D25), so nothing an author writes changes. It earns its own
 `src/Lyntai.Providers.<Name>/` package (ref Core only, never adapter→adapter) only when it drags a native
@@ -154,7 +155,7 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
   while `NotConfigured` skips it blamelessly and lets a host offer setup (`docs/DECISIONS.md` D31). The rule is
   **not** "a key is required": an OpenAI-shaped endpoint run locally (LM Studio, vLLM, Ollama)
   legitimately needs none, so "no key" cannot mean unconfigured on its own — only "no key AND the server
-  demanded one" does. A CLI/session-authenticated dialect has no `hasCredentials` fact at all and correctly
+  demanded one" does. A CLI/session-authenticated backend has no `hasCredentials` fact at all and correctly
   stays on the two-argument overload. The generation domain states the same rule over its own vocabulary
   (`ProviderVerdictClassifier.FromHttpFailure`); change one and check the other.
 - **Empty/no output is `Failed`, not `Ok`** — both in `CompleteAsync` and as a terminal `Error` chunk in
@@ -189,7 +190,7 @@ real number (`IModelProvider`'s own remarks). What you write is the method plus
 `Produces = [ProviderKinds.Vector]` or `[ProviderKinds.Score]`, and **the declaration is the wiring**: a
 seam that consumes the kind finds you, so a cross-encoder needs no reranker-shaped registration and no
 policy of its own — `AddMemoryScoringVerification` already selects on `Score` (**D139**), and
-`OnnxProvider` with an `OnnxCrossEncoderDialect` is the worked example. Register with `AddProvider` like every other backend — there is
+`OnnxProvider` with an `OnnxCrossEncoderHead` is the worked example. Register with `AddProvider` like every other backend — there is
 no role-named registration to choose between (**D152**). **Pass `declares` when a FACTORY produces
 `Vector`**: `AddSemanticMemory` decides at composition time, before anything is built, so an undeclared
 factory reads as "does not embed" and that call fails fast naming the argument. A backend built eagerly
@@ -209,7 +210,7 @@ for the backend; provider-specific knobs live in that call's options action; and
 own seams behind interfaces `Lyntai.Core` never sees. EF has no `UseSqlServerForReads()`, and there is no
 `Add<Kind>Provider` here for the same reason.
 
-So when one runtime serves two kinds, what varies is a **dialect**, not a class:
+So when one runtime serves two kinds, what varies is an internal **head**, not a class:
 
 <!-- compile-given: string embedDir = ""; string rerankDir = ""; -->
 <!-- compile-given: string embedDir = ""; string rerankDir = ""; -->
@@ -224,7 +225,7 @@ cfg.AddOnnxProvider(rerankDir, o =>                             // same class, s
 
 **`Produces` is the whole of the consumer surface** — the same field, doing the same job, as
 `HttpModelOptions.Produces`: *the field that decides how a call is encoded, which output is read, and which
-methods the provider answers*. Which internal dialect serves it is not consumer surface at all; the seam
+methods the provider answers*. Which internal head serves it is not consumer surface at all; the seam
 lives in `Lyntai.Providers.Onnx` and is `internal`, which is the EF property — a provider package grows its
 own seams without Core, or a consumer, learning they exist.
 
@@ -236,7 +237,7 @@ session is one graph. Copy the side your backend is actually on.
 
 **Where the EF analogy STOPS:** EF binds one provider per `DbContext`; Lyntai registers many and ROUTES
 across them with fallback and cooldown. A provider here is a candidate, not a choice — which is exactly why
-what it produces must be DATA the dialect states rather than a class the consumer picks between.
+what it produces must be DATA the head states rather than a class the consumer picks between.
 
 ---
 
@@ -315,8 +316,8 @@ and there are **thirteen**, not five: the eight in `src/Lyntai.Core/Storage/` (`
 this list omitted entirely until 2026-09-10**.
 
 **Read that omission as the warning it is.** `IMemoryGraphStore` is the LARGEST thing in the storage layer
-— a 643-line contract with **thirteen required members**, against 775 and 688 lines of relational
-implementation — and a measured cold-start probe followed these documents and produced a backend plan
+— a 669-line contract with **thirteen required members**, against 741 and 660 lines of relational
+implementation (re-measured 2026-09-19) — and a measured cold-start probe followed these documents and produced a backend plan
 without it. It is also the only one with a per-backend migration asymmetry (`.claude/knowledge/storage.md`
 §Migrations) and the only one whose contract pins an ORDER (`WriteBackAsync`, **D101**). If you are backing
 the memory engine, it is most of your work; if you are not, you can skip it like any other.
@@ -382,17 +383,17 @@ delimiter the scorer splits). Persist a preview run without writing rows via
 
 ---
 
-## Add a CLI tool-hosting dialect (`IMcpCliDialect`)
+## Add a CLI tool-hosting connector (`IMcpCliConnector`)
 
 For a CLI provider whose model runs its OWN agent loop and can only reach custom tools over MCP (the
-`claude` CLI is the reference case). **No new package** — a class + `AddMcpToolHost(new MyDialect())`.
+`claude` CLI is the reference case). **No new package** — a class + `AddMcpToolHost(new MyConnector())`.
 
 **Two MCP paths exist and they are not alternatives — know which one you are extending.** THIS one hosts the
 app's **in-process `ITool`s** on a loopback server Lyntai stands up (`McpEndpoint`, HTTP-only, bearer token,
 torn down with the `CliToolSession`). The other, `AgentSessionOptions.McpServers` / `AgentMcpServer`, points a
 CLI at MCP servers the **app already runs or launches** — stdio as well as HTTP — and is rendered per backend
-by `ClaudeMcpConfig` / `CodexMcpConfig` rather than by an `IMcpCliDialect` (`docs/DECISIONS.md` **D38**). They
-compose: an app can do both in one turn. If you are adding a CLI, you may owe BOTH — a dialect here, and a
+by `ClaudeMcpConfig` / `CodexMcpConfig` rather than by an `IMcpCliConnector` (`docs/DECISIONS.md` **D38**). They
+compose: an app can do both in one turn. If you are adding a CLI, you may owe BOTH — a connector here, and a
 rendering there.
 `Lyntai.Tools.Mcp` already owns everything neutral: the ephemeral loopback MCP server, bearer
 token, temp-file writing, teardown, and the no-tools short-circuit. You supply only the flags and the
@@ -400,7 +401,7 @@ config-file shape.
 
 <!-- compile-skip: the config-file payload is elided (`/* JSON or TOML, from ctx.Endpoint */`) -->
 ```csharp
-public sealed class MyCliMcpDialect : IMcpCliDialect
+public sealed class MyCliMcpConnector : IMcpCliConnector
 {
     public string ProviderId => "my-cli";        // the provisioner is registered KEYED on this
 
@@ -416,7 +417,7 @@ Load-bearing details:
 - **Write config files ONLY through `ctx.WriteTempFile`.** It applies owner-only permissions (the file
   carries the bearer token) and registers the path for deletion when the session ends. A file you write
   yourself leaks a credential into temp.
-- **`IMcpCliDialect` lives in Core, deliberately** — so a *provider* package can ship its dialect without
+- **`IMcpCliConnector` lives in Core, deliberately** — so a *provider* package can ship its connector without
   referencing the MCP package. **Never make a provider package reference `Lyntai.Tools.Mcp`**:
   it drags the MCP SDK (`ModelContextProtocol.Core`) into every app using the plain provider, and the
   MCP package opts out of AOT for its dynamic-JSON tool marshaling — so the provider would lose
@@ -427,13 +428,13 @@ Load-bearing details:
 - **Derive names from `ctx.Endpoint.ServerName`**, never hard-code `"lyntai"` — it's configurable via
   `McpToolHostOptions`, and CLIs that build permission patterns from it (`mcp__<server>__*`) break if the
   two disagree.
-- **Don't add a convenience package that composes host + dialect.** One existed
+- **Don't add a convenience package that composes host + connector.** One existed
   (`Lyntai.Providers.ClaudeCli.Mcp`) and was deleted: a package id whose only value is saving the caller
-  `new MyDialect()` isn't worth its versioning and doc footprint, and it was the tree's only
+  `new MyConnector()` isn't worth its versioning and doc footprint, and it was the tree's only
   adapter→adapter reference. The app composes the two halves itself — that's the normal DI story.
 
 Tests need no CLI binary: hand `BuildArgsAsync` an `McpCliContext` with a recording writer and assert the
-argv + file contents (`ClaudeCliMcpDialectTests`). The host itself is covered generically by
+argv + file contents (`ClaudeCliMcpConnectorTests`). The host itself is covered generically by
 `McpToolHostTests`.
 
 ---

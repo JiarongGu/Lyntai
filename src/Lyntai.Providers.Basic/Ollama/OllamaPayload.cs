@@ -1,8 +1,9 @@
 using System.Text.Json.Nodes;
 using Lyntai.Inference;
+using Lyntai.Providers.Http.Payloads;
 using Microsoft.Extensions.Logging;
 
-namespace Lyntai.Providers.Http.Payloads;
+namespace Lyntai.Providers.Ollama;
 
 /// <summary>Canonical <see cref="TextRequest"/> → Ollama /api/chat schema: sampling knobs live under
 /// <c>options</c> (num_predict/num_ctx), structured output is a top-level <c>format</c> schema object.</summary>

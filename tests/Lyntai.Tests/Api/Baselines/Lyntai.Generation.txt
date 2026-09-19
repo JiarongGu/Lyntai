@@ -105,7 +105,7 @@ sealed class Lyntai.Generation.Providers.OpenAiImageProvider
     GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
     Id : String
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
-static class Lyntai.GenerationProviderBuilderExtensions
+static class Lyntai.MediaBackendBuilderExtensions
     static AddAutomatic1111Provider(LyntaiBuilder builder, Action<Automatic1111Options> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddComfyUiProvider(LyntaiBuilder builder, Action<ComfyUiOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddFalProvider(LyntaiBuilder builder, Action<FalQueueOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder

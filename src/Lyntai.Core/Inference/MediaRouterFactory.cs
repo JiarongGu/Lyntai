@@ -86,7 +86,7 @@ public sealed class MediaRouterFactory(
         return Compose(new MediaRouter(providers, policy, deadHosts));
     }
 
-    /// <summary>Governance, in the order the LLM front door uses: the limiter sits INSIDE the budget, so a
+    /// <summary>Governance, in the order the text front door (<see cref="ITextClient"/>) uses: the limiter sits INSIDE the budget, so a
     /// call refused for spend never spends a permit.</summary>
     private IMediaRouter Compose(IMediaRouter router)
     {

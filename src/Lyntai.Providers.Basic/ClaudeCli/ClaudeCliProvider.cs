@@ -13,7 +13,7 @@ namespace Lyntai.Providers.ClaudeCli;
 /// seams are what let tests/e2e point at the deterministic stub.
 ///
 /// Everything generic about driving a CLI backend lives in <see cref="CliProviderEngine"/>; everything
-/// specific to THIS CLI lives in <see cref="ClaudeCliDialect"/>. This type is the composition of the two,
+/// specific to THIS CLI lives in <see cref="ClaudeCliBackend"/>. This type is the composition of the two,
 /// plus the declaration of which OPTIONAL capabilities the claude CLI actually has — which is why it is a
 /// dozen forwarding members rather than a second copy of the spawn/verdict/streaming rules.
 /// </summary>
@@ -42,7 +42,7 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
         string? command = null,
         ICliToolProvisioner? provisioner = null,
         IReadOnlyDictionary<string, string>? environment = null)
-        => _engine = new CliProviderEngine(new ClaudeCliDialect(), runner, options, logger, command, provisioner, environment);
+        => _engine = new CliProviderEngine(new ClaudeCliBackend(), runner, options, logger, command, provisioner, environment);
 
     /// <inheritdoc/>
     public string Id => ProviderId;
@@ -101,7 +101,7 @@ public sealed class ClaudeCliProvider : IModelProvider, IProviderUpdater,
     public Task<ProviderAuthStatus> StatusAsync(CancellationToken ct = default) => _engine.StatusAsync(ct);
 
     /// <summary>Start the CLI's sign-in flow (<c>claude auth login</c>), then report the state it left behind.
-    /// BLOCKS until the flow completes, fails, or the dialect's 10-minute budget expires — the CLI opens a
+    /// BLOCKS until the flow completes, fails, or the backend's 10-minute budget expires — the CLI opens a
     /// browser and waits, so a UI should show a spinner rather than poll <see cref="StatusAsync"/>. Cancelling
     /// <paramref name="ct"/> abandons the wait (and kills the process tree).</summary>
     /// <remarks><see cref="ProviderAuthResult.Succeeded"/> means the command reported success;

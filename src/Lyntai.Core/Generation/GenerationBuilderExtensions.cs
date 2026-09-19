@@ -41,6 +41,9 @@ public sealed class MediaOptions
     public TimeSpan ProbeDeadline { get; set; } = TimeSpan.FromSeconds(20);
 }
 
+/// <summary>Wires the media MACHINERY — the router, its governance decorators and the generation tools —
+/// as distinct from registering a media BACKEND, which goes through <c>AddProvider</c> or a vendor preset
+/// like every other backend (<c>docs/DECISIONS.md</c> D156).</summary>
 public static class GenerationBuilderExtensions
 {
     /// <summary>Wire media ROUTING: the router, its factory, the options and the pool it needs. Idempotent,

@@ -12,7 +12,7 @@ namespace Lyntai.Storage.Sqlite;
 /// </summary>
 public sealed class SqliteUsageTracker(IDbConnectionFactory factory) : IUsageTracker
 {
-    public async ValueTask RecordAsync(string consumer, TextUsage usage, CancellationToken ct = default)
+    public async ValueTask RecordAsync(string consumer, ProviderUsage usage, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""

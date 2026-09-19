@@ -6,8 +6,8 @@ namespace Lyntai.Inference.Cli;
 /// <summary>Reads what a CLI's <c>--version</c> banner can tell us. Tolerant by design: the line is the
 /// backend's own free-form text (<c>"2.1.220 (Claude Code)"</c>), so anything unrecognized yields null
 /// rather than a throw or a guess — the raw line is still handed back to the caller as
-/// <see cref="ProviderProbeResult.Detail"/>. Shared by every CLI dialect that doesn't override
-/// <see cref="ICliProviderDialect.ParseVersionLine"/>.</summary>
+/// <see cref="ProviderProbeResult.Detail"/>. Shared by every CLI backend that doesn't override
+/// <see cref="ICliBackend.ParseVersionLine"/>.</summary>
 internal static partial class CliVersionLine
 {
     /// <summary>Extract the dotted version number and — only if the line explicitly labels one — a model id.</summary>

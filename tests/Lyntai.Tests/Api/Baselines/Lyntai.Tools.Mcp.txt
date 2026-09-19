@@ -2,7 +2,7 @@ static class Lyntai.McpBuilderExtensions
     static AddMcpTools(LyntaiBuilder builder, IEnumerable<ITool> mcpTools) : LyntaiBuilder
     static AddMcpTools(LyntaiBuilder builder, ITool[] mcpTools) : LyntaiBuilder
 static class Lyntai.McpToolHostBuilderExtensions
-    static AddMcpToolHost(LyntaiBuilder builder, IMcpCliDialect dialect, Action<McpToolHostOptions> configure = null) : LyntaiBuilder
+    static AddMcpToolHost(LyntaiBuilder builder, IMcpCliConnector connector, Action<McpToolHostOptions> configure = null) : LyntaiBuilder
 sealed class Lyntai.Tools.Mcp.Hosting.McpToolHostOptions
     .ctor()
     BindAddress : String

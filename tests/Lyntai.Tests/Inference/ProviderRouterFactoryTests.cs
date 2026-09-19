@@ -84,6 +84,102 @@ public class ProviderRouterFactoryTests
         Assert.Equal(3, good.Calls);  // and the healthy one still answers every call
     }
 
+    private sealed class FlakyVectorProvider(string id) : IVectorProvider
+    {
+        public string Id { get; } = id;
+        public bool IsAvailable => true;
+        public int Calls { get; private set; }
+
+        public ProviderCapabilities Capabilities { get; } = new()
+        {
+            Accepts = [ProviderKinds.Text],
+            Produces = [ProviderKinds.Vector],
+            Operations = [ProviderOperation.Complete],
+        };
+
+        public Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default) =>
+            Task.FromResult(++Calls == 1
+                ? VectorResponse.Failure(ProviderVerdict.Failed, "transient")
+                : VectorResponse.Success([[1f, 2f]]));
+    }
+
+    private sealed class StubScoreProvider(string id) : IScoreProvider
+    {
+        public string Id { get; } = id;
+        public bool IsAvailable => true;
+
+        public ProviderCapabilities Capabilities { get; } = new()
+        {
+            Accepts = [ProviderKinds.Text],
+            Produces = [ProviderKinds.Score],
+            Operations = [ProviderOperation.Complete],
+        };
+
+        public Task<ScoreResponse> CallAsync(ScoreRequest request, CancellationToken ct = default) =>
+            Task.FromResult(ScoreResponse.Failure(ProviderVerdict.Failed, "down"));
+    }
+
+    [Fact]
+    public async Task The_CONFIGURED_routing_policy_reaches_a_factory_built_router()
+    {
+        // ConfigureRouting used to reach chat alone: the factory never passed the configured policy, so
+        // vector and score always routed on RoutingPolicy's defaults and an operator's retries were
+        // silently ignored for those kinds.
+        var flaky = new FlakyVectorProvider("flaky");
+        var options = new LyntaiOptions();
+        options.Routing.Retry(ProviderVerdict.Failed, 1);
+        var factory = new ProviderRouterFactory(new DeadHostTracker(), options: options);
+
+        var router = factory.For<VectorRequest, VectorResponse>(
+            new IModelProvider[] { flaky }, VectorResponse.Failure,
+            c => c.Supports(ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+
+        Assert.True((await CallAsync(router)).IsOk); // failed once, retried per the CONFIGURED policy
+        Assert.Equal(2, flaky.Calls);
+    }
+
+    [Fact]
+    public async Task An_EXPLICIT_policy_still_wins_over_the_configured_one()
+    {
+        var flaky = new FlakyVectorProvider("flaky");
+        var options = new LyntaiOptions();
+        options.Routing.Retry(ProviderVerdict.Failed, 1);
+        var factory = new ProviderRouterFactory(new DeadHostTracker(), options: options);
+
+        var router = factory.For<VectorRequest, VectorResponse>(
+            new IModelProvider[] { flaky }, VectorResponse.Failure,
+            c => c.Supports(ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text),
+            policy: new RoutingPolicy()); // no retries
+
+        Assert.False((await CallAsync(router)).IsOk);
+        Assert.Equal(1, flaky.Calls);
+    }
+
+    [Fact]
+    public async Task A_score_failure_never_benches_a_vector_backend_sharing_the_same_id()
+    {
+        // Reachable in a default configuration: AddOnnxProvider defaults Id = "onnx", so an embedder and a
+        // reranker both keyed on the bare id shared one bench — a failing reranker silenced recalls. The
+        // factory now scopes cooldown keys per closed shape ("vector::onnx" / "score::onnx"), the same rule
+        // MediaRouter already applies with its "generation::" prefix.
+        var tracker = new DeadHostTracker(threshold: 1);
+        var factory = new ProviderRouterFactory(tracker);
+        var vector = new StubVectorProvider("onnx");
+        var score = new StubScoreProvider("onnx");
+        IModelProvider[] all = [vector, score];
+
+        var scoreRouter = factory.For<ScoreRequest, ScoreResponse>(all, ScoreResponse.Failure,
+            c => c.Supports(ProviderKinds.Score, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+        Assert.False((await scoreRouter.CallAsync(new ScoreRequest("q", ["d"]))).IsOk); // benches score::onnx
+
+        var vectorRouter = factory.For<VectorRequest, VectorResponse>(all, VectorResponse.Failure,
+            c => c.Supports(ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text));
+        var reply = await CallAsync(vectorRouter);
+
+        Assert.True(reply.IsOk);          // the embedder was ASKED — the reranker's bench is not its bench
+        Assert.Equal(1, vector.Calls);
+    }
+
     [Fact]
     public async Task A_null_provider_set_routes_to_nothing_rather_than_throwing()
     {

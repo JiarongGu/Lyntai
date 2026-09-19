@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace Lyntai.Providers.Http;
 
 /// <summary>
-/// The HTTP error-reporting conventions every HTTP surface in this package shares, whichever dialect — the chat
+/// The HTTP error-reporting conventions every HTTP surface in this package shares, whichever wire — the chat
 /// provider and the vector backend read and trim a failure body identically, so it lives here once for the same
 /// reason <see cref="HttpEndpoint"/> does: two copies drift silently, and the drift shows up as a worse
 /// diagnostic on one surface only.

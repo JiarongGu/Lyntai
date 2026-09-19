@@ -13,7 +13,7 @@ internal static class CrossEncoderLogits
     /// <para><b>It exists so the refusal can be made where something is still listening.</b> Thrown from
     /// <see cref="Read"/> it reaches <c>ScoringVerificationPolicy</c>, which is fail-open by contract and
     /// reports <c>NoOpinion</c> — so a multi-label export arrives at a deployment as *every recall silently
-    /// unverified*. <see cref="OnnxCrossEncoderDialect.ResolveOutput"/> asks the same question of
+    /// unverified*. <see cref="OnnxCrossEncoderHead.ResolveOutput"/> asks the same question of
     /// <c>OutputMetadata</c> instead, where a throw still stops something.</para>
     ///
     /// <para>ONNX declares a dynamic axis as <c>-1</c>, so a graph that leaves its label count open is

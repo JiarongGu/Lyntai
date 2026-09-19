@@ -188,7 +188,7 @@ export default {
       // HttpModelOptions.Produces. Which internal dialect serves it is not consumer surface at all.
       //
       // `CrossEncoderLogits` and the WORD cross-encoder are untouched (D139): the technique keeps its name,
-      // and `OnnxCrossEncoderDialect` is where it now lives.
+      // and `OnnxCrossEncoderHead` is where it now lives.
       names: ['OnnxCrossEncoder', 'AddOnnxCrossEncoder', 'OnnxCrossEncoderOptions'],
       use: '`AddOnnxProvider(dir, o => o.Produces = ProviderKinds.Score)`, and `OnnxProviderOptions` '
         + 'for its knobs',
@@ -325,8 +325,8 @@ export default {
         + 'whole release (D136)',
     },
     {
-      // D135. `OpenAiPayload` and the `HttpDialect.OpenAi` MEMBER are deliberately absent: they name
-      // OpenAI's actual schema, which is one of four dialects and correctly called that.
+      // D135. `OpenAiPayload` is deliberately absent: it names OpenAI's actual schema, which really is
+      // what that payload builder emits. (`HttpDialect` itself was later deleted outright — D160.)
       names: [
         'AddOpenAiCompatible',
         'AddOpenAiCompatibleProvider',
@@ -338,11 +338,11 @@ export default {
         'OpenAiFlavor',
         'OpenAiHttp',
       ],
-      use: '`AddHttpProvider` / `HttpModelProvider` / `HttpModelOptions` / `HttpDialect` in '
-        + '`Lyntai.Providers.Http`',
-      why: 'the family is not OpenAI — the Ollama dialect posts /api/chat and /api/embed, which that '
-        + 'vendor documents as NOT OpenAI-compatible, so the name was false for one dialect and centred a '
-        + 'vendor for all four (D135)',
+      use: '`AddHttpProvider` / `HttpModelProvider` / `HttpModelOptions` in `Lyntai.Providers.Http`, or '
+        + '`AddOllamaProvider` for Ollama-native',
+      why: 'the family is not OpenAI — Ollama-native posts /api/chat and /api/embed, which that '
+        + 'vendor documents as NOT OpenAI-compatible, so the name was false for one wire and centred a '
+        + 'vendor for the rest (D135; the wires are separate providers since D160)',
     },
     {
       // D130. `Kinds` and `Embed` are whole-identifier tokens, so `ProviderKinds` and every `EmbedAsync`
@@ -611,6 +611,35 @@ export default {
         + 'carrying all three made every seed source\'s knobs live on an unrelated type, and let a query '
         + 'against one silently narrow another (docs/DECISIONS.md D88)',
     },
+    {
+      // D159 retired "dialect" from the public vocabulary: the public extension point is always a
+      // PROVIDER, and each so-named seam was really something else — the CLI seam a backend DESCRIPTION,
+      // the MCP seam a CONNECTOR, the ONNX one an internal HEAD (already invisible). The parameter names
+      // (`dialect` on CliProviderEngine, CodexCliProvider, AddCodexCliProvider, AddMcpToolHost) moved with
+      // the types — a named argument is public API, the trap D47's deferral already paid for once.
+      names: [
+        'ICliProviderDialect', 'CliProviderDialectBase', 'ClaudeCliDialect', 'CodexCliDialect',
+        'IMcpCliDialect', 'ClaudeCliMcpDialect', 'dialect',
+      ],
+      use: '`ICliBackend` / `CliBackendBase` / `ClaudeCliBackend` / `CodexCliBackend` (parameter name '
+        + '`backend`), and `IMcpCliConnector` / `ClaudeCliMcpConnector` (parameter name `connector`)',
+      why: 'the library has no dialect concept — what it has is a different interface and a different '
+        + 'provider (docs/DECISIONS.md D159); the word survives only where it names someone else\'s '
+        + 'language family, e.g. a SQL dialect in the storage packages',
+    },
+    {
+      // D160 DELETED the enum rather than renaming it: Ollama-native is its own provider class, exactly
+      // as each CLI and media backend is, so there is no per-call wire selector left to name. The two
+      // HttpModelOptions members went with it — `Dialect` was the selector, `OllamaContextSize` moved to
+      // `OllamaOptions.ContextSize`, where it can no longer be set on a backend that silently ignores it.
+      names: ['HttpDialect', 'OllamaContextSize', 'GenerationProviderBuilderExtensions'],
+      use: '`AddOllamaProvider` (`OllamaOptions`) for Ollama-native, `AddHttpProvider` '
+        + '(`HttpModelOptions.AzureConventions` for Azure\'s URL/auth rules) for the OpenAI-shaped wire; '
+        + 'the media presets live on `MediaBackendBuilderExtensions`',
+      why: 'a closed public enum read by if-chains across five files is a variation point in the wrong '
+        + 'place, and its members conflated a wire schema, a URL/auth convention and a vendor tag with no '
+        + 'behavior (docs/DECISIONS.md D160)',
+    },
   ],
 
   /**
@@ -667,7 +696,7 @@ export default {
       // D146. `Lyntai.ExtensionsAi` the NAMESPACE is absent: it is the name the bridge would return under.
       term: '\\bExtensionsAiProvider\\b|\\bAddExtensionsAiProvider\\b|\\bExtensionsAiBuilderExtensions\\b|\\bLyntaiChatClient\\b|\\bLyntaiChatClientExtensions\\b|\\bAsChatClient\\b|\\bLyntaiToolDeclaration\\b|\\bLlmVerdictException\\b',
       why: 'the Microsoft.Extensions.AI bridge is deleted; its trigger to return is in D146',
-      use: '`AddHttpProvider` for any backend reachable in a shipped HttpDialect',
+      use: '`AddHttpProvider` for any OpenAI-shaped backend, `AddOllamaProvider` for Ollama-native',
     },
     {
       // D145 retired this namespace and D146 then deleted the module under it, so there is no replacement
@@ -721,7 +750,7 @@ export default {
       why: 'the Microsoft.Extensions.AI bridge is DELETED (D146); a sentence offering it as a live routing '
         + 'target is advertising a feature that is gone',
       use: '`AddBridgeProvider` (a lambda, so it costs the library no dependency — D147), or '
-        + '`AddHttpProvider` for anything reachable in a shipped HttpDialect',
+        + '`AddHttpProvider` / `AddOllamaProvider` for a wire the library already speaks',
     },
     {
       // D140. The prose half; the input-role vocabulary is absent for the reason on the surface rule

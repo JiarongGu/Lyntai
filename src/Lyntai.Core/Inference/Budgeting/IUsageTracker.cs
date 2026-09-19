@@ -11,8 +11,10 @@ namespace Lyntai.Inference.Budgeting;
 /// In-memory implementations just return synchronously-completed ValueTasks.</summary>
 public interface IUsageTracker
 {
-    /// <summary>Record one call's usage under a consumer tag.</summary>
-    ValueTask RecordAsync(string consumer, TextUsage usage, CancellationToken ct = default);
+    /// <summary>Record one call's spend under a consumer tag. The currency is the shape-neutral
+    /// <see cref="ProviderUsage"/>, because this ledger serves EVERY kind — the per-shape reports project
+    /// into it (<see cref="TextUsage.ToProviderUsage"/>, <see cref="MediaUsage.ToProviderUsage"/>).</summary>
+    ValueTask RecordAsync(string consumer, ProviderUsage usage, CancellationToken ct = default);
 
     /// <summary>Accumulated totals for <paramref name="consumer"/>, or the global total across all
     /// consumers when null. Consumer identity is case-INSENSITIVE (totals aggregate across casings,

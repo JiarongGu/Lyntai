@@ -25,11 +25,11 @@ public class CodexCliProviderTests
         // options land before the `-`, and says why in its own words: "an option landing after the `-` would
         // be read as part of the [PROMPT] positional, and on this CLI a swallowed flag is a SPENT TURN
         // rather than an error." The AGENT path honoured that (CodexAgentArgs passes mcpArgs through it);
-        // the COMPLETION path structurally could not, because ICliProviderDialect.BuildCompletionArgs took
+        // the COMPLETION path structurally could not, because ICliBackend.BuildCompletionArgs took
         // only the request — so CliProviderEngine appended the tool-host args AFTER the dialect's argv, i.e.
         // after the `-`. It never bit only because claude is the sole CLI that has driven that path and its
         // argv happens to end in an option.
-        var dialect = new CodexCliDialect();
+        var dialect = new CodexCliBackend();
 
         var argv = dialect.BuildCompletionArgs(
             new TextRequest { Messages = [TextMessage.User("hi")] },
@@ -47,7 +47,7 @@ public class CodexCliProviderTests
     public void A_dialect_with_no_tool_host_args_builds_exactly_what_it_always_did()
     {
         // The control: the seam change must be free for every caller that hosts no tools, which is most.
-        var argv = new CodexCliDialect()
+        var argv = new CodexCliBackend()
             .BuildCompletionArgs(new TextRequest { Messages = [TextMessage.User("hi")] }, []).ToList();
 
         Assert.Equal("-", argv[^1]);
@@ -137,7 +137,7 @@ public class CodexCliProviderTests
     {
         var runner = new FakeProcessRunner { RunResult = Ok("") };
         var provider = new CodexCliProvider(runner, new LyntaiOptions(), command: "codex",
-            dialect: new CodexCliDialect { SandboxMode = "workspace-write" });
+            backend: new CodexCliBackend { SandboxMode = "workspace-write" });
 
         await provider.CompleteAsync(Ask());
 

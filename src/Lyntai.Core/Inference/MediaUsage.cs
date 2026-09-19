@@ -6,4 +6,9 @@ namespace Lyntai.Inference;
 /// <param name="Count">Number of artifacts billed.</param>
 /// <param name="Seconds">Duration produced, for time-based media.</param>
 /// <param name="CostUsd">What the backend said it cost.</param>
-public sealed record MediaUsage(int? Count = null, double? Seconds = null, double? CostUsd = null);
+public sealed record MediaUsage(int? Count = null, double? Seconds = null, double? CostUsd = null)
+{
+    /// <summary>This render's spend in the ledger's shape-neutral currency (<see cref="ProviderUsage"/>) —
+    /// the cost alone, because counts and seconds are not tokens and the platform never invents a price.</summary>
+    public ProviderUsage ToProviderUsage() => new(CostUsd: CostUsd);
+}

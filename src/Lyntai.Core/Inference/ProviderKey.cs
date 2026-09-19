@@ -30,11 +30,12 @@ public readonly record struct ProviderKey(string Slot, string Fingerprint)
     /// <c>default</c> instance (reachable, for example, from a <c>TryGetKey</c>-style out parameter on a
     /// miss), which renders with an <c>(unset)</c> fingerprint instead of faulting.
     ///
-    /// <para><b>Also load-bearing, so it is not free to change for presentation.</b> Both routers key a
+    /// <para><b>Also load-bearing, so it is not free to change for presentation.</b> Every router keys a
     /// pooled provider's dead-host cooldown on exactly this string — <c>TextRouter</c> on it as-is,
-    /// <c>MediaRouter</c> on it behind a <c>generation::</c> prefix — including the 12-character
-    /// fingerprint prefix. Re-formatting it to read better in a log re-keys every bench in flight, silently
-    /// clearing the cooldowns the tracker is holding.</para></summary>
+    /// <c>MediaRouter</c> behind a <c>generation::</c> prefix, a factory-built
+    /// <c>ProviderRouter&lt;,&gt;</c> behind its closed shape's prefix (<c>vector::</c>, <c>score::</c>) —
+    /// including the 12-character fingerprint prefix. Re-formatting it to read better in a log re-keys every
+    /// bench in flight, silently clearing the cooldowns the tracker is holding.</para></summary>
     public override string ToString() =>
         string.IsNullOrEmpty(Fingerprint)
             ? $"{Slot}#(unset)"

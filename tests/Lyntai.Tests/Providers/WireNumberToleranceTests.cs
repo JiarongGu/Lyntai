@@ -56,12 +56,15 @@ public class WireNumberToleranceTests
     [Fact]
     public async Task An_ollama_eval_count_that_is_not_an_integer_still_returns_the_reply()
     {
-        // the other usage shape the same reader covers: Ollama's root-level counts, no `usage` object
+        // the same tolerant read on the Ollama-native wire: root-level counts, no `usage` object (its own
+        // provider since D160, so this constructs it rather than pointing the OpenAI-shaped one at 11434)
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK,
             """{"message":{"role":"assistant","content":"from ollama"},"done":true,"prompt_eval_count":7,"eval_count":3.5}""");
+        var provider = new Lyntai.Providers.Ollama.OllamaProvider("ollama", new Lyntai.Providers.Ollama.OllamaOptions(),
+            () => new HttpClient(handler, disposeHandler: false),
+            new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
 
-        var reply = await Provider(handler, c => { c.BaseUrl = "http://localhost:11434"; c.ApiKey = null; })
-            .CompleteAsync(Req);
+        var reply = await provider.CompleteAsync(Req);
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal(7, reply.Usage!.InputTokens);

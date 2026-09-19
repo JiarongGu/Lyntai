@@ -29,6 +29,11 @@ namespace Lyntai.Inference;
 /// shape and be CONFIGURED not to serve it — <c>HttpModelProvider</c> implements the vector shape whatever
 /// its <c>Produces</c> says — so the type test alone would route a chat-only endpoint an embed call. Null
 /// asks the type test only, which is right for a shape whose implementers always serve it.</param>
+/// <param name="cooldownScope">Prefix namespacing this router's cooldown keys per DOMAIN (the rule
+/// <c>MediaRouter</c>'s <c>generation::</c> prefix already applies), so a reranker's outage never benches
+/// an embedder that happens to share an id — reachable in a default configuration, because
+/// <c>AddOnnxProvider</c> defaults both ids to <c>"onnx"</c>. Null keys on the bare configuration/id, which
+/// is only safe where one kind is in play; <see cref="IProviderRouterFactory"/> always scopes.</param>
 /// <param name="logger">Null = no logging.</param>
 public sealed class ProviderRouter<TRequest, TResponse>(
     IEnumerable<IModelProvider> providers,
@@ -38,6 +43,7 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     DeadHostTracker? deadHosts = null,
     IProviderAdmission? admission = null,
     Func<IModelProvider, ProviderKey?>? configuration = null,
+    string? cooldownScope = null,
     ILogger? logger = null)
     where TResponse : class, IProviderOutcome
 {
@@ -165,5 +171,5 @@ public sealed class ProviderRouter<TRequest, TResponse>(
     }
 
     private string CooldownKey(IModelProvider provider) =>
-        _configuration(provider)?.ToString() ?? provider.Id;
+        cooldownScope + (_configuration(provider)?.ToString() ?? provider.Id);
 }

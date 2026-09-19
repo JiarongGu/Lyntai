@@ -143,7 +143,10 @@ public static class LyntaiServiceCollectionExtensions
             new Lyntai.Inference.ProviderRouterFactory(
                 sp.GetRequiredService<DeadHostTracker>(),
                 sp.GetService<Lyntai.Inference.IProviderPool<IModelProvider>>(),
-                sp.GetService<Lyntai.Inference.IProviderAdmission>()));
+                sp.GetService<Lyntai.Inference.IProviderAdmission>(),
+                // the CONFIGURED routing policy (ConfigureRouting) reaches every kind through here —
+                // it used to reach chat alone, and an operator's retries were silently text-only
+                sp.GetService<LyntaiOptions>()));
     }
 
     /// <summary>The LLM front door: process runner, dead-host tracker, router, and the consumer

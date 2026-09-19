@@ -144,8 +144,11 @@ not hand-roll the loop. The CLI providers pass NO clock (their window is `Proces
 N consecutive failures → dead for a cooldown window; any success resets. Clock is injected
 (`Func<DateTimeOffset>`), never `DateTime.Now`, so it's deterministically testable. All state access is under
 a lock. `MarkDead` benches immediately (RateLimited/AuthFailed); `RecordFailure` counts toward the threshold
-(Failed/Timeout). Keys are prefixed per domain, so a chat outage never benches a generation backend that
-happens to share its id.
+(Failed/Timeout). Keys are namespaced per domain — `TextRouter` keys bare (the historical format, which is
+why it must not change), `MediaRouter` behind `generation::`, and every factory-built `ProviderRouter<,>`
+behind its closed shape (`vector::`, `score::`, an app kind's own) — so a chat outage never benches a
+generation backend that shares its id, nor a failing reranker the embedder beside it (`AddOnnxProvider`
+defaults both ids to `"onnx"`, so the unprefixed version of this claim was false and reachable).
 
 **The bench key is no longer necessarily the provider id.** Both routers take an optional
 `Func<TProvider, ProviderKey?> configuration` delegate; the key for a candidate is
@@ -217,7 +220,7 @@ so a slow-but-alive turn finishes while a child gone SILENT for the window is ki
 stalls but never finishes) and reports `ProcessResult.TimeoutKind` = `Inactivity` vs `MaxDuration` so the
 two are distinguishable; `CliProviderEngine.CompleteAsync` passes the resolved timeout as the inactivity
 window and `MaxProviderTimeout` as the backstop — never below the window, so a consumer budget above the
-ceiling raises it rather than the reverse — for EVERY dialect, claude and codex alike (the per-CLI providers
+ceiling raises it rather than the reverse — for EVERY backend, claude and codex alike (the per-CLI providers
 are forwarding members; the clocks are the engine's, D21). Do NOT reintroduce a single wall-clock
 `CancelAfter` over the whole
 buffered call — it kills healthy slow turns (the streaming-timeout trap, same failure mode). Tests stub the

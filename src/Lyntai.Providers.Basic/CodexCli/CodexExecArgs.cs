@@ -1,7 +1,7 @@
 namespace Lyntai.Providers.CodexCli;
 
 /// <summary>The ONE place that knows how to ask the <c>codex</c> CLI for a non-interactive turn. Both codex
-/// seams build their argv here — the text completion (<see cref="CodexCliDialect.BuildCompletionArgs"/>,
+/// seams build their argv here — the text completion (<see cref="CodexCliBackend.BuildCompletionArgs"/>,
 /// through <see cref="Lyntai.Inference.Cli.CliProviderEngine"/>) and the self-driving agent session
 /// (<see cref="CodexAgentSession"/>) — so a flag can never be present on one path and missing from the other.
 ///
@@ -12,7 +12,7 @@ namespace Lyntai.Providers.CodexCli;
 /// rather than an argv of its own.</para>
 ///
 /// Every flag below was MEASURED against codex-cli 0.146.0 (2026-08-04; the <c>exec resume</c> shape
-/// 2026-08-05) — see <see cref="CodexCliDialect"/>'s remarks for the measurement and for why a GUESSED
+/// 2026-08-05) — see <see cref="CodexCliBackend"/>'s remarks for the measurement and for why a GUESSED
 /// subcommand is dangerous on this CLI (<c>codex [OPTIONS] [PROMPT]</c> reads an unrecognized subcommand as a
 /// prompt and spends a turn on it).</summary>
 internal static class CodexExecArgs
@@ -51,7 +51,7 @@ internal static class CodexExecArgs
     /// ("Resume the most recent recorded session"), which would quietly resume the WRONG thread, and
     /// <c>-i &lt;file&gt;</c>, which would eat the next argument. Values travel as separate argument-list
     /// entries, never through a shell, so this is not shell injection — it is the backend's own parser
-    /// reading a data slot as an option (same guard as <c>ClaudeCliDialect</c>'s version/email slots).</para></summary>
+    /// reading a data slot as an option (same guard as <c>ClaudeCliBackend</c>'s version/email slots).</para></summary>
     /// <param name="sandboxMode">As <see cref="Build"/>.</param>
     /// <param name="model">As <see cref="Build"/>.</param>
     /// <param name="resumeToken">The caller's opaque resume handle (a prior run's session id).</param>

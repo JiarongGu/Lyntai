@@ -173,25 +173,6 @@ public class HttpModelProviderTests
     }
 
     [Fact]
-    public async Task Ollama_tool_calls_response_normalizes_object_arguments_and_synthesizes_an_id()
-    {
-        // Ollama shape: top-level message, arguments as an OBJECT, no id
-        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """
-            {"message":{"role":"assistant","content":"","tool_calls":[
-              {"function":{"name":"get_weather","arguments":{"city":"Paris"}}}
-            ]},"done":true}
-            """);
-
-        var reply = await Provider(handler).CompleteAsync(Req);
-
-        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
-        var call = Assert.Single(reply.ToolCalls!);
-        Assert.Equal("get_weather", call.Name);
-        Assert.False(string.IsNullOrEmpty(call.Id));                 // synthesized (Ollama gives none)
-        Assert.Equal("""{"city":"Paris"}""", call.ArgumentsJson);    // object → JSON string
-    }
-
-    [Fact]
     public async Task Content_filter_maps_to_refused()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.BadRequest,
@@ -316,24 +297,6 @@ public class HttpModelProviderTests
 
         Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
         Assert.Equal("hello from http", reply.Text);
-    }
-
-    [Fact]
-    public async Task Ollama_flavor_hits_api_chat_and_parses_its_shape()
-    {
-        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """
-            {"message":{"role":"assistant","content":"from ollama"},"done":true,
-             "prompt_eval_count":7,"eval_count":3}
-            """);
-
-        var provider = Provider(handler, c => { c.BaseUrl = "http://localhost:11434"; c.ApiKey = null; });
-        var reply = await provider.CompleteAsync(Req);
-
-        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
-        Assert.Equal("from ollama", reply.Text);
-        Assert.Equal(7, reply.Usage!.InputTokens);
-        Assert.Equal(new Uri("http://localhost:11434/api/chat"), handler.Requests[0].Uri);
-        Assert.Null(handler.Requests[0].Auth);
     }
 
     [Fact]
@@ -522,25 +485,6 @@ public class HttpModelProviderTests
         Assert.Equal(["let me check"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
         Assert.Equal(TextChunkKind.Error, chunks[^1].Kind);
         Assert.Contains("none could be assembled", chunks[^1].Detail);
-    }
-
-    [Fact]
-    public async Task Ollama_ndjson_stream_parses_and_final_carries_usage()
-    {
-        const string ndjson = """
-            {"message":{"content":"a"},"done":false}
-            {"message":{"content":"b"},"done":false}
-            {"message":{"content":""},"done":true,"prompt_eval_count":5,"eval_count":2}
-            """;
-        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, ndjson, "application/x-ndjson");
-
-        var provider = Provider(handler, c => { c.BaseUrl = "http://localhost:11434"; c.ApiKey = null; });
-        var chunks = new List<TextChunk>();
-        await foreach (var c in provider.StreamAsync(Req)) chunks.Add(c);
-
-        Assert.Equal(["a", "b"], chunks.Where(c => c.Kind == TextChunkKind.Content).Select(c => c.Text));
-        Assert.Equal(TextChunkKind.Final, chunks[^1].Kind);
-        Assert.Equal(5, chunks[^1].Usage!.InputTokens);
     }
 
     [Fact]

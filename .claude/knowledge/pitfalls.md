@@ -1549,7 +1549,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   pin it with a test.** The backend's own words outrank the exit code every time; the exit code is context
   for the detail, not the reason.
 - **Re-implementing the CLI rules for a new CLI backend.** Everything above lives in <!-- trap: sub=cli shape=second-door -->
-  `CliProviderEngine` (Core, `Lyntai.Inference.Cli`); a new CLI is an `ICliProviderDialect`, never a fresh
+  `CliProviderEngine` (Core, `Lyntai.Inference.Cli`); a new CLI is an `ICliBackend`, never a fresh
   `IModelProvider` (`docs/DECISIONS.md` D21). The reason these traps were fixable at all is that there is now
   ONE copy.
 - **Assuming a non-zero exit means failure — a CLI can report failure IN BAND and exit 0.** Measured on <!-- trap: sub=cli shape=second-door,silent-loss -->
@@ -1564,7 +1564,7 @@ of the two: most of these traps recur in a subsystem that had never met them.
   ("Model metadata not found") both appeared in a run that went on to **succeed**. Only the terminal event
   (`turn.failed`) may fail a call, or healthy calls die on a retry they recovered from.
 - **A neutral working directory can break a CLI that expects a repo.** The engine spawns from a temp dir on <!-- trap: sub=cli shape=second-door,vacuous -->
-  purpose (§6 hygiene). codex refuses to run outside a git repository, so its dialect MUST pass
+  purpose (§6 hygiene). codex refuses to run outside a git repository, so its backend MUST pass
   `--skip-git-repo-check` — every completion would fail on a perfectly good install otherwise. Check what
   your CLI assumes about its cwd. **And the flag is needed on the AGENT path too, where the cwd is the
   caller's project**: that reads as "obviously a repo" on a developer's machine and is very often not one in
@@ -1667,12 +1667,12 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   declaration outlives the collapse because a caller compiled against either one still binds through it.) Implementors are unaffected either way — one implicit `public string Id` satisfies both
   slots — so an implementor-only compatibility check proves nothing about callers.
   **The next two places this can happen, named so nobody has to rediscover them:** `IScorer`
-  (`src/Lyntai.Core/Cortex/IScorer.cs`) and `ICliProviderDialect`
-  (`src/Lyntai.Core/Inference/Cli/ICliProviderDialect.cs`) each declare their own `string Id { get; }` with exactly
+  (`src/Lyntai.Core/Cortex/IScorer.cs`) and `ICliBackend`
+  (`src/Lyntai.Core/Inference/Cli/ICliBackend.cs`) each declare their own `string Id { get; }` with exactly
   the shape `IProviderIdentity` supplies, so both look like leftovers a tidy-up should hoist. Neither derives
   from `IProviderIdentity` today, and neither should be *changed to derive from it by deleting its own
   declaration* — that is the same `MissingMethodException` for every pre-compiled caller of `scorer.Id` or
-  `dialect.Id`. If either ever gains the base interface, it keeps its own `new string Id { get; }` too, and
+  `backend.Id`. If either ever gains the base interface, it keeps its own `new string Id { get; }` too, and
   gets a line in `ProviderIdentityTests` alongside `IModelProvider`.
 - **Disposing a replaced instance aborts in-flight work.** Retiring an entry looks like it should clean up <!-- trap: sub=lifetime shape=silent-loss -->
   after itself, and "clean up" reads as `Dispose`. It isn't: retirement removes the entry and drops the
@@ -2491,7 +2491,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   defect wearing a bigger value.
 - **A rule that is right for the only implementation exercising it is a coincidence, and the second <!-- trap: sub=cli shape=ordering,silent-loss -->
   implementation is where that shows.** `CliProviderEngine` appended an `ICliToolProvisioner`'s args after
-  the dialect's argv. Correct for `claude`, whose argv ends in options; wrong for `codex`, whose argv ends
+  the backend's argv. Correct for `claude`, whose argv ends in options; wrong for `codex`, whose argv ends
   in the `-` stdin positional, where everything after it is read as PROMPT text and **a swallowed flag is a
   spent turn rather than an error**. `CodexExecArgs` had documented that hazard and taken an `extraOptions`
   parameter for it; the agent path used it and the completion path structurally could not

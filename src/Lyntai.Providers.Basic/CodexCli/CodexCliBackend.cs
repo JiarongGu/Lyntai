@@ -15,11 +15,11 @@ namespace Lyntai.Providers.CodexCli;
 /// <c>--skip-git-repo-check</c> is REQUIRED because the engine spawns from a neutral temp directory and codex
 /// otherwise refuses to run outside a git repository; <c>--sandbox read-only</c> keeps a text completion from
 /// editing the caller's disk; and the prompt is read from stdin when the positional argument is <c>-</c>.</para>
-/// <para>Deliberately NOT claimed: <see cref="ICliProviderDialect.TryBuildInstallArgs"/> stays refused —
+/// <para>Deliberately NOT claimed: <see cref="ICliBackend.TryBuildInstallArgs"/> stays refused —
 /// <c>codex update</c> takes no version/channel argument, so this backend genuinely cannot pin a version, and
 /// <see cref="CodexCliProvider"/> therefore does not implement <c>IProviderVersionInstaller</c> at all.</para>
 /// </remarks>
-public sealed class CodexCliDialect : CliProviderDialectBase
+public sealed class CodexCliBackend : CliBackendBase
 {
     /// <inheritdoc/>
     public override string Id => CodexCliProvider.ProviderId;
@@ -41,7 +41,7 @@ public sealed class CodexCliDialect : CliProviderDialectBase
     /// <remarks>The tool-host args are handed to <see cref="CodexExecArgs"/> as <c>extraOptions</c> rather
     /// than appended, because this argv ENDS in the <c>-</c> stdin positional: anything after it is read as
     /// prompt text, and on this CLI a swallowed flag is a spent turn rather than an error. The agent path
-    /// has always placed its MCP args this way; the completion path could not until the dialect seam
+    /// has always placed its MCP args this way; the completion path could not until the backend seam
     /// carried them.</remarks>
     public override IReadOnlyList<string> BuildCompletionArgs(
         TextRequest request, IReadOnlyList<string> toolHostArgs) =>
