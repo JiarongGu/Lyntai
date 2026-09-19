@@ -398,13 +398,16 @@ every addition.
   seam; **D151** removed it — see the entry above for what replaces it.)
 
 - **ONE provider interface: `Lyntai.Inference.IModelProvider`** (**D127**). It replaces `ILlmProvider`, <!-- drift-ok: the entry announcing a removal has to name what it removed -->
-  `IGenerationProvider`, `IGenerationStreamProvider` and `IProviderProbe`. <!-- drift-ok: the removal entry names what it removed --> A backend now declares `Id`,
-  `IsAvailable` and `Capabilities`, and overrides only the operations it serves — `CompleteAsync`,
-  `StreamAsync`, `EmbedAsync`, `GenerateAsync` and `ProbeAsync` all have default bodies reporting
-  `Unsupported`, and a router filters on the declaration before dispatching, so an unserved operation is
-  never called. **Migration** is the interface name, a `using Lyntai.Inference;`, and adding a
-  `Capabilities` property; the tool-call flags move from ad-hoc properties into
-  `ProviderCapabilities.SupportsToolCalls` / `.SupportsStreamingToolCalls`.
+  `IGenerationProvider`, `IGenerationStreamProvider` and `IProviderProbe`. <!-- drift-ok: the removal entry names what it removed --> A backend declares exactly TWO
+  members, `Id` and `Capabilities`, and overrides only the operations it serves — `CompleteAsync`,
+  `StreamAsync` and `GenerateAsync` have default bodies reporting `Unsupported`, while `IsAvailable` and
+  `ProbeAsync` default to reporting the backend usable. A router filters on the declaration before
+  dispatching, so an unserved operation is never called. **Migration** is the interface name, a
+  `using Lyntai.Inference;`, and adding a `Capabilities` property; the tool-call flags move from ad-hoc
+  properties into `ProviderCapabilities.SupportsToolCalls` / `.SupportsStreamingToolCalls`.
+  (This entry originally counted `IsAvailable` among the declared members and listed `EmbedAsync` among the
+  defaulted operations; the former carried a default body from this change onwards, and **D153** moved
+  embedding to `IVectorProvider` — see the entry above.)
   <br>**Named `IModelProvider` rather than `IProvider`** because the bare word collides with
   `IServiceProvider` and every DI sense of "provider", while these are specifically model backends.
   <br>**`IMediaJobProvider` SURVIVES** — submit/poll/fetch/cancel is a stateful protocol keyed on a

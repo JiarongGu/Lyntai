@@ -293,14 +293,25 @@ policies or control for salience explicitly (`docs/task-archive.md` Part 54).
 |---|---|---|
 | `AddMemoryAnnotation()` | every WRITE | one model call; links entries about the same entity |
 | `AddMemoryVerification()` | every RECALL | one model call; promotes buried answers |
-| `AddMemoryScoringVerification()` | every RECALL | one score call **per candidate** — a cross-encoder rather than a chat model, and on the field benchmark the one that wins (below) |
+| `AddMemoryScoringVerification()` | every RECALL | one score call **per candidate** — a cross-encoder rather than a chat model |
+
+**The two verification calls are ALTERNATIVES, not a pair.** Both fill the singular
+`IMemoryVerificationPolicy` seam through `TryAdd`, so registering both silently keeps whichever landed
+first — pick one. On the field benchmark the cross-encoder is the one that wins, and not narrowly: **91.0%
+against the judge's 71.0%** over an 85.5% model-free base, with an oracle at 92.5%
+(`docs/memory-measurements.md` §5). The obvious confound was tested and refuted — capping the judge's
+endorsements at the page size moved nothing in any cell — so what remains is the judge's own calibration:
+its endorsements run 34.3 per call at 2.3% precision. It is also the cheaper of the two, ~2x faster before
+any contention and ~10x once a shared instruct server is also serving annotation.
 
 The first two take `ClientName` to point at a named `AddTextClient`, so judging runs on a backend you size
-deliberately; the third selects by BACKEND ID (`ProviderId`, or the first registered one producing
-`ProviderKinds.Score`), because what it needs is a scorer rather than a text client. **Absent, the engine behaves exactly as it always has** — the model-free floor is a supported
+deliberately; the third selects by BACKEND ID (`ScoringVerificationOptions.ProviderId`, or the first
+registered provider producing `ProviderKinds.Score`), because what it needs is a scorer rather than a text
+client. **Absent, the engine behaves exactly as it always has** — the model-free floor is a supported
 configuration, not a degraded one.
 
-**These two ask the model DIFFERENT SHAPES of question, and the shape predicts more than the size does** —
+**Annotation and verification ask the model DIFFERENT SHAPES of question, and the shape predicts more than
+the size does** —
 annotation extracts handles out of free text, verification selects from a visible list, and only the first
 of those takes a budget from its prompt. `docs/model-tasks.md` is the inventory: every model-backed seam in
 the library by shape, what is measured about each, and why list LENGTH is the variable to watch here.
