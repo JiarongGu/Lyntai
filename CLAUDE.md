@@ -18,12 +18,14 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D162** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3830 passed / 3864 total, 34 skipped` (the skips are
+**The baseline a green run should match:** `3842 passed / 3876 total, 34 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 860/860, doc samples 60/60. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-18 at `77376423`** (+4 against `5c45c84c`: four tests for
-`IProviderRouterFactory`, **D155**) — read off that run's own output, never
+**MEASURED with Docker up, re-attested 2026-09-19 at `a6640a11`** (+12 net against `77376423`: the
+design-closure commit added nineteen — the `OllamaProvider` suite, the routing-fix and ledger pins —
+and removed eight, the three Ollama arms that moved with their provider and the five context-size runs
+whose hazard **D160** made unrepresentable) — read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
 easily breaks. **The Docker-down run happened AGAIN on this line's own watch** (D153 step 4): the same tree
 read `3622 / 237` and was green on all 24 gates, and the daemon had to be started and `verify` re-run before
