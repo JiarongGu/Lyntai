@@ -303,6 +303,15 @@ annotation extracts handles out of free text, verification selects from a visibl
 of those takes a budget from its prompt. `docs/model-tasks.md` is the inventory: every model-backed seam in
 the library by shape, what is measured about each, and why list LENGTH is the variable to watch here.
 
+**Memory's model calls bill to a name, and a cap on that name degrades a recall rather than failing it**
+(`docs/DECISIONS.md` **D163**). Every memory-seam embed, semantic recall and scoring verification carries
+`ProviderConsumers.Memory`, so an operator's `Budget.PerConsumer["memory"]` genuinely fences memory spend —
+and when the cap is reached the refusal arrives as a VERDICT through the seams' existing fail-open paths:
+the recall still returns, with its semantic channel or its verification silently absent. That is the
+model-free floor again, reached by an accounting decision instead of by configuration, which is worth
+knowing before you read a quality drop as a bug in the engine. It applies only where governance is
+switched on (`AddUsageBudget()` / `AddRateLimit()`); a deployment that called neither is unaffected.
+
 **SCREEN YOUR ANNOTATOR, because a real one DRIFTS** (2026-09-15,
 `docs/memory-measurements.md` §5, `annotation-drift-corrected-context`). Two facts link because their
 subjects MATCH, and three local models invented a new handle on **58.3% to 90.5%** of the facts where the

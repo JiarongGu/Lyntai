@@ -153,7 +153,9 @@ don't reintroduce it. **The guarded read loop now lives ONCE in Core:
 rethrow, per-provider fault→terminal mapping (return null from `onFault` to propagate, e.g. a
 provider-side OCE the router handles). Every streaming provider iterates it; a NEW provider should too,
 not hand-roll the loop. The CLI providers pass NO clock (their window is `ProcessRunner`'s, arriving as
-`ProcessTimeoutException`); the process-side canonical shape remains `ProcessRunner.StreamLinesAsync`.
+`ProcessTimeoutException`); the process-side canonical shape remains `ProcessRunner.StreamLinesAsync` —
+or `StreamBytesAsync` where the child's stdout is DATA rather than text (**D165**, a TTS engine's PCM),
+which is the same core with the read swapped and therefore the same clocks and the same terminal faults.
 
 ## Dead-host tracker
 
@@ -236,10 +238,11 @@ PowerShell re-parses the argv it is handed, so args carrying embedded quotes or 
 arrive mangled. Prompts already travel via stdin, so keep `.ps1`-shim argv to simple flags — or supply a BYO
 `IProcessRunner` for a CLI that needs exotic args through one (`ProcessRunner.ResolveLauncher`'s XML doc).
 
-**Both** paths measure child **inactivity**, never wall-clock: the buffered `RunAsync`
+**All THREE** paths measure child **inactivity**, never wall-clock — buffered `RunAsync`, `StreamLinesAsync`
+and, since **D165**, the binary `StreamBytesAsync`: the buffered one
 reads stdout in chunks and re-arms `timeout` on each (stdin written concurrently, its clock re-armed too),
-so a slow-but-alive turn finishes while a child gone SILENT for the window is killed — matching
-`StreamLinesAsync`. The buffered path also takes an absolute `maxDuration` backstop (a child that never
+so a slow-but-alive turn finishes while a child gone SILENT for the window is killed — matching the two
+streaming paths, which are ONE core with the read swapped precisely so this cannot drift between them. The buffered path also takes an absolute `maxDuration` backstop (a child that never
 stalls but never finishes) and reports `ProcessResult.TimeoutKind` = `Inactivity` vs `MaxDuration` so the
 two are distinguishable; `CliProviderEngine.CompleteAsync` passes the resolved timeout as the inactivity
 window and `MaxProviderTimeout` as the backstop — never below the window, so a consumer budget above the

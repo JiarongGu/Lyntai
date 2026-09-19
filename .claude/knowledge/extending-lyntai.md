@@ -249,8 +249,8 @@ one-line `builder.Add<Name>Provider(...)` shim over `AddProvider(sp => …)` plu
 builder method names what it REGISTERS with the vendor as the qualifier (**D137**), so the suffix is on
 both — and the qualifier names the ENGINE, never what the backend produces (**D152**, **D156**): every
 shipped media preset is `AddOpenAiImageProvider`, `AddAutomatic1111Provider`, `AddComfyUiProvider`,
-`AddFalProvider`, `AddLocalDiffusionProvider`. There is no `Add<Domain>Provider`, because a domain is not a
-kind of provider — it is a `ProviderCapabilities.Produces` value.
+`AddFalProvider`, `AddLocalDiffusionProvider`, `AddPiperProvider`. There is no `Add<Domain>Provider`,
+because a domain is not a kind of provider — it is a `ProviderCapabilities.Produces` value.
 
 **A generation backend needs a MAJOR to reshape, like everything else.** `Lyntai.Generation` was EXEMPT as a
 **PACKAGE** from 2.0.1 — the backends were written from vendor docs with no key to call, and
@@ -288,9 +288,25 @@ What a backend implements:
   a billable render, and handing the same request to the next candidate buys the same generation twice. The
   router surfaces such a submission instead of advancing, and does not count it toward the dead-host
   threshold — no answer is no evidence of ill health either.
-- **MEASURE the wire format before shipping it.** Two backends here are documented-not-measured and carry an
-  explicit caveat until someone runs them for real (`TASKS.md` Part 33, GEN-VERIFY). Do not add a third: a
-  mapping derived from vendor docs is a guess wearing a type, and the build stays green either way.
+- **MEASURE the wire format before shipping it**, and read what that discipline just cost. Of the six
+  backends here, three are now measured against a real engine (`sd-cli`, ComfyUI over image AND video, and
+  piper, all 2026-09-19); two are PORTED from a sibling app's production implementation and say so
+  (`Automatic1111`, `OpenAiImage`) — someone else's evidence, which is not none and is not ours; and one is
+  written from vendor documentation with no key to call it (`fal`), which is the only kind GEN-VERIFY ever
+  meant and the only one still blocked on a vendor (`TASKS.md` Part 33). **Two of the three measurements
+  CONFIRMED the mapping and the third found it WRONG** — the engine had retired the `img2img` mode value,
+  so every img2img render failed at the argv parse, shipped and unnoticed for six weeks. Do not add another
+  unmeasured one: a mapping derived from vendor docs is a guess wearing a type, and the build stays green
+  either way.
+
+- **A backend whose output is BINARY streams it through `IProcessRunner.StreamBytesAsync`** (**D165**), not
+  the line-shaped sibling — 0x0A is data in a PCM frame, not a line break. Declare
+  `ProviderOperation.Stream` beside `Complete`, yield `MediaChunk.Content(bytes, mediaType)` and stamp the
+  media type on EVERY chunk (a raw wire carries no metadata of its own), then one `MediaChunk.Completed`.
+  `PiperProvider` is the worked example, and its buffered `GenerateAsync` is literally its own stream
+  collected, so the two modes cannot disagree. **The BYO consequence is real**: that member is DEFAULTED and
+  its default THROWS rather than degrading, so a host running a sandboxed `IProcessRunner` must implement it
+  before a byte-streaming backend can route through them.
 
 Before writing code, read the four generation traps already recorded in `pitfalls.md` — `TimeSpan.Zero` means
 "no deadline" here and "cancel instantly" on the LLM side; a cooldown keyed on the provider id benches other

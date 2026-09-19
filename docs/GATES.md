@@ -496,6 +496,20 @@ deleted. Scope is `src/` only: a test's or a bench's options type is an instrume
 still describes the code — that last is `check-decision-claims`' question, one tier up, and only for
 options a decision governs.
 
+### `check-dev-loop` — whether the command table a session reads first is still the tooling's
+
+The THIRD gate on the `devtools/scripts/_markers.mjs` seam, beside `check-backlog` (**D111**) and
+`check-pitfalls` (**D112**), and the one whose subject is the roster itself: the `## Dev loop` table in
+`CLAUDE.md`. The command NAMES and the `verify` column are read out of `dev.mjs`'s own source, so only each
+description is authored — `node devtools/dev.mjs check-dev-loop --write` rebuilds the table and `verify`
+fails while the two disagree.
+
+**It exists because the same drift already happened one layer down.** `dev.mjs`'s usage string was once a
+hand-kept literal and slid to 24 of 30 commands — every memory sweep but one, plus a gate on the day it was
+added — so the list CLAUDE.md called authoritative had quietly stopped being one. A prose table in the file
+every session reads FIRST is that defect with a wider blast radius: a command nobody can see is a command
+nobody runs, and the gate that would have caught it is the one most likely to be the missing row.
+
 ### `check-measurements` — whether a published FIGURE is still the current one
 
 The FOURTH gate on the `devtools/scripts/_markers.mjs` seam, and the only one whose subject is a NUMBER

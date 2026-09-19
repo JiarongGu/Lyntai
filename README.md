@@ -1057,7 +1057,7 @@ services.AddLyntai(cfg => cfg
 ```
 
 Each backend has an `Add*` of its own — `AddOpenAiImageProvider`, `AddAutomatic1111Provider`,
-`AddComfyUiProvider`, `AddFalProvider`, `AddLocalDiffusionProvider` — and each takes a **configure
+`AddComfyUiProvider`, `AddFalProvider`, `AddLocalDiffusionProvider`, `AddPiperProvider` — and each takes a **configure
 callback**, the same shape as `AddHttpProvider(id, o => …)` on the LLM side. Every option has a
 default (each backend's conventional local URL, or the vendor's API root), so a registration sets only what
 differs from it; a blank base URL reports `NotConfigured` rather than failing.

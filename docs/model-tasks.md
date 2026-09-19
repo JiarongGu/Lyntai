@@ -46,9 +46,11 @@ fixed** — a shape can move into it, and this is the exercise that moves one. *
 running its own loop out of process, so **the budget, rate-limit and cache advice in this document does not
 reach it**, and the size question is a choice of CLI rather than of a weight file.
 
-**Producing an artifact — an image, a video — is a different currency and is deliberately absent.** Those
-backends have no prompt contract this library authors, no parse, and no quality measurement anywhere in
-this repository. Treat nothing here as transferring to them.
+**Producing an artifact — an image, a video, a spoken line — is a different currency and is deliberately
+absent.** Those backends have no prompt contract this library authors, no parse, and no quality measurement
+anywhere in this repository: what was measured about them is that their WIRES answer as documented
+(`docs/task-archive.md` Parts 261–262, 264, 266), which says nothing about the artifact that comes back.
+Treat nothing here as transferring to them.
 
 ## 2. Bound the INPUT before buying a bigger model — and the three cases are not one rule
 
