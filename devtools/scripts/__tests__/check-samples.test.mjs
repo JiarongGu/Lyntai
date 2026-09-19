@@ -12,8 +12,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, rmSync } from 'node:fs';
+import path, { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   IN_SCOPE, PREAMBLE, SHAPES, annotationsAbove, attemptsFor, checkSamples, extractBlocks, guessShape,
@@ -267,18 +268,23 @@ describe('check-samples — what is deliberately NOT scanned', () => {
     assert.match(out, /no documented C# samples/);
   });
 
-  it('skips a CHANGELOG sample under a RELEASED heading, and compiles one under ## Unreleased', () => {
-    // The boundary is shared with check-docs on purpose (TASKS.md Part 53): `## Unreleased` describes
-    // behaviour that has not shipped, so a sample there is a promise a consumer will copy, while a sample
-    // under a released heading is the record of what that release said. Answering this question differently
-    // in the two gates is how the permissive copy goes unnoticed.
+  it('skips a CHANGELOG sample under a RELEASED heading — and REFUSES one under `## Unreleased`', () => {
+    // The mask boundary is shared with check-docs on purpose (TASKS.md Part 53): a sample under a released
+    // heading is the record of what that release said, so nothing below the boundary is compiled.
+    //
+    // **The other half INVERTED on 2026-09-19, and a real release run is why.** It asserted that a sample
+    // under `## Unreleased` IS compiled — "a promise a consumer will copy" — which holds right up until the
+    // release workflow stamps that heading with a version, at which point the sample leaves the census
+    // mid-pipeline and `verify` fails on a tree that was green minutes before. The promise is still
+    // checked; it is checked where it KEEPS being checked (a maintained document), and the gate now says so
+    // instead of compiling something that is one stamp away from being history.
     const released = run({ 'CHANGELOG.md': `# Changelog\n\n## 2.5.0 — 2026-08-08\n\n${fence('old();')}` });
     assert.equal(released.rounds.length, 0, 'nothing below the boundary is compiled');
 
     const unreleased = run({ 'CHANGELOG.md': `# Changelog\n\n## Unreleased\n\n${fence('New();')}\n\n`
       + `## 2.5.0 — 2026-08-08\n\n${fence('old();')}` });
-    assert.equal(unreleased.rounds.length, 1, 'the live prefix IS compiled');
-    assert.equal(unreleased.rounds[0].length, 1, 'and only the block above the boundary');
+    assert.equal(unreleased.code, 1, 'a compiled sample in the transient prefix is refused');
+    assert.equal(unreleased.rounds.length, 0, 'and refused BEFORE anything is compiled');
   });
 
   it('skips a document declaring itself SUPERSEDED in its opening banner', () => {
@@ -584,5 +590,59 @@ describe('check-samples — the sample count CLAUDE.md quotes', () => {
     try {
       assert.equal(quotedSampleCount(repo, 78, recorder()), 0);
     } finally { removeTree(repo); }
+  });
+});
+
+
+describe('check-samples — a compiled sample may not sit in a TRANSIENT live region', () => {
+  // The defect this closes was found by a REAL release run (2026-09-19). CHANGELOG.md is historical
+  // except for its `## Unreleased` prefix, and the release workflow STAMPS that heading with a version
+  // before it runs `verify` — so a fence living there is compiled on every ordinary run and historical
+  // the instant a release starts. The census moves 61 -> 60 under the gate's own feet, the CLAUDE.md
+  // baseline it checks itself against goes stale, and `verify` fails inside the release pipeline on a
+  // tree that was green minutes earlier. A prefix region is transient BY CONSTRUCTION; an amendment
+  // region (the design record) is not, which is why this keys on LIVE_PREFIX rather than on a filename.
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+
+  it('FAILS a compiled fence under `## Unreleased`, naming the stamp as the reason', () => {
+    const { code, out } = run({
+      'CHANGELOG.md': '# Changelog\n\n## Unreleased\n\n- an entry\n\n'
+        + fence('services.AddLyntai(x);')
+        + '\n## 3.1.0 — 2026-08-23\n\n- released\n',
+    });
+
+    assert.equal(code, 1, out);
+    assert.match(out, /CHANGELOG\.md:7/, 'the offending fence is named by line');
+    assert.match(out, /stamp/i, 'the message explains WHY, not just that');
+  });
+
+  it('allows a SKIPPED fence there — a record may quote code it does not claim compiles', () => {
+    const { code } = run({
+      'CHANGELOG.md': '# Changelog\n\n## Unreleased\n\n<!-- compile-skip: a record of the shape -->\n'
+        + fence('services.AddLyntai(x);')
+        + '\n## 3.1.0 — 2026-08-23\n\n- released\n',
+      'README.md': fence('services.AddLyntai(x);'),
+    });
+
+    assert.equal(code, 0, 'only the COMPILED census moves with the stamp');
+  });
+
+  it('the REAL tree survives a release stamp — the census cannot move when Unreleased becomes a version', () => {
+    // The regression that matters: this is the exact transformation the release workflow applies, and a
+    // census that changes under it means the next release fails on a green tree.
+    const census = (read) => {
+      const log = recorder();
+      checkSamples(repoRoot, { list: true, log, read });
+      return /(\d+) blocks? in/.exec(log.text())?.[1];
+    };
+
+    const asIs = census(undefined);
+    const stamped = census((f) => {
+      const text = readFileSync(join(repoRoot, f), 'utf8');
+      return f === 'CHANGELOG.md' ? text.replace(/^## Unreleased$/m, '## 9.9.9 — 2026-01-01') : text;
+    });
+
+    assert.equal(stamped, asIs,
+      'a fenced sample under `## Unreleased` becomes historical at release — move it to a maintained doc');
   });
 });

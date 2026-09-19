@@ -7,6 +7,38 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-19 — the release pipeline failed `verify` on a tree that was green minutes earlier
+
+**Symptom.** Every gate green locally at `d1219c2d`, `consumer-smoke` green, `doctor` green — and the
+release run failed at `check-samples`: *"CLAUDE.md says 'doc samples 61/61' — this run compiled 60"*. Every
+other gate in that run reported numbers identical to the local one (12 decision claims, 61 commands, 174
+options, 3983 baseline lines, 840 prose files), so it was the same tree, same code, one sample short.
+
+**Root cause.** The release workflow stamps `## Unreleased` with a version BEFORE it runs `verify`.
+`CHANGELOG.md` is historical except for that prefix, so the D157 entry's fenced `AddOnnxProvider` sample
+was compiled on every ordinary run and historical the instant the stamp landed — census 61 → 60, while the
+CLAUDE.md baseline the gate checks itself against still said 61. **A live PREFIX is transient by
+construction**, which the D164 mask work (same day) wired check-samples onto without noticing that one
+region it admits is scheduled to disappear. Not a flake and not environmental: reproducible by replaying
+the stamp through the gate's own `read` seam.
+
+**Fix.** `check-samples` now REFUSES a compiled sample in any `LIVE_PREFIX` region, naming the stamp and
+saying what to do instead — keyed on the registry rather than on a filename, because an amendment region
+(the design record) is permanent and unaffected. The changelog entry keeps its prose and points at
+`.claude/knowledge/extending-lyntai.md`, where the identical recipe was already compiled — so nothing went
+unchecked; the duplicate went. Census is now 60 before and after the stamp. A doubled `compile-given`
+annotation found in that section is removed with it.
+
+**Verify.** Driven red first: a compiled fence under `## Unreleased` fails with the stamp named; a
+`compile-skip` one there still passes (only the compiled census moves); and — the regression that matters —
+**the real tree's census is invariant under the exact stamp the workflow applies**, replayed through the
+`read` seam. One existing test asserted the opposite contract ("the live prefix IS compiled") and was
+INVERTED rather than deleted, carrying why.
+
+**Introduced by.** **D164** (2026-09-19), which pointed check-samples at the live mask; the fence it tripped
+over arrived with D157 the day before. Found by the release run itself — no gate could have caught it,
+because the failure only exists in the state the pipeline creates.
+
 ## 2026-09-19 — the default img2img argv passed a mode value the current engine rejects
 
 **Symptom.** An img2img render through `LocalDiffusionProvider` against a current stable-diffusion.cpp

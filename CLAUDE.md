@@ -19,7 +19,7 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3865 passed / 3903 total, 38 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 868/868, doc samples 61/61. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 871/871, doc samples 60/60. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED with Docker up, re-attested 2026-09-19 at `8ddff8d2`** (+16 against `900d4009`: GEN6's piper
@@ -204,6 +204,10 @@ Six things no gate can catch, so they live here rather than in `docs/GATES.md`:
   annotations go before the fence — `<!-- compile-given: <declarations> -->` supplies the context a
   fragment assumes and keeps the block COMPILED, `<!-- compile-skip: <reason> -->` takes it out — and both
   on one block is an ERROR. **Prefer `compile-given`: a skip is unchecked, a given is checked.**
+  <br>**A compiled sample may not live under `## Unreleased`** — the release workflow stamps that heading
+  before it runs `verify`, so a fence there leaves the census mid-release and fails the gate on a tree that
+  was green minutes earlier (measured on a real release run). Put the runnable recipe in a maintained
+  document and let the entry point at it; the gate refuses the other way round.
 - **Moving prose can turn a gate red.** A `check-counts` claim anchored in exactly one sentence dies when
   that sentence is reworded; move it VERBATIM and run the gate between the copy and the delete. Two
   predicates and the sample-count check read `CLAUDE.md` BY PATH, and `doctor` — which holds the

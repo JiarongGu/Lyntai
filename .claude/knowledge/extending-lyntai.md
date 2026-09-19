@@ -213,7 +213,6 @@ own seams behind interfaces `Lyntai.Core` never sees. EF has no `UseSqlServerFor
 So when one runtime serves two kinds, what varies is an internal **head**, not a class:
 
 <!-- compile-given: string embedDir = ""; string rerankDir = ""; -->
-<!-- compile-given: string embedDir = ""; string rerankDir = ""; -->
 ```csharp
 cfg.AddOnnxProvider(embedDir);                                  // default: Produces = Vector
 cfg.AddOnnxProvider(rerankDir, o =>                             // same class, same engine

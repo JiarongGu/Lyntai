@@ -58,7 +58,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLineMask, trackedFiles } from './check-docs.mjs';
+import { IN_SCOPE, IS_SCANNED, LIVE_PREFIX, SUPERSEDED_BANNER, liveLineMask, trackedFiles } from './check-docs.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repoDefault = join(dirname(here), '..', '..');
@@ -548,6 +548,24 @@ export function checkSamples(repo, { log = console.log, files = null, compile = 
     log('\n  They say opposite things: `compile-skip` means "do not compile this", `compile-given` means');
     log('  "compile this — here is the context it assumes". Keep whichever is true and delete the other.');
     log('  If the sample can be given a context that type-checks, `compile-given` is the stronger answer.');
+    return 1;
+  }
+
+  // A live PREFIX is transient BY CONSTRUCTION: the release workflow stamps `## Unreleased` with a version
+  // before it runs `verify`, so a fence living there is compiled on every ordinary run and historical the
+  // instant a release starts. The census moves under this gate's own feet, the CLAUDE.md baseline it checks
+  // itself against goes stale, and the pipeline fails on a tree that was green minutes earlier — measured
+  // 2026-09-19 on a real release run (`docs/FIXES.md`). An amendment region (the design record, D164) is
+  // permanent and unaffected, which is why this keys on LIVE_PREFIX rather than on a filename.
+  const transient = blocks.filter((block) => LIVE_PREFIX.some((rule) => rule.file.test(block.file)));
+  if (transient.length > 0) {
+    log(`check-samples: ✗ ${plural(transient.length, 'compiled sample')} in a region the RELEASE STAMP `
+      + 'makes historical\n');
+    for (const block of transient) log(`  ${block.file}:${block.line}`);
+    log('\n  A `## Unreleased` prefix stops being live the moment the release workflow stamps it with a');
+    log('  version, so this sample compiles today and vanishes from the census mid-release. Put the');
+    log('  runnable recipe in a MAINTAINED document and let the entry point at it — or, when the entry is');
+    log('  quoting a shape rather than teaching one, annotate it `compile-skip: <reason>`.');
     return 1;
   }
 

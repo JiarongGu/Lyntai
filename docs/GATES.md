@@ -657,6 +657,16 @@ the first 12 written were wrong and said so. `<!-- compile-skip: <reason> -->` t
 only where no context would help (a partial signature, a before/after pair, a menu of alternatives) or
 where the context needed is a whole program — the BYO-seams tour needs ~26 lines of given for a 16-line
 sample, and that is the line. Both on one block is an **error**, not a precedence rule.
+
+**A compiled sample may not sit in a live PREFIX, and that is a release rule rather than a style one.**
+`CHANGELOG.md` is historical except for `## Unreleased`, and the release workflow stamps that heading with
+a version *before* it runs `verify` — so a fence there is compiled on every ordinary run and historical the
+instant a release starts. The census moves under the gate's own feet and the run fails inside the pipeline
+on a tree that was green minutes earlier, which is precisely the "red during every release" failure this
+document warns about two sections down. Measured that way on 2026-09-19 (`docs/FIXES.md`), and now refused
+with the stamp named: put the runnable recipe in a maintained document and let the entry point at it. The
+rule keys on the `LIVE_PREFIX` registry, so an amendment region — permanent by nature — is untouched, and
+a `compile-skip` fence in a changelog entry is still fine because only the compiled census moves.
 `<!-- compile-skip-file: … -->` opts out a historical document. **Prefer `compile-given`: a skip is
 unchecked, a given is checked.**
 

@@ -97,16 +97,11 @@ every addition.
 - **One ONNX provider, and `Produces` says which kind it serves** (**D157**). `OnnxCrossEncoder`, <!-- drift-ok: the entry ANNOUNCING the removal has to name what it removes -->
   `AddOnnxCrossEncoder` and `OnnxCrossEncoderOptions` are **gone**. A cross-encoder was never a second <!-- drift-ok: the entry ANNOUNCING the removal has to name what it removes -->
   BACKEND — both classes ran the identical session over the identical feed, and only how a call was encoded
-  and how the output was read differed. What differs is the weights on disk.
-  <!-- compile-given: string embedDir = ""; string rerankDir = ""; -->
-  ```csharp
-  cfg.AddOnnxProvider(embedDir);                                     // Produces = Vector (default)
-  cfg.AddOnnxProvider(rerankDir, o =>
-  {
-      o.Id = "onnx-rerank";                                          // one session is one graph
-      o.Produces = ProviderKinds.Score;                              // the same class, reranking
-  });
-  ```
+  and how the output was read differed. What differs is the weights on disk. **What to DO:** one
+  `AddOnnxProvider(dir)` per model directory, with `o.Produces = ProviderKinds.Score` on the reranking one
+  and its own `o.Id` — the worked registration lives in `.claude/knowledge/extending-lyntai.md` §A provider
+  is the ENGINE and stays pure, where it is compiled by `check-samples` and stays runnable after this entry
+  becomes history.
   <br>**`OnnxProviderOptions.Produces` is the same field, doing the same job, as `HttpModelOptions.Produces`
   one package over** — it decides how a call is encoded, which graph output is read, and which methods the
   provider answers. A kind it does not serve is refused at composition, naming the two it does.
@@ -1188,6 +1183,12 @@ every addition.
   only when a vector store is wired. `docs/FIXES.md` has the mechanism.
 
 ### Internal (no public surface change)
+
+- **`check-samples` refuses a compiled sample in a region the release stamp makes historical.** A fence
+  under `## Unreleased` compiles on every ordinary run and is historical the instant the release workflow
+  stamps that heading — so the census moved mid-pipeline and `verify` failed inside a release on a tree
+  that was green minutes earlier (`docs/FIXES.md`). The gate now names the stamp and says where the recipe
+  belongs; the changelog's own ONNX sample moved to the knowledge doc that already compiled it.
 
 - **A rename retired on the API surface must now decide its PROSE half at rename time.** `check-docs`
   gained a pairing audit: a `retiredApiNames` entry whose names no hand-written `retiredTerms` rule matches

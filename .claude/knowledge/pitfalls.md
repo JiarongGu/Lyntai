@@ -12,7 +12,7 @@ is what to do when you know the SHAPE of what you are worried about but not wher
 
 <!-- facets:begin — GENERATED. Edit the per-trap `trap:` markers, never this index. -->
 
-## Facets — 223 traps, indexed two ways
+## Facets — 224 traps, indexed two ways
 
 _Generated from the per-trap `<!-- trap: … -->` markers by `node devtools/dev.mjs check-pitfalls --write`. Edit a marker, never this index._
 _Line numbers only, on purpose: this is for JUMPING, not for reading. The facets are ORTHOGONAL to the headings below — a probe's nine relevant traps once spanned five of them, two of which nobody_
@@ -20,7 +20,7 @@ _looking for that task would have opened._
 
 **By AREA** — which part of the repository breaks.
 
-- **`gates`** (47) — 57 · 124 · 133 · 153 · 166 · 175 · 188 · 194 · 217 · 227 · 234 · 249 · 259 · 305 · 325 · 371 · 389 · 550 · 635 · 644 · 654 · 708 · 722 · 792 · 806 · 1121 · 1248 · 1344 · 1357 · 1384 · 1405 · 1422 · 1439 · 1481 · 1654 · 2667 · 2691 · 2701 · 2733 · 2744 · 2763 · 2779 · 2790 · 2817 · 3188 · 3229 · 3238
+- **`gates`** (48) — 57 · 124 · 133 · 153 · 166 · 175 · 188 · 194 · 217 · 227 · 234 · 249 · 259 · 305 · 325 · 371 · 389 · 550 · 635 · 644 · 654 · 708 · 722 · 792 · 806 · 1121 · 1248 · 1344 · 1357 · 1384 · 1405 · 1422 · 1439 · 1481 · 1654 · 2667 · 2691 · 2701 · 2733 · 2744 · 2763 · 2779 · 2790 · 2817 · 3188 · 3229 · 3238 · 3251
 - **`encoding`** (7) — 75 · 117 · 122 · 661 · 669 · 944 · 2817
 - **`git`** (8) — 249 · 274 · 305 · 330 · 669 · 691 · 949 · 2667
 - **`build`** (12) — 122 · 635 · 644 · 654 · 708 · 1113 · 1405 · 1422 · 1654 · 2646 · 2676 · 2710
@@ -32,7 +32,7 @@ _looking for that task would have opened._
 - **`generation`** (12) — 1181 · 1241 · 1324 · 1502 · 1709 · 2234 · 2290 · 2439 · 2451 · 2475 · 2582 · 2607
 - **`di`** (12) — 1696 · 1948 · 1974 · 2154 · 2156 · 2159 · 2162 · 2180 · 2259 · 2304 · 2451 · 2501
 - **`measurement`** (69) — 153 · 414 · 429 · 447 · 462 · 470 · 476 · 493 · 534 · 564 · 580 · 599 · 611 · 621 · 742 · 821 · 828 · 833 · 842 · 848 · 875 · 888 · 899 · 907 · 923 · 930 · 967 · 977 · 997 · 1008 · 1042 · 1069 · 1075 · 1091 · 1108 · 1113 · 1152 · 1181 · 1196 · 1226 · 1241 · 1256 · 1274 · 1289 · 1306 · 1324 · 1526 · 1726 · 1745 · 1816 · 1985 · 2016 · 2043 · 2054 · 2069 · 2087 · 2142 · 2198 · 2733 · 2850 · 2901 · 2916 · 2940 · 2960 · 2981 · 3011 · 3048 · 3112 · 3144
-- **`docs`** (31) — 95 · 166 · 194 · 217 · 338 · 691 · 722 · 742 · 792 · 1121 · 1132 · 1137 · 1144 · 1248 · 1357 · 1384 · 1481 · 1790 · 2290 · 2326 · 2393 · 2557 · 2567 · 2691 · 2701 · 2744 · 2763 · 2779 · 2790 · 2799 · 3070
+- **`docs`** (32) — 95 · 166 · 194 · 217 · 338 · 691 · 722 · 742 · 792 · 1121 · 1132 · 1137 · 1144 · 1248 · 1357 · 1384 · 1481 · 1790 · 2290 · 2326 · 2393 · 2557 · 2567 · 2691 · 2701 · 2744 · 2763 · 2779 · 2790 · 2799 · 3070 · 3251
 - **`tests`** (26) — 95 · 1439 · 1453 · 1467 · 1610 · 1802 · 1845 · 1866 · 1933 · 1955 · 2123 · 2135 · 2405 · 2863 · 2874 · 2885 · 3061 · 3083 · 3165 · 3173 · 3181 · 3185 · 3188 · 3200 · 3211 · 3224
 
 **By SHAPE** — how the wrongness stays invisible. Orthogonal to the area, and usually the more useful
@@ -41,9 +41,9 @@ of the two: most of these traps recur in a subsystem that had never met them.
 - **`fail-open`** (23) — 249 · 429 · 462 · 493 · 722 · 842 · 1152 · 1324 · 1511 · 1516 · 1535 · 1610 · 1691 · 1779 · 2029 · 2162 · 2198 · 2439 · 2451 · 2501 · 2607 · 2620 · 3033
 - **`cancellation`** (5) — 1497 · 1502 · 1760 · 1779 · 1802
 - **`vacuous`** (49) — 153 · 227 · 234 · 414 · 470 · 476 · 534 · 564 · 644 · 848 · 888 · 907 · 997 · 1181 · 1196 · 1226 · 1241 · 1274 · 1344 · 1357 · 1422 · 1453 · 1566 · 1629 · 1646 · 1802 · 1845 · 1866 · 1933 · 1955 · 2043 · 2054 · 2087 · 2198 · 2326 · 2799 · 2874 · 2885 · 2916 · 3048 · 3061 · 3083 · 3112 · 3165 · 3188 · 3200 · 3211 · 3229 · 3238
-- **`scope-blind`** (43) — 124 · 175 · 188 · 194 · 217 · 227 · 249 · 259 · 305 · 371 · 389 · 669 · 792 · 806 · 1289 · 1357 · 1405 · 1481 · 1654 · 1948 · 2016 · 2123 · 2135 · 2290 · 2326 · 2354 · 2405 · 2522 · 2691 · 2701 · 2710 · 2733 · 2744 · 2763 · 2779 · 2790 · 2799 · 2885 · 3048 · 3061 · 3185 · 3229 · 3238
+- **`scope-blind`** (44) — 124 · 175 · 188 · 194 · 217 · 227 · 249 · 259 · 305 · 371 · 389 · 669 · 792 · 806 · 1289 · 1357 · 1405 · 1481 · 1654 · 1948 · 2016 · 2123 · 2135 · 2290 · 2326 · 2354 · 2405 · 2522 · 2691 · 2701 · 2710 · 2733 · 2744 · 2763 · 2779 · 2790 · 2799 · 2885 · 3048 · 3061 · 3185 · 3229 · 3238 · 3251
 - **`second-door`** (20) — 1513 · 1551 · 1555 · 1566 · 1573 · 1633 · 1638 · 1717 · 1861 · 1883 · 2162 · 2304 · 2405 · 2426 · 2439 · 2451 · 2475 · 2522 · 2557 · 2582
-- **`stale-claim`** (23) — 57 · 194 · 274 · 338 · 742 · 899 · 930 · 949 · 1121 · 1137 · 1422 · 1790 · 2159 · 2290 · 2393 · 2426 · 2475 · 2557 · 2744 · 2763 · 2779 · 3070 · 3200
+- **`stale-claim`** (24) — 57 · 194 · 274 · 338 · 742 · 899 · 930 · 949 · 1121 · 1137 · 1422 · 1790 · 2159 · 2290 · 2393 · 2426 · 2475 · 2557 · 2744 · 2763 · 2779 · 3070 · 3200 · 3251
 - **`silent-loss`** (64) — 75 · 95 · 117 · 122 · 166 · 325 · 330 · 371 · 389 · 447 · 462 · 611 · 661 · 708 · 722 · 821 · 833 · 888 · 944 · 977 · 1008 · 1042 · 1108 · 1152 · 1241 · 1248 · 1256 · 1324 · 1384 · 1405 · 1439 · 1539 · 1555 · 1589 · 1677 · 1709 · 1745 · 1816 · 1858 · 1860 · 1861 · 1863 · 1883 · 1894 · 1933 · 2069 · 2142 · 2154 · 2159 · 2180 · 2252 · 2304 · 2354 · 2492 · 2582 · 2620 · 2646 · 2676 · 2691 · 2701 · 2817 · 2901 · 2981 · 3112
 - **`wrong-subject`** (68) — 57 · 95 · 133 · 153 · 330 · 414 · 447 · 476 · 493 · 550 · 564 · 580 · 599 · 611 · 621 · 635 · 654 · 848 · 875 · 907 · 923 · 930 · 977 · 1008 · 1042 · 1069 · 1075 · 1132 · 1144 · 1181 · 1196 · 1226 · 1256 · 1274 · 1289 · 1306 · 1384 · 1467 · 1513 · 1562 · 1654 · 1686 · 1696 · 1726 · 1816 · 1866 · 1974 · 1985 · 2003 · 2016 · 2043 · 2054 · 2087 · 2234 · 2259 · 2607 · 2646 · 2667 · 2676 · 2850 · 2901 · 2916 · 2940 · 2960 · 2981 · 3083 · 3144 · 3188
 - **`unmeasured`** (17) — 580 · 621 · 691 · 742 · 792 · 828 · 1091 · 1113 · 1518 · 1526 · 1535 · 1577 · 1629 · 2003 · 2234 · 2567 · 3070
@@ -3248,3 +3248,19 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `source.length === 0 || (files === null && filtered.length === 0)`. **Write the both-directions test at the
   same time**: a fail-closed guard that over-fires is a broken build on legitimate input, which is the
   failure people fix by deleting the guard.
+- **A gate whose subject includes a TRANSIENT region is green until the pipeline changes that region — and <!-- trap: sub=gates,docs shape=stale-claim,scope-blind -->
+  the pipeline is the one run you cannot afford to fail.** Measured 2026-09-19 by an actual release run.
+  `check-samples` compiles the fenced C# in maintained prose, and D164 pointed it at the live-line mask, so
+  it also compiled a fence under `CHANGELOG.md`'s `## Unreleased`. The release workflow STAMPS that heading
+  with a version before it runs `verify`, so the sample left the census mid-pipeline (61 → 60) while the
+  baseline it checks itself against still said 61: every gate green locally, `verify` red inside the
+  release, on the same commit.
+  <br>**The tell is not the failure, it is the SHAPE of the scope**: ask of any counted subject *which part
+  of this does a scheduled process delete?* A live PREFIX shrinks by design; an amendment region does not;
+  an ordinary document does not. Only the prefix was a problem, and that distinction is what the fix keys
+  on — never the filename.
+  <br>**Reproduce a pipeline-only failure by replaying the pipeline's own transformation through the gate's
+  seam** rather than by running the pipeline: `checkSamples(repo, { read })` with `## Unreleased` rewritten
+  to a version reproduced it in one command, which is also the regression test. **And an existing test may
+  encode the defect** — one here asserted "the live prefix IS compiled". Invert it and carry the reason;
+  deleting it would erase the argument that was right until the day it was not.
