@@ -293,9 +293,11 @@ policies or control for salience explicitly (`docs/task-archive.md` Part 54).
 |---|---|---|
 | `AddMemoryAnnotation()` | every WRITE | one model call; links entries about the same entity |
 | `AddMemoryVerification()` | every RECALL | one model call; promotes buried answers |
+| `AddMemoryScoringVerification()` | every RECALL | one score call **per candidate** — a cross-encoder rather than a chat model, and on the field benchmark the one that wins (below) |
 
-Both take `ClientName` to point at a named `AddTextClient`, so judging runs on a backend you size
-deliberately. **Absent, the engine behaves exactly as it always has** — the model-free floor is a supported
+The first two take `ClientName` to point at a named `AddTextClient`, so judging runs on a backend you size
+deliberately; the third selects by BACKEND ID (`ProviderId`, or the first registered one producing
+`ProviderKinds.Score`), because what it needs is a scorer rather than a text client. **Absent, the engine behaves exactly as it always has** — the model-free floor is a supported
 configuration, not a degraded one.
 
 **These two ask the model DIFFERENT SHAPES of question, and the shape predicts more than the size does** —

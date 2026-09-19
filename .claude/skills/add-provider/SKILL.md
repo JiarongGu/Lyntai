@@ -69,7 +69,11 @@ the csproj.
 - [ ] A class in `src/Lyntai.Providers.Basic/` unless the backend drags a dependency a consumer might
       refuse — the footprint test above. `HttpModelProvider` lives there (managed
       `Microsoft.Extensions.Http` only); `Lyntai.Providers.LlamaSharp` earned its own package.
-- [ ] `MyProvider : IModelProvider` — `Id`, `IsAvailable`, `CompleteAsync`, `StreamAsync`.
+- [ ] `MyProvider : IModelProvider` — the seam REQUIRES exactly two members, `Id` and **`Capabilities`**
+      (what the router reads BEFORE spending anything; it has no default precisely because a silent
+      capability serves nothing and would make the backend permanently invisible). Everything else is
+      defaulted to an `Unsupported` verdict, so override only what you serve: `CompleteAsync`,
+      `StreamAsync`, and `IsAvailable`/`ProbeAsync` where a real check exists.
 - [ ] Failures classified via `ProviderVerdictClassifier` (429→RateLimited, 401/403→AuthFailed, filter→Refused,
       too-big→ContextWindowExceeded, deadline→Timeout, else Failed). No local heuristics.
 - [ ] An HTTP backend classifies through the **three-argument** `FromHttpFailure(status, body,
