@@ -1158,6 +1158,12 @@ every addition.
 
 ### Internal (no public surface change)
 
+- **The codex agent-session tool-step mapping is now MEASURED, not inferred** (CLI12; `docs/DECISIONS.md`
+  D35). codex-cli 0.155.1 was captured running real shell, file-edit, MCP and web-search tools; every
+  inference held (no behaviour changed), so this is a confirmation plus a stub `TOOL_TURN` scenario and two
+  tests. The shell item is `command_execution`; failure is top-level `status`/`exit_code`, which is what the
+  reader already read.
+
 - **The design record's prose-gate exemption narrowed to its seeds** (**D164**): the file's INLINE dated
   amendments — its present-tense contract tier — are scanned by `check-docs`/`check-links`/`check-samples`
   through a shared line mask, while the v0.1 seeds and the period-record blockquotes stay the record they

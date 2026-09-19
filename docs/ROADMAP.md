@@ -92,13 +92,11 @@ _Generation wiring helpers (`AddOpenAiImageProvider()` and friends) were item 4 
 — see `docs/task-archive.md` Part 36. Every remaining item above needs a real
 service or a vendor key, which is why none of them is codeable from the repository alone._
 
-One more item of the same kind — a real run, not a design call — sits outside generation:
-- **CLI backends: measure the codex agent-session surface** (`TASKS.md` Part 41, CLI12). The capture
-  behind `CodexAgentSession` ran a turn with no tools in it, so the tool-step half of the mapping is INFERRED
-  and the reader routes unrecognised item names to the tool arm by elimination — a wrong name is therefore a
-  *fabricated* `ToolCall` carrying the model's own reasoning as its arguments, not a missing event
-  (`DECISIONS.md` **D35**). No payload is invented or dropped, and the measured half (session id / terminal /
-  usage) is unaffected; the KIND of event is what a real run has to confirm.
+One more item of the same kind CLOSED on 2026-09-19 (`docs/task-archive.md` Part 260):
+- **CLI backends: measure the codex agent-session surface** (CLI12). codex-cli 0.155.1 was captured running
+  real shell, file-edit, MCP and web-search tools, and every inference in `CodexAgentReader` held — the
+  shape-driven tool-step mapping was CONFIRMED rather than corrected (`DECISIONS.md` **D35**). The shell item
+  is `command_execution`; failure is the top-level `status`/`exit_code` the reader already read.
 
 _This section previously listed three "design calls still open" — blameless-vs-reportable, the curated-memory
 `taskKey`/`scope` move, and renaming `HttpModelOptions.ContextSize`. **All three were settled and

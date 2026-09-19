@@ -772,18 +772,31 @@ one call. It reads well and hides which of the two is missing when recall goes q
 this entry exists to make loud.
 
 ## D35 — the agent-session shape is NOT CLI-specific; ship the honest subset and mark the inference (2026-08-05)
-`IAgentSession` spans both CLI backends. The codex message/usage/terminal half is measured; the tool-step
-half was inferred from a capture that ran no tools, and is written **shape-driven** so no payload is
-invented or dropped and every uncertainty stays inside the tool-step half. **A tool step's KIND is
-provisional; its PAYLOAD is reliable** — switch on `ToolCall.Name`. The resume half was measured and
-implemented on 2026-08-05, and is no longer inferred. What is still unmeasured is `TASKS.md` CLI12.
+`IAgentSession` spans both CLI backends. The codex message/usage/terminal half is measured, and the
+tool-step half — inferred from a 0.146.0 capture that ran no tools — was written **shape-driven** so no
+payload is invented or dropped and every uncertainty stays inside the tool-step half. **A tool step's KIND
+is provisional; its PAYLOAD is reliable** — switch on `ToolCall.Name`. The resume half was measured and
+implemented on 2026-08-05.
 
-**The shapes correspond only PARTIALLY, and the split is measured-vs-unmeasured rather than
-capable-vs-incapable** — which is why the honest subset ships instead of a smaller common denominator.
-Four cases, kept distinct: measured and mapped; **inferred** (every tool step — the entire reason the shape
-exists); **absent in one backend so simply not emitted** (there is no per-turn usage tick where the counts
-arrive once at the end); and **carried by a backend with nowhere to go**, which is dropped rather than
-folded into a neighbouring field where it would read as something it is not.
+**The tool-step half is now MEASURED too (2026-09-19, CLI12 closed — `docs/task-archive.md` Part 260).**
+codex-cli 0.155.1, on both the authenticated ChatGPT path and the `--oss` local path, emitted four tool
+items — `command_execution` (shell), `file_change` (edit), `mcp_tool_call`, `web_search` — and every
+inference held: `item.started` fires for each, so the primary correlated-call path is the one used and the
+synthesis is the fallback it was designed as; the failure signals are top-level `status:"failed"` and
+non-zero `exit_code`, in agreement, exactly what `IsFailedItem` reads; the reasoning item really is
+`reasoning`/`text`, not `agent_reasoning`. The one fact a guess would have missed is the shell item's name —
+`command_execution`, not `exec_command`/`local_shell` — which the elimination design never depended on, and
+which is why measuring it mattered more than getting it right up front. **The residual limit is now a
+single hypothetical**: elimination would still misfile a non-tool item outside the three message names, but
+none was observed on either build. The envelope (session/usage/terminal) held unchanged across the
+0.146→0.155 version bump.
+
+**The shapes correspond only PARTIALLY, and the split was measured-vs-unmeasured rather than
+capable-vs-incapable** — which is why the honest subset shipped instead of a smaller common denominator.
+Four cases, kept distinct: measured and mapped; **absent in one backend so simply not emitted** (there is
+no per-turn usage tick where the counts arrive once at the end); and **carried by a backend with nowhere to
+go**, which is dropped rather than folded into a neighbouring field where it would read as something it is
+not. The fourth — a tool step whose shape was inferred — closed with CLI12.
 
 ## D36 — a translation between two verdict taxonomies gets one arm per member, gated by a TEST (2026-08-05)
 Translating between the LLM and media verdict enums — two taxonomies then, one `ProviderVerdict` since

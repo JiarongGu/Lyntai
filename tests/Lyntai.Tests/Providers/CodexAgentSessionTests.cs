@@ -50,6 +50,24 @@ public class CodexAgentSessionTests
         """{"type":"turn.completed","usage":{"input_tokens":1,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":1,"reasoning_output_tokens":0}}""",
     ];
 
+    /// <summary>MEASURED verbatim from a codex-cli 0.155.1 authenticated turn (2026-09-19, D35
+    /// re-measurement): a shell command that FAILED, one that SUCCEEDED, and a file edit. item.started is
+    /// present for every tool item; the failure signals are top-level status + exit_code, in agreement.</summary>
+    private static readonly string[] MeasuredToolTurn =
+    [
+        """{"type":"thread.started","thread_id":"tool-turn"}""",
+        """{"type":"turn.started"}""",
+        """{"type":"item.completed","item":{"id":"item_1","type":"reasoning","text":"Ill run it."}}""",
+        """{"type":"item.started","item":{"id":"item_2","type":"command_execution","command":"cmd /c dir /b","aggregated_output":"","exit_code":null,"status":"in_progress"}}""",
+        """{"type":"item.completed","item":{"id":"item_2","type":"command_execution","command":"cmd /c dir /b","aggregated_output":"Parameter format not correct","exit_code":1,"status":"failed"}}""",
+        """{"type":"item.started","item":{"id":"item_3","type":"command_execution","command":"powershell dir","aggregated_output":"","exit_code":null,"status":"in_progress"}}""",
+        """{"type":"item.completed","item":{"id":"item_3","type":"command_execution","command":"powershell dir","aggregated_output":"seed.txt","exit_code":0,"status":"completed"}}""",
+        """{"type":"item.started","item":{"id":"item_4","type":"file_change","changes":[{"path":"ws/hello.txt","kind":"add"}],"status":"in_progress"}}""",
+        """{"type":"item.completed","item":{"id":"item_4","type":"file_change","changes":[{"path":"ws/hello.txt","kind":"add"}],"status":"completed"}}""",
+        """{"type":"item.completed","item":{"id":"item_5","type":"agent_message","text":"It printed exactly 1 line."}}""",
+        """{"type":"turn.completed","usage":{"input_tokens":8194,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":42,"reasoning_output_tokens":0}}""",
+    ];
+
     private static CodexAgentSession Session(FakeProcessRunner runner, ILogger<CodexAgentSession>? logger = null) =>
         new(runner, new LyntaiOptions(), logger, command: "codex");
 
@@ -277,9 +295,9 @@ public class CodexAgentSessionTests
         Assert.Equal("one two", events.OfType<SessionEnded>().Single().FinalText);
     }
 
-    // ── the INFERRED tool-step mapping ───────────────────────────────────────
+    // ── the tool-step mapping — MEASURED against codex-cli 0.155.1 (2026-09-19, D35) ──────────
 
-    [Fact] // INFERRED: item.started has NOT been observed here
+    [Fact] // MEASURED: codex 0.155.1 emits item.started for every tool item, so this primary path fires
     public async Task A_started_then_completed_tool_item_becomes_a_correlated_call_and_result()
     {
         var runner = new FakeProcessRunner([
@@ -299,7 +317,8 @@ public class CodexAgentSessionTests
         Assert.False(result.IsError);
     }
 
-    [Fact] // INFERRED: if item.started turns out not to exist, the step must still be VISIBLE
+    [Fact] // the synthesis FALLBACK: codex 0.155.1 always sends item.started, but a backend that skips it
+    // must still leave the step visible — so this pins the completion-only path deliberately
     public async Task A_tool_item_seen_only_at_completion_still_yields_a_call_so_the_step_is_visible()
     {
         var runner = new FakeProcessRunner([
@@ -315,7 +334,8 @@ public class CodexAgentSessionTests
         Assert.Equal("mcp_tool_call", events.OfType<ToolCall>().Single().Name);
     }
 
-    [Theory] // INFERRED: the failure signals a tool item might carry
+    [Theory] // MEASURED: a real command_execution failure carried status:"failed" AND exit_code:1 together,
+    // a success status:"completed" AND exit_code:0 — both top-level, in agreement (D35 re-measurement)
     [InlineData("""{"id":"i","type":"command_execution","exit_code":2}""", true)]
     [InlineData("""{"id":"i","type":"command_execution","status":"failed"}""", true)]
     [InlineData("""{"id":"i","type":"command_execution","exit_code":0}""", false)]
@@ -332,7 +352,7 @@ public class CodexAgentSessionTests
         Assert.Equal(expectedIsError, events.OfType<ToolResult>().Single().IsError);
     }
 
-    [Fact] // INFERRED: the item type name AND its text field
+    [Fact] // MEASURED: the item type is `reasoning` (not agent_reasoning) and the field is `text`
     public async Task A_reasoning_item_becomes_thinking_not_a_tool_step()
     {
         var runner = new FakeProcessRunner([
@@ -344,6 +364,28 @@ public class CodexAgentSessionTests
 
         Assert.Equal("thinking out loud", events.OfType<Thinking>().Single().Text);
         Assert.Empty(events.OfType<ToolCall>());
+    }
+
+    [Fact] // MEASURED end-to-end: the real multi-item turn maps to correlated calls/results with the right
+    // KIND (every tool item is a genuine tool) and the right failure flags, and still ends Ok
+    public async Task The_measured_tool_turn_maps_every_step_and_ends_ok()
+    {
+        var events = await Session(new FakeProcessRunner(MeasuredToolTurn)).StreamAsync(Ask()).ToListAsync();
+
+        // three tool items -> three correlated call/result pairs, each under codex's OWN item type
+        var calls = events.OfType<ToolCall>().ToList();
+        Assert.Equal(["command_execution", "command_execution", "file_change"], calls.Select(c => c.Name));
+        Assert.Equal(["item_2", "item_3", "item_4"], calls.Select(c => c.CallId));
+
+        // the FAILED shell step reports IsError; the SUCCESSFUL one and the file edit do not
+        var results = events.OfType<ToolResult>().ToList();
+        Assert.Equal([true, false, false], results.Select(r => r.IsError));
+
+        // reasoning is Thinking, not a tool step; the answer and terminal are unaffected by the tools
+        Assert.Equal("Ill run it.", events.OfType<Thinking>().Single().Text);
+        var ended = events.OfType<SessionEnded>().Single();
+        Assert.Equal(ProviderVerdict.Ok, ended.Verdict);
+        Assert.Equal("It printed exactly 1 line.", ended.FinalText);
     }
 
     [Fact] // the payload is codex's own object verbatim — Lyntai invents no argument schema
@@ -805,6 +847,18 @@ public class CodexAgentSessionTests
 
         Assert.Equal(ProviderVerdict.Ok, result.Verdict);
         Assert.Contains("codex stub reply", result.FinalText);
+    }
+
+    [Fact] // the measured tool turn, driven through a real spawn of the codex-shaped stub
+    public async Task A_tool_turn_against_the_stub_maps_its_steps_over_a_real_spawn()
+    {
+        var events = await StubSession().StreamAsync(new AgentSessionOptions { Prompt = "TOOL_TURN" })
+            .ToListAsync();
+
+        var calls = events.OfType<ToolCall>().ToList();
+        Assert.Equal(["command_execution", "command_execution", "file_change"], calls.Select(c => c.Name));
+        Assert.Equal([true, false, false], events.OfType<ToolResult>().Select(r => r.IsError));
+        Assert.Equal(ProviderVerdict.Ok, events.OfType<SessionEnded>().Single().Verdict);
     }
 
     // ── DI wiring ────────────────────────────────────────────────────────────

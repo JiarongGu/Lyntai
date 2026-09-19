@@ -15,23 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 5 Parts: 3 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 9 across 4 Parts: 2 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 111 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
-| 128 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 161 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 214 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 233 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 288 | 41 | CLI12 — measure codex's tool-step items and confirm (or correct) the inferr… | startable |  |
-| 348 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 403 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 426 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 483 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 110 | 33 | GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the m… | startable |  |
+| 127 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
+| 160 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 213 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 232 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 279 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 334 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 357 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 414 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -269,74 +268,6 @@ fourth such surface — a consuming app measured it 2026-08-04 and it is now con
 
 ---
 
-
-## Part 41 — CLI backends: the codex surface still to MEASURE (2026-08-05)
-
-_**Renumbered from Part 39 on 2026-08-05.** `docs/task-archive.md` **Part 39** is the CLI11 entry that OPENED
-this one, so "Part 39" named a completed archive entry and an open backlog part at the same time and every
-cross-reference to it was ambiguous. The archive keeps 39 — it is history, and history does not get
-renumbered; this open part took the next free number instead._
-
-_Opened while closing CLI11 (`CodexAgentSession`; see `docs/task-archive.md` Part 39 and
-`docs/DECISIONS.md` **D35**). CLI11 shipped the honest subset: the message/usage/terminal half of the codex
-mapping is measured, the tool-step half is inferred, and the inference is written shape-driven — which bounds
-what a wrong guess can cost to exactly two things: **no payload is invented or dropped**, and **every
-uncertainty stays inside the tool-step half**. It does NOT bound the KIND of event, so a tool step's kind is
-provisional and only its payload is reliable (the item below is the consequence). What is left is
-measurement, and measurement only — nothing here is codeable without a real codex run._
-
-- [ ] **CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping.** <!-- item: state=startable -->
-  `src/Lyntai.Providers.Basic/CodexCli/CodexAgentReader.cs`. The capture behind this backend (codex-cli 0.146.0,
-  2026-08-04) ran a trivial `--oss` turn with **no tools**, so the entire tool-step half is inferred and
-  marked as such in the XML docs.
-
-  **First step: `npm i -g @openai/codex`.** Verified on the registry 2026-09-16 — `0.154.0`, with a
-  `win32-x64` platform binary among its optional dependencies. The 2026-08-04 capture used `--oss`, and
-  this machine holds 16 GGUF models, so the turn itself needs **no vendor account** — which also settles
-  the token question the owner already answered yes to.
-
-  _**RE-FILED 2026-09-16 from `blocked · env`, and the re-checks that kept it blocked were asking the wrong
-  question.** Twice — 2026-09-15 and again this morning — `where codex` returned nothing and the item was
-  left blocked on the strength of it. That confirms the binary is ABSENT; it says nothing about whether it
-  is OBTAINABLE, which is the test `task-lifecycle.md` actually sets ("could someone begin this today?").
-  A named package on a public registry is a step. **The shape to carry: for an `env` blocker, "still not
-  installed" is not a re-check — it is the same observation that filed the item.** Re-check the artifact's
-  AVAILABILITY, not the machine's inventory._
-
-  **Why this is not merely cosmetic.** The reader recognises exactly three item names (`agent_message`,
-  `reasoning`, `error`) and routes everything else to the tool arm **by elimination**. So a wrong NAME is not
-  a missing event, it is a WRONG one: a renamed `reasoning` (codex's historical `agent_reasoning`) becomes a
-  fabricated `ToolCall` carrying the model's thought as its arguments, a `todo_list`-style plan update becomes
-  one too, and a rename of `agent_message` would cost the `TextDelta` AND `FinalText` AND emit the answer as a
-  tool step. Each contradicts `ToolCall`'s documented meaning ("the agent invoked a tool",
-  `src/Lyntai.Core/Agents/AgentStreamEvent.cs:18`). Payload is never invented or lost, and the measured
-  half (session id / terminal / usage) is unaffected — that is the whole of what the shape-driven mapping
-  buys.
-
-  **Confirm in this order — most costly wrong guess first:**
-  1. **`agent_message`** — a rename here is the worst case (loses the answer twice over *and* fabricates a
-     tool step). Measured today, so this is a regression check, not a discovery.
-  2. **`reasoning`** — INFERRED. Confirm the item-type name (vs `agent_reasoning`) and its text field.
-  3. **`todo_list`** (and any other non-tool, non-message item type the run emits) — each one currently
-     surfaces as a fabricated tool step. Decide per item: recognise and drop, or accept as a tool step.
-  4. **The per-item failure signal** — `IsFailedItem` reads only top-level `status`/`exit_code`, and returns
-     `false` as a POSITIVE claim of success, so a nested or differently-named signal makes a failed step look
-     successful to a failure-highlighting UI.
-  5. Then the cheaper two: whether `item.started` is emitted at all (if not, the synthesised `ToolCall` is a
-     degradation, not a break), and whether `item.updated` carries partial text worth showing — deliberately
-     IGNORED today, because an unmeasured accumulation rule risks double-counting the answer.
-
-  **Then:** flip the docs from INFERRED to MEASURED where they hold — including the scoped safety claim in
-  `CodexAgentReader`'s docblock, the README's codex bullet and `DECISIONS.md` D35 — and extend
-  `devtools/scripts/codex-stub.mjs` with the real shapes (its header forbids inventing them, which is why the
-  inferred cases are covered only by `FakeProcessRunner` fixtures today). A friendlier `ToolResult.Content`
-  projection (the readable output field instead of the raw item JSON) becomes possible at the same time, and
-  is additive.
-
-_**CLI15** (a measured `turn.failed` shape, filed by `Aurelia` 2026-08-05) closed the same day — see
-`docs/task-archive.md` **Part 45**. Three of its four claims were already handled and are now pinned; the
-fourth found a real defect in `CliProviderEngine.CompleteAsync` (a non-zero exit masked the backend's own
-in-band failure), fixed and recorded in `docs/FIXES.md`._
 
 ## Part 56 — complete FSRS: `DsrRetrievability` is a PARTIAL, UNFITTED model, and that gap is measured (2026-08-10)
 

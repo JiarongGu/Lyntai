@@ -8,9 +8,11 @@ namespace Lyntai.Providers.CodexCli;
 /// <remarks>
 /// <para>Every command and flag here was MEASURED against codex-cli 0.146.0 (2026-08-04) via <c>--help</c>,
 /// plus a real successful turn (through <c>--oss</c> + a local model, so no tokens were spent) and a real
-/// failed one. That is not ceremony: <c>codex</c>'s usage is <c>codex [OPTIONS] [PROMPT]</c>, so an
-/// unrecognized SUBCOMMAND is taken as a prompt and starts a turn — the same trap the claude CLI has.
-/// (Unrecognized FLAGS are safe: codex is clap-based and errors out.)</para>
+/// failed one, and RE-MEASURED against 0.155.1 (2026-09-19): the <c>exec</c> argv is unchanged and still
+/// runs, with two new sibling subcommands (<c>fork</c>, <c>review</c>) that this backend does not use. That
+/// is not ceremony: <c>codex</c>'s usage is <c>codex [OPTIONS] [PROMPT]</c>, so an unrecognized SUBCOMMAND is
+/// taken as a prompt and starts a turn — the same trap the claude CLI has. (Unrecognized FLAGS are safe:
+/// codex is clap-based and errors out.)</para>
 /// <para>Three measured details drive the argv below, and each would break the provider if guessed wrong:
 /// <c>--skip-git-repo-check</c> is REQUIRED because the engine spawns from a neutral temp directory and codex
 /// otherwise refuses to run outside a git repository; <c>--sandbox read-only</c> keeps a text completion from

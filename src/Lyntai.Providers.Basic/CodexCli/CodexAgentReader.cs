@@ -9,23 +9,19 @@ namespace Lyntai.Providers.CodexCli;
 /// and it yields 0..N <see cref="AgentStreamEvent"/>s. Tolerant — an unknown or malformed line yields
 /// nothing, never throws. Line-translation ONLY: it has no stderr knowledge, so the session runner fills
 /// <see cref="SessionEnded.Diagnostic"/> for process-level faults.
-/// <para><b>What is measured and what is not.</b> The capture behind this envelope (see
-/// <see cref="CodexJsonlParser"/>) used NO TOOLS, so session id, assistant text, usage and terminal are
-/// MEASURED while every TOOL STEP is INFERRED. Each member of <see cref="CodexEnvelope"/> says which.</para>
-/// <para><b>How the inference is bounded.</b> The tool mapping is SHAPE-driven, not name-driven: any item
-/// whose type is not one of the three recognised message-ish names (<c>agent_message</c>, <c>reasoning</c>,
-/// <c>error</c>) is surfaced as a tool step under codex's OWN item-type name, carrying codex's OWN item
-/// object — nothing renamed, normalised or invented, so a codex release that adds or renames a TOOL item
-/// still flows through. Two consequences: <see cref="ToolCall.ArgumentsJson"/> and
-/// <see cref="ToolResult.Content"/> carry that raw item object rather than a normalised schema; and where
-/// codex emits no <c>item.started</c>, the <see cref="ToolCall"/> is SYNTHESISED from the completion,
-/// correlated by item id and never emitted twice, so the step stays visible in a UI.</para>
-/// <para><b>The limit of that guarantee.</b> It guarantees only that <b>no payload is invented or
-/// dropped</b> and that every uncertainty is <b>confined to the tool-step half</b>. It does NOT guarantee
-/// the right KIND: the default arm is reached by ELIMINATION, so a non-tool item outside those three names
-/// <b>appears as a tool step</b>, contradicting <see cref="ToolCall"/>'s own contract. Treat a tool step's
-/// KIND as provisional and its PAYLOAD as reliable, and switch on <see cref="ToolCall.Name"/> — codex's own
-/// item type.</para>
+/// <para><b>MEASURED, envelope and tool steps alike</b> (codex-cli 0.146.0 and re-measured against 0.155.1
+/// — <c>docs/DECISIONS.md</c> D35, <c>docs/task-archive.md</c> Part 260). Each <see cref="CodexEnvelope"/>
+/// member says which release measured it.</para>
+/// <para><b>The mapping is SHAPE-driven, not name-driven.</b> Any item whose type is not one of the three
+/// recognised message-ish names (<c>agent_message</c>, <c>reasoning</c>, <c>error</c>) is surfaced as a tool
+/// step under codex's OWN item-type name, carrying codex's OWN item object — nothing renamed or invented, so
+/// <see cref="ToolCall.ArgumentsJson"/> / <see cref="ToolResult.Content"/> hold that raw object. Where codex
+/// emits no <c>item.started</c> the <see cref="ToolCall"/> is SYNTHESISED from the completion, correlated by
+/// id and never emitted twice; 0.155.1 emits <c>item.started</c> for every tool item, so that is the
+/// fallback it was designed as.</para>
+/// <para><b>One residual limit</b>: the default arm is reached by ELIMINATION, so a hypothetical non-tool
+/// item outside those three names would appear as a tool step — none was observed on either build. Treat a
+/// tool step's KIND as provisional and its PAYLOAD as reliable; switch on <see cref="ToolCall.Name"/>.</para>
 /// <para><b>The rule that is measured and load-bearing:</b> only <c>turn.failed</c> is terminal. A bare
 /// <c>error</c> line and an <c>error</c> ITEM both appeared in a run that went on to SUCCEED, so failing on
 /// either is wrong.</para></summary>
@@ -140,7 +136,8 @@ internal sealed class CodexAgentReader
                 }
                 break;
 
-            // INFERRED (the item type name and its text field alike).
+            // MEASURED (codex 0.155.1): the item type is `reasoning` — not `agent_reasoning` — and the
+            // text field is `text`, both confirmed on a real turn (D35 re-measurement).
             case CodexEnvelope.ReasoningItem:
                 if (!started && CodexEnvelope.StringField(item, "text") is { Length: > 0 } thought)
                     yield return new Thinking(thought);
@@ -152,9 +149,11 @@ internal sealed class CodexAgentReader
             case CodexEnvelope.ErrorItem:
                 break;
 
-            // INFERRED, and reached by ELIMINATION rather than recognition: everything that is not one of the
-            // three names above is ASSUMED to be a step the agent took, under codex's own item type and
-            // carrying codex's own item object. See the class docblock's "limit of that guarantee".
+            // MEASURED shapes reach this arm by ELIMINATION rather than recognition: everything that is not
+            // one of the three names above is a step the agent took, under codex's own item type and carrying
+            // codex's own item object. codex 0.155.1 confirmed four here — `command_execution` (shell),
+            // `file_change` (edit), `mcp_tool_call`, `web_search` — all genuine tools, so elimination gave
+            // the right KIND for each. See the class docblock's "one residual limit".
             default:
                 var payload = item.GetRawText();
                 if (started)
@@ -172,13 +171,17 @@ internal sealed class CodexAgentReader
         }
     }
 
-    /// <summary>INFERRED: whether a completed tool item reports a failure. Two TOP-LEVEL signals are checked —
-    /// a <c>status</c> of <c>failed</c>, and a non-zero <c>exit_code</c> — and neither being present means
-    /// "not an error", so an unrecognised item shape reports success rather than a fabricated failure.
-    /// <para><b>Note which way that errs.</b> <c>false</c> here is not "unknown", it is a positive claim of
-    /// success on <see cref="ToolResult.IsError"/> — so a failure signal that is NESTED or differently named
-    /// is reported as a successful step, and a UI that highlights failures would show none. That direction was
-    /// chosen because the opposite (defaulting to <c>IsError: true</c>) would mark every successful step of an
+    /// <summary>MEASURED (codex 0.155.1): whether a completed tool item reports a failure. Two TOP-LEVEL
+    /// signals are checked — a <c>status</c> of <c>failed</c>, and a non-zero <c>exit_code</c> — and both are
+    /// exactly what a real <c>command_execution</c> emits: a failed run carried <c>"status":"failed"</c> AND
+    /// <c>"exit_code":1</c> together, a successful one <c>"completed"</c> AND <c>0</c>, both at top level and
+    /// in agreement. The inferred pair was right — not nested, not differently named (D35 re-measurement).
+    /// A <c>file_change</c> carries no <c>exit_code</c>, so its failure would ride <c>status</c> alone, which
+    /// this already reads. Neither signal present means "not an error".
+    /// <para><b>Note which way an UNMEASURED shape errs.</b> <c>false</c> here is not "unknown", it is a
+    /// positive claim of success on <see cref="ToolResult.IsError"/> — so a failure signal that is NESTED or
+    /// differently named on some future item is reported as a successful step. That direction was chosen
+    /// because the opposite (defaulting to <c>IsError: true</c>) would mark every successful step of an
     /// unmeasured item shape as failed, which is both wrong more often and louder. The raw item is in
     /// <see cref="ToolResult.Content"/> either way.</para></summary>
     private static bool IsFailedItem(JsonElement item)

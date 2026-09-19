@@ -76,6 +76,24 @@ if (prompt.includes('AUTH_ERROR_EXIT')) {
   emit({ type: 'turn.failed', error: { message: 'unexpected status 401 Unauthorized: Missing bearer or basic authentication in header' } });
 } else if (prompt.includes('FORCE_ERROR')) {
   emit({ type: 'turn.failed', error: { message: 'stub turn failure' } });
+} else if (prompt.includes('TOOL_TURN')) {
+  // MEASURED 2026-09-19 against codex-cli 0.155.1 (D35 re-measurement, docs/task-archive.md Part 260): a
+  // real authenticated turn that ran a shell command that FAILED then one that SUCCEEDED, and edited a
+  // file. Verbatim item shapes — do not invent; the machine path in file_change is the only edit, to a
+  // neutral one. codex emits item.started for EVERY tool item, so the reader's primary ToolCall path fires
+  // and the failure signals (top-level status + exit_code) are exactly what IsFailedItem reads.
+  emit({ type: 'item.completed', item: { id: 'item_1', type: 'reasoning', text: 'Ill run the command and count the lines.' } });
+  // a shell step that FAILED: status "failed" AND non-zero exit_code, both top-level, in agreement
+  emit({ type: 'item.started', item: { id: 'item_2', type: 'command_execution', command: 'cmd /c dir /b', aggregated_output: '', exit_code: null, status: 'in_progress' } });
+  emit({ type: 'item.completed', item: { id: 'item_2', type: 'command_execution', command: 'cmd /c dir /b', aggregated_output: 'Parameter format not correct - "b".\r\n', exit_code: 1, status: 'failed' } });
+  // a shell step that SUCCEEDED: status "completed" AND exit_code 0
+  emit({ type: 'item.started', item: { id: 'item_3', type: 'command_execution', command: 'powershell -NoProfile -Command dir', aggregated_output: '', exit_code: null, status: 'in_progress' } });
+  emit({ type: 'item.completed', item: { id: 'item_3', type: 'command_execution', command: 'powershell -NoProfile -Command dir', aggregated_output: 'seed.txt\r\n', exit_code: 0, status: 'completed' } });
+  // a file edit: file_change carries no exit_code, so its failure would ride `status` alone
+  emit({ type: 'item.started', item: { id: 'item_4', type: 'file_change', changes: [{ path: 'ws/hello.txt', kind: 'add' }], status: 'in_progress' } });
+  emit({ type: 'item.completed', item: { id: 'item_4', type: 'file_change', changes: [{ path: 'ws/hello.txt', kind: 'add' }], status: 'completed' } });
+  emit({ type: 'item.completed', item: { id: 'item_5', type: 'agent_message', text: 'It printed exactly 1 line.' } });
+  emit({ type: 'turn.completed', usage: { input_tokens: 8194, cached_input_tokens: 0, cache_write_input_tokens: 0, output_tokens: 42, reasoning_output_tokens: 0 } });
 } else {
   const lastLine = prompt.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).pop() ?? '';
   emit({ type: 'item.completed', item: { id: 'item_1', type: 'agent_message', text: `codex stub reply: ${lastLine.slice(0, 200)}` } });

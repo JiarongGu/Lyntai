@@ -1529,21 +1529,20 @@ var claude = sp.GetRequiredKeyedService<IAgentSession>("claude-cli");
 **Read this before adopting it** — the two halves of the codex mapping have different standing, and
 `docs/DECISIONS.md` **D35** has the full account:
 
-- **Measured** against codex-cli 0.146.0: session id, assistant text, final usage, and the terminal —
-  including the rule that only `turn.failed` fails a turn (a bare `error` line and an `error` item both
-  appear in runs that succeed).
-- **Inferred**: every **tool step**. The measured run used no tools. The mapping is therefore shape-driven —
-  a tool step arrives under codex's *own* item-type name with codex's *own* item object as
-  `ToolCall.ArgumentsJson` / `ToolResult.Content` (no normalised schema, and deliberately no `CodexToolCalls`
-  helper). **What that guarantees, precisely:** no payload is ever invented or dropped, and every uncertainty
-  stays inside the tool-step half — the session id, terminal and usage are measured and unaffected. **What it
-  does not guarantee is the KIND of event.** The tool arm is reached by *elimination* against three
-  recognised names (`agent_message`, `reasoning`, `error`), so an item that is not one of them and not a tool
-  — a renamed `reasoning`, a `todo_list`-style plan update — arrives as a fabricated `ToolCall`, which is not
-  what `ToolCall` means. Treat a tool step's **kind as provisional and its payload as reliable**, and switch
-  on `ToolCall.Name` rather than assuming every one is a tool. Likewise `ToolResult.IsError` is a *positive*
-  claim of success when no top-level `status`/`exit_code` says otherwise — a nested failure signal would read
-  as a successful step.
+- **Measured** against codex-cli 0.146.0 and re-measured against 0.155.1: session id, assistant text, final
+  usage, and the terminal — including the rule that only `turn.failed` fails a turn (a bare `error` line and
+  an `error` item both appear in runs that succeed).
+- **Tool steps: also measured now** (codex-cli 0.155.1, 2026-09-19). A real turn ran shell commands
+  (`command_execution`), a file edit (`file_change`), an MCP call and a web search — every one flows through
+  the shape-driven mapping correctly: it arrives under codex's *own* item-type name with codex's *own* item
+  object as `ToolCall.ArgumentsJson` / `ToolResult.Content` (no normalised schema, no `CodexToolCalls`
+  helper). `item.started` fires for each, so calls and results correlate by item id; `ToolResult.IsError`
+  reads the top-level `status`/`exit_code`, which is exactly what a failed `command_execution` carries
+  (`"failed"` + non-zero, in agreement). The shell item is named `command_execution` — the elimination
+  design never depended on that, which is the point. **The one residual caveat:** the tool arm is reached by
+  *elimination* against three recognised names (`agent_message`, `reasoning`, `error`), so a hypothetical
+  future item that is neither one of them nor a tool would arrive as a `ToolCall` — none was observed on
+  either build. Switch on `ToolCall.Name` (codex's own item type) rather than assuming every one is a tool.
 - **Not emitted**, because codex has no analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`,
   and token-level deltas — a codex `TextDelta` is one whole assistant message, not a token.
 - **`ResumeToken` is honoured** (measured 2026-08-05 via `codex exec resume --help`, a flag and therefore

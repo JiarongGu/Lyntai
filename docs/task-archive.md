@@ -4621,3 +4621,19 @@ convention so the split is writable, not just inferable. Reasoning and alternati
 862/862 (two added for the mask).
 
 - The design contract is exempt from every prose gate — decide the exemption's scope
+
+## Part 260 — CLI12: the codex tool-step mapping, measured and CONFIRMED (2026-09-19)
+
+✅ done 2026-09-19 — **Outcome:** closes `TASKS.md` Part 41 (its only open item; the whole Part retires).
+codex-cli 0.155.1, captured on the authenticated ChatGPT path (shell + file edit) and the `--oss` local
+path via llama-server (MCP + web search), CONFIRMED every inference in `CodexAgentReader` — nothing needed
+correcting, which is the deliverable. The measurement detail and what it settled live in `docs/DECISIONS.md`
+D35 (amended); in short: the shell item is `command_execution`, `item.started` fires for every tool item,
+and failure is the top-level `status`/`exit_code` the reader already read. Docs flipped INFERRED→MEASURED
+(reader docblock, README bullet, D35); the stub gained a `TOOL_TURN` scenario; two tests added.
+
+- **Ratio, per the measurement-task rule:** ~8 capture runs (the actionable finding landed on the first
+  authenticated tool run; the rest completed the shape set) against ~15 lines of stub and 2 tests. No `src/`
+  behaviour changed — every inference was correct, so this is a confirmation, not a repair.
+- CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping → confirmed (D35).
+  Part 41 also carried the CLI15 pointer (closed 2026-08-05 as archive Part 45); it retires here.
