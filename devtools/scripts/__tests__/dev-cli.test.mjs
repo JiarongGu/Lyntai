@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { commandNames } from '../../dev.mjs';
+import { commandNames, testSummaryCounts } from '../../dev.mjs';
 import { repoRoot } from './_fixtures.mjs';
 
 // `node devtools/dev.mjs` with no argument is what CLAUDE.md calls "the authoritative list" of commands.
@@ -51,4 +51,25 @@ test('commandNames ignores things that merely look like cases', () => {
   const fake = "// see case 'ghost': for why\nconst s = \"case 'phantom':\";\n  case 'real':\n";
 
   assert.deepEqual(commandNames(fake), ['real']);
+});
+
+// `test-devtools` reads the runner's SUMMARY rather than its exit code alone, so how that summary is
+// spelled is load-bearing. The counts are line-anchored on `ℹ`, and the spec reporter puts a colour escape
+// BEFORE that glyph whenever FORCE_COLOR is set — which it honours through a pipe, which is exactly how the
+// gate spawns it. Measured: a 871/871 run with `status 0` reported "the scripts that GATE this repository
+// are themselves failing", because every count parsed as NaN and `tests > 0` is false for NaN.
+test('the summary counts survive a COLOURED reporter, which is how the gate really runs it', () => {
+  const plain = 'ℹ tests 871\nℹ suites 190\nℹ pass 871\nℹ fail 0\n';
+  const coloured = '\u001b[34mℹ tests 871\u001b[39m\n\u001b[34mℹ pass 871\u001b[39m\n\u001b[34mℹ fail 0\u001b[39m\n';
+
+  assert.deepEqual(testSummaryCounts(plain), { tests: 871, passed: 871, failed: 0 });
+  assert.deepEqual(testSummaryCounts(coloured), { tests: 871, passed: 871, failed: 0 });
+});
+
+test('an UNREADABLE summary is distinguishable from a real failure', () => {
+  // The two must not collapse: 0 failures with an unparseable summary means the gate could not READ the
+  // run, and saying "tests failed" there sends the next reader hunting for a test that is perfectly green.
+  const { tests, passed, failed } = testSummaryCounts('the runner crashed before it summarised anything');
+
+  assert.ok(![tests, passed, failed].some(Number.isFinite), 'counts must be NaN, never a plausible zero');
 });

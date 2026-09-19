@@ -113,15 +113,21 @@ switch (cmd) {
     const r = spawnSync('node', ['--test', '--test-reporter=spec', ...args, pattern],
       { cwd: repo, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
-    const count = (name) => Number((out.match(new RegExp(`^\\u2139 ${name} (\\d+)`, 'm')) ?? [])[1] ?? NaN);
-    const [tests, passed, failed] = [count('tests'), count('pass'), count('fail')];
+    const { tests, passed, failed } = testSummaryCounts(out);
     if (r.status === 0 && failed === 0 && tests > 0) {
       console.log(`${label}: ${passed}/${tests} guard-script tests pass ✓`);
       break;
     }
     console.error(out.trimEnd());
+    // An UNREADABLE summary is its own diagnosis, never a silent red: the counts say nothing failed only
+    // because nothing parsed, and reporting that as a test failure sends the reader hunting for a green test.
+    const unreadable = !Number.isFinite(tests) || !Number.isFinite(failed);
     console.error(`\n${label}: ✗ the scripts that GATE this repository are themselves failing` +
       `${Number.isFinite(failed) && failed > 0 ? ` — ${failed} test(s)` : ''}\n` +
+      (unreadable
+        ? `  Its SUMMARY did not parse (exit ${r.status}), so this is not a counted test failure. Re-run\n` +
+          '  `node devtools/dev.mjs test-devtools --test-reporter=spec` to see the runner directly.\n'
+        : '') +
       '  Nothing below this gate can be trusted until it is green: each of these scripts fails permissively,\n' +
       '  so a broken one reports a clean repository (docs/task-archive.md Part 60).');
     process.exitCode = r.status || 1;
@@ -964,4 +970,22 @@ switch (cmd) {
 export function commandNames(source = null) {
   const src = source ?? fs.readFileSync(fileURLToPath(import.meta.url), 'utf8');
   return [...new Set([...src.matchAll(/^\s*case '([a-z][a-z0-9-]*)':/gm)].map((m) => m[1]))];
+}
+
+/**
+ * The three counts out of a `node --test` summary — `{ tests, passed, failed }`, each NaN when absent.
+ *
+ * ANSI is stripped BEFORE matching, and that is the whole reason this is a function. The counts are
+ * line-anchored on `ℹ`, and the spec reporter writes a colour escape in front of that glyph whenever
+ * FORCE_COLOR is set — which it honours through a PIPE, which is exactly how `test-devtools` spawns it. So
+ * a 871/871 run with `status 0` parsed every count as NaN and failed `tests > 0`, reporting the gate's
+ * "the scripts that GATE this repository are themselves failing" on a perfectly green tree.
+ *
+ * NaN rather than 0 when a count is missing: a plausible zero is how "could not read the run" becomes
+ * indistinguishable from "nothing failed", and the caller says which.
+ */
+export function testSummaryCounts(out) {
+  const plain = String(out ?? '').replace(/\u001b\[[0-9;]*m/g, '');
+  const count = (name) => Number((plain.match(new RegExp(`^\\u2139 ${name} (\\d+)`, 'm')) ?? [])[1] ?? NaN);
+  return { tests: count('tests'), passed: count('pass'), failed: count('fail') };
 }

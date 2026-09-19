@@ -7,6 +7,38 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-20 — `verify` reported the guards themselves failing on a tree where all 871 passed
+
+**Symptom.** `verify` dies at its FIRST gate: *"test-devtools: ✗ the scripts that GATE this repository are
+themselves failing"* — while the runner output printed directly above it reads `tests 871 / pass 871 /
+fail 0`. Reproducible on unmodified `master`, and the spawned runner exits `0` when run by hand, so nothing
+about the tree or the tests was wrong. The message names no failing test because there is none.
+
+**Root cause.** `test-devtools` reads the runner's SUMMARY rather than trusting its exit code alone —
+deliberately, since these scripts fail permissively. It parsed the counts with `^ℹ <name> (\d+)`,
+anchored at line start. Node's spec reporter writes a colour escape BEFORE that `ℹ`, and it honours
+`FORCE_COLOR` through a PIPE, which is exactly how the gate spawns it. So under any environment that sets
+`FORCE_COLOR` — a terminal that exports it, and Claude Code sets `FORCE_COLOR=3` — every count parsed as
+`NaN`, `tests > 0` was false for `NaN`, and the gate reported red. Not a flake and not the tests: a
+false RED, which is the safe direction to fail in and still blocks the only gate that says "am I done".
+
+**Fix.** The parse is an exported `testSummaryCounts(out)` — ANSI stripped before matching — so it can be
+driven by a test, the same reason the doctors left this switch (`docs/task-archive.md` Part 62). Missing
+counts stay `NaN` rather than collapsing to a plausible `0`, and the failure message now says when the
+summary did not PARSE, naming the exit code and the `--test-reporter=spec` re-run, instead of implying a
+counted test failure. The reusable half: **a guard that parses a tool's human-readable output is hostage to
+that tool's colour decisions, and a pipe does not turn colour off.**
+
+**Verify.** Driven red first — the new test imports `testSummaryCounts` before it exists, then asserts the
+counts survive a coloured summary (the measured defect) and that an unparseable one yields `NaN` rather
+than zeroes. Then measured green the way the defect actually arrives: `node devtools/dev.mjs test-devtools`
+**with `FORCE_COLOR=3` still set** now reports `873/873` and exits 0, where it previously exited 1.
+Baseline moves 871 → 873 for the two tests added; `check-counts` caught that itself.
+
+**Introduced by.** The gate as originally written — the anchored parse has been there since `test-devtools`
+gained its quiet-when-green shape. It was invisible for as long as nobody ran `verify` from a
+colour-forcing environment, which is why it surfaced now rather than at the change that caused it.
+
 ## 2026-09-19 — the release pipeline failed `verify` on a tree that was green minutes earlier
 
 **Symptom.** Every gate green locally at `d1219c2d`, `consumer-smoke` green, `doctor` green — and the
