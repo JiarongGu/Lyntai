@@ -50,7 +50,7 @@ mistake this column exists to prevent.
 | 476 | `jina-reranker-v1-tiny-en` Q4_K_M (gpustack… | screen-verdict | 1 query × 4 docum… | 8/8 checks | — | RETRACTED |
 | 484 | the same three GGUFs on `cross-encoder/ms-m… | screen-verdict | 1 query × 2 docum… | control 10/10; … | — | CURRENT |
 | 575 | `cross-encoder/ms-marco-MiniLM-L6-v2`'s own… | screen-verdict | 1 query × 2 docum… | fp32 reproduces… | — | CURRENT |
-| 621 | `ms-marco-MiniLM-L6-v2` int8 and fp32 ONNX … | evidence-hit@k | 200 | +3.0 (both expo… | — | CURRENT |
+| 621 | `ms-marco-MiniLM-L6-v2` int8 and fp32 ONNX … | evidence-hit@k | 200 | +3.0 (both expo… | — | CURRENT <!-- drift-ok: carried from this result's own line --> |
 | 667 | `LAMAR-600m` Q5_K_M on one `llama-server --… | screen-verdict | 6 calls of 4 docu… | 9.42e-3 max dri… | — | CURRENT |
 | 684 | the shipped `LlmMemoryVerificationPolicy` o… | endorsement-rate | 70 knowledge-upda… | 36.2% | — | CURRENT |
 | 777 | `SalienceWeight = 0` (now the shipped defau… | miss | 10 seeds; 10/10 l… | −0.0530 | **ships** | CURRENT |
@@ -618,7 +618,7 @@ recorded as the floor.
    table above, re-run one layer over; caveat 1 is untouched and is now the only thing left in this row.
 5. `ships=no`. Nothing here recommends a default.
 
-#### A sub-100 MB cross-encoder WORKS and captures a THIRD of what 468 MB does — and the 68 MB of extra precision buys nothing (`memory-locomo --retrieval`, 2026-09-15) <!-- result: id=locomo-onnx-sub100mb-n200 arm="`ms-marco-MiniLM-L6-v2` int8 and fp32 ONNX exports scored IN PROCESS through `AddOnnxCrossEncoder`, against `LAMAR-600m` Q5_K_M over `llama-server --reranking` — same tree, same `nomic-embed-text` embedder, byte-identical retrieval" metric=evidence-hit@k n="200" value="+3.0 (both exports) against the 468,393,760 B arm's +9.0, of 9.5 reachable" ships=no status=CURRENT -->
+#### A sub-100 MB cross-encoder WORKS and captures a THIRD of what 468 MB does — and the 68 MB of extra precision buys nothing (`memory-locomo --retrieval`, 2026-09-15) <!-- result: id=locomo-onnx-sub100mb-n200 arm="`ms-marco-MiniLM-L6-v2` int8 and fp32 ONNX exports scored IN PROCESS through `AddOnnxCrossEncoder`, against `LAMAR-600m` Q5_K_M over `llama-server --reranking` — same tree, same `nomic-embed-text` embedder, byte-identical retrieval" metric=evidence-hit@k n="200" value="+3.0 (both exports) against the 468,393,760 B arm's +9.0, of 9.5 reachable" ships=no status=CURRENT --> <!-- drift-ok: the arm names the registration of its day; D157 folded it into AddOnnxProvider -->
 
 **The first evidence-hit figure any sub-100 MB reranker has, through any runtime.** Three runs, one ladder
 (`+sem+rel-only` / `+rerank` / `+oracle`), `--arms`-narrowed, n = 200, k = 20, seed 12345. The retrieval

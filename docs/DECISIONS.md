@@ -4032,7 +4032,7 @@ by a bespoke enum member that did not fit.
 **What this predicts, and is the reason to believe it:** a reranker is `Produces: [score]` — no new
 operation, no new interface, no new family. `docs/task-archive.md` Part 215's cross-encoder had nowhere to
 sit under the old model and needed nothing new under this one — which is how it shipped, as
-`AddOnnxCrossEncoder` plus one capability declaration.
+`AddOnnxCrossEncoder` plus one capability declaration. <!-- drift-ok: the record names the registration AS IT WAS; D157 folded it into AddOnnxProvider after -->
 
 ## D131 — a backend's `Produces` is DERIVED from its configuration, so a modality is a field (2026-09-14)
 

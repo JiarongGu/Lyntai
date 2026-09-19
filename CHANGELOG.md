@@ -723,9 +723,10 @@ every addition.
   handed a delegate for; pass `capabilities` to declare anything other than text in, text out.
 
 
-- **`AddOnnxCrossEncoder(dir)` — an in-process RERANKER.** A cross-encoder export runs through ONNX Runtime
-  beside the embedder `AddOnnxProvider` already registers: `[CLS] query [SEP] document [SEP]` in, one
-  relevance logit out, declaring `ProviderKinds.Score`. **That declaration is the whole of the wiring** —
+- **In-process RERANKING through the ONNX provider.** A cross-encoder export runs through ONNX Runtime
+  beside the embedder — the same `AddOnnxProvider(dir)`, with `o.Produces = ProviderKinds.Score` saying
+  which kind the registration serves (**D157**): `[CLS] query [SEP] document [SEP]` in, one
+  relevance logit out. **That declaration is the whole of the wiring** —
   `AddMemoryScoringVerification()` selects any backend producing scores (**D139**), so a recall is reranked
   by a local file with no server, no port and no `/v1/rerank` endpoint. A multi-label head is REFUSED rather
   than read at column 0: which label means relevance is the model's own convention, and guessing returns
@@ -1019,10 +1020,10 @@ every addition.
   Governance-guard design in **D150**.
 
 - **A cross-encoder export whose head cannot carry one score per pair is now refused at COMPOSITION.**
-  `AddOnnxCrossEncoder` pointed at a multi-label (NLI) model used to load cleanly and refuse on the first
-  score — into `AddMemoryScoringVerification`, which is fail-open and reported `NoOpinion`, so every recall
-  came back silently unverified and looked exactly like having no scoring backend registered.
-  `OnnxCrossEncoder.FromDirectory` now reads the label axis the graph itself declares and throws there. An
+  A score-producing ONNX registration pointed at a multi-label (NLI) model used to load cleanly and refuse
+  on the first score — into `AddMemoryScoringVerification`, which is fail-open and reported `NoOpinion`, so
+  every recall came back silently unverified and looked exactly like having no scoring backend registered.
+  The provider now reads the label axis the graph itself declares and throws at load. An
   export that declares a DYNAMIC label axis is unaffected — it states too little to refuse on and is still
   judged against the tensor it returns. Separately, `ScoringVerificationPolicy` still fails open but now
   logs a backend that declares `ProviderKinds.Score` without serving it at **Warning** rather than Debug: it

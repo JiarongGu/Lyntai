@@ -12,10 +12,11 @@ namespace Lyntai.Tests.Generation;
 /// submit → poll → fetch on a LOCAL server, and it is the candidate a host pairs with a hosted one when a
 /// refusal should be picked up locally.
 ///
-/// UNVERIFIED SURFACE: no ComfyUI was available to measure against on the dev machine, so the endpoint paths
-/// and response fields come from documented surface, not observation — which is exactly why every one of them
-/// is a settable option (see <see cref="ComfyUiOptions"/>). These tests pin the CONTRACT (what the provider
-/// does with what it gets), not a claim that the real server speaks precisely this.</summary>
+/// The endpoint paths and response fields are MEASURED — <see cref="ComfyUiLiveTests"/> ran the whole
+/// queued surface against a real ComfyUI (0.36.0) and every documented default answered as shipped. Each
+/// stays a settable option (see <see cref="ComfyUiOptions"/>) because upstream can move. These tests pin
+/// the CONTRACT (what the provider does with what it gets); the live suite is what claims the real server
+/// speaks it.</summary>
 public class ComfyUiProviderTests
 {
     private const string Workflow = """{"3":{"class_type":"KSampler","inputs":{"seed":0}},"6":{"class_type":"CLIPTextEncode","inputs":{"text":"placeholder"}}}""";

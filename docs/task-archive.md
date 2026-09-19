@@ -4655,3 +4655,24 @@ declared size equal to the delivered one. Docs flipped ported→measured through
   from the engine's own argv parse, before the model had even finished downloading.
 - GEN-VERIFY-SD — run one real `sd-cli` render and confirm the argv and the multiple-of-64 clamp → done;
   mapping fixed, the "unverified" notes replaced with measured claims.
+
+## Part 262 — GEN-VERIFY-COMFY stage 1: the ComfyUI HTTP surface, measured and CONFIRMED
+
+✅ done 2026-09-19 — **Outcome:** closes the HTTP-surface half of `TASKS.md` Part 33's GEN-VERIFY-COMFY
+(the item stays open, reshaped to the VIDEO half). A live ComfyUI 0.36.0 (CPU-only torch in the gitignored
+`local/comfyui`, SD 1.5 hardlinked from Part 261's download) CONFIRMED every documented default — nothing
+needed correcting, which is the deliverable: `system_stats` + `system.comfyui_version` (probe),
+`prompt` → `prompt_id` (submit, the dotted-path substitution landing the prompt in the graph),
+`history/{id}` keyed by id with `status.completed`, the `outputs` walk to
+`filename`/`subfolder`/`type`, the `view` URI serving the 256×256 PNG it named, and `interrupt` →
+200. `ComfyUiLiveTests` (gated on `LYNTAI_COMFYUI_URL` + `LYNTAI_COMFYUI_CHECKPOINT`) is the
+measurement and the durable instrument. Docs flipped documented→measured (provider, options and tests
+docblocks, README rows).
+
+- **Found in passing, fixed with it:** README still recommended `AddOnnxCrossEncoder(dir)` — D157's
+  renames had entered `retiredApiNames` and never `retiredTerms`, so no gate could read the prose. The
+  prose rule now exists (16 hits triaged: two Unreleased entries net-edited, five dated records annotated),
+  and gating the PAIRING is `TASKS.md` Part 263.
+- **Ratio:** one clone + one CPU-torch venv + one 12-second render against zero src/ changes and one live
+  test — every documented default was already right.
+- GEN-VERIFY-COMFY stage 1 (HTTP surface) → confirmed; stage 2 (the video kind) remains open.

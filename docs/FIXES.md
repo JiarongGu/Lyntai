@@ -240,7 +240,7 @@ landed and none of it had ever been right under the new names.
 
 ## 2026-09-15 — a cross-encoder refused a multi-label export where nothing was listening
 
-**Symptom.** None visible, which IS the defect. `AddOnnxCrossEncoder` pointed at an NLI-shaped export —
+**Symptom.** None visible, which IS the defect. `AddOnnxCrossEncoder` pointed at an NLI-shaped export — <!-- drift-ok: the record names the registration of its day; D157 folded it into AddOnnxProvider -->
 three labels per pair rather than one — loads cleanly, and every recall through
 `AddMemoryScoringVerification` comes back exactly as the engine ranked it. That is indistinguishable from
 having registered no scoring backend at all, and nothing above debug level says otherwise.
@@ -249,12 +249,12 @@ having registered no scoring backend at all, and nothing above debug level says 
 comment calls that *"safe and LOUD"*. It is loud only for a DIRECT caller. The seam it was built to serve
 (**D139**) is `ScoringVerificationPolicy`, which is fail-open by contract: it catches every exception, logs
 at `LogDebug` and returns `NoOpinion`. **The refusal was raised into the one consumer designed to swallow
-it.** The asymmetry sat inside a single method — `OnnxCrossEncoder` already ran one shape check at
+it.** The asymmetry sat inside a single method — `OnnxCrossEncoder` already ran one shape check at <!-- drift-ok: the record names the class of its day; D157 folded it into OnnxProvider -->
 composition (an output it cannot name) and left the sibling label-count check to run time.
 
 **Fix.** `CrossEncoderLogits.ShapeProblem` states the rule once, and both `CrossEncoderLogits.Read` and the
 new `CrossEncoderLogits.ScoreOutput` ask it — so a graph cannot be refused at one time and accepted at the
-other. `OnnxCrossEncoder.FromDirectory` now resolves its output through `ScoreOutput`, against the graph's
+other. `OnnxCrossEncoder.FromDirectory` now resolves its output through `ScoreOutput`, against the graph's <!-- drift-ok: the record names the class of its day; D157 folded it into OnnxProvider -->
 DECLARED `OutputMetadata`, so a multi-label head throws at composition. A graph declaring a dynamic label
 axis (`-1`) states too little to refuse on and is deferred to `Read` and the tensor it really returns.
 `ScoringVerificationPolicy` keeps failing open — that is its contract and is pinned separately — but a

@@ -15,21 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 4 Parts: 1 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 9 across 5 Parts: 2 startable, 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server | startable |  |
-| 142 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 195 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 214 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 261 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 316 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 339 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 396 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 109 | 33 | GEN-VERIFY-COMFY — the VIDEO half: a video workflow against a live server | startable |  |
+| 137 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 190 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 209 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 256 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 311 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 334 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 391 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 442 | 263 | Pair `retiredApiNames` with `retiredTerms`, or gate the pairing | startable |  |
 
 <!-- open-items:end -->
 
@@ -98,27 +99,21 @@ the core was built._
 _GEN3 (local `sd-cli`), GEN4 (durable renders + the fal.ai queue backend), GEN6's tool/MCP bridge half and
 GEN5 (governance + telemetry parity) all landed 2026-08-04 — see `docs/task-archive.md` Part 33._
 
-_**TWO surfaces remain unmeasured, and only ONE of them needs a vendor**: **ComfyUI**, a self-hosted local
-server declaring both Image and Video, and **fal**, an account. Sorted by what each COSTS, ComfyUI is the
-cheap one. `sd-cli` left this list on 2026-09-19: its argv and size clamp were measured against a real
-engine — one txt2img and one img2img render through the library, correcting the retired `img2img` mode
-value on the way (`docs/task-archive.md` Part 261) — after a consuming app had confirmed its
-binary-directory working dir on 2026-08-04. The fal-first naming that once hid ComfyUI inside this list is
-recorded in `.claude/knowledge/pitfalls.md`._
+_**What remains unmeasured: ComfyUI's VIDEO kind, and fal — and only fal needs a vendor.** `sd-cli` left
+this list on 2026-09-19 (argv + clamp measured against a real engine, correcting the retired `img2img` mode
+value — `docs/task-archive.md` Part 261), and ComfyUI's whole HTTP surface followed the same day: probe,
+submit, poll, fetch, view and interrupt all answered as documented against a live 0.36.0
+(`docs/task-archive.md` Part 262, `ComfyUiLiveTests`). The fal-first naming that once hid ComfyUI inside
+this list is recorded in `.claude/knowledge/pitfalls.md`._
 
-- [ ] **GEN-VERIFY-COMFY — measure ComfyUI's surface against a live local server.** Its class header says <!-- item: state=startable -->
-  *"No ComfyUI instance was available to measure when this was written"*, so the endpoint paths and the
-  response field names are documented-surface. **Nothing about this needs an account**: ComfyUI is
-  self-hosted, its probe is free and exact (system-stats / object-info), and a wrong path fails as a 404
-  rather than as a bad render.
-
-  **Two stages, and the first is cheap.** (1) **The HTTP surface** — submit, poll history, fetch — is
-  verified by ANY workflow that produces ANY output, so a 512×512 SD 1.5 image settles every path and all
-  four response field names in seconds. (2) **The VIDEO kind** then needs a video workflow, and that is the
-  only part a model choice touches: it exercises `ProviderKinds.Video` routing and the view-URI rule the
-  header states (*"a local video is easily 100 MB, and downloading it uninvited would be the platform
-  spending the caller's memory"*) — a rule no image can test, because no image is big enough to make
-  returning bytes obviously wrong.
+- [ ] **GEN-VERIFY-COMFY — the VIDEO half: a video workflow against a live server.** The HTTP surface is <!-- item: state=startable -->
+  MEASURED (2026-09-19, ComfyUI 0.36.0, archive Part 262): every endpoint path, all four response field
+  names and the view URI answered as documented, exercised end to end by `ComfyUiLiveTests` over an SD 1.5
+  image graph. **What no image can settle is the VIDEO kind**: a video workflow exercises
+  `ProviderKinds.Video` routing and gives the view-URI rule its real justification (*"a local video is
+  easily 100 MB, and downloading it uninvited would be the platform spending the caller's memory"*) — no
+  image is big enough to make returning bytes obviously wrong. The install this repository now carries is
+  CPU-only torch in `local/comfyui`; a video model wants the CUDA build and a checkpoint that fits 12 GB.
 
   _**Two open-weight video candidates, checked 2026-09-16, and the LICENCE is the axis that separates
   them** — which is the plan's own Decision 3 test ("open weights … Apache-2.0 and ComfyUI-native" against
@@ -441,6 +436,17 @@ allocates in landing order rather than reserving a backlog number — but the re
 clash. Recorded because the wrong version was repeated from the item into this note before anyone checked
 it, which is the whole failure mode `check-links` cannot see: a `Part N` claim about a Part that does not
 exist reads exactly like one about a Part that does._
+
+## Part 263 — gates: a rename retired on the SURFACE but not in PROSE is invisible for exactly one tier
+
+- [ ] **Pair `retiredApiNames` with `retiredTerms`, or gate the pairing.** D157's renames entered <!-- item: state=startable -->
+  `retiredApiNames` (the baseline registry) and never the prose registry, so `README.md` recommended
+  `AddOnnxCrossEncoder(dir)` for a day while every gate reported clean — CLAUDE.md §Dev loop's <!-- drift-ok: the item NAMES the retired registration it caught -->
+  missing-entry warning, collecting its measured cost (found 2026-09-19; the prose rule and the README fix
+  landed with `docs/task-archive.md` Part 262). The candidate gate: for each `retiredApiNames` entry,
+  assert some `retiredTerms` pattern matches each retired name, with an explicit per-entry opt-out —
+  parameter-name entries (D120's) would cry wolf as prose rules, so the exception mechanism is the design
+  work, not the loop.
 
 ---
 

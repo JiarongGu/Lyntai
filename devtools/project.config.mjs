@@ -930,6 +930,18 @@ export default {
         + '`Lyntai.Providers.Model2Vec`',
     },
     {
+      // D157, the prose half — the SURFACE half is in `retiredApiNames` above, and shipped a day before
+      // this entry did: README kept recommending `AddOnnxCrossEncoder(dir)` while no gate could see it,
+      // which is CLAUDE.md §Dev loop's missing-entry warning collecting its cost. `OnnxCrossEncoderHead`
+      // (the internal strategy) and `OnnxCrossEncoderLiveTests` (the live suite) are LIVE and unmatched —
+      // whole-identifier boundaries keep them so.
+      term: '\\bOnnxCrossEncoder\\b|\\bAddOnnxCrossEncoder\\b|\\bOnnxCrossEncoderOptions\\b',
+      why: 'a provider is the ENGINE and stays pure (D157): the cross-encoder was never a second backend, '
+        + 'so the class, its registration and its options are gone — what a registration serves is '
+        + '`Produces`, in data',
+      use: '`AddOnnxProvider(dir, o => o.Produces = ProviderKinds.Score)` and `OnnxProviderOptions`',
+    },
+    {
       // D125. The SURFACE half is in `retiredApiNames`; this is the prose half. Both names described the
       // same record in two namespaces, so a document naming either is describing a type that no longer
       // exists. Historical records (CHANGELOG below the Unreleased boundary, the task archive) are exempt

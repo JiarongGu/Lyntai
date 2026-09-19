@@ -8,10 +8,9 @@ namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="ComfyUiProvider"/>.
 ///
-/// Every endpoint path is settable for one specific reason: **this backend's surface was not measured**
-/// against a running server (none was available on the machine where it was written), so the defaults are
-/// documented-surface rather than observed. If a path or field turns out to differ, a host retargets it here
-/// instead of waiting for a Lyntai release.</summary>
+/// Every endpoint path is settable because the server is a third-party install whose surface can move
+/// between releases; the defaults are MEASURED (ComfyUI 0.36.0 answered every one as shipped), and a host
+/// whose build differs retargets a path or field here instead of waiting for a Lyntai release.</summary>
 public sealed class ComfyUiOptions
 {
     /// <summary>Where ComfyUI is listening (<c>http://127.0.0.1:8188</c>). Blank = not configured.</summary>
@@ -43,11 +42,11 @@ public sealed class ComfyUiOptions
     public string WorkflowOption { get; set; } = "workflow";
 
     /// <summary>Response field carrying the accepted run's id, read from the submit reply.</summary>
-    /// <remarks><b>The response FIELD names are settable for the same reason the endpoint paths are</b> — this
-    /// backend's surface is documented, not measured — and they fail more quietly. A wrong path is a 404 on
+    /// <remarks><b>The response FIELD names are settable for the same reason the endpoint paths are</b> —
+    /// upstream can rename them — and they fail more quietly. A wrong path is a 404 on
     /// the first call; a wrong field name means a submitted render is never recognised as accepted, or a
-    /// finished one is polled forever. The host who first runs this against a real ComfyUI is who finds out,
-    /// and they must be able to correct it in `appsettings.json` rather than wait for a release.</remarks>
+    /// finished one is polled forever. All four shipped names are measured (ComfyUI 0.36.0), so a host only
+    /// touches these when a build diverges — in `appsettings.json`, not by waiting for a release.</remarks>
     public string PromptIdField { get; set; } = "prompt_id";
 
     /// <summary>History-entry field holding a run's produced files, keyed by node. Its PRESENCE is also the
@@ -98,11 +97,12 @@ public sealed class ComfyUiOptions
 /// </list>
 /// </summary>
 /// <remarks>
-/// <para><b>UNVERIFIED SURFACE.</b> No ComfyUI instance was available to measure when this was written, so
-/// endpoint paths and response field names are documented-surface, not observed. Every path is therefore an
-/// option (<see cref="ComfyUiOptions"/>), and the parsing is defensive: an unrecognised history shape reports
-/// "not finished" rather than inventing an artifact. Confirm against a live server before relying on it, and
-/// prefer fixing an option over patching this class.</para>
+/// <para><b>MEASURED against a live server</b> (ComfyUI 0.36.0): probe, submit, poll, fetch and interrupt
+/// all answered on the documented paths, every response field name was confirmed as shipped, and the view
+/// URI served the rendered PNG (<c>ComfyUiLiveTests</c> is the measurement). The IMAGE kind is what ran;
+/// a VIDEO workflow has not, which is the half <c>TASKS.md</c> still holds. Every path stays an option
+/// (<see cref="ComfyUiOptions"/>) because upstream can rename between releases, and the parsing stays
+/// defensive: an unrecognised history shape reports "not finished" rather than inventing an artifact.</para>
 /// <para>Produced files are returned as <b>view URIs</b>, not bytes — the same rule as a hosted backend's
 /// signed URL. A local video is easily 100 MB, and downloading it uninvited would be the platform spending
 /// the caller's memory.</para>
@@ -423,8 +423,9 @@ public sealed class ComfyUiProvider(
     }
 
     /// <summary>Walk <c>outputs.&lt;node&gt;.&lt;images|gifs|…&gt;[]</c> and turn each file reference into a
-    /// view URI. Collection names vary by node pack, so ANY array of objects carrying a
-    /// <c>filename</c> counts — that tolerance is deliberate given the surface is unverified.</summary>
+    /// view URI. Collection names vary by node pack, so ANY array of objects carrying a <c>filename</c>
+    /// counts — that tolerance is deliberate, and a measured 0.36.0 <c>SaveImage</c> run used
+    /// <c>images</c> with <c>filename</c>/<c>subfolder</c>/<c>type</c> exactly as read here.</summary>
     private IReadOnlyList<MediaArtifact> OutputArtifacts(JsonElement? entry)
     {
         if (entry is not { ValueKind: JsonValueKind.Object } value ||
