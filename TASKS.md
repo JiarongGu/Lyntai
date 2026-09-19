@@ -15,21 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 5 Parts: 1 startable, 4 blocked, 2 watch, 1 decision-only
+## Open items — 7 across 4 Parts: 4 blocked, 2 watch, 1 decision-only
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 162 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
-| 181 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 228 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
-| 283 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 306 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 363 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 414 | 263 | Pair `retiredApiNames` with `retiredTerms`, or gate the pairing | startable |  |
+| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 161 | 33 | GEN6 — streaming audio (TTS) | decision-only | a ruling on WHICH backend measures the chunk shape first — a hosted vendor … |
+| 180 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 227 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | a deployment's own logged reviews; this repository cannot invent them witho… |
+| 282 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 305 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 362 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -408,17 +407,6 @@ allocates in landing order rather than reserving a backlog number — but the re
 clash. Recorded because the wrong version was repeated from the item into this note before anyone checked
 it, which is the whole failure mode `check-links` cannot see: a `Part N` claim about a Part that does not
 exist reads exactly like one about a Part that does._
-
-## Part 263 — gates: a rename retired on the SURFACE but not in PROSE is invisible for exactly one tier
-
-- [ ] **Pair `retiredApiNames` with `retiredTerms`, or gate the pairing.** D157's renames entered <!-- item: state=startable -->
-  `retiredApiNames` (the baseline registry) and never the prose registry, so `README.md` recommended
-  `AddOnnxCrossEncoder(dir)` for a day while every gate reported clean — CLAUDE.md §Dev loop's <!-- drift-ok: the item NAMES the retired registration it caught -->
-  missing-entry warning, collecting its measured cost (found 2026-09-19; the prose rule and the README fix
-  landed with `docs/task-archive.md` Part 262). The candidate gate: for each `retiredApiNames` entry,
-  assert some `retiredTerms` pattern matches each retired name, with an explicit per-entry opt-out —
-  parameter-name entries (D120's) would cry wolf as prose rules, so the exception mechanism is the design
-  work, not the loop.
 
 ---
 

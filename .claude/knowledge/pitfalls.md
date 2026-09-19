@@ -2714,7 +2714,7 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   inside an XML comment produces zero errors and never shows up — three such files were missed this way,
   one of them in a different package from the one being edited.
   <br>**And the cref that survives a namespace sweep is the PARTIALLY-qualified one.** Hit three times in
-  one restructure (**D154**): `Generation.MediaRequest`, `Llm.Cli.ICliProviderDialect.ParseAuthStatus`,
+  one restructure (**D154**): `Generation.MediaRequest`, `Llm.Cli.ICliProviderDialect.ParseAuthStatus`, <!-- drift-ok: the trap record quotes the cref of its day; D159 renamed the seam -->
   `Routing.MediaRoutingPolicy` — each written relative to the enclosing namespace, so a pattern anchored on
   `Lyntai.<Old>` cannot see any of them, and each surfaced only as a CS1574 after the build. **Grep the
   partial forms** (`(^|[^\w.])<Segment>\.[A-Z]`) as well as the qualified one; three of three were in a

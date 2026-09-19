@@ -241,7 +241,58 @@ export const trackedFiles = (repo) => repoFiles(repo);
  * `files` is the raw candidate list (a `git ls-files` shape); it is filtered here, so a test that injects
  * one still exercises the extension, scope and historical-exclusion filters.
  */
+/**
+ * The PAIRING audit between the two retirement registries. The gap this closes was measured: D157's renames
+ * entered `retiredApiNames` (the baseline registry) and never `retiredTerms`, so README recommended a
+ * deleted registration for a day while every gate reported clean. Every `names` entry must now either be
+ * matched, name for name, by some hand-written `retiredTerms` rule, or carry `proseExempt: '<why>'` — so
+ * the prose half of a rename is decided AT RENAME TIME instead of discovered by a reader.
+ *
+ * DELIBERATELY an audit, not a derivation. Auto-deriving prose rules from the names was built first and
+ * measured at 1,861 hits on this tree — decision-record narration, vocabulary that is retired on ONE seam
+ * and live on others (`EmbedAsync`), and ordinary words (`dialect`, `Flags`) — which is the cry-wolf shape
+ * `pitfalls.md` records as untightenable. Baseline names are CONTEXTUAL (retired FROM a surface); prose
+ * matching is placeless, so only a human can write the narrow rule. This audit makes forgetting to do so
+ * fail loudly, which was the whole defect.
+ *
+ * `pattern:` entries audit nothing: a pattern is an identifier SHAPE with no finite name list. The
+ * exemption's reason is REQUIRED, and an exemption on an entry whose names are all hand-covered FAILS,
+ * because a dead escape is where the next miss hides.
+ */
+export function auditProsePairing(retiredApiNames = [], retiredTerms = []) {
+  const handRules = retiredTerms.map((r) => new RegExp(r.term));
+  // A name counts as covered when some rule fires on it BARE or in CALL SHAPE — `AddEmbeddings\s*[(<]` is a
+  // real rule written narrow on purpose, and demanding it also match the bare token would force it wider
+  // than its author chose.
+  const covered = (name) => handRules.some((re) => re.test(name) || re.test(`${name}(`));
+  const defects = [];
+  for (const entry of retiredApiNames) {
+    if (!Array.isArray(entry.names)) continue;
+    const uncovered = entry.names.filter((n) => !covered(n));
+    if (entry.proseExempt !== undefined) {
+      if (typeof entry.proseExempt !== 'string' || entry.proseExempt.trim() === '')
+        defects.push(`a proseExempt with no reason on [${entry.names.join(', ')}] — an unexplained escape is a silent exclusion`);
+      else if (uncovered.length === 0)
+        defects.push(`the proseExempt on [${entry.names.join(', ')}] is doing nothing — every name is already matched by a hand-written retiredTerms rule, and a dead escape is where the next miss hides`);
+      continue;
+    }
+    if (uncovered.length > 0)
+      defects.push(`[${uncovered.join(', ')}] retired from the API surface with no retiredTerms rule matching`
+        + ' — write the narrow prose rule, or record proseExempt with the reason prose cannot ban the word');
+  }
+  return defects;
+}
+
 export function checkDocs(repo, config, log = console.log, files = null) {
+  const pairingDefects = auditProsePairing(config.retiredApiNames, config.retiredTerms ?? []);
+  if (pairingDefects.length > 0) {
+    log(`check-docs: ✗ ${pairingDefects.length} retiredApiNames entr(ies) unpaired with the prose registry\n`);
+    for (const defect of pairingDefects) log(`  ${defect}`);
+    log('\n  A rename retired on the SURFACE but not in PROSE is invisible for exactly one tier — the one');
+    log('  README is in. The prose rule is hand-written because baseline names are contextual and prose is');
+    log('  not; `proseExempt` records the entries where no safe prose rule exists.');
+    return 1;
+  }
   const rules = config.retiredTerms ?? [];
   if (rules.length === 0) {
     log('check-docs: no retired terms configured — nothing to check.');

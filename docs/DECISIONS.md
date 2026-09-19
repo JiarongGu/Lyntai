@@ -443,7 +443,7 @@ number a disclosed break may ship under, never about letting one through unnotic
 
 > **The PACKAGE split is folded by D142**; the LAYERING this entry decided is untouched. The neutral host <!-- drift-ok: the amendment naming what it corrects -->
 > and the inbound toolset now ship as one `Lyntai.Tools.Mcp` — they pin the same dependency, so the
-> boundary isolated nothing — while the dialect stays in the provider package and `IMcpCliDialect` stays in
+> boundary isolated nothing — while the dialect stays in the provider package and `IMcpCliDialect` stays in <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 > Core, which is what this entry was actually about. Namespaces are unchanged.
 The hosting machinery was named for one consumer while being almost entirely provider-neutral. It split:
 the neutral loopback host into `Lyntai.Tools.Mcp.Hosting`, the per-CLI vocabulary into a dialect in the
@@ -516,14 +516,14 @@ location. Driving someone else's provisioning is not provisioning.
 ## D21 — a CLI-backed provider is `CliProviderEngine` + a DIALECT, never a second copy of the rules (2026-08-04)
 Driving a command-line agent involves a dozen invariants that have nothing to do with *which* CLI it is:
 spawn hygiene, the inactivity clock, exit-code-versus-in-band precedence, verdict classification, argument
-refusal. Those live once in `CliProviderEngine`; a new CLI is an `ICliProviderDialect`. The traps in
+refusal. Those live once in `CliProviderEngine`; a new CLI is an `ICliProviderDialect`. The traps in <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 `.claude/knowledge/pitfalls.md` were fixable at all only because there is one copy.
 
 **The engine is COMPOSED, not inherited.** A provider keeps its own name, its own public surface and its own
 registration; it holds an engine rather than deriving from one, so the shared rules cannot leak into a
 backend's identity or force a base class onto its API.
 
-**`CliProviderDialectBase` claims NOTHING optional by default** — no updater, no pinned install, no auth. A
+**`CliProviderDialectBase` claims NOTHING optional by default** — no updater, no pinned install, no auth. A <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 dialect opts into each capability explicitly, so a backend that cannot do something reports that honestly
 instead of inheriting a claim it will fail at runtime.
 
@@ -1420,7 +1420,7 @@ blocks a fix, separate what it was written to prove from what it happens to asse
 
 ## D65 — the DIALECT places tool-host args, because only it knows where they may legally go (2026-08-15)
 
-**`ICliProviderDialect.BuildCompletionArgs` now takes the tool-host args**
+**`ICliProviderDialect.BuildCompletionArgs` now takes the tool-host args** <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 (`BuildCompletionArgs(LlmRequest request, IReadOnlyList<string> toolHostArgs)`), and `CliProviderEngine` no <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
 longer appends them itself. Breaking for a BYO dialect; the in-tree implementors are two.
 
@@ -1428,7 +1428,7 @@ longer appends them itself. Breaking for a BYO dialect; the in-tree implementors
 `extraOptions` parameter *specifically* so options land before the `-` stdin positional, and states why in
 its own words: *"an option landing after the `-` would be read as part of the [PROMPT] positional, and on
 this CLI a swallowed flag is a SPENT TURN rather than an error."* The AGENT path honoured that.
-`CodexCliDialect.BuildCompletionArgs` could not — the seam handed it only the request — so
+`CodexCliDialect.BuildCompletionArgs` could not — the seam handed it only the request — so <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 `CliProviderEngine` appended the provisioner's args after the dialect's argv, i.e. after the `-`. MCP
 tool-host args on codex therefore landed in the prompt slot.
 
@@ -1438,10 +1438,10 @@ it is not a rule, it is a coincidence** — and the second implementation is whe
 
 **The alternative, and why it lost.** The engine could have kept appending and special-cased the positional
 CLIs — a `PromptDelivery`-style flag, or "insert before the last element if it is a positional". That puts
-knowledge of one CLI's argv grammar in the shared engine, which is precisely what `ICliProviderDialect`
+knowledge of one CLI's argv grammar in the shared engine, which is precisely what `ICliProviderDialect` <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 exists to prevent (**D21**/**D22**: a new CLI is a dialect, never a fork of the engine). It also cannot be
 right in general: where the args go is a property of each CLI's parser, and only the dialect has it.
-Appending is still the answer for most CLIs — `ClaudeCliDialect` and the test fake both append — but it is
+Appending is still the answer for most CLIs — `ClaudeCliDialect` and the test fake both append — but it is <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 now a choice each dialect makes rather than one the engine makes on every dialect's behalf.
 
 **What this constrains.** A new CLI dialect must decide where tool-host args go and say why, in the same
@@ -4170,10 +4170,10 @@ copied forward. `check-api-vocabulary` and `check-docs` hold the seventeen retir
 
 ## D135 — the HTTP family is named for the TRANSPORT and its dialects, not for OpenAI (2026-09-14)
 
-`AddHttpProvider` / `HttpModelProvider` / `HttpModelOptions` / `HttpDialect`, in `Lyntai.Providers.Http`.
+`AddHttpProvider` / `HttpModelProvider` / `HttpModelOptions` / `HttpDialect`, in `Lyntai.Providers.Http`. <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 `OpenAiFlavor.Flavor` becomes `HttpDialect.Dialect`. <!-- drift-ok: this entry RETIRES both names, so it has to say them -->
 
-**The name was FALSE, not merely broad.** `HttpDialect.Ollama` posts to `/api/chat` and `/api/embed` with
+**The name was FALSE, not merely broad.** `HttpDialect.Ollama` posts to `/api/chat` and `/api/embed` with <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 Ollama's own body — `options.num_ctx`, a base64 `images[]` array — and that vendor documents those as
 distinct from its separate OpenAI-COMPATIBLE `/v1` surface. The tree said so itself: `HttpEndpoint.Build`'s
 parameter is named for *"Ollama's native, non-OpenAI path"*. One registration method claimed compatibility
@@ -4196,7 +4196,7 @@ to it: the generic registration is where `Provider` is the NOUN, exactly as in `
 `AddGenerationProvider`. A vendor preset names a backend and takes no suffix; the generic one names the act. <!-- drift-ok: the record names the registration AS IT WAS; D156 deleted it after -->
 
 **What keeps the OpenAI name, because it earns it:** `OpenAiPayload` builds OpenAI's actual schema, and
-`HttpDialect.OpenAi` is the member for it. The PHRASE "OpenAI-compatible" also stays wherever it describes
+`HttpDialect.OpenAi` is the member for it. The PHRASE "OpenAI-compatible" also stays wherever it describes <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 those three dialects — it is a true statement about a route, and only a false one about the family.
 
 ## D136 — one verdict taxonomy for every domain; the translation layer is deleted (2026-09-14)
@@ -4400,7 +4400,7 @@ ASP.NET/Kestrel for the loopback server — was replaced by BCL `HttpListener`, 
 the justification.
 
 **D17 is not reversed; only its packaging is.** That entry split the neutral host from the per-CLI
-vocabulary and put `IMcpCliDialect` in Core, which is what lets a provider package ship a dialect without
+vocabulary and put `IMcpCliDialect` in Core, which is what lets a provider package ship a dialect without <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 dragging the MCP SDK. All of that stands — the dialect stays in `Lyntai.Providers.Basic`, the seam stays
 in Core. Only the two-package boundary goes.
 
@@ -4707,7 +4707,7 @@ for a residue, at 12 surface entries, is the asymmetry this entry exists to remo
 would make BYO a lambda, but it re-answers what the shipped backends answer; additive later if a case appears.
 
 **One thing that is NOT a route, recorded so it is not re-derived: a CLI cannot embed.**
-`ICliProviderDialect` is completion-shaped throughout — `BuildCompletionArgs`, `BuildPrompt`,
+`ICliProviderDialect` is completion-shaped throughout — `BuildCompletionArgs`, `BuildPrompt`, <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 `SupportsToolCalls`, the version/auth/install args — and no member of it or of the CLI engine touches
 embedding. "Bridge an embedder as a CLI dialect, it is only a calling path and args" describes work that
 does not exist yet, and it is a LARGER change than the delegate above, not a smaller one.
@@ -4941,7 +4941,7 @@ because one workflow host serves image AND video; `HttpModelOptions` and `OnnxPr
 because one registration is one route and one session is one graph. **Never flatten that to a rule about
 the library** — it is a fact about each backend.
 
-**The vocabulary is the library's own, not new.** `ICliProviderDialect` already describes the varying half
+**The vocabulary is the library's own, not new.** `ICliProviderDialect` already describes the varying half <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 of a shared engine — *"a dialect is a stateless description; the engine holds the resources"* — and
 `HttpModelOptions.Dialect` already carries one as an option. The ONNX seam is the same idea in the same <!-- link-ok: the record names the member as it stood that day; D160 deleted it -->
 words. A provider package may expose its own dialect seam; Core does not know it exists.
@@ -4954,7 +4954,7 @@ substance intact: the provider is the engine and stays pure, and a kind never fo
 ## D158 — the HTTP family is named for its TRANSPORT; membership is a DIALECT, not a vendor's compatibility claim (2026-09-19)
 
 **The decision.** "OpenAI-compatible" is retired from live prose. The question a consumer asks is *"is my
-backend reachable over HTTP in a dialect Lyntai speaks?"*, and the answer is `HttpDialect` — four members,
+backend reachable over HTTP in a dialect Lyntai speaks?"*, and the answer is `HttpDialect` — four members, <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 one of which (`Ollama`) is not OpenAI's schema at all. Where the wire genuinely IS OpenAI's, the tree's own
 word is **OpenAI-shaped**, which was already in three files and describes a payload rather than asserting
 compatibility with a vendor.
@@ -4967,7 +4967,7 @@ family's membership rule keeps teaching the model the names no longer do, and it
 sites including two NuGet package descriptions.
 
 **The tell that it was load-bearing, not cosmetic.** `TASKS.md` REL5 had recorded a genuine-looking
-counter-argument against making `HttpDialect` a DI seam: *the family's membership rule is
+counter-argument against making `HttpDialect` a DI seam: *the family's membership rule is <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 "OpenAI-compatible", so a foreign wire schema belongs in its own provider class.* That argument only stands
 while the phrase is the rule. Once membership is the DIALECT, a foreign wire schema is exactly what a new
 dialect IS — and the enum is what makes adding one an edit to four existing files. **A legacy term was
@@ -4984,7 +4984,7 @@ and one wrong hit is the shape this repository already refused for `Providers.De
 record the refusal, do not ship a rule that will rot.
 
 *(2026-09-19: the naming half stands — the family is the TRANSPORT — and the membership half moved under
-**D159**/**D160**: membership is now which WIRES the library ships as providers, `HttpDialect` itself being
+**D159**/**D160**: membership is now which WIRES the library ships as providers, `HttpDialect` itself being <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 deleted the same day this entry landed.)*
 
 ## D159 — "dialect" is not public vocabulary; the extension point is always a PROVIDER (2026-09-19)
@@ -4992,13 +4992,13 @@ deleted the same day this entry landed.)*
 **The decision.** The owner's ruling on DIALECT-1, executed in full: the library has no dialect concept —
 what it has is a different interface and a different provider — so no public name carries the word. The
 four so-named seams were four different things, and each rename says what its seam IS:
-`ICliProviderDialect`/`CliProviderDialectBase` → **`ICliBackend`**/**`CliBackendBase`** (a stateless
+`ICliProviderDialect`/`CliProviderDialectBase` → **`ICliBackend`**/**`CliBackendBase`** (a stateless <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 DESCRIPTION of one CLI, run by the one engine — claude and codex are different programs, not variants of one
-tongue, and the shared thing is machinery, not a language); `IMcpCliDialect` → **`IMcpCliConnector`** (the
+tongue, and the shared thing is machinery, not a language); `IMcpCliDialect` → **`IMcpCliConnector`** (the <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 argv/config shapes that CONNECT a CLI to the MCP tool host); `IOnnxProviderDialect` → **`IOnnxHead`**
-(internal; the model's head in the ML sense — the tree's own prose already said "head"); `HttpDialect` —
+(internal; the model's head in the ML sense — the tree's own prose already said "head"); `HttpDialect` — <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 the one that was never a seam at all — is deleted by **D160**. Parameter names moved with the types, and
-`GenerationProviderBuilderExtensions` → `MediaBackendBuilderExtensions` closes the same defect one step out
+`GenerationProviderBuilderExtensions` → `MediaBackendBuilderExtensions` closes the same defect one step out <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 (a "GenerationProvider" compound, D156's own rule). `CLAUDE.md`'s doctrine sentence is rewritten; D21's
 content survives verbatim.
 
@@ -5017,7 +5017,7 @@ in records that must keep their day's wording, the cry-wolf ratio D144/D158 alre
 
 **The decision.** REL5's closure, with D159's answer supplied. `OllamaProvider` (`Lyntai.Providers.Ollama`,
 same package) speaks `/api/chat` + `/api/embed` with its own `OllamaOptions`; `HttpModelProvider` speaks the
-OpenAI-shaped schema alone; `HttpDialect` and `HttpModelOptions.Dialect` are deleted. This is the tree's <!-- link-ok: the entry ANNOUNCING the deletion has to name the member -->
+OpenAI-shaped schema alone; `HttpDialect` and `HttpModelOptions.Dialect` are deleted. This is the tree's <!-- link-ok: the entry ANNOUNCING the deletion has to name the member --> <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 dominant convention applied to the one family that lacked it — every CLI and media backend was already its
 own class over shared machinery — and the shared machinery stays shared: an internal `HttpChatEngine` holds
 the invariants (status→verdict, retry-once, in-band precedence, the inactivity clock, exactly one terminal
@@ -5032,7 +5032,7 @@ so the two doors cannot drift — and a `/v1` base stays OpenAI-shaped, which ke
 Ollama's port" expressible (the pin the deleted enum used to provide). The presets pin by CONSTRUCTION and
 never re-detect, so llama-server on port 11434 stays honest through `AddLlamaProvider`.
 
-**What the split made unrepresentable**: `OllamaContextSize` on a backend that silently ignores it (the
+**What the split made unrepresentable**: `OllamaContextSize` on a backend that silently ignores it (the <!-- drift-ok: the record names the seam of its day; a later decision renamed it -->
 knob is `OllamaOptions.ContextSize` now), and a `Score` registration against Ollama — the old arm posted
 `/v1/rerank` to a route that vendor does not serve and 404'd at first call; the new provider refuses it at
 composition. The alternative — one class with the strategy internal, the D157/ONNX shape — was weighed and

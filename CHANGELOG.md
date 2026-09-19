@@ -27,7 +27,7 @@ every addition.
   including every factory call site — recompiles unchanged (the factory parameters are trailing).
 
 - **Ollama-native is its own provider, and the wire-format enum is gone** (**D160**, deciding REL5).
-  `HttpDialect` and `HttpModelOptions.Dialect` are deleted; `HttpModelProvider` speaks the OpenAI-shaped <!-- link-ok: the entry ANNOUNCING the deletion has to name the member -->
+  `HttpDialect` and `HttpModelOptions.Dialect` are deleted; `HttpModelProvider` speaks the OpenAI-shaped <!-- link-ok: the entry ANNOUNCING the deletion has to name the member --> <!-- drift-ok: the entry ANNOUNCING the rename has to name it -->
   schema alone, and Ollama's native `/api/chat` + `/api/embed` wire is **`OllamaProvider`**
   (`Lyntai.Providers.Ollama`) with its own `OllamaOptions` — the same rule that gives each CLI and media
   backend its own class. A closed public enum read by if-chains across five files was a variation point in
@@ -37,7 +37,7 @@ every addition.
   `AddOpenRouterProvider` and `AddAzureOpenAiProvider` keep their signatures, and `AddHttpProvider` given an
   Ollama server ROOT still composes the native wire (the detection moved to composition time, where a
   provider class can be chosen). A registration that PINNED `o.Dialect` deletes the line — the preset or the
-  URL now says it; one that set `o.OllamaContextSize` moves to `AddOllamaProvider(id, o => o.ContextSize = …)`,
+  URL now says it; one that set `o.OllamaContextSize` moves to `AddOllamaProvider(id, o => o.ContextSize = …)`, <!-- drift-ok: the entry ANNOUNCING the rename has to name it -->
   where the knob can no longer be set on a backend that silently ignores it, which is why it moved. Azure
   behind a custom domain pins the new `HttpModelOptions.AzureConventions` (the Azure preset already does).
   <br>**A `Produces = Score` registration against an Ollama root is REFUSED at composition** — Ollama serves
@@ -46,17 +46,17 @@ every addition.
 
 - **"Dialect" leaves the public vocabulary: the extension point is always a PROVIDER** (**D159**, deciding
   DIALECT-1). The library never had one dialect concept — each so-named seam was something else, and the
-  renames say what each IS: `ICliProviderDialect` → **`ICliBackend`**, `CliProviderDialectBase` →
-  **`CliBackendBase`**, `ClaudeCliDialect` → **`ClaudeCliBackend`**, `CodexCliDialect` →
+  renames say what each IS: `ICliProviderDialect` → **`ICliBackend`**, `CliProviderDialectBase` → <!-- drift-ok: the entry ANNOUNCING the rename has to name it -->
+  **`CliBackendBase`**, `ClaudeCliDialect` → **`ClaudeCliBackend`**, `CodexCliDialect` → <!-- drift-ok: the entry ANNOUNCING the rename has to name it -->
   **`CodexCliBackend`** (a stateless DESCRIPTION of one CLI backend, run by the one engine);
-  `IMcpCliDialect` → **`IMcpCliConnector`**, `ClaudeCliMcpDialect` → **`ClaudeCliMcpConnector`** (the
+  `IMcpCliDialect` → **`IMcpCliConnector`**, `ClaudeCliMcpDialect` → **`ClaudeCliMcpConnector`** (the <!-- drift-ok: the entry ANNOUNCING the rename has to name it -->
   argv/config shapes that CONNECT a CLI to the MCP tool host). The parameter names moved with the types —
   `backend` on `CliProviderEngine`, `CodexCliProvider` and `AddCodexCliProvider`, `connector` on
   `AddMcpToolHost` — because a named argument is public API (the D120 rule).
   <br>**What to DO:** rename at your implementations, call sites and named arguments; nothing behaves
   differently. The word survives only where it names someone else's language family — a SQL dialect in the
   storage packages.
-  <br>**`GenerationProviderBuilderExtensions` is `MediaBackendBuilderExtensions`**, the same D156 rule one
+  <br>**`GenerationProviderBuilderExtensions` is `MediaBackendBuilderExtensions`**, the same D156 rule one <!-- drift-ok: the entry ANNOUNCING the rename has to name it -->
   step out: a "GenerationProvider" compound named a provider for its output domain, and the class name is
   load-bearing surface through `HttpClientName(id)`. Respell it where you configure that named client.
 
@@ -413,7 +413,7 @@ every addition.
   `IServiceProvider` and every DI sense of "provider", while these are specifically model backends.
   <br>**`IMediaJobProvider` SURVIVES** — submit/poll/fetch/cancel is a stateful protocol keyed on a
   handle, which is a contract shape rather than a content type, and the whole point of this change is that
-  content type belongs in data. `GenerationProbeResult` merges into `ProviderProbeResult`, which the LLM
+  content type belongs in data. `GenerationProbeResult` merges into `ProviderProbeResult`, which the LLM <!-- drift-ok: the entry ANNOUNCING the rename has to name it -->
   domain had been duplicating in a different field order.
   <br>**The survivor took GENERATION's order, and a positional caller must be edited:**
   `(Available, Version, Model, Detail)` is now **`(bool Available, string? Detail, string? Version,
@@ -427,7 +427,7 @@ every addition.
   asks before spending anything. **Two renames inside it are not cosmetic** — `Deliveries` became
   `Operations` because the list must now hold `Embed`, which is a different ask rather than a third way of
   delivering the same one; and `Inline` became `Complete` because a chat completion and an inline image
-  render are the same operation over different `Kinds`. `GenerationProbeResult` is unmoved. Migration is
+  render are the same operation over different `Kinds`. `GenerationProbeResult` is unmoved. Migration is <!-- drift-ok: the entry ANNOUNCING the rename has to name it -->
   the type names plus `using Lyntai.Inference;`, and `Supports(request, delivery)` becomes
   `Supports(kind, operation, model, hasInputs)` — the request-shaped overload is gone, because the mapping
   from a domain request to a capability query belongs to the domain's router.
@@ -1168,6 +1168,19 @@ every addition.
   only when a vector store is wired. `docs/FIXES.md` has the mechanism.
 
 ### Internal (no public surface change)
+
+- **A rename retired on the API surface must now decide its PROSE half at rename time.** `check-docs`
+  gained a pairing audit: a `retiredApiNames` entry whose names no hand-written `retiredTerms` rule matches
+  fails the gate unless it records `proseExempt: '<why>'`. D157's renames had entered the surface registry
+  alone, so README recommended `AddOnnxCrossEncoder(dir)` for a day while every gate reported clean — and <!-- drift-ok: the entry ANNOUNCING the audit names the miss it caught -->
+  the audit's first run caught D159/D160's renames in the same state. Auto-deriving the prose rules was
+  measured at 1,861 hits and refused as cry-wolf; the audit forces the decision, a human writes the rule.
+
+- **The local `sd-cli` and ComfyUI backends are now MEASURED against real engines** (GEN-VERIFY;
+  `docs/task-archive.md` Parts 261–262 and 264). One txt2img + one img2img render through
+  `LocalDiffusionProvider` (the img2img default corrected — see **Breaking**), and the whole ComfyUI queued
+  surface — probe, submit, poll, fetch, view, interrupt — over an image graph and a video-producing one,
+  every documented default confirmed. Two live-gated suites are the durable instruments.
 
 - **The codex agent-session tool-step mapping is now MEASURED, not inferred** (CLI12; `docs/DECISIONS.md`
   D35). codex-cli 0.155.1 was captured running real shell, file-edit, MCP and web-search tools; every

@@ -459,3 +459,75 @@ describe('check-docs — the withdrawn position rule, broadened (docs/task-archi
     assert.equal(run({ 'docs/x.md': 'ranks by position within the candidate set\n' }, { rules: only }).code, 0);
   });
 });
+
+
+describe('check-docs — the retiredApiNames ↔ retiredTerms PAIRING audit (the D157 gap)', () => {
+  // The measured defect this closes: D157's renames entered `retiredApiNames` (the baseline registry) and
+  // never `retiredTerms`, so README recommended a deleted registration for a day while every gate reported
+  // clean. The audit fails the gate the moment a `names` entry is neither prose-paired nor exempted, so the
+  // prose half of a rename is decided at rename time. Auto-DERIVING the prose rules instead was built first
+  // and refused on measurement — 1,861 hits, mostly records and live-elsewhere vocabulary.
+  const apiEntry = {
+    names: ['FrobnicateProvider', 'AddFrobnicateProvider'],
+    use: '`AddWidgetProvider(dir)`',
+    why: 'D999 folded it into the widget provider',
+  };
+
+  it('FAILS an entry whose names no hand-written prose rule matches, naming the unpaired names', () => {
+    const { code, out } = run(
+      { 'docs/clean.md': 'nothing retired here\n' },
+      { rules: { retiredTerms: [claimRule], retiredApiNames: [apiEntry] } });
+    assert.equal(code, 1, out);
+    assert.match(out, /AddFrobnicateProvider/, 'the unpaired name is named');
+    assert.match(out, /unpaired/);
+  });
+
+  it('an entry fully matched by hand-written rules needs nothing, and only PARTIAL coverage names the residue', () => {
+    const hand = { term: '\\bFrobnicateProvider\\b', use: 'use the widget provider', why: 'D999' };
+    const { code, out } = run(
+      { 'docs/clean.md': 'nothing retired here\n' },
+      { rules: { retiredTerms: [claimRule, hand], retiredApiNames: [apiEntry] } });
+    assert.equal(code, 1, 'AddFrobnicateProvider is still uncovered');
+    assert.match(out, /\[AddFrobnicateProvider\]/, 'only the residue is reported, not the covered name');
+
+    const both = { term: '\\bFrobnicateProvider\\b|\\bAddFrobnicateProvider\\b', use: 'x', why: 'y' };
+    assert.equal(run(
+      { 'docs/clean.md': 'nothing retired here\n' },
+      { rules: { retiredTerms: [claimRule, both], retiredApiNames: [apiEntry] } }).code, 0);
+  });
+
+  it('proseExempt with a reason records that no safe prose rule exists for a word-shaped entry', () => {
+    const exempt = { names: ['Flags'], use: 'named options', why: 'D76', proseExempt: 'an ordinary word prose uses legitimately' };
+    const { code } = run(
+      { 'docs/guide.md': 'Flags on an options object read as booleans.\n' },
+      { rules: { retiredTerms: [claimRule], retiredApiNames: [exempt] } });
+    assert.equal(code, 0, 'exempted AND the word stays legal in prose');
+  });
+
+  it('FAILS a proseExempt with no reason — an unexplained escape is a silent exclusion', () => {
+    const bad = { ...apiEntry, proseExempt: '  ' };
+    const { code, out } = run(
+      { 'docs/clean.md': 'nothing retired here\n' },
+      { rules: { retiredTerms: [claimRule], retiredApiNames: [bad] } });
+    assert.equal(code, 1);
+    assert.match(out, /proseExempt/);
+  });
+
+  it('FAILS a proseExempt whose names are ALL hand-covered — a dead escape rots', () => {
+    const hand = { term: '\\bFrobnicateProvider\\b|\\bAddFrobnicateProvider\\b', use: 'x', why: 'y' };
+    const dead = { ...apiEntry, proseExempt: 'no longer needed, which is the point' };
+    const { code, out } = run(
+      { 'docs/clean.md': 'nothing retired here\n' },
+      { rules: { retiredTerms: [claimRule, hand], retiredApiNames: [dead] } });
+    assert.equal(code, 1);
+    assert.match(out, /doing nothing|dead/i);
+  });
+
+  it('a pattern-shaped entry audits nothing — a SHAPE has no finite name list to pair', () => {
+    const shape = { pattern: 'Frobnicate\\w*', use: 'x', why: 'y' };
+    const { code } = run(
+      { 'docs/guide.md': 'FrobnicateThing appears here.\n' },
+      { rules: { retiredTerms: [claimRule], retiredApiNames: [shape] } });
+    assert.equal(code, 0);
+  });
+});

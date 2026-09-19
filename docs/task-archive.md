@@ -4694,3 +4694,22 @@ with the item; it answers a question the library turned out never to ask.
 
 - GEN-VERIFY-COMFY, the VIDEO half → measured; the item and its Part 33 caveat both close, leaving fal as
   the one unmeasured backend, blocked on an account.
+
+## Part 265 — the pairing audit: a rename decides its prose half at rename time
+
+✅ done 2026-09-19 — **Outcome:** closes `TASKS.md` Part 263, opened and closed the same day. `check-docs`
+now fails when a `retiredApiNames` entry has names no hand-written `retiredTerms` rule matches and no
+`proseExempt: '<why>'` (reason required; a dead exemption fails too). Six guard tests; the field's
+contract is the registry header's; the gate's story is `docs/GATES.md` §check-docs.
+**The rejected route is the finding**: auto-DERIVING prose rules from the names was built first and
+measured at 1,861 hits — record narration, vocabulary retired on one seam and live on others
+(`EmbedAsync`), ordinary words (`dialect`) — the cry-wolf shape, refused. Baseline names are contextual;
+prose is placeless; only a human writes the narrow rule, and the audit makes forgetting that loud.
+**First run caught two real gaps**: D159/D160's renames were unpaired exactly as D157's had been. Triage:
+prose rules added for the dialect/HTTP renames (35 record lines annotated; one REAL defect — the design
+record's live amendment still named `ICliProviderDialect` — reworded), two existing rules widened
+(`GenerationCandidateSpec`, `GenerationProbeResult`), and ten entries exempted with measured reasons
+(pre-3.0 sweeps whose bare-name fallout was ~35 record sites and zero live-tier defects each).
+
+- Pair `retiredApiNames` with `retiredTerms`, or gate the pairing → gated (the audit), with
+  `proseExempt` as the designed exception; registries triaged to green.

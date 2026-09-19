@@ -102,7 +102,7 @@ One more item of the same kind CLOSED on 2026-09-19 (`docs/task-archive.md` Part
 
 _This section previously listed three "design calls still open" — blameless-vs-reportable, the curated-memory
 `taskKey`/`scope` move, and renaming `HttpModelOptions.ContextSize`. **All three were settled and
-shipped in 2.3.0** (`docs/DECISIONS.md` D37 for the blameless half; the rename landed as `OllamaContextSize`),
+shipped in 2.3.0** (`docs/DECISIONS.md` D37 for the blameless half; the rename landed as `OllamaContextSize`), <!-- drift-ok: the record names the option of its day; D160 moved it to OllamaOptions -->
 and the section simply outlived them. Removed 2026-08-12 — `docs/task-archive.md` Part 43/44 carries each
 one's outcome. The `major-bump-or-never` framing on the third was also wrong on its own terms, as its archive
 entry records._

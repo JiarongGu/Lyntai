@@ -195,8 +195,13 @@ It runs in `verify` AND in the pre-commit hook.
 
 The prose counterpart to `check-warnings`. The registry is `retiredTerms` in `devtools/project.config.mjs`:
 a term, what to say instead, and why. **Add an entry whenever a decision renames or re-dimensions
-something** — and note the honest limit that makes this the one instruction nothing else can enforce:
-**`check-docs` has NO dead-rule check**, so a MISSING registry entry is invisible to every gate here.
+something** — and since 2026-09-19, half of forgetting is gated: **the PAIRING AUDIT fails the gate when a
+`retiredApiNames` entry has names no `retiredTerms` rule matches and no `proseExempt`**, because D157's
+renames entered the surface registry alone and README recommended a deleted registration for a day while
+every gate reported clean. The prose rule stays HAND-WRITTEN — auto-deriving it was measured at 1,861 hits
+(records, vocabulary retired on one seam and live on others, ordinary words) and refused as the cry-wolf
+shape — so the audit forces the decision at rename time rather than writing the rule itself. The honest
+residual limit: **a rename that enters NEITHER registry is still invisible to every gate here.**
 
 Historical records (`CHANGELOG.md`, `docs/task-archive.md`) are exempt because they are accurate BY using
 the vocabulary of their day; `CHANGELOG.md`'s live `## Unreleased` prefix is scanned, because that section

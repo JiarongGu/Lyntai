@@ -1807,7 +1807,7 @@ already guarded the first.
 after `-` is read as prompt text, so the tools the provisioner exists to expose were absent and the turn was
 spent on a prompt made of config strings.
 
-**Root cause.** `ICliProviderDialect.BuildCompletionArgs` took only the request, so `CliProviderEngine`
+**Root cause.** `ICliProviderDialect.BuildCompletionArgs` took only the request, so `CliProviderEngine` <!-- drift-ok: the record names the seam of its day; D159 renamed it after -->
 appended the provisioner's args after the dialect's argv. That is correct for a CLI whose argv ends in
 options and wrong for one that ends in a positional. `CodexExecArgs` already had the right shape — an
 `extraOptions` parameter, with a comment explaining that appending afterwards is exactly what must not
@@ -1817,8 +1817,8 @@ happen — and the agent path used it. The completion path had no way to.
 options, so appending happens to be correct there. The second implementation is where a rule that was
 really a coincidence shows up.
 
-**Fix.** The seam carries the args (`docs/DECISIONS.md` **D65**); `CodexCliDialect` passes them to
-`CodexExecArgs` as `extraOptions`, `ClaudeCliDialect` appends them and says why it may.
+**Fix.** The seam carries the args (`docs/DECISIONS.md` **D65**); `CodexCliDialect` passes them to <!-- drift-ok: the record names the seam of its day; D159 renamed it after -->
+`CodexExecArgs` as `extraOptions`, `ClaudeCliDialect` appends them and says why it may. <!-- drift-ok: the record names the seam of its day; D159 renamed it after -->
 
 **Verification.** `Tool_host_args_land_before_the_stdin_positional_not_after_it` asserts the `-c` index is
 below the `-` index, mutation-checked by making the codex dialect append; plus a control that a dialect

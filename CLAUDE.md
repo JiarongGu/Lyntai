@@ -19,7 +19,7 @@ rather than any list of decisions kept here. **Everything before 3.0 is HISTORY,
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
 **The baseline a green run should match:** `3850 passed / 3887 total, 37 skipped` (the skips are
-live-backend only), e2e 3/3, guard-script tests 862/862, doc samples 61/61. **The xUnit trio is held by no
+live-backend only), e2e 3/3, guard-script tests 868/868, doc samples 61/61. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
 **MEASURED with Docker up, re-attested 2026-09-19 at `900d4009`** (+3 total, +3 skipped against `76b68fca`:
@@ -191,7 +191,9 @@ Six things no gate can catch, so they live here rather than in `docs/GATES.md`:
   **And when a gate's SCOPE rests on a measurement, that measurement expires**: `check-links` skipped the
   code tier on "found none in code" and re-measured at 150, 88 of them dead.
 - **Add a `retiredTerms` entry (`devtools/project.config.mjs`) whenever a decision renames or re-dimensions
-  something.** `check-docs` has no dead-rule check, so a MISSING entry is invisible to every gate here.
+  something.** Half of forgetting is now gated — `check-docs`' pairing audit fails a `retiredApiNames`
+  entry with no matching prose rule and no `proseExempt` — but a rename that enters NEITHER registry is
+  still invisible to every gate here.
 - **Each gate owns its OWN escape token** — `drift-ok` (docs), `link-ok` (links), `count-ok` (counts),
   `comment-ok` (comments), `measure-ok` (measurements), `tautology-ok` (tautology), none at all for the
   length ratchets. Never let one token silence two gates, and write every new allowance so that one LOOSER

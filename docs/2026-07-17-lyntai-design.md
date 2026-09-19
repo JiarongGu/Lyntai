@@ -920,8 +920,8 @@ count, a cooldown-key scope, and a sole-candidate exemption — overridable via 
 prompts carry newlines + metacharacters), prompt over **stdin**, **BOM-less UTF-8** both directions,
 resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`), `Kill(entireProcessTree:true)` on
 cancel, per-call timeout. Cheap utility calls run from a **neutral cwd** (no project config loaded).
-*(2026-08-04: these live once in `CliProviderEngine` (`Lyntai.Llm.Cli`); a new CLI backend is an <!-- drift-ok: the record names the namespace of its day; D154 moved it -->
-`ICliProviderDialect`, never a second copy — D21/D22.)*
+*(2026-08-04, names updated for D154/D159: these live once in `CliProviderEngine`
+(`Lyntai.Inference.Cli`); a new CLI backend is an `ICliBackend`, never a second copy — D21/D22.)*
 
 **Structured output:** schema-constrained call, tolerant JSON extraction from prose/code-fences, one
 retry on parse failure, else `Failed` verdict.

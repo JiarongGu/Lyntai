@@ -105,6 +105,14 @@ export default {
    * silent exclusion. An allowance that matches nothing is a FAILURE — a rotting exclusion hides the next
    * occurrence of the same mistake.
    *
+   * THE PROSE HALF IS AUDITED, NOT ASSUMED (check-docs' pairing audit, 2026-09-19). Every `names` entry
+   * must either be matched, name for name, by some hand-written `retiredTerms` rule, or carry
+   * `proseExempt: '<why>'` — the reason prose cannot ban the word (an ordinary word, a parameter spelling,
+   * an identifier retired on one seam and live on others). The reason is REQUIRED, and an exemption whose
+   * names are all hand-covered FAILS as dead. D157's renames entered this registry alone and README
+   * recommended the deleted registration for a day; auto-deriving prose rules instead was measured at
+   * 1,861 hits and refused — the audit forces the decision at rename time, a human writes the narrow rule.
+   *
    * The limit, stated rather than oversold: this catches the reintroduction of an exact retired
    * identifier, not every descendant of a retired word. A method named for the verb form of a retired type
    * is not that type's name, and no rule here would flag it.
@@ -205,6 +213,9 @@ export default {
         'AddEmbeddings',
         'RoutedEmbedder',
       ],
+      proseExempt: 'a bare-name prose rule for the embedder-era types was measured 2026-09-19 at ~35 sites '
+        + '— decision records, fix entries and changelog narration, zero live-tier defects — the cry-wolf '
+        + 'shape pitfalls.md records as untightenable; `AddEmbeddings` keeps its call-shaped rule',
       use: '`AddProvider(_ => backend, declares)` for a backend of your own, or a shipped one — '
         + '`AddModel2VecProvider` / `AddOnnxProvider` / `AddHttpProvider` with `Produces = Vector`',
       why: 'an embedder is a CAPABILITY a provider declares, not a front door: Score and Vector were '
@@ -216,6 +227,8 @@ export default {
       // is untouched — `EmbeddingRole`, `CanEmbed` and the operation's name all survive (D152); what is
       // retired is the member that used to sit on IModelProvider.
       names: ['EmbedAsync'],
+      proseExempt: 'retired from ONE seam while live on others — CLAUDE.md names `EmbedAsync` as the live '
+        + 'verb (`IVectorStore`, the D152 doctrine sentence) — and prose matching is placeless',
       use: '`IVectorProvider.CallAsync(new VectorRequest(texts, role), ct)` and '
         + '`IScoreProvider.CallAsync(new ScoreRequest(query, documents), ct)`',
       why: 'embedding and reranking are routed calls with a verdict, not methods that throw — a failed one '
@@ -349,6 +362,8 @@ export default {
       // stay live without an allowance — which is the point of the tokenizing rule, and D152 left both
       // standing: it retired the word from PROVIDER names, not from the operation.
       names: ['Kinds', 'Embed'],
+      proseExempt: 'bare words prose uses legitimately — the identifiers only ever appeared as members of '
+        + 'longer live names, which placeless prose matching cannot tell apart',
       use: '`ProviderCapabilities.Accepts` / `.Produces`, and `ProviderKinds.Vector` for what a vector '
         + 'backend PUTS OUT',
       why: 'a backend is accepts -> produces delivered some way; embedding was the one ProviderOperation '
@@ -359,6 +374,8 @@ export default {
         'AddOpenAiCompatibleEmbedder', 'AddOpenAiCompatibleEmbeddings',
         'OpenAiCompatibleEmbedderOptions', 'HttpEmbedder', 'EmbedderHttpClientName',
       ],
+      proseExempt: 'the residue is `EmbedderHttpClientName`; the embedder-era measurement (2026-09-19, '
+        + '~35 record sites, zero live-tier defects) covers it — the sibling names have their own rules',
       use: '`AddHttpProvider` with `HttpModelOptions.Embeddings` set (and `Chat = null` '
         + 'for a host that serves no chat); the wire shape is the internal `HttpEmbeddingsTransport`',
       why: 'a second Add* method for the same backend IS the chat-vs-embedder split, re-entering through '
@@ -369,6 +386,8 @@ export default {
         'AddStaticEmbedder', 'StaticEmbedder', 'StaticEmbedderOptions', 'StaticBuilderExtensions',
         'AddOnnxEmbedder', 'AddLocalProvider',
       ],
+      proseExempt: 'the residue is `StaticBuilderExtensions`; the embedder-era measurement (2026-09-19, '
+        + '~35 record sites, zero live-tier defects) covers it — the sibling names have their own rules',
       use: '`AddModel2VecProvider` / `Model2VecProvider`, `AddOnnxProvider`, `AddLlamaSharpProvider`',
       why: 'every registration returns an IModelProvider, so an *Embedder suffix sorted backends by what '
         + 'they produce — the taxonomy D130 deleted. "Static" also named a technique rather than the '
@@ -394,6 +413,8 @@ export default {
       // gave embedders an Id by minting a THIRD provider family, when what they needed was one enum member
       // on the capability object they already had. An embedder is an IModelProvider declaring Embed.
       names: ['IEmbeddingProvider'],
+      proseExempt: 'lived one day inside the unreleased window (D128) and appears only in the records of '
+        + 'that day; the embedder-era measurement (2026-09-19) found zero live-tier defects',
       use: '`Lyntai.Inference.IModelProvider` declaring `ProviderKinds.Vector` in `Produces`',
       why: 'an embedding model is a TEXT backend like a chat model — giving it its own provider family '
         + 'splits by domain what belongs in data (D128)',
@@ -414,6 +435,8 @@ export default {
     },
     {
       names: ['GenerationCapabilities', 'GenerationDelivery', 'Deliveries'],
+      proseExempt: '`Deliveries` is an ordinary plural prose must keep, and the two type names appear only '
+        + 'in the D125/D127 records (the 2026-09-19 measurement found zero live-tier sites)',
       use: '`Lyntai.Inference.ProviderCapabilities` / `ProviderOperation` / `ProviderCapabilities.Operations`',
       why: 'capability belongs to every provider seam, not to one domain — and a per-domain capability '
         + 'type forces embedding into a parallel stack (D125)',
@@ -424,6 +447,7 @@ export default {
       // name that MISLEADS, which is the only kind D66 spends a rename on. Whole-identifier, so the
       // ordinary [Flags] attribute and any genuine flag set elsewhere are untouched.
       names: ['Flags'],
+      proseExempt: 'an ordinary word prose uses legitimately, and the [Flags] attribute is .NET\'s own',
       use: '`LocalDiffusionOptions.ArgvFlags`',
       why: 'it maps a MEANING to an argv token; Flags in .NET connotes booleans or a [Flags] enum (D76)',
     },
@@ -433,6 +457,8 @@ export default {
       // reworded and a shipped type name cannot. Whole-identifier equality, so `ObserveStdinAndReapAsync`
       // (the POSIX child-process sense, and correct) is untouched without needing an allowance.
       names: ['IMemoryReapPolicy', 'MemoryReapKind', 'DefaultMemoryReapPolicy', 'reapPolicy'],
+      proseExempt: 'the reap word family has its own hand-tuned prose rule with the POSIX child-process '
+        + 'exclusions; the residue here is `reapPolicy`, a parameter spelling that rule deliberately skips',
       use: '`IMemoryRemovalPolicy` / `MemoryRemovalKind` / `DefaultMemoryRemovalPolicy` / `removalPolicy`',
       why: 'to reap means to HARVEST in ordinary English — the opposite of removing data — so a reader could '
         + 'take IMemoryReapPolicy for something governing recall. Caught on the eve of the freeze, which is '
@@ -445,6 +471,8 @@ export default {
       // because it is the one name in this group a real 2.5 consumer can still be holding (D47's closing
       // amendment: the other two were introduced and renamed entirely inside the unreleased window).
       names: ['ageClocks', 'appraisers', 'modulators', 'memoryClock'],
+      proseExempt: 'parameter names that are ordinary words — "modulators" and "appraisers" in prose are '
+        + 'English, not identifiers; the D47 TYPE sweep carries the prose rule',
       use: '`agePolicies:` (was `memoryClock:`, then `ageClocks:`), `saliencePolicies:` (was `appraisers:`) '
         + 'and `retentionPolicies:` (was `modulators:`)',
       why: 'docs/DECISIONS.md D47 retired "clock", "appraiser" and "modulator" as names for these seams — '
@@ -470,6 +498,8 @@ export default {
       // "Signals for this write" — the docs had settled on the return-shaped name; only the identifier
       // lagged.
       names: ['Appraise'],
+      proseExempt: 'an ordinary verb — prose saying "appraise" is English, and the method name never had a '
+        + 'prose life of its own',
       use: '`IMemorySaliencePolicy.Signals` — the method is named for what it RETURNS, like every other '
         + 'seam method in this domain',
       why: 'renamed 2026-08-11 (owner ruling) in the last window before the 3.0 freeze, where it costs '
@@ -485,6 +515,9 @@ export default {
       names: ['IMemoryClock', 'IRetrievabilityPolicy', 'IRetentionModulator', 'ISalienceAppraiser',
         'PerWriteClock', 'ContentSizeClock', 'ElapsedClock', 'BurstDampenedClock',
         'SalienceModulator', 'StructuralSalienceAppraiser'],
+      proseExempt: 'a bare-name prose rule was measured 2026-09-19 at ~35 sites — decision records, test '
+        + 'comments and 2.5-era guidance, zero live-tier defects. The QUALIFIED old paths have their own '
+        + 'rules and the D47 pitfalls entry carries the teaching; everything here is pre-3.0 history',
       use: '`IMemoryAgePolicy`, `IMemoryRetrievabilityPolicy`, `IMemoryRetentionPolicy`, '
         + '`IMemorySaliencePolicy`; `PerWriteAgePolicy`, `ContentSizeAgePolicy`, `ElapsedAgePolicy`, '
         + '`BurstDampenedAgePolicy`; `SalienceRetentionPolicy`, `StructuralSaliencePolicy`',
@@ -498,6 +531,8 @@ export default {
       // A DELETED type, not a renamed one: there is no forward name to migrate to, so a surface carrying
       // either of these again would be a restoration nobody decided on.
       names: ['HalfLifeRetrievability', 'HalfLifeOptions'],
+      proseExempt: 'covered by the same 2026-09-19 measurement as the D47 sweep: the surviving mentions are '
+        + 'records and README\'s own deliberate "this was deleted" guidance, which a prose rule would fight',
       use: '`DsrRetrievability` — the only shipped forgetting curve as of 3.0. A consumer who needs the '
         + 'exponential shape implements `IMemoryRetrievabilityPolicy` themselves',
       why: 'both were DELETED 2026-08-10 (fsrs-properly plan Task 1, docs/DECISIONS.md D49), with no '
@@ -563,6 +598,8 @@ export default {
         'Reserve',
         'task',
       ],
+      proseExempt: 'the residue is `Reserve` and `task`, member names that are ordinary words — "task" '
+        + 'above all — and the call shape `.Reserve(` has its own hand-written prose rule',
       // `IProviderProbe` stood here as the replacement until 2026-09-16, one rename behind: D127 collapsed
       // it into `IModelProvider`, so this list was prescribing a type the tree no longer has.
       use: '`ValidateProvenanceBits`, `IModelProvider` (capability is DATA — D126/D127), and the three '
@@ -581,6 +618,7 @@ export default {
       // has a word for — the exact convention the `Appraise` entry above settled, applied to the seams
       // created in the same window and missed by it.
       names: ['Compose'],
+      proseExempt: 'an ordinary verb — this file itself says "composes" about live code in a dozen places',
       allow: [
         {
           signature: 'static Compose(IEnumerable<CuratedMemory> entries, Func<String,String> header = null, '
@@ -621,6 +659,8 @@ export default {
         'ICliProviderDialect', 'CliProviderDialectBase', 'ClaudeCliDialect', 'CodexCliDialect',
         'IMcpCliDialect', 'ClaudeCliMcpDialect', 'dialect',
       ],
+      proseExempt: 'the six type names have a prose rule; the residue is the bare word `dialect`, which '
+        + 'survives wherever it names someone else\'s language family — a SQL dialect above all',
       use: '`ICliBackend` / `CliBackendBase` / `ClaudeCliBackend` / `CodexCliBackend` (parameter name '
         + '`backend`), and `IMcpCliConnector` / `ClaudeCliMcpConnector` (parameter name `connector`)',
       why: 'the library has no dialect concept — what it has is a different interface and a different '
@@ -942,6 +982,24 @@ export default {
       use: '`AddOnnxProvider(dir, o => o.Produces = ProviderKinds.Score)` and `OnnxProviderOptions`',
     },
     {
+      // D159, the prose half of the dialect-type retirement — written by the pairing audit's demand, one
+      // day after the rename shipped with only its surface half registered (the D157 miss, repeated).
+      term: '\\bICliProviderDialect\\b|\\bCliProviderDialectBase\\b|\\bClaudeCliDialect\\b'
+        + '|\\bCodexCliDialect\\b|\\bIMcpCliDialect\\b|\\bClaudeCliMcpDialect\\b',
+      use: '`ICliBackend` / `CliBackendBase` / `ClaudeCliBackend` / `CodexCliBackend`, and '
+        + '`IMcpCliConnector` / `ClaudeCliMcpConnector`',
+      why: 'the library has no dialect concept — each so-named seam was something else, and the renames say '
+        + 'what each IS (D159); the bare word survives where it names someone else\'s language family',
+    },
+    {
+      // D160/D156, the prose half — same audit, same day.
+      term: '\\bHttpDialect\\b|\\bOllamaContextSize\\b|\\bGenerationProviderBuilderExtensions\\b',
+      use: '`OllamaProvider` / `OllamaOptions.ContextSize` (the wire is the provider, D160), and '
+        + '`MediaBackendBuilderExtensions` (D156)',
+      why: 'a closed wire-format enum was a variation point in the wrong place, and a "GenerationProvider" '
+        + 'compound named a provider for its output domain (D160/D156)',
+    },
+    {
       // D125. The SURFACE half is in `retiredApiNames`; this is the prose half. Both names described the
       // same record in two namespaces, so a document naming either is describing a type that no longer
       // exists. Historical records (CHANGELOG below the Unreleased boundary, the task archive) are exempt
@@ -949,13 +1007,14 @@ export default {
       // D127. The SURFACE half is in `retiredApiNames`; this is the prose half. A document naming any of
       // these is describing a seam the tree no longer has. `IMediaJobProvider` is deliberately NOT
       // matched — it survives, and a pattern that swept it up would fire on every correct mention.
-      term: '\\bILlmProvider\\b|\\bIGenerationProvider\\b|\\bIGenerationStreamProvider\\b|\\bIProviderProbe\\b',
+      term: '\\bILlmProvider\\b|\\bIGenerationProvider\\b|\\bIGenerationStreamProvider\\b|\\bIProviderProbe\\b'
+        + '|\\bGenerationProbeResult\\b',
       why: 'the domain provider seams collapsed into one IModelProvider (D127), with what a backend serves '
         + 'declared in ProviderCapabilities rather than encoded as a type',
       use: '`IModelProvider`',
     },
     {
-      term: '\\b(?:Llm|Generation)Candidate\\b',
+      term: '\\b(?:Llm|Generation)Candidate(?:Spec)?\\b',
       why: 'the two per-domain candidate records were unified into one (D125) — naming either sends a '
         + 'reader to a type the tree no longer has',
       use: '`ProviderCandidate`',
