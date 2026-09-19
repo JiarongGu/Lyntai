@@ -533,6 +533,25 @@ every addition.
 
 ### Added
 
+- **`AddPiperProvider` — streaming text-to-speech, entirely on the host's machine.** A locally-installed
+  piper engine behind `IModelProvider`: raw PCM streams through the media stream door as it is
+  synthesised (several chunks before one terminal — MEASURED against a real engine, which was GEN6's open
+  question), and `GenerateAsync` is the same stream buffered, so the two modes cannot disagree. Chunks are
+  typed `audio/pcm;rate=…;bits=16;channels=1;endian=little` with the rate read from the VOICE's own config
+  (`audio/L16` is deliberately not claimed — RFC 2586 L16 is big-endian and the engine emits
+  little-endian); the terminal's `MediaUsage.Seconds` is derived from the bytes that actually streamed.
+  The engine and voice are the host's to provision (D20); the text travels over stdin, never argv; the
+  argv is a lookup (`PiperOptions.ArgvFlags`) with `ExtraArgs` for engine-specific knobs, both measured
+  against piper 1.8.0.
+
+- **`IProcessRunner.StreamBytesAsync` — a BINARY stream on the process seam** (**D165**), for a child whose
+  stdout is data rather than text. Same clocks, kill-on-abandonment and terminal exceptions as
+  `StreamLinesAsync` — the shipped runner serves both from one core, so they cannot drift. It is a
+  DEFAULTED member: existing BYO runners compile unchanged, and the default REFUSES loudly rather than
+  degrading, because binary cannot be served through the buffered member's string-typed stdout — a decode
+  is corruption, not a slower answer. **What a BYO runner does:** override it if a byte-streaming backend
+  (piper) routes through you; otherwise nothing.
+
 - **The one wallet reaches every kind a router can attribute** (**D163**). A factory-built
   `ProviderRouter<,>` now budgets, rate-limits and records spend for any request it can ATTRIBUTE — checked
   BEFORE the candidate loop, so a refusal costs no backend call and benches no host. Attribution is opt-in

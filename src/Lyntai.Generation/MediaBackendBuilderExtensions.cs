@@ -120,6 +120,26 @@ public static class MediaBackendBuilderExtensions
             runner?.Invoke(sp) ?? sp.GetRequiredService<IProcessRunner>())).AddMediaRouting();
     }
 
+    /// <summary>A locally-installed <b>piper</b> TTS engine (<see cref="PiperProvider"/>): streaming speech
+    /// entirely on the host's machine, raw PCM chunks through the media stream door. The engine and its
+    /// voice are the host's to provision (D20) — set <see cref="PiperOptions.BinaryPath"/> and
+    /// <see cref="PiperOptions.ModelPath"/>; both are read live, so late provisioning takes effect on the
+    /// next synthesis.</summary>
+    /// <param name="builder">The builder.</param>
+    /// <param name="configure">Engine paths and synthesis defaults.</param>
+    /// <param name="runner">BYO process runner. Null = the one registered in DI. A BYO runner must
+    /// implement <see cref="IProcessRunner.StreamBytesAsync"/> — the buffered path is string-typed and
+    /// cannot carry PCM.</param>
+    public static LyntaiBuilder AddPiperProvider(this LyntaiBuilder builder,
+        Action<PiperOptions> configure, Func<IServiceProvider, IProcessRunner>? runner = null)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var options = new PiperOptions();
+        configure(options);
+        return builder.AddProvider(sp => new PiperProvider(options,
+            runner?.Invoke(sp) ?? sp.GetRequiredService<IProcessRunner>())).AddMediaRouting();
+    }
+
     /// <summary>The name of the <see cref="IHttpClientFactory"/> client Lyntai registers for a backend id.
     /// Exposed so a host can reach the SAME client the backend uses — to add a delegating handler, a Polly
     /// policy or a header — without replacing the wiring: <c>services.AddHttpClient(

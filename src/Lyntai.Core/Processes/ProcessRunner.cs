@@ -190,7 +190,7 @@ public sealed class ProcessRunner : IProcessRunner
     /// (breaking out of <c>await foreach</c>) kills the child process tree. Throws
     /// <see cref="ProcessTimeoutException"/> when either clock fires, <see cref="ProcessRunException"/>
     /// (with the stderr tail) on nonzero exit — both after the lines produced so far were yielded.</summary>
-    public async IAsyncEnumerable<string> StreamLinesAsync(
+    public IAsyncEnumerable<string> StreamLinesAsync(
         string command,
         IReadOnlyList<string> args,
         string? stdin = null,
@@ -198,7 +198,46 @@ public sealed class ProcessRunner : IProcessRunner
         TimeSpan? maxDuration = null,
         string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null,
-        [EnumeratorCancellation] CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        StreamCoreAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment,
+            static process => process.StandardOutput.ReadLineAsync(CancellationToken.None), ct);
+
+    /// <summary>Streamed BINARY run — <see cref="IProcessRunner.StreamBytesAsync"/>. The read goes through
+    /// the raw base stream, never the encoding-aware reader, so every byte arrives as written; chunk
+    /// boundaries are the pipe's. Same clocks, same kill discipline, same terminal exceptions as the line
+    /// stream — the two are ONE core with the read swapped, so they cannot drift.</summary>
+    public IAsyncEnumerable<byte[]> StreamBytesAsync(
+        string command,
+        IReadOnlyList<string> args,
+        string? stdin = null,
+        TimeSpan? inactivityTimeout = null,
+        TimeSpan? maxDuration = null,
+        string? workingDirectory = null,
+        IReadOnlyDictionary<string, string>? environment = null,
+        CancellationToken ct = default)
+    {
+        // one buffer per enumeration: the core reads strictly sequentially, and each yielded chunk is a
+        // fresh copy, so the consumer may hold chunks across reads
+        var buffer = new byte[16 * 1024];
+        return StreamCoreAsync(command, args, stdin, inactivityTimeout, maxDuration, workingDirectory, environment,
+            async process =>
+            {
+                var n = await process.StandardOutput.BaseStream
+                    .ReadAsync(buffer, CancellationToken.None).ConfigureAwait(false);
+                return n == 0 ? null : buffer[..n];
+            }, ct);
+    }
+
+    private async IAsyncEnumerable<T> StreamCoreAsync<T>(
+        string command,
+        IReadOnlyList<string> args,
+        string? stdin,
+        TimeSpan? inactivityTimeout,
+        TimeSpan? maxDuration,
+        string? workingDirectory,
+        IReadOnlyDictionary<string, string>? environment,
+        Func<Process, ValueTask<T?>> readOne,
+        [EnumeratorCancellation] CancellationToken ct = default) where T : class
     {
         using var process = Start(command, args, workingDirectory, environment);
 
@@ -238,11 +277,11 @@ public sealed class ProcessRunner : IProcessRunner
 
             while (!timedOut && !timeoutCts.IsCancellationRequested)
             {
-                string? line;
+                T? item;
                 try
                 {
                     if (inactivityTimeout is not null) timeoutCts.CancelAfter(inactivityTimeout.Value);            // arm for this read
-                    line = await process.StandardOutput.ReadLineAsync(CancellationToken.None).ConfigureAwait(false);
+                    item = await readOne(process).ConfigureAwait(false);
                     if (inactivityTimeout is not null) timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan); // stop the clock while the consumer works
                 }
                 catch (Exception) when (timeoutCts.IsCancellationRequested)
@@ -250,13 +289,13 @@ public sealed class ProcessRunner : IProcessRunner
                     timedOut = !ct.IsCancellationRequested;
                     break;
                 }
-                if (line is null)
+                if (item is null)
                 {
                     // EOF right after our own kill still reports as the timeout that caused it
                     if (timeoutCts.IsCancellationRequested) timedOut = !ct.IsCancellationRequested;
                     break;
                 }
-                yield return line;
+                yield return item;
             }
 
             // The stdout loop ended (child closed stdout, or a timeout). Enable writer-progress re-arms,

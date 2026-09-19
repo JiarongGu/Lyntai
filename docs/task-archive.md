@@ -4713,3 +4713,23 @@ record's live amendment still named `ICliProviderDialect` — reworded), two exi
 
 - Pair `retiredApiNames` with `retiredTerms`, or gate the pairing → gated (the audit), with
   `proseExempt` as the designed exception; registries triaged to green.
+
+## Part 266 — GEN6: streaming TTS, and the chunk shape is MEASURED — data-then-terminal fits
+
+✅ done 2026-09-19 — **Outcome:** closes `TASKS.md` Part 33's GEN6, the same day the owner ruled the
+LOCAL branch measures first (piper; a hosted vendor's wire stays worth measuring when an account exists —
+the ruling sequences, it does not exclude). `PiperProvider` + `AddPiperProvider` ship in
+`Lyntai.Generation`: raw PCM streams through the media stream door as it is synthesised, chunks typed
+`audio/pcm;rate=…;bits=16;channels=1;endian=little` with the rate read from the voice's own config
+(`audio/L16` deliberately refused — RFC 2586 is big-endian, piper emits little-endian), and
+`GenerateAsync` is the same stream buffered. The question only a real engine could settle is measured
+(`PiperLiveTests`, 4 s against piper 1.8.0 + lessac-medium): a real synthesis arrived as SEVERAL chunks
+before one terminal — data-then-terminal FITS, because per-chunk `MediaType` carries what a raw wire
+cannot, and the terminal's `Seconds` derives from the bytes that streamed. Both default argv spellings
+confirmed against the engine's own help before any synthesis ran.
+The seam underneath is **D165**: `IProcessRunner.StreamBytesAsync`, the binary stream the line-shaped
+member could not be (0x0A is data, not framing), served from ONE core with the read swapped, its default
+body refusing loudly because binary cannot degrade through a string-typed stdout.
+
+- GEN6 — streaming audio (TTS) → shipped and measured; the platform half was D67, the backend half is
+  this Part, and `docs/ROADMAP.md` moves the planned entry to done.

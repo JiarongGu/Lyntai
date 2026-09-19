@@ -26,6 +26,12 @@ public sealed class FakeProcessRunner : IProcessRunner
     /// <summary>Thrown after all <see cref="StreamLines"/> have been yielded (never instead of them).</summary>
     public Exception? ThrowsAfterLines { get; set; }
 
+    /// <summary>Chunks yielded by <see cref="StreamBytesAsync"/>.</summary>
+    public IReadOnlyList<byte[]> StreamBytes { get; set; } = [];
+
+    /// <summary>Thrown after all <see cref="StreamBytes"/> have been yielded (never instead of them).</summary>
+    public Exception? ThrowsAfterBytes { get; set; }
+
     /// <summary>Canned result returned by <see cref="RunAsync"/>.</summary>
     public ProcessResult RunResult { get; set; } = new(0, string.Empty, string.Empty);
 
@@ -74,6 +80,27 @@ public sealed class FakeProcessRunner : IProcessRunner
             // yield lines first, then throw (as ProcessRunner does: yields lines so far, then throws)
             await Task.Yield();
             throw ThrowsAfterLines;
+        }
+    }
+
+    public async IAsyncEnumerable<byte[]> StreamBytesAsync(string command, IReadOnlyList<string> args,
+        string? stdin = null, TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
+        IReadOnlyDictionary<string, string>? environment = null,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        Calls.Add(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration, environment));
+
+        foreach (var chunk in StreamBytes)
+        {
+            ct.ThrowIfCancellationRequested();
+            yield return chunk;
+            await Task.Yield();
+        }
+
+        if (ThrowsAfterBytes is not null)
+        {
+            await Task.Yield();
+            throw ThrowsAfterBytes;
         }
     }
 }

@@ -15,20 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 4 Parts: 1 startable, 4 blocked, 2 watch
+## Open items — 6 across 4 Parts: 4 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 161 | 33 | GEN6 — streaming audio (TTS) | startable |  |
-| 186 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 233 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
-| 294 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 317 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 374 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 160 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 207 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
+| 268 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 291 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 348 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -158,31 +157,6 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
   does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
   this never blocked a release — 3.0 ships the package under the full SemVer promise (**D70**)._
 
-- [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend against a real vendor. **The scope shrank on <!-- item: state=startable -->
-  2026-08-16** (`docs/DECISIONS.md` **D67**): the PLATFORM half is done and shipped in 3.0 —
-  `IMediaRouter.StreamAsync` selects, falls over, governs and throttles a `Stream`-capable backend, and
-  the router guarantees exactly one terminal chunk, so a backend no longer has to be careful about fallback or
-  closing its own stream. What is left is a real backend and the thing only it can settle: whether
-  data-then-terminal is the decomposition a real TTS wire format wants. So this is no longer "the seam is
-  unexercised" — the handling is measured by `GenerationRouterStreamTests`; it is "the chunk SHAPE is still
-  inferred". **TTS before music** (owner). It needs a MEASURED wire format, never an inferred one — the
-  GEN-VERIFY lesson.
-
-  _**RE-FILED 2026-09-16 from `blocked · decision,env` to `decision-only`: the `env` half is CONTINGENT on
-  the ruling, not independent of it.** The open question is which backend ships first, and the two branches
-  have different costs. A HOSTED vendor needs an account nobody here has — a real blocker. A LOCAL engine
-  needs a download: `piper_tts` ships a `win_amd64` wheel (v1.8.0, verified 2026-09-16), streams PCM, and
-  would be spawned through `IProcessRunner` exactly as `LocalDiffusionProvider` drives `sd-cli`. So
-  "waits on a key" was only true of one branch, and stating it unconditionally made a RULING look like an
-  environment wall. **Naming a concrete local candidate is what turns this into a decision someone can
-  actually take** — it is not a recommendation, and the owner may well want a hosted format measured
-  instead._
-
-  _**RULED 2026-09-19 (owner): the LOCAL engine measures first** — piper, spawned through
-  `IProcessRunner`, the same pattern that closed the `sd-cli` and ComfyUI measurements the same day. A
-  hosted vendor's wire stays worth measuring when an account exists; the ruling sequences, it does not
-  exclude. The item is STARTABLE: the work is the backend, and the thing only it can settle is whether
-  data-then-terminal fits a stream of raw PCM._
 - [ ] **GEN7 — pipelines (3d → image → video)**: ordered stages feeding `artifact.ToInput(role)` forward, with <!-- item: state=blocked kind=tree needs="a 3D generation backend — the pipeline's first stage has none, and the 3d-to-image edge needs a rasterizer that does not belong in this library" -->
   per-stage candidates and per-stage failure semantics.
   **Blocker restated 2026-08-11 — the original "deferred until ≥2 real backends exist" now reads as SATISFIED

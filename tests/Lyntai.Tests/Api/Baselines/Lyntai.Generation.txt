@@ -105,10 +105,28 @@ sealed class Lyntai.Generation.Providers.OpenAiImageProvider
     GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
     Id : String
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
+sealed class Lyntai.Generation.Providers.PiperOptions
+    .ctor()
+    ArgvFlags : IDictionary<String,String>
+    BinaryPath : String
+    ExtraArgs : IList<String>
+    Id : String
+    InactivityTimeout : TimeSpan
+    ModelPath : String
+    SampleRate : Nullable<Int32>
+    Timeout : TimeSpan
+sealed class Lyntai.Generation.Providers.PiperProvider
+    .ctor(PiperOptions options, IProcessRunner runner)
+    Capabilities : ProviderCapabilities
+    GenerateAsync(MediaRequest request, CancellationToken ct = default) : Task<MediaResponse>
+    Id : String
+    ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
+    StreamAsync(MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
 static class Lyntai.MediaBackendBuilderExtensions
     static AddAutomatic1111Provider(LyntaiBuilder builder, Action<Automatic1111Options> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddComfyUiProvider(LyntaiBuilder builder, Action<ComfyUiOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddFalProvider(LyntaiBuilder builder, Action<FalQueueOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static AddLocalDiffusionProvider(LyntaiBuilder builder, Action<LocalDiffusionOptions> configure, Func<IServiceProvider,IProcessRunner> runner = null) : LyntaiBuilder
     static AddOpenAiImageProvider(LyntaiBuilder builder, Action<OpenAiImageOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddPiperProvider(LyntaiBuilder builder, Action<PiperOptions> configure, Func<IServiceProvider,IProcessRunner> runner = null) : LyntaiBuilder
     static HttpClientName(String id) : String

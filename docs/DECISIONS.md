@@ -234,8 +234,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D162](#d162--the-ledger-is-shape-neutral-and-every-call-shape-carries-governance-slots-2026-09-19) | 2026-09-19 | the ledger is shape-neutral, and every call shape carries governance slots |
 | [D163](#d163--the-one-wallet-reaches-every-kind-a-router-can-attribute-2026-09-19) | 2026-09-19 | the one wallet reaches every kind a router can ATTRIBUTE |
 | [D164](#d164--the-design-records-exemption-narrows-to-its-seeds-inline-amendments-are-gated-2026-09-19) | 2026-09-19 | the design record's exemption narrows to its seeds; inline amendments are gated |
+| [D165](#d165--the-process-seam-gains-a-binary-stream-and-its-default-refuses-rather-than-degrades-2026-09-19) | 2026-09-19 | the process seam gains a BINARY stream, and its default REFUSES rather than degrades |
 
-_All 164 entries are live decisions._
+_All 165 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5127,3 +5128,24 @@ written down and still violated is a missing gate); restructuring the document i
 maintained twin (changes the file's role and re-fights D114's split traps for less coverage than the mask
 buys); accepting the hole (what the review just measured the cost of). Gating the inline tier keeps the
 seeds' protection and makes the live half fail loudly, which is the whole of what was asked.
+
+## D165 — the process seam gains a BINARY stream, and its default REFUSES rather than degrades (2026-09-19)
+
+**The decision.** `IProcessRunner.StreamBytesAsync` yields a child's stdout as raw byte chunks — for an
+engine whose stdout is DATA (piper streaming PCM), where the line-shaped member would read 0x0A as framing
+and the buffered member cannot carry the bytes at all. It is a DEFAULTED interface member whose body throws
+`NotSupportedException` with guidance, and the shipped `ProcessRunner` implements it as the line
+stream's own core with the read swapped (one function, two reads — the D77 rule — so the clocks, the
+kill-on-abandonment and the terminal exceptions cannot drift apart).
+
+**The alternative the default refuses, and why no degraded default exists.** Every other defaulted member
+in this library degrades to something CORRECT (an `Unsupported` verdict, a null usage). Here the only
+candidate fallback — buffering through `RunAsync` — is wrong by TYPE: its stdout is a string, and a
+decode of arbitrary bytes is corruption, not a slower answer. So the default is loud where the family's
+defaults are quiet, and the XML doc says why. A REQUIRED member was the other option and was rejected:
+it forces every BYO runner (sandboxes, auditors) to write a binary loop for a stream most never serve.
+
+**What this constrains.** A BYO `IProcessRunner` serving a byte-streaming backend must override the
+member; every other implementer compiles and behaves unchanged. Chunk boundaries are the PIPE's, never a
+framing promise — only the concatenation is contract, which is why `PiperProvider` stamps the media type
+on every chunk rather than framing anything into the bytes.

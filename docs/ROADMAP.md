@@ -79,10 +79,13 @@ the full promise and these are confirmations rather than repairs. In priority or
    clamp were measured 2026-09-19 against a real engine, correcting the retired `img2img` mode value on the
    way. ComfyUI followed the same day in full, image and video workflows both confirmed against a live
    0.36.0 — so fal's wire format is all that's left, and it waits on an account.)
-2. **Streaming TTS** — a real backend for `IModelProvider`. The PLATFORM half shipped in 3.0
-   (**D67**): the router's stream door selects, falls over, governs and throttles a stream-capable backend and
-   guarantees exactly one terminal chunk. What a vendor still settles is whether data-then-terminal is the
-   decomposition a real TTS wire format wants. TTS before music.
+2. **Streaming TTS — DONE 2026-09-19.** The PLATFORM half shipped in 3.0
+   (**D67**); the backend half is `PiperProvider` (local piper over the new
+   `IProcessRunner.StreamBytesAsync`, **D165**), and the question only a real backend could settle is
+   MEASURED: data-then-terminal fits a real TTS stream — a live synthesis arrived as several PCM chunks
+   before one terminal, the per-chunk `MediaType` carrying the metadata a raw wire cannot. A hosted
+   vendor's wire stays worth measuring when an account exists (the owner's 2026-09-19 ruling sequences
+   local first; it does not exclude). TTS before music, still.
 3. **Pipelines** (3d → image → video) — ordered stages feeding `artifact.ToInput(role)` forward. The original
    "defer until ≥2 real backends exist" test now reads as satisfied and is the wrong one: counted by KIND,
    image has five backends and video two, but **3d has ZERO** — so the pipeline's FIRST stage has no backend

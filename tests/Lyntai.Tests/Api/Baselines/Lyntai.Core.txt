@@ -2623,6 +2623,7 @@ static class Lyntai.MemoryVerificationRegistration
     static AddMemoryVerification(LyntaiBuilder builder, Action<LlmVerificationOptions> configure = null) : LyntaiBuilder
 interface Lyntai.Processes.IProcessRunner
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
+    StreamBytesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<Byte[]>
     StreamLinesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
 sealed class Lyntai.Processes.ProcessResult
     .ctor(Int32 ExitCode, String StdOut, String StdErr, ProcessTimeoutKind TimeoutKind = ProcessTimeoutKind.None)
@@ -2644,6 +2645,7 @@ sealed class Lyntai.Processes.ProcessRunException
 sealed class Lyntai.Processes.ProcessRunner
     .ctor()
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
+    StreamBytesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<Byte[]>
     StreamLinesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
     static CommandExists(String command) : Boolean
     static ResolveCommandPath(String command) : String

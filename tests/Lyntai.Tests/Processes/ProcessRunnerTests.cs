@@ -557,4 +557,85 @@ public class ProcessRunnerTests
         // paths with separators pass through untouched
         Assert.Equal(@"C:\tools\x.exe", ProcessRunner.ResolveCommandPath(@"C:\tools\x.exe"));
     }
+
+    // ---- StreamBytesAsync — the BINARY stream, for a child whose stdout is data rather than text --------
+
+    [Fact]
+    public async Task Stream_bytes_carries_binary_with_exact_fidelity_including_newline_bytes()
+    {
+        // The bytes a LINE reader would destroy are the point: 0x0A and 0x0D are framing to a text loop and
+        // data here, and 0x00 would end a C string. The child writes a deterministic 1 KiB pattern in two
+        // bursts; only the CONCATENATION is asserted — chunk boundaries are the pipe's business, not ours.
+        var script = "const b = Buffer.alloc(1024); for (let i = 0; i < 1024; i++) b[i] = i % 256;" +
+            "process.stdout.write(b.subarray(0, 500));" +
+            "setTimeout(() => process.stdout.write(b.subarray(500)), 50);";
+
+        var received = new List<byte>();
+        await foreach (var chunk in _runner.StreamBytesAsync("node", ["-e", script],
+            inactivityTimeout: TimeSpan.FromSeconds(10)))
+            received.AddRange(chunk);
+
+        Assert.Equal(1024, received.Count);
+        for (var i = 0; i < 1024; i++)
+            Assert.Equal((byte)(i % 256), received[i]);
+    }
+
+    [Fact]
+    public async Task Stream_bytes_feeds_stdin_concurrently_like_the_line_stream_does()
+    {
+        var received = new List<byte>();
+        await foreach (var chunk in _runner.StreamBytesAsync("node",
+            ["-e", "process.stdin.pipe(process.stdout)"], stdin: "hello bytes",
+            inactivityTimeout: TimeSpan.FromSeconds(10)))
+            received.AddRange(chunk);
+
+        Assert.Equal("hello bytes", System.Text.Encoding.UTF8.GetString(received.ToArray()));
+    }
+
+    [Fact]
+    public async Task Stream_bytes_reports_a_nonzero_exit_after_yielding_what_arrived()
+    {
+        var received = new List<byte>();
+        var thrown = await Assert.ThrowsAsync<ProcessRunException>(async () =>
+        {
+            await foreach (var chunk in _runner.StreamBytesAsync("node",
+                ["-e", "process.stdout.write('data'); process.exit(3)"],
+                inactivityTimeout: TimeSpan.FromSeconds(10)))
+                received.AddRange(chunk);
+        });
+
+        Assert.Equal("data", System.Text.Encoding.UTF8.GetString(received.ToArray()));
+        Assert.Contains("3", thrown.Message);
+    }
+
+    [Fact]
+    public async Task A_runner_that_predates_the_binary_member_refuses_LOUDLY_rather_than_corrupting()
+    {
+        // The default body cannot degrade to RunAsync — binary through its string-typed stdout is mojibake,
+        // not a slower answer — so refusing with guidance is the only correct default for a BYO runner.
+        IProcessRunner legacy = new LinesOnlyRunner();
+
+        var thrown = await Assert.ThrowsAsync<NotSupportedException>(async () =>
+        {
+            await foreach (var _ in legacy.StreamBytesAsync("x", [])) { }
+        });
+        Assert.Contains(nameof(IProcessRunner.StreamBytesAsync), thrown.Message);
+    }
+
+    private sealed class LinesOnlyRunner : IProcessRunner
+    {
+        public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
+            TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
+            IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default) =>
+            Task.FromResult(new ProcessResult(0, "", ""));
+
+        public async IAsyncEnumerable<string> StreamLinesAsync(string command, IReadOnlyList<string> args,
+            string? stdin = null, TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null,
+            string? workingDirectory = null, IReadOnlyDictionary<string, string>? environment = null,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await Task.CompletedTask;
+            yield break;
+        }
+    }
 }

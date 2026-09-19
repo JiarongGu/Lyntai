@@ -41,4 +41,27 @@ public interface IProcessRunner
         string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null,
         CancellationToken ct = default);
+
+    /// <summary>Streamed BINARY run: yields stdout as raw byte chunks as they arrive, for a child whose
+    /// stdout is DATA rather than text (a TTS engine streaming PCM). Chunk boundaries are the pipe's, not a
+    /// framing promise — only the concatenation is meaningful. The clocks, the stderr-tail
+    /// <see cref="ProcessRunException"/> on nonzero exit, <see cref="ProcessTimeoutException"/> on expiry
+    /// and kill-on-abandonment are exactly <see cref="StreamLinesAsync"/>'s contract.</summary>
+    /// <remarks><b>The default body REFUSES rather than degrading</b>, and the reason is a type: binary
+    /// cannot be served through <see cref="RunAsync"/>'s string-typed stdout — every byte ≥ 0x80 arrives
+    /// decoded, which is corruption rather than a slower answer. A BYO runner that should serve a
+    /// byte-streaming backend overrides this; every other implementer keeps compiling.</remarks>
+    IAsyncEnumerable<byte[]> StreamBytesAsync(
+        string command,
+        IReadOnlyList<string> args,
+        string? stdin = null,
+        TimeSpan? inactivityTimeout = null,
+        TimeSpan? maxDuration = null,
+        string? workingDirectory = null,
+        IReadOnlyDictionary<string, string>? environment = null,
+        CancellationToken ct = default) =>
+        throw new NotSupportedException(
+            $"this IProcessRunner does not implement {nameof(StreamBytesAsync)} — binary stdout cannot be "
+            + "served through the string-typed RunAsync, so a runner serving a byte-streaming backend "
+            + "overrides it (the shipped ProcessRunner does)");
 }
