@@ -115,7 +115,7 @@ public class CortexIntegrationTests : IDisposable
         var composed = await composer.ComposeAsync("Do the deploy.", "deploy", scope: "prod");
 
         Assert.StartsWith("Do the deploy.", composed);
-        Assert.Contains("## Learned facts (deploy)", composed);
+        Assert.Contains("## Recalled facts (deploy — may be stale or partial)", composed);
         Assert.Contains("smoke suite", composed);
         Assert.Contains("previous tag", composed);
     }

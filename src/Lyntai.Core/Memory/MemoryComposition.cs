@@ -81,6 +81,8 @@ public static class MemoryComposition
     /// <para>Grades are read off the items, so a caller supplying its own must set
     /// <see cref="MemoryItem.Grade"/>: everything not <see cref="MemoryGrade.Authoritative"/> renders as
     /// associative and MAY be truncated to its headline. Authoritative content is never truncated.</para>
+    /// <para>Every item renders as exactly ONE line: content carrying newlines is flattened first, so
+    /// recalled text cannot forge a heading and claim a grade. No character is dropped.</para>
     /// <para>Pure and total: it performs no I/O, throws only on a null argument, and returns
     /// <paramref name="basePrompt"/> unchanged when nothing fits.</para>
     /// <para><b>Both uses are first-class</b>, which is why an empty <paramref name="basePrompt"/> is not a
@@ -141,7 +143,10 @@ public static class MemoryComposition
             {
                 // authoritative material is NEVER truncated: a headline reading "the build gate is
                 // dev.mjs" when the content says "dev.mjs verify" is worse than having no memory at all.
-                var text = verbatim ? item.Content ?? item.Headline : item.Headline;
+                // Flattened either way — one memory is one bullet, so no recalled text can forge a heading
+                // and claim a grade this renderer alone is entitled to state. Not a truncation: no
+                // character is dropped, so the verbatim promise above survives it.
+                var text = MemoryLine.Flatten(verbatim ? item.Content ?? item.Headline : item.Headline);
                 var line = $"- {text}\n";
                 // `continue`, not `break` — one oversized item must not hide every shorter one behind it,
                 // and every skipped authoritative item has to be counted so the omission line is truthful

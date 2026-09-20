@@ -4733,3 +4733,23 @@ body refusing loudly because binary cannot degrade through a string-typed stdout
 
 - GEN6 — streaming audio (TTS) → shipped and measured; the platform half was D67, the backend half is
   this Part, and `docs/ROADMAP.md` moves the planned entry to done.
+
+## Part 269 — recalled memory is marked, and cannot forge the grade (2026-09-21)
+
+✅ done 2026-09-21 — **Outcome:** closes `TASKS.md` Part 267's one non-measurement item. Two halves, and the
+second was a DEFECT rather than the hardening the item anticipated. Marking: `MemoryPromptComposer` heads
+its section `## Recalled facts (<task> — may be stale or partial)` instead of asserting learned fact —
+`MemoryComposition`'s engine-backed path already marked its associative section, so this brought the two
+composers into line rather than inventing a convention. Containment: both composers rendered an item as
+`- {content}`, so content carrying its own newlines escaped the bullet and wrote raw markdown into the
+prompt, `## Known facts (authoritative)` included — content claiming the grade the renderer alone states.
+`MemoryLine.Flatten` (internal) now runs on both grades in `MemoryComposition.Render` and in
+`MemoryPromptComposer`. The reasoning, the two rejected alternatives (escaping; a delimited block) and the
+refused `retiredTerms` entry are **D166**.
+
+**What the item got wrong, for the next reader:** it described the gap as present-tense across the
+subsystem, and half of it was already shipped — the engine path marks. The measurement-free half turned out
+to be reachable through `MemoryComposition.Render`, a PUBLIC seam documented for callers supplying their own
+items, so a BYO retrieval was exposed even where an engine's own `MemoryHeadline.Derive` had flattened.
+
+- Recalled memory enters the prompt unmarked

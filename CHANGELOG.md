@@ -17,6 +17,31 @@ and every Breaking entry ends by naming that action. A pure addition goes under 
 moves the `ApiSurfaceTests` baseline: the baseline gates DELIBERATENESS (D8), not breakage, and it moves for
 every addition.
 
+## Unreleased
+
+### Security
+
+- **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
+  `- {content}`, so content carrying its own newlines escaped that bullet and wrote raw markdown into the
+  prompt — including `## Known facts (authoritative)`, the heading `MemoryComposition` uses to mean *exact,
+  never truncated*. Text that arrived through an ordinary remember call could therefore claim a grade the
+  renderer alone is entitled to state, and a model reading the forged section was told it was exact. Every
+  rendered memory is now flattened to exactly one line — `MemoryComposition.Render` on BOTH grades, and
+  `MemoryPromptComposer`. Nothing is censored: the text stays, contained inside its bullet, where it is
+  inert prose rather than structure.
+  <br>**What to DO:** nothing at a call site — no signature changed and no seam gained a member. A consumer
+  whose memories hold deliberately multi-line content will see it rendered on one line; one asserting on the
+  old rendering updates the assertion.
+
+### Changed
+
+- **The flat composer heads its section `## Recalled facts (<task> — may be stale or partial)`.** It read
+  `## Learned facts (<task>)`, which asserts the material IS fact and lands in the prompt as prose the
+  system prompt appears to own — a recalled sentence that reads as a directive is one a model may follow.
+  `MemoryComposition`'s engine-backed path already marked its associative section this way, so this brings
+  the two composers into line rather than inventing a convention.
+  <br>**What to DO:** a consumer asserting on the old heading updates the string.
+
 ## 3.2.0 — 2026-09-19
 
 ### Breaking

@@ -6,11 +6,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lyntai.Cortex;
 
-/// <summary>Default composer: appends a bounded "learned facts" section recalled from memory. HYBRID when
+/// <summary>Default composer: appends a bounded section of material recalled from memory. HYBRID when
 /// an <see cref="ISemanticMemory"/> is wired (i.e. embeddings are registered) — meaning-based hits lead
 /// (they're query-relevant even without keyword overlap), then lexical <see cref="IMemoryStore"/> entries
 /// fill in, deduped. Never throws — an outage in either source yields whatever the other returned (or the
 /// base prompt).
+/// <para>The section is headed as RECALLED and possibly stale, never as established fact: a recalled
+/// sentence that reads as a directive is one the model may follow. Each entry renders as exactly one
+/// bullet — content carrying newlines is flattened, so it cannot write a section of its own.</para>
 /// <para>DEFAULTS, when the caller passes no <c>limit</c>: the semantic arm recalls 10 (this type's own
 /// constant), the lexical arm passes null through to the store, which resolves it from
 /// <c>LyntaiOptions.MemoryRecallLimit</c> (20) — the two arms are NOT symmetric unless the caller says
@@ -74,7 +77,9 @@ public sealed class MemoryPromptComposer(
         var budget = maxChars;
         foreach (var content in contents)
         {
-            var line = $"- {content}\n";
+            // one memory is one bullet — a recalled fact carrying newlines would otherwise escape its
+            // bullet and write its own section into the prompt (see MemoryLine)
+            var line = $"- {MemoryLine.Flatten(content)}\n";
             if (line.Length > budget) break; // stop once the section budget is spent
             facts.Append(line);
             budget -= line.Length;
@@ -82,7 +87,7 @@ public sealed class MemoryPromptComposer(
         if (facts.Length == 0) return basePrompt; // even the first fact overflowed the budget
 
         return new StringBuilder(basePrompt)
-            .Append("\n\n## Learned facts (").Append(taskKey).Append(")\n")
+            .Append("\n\n## Recalled facts (").Append(taskKey).Append(" — may be stale or partial)\n")
             .Append(facts)
             .ToString().TrimEnd();
     }

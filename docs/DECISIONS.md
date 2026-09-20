@@ -235,8 +235,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D163](#d163--the-one-wallet-reaches-every-kind-a-router-can-attribute-2026-09-19) | 2026-09-19 | the one wallet reaches every kind a router can ATTRIBUTE |
 | [D164](#d164--the-design-records-exemption-narrows-to-its-seeds-inline-amendments-are-gated-2026-09-19) | 2026-09-19 | the design record's exemption narrows to its seeds; inline amendments are gated |
 | [D165](#d165--the-process-seam-gains-a-binary-stream-and-its-default-refuses-rather-than-degrades-2026-09-19) | 2026-09-19 | the process seam gains a BINARY stream, and its default REFUSES rather than degrades |
+| [D166](#d166--recalled-memory-renders-as-exactly-one-line-so-content-cannot-forge-the-grade-2026-09-21) | 2026-09-21 | recalled memory renders as exactly ONE line, so content cannot forge the grade |
 
-_All 165 entries are live decisions._
+_All 166 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5149,3 +5150,33 @@ it forces every BYO runner (sandboxes, auditors) to write a binary loop for a st
 member; every other implementer compiles and behaves unchanged. Chunk boundaries are the PIPE's, never a
 framing promise — only the concatenation is contract, which is why `PiperProvider` stamps the media type
 on every chunk rather than framing anything into the bytes.
+
+## D166 — recalled memory renders as exactly ONE line, so content cannot forge the grade (2026-09-21)
+
+**The decision.** Every memory a composer renders is flattened to a single line first
+(`MemoryLine.Flatten`, internal), in `MemoryComposition.Render` on BOTH grades and in
+`MemoryPromptComposer`. Recalled content is consumer-authored and therefore attacker-influenceable:
+rendered as `- {content}`, an item carrying its own newlines escaped that bullet and wrote raw markdown
+into the prompt — including `## Known facts (authoritative)`, the heading the renderer uses to mean
+*exact, never truncated*. A grade is the renderer's to state and never the content's.
+
+**The alternatives, and why this one.** ESCAPING the markdown was rejected: the consumer of this text is a
+model rather than a parser, so there is no escape syntax that reliably means "inert" — and every escape
+scheme has to be got right in both composers forever. A DELIMITED block (`<recalled-memory>` plus a
+sentence telling the model to treat it as data) was considered and refused for now: it adds tokens to
+every composed call and changes the prompt for every consumer, while the one-line invariant already
+closes the forgery, because a heading must begin a line. The delimiter remains available if a measurement
+ever shows a model treating contained-but-unfenced recall as instruction.
+
+**Flattening is not truncation**, which is what lets it apply to authoritative material without breaking
+that grade's promise: no character is dropped. What a multi-line fact loses is its line breaks — the
+price of the invariant, and stated in the XML doc rather than discovered.
+
+**A `retiredTerms` entry for the old `## Learned facts` heading was refused.** That registry stops prose
+recommending something a reader would CALL; a rendered heading is neither an identifier nor a package, no
+maintained document mentions it, and a rule would fire first on the changelog entry announcing the change
+— the ratio D151's own comment records refusing.
+
+**What this constrains.** A new composer, or a BYO caller of `MemoryComposition.Render`, inherits the
+invariant: one memory is one bullet. A renderer that wants multi-line material in a prompt has to state a
+containment story of its own rather than passing content through.

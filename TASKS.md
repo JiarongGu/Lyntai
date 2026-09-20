@@ -15,24 +15,23 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 11 across 6 Parts: 5 startable, 4 blocked, 2 watch
+## Open items — 10 across 6 Parts: 4 startable, 4 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 112 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 165 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 212 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
-| 273 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 296 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 353 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 389 | 267 | Recalled memory enters the prompt unmarked | startable |  |
-| 396 | 267 | Nothing runs offline over the graph, so two memories that never co-occurred… | startable |  |
-| 404 | 267 | Verification is priced at a model call, and the free alternative is untested | startable |  |
-| 412 | 267 | Affect is absent as an axis | startable |  |
-| 442 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
+| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 164 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 211 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
+| 272 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 295 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 352 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 389 | 267 | Nothing runs offline over the graph, so two memories that never co-occurred… | startable |  |
+| 397 | 267 | Verification is priced at a model call, and the free alternative is untested | startable |  |
+| 405 | 267 | Affect is absent as an axis | startable |  |
+| 435 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
 
 <!-- open-items:end -->
 
@@ -382,16 +381,10 @@ Claude. **Most of its surface is out of scope by construction** — dashboard, D
 Obsidian vault, a port per owner — because that is an app and this is a library with no host. Its decay is
 wall-clock (`e^(-lambda x days)`), its recall a seven-term weighted top-k, and every constant is hardcoded
 with no harness behind it, so **D40**, **D100** and the sweeps here already answer those the other way.
-What survives that filter is below: four mechanisms it has and this does not, each landing on a seam that
-already exists. Three are measurements, so each names what a YES and a NO change
-(`.claude/rules/task-lifecycle.md` §A MEASUREMENT task)._
-
-- [ ] **Recalled memory enters the prompt unmarked.** `MemoryPromptComposer` appends a `## Learned facts` <!-- item: state=startable -->
-  section of bare bullets (`src/Lyntai.Core/Cortex/MemoryPromptComposer.cs`). Ombre marks every surfaced
-  item as a reconstruction rather than an instruction. Two things that buys: a recalled sentence stops
-  reading as a directive, and recalled text — which is consumer-authored, therefore attacker-influenceable —
-  arrives inside a boundary instead of as prose the system prompt appears to own. The second half is the
-  one no measurement is needed for.
+Four mechanisms survived that filter, each landing on a seam that already exists. The fourth — recalled
+memory entering the prompt unmarked — was the one needing no measurement and closed on 2026-09-21
+(`docs/task-archive.md` Part 269, **D166**). **The three below are all measurements**, so each names what a
+YES and a NO change (`.claude/rules/task-lifecycle.md` §A MEASUREMENT task)._
 
 - [ ] **Nothing runs offline over the graph, so two memories that never co-occurred never link.** Edges <!-- item: state=startable -->
   form at write time (`LlmMemoryAnnotationPolicy`) and are reinforced by the walk (**D102**); a pair that

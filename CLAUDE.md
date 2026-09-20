@@ -14,7 +14,7 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 ## Current state
 
 **Released: v3.2.0 (2026-09-19).** Eleven packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D165** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D166** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
