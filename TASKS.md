@@ -15,19 +15,24 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 6 across 4 Parts: 4 blocked, 2 watch
+## Open items — 11 across 6 Parts: 5 startable, 4 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 160 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 207 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
-| 268 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 291 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 348 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 112 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 165 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 212 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
+| 273 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 296 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 353 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 389 | 267 | Recalled memory enters the prompt unmarked | startable |  |
+| 396 | 267 | Nothing runs offline over the graph, so two memories that never co-occurred… | startable |  |
+| 404 | 267 | Verification is priced at a model call, and the free alternative is untested | startable |  |
+| 412 | 267 | Affect is absent as an axis | startable |  |
+| 442 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
 
 <!-- open-items:end -->
 
@@ -369,6 +374,100 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
+
+## Part 267 — what Ombre-Brain does that this library does not (2026-09-20)
+
+_Opened from a comparison against <https://github.com/P0luz/Ombre-Brain>, a Python MCP memory server for
+Claude. **Most of its surface is out of scope by construction** — dashboard, Docker, OAuth, tunnel, an
+Obsidian vault, a port per owner — because that is an app and this is a library with no host. Its decay is
+wall-clock (`e^(-lambda x days)`), its recall a seven-term weighted top-k, and every constant is hardcoded
+with no harness behind it, so **D40**, **D100** and the sweeps here already answer those the other way.
+What survives that filter is below: four mechanisms it has and this does not, each landing on a seam that
+already exists. Three are measurements, so each names what a YES and a NO change
+(`.claude/rules/task-lifecycle.md` §A MEASUREMENT task)._
+
+- [ ] **Recalled memory enters the prompt unmarked.** `MemoryPromptComposer` appends a `## Learned facts` <!-- item: state=startable -->
+  section of bare bullets (`src/Lyntai.Core/Cortex/MemoryPromptComposer.cs`). Ombre marks every surfaced
+  item as a reconstruction rather than an instruction. Two things that buys: a recalled sentence stops
+  reading as a directive, and recalled text — which is consumer-authored, therefore attacker-influenceable —
+  arrives inside a boundary instead of as prose the system prompt appears to own. The second half is the
+  one no measurement is needed for.
+
+- [ ] **Nothing runs offline over the graph, so two memories that never co-occurred never link.** Edges <!-- item: state=startable -->
+  form at write time (`LlmMemoryAnnotationPolicy`) and are reinforced by the walk (**D102**); a pair that
+  was neither co-annotated nor co-recalled has no path to one. Ombre's `dream` runs a windowed pass and
+  emits connection hints and a promotion rule for mutually similar clusters. **Measure first:** does a pass
+  over `IMemoryGraphStore` find edges write-time annotation missed, on the corpora `memory-annotation` and
+  `memory-density` already build? YES → a consolidation seam plus a `Lyntai.Jobs` handler; NO → a decision
+  recording that write-time annotation is sufficient, and why.
+
+- [ ] **Verification is priced at a model call, and the free alternative is untested.** Both shipped <!-- item: state=startable -->
+  `IMemoryVerificationPolicy` implementations run at recall. Ombre gates the WRITE instead: a claim
+  persists only after two independent sources and three separated re-assertions, with no model in the loop.
+  `memory-longmemeval` already asks what corroboration answers — prefer a revised fact over the superseded
+  one. Measure a source-count × encoding-separation gate against the judge on that corpus. YES at zero
+  model cost → ship it as a policy; NO → a refutation worth writing, because counting witnesses is the
+  obvious cheap answer and nobody here has tried it.
+
+- [ ] **Affect is absent as an axis.** Salience is structural (`StructuralSaliencePolicy`); the tree holds <!-- item: state=startable -->
+  no emotional coordinate at all. Ombre carries Russell's valence/arousal per memory, makes arousal a
+  retention multiplier and boosts unresolved high-arousal so it surfaces with no query — where a query-less
+  recall here returns the most recently used (`src/Lyntai.Core/Memory/MemoryTools.cs`). The seams exist: an
+  annotator can emit the coordinates, `IMemorySaliencePolicy` and `IMemoryRetentionPolicy` consume them.
+  Ombre ships its constants on intuition; `memory-salience`, `memory-importance` and
+  `memory-salience-weight` are the instruments. YES → an affect salience policy; NO → a refutation that
+  saves the next reader the same intuition.
+
+## Part 268 — `Lyntai.Storage.FileSystem`: one record per file, so stored data reads without a client (2026-09-20)
+
+_**Chosen from a posed set, so this is a decision rather than a working position**
+(`.claude/knowledge/input-is-thinking-not-doctrine.md`). Both rejected shapes are recorded because both
+will otherwise be reopened. A document DATABASE (Mongo, LiteDB) was refused: the stated need is reading
+stored data by eye and a NoSQL engine still needs a client — and the schema-flexibility half of that
+argument is already answered by `MemorySignals`, an open name→double bag that costs no migration
+(`.claude/knowledge/storage.md` §An open bag column). A MIRROR of the relational store was refused because
+two copies drift and nothing then says which is right. What is left is a PEER backend the consumer picks
+like any other, which is the shape `.claude/knowledge/extending-lyntai.md` §Add a storage backend already
+anticipates. **Reversal cost is a package id**: retiring one needs an entry in `devtools/nuget-unlist.mjs`'s
+`RETIRED` array (**D44**) and costs two `ApiSurface` theories, which is why the id was settled first.
+**`Lyntai.Storage.FileSystem`, chosen 2026-09-20**: the family is named for the BACKEND
+(`.claude/rules/dotnet-package-layout.md` §Naming), and the backend here is the file system. Markdown or
+JSON is a FORMAT axis and belongs in an option or a seam — a package named for its serialization would
+have to FORK to gain a second one._
+
+_**Sequenced after Part 267 by choice, not by a blocker.** Those four are migration-free and measurable on
+harnesses that exist; this one permanently widens a surface frozen under SemVer with no carve-out
+(**D70**). It is startable today regardless._
+
+- [ ] **`Lyntai.Storage.FileSystem` — one record per file, directories as the index.** Scaffold with <!-- item: state=startable -->
+  `node devtools/dev.mjs new-package Lyntai.Storage.FileSystem` — never by hand, the misses are silent. But
+  the scaffold is not the whole of what `check-packages` gates: it writes EIGHT of the nine, and the ninth —
+  the API BASELINE, which is what makes the SemVer claim real — is seeded by running `test` once and must be
+  READ before committing, or it freezes whatever surface happened to exist. Three of the eight land as TODO
+  placeholders that satisfy the gate vacuously (the `<Description>`, the `docs/AOT.md` row, the README row),
+  and bundle membership is deliberately NOT automatic (**D26**).
+  <br>**The first deliverable is the domain ROSTER, written down.** Thirteen interfaces exist and a
+  filesystem cannot honestly serve all of them: `IJobStore`'s claim fence, `IUsageTracker`'s counters and
+  `IResponseCache` each need an atomic compare-and-set no directory provides.
+  `.claude/knowledge/extending-lyntai.md` says to skip a domain deliberately and never by omission, so the
+  roster is a list with a reason per line — and the `Use*` helper needs an EAGER startup guard refusing a
+  wiring that depends on a domain it does not serve, on **D150**'s argument.
+  <br>**Recall is the design risk and it is answerable before anything is built.** `MemoryStoreContract`
+  demands substring recall including CJK, which SQLite serves with an FTS5 trigram index and a directory
+  serves with nothing. Measure first: does a scan meet the contract at a tolerable cost, or must the package
+  maintain its own in-process index? That answer decides the shape of everything else.
+  <br>**A consumer's string becomes a PATH, which is a boundary rather than a formatting concern.** Task key
+  and scope arrive arbitrary — traversal, the Windows reserved names, characters legal on ext4 and illegal
+  on NTFS, NTFS case-insensitivity colliding two keys that differ on Linux, and the path-length limit.
+  Encode deliberately, and stay under one root: that is this backend's version of the `lyntai_` prefix rule,
+  for the same reason (Lyntai may share the consumer's directory).
+  <br>**Writing text files turns every trap in `.claude/rules/windows-machine.md` into shipped code** —
+  BOM-less UTF-8, LF, and write-temp-then-rename for atomicity. `check-encoding` exists because mojibake
+  passes every other gate, and this is the first package that would write user text to disk. A frontmatter
+  schema-version field belongs in the first file ever written: there is no migrator here to add one later.
+  <br>**`WriteBackAsync`'s pinned ORDER (D101) helps rather than hurts.** Several files cannot be written in
+  one transaction, and that contract already puts the review log last so a partial failure costs neither the
+  touch nor the edges.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
