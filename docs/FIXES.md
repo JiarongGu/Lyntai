@@ -7,6 +7,34 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-21 — every sweep's single-text embed crashed on a cast the D153 refactor left stale
+
+**Symptom.** The first sweep run since 2026-09-18 dies immediately:
+`InvalidCastException: Unable to cast object of type 'CachingVectorProvider' to type
+'Lyntai.Inference.IVectorProvider'` — from `BenchVectors.EmbedAsync`, reached by `memory-longmemeval`'s
+new `--corroborate` mode, and equally reachable from every existing single-text embed site in
+`memory-locomo`, `memory-decision` and the longmemeval cosine controls. The bench BUILDS clean.
+
+**Root cause.** **D153** step 4 (`5c45c84c`) moved `EmbedAsync` off `IModelProvider`; the bench's bridge
+extension was rewritten to cast to the new `IVectorProvider` — but the two bench doubles it is always
+called on (`SweepDoubles.OpenAiCompatibleVectorProvider`, `SweepDoubles.CachingVectorProvider`) still
+declared bare `IModelProvider`. An extension-method cast defers the break to runtime, the compiler stayed
+green, and no sweep is in `verify` because sweeps need a live model — so the break sat invisible until the
+next measurement run, three days later.
+
+**Fix.** Both doubles now implement `IVectorProvider`: `CallAsync(VectorRequest)` wraps the existing batch
+`EmbedAsync`, throwing on a dead server rather than mapping a verdict — a sweep wants a crashed run, not a
+silently degraded figure, the same posture `TryRealVectorProviderAsync` takes about fakes. The reusable
+half is in `.claude/knowledge/pitfalls.md` §Refactoring: **when a refactor touches a seam the instruments
+double, run ONE sweep before recording it done.**
+
+**Verify.** The failing call is the proof both ways: `memory-longmemeval --corroborate` crashed with the
+cast before the fix and completed on both corpus variants after it (oracle 70/70, haystack 70/70 at
+34,242 turns per arm), through the same `BenchVectors.EmbedAsync` path the other sweeps use.
+
+**Introduced by.** `5c45c84c` (D153 step 4, 2026-09-18) — the refactor updated the bridge's cast but not
+the doubles the bridge is cast ON, and every recorded sweep figure predates it.
+
 ## 2026-09-20 — `verify` reported the guards themselves failing on a tree where all 871 passed
 
 **Symptom.** `verify` dies at its FIRST gate: *"test-devtools: ✗ the scripts that GATE this repository are

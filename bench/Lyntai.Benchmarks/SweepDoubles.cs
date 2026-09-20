@@ -247,8 +247,14 @@ internal static class SweepDoubles
     /// references — the csproj records what pulling a third one cost the last time (a build log past Node's
     /// spawnSync buffer, reported as a failed build that had in fact succeeded).
     /// </remarks>
-    internal sealed class OpenAiCompatibleVectorProvider(HttpClient http, string baseUrl, string model) : IModelProvider
+    internal sealed class OpenAiCompatibleVectorProvider(HttpClient http, string baseUrl, string model) : IVectorProvider
     {
+        /// <summary>The routed shape (D153), over the same single-text loop below. THROWS on a dead server
+        /// rather than mapping a verdict: a sweep wants a crashed run, not a silently degraded figure —
+        /// which is the same posture <see cref="TryRealVectorProviderAsync"/> takes about fakes.</summary>
+        public async Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default) =>
+            VectorResponse.Success(await EmbedAsync(request.Texts, ct).ConfigureAwait(false));
+
         public string Id { get; init; } = "bench-http-embed";
 
         public ProviderCapabilities Capabilities { get; } = new()
@@ -392,9 +398,14 @@ internal static class SweepDoubles
     }
 
     /// <summary>Memoizes a real model by text — deterministic input, deterministic output.</summary>
-    internal sealed class CachingVectorProvider(IModelProvider inner) : IModelProvider
+    internal sealed class CachingVectorProvider(IModelProvider inner) : IVectorProvider
     {
         public string Id { get; init; } = "bench-cache";
+
+        /// <summary>The routed shape (D153), through the cache. Same fail-loud posture as the provider it
+        /// wraps.</summary>
+        public async Task<VectorResponse> CallAsync(VectorRequest request, CancellationToken ct = default) =>
+            VectorResponse.Success(await EmbedAsync(request.Texts, ct).ConfigureAwait(false));
 
         public ProviderCapabilities Capabilities { get; } = new()
         {

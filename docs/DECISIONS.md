@@ -236,8 +236,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D164](#d164--the-design-records-exemption-narrows-to-its-seeds-inline-amendments-are-gated-2026-09-19) | 2026-09-19 | the design record's exemption narrows to its seeds; inline amendments are gated |
 | [D165](#d165--the-process-seam-gains-a-binary-stream-and-its-default-refuses-rather-than-degrades-2026-09-19) | 2026-09-19 | the process seam gains a BINARY stream, and its default REFUSES rather than degrades |
 | [D166](#d166--recalled-memory-renders-as-exactly-one-line-so-content-cannot-forge-the-grade-2026-09-21) | 2026-09-21 | recalled memory renders as exactly ONE line, so content cannot forge the grade |
+| [D167](#d167--corroboration-counting-is-refused-as-verification-on-measurement-2026-09-21) | 2026-09-21 | corroboration counting is REFUSED as verification, on measurement |
 
-_All 166 entries are live decisions._
+_All 167 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5180,3 +5181,23 @@ maintained document mentions it, and a rule would fire first on the changelog en
 **What this constrains.** A new composer, or a BYO caller of `MemoryComposition.Render`, inherits the
 invariant: one memory is one bullet. A renderer that wants multi-line material in a prompt has to state a
 containment story of its own rather than passing content through.
+
+## D167 — corroboration counting is REFUSED as verification, on measurement (2026-09-21)
+
+**The decision.** No witness-count verification policy and no source-count write-persistence gate ships.
+The field's cheap alternative to a judge (Ombre-Brain's: a claim persists only after two independent
+sources and three separated re-assertions, no model in the loop) was measured on the knowledge-update
+haystack before being built (`memory-longmemeval --corroborate`, `docs/memory-measurements.md`
+§Counting witnesses), and the signal does not exist there: the paired cells are a coin (32/27/11), the
+two facts' witness-similarity distributions are indistinguishable, the model-free detector finds zero
+witnesses on 65 of 70 questions, and the persistence gate at the field's own constants refuses the
+CURRENT answer 64% of the time. Two detectors, three thresholds each, both corpus variants — one answer.
+
+**Why this is a decision rather than only a result.** The alternative was real — the seam exists
+(`IMemoryVerificationPolicy`), the judge it would replace is already measured as firing BACKWARDS on this
+workload (**D109**), and "count witnesses" is the obvious next thing every reader of that result reaches
+for. This entry is what stops it being built on intuition: a conversational corpus re-asserts facts too
+rarely to count, which is Part 166's supersession-density finding arriving by a second route.
+
+**The trigger to revisit** is a corpus with MEASURED re-assertion density — several writers, or a feed
+with genuine repetition — not another threshold or another detector on this one.

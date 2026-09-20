@@ -15,23 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 10 across 6 Parts: 4 startable, 4 blocked, 2 watch
+## Open items — 9 across 6 Parts: 3 startable, 4 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 111 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 164 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 211 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
-| 272 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 295 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 352 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 163 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 210 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
+| 271 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 294 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 351 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 | 389 | 267 | Nothing runs offline over the graph, so two memories that never co-occurred… | startable |  |
-| 397 | 267 | Verification is priced at a model call, and the free alternative is untested | startable |  |
-| 405 | 267 | Affect is absent as an axis | startable |  |
-| 435 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
+| 397 | 267 | Affect is absent as an axis | startable |  |
+| 427 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
 
 <!-- open-items:end -->
 
@@ -381,10 +380,11 @@ Claude. **Most of its surface is out of scope by construction** — dashboard, D
 Obsidian vault, a port per owner — because that is an app and this is a library with no host. Its decay is
 wall-clock (`e^(-lambda x days)`), its recall a seven-term weighted top-k, and every constant is hardcoded
 with no harness behind it, so **D40**, **D100** and the sweeps here already answer those the other way.
-Four mechanisms survived that filter, each landing on a seam that already exists. The fourth — recalled
-memory entering the prompt unmarked — was the one needing no measurement and closed on 2026-09-21
-(`docs/task-archive.md` Part 269, **D166**). **The three below are all measurements**, so each names what a
-YES and a NO change (`.claude/rules/task-lifecycle.md` §A MEASUREMENT task)._
+Four mechanisms survived that filter, each landing on a seam that already exists. Two have closed: recalled
+memory entering the prompt unmarked (2026-09-21, `docs/task-archive.md` Part 269, **D166**), and the free
+verification alternative — measured and REFUTED the same day (`docs/task-archive.md` Part 270, **D167**:
+the corroboration signal does not exist on this corpus). **The two below are both measurements**, so each
+names what a YES and a NO change (`.claude/rules/task-lifecycle.md` §A MEASUREMENT task)._
 
 - [ ] **Nothing runs offline over the graph, so two memories that never co-occurred never link.** Edges <!-- item: state=startable -->
   form at write time (`LlmMemoryAnnotationPolicy`) and are reinforced by the walk (**D102**); a pair that
@@ -393,14 +393,6 @@ YES and a NO change (`.claude/rules/task-lifecycle.md` §A MEASUREMENT task)._
   over `IMemoryGraphStore` find edges write-time annotation missed, on the corpora `memory-annotation` and
   `memory-density` already build? YES → a consolidation seam plus a `Lyntai.Jobs` handler; NO → a decision
   recording that write-time annotation is sufficient, and why.
-
-- [ ] **Verification is priced at a model call, and the free alternative is untested.** Both shipped <!-- item: state=startable -->
-  `IMemoryVerificationPolicy` implementations run at recall. Ombre gates the WRITE instead: a claim
-  persists only after two independent sources and three separated re-assertions, with no model in the loop.
-  `memory-longmemeval` already asks what corroboration answers — prefer a revised fact over the superseded
-  one. Measure a source-count × encoding-separation gate against the judge on that corpus. YES at zero
-  model cost → ship it as a policy; NO → a refutation worth writing, because counting witnesses is the
-  obvious cheap answer and nobody here has tried it.
 
 - [ ] **Affect is absent as an axis.** Salience is structural (`StructuralSaliencePolicy`); the tree holds <!-- item: state=startable -->
   no emotional coordinate at all. Ombre carries Russell's valence/arousal per memory, makes arousal a

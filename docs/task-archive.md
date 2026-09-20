@@ -4753,3 +4753,23 @@ to be reachable through `MemoryComposition.Render`, a PUBLIC seam documented for
 items, so a BYO retrieval was exposed even where an engine's own `MemoryHeadline.Derive` had flattened.
 
 - Recalled memory enters the prompt unmarked
+
+## Part 270 — the free verification alternative, measured and refuted (2026-09-21)
+
+✅ done 2026-09-21 — **Outcome:** a REFUTATION, and it closes the branch rather than improving it. The
+field's model-free verification (a claim persists only after two independent sources and three separated
+re-assertions — Ombre-Brain's write gate) was measured BEFORE being built: one corpus-analysis mode,
+`memory-longmemeval --corroborate`, no arms and no ingestion. The signal does not exist on the workload
+this subsystem makes its supersession claim on — paired cells a coin, similarity distributions of the two
+facts indistinguishable, the model-free detector finding zero witnesses on 65 of 70 questions, and the
+persistence gate at the field's own constants refusing the CURRENT answer 64% of the time. The numbers and
+their caveats: `docs/memory-measurements.md` §Counting witnesses. The refusal and its revival trigger (a
+corpus with measured re-assertion density): **D167**.
+
+**Ratio, as `task-lifecycle.md` §A MEASUREMENT task requires:** ~170 instrument lines against 0 in `src/`,
+two runs (oracle, then haystack to confirm on the corpus of record), stopped at the first decisive table.
+The session's `src/` change is unrelated to the arm: the run's first crash exposed that **D153** step 4 had
+left every sweep's single-text embed path broken at runtime for three days — fixed in the bench doubles,
+logged in `docs/FIXES.md` (2026-09-21) and as a `pitfalls.md` §Refactoring trap.
+
+- Verification is priced at a model call, and the free alternative is untested

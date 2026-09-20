@@ -1228,6 +1228,21 @@ internal static class MemoryLongMemEvalBench
             return await RunRecoveryAsync(sampled, vectorProvider, args);
         }
 
+        if (args.Contains("--corroborate"))
+        {
+            Console.WriteLine("=== Can COUNTING WITNESSES stand in for the judge? (TASKS.md Part 267) ===");
+            Console.WriteLine();
+            Console.WriteLine("The field's cheap verification gates the WRITE: a claim persists only after two");
+            Console.WriteLine("independent sources and three separated re-assertions, no model in the loop. This");
+            Console.WriteLine("run asks whether that signal EXISTS here: does the CURRENT fact carry more");
+            Console.WriteLine("detectable re-assertions than the SUPERSEDED one? The judge's own paired cells on");
+            Console.WriteLine("this corpus fire 4.6:1 BACKWARDS (docs/memory-measurements.md, D109), so the bar");
+            Console.WriteLine("a free signal must clear is low - better than backwards, and not flat.");
+            Console.WriteLine();
+            Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
+            return await RunCorroborationAsync(sampled, vectorProvider);
+        }
+
         if (shots)
         {
             Console.WriteLine("=== What each SHOT buys on the workload this design is FOR ===");
@@ -2202,6 +2217,156 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("  READ THE LAST BLOCK, not the first. Enrichment of the unendorsed half for evidence in");
         Console.WriteLine("  GENERAL says nothing about supersession: both facts answer the query. Only the paired");
         Console.WriteLine("  cells separate a penalty that would bury the stale fact from one that fires either way.");
+    }
+
+    /// <summary>The corroboration audit (`--corroborate`): is witness-counting a usable free stand-in for
+    /// the judge on the workload where the judge fires backwards? No arms and no ingestion — this reads the
+    /// CORPUS, because the gate's viability is a property of the corpus before it is a property of any
+    /// implementation. A witness is an UNFLAGGED user turn similar to a claim's flagged turn(s); flagged
+    /// turns are excluded from the pool so ground-truth evidence multiplicity cannot leak into the detector
+    /// count. Two detectors on purpose (embedding cosine; content-token Jaccard), so the conclusion does not
+    /// rest on one — and the base-rate row prices detector noise, without which a witness count is
+    /// unreadable.</summary>
+    private static async Task<int> RunCorroborationAsync(List<Question> sampled,
+        SweepDoubles.CachingVectorProvider vectorProvider)
+    {
+        double[] thetas = [0.60, 0.70, 0.80];
+        double[] overlaps = [0.35, 0.50];
+
+        // per threshold: [0] = the current fact, [1] = the superseded one
+        var witnessSum = thetas.ToDictionary(t => t, _ => new long[2]);
+        var cells = thetas.ToDictionary(t => t, _ => new int[4]);      // cur>sta, sta>cur, tie>0, both-0
+        var gatePass = thetas.ToDictionary(t => t, _ => new int[2]);   // the field's constants, per side
+        var jWitnessSum = overlaps.ToDictionary(j => j, _ => new long[2]);
+        var jCells = overlaps.ToDictionary(j => j, _ => new int[4]);
+
+        var maxSimCur = new List<double>();
+        var maxSimSta = new List<double>();
+        long noiseWitnesses = 0, noiseTurns = 0;
+
+        var done = 0;
+        foreach (var q in sampled)
+        {
+            Progress(++done, sampled.Count);
+
+            var flagged = q.Evidence.Select(t => (t.Session, t.Index)).ToHashSet();
+            var pool = q.Turns
+                .Where(t => t.Role.Equals("user", StringComparison.OrdinalIgnoreCase)
+                    && !flagged.Contains((t.Session, t.Index)))
+                .ToList();
+
+            var poolVecs = await vectorProvider.EmbedAsync([.. pool.Select(t => t.Content)]);
+            var curVecs = await vectorProvider.EmbedAsync([.. q.Current.Select(t => t.Content)]);
+            var staVecs = await vectorProvider.EmbedAsync([.. q.Stale.Select(t => t.Content)]);
+
+            var simCur = new double[pool.Count];
+            var simSta = new double[pool.Count];
+            for (var i = 0; i < pool.Count; i++)
+            {
+                simCur[i] = curVecs.Max(v => Cosine(poolVecs[i], v));
+                simSta[i] = staVecs.Max(v => Cosine(poolVecs[i], v));
+            }
+            maxSimCur.Add(pool.Count == 0 ? 0 : simCur.Max());
+            maxSimSta.Add(pool.Count == 0 ? 0 : simSta.Max());
+
+            foreach (var th in thetas)
+            {
+                var wc = Enumerable.Range(0, pool.Count).Where(i => simCur[i] >= th).ToList();
+                var ws = Enumerable.Range(0, pool.Count).Where(i => simSta[i] >= th).ToList();
+                witnessSum[th][0] += wc.Count;
+                witnessSum[th][1] += ws.Count;
+                cells[th][wc.Count > ws.Count ? 0 : ws.Count > wc.Count ? 1 : wc.Count > 0 ? 2 : 3]++;
+
+                // The field's constants: at least three assertions across at least two sessions, the claim's
+                // own flagged turn(s) included. Sessions are this corpus's only "independent source" grain.
+                var curSessions = q.Current.Select(t => t.Session)
+                    .Concat(wc.Select(i => pool[i].Session)).Distinct().Count();
+                var staSessions = q.Stale.Select(t => t.Session)
+                    .Concat(ws.Select(i => pool[i].Session)).Distinct().Count();
+                if (q.Current.Count + wc.Count >= 3 && curSessions >= 2) gatePass[th][0]++;
+                if (q.Stale.Count + ws.Count >= 3 && staSessions >= 2) gatePass[th][1]++;
+            }
+
+            var poolTokens = pool.Select(t => ContentTokens(t.Content)).ToList();
+            var curTokens = q.Current.Select(t => ContentTokens(t.Content)).ToList();
+            var staTokens = q.Stale.Select(t => ContentTokens(t.Content)).ToList();
+            foreach (var j in overlaps)
+            {
+                int wc = 0, ws = 0;
+                for (var i = 0; i < pool.Count; i++)
+                {
+                    if (curTokens.Max(f => Jaccard(poolTokens[i], f)) >= j) wc++;
+                    if (staTokens.Max(f => Jaccard(poolTokens[i], f)) >= j) ws++;
+                }
+                jWitnessSum[j][0] += wc;
+                jWitnessSum[j][1] += ws;
+                jCells[j][wc > ws ? 0 : ws > wc ? 1 : wc > 0 ? 2 : 3]++;
+            }
+
+            // Detector noise: how many "witnesses" an ARBITRARY unflagged user turn collects at the middle
+            // threshold. Every 7th pool turn, capped at 10 per question — deterministic, no RNG, because a
+            // seeded shuffle buys nothing a stride does not.
+            for (int i = 0, taken = 0; i < pool.Count && taken < 10; i += 7, taken++)
+            {
+                noiseTurns++;
+                for (var k = 0; k < pool.Count; k++)
+                    if (k != i && Cosine(poolVecs[i], poolVecs[k]) >= 0.70) noiseWitnesses++;
+            }
+        }
+
+        static double Percentile(List<double> xs, double p)
+        {
+            if (xs.Count == 0) return 0;
+            var sorted = xs.OrderBy(x => x).ToList();
+            return sorted[Math.Min(sorted.Count - 1, (int)(p * sorted.Count))];
+        }
+
+        var n = sampled.Count;
+        Console.WriteLine();
+        Console.WriteLine("=== witness counts by embedding cosine (whole turns, unflagged user turns only) ===");
+        Console.WriteLine($"  {"θ",4} {"witnesses/q cur",16} {"witnesses/q sta",16} {"cur>sta",8} {"sta>cur",8} {"tie>0",6} {"both-0",7} {"gate cur",9} {"gate sta",9}");
+        foreach (var th in thetas)
+            Console.WriteLine($"  {th,4:0.00} {(double)witnessSum[th][0] / n,16:0.00} {(double)witnessSum[th][1] / n,16:0.00} "
+                + $"{cells[th][0],8} {cells[th][1],8} {cells[th][2],6} {cells[th][3],7} "
+                + $"{$"{(double)gatePass[th][0] / n:P0}",9} {$"{(double)gatePass[th][1] / n:P0}",9}");
+        Console.WriteLine();
+        Console.WriteLine("=== witness counts by content-token Jaccard (model-free) ===");
+        Console.WriteLine($"  {"≥",4} {"witnesses/q cur",16} {"witnesses/q sta",16} {"cur>sta",8} {"sta>cur",8} {"tie>0",6} {"both-0",7}");
+        foreach (var j in overlaps)
+            Console.WriteLine($"  {j,4:0.00} {(double)jWitnessSum[j][0] / n,16:0.00} {(double)jWitnessSum[j][1] / n,16:0.00} "
+                + $"{jCells[j][0],8} {jCells[j][1],8} {jCells[j][2],6} {jCells[j][3],7}");
+        Console.WriteLine();
+        Console.WriteLine("=== context the counts are unreadable without ===");
+        Console.WriteLine($"  best-witness similarity, CURRENT fact:    p50 {Percentile(maxSimCur, 0.5):0.000}   p90 {Percentile(maxSimCur, 0.9):0.000}");
+        Console.WriteLine($"  best-witness similarity, SUPERSEDED fact: p50 {Percentile(maxSimSta, 0.5):0.000}   p90 {Percentile(maxSimSta, 0.9):0.000}");
+        Console.WriteLine($"  detector noise at θ=0.70: an arbitrary unflagged user turn collects "
+            + $"{(noiseTurns == 0 ? 0 : (double)noiseWitnesses / noiseTurns):0.00} witnesses ({noiseTurns} probes)");
+        Console.WriteLine();
+        Console.WriteLine("  READ THE PAIRED CELLS against the judge's: 5 correct / 23 backwards / 35 flat");
+        Console.WriteLine("  (docs/memory-measurements.md, D109). 'gate' is the field's write-persistence rule");
+        Console.WriteLine("  (≥3 assertions across ≥2 sessions): a CURRENT fact that cannot pass it would never");
+        Console.WriteLine("  have persisted, which prices the gate as a filter rather than as a preference.");
+        return 0;
+    }
+
+    private static HashSet<string> ContentTokens(string text)
+    {
+        var tokens = new HashSet<string>(StringComparer.Ordinal);
+        var start = -1;
+        for (var i = 0; i <= text.Length; i++)
+        {
+            if (i < text.Length && char.IsLetterOrDigit(text[i])) { if (start < 0) start = i; continue; }
+            if (start >= 0 && i - start >= 3) tokens.Add(text[start..i].ToLowerInvariant());
+            start = -1;
+        }
+        return tokens;
+    }
+
+    private static double Jaccard(HashSet<string> a, HashSet<string> b)
+    {
+        if (a.Count == 0 || b.Count == 0) return 0;
+        var intersection = a.Count(b.Contains);
+        return (double)intersection / (a.Count + b.Count - intersection);
     }
 
     private static int FirstIndexOf(List<string> got, IReadOnlyList<Turn> wanted)

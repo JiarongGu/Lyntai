@@ -1618,6 +1618,7 @@ export default {
     'drift-rate',         // annotation: how often a model invents a new handle past one it was shown
     // SIGNALS AND THEIR SEPARABILITY — is the number the engine computes worth anything.
     'separability-auc',
+    'paired-preference',  // per-question cells: signal prefers the right member / the wrong one / neither
     'similar-count',
     'rrf-score-separation',
     'marker-survival',    // does a ground-truth marker survive the transform under test
