@@ -103,7 +103,7 @@ version you installed.
 | `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLlamaSharpProvider(modelPath)` and every namespace are unchanged. |
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
-| `Lyntai.Storage.Basic` | The dependency-free storage backends. **In memory** (`UseInMemoryStorage`) — tests, ephemeral use, or mixed per-domain; and **files** under a root you choose (`UseFileSystemStorage`) — one Markdown record per file, readable without a client — for key-value, prompts, conversations, task memory and curated memory, with SQLite composed for the rest. |
+| `Lyntai.Storage.Basic` | The dependency-free storage backends. **In memory** (`UseInMemoryStorage`) — tests, ephemeral use, or mixed per-domain; and **files** under a root you choose (`UseFileSystemStorage`) — one Markdown record per file, readable without a client — for key-value, prompts, conversations, task memory, curated memory and the memory engine's graph, with SQLite composed for the rest. |
 | `Lyntai.Tools.Mcp` | MCP in BOTH directions: expose an MCP server's tools as Lyntai `ITool`s, and host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
 | `Lyntai.Providers.Onnx` | In-process **transformers** via ONNX Runtime — no server, no port. `AddOnnxProvider(dir)` embeds (pooling, normalization and the sequence limit read from the model's own files); the same call with `o.Produces = ProviderKinds.Score` scores `(query, document)` pairs, which is what `AddMemoryScoringVerification()` reranks recalls with. References the **managed half only**: add one native backend yourself (`Microsoft.ML.OnnxRuntime` for CPU, `.DirectML` for any DX12 GPU, `.Gpu` for CUDA), because the library does not choose your hardware. |
@@ -131,8 +131,8 @@ dotnet add package Lyntai.Generation       # image/video/audio backends
 
 **`Lyntai` is a starting set, not the whole library.** It gives you Core, the LLM backends,
 both halves of MCP, **in-memory** storage, and **file** storage. The two that surprise people: nothing persists
-until you either name a root with `UseFileSystemStorage` — which persists the five domains a person reads
-(keys, prompts, conversations, task and curated memory), not the memory engine, jobs or the cache — or add
+until you either name a root with `UseFileSystemStorage` — which persists the six domains a person reads
+(keys, prompts, conversations, task and curated memory, and the memory engine's graph), not jobs or the cache — or add
 `Lyntai.Storage.Sqlite` (or `.Postgres`), and generation is not included. The six packages left out are left out for a reason — a native payload
 (`Storage.Sqlite`, `Providers.LlamaSharp`, `Providers.Onnx`), a platform-specific API (`Secrets.Dpapi`), a
 server dependency (`Storage.Postgres`), or a surface most applications never call (`Lyntai.Generation`) — see
@@ -305,7 +305,7 @@ verdict, on purpose: the enum grows, and a single member is already best express
   the registry — `UseSqliteStorage(path)` for most domains, then override one
   (`services.AddSingleton<IMemoryStore>(...)`, last registration wins). `UseInMemoryStorage()` stands
   alone or backfills gaps. The `Use*Storage` helpers register with `TryAdd`, so among THEM the first wins:
-  `UseFileSystemStorage(o => o.Root = …)` before `UseSqliteStorage(path)` puts its five domains in files and
+  `UseFileSystemStorage(o => o.Root = …)` before `UseSqliteStorage(path)` puts its six domains in files and
   leaves the rest to SQLite — after it, the files serve nothing. `UseSqliteStorage(path, SchemaMigration.OnFirstUse)` defers migration I/O off
   DI composition.
 

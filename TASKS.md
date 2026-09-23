@@ -15,19 +15,18 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 6 across 4 Parts: 2 startable, 2 blocked, 2 watch
+## Open items — 5 across 3 Parts: 1 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 160 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 219 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 242 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 299 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 329 | 278 | Serve `IMemoryGraphStore` from files | startable |  |
+| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 159 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 218 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 241 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 298 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -320,21 +319,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
-
-## Part 278 — the file-system backend: the memory engine's graph store (2026-09-23)
-
-_The package shipped five domains (`docs/task-archive.md` Part 277, **D171**) and deferred this one for SIZE,
-not value: the long-term memory engine's store is where a person would most want to read memories as files._
-
-- [ ] **Serve `IMemoryGraphStore` from files.** The largest contract in the library — thirteen required <!-- item: state=startable -->
-  members plus three defaulted ones, and `KnownSubjectsAsync`'s default silently turns off subject seeding
-  (`.claude/knowledge/extending-lyntai.md` §Add a storage backend); `WriteBackAsync` pins an ORDER (**D101**).
-  Mirror `InMemoryMemoryGraphStore`'s semantics under **D171**'s shape — records in memory, written through,
-  one owner per root — with each node a readable file and the machine state (edges, subjects, the review
-  log, decay primitives) beside it. Join the structural roster in `MemoryGraphStoreCoverageTests` so the
-  whole contract runs, and add restart tests, which the contract cannot express.
-  <br>**Decide the edge layout first**: a node's file cannot hold its edges without every link rewriting two
-  files, and edges are written on every recall (**D99**'s batching exists because of it).
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

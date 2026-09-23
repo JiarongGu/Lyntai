@@ -637,6 +637,9 @@ public interface IMemoryEngine {
   (`pg_trgm` GIN) backends held to one contract. No storage backend evaluates the decay curve: the policy
   supplies a conservative `CandidateCutoff` and the store applies it with plain division — in `PruneAsync`
   only, since seeding applies no faintness bound (above), so the cutoff governs DELETION, not admission.
+  *(2026-09-24: a FOURTH backend is held to that contract — the file-system one, each memory a readable file
+  and its machine state journaled beside it, running the same in-process core as the in-memory store
+  (`docs/DECISIONS.md` **D174**).)*
 - **Retention is an OPEN model: named signals on a decaying entry, layered by an `IMemoryRetentionPolicy`, and
   the first one is salience** (added 2026-08-09; **D45**, whose ranking default was corrected the same day
   it shipped and which records both readings). `MemoryDecayState`

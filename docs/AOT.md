@@ -66,4 +66,4 @@ you actually AOT-publish an app that uses `Lyntai.Storage.Sqlite`.
   The path to fixing it: evaluate **Dapper.AOT** (source-generated command materialization) for the async +
   `MatchNamesWithUnderscores` + FluentMigrator combination, or provide an alternative source-generated storage
   backend. Until then, either use the in-memory or file-system backend in an AOT app — the file-system one
-  persists the five domains it serves — or accept the trim warnings with a documented suppression.
+  persists the six domains it serves — or accept the trim warnings with a documented suppression.

@@ -73,9 +73,10 @@ every addition.
   backend (**D173**): one small Markdown record per file under a root you choose (`UseFileSystemStorage(o => o.Root = …)`), the record's
   fields in its header and its text as the body, so stored data reads without a client. It serves key-value
   (and with it live model routing), prompt versions, conversations, task memory and curated memory, each on
-  the same cross-backend contract as SQLite — a query finds the same entries on both. It does NOT serve the
-  memory engine's graph store, jobs, vectors, the response cache, usage, scores or traces: compose another
-  backend for those. Records are held in memory and written through, because scanning files per recall
+  the same cross-backend contract as SQLite — a query finds the same entries on both. The memory engine's store
+  is served too (**D174**) — one file per memory, its learning journaled beside it — so `AddMemoryEngine` over
+  `UseFileSystemStorage` alone is a graph engine over files. It does NOT serve jobs, vectors, the response
+  cache, usage, scores or traces: compose another backend for those. Records are held in memory and written through, because scanning files per recall
   measured 19× over budget; so ONE owner holds a root — a second is refused — and files are edited only while
   none does. A file that does not parse is skipped, logged and never written over: writing its key or creating
   its thread throws `InvalidOperationException` naming the path until it is repaired. It registers with

@@ -243,8 +243,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D171](#d171--the-file-system-backend-holds-its-records-in-memory-owns-its-root-and-serves-what-a-person-reads-2026-09-23) | 2026-09-23 | the file-system backend holds its records in memory, owns its root, and serves what a person reads |
 | [D172](#d172--dependencies-are-kept-current-and-a-major-is-taken-when-the-suites-that-exercise-it-pass-2026-09-23) | 2026-09-23 | dependencies are kept CURRENT, and a major is taken when the suites that exercise it pass |
 | [D173](#d173--lyntaistoragebasic-the-storage-backends-needing-nothing-beyond-core-share-one-package-2026-09-23) | 2026-09-23 | `Lyntai.Storage.Basic`: the storage backends needing nothing beyond Core share one package |
+| [D174](#d174--the-file-graph-store-journals-its-machine-state-and-both-in-process-stores-share-one-core-2026-09-23) | 2026-09-23 | the file graph store journals its machine state, and both in-process stores share one core |
 
-_All 173 entries are live decisions._
+_All 174 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5286,7 +5287,7 @@ taken on headline-length notes; the trigger is a run of the judge arm with conte
 **The decision.** The file-system backend writes one Markdown record per file and answers from memory:
 each domain loads its directory on first use and writes through, disk first, on every change; one process owns
 a root through an exclusive lock file. It serves `IKeyValueStore`, `IPromptVersionStore`, `IConversationStore`,
-`IMemoryStore` and `ICuratedMemoryStore`.
+`IMemoryStore`, `ICuratedMemoryStore` and, under **D174**, `IMemoryGraphStore`.
 
 **Why not scan.** A recall that reads its files costs 137 ms at 1,000 records and 1.9 s at 10,000, against a
 pre-registered 100 ms (`docs/memory-measurements.md` §A file-per-record store cannot SCAN). Holding records
@@ -5297,9 +5298,10 @@ per read.
 
 **Why this roster.** The item first reasoned that jobs, counters and the cache need a compare-and-set no
 directory provides; single ownership removes that, so the reason is value: they are machine state nobody reads,
-held better by SQLite, like vectors, scores and traces. The graph store is deferred for SIZE, not value.
-There is no eager wiring guard: **D150**'s guard catches helpers registering stores over tables nothing
-created, and a backend registering only what it serves leaves the rest unresolvable — the signal D150 names.
+held better by SQLite, like vectors, scores and traces. The graph store was deferred for SIZE, not value, and
+is served since **D174**. There is no eager wiring guard: **D150**'s guard catches helpers registering stores
+over tables nothing created, and a backend registering only what it serves leaves the rest unresolvable — the
+signal D150 names.
 
 **Names are a slug plus 64 bits of SHA-256 and are never decoded**, because each header holds the exact
 string; that alone makes a name injective, legal on NTFS and ext4, case-safe and bounded, where a reversible
@@ -5352,3 +5354,29 @@ have reopened it. The owner ruled for the merge on 2026-09-23, before the file b
 namespace or public type moved: the merged API baseline is exactly the union of the two it replaced.
 <br>**No `retiredTerms` rule**, the same refusal **D142** made for `Lyntai.Tools.Mcp.Hosting`: the retired id is
 still a live NAMESPACE, so any rule on the string fires on every correct mention of the namespace.
+
+## D174 — the file graph store journals its machine state, and both in-process stores share one core (2026-09-23)
+
+**The decision.** The file backend serves `IMemoryGraphStore` as one Markdown file per memory under
+`graph/<engine>/<task>/<scope>/`, holding only what a person reads, and journals the engine's machine state —
+totals, decay state, edges, subjects, the review log — append-only in `graph/<engine>/state/`. Every journal
+line assigns one record's full state, so a load keeps the last line per record, and the journal is rewritten
+as a snapshot once it doubles. A recall changes no memory file.
+
+**Why a journal.** One recall writes back ten touches, twenty directed edges and ten review rows. An atomic
+record rewrite costs 6.46–6.61 ms p50 on the machine that decided this and a flushed append 3.13–3.17 ms
+(`docs/memory-measurements.md` §A recall writes back to the file graph store), so the write-back is two
+appends where a decay state in each memory's header (the alternative) is ten rewrites, and a file per edge
+twenty. The shipped write-back measures 7.15–7.39 ms p50, against a pre-registered bar of a third of ten
+rewrites (21.53–22.02 ms). The price is a second place a memory's truth lives: a memory file whose journal
+state is missing is skipped, not guessed. A change spanning two engines — only an edge can — is one append
+per engine journal, so a failure between them can leave the first applied after a restart.
+
+**What it will not read, it will not rewrite** (**D171** extended): a torn journal tail is cut, an unreadable
+line blocks every rewrite, and an unreadable memory file's journal state is kept, so repairing it restores
+what it learned.
+
+**Why one core.** `InMemoryMemoryGraphStore` and this store run `MemoryGraphState`: a mutation is PLANNED
+without effect, then applied, and the file store writes the plan first. Re-implementing the semantics a
+fourth time was the alternative, and cross-backend divergence in this contract has cost real defects
+(`pitfalls.md` §Storage).

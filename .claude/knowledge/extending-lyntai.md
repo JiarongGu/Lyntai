@@ -348,7 +348,9 @@ cost the touch or the edges — so an override that reorders it is wrong however
 Mirror `src/Lyntai.Storage.Postgres/`, the
 reference backend, which implements twelve of the thirteen (all but `IModelRoutingStore`). **A backend that is
 not a database mirrors `src/Lyntai.Storage.Basic/FileSystem/` instead** (**D171**) — no SQL and no migrations, but
-the same contract suites, plus RESTART tests those suites cannot express, since each runs one live store. Provide
+the same contract suites, plus RESTART tests those suites cannot express, since each runs one live store. An
+in-process `IMemoryGraphStore` in that package runs its internal `MemoryGraphState` rather than re-implementing
+it (**D174**) — plan a change, persist it, apply it. Provide
 `builder.Use<Backend>Storage(...)` that registers an `IDbConnectionFactory` (or the backend's equivalent) +
 the stores + runs migrations.
 

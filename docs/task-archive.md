@@ -4914,3 +4914,17 @@ premise worth keeping in view — `Verified` judges a RETURNED entry, while a la
 returned, so even a real log fits relevance before it fits forgetting.
 
 - FSRS-B — parameter FITTING, not published defaults
+
+## Part 282 — the file-system backend serves the memory engine's graph store (2026-09-24)
+
+✅ done 2026-09-24 — **Outcome:** `UseFileSystemStorage` now serves `IMemoryGraphStore` — one readable
+Markdown file per memory under `graph/<engine>/<task>/<scope>/`, the engine's machine state append-only in
+`graph/<engine>/state/` — so `AddMemoryEngine` over file storage alone is a graph engine over files. Both
+in-process graph stores run one internal plan/apply core, `MemoryGraphState`, with no public member changed.
+The store is on `MemoryGraphStoreCoverageTests`' roster, so the whole contract runs on it, beside restart tests
+(`FileSystemGraphRestartTests`) and the journal's own (`GraphJournalTests`). The layout, the shared core and
+the rejected alternatives: **D174**; the measurement that chose the layout: `docs/memory-measurements.md`
+§A recall writes back to the file graph store (`storage-scan --writes`, a new tracked arm); the trap: a
+line kind picked by a property name, `pitfalls.md` §Storage; consumer line: `CHANGELOG.md` §Unreleased.
+
+- Serve `IMemoryGraphStore` from files
