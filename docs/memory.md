@@ -682,8 +682,10 @@ check-samples`, so a signature that drifts fails the build rather than misleadin
 and its `Ran` names the tiers that took the write — the write side of a recall's `Ran`, so a write stored
 WITHOUT its vector is visible (**D175**). A rebuild that must not count one as done reads it per engine kind:
 a graph engine's write carries `Similarity` when its vector was indexed, a semantic engine's carries
-`Semantic`, and a composite's is the union of its members'. Recall returns **headlines**, not full text; that
-is what makes the first load cheap.
+`Semantic` (a blank one stores nothing and reports `None`), and a composite's is the union across the members
+it wrote. That union can hide one graph member's miss behind another's success: write through the member
+(`"<engine>/<member>"`, which the factory resolves) to see its own result. Recall returns **headlines**, not
+full text; that is what makes the first load cheap.
 
 ```csharp
 await engine.RememberAsync(new MemoryWrite("project", "backend", "the deploy gate is dev.mjs verify"));

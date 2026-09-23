@@ -5389,15 +5389,17 @@ fourth time was the alternative, and cross-backend divergence in this contract h
 **The decision.** `IMemoryEngine.RememberAsync` returns `MemoryWriteResult`: the `Reference` it returned
 before, and `Ran`, the `MemorySources` tiers that took the write. On a write every flag reports CONTRIBUTION —
 a tier of that kind stored the entry, and `Similarity` means THIS write's vector was indexed (on a recall it
-still means enrichment is wired). A composite returns its primary's reference and the UNION of its members'
-`Ran`. The graph engine indexes the vector BEFORE its similarity links, each best-effort, so a failed link no
+still means enrichment is wired). A composite returns its primary's reference and the UNION across the members
+it wrote. The graph engine indexes the vector BEFORE its similarity links, each best-effort, so a failed link no
 longer costs the vector. Storage faults still throw; the best-effort tiers are now REPORTED instead of silent,
 which is `model-decoupling.md`'s "report which tier ran, on every result" applied to the write. An adopting
 application's rebuild was recorded done while its embedder was down, and semantic recall stayed empty.
 
 **Reading it is per engine kind.** A graph engine's write carries `Similarity` when its vector was indexed; a
 semantic engine's reports `Semantic`, which already means the vector exists (its store throws on a failed
-embed), and never `Similarity`. A rebuild is done when every write carries the flag its engine kind owes.
+embed), and never `Similarity`. A rebuild is done when every write carries the flag its engine kind owes —
+except a BLANK semantic write, which stores nothing and reports `None`, so a rebuild skips it rather than
+waiting on it.
 
 **Alternatives rejected.** An opt-in `RequireVector` on `MemoryWrite`: a fanned-out write carries it to every
 capable member, so a member with no vector tier fails the whole blend or, ignoring it, restores the silence; a
@@ -5407,8 +5409,8 @@ returning an outcome: a second door onto remember, the shape **D102** refused fo
 counter: it cannot say WHICH write degraded. A flag on `MemoryRef`: an identity key compared by all its
 fields, so two references to one entry would compare unequal.
 
-**Known limits.** A union can hide one member's failure — of two vector-indexing members, one indexed and one
-not, the composite still reports `Similarity`; a caller needing per-member truth writes through the member,
+**Known limits.** A union can hide one member's failure — of two GRAPH members, one indexed and one not, the
+composite still reports `Similarity` (a graph and a semantic member cannot hide one: each owes its own flag); a caller needing per-member truth writes through the member,
 which `IMemoryEngineFactory` resolves by hierarchical name. A failed annotation on the graph write path has no
 flag and is only logged; the flag set grows additively if that is ever needed.
 

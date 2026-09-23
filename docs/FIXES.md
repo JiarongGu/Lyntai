@@ -7,6 +7,26 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-24 — a failed similarity link cost the graph engine its vector
+
+**Symptom.** None observed; found while designing `docs/task-archive.md` Part 285's write result. When a
+similarity link threw — a store fault or a timeout on `LinkAsync` — the graph engine logged "stored with fewer
+links" and skipped the vector upsert too, so the entry was stored WITHOUT its vector: no later similarity search
+could find it, and nothing said so.
+
+**Root cause.** `GraphMemoryEngine.EnrichAsync` ran the link loop BEFORE the index write, inside one best-effort
+`try`, so any link failure jumped over the upsert — and the log line named the lesser of the two losses.
+
+**Fix.** The vector is upserted first and the links follow, each in its own best-effort block, so a failed link
+costs links and never the vector. The write's `Ran` carries `Similarity` exactly when the upsert landed (**D175**).
+
+**Verify.** `MemoryWriteResultTests.A_failed_similarity_link_still_indexes_the_vector` times out every
+`LinkAsync`, asserts a link was attempted, and asserts both `Similarity` and the indexed id. Moving the upsert
+back inside the links' `try`, after the loop, fails it — and only it, 1 of 12 — and restoring passes 12/12.
+
+**Introduced by.** `6216c226` (2026-08-08), which added similarity enrichment with the loop ahead of the index
+write; every release since has carried it.
+
 ## 2026-09-24 — the file graph store reported a durable write as failed when its compaction was refused
 
 **Symptom.** None shipped; found by the whole-branch review of `docs/task-archive.md` Part 282. When the
