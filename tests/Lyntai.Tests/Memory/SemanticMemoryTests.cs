@@ -249,7 +249,8 @@ public class SemanticMemoryTests
     public async Task A_cross_scope_recall_reports_the_same_reference_the_write_returned()
     {
         var engine = new Lyntai.Memory.Engines.SemanticMemoryEngine("e", new FakeSemanticMemory());
-        var written = await engine.RememberAsync(new MemoryWrite("t", "preference", "the children sleep at eight"));
+        var written = (await engine.RememberAsync(
+            new MemoryWrite("t", "preference", "the children sleep at eight"))).Reference;
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", Scope: null, Query: "children"));
 

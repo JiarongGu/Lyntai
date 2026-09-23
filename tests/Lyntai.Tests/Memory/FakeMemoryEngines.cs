@@ -53,7 +53,7 @@ internal sealed class StaticEngine(
 
     public MemoryGrades Supported => grades;
 
-    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+    public Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
         throw new NotSupportedException($"'{Name}' is a read-only test engine.");
 
     public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
@@ -73,7 +73,7 @@ internal sealed class FaultingEngine(string name) : IMemoryEngine
 
     public MemoryGrades Supported => MemoryGrades.Associative;
 
-    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+    public Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
         throw new InvalidOperationException("boom");
 
     public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default) =>
@@ -99,8 +99,8 @@ internal sealed class TimingOutEngine(string name, bool onRecall = true, bool on
     private MemoryItem Hit(string id) =>
         new(new MemoryRef(Name, id), $"hit {id}", $"hit {id}", MemoryGrade.Associative, 1, 1, 1);
 
-    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
-        Task.FromResult(new MemoryRef(Name, write.Content));
+    public Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+        Task.FromResult(new MemoryWriteResult(new MemoryRef(Name, write.Content), MemorySources.Lexical));
 
     public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default) =>
         onRecall
@@ -128,10 +128,11 @@ internal sealed class RecordingEngine(string name, MemoryGrades grades) : IMemor
 
     public MemoryGrades Supported => grades;
 
-    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default)
+    public Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         Writes.Add(write);
-        return Task.FromResult(new MemoryRef(Name, Writes.Count.ToString()));
+        return Task.FromResult(
+            new MemoryWriteResult(new MemoryRef(Name, Writes.Count.ToString()), MemorySources.Lexical));
     }
 
     public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
@@ -158,8 +159,8 @@ internal sealed class ExpandableEngine(string name) : IMemoryEngine, IExpandable
 
     public MemoryGrades Supported => MemoryGrades.Associative | MemoryGrades.Authoritative;
 
-    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
-        Task.FromResult(new MemoryRef(Name, write.Content));
+    public Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+        Task.FromResult(new MemoryWriteResult(new MemoryRef(Name, write.Content), MemorySources.Graph));
 
     public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
     {
@@ -187,8 +188,8 @@ internal sealed class ForgetOnlyEngine(string name) : IMemoryEngine, IForgettabl
 
     public List<(string TaskKey, string? Scope)> Forgets { get; } = [];
 
-    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
-        Task.FromResult(new MemoryRef(Name, write.Content));
+    public Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+        Task.FromResult(new MemoryWriteResult(new MemoryRef(Name, write.Content), MemorySources.Semantic));
 
     public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
     {
@@ -218,8 +219,8 @@ internal sealed class ForgettableEngine(string name, int pruneCount = 0)
 
     public List<(string TaskKey, string? Scope)> Forgets { get; } = [];
 
-    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
-        Task.FromResult(new MemoryRef(Name, write.Content));
+    public Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+        Task.FromResult(new MemoryWriteResult(new MemoryRef(Name, write.Content), MemorySources.Graph));
 
     public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
     {

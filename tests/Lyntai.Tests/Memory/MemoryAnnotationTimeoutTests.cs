@@ -53,7 +53,8 @@ public class MemoryAnnotationTimeoutTests
     private static async Task<MemoryRef> RememberWithTimingOutAnnotator(CancellationToken ct = default)
     {
         var engine = new GraphMemoryEngine("graph", new InMemoryMemoryGraphStore(), annotation: new TimesOut());
-        return await engine.RememberAsync(new MemoryWrite("t", "s", "marker11 the deployment checklist"), ct);
+        return (await engine.RememberAsync(new MemoryWrite("t", "s", "marker11 the deployment checklist"), ct))
+            .Reference;
     }
 
     [Fact]

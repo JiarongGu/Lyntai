@@ -171,7 +171,7 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
         // the statements under test, plus unrelated filler so a recall has something to get wrong
         var targets = new List<string>();
         foreach (var (statement, _) in lex.ParaphrasePairs)
-            targets.Add((await engine.RememberAsync(new MemoryWrite("t", "s", statement))).Id);
+            targets.Add((await engine.RememberAsync(new MemoryWrite("t", "s", statement))).Reference.Id);
         foreach (var word in lex.NoiseVocabulary.Take(20))
             await engine.RememberAsync(new MemoryWrite("t", "s", $"unrelated note about {word} and nothing else"));
 

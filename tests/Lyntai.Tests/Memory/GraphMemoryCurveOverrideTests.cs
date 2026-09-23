@@ -69,7 +69,7 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
     private async Task<GraphNode> WriteAndRead(IServiceProvider sp, string engineName, string content)
     {
         var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get($"{engineName}/graph");
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
         var store = sp.GetRequiredService<IMemoryGraphStore>();
         var node = await store.GetAsync($"{engineName}/graph",
             long.Parse(reference.Id, System.Globalization.CultureInfo.InvariantCulture));

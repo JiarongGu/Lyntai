@@ -441,7 +441,7 @@ internal static class MemoryPolicySweep
             {
                 case CorpusWrite w:
                     observedOrder.Add('W');
-                    var memRef = await engine.RememberAsync(w.Write);
+                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
                     var corpusId = ExtractCorpusId(w.Write.Content);
                     refToCorpusId[memRef.Id] = corpusId;
                     corpusIdToRef[corpusId] = memRef;

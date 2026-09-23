@@ -87,7 +87,7 @@ public class MemoryDefaultRecallQualityTests
             switch (step)
             {
                 case CorpusWrite w:
-                    var memRef = await engine.RememberAsync(w.Write);
+                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
                     refToCorpusId[memRef.Id] = MemoryCorpusTestAccess.IdOf(w.Write.Content);
                     break;
 

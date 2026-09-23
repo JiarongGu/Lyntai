@@ -91,8 +91,8 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
             seedSources: [new LexicalSeedSource(),
                 new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = 5 }, logger)]);
 
-        var target = await engine.RememberAsync(
-            new MemoryWrite("t", "s", "the meeting was postponed until next week"));
+        var target = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "the meeting was postponed until next week"))).Reference;
         for (var i = 0; i < NoiseCount; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"unrelated note about item {i}"));
 
@@ -189,8 +189,8 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
             seedSources: [new LexicalSeedSource(),
                 new SemanticSeedSource(providers, vectors, new SemanticSeedOptions { K = 5 })]);
 
-        var target = await engine.RememberAsync(
-            new MemoryWrite("t", "s", "the meeting was postponed until next week"));
+        var target = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "the meeting was postponed until next week"))).Reference;
         for (var i = 0; i < NoiseCount; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"unrelated note about item {i}"));
 

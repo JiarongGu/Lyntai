@@ -102,8 +102,10 @@ public class MemoryTaskIsolationTests
         var store = new InMemoryMemoryGraphStore();
         var engine = NewEngine(store, options: new GraphMemoryOptions { Hops = 2 });
 
-        var mine = await engine.RememberAsync(new MemoryWrite("mine", "s", "the deploy pipeline needs approval"));
-        var theirs = await engine.RememberAsync(new MemoryWrite("theirs", "s", "unrelated tenant material"));
+        var mine = (await engine.RememberAsync(
+            new MemoryWrite("mine", "s", "the deploy pipeline needs approval"))).Reference;
+        var theirs = (await engine.RememberAsync(
+            new MemoryWrite("theirs", "s", "unrelated tenant material"))).Reference;
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(
             () => engine.LinkAsync(mine, theirs, "asserted", weight: 5, symmetric: true));
@@ -129,8 +131,10 @@ public class MemoryTaskIsolationTests
         var store = new InMemoryMemoryGraphStore();
         var engine = NewEngine(store, options: new GraphMemoryOptions { Hops = 2 });
 
-        var mine = await engine.RememberAsync(new MemoryWrite("mine", "s", "the deploy pipeline needs approval"));
-        var theirs = await engine.RememberAsync(new MemoryWrite("theirs", "s", "unrelated tenant material"));
+        var mine = (await engine.RememberAsync(
+            new MemoryWrite("mine", "s", "the deploy pipeline needs approval"))).Reference;
+        var theirs = (await engine.RememberAsync(
+            new MemoryWrite("theirs", "s", "unrelated tenant material"))).Reference;
         await store.LinkAsync(Engine, long.Parse(mine.Id), long.Parse(theirs.Id), "legacy", 5, true);
 
         var recall = await engine.RecallAsync(new MemoryQuery("mine", "s", "deploy pipeline", Limit: 20));

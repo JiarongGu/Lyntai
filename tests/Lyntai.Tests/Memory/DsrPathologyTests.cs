@@ -127,7 +127,8 @@ public class DsrPathologyTests
         var policy = factory();
         var engine = BuildEngine(store, policy);
 
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "item reused0 is heavily reused material"));
+        var reference = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "item reused0 is heavily reused material"))).Reference;
 
         // 100 reuse touches, one filler write interposed each time — ten times CorpusShape's own widest
         // named ReuseRatio (10, "high-reuse"), a deliberate stress case for compounding.
@@ -221,10 +222,14 @@ public class DsrPathologyTests
         var policy = factory();
         var engine = BuildEngine(store, policy);
 
-        var connectedRef = await engine.RememberAsync(new MemoryWrite("t", "s", "item connected0 shares context with its neighbours"));
-        var isolatedRef = await engine.RememberAsync(new MemoryWrite("t", "s", "item isolated0 stands entirely alone"));
-        var hub1 = await engine.RememberAsync(new MemoryWrite("t", "s", "item hub1 co-occurs with connected material"));
-        var hub2 = await engine.RememberAsync(new MemoryWrite("t", "s", "item hub2 co-occurs with connected material"));
+        var connectedRef = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "item connected0 shares context with its neighbours"))).Reference;
+        var isolatedRef = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "item isolated0 stands entirely alone"))).Reference;
+        var hub1 = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "item hub1 co-occurs with connected material"))).Reference;
+        var hub2 = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "item hub2 co-occurs with connected material"))).Reference;
 
         // real connectivity through the PUBLIC API — never a hand-edited store
         await engine.LinkAsync(connectedRef, hub1, weight: 5);
@@ -364,7 +369,7 @@ public class DsrPathologyTests
             switch (step)
             {
                 case CorpusWrite w:
-                    var memRef = await engine.RememberAsync(w.Write);
+                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
                     corpusIdToRef[MemoryCorpusTestAccess.IdOf(w.Write.Content)] = memRef.Id;
                     break;
                 case CorpusQuery q:
@@ -438,8 +443,8 @@ public class DsrPathologyTests
         var store = new SqliteMemoryGraphStore(db.Factory);
         var engine = BuildEngine(store, policy);
 
-        var reference = await engine.RememberAsync(
-            new MemoryWrite("t", "s", "item target0 covers ordinary material queried on its own terms"));
+        var reference = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "item target0 covers ordinary material queried on its own terms"))).Reference;
         for (var i = 0; i < 100; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"item filler{i} was written only to interpose age"));
 
@@ -532,7 +537,7 @@ public class DsrPathologyTests
         var store = new Lyntai.Storage.InMemory.InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("project/graph", store, agePolicies: [new NonFiniteAgePolicy()]);
 
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "gadget ordinary one"));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "gadget ordinary one"))).Reference;
         await engine.ExpandAsync(reference);
 
         var nodes = await store.SeedAsync("project/graph", "t", "s", null, 10, CancellationToken.None);

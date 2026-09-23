@@ -343,7 +343,7 @@ public sealed class GraphMemoryEngine(
     public MemoryGrades Supported => MemoryGrades.Associative | MemoryGrades.Authoritative;
 
     /// <inheritdoc />
-    public async Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default)
+    public async Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
 
@@ -386,9 +386,10 @@ public sealed class GraphMemoryEngine(
                 GradeStated: stated, HeadlineStated: write.Headline is not null),
             ct).ConfigureAwait(false);
 
-        await EnrichAsync(id, write, search, ct).ConfigureAwait(false);
+        var indexed = await EnrichAsync(id, write, search, ct).ConfigureAwait(false);
         await LinkBySubjectAsync(id, write, annotated, ct).ConfigureAwait(false);
-        return new MemoryRef(Name, id.ToString(CultureInfo.InvariantCulture));
+        return new MemoryWriteResult(new MemoryRef(Name, id.ToString(CultureInfo.InvariantCulture)),
+            MemorySources.Graph | (indexed ? MemorySources.Similarity : MemorySources.None));
     }
 
     /// <summary>Ask the annotator what this fact is about, showing it recent entries so a pronoun is
@@ -585,19 +586,35 @@ public sealed class GraphMemoryEngine(
         return (_salienceComposition.Signals(results), MemoryProvenance.Pack(contributions));
     }
 
-    /// <summary>Link a newly stored entry to its nearest existing neighbours and index its own vector, from
+    /// <summary>Index a newly stored entry's own vector, then link it to its nearest existing neighbours, from
     /// the similarity search <see cref="RememberAsync"/> already ran to judge it — no second embed or
-    /// search.
+    /// search. Returns whether the vector was indexed.
     /// <para>BEST-EFFORT, deliberately: enrichment sits on top of a model-free floor, so a failing vector backend
     /// or vector store must not fail the write. The entry is already stored by the time this runs — it
     /// simply has fewer connections than it might have had, or (when the shared search already failed) none
-    /// at all, and is not indexed for anyone else's similarity search either.</para></summary>
-    private async Task EnrichAsync(long id, MemoryWrite write,
+    /// at all, and is not indexed for anyone else's similarity search either. The index and the links are
+    /// separate blocks, so a failed link costs links and never the vector.</para></summary>
+    private async Task<bool> EnrichAsync(long id, MemoryWrite write,
         (float[] Vector, IReadOnlyList<VectorMatch> Near)? search, CancellationToken ct)
     {
-        if (search is null) return;
+        if (search is null) return false;
         var (vector, near) = search.Value;
         var collection = VectorCollection(write.TaskKey, write.Scope);
+        var indexed = false;
+        try
+        {
+            await vectors!
+                .UpsertAsync(collection, id.ToString(CultureInfo.InvariantCulture), vector, write.Content, ct)
+                .ConfigureAwait(false);
+            indexed = true;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "similarity enrichment failed for {Engine}; the entry is stored without its vector", Name);
+        }
+
         try
         {
             foreach (var match in near)
@@ -617,17 +634,15 @@ public sealed class GraphMemoryEngine(
                 await store.LinkAsync(Name, id, other, "similar", 1, symmetric: true, ct)
                     .ConfigureAwait(false);
             }
-
-            await vectors!
-                .UpsertAsync(collection, id.ToString(CultureInfo.InvariantCulture), vector, write.Content, ct)
-                .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
-                "similarity enrichment failed for {Engine}; the entry is stored with fewer links", Name);
+                "similarity linking failed for {Engine}; the entry is stored with fewer links", Name);
         }
+
+        return indexed;
     }
 
     /// <inheritdoc />

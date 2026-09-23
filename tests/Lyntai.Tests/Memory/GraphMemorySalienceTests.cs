@@ -144,7 +144,7 @@ public class GraphMemorySalienceTests
         var store = new InMemoryMemoryGraphStore();
         var engine = Engine(store, new ThrowingSaliencePolicy());
 
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"))).Reference;
 
         Assert.NotNull(reference.Id);
         var seeded = await store.SeedAsync("e", "t", "s", null, 10);
@@ -161,7 +161,7 @@ public class GraphMemorySalienceTests
         var engine = new GraphMemoryEngine("e", store,
             providers: [new ThrowingVectorProvider()], vectors: new InMemoryVectorStore());
 
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"))).Reference;
 
         Assert.NotNull(reference.Id);
         var seeded = await store.SeedAsync("e", "t", "s", null, 10);

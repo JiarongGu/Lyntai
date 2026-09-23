@@ -171,9 +171,10 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         var engine = new GraphMemoryEngine("e", store, ranking: probe);
 
         // shares no term with the query, and is admitted purely by grade
-        var exact = await engine.RememberAsync(new MemoryWrite(TaskKey, Scope,
-            "the vault passphrase is kept off site", Grade: MemoryGrade.Authoritative));
-        var matched = await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta rollout begins monday"));
+        var exact = (await engine.RememberAsync(new MemoryWrite(TaskKey, Scope,
+            "the vault passphrase is kept off site", Grade: MemoryGrade.Authoritative))).Reference;
+        var matched = (await engine.RememberAsync(
+            new MemoryWrite(TaskKey, Scope, "beta rollout begins monday"))).Reference;
 
         await engine.RecallAsync(new MemoryQuery(TaskKey, Scope: Scope, Query: "beta", Limit: 10));
 
@@ -217,7 +218,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
             providers: vectorProvider is null ? null : [vectorProvider], vectors: vectors,
             seedSources: [new LexicalSeedSource(), new SemanticSeedSource([vectorProvider], vectors)]);
 
-        var both = await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, target));
+        var both = (await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, target))).Reference;
         await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, "unrelated kitchen roster note"));
 
         // the query IS the target text, so it matches lexically and embeds onto the target's own vector
@@ -384,7 +385,8 @@ public sealed class GraphMemorySeedRankTests : IDisposable
         var store = new InMemoryMemoryGraphStore();
         var probe = new CandidateProbe(new ReciprocalRankFusionPolicy());
         var seeded = new GraphMemoryEngine("e", store);
-        var only = await seeded.RememberAsync(new MemoryWrite(TaskKey, Scope, "beta rollout begins monday"));
+        var only = (await seeded.RememberAsync(
+            new MemoryWrite(TaskKey, Scope, "beta rollout begins monday"))).Reference;
         var id = long.Parse(only.Id, System.Globalization.CultureInfo.InvariantCulture);
 
         var engine = new GraphMemoryEngine("e", store, ranking: probe, seedSources: [new RepeatingSource(id)]);
@@ -431,7 +433,7 @@ public sealed class GraphMemorySeedRankTests : IDisposable
             annotation: new TableAnnotator(fact, "spouse"),
             seedSources: [new SubjectSeedSource()]);
 
-        var only = await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, fact));
+        var only = (await engine.RememberAsync(new MemoryWrite(TaskKey, Scope, fact))).Reference;
 
         var recall = await engine.RecallAsync(
             new MemoryQuery(TaskKey, Scope: Scope, Query: "what does my spouse do", Limit: 10));
@@ -468,9 +470,9 @@ public sealed class GraphMemorySeedRankTests : IDisposable
     {
         var store = new SqliteMemoryGraphStore(_db.Factory);
         var seeding = new GraphMemoryEngine("e", store);
-        var a = IdOf(await seeding.RememberAsync(new MemoryWrite(TaskKey, Scope, "alpha")));
-        var b = IdOf(await seeding.RememberAsync(new MemoryWrite(TaskKey, Scope, "bravo")));
-        var c = IdOf(await seeding.RememberAsync(new MemoryWrite(TaskKey, Scope, "charlie")));
+        var a = IdOf((await seeding.RememberAsync(new MemoryWrite(TaskKey, Scope, "alpha"))).Reference);
+        var b = IdOf((await seeding.RememberAsync(new MemoryWrite(TaskKey, Scope, "bravo"))).Reference);
+        var c = IdOf((await seeding.RememberAsync(new MemoryWrite(TaskKey, Scope, "charlie"))).Reference);
 
         GraphNode Scored(long id, double relevance) =>
             (store.GetAsync("e", id).GetAwaiter().GetResult() ?? throw new InvalidOperationException())

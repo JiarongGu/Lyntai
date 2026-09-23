@@ -71,8 +71,8 @@ public class MemoryBurialNotDeletionTests
         using var db = new TempDb();
         var engine = NewEngine(db);
 
-        var reference = await engine.RememberAsync(
-            new MemoryWrite("t", "s", "the recovery key is written on the blue card in the safe"));
+        var reference = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "the recovery key is written on the blue card in the safe"))).Reference;
         await CrowdAsync(engine, Noise);
 
         // VACUITY GUARD: it must genuinely have faded, or this proves nothing. Measured through an ordinary

@@ -171,7 +171,7 @@ internal static class MemoryConsolidationSweep
 
         var ids = new List<long>(facts.Count);
         foreach (var fact in facts)
-            ids.Add(long.Parse((await engine.RememberAsync(new MemoryWrite(TaskKey, "s", fact))).Id,
+            ids.Add(long.Parse((await engine.RememberAsync(new MemoryWrite(TaskKey, "s", fact))).Reference.Id,
                 CultureInfo.InvariantCulture));
 
         var index = ids.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i);

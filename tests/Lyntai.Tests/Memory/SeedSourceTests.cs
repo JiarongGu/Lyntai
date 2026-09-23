@@ -242,9 +242,12 @@ public sealed class SeedSourceTests : IDisposable
         var store = new SqliteMemoryGraphStore(_db.Factory);
         var engine = new GraphMemoryEngine("seedtest", store);
 
-        var one = await engine.RememberAsync(new MemoryWrite(TaskKey: "task", Scope: "scope", Content: "entry one"));
-        var two = await engine.RememberAsync(new MemoryWrite(TaskKey: "task", Scope: "scope", Content: "entry two"));
-        var three = await engine.RememberAsync(new MemoryWrite(TaskKey: "task", Scope: "scope", Content: "entry three"));
+        var one = (await engine.RememberAsync(
+            new MemoryWrite(TaskKey: "task", Scope: "scope", Content: "entry one"))).Reference;
+        var two = (await engine.RememberAsync(
+            new MemoryWrite(TaskKey: "task", Scope: "scope", Content: "entry two"))).Reference;
+        var three = (await engine.RememberAsync(
+            new MemoryWrite(TaskKey: "task", Scope: "scope", Content: "entry three"))).Reference;
 
         // Seeded DELIBERATELY out of score order (two, three, one) — a store need not sort its own matches,
         // so this test must observe the SOURCE'S order, never the store's. A real cosine geometry would let
@@ -275,8 +278,8 @@ public sealed class SeedSourceTests : IDisposable
         var ids = new List<string>();
         for (var i = 0; i < 5; i++)
         {
-            var written = await engine.RememberAsync(
-                new MemoryWrite(TaskKey: "task", Scope: "scope", Content: $"entry {i}"));
+            var written = (await engine.RememberAsync(
+                new MemoryWrite(TaskKey: "task", Scope: "scope", Content: $"entry {i}"))).Reference;
             ids.Add(written.Id);
         }
 
@@ -322,8 +325,10 @@ public sealed class SeedSourceTests : IDisposable
         var store = new SqliteMemoryGraphStore(_db.Factory);
         var engine = new GraphMemoryEngine("seedtest", store);
 
-        var home = await engine.RememberAsync(new MemoryWrite(TaskKey: "task", Scope: "home", Content: "plumbing arrangements"));
-        var garden = await engine.RememberAsync(new MemoryWrite(TaskKey: "task", Scope: "garden", Content: "gardening notes"));
+        var home = (await engine.RememberAsync(
+            new MemoryWrite(TaskKey: "task", Scope: "home", Content: "plumbing arrangements"))).Reference;
+        var garden = (await engine.RememberAsync(
+            new MemoryWrite(TaskKey: "task", Scope: "garden", Content: "gardening notes"))).Reference;
 
         var vectors = new InMemoryVectorStore();
         await vectors.UpsertAsync(MemoryVectorCollection.For("seedtest", "task", "home"), home.Id, [1f, 0f], "plumbing arrangements", CancellationToken.None);
@@ -346,9 +351,12 @@ public sealed class SeedSourceTests : IDisposable
         var store = new SqliteMemoryGraphStore(_db.Factory);
         var engine = new GraphMemoryEngine("seedtest", store);
 
-        var one = await engine.RememberAsync(new MemoryWrite("task", "scope", "first fact about the topic"));
-        var two = await engine.RememberAsync(new MemoryWrite("task", "scope", "second fact about the topic"));
-        var three = await engine.RememberAsync(new MemoryWrite("task", "scope", "third fact about the topic"));
+        var one = (await engine.RememberAsync(
+            new MemoryWrite("task", "scope", "first fact about the topic"))).Reference;
+        var two = (await engine.RememberAsync(
+            new MemoryWrite("task", "scope", "second fact about the topic"))).Reference;
+        var three = (await engine.RememberAsync(
+            new MemoryWrite("task", "scope", "third fact about the topic"))).Reference;
 
         // Every write is tagged the SAME subject, so the only thing that can produce this sequence is the
         // store's own newest-first order (highest id first) — a re-sort (by id ascending, say) would diverge
@@ -376,9 +384,11 @@ public sealed class SeedSourceTests : IDisposable
         var store = new SqliteMemoryGraphStore(_db.Factory);
         var engine = new GraphMemoryEngine("seedtest", store);
 
-        var shared = await engine.RememberAsync(new MemoryWrite("task", "scope", "the shared fact"));
-        var urgentOnly = await engine.RememberAsync(new MemoryWrite("task", "scope", "an urgent-only fact"));
-        var billingOnly = await engine.RememberAsync(new MemoryWrite("task", "scope", "a billing-only fact"));
+        var shared = (await engine.RememberAsync(new MemoryWrite("task", "scope", "the shared fact"))).Reference;
+        var urgentOnly = (await engine.RememberAsync(
+            new MemoryWrite("task", "scope", "an urgent-only fact"))).Reference;
+        var billingOnly = (await engine.RememberAsync(
+            new MemoryWrite("task", "scope", "a billing-only fact"))).Reference;
 
         var sharedId = long.Parse(shared.Id, CultureInfo.InvariantCulture);
         // The shared fact carries BOTH handles the query below names — the fixture a missing `seen` guard
@@ -424,7 +434,8 @@ public sealed class SeedSourceTests : IDisposable
     {
         var store = new RecordingSubjectGraphStore();
         var engine = new GraphMemoryEngine("seedtest", store);
-        var written = await engine.RememberAsync(new MemoryWrite("task", "scope", "a fact about the topic"));
+        var written = (await engine.RememberAsync(
+            new MemoryWrite("task", "scope", "a fact about the topic"))).Reference;
         await store.RecordSubjectsAsync("seedtest", long.Parse(written.Id, CultureInfo.InvariantCulture),
             ["topic"], CancellationToken.None);
         return store;
@@ -494,7 +505,7 @@ public sealed class SeedSourceTests : IDisposable
 
         for (var i = 0; i < 5; i++)
         {
-            var written = await engine.RememberAsync(new MemoryWrite("task", "scope", $"entry {i}"));
+            var written = (await engine.RememberAsync(new MemoryWrite("task", "scope", $"entry {i}"))).Reference;
             await store.RecordSubjectsAsync("seedtest", long.Parse(written.Id, CultureInfo.InvariantCulture),
                 ["topic"], CancellationToken.None);
         }

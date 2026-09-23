@@ -292,7 +292,7 @@ public class MemorySubjectLinkingTests
         // silently dropped. The first draft of this test did exactly that and read back an empty list.
         async Task<long> WriteAsync(string content)
         {
-            var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+            var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
             return long.Parse(reference.Id, CultureInfo.InvariantCulture);
         }
 

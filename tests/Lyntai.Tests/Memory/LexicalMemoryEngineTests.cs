@@ -29,7 +29,7 @@ public class LexicalMemoryEngineTests
     public async Task The_reference_is_stable_across_write_and_recall()
     {
         var engine = Engine(out _);
-        var written = await engine.RememberAsync(new MemoryWrite("t", "s", "stable identity"));
+        var written = (await engine.RememberAsync(new MemoryWrite("t", "s", "stable identity"))).Reference;
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "stable"));
 

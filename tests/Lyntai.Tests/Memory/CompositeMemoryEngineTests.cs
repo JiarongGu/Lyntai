@@ -68,8 +68,8 @@ public class CompositeMemoryEngineTests
         var glossary = new RecordingEngine("project/glossary", MemoryGrades.Authoritative);
         var composite = Composite(lexical, glossary);
 
-        var reference = await composite.RememberAsync(
-            new MemoryWrite("t", "s", "exact", Grade: MemoryGrade.Authoritative));
+        var reference = (await composite.RememberAsync(
+            new MemoryWrite("t", "s", "exact", Grade: MemoryGrade.Authoritative))).Reference;
 
         Assert.Equal("project/glossary", reference.Engine);
         Assert.Empty(lexical.Writes);
@@ -102,8 +102,8 @@ public class CompositeMemoryEngineTests
             WriteRouting = MemoryWriteRouting.EveryCapable,
         };
 
-        var reference = await composite.RememberAsync(
-            new MemoryWrite("t", "s", "a fact", Grade: MemoryGrade.Associative));
+        var reference = (await composite.RememberAsync(
+            new MemoryWrite("t", "s", "a fact", Grade: MemoryGrade.Associative))).Reference;
 
         Assert.Single(graph.Writes);
         Assert.Single(semantic.Writes);

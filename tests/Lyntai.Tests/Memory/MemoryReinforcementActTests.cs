@@ -70,7 +70,7 @@ public sealed class MemoryReinforcementActTests
             switch (step)
             {
                 case CorpusWrite w:
-                    var memRef = await engine.RememberAsync(w.Write);
+                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
                     var corpusId = MemoryCorpusTestAccess.IdOf(w.Write.Content);
                     byCorpusId[corpusId] = memRef.Id;
                     byRef[memRef.Id] = corpusId;
@@ -176,7 +176,7 @@ public sealed class MemoryReinforcementActTests
         var store = new InMemoryMemoryGraphStore();
         var engine = NewEngine(store, MemoryReinforcementActs.Expansion, GrowthOnGain);
 
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
         for (var i = 0; i < 10; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"unrelated filler entry number {i}"));
@@ -206,7 +206,7 @@ public sealed class MemoryReinforcementActTests
         var store = new InMemoryMemoryGraphStore();
         var engine = NewEngine(store, MemoryReinforcementActs.Recall, GrowthOnGain);
 
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
         for (var i = 0; i < 10; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"unrelated filler entry number {i}"));
@@ -260,7 +260,7 @@ public sealed class MemoryReinforcementActTests
             switch (step)
             {
                 case CorpusWrite w:
-                    var memRef = await engine.RememberAsync(w.Write);
+                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
                     byRef[memRef.Id] = MemoryCorpusTestAccess.IdOf(w.Write.Content);
                     break;
 

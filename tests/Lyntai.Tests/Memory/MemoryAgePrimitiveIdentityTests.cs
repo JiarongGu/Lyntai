@@ -60,7 +60,7 @@ public class MemoryAgePrimitiveIdentityTests
             switch (step)
             {
                 case CorpusWrite w:
-                    var reference = await engine.RememberAsync(w.Write);
+                    var reference = (await engine.RememberAsync(w.Write)).Reference;
                     ids.Add(long.Parse(reference.Id));
                     writes++;
                     break;

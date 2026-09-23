@@ -117,8 +117,8 @@ public sealed class GraphMemoryRankingGoldenTests
             MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, salience);
     }
 
-    private static Task<MemoryRef> Remember(GraphMemoryEngine engine, string content) =>
-        engine.RememberAsync(new MemoryWrite("t", "s", content));
+    private static async Task<MemoryRef> Remember(GraphMemoryEngine engine, string content) =>
+        (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
 
     /// <summary>Ages whatever is already stored by writing unrelated material that matches neither the
     /// query nor any link — the same aging device <see cref="GraphMemoryEngineTests"/> uses.</summary>

@@ -64,7 +64,7 @@ public class GraphSimilarityTests
         // enrichment sits ON TOP of the floor, so a broken embedding endpoint must not fail a write
         var engine = Engine(new ThrowingVectorProvider(), new InMemoryVectorStore());
 
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"))).Reference;
 
         Assert.NotNull(reference.Id);
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "still"));
@@ -116,7 +116,7 @@ public class GraphSimilarityTests
         // this engine's whole best-effort posture rests on: enrichment sits ON TOP of a model-free floor.
         var engine = Engine(new FakeVectorProvider(), new WriteHostileVectorStore());
 
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"))).Reference;
 
         Assert.NotNull(reference.Id);
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "still"));

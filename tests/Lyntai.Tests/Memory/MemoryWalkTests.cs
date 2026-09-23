@@ -161,7 +161,7 @@ public class MemoryWalkFirstStepTests
 
         public MemoryGrades Supported => MemoryGrades.Associative;
 
-        public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+        public Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
             throw new InvalidOperationException("the store is down");
 
         public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default) =>
@@ -182,9 +182,11 @@ public class MemoryWalkExpansionTests
         // Only the FIRST entry matches the query, so reaching the other two is the walk's doing rather than
         // the recall's — which is what makes the step-2 assertions mean anything.
         var engine = New();
-        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"));
-        var b = await engine.RememberAsync(new MemoryWrite("t", "s", "approval is granted by the release owner"));
-        var c = await engine.RememberAsync(new MemoryWrite("t", "s", "the release owner rotates each quarter"));
+        var a = (await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"))).Reference;
+        var b = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "approval is granted by the release owner"))).Reference;
+        var c = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "the release owner rotates each quarter"))).Reference;
         await engine.LinkAsync(a, b, symmetric: true);
         await engine.LinkAsync(b, c, symmetric: true);
         return engine;
@@ -207,8 +209,9 @@ public class MemoryWalkExpansionTests
         const string tail = " requires two approvals before a build is promoted to production, and the "
             + "second approver may never be the author of the change that is under review.";
         var engine = New();
-        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline" + tail));
-        var b = await engine.RememberAsync(new MemoryWrite("t", "s", "the release owner grants sign-off and" + tail));
+        var a = (await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline" + tail))).Reference;
+        var b = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "the release owner grants sign-off and" + tail))).Reference;
         await engine.LinkAsync(a, b, symmetric: true);
 
         var steps = await engine.WalkAsync(
@@ -233,8 +236,9 @@ public class MemoryWalkExpansionTests
         var engine = New();
         for (var i = 1; i <= 3; i++)
         {
-            var hub = await engine.RememberAsync(new MemoryWrite("t", "s", $"pipeline stage number {i}"));
-            var leaf = await engine.RememberAsync(new MemoryWrite("t", "s", $"an unrelated detail about topic {i}"));
+            var hub = (await engine.RememberAsync(new MemoryWrite("t", "s", $"pipeline stage number {i}"))).Reference;
+            var leaf = (await engine.RememberAsync(
+                new MemoryWrite("t", "s", $"an unrelated detail about topic {i}"))).Reference;
             await engine.LinkAsync(hub, leaf, symmetric: true);
         }
         return engine;

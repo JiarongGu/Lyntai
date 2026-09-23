@@ -54,7 +54,7 @@ public sealed class CuratedMemoryEngine(
 
 
     /// <inheritdoc />
-    public async Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default)
+    public async Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
         if (kind is null)
@@ -71,7 +71,8 @@ public sealed class CuratedMemoryEngine(
 
         var id = await store.AddAsync(kind, write.Content, enabled: true, taskKey: write.TaskKey,
             scope: write.Scope, dedup: true, metadata: write.Metadata, ct: ct).ConfigureAwait(false);
-        return new MemoryRef(Name, id.ToString(CultureInfo.InvariantCulture));
+        return new MemoryWriteResult(new MemoryRef(Name, id.ToString(CultureInfo.InvariantCulture)),
+            MemorySources.Curated);
     }
 
     /// <inheritdoc />

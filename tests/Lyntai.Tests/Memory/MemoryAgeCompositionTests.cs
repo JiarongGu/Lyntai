@@ -123,7 +123,7 @@ public class MemoryAgeCompositionTests
         var engine = new GraphMemoryEngine("mixed", store, agePolicies: [burst, elapsed],
             retrievability: new AgeEchoRetrievability());
 
-        var seed = await engine.RememberAsync(new MemoryWrite("t", "s", "the seed fact"));
+        var seed = (await engine.RememberAsync(new MemoryWrite("t", "s", "the seed fact"))).Reference;
         now = now.AddDays(10);
         await engine.RememberAsync(new MemoryWrite("t", "s", "filler one"));
         now = now.AddDays(10);

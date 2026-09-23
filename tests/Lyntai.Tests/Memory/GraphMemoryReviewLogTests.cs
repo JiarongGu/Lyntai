@@ -76,7 +76,7 @@ public class GraphMemoryReviewLogTests
         using var db = new TempDb();
         var store = new SqliteMemoryGraphStore(db.Factory);
         var engine = Engine(store);
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "graded on recall"));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "graded on recall"))).Reference;
         const int crowd = 12;
         await Crowd(engine, crowd);
 
@@ -161,14 +161,14 @@ public class GraphMemoryReviewLogTests
             // PerWriteAgePolicy is Derivable (IMemoryAgePolicy.Kind), so PruneAsync takes its derivable-age
             // branch — the one this fact is about — rather than the cheap store-side ratio path.
             var engine = Engine(store);
-            var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "a stable fact"));
+            var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "a stable fact"))).Reference;
             await Crowd(engine, 30);
 
             // a SEPARATE entry for the pruning half, deliberately never recalled: RecallAsync reinforces
             // whatever it returns, which would reset THIS entry's age to zero if it were the same one the
             // recall query below touches — the two halves need independent targets or the recall proof
             // would silently erase the prune proof's own setup.
-            var pruneTarget = await engine.RememberAsync(new MemoryWrite("t", "s", "a fact worth pruning"));
+            var pruneTarget = (await engine.RememberAsync(new MemoryWrite("t", "s", "a fact worth pruning"))).Reference;
             await Crowd(engine, 200); // ages it well below the 0.3 floor used below
             await engine.RememberAsync(new MemoryWrite("t", "s", "a fact just written")); // fresh, stays above it
 

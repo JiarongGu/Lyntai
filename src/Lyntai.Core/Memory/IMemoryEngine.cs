@@ -22,13 +22,16 @@ public interface IMemoryEngine
     MemoryGrades Supported { get; }
 
 
-    /// <summary>Store a fact and return its address.
+    /// <summary>Store a fact, and report what the write did.
     /// <para><b>Surfaces failures</b> — a silently lost write is worse than a throw the caller can see,
     /// which is the asymmetry <see cref="ISemanticMemory"/> already documents. Throws
     /// <see cref="NotSupportedException"/> rather than downgrading a grade this engine cannot store:
     /// accepting an authoritative write and keeping it as associative would defeat the whole point of the
-    /// grade split.</para></summary>
-    Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default);
+    /// grade split.</para>
+    /// <para><b>Reports its best-effort tiers rather than failing them.</b> <see cref="MemoryWriteResult.Ran"/>
+    /// names each tier that took the write; a tier that failed or had nothing to run on is absent — the write
+    /// side of <see cref="MemoryRecall.Ran"/>.</para></summary>
+    Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default);
 
     /// <summary>Recall relevant facts.
     /// <para><b>Fails open</b> — a storage outage yields an empty result carrying
@@ -79,8 +82,8 @@ public enum MemoryGrades
     Authoritative = 2,
 }
 
-/// <summary>Which retrieval tiers actually ran, so a caller can tell "nothing matched" from "that source is
-/// not configured". Reported on every recall.</summary>
+/// <summary>Which tiers actually ran — on a recall, which produced a result; on a write
+/// (<see cref="MemoryWriteResult.Ran"/>), which took it. Reported on every recall and every write.</summary>
 [Flags]
 public enum MemorySources
 {
@@ -107,7 +110,8 @@ public enum MemorySources
     /// plainly because the difference matters. Enrichment is a WRITE-side tier: it creates edges, which by
     /// the time a recall traverses them are indistinguishable from the ones co-activation wrote. What its
     /// presence buys is the distinction the whole enum exists for — a caller seeing no linked material can
-    /// tell "nothing similar was ever found" from "similarity is not configured here".</para></summary>
+    /// tell "nothing similar was ever found" from "similarity is not configured here".</para>
+    /// <para><b>On a write it reports CONTRIBUTION</b>: this write's vector was indexed.</para></summary>
     Similarity = 16,
 }
 

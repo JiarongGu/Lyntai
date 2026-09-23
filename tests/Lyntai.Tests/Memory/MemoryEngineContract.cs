@@ -117,8 +117,8 @@ public static class MemoryEngineContract
     {
         var written = new Dictionary<string, string> { ["kind"] = "standing", ["source"] = "operator" };
 
-        var reference = await engine.RememberAsync(
-            new MemoryWrite(key, "s", "the rollback window is thirty minutes", Metadata: written));
+        var reference = (await engine.RememberAsync(
+            new MemoryWrite(key, "s", "the rollback window is thirty minutes", Metadata: written))).Reference;
 
         if (engine is not IExpandableMemory expandable)
         {

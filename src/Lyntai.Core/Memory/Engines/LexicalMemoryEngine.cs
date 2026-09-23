@@ -26,7 +26,7 @@ public sealed class LexicalMemoryEngine(
     public MemoryGrades Supported => MemoryGrades.Associative;
 
     /// <inheritdoc />
-    public async Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default)
+    public async Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
         if (write.Grade == MemoryGrade.Authoritative)
@@ -36,7 +36,9 @@ public sealed class LexicalMemoryEngine(
                 "composite.");
 
         await store.RememberAsync(write.TaskKey, write.Scope, write.Content, ct: ct).ConfigureAwait(false);
-        return new MemoryRef(Name, MemoryContentId.For(write.TaskKey, write.Scope, write.Content));
+        return new MemoryWriteResult(
+            new MemoryRef(Name, MemoryContentId.For(write.TaskKey, write.Scope, write.Content)),
+            MemorySources.Lexical);
     }
 
     /// <inheritdoc />

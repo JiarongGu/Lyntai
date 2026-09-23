@@ -101,8 +101,8 @@ public class GraphMemoryWiringTests
     /// whatever the named engine actually resolved to — which is the thing under test.</summary>
     private static async Task<(double Before, double After)> RetrievabilityAcrossRecallAsync(IMemoryEngine engine)
     {
-        var reference = await engine.RememberAsync(
-            new MemoryWrite("t", "s", "the deploy pipeline requires manual approval"));
+        var reference = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "the deploy pipeline requires manual approval"))).Reference;
         for (var i = 0; i < 8; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"unrelated filler entry number {i}"));
 
@@ -534,8 +534,8 @@ public class GraphMemoryWiringTests
 
         var factory = sp.GetRequiredService<IMemoryEngineFactory>();
         var blend = (IExpandableMemory)factory.Get("project");
-        var reference = await factory.Get("project/graph").RememberAsync(
-            new MemoryWrite("t", "s", "a long fact whose content is withheld until it is expanded"));
+        var reference = (await factory.Get("project/graph").RememberAsync(
+            new MemoryWrite("t", "s", "a long fact whose content is withheld until it is expanded"))).Reference;
 
         var expanded = await blend.ExpandAsync(reference);
 
@@ -551,7 +551,7 @@ public class GraphMemoryWiringTests
         IMemoryEngineFactory factory, IMemoryGraphStore store, string engineName)
     {
         var engine = factory.Get(engineName);
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "a fact"));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", "a fact"))).Reference;
         for (var i = 0; i < 60; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"interference {i}"));
 

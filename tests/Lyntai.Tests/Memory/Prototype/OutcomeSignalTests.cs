@@ -45,8 +45,10 @@ public class OutcomeSignalTests
         // would contain one row whatever the rule is, and the test would prove nothing. They share the
         // query token and the limit is 1, so exactly one of two reachable entries comes back.
         var (engine, store) = Build();
-        var first = await engine.RememberAsync(new MemoryWrite("t", "s", "deployment step one needs approval"));
-        var second = await engine.RememberAsync(new MemoryWrite("t", "s", "deployment step two needs review"));
+        var first = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "deployment step one needs approval"))).Reference;
+        var second = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "deployment step two needs review"))).Reference;
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "deployment", Limit: 1));
         var returned = Assert.Single(recall.Items);
@@ -70,7 +72,7 @@ public class OutcomeSignalTests
         // promise that a review row need not reference a live node, and whether reviews should cascade is a
         // decision nobody has taken. This says what is true now, not what must stay true.
         var (engine, store) = Build();
-        var kept = await engine.RememberAsync(new MemoryWrite("t", "s", "the fact the app expected"));
+        var kept = (await engine.RememberAsync(new MemoryWrite("t", "s", "the fact the app expected"))).Reference;
         var id = long.Parse(kept.Id);
 
         await store.RecordReviewsAsync(Engine,
@@ -95,8 +97,8 @@ public class OutcomeSignalTests
         // returned entry. Those are opposite observations: one says the ranking FAILED to surface the
         // entry, the other says it surfaced it wrongly.
         var (engine, store) = Build();
-        var a = long.Parse((await engine.RememberAsync(new MemoryWrite("t", "s", "first fact"))).Id);
-        var b = long.Parse((await engine.RememberAsync(new MemoryWrite("t", "s", "second fact"))).Id);
+        var a = long.Parse((await engine.RememberAsync(new MemoryWrite("t", "s", "first fact"))).Reference.Id);
+        var b = long.Parse((await engine.RememberAsync(new MemoryWrite("t", "s", "second fact"))).Reference.Id);
 
         var batch = Guid.NewGuid();
         await store.RecordReviewsAsync(Engine,

@@ -28,7 +28,7 @@ public sealed class SemanticMemoryEngine(
     public MemoryGrades Supported => MemoryGrades.Associative;
 
     /// <inheritdoc />
-    public async Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default)
+    public async Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
         if (write.Grade == MemoryGrade.Authoritative)
@@ -38,7 +38,11 @@ public sealed class SemanticMemoryEngine(
                 "composite.");
 
         await semantic.RememberAsync(write.TaskKey, write.Scope, write.Content, ct).ConfigureAwait(false);
-        return new MemoryRef(Name, MemoryContentId.For(write.TaskKey, write.Scope, write.Content));
+        // ISemanticMemory throws when a write faults, so a return means the vector exists — except for blank
+        // content, which the default store skips without storing anything
+        var ran = string.IsNullOrWhiteSpace(write.Content) ? MemorySources.None : MemorySources.Semantic;
+        return new MemoryWriteResult(
+            new MemoryRef(Name, MemoryContentId.For(write.TaskKey, write.Scope, write.Content)), ran);
     }
 
     /// <inheritdoc />

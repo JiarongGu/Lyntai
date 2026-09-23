@@ -1747,7 +1747,7 @@ sealed class Lyntai.Memory.CompositeMemoryEngine
     Name : String
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
-    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades
     WriteRouting : MemoryWriteRouting
 sealed class Lyntai.Memory.DefaultMemoryRemovalPolicy
@@ -1761,7 +1761,7 @@ sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     Grade : Func<CuratedMemory,MemoryGrade>
     Name : String
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
-    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IMemoryRetrievabilityPolicy retrievability = null, IEnumerable<IMemoryAgePolicy> agePolicies = null, ILogger<GraphMemoryEngine> logger = null, IEnumerable<IModelProvider> providers = null, IVectorStore vectors = null, IEnumerable<IMemorySaliencePolicy> saliencePolicies = null, IMemoryRankingPolicy ranking = null, IMemoryAgeCompositionPolicy ageComposition = null, IMemorySalienceCompositionPolicy salienceComposition = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, Func<DateTimeOffset> clock = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null, IEnumerable<IMemoryRetentionPolicy> retentionPolicies = null, IMemoryRetentionCompositionPolicy retentionComposition = null, IEnumerable<IMemorySeedSource> seedSources = null, IProviderRouterFactory routing = null)
@@ -1771,7 +1771,7 @@ sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     Name : String
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
-    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.LexicalMemoryEngine
     .ctor(String name, IMemoryStore store, ILogger<LexicalMemoryEngine> logger = null)
@@ -1779,14 +1779,14 @@ sealed class Lyntai.Memory.Engines.LexicalMemoryEngine
     Name : String
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
-    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.SemanticMemoryEngine
     .ctor(String name, ISemanticMemory semantic, Int32 defaultK = 10, ILogger<SemanticMemoryEngine> logger = null)
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     Name : String
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
-    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Forgetting.DsrOptions
     .ctor()
@@ -1975,7 +1975,7 @@ interface Lyntai.Memory.IListableVectorStore
 interface Lyntai.Memory.IMemoryEngine
     Name : String
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
-    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryWriteResult>
     Supported : MemoryGrades
 interface Lyntai.Memory.IMemoryEngineFactory
     Get() : IMemoryEngine
@@ -2320,6 +2320,15 @@ sealed class Lyntai.Memory.MemoryWrite
     Metadata : IReadOnlyDictionary<String,String>
     Scope : String
     TaskKey : String
+    ToString() : String
+sealed class Lyntai.Memory.MemoryWriteResult
+    .ctor(MemoryRef Reference, MemorySources Ran)
+    Deconstruct(MemoryRef& Reference, MemorySources& Ran) : Void
+    Equals(MemoryWriteResult other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Ran : MemorySources
+    Reference : MemoryRef
     ToString() : String
 enum Lyntai.Memory.MemoryWriteRouting
     EveryCapable : MemoryWriteRouting const

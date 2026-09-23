@@ -28,8 +28,8 @@ public class GraphMemoryEngineTests
     public async Task Recall_returns_headlines_and_withholds_content_until_expansion()
     {
         var engine = Engine(new GraphMemoryOptions { HeadlineChars = 40 });
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s",
-            "The build gate runs seven checks and stops at the first failure."));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s",
+            "The build gate runs seven checks and stops at the first failure."))).Reference;
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "build"));
 
@@ -223,7 +223,7 @@ public class GraphMemoryEngineTests
     {
         // the difference between buried and cut: it is out of the way, not destroyed
         var engine = Engine();
-        var buried = await engine.RememberAsync(new MemoryWrite("t", "s", "an old note about widgets"));
+        var buried = (await engine.RememberAsync(new MemoryWrite("t", "s", "an old note about widgets"))).Reference;
         await Crowd(engine, 200);
         await engine.RememberAsync(new MemoryWrite("t", "s", "a fresh note about widgets"));
 
@@ -264,10 +264,12 @@ public class GraphMemoryEngineTests
     /// retrievability can drop it.</summary>
     private static async Task<MemoryRef> Superseded(GraphMemoryEngine engine)
     {
-        var stale = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy target is the alpha host"));
+        var stale = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "the deploy target is the alpha host"))).Reference;
         await Crowd(engine, 200);
-        var hub = await engine.RememberAsync(new MemoryWrite("t", "s", "deploy notes for the service"));
-        var current = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy target is the beta host"));
+        var hub = (await engine.RememberAsync(new MemoryWrite("t", "s", "deploy notes for the service"))).Reference;
+        var current = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "the deploy target is the beta host"))).Reference;
         await engine.LinkAsync(hub, stale, weight: 1.0);
         await engine.LinkAsync(hub, current, weight: 0.5);
         return hub;
@@ -351,7 +353,7 @@ public class GraphMemoryEngineTests
         // Asking to expand something buried must still return it: the floor filters the walk OUT from a seed,
         // never the seed. Without this an entry could become unreachable by the one call that names it.
         var engine = Engine(new GraphMemoryOptions { ExpansionRetrievabilityFloor = 0.99 });
-        var buried = await engine.RememberAsync(new MemoryWrite("t", "s", "an old note about widgets"));
+        var buried = (await engine.RememberAsync(new MemoryWrite("t", "s", "an old note about widgets"))).Reference;
         await Crowd(engine, 300);
 
         var expanded = await engine.ExpandAsync(buried);
@@ -363,8 +365,8 @@ public class GraphMemoryEngineTests
     public async Task Expansion_returns_the_neighbours_of_what_it_expanded()
     {
         var engine = Engine();
-        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"));
-        var b = await engine.RememberAsync(new MemoryWrite("t", "s", "beta fact"));
+        var a = (await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"))).Reference;
+        var b = (await engine.RememberAsync(new MemoryWrite("t", "s", "beta fact"))).Reference;
         await engine.LinkAsync(a, b, symmetric: true);
 
         var expanded = await engine.ExpandAsync(a);
@@ -461,9 +463,9 @@ public class GraphMemoryEngineTests
         // hard-coded a single hop. MemoryTools forwards a model-supplied value AND advertises it in the tool
         // JSON schema, so an agent asking for hops:2 silently got one hop with no error and no signal.
         var engine = Engine(new GraphMemoryOptions { Hops = 3 });
-        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"));
-        var b = await engine.RememberAsync(new MemoryWrite("t", "s", "beta fact"));
-        var c = await engine.RememberAsync(new MemoryWrite("t", "s", "gamma fact"));
+        var a = (await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"))).Reference;
+        var b = (await engine.RememberAsync(new MemoryWrite("t", "s", "beta fact"))).Reference;
+        var c = (await engine.RememberAsync(new MemoryWrite("t", "s", "gamma fact"))).Reference;
         await engine.LinkAsync(a, b, symmetric: true);
         await engine.LinkAsync(b, c, symmetric: true);   // c is TWO hops from a
 
@@ -481,8 +483,8 @@ public class GraphMemoryEngineTests
         // GraphMemoryWiringTests documents `hops: 0` as "nothing but the entry itself returns" and reads
         // Items[0] — so it passed while neighbours were returned anyway. Now the claim is the behaviour.
         var engine = Engine();
-        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"));
-        var b = await engine.RememberAsync(new MemoryWrite("t", "s", "beta fact"));
+        var a = (await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"))).Reference;
+        var b = (await engine.RememberAsync(new MemoryWrite("t", "s", "beta fact"))).Reference;
         await engine.LinkAsync(a, b, symmetric: true);
 
         var expanded = await engine.ExpandAsync(a, hops: 0);
@@ -498,10 +500,11 @@ public class GraphMemoryEngineTests
         // ALWAYS returned whatever the budget: returning its full content is what expansion IS, so a budget
         // smaller than that entry bounds the NEIGHBOURS rather than refusing the request.
         var engine = Engine();
-        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"));
+        var a = (await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"))).Reference;
         for (var i = 0; i < 5; i++)
-            await engine.LinkAsync(a, await engine.RememberAsync(
-                new MemoryWrite("t", "s", $"neighbour number {i} with a reasonable amount of text")), symmetric: true);
+            await engine.LinkAsync(a, (await engine.RememberAsync(
+                new MemoryWrite("t", "s", $"neighbour number {i} with a reasonable amount of text"))).Reference,
+                symmetric: true);
 
         var unbounded = await engine.ExpandAsync(a, hops: 1);
         var bounded = await engine.ExpandAsync(a, hops: 1, charBudget: 40);
@@ -516,8 +519,8 @@ public class GraphMemoryEngineTests
     public async Task Spreading_reaches_a_neighbour_the_query_never_matched()
     {
         var engine = Engine(new GraphMemoryOptions { Hops = 1 });
-        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline"));
-        var b = await engine.RememberAsync(new MemoryWrite("t", "s", "rollbacks page the on-call"));
+        var a = (await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline"))).Reference;
+        var b = (await engine.RememberAsync(new MemoryWrite("t", "s", "rollbacks page the on-call"))).Reference;
         await engine.LinkAsync(a, b, symmetric: true);
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "pipeline"));
@@ -529,8 +532,8 @@ public class GraphMemoryEngineTests
     public async Task A_hop_away_ranks_below_a_direct_match()
     {
         var engine = Engine(new GraphMemoryOptions { Hops = 1 });
-        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline"));
-        var b = await engine.RememberAsync(new MemoryWrite("t", "s", "rollbacks page the on-call"));
+        var a = (await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline"))).Reference;
+        var b = (await engine.RememberAsync(new MemoryWrite("t", "s", "rollbacks page the on-call"))).Reference;
         await engine.LinkAsync(a, b, symmetric: true);
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "pipeline"));
@@ -544,10 +547,10 @@ public class GraphMemoryEngineTests
         // being embedded in the graph is itself a reason to stay retrievable, not merely a way to be
         // reached — and it shows up as RANK, since neither is cut
         var engine = Engine();
-        var hub = await engine.RememberAsync(new MemoryWrite("t", "s", "hub fact about widgets"));
+        var hub = (await engine.RememberAsync(new MemoryWrite("t", "s", "hub fact about widgets"))).Reference;
         for (var i = 0; i < 8; i++)
         {
-            var spoke = await engine.RememberAsync(new MemoryWrite("t", "s", $"widget detail {i}"));
+            var spoke = (await engine.RememberAsync(new MemoryWrite("t", "s", $"widget detail {i}"))).Reference;
             await engine.LinkAsync(hub, spoke, weight: 3, symmetric: true);
         }
         await engine.RememberAsync(new MemoryWrite("t", "s", "isolated fact about widgets"));
@@ -650,8 +653,9 @@ public class GraphMemoryEngineTests
         // fix round 2, I-1: an EXPLICITLY connected entry, linked EARLY (position still small) so its
         // `strengthened_position` is stamped in the CHARS unit about to become stale — mirroring exactly how
         // "the seed fact" above is aged: written first, then left behind by 50 chars-heavy filler writes.
-        var linked = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the linked fact"));
-        var neighbour = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "a linked neighbour"));
+        var linked = (await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the linked fact"))).Reference;
+        var neighbour = (await underContentSize.RememberAsync(
+            new MemoryWrite("t", "s", "a linked neighbour"))).Reference;
         await underContentSize.LinkAsync(linked, neighbour, weight: 20, symmetric: true);
 
         var filler = new string('x', 200);
@@ -724,8 +728,9 @@ public class GraphMemoryEngineTests
         var store = new InMemoryMemoryGraphStore();
         var underContentSize = new GraphMemoryEngine("e", store, agePolicies: [new ContentSizeAgePolicy(perUnit: 1)]);
 
-        var linked = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the linked fact"));
-        var neighbour = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "a linked neighbour"));
+        var linked = (await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the linked fact"))).Reference;
+        var neighbour = (await underContentSize.RememberAsync(
+            new MemoryWrite("t", "s", "a linked neighbour"))).Reference;
         await underContentSize.LinkAsync(linked, neighbour, weight: 20, symmetric: true);
 
         var filler = new string('x', 200);
@@ -771,8 +776,8 @@ public class GraphMemoryEngineTests
         var store = new InMemoryMemoryGraphStore();
         var underContentSize = new GraphMemoryEngine("e", store, agePolicies: [new ContentSizeAgePolicy(perUnit: 1)]);
 
-        var hub = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the hub fact"));
-        var far = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the far neighbour"));
+        var hub = (await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the hub fact"))).Reference;
+        var far = (await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the far neighbour"))).Reference;
         await underContentSize.LinkAsync(hub, far, weight: 100);
 
         var filler = new string('x', 200);
@@ -780,7 +785,7 @@ public class GraphMemoryEngineTests
             await underContentSize.RememberAsync(new MemoryWrite("t", "s", $"{filler} {i}"));
 
         // linked LAST, so its edge is fresh on every scale — the control the far edge must still beat
-        var near = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the near neighbour"));
+        var near = (await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the near neighbour"))).Reference;
         await underContentSize.LinkAsync(hub, near, weight: 10);
 
         var underPerWrite = new GraphMemoryEngine("e", store, agePolicies: [new PerWriteAgePolicy()]);
@@ -828,7 +833,7 @@ public class GraphMemoryEngineTests
         var engine = new GraphMemoryEngine("e", store,
             retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
             agePolicies: [new PerWriteAgePolicy()]);
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
 
         await Crowd(engine, 10);
@@ -871,7 +876,7 @@ public class GraphMemoryEngineTests
             {
                 Reinforcement = MemoryReinforcementEffects.AgeReset,
             });
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
 
         await Crowd(engine, 10);
@@ -900,7 +905,7 @@ public class GraphMemoryEngineTests
         var engine = new GraphMemoryEngine("e", store,
             retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
             agePolicies: [new PerWriteAgePolicy()]);
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
 
         await Crowd(engine, 10);
@@ -929,7 +934,7 @@ public class GraphMemoryEngineTests
             retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
             agePolicies: [new PerWriteAgePolicy()],
             options: new GraphMemoryOptions { Reinforcement = MemoryReinforcementEffects.None });
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+        var reference = (await engine.RememberAsync(new MemoryWrite("t", "s", content))).Reference;
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
 
         await Crowd(engine, 10);

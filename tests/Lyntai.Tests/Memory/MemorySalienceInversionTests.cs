@@ -116,7 +116,7 @@ public sealed class MemorySalienceInversionTests
             switch (step)
             {
                 case CorpusWrite w:
-                    var memRef = await engine.RememberAsync(w.Write);
+                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
                     byRef[memRef.Id] = CorpusIdOf(w.Write.Content);
                     var node = await store.GetAsync("e", long.Parse(memRef.Id, CultureInfo.InvariantCulture));
                     if (node?.Signals.Get(MemorySignals.WellKnown.Salience) > 1) salientWrites++;
@@ -324,7 +324,7 @@ public sealed class MemorySalienceInversionTests
             var judged = 0;
             foreach (var w in corpus.Steps.OfType<CorpusWrite>())
             {
-                var memRef = await engine.RememberAsync(w.Write);
+                var memRef = (await engine.RememberAsync(w.Write)).Reference;
                 var node = await store.GetAsync("e", long.Parse(memRef.Id, CultureInfo.InvariantCulture));
                 if (node?.Signals.Get(MemorySignals.WellKnown.Salience) > 1) judged++;
             }

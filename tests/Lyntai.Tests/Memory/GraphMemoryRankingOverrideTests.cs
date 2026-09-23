@@ -50,8 +50,8 @@ public sealed class GraphMemoryRankingOverrideTests : IDisposable
     public async Task An_engines_own_ranking_policy_is_used_for_every_ordinary_call()
     {
         var engine = Engine(ranking: new OrderById(ascending: true));
-        var first = await engine.RememberAsync(new MemoryWrite("t", "s", "gadget alpha note"));
-        var second = await engine.RememberAsync(new MemoryWrite("t", "s", "gadget beta note"));
+        var first = (await engine.RememberAsync(new MemoryWrite("t", "s", "gadget alpha note"))).Reference;
+        var second = (await engine.RememberAsync(new MemoryWrite("t", "s", "gadget beta note"))).Reference;
 
         var recalled = await engine.RecallAsync(new MemoryQuery("t", "s", "gadget", Limit: 10));
 
@@ -66,8 +66,8 @@ public sealed class GraphMemoryRankingOverrideTests : IDisposable
             {
                 ["descending"] = new OrderById(ascending: false),
             });
-        var first = await engine.RememberAsync(new MemoryWrite("t", "s", "widget alpha note"));
-        var second = await engine.RememberAsync(new MemoryWrite("t", "s", "widget beta note"));
+        var first = (await engine.RememberAsync(new MemoryWrite("t", "s", "widget alpha note"))).Reference;
+        var second = (await engine.RememberAsync(new MemoryWrite("t", "s", "widget beta note"))).Reference;
 
         var withoutOverride = await engine.RecallAsync(new MemoryQuery("t", "s", "widget", Limit: 10));
         var withOverride = await engine.RecallAsync(
@@ -125,8 +125,8 @@ public sealed class GraphMemoryRankingOverrideTests : IDisposable
         using var sp = services.BuildServiceProvider();
         var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get("special/graph");
 
-        var first = await engine.RememberAsync(new MemoryWrite("t", "s", "socket alpha note"));
-        var second = await engine.RememberAsync(new MemoryWrite("t", "s", "socket beta note"));
+        var first = (await engine.RememberAsync(new MemoryWrite("t", "s", "socket alpha note"))).Reference;
+        var second = (await engine.RememberAsync(new MemoryWrite("t", "s", "socket beta note"))).Reference;
 
         var recalled = await engine.RecallAsync(new MemoryQuery("t", "s", "socket", Limit: 10));
 
@@ -148,8 +148,8 @@ public sealed class GraphMemoryRankingOverrideTests : IDisposable
         using var sp = services.BuildServiceProvider();
         var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get("plain/graph");
 
-        var first = await engine.RememberAsync(new MemoryWrite("t", "s", "beam alpha note"));
-        var second = await engine.RememberAsync(new MemoryWrite("t", "s", "beam beta note"));
+        var first = (await engine.RememberAsync(new MemoryWrite("t", "s", "beam alpha note"))).Reference;
+        var second = (await engine.RememberAsync(new MemoryWrite("t", "s", "beam beta note"))).Reference;
 
         var recalled = await engine.RecallAsync(new MemoryQuery("t", "s", "beam", Limit: 10));
 
@@ -172,8 +172,8 @@ public sealed class GraphMemoryRankingOverrideTests : IDisposable
         using var sp = services.BuildServiceProvider();
         var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get("named/graph");
 
-        var first = await engine.RememberAsync(new MemoryWrite("t", "s", "relay alpha note"));
-        var second = await engine.RememberAsync(new MemoryWrite("t", "s", "relay beta note"));
+        var first = (await engine.RememberAsync(new MemoryWrite("t", "s", "relay alpha note"))).Reference;
+        var second = (await engine.RememberAsync(new MemoryWrite("t", "s", "relay beta note"))).Reference;
 
         var withOverride = await engine.RecallAsync(
             new MemoryQuery("t", "s", "relay", Limit: 10, RankingPolicyName: "descending"));

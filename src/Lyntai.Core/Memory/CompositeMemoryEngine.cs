@@ -109,8 +109,9 @@ public sealed class CompositeMemoryEngine
     /// hierarchical name.
     /// <para>Members are written in order and a failure PROPAGATES, leaving the earlier members written: a
     /// write that faults is the one thing this seam refuses to lose silently
-    /// (<see cref="ISemanticMemory.RememberAsync"/> takes the same position).</para></remarks>
-    public async Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default)
+    /// (<see cref="ISemanticMemory.RememberAsync"/> takes the same position).</para>
+    /// <para><see cref="MemoryWriteResult.Ran"/> is the union across the members written.</para></remarks>
+    public async Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
 
@@ -139,12 +140,13 @@ public sealed class CompositeMemoryEngine
                 $"Members considered: {string.Join(", ", _members.Select(m => m.Name))}.");
 
         var primary = await targets[0].RememberAsync(write, ct).ConfigureAwait(false);
+        var ran = primary.Ran;
         for (var i = 1; i < targets.Count; i++)
         {
             ct.ThrowIfCancellationRequested();
-            await targets[i].RememberAsync(write, ct).ConfigureAwait(false);
+            ran |= (await targets[i].RememberAsync(write, ct).ConfigureAwait(false)).Ran;
         }
-        return primary;
+        return new MemoryWriteResult(primary.Reference, ran);
     }
 
     /// <inheritdoc />

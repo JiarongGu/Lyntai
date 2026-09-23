@@ -82,7 +82,8 @@ public sealed class MemoryVerifiedReinforcementTests
         var engine = new GraphMemoryEngine("e", store,
             retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()], verification: oracle);
 
-        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"));
+        var reference = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "the deploy pipeline needs approval"))).Reference;
 
         // 1. the judge says this one answered
         oracle.Teach("deploy", [reference.Id]);
@@ -126,7 +127,7 @@ public sealed class MemoryVerifiedReinforcementTests
             switch (step)
             {
                 case CorpusWrite w:
-                    var memRef = await engine.RememberAsync(w.Write);
+                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
                     var corpusId = MemoryCorpusTestAccess.IdOf(w.Write.Content);
                     byCorpusId[corpusId] = memRef.Id;
                     byRef[memRef.Id] = corpusId;
@@ -278,7 +279,7 @@ public sealed class MemoryVerifiedReinforcementTests
                 switch (step)
                 {
                     case CorpusWrite w:
-                        var memRef = await engine.RememberAsync(w.Write);
+                        var memRef = (await engine.RememberAsync(w.Write)).Reference;
                         byRef[memRef.Id] = MemoryCorpusTestAccess.IdOf(w.Write.Content);
                         break;
                     case CorpusQuery q:
@@ -327,8 +328,9 @@ public sealed class MemoryVerifiedReinforcementTests
             agePolicies: [new PerWriteAgePolicy()],
             verification: oracle);
 
-        var keep = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"));
-        var drop = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy rota changes monthly"));
+        var keep = (await engine.RememberAsync(
+            new MemoryWrite("t", "s", "the deploy pipeline needs approval"))).Reference;
+        var drop = (await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy rota changes monthly"))).Reference;
         for (var i = 0; i < 6; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", $"unrelated filler entry number {i}"));
 
@@ -409,7 +411,7 @@ public sealed class MemoryVerifiedReinforcementTests
             switch (step)
             {
                 case CorpusWrite w:
-                    var memRef = await engine.RememberAsync(w.Write);
+                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
                     byRef[memRef.Id] = MemoryCorpusTestAccess.IdOf(w.Write.Content);
                     break;
 

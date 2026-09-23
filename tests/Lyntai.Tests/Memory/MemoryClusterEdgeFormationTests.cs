@@ -51,7 +51,7 @@ public class MemoryClusterEdgeFormationTests
             switch (step)
             {
                 case CorpusWrite w:
-                    var memRef = await engine.RememberAsync(w.Write);
+                    var memRef = (await engine.RememberAsync(w.Write)).Reference;
                     if (MemoryCorpusTestAccess.IdOf(w.Write.Content)
                         .StartsWith("attribute", StringComparison.Ordinal))
                         clusterNodeIds.Add(long.Parse(memRef.Id, System.Globalization.CultureInfo.InvariantCulture));
