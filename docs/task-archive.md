@@ -4792,3 +4792,23 @@ in the plan's own deviation note and in `.claude/knowledge/pitfalls.md`.
 two runs (the decisive one, then a repeat carrying the post-hoc thresholds), stopped there.
 
 - Nothing runs offline over the graph, so two memories that never co-occurred never link
+
+## Part 273 — affect as a memory axis, measured and refuted (2026-09-23)
+
+✅ done 2026-09-23 — **Outcome:** a REFUTATION; no affect policy, retention multiplier or seed source ships.
+One corpus-analysis mode, `memory-affect`, rates every LoCoMo turn for arousal (a 4B model and the NRC-VAD
+lexicon) and asks whether evidence turns stand out: 0.474 within length quartiles against a pre-registered
+0.60, and the raw 0.544 is length. The table and its caveats: `docs/memory-measurements.md` §REFUTED:
+arousal does not predict. The refusal, why both mechanisms stay expressible through existing seams, and the
+revival trigger (a workload whose relevance is OBSERVED to track affect): **D169**.
+
+**What the plan got wrong, for the next reader:** its oracle stage re-measured `memory-importance` (a perfect
+importance signal redistributes) on fixtures whose author would decide the answer. The plan's deviation note
+has the reasoning; the length confound it would have missed is in `.claude/knowledge/pitfalls.md`.
+
+**This closes the Ombre-Brain comparison** (the backlog's Part 267) in full: Parts 269, 270, 271 and 273 here.
+
+**Ratio, as `task-lifecycle.md` §A MEASUREMENT task requires:** ~270 instrument lines against 0 in `src/`,
+one run (20 minutes of rating, cached), stopped there.
+
+- Affect is absent as an axis

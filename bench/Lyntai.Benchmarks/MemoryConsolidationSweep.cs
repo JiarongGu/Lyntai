@@ -12,7 +12,7 @@ namespace Lyntai.Benchmarks;
 /// <summary>
 /// <c>memory-consolidation</c> — does an OFFLINE pass over the stored graph find same-entity links the
 /// write path missed? Nothing runs offline today, so two memories that never co-occurred never link
-/// (<c>TASKS.md</c> Part 267).
+/// (<c>docs/task-archive.md</c> Part 271).
 ///
 /// <para><b>The write path already links by similarity.</b> <c>GraphMemoryEngine</c> gives each write a
 /// <c>similar</c> edge to its nearest PREDECESSORS at cosine ≥ <c>GraphMemoryOptions.MinSimilarity</c>, so an

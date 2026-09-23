@@ -1230,7 +1230,7 @@ internal static class MemoryLongMemEvalBench
 
         if (args.Contains("--corroborate"))
         {
-            Console.WriteLine("=== Can COUNTING WITNESSES stand in for the judge? (TASKS.md Part 267) ===");
+            Console.WriteLine("=== Can COUNTING WITNESSES stand in for the judge? (docs/task-archive.md Part 270) ===");
             Console.WriteLine();
             Console.WriteLine("The field's cheap verification gates the WRITE: a claim persists only after two");
             Console.WriteLine("independent sources and three separated re-assertions, no model in the loop. This");

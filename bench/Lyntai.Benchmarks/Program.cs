@@ -70,6 +70,12 @@ if (args.Contains("--annotation"))
 if (args.Contains("--consolidation"))
     return await MemoryConsolidationSweep.RunAsync();
 
+// `node devtools/dev.mjs memory-affect` → --affect. Does a turn's emotional AROUSAL predict whether LoCoMo
+// later asks about it? The PREDICTOR half of affect-as-a-memory-axis; memory-importance already priced what a
+// perfect importance signal does once acted on. See MemoryAffectSweep.
+if (args.Contains("--affect"))
+    return await MemoryAffectSweep.RunAsync();
+
 // `node devtools/dev.mjs memory-verification` → --verification. The only mechanism aimed at PollutionRate,
 // and the only 3.0 seam with no sweep until 2026-08-15. Every other recall-quality figure this repository
 // publishes is MODEL-FREE, so this is the first measurement of what putting a model in the loop is worth.

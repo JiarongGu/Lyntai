@@ -238,8 +238,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D166](#d166--recalled-memory-renders-as-exactly-one-line-so-content-cannot-forge-the-grade-2026-09-21) | 2026-09-21 | recalled memory renders as exactly ONE line, so content cannot forge the grade |
 | [D167](#d167--corroboration-counting-is-refused-as-verification-on-measurement-2026-09-21) | 2026-09-21 | corroboration counting is REFUSED as verification, on measurement |
 | [D168](#d168--offline-graph-consolidation-is-refused-on-measurement-2026-09-23) | 2026-09-23 | offline graph consolidation is REFUSED, on measurement |
+| [D169](#d169--affect-is-refused-as-a-shipped-memory-axis-on-measurement-2026-09-23) | 2026-09-23 | affect is REFUSED as a shipped memory axis, on measurement |
 
-_All 168 entries are live decisions._
+_All 169 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5223,3 +5224,25 @@ proposes nothing but false links, because a subject clique is already closed.
 **The trigger to revisit** is a MODEL-driven pass that reads a window and names connections, never another
 similarity or structural rule. That is annotation with wider context, and the annotation-drift record says
 subject linking is bound to the model's quality rather than to code.
+
+## D169 — affect is REFUSED as a shipped memory axis, on measurement (2026-09-23)
+
+**The decision.** No affect salience policy, no arousal retention multiplier and no affect seed source
+ships. Ombre-Brain's affect axis (valence and arousal per memory, arousal as a retention multiplier,
+unresolved high-arousal surfaced with no query) was measured on the one question no record here answered —
+does arousal PREDICT what gets asked about later (`memory-affect`, `docs/memory-measurements.md`
+§REFUTED: arousal does not predict). On LoCoMo it does not: 0.474 within length quartiles, where 0.60 was
+pre-registered, with a model rater that separated its positive control perfectly and a lexicon agreeing.
+Its raw 0.544 is length.
+
+**Why an oracle arm was not the question.** The acting half is already priced: `memory-importance` put a
+PERFECT importance signal through salience, retention and store admission and measured a redistribution —
+the marked class gains at the working set's expense — so an arousal oracle could only re-derive that, on a
+fixture whose author chose what arousal marks. A signal is worth wiring only if it predicts relevance, and
+this one does not on the field's benchmark.
+
+**It stays EXPRESSIBLE, which is why refusing it costs a deployment nothing.** An `IMemorySaliencePolicy`
+can emit arousal and an `IMemoryRetentionPolicy` turn it into stability; an `IMemorySeedSource` is consulted
+on every recall, a query-less one included, so it can surface high-arousal entries. **The trigger to
+revisit** is a workload whose later relevance is OBSERVED to track affect — a deployment's own access log,
+or a benchmark that asks about feelings rather than facts — never a fixture that assumes it.

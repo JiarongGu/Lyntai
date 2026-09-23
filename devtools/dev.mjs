@@ -283,13 +283,22 @@ switch (cmd) {
     break;
 
   // memory-consolidation — does an OFFLINE pass over the stored graph find same-entity links the write path
-  // missed (TASKS.md Part 267)? The write path already links by embedding similarity, so the baseline is an
+  // missed (docs/task-archive.md Part 271)? The write path already links by embedding similarity, so the baseline is an
   // engine WITH an embedder and no annotator — the most headroom consolidation is ever offered. Uses the
   // drift sweep's entity fixture, never MemoryCorpus, whose cluster shares a template a similarity pass
   // would link through. Refuses to run without a real embedder.
   case 'memory-consolidation':
     if (!config.benchProject) { console.log('no bench project configured'); break; }
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--consolidation', ...args]);
+    break;
+
+  // memory-affect — does a turn's emotional AROUSAL predict whether it is asked about later
+  // (docs/task-archive.md Part 273)? A corpus-analysis mode over LoCoMo: every turn rated by a chat model and by the NRC-VAD lexicon,
+  // evidence turns against the rest, WITHIN length quartiles because length is the obvious confound. Needs a
+  // chat model and a local copy of the lexicon (research use, never committed); ratings are cached.
+  case 'memory-affect':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--affect', ...args]);
     break;
 
   // memory-verification — the only mechanism aimed at PollutionRate, and the only 3.0 seam that had no sweep

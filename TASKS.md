@@ -28,8 +28,8 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 270 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 293 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
 | 350 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 390 | 267 | Affect is absent as an axis | startable |  |
-| 422 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
+| 397 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
+| 434 | 272 | Yield `SessionStarted` for `system/init` only | startable |  |
 
 <!-- open-items:end -->
 
@@ -372,32 +372,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
 
-## Part 267 — what Ombre-Brain does that this library does not (2026-09-20)
-
-_Opened from a comparison against <https://github.com/P0luz/Ombre-Brain>, a Python MCP memory server for
-Claude. **Most of its surface is out of scope by construction** — dashboard, Docker, OAuth, tunnel, an
-Obsidian vault, a port per owner — because that is an app and this is a library with no host. Its decay is
-wall-clock (`e^(-lambda x days)`), its recall a seven-term weighted top-k, and every constant is hardcoded
-with no harness behind it, so **D40**, **D100** and the sweeps here already answer those the other way.
-Four mechanisms survived that filter, each landing on a seam that already exists. Three have closed:
-recalled memory entering the prompt unmarked (2026-09-21, `docs/task-archive.md` Part 269, **D166**), the
-free verification alternative — measured and REFUTED the same day (`docs/task-archive.md` Part 270,
-**D167**: the corroboration signal does not exist on this corpus), and offline consolidation — measured and
-REFUTED 2026-09-23 (`docs/task-archive.md` Part 271, **D168**: its similarity half is a write-time knob, and
-structure adds only noise). **The one below is a measurement**, so it names what a YES and a NO change
-(`.claude/rules/task-lifecycle.md` §A MEASUREMENT task)._
-
-- [ ] **Affect is absent as an axis.** Salience is structural (`StructuralSaliencePolicy`); the tree holds <!-- item: state=startable -->
-  no emotional coordinate at all. Ombre carries Russell's valence/arousal per memory, makes arousal a
-  retention multiplier and boosts unresolved high-arousal so it surfaces with no query — where a query-less
-  recall here returns the most recently used (`src/Lyntai.Core/Memory/MemoryTools.cs`). The seams exist: an
-  annotator can emit the coordinates, `IMemorySaliencePolicy` and `IMemoryRetentionPolicy` consume them.
-  Ombre ships its constants on intuition; `memory-salience`, `memory-importance` and
-  `memory-salience-weight` are the instruments. YES → an affect salience policy; NO → a refutation that
-  saves the next reader the same intuition. A session-ready plan exists:
-  `local/superpowers/plans/2026-09-21-affect-axis-measurement.md` (untracked; row in
-  `docs/superpowers/INDEX.md`).
-
 ## Part 268 — `Lyntai.Storage.FileSystem`: one record per file, so stored data reads without a client (2026-09-20)
 
 _**Chosen from a posed set, so this is a decision rather than a working position**
@@ -415,9 +389,10 @@ anticipates. **Reversal cost is a package id**: retiring one needs an entry in `
 JSON is a FORMAT axis and belongs in an option or a seam — a package named for its serialization would
 have to FORK to gain a second one._
 
-_**Sequenced after Part 267 by choice, not by a blocker.** Those four are migration-free and measurable on
-harnesses that exist; this one permanently widens a surface frozen under SemVer with no carve-out
-(**D70**). It is startable today regardless._
+_**It was sequenced after the Ombre-Brain comparison by choice, not by a blocker**, and that comparison
+has closed in full (`docs/task-archive.md` Parts 269, 270, 271 and 273). Those four were migration-free
+and measurable on harnesses that existed; this one permanently widens a surface frozen under SemVer with
+no carve-out (**D70**)._
 
 - [ ] **`Lyntai.Storage.FileSystem` — one record per file, directories as the index.** Scaffold with <!-- item: state=startable -->
   `node devtools/dev.mjs new-package Lyntai.Storage.FileSystem` — never by hand, the misses are silent. But
@@ -450,6 +425,26 @@ harnesses that exist; this one permanently widens a surface frozen under SemVer 
   <br>**`WriteBackAsync`'s pinned ORDER (D101) helps rather than hurts.** Several files cannot be written in
   one transaction, and that contract already puts the review log last so a partial failure costs neither the
   touch nor the edges.
+
+## Part 272 — `StreamJsonAgentReader` reads every `system` event as a session start (2026-09-23)
+
+_Filed from an adopter, which already shipped a workaround — so **landing this means telling
+them to delete it** (`AgentRunner`'s one-announcement guard; its comment names this Part)._
+
+- [ ] **Yield `SessionStarted` for `system/init` only.** `ReadSystem` yields one for ANY `system` line <!-- item: state=startable -->
+  carrying a `session_id`. Measured against `claude` **2.1.280** (`-p --output-format stream-json
+  --verbose`, haiku, 2026-09-23): a turn emits `system/init`, then `system/thinking_tokens` PROGRESS events
+  (`estimated_tokens`, `estimated_tokens_delta`, `session_id`), and a `rate_limit_event` before `result`. The
+  reader turns each `thinking_tokens` line into another `SessionStarted` with the same id, so a consumer that
+  persists the event stream stores one "session started" per progress tick — invisible in any UI, and one
+  row per tick in the adopter's chat history. The id cannot change within a run, so nothing is lost by
+  yielding it once; `_model` capture from `init` is unaffected.
+  <br>**Also worth a line in the reader:** `rate_limit_event` falls to the "any other type → nothing" arm,
+  which is right today, but it carries `rate_limit_info` a consumer might want surfaced — a decision, not a
+  defect.
+  <br>**Test shape:** a scripted stream of `init` + two `thinking_tokens` must yield exactly one
+  `SessionStarted`. The adopter's own proof is its `e2e-p43`, whose stub now emits that exact sequence and
+  which fails with the guard removed (three announcements for one run).
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

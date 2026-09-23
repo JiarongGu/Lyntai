@@ -1511,6 +1511,7 @@ export default {
     'memory-annotation': "subject linking with a PERFECT annotator — the CEILING, not a model",
     'memory-annotation-drift': "how much of that ceiling a REAL annotator reaches, and whether CODE can close it",
     'memory-consolidation': 'does an OFFLINE pass find links the write path missed? Needs a real embedder',
+    'memory-affect': 'does AROUSAL predict what gets asked about later? LoCoMo, a chat model + a lexicon',
     'memory-verification': 'the judge seam — what a model in the loop is worth',
     'memory-fan': "ACT-R's fan effect, measured and REFUSED (D62)",
     'memory-support': 'rule × θ × clock × `ConnectionBoost`; `--screen` = the model ladder',
