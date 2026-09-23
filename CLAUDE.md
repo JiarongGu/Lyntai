@@ -18,12 +18,13 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D175** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `4133 passed / 4171 total, 38 skipped` (the skips are
+**The baseline a green run should match:** `4146 passed / 4184 total, 38 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 881/881, doc samples 60/60. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-24 at `b373a5d7`** (+13 against `86de5879`: archive Part 283 —
-3 journal, 1 cross-engine restart, 9 skip-logging; +117 before that, the file-system graph store, archive
+**MEASURED with Docker up, re-attested 2026-09-24 at `9527a8eb`** (+13 against `b373a5d7`: archive Part 285 —
+the 13 `MemoryWriteResultTests` facts; +13 before that, archive Part 283 — 3 journal, 1 cross-engine restart,
+9 skip-logging; +117 before that, the file-system graph store, archive
 Part 282 — 4 core, 13 journal, 84 contract, 15 restart, 1 wiring; −2 before that, the two
 `ApiSurface` theories of one fewer package, **D173** merging two into `Lyntai.Storage.Basic`; +20 before that,
 the pre-release review's tests, archive Part 279; +110 before that, the file-system package, archive Part 277; and a Docker-down run the same day read `3663 / 242`,
