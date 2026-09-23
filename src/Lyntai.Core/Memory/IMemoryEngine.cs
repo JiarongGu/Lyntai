@@ -87,31 +87,34 @@ public enum MemoryGrades
 [Flags]
 public enum MemorySources
 {
-    /// <summary>Nothing ran, or everything that ran faulted.</summary>
+    /// <summary>On a recall, nothing ran or everything that ran faulted. On a write, no named tier took it — a
+    /// storage fault throws instead.</summary>
     None = 0,
 
-    /// <summary>The keyword/full-text tier produced a result.</summary>
+    /// <summary>The keyword/full-text tier: on a recall it produced a result; on a write it stored the
+    /// entry.</summary>
     Lexical = 1,
 
-    /// <summary>A semantic-memory member produced hits.</summary>
+    /// <summary>A semantic-memory member: on a recall it produced hits; on a write it stored the entry as a
+    /// vector.</summary>
     Semantic = 2,
 
-    /// <summary>A curated-catalog member produced hits.</summary>
+    /// <summary>A curated-catalog member: on a recall it produced hits; on a write it stored the entry.</summary>
     Curated = 4,
 
-    /// <summary>A graph member produced hits.</summary>
+    /// <summary>A graph member: on a recall it produced hits; on a write it stored the entry.</summary>
     Graph = 8,
 
-    /// <summary>Similarity-derived edge enrichment is WIRED for this engine.
-    /// <para>Deliberately distinct from <see cref="Semantic"/>, which means a semantic-memory MEMBER
-    /// produced hits: both need a vector backend and they fail independently, so one flag could not report both
-    /// honestly.</para>
-    /// <para><b>This flag reports CONFIGURATION, not contribution</b> — unlike its siblings, and said
-    /// plainly because the difference matters. Enrichment is a WRITE-side tier: it creates edges, which by
-    /// the time a recall traverses them are indistinguishable from the ones co-activation wrote. What its
-    /// presence buys is the distinction the whole enum exists for — a caller seeing no linked material can
-    /// tell "nothing similar was ever found" from "similarity is not configured here".</para>
-    /// <para><b>On a write it reports CONTRIBUTION</b>: this write's vector was indexed.</para></summary>
+    /// <summary>The similarity tier. <b>On a recall it reports CONFIGURATION</b>: similarity-derived edge
+    /// enrichment is wired for this engine. <b>On a write it reports CONTRIBUTION</b>: this write's vector was
+    /// indexed, whatever happened to its similarity links.
+    /// <para>Deliberately distinct from <see cref="Semantic"/>, a semantic-memory MEMBER's own tier: both need
+    /// a vector backend and they fail independently, so one flag could not report both honestly.</para>
+    /// <para><b>Why configuration on a recall</b>, unlike its siblings: enrichment is a WRITE-side tier. It
+    /// creates edges, which by the time a recall traverses them are indistinguishable from the ones
+    /// co-activation wrote. What its presence buys is the distinction the whole enum exists for — a caller
+    /// seeing no linked material can tell "nothing similar was ever found" from "similarity is not configured
+    /// here".</para></summary>
     Similarity = 16,
 }
 

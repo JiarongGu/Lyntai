@@ -140,6 +140,6 @@ public sealed record MemoryRecall(IReadOnlyList<MemoryItem> Items, MemorySources
 /// <see cref="MemorySources.Similarity"/> means THIS write's vector was indexed, so similarity-based recall can
 /// find it. A best-effort tier that failed or had no backend is simply absent, which is how a write stored
 /// without its vector is told apart from one stored with it.</para></summary>
-/// <param name="Reference">The entry's address — what expansion, linking and forgetting take.</param>
+/// <param name="Reference">The entry's address — what expansion and linking take.</param>
 /// <param name="Ran">The tiers that took the write.</param>
 public sealed record MemoryWriteResult(MemoryRef Reference, MemorySources Ran);

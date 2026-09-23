@@ -106,7 +106,7 @@ public class GraphSimilarityTests
     }
 
     [Fact]
-    public async Task A_failing_vector_STORE_costs_links_not_the_entry()
+    public async Task A_failing_vector_STORE_costs_the_vector_not_the_entry()
     {
         // The sibling of the vector backend fact above, and a DIFFERENT link in the chain: a working vector backend
         // produces a vector and the INDEX is what refuses it. The vector backend case short-circuits in
@@ -137,32 +137,5 @@ public class GraphSimilarityTests
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "kittens"));
 
         Assert.All(recall.Items, i => Assert.Equal(0, i.Degree));
-    }
-
-    private sealed class ThrowingVectorProvider : FakeVectorProviderBase
-    {
-        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
-            CancellationToken ct = default) =>
-            throw new InvalidOperationException("embedding endpoint is down");
-    }
-
-    /// <summary>A vector store that SEARCHES fine and refuses to be written to — so enrichment gets past the
-    /// shared search and fails at the index, which is the half a failing vector backend can never reach.</summary>
-    private sealed class WriteHostileVectorStore : IVectorStore
-    {
-        private readonly InMemoryVectorStore _inner = new();
-
-        public Task UpsertAsync(string collection, string id, float[] vector, string payload,
-            CancellationToken ct = default) =>
-            throw new InvalidOperationException("the vector store is read-only");
-
-        public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k,
-            CancellationToken ct = default) => _inner.SearchAsync(collection, query, k, ct);
-
-        public Task DeleteAsync(string collection, string id, CancellationToken ct = default) =>
-            _inner.DeleteAsync(collection, id, ct);
-
-        public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
-            _inner.RemoveCollectionAsync(collection, ct);
     }
 }

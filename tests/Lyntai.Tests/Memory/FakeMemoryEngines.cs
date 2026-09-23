@@ -256,9 +256,14 @@ internal sealed class TimingOutGraphStore(params string[] timesOutOn) : IMemoryG
     private readonly Lyntai.Storage.InMemory.InMemoryMemoryGraphStore _inner = new();
     private readonly HashSet<string> _members = new(timesOutOn, StringComparer.Ordinal);
 
+    /// <summary>How many calls timed out — so a test can show the faulting path was reached, not assume it.</summary>
+    public int TimedOut { get; private set; }
+
     private void Gate(string member)
     {
-        if (_members.Contains(member)) throw new TaskCanceledException(TimingOutEngine.Marker);
+        if (!_members.Contains(member)) return;
+        TimedOut++;
+        throw new TaskCanceledException(TimingOutEngine.Marker);
     }
 
     public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default)

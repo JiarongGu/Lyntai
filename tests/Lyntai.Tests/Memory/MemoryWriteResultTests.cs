@@ -4,6 +4,7 @@ using Lyntai.Memory.Engines;
 using Lyntai.Memory.Interference;
 using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Fakes;
+using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Tests.Memory;
 
@@ -15,10 +16,11 @@ public class MemoryWriteResultTests
     private const string GraphName = "project/graph";
 
     private static GraphMemoryEngine Graph(IModelProvider? provider, IVectorStore? vectors,
-        IMemoryGraphStore? store = null, GraphMemoryOptions? options = null) =>
+        IMemoryGraphStore? store = null, GraphMemoryOptions? options = null,
+        ILogger<GraphMemoryEngine>? logger = null) =>
         new(GraphName, store ?? new InMemoryMemoryGraphStore(), options,
             agePolicies: [new PerWriteAgePolicy()], providers: provider is null ? null : [provider],
-            vectors: vectors);
+            vectors: vectors, logger: logger);
 
     /// <summary>Every id indexed in the graph engine's collection. A zero vector is a legal probe and a search
     /// returns the collection's top-k whatever the scores, so this reads what is THERE.</summary>
@@ -109,16 +111,20 @@ public class MemoryWriteResultTests
     }
 
     [Fact]
-    public async Task An_embedder_that_is_unavailable_right_now_reports_no_similarity()
+    public async Task An_embedder_that_is_unavailable_right_now_reports_no_similarity_and_is_not_asked()
     {
-        // it WOULD embed if asked, so a regression that ignored availability would index and report it
+        // The router ALSO skips an unavailable backend, so `Ran` alone cannot tell "not asked" from "asked and
+        // refused": an engine that stopped checking availability would still report no Similarity, while
+        // logging a failed search on every write. The empty warning list is what pins "not asked".
         var vectors = new InMemoryVectorStore();
-        var engine = Graph(new UnavailableVectorProvider(), vectors);
+        var log = new CapturingLogger();
+        var engine = Graph(new UnavailableVectorProvider(), vectors, logger: log);
 
         var result = await engine.RememberAsync(new MemoryWrite("t", "s", "written while the embedder is down"));
 
         Assert.Equal(MemorySources.Graph, result.Ran);
         Assert.Empty(await IndexedIdsAsync(vectors));
+        Assert.Empty(log.Warnings);
     }
 
     [Fact]
@@ -126,13 +132,15 @@ public class MemoryWriteResultTests
     {
         // the vector is indexed BEFORE the links, each best-effort on its own — a link failure costs links only
         var vectors = new InMemoryVectorStore();
-        var engine = Graph(new FakeVectorProvider(), vectors,
-            store: new TimingOutGraphStore(nameof(IMemoryGraphStore.LinkAsync)),
+        var store = new TimingOutGraphStore(nameof(IMemoryGraphStore.LinkAsync));
+        var engine = Graph(new FakeVectorProvider(), vectors, store,
             options: new GraphMemoryOptions { MinSimilarity = 0.1 });
         await engine.RememberAsync(new MemoryWrite("t", "s", "you can cancel your subscription anytime"));
 
         var result = await engine.RememberAsync(new MemoryWrite("t", "s", "cancel your subscription from settings"));
 
+        Assert.True(store.TimedOut >= 1,
+            "a similarity link must have been attempted and failed or this asserts nothing");
         Assert.True(result.Ran.HasFlag(MemorySources.Similarity));
         Assert.Contains(result.Reference.Id, await IndexedIdsAsync(vectors));
     }
@@ -145,6 +153,20 @@ public class MemoryWriteResultTests
         var result = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
 
         Assert.Equal(MemorySources.Graph, result.Ran);
+    }
+
+    [Fact]
+    public async Task A_caller_cancel_during_the_vector_upsert_propagates_rather_than_reading_as_not_indexed()
+    {
+        // Cancelled MID-CALL from inside the upsert and asserted by MARKER, so another component's own cancel
+        // cannot satisfy it — the vacuous caller-cancel twin `.claude/knowledge/pitfalls.md` §Storage records.
+        using var cts = new CancellationTokenSource();
+        var engine = Graph(new FakeVectorProvider(), new CancellingVectorStore(cts));
+
+        var ex = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            engine.RememberAsync(new MemoryWrite("t", "s", "cancelled while it is indexed"), cts.Token));
+
+        Assert.Equal(CancellingVectorStore.Marker, ex.Message);
     }
 
     [Fact]
@@ -163,13 +185,6 @@ public class MemoryWriteResultTests
         Assert.Equal(GraphName, result.Reference.Engine);
     }
 
-    private sealed class ThrowingVectorProvider : FakeVectorProviderBase
-    {
-        public override Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
-            CancellationToken ct = default) =>
-            throw new InvalidOperationException("embedding endpoint is down");
-    }
-
     /// <summary>Re-implements <see cref="IModelProvider"/> so its own <see cref="IsAvailable"/> replaces the
     /// interface's default.</summary>
     private sealed class UnavailableVectorProvider : FakeVectorProviderBase, IModelProvider
@@ -182,14 +197,20 @@ public class MemoryWriteResultTests
             CancellationToken ct = default) => _inner.EmbedAsync(texts, ct);
     }
 
-    /// <summary>Searches fine and refuses every write, so the embed succeeds and the index is what fails.</summary>
-    private sealed class WriteHostileVectorStore : IVectorStore
+    /// <summary>The caller cancels while the vector is being written: the upsert cancels the caller's own
+    /// source and throws a marked cancellation on that token. Everything else delegates.</summary>
+    private sealed class CancellingVectorStore(CancellationTokenSource caller) : IVectorStore
     {
+        public const string Marker = "the caller cancelled while the vector was being indexed";
+
         private readonly InMemoryVectorStore _inner = new();
 
         public Task UpsertAsync(string collection, string id, float[] vector, string payload,
-            CancellationToken ct = default) =>
-            throw new InvalidOperationException("the vector store is read-only");
+            CancellationToken ct = default)
+        {
+            caller.Cancel();
+            throw new OperationCanceledException(Marker, ct);
+        }
 
         public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k,
             CancellationToken ct = default) => _inner.SearchAsync(collection, query, k, ct);
@@ -199,5 +220,18 @@ public class MemoryWriteResultTests
 
         public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
             _inner.RemoveCollectionAsync(collection, ct);
+    }
+
+    private sealed class CapturingLogger : ILogger<GraphMemoryEngine>
+    {
+        public List<string> Warnings { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel level) => true;
+
+        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (level >= LogLevel.Warning) Warnings.Add(formatter(state, ex));
+        }
     }
 }

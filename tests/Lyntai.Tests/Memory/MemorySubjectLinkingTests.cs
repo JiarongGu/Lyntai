@@ -150,8 +150,8 @@ public class MemorySubjectLinkingTests
     /// <para>There the model never answers, so nothing arrives at the store. Here a perfect annotator
     /// answers and the projection refuses the write, which is the half that catch has never been asked
     /// about. Same invariant as the similarity index's
-    /// (<c>GraphSimilarityTests.A_failing_vector_STORE_costs_links_not_the_entry</c>): a partial projection
-    /// failure costs CONNECTIONS, never the fact.</para></summary>
+    /// (<c>GraphSimilarityTests.A_failing_vector_STORE_costs_the_vector_not_the_entry</c>): a partial projection
+    /// failure costs that projection, never the fact.</para></summary>
     [Fact]
     public async Task A_failing_subject_index_costs_links_not_the_entry()
     {
