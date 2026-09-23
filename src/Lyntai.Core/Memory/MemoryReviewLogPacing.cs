@@ -10,7 +10,7 @@ namespace Lyntai.Memory;
 /// boundary. Deciding "was a boundary crossed" is a single integer-division comparison, no query — the
 /// actual trim statement, the one operation with a real cost, runs roughly once every
 /// <see cref="TrimInterval"/> rows rather than once per write.</para>
-/// <para><b>The trade-off, stated once for all three backends rather than three times.</b> This makes the
+/// <para><b>The trade-off, stated once for every backend rather than once per backend.</b> This makes the
 /// cap SOFT, not exact: a busy engine can transiently hold up to <c>cap + TrimInterval(cap) - 1</c> rows
 /// between trims, and because the counter lives in memory, a process restart resets it — so the log can grow
 /// further still before the next trim catches up. Neither costs correctness: the trim statement itself

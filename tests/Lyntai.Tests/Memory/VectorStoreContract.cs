@@ -3,7 +3,7 @@ using Lyntai.Memory;
 namespace Lyntai.Tests.Memory;
 
 /// <summary>Backend-agnostic facts every <see cref="IVectorStore"/> satisfies, held to by all three
-/// implementations the way <c>MemoryGraphStoreContract</c> holds the three graph stores to one contract.
+/// implementations the way <c>MemoryGraphStoreContract</c> holds every graph store to one contract.
 ///
 /// <para><b>Why this file exists.</b> `IVectorStore` had THREE implementations (in-process, SQLite, Postgres)
 /// and NO cross-backend contract — each was exercised only by a couple of per-backend tests. Worse, every

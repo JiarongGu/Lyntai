@@ -19,7 +19,7 @@ namespace Lyntai.Tests.Memory;
 /// (<c>.claude/knowledge/pitfalls.md</c>) — is one this repository has already been bitten by.</para>
 ///
 /// <para>Driving every backend from <see cref="Names"/> closes that direction by CONSTRUCTION rather than by
-/// counting: a method added to the contract is a new theory case on all three backends the moment it
+/// counting: a method added to the contract is a new theory case on every backend the moment it
 /// compiles, and there is no literal left to bump. The per-fact test name survives as the theory argument,
 /// so a failure still names the fact rather than an index.</para>
 ///

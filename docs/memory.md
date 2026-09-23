@@ -556,7 +556,7 @@ Each of these cost a real measurement to find.
   <br>It stays a `string→string` bag deliberately rather than becoming a typed kind. A kind is your
   vocabulary, and Core stays neutral of it.
 - **`taskKey` isolates every READ, and `LinkAsync` is the one way across.** No recall, expansion, subject
-  seed, semantic seed, prune or forget crosses a task — pinned on all three backends
+  seed, semantic seed, prune or forget crosses a task — pinned on every backend
   (`MemoryGraphStoreContract.No_read_crosses_a_task_key`, `No_removal_crosses_a_task_key`) and end to end
   (`MemoryTaskIsolationTests`). The engine never links across tasks by itself either: co-activation links
   what one task-scoped recall returned, similarity links inside a per-task-and-scope vector collection, and

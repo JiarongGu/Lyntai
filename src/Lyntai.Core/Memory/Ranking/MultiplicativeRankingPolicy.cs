@@ -131,7 +131,7 @@ public sealed class MultiplicativeRankingPolicy(MultiplicativeRankingOptions? op
         var scored = new List<RankedMemory>(rankable.Count);
         foreach (var c in rankable)
         {
-            // MemorySignals.Salience is the ONE definition, shared with all three graph stores. A bare
+            // MemorySignals.Salience is the ONE definition, shared with every graph store. A bare
             // Math.Max(1, …) on the raw bag value is NOT enough: a stored value below 1 would REDUCE the
             // score (nothing in the model means "less findable than neutral"), and a non-finite one makes
             // `boost`, and so the whole product, NaN — Math.Max(1, NaN) is NaN by IEEE 754.
