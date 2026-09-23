@@ -18,13 +18,13 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D169** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3867 passed / 3905 total, 38 skipped` (the skips are
+**The baseline a green run should match:** `3869 passed / 3907 total, 38 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 873/873, doc samples 60/60. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-21 at `a7305589`** (+2 against `8ddff8d2`: D166's two
-containment tests — a recalled item cannot forge a heading, in either composer — archive Part 269; and the
-Docker-down first run of that same session read `3661 / 242`, reconciling as 242 − 38 = 204 = 3865 − 3661) —
+**MEASURED with Docker up, re-attested 2026-09-23 at `10bb3563`** (+2 against `a7305589`: the stream
+reader's two session-start tests — one announcement per run, and a changed id announced again — archive
+Part 275; and a Docker-down run the same day read `3663 / 242`, reconciling as 242 − 38 = 204 = 3867 − 3663) —
 read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
 easily breaks. **The Docker-down run happened AGAIN on this line's own watch** (D153 step 4): the same tree
