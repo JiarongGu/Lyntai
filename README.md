@@ -97,7 +97,7 @@ version you installed.
 
 | Package | What it gives you |
 |---|---|
-| **`Lyntai`** | **The starting set (5 of 12)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage. Not the whole library: add `Lyntai.Storage.Sqlite` to persist and `Lyntai.Generation` for media. |
+| **`Lyntai`** | **The starting set (6 of 12)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage + **file** storage (on once you name a root). Not the whole library: add `Lyntai.Storage.Sqlite` for a database and `Lyntai.Generation` for media. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI — plus `Lyntai.Text.WordPieceTokenizer`, a BERT tokenizer owned rather than depended on (**D122**), usable anywhere a token-aware step is wanted. Deps: DI + Logging abstractions only. |
 | `Lyntai.Providers.Basic` | The dependency-free **LLM** backends — Core and the BCL, nothing else: authenticated `claude` and `codex` CLIs; any OpenAI-shaped endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port. Media backends moved to `Lyntai.Generation`. |
 | `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLlamaSharpProvider(modelPath)` and every namespace are unchanged. |
@@ -125,19 +125,18 @@ check-bundle` fails the build if that closure ever drifts, so the one-line insta
 ## Consuming Lyntai
 
 ```bash
-dotnet add package Lyntai                  # the recommended STARTING set — 5 of the 12 packages
-dotnet add package Lyntai.Storage.Sqlite   # persistence (the bundle's storage is IN-MEMORY)
+dotnet add package Lyntai                  # the recommended STARTING set — 6 of the 12 packages
+dotnet add package Lyntai.Storage.Sqlite   # a database (the bundle persists only as files, once you name a root)
 dotnet add package Lyntai.Generation       # image/video/audio backends
 ```
 
 **`Lyntai` is a starting set, not the whole library.** It gives you Core, the LLM backends,
-both halves of MCP, and **in-memory** storage. The two that surprise people: nothing persists until you add
-`Lyntai.Storage.Sqlite` (or `.Postgres`, or `.FileSystem` for data you want to read as files), and generation
-is not included. The seven packages left out are left out for a reason — a native payload (`Storage.Sqlite`,
-`Providers.LlamaSharp`, `Providers.Onnx`), a platform-specific API (`Secrets.Dpapi`), a server dependency
-(`Storage.Postgres`), a surface most applications never call (`Lyntai.Generation`), or a root only the
-application can name (`Storage.FileSystem`, which cannot run unconfigured the way in-memory storage does) —
-see `docs/DECISIONS.md` D26.
+both halves of MCP, **in-memory** storage, and **file** storage. The two that surprise people: nothing persists
+until you either name a root with `UseFileSystemStorage` or add `Lyntai.Storage.Sqlite` (or `.Postgres`), and
+generation is not included. The six packages left out are left out for a reason — a native payload
+(`Storage.Sqlite`, `Providers.LlamaSharp`, `Providers.Onnx`), a platform-specific API (`Secrets.Dpapi`), a
+server dependency (`Storage.Postgres`), or a surface most applications never call (`Lyntai.Generation`) — see
+`docs/DECISIONS.md` D26. File storage is in because it adds nothing but its own ~60 KB assembly.
 
 **Convenience vs size.** `Lyntai` is a bundle with no code of its own — it just pulls a curated set. A
 framework-dependent `dotnet publish` copies the **whole** dependency graph and analyses nothing, so that lands

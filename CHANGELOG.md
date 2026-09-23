@@ -58,7 +58,9 @@ every addition.
   the same cross-backend contract as SQLite — a query finds the same entries on both. Records are held in
   memory and written through, because scanning files per recall measured 19× over budget; so ONE process owns
   a root, and files are edited only while none does. It registers with `TryAdd`: call it before
-  `UseSqliteStorage` to take its domains and let SQLite hold the rest. Not in the `Lyntai` bundle.
+  `UseSqliteStorage` to take its domains and let SQLite hold the rest. **Part of the `Lyntai` bundle** — a
+  ~60 KB assembly with no dependency beyond Core clears **D26**'s budget; nothing is written until a root is
+  named.
 
 ### Fixed
 
