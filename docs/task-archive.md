@@ -4812,3 +4812,19 @@ has the reasoning; the length confound it would have missed is in `.claude/knowl
 one run (20 minutes of rating, cached), stopped there.
 
 - Affect is absent as an axis
+
+## Part 275 — a Claude agent session announces its session once, not per thinking tick (2026-09-23)
+
+✅ done 2026-09-23 — **Outcome:** `StreamJsonAgentReader` yielded `SessionStarted` for every `system` line
+carrying a `session_id`, and current `claude` builds follow `system/init` with a `system/thinking_tokens`
+progress event per thinking update — so a consumer persisting the stream stored one session start per tick.
+The reader now announces an id when it is NEW. The per-incident record is `docs/FIXES.md` (2026-09-23); the
+release line is `CHANGELOG.md` §Unreleased.
+
+**What the item got wrong, for the next reader:** it prescribed "`system/init` only". Keyed on the subtype,
+the fix would have silenced two existing session tests that feed a bare `system` line with no subtype, so
+the rule is keyed on the id instead — which also still reports a genuinely new one. `rate_limit_event`
+stays unsurfaced, now with a comment saying why: surfacing it needs a new `AgentStreamEvent`, a
+public-surface decision nobody has asked for.
+
+- Yield `SessionStarted` for `system/init` only

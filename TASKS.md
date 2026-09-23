@@ -29,7 +29,7 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 293 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
 | 350 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 | 397 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
-| 434 | 272 | Yield `SessionStarted` for `system/init` only | startable |  |
+| 435 | 274 | A POLICY-level opt-in for the LLM judge to read `Content ?? Headline` | startable |  |
 
 <!-- open-items:end -->
 
@@ -426,25 +426,29 @@ no carve-out (**D70**)._
   one transaction, and that contract already puts the review log last so a partial failure costs neither the
   touch nor the edges.
 
-## Part 272 — `StreamJsonAgentReader` reads every `system` event as a session start (2026-09-23)
+## Part 274 — `LlmMemoryVerificationPolicy` cannot be told to read `Content` (2026-09-23)
 
-_Filed from an adopter, which already shipped a workaround — so **landing this means telling
-them to delete it** (`AgentRunner`'s one-announcement guard; its comment names this Part)._
+_An adopter has shipped a workaround, so **landing this means telling them to delete it**: a decorator in
+front of its LLM verifier that rewrites each candidate's `Headline` to `"{headline} — {content}"` before the
+policy renders it._
 
-- [ ] **Yield `SessionStarted` for `system/init` only.** `ReadSystem` yields one for ANY `system` line <!-- item: state=startable -->
-  carrying a `session_id`. Measured against `claude` **2.1.280** (`-p --output-format stream-json
-  --verbose`, haiku, 2026-09-23): a turn emits `system/init`, then `system/thinking_tokens` PROGRESS events
-  (`estimated_tokens`, `estimated_tokens_delta`, `session_id`), and a `rate_limit_event` before `result`. The
-  reader turns each `thinking_tokens` line into another `SessionStarted` with the same id, so a consumer that
-  persists the event stream stores one "session started" per progress tick — invisible in any UI, and one
-  row per tick in the adopter's chat history. The id cannot change within a run, so nothing is lost by
-  yielding it once; `_model` capture from `init` is unaffected.
-  <br>**Also worth a line in the reader:** `rate_limit_event` falls to the "any other type → nothing" arm,
-  which is right today, but it carries `rate_limit_info` a consumer might want surfaced — a decision, not a
-  defect.
-  <br>**Test shape:** a scripted stream of `init` + two `thinking_tokens` must yield exactly one
-  `SessionStarted`. The adopter's own proof is its `e2e-p43`, whose stub now emits that exact sequence and
-  which fails with the guard removed (three announcements for one run).
+- [ ] **A POLICY-level opt-in for the LLM judge to read `Content ?? Headline`.** **D108** gave every <!-- item: state=startable -->
+  verifier the entry's `Content` and deliberately left the choice of text with the POLICY ("a judge pays by
+  the token and only the policy knows whether it is paying"), rejecting an engine-level option. That choice
+  exists today for `ScoringVerificationPolicy`, which reads `Content ?? Headline`, but
+  `LlmMemoryVerificationPolicy` renders `"{n}. {Headline}"` with no way to opt into content — so the one
+  policy that pays by the token is also the one that cannot choose to. This asks for that option on
+  `LlmVerificationOptions`, default off, consistent with D108 rather than reopening it.
+  <br>**Why an adopter needs it — the headline is not always a truncation.** A consumer that AUTHORS
+  headlines (a topic, a title) gets a judge that sees only the label: measured against the real claude CLI
+  2.1.280, a single fact whose headline was its topic ("weekend market") and whose content answered the query
+  ("when does the market open") came back `answered=false` — the correct verdict on what the judge was shown.
+  **Headline-as-truncation is the case D108 priced; headline-as-label is the case it did not.**
+  <br>**Price it before a default ever moves.** A content line is longer than a 120-char headline, and the
+  judge's depth/endorsement behaviour in `docs/memory-measurements.md` §5 (the 4B judge spending 10.5 points at
+  4× depth) was measured on headline-length prompts; a longer prompt moves those numbers. Render content on
+  ONE line (the composer rule D166 applies to recalled memory: a newline inside an entry must not break the
+  numbered list), and bound its length.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

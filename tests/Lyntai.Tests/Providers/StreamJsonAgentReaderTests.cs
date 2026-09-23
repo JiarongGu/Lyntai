@@ -23,6 +23,40 @@ public class StreamJsonAgentReaderTests
         Assert.Equal("abc-123", started.SessionId);
     }
 
+    [Fact]
+    public void Progress_system_events_do_not_restart_the_session()
+    {
+        // The shape claude 2.1.280 emits: `system/init`, then `system/thinking_tokens` PROGRESS events
+        // carrying the same session_id. Each one used to yield another SessionStarted, so a consumer that
+        // persists the stream stored one "session started" per progress tick.
+        var reader = new StreamJsonAgentReader();
+        string[] lines =
+        [
+            """{"type":"system","subtype":"init","session_id":"sess-1","model":"claude-haiku-4-5"}""",
+            """{"type":"system","subtype":"thinking_tokens","estimated_tokens":120,"estimated_tokens_delta":120,"session_id":"sess-1"}""",
+            """{"type":"system","subtype":"thinking_tokens","estimated_tokens":310,"estimated_tokens_delta":190,"session_id":"sess-1"}""",
+        ];
+
+        var started = lines.SelectMany(reader.Read).OfType<SessionStarted>().ToList();
+
+        Assert.Equal("sess-1", Assert.Single(started).SessionId);
+    }
+
+    [Fact]
+    public void A_changed_session_id_is_announced_again()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var started = new[]
+            {
+                """{"type":"system","subtype":"init","session_id":"sess-1"}""",
+                """{"type":"system","subtype":"init","session_id":"sess-2"}""",
+            }
+            .SelectMany(reader.Read).OfType<SessionStarted>().Select(s => s.SessionId).ToList();
+
+        Assert.Equal(["sess-1", "sess-2"], started);
+    }
+
     // ── stream_event (partial deltas) ────────────────────────────────────────
 
     [Fact]

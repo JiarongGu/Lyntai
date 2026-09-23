@@ -14,6 +14,7 @@ namespace Lyntai.Providers.ClaudeCli;
 internal sealed class StreamJsonAgentReader
 {
     private string? _model;
+    private string? _sessionId;
     private string? _lastAssistantText;
 
     /// <summary>Translates one stream-json line into 0..N events. Never throws.</summary>
@@ -57,7 +58,8 @@ internal sealed class StreamJsonAgentReader
                 case "result":
                     foreach (var e in ReadResult(root)) yield return e;
                     break;
-                // Any other type → yield nothing
+                // Any other type → yield nothing. That includes `rate_limit_event`, whose `rate_limit_info`
+                // is not surfaced: no AgentStreamEvent carries it, and adding one is a public-surface decision.
             }
         }
     }
@@ -70,8 +72,15 @@ internal sealed class StreamJsonAgentReader
         if (root.TryGetProperty("model", out var modelEl) && modelEl.ValueKind == JsonValueKind.String)
             _model = modelEl.GetString();
 
-        if (root.TryGetProperty("session_id", out var sidEl) && sidEl.ValueKind == JsonValueKind.String)
-            yield return new SessionStarted(sidEl.GetString()!);
+        // Every `system` line carries the session_id — `init`, and then each `thinking_tokens` PROGRESS tick —
+        // so announcing per line announced one session start per tick. Announce an id once, when it is new.
+        // Keyed on the id rather than on `subtype == "init"`, which not every emitter sets.
+        if (root.TryGetProperty("session_id", out var sidEl) && sidEl.ValueKind == JsonValueKind.String &&
+            sidEl.GetString() is { } sessionId && sessionId != _sessionId)
+        {
+            _sessionId = sessionId;
+            yield return new SessionStarted(sessionId);
+        }
     }
 
     // ── stream_event (partial content deltas) ────────────────────────────────

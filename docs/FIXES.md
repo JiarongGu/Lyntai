@@ -7,6 +7,31 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-23 — a Claude agent session announced "session started" once per thinking tick
+
+**Symptom.** An adopter persisting `IAgentSession`'s event stream stored one `SessionStarted` per turn plus
+one per thinking update — invisible in any UI, and a row per tick in its chat history. It shipped its own
+one-announcement guard around the stream to cope.
+
+**Root cause.** `StreamJsonAgentReader.ReadSystem` yielded `SessionStarted` for ANY `system` line carrying a
+`session_id`. Measured against `claude` 2.1.280 (`-p --output-format stream-json --verbose`): a turn emits
+`system/init`, then `system/thinking_tokens` PROGRESS events (`estimated_tokens`, `estimated_tokens_delta`,
+`session_id`), and a `rate_limit_event` before `result`. Every progress event was read as a session start.
+
+**Fix.** The reader remembers the id it announced and yields `SessionStarted` only for a new or changed one.
+Keyed on the id rather than on `subtype == "init"`, because not every emitter sets the subtype — two
+existing session tests feed a bare `system` line — and an id-keyed rule still reports a real change. The
+`rate_limit_event` arm stays "yield nothing", now with a comment saying that surfacing it is a public-surface
+decision rather than an oversight.
+
+**Verify.** `StreamJsonAgentReaderTests.Progress_system_events_do_not_restart_the_session` feeds `init` plus
+two `thinking_tokens` lines and asserts ONE `SessionStarted`; it failed with three before the fix.
+`A_changed_session_id_is_announced_again` pins the other half. The adopter's own end-to-end check counts
+announcements through a stub emitting that exact sequence, so its guard becomes deletable once this ships.
+
+**Introduced by.** `3b89a17d` (2026-07-19), which wrote the reader against streams whose only `system` line
+was `init` — every fixture its tests fed was one.
+
 ## 2026-09-21 — every sweep's single-text embed crashed on a cast the D153 refactor left stale
 
 **Symptom.** The first sweep run since 2026-09-18 dies immediately:

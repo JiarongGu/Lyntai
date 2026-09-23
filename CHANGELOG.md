@@ -42,6 +42,15 @@ every addition.
   the two composers into line rather than inventing a convention.
   <br>**What to DO:** a consumer asserting on the old heading updates the string.
 
+### Fixed
+
+- **A Claude agent session announces its session ONCE, not once per progress tick.** The stream-json reader
+  yielded `SessionStarted` for every `system` line carrying a `session_id` — and current `claude` builds
+  follow `system/init` with a `system/thinking_tokens` progress event per thinking update, each carrying the
+  same id. A consumer persisting the event stream stored one "session started" per tick. The reader now
+  announces an id when it is new; a genuinely different id is still announced.
+  <br>**What to DO:** a consumer that deduplicated `SessionStarted` itself can drop that guard.
+
 ## 3.2.0 — 2026-09-19
 
 ### Breaking
