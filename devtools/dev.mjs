@@ -301,6 +301,14 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--affect', ...args]);
     break;
 
+  // storage-scan — can a file-per-record store answer substring recall by SCANNING its files, or must it
+  // keep an in-process index? The design risk Lyntai.Storage.FileSystem named before anything was built
+  // (docs/task-archive.md records the outcome). Model-free; `--large` adds a 100,000-record rung.
+  case 'storage-scan':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--storage-scan', ...args]);
+    break;
+
   // memory-verification — the only mechanism aimed at PollutionRate, and the only 3.0 seam that had no sweep
   // (added 2026-08-15). Every OTHER recall-quality figure this repository publishes is MODEL-FREE: the policy
   // sweep wires no verifier and no annotator, so its numbers are the lexical floor rather than what a

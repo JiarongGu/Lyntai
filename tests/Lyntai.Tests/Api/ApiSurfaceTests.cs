@@ -31,6 +31,7 @@ public class ApiSurfaceTests
         "Lyntai.Providers.LlamaSharp",
         "Lyntai.Tools.Mcp",
         "Lyntai.Secrets.Dpapi",
+        "Lyntai.Storage.FileSystem",
         "Lyntai.Providers.Onnx",
         "Lyntai.Generation",
     ];
@@ -51,6 +52,7 @@ public class ApiSurfaceTests
         ["Lyntai.Providers.LlamaSharp"] = typeof(Lyntai.Providers.LlamaSharp.LlamaSharpProvider).Assembly,
         ["Lyntai.Tools.Mcp"] = typeof(Lyntai.Tools.Mcp.McpToolset).Assembly,
         ["Lyntai.Secrets.Dpapi"] = typeof(Lyntai.Secrets.DpapiSecretProtector).Assembly,
+        ["Lyntai.Storage.FileSystem"] = typeof(Lyntai.FileSystemStorageBuilderExtensions).Assembly,
         ["Lyntai.Providers.Onnx"] = typeof(Lyntai.OnnxBuilderExtensions).Assembly,
         ["Lyntai.Generation"] = typeof(Lyntai.Generation.Providers.OpenAiImageProvider).Assembly,
     };

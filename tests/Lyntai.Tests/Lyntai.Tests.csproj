@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\src\Lyntai.Providers.LlamaSharp\Lyntai.Providers.LlamaSharp.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Tools.Mcp\Lyntai.Tools.Mcp.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Secrets.Dpapi\Lyntai.Secrets.Dpapi.csproj" />
+    <ProjectReference Include="..\..\src\Lyntai.Storage.FileSystem\Lyntai.Storage.FileSystem.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.Onnx\Lyntai.Providers.Onnx.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Generation\Lyntai.Generation.csproj" />
   </ItemGroup>

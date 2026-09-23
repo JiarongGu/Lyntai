@@ -135,8 +135,8 @@ caller **falls back to LIKE** (with `ESCAPE`-guarded `% _ \`). Rank matches with
 ever sourced from `FtsQuery.Build`, never raw user text. The LIKE/ILIKE side uses `SearchTerms.LikeClause`,
 which returns the OR predicate, a matched-term COUNT expression for ranking, and the parameters.
 
-**WHICH entries a query finds is now the same on all three backends; only RANKING differs** (`D55`). SQLite
-ranks by **bm25**; Postgres (pg_trgm) and InMemory by **matched-term count, then recency**.
+**WHICH entries a query finds is now the same on every backend; only RANKING differs** (`D55`). SQLite
+ranks by **bm25**; Postgres (pg_trgm), InMemory and FileSystem by **matched-term count, then recency**.
 
 **The trap this replaced, because it is the shape of trap to watch for.** Only `FtsQuery` knew how to split a
 query, so only SQLite's FTS path did — every other path (both LIKE fallbacks, all three Postgres queries,

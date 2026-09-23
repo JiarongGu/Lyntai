@@ -345,7 +345,9 @@ faster. And `WriteBackAsync` carries an ORDER as contract — the review log las
 cost the touch or the edges — so an override that reorders it is wrong however fast it is.
 
 Mirror `src/Lyntai.Storage.Postgres/`, the
-reference backend, which implements twelve of the thirteen (all but `IModelRoutingStore`). Provide
+reference backend, which implements twelve of the thirteen (all but `IModelRoutingStore`). **A backend that is
+not a database mirrors `src/Lyntai.Storage.FileSystem/` instead** (**D171**) — no SQL and no migrations, but
+the same contract suites, plus RESTART tests those suites cannot express, since each runs one live store. Provide
 `builder.Use<Backend>Storage(...)` that registers an `IDbConnectionFactory` (or the backend's equivalent) +
 the stores + runs migrations.
 

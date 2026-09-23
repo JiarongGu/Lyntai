@@ -76,6 +76,12 @@ if (args.Contains("--consolidation"))
 if (args.Contains("--affect"))
     return await MemoryAffectSweep.RunAsync();
 
+// `node devtools/dev.mjs storage-scan` → --storage-scan. Can a file-per-record store answer substring
+// recall by SCANNING its files, or must it keep an in-process index? Model-free; `--large` adds 100,000.
+// See FileSystemScanSweep.
+if (args.Contains("--storage-scan"))
+    return FileSystemScanSweep.Run(args);
+
 // `node devtools/dev.mjs memory-verification` → --verification. The only mechanism aimed at PollutionRate,
 // and the only 3.0 seam with no sweep until 2026-08-15. Every other recall-quality figure this repository
 // publishes is MODEL-FREE, so this is the first measurement of what putting a model in the loop is worth.

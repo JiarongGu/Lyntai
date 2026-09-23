@@ -240,8 +240,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D168](#d168--offline-graph-consolidation-is-refused-on-measurement-2026-09-23) | 2026-09-23 | offline graph consolidation is REFUSED, on measurement |
 | [D169](#d169--affect-is-refused-as-a-shipped-memory-axis-on-measurement-2026-09-23) | 2026-09-23 | affect is REFUSED as a shipped memory axis, on measurement |
 | [D170](#d170--the-llm-judge-can-be-told-to-read-content-content-alone-bounded-off-by-default-2026-09-23) | 2026-09-23 | the LLM judge can be told to read CONTENT: content alone, bounded, off by default |
+| [D171](#d171--the-file-system-backend-holds-its-records-in-memory-owns-its-root-and-serves-what-a-person-reads-2026-09-23) | 2026-09-23 | the file-system backend holds its records in memory, owns its root, and serves what a person reads |
 
-_All 170 entries are live decisions._
+_All 171 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5267,3 +5268,34 @@ judge degrading under.
 
 **The default does not move until it is priced.** Every judge figure in `docs/memory-measurements.md` §5 was
 taken on headline-length notes; the trigger is a run of the judge arm with content on, never an argument.
+
+## D171 — the file-system backend holds its records in memory, owns its root, and serves what a person reads (2026-09-23)
+
+**The decision.** `Lyntai.Storage.FileSystem` writes one Markdown record per file and answers from memory:
+each domain loads its directory on first use and writes through, disk first, on every change; one process owns
+a root through an exclusive lock file. It serves `IKeyValueStore`, `IPromptVersionStore`, `IConversationStore`,
+`IMemoryStore` and `ICuratedMemoryStore`.
+
+**Why not scan.** A recall that reads its files costs 137 ms at 1,000 records and 1.9 s at 10,000, against a
+pre-registered 100 ms (`docs/memory-measurements.md` §A file-per-record store cannot SCAN). Holding records
+forces single ownership, because a second writer leaves both views stale, and the price is stated rather than
+hidden: the files are always current to READ, and edited only while no process owns the root. A cache
+revalidated by modification time was the alternative; it buys only mid-run hand edits, for a directory walk
+per read.
+
+**Why this roster.** The item first reasoned that jobs, counters and the cache need a compare-and-set no
+directory provides; single ownership removes that, so the reason is value: they are machine state nobody reads,
+held better by SQLite, like vectors, scores and traces. The graph store is deferred for SIZE, not value.
+There is no eager wiring guard: **D150**'s guard catches helpers registering stores over tables nothing
+created, and a backend registering only what it serves leaves the rest unresolvable — the signal D150 names.
+
+**Names are a slug plus 64 bits of SHA-256 and are never decoded**, because each header holds the exact
+string; that alone makes a name injective, legal on NTFS and ext4, case-safe and bounded, where a reversible
+encoding would have to get all four right by itself. The store classes stay internal: composition is
+`UseFileSystemStorage`, and making one public later is additive where the reverse is not.
+
+**Two shapes were refused when the work was filed, and are recorded so neither is reopened.** A document
+DATABASE (Mongo, LiteDB): the need is reading stored data by eye, and such an engine still needs a client —
+while schema flexibility is already answered by `MemorySignals`' open bag. A MIRROR of the relational store:
+two copies drift, and nothing then says which is right. The package is named for its BACKEND; Markdown against
+JSON is a FORMAT axis for an option, never a second package.

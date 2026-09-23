@@ -1,0 +1,5 @@
+static class Lyntai.FileSystemStorageBuilderExtensions
+    static UseFileSystemStorage(LyntaiBuilder builder, Action<FileSystemStorageOptions> configure) : LyntaiBuilder
+sealed class Lyntai.FileSystemStorageOptions
+    .ctor()
+    Root : String

@@ -51,6 +51,15 @@ every addition.
   `Content ?? Headline` instead. `0`, the default, keeps today's prompt; the cost multiplies with
   `GraphMemoryOptions.VerificationDepth`.
 
+- **`Lyntai.Storage.FileSystem` — storage as files you can read** (**D171**). A new package: one small
+  Markdown record per file under a root you choose (`UseFileSystemStorage(o => o.Root = …)`), the record's
+  fields in its header and its text as the body, so stored data reads without a client. It serves key-value
+  (and with it live model routing), prompt versions, conversations, task memory and curated memory, each on
+  the same cross-backend contract as SQLite — a query finds the same entries on both. Records are held in
+  memory and written through, because scanning files per recall measured 19× over budget; so ONE process owns
+  a root, and files are edited only while none does. It registers with `TryAdd`: call it before
+  `UseSqliteStorage` to take its domains and let SQLite hold the rest. Not in the `Lyntai` bundle.
+
 ### Fixed
 
 - **A headline carrying a newline no longer forges a note in the LLM judge's list.** Every candidate now

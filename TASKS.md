@@ -28,7 +28,7 @@ _Edit a marker, never this table — `verify` fails the moment the two disagree.
 | 269 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
 | 292 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
 | 349 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 396 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
+| 379 | 278 | Serve `IMemoryGraphStore` from files | startable |  |
 
 <!-- open-items:end -->
 
@@ -371,59 +371,20 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
 
-## Part 268 — `Lyntai.Storage.FileSystem`: one record per file, so stored data reads without a client (2026-09-20)
+## Part 278 — `Lyntai.Storage.FileSystem`: the memory engine's graph store (2026-09-23)
 
-_**Chosen from a posed set, so this is a decision rather than a working position**
-(`.claude/knowledge/input-is-thinking-not-doctrine.md`). Both rejected shapes are recorded because both
-will otherwise be reopened. A document DATABASE (Mongo, LiteDB) was refused: the stated need is reading
-stored data by eye and a NoSQL engine still needs a client — and the schema-flexibility half of that
-argument is already answered by `MemorySignals`, an open name→double bag that costs no migration
-(`.claude/knowledge/storage.md` §An open bag column). A MIRROR of the relational store was refused because
-two copies drift and nothing then says which is right. What is left is a PEER backend the consumer picks
-like any other, which is the shape `.claude/knowledge/extending-lyntai.md` §Add a storage backend already
-anticipates. **Reversal cost is a package id**: retiring one needs an entry in `devtools/nuget-unlist.mjs`'s
-`RETIRED` array (**D44**) and costs two `ApiSurface` theories, which is why the id was settled first.
-**`Lyntai.Storage.FileSystem`, chosen 2026-09-20**: the family is named for the BACKEND
-(`.claude/rules/dotnet-package-layout.md` §Naming), and the backend here is the file system. Markdown or
-JSON is a FORMAT axis and belongs in an option or a seam — a package named for its serialization would
-have to FORK to gain a second one._
+_The package shipped five domains (`docs/task-archive.md` Part 277, **D171**) and deferred this one for SIZE,
+not value: the long-term memory engine's store is where a person would most want to read memories as files._
 
-_**It was sequenced after the Ombre-Brain comparison by choice, not by a blocker**, and that comparison
-has closed in full (`docs/task-archive.md` Parts 269, 270, 271 and 273). Those four were migration-free
-and measurable on harnesses that existed; this one permanently widens a surface frozen under SemVer with
-no carve-out (**D70**)._
-
-- [ ] **`Lyntai.Storage.FileSystem` — one record per file, directories as the index.** Scaffold with <!-- item: state=startable -->
-  `node devtools/dev.mjs new-package Lyntai.Storage.FileSystem` — never by hand, the misses are silent. But
-  the scaffold is not the whole of what `check-packages` gates: it writes EIGHT of the nine, and the ninth —
-  the API BASELINE, which is what makes the SemVer claim real — is seeded by running `test` once and must be
-  READ before committing, or it freezes whatever surface happened to exist. Three of the eight land as TODO
-  placeholders that satisfy the gate vacuously (the `<Description>`, the `docs/AOT.md` row, the README row),
-  and bundle membership is deliberately NOT automatic (**D26**). A session-ready plan exists:
-  `local/superpowers/plans/2026-09-21-storage-filesystem-package.md` (untracked; row in
-  `docs/superpowers/INDEX.md`).
-  <br>**The first deliverable is the domain ROSTER, written down.** Thirteen interfaces exist and a
-  filesystem cannot honestly serve all of them: `IJobStore`'s claim fence, `IUsageTracker`'s counters and
-  `IResponseCache` each need an atomic compare-and-set no directory provides.
-  `.claude/knowledge/extending-lyntai.md` says to skip a domain deliberately and never by omission, so the
-  roster is a list with a reason per line — and the `Use*` helper needs an EAGER startup guard refusing a
-  wiring that depends on a domain it does not serve, on **D150**'s argument.
-  <br>**Recall is the design risk and it is answerable before anything is built.** `MemoryStoreContract`
-  demands substring recall including CJK, which SQLite serves with an FTS5 trigram index and a directory
-  serves with nothing. Measure first: does a scan meet the contract at a tolerable cost, or must the package
-  maintain its own in-process index? That answer decides the shape of everything else.
-  <br>**A consumer's string becomes a PATH, which is a boundary rather than a formatting concern.** Task key
-  and scope arrive arbitrary — traversal, the Windows reserved names, characters legal on ext4 and illegal
-  on NTFS, NTFS case-insensitivity colliding two keys that differ on Linux, and the path-length limit.
-  Encode deliberately, and stay under one root: that is this backend's version of the `lyntai_` prefix rule,
-  for the same reason (Lyntai may share the consumer's directory).
-  <br>**Writing text files turns every trap in `.claude/rules/windows-machine.md` into shipped code** —
-  BOM-less UTF-8, LF, and write-temp-then-rename for atomicity. `check-encoding` exists because mojibake
-  passes every other gate, and this is the first package that would write user text to disk. A frontmatter
-  schema-version field belongs in the first file ever written: there is no migrator here to add one later.
-  <br>**`WriteBackAsync`'s pinned ORDER (D101) helps rather than hurts.** Several files cannot be written in
-  one transaction, and that contract already puts the review log last so a partial failure costs neither the
-  touch nor the edges.
+- [ ] **Serve `IMemoryGraphStore` from files.** The largest contract in the library — thirteen required <!-- item: state=startable -->
+  members plus three defaulted ones, and `KnownSubjectsAsync`'s default silently turns off subject seeding
+  (`.claude/knowledge/extending-lyntai.md` §Add a storage backend); `WriteBackAsync` pins an ORDER (**D101**).
+  Mirror `InMemoryMemoryGraphStore`'s semantics under **D171**'s shape — records in memory, written through,
+  one owner per root — with each node a readable file and the machine state (edges, subjects, the review
+  log, decay primitives) beside it. Join the structural roster in `MemoryGraphStoreCoverageTests` so the
+  whole contract runs, and add restart tests, which the contract cannot express.
+  <br>**Decide the edge layout first**: a node's file cannot hold its edges without every link rewriting two
+  files, and edges are written on every recall (**D99**'s batching exists because of it).
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

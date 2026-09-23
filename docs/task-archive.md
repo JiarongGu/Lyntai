@@ -4843,3 +4843,20 @@ guidance is `docs/memory.md`'s verification section; the release lines are `CHAN
 the next release.
 
 - A POLICY-level opt-in for the LLM judge to read `Content ?? Headline`
+
+## Part 277 — `Lyntai.Storage.FileSystem`: storage as files a person can read (2026-09-23)
+
+✅ done 2026-09-23 — **Outcome:** a new package serving key-value, prompt versions, conversations, task
+memory and curated memory as one Markdown record per file, each domain on the SAME cross-backend contract
+suites as SQLite (98 facts) plus restart, format and wiring tests the suites cannot express. Public surface:
+`UseFileSystemStorage` and `FileSystemStorageOptions`, nothing else. The shape, the roster and every rejected
+alternative: **D171**; the measurement that decided it: `docs/memory-measurements.md` §A file-per-record store
+cannot SCAN; consumer line: `CHANGELOG.md` §Unreleased. The graph store is the new `TASKS.md` Part 278.
+
+**What the item and its plan got wrong, for the next reader:** the roster's first reason for skipping jobs,
+counters and the cache ("no compare-and-set") dissolved once the measurement forced single ownership, so the
+stated reason is value; the plan's EAGER wiring guard misread **D150**, whose guard exists for helpers
+registering stores over tables nothing created; and the plan's reversible name encoder was unnecessary once
+the header holds the exact string.
+
+- `Lyntai.Storage.FileSystem` — one record per file, directories as the index
