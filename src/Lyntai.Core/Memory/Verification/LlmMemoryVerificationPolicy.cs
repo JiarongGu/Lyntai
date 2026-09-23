@@ -48,6 +48,30 @@ public sealed class LlmVerificationOptions
     /// model silently becomes the thing that decides which Chinese memories are worth returning.</para>
     /// </summary>
     public string? Model { get; set; }
+
+    /// <summary>How many characters of each candidate's CONTENT the judge is shown; <c>0</c>, the default,
+    /// shows its HEADLINE instead.
+    /// <para><b>Set it when your headlines are authored LABELS rather than truncations.</b> A label says what
+    /// an entry is about and not what it says, so a judge reading only the label declines an entry that does
+    /// answer the query — correctly, on what it was shown. A candidate carrying no content falls back to its
+    /// headline.</para>
+    /// <para><b>The headline stays the default because this policy pays by the token</b>
+    /// (<c>docs/DECISIONS.md</c> <b>D108</b>), and the cost multiplies: every candidate in a list
+    /// <see cref="GraphMemoryOptions.VerificationDepth"/> long grows by up to this many characters. The depth
+    /// and endorsement figures on <see cref="ClientName"/> were measured on headline-length notes, so a longer
+    /// list is unmeasured for this policy.</para>
+    /// <para>Content longer than this is cut at a word and ends in an ellipsis. Either way every candidate
+    /// renders as ONE line, so a newline inside an entry cannot start a note of its own.</para></summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public int ContentChars
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            field = value;
+        }
+    }
 }
 
 /// <summary>
@@ -160,11 +184,15 @@ public sealed class LlmMemoryVerificationPolicy(
     /// <para><b>Numbers rather than the engine's own ids.</b> A store id is a long that carries no meaning,
     /// costs tokens, and invites a model to echo a plausible-looking one it never saw. Small ordinals are
     /// cheap, and an out-of-range ordinal is trivially detectable — which is what
-    /// <see cref="Parse"/> relies on.</para></summary>
-    private static string Compose(MemoryVerificationRequest request)
+    /// <see cref="Parse"/> relies on.</para>
+    /// <para><b>One line per candidate, always</b> — the rule <b>D166</b> gives the composers: a headline or
+    /// content carrying its own newline would otherwise add a line the model reads as a numbered note.</para></summary>
+    private string Compose(MemoryVerificationRequest request)
     {
-        var notes = request.Candidates
-            .Select((c, i) => string.Create(CultureInfo.InvariantCulture, $"{i + 1}. {c.Headline}"));
+        var notes = request.Candidates.Select((c, i) => string.Create(CultureInfo.InvariantCulture,
+            $"{i + 1}. {(_options.ContentChars > 0
+                ? MemoryHeadline.Derive(c.Content ?? c.Headline, _options.ContentChars)
+                : MemoryLine.Flatten(c.Headline))}"));
 
         return $"Question:\n{request.Query}\n\nNotes:\n{string.Join("\n", notes)}";
     }

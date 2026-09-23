@@ -441,6 +441,13 @@ refinement, and endorsing more than a page is what made the instruct judge repla
 whichever was registered first, which is registration order deciding what verifies memory and saying so
 nowhere. A cross-encoder registered for a tool selector is enough to make that reachable.
 
+**The instruct judge reads HEADLINES unless told otherwise** — the cheap default (**D108**), and the right
+one while a headline is a truncation of its content. **If your application AUTHORS headlines** — a topic,
+a title — the judge sees only the label and declines entries that do answer, so set
+`LlmVerificationOptions.ContentChars` (`AddMemoryVerification(o => o.ContentChars = 400)`) to show it up to
+that many characters of content instead (**D170**). That cost multiplies with `VerificationDepth`, and it is
+unpriced on this policy: every judge figure above was taken on headline-length notes.
+
 Because it is a policy rather than a mode, a consumer who disagrees with every judgement above implements
 `IMemoryVerificationPolicy` themselves — a hosted reranker, a different model, a hand-written rule — and
 registers it. The engine consults whatever is there and behaves identically when nothing is

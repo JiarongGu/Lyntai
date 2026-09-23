@@ -15,21 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 6 Parts: 2 startable, 4 blocked, 2 watch
+## Open items — 7 across 5 Parts: 1 startable, 4 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 162 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 209 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
-| 270 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 293 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 350 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 397 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
-| 435 | 274 | A POLICY-level opt-in for the LLM judge to read `Content ?? Headline` | startable |  |
+| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 161 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 208 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
+| 269 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 292 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 349 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 396 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
 
 <!-- open-items:end -->
 
@@ -425,30 +424,6 @@ no carve-out (**D70**)._
   <br>**`WriteBackAsync`'s pinned ORDER (D101) helps rather than hurts.** Several files cannot be written in
   one transaction, and that contract already puts the review log last so a partial failure costs neither the
   touch nor the edges.
-
-## Part 274 — `LlmMemoryVerificationPolicy` cannot be told to read `Content` (2026-09-23)
-
-_An adopter has shipped a workaround, so **landing this means telling them to delete it**: a decorator in
-front of its LLM verifier that rewrites each candidate's `Headline` to `"{headline} — {content}"` before the
-policy renders it._
-
-- [ ] **A POLICY-level opt-in for the LLM judge to read `Content ?? Headline`.** **D108** gave every <!-- item: state=startable -->
-  verifier the entry's `Content` and deliberately left the choice of text with the POLICY ("a judge pays by
-  the token and only the policy knows whether it is paying"), rejecting an engine-level option. That choice
-  exists today for `ScoringVerificationPolicy`, which reads `Content ?? Headline`, but
-  `LlmMemoryVerificationPolicy` renders `"{n}. {Headline}"` with no way to opt into content — so the one
-  policy that pays by the token is also the one that cannot choose to. This asks for that option on
-  `LlmVerificationOptions`, default off, consistent with D108 rather than reopening it.
-  <br>**Why an adopter needs it — the headline is not always a truncation.** A consumer that AUTHORS
-  headlines (a topic, a title) gets a judge that sees only the label: measured against the real claude CLI
-  2.1.280, a single fact whose headline was its topic ("weekend market") and whose content answered the query
-  ("when does the market open") came back `answered=false` — the correct verdict on what the judge was shown.
-  **Headline-as-truncation is the case D108 priced; headline-as-label is the case it did not.**
-  <br>**Price it before a default ever moves.** A content line is longer than a 120-char headline, and the
-  judge's depth/endorsement behaviour in `docs/memory-measurements.md` §5 (the 4B judge spending 10.5 points at
-  4× depth) was measured on headline-length prompts; a longer prompt moves those numbers. Render content on
-  ONE line (the composer rule D166 applies to recalled memory: a newline inside an entry must not break the
-  numbered list), and bound its length.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

@@ -239,8 +239,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D167](#d167--corroboration-counting-is-refused-as-verification-on-measurement-2026-09-21) | 2026-09-21 | corroboration counting is REFUSED as verification, on measurement |
 | [D168](#d168--offline-graph-consolidation-is-refused-on-measurement-2026-09-23) | 2026-09-23 | offline graph consolidation is REFUSED, on measurement |
 | [D169](#d169--affect-is-refused-as-a-shipped-memory-axis-on-measurement-2026-09-23) | 2026-09-23 | affect is REFUSED as a shipped memory axis, on measurement |
+| [D170](#d170--the-llm-judge-can-be-told-to-read-content-content-alone-bounded-off-by-default-2026-09-23) | 2026-09-23 | the LLM judge can be told to read CONTENT: content alone, bounded, off by default |
 
-_All 169 entries are live decisions._
+_All 170 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5246,3 +5247,23 @@ can emit arousal and an `IMemoryRetentionPolicy` turn it into stability; an `IMe
 on every recall, a query-less one included, so it can surface high-arousal entries. **The trigger to
 revisit** is a workload whose later relevance is OBSERVED to track affect — a deployment's own access log,
 or a benchmark that asks about feelings rather than facts — never a fixture that assumes it.
+
+## D170 — the LLM judge can be told to read CONTENT: content alone, bounded, off by default (2026-09-23)
+
+**The decision.** `LlmVerificationOptions.ContentChars` shows the judge up to that many characters of each
+candidate's `Content ?? Headline`, one line per candidate and cut at a word; `0` keeps the headline. **D108**
+left the choice of text with the POLICY; this lets whoever configures the shipped policy make it, because the
+case D108 priced — a headline that TRUNCATES its content — is not the only one. An application that AUTHORS
+headlines hands the judge a label, and a judge shown "weekend market" correctly declines the entry that says
+when the market opens.
+
+**Alternatives rejected.** Rendering `"{headline} — {content}"`, an adopter's workaround: for an
+engine-derived headline that repeats the content's first `HeadlineChars` characters, doubling the tokens of the
+default case, and the policy cannot tell an authored headline from a derived one because the candidate does
+not say. A boolean beside a separate cap: two knobs where one integer says both whether and how much — the
+shape `GraphMemoryOptions.HeadlineChars` already has. An unbounded content option: a candidate list
+`VerificationDepth` long of whole entries is the unbudgeted input `.claude/knowledge/pitfalls.md` records a
+judge degrading under.
+
+**The default does not move until it is priced.** Every judge figure in `docs/memory-measurements.md` §5 was
+taken on headline-length notes; the trigger is a run of the judge arm with content on, never an argument.

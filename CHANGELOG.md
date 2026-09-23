@@ -42,7 +42,20 @@ every addition.
   the two composers into line rather than inventing a convention.
   <br>**What to DO:** a consumer asserting on the old heading updates the string.
 
+### Added
+
+- **`LlmVerificationOptions.ContentChars` lets the LLM memory judge read an entry's CONTENT** (**D170**).
+  The judge was shown only each candidate's headline, which is right while a headline is a truncation and
+  wrong when an application AUTHORS headlines: shown only a label ("weekend market"), a judge correctly
+  declined the entry that answered "when does the market open?". Set it to show up to that many characters of
+  `Content ?? Headline` instead. `0`, the default, keeps today's prompt; the cost multiplies with
+  `GraphMemoryOptions.VerificationDepth`.
+
 ### Fixed
+
+- **A headline carrying a newline no longer forges a note in the LLM judge's list.** Every candidate now
+  renders as one numbered line, the rule **D166** gave the composers; a line break inside an authored
+  headline used to start a line the judge read as a note of its own.
 
 - **A Claude agent session announces its session ONCE, not once per progress tick.** The stream-json reader
   yielded `SessionStarted` for every `system` line carrying a `session_id` — and current `claude` builds

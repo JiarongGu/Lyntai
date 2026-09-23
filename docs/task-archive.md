@@ -4828,3 +4828,18 @@ stays unsurfaced, now with a comment saying why: surfacing it needs a new `Agent
 public-surface decision nobody has asked for.
 
 - Yield `SessionStarted` for `system/init` only
+
+## Part 276 — the LLM judge can be told to read an entry's content (2026-09-23)
+
+✅ done 2026-09-23 — **Outcome:** `LlmVerificationOptions.ContentChars` (default `0`, today's prompt) shows
+the judge up to that many characters of `Content ?? Headline` per candidate, cut at a word through
+`MemoryHeadline.Derive`. Every candidate now renders as ONE numbered line in both modes — the default path
+had the defect too: an authored headline carrying a newline started a line the judge read as a note of its
+own. Why content alone and bounded, and why the default waits for a priced run: **D170**; the consumer
+guidance is `docs/memory.md`'s verification section; the release lines are `CHANGELOG.md` §Unreleased.
+
+**What the item did not anticipate:** the one-line rule was not only a content-mode concern, so it is a
+`### Fixed` line as well as an `### Added` one. The adopter's workaround decorator can go when it picks up
+the next release.
+
+- A POLICY-level opt-in for the LLM judge to read `Content ?? Headline`

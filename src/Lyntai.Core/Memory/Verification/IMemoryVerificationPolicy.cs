@@ -100,8 +100,9 @@ public sealed record MemoryVerificationCandidate(string Id, string Headline, dou
     /// characters of the content — so a policy that scores WORDING is scoring a fragment. Measured: a
     /// cross-encoder reranker reading headlines LOST 7.5 points against the arm it was meant to improve,
     /// and reading whole entries GAINED 5.0. A judge paying by the token has the opposite trade and should
-    /// keep reading the headline, which is why this carries the text rather than replacing what is already
-    /// there (<c>docs/DECISIONS.md</c> <b>D108</b>).</para>
+    /// keep reading the headline — unless the headline is an authored LABEL rather than a truncation, which
+    /// is what <see cref="LlmVerificationOptions.ContentChars"/> is for — and that is why this carries the
+    /// text rather than replacing what is already there (<c>docs/DECISIONS.md</c> <b>D108</b>).</para>
     ///
     /// <para><b>An init property rather than a positional parameter</b>, so the record's
     /// <c>Deconstruct</c> keeps its arity and a consumer already destructuring one still compiles.</para>

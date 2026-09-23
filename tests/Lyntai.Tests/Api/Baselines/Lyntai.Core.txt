@@ -2565,6 +2565,7 @@ sealed class Lyntai.Memory.Verification.LlmMemoryVerificationPolicy
 sealed class Lyntai.Memory.Verification.LlmVerificationOptions
     .ctor()
     ClientName : String
+    ContentChars : Int32
     Model : String
 enum Lyntai.Memory.Verification.MemoryVerdictCombination
     Fuse : MemoryVerdictCombination const
