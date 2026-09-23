@@ -241,8 +241,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D169](#d169--affect-is-refused-as-a-shipped-memory-axis-on-measurement-2026-09-23) | 2026-09-23 | affect is REFUSED as a shipped memory axis, on measurement |
 | [D170](#d170--the-llm-judge-can-be-told-to-read-content-content-alone-bounded-off-by-default-2026-09-23) | 2026-09-23 | the LLM judge can be told to read CONTENT: content alone, bounded, off by default |
 | [D171](#d171--the-file-system-backend-holds-its-records-in-memory-owns-its-root-and-serves-what-a-person-reads-2026-09-23) | 2026-09-23 | the file-system backend holds its records in memory, owns its root, and serves what a person reads |
+| [D172](#d172--dependencies-are-kept-current-and-a-major-is-taken-when-the-suites-that-exercise-it-pass-2026-09-23) | 2026-09-23 | dependencies are kept CURRENT, and a major is taken when the suites that exercise it pass |
 
-_All 171 entries are live decisions._
+_All 172 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5311,3 +5312,21 @@ DATABASE (Mongo, LiteDB): the need is reading stored data by eye, and such an en
 while schema flexibility is already answered by `MemorySignals`' open bag. A MIRROR of the relational store:
 two copies drift, and nothing then says which is right. The package is named for its BACKEND; Markdown against
 JSON is a FORMAT axis for an option, never a second package.
+
+## D172 — dependencies are kept CURRENT, and a major is taken when the suites that exercise it pass (2026-09-23)
+
+**The decision.** An outdated dependency is bumped rather than held, the owner's ruling on `docs/task-archive.md` Part 280
+when the wide check found fifteen behind and nothing vulnerable. The alternative was to treat each version as
+a FLOOR and bump only for a fix or a feature, since raising one makes every consumer that pins it lower edit
+a `PackageReference` (NuGet's NU1605). Current wins because a floor nobody moves accumulates silently: the
+SQLite bundle ships its native library, a test pin outlived the advisory it existed for, and the gap to a
+major only widens.
+
+**A major is taken the same way, with its evidence named**, and is **Breaking** under **D161** wherever its
+types are on Lyntai's surface. `ModelContextProtocol.Core` 1.4.1 → 2.2.0 was taken on a clean build, the full
+suite, `McpToolHostTests` (the SDK's own client against the host) and the live suite against the reference
+server; `xunit.runner.visualstudio` 4.0 still runs this repository's xUnit v2 tests. `check-bundle` holds
+the closure either way.
+
+**Reversing it** costs nothing already shipped — a later ruling can hold a package back — but it must say
+WHICH and WHY in `Directory.Packages.props`, where the next audit reads it.

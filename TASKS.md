@@ -15,21 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 6 Parts: 2 startable, 3 blocked, 2 watch, 1 decision-only
+## Open items — 7 across 5 Parts: 2 startable, 3 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 162 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 221 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
-| 282 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 305 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 362 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 392 | 278 | Serve `IMemoryGraphStore` from files | startable |  |
-| 408 | 280 | Rule on the outdated dependencies, starting with `ModelContextProtocol.Core… | decision-only | the owner's ruling: bump a shipped package's dependency only for a fix or a… |
+| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 161 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 220 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
+| 281 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 304 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 361 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 391 | 278 | Serve `IMemoryGraphStore` from files | startable |  |
 
 <!-- open-items:end -->
 
@@ -398,19 +397,6 @@ not value: the long-term memory engine's store is where a person would most want
   whole contract runs, and add restart tests, which the contract cannot express.
   <br>**Decide the edge layout first**: a node's file cannot hold its edges without every link rewriting two
   files, and edges are written on every recall (**D99**'s batching exists because of it).
-
-## Part 280 — dependency currency: a ruling the wide check declined to take by momentum (2026-09-23)
-
-_Filed by `docs/task-archive.md` Part 279's dependency audit: nothing is vulnerable, and fifteen packages
-are behind. Bumping a library's dependency raises the floor every consumer must meet, so none moved on
-momentum; this item is the ruling that decides which should._
-
-- [ ] **Rule on the outdated dependencies, starting with `ModelContextProtocol.Core` 1.4.1 → 2.x.** It is the <!-- item: state=decision-only needs="the owner's ruling: bump a shipped package's dependency only for a fix or a feature, or keep patch-current" -->
-  only MAJOR behind on a shipped package, and `Lyntai.Tools.Mcp` is in the `Lyntai` bundle. The rest are
-  patch or minor: `Microsoft.Extensions.*` 10.0.10 → 10.0.12 (Core's floor), `Microsoft.Data.Sqlite`,
-  `SQLitePCLRaw.bundle_e_sqlite3` (it SHIPS the native SQLite, so its patches are not only a floor), `Dapper`,
-  `Microsoft.ML.OnnxRuntime` 1.29 → 1.30, and test-only packages. `dotnet list Lyntai.slnx package --outdated`
-  regenerates the list; the ruling belongs in `docs/DECISIONS.md`, since nothing records one today.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

@@ -4874,7 +4874,7 @@ key through file storage from the packed bundle; `verify` with Docker up and `do
 <br>**The wide check:** GEN7's structural blocker is REFUTED — ComfyUI's core renders a mesh — so it is
 startable; fal and the aggregators stay blocked on accounts, FSRS-B on the owner's review-log export; neither
 watch item recurred. No dependency is vulnerable; the outdated ones are a ruling nobody has taken
-(`TASKS.md` Part 280). Every live suite with a model on this machine passed, GPU and CPU both; the docs sweep's
+(`docs/task-archive.md` Part 280). Every live suite with a model on this machine passed, GPU and CPU both; the docs sweep's
 findings were fixed; `storage-scan` and `memory-sweep` ran clean.
 
 **Declined, so nobody re-raises them:** sharing the file stores' filters with InMemory (the contract suites are
@@ -4884,3 +4884,18 @@ text, not recalled content); a longer `RecordName` hash (a collision needs a sec
 
 - Review `v3.2.0..HEAD` for release
 - The regular wide check
+
+## Part 280 — dependency currency: the fifteen outdated packages, bumped (2026-09-23)
+
+✅ done 2026-09-23 — **Outcome:** the owner ruled the outdated set fixed, so all fifteen moved to current,
+including the MAJOR `ModelContextProtocol.Core` 1.4.1 → 2.2.0 and the test-only `xunit.runner.visualstudio`
+4.0 over this repository's xUnit v2 tests. No source change was needed: clean build, `src/` warning-free, the
+bundle closure unchanged, the full suite unchanged, and the live MCP suite green against the reference server.
+The `SSH.NET` test pin met its own removal condition — Testcontainers 4.15 requires the fixed 2026.0.0 — and
+is gone. The rule and its evidence bar: **D172**; the consumer line, Breaking because the SDK is on the
+surface: `CHANGELOG.md` §Unreleased.
+<br>**Not re-measured:** the bundle's published size — the MCP assembly grew 81 KB, so `docs/AOT.md`'s
+3.2 MB is a figure from before this and file storage both. The live `claude`-CLI MCP test stays unrun: it
+spends real tokens, and `McpToolHostTests` already drives the host with the 2.x client.
+
+- Rule on the outdated dependencies, starting with `ModelContextProtocol.Core` 1.4.1 → 2.x

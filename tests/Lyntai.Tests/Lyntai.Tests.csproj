@@ -39,9 +39,6 @@
     <!-- The NATIVE ONNX backend, supplied here the way a consuming application supplies it — the adapter
          package deliberately ships only the managed half. See src/Directory.Packages.props. -->
     <PackageReference Include="Microsoft.ML.OnnxRuntime" />
-    <!-- Direct only to RAISE the transitive SSH.NET that Testcontainers pulls past its advisory
-         (GHSA-q939-rpr3-3284) — nothing in this project uses SSH. See src/Directory.Packages.props. -->
-    <PackageReference Include="SSH.NET" />
   </ItemGroup>
 
 </Project>

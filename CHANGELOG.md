@@ -19,6 +19,18 @@ every addition.
 
 ## Unreleased
 
+### Breaking
+
+- **`Lyntai.Tools.Mcp` now depends on `ModelContextProtocol.Core` 2.2.0, a major step from 1.4.1** (**D172**),
+  and every other dependency floor rose to its current release — `Microsoft.Extensions.*` 10.0.12,
+  `Microsoft.Data.Sqlite` 10.0.12, `SQLitePCLRaw.bundle_e_sqlite3` 3.0.5 (which ships the native SQLite),
+  `Dapper` 2.1.89, `Microsoft.ML.OnnxRuntime.Managed` 1.30.0 and `System.Security.Cryptography.ProtectedData`
+  10.0.12. `McpToolset.FromClientAsync` takes the SDK's `McpClient`, so the SDK is part of the surface you
+  compile against. Lyntai's own MCP code needed no change, and the live suite passes against the reference
+  server. **What to DO:** a project that references any of these packages directly at a lower version raises
+  it — NuGet reports NU1605 otherwise; code of your own written against an MCP SDK 1.x API that 2.x removed
+  follows the SDK's migration notes.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
