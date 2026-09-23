@@ -15,21 +15,25 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 4 Parts: 4 startable, 2 blocked, 2 watch
+## Open items — 12 across 6 Parts: 8 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 162 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 221 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 244 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 301 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 331 | 283 | The journal's torn-tail cut can discard a person's edit | startable |  |
-| 337 | 283 | No test observes that a SKIP is logged, in any file domain | startable |  |
-| 341 | 283 | No restart or compaction test exercises a cross-engine edge | startable |  |
+| 113 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 166 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 225 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 248 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 305 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 335 | 283 | The journal's torn-tail cut can discard a person's edit | startable |  |
+| 341 | 283 | No test observes that a SKIP is logged, in any file domain | startable |  |
+| 347 | 283 | No restart or compaction test exercises a cross-engine edge | startable |  |
+| 351 | 283 | Prose the fix wave's re-review found still untrue of the tree | startable |  |
+| 368 | 284 | Scope a live model override to what it was written for | startable |  |
+| 385 | 285 | Make a write stored WITHOUT a vector observable | startable |  |
+| 394 | 285 | Let a consumer ask whether the engine can embed right now | startable |  |
 
 <!-- open-items:end -->
 
@@ -336,11 +340,63 @@ is `docs/DECISIONS.md` **D174**. Each item was found there and filed rather than
 
 - [ ] **No test observes that a SKIP is logged, in any file domain.** `CHANGELOG.md` promises "skipped, <!-- item: state=startable -->
   logged", and every file-system test runs on `NullLogger` — `TempRoot` hands `FileSystemRoot` no logger
-  (`tests/Lyntai.Tests/Storage/FileSystem/TempRoot.cs:11`) — so deleting a `LogWarning` fails nothing.
+  (`tests/Lyntai.Tests/Storage/FileSystem/TempRoot.cs:11`) — so deleting a `LogWarning` fails nothing. The
+  warning `GraphJournal.Rewrite` logs when a compaction or trim is refused is equally unobserved, and under a
+  lasting obstacle it is the only signal that both journals are growing.
 
 - [ ] **No restart or compaction test exercises a cross-engine edge.** Its lines go to the FROM node's engine <!-- item: state=startable -->
   journal (`src/Lyntai.Storage.Basic/FileSystem/FileSystemMemoryGraphStore.cs:190`) and a change spanning two
   engines is several appends (**D174**), yet `FileSystemGraphRestartTests` runs one engine throughout.
+
+- [ ] **Prose the fix wave's re-review found still untrue of the tree.** Four present-tense "three backends" <!-- item: state=startable -->
+  claims about the graph contract, which now runs on four: `src/Lyntai.Core/Memory/IMemoryGraphStore.cs:578`
+  (a PUBLIC XML doc), `tests/Lyntai.Tests/Memory/MemoryTaskIsolationTests.cs:15`,
+  `tests/Lyntai.Tests/Memory/Prototype/AssertionResolverTests.cs:20`,
+  `tests/Lyntai.Tests/Storage/PostgresContractCoverageTests.cs:12`. `FileSystemRoot`'s class doc
+  (`src/Lyntai.Storage.Basic/FileSystem/FileSystemRoot.cs:17-18`) says a leftover temporary file is deleted
+  the next time its directory is read — false for `graph/<engine>/state/`, which `GraphJournal.Load` never
+  sweeps, so a refused rewrite leaves its `.tmp` until the next success. And the 2026-09-24 `docs/FIXES.md`
+  entry omits `RecordReviewsAsync` from the calls that threw, and says a refused rewrite is retried once the
+  journal doubles — true of `journal.jsonl`; the review trim retries at its next pacing boundary (the log text
+  in `GraphJournal.Rewrite` says the same).
+
+## Part 284 — a live model override reaches a provider it was never written for (2026-09-24)
+
+_Reported by an adopting application against 3.2.0, which ships its own workaround; the claim was checked
+against the tree when it was filed._
+
+- [ ] **Scope a live model override to what it was written for.** `IModelRoutingStore.GetModelOverrideAsync` <!-- item: state=startable -->
+  takes the consumer alone (`src/Lyntai.Core/Inference/IModelRoutingStore.cs:16`), and `TextRouter` reads it
+  once per call and hands it to EVERY candidate it resolves (`src/Lyntai.Core/Inference/TextRouter.cs:430`). An
+  application that rebinds a consumer to another client or provider writes the override for the new binding,
+  and a different one reads it — on FALLBACK, when the bound provider is unavailable and a default candidate
+  is asked for a model id it does not serve, and between a rebind and the restart that rewires the container.
+  Memory's model-backed policies are fail-open, so the symptom is zero model calls and no error. The adopter
+  decorates `IModelRoutingStore` ahead of `AddLiveModelRouting()` to withhold the override while the saved
+  binding differs from the running one. Two shapes, neither decided: an override SCOPED to the client or
+  provider it names and consulted only when resolving for it, or the router refusing, visibly, a live model no
+  resolved candidate can serve.
+
+## Part 285 — a write-time embed that fails is silent, and the embedding route cannot be asked about (2026-09-24)
+
+_Reported by an adopting application against 3.2.0, which ships its own workaround; both claims were checked
+against the tree when they were filed._
+
+- [ ] **Make a write stored WITHOUT a vector observable.** `GraphMemoryEngine.SearchAsync` catches a failed <!-- item: state=startable -->
+  embed, logs "similarity search failed …; storing without signals or links" and returns nothing
+  (`src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs:520`), so `RememberAsync` succeeds and nothing in its
+  result distinguishes "indexed" from "indexed without a vector". An adopter that rebuilds or back-fills while
+  its embedder is down records the work as done and never retries — reproduced on a real llama-server, six
+  vectors before an upgrade boot and none after, the rebuild marked complete — and semantic recall is then
+  silently empty. Candidate: an outcome on the remember result saying the entry was stored without a vector or
+  signals; the shape is open.
+
+- [ ] **Let a consumer ask whether the engine can embed right now.** The route's filter lives in the internal <!-- item: state=startable -->
+  `EmbeddingRouting` (`src/Lyntai.Core/Inference/EmbeddingRouting.cs:21`), so an adopter that probes before a
+  rebuild RESTATES it — `IProviderRouterFactory.For<VectorRequest, VectorResponse>` with
+  `Supports(ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text)` — a copy that drifts
+  the moment the engine's routing changes. Candidate: a public readiness probe for the engine's embedding
+  route; the item above may make it unnecessary for the rebuild case, not for a pre-flight check.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
