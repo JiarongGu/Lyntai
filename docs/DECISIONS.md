@@ -5361,15 +5361,14 @@ still a live NAMESPACE, so any rule on the string fires on every correct mention
 `graph/<engine>/<task>/<scope>/`, holding only what a person reads, and journals the engine's machine state —
 totals, decay state, edges, subjects, the review log — append-only in `graph/<engine>/state/`. Every journal
 line assigns one record's full state, so a load keeps the last line per record, and the journal is rewritten
-as a snapshot once it doubles. A recall changes no memory file.
+as a snapshot once it doubles past a floor. A recall changes no memory file.
 
-**Why a journal.** One recall writes back ten touches, twenty directed edges and ten review rows. An atomic
-record rewrite costs 6.46–6.61 ms p50 on the machine that decided this and a flushed append 3.13–3.17 ms
-(`docs/memory-measurements.md` §A recall writes back to the file graph store), so the write-back is two
-appends where a decay state in each memory's header (the alternative) is ten rewrites, and a file per edge
-twenty. The shipped write-back measures 7.15–7.39 ms p50, against a pre-registered bar of a third of ten
-rewrites (21.53–22.02 ms). The price is a second place a memory's truth lives: a memory file whose journal
-state is missing is skipped, not guessed. A change spanning two engines — only an edge can — is one append
+**Why a journal.** One recall writes back ten touches, twenty directed edges and ten review rows. Journaled,
+that is two appends, and a recall's write-back costs about one record rewrite, against the ten a decay state
+in each memory's header would cost (the alternative), and a file per edge twenty; it clears its
+pre-registered bar on both runs (`docs/memory-measurements.md` §A recall writes back to the file graph store).
+The price is a second place a memory's truth lives: a memory file whose journal state is missing is skipped,
+not guessed. A change spanning two engines — only an edge can — is one append
 per engine journal, so a failure between them can leave the first applied after a restart.
 
 **What it will not read, it will not rewrite** (**D171** extended): a torn journal tail is cut, an unreadable

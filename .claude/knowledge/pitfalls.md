@@ -2153,8 +2153,8 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   contract's public statics against a hand-bumped literal — it catches a fact added and wired NOWHERE, and a
   fact added and wired to InMemory/Sqlite but not Postgres, and it does **not** catch a fact added and wired
   to **Postgres alone**: the author bumps `covered`, the assertion passes, and the invariant the entry above
-  exists to protect is enforced on one backend. **CLOSED SINCE**: `MemoryGraphStoreCoverageTests` drives all three
-  backends from a reflection-fed source, so exhaustiveness is STRUCTURAL and the hand-bumped literal is
+  exists to protect is enforced on one backend. **CLOSED SINCE**: `MemoryGraphStoreCoverageTests` drives every
+  backend on its roster from a reflection-fed source, so exhaustiveness is STRUCTURAL and the hand-bumped literal is
   gone — its own summary calls itself *"the mechanism that replaced a hand-bumped literal"*. The entry
   stays for the shape, which is general: **a COUNT is not exhaustiveness**, and a guard whose failure mode
   is a false PASS cannot be validated by running it.

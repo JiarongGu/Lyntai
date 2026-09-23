@@ -5349,7 +5349,9 @@ layout pays ten, so the journal ships (**D174**). The verdict reads p50 as pre-r
 rewrite maximum is a single outlier its own p90 does not share.
 
 **What this does NOT say.** The cache was warm (the files had just been written) and this machine runs a
-real-time antivirus scanner; one machine, one writer, no contention. Compaction fires about ONCE per
-300-repeat run, so it shows in the maximum and not in the p50, and the review-log trim never fires at the
-shipped cap of 10,000 — neither steady-state compaction nor the trim's rewrite is in the p50.
+real-time antivirus scanner; one machine, one writer, no contention. Compaction fires TWICE per 300-repeat
+run — DERIVED from `GraphJournal.NeedsCompaction`, not counted: the 1,000 upserts write 2,000 journal lines and
+each write-back 30, so it trips at write-backs 70 and 287 — and two samples of 300 can reach the maximum but
+not the p50 or p90. The review-log trim never fires at the shipped cap of 10,000, so neither steady-state
+compaction nor the trim's rewrite is in the p50.
 `node devtools/dev.mjs storage-scan --writes` reproduces it.
