@@ -103,11 +103,13 @@ every addition.
   renders as one numbered line, the rule **D166** gave the composers; a line break inside an authored
   headline used to start a line the judge read as a note of its own.
 
-- **A failed similarity link no longer costs a graph memory its vector.** The graph engine indexed a new
-  entry's vector AFTER linking it to its similar neighbours, inside the same best-effort block, so a link
-  write that threw skipped the index too and the entry was stored where no similarity search could find it.
-  The vector is now indexed first and each step is best-effort on its own; the write's `Ran` says whether
-  the vector landed.
+- **A failed similarity link or search no longer costs a graph memory its vector.** The graph engine indexed
+  a new entry's vector AFTER linking it to its similar neighbours, inside the same best-effort block, and
+  embedded it and searched its neighbours inside another, so a link write or a search that threw — pgvector
+  refuses to compare across dimensions after an embedding-model swap — skipped the index too, and the entry was
+  stored where no similarity search could find it. The vector is now indexed first, a failed search still
+  indexes it with no neighbours, and each step is best-effort on its own; the write's `Ran` says whether the
+  vector landed.
 
 - **A Claude agent session announces its session ONCE, not once per progress tick.** The stream-json reader
   yielded `SessionStarted` for every `system` line carrying a `session_id` — and current `claude` builds

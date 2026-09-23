@@ -100,10 +100,13 @@ public class MemoryWriteResultTests
     public async Task A_failed_embed_stores_the_entry_and_reports_no_similarity()
     {
         var vectors = new InMemoryVectorStore();
-        var engine = Graph(new ThrowingVectorProvider(), vectors);
+        var log = new CapturingLogger();
+        var engine = Graph(new ThrowingVectorProvider(), vectors, logger: log);
 
         var result = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
 
+        // the engine's own warning, not the router's: the embed was attempted and failed, never skipped
+        Assert.Contains(log.Warnings, w => w.StartsWith("embedding failed for", StringComparison.Ordinal));
         Assert.Equal(MemorySources.Graph, result.Ran);
         Assert.Empty(await IndexedIdsAsync(vectors));
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "still"));
@@ -146,12 +149,31 @@ public class MemoryWriteResultTests
     }
 
     [Fact]
+    public async Task A_failed_similarity_search_still_indexes_the_vector()
+    {
+        // pgvector's shape after an embedding-model swap: its column stores a vector of any dimension while a
+        // comparison across dimensions throws — so a rebuild that could not search must still index, or it
+        // never converges
+        var vectors = new SearchHostileVectorStore();
+        var engine = Graph(new FakeVectorProvider(), vectors);
+
+        var result = await engine.RememberAsync(new MemoryWrite("t", "s", "indexed with nothing to compare"));
+
+        Assert.True(vectors.Searches >= 1,
+            "the similarity search must have been attempted and failed or this asserts nothing");
+        Assert.Equal(MemorySources.Graph | MemorySources.Similarity, result.Ran);
+        Assert.Contains(result.Reference.Id, await IndexedIdsAsync(vectors.Index));
+    }
+
+    [Fact]
     public async Task A_failed_vector_upsert_reports_no_similarity()
     {
-        var engine = Graph(new FakeVectorProvider(), new WriteHostileVectorStore());
+        var vectors = new WriteHostileVectorStore();
+        var engine = Graph(new FakeVectorProvider(), vectors);
 
         var result = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
 
+        Assert.True(vectors.Upserts >= 1, "the upsert must have been attempted and refused or this asserts nothing");
         Assert.Equal(MemorySources.Graph, result.Ran);
     }
 
@@ -220,6 +242,31 @@ public class MemoryWriteResultTests
 
         public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
             _inner.RemoveCollectionAsync(collection, ct);
+    }
+
+    /// <summary>Stores every vector and refuses every search. <see cref="Index"/> is the store underneath, read
+    /// directly because searching this one throws.</summary>
+    private sealed class SearchHostileVectorStore : IVectorStore
+    {
+        public InMemoryVectorStore Index { get; } = new();
+
+        public int Searches { get; private set; }
+
+        public Task UpsertAsync(string collection, string id, float[] vector, string payload,
+            CancellationToken ct = default) => Index.UpsertAsync(collection, id, vector, payload, ct);
+
+        public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k,
+            CancellationToken ct = default)
+        {
+            Searches++;
+            throw new InvalidOperationException("different vector dimensions");
+        }
+
+        public Task DeleteAsync(string collection, string id, CancellationToken ct = default) =>
+            Index.DeleteAsync(collection, id, ct);
+
+        public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
+            Index.RemoveCollectionAsync(collection, ct);
     }
 
     private sealed class CapturingLogger : ILogger<GraphMemoryEngine>

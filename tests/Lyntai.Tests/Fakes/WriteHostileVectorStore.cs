@@ -8,9 +8,15 @@ public sealed class WriteHostileVectorStore : IVectorStore
 {
     private readonly InMemoryVectorStore _inner = new();
 
+    /// <summary>How many writes were attempted, so a test can tell a refused write from one never tried.</summary>
+    public int Upserts { get; private set; }
+
     public Task UpsertAsync(string collection, string id, float[] vector, string payload,
-        CancellationToken ct = default) =>
+        CancellationToken ct = default)
+    {
+        Upserts++;
         throw new InvalidOperationException("the vector store is read-only");
+    }
 
     public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k,
         CancellationToken ct = default) => _inner.SearchAsync(collection, query, k, ct);

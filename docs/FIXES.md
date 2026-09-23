@@ -7,25 +7,34 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
-## 2026-09-24 — a failed similarity link cost the graph engine its vector
+## 2026-09-24 — a failed similarity link or search cost the graph engine its vector
 
-**Symptom.** None observed; found while designing `docs/task-archive.md` Part 285's write result. When a
-similarity link threw — a store fault or a timeout on `LinkAsync` — the graph engine logged "stored with fewer
-links" and skipped the vector upsert too, so the entry was stored WITHOUT its vector: no later similarity search
-could find it, and nothing said so.
+**Symptom.** None observed; the link half was found while designing `docs/task-archive.md` Part 285's write
+result, the search half by that branch's final review. When a similarity link threw — a store fault or a timeout
+on `LinkAsync` — the graph engine logged "stored with fewer links" and skipped the vector upsert too. When the
+neighbour SEARCH threw after a good embed — pgvector comparing across dimensions after an embedding-model swap,
+while its column stores either — the upsert was skipped the same way. Either way the entry was stored WITHOUT
+its vector, nothing said so, and after a model swap a rebuild could never converge.
 
-**Root cause.** `GraphMemoryEngine.EnrichAsync` ran the link loop BEFORE the index write, inside one best-effort
-`try`, so any link failure jumped over the upsert — and the log line named the lesser of the two losses.
+**Root cause.** Two best-effort `try` blocks each spanned a step whose failure should not have cost the next.
+`GraphMemoryEngine.EnrichAsync` ran the link loop BEFORE the index write inside one, so any link failure jumped
+over the upsert — and the log line named the lesser of the two losses; `SearchAsync` wrapped the embed and the
+search in one, so a failed search returned no vector at all.
 
 **Fix.** The vector is upserted first and the links follow, each in its own best-effort block, so a failed link
-costs links and never the vector. The write's `Ran` carries `Similarity` exactly when the upsert landed (**D175**).
+costs links and never the vector. The embed and the search are separate blocks as well, and a failed search
+keeps the vector with no neighbours — salience then has nothing to judge against, exactly as with no search.
+The write's `Ran` carries `Similarity` exactly when the upsert landed (**D175**).
 
 **Verify.** `MemoryWriteResultTests.A_failed_similarity_link_still_indexes_the_vector` times out every
 `LinkAsync`, asserts a link was attempted, and asserts both `Similarity` and the indexed id. Moving the upsert
 back inside the links' `try`, after the loop, fails it — and only it, 1 of 12 — and restoring passes 12/12.
+`A_failed_similarity_search_still_indexes_the_vector` throws on every search, asserts one was attempted, and
+asserts the same two things; re-merging the embed and the search into one `try` fails it (and the failed-embed
+fact, whose warning the merge removes) — 2 of 52 in the focused run — and restoring passes 52/52.
 
-**Introduced by.** `6216c226` (2026-08-08), which added similarity enrichment with the loop ahead of the index
-write; every release since has carried it.
+**Introduced by.** `6216c226` (2026-08-08), which added similarity enrichment with the embed, the search and the
+loop all ahead of the index write in one `try`; every release since has carried it.
 
 ## 2026-09-24 — the file graph store reported a durable write as failed when its compaction was refused
 

@@ -486,8 +486,10 @@ public sealed class GraphMemoryEngine(
     /// before the node has an id) and <see cref="EnrichAsync"/> (linking + indexing, after) — a vector backend
     /// that bills a network call per invocation is paid ONCE per write, never twice for one.
     /// <para>Null when nothing is enriched (no vector backend/vector store wired, or
-    /// <see cref="GraphMemoryOptions.SimilarityK"/> is non-positive) or when the search itself fails —
-    /// BEST-EFFORT, exactly like the enrichment it now backs: a failing vector backend must not fail the
+    /// <see cref="GraphMemoryOptions.SimilarityK"/> is non-positive) or when the EMBED fails. A failed SEARCH
+    /// keeps the vector with no neighbours, so the write is still indexed — pgvector stores a vector of any
+    /// dimension but cannot compare two of different ones, so after a model swap a rebuild converges only this
+    /// way. Both BEST-EFFORT, like the enrichment they back: a failing vector backend must not fail the
     /// write.</para>
     /// <para>Searches <see cref="GraphMemoryOptions.SimilarityK"/> + 1 because, on a re-remember, this
     /// write's own PRIOR vector — from the earlier write of identical content — is still sitting in the
@@ -504,11 +506,23 @@ public sealed class GraphMemoryEngine(
         CancellationToken ct)
     {
         if (!Enriches || _options.SimilarityK <= 0) return null;
+        float[] vector;
         try
         {
-            var vector = await EmbeddingRouting.EmbedOneAsync(
+            vector = await EmbeddingRouting.EmbedOneAsync(
                 providers, write.Content, EmbeddingRole.Document, _logger, routing,
                 ProviderConsumers.Memory, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "embedding failed for {Engine}; storing without its vector, signals or links", Name);
+            return null;
+        }
+
+        try
+        {
             var near = await vectors!
                 .SearchAsync(VectorCollection(write.TaskKey, write.Scope), vector, _options.SimilarityK + 1, ct)
                 .ConfigureAwait(false);
@@ -517,9 +531,11 @@ public sealed class GraphMemoryEngine(
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
+            // no neighbours is exactly what Probe reads as "nothing to judge against", so salience declines
+            // as it would with no search at all — only the index still gets the vector
             _logger.LogWarning(ex,
                 "similarity search failed for {Engine}; storing without signals or links", Name);
-            return null;
+            return (vector, []);
         }
     }
 
@@ -591,9 +607,9 @@ public sealed class GraphMemoryEngine(
     /// search. Returns whether the vector was indexed.
     /// <para>BEST-EFFORT, deliberately: enrichment sits on top of a model-free floor, so a failing vector backend
     /// or vector store must not fail the write. The entry is already stored by the time this runs — it
-    /// simply has fewer connections than it might have had, or (when the shared search already failed) none
-    /// at all, and is not indexed for anyone else's similarity search either. The index and the links are
-    /// separate blocks, so a failed link costs links and never the vector.</para></summary>
+    /// simply has fewer connections than it might have had (none when the shared search failed), and no
+    /// vector only when the embed or the upsert itself failed. The index and the links are separate blocks,
+    /// so a failed link costs links and never the vector.</para></summary>
     private async Task<bool> EnrichAsync(long id, MemoryWrite write,
         (float[] Vector, IReadOnlyList<VectorMatch> Near)? search, CancellationToken ct)
     {
