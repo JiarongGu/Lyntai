@@ -14,7 +14,7 @@ namespace Lyntai.Benchmarks;
 
 /// <summary>
 /// <b>Is the <c>topical</c> regression responsive to <see cref="DsrOptions.SpacingWeight"/> at all?</b>
-/// That is the whole question, and the answer is useful in both directions (<c>TASKS.md</c> Part 56, FSRS-C).
+/// That is the whole question, and the answer is useful in both directions (FSRS-C; the FSRS work closed as <c>docs/task-archive.md</c> Part 281).
 ///
 /// <para><b>What this is NOT, stated first because the distinction is the reason this may exist while FSRS-B
 /// may not.</b> This is a SENSITIVITY study: it reports how a metric this repository already publishes moves
@@ -168,7 +168,7 @@ internal static class MemorySpacingSweep
     /// reader who scrolls straight to the verdict still cannot mistake a sensitivity curve for a fit.</summary>
     private static void PrintPreamble(IReadOnlyList<Arm> arms, IReadOnlyList<Shape> shapes, DsrOptions shipped)
     {
-        Console.WriteLine("=== SpacingWeight sensitivity (TASKS.md Part 56, FSRS-C) ===");
+        Console.WriteLine("=== SpacingWeight sensitivity (FSRS-C; the FSRS work closed as docs/task-archive.md Part 281) ===");
         Console.WriteLine();
         Console.WriteLine("QUESTION: is the `topical` regression D49 shipped knowingly even RESPONSIVE to");
         Console.WriteLine("DsrOptions.SpacingWeight, the knob Part 56 named as its suspect?");
@@ -336,7 +336,7 @@ internal static class MemorySpacingSweep
         Console.WriteLine();
         Console.WriteLine("  * = the 95% interval excludes zero.");
         Console.WriteLine();
-        Console.WriteLine("=== Verdict for TASKS.md Part 56 (FSRS-C) ===");
+        Console.WriteLine("=== Verdict for FSRS-C (docs/task-archive.md Part 281) ===");
         Console.WriteLine($"Largest |Δ MissRate| anywhere in the grid: {worst:F4}");
         Console.WriteLine(topicalMoved
             ? "SpacingWeight DOES move `topical` beyond noise somewhere in the grid — the suspect Part 56\n" +

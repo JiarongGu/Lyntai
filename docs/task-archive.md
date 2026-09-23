@@ -4899,3 +4899,18 @@ surface: `CHANGELOG.md` §Unreleased.
 spends real tokens, and `McpToolHostTests` already drives the host with the 2.x client.
 
 - Rule on the outdated dependencies, starting with `ModelContextProtocol.Core` 1.4.1 → 2.x
+
+## Part 281 — FSRS-B closed without a fit: no usage log exists, and no benchmark can stand in (2026-09-23)
+
+✅ done 2026-09-23 — **Outcome:** `TASKS.md` Part 56's last item, closed by the owner's ruling. Its blocker
+had read "the owner's deployment holds logged reviews" since 2026-09-19; the owner corrected it — there is
+no deployment database. The replacement chosen, a benchmark REPLAY, was refuted by arithmetic before any run:
+under the shipped rank fusion retrievability votes by rank, `(1 + f·age/S)^Decay` orders entries by `age/S`
+whatever `Decay` is, and the reinforcement that the other constants act through is exactly what the field
+benches reset per question. `DsrOptions` keeps FSRS's published values (**D49**); the reopen trigger is in
+**D51**, and the trap in `.claude/knowledge/pitfalls.md`.
+<br>**What the item carried wrong, for the next reader:** a reported fact that was never checked, and a
+premise worth keeping in view — `Verified` judges a RETURNED entry, while a lapse is a relevant one NOT
+returned, so even a real log fits relevance before it fits forgetting.
+
+- FSRS-B — parameter FITTING, not published defaults

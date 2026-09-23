@@ -1084,6 +1084,10 @@ estimate, and the log could only ever contain successes. The distinction matters
 logs" invites a future session to go and collect more data — which cannot help. A judge that can return a
 negative (D59) is what finally supplies an external observable, so what remains is data only a deployment
 can produce.
+<br>**Closed 2026-09-23 without a fit.** No deployment log exists, and a benchmark cannot stand in: under the
+shipped rank fusion no curve constant reorders a recall directly, so they act only through reinforcement,
+which the field benches never carry (`.claude/knowledge/pitfalls.md`). **Reopen on** a store recalled over
+time — and read a lapse there as a relevant entry NOT returned, which `Verified` alone never records.
 
 **Nothing is queued behind it.** An item waiting on an unreachable one is a permanent backlog resident, so
 the dependent work was unblocked rather than left to sit.

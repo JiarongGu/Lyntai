@@ -160,7 +160,7 @@ switch (cmd) {
     break;
 
   // memory-spacing — a SENSITIVITY study over one DsrOptions constant, SpacingWeight, asking whether the
-  // `topical` regression D49 shipped knowingly is even responsive to the knob TASKS.md Part 56 named as its
+  // `topical` regression D49 shipped knowingly is even responsive to the knob the FSRS work (docs/task-archive.md Part 281) named as its
   // suspect. Same harness, same corpus, same seed pairing as `memory-sweep`; one factor instead of a 2x2, and
   // it ADOPTS nothing. That last part is what makes it legitimate where parameter FITTING is not: fitting
   // DsrOptions against this library's own review log is circular by construction (the log's grade is a

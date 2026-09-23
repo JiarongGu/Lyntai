@@ -129,7 +129,7 @@ public class MemoryDefaultRecallQualityTests
         // 0.875172 — a further ~0.0097 move in the same direction PollutionRate already moved under the
         // forgetting-curve swap).
         //
-        // FOURTH, 2026-08-11 (TASKS.md Part 56, the corpus-filler item) — and the ONLY re-pin so far caused by
+        // FOURTH, 2026-08-11 (docs/task-archive.md Part 56, the corpus-filler item) — and the ONLY re-pin so far caused by
         // the CORPUS rather than by a shipped default. No policy changed: ranking is still
         // ReciprocalRankFusionPolicy and forgetting is still DsrRetrievability, byte-for-byte. What changed is
         // MemoryCorpus.WriteFiller, whose padding used to begin "item filler{n} …" and therefore shared the

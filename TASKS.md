@@ -15,20 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 5 Parts: 2 startable, 3 blocked, 2 watch
+## Open items — 6 across 4 Parts: 2 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 161 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 220 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
-| 281 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 304 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 361 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 391 | 278 | Serve `IMemoryGraphStore` from files | startable |  |
+| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 160 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 219 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 242 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 299 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 329 | 278 | Serve `IMemoryGraphStore` from files | startable |  |
 
 <!-- open-items:end -->
 
@@ -209,67 +208,6 @@ The fal-first naming that once hid ComfyUI inside this list is recorded in
 
 ---
 
-
-## Part 56 — complete FSRS: `DsrRetrievability` is a PARTIAL, UNFITTED model, and that gap is measured (2026-08-10)
-
-_Opened by `docs/DECISIONS.md` D49, which shipped `DsrRetrievability` as the 3.0 default on FSRS's own
-external validation while disclosing a real, measured gap: this implementation carries FSRS's functional
-FORM with none of its calibration. **Completing it is prioritized work — the `topical` regression D49 ships
-knowingly is where the gap shows up measurably, not a reason to avoid shipping the default.**_
-
-- [ ] **FSRS-B — parameter FITTING, not published defaults.** Every constant in `DsrOptions` (`Decay = <!-- item: state=blocked kind=data needs="an export or path of the owner's deployment review log — the logs EXIST (owner, 2026-09-19), the repository cannot see them" -->
-  -0.5`, `StabilizationDecay = 0.4`, `SpacingWeight = 1.5`, `DifficultyWeight = 0.08`) is FSRS's own published
-  default, fitted by its authors against a huge external review corpus — never fitted against anything this
-  library's consumers actually do. Real FSRS fits on the order of 17 parameters per individual's own review
-  history.
-
-  **Its blocker was recorded wrongly and is now measured (2026-08-12).** It read "needs a real (or realistic)
-  review corpus", which says a corpus is the missing input and implies more/better data would unblock it.
-  **No corpus can.** Two structural facts, both read straight out of the shipped code:
-  1. **The observed "grade" is a deterministic function of the model's own prediction.**
-     `DsrRetrievability.DerivedGrade` is `2 + 2 × Retrievability(state)`, and `Retrievability` is computed
-     from the very constants a fit would estimate. Maximising the likelihood of those grades recovers
-     whatever produced the log — circular by construction, not merely by choice of corpus.
-  2. **The log can only ever contain successes.** The grade scale is restricted to Hard=2..Easy=4 and
-     deliberately never reaches FSRS's lapse rating, because — in that member's own words — *an entry that is
-     not returned never reaches `Reinforce`*. `GraphMemoryEngine.ReinforceAsync` is called with the nodes a
-     recall actually RETURNED. FSRS fits against recall success **and failure**; this library observes only
-     the successes, so even breaking (1) would leave the likelihood with nothing to discriminate against.
-
-  **What would actually unblock it**, stated so nobody re-derives it: an outcome signal the model does not
-  produce — a consumer-supplied rating, *and* some observation of the entries a consumer expected and did not
-  get. The migration guide already lists consumer rating input as deliberately out of scope. Both are
-  **additive** API, so neither is gated on the 3.0 window; this is a design question about what the library
-  is willing to ask an application for, not a measurement waiting on data.
-
-  _**AMENDED 2026-08-13 — the observable now EXISTS, and it did not come from asking the application for
-  it.** `IMemoryVerificationPolicy` (`docs/DECISIONS.md` **D59**) has a judge read the query and the returned
-  headlines and say which actually answered. That is external to the curve (defeating blocker 1) and it can
-  return a negative (defeating blocker 2), which is precisely the pair recorded above as needing a consumer
-  rating. The design question "what is the library willing to ask an application for" turned out to have a
-  third answer neither branch anticipated: ask a MODEL, not the application._
-  <br>_**The recording landed the same day**: `MemoryReviewWrite.Verified` (nullable — `false` is an observed
-  failure, `null` is no judgement, and they are not interchangeable), one column on the unreleased memory
-  migration, and the log write decoupled from the touch so a recall logs EVERY entry it returned rather than
-  only the ones it reinforced. **So the log can now contain failures**, which was the harder half of D51.
-  <br>**What remains is genuinely the fitting itself** — reading the log and estimating `DsrOptions` against
-  it. That needs a deployment with real logged reviews, which this repository does not have and cannot
-  invent without repeating the mistake D49 refused (tuning against a corpus this library made up). It is no
-  longer blocked on a design decision or on a missing observable; it is blocked on data that only a
-  consumer can produce._
-
-  **What it is blocked on, stated once so the two paragraphs above are not read as disagreeing:** not the
-  environment (nothing here needs a vendor key or a download), and no longer a design decision or a missing
-  observable — those were both closed on 2026-08-13. It is blocked on **a deployment's own logged reviews**,
-  which only a consumer can produce.
-
-  _**RE-CHECKED 2026-09-19, and the blocker's factual half MOVED**: the owner reports their deployment has
-  been running with verification enabled and holds logged reviews, at least partially. What has NOT moved is
-  reach — this repository still cannot see that store. The next step is the owner's: an export (or a path)
-  of the deployment's review log, at which point the fitting is startable. The blocker moved, the item did
-  not finish — recorded per `task-lifecycle.md` §A blocked item._
-
----
 
 ## Part 75 — what the pre-3.0 review deferred, and why (2026-08-15)
 

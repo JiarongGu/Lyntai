@@ -19,8 +19,8 @@ namespace Lyntai.Tests.Memory;
 /// the domain with, <c>HalfLifeRetrievability</c> — deleted in 3.0 (<c>docs/DECISIONS.md</c>). Two facts that
 /// existed only to COMPARE the two curves' numbers against each other are gone with the curve they compared
 /// against (a mechanism-isolation probe pinning the deleted curve's own flat `× 1.5`, and a single-seed
-/// corpus-scale reproduction of a `topical` miss-rate gap between the two — both superseded findings, already
-/// preserved as prose in <c>TASKS.md</c> Part 56 FSRS-C). <b>The other seven do not compare against anything
+/// corpus-scale reproduction of a `topical` miss-rate gap between the two — both superseded findings, whose
+/// prose git history keeps from FSRS-C). <b>The other seven do not compare against anything
 /// — they are falsification checks on DSR itself</b>, and deleting the file wholesale would have discarded
 /// that evidence rather than the two comparisons that no longer apply. With no alternative curve left to fall
 /// back to, this coverage matters MORE now, not less.</para>

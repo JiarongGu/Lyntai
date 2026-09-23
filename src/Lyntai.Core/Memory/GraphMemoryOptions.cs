@@ -185,8 +185,8 @@ public sealed record GraphMemoryOptions
 
     /// <summary>Whether every reinforcement is logged — the pre-review state, the derived grade, and the
     /// post-review state (design spec §3) — so a future fitting task
-    /// has something to read (<c>TASKS.md</c> Part 56 FSRS-B; <c>docs/DECISIONS.md</c> D49 rejected fitting
-    /// against an invented corpus). <b>Default ON, deliberately opt-OUT rather than opt-in</b>: a consumer
+    /// has something to read (<c>docs/DECISIONS.md</c> D51: a fit waits on a store recalled over time; D49
+    /// rejected fitting against an invented corpus). <b>Default ON, deliberately opt-OUT rather than opt-in</b>: a consumer
     /// who never fits pays one small, capped write per reinforcement; a consumer who wants to fit later
     /// cannot recover history nobody logged. Set false to skip the write entirely — cheaper than logging and
     /// discarding, and the honest choice for a deployment that will genuinely never read this table.
