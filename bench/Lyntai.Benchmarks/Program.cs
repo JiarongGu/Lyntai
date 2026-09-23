@@ -78,9 +78,9 @@ if (args.Contains("--affect"))
 
 // `node devtools/dev.mjs storage-scan` → --storage-scan. Can a file-per-record store answer substring
 // recall by SCANNING its files, or must it keep an in-process index? Model-free; `--large` adds 100,000.
-// See FileSystemScanSweep.
+// See FileSystemScanSweep. `--writes` times a recall's write-back on the file graph store instead (D174).
 if (args.Contains("--storage-scan"))
-    return FileSystemScanSweep.Run(args);
+    return args.Contains("--writes") ? FileSystemWriteSweep.Run(args) : FileSystemScanSweep.Run(args);
 
 // `node devtools/dev.mjs memory-verification` → --verification. The only mechanism aimed at PollutionRate,
 // and the only 3.0 seam with no sweep until 2026-08-15. Every other recall-quality figure this repository

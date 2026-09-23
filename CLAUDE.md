@@ -244,7 +244,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `memory-annotation-drift` |  | how much of that ceiling a REAL annotator reaches, and whether CODE can close it |
 | `memory-consolidation` |  | does an OFFLINE pass find links the write path missed? Needs a real embedder |
 | `memory-affect` |  | does AROUSAL predict what gets asked about later? LoCoMo, a chat model + a lexicon |
-| `storage-scan` |  | can a file-per-record store SCAN for recall, or must it keep an index? Model-free |
+| `storage-scan` |  | can a file-per-record store SCAN for recall, or must it keep an index? `--writes`: what a recall writes… |
 | `memory-verification` |  | the judge seam — what a model in the loop is worth |
 | `memory-fan` |  | ACT-R's fan effect, measured and REFUSED (D62) |
 | `memory-enrichment` |  | why an embedder costs recall quality. Calls a REAL model |

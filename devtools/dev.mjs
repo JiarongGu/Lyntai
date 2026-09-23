@@ -304,6 +304,7 @@ switch (cmd) {
   // storage-scan — can a file-per-record store answer substring recall by SCANNING its files, or must it
   // keep an in-process index? The design risk the file-system backend named before anything was built
   // (docs/task-archive.md records the outcome). Model-free; `--large` adds a 100,000-record rung.
+  // `--writes` times a recall's write-back on the file graph store instead (D174).
   case 'storage-scan':
     if (!config.benchProject) { console.log('no bench project configured'); break; }
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--storage-scan', ...args]);
