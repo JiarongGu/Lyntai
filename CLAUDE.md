@@ -18,13 +18,13 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D171** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `3985 passed / 4023 total, 38 skipped` (the skips are
+**The baseline a green run should match:** `4005 passed / 4043 total, 38 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 881/881, doc samples 60/60. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-23 at `500c4a74`** (+110 against `0ce6d8ea`: the new
-`Lyntai.Storage.FileSystem` package's 108 tests and its two `ApiSurface` theories — archive Part 277; +6 and
-+2 earlier that day, archive Parts 276 and 275; and a Docker-down run the same day read `3663 / 242`,
+**MEASURED with Docker up, re-attested 2026-09-23 at `511d884b`** (+20 against `500c4a74`: the pre-release
+review's six file-store restart facts, the judge's two empty-content cases and twelve `MemoryLine` cases —
+archive Part 279; +110 before that, the file-system package, archive Part 277; and a Docker-down run the same day read `3663 / 242`,
 reconciling as 242 − 38 = 204 = 3867 − 3663) —
 read off that run's own output, never
 derived from a diff, which is the discipline the sentence above states and the one an updated number most
