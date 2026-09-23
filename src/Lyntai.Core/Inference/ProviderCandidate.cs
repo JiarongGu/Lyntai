@@ -33,4 +33,8 @@ internal static class ProviderCandidateSpec
             ? new ProviderCandidate(spec.Trim())
             : new ProviderCandidate(spec[..at].Trim(), spec[(at + 1)..].Trim());
     }
+
+    /// <summary>Write one candidate back as the spec <see cref="Parse"/> reads.</summary>
+    public static string Format(ProviderCandidate candidate) =>
+        candidate.Model is null ? candidate.ProviderId : $"{candidate.ProviderId}:{candidate.Model}";
 }

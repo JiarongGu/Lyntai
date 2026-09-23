@@ -7,9 +7,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>P1 (app-owned storage): the cortex KV key namespaces are configurable, so an app can point
-/// Lyntai's prompt/model overrides straight at its OWN existing keys — no prefix-translating shim, no
-/// duplicated rows. The default namespaces (<c>lyntai.prompt.</c> / <c>lyntai.model.</c>) are unchanged.</summary>
+/// <summary>App-owned storage: the cortex KV key namespaces are configurable, so an app can point Lyntai's
+/// prompt overrides and live routes straight at its OWN existing keys — no prefix-translating shim, no
+/// duplicated rows. The defaults are <c>lyntai.prompt.</c> and <c>lyntai.route.</c>.</summary>
 public class ConfigurableKeyPrefixTests
 {
     [Fact]
@@ -44,37 +44,25 @@ public class ConfigurableKeyPrefixTests
     public async Task ModelRoutingStore_custom_prefix_reads_the_apps_own_key()
     {
         var kv = new InMemoryKeyValueStore();
-        kv.Data["llm.model.chat"] = "haiku";
+        kv.Data["llm.route.chat"] = "claude:haiku";
+        kv.Data["lyntai.route.chat"] = "ollama:ignored"; // the default namespace is not this store's
 
-        var store = new KeyValueModelRoutingStore(kv, keyPrefix: "llm.model.");
-        Assert.Equal("haiku", await store.GetModelOverrideAsync("chat"));
+        var route = await new KeyValueModelRoutingStore(kv, keyPrefix: "llm.route.").GetRouteAsync("chat");
+
+        Assert.Equal(new ProviderCandidate("claude", "haiku"), Assert.Single(route));
     }
 
     [Fact]
-    public async Task ModelRoutingStore_custom_prefix_scopes_the_apps_own_keys()
+    public async Task ModelRoutingStore_default_prefix_is_lyntai_route()
     {
-        var kv = new InMemoryKeyValueStore();
-        kv.Data["llm.model.chat"] = "haiku";
-        kv.Data["llm.model.chat@llama"] = "qwen3";
-        kv.Data["lyntai.model.chat@ollama"] = "ignored"; // the default namespace is not this store's
-
-        var live = await new KeyValueModelRoutingStore(kv, keyPrefix: "llm.model.").GetModelOverridesAsync("chat");
-
-        Assert.Equal("haiku", live.Any);
-        Assert.Equal("qwen3", Assert.Single(live.ByProvider).Value);
-        Assert.Equal("qwen3", live.For("llama"));
-    }
-
-    [Fact]
-    public async Task ModelRoutingStore_default_prefix_is_unchanged()
-    {
-        Assert.Equal("lyntai.model.", KeyValueModelRoutingStore.DefaultKeyPrefix);
+        Assert.Equal("lyntai.route.", KeyValueModelRoutingStore.DefaultKeyPrefix);
 
         var kv = new InMemoryKeyValueStore();
-        kv.Data[KeyValueModelRoutingStore.DefaultKeyPrefix + "chat"] = "haiku";
+        kv.Data[KeyValueModelRoutingStore.DefaultKeyPrefix + "chat"] = "claude:haiku";
 
-        var store = new KeyValueModelRoutingStore(kv); // no prefix override
-        Assert.Equal("haiku", await store.GetModelOverrideAsync("chat"));
+        var route = await new KeyValueModelRoutingStore(kv).GetRouteAsync("chat"); // no prefix override
+
+        Assert.Equal(new ProviderCandidate("claude", "haiku"), Assert.Single(route));
     }
 
     [Fact]
@@ -97,20 +85,20 @@ public class ConfigurableKeyPrefixTests
     }
 
     [Fact]
-    public async Task Configured_model_prefix_flows_through_AddLiveModelRouting()
+    public async Task Configured_route_prefix_flows_through_AddLiveModelRouting()
     {
         var kv = new InMemoryKeyValueStore();
-        kv.Data["llm.model.scoring"] = "haiku";
+        kv.Data["llm.route.scoring"] = "claude:haiku";
 
         var services = new ServiceCollection();
         services.AddSingleton<IKeyValueStore>(kv);
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeTextProvider("fake"))
-            .Configure(o => o.ModelKeyPrefix = "llm.model.")
+            .Configure(o => o.RouteKeyPrefix = "llm.route.")
             .AddLiveModelRouting());
         using var sp = services.BuildServiceProvider();
 
-        var store = sp.GetRequiredService<IModelRoutingStore>();
-        Assert.Equal("haiku", await store.GetModelOverrideAsync("scoring"));
+        var route = await sp.GetRequiredService<IModelRoutingStore>().GetRouteAsync("scoring");
+        Assert.Equal(new ProviderCandidate("claude", "haiku"), Assert.Single(route));
     }
 }

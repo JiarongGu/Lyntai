@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -6,122 +5,106 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Inference;
 
 /// <summary>
-/// A LIVE per-consumer model override, read fresh each call — so an admin retune takes effect WITHOUT a
-/// restart (the model analogue of a prompt override). Opt in with <c>AddLiveModelRouting()</c>; without it
-/// the router resolves models from code/env config as before.
-/// <para>An override is consumer-wide, or SCOPED to one provider id (<see cref="ModelOverrides"/>). A model id
-/// belongs to one backend, so each candidate takes its own provider's scoped entry, else the consumer-wide
-/// one — a fallback backend is never handed a model scoped to another.</para>
-/// <para>Precedence, per candidate: the candidate's or request's own model → the live override for that
-/// candidate's provider → the configured per-consumer default → the <c>"default"</c> entry (see
-/// <see cref="LyntaiOptions.ResolveModel(string,string,string)"/>).</para>
+/// A consumer's LIVE route, read fresh on each call — so an admin can move a consumer to another backend and
+/// model WITHOUT a restart. Opt in with <c>AddLiveModelRouting()</c>; without it every call routes over the
+/// candidates it was given.
+/// <para>A route is a whole fallback list of <see cref="ProviderCandidate"/> pairs. When one is set the router
+/// uses it IN PLACE of the given candidates, and each entry carries its own model, so a fallback backend is
+/// never asked for another backend's model. An entry resolves its model as a given candidate does: its own,
+/// else the request's, else the consumer's configured default
+/// (<see cref="LyntaiOptions.ResolveModel(string,string)"/>). A route naming no provider the router knows is
+/// ignored, with a warning, and the given candidates serve.</para>
 /// </summary>
 public interface IModelRoutingStore
 {
-    /// <summary>The consumer-wide live override for <paramref name="consumer"/>, or null when none is set.</summary>
-    Task<string?> GetModelOverrideAsync(string consumer, CancellationToken ct = default);
-
-    /// <summary>Every live override for <paramref name="consumer"/> — the consumer-wide one and each
-    /// provider-scoped one — as one set; the router and the response cache read it once per call. The default
-    /// body serves <see cref="GetModelOverrideAsync"/> as <see cref="ModelOverrides.Any"/> with no scoped
-    /// entries, so a store that does not scope by provider need not implement it.</summary>
-    async Task<ModelOverrides> GetModelOverridesAsync(string consumer, CancellationToken ct = default) =>
-        new(await GetModelOverrideAsync(consumer, ct).ConfigureAwait(false), ReadOnlyDictionary<string, string>.Empty);
+    /// <summary>The live route for <paramref name="consumer"/>, in fallback order — EMPTY when none is set,
+    /// which leaves the given candidates in force. The router and the response cache each read it once per call.
+    /// <para>Fail open: a fault should read as no route, since a throw here fails the call that asked. Only the
+    /// caller's own cancellation should escape.</para></summary>
+    Task<IReadOnlyList<ProviderCandidate>> GetRouteAsync(string consumer, CancellationToken ct = default);
 }
 
-/// <summary>A consumer's live model overrides, as <see cref="IModelRoutingStore.GetModelOverridesAsync"/>
-/// returns them. Read one for a candidate through <see cref="For"/>.</summary>
-/// <param name="Any">The consumer-wide override, for whichever provider serves; null when none is set.</param>
-/// <param name="ByProvider">Overrides scoped to one provider id each. <see cref="For"/> matches the id
-/// case-insensitively whatever comparer this map carries.</param>
-public sealed record ModelOverrides(string? Any, IReadOnlyDictionary<string, string> ByProvider)
-{
-    /// <summary>No override of either kind.</summary>
-    public static ModelOverrides None { get; } = new(null, ReadOnlyDictionary<string, string>.Empty);
-
-    /// <summary>The override for a candidate served by <paramref name="providerId"/>: that provider's scoped
-    /// entry (matched case-insensitively, as the router matches provider ids), else <see cref="Any"/>, else
-    /// null. A blank scoped entry counts as absent.</summary>
-    public string? For(string providerId)
-    {
-        if (ByProvider.TryGetValue(providerId, out var exact) && !string.IsNullOrWhiteSpace(exact)) return exact;
-        foreach (var (id, model) in ByProvider)
-        {
-            if (string.Equals(id, providerId, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(model))
-                return model;
-        }
-        return Any;
-    }
-}
-
-/// <summary>KV-backed <see cref="IModelRoutingStore"/>, reading the registered <see cref="IKeyValueStore"/> each
-/// call: <c>&lt;prefix&gt;&lt;consumer&gt;</c> holds the consumer-wide override, and
-/// <c>&lt;prefix&gt;&lt;consumer&gt;@&lt;providerId&gt;</c> one scoped to that provider (e.g.
-/// <c>lyntai.model.memory@llama</c>) — so a consumer's own name should not contain <c>@</c>. A blank value is
-/// unset. Fail-open: no store yields no override, and a store fault logs a warning and yields what was already
-/// read; only the caller's cancellation propagates. Mirrors how <c>PromptRegistry</c> reads a live prompt
-/// override.</summary>
+/// <summary>KV-backed <see cref="IModelRoutingStore"/>, reading the registered <see cref="IKeyValueStore"/> on each
+/// call. <c>&lt;prefix&gt;&lt;consumer&gt;</c> holds the route as comma-separated candidate specs — e.g.
+/// <c>lyntai.route.memory</c> = <c>llama:qwen3-4b-gguf, claude:haiku</c> — each <c>provider</c> or
+/// <c>provider:model</c>, split at the FIRST colon as every candidate spec in the library is (so
+/// <c>ollama:qwen3:4b</c> is <c>ollama</c> serving <c>qwen3:4b</c>). A blank value is no route, a blank entry is
+/// skipped, and an entry naming no provider is skipped with a warning.
+/// <para>Fail-open: no store yields no route, and a store fault logs a warning and yields none; only the
+/// caller's cancellation propagates.</para>
+/// <para>A key under <c>lyntai.model.</c> — whose values name a model, not a route — is never read; the first
+/// call that finds any logs one warning.</para></summary>
 public sealed class KeyValueModelRoutingStore(
     IKeyValueStore? kv = null, ILogger<KeyValueModelRoutingStore>? logger = null, string? keyPrefix = null) : IModelRoutingStore
 {
-    /// <summary>Default KV key prefix for a per-consumer model override (e.g. <c>lyntai.model.scoring</c>).</summary>
-    public const string DefaultKeyPrefix = "lyntai.model.";
+    /// <summary>Default KV key prefix for a consumer's route (e.g. <c>lyntai.route.scoring</c>).</summary>
+    public const string DefaultKeyPrefix = "lyntai.route.";
 
-    private const char ScopeSeparator = '@';
+    private const string ModelOnlyKeyPrefix = "lyntai.model.";
 
-    /// <summary>The KV key namespace this store reads model overrides under. Defaults to
-    /// <see cref="DefaultKeyPrefix"/>; set an app's OWN namespace (e.g. <c>llm.model.</c>) to point Lyntai's
-    /// live model routing at the app's existing keys — no shim, no duplication.</summary>
+    /// <summary>The KV key namespace this store reads routes under. Defaults to <see cref="DefaultKeyPrefix"/>;
+    /// set an app's OWN namespace (e.g. <c>llm.route.</c>) to point live routing at the app's existing keys — no
+    /// shim, no duplication — whose values must then be routes.</summary>
     public string KeyPrefix { get; } = keyPrefix ?? DefaultKeyPrefix;
     private readonly ILogger _logger = logger ?? NullLogger<KeyValueModelRoutingStore>.Instance;
 
-    public async Task<string?> GetModelOverrideAsync(string consumer, CancellationToken ct = default)
-    {
-        if (kv is null) return null;
-        try
-        {
-            var v = await kv.GetAsync(KeyPrefix + consumer, ct).ConfigureAwait(false);
-            return string.IsNullOrWhiteSpace(v) ? null : v;
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "live model override read failed for consumer {Consumer}; using the configured default", consumer);
-            return null; // fail-open — never sink a request because the override lookup faulted
-        }
-    }
+    // 1 once the lyntai.model. check has run, or while it runs; a failed check resets it so a later call asks again
+    private int _modelOnlyKeysChecked;
 
     /// <inheritdoc/>
-    public async Task<ModelOverrides> GetModelOverridesAsync(string consumer, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ProviderCandidate>> GetRouteAsync(string consumer, CancellationToken ct = default)
     {
-        if (kv is null) return ModelOverrides.None;
-        string? any = null;
+        if (kv is null) return [];
+        IReadOnlyList<ProviderCandidate> route;
         try
         {
-            any = Unblank(await kv.GetAsync(KeyPrefix + consumer, ct).ConfigureAwait(false));
-            var scope = KeyPrefix + consumer + ScopeSeparator;
-            Dictionary<string, string>? byProvider = null;
-            foreach (var key in await kv.ListKeysAsync(scope, ct).ConfigureAwait(false))
-            {
-                // a BYO store may match the prefix loosely; only an exact, non-empty scope names a provider
-                if (key.Length <= scope.Length || !key.StartsWith(scope, StringComparison.Ordinal)) continue;
-                if (Unblank(await kv.GetAsync(key, ct).ConfigureAwait(false)) is { } model)
-                    (byProvider ??= new(StringComparer.OrdinalIgnoreCase)).TryAdd(key[scope.Length..], model);
-            }
-            return Overrides(any, byProvider);
+            route = Parse(consumer, await kv.GetAsync(KeyPrefix + consumer, ct).ConfigureAwait(false));
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "live model overrides read failed for consumer {Consumer}; using the consumer-wide override if read, else the configured default", consumer);
-            return Overrides(any, byProvider: null); // a partial scoped set is dropped whole
+            _logger.LogWarning(ex, "live route read failed for consumer {Consumer}; routing over the given candidates", consumer);
+            route = []; // fail-open — never sink a request because the route lookup faulted
         }
+        await WarnOfModelOnlyKeysOnceAsync(kv, ct).ConfigureAwait(false);
+        return route;
     }
 
-    private static string? Unblank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+    private List<ProviderCandidate> Parse(string consumer, string? value)
+    {
+        var route = new List<ProviderCandidate>();
+        if (string.IsNullOrWhiteSpace(value)) return route;
+        foreach (var entry in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var candidate = ProviderCandidateSpec.Parse(entry);
+            if (candidate.ProviderId.Length > 0) route.Add(candidate);
+            else _logger.LogWarning("live route for consumer {Consumer}: entry '{Entry}' names no provider; skipped", consumer, entry);
+        }
+        return route;
+    }
 
-    private static ModelOverrides Overrides(string? any, Dictionary<string, string>? byProvider) =>
-        any is null && byProvider is null
-            ? ModelOverrides.None
-            : new(any, byProvider ?? (IReadOnlyDictionary<string, string>)ReadOnlyDictionary<string, string>.Empty);
+    /// <summary>Its own step after the route read, so a failed listing never costs the route.</summary>
+    private async Task WarnOfModelOnlyKeysOnceAsync(IKeyValueStore store, CancellationToken ct)
+    {
+        if (KeyPrefix == ModelOnlyKeyPrefix || Interlocked.Exchange(ref _modelOnlyKeysChecked, 1) == 1) return;
+        var checkedOk = false;
+        try
+        {
+            var keys = await store.ListKeysAsync(ModelOnlyKeyPrefix, ct).ConfigureAwait(false);
+            if (keys.Any(k => k.StartsWith(ModelOnlyKeyPrefix, StringComparison.Ordinal)))
+                _logger.LogWarning(
+                    "live routing: keys remain under {ModelOnlyPrefix}; their values name a model alone and are not read — write each consumer's route as {RoutePrefix}<consumer> = provider:model[, provider:model…]",
+                    ModelOnlyKeyPrefix, KeyPrefix);
+            checkedOk = true;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "live routing: could not list {ModelOnlyPrefix} keys; will ask again", ModelOnlyKeyPrefix);
+        }
+        finally
+        {
+            if (!checkedOk) Volatile.Write(ref _modelOnlyKeysChecked, 0);
+        }
+    }
 }

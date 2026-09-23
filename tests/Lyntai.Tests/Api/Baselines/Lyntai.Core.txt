@@ -840,8 +840,7 @@ interface Lyntai.Inference.IModelProvider
     StreamAsync(MediaRequest request, CancellationToken ct = default) : IAsyncEnumerable<MediaChunk>
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
 interface Lyntai.Inference.IModelRoutingStore
-    GetModelOverrideAsync(String consumer, CancellationToken ct = default) : Task<String>
-    GetModelOverridesAsync(String consumer, CancellationToken ct = default) : Task<ModelOverrides>
+    GetRouteAsync(String consumer, CancellationToken ct = default) : Task<IReadOnlyList<ProviderCandidate>>
 interface Lyntai.Inference.IProviderAdmission
     EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>
 interface Lyntai.Inference.IProviderAuth
@@ -893,8 +892,7 @@ interface Lyntai.Inference.IVectorProvider
 sealed class Lyntai.Inference.KeyValueModelRoutingStore
     .ctor(IKeyValueStore kv = null, ILogger<KeyValueModelRoutingStore> logger = null, String keyPrefix = null)
     DefaultKeyPrefix : String const
-    GetModelOverrideAsync(String consumer, CancellationToken ct = default) : Task<String>
-    GetModelOverridesAsync(String consumer, CancellationToken ct = default) : Task<ModelOverrides>
+    GetRouteAsync(String consumer, CancellationToken ct = default) : Task<IReadOnlyList<ProviderCandidate>>
     KeyPrefix : String
 sealed class Lyntai.Inference.MediaArtifact
     .ctor(String MediaType, Byte[] Data = null, String Uri = null, IReadOnlyDictionary<String,String> Metadata = null)
@@ -1012,17 +1010,6 @@ sealed class Lyntai.Inference.MediaUsage
     Seconds : Nullable<Double>
     ToProviderUsage() : ProviderUsage
     ToString() : String
-sealed class Lyntai.Inference.ModelOverrides
-    .ctor(String Any, IReadOnlyDictionary<String,String> ByProvider)
-    Any : String
-    ByProvider : IReadOnlyDictionary<String,String>
-    Deconstruct(String& Any, IReadOnlyDictionary`2& ByProvider) : Void
-    Equals(ModelOverrides other) : Boolean
-    Equals(Object obj) : Boolean
-    For(String providerId) : String
-    GetHashCode() : Int32
-    ToString() : String
-    static None : ModelOverrides
 sealed class Lyntai.Inference.ProviderAdmission
     .ctor(ProviderAdmissionOptions options = null)
     EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>
@@ -1701,15 +1688,14 @@ sealed class Lyntai.LyntaiOptions
     MemoryCapPerScope : Int32
     MemoryEviction : MemoryEvictionPolicy
     MemoryRecallLimit : Int32
-    ModelKeyPrefix : String
     PromptKeyPrefix : String
     ProviderTimeout : TimeSpan
     RateLimit : RateLimitOptions
     ResolveModel(String consumer, String requestModel) : String
-    ResolveModel(String consumer, String requestModel, String liveOverride) : String
     ResolveTimeout(Nullable<Int32> seconds) : TimeSpan
     ResolveTimeout(Nullable<Int32> seconds, String consumer) : TimeSpan
     ResolveTimeout(TextRequest req) : TimeSpan
+    RouteKeyPrefix : String
     Routing : RoutingPolicy
     TimeoutByConsumer : Dictionary<String,TimeSpan>
     ToolLoopMaxIterations : Int32

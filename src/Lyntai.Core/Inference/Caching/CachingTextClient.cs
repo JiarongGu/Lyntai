@@ -26,13 +26,12 @@ public sealed class CachingTextClient(
     {
         if (!IsCacheable(req)) return await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
 
-        // key on the EFFECTIVE model — the router resolves per-consumer defaults + LIVE overrides, so two
-        // consumers (or a pre/post admin retune) with Model=null + identical messages don't collide, and a
-        // stale-model reply is never served after a live retune
-        var live = modelRouting is null
-            ? ModelOverrides.None
-            : await modelRouting.GetModelOverridesAsync(req.Consumer, ct).ConfigureAwait(false);
-        var key = ResponseCacheKey.For(req, EffectiveModel(req, live));
+        // key on the EFFECTIVE model and the LIVE route, as the router resolves them, so two consumers with
+        // Model=null + identical messages don't collide, and a reply is never served across a live rebind
+        IReadOnlyList<ProviderCandidate> route = modelRouting is null
+            ? []
+            : await modelRouting.GetRouteAsync(req.Consumer, ct).ConfigureAwait(false);
+        var key = ResponseCacheKey.For(req, EffectiveModel(req, route));
         var cached = await cache.GetAsync(key, ct).ConfigureAwait(false);
         if (cached is not null)
         {
@@ -50,21 +49,15 @@ public sealed class CachingTextClient(
     }
 
     /// <summary>The key's model component. The cache sits in front of the router and cannot know which
-    /// provider will serve, so provider-scoped overrides join it as <c>|provider=model</c> pairs in a canonical
-    /// order — appended ONLY when there are any, so every key without one is unchanged. A request naming its
-    /// own model outranks every live entry and keys on that model alone.</summary>
-    private string? EffectiveModel(TextRequest req, ModelOverrides live)
+    /// candidate will serve, so a live route joins it whole, in fallback order, as <c>|route=</c> plus its
+    /// entries (the provider id lower-cased, as the router matches it) — appended ONLY when there is one, so a
+    /// consumer with no live route keeps its key.</summary>
+    private string? EffectiveModel(TextRequest req, IReadOnlyList<ProviderCandidate> route)
     {
-        var model = options.ResolveModel(req.Consumer, req.Model, live.Any);
-        if (!string.IsNullOrEmpty(req.Model) || live.ByProvider.Count == 0) return model;
-
-        var scoped = string.Concat(live.ByProvider
-            .Where(p => !string.IsNullOrWhiteSpace(p.Value))
-            .Select(p => (Provider: p.Key.ToLowerInvariant(), Model: p.Value))
-            .OrderBy(p => p.Provider, StringComparer.Ordinal)
-            .ThenBy(p => p.Model, StringComparer.Ordinal)
-            .Select(p => $"|{p.Provider}={p.Model}"));
-        return scoped.Length == 0 ? model : model + scoped;
+        var model = options.ResolveModel(req.Consumer, req.Model);
+        if (route is not { Count: > 0 }) return model;
+        return model + "|route=" + string.Join(",", route.Select(c =>
+            ProviderCandidateSpec.Format(c with { ProviderId = c.ProviderId.ToLowerInvariant() })));
     }
 
     // StreamAsync/SupportsToolCalls: base pass-through (streaming is delivered live; not a cache unit).

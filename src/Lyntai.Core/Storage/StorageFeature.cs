@@ -11,7 +11,7 @@ public enum StorageFeature
     /// migration version table (<see cref="StorageFeatures.TagPasses"/> yields zero passes for it).</summary>
     None = 0,
 
-    /// <summary>Key-value store (<c>lyntai_kv</c>) — prompt/model overrides, scheduler next-run, secret vault.</summary>
+    /// <summary>Key-value store (<c>lyntai_kv</c>) — prompt overrides, live routes, scheduler next-run, secret vault.</summary>
     KeyValue = 1 << 0,
 
     /// <summary>Conversation store (<c>lyntai_thread</c> + <c>lyntai_message</c>).</summary>

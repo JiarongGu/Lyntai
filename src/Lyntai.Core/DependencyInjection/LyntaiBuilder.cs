@@ -356,21 +356,20 @@ public sealed class LyntaiBuilder
         return this;
     }
 
-    /// <summary>Enable LIVE per-consumer model routing: the router (and response cache) read a
-    /// <c>lyntai.model.&lt;consumer&gt;</c> override from the key-value store on each call, so an admin retune
-    /// of a consumer's model takes effect WITHOUT a restart (the model analogue of a prompt override). A
-    /// <c>lyntai.model.&lt;consumer&gt;@&lt;providerId&gt;</c> override reaches only that provider (see
-    /// <see cref="KeyValueModelRoutingStore"/>). Needs a registered <see cref="IKeyValueStore"/>; opt-in, so apps
-    /// that don't want the per-call lookup pay nothing. Precedence: explicit request/candidate model → live
-    /// override (the serving provider's own, else the consumer-wide one) → configured per-consumer default →
-    /// provider default.</summary>
+    /// <summary>Enable LIVE per-consumer routing: the router (and the response cache) read the consumer's route —
+    /// <c>lyntai.route.&lt;consumer&gt;</c> = <c>provider:model[, provider:model…]</c> — from the key-value store
+    /// on each call and, when one is set, route over it IN PLACE of the configured candidates. So an admin moves
+    /// a consumer to another backend and model together, WITHOUT a restart (see
+    /// <see cref="KeyValueModelRoutingStore"/>; the namespace is <see cref="LyntaiOptions.RouteKeyPrefix"/>).
+    /// Needs a registered <see cref="IKeyValueStore"/>; opt-in, so apps that don't want the per-call lookup pay
+    /// nothing.</summary>
     public LyntaiBuilder AddLiveModelRouting()
     {
         Services.TryAddSingleton<IModelRoutingStore>(sp =>
             new KeyValueModelRoutingStore(
                 sp.GetService<IKeyValueStore>(),
                 sp.GetService<ILogger<KeyValueModelRoutingStore>>(),
-                Options.ModelKeyPrefix));
+                Options.RouteKeyPrefix));
         return this;
     }
 

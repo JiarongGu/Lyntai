@@ -61,10 +61,11 @@ public sealed class LyntaiOptions
     /// operates over the app's existing config rows — no prefix-translating shim, no duplicated keys.</summary>
     public string PromptKeyPrefix { get; set; } = Lyntai.Prompts.PromptRegistry.DefaultKeyPrefix;
 
-    /// <summary>KV key namespace the live model-routing store (<c>AddLiveModelRouting</c>) reads per-consumer
-    /// overrides under. Defaults to <c>lyntai.model.</c>; set an app's OWN namespace (e.g. <c>llm.model.</c>)
-    /// to point live model routing at the app's existing keys.</summary>
-    public string ModelKeyPrefix { get; set; } = KeyValueModelRoutingStore.DefaultKeyPrefix;
+    /// <summary>KV key namespace the live routing store (<c>AddLiveModelRouting</c>) reads each consumer's route
+    /// under. Defaults to <c>lyntai.route.</c>; set an app's OWN namespace (e.g. <c>llm.route.</c>) to point live
+    /// routing at the app's existing keys, whose values must then be routes (see
+    /// <see cref="KeyValueModelRoutingStore"/>).</summary>
+    public string RouteKeyPrefix { get; set; } = KeyValueModelRoutingStore.DefaultKeyPrefix;
 
     /// <summary>How <see cref="Lyntai.Storage.IMemoryStore"/> bounds its size — the app's control over
     /// eviction: a per-scope count cap + <see cref="MemoryEvictionMode"/> (FIFO / LRU), a default TTL, and a
@@ -117,15 +118,9 @@ public sealed class LyntaiOptions
 
     /// <summary>Resolve the model for a request: explicit request model wins, then the consumer's
     /// configured default, then the "default" consumer entry, then null (provider default).</summary>
-    public string? ResolveModel(string consumer, string? requestModel) => ResolveModel(consumer, requestModel, null);
-
-    /// <summary>Resolve the model with an optional LIVE <paramref name="liveOverride"/> (from an
-    /// <see cref="Lyntai.Inference.IModelRoutingStore"/>): explicit request model wins, then the live
-    /// override, then the consumer's configured default, then the "default" entry, then null.</summary>
-    public string? ResolveModel(string consumer, string? requestModel, string? liveOverride)
+    public string? ResolveModel(string consumer, string? requestModel)
     {
         if (!string.IsNullOrEmpty(requestModel)) return requestModel;
-        if (!string.IsNullOrEmpty(liveOverride)) return liveOverride;
         if (DefaultModelByConsumer.TryGetValue(consumer, out var m)) return m;
         return DefaultModelByConsumer.TryGetValue("default", out var d) ? d : null;
     }

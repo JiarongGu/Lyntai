@@ -19,8 +19,9 @@ public interface ITextRouter
     /// <paramref name="req"/> — true iff the first live (registered + available + not on cooldown)
     /// candidate is a tool-capable provider. Takes the request so it resolves the same CONFIGURED
     /// effective model / cooldown key that <see cref="CompleteAsync"/> will. Caveat: being a sync probe,
-    /// it does NOT read a live <c>IModelRoutingStore</c> override — under <c>ProviderAndModel</c> cooldown
-    /// scope plus a live override, the probe's cooldown key can differ from the completion's. Default false.</summary>
+    /// it does NOT read a live <c>IModelRoutingStore</c> route — it decides over the candidates it is given,
+    /// so under a live route the completion can be served by a different candidate than the one probed.
+    /// Default false.</summary>
     bool SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req) => false;
 
     /// <summary>Whether the first live candidate's STREAM delivers native tool calls. Same selection rule

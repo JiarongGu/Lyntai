@@ -46,7 +46,8 @@ public interface ITextRouterFactory
 /// <param name="options">Platform options; <see cref="LyntaiOptions.Routing"/> supplies the fallback policy,
 /// retry budgets and cooldown granularity.</param>
 /// <param name="loggers">Null = no logging from the routers.</param>
-/// <param name="modelRouting">Live per-consumer model overrides; null = the configured defaults alone.</param>
+/// <param name="modelRouting">Live per-consumer routes, handed to every router this builds (see
+/// <see cref="TextRouter"/>); null = the given candidates alone.</param>
 /// <param name="admission">Bounds concurrent completions per configuration; shared for the same reason the
 /// tracker is. Null = unbounded. Applies to the pooled overload only, because it needs a configuration to
 /// key on — and to completions only, never to streaming (see <see cref="TextRouter"/>).</param>

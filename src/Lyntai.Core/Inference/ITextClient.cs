@@ -17,7 +17,7 @@ public interface ITextClient
     /// default routing (the first live default candidate is a tool-capable provider). The
     /// <see cref="Agents.IToolLoop"/> reads this to choose the native path vs. its prompt-based fallback —
     /// without seeing candidate lists. Takes the request so the capability probe matches the CONFIGURED
-    /// model / cooldown key the completion will use (a live <c>IModelRoutingStore</c> override is not read
+    /// model / cooldown key the completion will use (a live <c>IModelRoutingStore</c> route is not read
     /// by this sync probe — see <see cref="ITextRouter.SupportsToolCalls"/>).</summary>
     bool SupportsToolCalls(TextRequest req) => false;
 

@@ -18,7 +18,8 @@ namespace Lyntai.Inference;
 /// <param name="options">Platform options; <see cref="LyntaiOptions.Routing"/> supplies the fallback policy,
 /// retry budgets and cooldown granularity.</param>
 /// <param name="logger">Null = no logging.</param>
-/// <param name="modelRouting">Live per-consumer model overrides; null = the configured defaults alone.</param>
+/// <param name="modelRouting">Live per-consumer routes, read once per call; a consumer's route replaces the
+/// candidates the call was given. Null = the given candidates alone.</param>
 /// <param name="configuration">Which CONFIGURATION a provider is running under, used to key dead-host
 /// cooldown and admission. Null (or a null return) = key cooldown on
 /// <see cref="Lyntai.Inference.IProviderIdentity.Id"/> and apply no admission — correct for a
@@ -73,11 +74,11 @@ public sealed class TextRouter(
 
     public async Task<TextResponse> CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default)
     {
-        var live = await LiveOverridesAsync(req.Consumer, ct).ConfigureAwait(false);
+        candidates = await LiveRouteAsync(candidates, req.Consumer, ct).ConfigureAwait(false);
         TextResponse? last = null;           // the last SUBSTANTIVE failure — what the caller is told
         TextResponse? lastBlameless = null;  // …kept apart, so it can answer only when there was no real failure
 
-        foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req, live))
+        foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req))
         {
             // retry-then-advance: the same candidate may be retried on transient faults before advancing
             var retries = 0;
@@ -133,10 +134,10 @@ public sealed class TextRouter(
     public async IAsyncEnumerable<TextChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var live = await LiveOverridesAsync(req.Consumer, ct).ConfigureAwait(false);
+        candidates = await LiveRouteAsync(candidates, req.Consumer, ct).ConfigureAwait(false);
         var failures = new StreamFailures();
 
-        foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req, live))
+        foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req))
         {
             var effective = req with { Model = effectiveModel };
 
@@ -351,12 +352,11 @@ public sealed class TextRouter(
     /// <summary>Native tool support for a candidate list: the first live candidate (registered,
     /// available, not on cooldown) decides — matching how the router commits to the first working one.
     /// A tool-capable fallback that would never be reached must not flip this true. Being a SYNC probe,
-    /// it resolves against the CONFIGURED default model (no live <see cref="IModelRoutingStore"/> read) —
-    /// under <see cref="CooldownScope.ProviderAndModel"/> plus a live override, the probe's cooldown key
-    /// can differ from the completion's.</summary>
+    /// it reads no live <see cref="IModelRoutingStore"/> route: it decides over the candidates it is given, so
+    /// under a live route the completion can be served by a different candidate than the one probed.</summary>
     public bool SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req)
     {
-        foreach (var candidate in LiveCandidates(candidates, req, ModelOverrides.None))
+        foreach (var candidate in LiveCandidates(candidates, req))
             return candidate.Provider.Capabilities.SupportsToolCalls; // first live candidate decides
         return false;
     }
@@ -364,23 +364,23 @@ public sealed class TextRouter(
     /// <inheritdoc/>
     public bool SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req)
     {
-        foreach (var candidate in LiveCandidates(candidates, req, ModelOverrides.None))
+        foreach (var candidate in LiveCandidates(candidates, req))
             return candidate.Provider.Capabilities.SupportsStreamingToolCalls; // first live candidate decides, as above
         return false;
     }
 
     /// <summary>The shared candidate-selection preamble every door runs: dedup the list, resolve each
-    /// candidate's EFFECTIVE model (candidate model → request model → the live override for THIS candidate's
-    /// provider → consumer default), skip unknown/unavailable/cooling providers (with the sole-candidate
-    /// exemption), and pair each survivor with its cooldown key.</summary>
+    /// candidate's EFFECTIVE model (candidate model → request model → consumer default), skip
+    /// unknown/unavailable/cooling providers (with the sole-candidate exemption), and pair each survivor with
+    /// its cooldown key.</summary>
     private IEnumerable<(IModelProvider Provider, string? Model, string Key)> LiveCandidates(
-        IReadOnlyList<ProviderCandidate> candidates, TextRequest req, ModelOverrides live)
+        IReadOnlyList<ProviderCandidate> candidates, TextRequest req)
     {
         var deduped = CandidateDedup.Dedup(candidates);
         var soleCandidate = deduped.Count == 1;
         foreach (var candidate in deduped)
         {
-            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model, live.For(candidate.ProviderId));
+            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model);
             var provider = SelectLive(candidate, effectiveModel, soleCandidate, out var skipReason);
             if (provider is null)
             {
@@ -423,11 +423,21 @@ public sealed class TextRouter(
         return reply;
     }
 
-    /// <summary>The consumer's live model overrides (none when live routing isn't wired) — read once per call;
-    /// each candidate then takes its own provider's entry. (The sync <see cref="SupportsToolCalls"/> capability
-    /// probe stays on the configured default.)</summary>
-    private async Task<ModelOverrides> LiveOverridesAsync(string consumer, CancellationToken ct) =>
-        modelRouting is null ? ModelOverrides.None : await modelRouting.GetModelOverridesAsync(consumer, ct).ConfigureAwait(false);
+    /// <summary>The candidates a call routes over: the consumer's live route when one is set, else
+    /// <paramref name="given"/>. Read once per call. A route naming no provider this router knows is ignored with
+    /// a warning — a fail-open caller must not go silently dark on a misspelt or foreign route.</summary>
+    private async Task<IReadOnlyList<ProviderCandidate>> LiveRouteAsync(
+        IReadOnlyList<ProviderCandidate> given, string consumer, CancellationToken ct)
+    {
+        if (modelRouting is null) return given;
+        var route = await modelRouting.GetRouteAsync(consumer, ct).ConfigureAwait(false);
+        if (route is not { Count: > 0 }) return given;
+        if (route.Any(c => _byId.Value.ContainsKey(c.ProviderId))) return route;
+
+        _logger.LogWarning("router: the live route for consumer {Consumer} ({Route}) names no registered provider; routing over the given candidates",
+            consumer, string.Join(", ", route.Select(ProviderCandidateSpec.Format)));
+        return given;
+    }
 
     /// <summary>Take a concurrency permit for this provider's CONFIGURATION, or nothing at all when no
     /// admission is wired or the configuration is unknown. Never returns a handle the caller may skip

@@ -8,287 +8,338 @@ using InMemoryKeyValueStore = Lyntai.Storage.InMemory.InMemoryKeyValueStore;
 
 namespace Lyntai.Tests.Inference;
 
-/// <summary>Live per-consumer model routing (A6): an admin-set model override in the KV store takes effect
-/// on the very next call — no restart — resolved above the code/env default but below an explicit model.</summary>
+/// <summary>Live routing: a consumer's ROUTE — <c>lyntai.route.&lt;consumer&gt;</c> = <c>provider:model[, …]</c> in
+/// the KV store — replaces the candidates a call was given, from the very next call and without a restart. Each
+/// candidate carries its own model, so a fallback backend is never asked for another backend's model.</summary>
 public class LiveModelRoutingTests
 {
-    [Fact]
-    public void ResolveModel_precedence_request_then_live_then_config()
-    {
-        var opts = new LyntaiOptions();
-        opts.DefaultModelByConsumer["scoring"] = "config";
-        opts.DefaultModelByConsumer["default"] = "config-default";
+    // ---- the value is the library's own candidate spec ----------------------------------------------
 
-        Assert.Equal("explicit", opts.ResolveModel("scoring", "explicit", "live")); // request wins
-        Assert.Equal("live", opts.ResolveModel("scoring", null, "live"));            // live over config
-        Assert.Equal("config", opts.ResolveModel("scoring", null, null));            // consumer default
-        Assert.Equal("config-default", opts.ResolveModel("other", null, null));      // "default" entry
-        Assert.Null(new LyntaiOptions().ResolveModel("x", null, null));              // nothing configured → null
-    }
-
-    [Fact]
-    public async Task Kv_store_reads_the_override_and_fails_open_without_a_store()
-    {
-        var kv = new InMemoryKeyValueStore();
-        var store = new KeyValueModelRoutingStore(kv);
-        Assert.Null(await store.GetModelOverrideAsync("scoring"));         // unset → null
-        await kv.SetAsync("lyntai.model.scoring", "haiku");
-        Assert.Equal("haiku", await store.GetModelOverrideAsync("scoring"));
-
-        Assert.Null(await new KeyValueModelRoutingStore(kv: null).GetModelOverrideAsync("scoring")); // no store → null
-    }
-
-    [Fact]
-    public async Task An_admin_retune_takes_effect_live_without_restart()
-    {
-        var kv = new InMemoryKeyValueStore();
-        var provider = new FakeTextProvider("p"); // its Calls capture the request the router built (with the effective model)
-        var options = new LyntaiOptions();
-        options.DefaultModelByConsumer["scoring"] = "config-model";
-        var router = new TextRouter([provider], new DeadHostTracker(), options,
-            modelRouting: new KeyValueModelRoutingStore(kv));
-        IReadOnlyList<ProviderCandidate> candidates = [new ProviderCandidate("p")];
-        var req = new TextRequest { Messages = [TextMessage.User("hi")], Consumer = "scoring" };
-
-        await router.CompleteAsync(candidates, req);
-        Assert.Equal("config-model", provider.Calls[^1].Model);            // no override → configured default
-
-        await kv.SetAsync("lyntai.model.scoring", "live-model");           // admin retunes...
-        await router.CompleteAsync(candidates, req);
-        Assert.Equal("live-model", provider.Calls[^1].Model);             // ...and the next call uses it — no restart
-
-        await kv.SetAsync("lyntai.model.scoring", "live-model-2");         // retune again, live
-        await router.CompleteAsync(candidates, req);
-        Assert.Equal("live-model-2", provider.Calls[^1].Model);
-
-        await router.CompleteAsync(candidates, req with { Model = "explicit" }); // an explicit request model still wins
-        Assert.Equal("explicit", provider.Calls[^1].Model);
-    }
-
-    // ---- scoped to a provider ------------------------------------------------------------------------
-
-    [Fact]
-    public void ModelOverrides_For_prefers_the_providers_own_entry_else_the_consumer_wide_one()
-    {
-        // an ORDINAL map on purpose: matching the provider id case-insensitively is For's promise, not the map's
-        var live = new ModelOverrides("wide", new Dictionary<string, string> { ["llama"] = "scoped" });
-
-        Assert.Equal("scoped", live.For("llama"));
-        Assert.Equal("scoped", live.For("LLAMA"));
-        Assert.Equal("wide", live.For("ollama"));                              // another provider → consumer-wide
-        Assert.Null(new ModelOverrides(null, live.ByProvider).For("ollama"));  // neither → null
-        Assert.Null(ModelOverrides.None.For("llama"));
-    }
-
-    [Fact]
-    public async Task Kv_store_reads_scoped_keys_beside_the_consumer_wide_one()
-    {
-        var kv = new InMemoryKeyValueStore();
-        await kv.SetAsync("lyntai.model.memory", "a");
-        await kv.SetAsync("lyntai.model.memory@llama", "b");
-        await kv.SetAsync("lyntai.model.memory@ollama", "  ");   // blank → ignored
-        await kv.SetAsync("lyntai.model.memory2@x", "c");        // another consumer's key
-        var store = new KeyValueModelRoutingStore(kv);
-
-        var live = await store.GetModelOverridesAsync("memory");
-
-        Assert.Equal("a", live.Any);
-        var scoped = Assert.Single(live.ByProvider);
-        Assert.Equal(("llama", "b"), (scoped.Key, scoped.Value));
-        Assert.Equal("b", live.For("Llama"));
-        Assert.Equal("a", await store.GetModelOverrideAsync("memory")); // the consumer-wide read is unchanged
-    }
-
-    [Fact]
-    public async Task Kv_store_yields_no_overrides_without_a_store()
-    {
-        var live = await new KeyValueModelRoutingStore(kv: null).GetModelOverridesAsync("memory");
-
-        Assert.Null(live.Any);
-        Assert.Empty(live.ByProvider);
-    }
-
-    [Fact]
-    public async Task Kv_store_fails_open_with_one_warning_keeping_what_it_already_read()
+    [Theory]
+    [InlineData("claude:haiku", "claude|haiku")]
+    [InlineData("llama:qwen3-4b-gguf, claude:haiku", "llama|qwen3-4b-gguf claude|haiku")]
+    [InlineData("ollama:qwen3:4b", "ollama|qwen3:4b")]  // split at the FIRST colon
+    [InlineData(" claude ", "claude|(default)")]        // a bare provider serves its default model
+    [InlineData("a:x, ,b:y", "a|x b|y")]                // a blank entry is skipped
+    public async Task A_route_is_read_as_a_list_of_candidate_specs(string value, string expected)
     {
         var warnings = new List<string>();
-        var logger = new CapturingLogger<KeyValueModelRoutingStore>(warnings);
+        var kv = new InMemoryKeyValueStore();
+        await kv.SetAsync("lyntai.route.memory", value);
+
+        var route = await new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings)).GetRouteAsync("memory");
+
+        Assert.Equal(expected, Render(route));
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
+    public async Task An_entry_naming_no_provider_is_skipped_with_a_warning()
+    {
+        var warnings = new List<string>();
+        var kv = new InMemoryKeyValueStore();
+        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings));
+
+        await kv.SetAsync("lyntai.route.memory", ":haiku");
+        Assert.Empty(await store.GetRouteAsync("memory"));
+        Assert.Contains(":haiku", Assert.Single(warnings));
+
+        warnings.Clear();
+        await kv.SetAsync("lyntai.route.memory", ":haiku, claude:haiku");
+        Assert.Equal("claude|haiku", Render(await store.GetRouteAsync("memory")));
+        Assert.Single(warnings);
+    }
+
+    // ---- the store --------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task No_route_reads_as_an_empty_list()
+    {
+        var kv = new InMemoryKeyValueStore();
+        var store = new KeyValueModelRoutingStore(kv);
+
+        Assert.Empty(await store.GetRouteAsync("memory"));                                   // no key
+        await kv.SetAsync("lyntai.route.memory", "  ");
+        Assert.Empty(await store.GetRouteAsync("memory"));                                   // a blank value
+        Assert.Empty(await new KeyValueModelRoutingStore(kv: null).GetRouteAsync("memory")); // no store
+    }
+
+    [Fact]
+    public async Task A_faulting_store_reads_as_no_route_with_one_warning()
+    {
+        var warnings = new List<string>();
+        var logger = Logger<KeyValueModelRoutingStore>(warnings);
 
         var down = new FaultingKeyValueStore { OnGet = () => new InvalidOperationException("kv down") };
-        down.Data["lyntai.model.memory"] = "a";
-        var none = await new KeyValueModelRoutingStore(down, logger).GetModelOverridesAsync("memory");
-        Assert.Null(none.Any);
-        Assert.Empty(none.ByProvider);
+        down.Data["lyntai.route.memory"] = "claude:haiku";
+        Assert.Empty(await new KeyValueModelRoutingStore(down, logger).GetRouteAsync("memory"));
         Assert.Single(warnings);
 
-        // the listing TIMES OUT — a cancellation nobody asked for — after the consumer-wide read succeeded
+        // a TIMEOUT is a cancellation nobody asked for, so it fails open too
         warnings.Clear();
-        var slow = new FaultingKeyValueStore { OnList = () => new TaskCanceledException("kv timed out") };
-        slow.Data["lyntai.model.memory"] = "a";
-        slow.Data["lyntai.model.memory@llama"] = "b";
-        var partial = await new KeyValueModelRoutingStore(slow, logger).GetModelOverridesAsync("memory");
-        Assert.Equal("a", partial.Any);
-        Assert.Empty(partial.ByProvider);
+        var slow = new FaultingKeyValueStore { OnGet = () => new TaskCanceledException("kv timed out") };
+        slow.Data["lyntai.route.memory"] = "claude:haiku";
+        Assert.Empty(await new KeyValueModelRoutingStore(slow, logger).GetRouteAsync("memory"));
         Assert.Single(warnings);
     }
 
     [Fact]
-    public async Task Kv_store_rethrows_the_callers_cancellation()
+    public async Task The_callers_cancellation_propagates()
     {
         using var cts = new CancellationTokenSource();
         var marker = new OperationCanceledException("the caller left", cts.Token);
-        // cancelled MID-call, after the consumer-wide read — so only a rethrow can surface this exact exception
-        var kv = new FaultingKeyValueStore { OnList = () => { cts.Cancel(); return marker; } };
+        // cancelled MID-call, so only a rethrow can surface this exact exception
+        var kv = new FaultingKeyValueStore { OnGet = () => { cts.Cancel(); return marker; } };
 
         var thrown = await Assert.ThrowsAsync<OperationCanceledException>(
-            () => new KeyValueModelRoutingStore(kv).GetModelOverridesAsync("memory", cts.Token));
+            () => new KeyValueModelRoutingStore(kv).GetRouteAsync("memory", cts.Token));
         Assert.Same(marker, thrown);
     }
 
     [Fact]
-    public async Task A_store_implementing_only_the_consumer_wide_read_serves_it_as_Any()
+    public async Task A_key_left_under_lyntai_model_is_warned_of_once_and_never_read_as_a_route()
     {
-        IModelRoutingStore store = new ConsumerWideStore("byo");
+        var warnings = new List<string>();
+        var kv = new InMemoryKeyValueStore();
+        await kv.SetAsync("lyntai.model.memory", "claude"); // would name a provider, were it read as a route
+        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings));
 
-        var live = await store.GetModelOverridesAsync("memory");
+        for (var call = 0; call < 3; call++)
+            Assert.Empty(await store.GetRouteAsync("memory"));
 
-        Assert.Equal("byo", live.Any);
-        Assert.Empty(live.ByProvider);
+        var warning = Assert.Single(warnings);
+        Assert.Contains("lyntai.model.", warning);
+        Assert.Contains("lyntai.route.", warning);
     }
 
     [Fact]
-    public async Task A_scoped_override_reaches_only_its_provider_on_fallback()
+    public async Task No_key_under_lyntai_model_no_warning()
     {
-        var (router, a, b, kv) = FallbackRoute();
-        await kv.SetAsync("lyntai.model.memory@A", "a-model"); // cased unlike the provider id, on purpose
+        var warnings = new List<string>();
+        var kv = new InMemoryKeyValueStore();
+        await kv.SetAsync("lyntai.route.memory", "claude:haiku");
+        await kv.SetAsync("lyntai.modelling", "not under the prefix");
+        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings));
 
-        var reply = await router.CompleteAsync(AThenB, Memory);
+        await store.GetRouteAsync("memory");
+        await store.GetRouteAsync("memory");
 
-        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
+    public async Task A_failed_check_for_lyntai_model_keys_costs_the_route_nothing_and_is_asked_again()
+    {
+        var warnings = new List<string>();
+        var kv = new FaultingKeyValueStore { OnList = () => new InvalidOperationException("listing down") };
+        kv.Data["lyntai.route.memory"] = "claude:haiku";
+        kv.Data["lyntai.model.memory"] = "haiku";
+        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings));
+
+        Assert.Equal("claude|haiku", Render(await store.GetRouteAsync("memory")));
+        Assert.Empty(warnings);
+
+        kv.OnList = null; // a failed check is a moment, not an answer
+        Assert.Equal("claude|haiku", Render(await store.GetRouteAsync("memory")));
+        Assert.Contains("lyntai.model.", Assert.Single(warnings));
+    }
+
+    [Fact]
+    public async Task A_store_configured_onto_lyntai_model_reads_it_as_routes_without_the_warning()
+    {
+        var warnings = new List<string>();
+        var kv = new InMemoryKeyValueStore();
+        await kv.SetAsync("lyntai.model.memory", "claude:haiku");
+        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings), keyPrefix: "lyntai.model.");
+
+        Assert.Equal("claude|haiku", Render(await store.GetRouteAsync("memory")));
+        Assert.Empty(warnings);
+    }
+
+    // ---- the router, on both doors ----------------------------------------------------------------------
+
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task A_live_route_replaces_the_configured_candidates(bool streaming)
+    {
+        var (router, x, a, b, kv, _) = Routed(aFails: true);
+        await kv.SetAsync("lyntai.route.memory", "a:m1, b:m2");
+
+        var served = await CallAsync(router, Configured, Memory, streaming);
+
+        Assert.StartsWith("b ", served);
         Assert.NotEmpty(a.Calls);
-        Assert.All(a.Calls, c => Assert.Equal("a-model", c.Model));
-        Assert.Equal("d", Assert.Single(b.Calls).Model); // its configured default — never a's model
+        Assert.All(a.Calls, c => Assert.Equal("m1", c.Model));
+        Assert.Equal("m2", Assert.Single(b.Calls).Model); // its own model — never a's
+        Assert.Empty(x.Calls);
     }
 
-    [Fact]
-    public async Task A_scoped_override_reaches_only_its_provider_when_streaming()
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task A_rebind_moves_the_provider_and_the_model_together_on_the_next_call(bool streaming)
     {
-        var (router, a, b, kv) = FallbackRoute();
-        await kv.SetAsync("lyntai.model.memory@a", "a-model");
+        var (router, x, a, b, kv, _) = Routed(aFails: false);
+        await kv.SetAsync("lyntai.route.memory", "a:m1");
+        await CallAsync(router, Configured, Memory, streaming);
+        Assert.Equal("m1", Assert.Single(a.Calls).Model);
 
-        await foreach (var _ in router.StreamAsync(AThenB, Memory)) { }
+        await kv.SetAsync("lyntai.route.memory", "b:m2");
+        await CallAsync(router, Configured, Memory, streaming);
 
-        Assert.NotEmpty(a.Calls);
-        Assert.All(a.Calls, c => Assert.Equal("a-model", c.Model));
-        Assert.Equal("d", Assert.Single(b.Calls).Model);
+        Assert.Single(a.Calls);
+        Assert.Equal("m2", Assert.Single(b.Calls).Model);
+        Assert.Empty(x.Calls);
     }
 
-    [Fact]
-    public async Task A_scope_naming_a_provider_outside_the_route_reaches_nobody()
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task A_route_entry_resolves_its_model_as_a_configured_candidate_does(bool streaming)
     {
-        var (router, a, b, kv) = FallbackRoute();
-        await kv.SetAsync("lyntai.model.memory@rebound", "rebound-model"); // written before the restart that rewires the route
+        var (router, _, a, b, kv, _) = Routed(aFails: false);
 
-        await router.CompleteAsync(AThenB, Memory);
+        await kv.SetAsync("lyntai.route.memory", "b");
+        await CallAsync(router, Configured, Memory, streaming);
+        await CallAsync(router, Configured, Memory with { Model = "asked" }, streaming);
+        await kv.SetAsync("lyntai.route.memory", "b:m2");
+        await CallAsync(router, Configured, Memory with { Model = "asked" }, streaming);
 
-        Assert.NotEmpty(a.Calls);
-        Assert.All(a.Calls, c => Assert.Equal("d", c.Model));
-        Assert.Equal("d", Assert.Single(b.Calls).Model);
+        // a bare entry takes the request's model, else the consumer default; an entry's own model outranks both
+        Assert.Equal(new string?[] { "d", "asked", "m2" }, b.Calls.Select(c => c.Model));
+        Assert.Empty(a.Calls);
     }
 
-    [Fact]
-    public async Task A_consumer_wide_override_still_reaches_every_candidate()
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task A_route_naming_no_known_provider_is_ignored_with_a_warning(bool streaming)
     {
-        var (router, a, b, kv) = FallbackRoute();
-        await kv.SetAsync("lyntai.model.memory", "wide");
+        var (router, x, a, b, kv, warnings) = Routed(aFails: false);
+        await kv.SetAsync("lyntai.route.memory", "gone:m1, missing:m2");
 
-        await router.CompleteAsync(AThenB, Memory);
+        var served = await CallAsync(router, Configured, Memory, streaming);
 
-        Assert.NotEmpty(a.Calls);
-        Assert.All(a.Calls, c => Assert.Equal("wide", c.Model));
-        Assert.Equal("wide", Assert.Single(b.Calls).Model);
+        Assert.StartsWith("x ", served);
+        Assert.Equal("d", Assert.Single(x.Calls).Model);
+        Assert.Empty(a.Calls);
+        Assert.Empty(b.Calls);
+        var warning = Assert.Single(warnings);
+        Assert.Contains("memory", warning);
+        Assert.Contains("gone", warning);
     }
 
-    [Fact]
-    public async Task A_scoped_override_outranks_the_consumer_wide_one_for_its_provider_only()
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task Without_a_route_the_configured_candidates_serve_as_they_always_have(bool streaming)
     {
-        var (router, a, b, kv) = FallbackRoute();
-        await kv.SetAsync("lyntai.model.memory", "wide");
-        await kv.SetAsync("lyntai.model.memory@a", "a-model");
+        var (router, x, a, b, _, warnings) = Routed(aFails: false);
 
-        await router.CompleteAsync(AThenB, Memory);
+        await CallAsync(router, Configured, Memory, streaming);
+        await CallAsync(router, Configured, Memory with { Model = "asked" }, streaming);
 
-        Assert.NotEmpty(a.Calls);
-        Assert.All(a.Calls, c => Assert.Equal("a-model", c.Model));
-        Assert.Equal("wide", Assert.Single(b.Calls).Model);
+        Assert.Equal(new string?[] { "d", "asked" }, x.Calls.Select(c => c.Model));
+        Assert.Empty(a.Calls);
+        Assert.Empty(b.Calls);
+        Assert.Empty(warnings);
     }
 
+    // ---- the response cache -----------------------------------------------------------------------------
+
     [Fact]
-    public async Task Cache_key_is_unchanged_without_a_scoped_entry_and_moves_with_one()
+    public async Task Without_a_route_the_cache_keys_on_the_resolved_model_alone()
     {
         var kv = new InMemoryKeyValueStore();
-        await kv.SetAsync("lyntai.model.memory", "wide");
-        var options = new LyntaiOptions();
-        var cache = new KeyRecordingCache();
-        var client = new CachingTextClient(new FakeTextClient(), cache, options,
-            modelRouting: new KeyValueModelRoutingStore(kv));
+        await kv.SetAsync("lyntai.model.memory", "haiku"); // not a route, so it moves nothing
+        var (client, cache, options) = Cached(kv);
 
         await client.CompleteAsync(Memory);
-        var unscoped = cache.Keys[^1];
-        Assert.Equal(ResponseCacheKey.For(Memory, options.ResolveModel("memory", null, "wide")), unscoped);
+        await client.CompleteAsync(Memory with { Model = "asked" });
 
-        await kv.SetAsync("lyntai.model.memory@llama", "b");
-        await client.CompleteAsync(Memory);
-        var scoped = cache.Keys[^1];
-        Assert.NotEqual(unscoped, scoped);
-
-        await kv.SetAsync("lyntai.model.memory@llama", "c"); // a scoped retune invalidates too
-        await client.CompleteAsync(Memory);
-        Assert.NotEqual(scoped, cache.Keys[^1]);
-        Assert.NotEqual(unscoped, cache.Keys[^1]);
-
-        var named = Memory with { Model = "explicit" }; // the request's own model outranks every live entry
-        await client.CompleteAsync(named);
-        Assert.Equal(ResponseCacheKey.For(named, "explicit"), cache.Keys[^1]);
+        Assert.Equal(ResponseCacheKey.For(Memory, options.ResolveModel("memory", null)), cache.Keys[0]);
+        Assert.Equal(ResponseCacheKey.For(Memory with { Model = "asked" }, "asked"), cache.Keys[1]);
     }
 
-    // ---- helpers -------------------------------------------------------------------------------------
+    [Fact]
+    public async Task A_route_moves_the_cache_key_and_a_changed_route_moves_it_again()
+    {
+        var kv = new InMemoryKeyValueStore();
+        var (client, cache, _) = Cached(kv);
 
-    private static readonly IReadOnlyList<ProviderCandidate> AThenB = [new("a"), new("b")];
+        await client.CompleteAsync(Memory);
+        var unrouted = cache.Keys[^1];
+
+        await kv.SetAsync("lyntai.route.memory", "llama:qwen3, claude:haiku");
+        await client.CompleteAsync(Memory);
+        var routed = cache.Keys[^1];
+        Assert.NotEqual(unrouted, routed);
+
+        await kv.SetAsync("lyntai.route.memory", "llama:qwen3, claude:sonnet"); // another model
+        await client.CompleteAsync(Memory);
+        var remodelled = cache.Keys[^1];
+        Assert.DoesNotContain(remodelled, new[] { unrouted, routed });
+
+        await kv.SetAsync("lyntai.route.memory", "claude:sonnet, llama:qwen3"); // the same pairs, another order
+        await client.CompleteAsync(Memory);
+        Assert.DoesNotContain(cache.Keys[^1], new[] { unrouted, routed, remodelled });
+
+        await kv.SetAsync("lyntai.route.memory", "LLAMA:qwen3, Claude:haiku"); // a provider id's case is not a route
+        await client.CompleteAsync(Memory);
+        Assert.Equal(routed, cache.Keys[^1]);
+    }
+
+    // ---- helpers -----------------------------------------------------------------------------------------
+
+    private static readonly IReadOnlyList<ProviderCandidate> Configured = [new("x")];
 
     private static readonly TextRequest Memory = new() { Messages = [TextMessage.User("hi")], Consumer = "memory" };
 
-    /// <summary>Route [a, b] for consumer "memory", whose configured default is "d". Provider a always throws,
-    /// so b serves every call.</summary>
-    private static (TextRouter Router, FakeTextProvider A, FakeTextProvider B, InMemoryKeyValueStore Kv) FallbackRoute()
+    private static string Render(IReadOnlyList<ProviderCandidate> route) =>
+        string.Join(" ", route.Select(c => $"{c.ProviderId}|{c.Model ?? "(default)"}"));
+
+    /// <summary>A router over x, a and b for consumer "memory", whose configured default model is "d"; calls are
+    /// given the candidates [x]. With <paramref name="aFails"/>, a throws on both doors.</summary>
+    private static (TextRouter Router, FakeTextProvider X, FakeTextProvider A, FakeTextProvider B,
+        InMemoryKeyValueStore Kv, List<string> Warnings) Routed(bool aFails)
     {
         var kv = new InMemoryKeyValueStore();
-        var a = new FakeTextProvider("a")
+        var x = new FakeTextProvider("x");
+        var a = new FakeTextProvider("a");
+        if (aFails)
         {
-            CompleteThrow = new InvalidOperationException("a is down"),
-            StreamThrow = new InvalidOperationException("a is down"),
-        };
+            a.CompleteThrow = new InvalidOperationException("a is down");
+            a.StreamThrow = new InvalidOperationException("a is down");
+        }
         var b = new FakeTextProvider("b");
         var options = new LyntaiOptions();
         options.DefaultModelByConsumer["memory"] = "d";
-        var router = new TextRouter([a, b], new DeadHostTracker(), options,
+        var warnings = new List<string>();
+        var router = new TextRouter([x, a, b], new DeadHostTracker(), options, Logger<TextRouter>(warnings),
             modelRouting: new KeyValueModelRoutingStore(kv));
-        return (router, a, b, kv);
+        return (router, x, a, b, kv, warnings);
     }
 
-    /// <summary>A BYO store written against the consumer-wide member alone.</summary>
-    private sealed class ConsumerWideStore(string? model) : IModelRoutingStore
+    /// <summary>One call through the chosen door; returns what the serving provider said.</summary>
+    private static async Task<string> CallAsync(TextRouter router, IReadOnlyList<ProviderCandidate> candidates,
+        TextRequest req, bool streaming)
     {
-        public Task<string?> GetModelOverrideAsync(string consumer, CancellationToken ct = default) =>
-            Task.FromResult(model);
+        if (!streaming) return (await router.CompleteAsync(candidates, req)).Text;
+        var text = "";
+        await foreach (var chunk in router.StreamAsync(candidates, req))
+            if (chunk.Kind == TextChunkKind.Content) text += chunk.Text;
+        return text;
     }
+
+    private static (CachingTextClient Client, KeyRecordingCache Cache, LyntaiOptions Options) Cached(IKeyValueStore kv)
+    {
+        var options = new LyntaiOptions();
+        options.DefaultModelByConsumer["memory"] = "d";
+        var cache = new KeyRecordingCache();
+        var client = new CachingTextClient(new FakeTextClient(), cache, options,
+            modelRouting: new KeyValueModelRoutingStore(kv));
+        return (client, cache, options);
+    }
+
+    private static ILogger<T> Logger<T>(List<string> warnings) => new CapturingLogger<T>(warnings);
 
     /// <summary>Answers from <see cref="Data"/> until a fault is scripted for a call.</summary>
     private sealed class FaultingKeyValueStore : IKeyValueStore
     {
         public Dictionary<string, string> Data { get; } = [];
-        public Func<Exception>? OnGet { get; init; }
-        public Func<Exception>? OnList { get; init; }
+        public Func<Exception>? OnGet { get; set; }
+        public Func<Exception>? OnList { get; set; }
 
         public Task<string?> GetAsync(string key, CancellationToken ct = default) =>
             OnGet is { } fault ? throw fault() : Task.FromResult(Data.GetValueOrDefault(key));
