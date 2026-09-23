@@ -4,7 +4,8 @@ namespace Lyntai.Storage.FileSystem;
 /// header, the value as the body.</summary>
 internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueStore
 {
-    private sealed record Entry(string Value, string File);
+    // `Copies` are the other files holding the same key, so a delete removes every one of them
+    private sealed record Entry(string Value, string File, IReadOnlyList<string> Copies);
 
     private readonly Lock _lock = new();
     private readonly string _directory = root.Combine("kv");
@@ -14,9 +15,10 @@ internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueSt
     // and a write goes back to the file the key was LOADED from, so a hand-renamed file is updated in place
     // rather than shadowed by a second one.
     private Dictionary<string, Entry> Entries() => _entries ??= root.Load(_directory,
-            (file, header, body) => (Key: header.RequiredString("key"), Entry: new Entry(body, file)))
+            (file, header, body) => (Key: header.RequiredString("key"), Value: body, File: file))
         .GroupBy(r => r.Key, StringComparer.Ordinal)
-        .ToDictionary(g => g.Key, g => g.Last().Entry, StringComparer.Ordinal);
+        .ToDictionary(g => g.Key, g => new Entry(g.Last().Value, g.Last().File, [.. g.SkipLast(1).Select(r => r.File)]),
+            StringComparer.Ordinal);
 
     public Task<string?> GetAsync(string key, CancellationToken ct = default)
     {
@@ -30,9 +32,15 @@ internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueSt
         lock (_lock)
         {
             var entries = Entries();
-            var file = entries.TryGetValue(key, out var e) ? e.File : Path.Combine(_directory, RecordName.For(key) + ".md");
+            var e = entries.GetValueOrDefault(key);
+            var file = e?.File ?? Path.Combine(_directory, RecordName.For(key) + ".md");
+            // a file already at a new key's own name is this key broken, or another key edited in by hand —
+            // either way, never written over
+            if (e is null && File.Exists(file))
+                throw new InvalidOperationException(
+                    $"'{file}' exists but holds no readable '{key}' — repair, rename or remove it");
             root.Write(file, RecordFile.Write(new RecordHeader().Add("key", key), value));
-            entries[key] = new Entry(value, file);
+            entries[key] = new Entry(value, file, e?.Copies ?? []);
         }
         return Task.CompletedTask;
     }
@@ -44,7 +52,7 @@ internal sealed class FileSystemKeyValueStore(FileSystemRoot root) : IKeyValueSt
             // the file first: a delete that fails must leave the key visible, not gone until the next start
             if (Entries().TryGetValue(key, out var e))
             {
-                FileSystemRoot.Delete(e.File);
+                foreach (var file in e.Copies.Append(e.File)) FileSystemRoot.Delete(file);
                 Entries().Remove(key);
             }
         }

@@ -23,7 +23,7 @@ backends, a configurable per-verdict `RoutingPolicy`, dead-host cooldown, native
 **Generation** — one capability-aware seam for image/video/audio/3d with three delivery modes (inline,
 submit→poll→fetch, streaming — all three routed, governed and throttled alike), durable renders over
 `Lyntai.Jobs`, and five backends.
-**Storage** — SQLite / Postgres / InMemory, mixable per domain, with FTS5-trigram recall and feature toggles.
+**Storage** — SQLite / Postgres / InMemory / files, mixable per domain, with FTS5-trigram recall and feature toggles.
 **Agents** — a tool loop, two-gate chat orchestration, guards, and both halves of MCP. **Ops** — prompt
 registry, scoring/eval, run traces, task-scoped + semantic + curated memory, **named memory engines** over a
 decaying, self-linking graph memory, durable jobs with priorities / DLQ / cron / cancellation, a secret
@@ -132,8 +132,9 @@ dotnet add package Lyntai.Generation       # image/video/audio backends
 
 **`Lyntai` is a starting set, not the whole library.** It gives you Core, the LLM backends,
 both halves of MCP, **in-memory** storage, and **file** storage. The two that surprise people: nothing persists
-until you either name a root with `UseFileSystemStorage` or add `Lyntai.Storage.Sqlite` (or `.Postgres`), and
-generation is not included. The six packages left out are left out for a reason — a native payload
+until you either name a root with `UseFileSystemStorage` — which persists the five domains a person reads
+(keys, prompts, conversations, task and curated memory), not the memory engine, jobs or the cache — or add
+`Lyntai.Storage.Sqlite` (or `.Postgres`), and generation is not included. The six packages left out are left out for a reason — a native payload
 (`Storage.Sqlite`, `Providers.LlamaSharp`, `Providers.Onnx`), a platform-specific API (`Secrets.Dpapi`), a
 server dependency (`Storage.Postgres`), or a surface most applications never call (`Lyntai.Generation`) — see
 `docs/DECISIONS.md` D26. File storage is in because it adds nothing but its own ~60 KB assembly.
@@ -184,7 +185,7 @@ public sealed class MyFeature(
     {
         var prompt = await prompts.RenderAsync("myfeature.ask",
             "Answer briefly: {question}", new Dictionary<string, string> { ["question"] = question }, ct);
-        prompt = await composer.ComposeAsync(prompt, taskKey: "myfeature", ct: ct); // + learned facts
+        prompt = await composer.ComposeAsync(prompt, taskKey: "myfeature", ct: ct); // + recalled facts
 
         var reply = await llm.CompleteAsync(
             new TextRequest { Messages = [TextMessage.User(prompt)], Consumer = "myfeature" }, ct);
@@ -257,7 +258,8 @@ verdict, on purpose: the enum grows, and a single member is already best express
 - **A model can judge which recalled entries actually ANSWERED the query** (opt-in, and the largest
   recall-quality lever here). `AddMemoryVerification()` shows a judge the query and the candidate headlines
   before the limit is applied, so an answer the ranking buried gets promoted — and reinforcement then follows
-  evidence instead of the ranker's own guesses.
+  evidence instead of the ranker's own guesses. If your application AUTHORS its headlines, set
+  `LlmVerificationOptions.ContentChars` so the judge reads what an entry says rather than its label.
   <br>It exists because of a measurement: of the relevant entries a recall failed to return, **100% were
   reachable candidates ranked below the limit** and none were unreachable, and the two shipped model-free
   ranking policies return byte-identical results — so there was no fix inside the library's own arithmetic.
@@ -284,11 +286,11 @@ verdict, on purpose: the enum grows, and a single member is already best express
 - **Curated memory catalog** (`ICuratedMemoryStore`) sits beside the recall log for hand-managed context:
   entries grouped by `Kind`, each individually enable/disable-able and editable (`UpdateAsync`, incl.
   re-categorising `kind` in place), with an arbitrary app-owned `string→string` `Metadata` map (title,
-  source, author, …) that is both stored (as one opaque JSON field per backend) and queryable by exact
-  key/value (`metadataMatch` on `ListAsync`/`SearchAsync`, backed by a plain relational index — identical
-  across backends), plus keyword `SearchAsync` over content (same index machinery and fail-open semantics as
+  source, author, …) that is both stored (one opaque JSON field on the SQL backends, a header field in a
+  file) and queryable by exact key/value (`metadataMatch` on `ListAsync`/`SearchAsync` — the same answer on
+  every backend), plus keyword `SearchAsync` over content (same index machinery and fail-open semantics as
   memory recall), rendered into per-kind prompt sections by `CuratedMemorySections.Compose` — across all
-  three backends.
+  four backends.
 - **Env overrides beat code config:** `LYNTAI_TIMEOUT_SECONDS`, `LYNTAI_MAX_TIMEOUT_SECONDS`,
   `LYNTAI_DEADHOST_THRESHOLD`, `LYNTAI_DEADHOST_COOLDOWN_SECONDS`, `LYNTAI_DEFAULT_CANDIDATES`
   (`providerId[:model],…`), `LYNTAI_MODEL_<CONSUMER>` (+ `LYNTAI_DEFAULT_MODEL` alias),
@@ -303,7 +305,9 @@ verdict, on purpose: the enum grows, and a single member is already best express
 - **Mix storage backends per domain:** the domain interfaces are independent, so the DI container is
   the registry — `UseSqliteStorage(path)` for most domains, then override one
   (`services.AddSingleton<IMemoryStore>(...)`, last registration wins). `UseInMemoryStorage()` stands
-  alone or backfills gaps. `UseSqliteStorage(path, SchemaMigration.OnFirstUse)` defers migration I/O off
+  alone or backfills gaps. The `Use*Storage` helpers register with `TryAdd`, so among THEM the first wins:
+  `UseFileSystemStorage(o => o.Root = …)` before `UseSqliteStorage(path)` puts its five domains in files and
+  leaves the rest to SQLite — after it, the files serve nothing. `UseSqliteStorage(path, SchemaMigration.OnFirstUse)` defers migration I/O off
   DI composition.
 
 ### Structured output

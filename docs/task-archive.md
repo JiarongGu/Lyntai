@@ -4860,3 +4860,27 @@ registering stores over tables nothing created; and the plan's reversible name e
 the header holds the exact string.
 
 - `Lyntai.Storage.FileSystem` — one record per file, directories as the index
+
+## Part 279 — the next release's pre-release review, and the regular wide check (2026-09-23)
+
+✅ done 2026-09-23 — **Outcome:** the bump is **minor**, and neither D166 entry is Breaking — rendered text is
+output, and a CHANGELOG entry outranks a pushed `!` (**D161**'s new paragraph); the release notes now defer to
+the CHANGELOG and drop gate repairs (`docs/FIXES.md`). Code review of `v3.2.0..HEAD -- src/` found seven real
+defects before they shipped — five where `Lyntai.Storage.FileSystem` wrote over, resurrected or duplicated a
+person's file or lost a recall to a failed access-time write, two in Core (`\v` and FS/GS/RS escaped D166's
+one-line rule; the judge rendered empty content) — all fixed test-first (`docs/FIXES.md`, **D171**'s new
+paragraph, two `pitfalls.md` traps). Security review: nothing at the bar. `consumer-smoke` now round-trips a
+key through file storage from the packed bundle; `verify` with Docker up and `doctor` are green.
+<br>**The wide check:** GEN7's structural blocker is REFUTED — ComfyUI's core renders a mesh — so it is
+startable; fal and the aggregators stay blocked on accounts, FSRS-B on the owner's review-log export; neither
+watch item recurred. No dependency is vulnerable; the outdated ones are a ruling nobody has taken
+(`TASKS.md` Part 280). Every live suite with a model on this machine passed, GPU and CPU both; the docs sweep's
+findings were fixed; `storage-scan` and `memory-sweep` ran clean.
+
+**Declined, so nobody re-raises them:** sharing the file stores' filters with InMemory (the contract suites are
+the dedup mechanism — `storage.md`); a lone surrogate THROWING on a file write (loud, where SQLite stores
+U+FFFD silently); the fsync per LRU touch (a cost, not a defect); flattening the judge's question (the asker's
+text, not recalled content); a longer `RecordName` hash (a collision needs a second preimage).
+
+- Review `v3.2.0..HEAD` for release
+- The regular wide check

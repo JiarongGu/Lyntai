@@ -16,20 +16,27 @@ internal sealed class FileSystemCuratedMemoryStore(FileSystemRoot root, Func<Dat
     private readonly string _directory = root.Combine("curated");
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private List<CuratedMemory>? _entries;
+    private readonly Dictionary<long, string> _files = []; // the file each entry was LOADED from
     private long _nextId;
 
     private List<CuratedMemory> Entries()
     {
         if (_entries is not null) return _entries;
-        var entries = root.Load(_directory, (_, h, body) => new CuratedMemory(
+        var loaded = root.Load(_directory, (file, h, body) => (File: file, Entry: new CuratedMemory(
             h.Long("id") ?? throw new FormatException("'id' is required"), h.RequiredString("kind"), body,
             h.Bool("enabled") ?? true, h.Time("created") ?? throw new FormatException("'created' is required"),
-            h.Time("updated") ?? h.Time("created")!.Value, h.String("task"), h.String("scope"), h.Map("metadata")));
+            h.Time("updated") ?? h.Time("created")!.Value, h.String("task"), h.String("scope"), h.Map("metadata"))));
+        foreach (var (file, entry) in loaded) _files[entry.Id] = file;
+        List<CuratedMemory> entries = [.. loaded.Select(r => r.Entry)];
         _nextId = Math.Max(entries.Select(e => e.Id).DefaultIfEmpty(0).Max(), FileSystemRoot.MaxId(_directory)) + 1;
         return _entries = entries;
     }
 
-    private void Write(CuratedMemory e) => root.Write(Path.Combine(_directory, FileSystemRoot.IdFile(e.Id)),
+    // Back to the file the entry was loaded from, so a hand-renamed file is updated in place rather than
+    // shadowed by a second one holding the same id.
+    private string FileOf(long id) => _files.GetValueOrDefault(id) ?? Path.Combine(_directory, FileSystemRoot.IdFile(id));
+
+    private void Write(CuratedMemory e) => root.Write(FileOf(e.Id),
         RecordFile.Write(new RecordHeader().Add("id", e.Id).Add("kind", e.Kind).Add("enabled", e.Enabled)
             .Add("task", e.TaskKey).Add("scope", e.Scope).Add("created", e.CreatedAt).Add("updated", e.UpdatedAt)
             .Add("metadata", e.Metadata), e.Content));
@@ -109,8 +116,9 @@ internal sealed class FileSystemCuratedMemoryStore(FileSystemRoot root, Func<Dat
             var entries = Entries();
             var i = entries.FindIndex(e => e.Id == id);
             if (i < 0) return Task.FromResult(false);
-            FileSystemRoot.Delete(Path.Combine(_directory, FileSystemRoot.IdFile(id)));
+            FileSystemRoot.Delete(FileOf(id));
             entries.RemoveAt(i);
+            _files.Remove(id);
             return Task.FromResult(true);
         }
     }

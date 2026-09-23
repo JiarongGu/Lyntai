@@ -191,7 +191,7 @@ public sealed class LlmMemoryVerificationPolicy(
     {
         var notes = request.Candidates.Select((c, i) => string.Create(CultureInfo.InvariantCulture,
             $"{i + 1}. {(_options.ContentChars > 0
-                ? MemoryHeadline.Derive(c.Content ?? c.Headline, _options.ContentChars)
+                ? MemoryHeadline.Derive(string.IsNullOrWhiteSpace(c.Content) ? c.Headline : c.Content, _options.ContentChars)
                 : MemoryLine.Flatten(c.Headline))}"));
 
         return $"Question:\n{request.Query}\n\nNotes:\n{string.Join("\n", notes)}";

@@ -5063,6 +5063,12 @@ Breaking, and misses the implementer-only break (a BYO seam member with no defau
 keeps both and matched 36 of the 47 entries as found; closure re-filed nine feature-shaped entries to
 Added, added the missing action sentences, and left each break-shaped companion entry where it was.
 
+**Two consequences, ruled on D166's entries (2026-09-23).** Rendered TEXT — a prompt heading, a composed
+line — is output rather than surface, so a change to it is `### Changed` (or `### Security`) with a
+What-to-DO line and never Breaking: an assertion on library output is the consumer's own pin. And where a
+commit's `!` and the entry disagree, the ENTRY wins — the release notes list such a commit by its kind —
+because a pushed subject cannot be corrected and the entry is what this rule classifies.
+
 ## D162 — the ledger is shape-neutral, and every call shape carries governance slots (2026-09-19)
 
 **The decision.** `IUsageTracker.RecordAsync` takes **`ProviderUsage`** (`InputTokens`, `OutputTokens`,
@@ -5252,7 +5258,7 @@ or a benchmark that asks about feelings rather than facts — never a fixture th
 ## D170 — the LLM judge can be told to read CONTENT: content alone, bounded, off by default (2026-09-23)
 
 **The decision.** `LlmVerificationOptions.ContentChars` shows the judge up to that many characters of each
-candidate's `Content ?? Headline`, one line per candidate and cut at a word; `0` keeps the headline. **D108**
+candidate's content — its headline where the content is empty — one line per candidate and cut at a word; `0` keeps the headline. **D108**
 left the choice of text with the POLICY; this lets whoever configures the shipped policy make it, because the
 case D108 priced — a headline that TRUNCATES its content — is not the only one. An application that AUTHORS
 headlines hands the judge a label, and a judge shown "weekend market" correctly declines the entry that says
@@ -5293,6 +5299,12 @@ created, and a backend registering only what it serves leaves the rest unresolva
 string; that alone makes a name injective, legal on NTFS and ext4, case-safe and bounded, where a reversible
 encoding would have to get all four right by itself. The store classes stay internal: composition is
 `UseFileSystemStorage`, and making one public later is additive where the reverse is not.
+
+**A file that does not parse is skipped, and never written over.** A numbered record's number stays taken; a
+record whose name derives from its key — a key, a thread's directory — is REFUSED rather than recreated,
+because the unreadable file is almost certainly that record mid-edit. Writing beside it was the alternative,
+and leaves two files claiming one key once the person repairs theirs. A write follows the file a record was
+LOADED from, so a hand-renamed file is updated in place.
 
 **Two shapes were refused when the work was filed, and are recorded so neither is reopened.** A document
 DATABASE (Mongo, LiteDB): the need is reading stored data by eye, and such an engine still needs a client —

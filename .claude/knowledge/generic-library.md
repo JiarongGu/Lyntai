@@ -54,7 +54,7 @@ When a task says "app X wants Y," run it through this before writing code:
    behavior, the answer is "register your own implementation," not a branch in Core. (See
    `dotnet-package-layout.md` §Variation points — a pluggable set is a DI collection, never a conditional.)
 6. **Pin the generality with tests + baseline.** The contract test (e.g. `CuratedMemoryStoreContract`)
-   runs across *all* backends so a new param behaves identically on InMemory/SQLite/Postgres. Update the
+   runs across *all* backends so a new param behaves identically on every one of them. Update the
    `ApiSurface` baseline deliberately — it's the review gate that makes an app-specific leak visible.
 7. **A value only the DEPLOYMENT can know is a policy or an option — never a property of a type.** Ask of
    any new member: *could two honest applications answer this differently?* If yes, the library must not

@@ -119,7 +119,13 @@ internal sealed class FileSystemMemoryStore(FileSystemRoot root, LyntaiOptions o
                     foreach (var hit in ordered)
                     {
                         var touched = hit with { LastAccessedAt = now };
-                        Write(touched);
+                        // an access time only orders eviction, so failing to record one must not cost the recall
+                        try { Write(touched); }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            root.Logger.LogWarning(ex, "could not record a recall's access time for {File}", hit.File);
+                            continue;
+                        }
                         _entries![_entries.IndexOf(hit)] = touched;
                     }
 

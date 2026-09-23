@@ -9,6 +9,9 @@ public sealed class FileSystemStorageOptions
     /// <para><b>One process owns a root at a time.</b> The stores hold their records in memory and write
     /// through, so a second writer would make both views stale; a second owner is refused when its first store
     /// is built. Read the files whenever you like — they are always current — but edit them only while no
-    /// process owns the root, because an owning process does not see an edit made under it.</para></summary>
+    /// process owns the root, because an owning process does not see an edit made under it.</para>
+    /// <para><b>A file that does not parse is skipped, logged, and never written over.</b> Writing a key or
+    /// creating a thread whose own file is the broken one throws <see cref="InvalidOperationException"/>
+    /// naming the path, until that file is repaired or removed.</para></summary>
     public string? Root { get; set; }
 }

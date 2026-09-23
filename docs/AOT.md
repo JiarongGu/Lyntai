@@ -66,5 +66,5 @@ you actually AOT-publish an app that uses `Lyntai.Storage.Sqlite`.
 - Using `Lyntai.Storage.Sqlite` under trimming/AOT is **not currently supported without warnings**.
   The path to fixing it: evaluate **Dapper.AOT** (source-generated command materialization) for the async +
   `MatchNamesWithUnderscores` + FluentMigrator combination, or provide an alternative source-generated storage
-  backend. Until then, either use the in-memory backend in an AOT app or accept the trim warnings with a
-  documented suppression.
+  backend. Until then, either use the in-memory or file-system backend in an AOT app — the file-system one
+  persists the five domains it serves — or accept the trim warnings with a documented suppression.

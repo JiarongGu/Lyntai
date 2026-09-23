@@ -9,7 +9,7 @@ internal static class MemoryHeadline
 {
     public static string Derive(string content, int maxChars)
     {
-        var text = content.Trim().ReplaceLineEndings(" ");
+        var text = MemoryLine.Flatten(content);
         if (maxChars <= 0 || text.Length <= maxChars) return text;
 
         var cut = text.LastIndexOf(' ', Math.Min(maxChars, text.Length - 1));

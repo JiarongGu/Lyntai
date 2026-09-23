@@ -7,6 +7,58 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-23 — the pre-release review: a person's broken file written over, and a line break D166 missed
+
+**Symptom.** None shipped; found by reading `v3.2.0..HEAD -- src/` before the release (`docs/task-archive.md` Part 279).
+In the file-system package: a hand-edited prompt revision, thread file or key file that failed to parse was
+rewritten by the next save of the same name; a deleted key came back after a restart when a hand-made copy
+also held it; a hand-renamed curated file was duplicated on update and resurrected after a remove; and a
+recall whose access time could not be written returned no memories at all. In Core: `MemoryLine` let `\v`
+and U+001C–U+001E through, and the judge's `ContentChars` rendered an EMPTY content as an empty note.
+
+**Root cause.** `FileSystemRoot`'s promise — a skipped file is never written over — was honoured only where a
+name is a NUMBER (`MaxId`); every name derived from a key had no equivalent, and the curated store addressed
+files by id rather than by where it loaded them. The access-time write sat inside the recall's fail-open
+`catch`, so a failure to record a touch discarded the hits. `MemoryLine`'s doc asserted `ReplaceLineEndings`
+folds `\v`, which it does not; the judge's fallback tested `Content` for null, not for nothing.
+
+**Fix.** Prompt revisions number past every `v####.md` on disk (`MaxId` takes a prefix). A new thread or key
+whose own name is already on disk is REFUSED with the path named (**D171**'s new paragraph says why). A key
+remembers every file that held it and a delete removes them all; the curated store writes back to the file it
+loaded. A failed touch is logged and skipped. `MemoryLine` folds the four extra separators and
+`MemoryHeadline.Derive` calls it; the judge falls back on null-or-whitespace content.
+
+**Verify.** Six `FileSystemRestartTests` facts (one per door), `MemoryLineTests` (eleven characters plus the
+forged heading), and a two-case judge theory — all 13 failed before the fix and pass after; 190 tests across
+the touched areas pass.
+
+**Introduced by.** `500c4a74` (the package), `a7305589` (D166's doc claim), `0ce6d8ea` (D170's fallback).
+
+## 2026-09-23 — the next release's notes led with a Breaking section the CHANGELOG did not have
+
+**Symptom.** Previewing the notes for the release after 3.2.0 (`release-notes --tag`): *"Breaking changes —
+This release requires changes to consuming code. See the **Breaking** section of `CHANGELOG.md`"* above
+`fix(memory)!:`, while the CHANGELOG files that change under `### Security` with "nothing at a call site"
+and has no Breaking section to see. A gate repair, `fix(gates):`, was listed under Fixes.
+
+**Root cause.** Two. The generator read breaking-ness from the subject's `!` alone, and that commit is
+pushed, so the marker can never be corrected — while the entry is what **D161** classifies and review
+reads. And `NON_SHIPPING_SCOPES` was a list from 2026-08-23 that `gates` post-dates; a census of every
+`feat`/`fix` scope in history found `measure`, `archive`, `e2e` and `playground` in the same position.
+
+**Fix.** `changelogDeclaresBreaking` reads the version's stamped section (or `## Unreleased` for an untagged
+preview, which the stamp renames); where it declares nothing Breaking, a `!` commit is listed by its kind
+and printed to stderr as a disagreement, and where it declares a break no subject marked, the section is
+rendered from the CHANGELOG alone. The five scopes joined the list, and a compound scope is dropped only
+when every part ships nothing. The ruling itself is recorded in **D161**.
+
+**Verify.** Seven new cases in `release-notes.test.mjs` (27 pass), including the real subject shape both
+ways and a Breaking heading in an OLDER section that must not bleed into Unreleased. The preview now lists
+the D166 commit under Fixes, drops the gate repair, and names the demotion on stderr.
+
+**Introduced by.** Not one commit: the `!` rule is from 2026-08-16's extraction, and it was right while no
+`!` commit had ever been misfiled. `a7305589` was the first.
+
 ## 2026-09-23 — a Claude agent session announced "session started" once per thinking tick
 
 **Symptom.** An adopter persisting `IAgentSession`'s event stream stored one `SessionStarted` per turn plus

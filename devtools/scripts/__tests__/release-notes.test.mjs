@@ -12,7 +12,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { NON_SHIPPING_SCOPES, NON_USER_FACING, categorize, previousTag, renderNotes, subjectsInRange } from '../release-notes.mjs';
+import {
+  NON_SHIPPING_SCOPES, NON_USER_FACING, categorize, changelogDeclaresBreaking, previousTag, renderNotes, subjectsInRange,
+} from '../release-notes.mjs';
 
 describe('release-notes — regression: the BREAKING marker the workflow could not see', () => {
   it('puts a bang-marked commit under Breaking, whatever its kind, and never under Other', () => {
@@ -84,6 +86,15 @@ describe('release-notes — breaking outranks the drop list', () => {
     assert.equal(dropped.length, 0);
     assert.deepEqual(features, ['subject seeding']);
     assert.deepEqual(fixes, ['a named client that could not route']);
+  });
+
+  /// A compound scope ships nothing only when EVERY part ships nothing — `playground,e2e` is internal twice
+  /// over, while `sqlite,bench` touched a package and must stay.
+  it('drops a compound scope only when every part of it ships nothing', () => {
+    const { fixes, dropped } = categorize(['fix(playground,e2e): the smoke', 'fix(sqlite,bench): a real query']);
+
+    assert.deepEqual(dropped, ['fix(playground,e2e): the smoke']);
+    assert.deepEqual(fixes, ['a real query']);
   });
 
   /// A BREAKING marker outranks the scope rule, the same way it outranks the kind list. Nothing under those
@@ -174,6 +185,62 @@ describe('release-notes — rendering', () => {
   it('never emits an empty body, even when every commit was dropped', () => {
     const md = renderNotes('v2.5.1', ['chore: tidy', 'docs: reword']);
     assert.match(md, /See CHANGELOG\.md for details\./);
+  });
+});
+
+describe('release-notes — the CHANGELOG decides what is Breaking (D161), not a commit subject', () => {
+  // A pushed `!` cannot be revised, and the entry it describes is what D161 classifies and review reads.
+  // Measured on the first release after 3.2.0: `fix(memory)!:` led the notes under "Breaking changes",
+  // pointing readers at a `### Breaking` section the CHANGELOG did not have.
+  const changelog = [
+    '# Changelog', '',
+    '## Unreleased', '', '### Fixed', '', '- a fix', '',
+    '## 3.2.0 — 2026-09-19', '', '### Breaking', '', '- a break', '',
+    '## 3.1.0 — the title (2026-08-23)', '', '### Added', '', '- a thing', '',
+  ].join('\n');
+
+  it('reads the released section when the version is stamped, the title form included', () => {
+    assert.equal(changelogDeclaresBreaking(changelog, 'v3.2.0', { released: true }), true);
+    assert.equal(changelogDeclaresBreaking(changelog, 'v3.1.0', { released: true }), false);
+  });
+
+  it('reads Unreleased for a version not yet tagged, which is what a preview is', () => {
+    assert.equal(changelogDeclaresBreaking(changelog, 'v9.1.0', { released: false }), false,
+      'the Breaking heading in 3.2.0 below must not bleed upward into Unreleased');
+  });
+
+  it('answers null for a released version with no section, leaving the markers in charge', () => {
+    assert.equal(changelogDeclaresBreaking(changelog, 'v2.0.0', { released: true }), null);
+  });
+
+  it('lists a bang-marked commit by its KIND when the CHANGELOG declares nothing Breaking', () => {
+    const { breaking, fixes, dropped, demoted } = categorize(
+      ['fix(memory)!: recalled memory is marked', 'refactor(api)!: an internal move'], { breakingDeclared: false });
+
+    assert.deepEqual(breaking, []);
+    assert.deepEqual(fixes, ['recalled memory is marked']);
+    assert.deepEqual(dropped, ['refactor(api)!: an internal move'], 'a refactor is dropped like any other');
+    assert.equal(demoted.length, 2, 'and both are reported, so the disagreement is never silent');
+  });
+
+  it('keeps the markers in charge when the CHANGELOG agrees or cannot be read', () => {
+    for (const breakingDeclared of [true, null, undefined]) {
+      const { breaking, demoted } = categorize(['fix(memory)!: a break'], { breakingDeclared });
+      assert.equal(breaking.length, 1, `breakingDeclared=${breakingDeclared}`);
+      assert.deepEqual(demoted, []);
+    }
+  });
+
+  it('renders the Breaking section from the CHANGELOG alone when no commit carries the marker', () => {
+    const md = renderNotes('v9.1.0', ['fix: a bug'], { breakingDeclared: true });
+    assert.match(md, /### Breaking changes/);
+    assert.match(md, /\*\*Breaking\*\* section of `CHANGELOG\.md`/);
+  });
+
+  it('never claims a Breaking section the CHANGELOG does not have', () => {
+    const md = renderNotes('v9.1.0', ['fix(memory)!: recalled memory is marked'], { breakingDeclared: false });
+    assert.doesNotMatch(md, /Breaking changes/);
+    assert.match(md, /### Fixes\n\n- recalled memory is marked/);
   });
 });
 

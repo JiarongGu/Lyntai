@@ -2,9 +2,9 @@ namespace Lyntai.Storage;
 
 /// <summary>Pure, backend-agnostic computation of which memory entries SURVIVE a
 /// <see cref="MemoryEvictionPolicy"/> on write — shared by every <see cref="IMemoryStore"/> backend so
-/// eviction is identical across InMemory / SQLite / Postgres (each fetches the scoped group's lightweight
-/// metadata, calls this, and deletes the non-survivors). Keeping the logic in ONE tested place is why the
-/// three backends can't diverge.</summary>
+/// eviction is identical across all of them (each fetches the scoped group's lightweight metadata, calls
+/// this, and deletes the non-survivors). Keeping the logic in ONE tested place is why the backends can't
+/// diverge.</summary>
 public static class MemoryEviction
 {
     /// <summary>Lightweight metadata for one entry in a <c>(taskKey, scope)</c> group.</summary>

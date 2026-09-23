@@ -23,6 +23,7 @@
 // `!` marker on all 29 of its breaking commits, and widening to bodies is a change to what git is asked
 // for, not a change to these rules.
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -56,7 +57,7 @@ export const NON_USER_FACING = ['chore', 'docs', 'refactor', 'style', 'perf', 't
  * is public surface), but if it is ever written, a change announcing itself as breaking should be read by a
  * human rather than dropped by a scope rule.
  */
-export const NON_SHIPPING_SCOPES = ['bench', 'devtools', 'tasks', 'docs', 'ci'];
+export const NON_SHIPPING_SCOPES = ['bench', 'devtools', 'tasks', 'docs', 'ci', 'gates', 'measure', 'archive', 'e2e', 'playground'];
 
 // <kind>[(scope)][!]: <summary>. The kind is [a-z+]+ so a compound prefix (`docs+guards:`) parses as a kind
 // rather than as no prefix at all — it will not match a known kind, so it lands in "Other changes", which
@@ -68,9 +69,13 @@ const SUBJECT = /^([a-z+]+)(\([^)]+\))?(!)?:\s*(.+)$/;
  *
  * Precedence is BREAKING first, and it is deliberate: a breaking `refactor!:` is news even though every
  * non-breaking `refactor:` is dropped. Kind is only consulted once breaking-ness has been ruled out.
+ *
+ * `breakingDeclared` is the CHANGELOG's answer (`changelogDeclaresBreaking`), and `false` outranks the `!`:
+ * D161 classifies the entry, while a pushed subject can never be corrected. Such a commit is listed by its
+ * kind and reported in `demoted`, so the disagreement is printed rather than resolved silently.
  */
-export function categorize(subjects) {
-  const breaking = [], features = [], fixes = [], other = [], dropped = [];
+export function categorize(subjects, { breakingDeclared = null } = {}) {
+  const breaking = [], features = [], fixes = [], other = [], dropped = [], demoted = [];
 
   for (const raw of subjects) {
     const subject = String(raw).trim();
@@ -83,11 +88,16 @@ export function categorize(subjects) {
 
     // The `!` outranks the kind. A breaking change keeps its scope in the text, because "which package
     // breaks" is the first thing a consumer needs and the summary alone rarely says it.
-    if (bang) { breaking.push(scope ? `**${kind}${scope}** ${summary}` : `**${kind}** ${summary}`); continue; }
+    if (bang && breakingDeclared === false) demoted.push(subject);
+    else if (bang) { breaking.push(scope ? `**${kind}${scope}** ${summary}` : `**${kind}** ${summary}`); continue; }
 
     // A scope naming a tier that ships nothing is dropped whatever the kind — checked BEFORE kind, because
-    // the kind is honest and the scope is what makes it not a consumer's business.
-    if (scope && NON_SHIPPING_SCOPES.includes(scope.slice(1, -1))) { dropped.push(subject); continue; }
+    // the kind is honest and the scope is what makes it not a consumer's business. A compound scope ships
+    // nothing only when every part of it ships nothing.
+    if (scope && scope.slice(1, -1).split(',').every((s) => NON_SHIPPING_SCOPES.includes(s.trim()))) {
+      dropped.push(subject);
+      continue;
+    }
 
     if (kind === 'feat') features.push(summary);
     else if (kind === 'fix') fixes.push(summary);
@@ -95,7 +105,26 @@ export function categorize(subjects) {
     else other.push(subject);
   }
 
-  return { breaking, features, fixes, other, dropped };
+  return { breaking, features, fixes, other, dropped, demoted };
+}
+
+/**
+ * Whether the CHANGELOG section for `tag` holds a `### Breaking` heading. A `released` tag reads its stamped
+ * `## X.Y.Z …` section; an untagged one reads `## Unreleased`, which is what the stamp will rename — so a
+ * preview agrees with the release. Null when no such section exists, leaving the `!` markers in charge.
+ */
+export function changelogDeclaresBreaking(changelog, tag, { released }) {
+  const version = String(tag).replace(/^v/, '').replace(/[.]/g, '\\.');
+  const heading = new RegExp(`^## ${released ? version : 'Unreleased'}(\\s|$)`);
+  const lines = String(changelog).split(/\r?\n/);
+  const start = lines.findIndex((l) => heading.test(l));
+  if (start < 0) return null;
+
+  for (const line of lines.slice(start + 1)) {
+    if (line.startsWith('## ')) break;
+    if (/^### Breaking\b/.test(line)) return true;
+  }
+  return false;
 }
 
 /**
@@ -120,13 +149,16 @@ export function previousTag(tags, current) {
   return best;
 }
 
-/** Render the release body. Sections are omitted when empty, and Breaking leads when present. */
-export function renderNotes(tag, subjects) {
-  const { breaking, features, fixes, other } = categorize(subjects);
+/**
+ * Render the release body. Sections are omitted when empty, and Breaking leads when present — including when
+ * the CHANGELOG declares a break no commit subject marked, since the section's lead is what a reader needs.
+ */
+export function renderNotes(tag, subjects, { breakingDeclared = null } = {}) {
+  const { breaking, features, fixes, other } = categorize(subjects, { breakingDeclared });
   const lines = [`## Lyntai ${tag}`, ''];
 
-  const section = (title, items, lead) => {
-    if (!items.length) return;
+  const section = (title, items, lead, force = false) => {
+    if (!items.length && !force) return;
     lines.push(`### ${title}`, '');
     if (lead) lines.push(lead, '');
     for (const item of items) lines.push(`- ${item}`);
@@ -138,12 +170,12 @@ export function renderNotes(tag, subjects) {
   // that guide is 2.5-era HISTORY (repo-mechanics.md §"Everything before 3.0 is HISTORY"), so a 3.x consumer
   // following the link lands on an upgrade path from a version nobody runs. A hardcoded pointer in a
   // GENERATED document rots silently and ships — the notes are published, and nothing reads them again.
-  section('Breaking changes', breaking, 'This release requires changes to consuming code. See the **Breaking** section of `CHANGELOG.md` for what changed and how to adapt.');
+  section('Breaking changes', breaking, 'This release requires changes to consuming code. See the **Breaking** section of `CHANGELOG.md` for what changed and how to adapt.', breakingDeclared === true);
   section('New features', features);
   section('Fixes', fixes);
   section('Other changes', other);
 
-  if (!breaking.length && !features.length && !fixes.length && !other.length) {
+  if (!breaking.length && breakingDeclared !== true && !features.length && !fixes.length && !other.length) {
     lines.push('See CHANGELOG.md for details.', '');
   }
 
@@ -174,6 +206,13 @@ if (import.meta.main ?? (process.argv[1] && path.resolve(process.argv[1]) === he
     const tags = execFileSync('git', ['tag'], { encoding: 'utf8' }).split('\n').filter(Boolean);
     const from = arg('--from') ?? previousTag(tags, tag);
     console.error(from ? `release-notes: ${from}..HEAD (current ${tag})` : 'release-notes: no previous release tag — using all commits');
-    process.stdout.write(renderNotes(tag, subjectsInRange(from)) + '\n');
+
+    const subjects = subjectsInRange(from);
+    const changelog = fs.readFileSync(path.join(path.dirname(here), '..', '..', 'CHANGELOG.md'), 'utf8');
+    const breakingDeclared = changelogDeclaresBreaking(changelog, tag, { released: tags.includes(tag) });
+    for (const s of categorize(subjects, { breakingDeclared }).demoted) {
+      console.error(`release-notes: the CHANGELOG declares nothing Breaking, so this is listed by its kind: ${s}`);
+    }
+    process.stdout.write(renderNotes(tag, subjects, { breakingDeclared }) + '\n');
   }
 }

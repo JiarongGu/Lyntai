@@ -58,7 +58,13 @@ internal sealed class FileSystemConversationStore(FileSystemRoot root, Func<Date
             // THROW like the SQL backends' primary-key violation — silently replacing a thread would keep the
             // old one's events under a new header.
             if (threads.ContainsKey(id)) throw new InvalidOperationException($"a thread '{id}' already exists");
-            var thread = new Thread(new ChatThread(id, title, _clock(), metadata), Path.Combine(_directory, RecordName.For(id)));
+            // A directory on disk that did not load is this id's thread with a thread.md that failed to parse:
+            // creating over it would destroy that file and adopt its events.
+            var directory = Path.Combine(_directory, RecordName.For(id));
+            if (Directory.Exists(directory))
+                throw new InvalidOperationException(
+                    $"'{directory}' holds a thread for '{id}' that could not be read — repair or remove its {ThreadFile}");
+            var thread = new Thread(new ChatThread(id, title, _clock(), metadata), directory);
             WriteThread(thread);
             threads[id] = thread;
             return Task.FromResult(thread.Value);

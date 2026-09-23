@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace Lyntai.Storage;
 
 /// <summary>Canonical <c>string→string</c> map ⇄ JSON-object-string codec for
-/// <see cref="CuratedMemory.Metadata"/> — the one converter every backend shares (the JSON is opaque TEXT
+/// <see cref="CuratedMemory.Metadata"/> — the one converter every SQL backend shares (the JSON is opaque TEXT
 /// to the database; only this code parses it). Keys are sorted (ordinal) for a stable, deterministic column
 /// form; a null/empty map serializes to <c>null</c> (an empty metadata set is stored as SQL NULL, never
 /// <c>"{}"</c>). Hand-written via <see cref="Utf8JsonWriter"/>/<see cref="JsonDocument"/> — no reflection

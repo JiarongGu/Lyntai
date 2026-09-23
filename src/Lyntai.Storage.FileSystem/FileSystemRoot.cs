@@ -111,12 +111,14 @@ internal sealed class FileSystemRoot : IDisposable
         }
     }
 
-    /// <summary>The ids already taken by numbered files in <paramref name="directory"/>, whether or not they
-    /// parse — so a new record never lands on the name of a file that was skipped.</summary>
-    public static long MaxId(string directory, SearchOption search = SearchOption.TopDirectoryOnly) =>
-        !Directory.Exists(directory) ? 0 : Directory.EnumerateFiles(directory, "*.md", search)
-            .Select(f => long.TryParse(System.IO.Path.GetFileNameWithoutExtension(f), NumberStyles.None,
-                CultureInfo.InvariantCulture, out var id) ? id : 0)
+    /// <summary>The ids already taken by numbered files in <paramref name="directory"/> — <c>&lt;prefix&gt;&lt;digits&gt;.md</c>
+    /// — whether or not they parse, so a new record never lands on the name of a file that was skipped.</summary>
+    public static long MaxId(string directory, SearchOption search = SearchOption.TopDirectoryOnly, string prefix = "") =>
+        !Directory.Exists(directory) ? 0 : Directory.EnumerateFiles(directory, prefix + "*.md", search)
+            .Select(f => System.IO.Path.GetFileNameWithoutExtension(f) is var name
+                && name.StartsWith(prefix, StringComparison.Ordinal)
+                && long.TryParse(name.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+                    ? id : 0)
             .DefaultIfEmpty(0).Max();
 
     public void Dispose() => _lock.Dispose();

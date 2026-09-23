@@ -82,7 +82,8 @@ public static class MemoryComposition
     /// <see cref="MemoryItem.Grade"/>: everything not <see cref="MemoryGrade.Authoritative"/> renders as
     /// associative and MAY be truncated to its headline. Authoritative content is never truncated.</para>
     /// <para>Every item renders as exactly ONE line: content carrying newlines is flattened first, so
-    /// recalled text cannot forge a heading and claim a grade. No character is dropped.</para>
+    /// recalled text cannot forge a heading and claim a grade. Line breaks become spaces; nothing else is
+    /// dropped.</para>
     /// <para>Pure and total: it performs no I/O, throws only on a null argument, and returns
     /// <paramref name="basePrompt"/> unchanged when nothing fits.</para>
     /// <para><b>Both uses are first-class</b>, which is why an empty <paramref name="basePrompt"/> is not a

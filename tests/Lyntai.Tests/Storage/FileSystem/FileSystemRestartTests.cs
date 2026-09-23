@@ -105,4 +105,103 @@ public class FileSystemRestartTests : IDisposable
         Assert.Equal([id], (await after.SearchAsync("British")).Select(e => e.Id));
         Assert.Equal(id + 1, await after.AddAsync("style", "another"));
     }
+
+    // ---- a file a person touched: skipped when broken, never written over, and followed when renamed ------
+
+    private const string Broken = "a person's half-finished edit";
+
+    private string Only(string domain, string pattern = "*.md") =>
+        Directory.GetFiles(Path.Combine(_temp.Directory, domain), pattern, SearchOption.AllDirectories).Single();
+
+    [Fact]
+    public async Task A_prompt_revision_that_does_not_parse_is_never_saved_over()
+    {
+        await new FileSystemPromptVersionStore(_temp.Root).SaveAsync("greet", "v1");
+        var revision = Only("prompts", "v0001.md");
+        _temp.Root.Dispose();
+        File.WriteAllText(revision, Broken);
+
+        var after = new FileSystemPromptVersionStore(_temp.Reopen());
+
+        Assert.Equal(2, (await after.SaveAsync("greet", "v2")).Version);
+        Assert.Equal(Broken, File.ReadAllText(revision));
+    }
+
+    [Fact]
+    public async Task A_thread_whose_file_does_not_parse_is_refused_rather_than_recreated_over_it()
+    {
+        var before = new FileSystemConversationStore(_temp.Root);
+        await before.CreateThreadAsync("t1");
+        await before.AppendMessageAsync("t1", "user", "hello");
+        var thread = Only("conversations", "thread.md");
+        _temp.Root.Dispose();
+        File.WriteAllText(thread, Broken);
+
+        var after = new FileSystemConversationStore(_temp.Reopen());
+
+        Assert.Null(await after.GetThreadAsync("t1"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => after.CreateThreadAsync("t1"));
+        Assert.Equal(Broken, File.ReadAllText(thread));
+    }
+
+    [Fact]
+    public async Task A_key_whose_file_does_not_parse_is_refused_rather_than_written_over()
+    {
+        await new FileSystemKeyValueStore(_temp.Root).SetAsync("k", "v");
+        var file = Only("kv");
+        _temp.Root.Dispose();
+        File.WriteAllText(file, Broken);
+
+        var after = new FileSystemKeyValueStore(_temp.Reopen());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => after.SetAsync("k", "new"));
+        Assert.Equal(Broken, File.ReadAllText(file));
+    }
+
+    [Fact]
+    public async Task A_deleted_key_stays_deleted_when_a_hand_made_copy_also_held_it()
+    {
+        await new FileSystemKeyValueStore(_temp.Root).SetAsync("k", "v");
+        var file = Only("kv");
+        _temp.Root.Dispose();
+        File.Copy(file, Path.Combine(Path.GetDirectoryName(file)!, "zz-copy.md"));
+
+        await new FileSystemKeyValueStore(_temp.Reopen()).DeleteAsync("k");
+
+        Assert.Null(await new FileSystemKeyValueStore(_temp.Reopen()).GetAsync("k"));
+    }
+
+    [Fact]
+    public async Task A_curated_file_renamed_by_hand_is_updated_in_place_and_stays_removed()
+    {
+        var id = await new FileSystemCuratedMemoryStore(_temp.Root).AddAsync("style", "use short sentences");
+        var file = Only("curated");
+        var renamed = Path.Combine(Path.GetDirectoryName(file)!, "style-note.md");
+        _temp.Root.Dispose();
+        File.Move(file, renamed);
+
+        var after = new FileSystemCuratedMemoryStore(_temp.Reopen());
+        Assert.True(await after.UpdateAsync(id, content: "use shorter sentences"));
+        Assert.Equal(renamed, Only("curated"));
+
+        Assert.True(await after.RemoveAsync(id));
+        Assert.Null(await new FileSystemCuratedMemoryStore(_temp.Reopen()).GetAsync(id));
+    }
+
+    [Fact]
+    public async Task A_recall_whose_access_time_cannot_be_written_still_returns_what_it_found()
+    {
+        var options = new LyntaiOptions();
+        options.MemoryEviction.Mode = MemoryEvictionMode.Lru;
+        var store = new FileSystemMemoryStore(_temp.Root, options);
+        await store.RememberAsync("task", "scope", "the deploy key rotates monthly");
+
+        // a FILE where the scope's directory was, so every write under it fails on any platform
+        var scope = Path.GetDirectoryName(Only("memory"))!;
+        Directory.Delete(scope, recursive: true);
+        File.WriteAllText(scope, "");
+
+        Assert.Equal(["the deploy key rotates monthly"],
+            (await store.RecallAsync("task", query: "deploy")).Select(m => m.Content));
+    }
 }

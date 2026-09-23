@@ -2,7 +2,7 @@ namespace Lyntai.Storage;
 
 /// <summary>
 /// Splits raw user text into the terms a keyword search matches on — the ONE tokenization every backend
-/// shares, so that "does this recall find the entry" has the same answer on SQLite, Postgres and InMemory.
+/// shares, so that "does this recall find the entry" has the same answer on every backend.
 ///
 /// <para><b>Why this exists.</b> Only SQLite's FTS path ever split a query; every other path — both LIKE
 /// fallbacks, all three Postgres queries, both InMemory stores — matched the WHOLE query as one contiguous

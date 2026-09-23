@@ -308,6 +308,16 @@ public class LlmMemoryVerificationPolicyTests
         Assert.Equal(["1. the weekend market opens at 8am on Saturdays", "2. parking"], NoteLines(prompt));
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("  \n ")]
+    public async Task Content_with_nothing_in_it_falls_back_to_the_headline(string content)
+    {
+        MemoryVerificationCandidate[] candidates = [new("x", "parking") { Content = content }];
+
+        Assert.Equal(["1. parking"], NoteLines(await PromptAsync(new LlmVerificationOptions { ContentChars = 500 }, candidates)));
+    }
+
     [Fact]
     public async Task Content_is_cut_to_ContentChars_and_says_it_was_cut()
     {

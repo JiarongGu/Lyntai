@@ -845,7 +845,8 @@ var prompt = MemoryComposition.Render(basePrompt, myItems, new MemoryComposition
 ```
 
 Grades come off the items, so set `MemoryItem.Grade` yourself: authoritative material renders first, in its
-own section, verbatim. **The reserve protects exact material from the BUDGET, not from your retrieval** — a
+own section, verbatim — on ONE line, like every rendered memory (**D166**): its line breaks become spaces, so
+no recalled text can start a heading of its own, and no other character is dropped. **The reserve protects exact material from the BUDGET, not from your retrieval** — a
 fact your own selection dropped cannot be rescued here, and the section still looks full.
 
 **Pass `""` to get a standalone block** rather than an appended one — the blank line between prompt and

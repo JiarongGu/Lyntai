@@ -116,7 +116,8 @@ fs.writeFileSync(path.join(app, 'app.csproj'), `<Project Sdk="Microsoft.NET.Sdk"
   </ItemGroup>
 </Project>
 `);
-// Deliberately exercises the BUNDLE plus two opt-in packages, and asserts behaviour rather than just compiling:
+// Deliberately exercises the BUNDLE — file storage included, which nothing compiles against unless it is called —
+// plus two opt-in packages, and asserts behaviour rather than just compiling:
 // an unconfigured backend must report a verdict a host can act on, never throw and never invent a result.
 //
 // Lyntai.Generation is here because it is the package a consumer is MOST likely to meet on its own: it is not in
@@ -126,8 +127,6 @@ fs.writeFileSync(path.join(app, 'Program.cs'), `using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
-using Lyntai.Inference;
-using Lyntai.Inference;
 using Lyntai.Inference;
 using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -165,6 +164,20 @@ if (render.Verdict != ProviderVerdict.NotConfigured)
 // the named factories are reachable from the package and bake the role in (D28)
 if (MediaInput.Init(new byte[] { 1 }, "image/png").Role != MediaInputRoles.Init)
     throw new Exception("MediaInput.Init did not carry its role");
+
+// file storage is a BUNDLE member that registers nothing until a root is named: one container writes, the next
+// reads it back — which also proves disposing the first released its hold on the root
+var root = Path.Combine(Path.GetTempPath(), $"lyntai-smoke-{Guid.NewGuid():N}");
+foreach (var write in new[] { true, false })
+{
+    var fileServices = new ServiceCollection();
+    fileServices.AddLyntai(cfg => cfg.UseFileSystemStorage(o => o.Root = root));
+    using var files = fileServices.BuildServiceProvider();
+    var kv = files.GetRequiredService<IKeyValueStore>();
+    if (write) await kv.SetAsync("smoke", "persisted");
+    else if (await kv.GetAsync("smoke") != "persisted") throw new Exception("file storage lost its own write");
+}
+Directory.Delete(root, recursive: true);
 
 Console.WriteLine("CONSUMER SMOKE OK");
 `);

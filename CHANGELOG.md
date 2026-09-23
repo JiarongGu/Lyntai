@@ -48,19 +48,22 @@ every addition.
   The judge was shown only each candidate's headline, which is right while a headline is a truncation and
   wrong when an application AUTHORS headlines: shown only a label ("weekend market"), a judge correctly
   declined the entry that answered "when does the market open?". Set it to show up to that many characters of
-  `Content ?? Headline` instead. `0`, the default, keeps today's prompt; the cost multiplies with
-  `GraphMemoryOptions.VerificationDepth`.
+  each entry's content instead — its headline where the content is empty. `0`, the default, keeps today's
+  prompt; the cost multiplies with `GraphMemoryOptions.VerificationDepth`.
 
 - **`Lyntai.Storage.FileSystem` — storage as files you can read** (**D171**). A new package: one small
   Markdown record per file under a root you choose (`UseFileSystemStorage(o => o.Root = …)`), the record's
   fields in its header and its text as the body, so stored data reads without a client. It serves key-value
   (and with it live model routing), prompt versions, conversations, task memory and curated memory, each on
-  the same cross-backend contract as SQLite — a query finds the same entries on both. Records are held in
-  memory and written through, because scanning files per recall measured 19× over budget; so ONE process owns
-  a root, and files are edited only while none does. It registers with `TryAdd`: call it before
-  `UseSqliteStorage` to take its domains and let SQLite hold the rest. **Part of the `Lyntai` bundle** — a
-  ~60 KB assembly with no dependency beyond Core clears **D26**'s budget; nothing is written until a root is
-  named.
+  the same cross-backend contract as SQLite — a query finds the same entries on both. It does NOT serve the
+  memory engine's graph store, jobs, vectors, the response cache, usage, scores or traces: compose another
+  backend for those. Records are held in memory and written through, because scanning files per recall
+  measured 19× over budget; so ONE owner holds a root — a second is refused — and files are edited only while
+  none does. A file that does not parse is skipped, logged and never written over: writing its key or creating
+  its thread throws `InvalidOperationException` naming the path until it is repaired. It registers with
+  `TryAdd`: call it before `UseSqliteStorage` to take its domains and let SQLite hold the rest. **Part of the
+  `Lyntai` bundle** — a ~60 KB assembly with no dependency beyond Core clears **D26**'s budget; nothing is
+  written until a root is named.
 
 ### Fixed
 
