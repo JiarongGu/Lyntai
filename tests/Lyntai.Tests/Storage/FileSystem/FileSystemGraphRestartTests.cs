@@ -354,4 +354,39 @@ public class FileSystemGraphRestartTests : IDisposable
 
         await Assert.ThrowsAsync<InvalidDataException>(() => Open(_temp.Reopen()).GetAsync("e", 1));
     }
+
+    private string JournalOf(string engine) =>
+        Directory.GetFiles(Path.Combine(_temp.Directory, "graph"), "journal.jsonl", SearchOption.AllDirectories)
+            .Single(f => File.ReadLines(f).First().Contains($"\"engine\":\"{engine}\"", StringComparison.Ordinal));
+
+    // Each direction's line belongs to its FROM memory's engine journal. A misrouted line survives in-process —
+    // the owning engine's next compaction re-emits it from memory — so only a restart taken after ONE engine
+    // has compacted and before the OTHER has can tell the two apart.
+    [Fact]
+    public async Task An_edge_between_two_engines_survives_one_journal_compacting_without_the_other_and_a_restart()
+    {
+        var store = Open(_temp.Root, floor: 0);
+        var a = await store.UpsertAsync(Write("alpha"));
+        var b = await store.UpsertAsync(Write("beta") with { Engine = "f" });
+        await store.LinkAsync("e", a, b, "cross", 2, symmetric: true);
+        var fBefore = File.ReadAllLines(JournalOf("f")).Length;
+        for (var i = 0; i < 8; i++) await store.TouchAsync("e", [new GraphTouch(a, 3)]);
+
+        Assert.True(File.ReadAllLines(JournalOf("e")).Length < 1 + 3 + 8, "e's journal never compacted");
+        Assert.Equal(fBefore, File.ReadAllLines(JournalOf("f")).Length);
+        Assert.Single(File.ReadAllLines(JournalOf("f")), l => l.StartsWith($"{{\"edge\":[{b},{a},", StringComparison.Ordinal));
+        await AssertLinked(Open(_temp.Reopen(), floor: 0));
+
+        // and once the other engine compacts too
+        var reopened = Open(_temp.Reopen(), floor: 0);
+        for (var i = 0; i < 8; i++) await reopened.TouchAsync("f", [new GraphTouch(b, 3)]);
+        await AssertLinked(Open(_temp.Reopen()));
+
+        async Task AssertLinked(IMemoryGraphStore s)
+        {
+            var (nodeA, nodeB) = (await s.GetAsync("e", a), await s.GetAsync("f", b));
+            Assert.Equal((1, 2d), (nodeA!.Degree, nodeA.Strength));
+            Assert.Equal((1, 2d), (nodeB!.Degree, nodeB.Strength));
+        }
+    }
 }
