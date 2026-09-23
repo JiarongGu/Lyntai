@@ -7,6 +7,29 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-09-24 — the file graph store reported a durable write as failed when its compaction was refused
+
+**Symptom.** None shipped; found by the whole-branch review of `docs/task-archive.md` Part 282. When the
+journal's snapshot rewrite or the review log's trim could not write (a rename held by an indexer or antivirus),
+`UpsertAsync`, `TouchAsync`, `LinkManyAsync`, `WriteBackAsync` and `RecordSubjectsAsync` threw after their
+change was already appended and applied — a stored memory reported as failed, a write-back's reviews skipped, a
+retried touch counted twice — and every later write threw the same way, because nothing backed the retry off.
+
+**Root cause.** `GraphJournal.Rewrite` let the file system's exception escape, and both of its callers run it
+after the change is durable. Separately, `FileSystemRoot.Append` left whatever a failed write had put down, so
+the next append joined onto it and the merged line became unreadable.
+
+**Fix.** A rewrite the file system refuses (`IOException`, `UnauthorizedAccessException`) is logged and returns
+false, backing off as the unreadable-line refusal does — retried once the journal doubles again. An append
+that throws cuts the file back to its length before the write, best-effort, and rethrows the original failure.
+
+**Verify.** Two `FileSystemGraphRestartTests` facts put a directory where the rewrite's temporary file goes —
+one for compaction, one for the trim; both threw `UnauthorizedAccessException` before the fix and pass after,
+and removing the back-off fails the first. The append's cut has no test: a partial write needs the file system
+to accept some bytes and then fail, which no in-process obstacle produces deterministically.
+
+**Introduced by.** `618d9198` (the journal), `e3c7b116` (the store).
+
 ## 2026-09-23 — the pre-release review: a person's broken file written over, and a line break D166 missed
 
 **Symptom.** None shipped; found by reading `v3.2.0..HEAD -- src/` before the release (`docs/task-archive.md` Part 279).

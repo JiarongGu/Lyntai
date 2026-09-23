@@ -67,13 +67,26 @@ internal sealed class FileSystemRoot : IDisposable
     }
 
     /// <summary>Appends <paramref name="text"/> and flushes it to disk before returning — the journals' write-through.
-    /// Not atomic: a crash can leave a torn tail, which a journal cuts off when it next loads.</summary>
+    /// Not atomic: a crash can leave a torn tail, which a journal cuts off when it next loads. An append that
+    /// throws cuts what it wrote, as far as the file system allows, so the next append never joins onto it.</summary>
     public void Append(string file, string text)
     {
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file)!);
-        using var stream = new FileStream(file, FileMode.Append, FileAccess.Write, FileShare.Read);
-        stream.Write(Utf8.GetBytes(text));
-        stream.Flush(flushToDisk: true);
+        var bytes = Utf8.GetBytes(text);
+        // unbuffered, so a failed write leaves nothing queued for SetLength or Dispose to write again
+        using var stream = new FileStream(file, FileMode.Append, FileAccess.Write, FileShare.Read, bufferSize: 0);
+        var length = stream.Length;
+        try
+        {
+            stream.Write(bytes);
+            stream.Flush(flushToDisk: true);
+        }
+        catch
+        {
+            try { stream.SetLength(length); }
+            catch { /* best effort: the append's own failure is the one to report */ }
+            throw;
+        }
     }
 
     public static void Truncate(string file, long length)
