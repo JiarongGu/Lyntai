@@ -28,10 +28,10 @@ The write's `Ran` carries `Similarity` exactly when the upsert landed (**D175**)
 
 **Verify.** `MemoryWriteResultTests.A_failed_similarity_link_still_indexes_the_vector` times out every
 `LinkAsync`, asserts a link was attempted, and asserts both `Similarity` and the indexed id. Moving the upsert
-back inside the links' `try`, after the loop, fails it — and only it, 1 of 12 — and restoring passes 12/12.
-`A_failed_similarity_search_still_indexes_the_vector` throws on every search, asserts one was attempted, and
-asserts the same two things; re-merging the embed and the search into one `try` fails it (and the failed-embed
-fact, whose warning the merge removes) — 2 of 52 in the focused run — and restoring passes 52/52.
+back inside the links' `try`, after the loop, fails it and nothing else in `MemoryWriteResultTests`; restoring
+passes the class. `A_failed_similarity_search_still_indexes_the_vector` throws on every search, asserts one was
+attempted, and asserts the same two things; re-merging the embed and the search into one `try` fails it and the
+failed-embed fact (whose warning the merge removes), nothing else in the class, and restoring passes it.
 
 **Introduced by.** `6216c226` (2026-08-08), which added similarity enrichment with the embed, the search and the
 loop all ahead of the index write in one `try`; every release since has carried it.

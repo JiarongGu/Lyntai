@@ -679,8 +679,8 @@ check-samples`, so a signature that drifts fails the build rather than misleadin
 ### Store something and get it back
 
 `RememberAsync` returns a `MemoryWriteResult`: its `Reference` is the handle you use to expand or link later,
-and its `Ran` names the tiers that took the write (the next recipe). Recall returns **headlines**, not full
-text; that is what makes the first load cheap.
+and its `Ran` names the tiers that took the write (see *Know whether a write kept its vector*, below). Recall
+returns **headlines**, not full text; that is what makes the first load cheap.
 
 ```csharp
 await engine.RememberAsync(new MemoryWrite("project", "backend", "the deploy gate is dev.mjs verify"));
@@ -711,9 +711,10 @@ with `HasFlag`, since flags may be added:
   still reads `Similarity`. Write through the member (`"<engine>/<member>"`, which `IMemoryEngineFactory`
   resolves by hierarchical name) to see its own result.
 
-`Ran` covers the storage tiers and the vector index and nothing else. The graph engine's annotation, subject
-index, similarity links and salience are best-effort, logged, and not reported — salience is recorded on the
-stored node's `GraphNode.ProvenanceSalience`.
+`Ran` covers the storage tiers and the vector index and nothing else; a storage tier that fails throws rather
+than going missing. The graph engine's annotation, subject index, similarity links and salience are
+best-effort, logged, and not reported — the stored node's `GraphNode.ProvenanceSalience` names the policies
+behind its STORED signals, which a later write whose policies all decline leaves as they were.
 
 ### Keep a fact exactly, forever
 

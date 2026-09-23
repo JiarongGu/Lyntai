@@ -5412,7 +5412,8 @@ fields, so two references to one entry would compare unequal.
 the member. `SimilarityK <= 0` embeds nothing, so such an engine never reports `Similarity` on a write while
 its recalls still do. And four best-effort steps of the graph write are logged, never flagged: the annotator
 (whose failure also drops the write's subjects and stores an unstated grade as `Associative`), the
-subject-index write, the similarity links, and salience (visible only in the node's `ProvenanceSalience`).
+subject-index write, the similarity links, and salience (the node's `ProvenanceSalience` names who produced
+its STORED signals, not what this write did).
 **The trigger** for flagging one is a consumer whose rebuild must be sure of it — one that rebuilds with an
 annotator wired and needs the subjects recorded; the flag set grows additively.
 

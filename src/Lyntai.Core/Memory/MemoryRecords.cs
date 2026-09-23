@@ -138,10 +138,10 @@ public sealed record MemoryRecall(IReadOnlyList<MemoryItem> Items, MemorySources
 /// <summary>What a remember did: the entry's address and the tiers that took the write.
 /// <para><see cref="Ran"/> reports CONTRIBUTION on every flag — a tier of that kind stored the entry, and
 /// <see cref="MemorySources.Similarity"/> means THIS write's vector was indexed, so a similarity search (a
-/// semantic seed source, or a later write's links) can find it. A storage tier or vector index that failed or
-/// had no backend is absent, which is how a write stored without its vector is told apart from one stored
-/// with it. Nothing else is reported: the graph engine's annotation, subject index, similarity links and
-/// salience are best-effort and only logged.</para></summary>
+/// semantic seed source, or a later write's links) can find it. A vector index that failed or had no backend is
+/// absent, which is how a write stored without its vector is told apart from one stored with it; a storage tier
+/// that fails THROWS rather than going missing. Nothing else is reported: the graph engine's annotation, subject
+/// index, similarity links and salience are best-effort and only logged.</para></summary>
 /// <param name="Reference">The entry's address — what expansion and linking take.</param>
 /// <param name="Ran">The tiers that took the write. Test one with <see cref="Enum.HasFlag"/>: members may be
 /// added.</param>

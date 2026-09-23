@@ -29,11 +29,12 @@ public interface IMemoryEngine
     /// accepting an authoritative write and keeping it as associative would defeat the whole point of the
     /// grade split.</para>
     /// <para><b>Reports where the entry landed.</b> <see cref="MemoryWriteResult.Ran"/> names each storage tier
-    /// that took the write, and the vector index when this write's vector reached it; one that failed or had
-    /// nothing to run on is absent — the write side of <see cref="MemoryRecall.Ran"/>. An engine's other
-    /// best-effort steps (the graph engine's annotation, subject index, similarity links and salience) are
-    /// logged and NOT reported; salience is recorded on the stored node's
-    /// <see cref="GraphNode.ProvenanceSalience"/>.</para></summary>
+    /// that took the write, and the vector index when this write's vector reached it; an index that failed or
+    /// had nothing to run on is absent, while a storage tier that fails throws, as above — the write side of
+    /// <see cref="MemoryRecall.Ran"/>. An engine's other best-effort steps (the graph engine's annotation,
+    /// subject index, similarity links and salience) are logged and NOT reported; the stored node's
+    /// <see cref="GraphNode.ProvenanceSalience"/> names the policies behind its STORED signals, not what this
+    /// write's salience did.</para></summary>
     Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default);
 
     /// <summary>Recall relevant facts.
