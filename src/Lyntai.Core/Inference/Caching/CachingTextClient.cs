@@ -14,9 +14,9 @@ namespace Lyntai.Inference.Caching;
 /// tools</b> (the tool loop is stateful and its tools can side-effect); <b>non-Ok</b> replies (a
 /// transient failure must never stick); and a call whose <b>live route could not be read</b> (it passes
 /// through, neither read nor stored, because a key without the route could serve another backend's reply).
-/// Caching assumes the consumer accepts that identical inputs return
-/// an identical stored answer — that determinism is the point (cost + latency), so a request whose output
-/// must vary per call should skip the cache or use a short TTL.</para>
+/// Caching assumes the consumer accepts that identical inputs return an identical stored answer — that
+/// determinism is the point (cost + latency), so a request whose output must vary per call should skip the
+/// cache or use a short TTL.</para>
 /// </summary>
 public sealed class CachingTextClient(
     ITextClient inner, IResponseCache cache, LyntaiOptions options,

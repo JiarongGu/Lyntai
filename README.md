@@ -796,7 +796,9 @@ outside the cache. It is what to reach for *instead of* pre-registering an `ITex
 front-door decorator with no error at all. One trap: taking a built-in's order silently disables one of the
 two — first writer wins per slot — and the loser's options are still applied and its `IResponseCache` /
 `IUsageTracker` / `IRateLimiter` still registered, so the wiring reads as complete while that governance
-layer is simply not in the chain.
+layer is simply not in the chain. **Derive the layer from `DelegatingTextClient`**, which forwards
+`GetCapabilitiesAsync` to the layer inside it, or pass that call through yourself: a layer that answers it
+with the interface's default (null, unknown) puts every tool loop above it on the prompt path, silently.
 
 **Persisting a governance store needs `StorageFeature.Governance`.** The default `StorageFeature.All`
 already includes it, so this only concerns a deployment that migrates a subset. The three governance-backed

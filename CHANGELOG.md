@@ -56,12 +56,17 @@ every addition.
   the first `:` so `ollama:qwen3:4b` is `ollama` plus `qwen3:4b`, a bare `provider` naming no model.
   `IModelRoutingStore.GetRouteAsync` returns it and replaces `GetModelOverrideAsync`; `LyntaiOptions` <!-- drift-ok: the entry names the member it removes -->
   renames `ModelKeyPrefix` to `RouteKeyPrefix` (default `lyntai.route.`) and loses its three-argument <!-- drift-ok: as above -->
-  `ResolveModel`. An old `lyntai.model.*` key is inert — never read as a route — and the store warns once that
-  one exists. A route naming no registered provider, or a store that throws, logs a warning and the configured
-  candidates serve. **What to DO:** rewrite each `lyntai.model.<consumer>` = `model` as
-  `lyntai.route.<consumer>` = `provider:model[, …]`; rename `ModelKeyPrefix` to `RouteKeyPrefix`; a BYO <!-- drift-ok: as above -->
-  `IModelRoutingStore` implements `GetRouteAsync` and fails open (a fault returns an empty route); a direct
-  caller of the three-argument `ResolveModel` passes the model itself to the two-argument one.
+  `ResolveModel`; the const `KeyValueModelRoutingStore.DefaultKeyPrefix` is now `lyntai.route.`. An old
+  `lyntai.model.*` key is inert — never read as a route — and the store warns once that one exists. A route
+  naming no registered provider, or a store that throws, logs a warning and the given candidates serve.
+  **What to DO:** rewrite each `lyntai.model.<consumer>` = `model` as `lyntai.route.<consumer>` =
+  `provider:model[, …]`; rename `ModelKeyPrefix` to `RouteKeyPrefix` — and if you had set it to a namespace of <!-- drift-ok: as above -->
+  your own, rewrite that namespace's values as routes (`provider:model`) or move to a new prefix so the old
+  keys go inert, because a bare model left there is read as a provider id (`haiku` becomes provider `haiku`)
+  and live routing stops for that consumer, with a warning on each call; recompile a precompiled caller that
+  writes keys with `DefaultKeyPrefix`, since a const is inlined; a BYO `IModelRoutingStore` implements
+  `GetRouteAsync` and fails open (a fault returns an empty route); a direct caller of the three-argument
+  `ResolveModel` passes the model itself to the two-argument one.
 
 - **A live route outranks what the CALL named.** A route is a list of pairs, as configured candidates are, so it
   replaces the candidates a call was given — including candidates passed EXPLICITLY to `ITextRouter`, not only

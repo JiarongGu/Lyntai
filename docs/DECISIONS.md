@@ -3552,8 +3552,9 @@ still exactly what an unprefixed deployment does.
 ## D117 — a tool loop REPORTS its transport, because the fallback is silent and not a degradation of degree (2026-09-13)
 
 `ToolLoopResult` gains `Transport` (`ToolTransport?` — `None` / `Native` / `Prompt`), as an init-only
-property. `ToolLoop` sets it at the one point it already decides: `ILlmClient.SupportsToolCalls` says <!-- drift-ok: the record names the type AS IT WAS; D154 renamed it after -->
-native, or the loop falls back to its own prompt protocol. Nothing else changes, and no default moves.
+property. `ToolLoop` sets it at the one point it already decides: the serving backend's capabilities
+(`ITextClient.GetCapabilitiesAsync`, **D176**) say native, or the loop falls back to its own prompt protocol.
+Nothing else changes, and no default moves.
 
 **The gap was that the fallback is invisible and expensive.** Measured on one model through both transports
 (`docs/memory-measurements.md` §5): the prompt path invokes a tool on **90-100%** of requests nothing on the
@@ -5432,15 +5433,14 @@ of the candidates a call was given, on both doors, bounded by the router's own p
 resolves its model as a configured candidate does: its own, else the request's, else the consumer's default.
 The pair is the routing unit (**D125**); the override this replaces moved half of one — it swapped the model
 while the container chose the provider, so on fallback, and between a rebind and its restart, the model
-reached a provider never written for it, silently under memory's fail-open policies. Live routing had no
-recorded decision before this one.
+reached a provider never written for it, silently under memory's fail-open policies.
 
 **Never silently wrong.** A route naming no registered provider is ignored with a warning and the given
 candidates serve; a partly-unknown route is used, with one warning naming the unknown entries; a store that
 throws is a warning and the given candidates, only the caller's cancellation propagating. Keys under the
-retired `lyntai.model.` prefix are inert, never read as routes, and a store warns once that they exist. The
-response cache's key is unchanged unless a route exists, which is then appended in order so a reply is never
-served across a rebind; a failed route read skips the cache for that call.
+retired `lyntai.model.` prefix are inert, never read as routes, and the shipped store warns once that they
+exist. The response cache's key is unchanged unless a route exists, which is then appended in order so a reply
+is never served across a rebind; a store that throws skips the cache for that call.
 
 **The capability probe follows the route.** One async `GetCapabilitiesAsync` on `ITextClient` and
 `ITextRouter` replaces the two synchronous tool probes and answers for the backend that would serve, read
@@ -5450,8 +5450,9 @@ rebind, and hidden mutable state in every router. The backstop: tools reaching a
 tool calls (on a stream, streaming tool calls) is a warning, fallback included.
 
 **How often each warns.** The route warnings fire per call and per probe, for as long as the misconfiguration
-stands; a faulting store warns from the cache AND the router; the backstop once per candidate tried; a CLI
-provider handed tools gets its engine's warning and the backstop's.
+stands; a store that throws warns from the cache AND the router, while the shipped store catches its own
+fault and warns once per read; the backstop once per candidate tried; a CLI provider handed tools gets its
+engine's warning and the backstop's.
 
 **Rejected.** The model-only override: half a pair, the defect itself. A per-provider model map — the first
 build of `docs/task-archive.md` Part 284, never released: it fixes the wrong-model case but cannot move the

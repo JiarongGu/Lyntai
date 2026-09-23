@@ -924,8 +924,9 @@ count, a cooldown-key scope, and a sole-candidate exemption — overridable via 
   provider/host is marked dead for a short cooldown; any success resets. One log line per state change.
 
 *(2026-09-24: **live routing moves a ROUTE** — `docs/DECISIONS.md` **D176**. Under `AddLiveModelRouting()` a
-consumer's route — `lyntai.route.<consumer>` = `provider:model[, …]`, read once per call through
-`IModelRoutingStore.GetRouteAsync` — REPLACES the candidates the call was given, on both doors, and each entry
+consumer's route — `lyntai.route.<consumer>` = `provider:model[, …]`, read through
+`IModelRoutingStore.GetRouteAsync` by the router once per call and once per capability probe, and by the
+response cache once per call — REPLACES the candidates the call was given, on both doors, and each entry
 resolves its model as a configured candidate does. The router's own providers bound it: a route naming none of
 them, or a store that throws, leaves the given candidates in force with a warning, and the unknown entries of a
 partly-known route are skipped with one. `ITextClient.GetCapabilitiesAsync` answers for the backend the route
