@@ -26,11 +26,13 @@ public sealed class CachingTextClient(
     {
         if (!IsCacheable(req)) return await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
 
-        // key on the EFFECTIVE model — the router resolves per-consumer defaults + a LIVE override, so two
+        // key on the EFFECTIVE model — the router resolves per-consumer defaults + LIVE overrides, so two
         // consumers (or a pre/post admin retune) with Model=null + identical messages don't collide, and a
         // stale-model reply is never served after a live retune
-        var live = modelRouting is null ? null : await modelRouting.GetModelOverrideAsync(req.Consumer, ct).ConfigureAwait(false);
-        var key = ResponseCacheKey.For(req, options.ResolveModel(req.Consumer, req.Model, live));
+        var live = modelRouting is null
+            ? ModelOverrides.None
+            : await modelRouting.GetModelOverridesAsync(req.Consumer, ct).ConfigureAwait(false);
+        var key = ResponseCacheKey.For(req, EffectiveModel(req, live));
         var cached = await cache.GetAsync(key, ct).ConfigureAwait(false);
         if (cached is not null)
         {
@@ -45,6 +47,24 @@ public sealed class CachingTextClient(
         if (reply.Verdict == ProviderVerdict.Ok && reply.ToolCalls is null or { Count: 0 })
             await cache.SetAsync(key, reply, options.Cache.Ttl, ct).ConfigureAwait(false);
         return reply;
+    }
+
+    /// <summary>The key's model component. The cache sits in front of the router and cannot know which
+    /// provider will serve, so provider-scoped overrides join it as <c>|provider=model</c> pairs in a canonical
+    /// order — appended ONLY when there are any, so every key without one is unchanged. A request naming its
+    /// own model outranks every live entry and keys on that model alone.</summary>
+    private string? EffectiveModel(TextRequest req, ModelOverrides live)
+    {
+        var model = options.ResolveModel(req.Consumer, req.Model, live.Any);
+        if (!string.IsNullOrEmpty(req.Model) || live.ByProvider.Count == 0) return model;
+
+        var scoped = string.Concat(live.ByProvider
+            .Where(p => !string.IsNullOrWhiteSpace(p.Value))
+            .Select(p => (Provider: p.Key.ToLowerInvariant(), Model: p.Value))
+            .OrderBy(p => p.Provider, StringComparer.Ordinal)
+            .ThenBy(p => p.Model, StringComparer.Ordinal)
+            .Select(p => $"|{p.Provider}={p.Model}"));
+        return scoped.Length == 0 ? model : model + scoped;
     }
 
     // StreamAsync/SupportsToolCalls: base pass-through (streaming is delivered live; not a cache unit).

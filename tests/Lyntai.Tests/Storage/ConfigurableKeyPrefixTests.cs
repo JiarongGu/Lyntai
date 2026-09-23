@@ -51,6 +51,21 @@ public class ConfigurableKeyPrefixTests
     }
 
     [Fact]
+    public async Task ModelRoutingStore_custom_prefix_scopes_the_apps_own_keys()
+    {
+        var kv = new InMemoryKeyValueStore();
+        kv.Data["llm.model.chat"] = "haiku";
+        kv.Data["llm.model.chat@llama"] = "qwen3";
+        kv.Data["lyntai.model.chat@ollama"] = "ignored"; // the default namespace is not this store's
+
+        var live = await new KeyValueModelRoutingStore(kv, keyPrefix: "llm.model.").GetModelOverridesAsync("chat");
+
+        Assert.Equal("haiku", live.Any);
+        Assert.Equal("qwen3", Assert.Single(live.ByProvider).Value);
+        Assert.Equal("qwen3", live.For("llama"));
+    }
+
+    [Fact]
     public async Task ModelRoutingStore_default_prefix_is_unchanged()
     {
         Assert.Equal("lyntai.model.", KeyValueModelRoutingStore.DefaultKeyPrefix);
