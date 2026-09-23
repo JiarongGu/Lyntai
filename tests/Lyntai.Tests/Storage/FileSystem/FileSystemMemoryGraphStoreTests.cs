@@ -7,7 +7,7 @@ namespace Lyntai.Tests.Storage.FileSystem;
 
 /// <summary>Every <see cref="MemoryGraphStoreContract"/> fact against the file-system backend, a fresh root per
 /// case, plus the failed writes the contract cannot provoke. The contract runs one live store; what survives a
-/// restart is <c>FileSystemGraphRestartTests</c>.</summary>
+/// restart is <see cref="FileSystemGraphRestartTests"/>.</summary>
 public class FileSystemMemoryGraphStoreTests : IDisposable
 {
     private readonly TempRoot _root = new();
