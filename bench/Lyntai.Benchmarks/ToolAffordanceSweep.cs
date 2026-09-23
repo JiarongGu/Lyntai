@@ -17,7 +17,7 @@ namespace Lyntai.Benchmarks;
 ///
 /// <para><b>Every loop arm runs the REAL <see cref="ToolLoop"/> over a real <see cref="ToolRegistry"/>.</b>
 /// Only the <see cref="ITextClient"/> is the bench's, which is what puts the loop on its prompt path
-/// (<c>SupportsToolCalls</c> defaults to false) and what lets the prompt the transport actually sent be
+/// (<c>GetCapabilitiesAsync</c> defaults to unknown) and what lets the prompt the transport actually sent be
 /// counted rather than reconstructed.</para>
 ///
 /// <para><b>The cross-shape arm is the point.</b> The same trials posed as a plain <c>select-from-list</c>
@@ -829,7 +829,7 @@ internal static class ToolAffordanceSweep
 
     /// <summary>The loop's model, and the instrument that counts what the transport actually sent.
     ///
-    /// <para><b><c>SupportsToolCalls</c> is left at its interface default of false</b>, which is what puts
+    /// <para><b><c>GetCapabilitiesAsync</c> is left at its interface default of unknown</b>, which is what puts
     /// <see cref="ToolLoop"/> on its prompt path. That is the measurement, not a limitation: the native path
     /// is silently inert on both models this machine holds.</para>
     ///
@@ -886,7 +886,7 @@ internal static class ToolAffordanceSweep
     /// whose template carries a tool section — gemma-3's does not, and the array is silently discarded. Pair
     /// it against the SAME model's prompt arm or the comparison confounds the transport with the model.</para>
     ///
-    /// <para><c>SupportsStreamingToolCalls</c> stays false: the streaming half would deliver the same
+    /// <para>Its capabilities declare no <c>SupportsStreamingToolCalls</c>: the streaming half would deliver the same
     /// choice through a second code path, and guessing wrong there fails SILENTLY — no call chunk arrives
     /// and the turn's prose reads as a final answer.</para></summary>
     private sealed class NativeBenchLoopClient(SweepDoubles.OpenAiCompatibleChat chat) : ITextClient, ICountedLoopClient
@@ -904,7 +904,8 @@ internal static class ToolAffordanceSweep
         /// <c>tool_calls</c> cannot tell apart, and the difference between a finding and an artifact.</summary>
         internal int Truncated { get; private set; }
 
-        public bool SupportsToolCalls(TextRequest req) => true;
+        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+            ValueTask.FromResult<ProviderCapabilities?>(new() { SupportsToolCalls = true });
 
         public async Task<TextResponse> CompleteAsync(TextRequest req, CancellationToken ct = default)
         {

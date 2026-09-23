@@ -13,17 +13,14 @@ public interface ITextClient
 
     IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default);
 
-    /// <summary>Whether native tool-calling is available for <paramref name="req"/> under the configured
-    /// default routing (the first live default candidate is a tool-capable provider). The
-    /// <see cref="Agents.IToolLoop"/> reads this to choose the native path vs. its prompt-based fallback —
-    /// without seeing candidate lists. Takes the request so the capability probe matches the CONFIGURED
-    /// model / cooldown key the completion will use (a live <c>IModelRoutingStore</c> route is not read
-    /// by this sync probe — see <see cref="ITextRouter.SupportsToolCalls"/>).</summary>
-    bool SupportsToolCalls(TextRequest req) => false;
-
-    /// <summary>Whether the routed provider's STREAM delivers native tool calls, so
-    /// <see cref="Agents.IToolLoop"/> can run its native path over <see cref="StreamAsync"/> and emit prose
-    /// as it arrives instead of buffering the whole turn. Default false — the safe answer, which keeps the
-    /// pre-3.0 buffered behaviour for any provider that has not implemented the streaming half.</summary>
-    bool SupportsStreamingToolCalls(TextRequest req) => false;
+    /// <summary>The capabilities of the backend that would serve <paramref name="req"/> now — the first live
+    /// candidate of the route the call itself would take, a live <c>IModelRoutingStore</c> route included (see
+    /// <see cref="ITextRouter.GetCapabilitiesAsync"/>). <see cref="Agents.IToolLoop"/> asks it once per run to
+    /// choose between native tool calls (<see cref="ProviderCapabilities.SupportsToolCalls"/>, and
+    /// <see cref="ProviderCapabilities.SupportsStreamingToolCalls"/> for its streaming half) and its prompt
+    /// protocol.
+    /// <para>Null means UNKNOWN — no live candidate, or a client that cannot say — and a caller must read it as
+    /// the safe answer: no native tool calls. That is the default body.</para></summary>
+    ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+        ValueTask.FromResult<ProviderCapabilities?>(null);
 }

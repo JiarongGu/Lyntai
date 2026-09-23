@@ -79,6 +79,18 @@ public class LyntaiOptionsTests
     }
 
     [Fact]
+    public void Candidates_env_reads_the_one_candidate_spec()
+    {
+        var options = new LyntaiOptions();
+
+        options.ApplyEnvOverrides(k => k == "LYNTAI_DEFAULT_CANDIDATES" ? "claude-cli:, ollama : qwen3:4b" : null);
+
+        // both halves trimmed, a blank model is the backend's default, the split is at the FIRST colon
+        Assert.Equal([new ProviderCandidate("claude-cli"), new ProviderCandidate("ollama", "qwen3:4b")],
+            options.DefaultCandidates);
+    }
+
+    [Fact]
     public void Per_consumer_model_env_override_resolves()
     {
         var options = new LyntaiOptions();

@@ -1393,7 +1393,7 @@ The loop executes the tool the model chooses, feeds the result back, and repeats
 (OpenAI-shaped / Ollama, and anything you reach with `AddBridgeProvider` that declares it — structured
 `tool_calls`, parallel calls supported) and falls back to a **prompt protocol** over the text contract
 for providers without it (CLI, basic local models) — same `ITool`s either way, chosen transparently
-behind the front door (`ITextClient.SupportsToolCalls`). An
+behind the front door (`ITextClient.GetCapabilitiesAsync`, which asks the backend that would serve). An
 unknown or throwing tool becomes a recoverable `error: …` observation rather than a crash; a refusal or
 all-providers-down verdict surfaces on `result.Verdict`.
 

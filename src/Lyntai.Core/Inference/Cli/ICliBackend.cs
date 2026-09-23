@@ -38,8 +38,8 @@ public interface ICliBackend
     /// an <see cref="Agents.ICliToolProvisioner"/>) — the engine then warns rather than dropping them
     /// silently. That warning is ALL this flag drives: a backend returning true must have its composing
     /// <see cref="IModelProvider"/> declare <c>SupportsToolCalls =&gt; true</c> itself (per <c>DECISIONS.md</c>
-    /// D21 the provider is the capability declarer), or <see cref="ITextRouter.SupportsToolCalls"/> answers
-    /// false and the tool loop silently takes its prompt-based fallback.</summary>
+    /// D21 the provider is the capability declarer), or <see cref="ITextRouter.GetCapabilitiesAsync"/> reports
+    /// none and the tool loop silently takes its prompt-based fallback.</summary>
     bool SupportsToolCalls { get; }
 
     /// <summary>How this CLI wants the prompt: stdin (the safe default) or a trailing argument.</summary>

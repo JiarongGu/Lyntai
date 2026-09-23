@@ -28,6 +28,13 @@ public sealed class FakeTextProvider(string id) : IModelProvider
         set => Capabilities = Capabilities with { SupportsToolCalls = value };
     }
 
+    /// <summary>Writes through to <see cref="Capabilities"/>, as <see cref="SupportsToolCalls"/> does.</summary>
+    public bool SupportsStreamingToolCalls
+    {
+        get => Capabilities.SupportsStreamingToolCalls;
+        set => Capabilities = Capabilities with { SupportsStreamingToolCalls = value };
+    }
+
     public Queue<TextResponse> Replies { get; } = new();
 
     public Func<TextRequest, IReadOnlyList<TextChunk>>? StreamScript { get; set; }

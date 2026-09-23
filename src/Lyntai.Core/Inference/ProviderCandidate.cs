@@ -19,19 +19,20 @@ public sealed record ProviderCandidate(string ProviderId, string? Model = null);
 
 /// <summary>The one place a candidate SPEC — <c>"provider"</c> or <c>"provider:model"</c> — is read.
 ///
-/// <para>The format is a promise every entry point makes (a DI builder's default order, a durable job's
-/// payload, an agent tool's <c>backends</c> array), so it is parsed once: hand-written copies of the same
-/// split are places for it to drift apart.</para></summary>
+/// <para>The format is a promise every entry point makes (a DI builder's default order,
+/// <c>LYNTAI_DEFAULT_CANDIDATES</c>, a live route, a durable job's payload, an agent tool's <c>backends</c>
+/// array), so it is parsed once: hand-written copies of the same split are places for it to drift apart.</para></summary>
 internal static class ProviderCandidateSpec
 {
-    /// <summary>Parse one spec. Both halves are trimmed, so a configuration string with spaces round the
-    /// separator still resolves.</summary>
+    /// <summary>Parse one spec, split at the FIRST colon (a model id may contain one). Both halves are trimmed,
+    /// so a configuration string with spaces round the separator still resolves, and a blank model is null —
+    /// the backend's default — because an empty one would outrank the request's own model.</summary>
     public static ProviderCandidate Parse(string spec)
     {
         var at = spec.IndexOf(':');
-        return at < 0
-            ? new ProviderCandidate(spec.Trim())
-            : new ProviderCandidate(spec[..at].Trim(), spec[(at + 1)..].Trim());
+        if (at < 0) return new ProviderCandidate(spec.Trim());
+        var model = spec[(at + 1)..].Trim();
+        return new ProviderCandidate(spec[..at].Trim(), model.Length == 0 ? null : model);
     }
 
     /// <summary>Write one candidate back as the spec <see cref="Parse"/> reads.</summary>

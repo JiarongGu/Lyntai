@@ -247,12 +247,7 @@ public sealed class LyntaiOptions
         {
             DefaultCandidates.Clear();
             foreach (var part in candidates.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                var sep = part.IndexOf(':');
-                DefaultCandidates.Add(sep < 0
-                    ? new ProviderCandidate(part)
-                    : new ProviderCandidate(part[..sep], part[(sep + 1)..]));
-            }
+                DefaultCandidates.Add(ProviderCandidateSpec.Parse(part));
         }
 
         var defaultModel = getEnv("LYNTAI_MODEL_DEFAULT") ?? getEnv("LYNTAI_DEFAULT_MODEL");

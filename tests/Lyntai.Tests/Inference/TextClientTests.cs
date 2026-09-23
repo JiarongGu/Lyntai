@@ -77,28 +77,36 @@ public class TextClientTests
     }
 
     [Fact]
-    public void SupportsToolCalls_is_false_when_the_default_provider_has_no_native_support()
+    public async Task Capabilities_say_no_tool_calls_when_the_default_provider_has_no_native_support()
     {
-        using var sp = Build(new FakeTextProvider("plain")); // DIM default false
-        Assert.False(sp.GetRequiredService<ITextClient>().SupportsToolCalls(Req));
+        using var sp = Build(new FakeTextProvider("plain")); // declares no tool calls
+        var caps = await sp.GetRequiredService<ITextClient>().GetCapabilitiesAsync(Req);
+        Assert.False(caps!.SupportsToolCalls);
     }
 
     [Fact]
-    public void SupportsToolCalls_reflects_the_first_live_candidate()
+    public async Task Capabilities_are_the_first_live_candidates()
     {
         var native = new FakeTextProvider("native") { SupportsToolCalls = true };
         var plain = new FakeTextProvider("plain");
         using var sp = Build(native, plain);
-        Assert.True(sp.GetRequiredService<ITextClient>().SupportsToolCalls(Req));
+        Assert.Same(native.Capabilities, await sp.GetRequiredService<ITextClient>().GetCapabilitiesAsync(Req));
     }
 
     [Fact]
-    public void SupportsToolCalls_skips_a_dead_first_candidate_to_the_next_live_one()
+    public async Task Capabilities_skip_a_dead_first_candidate_to_the_next_live_one()
     {
         // first candidate is unavailable → the query falls to the next LIVE candidate, which is plain
         var down = new FakeTextProvider("down") { IsAvailable = false, SupportsToolCalls = true };
         var plain = new FakeTextProvider("plain");
         using var sp = Build(down, plain);
-        Assert.False(sp.GetRequiredService<ITextClient>().SupportsToolCalls(Req)); // the reachable one isn't tool-capable
+        Assert.Same(plain.Capabilities, await sp.GetRequiredService<ITextClient>().GetCapabilitiesAsync(Req));
+    }
+
+    [Fact]
+    public async Task Capabilities_are_unknown_when_no_candidate_is_live()
+    {
+        using var sp = Build(new FakeTextProvider("down") { IsAvailable = false }, new FakeTextProvider("off") { IsAvailable = false });
+        Assert.Null(await sp.GetRequiredService<ITextClient>().GetCapabilitiesAsync(Req));
     }
 }

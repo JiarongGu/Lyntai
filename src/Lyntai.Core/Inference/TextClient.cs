@@ -33,8 +33,6 @@ public sealed class TextClient : ITextClient
     public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
         _router.StreamAsync(Candidates, req, ct);
 
-    public bool SupportsToolCalls(TextRequest req) => _router.SupportsToolCalls(Candidates, req);
-
-    public bool SupportsStreamingToolCalls(TextRequest req) =>
-        _router.SupportsStreamingToolCalls(Candidates, req);
+    public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+        _router.GetCapabilitiesAsync(Candidates, req, ct);
 }

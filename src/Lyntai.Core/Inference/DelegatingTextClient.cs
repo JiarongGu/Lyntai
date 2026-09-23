@@ -18,7 +18,6 @@ public abstract class DelegatingTextClient(ITextClient inner) : ITextClient
     public virtual IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) =>
         Inner.StreamAsync(req, ct);
 
-    public virtual bool SupportsToolCalls(TextRequest req) => Inner.SupportsToolCalls(req);
-
-    public virtual bool SupportsStreamingToolCalls(TextRequest req) => Inner.SupportsStreamingToolCalls(req);
+    public virtual ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+        Inner.GetCapabilitiesAsync(req, ct);
 }

@@ -15,16 +15,13 @@ public interface ITextRouter
 
     IAsyncEnumerable<TextChunk> StreamAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default);
 
-    /// <summary>Whether native tool-calling is available for <paramref name="candidates"/> serving
-    /// <paramref name="req"/> — true iff the first live (registered + available + not on cooldown)
-    /// candidate is a tool-capable provider. Takes the request so it resolves the same CONFIGURED
-    /// effective model / cooldown key that <see cref="CompleteAsync"/> will. Caveat: being a sync probe,
-    /// it does NOT read a live <c>IModelRoutingStore</c> route — it decides over the candidates it is given,
-    /// so under a live route the completion can be served by a different candidate than the one probed.
-    /// Default false.</summary>
-    bool SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req) => false;
-
-    /// <summary>Whether the first live candidate's STREAM delivers native tool calls. Same selection rule
-    /// and same caveats as <see cref="SupportsToolCalls"/>; default false.</summary>
-    bool SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req) => false;
+    /// <summary>The capabilities of the backend that would serve <paramref name="req"/> over
+    /// <paramref name="candidates"/> now: the first live (registered + available + not on cooldown) candidate,
+    /// selected exactly as <see cref="CompleteAsync"/> selects it — the same effective model and cooldown key,
+    /// and the consumer's live <c>IModelRoutingStore</c> route in place of <paramref name="candidates"/> when one
+    /// is set. A fallback the call would never reach does not change the answer.
+    /// <para>Null means UNKNOWN (no live candidate); read it as no native tool calls. The default body answers
+    /// null.</para></summary>
+    ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req,
+        CancellationToken ct = default) => ValueTask.FromResult<ProviderCapabilities?>(null);
 }

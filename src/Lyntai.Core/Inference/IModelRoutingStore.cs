@@ -18,9 +18,11 @@ namespace Lyntai.Inference;
 public interface IModelRoutingStore
 {
     /// <summary>The live route for <paramref name="consumer"/>, in fallback order — EMPTY when none is set,
-    /// which leaves the given candidates in force. The router and the response cache each read it once per call.
-    /// <para>Fail open: a fault should read as no route, since a throw here fails the call that asked. Only the
-    /// caller's own cancellation should escape.</para></summary>
+    /// which leaves the given candidates in force. The router reads it once per call and once per capability
+    /// probe (<see cref="ITextRouter.GetCapabilitiesAsync"/>); the response cache once per call.
+    /// <para>Fail open: a fault should read as no route. The router treats a throw that way too, and the
+    /// response cache skips that call, each with a warning — but only the caller's own cancellation should
+    /// escape.</para></summary>
     Task<IReadOnlyList<ProviderCandidate>> GetRouteAsync(string consumer, CancellationToken ct = default);
 }
 
@@ -32,8 +34,10 @@ public interface IModelRoutingStore
 /// skipped, and an entry naming no provider is skipped with a warning.
 /// <para>Fail-open: no store yields no route, and a store fault logs a warning and yields none; only the
 /// caller's cancellation propagates.</para>
-/// <para>A key under <c>lyntai.model.</c> — whose values name a model, not a route — is never read; the first
-/// call that finds any logs one warning.</para></summary>
+/// <para>A key under <c>lyntai.model.</c> — whose values name a model, not a route — is never read, unless it
+/// also sits under <see cref="KeyPrefix"/> (a store configured onto that namespace reads its own keys as
+/// routes). The first successful read lists that namespace ONCE per instance and logs one warning if any
+/// such key remains; a key written after that check is not reported.</para></summary>
 public sealed class KeyValueModelRoutingStore(
     IKeyValueStore? kv = null, ILogger<KeyValueModelRoutingStore>? logger = null, string? keyPrefix = null) : IModelRoutingStore
 {
@@ -64,7 +68,7 @@ public sealed class KeyValueModelRoutingStore(
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "live route read failed for consumer {Consumer}; routing over the given candidates", consumer);
-            route = []; // fail-open — never sink a request because the route lookup faulted
+            return []; // fail-open, and no second call against a store that just failed
         }
         await WarnOfModelOnlyKeysOnceAsync(kv, ct).ConfigureAwait(false);
         return route;
@@ -86,12 +90,14 @@ public sealed class KeyValueModelRoutingStore(
     /// <summary>Its own step after the route read, so a failed listing never costs the route.</summary>
     private async Task WarnOfModelOnlyKeysOnceAsync(IKeyValueStore store, CancellationToken ct)
     {
-        if (KeyPrefix == ModelOnlyKeyPrefix || Interlocked.Exchange(ref _modelOnlyKeysChecked, 1) == 1) return;
+        if (Interlocked.Exchange(ref _modelOnlyKeysChecked, 1) == 1) return;
         var checkedOk = false;
         try
         {
             var keys = await store.ListKeysAsync(ModelOnlyKeyPrefix, ct).ConfigureAwait(false);
-            if (keys.Any(k => k.StartsWith(ModelOnlyKeyPrefix, StringComparison.Ordinal)))
+            // a key under this store's OWN prefix is a route, even where that prefix sits under lyntai.model.
+            if (keys.Any(k => k.StartsWith(ModelOnlyKeyPrefix, StringComparison.Ordinal)
+                              && !k.StartsWith(KeyPrefix, StringComparison.Ordinal)))
                 _logger.LogWarning(
                     "live routing: keys remain under {ModelOnlyPrefix}; their values name a model alone and are not read — write each consumer's route as {RoutePrefix}<consumer> = provider:model[, provider:model…]",
                     ModelOnlyKeyPrefix, KeyPrefix);

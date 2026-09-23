@@ -26,7 +26,7 @@ public enum ToolTransport
     None,
 
     /// <summary>The provider's own function-calling, selected because
-    /// <see cref="ITextClient.SupportsToolCalls"/> said it was available.</summary>
+    /// <see cref="ITextClient.GetCapabilitiesAsync"/> said the serving backend declares it.</summary>
     Native,
 
     /// <summary>The loop's own prompt protocol, used because the provider declared no native support — the

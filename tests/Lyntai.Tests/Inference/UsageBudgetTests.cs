@@ -156,11 +156,11 @@ public class UsageBudgetTests
     }
 
     [Fact]
-    public async Task SupportsToolCalls_delegates_to_the_inner_client()
+    public async Task GetCapabilitiesAsync_delegates_to_the_inner_client()
     {
         var (client, inner, _) = Budgeted(_ => { });
         inner.SupportsToolCallsResult = true;
-        Assert.True(client.SupportsToolCalls(Ask()));
+        Assert.Same(inner.Capabilities, await client.GetCapabilitiesAsync(Ask()));
     }
 
     // ---- DI + composition with the cache -------------------------------------------------------------

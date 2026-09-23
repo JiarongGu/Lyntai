@@ -802,10 +802,9 @@ sealed class Lyntai.Inference.DeadHostTracker
 abstract class Lyntai.Inference.DelegatingTextClient
     .ctor(ITextClient inner)
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
+    GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) : ValueTask<ProviderCapabilities>
     Inner : ITextClient
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
-    SupportsStreamingToolCalls(TextRequest req) : Boolean
-    SupportsToolCalls(TextRequest req) : Boolean
 enum Lyntai.Inference.EmbeddingRole
     Document : EmbeddingRole const
     Query : EmbeddingRole const
@@ -872,9 +871,8 @@ interface Lyntai.Inference.IRefusalMatcher
 interface Lyntai.Inference.IScoreProvider
 interface Lyntai.Inference.ITextClient
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
+    GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) : ValueTask<ProviderCapabilities>
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
-    SupportsStreamingToolCalls(TextRequest req) : Boolean
-    SupportsToolCalls(TextRequest req) : Boolean
 interface Lyntai.Inference.ITextClientFactory
     Get() : ITextClient
     Get(String name) : ITextClient
@@ -882,9 +880,8 @@ interface Lyntai.Inference.ITextClientFactory
     TryGet(String name, ITextClient& client) : Boolean
 interface Lyntai.Inference.ITextRouter
     CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default) : Task<TextResponse>
+    GetCapabilitiesAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default) : ValueTask<ProviderCapabilities>
     StreamAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
-    SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req) : Boolean
-    SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req) : Boolean
 interface Lyntai.Inference.ITextRouterFactory
     For(IReadOnlyList<IModelProvider> providers) : ITextRouter
     For(IReadOnlyList<ProviderRegistration<IModelProvider>> providers) : ITextRouter
@@ -1323,9 +1320,8 @@ enum Lyntai.Inference.TextChunkKind
 sealed class Lyntai.Inference.TextClient
     .ctor(ITextRouter router, LyntaiOptions options, IReadOnlyList<ProviderCandidate> candidates = null)
     CompleteAsync(TextRequest req, CancellationToken ct = default) : Task<TextResponse>
+    GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) : ValueTask<ProviderCapabilities>
     StreamAsync(TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
-    SupportsStreamingToolCalls(TextRequest req) : Boolean
-    SupportsToolCalls(TextRequest req) : Boolean
 sealed class Lyntai.Inference.TextClientFactory
     .ctor(IReadOnlyDictionary<String,ITextClient> named, ITextClient fallback)
     Get() : ITextClient
@@ -1386,9 +1382,8 @@ sealed class Lyntai.Inference.TextResponse
 sealed class Lyntai.Inference.TextRouter
     .ctor(IEnumerable<IModelProvider> providers, DeadHostTracker deadHosts, LyntaiOptions options, ILogger<TextRouter> logger = null, IModelRoutingStore modelRouting = null, Func<IModelProvider,Nullable<ProviderKey>> configuration = null, IProviderAdmission admission = null)
     CompleteAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default) : Task<TextResponse>
+    GetCapabilitiesAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default) : ValueTask<ProviderCapabilities>
     StreamAsync(IReadOnlyList<ProviderCandidate> candidates, TextRequest req, CancellationToken ct = default) : IAsyncEnumerable<TextChunk>
-    SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req) : Boolean
-    SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req) : Boolean
 sealed class Lyntai.Inference.TextRouterFactory
     .ctor(IProviderPool<IModelProvider> pool, DeadHostTracker deadHosts, LyntaiOptions options, ILoggerFactory loggers = null, IModelRoutingStore modelRouting = null, IProviderAdmission admission = null)
     For(IReadOnlyList<IModelProvider> providers) : ITextRouter

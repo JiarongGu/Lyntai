@@ -80,6 +80,7 @@ public sealed class TextRouter(
 
         foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req))
         {
+            WarnIfToolsUnsupported(provider, req, streaming: false);
             // retry-then-advance: the same candidate may be retried on transient faults before advancing
             var retries = 0;
             while (true)
@@ -139,6 +140,7 @@ public sealed class TextRouter(
 
         foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req))
         {
+            WarnIfToolsUnsupported(provider, req, streaming: true);
             var effective = req with { Model = effectiveModel };
 
             // pre-content retry-then-advance: streaming can only retry BEFORE the first token (after
@@ -349,24 +351,16 @@ public sealed class TextRouter(
         public ProviderVerdict RetryVerdict { get; set; } = ProviderVerdict.Ok;
     }
 
-    /// <summary>Native tool support for a candidate list: the first live candidate (registered,
-    /// available, not on cooldown) decides — matching how the router commits to the first working one.
-    /// A tool-capable fallback that would never be reached must not flip this true. Being a SYNC probe,
-    /// it reads no live <see cref="IModelRoutingStore"/> route: it decides over the candidates it is given, so
-    /// under a live route the completion can be served by a different candidate than the one probed.</summary>
-    public bool SupportsToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req)
-    {
-        foreach (var candidate in LiveCandidates(candidates, req))
-            return candidate.Provider.Capabilities.SupportsToolCalls; // first live candidate decides
-        return false;
-    }
-
     /// <inheritdoc/>
-    public bool SupportsStreamingToolCalls(IReadOnlyList<ProviderCandidate> candidates, TextRequest req)
+    /// <remarks>The live route is read through the same step the call takes, so the answer names the backend
+    /// the call would commit to first; a capable fallback that would never be reached does not flip it.</remarks>
+    public async ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(IReadOnlyList<ProviderCandidate> candidates,
+        TextRequest req, CancellationToken ct = default)
     {
+        candidates = await LiveRouteAsync(candidates, req.Consumer, ct).ConfigureAwait(false);
         foreach (var candidate in LiveCandidates(candidates, req))
-            return candidate.Provider.Capabilities.SupportsStreamingToolCalls; // first live candidate decides, as above
-        return false;
+            return candidate.Provider.Capabilities; // the first live candidate decides
+        return null;
     }
 
     /// <summary>The shared candidate-selection preamble every door runs: dedup the list, resolve each
@@ -424,19 +418,51 @@ public sealed class TextRouter(
     }
 
     /// <summary>The candidates a call routes over: the consumer's live route when one is set, else
-    /// <paramref name="given"/>. Read once per call. A route naming no provider this router knows is ignored with
-    /// a warning — a fail-open caller must not go silently dark on a misspelt or foreign route.</summary>
+    /// <paramref name="given"/>. Read once per call, and never silently wrong: a store that throws, and a route
+    /// naming no provider this router knows, each leave <paramref name="given"/> in force with a warning; a route
+    /// naming only SOME unknown providers is used, with a warning naming them — a typo in the primary otherwise
+    /// moves all traffic to the backup unseen.</summary>
     private async Task<IReadOnlyList<ProviderCandidate>> LiveRouteAsync(
         IReadOnlyList<ProviderCandidate> given, string consumer, CancellationToken ct)
     {
         if (modelRouting is null) return given;
-        var route = await modelRouting.GetRouteAsync(consumer, ct).ConfigureAwait(false);
+        IReadOnlyList<ProviderCandidate> route;
+        try
+        {
+            route = await modelRouting.GetRouteAsync(consumer, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "router: the live route read failed for consumer {Consumer}; routing over the given candidates", consumer);
+            return given;
+        }
         if (route is not { Count: > 0 }) return given;
-        if (route.Any(c => _byId.Value.ContainsKey(c.ProviderId))) return route;
 
-        _logger.LogWarning("router: the live route for consumer {Consumer} ({Route}) names no registered provider; routing over the given candidates",
-            consumer, string.Join(", ", route.Select(ProviderCandidateSpec.Format)));
-        return given;
+        var unknown = route.Where(c => !_byId.Value.ContainsKey(c.ProviderId)).Select(ProviderCandidateSpec.Format).ToList();
+        if (unknown.Count == route.Count)
+        {
+            _logger.LogWarning("router: the live route for consumer {Consumer} ({Route}) names no registered provider; routing over the given candidates",
+                consumer, string.Join(", ", unknown));
+            return given;
+        }
+        if (unknown.Count > 0)
+            _logger.LogWarning("router: the live route for consumer {Consumer} names providers not registered here ({Unknown}); they are skipped",
+                consumer, string.Join(", ", unknown));
+        return route;
+    }
+
+    /// <summary>The backstop under the capability probe: tools sent to a backend that does not declare native
+    /// tool calls (on a stream, that its STREAM carries them) go uncalled, and the reply reads as a final answer
+    /// — so say so, once per candidate tried, fallback included. Not a verdict change.</summary>
+    private void WarnIfToolsUnsupported(IModelProvider provider, TextRequest req, bool streaming)
+    {
+        if (req.Tools is not { Count: > 0 } tools) return;
+        var capable = streaming
+            ? provider.Capabilities.SupportsStreamingToolCalls
+            : provider.Capabilities.SupportsToolCalls;
+        if (!capable)
+            _logger.LogWarning("router: {Provider} declares no native tool calls{Door}, but the request carries {Count} tool declaration(s); expect them to go uncalled",
+                provider.Id, streaming ? " on its stream" : "", tools.Count);
     }
 
     /// <summary>Take a concurrency permit for this provider's CONFIGURATION, or nothing at all when no

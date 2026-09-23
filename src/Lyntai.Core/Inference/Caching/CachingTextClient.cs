@@ -28,9 +28,20 @@ public sealed class CachingTextClient(
 
         // key on the EFFECTIVE model and the LIVE route, as the router resolves them, so two consumers with
         // Model=null + identical messages don't collide, and a reply is never served across a live rebind
-        IReadOnlyList<ProviderCandidate> route = modelRouting is null
-            ? []
-            : await modelRouting.GetRouteAsync(req.Consumer, ct).ConfigureAwait(false);
+        IReadOnlyList<ProviderCandidate> route = [];
+        if (modelRouting is not null)
+        {
+            try
+            {
+                route = await modelRouting.GetRouteAsync(req.Consumer, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+            {
+                // an unreadable route leaves no key to trust: read and write nothing, and let the call through
+                _logger.LogWarning(ex, "response-cache: the live route read failed for consumer {Consumer}; not caching this call", req.Consumer);
+                return await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
+            }
+        }
         var key = ResponseCacheKey.For(req, EffectiveModel(req, route));
         var cached = await cache.GetAsync(key, ct).ConfigureAwait(false);
         if (cached is not null)
@@ -60,7 +71,7 @@ public sealed class CachingTextClient(
             ProviderCandidateSpec.Format(c with { ProviderId = c.ProviderId.ToLowerInvariant() })));
     }
 
-    // StreamAsync/SupportsToolCalls: base pass-through (streaming is delivered live; not a cache unit).
+    // StreamAsync/GetCapabilitiesAsync: base pass-through (streaming is delivered live; not a cache unit).
 
     // Native tool requests bypass the cache (the loop is stateful); everything else is cacheable.
     private static bool IsCacheable(TextRequest req) => req.Tools is null or { Count: 0 };

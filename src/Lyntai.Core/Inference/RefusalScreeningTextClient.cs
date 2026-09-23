@@ -62,6 +62,6 @@ public sealed class RefusalScreeningTextClient(
         return reply;
     }
 
-    // StreamAsync/SupportsToolCalls: base pass-through (streaming is never screened — the reply text
+    // StreamAsync/GetCapabilitiesAsync: base pass-through (streaming is never screened — the reply text
     // isn't assembled here, and streaming never falls back after the first token).
 }

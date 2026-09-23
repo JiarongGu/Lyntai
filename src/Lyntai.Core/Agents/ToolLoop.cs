@@ -11,8 +11,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Agents;
 
 /// <summary>
-/// Default <see cref="IToolLoop"/>. Uses <b>native</b> tool-calling when the routing supports it
-/// (<see cref="ITextClient.SupportsToolCalls"/>): tool declarations go to the model and its structured
+/// Default <see cref="IToolLoop"/>. Uses <b>native</b> tool-calling when the backend that would serve the run
+/// declares it (<see cref="ITextClient.GetCapabilitiesAsync"/>, asked once per run; a live route included, and
+/// unknown reads as no): tool declarations go to the model and its structured
 /// <see cref="TextResponse.ToolCalls"/> drive execution, with results fed back as tool-role messages.
 /// Otherwise it falls back to a provider-agnostic <b>prompt protocol</b> over the text contract (the
 /// model replies with one JSON object, <c>{"tool":…}</c> or <c>{"final":…}</c>, via
@@ -147,7 +148,9 @@ public sealed class ToolLoop(
         }
 
         var budget = maxIterations ?? options.ToolLoopMaxIterations;
-        var native = client.SupportsToolCalls(req);
+        // asked ONCE per run, of the backend that would serve it (a live route included); unknown is the prompt path
+        var capabilities = await client.GetCapabilitiesAsync(req, ct).ConfigureAwait(false);
+        var native = capabilities?.SupportsToolCalls == true;
         transport.Choose(native ? ToolTransport.Native : ToolTransport.Prompt);
         var mode = Tag(transport.Value!.Value);
 
@@ -156,7 +159,7 @@ public sealed class ToolLoop(
             => Finish(mode, verdict, finalText, detail);
 
         var turns = native
-            ? RunNativeAsync(req, tools, budget, steps, usage, Enter, FinishTurns, ct)
+            ? RunNativeAsync(req, tools, capabilities!.SupportsStreamingToolCalls, budget, steps, usage, Enter, FinishTurns, ct)
             : RunPromptAsync(req, tools, budget, steps, usage, Enter, FinishTurns, ct);
 
         // A turn loop that reached a terminal has already emitted the run's one SessionEnded; running out
@@ -177,22 +180,17 @@ public sealed class ToolLoop(
     /// <summary>The NATIVE turn loop: tool declarations go to the model, its structured
     /// <see cref="TextResponse.ToolCalls"/> drive execution, and each observation is fed back as a tool-role
     /// message. Ends by re-yielding <paramref name="finish"/>, or simply runs out — which is
-    /// <see cref="RunCoreAsync"/>'s signal that the budget was exhausted.</summary>
+    /// <see cref="RunCoreAsync"/>'s signal that the budget was exhausted.
+    /// <para>Turns stream only when <paramref name="streaming"/> says the serving backend's STREAM carries tool
+    /// calls, because guessing wrong is SILENT: no call chunk arrives, and the loop reports the turn's prose as a
+    /// final answer instead of running the tool. Otherwise each turn is buffered.</para></summary>
     private async IAsyncEnumerable<AgentStreamEvent> RunNativeAsync(
-        TextRequest req, IReadOnlyList<ITool> tools, int budget, List<ToolStep> steps, UsageSum usage,
+        TextRequest req, IReadOnlyList<ITool> tools, bool streaming, int budget, List<ToolStep> steps, UsageSum usage,
         Action enter, Func<ProviderVerdict, string?, string?, IEnumerable<AgentStreamEvent>> finish,
         [EnumeratorCancellation] CancellationToken ct)
     {
         var declarations = tools.Select(t => new TextTool(t.Name, t.Description, t.ParametersJsonSchema)).ToList();
         var messages = new List<TextMessage>(req.Messages); // no protocol prompt — the model calls tools natively
-
-        // Can this provider's STREAM carry tool calls? Until 3.0 nothing could, so this path always
-        // buffered the whole turn through CompleteAsync — and an agentic answer therefore had no
-        // time-to-first-token at all, however long the model spent writing prose before its last tool
-        // call. Streaming is used only where the provider says its stream delivers calls, because the
-        // failure of guessing wrong is SILENT: no call chunk arrives, and the loop reports the turn's
-        // prose as a final answer instead of running the tool.
-        var streaming = client.SupportsStreamingToolCalls(req);
 
         for (var iteration = 0; iteration < budget; iteration++)
         {

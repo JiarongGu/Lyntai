@@ -235,12 +235,41 @@ public class ToolLoopTests
         Assert.Equal(3, result.Usage.OutputTokens);
     }
 
-    // ---- native tool-calling path (client.Capabilities.SupportsToolCalls == true) ---------------------------------
+    [Fact]
+    public async Task Unknown_capabilities_take_the_prompt_path()
+    {
+        var client = new FakeTextClient { Capabilities = null };
+        client.Replies.Enqueue(new TextResponse("""{"tool":"echo","arguments":{}}""", ProviderVerdict.Ok));
+        client.Replies.Enqueue(new TextResponse("""{"final":"ok"}""", ProviderVerdict.Ok));
+
+        var result = await Loop(client, Echo()).RunAsync(Ask());
+
+        Assert.Equal(ToolTransport.Prompt, result.Transport);
+        Assert.Single(result.Steps);
+    }
+
+    // ---- native tool-calling path (the probe's SupportsToolCalls == true) ---------------------------------
 
     private static ToolLoop NativeLoop(FakeTextClient client, params ITool[] tools)
     {
         client.SupportsToolCallsResult = true;
         return new ToolLoop(client, new ToolRegistry(tools), Options());
+    }
+
+    [Fact]
+    public async Task The_capability_probe_is_asked_once_per_run()
+    {
+        var client = new FakeTextClient();
+        client.Replies.Enqueue(new TextResponse("", ProviderVerdict.Ok)
+        { ToolCalls = [new TextToolCall("call_1", "echo", "{}")] });
+        client.Replies.Enqueue(new TextResponse("", ProviderVerdict.Ok)
+        { ToolCalls = [new TextToolCall("call_2", "echo", "{}")] });
+        client.Replies.Enqueue(new TextResponse("done", ProviderVerdict.Ok));
+
+        var result = await NativeLoop(client, Echo()).RunAsync(Ask());
+
+        Assert.Equal(2, result.Steps.Count);
+        Assert.Equal(1, client.CapabilityProbes); // one answer decides both the transport and the streaming half
     }
 
     [Fact]

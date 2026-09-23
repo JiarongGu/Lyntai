@@ -214,11 +214,11 @@ public class RateLimitTests
     }
 
     [Fact]
-    public async Task SupportsToolCalls_delegates_to_the_inner_client()
+    public async Task GetCapabilitiesAsync_delegates_to_the_inner_client()
     {
         var inner = new FakeTextClient { SupportsToolCallsResult = true };
         var client = new RateLimitedTextClient(inner, Limiter(_ => { }));
-        Assert.True(client.SupportsToolCalls(new TextRequest { Messages = [TextMessage.User("a")] }));
+        Assert.Same(inner.Capabilities, await client.GetCapabilitiesAsync(new TextRequest { Messages = [TextMessage.User("a")] }));
     }
 
     // ---- DI + composition with the cache -------------------------------------------------------------

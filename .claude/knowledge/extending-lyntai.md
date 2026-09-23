@@ -111,7 +111,7 @@ Rules specific to this path:
   (`SupportsToolCalls = true`) — the provider is the capability declarer (D21) and the engine does not
   forward the backend's answer. **It is NOT a member of `IModelProvider`**: writing
   `public bool SupportsToolCalls => true;` on your provider compiles and is read by nothing.
-  Otherwise `TextRouter.SupportsToolCalls` reports false and `ToolLoop` silently takes the prompt-based
+  Otherwise `TextRouter.GetCapabilitiesAsync` reports no tool calls and `ToolLoop` silently takes the prompt-based
   fallback on a backend that can do native tool calls.
 - **Portable installs are free if you don't fight them** — the host passes `command` (+ `environment`) to your
   builder extension (D22); pass both straight through to the engine and don't read env vars yourself.

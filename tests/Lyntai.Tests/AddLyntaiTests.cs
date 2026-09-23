@@ -143,6 +143,7 @@ public class AddLyntaiTests
             return r with { Text = "[tagged] " + r.Text };
         }
         public IAsyncEnumerable<TextChunk> StreamAsync(TextRequest req, CancellationToken ct = default) => inner.StreamAsync(req, ct);
-        public bool SupportsToolCalls(TextRequest req) => inner.SupportsToolCalls(req);
+        public ValueTask<ProviderCapabilities?> GetCapabilitiesAsync(TextRequest req, CancellationToken ct = default) =>
+            inner.GetCapabilitiesAsync(req, ct);
     }
 }

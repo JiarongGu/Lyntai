@@ -257,11 +257,11 @@ public class ResponseCacheTests
     }
 
     [Fact]
-    public async Task SupportsToolCalls_delegates_to_the_inner_client()
+    public async Task GetCapabilitiesAsync_delegates_to_the_inner_client()
     {
         var (client, inner) = Decorated();
         inner.SupportsToolCallsResult = true;
-        Assert.True(client.SupportsToolCalls(Req(TextMessage.User("q"))));
+        Assert.Same(inner.Capabilities, await client.GetCapabilitiesAsync(Req(TextMessage.User("q"))));
     }
 
     // ---- DI wiring -----------------------------------------------------------------------------------

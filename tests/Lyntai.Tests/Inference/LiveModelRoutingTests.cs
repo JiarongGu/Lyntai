@@ -1,3 +1,4 @@
+using Lyntai.Agents;
 using Lyntai.Inference;
 using Lyntai.Inference.Caching;
 using Lyntai;
@@ -21,6 +22,7 @@ public class LiveModelRoutingTests
     [InlineData("ollama:qwen3:4b", "ollama|qwen3:4b")]  // split at the FIRST colon
     [InlineData(" claude ", "claude|(default)")]        // a bare provider serves its default model
     [InlineData("a:x, ,b:y", "a|x b|y")]                // a blank entry is skipped
+    [InlineData("claude:", "claude|(default)")]         // a blank model is the backend's default too
     public async Task A_route_is_read_as_a_list_of_candidate_specs(string value, string expected)
     {
         var warnings = new List<string>();
@@ -31,6 +33,15 @@ public class LiveModelRoutingTests
 
         Assert.Equal(expected, Render(route));
         Assert.Empty(warnings);
+    }
+
+    [Theory]
+    [InlineData("claude:")]
+    [InlineData(" claude :  ")]
+    public void A_blank_model_in_any_candidate_spec_is_the_backends_default(string spec)
+    {
+        // null, not "": an empty model would outrank the request's own (candidate.Model ?? req.Model)
+        Assert.Equal(new ProviderCandidate("claude"), ProviderCandidateSpec.Parse(spec));
     }
 
     [Fact]
@@ -145,15 +156,42 @@ public class LiveModelRoutingTests
     }
 
     [Fact]
-    public async Task A_store_configured_onto_lyntai_model_reads_it_as_routes_without_the_warning()
+    public async Task A_failed_route_read_does_not_also_list_lyntai_model_keys()
+    {
+        var down = new FaultingKeyValueStore { OnGet = () => new InvalidOperationException("kv down") };
+        var store = new KeyValueModelRoutingStore(down);
+
+        await store.GetRouteAsync("memory");
+        await store.GetRouteAsync("memory");
+
+        Assert.Equal(0, down.Lists);
+    }
+
+    [Theory]
+    [InlineData("lyntai.model.")]
+    [InlineData("lyntai.model.route.")] // nested under it
+    public async Task A_store_whose_own_keys_sit_under_lyntai_model_reads_them_without_the_warning(string prefix)
     {
         var warnings = new List<string>();
         var kv = new InMemoryKeyValueStore();
-        await kv.SetAsync("lyntai.model.memory", "claude:haiku");
-        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings), keyPrefix: "lyntai.model.");
+        await kv.SetAsync(prefix + "memory", "claude:haiku");
+        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings), keyPrefix: prefix);
 
         Assert.Equal("claude|haiku", Render(await store.GetRouteAsync("memory")));
         Assert.Empty(warnings);
+    }
+
+    [Fact]
+    public async Task A_store_nested_under_lyntai_model_still_reports_a_model_only_key_beside_its_own()
+    {
+        var warnings = new List<string>();
+        var kv = new InMemoryKeyValueStore();
+        await kv.SetAsync("lyntai.model.route.memory", "claude:haiku");
+        await kv.SetAsync("lyntai.model.memory", "haiku");
+        var store = new KeyValueModelRoutingStore(kv, Logger<KeyValueModelRoutingStore>(warnings), keyPrefix: "lyntai.model.route.");
+
+        Assert.Equal("claude|haiku", Render(await store.GetRouteAsync("memory")));
+        Assert.Contains("lyntai.model.", Assert.Single(warnings));
     }
 
     // ---- the router, on both doors ----------------------------------------------------------------------
@@ -236,6 +274,138 @@ public class LiveModelRoutingTests
         Assert.Empty(warnings);
     }
 
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task A_route_entry_unknown_here_is_skipped_with_a_warning(bool streaming)
+    {
+        var (router, x, _, b, kv, warnings) = Routed(aFails: false);
+        await kv.SetAsync("lyntai.route.memory", "gone:m0, b:m2"); // a typo in the PRIMARY must not move traffic silently
+
+        var served = await CallAsync(router, Configured, Memory, streaming);
+
+        Assert.StartsWith("b ", served);
+        Assert.Equal("m2", Assert.Single(b.Calls).Model);
+        Assert.Empty(x.Calls);
+        var warning = Assert.Single(warnings);
+        Assert.Contains("gone:m0", warning);
+        Assert.DoesNotContain("b:m2", warning);
+    }
+
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task A_faulting_route_store_leaves_the_given_candidates_with_a_warning(bool streaming)
+    {
+        var (router, x, _, _, _, warnings) = Routed(aFails: false,
+            store: new ThrowingRouteStore(() => new InvalidOperationException("store down")));
+
+        var served = await CallAsync(router, Configured, Memory, streaming);
+
+        Assert.StartsWith("x ", served);
+        Assert.Equal("d", Assert.Single(x.Calls).Model);
+        Assert.Single(warnings);
+    }
+
+    [Fact]
+    public async Task The_callers_cancellation_during_the_route_read_propagates()
+    {
+        using var cts = new CancellationTokenSource();
+        var marker = new OperationCanceledException("the caller left", cts.Token);
+        var (router, x, _, _, _, _) = Routed(aFails: false,
+            store: new ThrowingRouteStore(() => { cts.Cancel(); return marker; }));
+
+        var thrown = await Assert.ThrowsAsync<OperationCanceledException>(
+            () => router.CompleteAsync(Configured, Memory, cts.Token));
+
+        Assert.Same(marker, thrown);
+        Assert.Empty(x.Calls);
+    }
+
+    // ---- the capability probe follows the route --------------------------------------------------------
+
+    [Fact]
+    public async Task The_capability_probe_answers_for_the_first_live_candidate_of_the_live_route()
+    {
+        var (router, x, a, b, kv, _) = Routed(aFails: false);
+        x.SupportsToolCalls = true;
+
+        Assert.Same(x.Capabilities, await router.GetCapabilitiesAsync(Configured, Memory)); // no route
+
+        await kv.SetAsync("lyntai.route.memory", "b");
+        Assert.Same(b.Capabilities, await router.GetCapabilitiesAsync(Configured, Memory));
+
+        a.IsAvailable = false;
+        await kv.SetAsync("lyntai.route.memory", "a, b");
+        Assert.Same(b.Capabilities, await router.GetCapabilitiesAsync(Configured, Memory)); // the first LIVE entry
+
+        await kv.SetAsync("lyntai.route.memory", "gone");
+        Assert.Same(x.Capabilities, await router.GetCapabilitiesAsync(Configured, Memory)); // ignored, as the call ignores it
+
+        Assert.Null(await router.GetCapabilitiesAsync([new("nobody")], Memory with { Consumer = "other" }));
+    }
+
+    [Fact]
+    public async Task Under_a_route_to_a_backend_without_tool_calls_the_tool_loop_takes_the_prompt_path()
+    {
+        var (router, x, _, b, kv, _) = Routed(aFails: false);
+        x.SupportsToolCalls = true; // the configured backend calls tools natively; the routed one does not
+        await kv.SetAsync("lyntai.route.memory", "b");
+        b.Replies.Enqueue(new TextResponse("""{"tool":"echo","arguments":{"x":1}}""", ProviderVerdict.Ok));
+        b.Replies.Enqueue(new TextResponse("""{"final":"done"}""", ProviderVerdict.Ok));
+
+        var result = await Loop(router).RunAsync(Memory);
+
+        Assert.Equal(ToolTransport.Prompt, result.Transport);
+        Assert.Equal("done", result.Answer);
+        Assert.Equal("echo", Assert.Single(result.Steps).Tool); // the tool ran
+        Assert.All(b.Calls, c => Assert.Null(c.Tools));
+        Assert.Empty(x.Calls);
+    }
+
+    [Fact]
+    public async Task Without_a_route_the_tool_loop_keeps_the_configured_backends_transport()
+    {
+        var (router, x, _, b, _, _) = Routed(aFails: false);
+        x.SupportsToolCalls = true;
+        x.Replies.Enqueue(new TextResponse("", ProviderVerdict.Ok) { ToolCalls = [new TextToolCall("call_1", "echo", "{}")] });
+        x.Replies.Enqueue(new TextResponse("done", ProviderVerdict.Ok));
+
+        var result = await Loop(router).RunAsync(Memory);
+
+        Assert.Equal(ToolTransport.Native, result.Transport);
+        Assert.Equal("echo", Assert.Single(result.Steps).Tool);
+        Assert.NotNull(x.Calls[0].Tools);
+        Assert.Empty(b.Calls);
+    }
+
+    [Theory, InlineData(false), InlineData(true)]
+    public async Task Tools_reaching_a_backend_that_cannot_call_them_log_a_warning(bool streaming)
+    {
+        var (router, x, _, _, kv, warnings) = Routed(aFails: false);
+        x.SupportsToolCalls = true;
+        x.SupportsStreamingToolCalls = true;
+        var withTools = Memory with { Tools = [new TextTool("echo", "echoes", "{}")] };
+
+        await CallAsync(router, Configured, withTools, streaming); // x can call them
+        await kv.SetAsync("lyntai.route.memory", "b");
+        await CallAsync(router, Configured, Memory, streaming);    // b, but nothing to call
+        Assert.Empty(warnings);
+
+        await CallAsync(router, Configured, withTools, streaming);
+        Assert.StartsWith("router: b ", Assert.Single(warnings));
+    }
+
+    [Fact]
+    public async Task A_stream_carrying_tools_warns_on_a_backend_whose_stream_drops_them()
+    {
+        var (router, x, _, _, _, warnings) = Routed(aFails: false);
+        x.SupportsToolCalls = true; // buffered replies carry calls; its stream does not
+        var withTools = Memory with { Tools = [new TextTool("echo", "echoes", "{}")] };
+
+        await router.CompleteAsync(Configured, withTools);
+        Assert.Empty(warnings);
+
+        await foreach (var _ in router.StreamAsync(Configured, withTools)) { }
+        Assert.StartsWith("router: x ", Assert.Single(warnings));
+    }
+
     // ---- the response cache -----------------------------------------------------------------------------
 
     [Fact]
@@ -280,6 +450,24 @@ public class LiveModelRoutingTests
         Assert.Equal(routed, cache.Keys[^1]);
     }
 
+    [Fact]
+    public async Task A_faulting_route_store_neither_fails_the_call_nor_touches_the_cache()
+    {
+        var warnings = new List<string>();
+        var inner = new FakeTextClient();
+        var cache = new KeyRecordingCache();
+        var client = new CachingTextClient(inner, cache, new LyntaiOptions(), Logger<CachingTextClient>(warnings),
+            new ThrowingRouteStore(() => new InvalidOperationException("store down")));
+
+        var reply = await client.CompleteAsync(Memory);
+
+        Assert.Equal(ProviderVerdict.Ok, reply.Verdict);
+        Assert.Single(inner.Calls);
+        Assert.Empty(cache.Keys); // a key without the route could serve, or store, another backend's reply
+        Assert.Equal(0, cache.Stores);
+        Assert.Single(warnings);
+    }
+
     // ---- helpers -----------------------------------------------------------------------------------------
 
     private static readonly IReadOnlyList<ProviderCandidate> Configured = [new("x")];
@@ -290,9 +478,10 @@ public class LiveModelRoutingTests
         string.Join(" ", route.Select(c => $"{c.ProviderId}|{c.Model ?? "(default)"}"));
 
     /// <summary>A router over x, a and b for consumer "memory", whose configured default model is "d"; calls are
-    /// given the candidates [x]. With <paramref name="aFails"/>, a throws on both doors.</summary>
+    /// given the candidates [x]. With <paramref name="aFails"/>, a throws on both doors. The route is read from
+    /// the returned KV store unless another <paramref name="store"/> is given.</summary>
     private static (TextRouter Router, FakeTextProvider X, FakeTextProvider A, FakeTextProvider B,
-        InMemoryKeyValueStore Kv, List<string> Warnings) Routed(bool aFails)
+        InMemoryKeyValueStore Kv, List<string> Warnings) Routed(bool aFails, IModelRoutingStore? store = null)
     {
         var kv = new InMemoryKeyValueStore();
         var x = new FakeTextProvider("x");
@@ -307,8 +496,24 @@ public class LiveModelRoutingTests
         options.DefaultModelByConsumer["memory"] = "d";
         var warnings = new List<string>();
         var router = new TextRouter([x, a, b], new DeadHostTracker(), options, Logger<TextRouter>(warnings),
-            modelRouting: new KeyValueModelRoutingStore(kv));
+            modelRouting: store ?? new KeyValueModelRoutingStore(kv));
         return (router, x, a, b, kv, warnings);
+    }
+
+    /// <summary>A tool loop over the front door a host composes — the router given the candidates [x] — with
+    /// one tool, <c>echo</c>.</summary>
+    private static ToolLoop Loop(TextRouter router)
+    {
+        var options = new LyntaiOptions();
+        var echo = new FunctionTool("echo", (args, _) => Task.FromResult($"observed:{args}"), "echoes its args");
+        return new ToolLoop(new TextClient(router, options, Configured), new ToolRegistry([echo]), options);
+    }
+
+    /// <summary>A BYO store that throws on every read.</summary>
+    private sealed class ThrowingRouteStore(Func<Exception> fault) : IModelRoutingStore
+    {
+        public Task<IReadOnlyList<ProviderCandidate>> GetRouteAsync(string consumer, CancellationToken ct = default) =>
+            throw fault();
     }
 
     /// <summary>One call through the chosen door; returns what the serving provider said.</summary>
@@ -340,16 +545,20 @@ public class LiveModelRoutingTests
         public Dictionary<string, string> Data { get; } = [];
         public Func<Exception>? OnGet { get; set; }
         public Func<Exception>? OnList { get; set; }
+        public int Lists { get; private set; }
 
         public Task<string?> GetAsync(string key, CancellationToken ct = default) =>
             OnGet is { } fault ? throw fault() : Task.FromResult(Data.GetValueOrDefault(key));
 
-        public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default) =>
-            OnList is { } fault
+        public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default)
+        {
+            Lists++;
+            return OnList is { } fault
                 ? throw fault()
                 : Task.FromResult<IReadOnlyList<string>>([.. Data.Keys
                     .Where(k => prefix is null || k.StartsWith(prefix, StringComparison.Ordinal))
                     .Order(StringComparer.Ordinal)]);
+        }
 
         public Task SetAsync(string key, string value, CancellationToken ct = default) => throw new NotSupportedException();
         public Task DeleteAsync(string key, CancellationToken ct = default) => throw new NotSupportedException();
@@ -366,8 +575,13 @@ public class LiveModelRoutingTests
             return Task.FromResult<TextResponse?>(null);
         }
 
-        public Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default) =>
-            Task.CompletedTask;
+        public int Stores { get; private set; }
+
+        public Task SetAsync(string key, TextResponse reply, TimeSpan? ttl = null, CancellationToken ct = default)
+        {
+            Stores++;
+            return Task.CompletedTask;
+        }
 
         public Task RemoveAsync(string key, CancellationToken ct = default) => Task.CompletedTask;
     }
