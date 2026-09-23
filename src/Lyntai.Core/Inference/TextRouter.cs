@@ -18,8 +18,9 @@ namespace Lyntai.Inference;
 /// <param name="options">Platform options; <see cref="LyntaiOptions.Routing"/> supplies the fallback policy,
 /// retry budgets and cooldown granularity.</param>
 /// <param name="logger">Null = no logging.</param>
-/// <param name="modelRouting">Live per-consumer routes, read once per call; a consumer's route replaces the
-/// candidates the call was given. Null = the given candidates alone.</param>
+/// <param name="modelRouting">Live per-consumer routes, read once per call and once per capability probe
+/// (<see cref="GetCapabilitiesAsync"/>); a consumer's route replaces the candidates the call was given. Null =
+/// the given candidates alone.</param>
 /// <param name="configuration">Which CONFIGURATION a provider is running under, used to key dead-host
 /// cooldown and admission. Null (or a null return) = key cooldown on
 /// <see cref="Lyntai.Inference.IProviderIdentity.Id"/> and apply no admission — correct for a

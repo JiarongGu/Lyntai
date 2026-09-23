@@ -245,8 +245,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D173](#d173--lyntaistoragebasic-the-storage-backends-needing-nothing-beyond-core-share-one-package-2026-09-23) | 2026-09-23 | `Lyntai.Storage.Basic`: the storage backends needing nothing beyond Core share one package |
 | [D174](#d174--the-file-graph-store-journals-its-machine-state-and-both-in-process-stores-share-one-core-2026-09-23) | 2026-09-23 | the file graph store journals its machine state, and both in-process stores share one core |
 | [D175](#d175--a-remember-reports-what-the-write-did-the-write-side-of-memoryrecallran-2026-09-24) | 2026-09-24 | a remember REPORTS what the write did: the write side of `MemoryRecall.Ran` |
+| [D176](#d176--live-routing-moves-a-route-not-half-of-one-2026-09-24) | 2026-09-24 | live routing moves a ROUTE, not half of one |
 
-_All 175 entries are live decisions._
+_All 176 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5420,3 +5421,41 @@ annotator wired and needs the subjects recorded; the flag set grows additively.
 **Deferred: a readiness probe** — "can the engine embed right now?". `Ran` serves the rebuild, and a public
 probe would publish the internal embedding route's filter for a need nobody has shown. **The trigger** is a
 consumer that must decide BEFORE writing anything.
+
+## D176 — live routing moves a ROUTE, not half of one (2026-09-24)
+
+**The decision.** A live override is the consumer's ROUTE, in the library's own spec: key
+`<RouteKeyPrefix><consumer>` (default `lyntai.route.`), value `provider:model[, …]`, each entry parsed by
+`ProviderCandidateSpec.Parse` — split at the first `:`, so `claude` and `claude:` both name no model.
+`IModelRoutingStore.GetRouteAsync` returns it, empty meaning none. `TextRouter` uses a non-empty route IN PLACE
+of the candidates a call was given, on both doors, bounded by the router's own providers, and each entry
+resolves its model as a configured candidate does: its own, else the request's, else the consumer's default.
+The pair is the routing unit (**D125**); the override this replaces moved half of one — it swapped the model
+while the container chose the provider, so on fallback, and between a rebind and its restart, the model
+reached a provider never written for it, silently under memory's fail-open policies. Live routing had no
+recorded decision before this one.
+
+**Never silently wrong.** A route naming no registered provider is ignored with a warning and the given
+candidates serve; a partly-unknown route is used, with one warning naming the unknown entries; a store that
+throws is a warning and the given candidates, only the caller's cancellation propagating. Keys under the
+retired `lyntai.model.` prefix are inert, never read as routes, and a store warns once that they exist. The
+response cache's key is unchanged unless a route exists, which is then appended in order so a reply is never
+served across a rebind; a failed route read skips the cache for that call.
+
+**The capability probe follows the route.** One async `GetCapabilitiesAsync` on `ITextClient` and
+`ITextRouter` replaces the two synchronous tool probes and answers for the backend that would serve, read
+through the same route step as the call; null is unknown, and the tool loop takes the prompt path. Rejected: a
+snapshot of "the route last read" behind a sync probe — wrong on the first run after start and after every
+rebind, and hidden mutable state in every router. The backstop: tools reaching a backend that does not declare
+tool calls (on a stream, streaming tool calls) is a warning, fallback included.
+
+**How often each warns.** The route warnings fire per call and per probe, for as long as the misconfiguration
+stands; a faulting store warns from the cache AND the router; the backstop once per candidate tried; a CLI
+provider handed tools gets its engine's warning and the backstop's.
+
+**Rejected.** The model-only override: half a pair, the defect itself. A per-provider model map — the first
+build of `docs/task-archive.md` Part 284, never released: it fixes the wrong-model case but cannot move the
+provider live, and adds a type the pair already covers. Keeping both: two doors onto one setting, one of them
+the defect. A visible refusal of a model no candidate serves: providers declare no model catalogue. A new value
+under the old key: an old bare model would be misread as a provider id, where a new prefix leaves old keys
+inert. The break is named in `CHANGELOG.md` (**D161**).

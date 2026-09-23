@@ -11,8 +11,10 @@ namespace Lyntai.Inference.Caching;
 /// Ok result. Wired by <c>AddResponseCache()</c>, so the whole library (tool loop, orchestrator, scorers,
 /// pairwise judge) reads through it once enabled.
 /// <para>NOT cached: <b>streaming</b> (delivered live, not a single unit); requests carrying <b>native
-/// tools</b> (the tool loop is stateful and its tools can side-effect); and <b>non-Ok</b> replies (a
-/// transient failure must never stick). Caching assumes the consumer accepts that identical inputs return
+/// tools</b> (the tool loop is stateful and its tools can side-effect); <b>non-Ok</b> replies (a
+/// transient failure must never stick); and a call whose <b>live route could not be read</b> (it passes
+/// through, neither read nor stored, because a key without the route could serve another backend's reply).
+/// Caching assumes the consumer accepts that identical inputs return
 /// an identical stored answer — that determinism is the point (cost + latency), so a request whose output
 /// must vary per call should skip the cache or use a short TTL.</para>
 /// </summary>

@@ -104,6 +104,13 @@ Three properties of that split are load-bearing:
   `Surface` returns the reply as-is (no host penalty, no fallback), so the app sees `RateLimited` and can
   back off on its own schedule. (Leave `ExemptSoleCandidate` alone — it only matters for cooldown/advance
   actions, which `Surface` no longer triggers.)
+- **Rebind a consumer live, without a restart** (**D176**): `AddLiveModelRouting()` over a key-value store,
+  then write `lyntai.route.<consumer>` = `provider:model[, …]` — e.g. `llama:qwen3-4b-gguf, claude:haiku`, the
+  spec `LYNTAI_DEFAULT_CANDIDATES` reads (split at the FIRST `:`; a bare `provider` names no model). The next
+  call routes over it IN PLACE of its candidates, configured or passed explicitly, provider and model together,
+  and `GetCapabilitiesAsync` follows it. The router's own providers bound it: unknown entries are skipped with a
+  warning, and a route naming no known provider is ignored, warning on every call. Delete the key to go back;
+  `LyntaiOptions.RouteKeyPrefix` moves the prefix.
 - **Rerank or embed OUTSIDE the memory seams** — the score kind deliberately has no front door, so a
   consumer composes the factory (and gets cooldown, admission, the configured policy and D163's governance
   with it):

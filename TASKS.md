@@ -15,19 +15,18 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 6 across 4 Parts: 2 startable, 2 blocked, 2 watch
+## Open items — 5 across 3 Parts: 1 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 160 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 219 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 242 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 299 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 329 | 284 | Scope a live model override to what it was written for | startable |  |
+| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 159 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 218 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 241 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 298 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
 
 <!-- open-items:end -->
 
@@ -320,23 +319,6 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
-
-## Part 284 — a live model override reaches a provider it was never written for (2026-09-24)
-
-_Reported by an adopting application against 3.2.0, which ships its own workaround; the claim was checked
-against the tree when it was filed._
-
-- [ ] **Scope a live model override to what it was written for.** `IModelRoutingStore.GetModelOverrideAsync` <!-- item: state=startable -->
-  takes the consumer alone (`src/Lyntai.Core/Inference/IModelRoutingStore.cs:16`), and `TextRouter` reads it
-  once per call and hands it to EVERY candidate it resolves (`src/Lyntai.Core/Inference/TextRouter.cs:430`). An
-  application that rebinds a consumer to another client or provider writes the override for the new binding,
-  and a different one reads it — on FALLBACK, when the bound provider is unavailable and a default candidate
-  is asked for a model id it does not serve, and between a rebind and the restart that rewires the container.
-  Memory's model-backed policies are fail-open, so the symptom is zero model calls and no error. The adopter
-  decorates `IModelRoutingStore` ahead of `AddLiveModelRouting()` to withhold the override while the saved
-  binding differs from the running one. Two shapes, neither decided: an override SCOPED to the client or
-  provider it names and consulted only when resolving for it, or the router refusing, visibly, a live model no
-  resolved candidate can serve.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

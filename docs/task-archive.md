@@ -4954,3 +4954,16 @@ costs it (`docs/FIXES.md` 2026-09-24). The readiness probe was NOT built: it is
 
 - Make a write stored WITHOUT a vector observable
 - Let a consumer ask whether the engine can embed right now — closed into **D175** as an option with a trigger
+
+## Part 284 — a live model override reaches a provider it was never written for (2026-09-24)
+
+✅ done 2026-09-24 — **Outcome:** live routing moves a ROUTE, a provider and its model together:
+`lyntai.route.<consumer>` = `provider:model[, …]`, read by `IModelRoutingStore.GetRouteAsync` and used by
+`TextRouter` in place of the given candidates on both doors; the model-only override is retired. The tool loop's
+two synchronous probes became one async `GetCapabilitiesAsync` answering for the backend the route will serve,
+with a router warning as its backstop, and the response cache keys on a route only when one exists. The rule,
+the rejected shapes and when each warning fires: **D176**; the upgrade: `CHANGELOG.md` §Unreleased. The FIRST
+build — a per-provider model map, `ModelOverrides` (commit e3d546df, never released) — was superseded the same
+day: it fixed the wrong-model case but could not move the provider live. Pinned by `LiveModelRoutingTests`.
+
+- Scope a live model override to what it was written for — neither filed shape: the override became a route

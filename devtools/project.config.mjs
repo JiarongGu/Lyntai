@@ -680,6 +680,17 @@ export default {
         + 'place, and its members conflated a wire schema, a URL/auth convention and a vendor tag with no '
         + 'behavior (docs/DECISIONS.md D160)',
     },
+    {
+      // D176. The live override moved half a pair; the route replaces it. The two removed PROBES
+      // (`SupportsToolCalls` / `SupportsStreamingToolCalls` on ITextClient and ITextRouter) are NOT here:
+      // `ProviderCapabilities` and `ICliBackend` keep live members of both names, and a rule matches a
+      // baseline TOKEN, never "this member on this type" — the limit the MemoryRetentionPolicy entry states.
+      names: ['GetModelOverrideAsync', 'ModelKeyPrefix'],
+      use: '`IModelRoutingStore.GetRouteAsync` (a `provider:model[, …]` route) and '
+        + '`LyntaiOptions.RouteKeyPrefix` (default `lyntai.route.`)',
+      why: 'a live override that swaps the model while the container chooses the provider moves half of the '
+        + 'routing pair, so the model reaches a provider it was never written for (docs/DECISIONS.md D176)',
+    },
   ],
 
   /**
@@ -1446,6 +1457,16 @@ export default {
         + 'assumes every source already returns a relevance-ordered list; InMemoryMemoryGraphStore does not '
         + '(it orders by recency), so position-ranking fabricated a gradient — D103\'s "why position-ranking '
         + 'was tried and withdrawn"',
+    },
+    {
+      // D176, the prose half — the SURFACE half is in `retiredApiNames` above. Measured at zero live-tier
+      // hits when written; the records that name the old members (the released CHANGELOG, the archive) are
+      // exempt by file, and D176 itself names neither. The KEY PREFIX `lyntai.model.` is deliberately not a
+      // rule: the store's own code and docs must name it to warn about it, and a test uses it as a plain key.
+      term: '\\bGetModelOverrideAsync\\b|\\bModelKeyPrefix\\b',
+      use: '`IModelRoutingStore.GetRouteAsync` and `LyntaiOptions.RouteKeyPrefix`',
+      why: 'the model-only live override is retired: a live override is the consumer\'s ROUTE, a provider '
+        + 'and its model together (docs/DECISIONS.md D176)',
     },
   ],
 

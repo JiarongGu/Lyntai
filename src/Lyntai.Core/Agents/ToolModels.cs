@@ -29,7 +29,8 @@ public enum ToolTransport
     /// <see cref="ITextClient.GetCapabilitiesAsync"/> said the serving backend declares it.</summary>
     Native,
 
-    /// <summary>The loop's own prompt protocol, used because the provider declared no native support — the
+    /// <summary>The loop's own prompt protocol, used because the serving backend declared no native support
+    /// or its capabilities are unknown (<see cref="ITextClient.GetCapabilitiesAsync"/> answered null) — the
     /// fallback this enum exists to make visible.</summary>
     Prompt,
 }
