@@ -15,18 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 5 across 3 Parts: 1 startable, 2 blocked, 2 watch
+## Open items — 8 across 4 Parts: 4 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 106 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 159 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 218 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 241 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 298 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 162 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 221 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 244 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 301 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 331 | 283 | The journal's torn-tail cut can discard a person's edit | startable |  |
+| 337 | 283 | No test observes that a SKIP is logged, in any file domain | startable |  |
+| 341 | 283 | No restart or compaction test exercises a cross-engine edge | startable |  |
 
 <!-- open-items:end -->
 
@@ -319,6 +322,25 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   <br>**So it is `watch · data` rather than startable**: what it needs is a recurrence carrying the frame
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
+
+## Part 283 — what the file graph store's review routed to the backlog (2026-09-24)
+
+_Opened by the whole-branch review of `docs/task-archive.md` **Part 282** — the file graph store, whose design
+is `docs/DECISIONS.md` **D174**. Each item was found there and filed rather than fixed in that pass._
+
+- [ ] **The journal's torn-tail cut can discard a person's edit.** `GraphJournal.Load` cuts every byte after <!-- item: state=startable -->
+  the last newline (`src/Lyntai.Storage.Basic/FileSystem/GraphJournal.cs:39-44`): a crash's torn tail, but also
+  a complete record line or a note typed at the end with no trailing newline (an editor's default) — which
+  contradicts "what it will not read, it will not rewrite". Candidate: keep a tail that parses as a record
+  (append the newline); otherwise set the fragment aside beside the journal before truncating.
+
+- [ ] **No test observes that a SKIP is logged, in any file domain.** `CHANGELOG.md` promises "skipped, <!-- item: state=startable -->
+  logged", and every file-system test runs on `NullLogger` — `TempRoot` hands `FileSystemRoot` no logger
+  (`tests/Lyntai.Tests/Storage/FileSystem/TempRoot.cs:11`) — so deleting a `LogWarning` fails nothing.
+
+- [ ] **No restart or compaction test exercises a cross-engine edge.** Its lines go to the FROM node's engine <!-- item: state=startable -->
+  journal (`src/Lyntai.Storage.Basic/FileSystem/FileSystemMemoryGraphStore.cs:190`) and a change spanning two
+  engines is several appends (**D174**), yet `FileSystemGraphRestartTests` runs one engine throughout.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
