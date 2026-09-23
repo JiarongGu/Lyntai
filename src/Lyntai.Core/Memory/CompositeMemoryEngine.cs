@@ -110,7 +110,9 @@ public sealed class CompositeMemoryEngine
     /// <para>Members are written in order and a failure PROPAGATES, leaving the earlier members written: a
     /// write that faults is the one thing this seam refuses to lose silently
     /// (<see cref="ISemanticMemory.RememberAsync"/> takes the same position).</para>
-    /// <para><see cref="MemoryWriteResult.Ran"/> is the union across the members written.</para></remarks>
+    /// <para><see cref="MemoryWriteResult.Ran"/> is the union across the members written, so one member's
+    /// miss can hide behind another's success of the same kind — write through the member to see its own
+    /// result.</para></remarks>
     public async Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);

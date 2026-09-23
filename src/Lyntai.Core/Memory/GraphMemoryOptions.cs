@@ -85,7 +85,10 @@ public sealed record GraphMemoryOptions
     /// <summary>How many near neighbours a new entry is linked to when similarity enrichment is wired (an
     /// embedding backend and an <see cref="IVectorStore"/> are registered).
     /// <b>A starting point, not a tuned value</b> — chosen against a synthetic corpus, never against
-    /// production usage.</summary>
+    /// production usage.
+    /// <para><b>Zero or less disables linking, indexing and novelty together</b>: a write is not embedded, so
+    /// its <see cref="MemoryWriteResult.Ran"/> never carries <see cref="MemorySources.Similarity"/> — while a
+    /// recall still reports it, since there the flag means enrichment is wired.</para></summary>
     public int SimilarityK { get; init; } = 5;
 
     /// <summary>Cosine similarity below which enrichment does not link. Without a floor a new entry links

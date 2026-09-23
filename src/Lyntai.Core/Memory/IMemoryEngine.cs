@@ -28,9 +28,12 @@ public interface IMemoryEngine
     /// <see cref="NotSupportedException"/> rather than downgrading a grade this engine cannot store:
     /// accepting an authoritative write and keeping it as associative would defeat the whole point of the
     /// grade split.</para>
-    /// <para><b>Reports its best-effort tiers rather than failing them.</b> <see cref="MemoryWriteResult.Ran"/>
-    /// names each tier that took the write; a tier that failed or had nothing to run on is absent — the write
-    /// side of <see cref="MemoryRecall.Ran"/>.</para></summary>
+    /// <para><b>Reports where the entry landed.</b> <see cref="MemoryWriteResult.Ran"/> names each storage tier
+    /// that took the write, and the vector index when this write's vector reached it; one that failed or had
+    /// nothing to run on is absent — the write side of <see cref="MemoryRecall.Ran"/>. An engine's other
+    /// best-effort steps (the graph engine's annotation, subject index, similarity links and salience) are
+    /// logged and NOT reported; salience is recorded on the stored node's
+    /// <see cref="GraphNode.ProvenanceSalience"/>.</para></summary>
     Task<MemoryWriteResult> RememberAsync(MemoryWrite write, CancellationToken ct = default);
 
     /// <summary>Recall relevant facts.
@@ -83,7 +86,8 @@ public enum MemoryGrades
 }
 
 /// <summary>Which tiers actually ran — on a recall, which produced a result; on a write
-/// (<see cref="MemoryWriteResult.Ran"/>), which took it. Reported on every recall and every write.</summary>
+/// (<see cref="MemoryWriteResult.Ran"/>), which took it. Reported on every recall and every write. Test a
+/// member with <see cref="Enum.HasFlag"/> rather than comparing the whole value: members may be added.</summary>
 [Flags]
 public enum MemorySources
 {

@@ -4946,9 +4946,10 @@ and the other to catch a misrouted cross-engine edge, and the last "three backen
 ## Part 285 — a write-time embed that fails is silent, and the embedding route cannot be asked about (2026-09-24)
 
 ✅ done 2026-09-24 — **Outcome:** `IMemoryEngine.RememberAsync` returns a `MemoryWriteResult` — the `Reference` plus
-`Ran`, the tiers that took the write — so a write stored without its vector is observable; how to read it per engine
-kind is **D175**'s (Breaking in `CHANGELOG.md`). The graph engine now indexes the vector before its similarity
-links, so a failed link no longer costs it (`docs/FIXES.md` 2026-09-24). The readiness probe was NOT built: it is
+`Ran`, the tiers that took the write — so a write stored without its vector is observable (**D175**; Breaking in
+`CHANGELOG.md`; reading it per engine kind: `docs/memory.md` §Know whether a write kept its vector). The graph
+engine now indexes the vector before its similarity links and even when its neighbour search fails, so neither
+costs it (`docs/FIXES.md` 2026-09-24). The readiness probe was NOT built: it is
 **D175**'s deferred option with its trigger. Pinned by `MemoryWriteResultTests`.
 
 - Make a write stored WITHOUT a vector observable

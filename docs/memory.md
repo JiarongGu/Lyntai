@@ -679,13 +679,8 @@ check-samples`, so a signature that drifts fails the build rather than misleadin
 ### Store something and get it back
 
 `RememberAsync` returns a `MemoryWriteResult`: its `Reference` is the handle you use to expand or link later,
-and its `Ran` names the tiers that took the write — the write side of a recall's `Ran`, so a write stored
-WITHOUT its vector is visible (**D175**). A rebuild that must not count one as done reads it per engine kind:
-a graph engine's write carries `Similarity` when its vector was indexed, a semantic engine's carries
-`Semantic` (a blank one stores nothing and reports `None`), and a composite's is the union across the members
-it wrote. That union can hide one graph member's miss behind another's success: write through the member
-(`"<engine>/<member>"`, which the factory resolves) to see its own result. Recall returns **headlines**, not
-full text; that is what makes the first load cheap.
+and its `Ran` names the tiers that took the write (the next recipe). Recall returns **headlines**, not full
+text; that is what makes the first load cheap.
 
 ```csharp
 await engine.RememberAsync(new MemoryWrite("project", "backend", "the deploy gate is dev.mjs verify"));
@@ -697,6 +692,28 @@ foreach (var item in recall.Items)
 
 `TaskKey` and `Scope` are the two-level namespace: everything is stored and recalled within a
 `(taskKey, scope)` pair, and a `null` scope means "the task's default".
+
+### Know whether a write kept its vector
+
+A write's `Ran` is the write side of a recall's `Ran` (**D175**): each flag says a tier of that kind took THIS
+write, so an entry stored without its vector — the embedder down, the vector store refusing it — is visible
+rather than silent. A rebuild that must not count such a write as done checks the flag its engine kind owes,
+with `HasFlag`, since flags may be added:
+
+- **Graph** — `Similarity` when this write's vector was indexed, even if its neighbour search failed and
+  nothing was linked. With `GraphMemoryOptions.SimilarityK` at zero or less nothing is embedded, so no write
+  carries it, while a recall still reports it (there it means enrichment is wired).
+- **Semantic** — `Semantic`, which already means the vector exists (the store throws on a failed embed), and
+  never `Similarity`. Over the shipped `SemanticMemory`, a BLANK write stores nothing and reports `None`, so a
+  rebuild skips it rather than waiting on it.
+- **Composite** — the union across the members it wrote. A graph and a semantic member cannot hide each
+  other's miss, since each owes its own flag, but of two GRAPH members, one indexed and one not, the union
+  still reads `Similarity`. Write through the member (`"<engine>/<member>"`, which `IMemoryEngineFactory`
+  resolves by hierarchical name) to see its own result.
+
+`Ran` covers the storage tiers and the vector index and nothing else. The graph engine's annotation, subject
+index, similarity links and salience are best-effort, logged, and not reported — salience is recorded on the
+stored node's `GraphNode.ProvenanceSalience`.
 
 ### Keep a fact exactly, forever
 

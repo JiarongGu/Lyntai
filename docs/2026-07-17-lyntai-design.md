@@ -542,9 +542,8 @@ public interface IMemoryEngine {
 ```
 
 *(2026-09-24: `RememberAsync` returns a `MemoryWriteResult` — the entry's `Reference` plus `Ran`, the
-`MemorySources` tiers that took the write, the write side of `MemoryRecall.Ran`. On a write every flag
-reports contribution, so a write stored without its vector is observable; a composite reports the union
-across the members it wrote (`docs/DECISIONS.md` **D175**).)*
+`MemorySources` tiers that took the write, the write side of `MemoryRecall.Ran` (`docs/DECISIONS.md`
+**D175**; reading it per engine kind: `docs/memory.md` §Know whether a write kept its vector).)*
 
 - **A DI collection keyed by `Name`, resolved through `IMemoryEngineFactory.Get(name)`** — the same
   variation-point shape as `ILlmProvider` keyed by `Id`, and the same shape a consumer already knows from

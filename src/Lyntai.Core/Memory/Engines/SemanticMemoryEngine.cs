@@ -5,7 +5,8 @@ namespace Lyntai.Memory.Engines;
 
 /// <summary>Adapts meaning-based <see cref="ISemanticMemory"/> to <see cref="IMemoryEngine"/>. Associative
 /// only, so an authoritative write is REFUSED rather than downgraded.
-/// <para>A write of blank content stores nothing and reports <see cref="MemorySources.None"/>.</para>
+/// <para>Over the shipped <see cref="SemanticMemory"/>, a write of blank content stores nothing and reports
+/// <see cref="MemorySources.None"/>.</para>
 /// <para>A recall with no query to embed yields nothing rather than throwing — the same fail-open posture
 /// the rest of this seam takes. A recall with no SCOPE searches every scope of the task, which is what a
 /// consumer treating scope as an optional filter means by it; that needs an
