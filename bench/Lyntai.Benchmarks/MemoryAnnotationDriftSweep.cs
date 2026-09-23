@@ -28,7 +28,7 @@ internal static class MemoryAnnotationDriftSweep
 {
     /// <summary>One entity, and facts about it that a later one can only resolve through the earlier ones —
     /// which is the case the seam exists for and the case a pronoun makes hard.</summary>
-    private sealed record Cluster(string Key, IReadOnlyList<string> Facts);
+    internal sealed record Cluster(string Key, IReadOnlyList<string> Facts);
 
     private sealed record Score(string Model, string Language, int Eligible, int Drifted, int Collapsed,
         int Empty, int DistinctHandles, int Clusters);
@@ -45,7 +45,7 @@ internal static class MemoryAnnotationDriftSweep
     /// <summary>Eight entities per language, four facts each. The first fact NAMES the entity and the rest
     /// refer to it obliquely, so reuse cannot be had from surface tokens — the whole argument for a model
     /// here is that the judgement is semantic and language-independent.</summary>
-    private static IReadOnlyList<Cluster> Fixture(bool chinese) => chinese
+    internal static IReadOnlyList<Cluster> Fixture(bool chinese) => chinese
         ?
         [
             new("spouse", ["我的配偶是爱丽丝", "她在一家医院做麻醉师", "我们是在京都的一次旅行中认识的", "她下个月过生日"]),
@@ -83,7 +83,7 @@ internal static class MemoryAnnotationDriftSweep
     /// broken" produce the same number. A perfect annotator must score exactly 0% drift, 0 collapse and 0
     /// empty through the same scorer; anything else condemns the instrument rather than the model. It runs
     /// on every invocation for the same reason the reranker's distinct-score audit does.</para></summary>
-    private sealed class PerfectAnnotator(IReadOnlyDictionary<string, string> keyByFact) : IMemoryAnnotationPolicy
+    internal sealed class PerfectAnnotator(IReadOnlyDictionary<string, string> keyByFact) : IMemoryAnnotationPolicy
     {
         public Task<MemoryAnnotation> AnnotateAsync(
             MemoryAnnotationRequest request, CancellationToken ct = default) =>
@@ -246,7 +246,7 @@ internal static class MemoryAnnotationDriftSweep
     /// 2026-09-15 was taken on. A real stream interleaves, which both makes the model's pronoun harder and
     /// is the only condition under which a RECENCY rule can be honestly priced — at gap 0 an adjacency rule
     /// is handed the answer.</para></summary>
-    private static IReadOnlyList<(string Cluster, int Index, string Fact)> Order(
+    internal static IReadOnlyList<(string Cluster, int Index, string Fact)> Order(
         IReadOnlyList<Cluster> clusters, int gap)
     {
         var order = new List<(string, int, string)>();

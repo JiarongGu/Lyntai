@@ -14,7 +14,7 @@ scoring/eval, run traces, long-term memory — all wired by `AddLyntai(...)`.
 ## Current state
 
 **Released: v3.2.0 (2026-09-19).** Eleven packages; public API frozen under SemVer 2.0 since 1.0, with no
-carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D167** — read its generated index table
+carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D168** — read its generated index table
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
@@ -241,6 +241,7 @@ rebuilds it and `verify` fails while the two disagree.
 | `memory-language` |  | one factor: `CorpusLanguage`, structurally identical corpora |
 | `memory-annotation` |  | subject linking with a PERFECT annotator — the CEILING, not a model |
 | `memory-annotation-drift` |  | how much of that ceiling a REAL annotator reaches, and whether CODE can close it |
+| `memory-consolidation` |  | does an OFFLINE pass find links the write path missed? Needs a real embedder |
 | `memory-verification` |  | the judge seam — what a model in the loop is worth |
 | `memory-fan` |  | ACT-R's fan effect, measured and REFUSED (D62) |
 | `memory-enrichment` |  | why an embedder costs recall quality. Calls a REAL model |

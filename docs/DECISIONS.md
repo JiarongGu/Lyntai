@@ -237,8 +237,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D165](#d165--the-process-seam-gains-a-binary-stream-and-its-default-refuses-rather-than-degrades-2026-09-19) | 2026-09-19 | the process seam gains a BINARY stream, and its default REFUSES rather than degrades |
 | [D166](#d166--recalled-memory-renders-as-exactly-one-line-so-content-cannot-forge-the-grade-2026-09-21) | 2026-09-21 | recalled memory renders as exactly ONE line, so content cannot forge the grade |
 | [D167](#d167--corroboration-counting-is-refused-as-verification-on-measurement-2026-09-21) | 2026-09-21 | corroboration counting is REFUSED as verification, on measurement |
+| [D168](#d168--offline-graph-consolidation-is-refused-on-measurement-2026-09-23) | 2026-09-23 | offline graph consolidation is REFUSED, on measurement |
 
-_All 167 entries are live decisions._
+_All 168 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5201,3 +5202,24 @@ rarely to count, which is Part 166's supersession-density finding arriving by a 
 
 **The trigger to revisit** is a corpus with MEASURED re-assertion density — several writers, or a feed
 with genuine repetition — not another threshold or another detector on this one.
+
+## D168 — offline graph consolidation is REFUSED, on measurement (2026-09-23)
+
+**The decision.** No offline consolidation pass ships — no seam, no `Lyntai.Jobs` handler that links stored
+memories after the fact. Ombre-Brain's `dream` (a pass over stored memory emitting connections no write
+made) was measured before being built (`memory-consolidation`, `docs/memory-measurements.md` §REFUTED: an
+offline consolidation pass), against the write path's own edges on an engine with an embedder and no
+annotator — the most headroom such a pass is ever offered. No pre-registered detector reached twice the
+base rate and a quarter of the headroom, in either language.
+
+**Why the similarity half can never justify a seam, whatever an embedder measures.** The write path
+already links each write to its nearest predecessors, and for any pair the later write saw the earlier one
+— so `GraphMemoryOptions.SimilarityK` and `GraphMemoryOptions.MinSimilarity` reproduce any offline cosine
+pass exactly. Where one worked (English, below the shipped floor) it answers the floor's question, which
+`docs/memory.md` already frames as a trade. What ONLY an offline pass can see is structure formed after a
+write, and common-neighbour closure measured at base-rate precision — and over a perfect annotator it
+proposes nothing but false links, because a subject clique is already closed.
+
+**The trigger to revisit** is a MODEL-driven pass that reads a window and names connections, never another
+similarity or structural rule. That is annotation with wider context, and the annotation-drift record says
+subject linking is bound to the model's quality rather than to code.

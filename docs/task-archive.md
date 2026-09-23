@@ -4773,3 +4773,22 @@ left every sweep's single-text embed path broken at runtime for three days — f
 logged in `docs/FIXES.md` (2026-09-21) and as a `pitfalls.md` §Refactoring trap.
 
 - Verification is priced at a model call, and the free alternative is untested
+
+## Part 271 — offline graph consolidation, measured and refuted (2026-09-23)
+
+✅ done 2026-09-23 — **Outcome:** a REFUTATION; no consolidation seam and no `Lyntai.Jobs` handler. One
+bench mode, `memory-consolidation`, ingests the drift sweep's entity fixture through the REAL engine and
+scores an offline pass's proposals against same-entity ground truth. No pre-registered detector cleared the
+bar in either language; the one row that did (English, cosine 0.45, post-hoc) is below the write floor and
+is a knob by construction. The table and its caveats: `docs/memory-measurements.md` §REFUTED: an offline
+consolidation pass. The refusal and its revival trigger (a MODEL-driven pass over a window): **D168**.
+
+**What the item and its plan got wrong, for the next reader:** the plan's headroom gate used the PERFECT
+annotator, whose headroom is zero by construction, and `MemoryCorpus`, whose cluster shares a template a
+similarity pass links through — and both ignored that the write path already links by similarity. Recorded
+in the plan's own deviation note and in `.claude/knowledge/pitfalls.md`.
+
+**Ratio, as `task-lifecycle.md` §A MEASUREMENT task requires:** ~290 instrument lines against 0 in `src/`,
+two runs (the decisive one, then a repeat carrying the post-hoc thresholds), stopped there.
+
+- Nothing runs offline over the graph, so two memories that never co-occurred never link

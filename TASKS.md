@@ -15,22 +15,21 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 9 across 6 Parts: 3 startable, 4 blocked, 2 watch
+## Open items — 8 across 6 Parts: 2 startable, 4 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 163 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 210 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
-| 271 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 294 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 351 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 389 | 267 | Nothing runs offline over the graph, so two memories that never co-occurred… | startable |  |
-| 397 | 267 | Affect is absent as an axis | startable |  |
-| 427 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
+| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 162 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 209 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
+| 270 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 293 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 350 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 390 | 267 | Affect is absent as an axis | startable |  |
+| 422 | 268 | `Lyntai.Storage.FileSystem` — one record per file, directories as the index | startable |  |
 
 <!-- open-items:end -->
 
@@ -380,19 +379,13 @@ Claude. **Most of its surface is out of scope by construction** — dashboard, D
 Obsidian vault, a port per owner — because that is an app and this is a library with no host. Its decay is
 wall-clock (`e^(-lambda x days)`), its recall a seven-term weighted top-k, and every constant is hardcoded
 with no harness behind it, so **D40**, **D100** and the sweeps here already answer those the other way.
-Four mechanisms survived that filter, each landing on a seam that already exists. Two have closed: recalled
-memory entering the prompt unmarked (2026-09-21, `docs/task-archive.md` Part 269, **D166**), and the free
-verification alternative — measured and REFUTED the same day (`docs/task-archive.md` Part 270, **D167**:
-the corroboration signal does not exist on this corpus). **The two below are both measurements**, so each
-names what a YES and a NO change (`.claude/rules/task-lifecycle.md` §A MEASUREMENT task)._
-
-- [ ] **Nothing runs offline over the graph, so two memories that never co-occurred never link.** Edges <!-- item: state=startable -->
-  form at write time (`LlmMemoryAnnotationPolicy`) and are reinforced by the walk (**D102**); a pair that
-  was neither co-annotated nor co-recalled has no path to one. Ombre's `dream` runs a windowed pass and
-  emits connection hints and a promotion rule for mutually similar clusters. **Measure first:** does a pass
-  over `IMemoryGraphStore` find edges write-time annotation missed, on the corpora `memory-annotation` and
-  `memory-density` already build? YES → a consolidation seam plus a `Lyntai.Jobs` handler; NO → a decision
-  recording that write-time annotation is sufficient, and why.
+Four mechanisms survived that filter, each landing on a seam that already exists. Three have closed:
+recalled memory entering the prompt unmarked (2026-09-21, `docs/task-archive.md` Part 269, **D166**), the
+free verification alternative — measured and REFUTED the same day (`docs/task-archive.md` Part 270,
+**D167**: the corroboration signal does not exist on this corpus), and offline consolidation — measured and
+REFUTED 2026-09-23 (`docs/task-archive.md` Part 271, **D168**: its similarity half is a write-time knob, and
+structure adds only noise). **The one below is a measurement**, so it names what a YES and a NO change
+(`.claude/rules/task-lifecycle.md` §A MEASUREMENT task)._
 
 - [ ] **Affect is absent as an axis.** Salience is structural (`StructuralSaliencePolicy`); the tree holds <!-- item: state=startable -->
   no emotional coordinate at all. Ombre carries Russell's valence/arousal per memory, makes arousal a
@@ -401,7 +394,9 @@ names what a YES and a NO change (`.claude/rules/task-lifecycle.md` §A MEASUREM
   annotator can emit the coordinates, `IMemorySaliencePolicy` and `IMemoryRetentionPolicy` consume them.
   Ombre ships its constants on intuition; `memory-salience`, `memory-importance` and
   `memory-salience-weight` are the instruments. YES → an affect salience policy; NO → a refutation that
-  saves the next reader the same intuition.
+  saves the next reader the same intuition. A session-ready plan exists:
+  `local/superpowers/plans/2026-09-21-affect-axis-measurement.md` (untracked; row in
+  `docs/superpowers/INDEX.md`).
 
 ## Part 268 — `Lyntai.Storage.FileSystem`: one record per file, so stored data reads without a client (2026-09-20)
 
@@ -430,7 +425,9 @@ harnesses that exist; this one permanently widens a surface frozen under SemVer 
   the API BASELINE, which is what makes the SemVer claim real — is seeded by running `test` once and must be
   READ before committing, or it freezes whatever surface happened to exist. Three of the eight land as TODO
   placeholders that satisfy the gate vacuously (the `<Description>`, the `docs/AOT.md` row, the README row),
-  and bundle membership is deliberately NOT automatic (**D26**).
+  and bundle membership is deliberately NOT automatic (**D26**). A session-ready plan exists:
+  `local/superpowers/plans/2026-09-21-storage-filesystem-package.md` (untracked; row in
+  `docs/superpowers/INDEX.md`).
   <br>**The first deliverable is the domain ROSTER, written down.** Thirteen interfaces exist and a
   filesystem cannot honestly serve all of them: `IJobStore`'s claim fence, `IUsageTracker`'s counters and
   `IResponseCache` each need an atomic compare-and-set no directory provides.

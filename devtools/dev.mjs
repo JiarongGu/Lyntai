@@ -282,6 +282,16 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--annotation-drift', ...args]);
     break;
 
+  // memory-consolidation — does an OFFLINE pass over the stored graph find same-entity links the write path
+  // missed (TASKS.md Part 267)? The write path already links by embedding similarity, so the baseline is an
+  // engine WITH an embedder and no annotator — the most headroom consolidation is ever offered. Uses the
+  // drift sweep's entity fixture, never MemoryCorpus, whose cluster shares a template a similarity pass
+  // would link through. Refuses to run without a real embedder.
+  case 'memory-consolidation':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--consolidation', ...args]);
+    break;
+
   // memory-verification — the only mechanism aimed at PollutionRate, and the only 3.0 seam that had no sweep
   // (added 2026-08-15). Every OTHER recall-quality figure this repository publishes is MODEL-FREE: the policy
   // sweep wires no verifier and no annotator, so its numbers are the lexical floor rather than what a
