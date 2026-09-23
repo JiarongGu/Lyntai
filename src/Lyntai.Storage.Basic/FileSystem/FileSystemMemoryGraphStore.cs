@@ -45,7 +45,9 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
     {
         if (_loaded) return;
         var totals = new Dictionary<string, GraphTotals>(StringComparer.Ordinal);
-        var states = new Dictionary<long, (NodeLine Line, string Raw, EngineFiles Files)>();
+        // keyed by the journal as well: a memory reads its state from its own engine's journal only, so a stray
+        // line for its id elsewhere (a failed write's) can never override it
+        var states = new Dictionary<(EngineFiles Files, long Id), (NodeLine Line, string Raw)>();
         var edges = new Dictionary<GraphEdgeKey, (EdgeLine Line, string Raw, EngineFiles Files)>();
         var subjects = new Dictionary<(string, long), (SubjectsLine Line, string Raw, EngineFiles Files)>();
         var reviews = new Dictionary<long, MemoryReview>();
@@ -63,7 +65,7 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
                     switch (line)
                     {
                         case TotalsLine t: totals[t.Engine] = t.Totals; files.Engine ??= t.Engine; keys.Add("t" + t.Engine); break;
-                        case NodeLine n: states[n.Id] = (n, raw, files); keys.Add("n" + n.Id); break;
+                        case NodeLine n: states[(files, n.Id)] = (n, raw); keys.Add("n" + n.Id); break;
                         case EdgeLine e: edges[e.Key] = (e, raw, files); keys.Add($"e{e.Key}"); break;
                         case SubjectsLine s: subjects[(s.Engine, s.NodeId)] = (s, raw, files); keys.Add($"s{s.Engine}\n{s.NodeId}"); break;
                     }
@@ -93,9 +95,9 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         foreach (var group in records.GroupBy(r => r.Record.Id))
         {
             var (record, file, files) = group.OrderBy(r => r.File, StringComparer.Ordinal).Last();
-            if (!states.TryGetValue(record.Id, out var state))
+            if (!states.TryGetValue((files, record.Id), out var state))
             {
-                root.Logger.LogWarning("skipping {File}: the journal holds no state for memory {Id}", file, record.Id);
+                root.Logger.LogWarning("skipping {File}: its engine's journal holds no state for memory {Id}", file, record.Id);
                 continue;
             }
             restore.Nodes.Add((null, new GraphRow(record, state.Line.State)));
@@ -105,7 +107,7 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
         }
         _unreadable.UnionWith(onDisk.Except(records.Select(r => r.Record.Id)));
 
-        foreach (var (id, (_, raw, files)) in states.Where(s => !live.Contains(s.Key)))
+        foreach (var ((files, id), (_, raw)) in states.Where(s => !live.Contains(s.Key.Id)))
             if (_unreadable.Contains(id)) files.Orphans.Add((raw, [id]));
         foreach (var (key, (line, raw, files)) in edges)
             if (live.Contains(key.From) && live.Contains(key.To)) restore.Edges.Add((key, line.Edge));
@@ -117,7 +119,7 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
 
         _graph.Apply(restore);
         _graph.Reserve(
-            new[] { highWater }.Concat(states.Keys).Concat(onDisk).Concat(records.Select(r => r.Record.Id))
+            new[] { highWater }.Concat(states.Keys.Select(k => k.Id)).Concat(onDisk).Concat(records.Select(r => r.Record.Id))
                 .Concat(edges.Keys.SelectMany(k => new[] { k.From, k.To })).Max(),
             reviews.Keys.Append(reviewHighWater).Max());
         foreach (var files in _byDirectory.Values)
@@ -225,10 +227,20 @@ internal sealed class FileSystemMemoryGraphStore(FileSystemRoot root, Func<DateT
                 ? Path.Combine(FilesOf(after.Record.Engine).Directory, RecordName.For(after.Record.TaskKey),
                     RecordName.For(after.Record.Scope), FileSystemRoot.IdFile(after.Id))
                 : _files[after.Id][^1];
-            // the journal first: a crash before the memory file leaves unreachable state, never a memory with none
-            var journaled = Journal(change, write.Engine);
-            if (before is null || !MemoryGraphState.SameRecord(before.Record, after.Record))
-                root.Write(file, MemoryFile(after.Record));
+            List<EngineFiles> journaled;
+            try
+            {
+                // the journal first: a crash before the memory file leaves unreachable state, never a memory with none
+                journaled = Journal(change, write.Engine);
+                if (before is null || !MemoryGraphState.SameRecord(before.Record, after.Record))
+                    root.Write(file, MemoryFile(after.Record));
+            }
+            // the journal may already hold the new id, and a restart would reserve it — so this process must too
+            catch when (before is null)
+            {
+                _graph.Reserve(after.Id, 0);
+                throw;
+            }
             if (before is null) _files[after.Id] = [file];
             ApplyAndCompact(change, journaled);
             return Task.FromResult(after.Id);
