@@ -242,8 +242,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D170](#d170--the-llm-judge-can-be-told-to-read-content-content-alone-bounded-off-by-default-2026-09-23) | 2026-09-23 | the LLM judge can be told to read CONTENT: content alone, bounded, off by default |
 | [D171](#d171--the-file-system-backend-holds-its-records-in-memory-owns-its-root-and-serves-what-a-person-reads-2026-09-23) | 2026-09-23 | the file-system backend holds its records in memory, owns its root, and serves what a person reads |
 | [D172](#d172--dependencies-are-kept-current-and-a-major-is-taken-when-the-suites-that-exercise-it-pass-2026-09-23) | 2026-09-23 | dependencies are kept CURRENT, and a major is taken when the suites that exercise it pass |
+| [D173](#d173--lyntaistoragebasic-the-storage-backends-needing-nothing-beyond-core-share-one-package-2026-09-23) | 2026-09-23 | `Lyntai.Storage.Basic`: the storage backends needing nothing beyond Core share one package |
 
-_All 172 entries are live decisions._
+_All 173 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5278,7 +5279,7 @@ taken on headline-length notes; the trigger is a run of the judge arm with conte
 
 ## D171 — the file-system backend holds its records in memory, owns its root, and serves what a person reads (2026-09-23)
 
-**The decision.** `Lyntai.Storage.FileSystem` writes one Markdown record per file and answers from memory:
+**The decision.** The file-system backend writes one Markdown record per file and answers from memory:
 each domain loads its directory on first use and writes through, disk first, on every change; one process owns
 a root through an exclusive lock file. It serves `IKeyValueStore`, `IPromptVersionStore`, `IConversationStore`,
 `IMemoryStore` and `ICuratedMemoryStore`.
@@ -5310,8 +5311,8 @@ LOADED from, so a hand-renamed file is updated in place.
 **Two shapes were refused when the work was filed, and are recorded so neither is reopened.** A document
 DATABASE (Mongo, LiteDB): the need is reading stored data by eye, and such an engine still needs a client —
 while schema flexibility is already answered by `MemorySignals`' open bag. A MIRROR of the relational store:
-two copies drift, and nothing then says which is right. The package is named for its BACKEND; Markdown against
-JSON is a FORMAT axis for an option, never a second package.
+two copies drift, and nothing then says which is right. Markdown against JSON is a FORMAT axis for an option, never a second
+backend. Its package is `Lyntai.Storage.Basic` (**D173**).
 
 ## D172 — dependencies are kept CURRENT, and a major is taken when the suites that exercise it pass (2026-09-23)
 
@@ -5330,3 +5331,20 @@ the closure either way.
 
 **Reversing it** costs nothing already shipped — a later ruling can hold a package back — but it must say
 WHICH and WHY in `Directory.Packages.props`, where the next audit reads it.
+
+## D173 — `Lyntai.Storage.Basic`: the storage backends needing nothing beyond Core share one package (2026-09-23)
+
+**The decision.** `Lyntai.Storage.InMemory` and the file-system backend (**D171**) are one package,
+`Lyntai.Storage.Basic`, a folder per backend — **D25**'s rule applied to storage the way **D144** applied it to
+providers: a boundary answers *which dependency does this isolate?*, and neither isolated anything. `Basic` names
+the membership rule; SQLite and Postgres stay separate because each drags a driver a consumer may refuse.
+
+**The alternative was a package per backend**, which kept a published id alive and made the file backend a
+twelfth package — but it answered D25's question with nothing, and every later dependency-free backend would
+have reopened it. The owner ruled for the merge on 2026-09-23, before the file backend first shipped.
+
+**What it cost:** `Lyntai.Storage.InMemory` is a burned id (**D23**), now in `nuget-unlist.mjs`'s `RETIRED`
+(**D44**), and a direct reference to it is a one-line `PackageReference` edit — Breaking under **D161**. No
+namespace or public type moved: the merged API baseline is exactly the union of the two it replaced.
+<br>**No `retiredTerms` rule**, the same refusal **D142** made for `Lyntai.Tools.Mcp.Hosting`: the retired id is
+still a live NAMESPACE, so any rule on the string fires on every correct mention of the namespace.

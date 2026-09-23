@@ -64,6 +64,7 @@ export const RETIRED = [
   'Lyntai.Providers.ExtensionsAi', //     folded into Lyntai.Providers.Default (D123)
   'Lyntai.Tools.Mcp.Hosting', //          folded into Lyntai.Tools.Mcp (D142)
   'Lyntai.Providers.Default', //          renamed to Lyntai.Providers.Basic (D144)
+  'Lyntai.Storage.InMemory', //          folded into Lyntai.Storage.Basic (D173)
 ];
 
 /**

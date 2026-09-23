@@ -24,7 +24,7 @@
     <PackageId>Lyntai</PackageId>
     <AssemblyName>Lyntai.Bundle</AssemblyName>
     <RootNamespace>Lyntai.Bundle</RootNamespace>
-    <Description>The recommended STARTING set for Lyntai — not the whole library (6 of 12 packages). You get: the core library, the default LLM backends (claude/codex CLI, any OpenAI-shaped endpoint for chat + embeddings, an in-process model2vec embedder), both halves of MCP, IN-MEMORY storage, and FILE storage you switch on by naming a root (UseFileSystemStorage). Two things to know: storage is in-memory until you name that root, and for a database ADD Lyntai.Storage.Sqlite (or .Postgres); and image/video/audio generation is NOT included — add Lyntai.Generation. Also opt-in: Lyntai.Providers.LlamaSharp (local GGUF) and Lyntai.Secrets.Dpapi (Windows). Everything left out is left out because it drags a native payload, a platform-specific API, or a dependency an application that did not ask for that feature should not carry.</Description>
+    <Description>The recommended STARTING set for Lyntai — not the whole library (5 of 11 packages). You get: the core library, the default LLM backends (claude/codex CLI, any OpenAI-shaped endpoint for chat + embeddings, an in-process model2vec embedder), both halves of MCP, IN-MEMORY storage, and FILE storage you switch on by naming a root (UseFileSystemStorage). Two things to know: storage is in-memory until you name that root, and for a database ADD Lyntai.Storage.Sqlite (or .Postgres); and image/video/audio generation is NOT included — add Lyntai.Generation. Also opt-in: Lyntai.Providers.LlamaSharp (local GGUF) and Lyntai.Secrets.Dpapi (Windows). Everything left out is left out because it drags a native payload, a platform-specific API, or a dependency an application that did not ask for that feature should not carry.</Description>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
     <!-- nothing is compiled here, so the doc-file and trim analyzers have nothing to say -->
@@ -40,8 +40,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
     <ProjectReference Include="..\Lyntai.Providers.Basic\Lyntai.Providers.Basic.csproj" />
-    <ProjectReference Include="..\Lyntai.Storage.InMemory\Lyntai.Storage.InMemory.csproj" />
-    <ProjectReference Include="..\Lyntai.Storage.FileSystem\Lyntai.Storage.FileSystem.csproj" />
+    <ProjectReference Include="..\Lyntai.Storage.Basic\Lyntai.Storage.Basic.csproj" />
     <ProjectReference Include="..\Lyntai.Tools.Mcp\Lyntai.Tools.Mcp.csproj" />
   </ItemGroup>
 

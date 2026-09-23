@@ -383,7 +383,7 @@ there is nothing here to code: what remains is evidence only recurrence can supp
   BELOW `OpenAsync`, because the three causes a reading can reach are gone and the remaining ones are all
   in the runner's resource behaviour — the same shape as Part 99 above, by a different mechanism.
 
-## Part 278 — `Lyntai.Storage.FileSystem`: the memory engine's graph store (2026-09-23)
+## Part 278 — the file-system backend: the memory engine's graph store (2026-09-23)
 
 _The package shipped five domains (`docs/task-archive.md` Part 277, **D171**) and deferred this one for SIZE,
 not value: the long-term memory engine's store is where a person would most want to read memories as files._

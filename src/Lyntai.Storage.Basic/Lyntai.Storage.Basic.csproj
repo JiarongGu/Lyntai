@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The BASIC storage set, and "basic" is the membership RULE, as it is for Lyntai.Providers.Basic (D144):
+    every storage backend needing nothing beyond Lyntai.Core and the BCL — in memory, and files under a root
+    the application names. One package because their dependency footprint is the same, so sharing costs a
+    consumer nothing (D25, D173).
+
+    Backends stay SEPARATE when they drag something a consumer may not want: Lyntai.Storage.Sqlite (a native
+    SQLite binary) and Lyntai.Storage.Postgres (a database driver).
+
+    The merge changed no namespace — Lyntai.Storage.InMemory and Lyntai.Storage.FileSystem, one folder each —
+    so a consumer edits one PackageReference and no `using`.
+  -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Lyntai.Storage.Basic</PackageId>
+    <Description>The dependency-free Lyntai storage backends: in-memory (UseInMemoryStorage — tests, ephemeral use, and the second backend proving the domain-interface seam) and files you can read (UseFileSystemStorage — one Markdown record per file under a root you choose). Mix either with Lyntai.Storage.Sqlite per domain via DI.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Every package here grants this: internals are implementation detail, and their tests reach them.
+       Omitting it breaks the build the moment a moved/new type has an internal member under test — which is
+       exactly how this line came to be in the template. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lyntai.Tests" />
+  </ItemGroup>
+
+</Project>

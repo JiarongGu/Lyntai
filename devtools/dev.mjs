@@ -302,7 +302,7 @@ switch (cmd) {
     break;
 
   // storage-scan — can a file-per-record store answer substring recall by SCANNING its files, or must it
-  // keep an in-process index? The design risk Lyntai.Storage.FileSystem named before anything was built
+  // keep an in-process index? The design risk the file-system backend named before anything was built
   // (docs/task-archive.md records the outcome). Model-free; `--large` adds a 100,000-record rung.
   case 'storage-scan':
     if (!config.benchProject) { console.log('no bench project configured'); break; }

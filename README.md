@@ -16,7 +16,7 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
      `node devtools/dev.mjs pack` / `doctor --fix` (the release pipeline bumps the version, pack updates this
      headline). Don't hand-edit the version here to release — bump VersionPrefix; the header follows. -->
 **v3.2.0 — a hardened, batteries-included cortex substrate, now with a media generation platform.**
-Twelve packages; one public front door, and a public API frozen under SemVer 2.0 since 1.0.
+Eleven packages; one public front door, and a public API frozen under SemVer 2.0 since 1.0.
 
 What is in it, by domain: **LLM** — routing with streaming-aware fallback across CLI / HTTP / lambda-bridged
 backends, a configurable per-verdict `RoutingPolicy`, dead-host cooldown, native + prompt tool-calling.
@@ -97,16 +97,15 @@ version you installed.
 
 | Package | What it gives you |
 |---|---|
-| **`Lyntai`** | **The starting set (6 of 12)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage + **file** storage (on once you name a root). Not the whole library: add `Lyntai.Storage.Sqlite` for a database and `Lyntai.Generation` for media. |
+| **`Lyntai`** | **The starting set (5 of 11)** — Core + the dependency-free LLM backends + both halves of MCP + **in-memory** storage + **file** storage (on once you name a root). Not the whole library: add `Lyntai.Storage.Sqlite` for a database and `Lyntai.Generation` for media. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI — plus `Lyntai.Text.WordPieceTokenizer`, a BERT tokenizer owned rather than depended on (**D122**), usable anywhere a token-aware step is wanted. Deps: DI + Logging abstractions only. |
 | `Lyntai.Providers.Basic` | The dependency-free **LLM** backends — Core and the BCL, nothing else: authenticated `claude` and `codex` CLIs; any OpenAI-shaped endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings; `AddModel2VecProvider(dir)` — in-process embedding over a `model2vec` table with no server, GPU or port. Media backends moved to `Lyntai.Generation`. |
 | `Lyntai.Providers.LlamaSharp` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. Named for the dependency, not the deployment: `AddLlamaSharpProvider(modelPath)` and every namespace are unchanged. |
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
-| `Lyntai.Storage.InMemory` | Zero-dependency in-memory storage — tests, ephemeral use, or mixed per-domain. |
+| `Lyntai.Storage.Basic` | The dependency-free storage backends. **In memory** (`UseInMemoryStorage`) — tests, ephemeral use, or mixed per-domain; and **files** under a root you choose (`UseFileSystemStorage`) — one Markdown record per file, readable without a client — for key-value, prompts, conversations, task memory and curated memory, with SQLite composed for the rest. |
 | `Lyntai.Tools.Mcp` | MCP in BOTH directions: expose an MCP server's tools as Lyntai `ITool`s, and host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
-| `Lyntai.Storage.FileSystem` | Storage as files under a root you choose — one Markdown record per file, readable without a client — for key-value, prompts, conversations, task memory and curated memory; compose SQLite for the rest. |
 | `Lyntai.Providers.Onnx` | In-process **transformers** via ONNX Runtime — no server, no port. `AddOnnxProvider(dir)` embeds (pooling, normalization and the sequence limit read from the model's own files); the same call with `o.Produces = ProviderKinds.Score` scores `(query, document)` pairs, which is what `AddMemoryScoringVerification()` reranks recalls with. References the **managed half only**: add one native backend yourself (`Microsoft.ML.OnnxRuntime` for CPU, `.DirectML` for any DX12 GPU, `.Gpu` for CUDA), because the library does not choose your hardware. |
 | `Lyntai.Generation` | The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, the fal.ai queue for video, and streaming piper TTS, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. A separate package for FOOTPRINT, not for release cadence — it carries the full SemVer promise like every other (**D70**), and stays outside the bundle so a one-line install does not drag media backends for a feature most apps never call (D25/D26). |
 
@@ -125,7 +124,7 @@ check-bundle` fails the build if that closure ever drifts, so the one-line insta
 ## Consuming Lyntai
 
 ```bash
-dotnet add package Lyntai                  # the recommended STARTING set — 6 of the 12 packages
+dotnet add package Lyntai                  # the recommended STARTING set — 5 of the 11 packages
 dotnet add package Lyntai.Storage.Sqlite   # a database (the bundle persists only as files, once you name a root)
 dotnet add package Lyntai.Generation       # image/video/audio backends
 ```

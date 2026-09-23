@@ -318,7 +318,8 @@ than the admission permit it depends on.
 
 ## Add a storage backend
 
-A storage driver genuinely does earn its own package (it drags a database driver a consumer might refuse), so:
+A storage backend that drags a database driver earns its own package (a consumer might refuse the driver); one
+needing nothing beyond Core joins `Lyntai.Storage.Basic` instead, in a folder of its own (**D173**). A new package:
 new package `src/Lyntai.Storage.<Backend>/`, ref Core only — scaffolded with `node devtools/dev.mjs
 new-package Lyntai.Storage.<Backend>`, which registers it in all NINE registries `check-packages` gates.
 Never hand-roll the csproj; the misses are silent.
@@ -346,7 +347,7 @@ cost the touch or the edges — so an override that reorders it is wrong however
 
 Mirror `src/Lyntai.Storage.Postgres/`, the
 reference backend, which implements twelve of the thirteen (all but `IModelRoutingStore`). **A backend that is
-not a database mirrors `src/Lyntai.Storage.FileSystem/` instead** (**D171**) — no SQL and no migrations, but
+not a database mirrors `src/Lyntai.Storage.Basic/FileSystem/` instead** (**D171**) — no SQL and no migrations, but
 the same contract suites, plus RESTART tests those suites cannot express, since each runs one live store. Provide
 `builder.Use<Backend>Storage(...)` that registers an `IDbConnectionFactory` (or the backend's equivalent) +
 the stores + runs migrations.

@@ -12,9 +12,10 @@ never reuse a migration number, trigram FTS, explicit pragmas). `storage.md` is 
 that canonical set; read both, they are not duplicates.
 
 ## Checklist
-- [ ] New packable project `src/Lyntai.Storage.<Backend>/`, project-ref `Lyntai.Core` only. A storage
-      driver DOES earn its own package — it drags a database dependency a consumer might refuse
-      (`docs/DECISIONS.md` D25). Scaffold it with `node devtools/dev.mjs new-package
+- [ ] A backend needing nothing beyond Core is a FOLDER in `src/Lyntai.Storage.Basic/`, not a package
+      (`docs/DECISIONS.md` D173) — skip the rest of this item. One that drags a database driver DOES earn
+      its own package, since a consumer might refuse the driver (D25): a new packable project
+      `src/Lyntai.Storage.<Backend>/`, project-ref `Lyntai.Core` only. Scaffold it with `node devtools/dev.mjs new-package
       Lyntai.Storage.<Backend>`, which writes all NINE registries `check-packages` gates; never register
       them by hand, because the misses are silent (a package absent from `ApiSurfaceTests.Assemblies()`
       has no API gate at all).

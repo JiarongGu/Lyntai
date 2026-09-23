@@ -7,7 +7,7 @@ namespace Lyntai.Benchmarks;
 
 /// <summary>
 /// <c>storage-scan</c> — can a file-per-record store meet the substring-recall contract by SCANNING, or
-/// must it keep its own in-process index? The design risk <c>Lyntai.Storage.FileSystem</c> named before
+/// must it keep its own in-process index? The design risk the file-system backend named before
 /// anything was built (<c>docs/task-archive.md</c> Part 277): SQLite answers recall from an FTS5 trigram
 /// index, and a directory answers it with nothing.
 ///

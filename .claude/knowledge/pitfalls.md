@@ -2170,13 +2170,13 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 - **An unconstrained generic `T?` is NOT `Nullable<T>` for a value type, so a reader returning `T?` for an <!-- trap: sub=storage shape=silent-loss -->
   ABSENT field hands back `0` or `false`, not null — and a `?? throw` guarding a required field never fires.**
-  Caught 2026-09-23 writing `Lyntai.Storage.FileSystem`'s header reader before any test ran: `Long("id")` on a
+  Caught 2026-09-23 writing the file-system backend's header reader before any test ran: `Long("id")` on a
   record with no `id` would have loaded it as id 0 instead of skipping it. The fix is to make `T` itself the
   nullable type at every call site (`Read<long?>`) so `default` is null; `FileSystemFormatTests` pins an
   absent field reading back null. The compiler says nothing either way.
 
 - **"A file that does not parse is never written over" held on the NUMBERED path and broke on every path whose <!-- trap: sub=storage shape=silent-loss,second-door -->
-  name derives from a KEY.** Found 2026-09-23 by the pre-release review of `Lyntai.Storage.FileSystem`:
+  name derives from a KEY.** Found 2026-09-23 by the pre-release review of the file-system backend:
   `FileSystemRoot.MaxId` kept a broken `000007.md`'s number taken, while a prompt's `v0001.md`, a thread's
   `thread.md` and a key's own file were each rewritten by the next save — the person's edit gone, and a
   recreated thread adopting the old one's events. The same pass found the curated store writing to

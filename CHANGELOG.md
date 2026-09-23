@@ -31,6 +31,12 @@ every addition.
   it — NuGet reports NU1605 otherwise; code of your own written against an MCP SDK 1.x API that 2.x removed
   follows the SDK's migration notes.
 
+- **`Lyntai.Storage.InMemory` is now `Lyntai.Storage.Basic`**, which also carries the new file backend (**D173**):
+  the storage backends needing nothing beyond Core share one package, as the providers do in
+  `Lyntai.Providers.Basic`. Namespaces are unchanged — `Lyntai.Storage.InMemory` and `Lyntai.Storage.FileSystem`
+  — and so is every public type. **What to DO:** a project referencing `Lyntai.Storage.InMemory` directly
+  replaces that `PackageReference` with `Lyntai.Storage.Basic`; through the `Lyntai` bundle, nothing.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -63,8 +69,8 @@ every addition.
   each entry's content instead — its headline where the content is empty. `0`, the default, keeps today's
   prompt; the cost multiplies with `GraphMemoryOptions.VerificationDepth`.
 
-- **`Lyntai.Storage.FileSystem` — storage as files you can read** (**D171**). A new package: one small
-  Markdown record per file under a root you choose (`UseFileSystemStorage(o => o.Root = …)`), the record's
+- **File storage — storage as files you can read** (**D171**), in `Lyntai.Storage.Basic` beside the in-memory
+  backend (**D173**): one small Markdown record per file under a root you choose (`UseFileSystemStorage(o => o.Root = …)`), the record's
   fields in its header and its text as the body, so stored data reads without a client. It serves key-value
   (and with it live model routing), prompt versions, conversations, task memory and curated memory, each on
   the same cross-backend contract as SQLite — a query finds the same entries on both. It does NOT serve the
@@ -73,9 +79,8 @@ every addition.
   measured 19× over budget; so ONE owner holds a root — a second is refused — and files are edited only while
   none does. A file that does not parse is skipped, logged and never written over: writing its key or creating
   its thread throws `InvalidOperationException` naming the path until it is repaired. It registers with
-  `TryAdd`: call it before `UseSqliteStorage` to take its domains and let SQLite hold the rest. **Part of the
-  `Lyntai` bundle** — a ~60 KB assembly with no dependency beyond Core clears **D26**'s budget; nothing is
-  written until a root is named.
+  `TryAdd`: call it before `UseSqliteStorage` to take its domains and let SQLite hold the rest. Already in the
+  `Lyntai` bundle, since its package is; nothing is written until a root is named.
 
 ### Fixed
 

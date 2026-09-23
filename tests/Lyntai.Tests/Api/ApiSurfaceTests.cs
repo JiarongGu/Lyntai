@@ -26,12 +26,11 @@ public class ApiSurfaceTests
         "Lyntai.Core",
         "Lyntai.Providers.Basic",
         "Lyntai.Storage.Sqlite",
-        "Lyntai.Storage.InMemory",
+        "Lyntai.Storage.Basic",
         "Lyntai.Storage.Postgres",
         "Lyntai.Providers.LlamaSharp",
         "Lyntai.Tools.Mcp",
         "Lyntai.Secrets.Dpapi",
-        "Lyntai.Storage.FileSystem",
         "Lyntai.Providers.Onnx",
         "Lyntai.Generation",
     ];
@@ -44,7 +43,7 @@ public class ApiSurfaceTests
         ["Lyntai.Core"] = typeof(IModelProvider).Assembly,
         ["Lyntai.Providers.Basic"] = typeof(Lyntai.Providers.ClaudeCli.ClaudeCliProvider).Assembly,
         ["Lyntai.Storage.Sqlite"] = typeof(SqliteConnectionFactory).Assembly,
-        ["Lyntai.Storage.InMemory"] = typeof(InMemoryKeyValueStore).Assembly,
+        ["Lyntai.Storage.Basic"] = typeof(InMemoryKeyValueStore).Assembly,
         ["Lyntai.Storage.Postgres"] = typeof(PostgresConnectionFactory).Assembly,
         // Namespace and package agree again since D138. It had been left as `Lyntai.Providers.Local` when  // drift-ok: the note names the namespace D138 retired
         // only the PACKAGE was renamed, so that no consumer edited a `using` — right for a rename that was
@@ -52,7 +51,6 @@ public class ApiSurfaceTests
         ["Lyntai.Providers.LlamaSharp"] = typeof(Lyntai.Providers.LlamaSharp.LlamaSharpProvider).Assembly,
         ["Lyntai.Tools.Mcp"] = typeof(Lyntai.Tools.Mcp.McpToolset).Assembly,
         ["Lyntai.Secrets.Dpapi"] = typeof(Lyntai.Secrets.DpapiSecretProtector).Assembly,
-        ["Lyntai.Storage.FileSystem"] = typeof(Lyntai.FileSystemStorageBuilderExtensions).Assembly,
         ["Lyntai.Providers.Onnx"] = typeof(Lyntai.OnnxBuilderExtensions).Assembly,
         ["Lyntai.Generation"] = typeof(Lyntai.Generation.Providers.OpenAiImageProvider).Assembly,
     };

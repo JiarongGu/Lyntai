@@ -5307,7 +5307,7 @@ and both mechanisms remain expressible through seams that already exist.
 
 ### A file-per-record store cannot SCAN for recall — 19× over the bar at 10,000 records (`storage-scan`, 2026-09-23) <!-- result: id=storage-scan-recall-cost arm="substring recall by SCANNING — enumerate a directory of one-record-per-file Markdown records, read each, match through the shared `SearchTerms` split — against the same match over strings held in memory" metric=latency n="1,000 / 10,000 / 100,000 records of ~300 mixed English/CJK characters, five repeats each, the OS file cache warm" value="1,898 ms p50 at 10,000 records against a pre-registered 100 ms; 137 ms at 1,000; 18.9 s at 100,000" ships=no status=CURRENT -->
 
-Not a memory-ENGINE figure: it decided the shape of `Lyntai.Storage.FileSystem` before any domain was built
+Not a memory-ENGINE figure: it decided the shape of the file-system backend before any domain was built
 (the backlog named recall as that package's design risk; `docs/task-archive.md` Part 277). SQLite answers substring recall from an FTS5
 trigram index and a directory answers it with nothing, so the question was whether reading every record per
 recall is affordable. **Pre-registered**: at most 100 ms at p50 over 10,000 records.
