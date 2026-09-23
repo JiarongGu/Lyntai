@@ -9,7 +9,7 @@
 // package on the new bundle (no assembly, so no PDB, offered to nuget.org's symbol validation for nothing) and a
 // backend reporting AuthFailed instead of NotConfigured when unconfigured, which the new cooldown then punished.
 //
-// NOT part of `verify`: it packs 11 packages and restores a project, so it is minutes, not seconds. Run it before
+// NOT part of `verify`: it packs every package and restores a project, so it is minutes, not seconds. Run it before
 // a release, or after touching packaging (a csproj, a dependency, the bundle).
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';

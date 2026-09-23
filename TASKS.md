@@ -15,20 +15,22 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 7 across 5 Parts: 1 startable, 4 blocked, 2 watch
+## Open items — 9 across 6 Parts: 3 startable, 4 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 108 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 161 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
-| 208 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
-| 269 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 292 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 349 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 379 | 278 | Serve `IMemoryGraphStore` from files | startable |  |
+| 110 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 163 | 33 | GEN7 — pipelines (3d → image → video) | blocked · tree | a 3D generation backend — the pipeline's first stage has none, and the 3d-t… |
+| 210 | 56 | FSRS-B — parameter FITTING, not published defaults | blocked · data | an export or path of the owner's deployment review log — the logs EXIST (ow… |
+| 271 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 294 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 351 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 381 | 278 | Serve `IMemoryGraphStore` from files | startable |  |
+| 397 | 279 | Review `v3.2.0..HEAD` for release | startable |  |
+| 405 | 279 | The regular wide check | startable |  |
 
 <!-- open-items:end -->
 
@@ -385,6 +387,26 @@ not value: the long-term memory engine's store is where a person would most want
   whole contract runs, and add restart tests, which the contract cannot express.
   <br>**Decide the edge layout first**: a node's file cannot hold its edges without every link rewriting two
   files, and edges are written on every recall (**D99**'s batching exists because of it).
+
+## Part 279 — the next release: a pre-release review, and the regular wide check (2026-09-23)
+
+_Scheduled by the owner for a FRESH session. A design review is the one route that is schedulable on purpose
+and the one that has twice filled a whole Part. The execution route is
+`local/superpowers/plans/2026-09-23-release-review.md` (untracked; row in `docs/superpowers/INDEX.md`)._
+
+- [ ] **Review `v3.2.0..HEAD` for release.** Decide the bump by **D161**'s rule — at least `minor`, since a <!-- item: state=startable -->
+  package and a public option were added — and rule on the two entries that do not classify themselves:
+  `a7305589` carries the BREAKING `!` while its CHANGELOG entry sits under `### Security`, and `### Changed`
+  asks consumers to update an assertion on rendered text. Then `code-review` and `security-review` over the
+  `src/` diff (hardest on `Lyntai.Storage.FileSystem`, which writes consumer data to disk),
+  `consumer-smoke` — whose consumer app packs the new package but never calls it — and `verify` with Docker
+  up plus `doctor`.
+
+- [ ] **The regular wide check.** Re-check every `env`/`data` blocker as obtainability rather than <!-- item: state=startable -->
+  inventory, and the two `watch` items for recurrence; audit dependencies (`--vulnerable`, `--outdated`); run
+  the live-gated suites whose models are on this machine; sweep the maintained docs and the design contract's
+  live region against **D166**–**D171**; build and start the model-free bench modes; check the knowledge
+  roster against the disk.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 
