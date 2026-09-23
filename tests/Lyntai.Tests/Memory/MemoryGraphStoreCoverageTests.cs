@@ -21,6 +21,7 @@ public class MemoryGraphStoreCoverageTests
         typeof(InMemoryMemoryGraphStoreTests),
         typeof(SqliteMemoryGraphStoreTests),
         typeof(Lyntai.Tests.Storage.PostgresStorageTests),
+        typeof(Lyntai.Tests.Storage.FileSystem.FileSystemMemoryGraphStoreTests),
     ];
 
     [Fact]
