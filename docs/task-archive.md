@@ -4928,3 +4928,17 @@ the rejected alternatives: **D174**; the measurement that chose the layout: `doc
 line kind picked by a property name, `pitfalls.md` §Storage; consumer line: `CHANGELOG.md` §Unreleased.
 
 - Serve `IMemoryGraphStore` from files
+
+## Part 283 — what the file graph store's review routed to the backlog (2026-09-24)
+
+✅ done 2026-09-24 — **Outcome:** the four follow-ups the whole-branch review of Part 282 filed. A journal's
+unterminated tail is now kept when it parses and otherwise set aside in `<journal>.torn` before the cut, so a
+person's unfinished line is never lost (**D174** states the rule); a journal sweeps its own leftover `.tmp`, as
+`FileSystemRoot` always promised. `FileSystemSkipLoggingTests` pins the "logged" in "skipped, logged" for every
+file domain and the journal's four events, `FileSystemGraphRestartTests` restarts between one engine compacting
+and the other to catch a misrouted cross-engine edge, and the last "three backends" graph claims say every.
+
+- The journal's torn-tail cut can discard a person's edit
+- No test observes that a SKIP is logged, in any file domain
+- No restart or compaction test exercises a cross-engine edge
+- Prose the fix wave's re-review found still untrue of the tree
