@@ -13,14 +13,15 @@ namespace Lyntai;
 ///
 /// <para><b>What it serves — the domains a person reads:</b> <see cref="IKeyValueStore"/> (and with it live
 /// model routing, which reads keys), <see cref="IPromptVersionStore"/>, <see cref="IConversationStore"/>,
-/// <see cref="IMemoryStore"/> and <see cref="ICuratedMemoryStore"/>. Each passes the same cross-backend
-/// contract as SQLite: a query finds the same entries here as there.</para>
+/// <see cref="IMemoryStore"/>, <see cref="ICuratedMemoryStore"/>, and the memory engine's
+/// <see cref="Lyntai.Memory.IMemoryGraphStore"/> — one file per memory under
+/// <c>graph/&lt;engine&gt;/&lt;task&gt;/&lt;scope&gt;/</c>, with the engine's learning journaled beside them in
+/// <c>graph/&lt;engine&gt;/state/</c>. Each passes the same cross-backend contract as SQLite.</para>
 ///
 /// <para><b>What it does not, and why — so compose another backend for them.</b> Jobs, usage counters, the
 /// response cache and vectors are machine state nobody reads, which SQLite holds better; scores and traces are
-/// evaluation output SQLite already exports. The memory ENGINE's graph store is the one gap that is not a
-/// choice: it is the largest contract in the library, and not yet built here. A domain this registers
-/// nothing for stays unresolvable — the same startup signal a disabled SQLite feature gives.</para>
+/// evaluation output SQLite already exports. A domain this registers nothing for stays unresolvable — the same
+/// startup signal a disabled SQLite feature gives.</para>
 ///
 /// <para><b>Registration uses <c>TryAdd</c>, like every storage backend here, so the FIRST registration of a
 /// domain wins</b>: call this before <c>UseSqliteStorage</c> to take the domains it serves and let SQLite hold
@@ -53,6 +54,7 @@ public static class FileSystemStorageBuilderExtensions
         builder.Services.TryAddSingleton<IMemoryStore>(sp =>
             new FileSystemMemoryStore(Root(sp), sp.GetRequiredService<LyntaiOptions>()));
         builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new FileSystemCuratedMemoryStore(Root(sp)));
+        builder.Services.TryAddSingleton<Lyntai.Memory.IMemoryGraphStore>(sp => new FileSystemMemoryGraphStore(Root(sp)));
         return builder;
     }
 }

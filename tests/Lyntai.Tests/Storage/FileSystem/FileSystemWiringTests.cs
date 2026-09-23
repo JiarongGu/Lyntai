@@ -43,10 +43,29 @@ public class FileSystemWiringTests : IDisposable
         Assert.IsType<FileSystemCuratedMemoryStore>(sp.GetRequiredService<ICuratedMemoryStore>());
         Assert.Null(sp.GetService<IJobStore>());
         Assert.Null(sp.GetService<IScoreStore>());
-        Assert.Null(sp.GetService<Lyntai.Memory.IMemoryGraphStore>());
+        Assert.IsType<FileSystemMemoryGraphStore>(sp.GetRequiredService<Lyntai.Memory.IMemoryGraphStore>());
 
         await sp.GetRequiredService<IKeyValueStore>().SetAsync("k", "v");
         Assert.Single(Directory.GetFiles(Path.Combine(_dir, "kv")));
+    }
+
+    [Fact]
+    public async Task A_memory_engine_over_file_storage_alone_remembers_and_recalls_across_a_restart()
+    {
+        ServiceProvider Engine() => Build(b => b
+            .AddProvider(_ => new Lyntai.Tests.Fakes.FakeTextProvider("p"))
+            .AddMemoryEngine("notes", e => e.UseGraph()));
+
+        using (var first = Engine())
+            await first.GetRequiredService<Lyntai.Memory.IMemoryEngineFactory>().Get("notes/graph")
+                .RememberAsync(new Lyntai.Memory.MemoryWrite("assistant", "user", "the deploy key rotates monthly"));
+
+        using var second = Engine();
+        var recall = await second.GetRequiredService<Lyntai.Memory.IMemoryEngineFactory>().Get("notes/graph")
+            .RecallAsync(new Lyntai.Memory.MemoryQuery("assistant", Query: "deploy"));
+
+        Assert.Equal(["the deploy key rotates monthly"], recall.Items.Select(i => i.Content ?? i.Headline));
+        Assert.Single(Directory.GetFiles(Path.Combine(_dir, "graph"), "*.md", SearchOption.AllDirectories));
     }
 
     [Fact]
