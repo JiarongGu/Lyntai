@@ -18,11 +18,12 @@ carve-out (**D70**). The reasoning is `docs/DECISIONS.md`, **D1–D174** — rea
 rather than any list of decisions kept here. **Everything before 3.0 is HISTORY, not context**:
 `.claude/rules/repo-mechanics.md` says what that forbids.
 
-**The baseline a green run should match:** `4003 passed / 4041 total, 38 skipped` (the skips are
+**The baseline a green run should match:** `4120 passed / 4158 total, 38 skipped` (the skips are
 live-backend only), e2e 3/3, guard-script tests 881/881, doc samples 60/60. **The xUnit trio is held by no
 gate** — re-measure those three by hand after `verify` rather than extrapolating them from a diff, and read
 a skip count in the low HUNDREDS as "Docker is down and the whole Postgres leg went silently unexercised".
-**MEASURED with Docker up, re-attested 2026-09-23 at `f277b1e5`** (−2 against `511d884b`: the two
+**MEASURED with Docker up, re-attested 2026-09-24 at `86de5879`** (+117 against `f277b1e5`: the file-system
+graph store, archive Part 282 — 4 core, 13 journal, 84 contract, 15 restart, 1 wiring; −2 before that, the two
 `ApiSurface` theories of one fewer package, **D173** merging two into `Lyntai.Storage.Basic`; +20 before that,
 the pre-release review's tests, archive Part 279; +110 before that, the file-system package, archive Part 277; and a Docker-down run the same day read `3663 / 242`,
 reconciling as 242 − 38 = 204 = 3867 − 3663) —
@@ -76,7 +77,7 @@ numbers it holds.
 not the three older surfaces (`IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore`) that co-exist with
 it. Named engines resolve by name like `IHttpClientFactory` (`IMemoryEngine` / `AddMemoryEngine`, **D39**);
 the graph engine decays in **interference, never a clock** (**D40**) and **buries rather than deletes**
-(**D41**), over InMemory / SQLite / Postgres under one contract. A recall is an **n-shot WALK, not a
+(**D41**), over InMemory / SQLite / Postgres / files under one contract. A recall is an **n-shot WALK, not a
 top-k** (**D100**): it returns HEADLINES, and `MemoryWalk.WalkAsync` (**D102**) expands them a step at a
 time, reinforcing what it walks — so a one-shot metric measures the wrong mode. The contract is design
 §5.7; every figure lives in `docs/memory-measurements.md` §5 and names the regime it was measured in.
