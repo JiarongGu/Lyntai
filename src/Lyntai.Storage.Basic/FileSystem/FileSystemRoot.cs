@@ -66,6 +66,26 @@ internal sealed class FileSystemRoot : IDisposable
         File.Move(temp, file, overwrite: true);
     }
 
+    /// <summary>Appends <paramref name="text"/> and flushes it to disk before returning — the journals' write-through.
+    /// Not atomic: a crash can leave a torn tail, which a journal cuts off when it next loads.</summary>
+    public void Append(string file, string text)
+    {
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file)!);
+        using var stream = new FileStream(file, FileMode.Append, FileAccess.Write, FileShare.Read);
+        stream.Write(Utf8.GetBytes(text));
+        stream.Flush(flushToDisk: true);
+    }
+
+    public static void Truncate(string file, long length)
+    {
+        using var stream = new FileStream(file, FileMode.Open, FileAccess.Write, FileShare.None);
+        stream.SetLength(length);
+        stream.Flush(flushToDisk: true);
+    }
+
+    /// <summary>Strict UTF-8, as every record is read — invalid bytes throw <see cref="DecoderFallbackException"/>.</summary>
+    public static string Decode(ReadOnlySpan<byte> bytes) => Utf8.GetString(bytes);
+
     public static void Delete(string file)
     {
         if (File.Exists(file)) File.Delete(file);
@@ -111,15 +131,21 @@ internal sealed class FileSystemRoot : IDisposable
         }
     }
 
-    /// <summary>The ids already taken by numbered files in <paramref name="directory"/> — <c>&lt;prefix&gt;&lt;digits&gt;.md</c>
-    /// — whether or not they parse, so a new record never lands on the name of a file that was skipped.</summary>
-    public static long MaxId(string directory, SearchOption search = SearchOption.TopDirectoryOnly, string prefix = "") =>
-        !Directory.Exists(directory) ? 0 : Directory.EnumerateFiles(directory, prefix + "*.md", search)
+    /// <summary>The id of every numbered file in <paramref name="directory"/> — <c>&lt;prefix&gt;&lt;digits&gt;.md</c> —
+    /// whether or not it parses.</summary>
+    public static IEnumerable<long> NumberedIds(string directory, SearchOption search = SearchOption.TopDirectoryOnly,
+        string prefix = "") =>
+        !Directory.Exists(directory) ? [] : Directory.EnumerateFiles(directory, prefix + "*.md", search)
             .Select(f => System.IO.Path.GetFileNameWithoutExtension(f) is var name
                 && name.StartsWith(prefix, StringComparison.Ordinal)
                 && long.TryParse(name.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var id)
                     ? id : 0)
-            .DefaultIfEmpty(0).Max();
+            .Where(id => id > 0);
+
+    /// <summary>The ids already taken by numbered files in <paramref name="directory"/>, whether or not they
+    /// parse, so a new record never lands on the name of a file that was skipped.</summary>
+    public static long MaxId(string directory, SearchOption search = SearchOption.TopDirectoryOnly, string prefix = "") =>
+        NumberedIds(directory, search, prefix).DefaultIfEmpty(0).Max();
 
     public void Dispose() => _lock.Dispose();
 }
