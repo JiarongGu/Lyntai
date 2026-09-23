@@ -11,16 +11,18 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 **Symptom.** None shipped; found by the whole-branch review of `docs/task-archive.md` Part 282. When the
 journal's snapshot rewrite or the review log's trim could not write (a rename held by an indexer or antivirus),
-`UpsertAsync`, `TouchAsync`, `LinkManyAsync`, `WriteBackAsync` and `RecordSubjectsAsync` threw after their
-change was already appended and applied — a stored memory reported as failed, a write-back's reviews skipped, a
-retried touch counted twice — and every later write threw the same way, because nothing backed the retry off.
+`UpsertAsync`, `TouchAsync`, `LinkManyAsync`, `WriteBackAsync`, `RecordSubjectsAsync` and `RecordReviewsAsync`
+threw after their change was already appended and applied — a stored memory reported as failed, a write-back's
+reviews skipped, a retried touch counted twice — and every later write threw the same way, because nothing
+backed the retry off.
 
 **Root cause.** `GraphJournal.Rewrite` let the file system's exception escape, and both of its callers run it
 after the change is durable. Separately, `FileSystemRoot.Append` left whatever a failed write had put down, so
 the next append joined onto it and the merged line became unreadable.
 
 **Fix.** A rewrite the file system refuses (`IOException`, `UnauthorizedAccessException`) is logged and returns
-false, backing off as the unreadable-line refusal does — retried once the journal doubles again. An append
+false, backing off as the unreadable-line refusal does — a compaction is retried once the journal doubles
+again, the review trim at its next pacing boundary. An append
 that throws cuts the file back to its length before the write, best-effort, and rethrows the original failure.
 
 **Verify.** Two `FileSystemGraphRestartTests` facts put a directory where the rewrite's temporary file goes —

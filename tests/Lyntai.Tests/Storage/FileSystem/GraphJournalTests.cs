@@ -103,6 +103,18 @@ public class GraphJournalTests : IDisposable
     }
 
     [Fact]
+    public void A_rewrite_s_leftover_temporary_file_is_deleted_on_load()
+    {
+        var journal = new GraphJournal(_temp.Root, JournalPath, 4096);
+        journal.Append([GraphLines.Totals("e", new GraphTotals(1, 1, 5, When))], "e", 0);
+        File.WriteAllText(JournalPath + ".tmp", "half of a refused rewrite");
+
+        new GraphJournal(_temp.Root, JournalPath, 4096).Load((_, _) => { });
+
+        Assert.False(File.Exists(JournalPath + ".tmp"));
+    }
+
+    [Fact]
     public void A_record_line_missing_only_its_newline_is_kept_not_cut()
     {
         var journal = new GraphJournal(_temp.Root, JournalPath, 4096);

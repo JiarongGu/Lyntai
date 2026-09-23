@@ -12,8 +12,8 @@ namespace Lyntai.Tests.Memory;
 /// <b>A <c>taskKey</c> is the isolation boundary every other guarantee is stated inside</b>, and until
 /// 2026-08-26 nothing asserted it as a property — only as a control inside one removal fact.
 ///
-/// <para><c>MemoryGraphStoreContract.No_read_crosses_a_task_key</c> holds the STORE to it on all three
-/// backends. These are the ENGINE's own paths, which compose several store reads and one traversal that
+/// <para><c>MemoryGraphStoreContract.No_read_crosses_a_task_key</c> holds the STORE to it on every
+/// backend. These are the ENGINE's own paths, which compose several store reads and one traversal that
 /// the store deliberately does not scope.</para>
 /// </summary>
 public class MemoryTaskIsolationTests

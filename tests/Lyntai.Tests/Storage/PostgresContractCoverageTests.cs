@@ -9,7 +9,7 @@ namespace Lyntai.Tests.Storage;
 /// </summary>
 /// <remarks>
 /// <para>The gap this closes. <c>MemoryGraphStoreCoverageTests</c> makes graph-store coverage structural by
-/// driving all three backends from one <c>[MemberData]</c> source, so a new fact cannot be added to one
+/// driving every backend from one <c>[MemberData]</c> source, so a new fact cannot be added to one
 /// backend only. Every OTHER storage contract is wired to Postgres by a hand-maintained list of
 /// <c>[SkippableFact]</c> delegators — so a fact added to a contract runs automatically on InMemory and
 /// SQLite (they derive from a shared base) and silently does not run on Postgres. Nothing reports that, and

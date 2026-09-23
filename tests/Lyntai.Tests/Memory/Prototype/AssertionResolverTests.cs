@@ -16,8 +16,8 @@ namespace Lyntai.Tests.Memory.Prototype;
 /// half is not.</para>
 ///
 /// <para><b>The in-process store on purpose.</b> The subject here is RESOLUTION LOGIC, and the store
-/// behaviour it depends on — that metadata round-trips, and that it is write-once — is pinned across all
-/// three backends by <c>MemoryGraphStoreContract</c> rather than re-asserted here. Running these on one
+/// behaviour it depends on — that metadata round-trips, and that it is write-once — is pinned across every
+/// backend by <c>MemoryGraphStoreContract</c> rather than re-asserted here. Running these on one
 /// backend is therefore a choice about speed, not a gap.</para>
 /// </summary>
 public class AssertionResolverTests

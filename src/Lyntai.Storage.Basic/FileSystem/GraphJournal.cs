@@ -35,6 +35,7 @@ internal sealed class GraphJournal(FileSystemRoot root, string path, int compact
     /// <exception cref="InvalidDataException">A newer schema wrote this file.</exception>
     public void Load(Action<GraphLine, string> read)
     {
+        FileSystemRoot.DeleteTemporary(path);
         if (!File.Exists(path)) return;
         var bytes = File.ReadAllBytes(path);
         var end = Array.LastIndexOf(bytes, (byte)'\n') + 1;
@@ -139,7 +140,7 @@ internal sealed class GraphJournal(FileSystemRoot root, string path, int compact
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            root.Logger.LogWarning(ex, "could not rewrite {File}; it keeps its appended lines and is retried once it doubles", path);
+            root.Logger.LogWarning(ex, "could not rewrite {File}; it keeps its appended lines, and the rewrite is tried again later", path);
             Baseline = Lines;
             return false;
         }

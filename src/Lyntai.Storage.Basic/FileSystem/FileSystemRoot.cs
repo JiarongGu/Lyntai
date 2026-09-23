@@ -106,6 +106,9 @@ internal sealed class FileSystemRoot : IDisposable
         if (File.Exists(file)) File.Delete(file);
     }
 
+    /// <summary>Deletes what an interrupted <see cref="Write"/> of <paramref name="file"/> left behind.</summary>
+    public static void DeleteTemporary(string file) => Delete(file + Temporary);
+
     public static void DeleteDirectory(string directory)
     {
         if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);

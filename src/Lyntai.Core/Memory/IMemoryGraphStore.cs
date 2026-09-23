@@ -575,7 +575,7 @@ public interface IMemoryGraphStore
     /// <para><b>Bounded, and NOT by a per-write <c>DELETE</c>.</b> <paramref name="cap"/> is the most recent
     /// rows this call retains PER ENGINE; an implementation pays for enforcing it only occasionally, paced by
     /// <see cref="Lyntai.Memory.MemoryReviewLogPacing"/>, never on every call — seeing every backend apply the
-    /// SAME pacing is what makes the cap's cost bounded on all three rather than on however many happened to
+    /// SAME pacing is what makes the cap's cost bounded on every one rather than on however many happened to
     /// get audited. This makes the cap SOFT: between trims, one engine can transiently hold up to
     /// <c>cap + MemoryReviewLogPacing.TrimInterval(cap) - 1</c> rows, and (being paced from an in-process
     /// counter, not a persisted one) a process restart can let it grow further still before the next trim
