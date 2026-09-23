@@ -6,9 +6,10 @@ namespace Lyntai.Storage.FileSystem;
 
 /// <summary>
 /// One append-only JSONL file: a header line (<see cref="GraphLines.Header"/>), then records.
-/// <para><b>What it will not read, it will not rewrite.</b> Bytes after the last newline can only be a crash's
-/// torn tail and are cut on load; an unreadable line anywhere else is skipped, logged, and blocks
-/// <see cref="Rewrite"/> until someone repairs or removes it (<c>docs/DECISIONS.md</c> D171, D174).</para>
+/// <para><b>What it will not read, it will not rewrite.</b> Bytes after the last newline are kept when they
+/// parse and otherwise set aside in <c>&lt;file&gt;.torn</c> before they are cut; an unreadable line anywhere else
+/// is skipped, logged, and blocks <see cref="Rewrite"/> until someone repairs or removes it
+/// (<c>docs/DECISIONS.md</c> D171, D174).</para>
 /// </summary>
 internal sealed class GraphJournal(FileSystemRoot root, string path, int compactionFloor)
 {
@@ -37,11 +38,7 @@ internal sealed class GraphJournal(FileSystemRoot root, string path, int compact
         if (!File.Exists(path)) return;
         var bytes = File.ReadAllBytes(path);
         var end = Array.LastIndexOf(bytes, (byte)'\n') + 1;
-        if (end < bytes.Length)
-        {
-            root.Logger.LogWarning("cutting {Bytes} torn byte(s) from the end of {File}", bytes.Length - end, path);
-            FileSystemRoot.Truncate(path, end);
-        }
+        if (end < bytes.Length) (bytes, end) = Mend(bytes, end);
 
         var first = true;
         for (var start = 0; start < end;)
@@ -75,6 +72,40 @@ internal sealed class GraphJournal(FileSystemRoot root, string path, int compact
                 root.Logger.LogWarning(ex, "skipping an unreadable line of {File}; the file is not rewritten while it remains", path);
             }
             first = false;
+        }
+    }
+
+    /// <summary>Settles the bytes after the last newline — a crash's torn write, or a line a person typed without
+    /// ending it. A tail that is blank or parses is completed with its newline and kept; any other is appended to
+    /// <c>&lt;file&gt;.torn</c> byte for byte and only then cut, so no text is lost either way.</summary>
+    private (byte[] Bytes, int End) Mend(byte[] bytes, int end)
+    {
+        var tail = bytes.AsSpan(end);
+        if (Parses(tail))
+        {
+            root.Append(path, "\n"u8);
+            return ([.. bytes, (byte)'\n'], bytes.Length + 1);
+        }
+        var torn = path + ".torn";
+        root.Append(torn, [.. tail, (byte)'\n']);
+        root.Logger.LogWarning("set {Bytes} unterminated byte(s) aside in {Torn} and cut them from {File}",
+            tail.Length, torn, path);
+        FileSystemRoot.Truncate(path, end);
+        return (bytes, end);
+    }
+
+    private static bool Parses(ReadOnlySpan<byte> tail)
+    {
+        if (tail.Trim("\r\t "u8).IsEmpty) return true;
+        try
+        {
+            using var doc = JsonDocument.Parse(FileSystemRoot.Decode(tail).TrimEnd('\r'));
+            GraphLines.Parse(doc.RootElement);
+            return true;
+        }
+        catch (Exception ex) when (ex is JsonException or FormatException or DecoderFallbackException)
+        {
+            return false;
         }
     }
 

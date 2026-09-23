@@ -7,7 +7,8 @@ using Lyntai.Storage.InMemory;
 namespace Lyntai.Tests.Storage.FileSystem;
 
 /// <summary>The graph store's machine-state files: every line kind round-trips exactly, and a journal treats
-/// what a crash or a person left behind as D171 says — a torn tail is cut, an unreadable line blocks rewrites.</summary>
+/// what a crash or a person left behind as D171 says — an unterminated tail is kept when it parses and set aside
+/// otherwise, and an unreadable line blocks rewrites.</summary>
 public class GraphJournalTests : IDisposable
 {
     private static readonly DateTimeOffset When = new(2026, 9, 23, 10, 30, 0, TimeSpan.FromHours(8));
@@ -82,8 +83,10 @@ public class GraphJournalTests : IDisposable
         Assert.IsType<TotalsLine>(Assert.Single(read));
     }
 
+    private string TornPath => JournalPath + ".torn";
+
     [Fact]
-    public void A_torn_tail_is_cut_on_load_and_appends_continue_cleanly()
+    public void A_torn_tail_is_set_aside_then_cut_and_appends_continue_cleanly()
     {
         var journal = new GraphJournal(_temp.Root, JournalPath, 4096);
         journal.Append([GraphLines.Totals("e", new GraphTotals(1, 1, 5, When))], "e", 0);
@@ -96,6 +99,38 @@ public class GraphJournalTests : IDisposable
         Assert.Equal(0, reloaded.Unreadable);
         Assert.DoesNotContain("stabi", File.ReadAllText(JournalPath), StringComparison.Ordinal);
         Assert.EndsWith("\n", File.ReadAllText(JournalPath), StringComparison.Ordinal);
+        Assert.Equal("""{"node":1,"stabi""" + "\n", File.ReadAllText(TornPath));
+    }
+
+    [Fact]
+    public void A_record_line_missing_only_its_newline_is_kept_not_cut()
+    {
+        var journal = new GraphJournal(_temp.Root, JournalPath, 4096);
+        journal.Append([GraphLines.Totals("e", new GraphTotals(1, 1, 5, When))], "e", 0);
+        File.AppendAllText(JournalPath, GraphLines.Totals("e", new GraphTotals(2, 2, 9, When)));
+
+        var read = new List<GraphLine>();
+        var reloaded = new GraphJournal(_temp.Root, JournalPath, 4096);
+        reloaded.Load((line, _) => read.Add(line));
+        reloaded.Append([GraphLines.Totals("e", new GraphTotals(3, 3, 12, When))], "e", 0);
+
+        Assert.Equal([1L, 2L], read.Cast<TotalsLine>().Select(t => t.Totals.Ordinal));
+        Assert.Equal(3, File.ReadAllLines(JournalPath).Length - 1); // every record on its own line, header aside
+        Assert.False(File.Exists(TornPath));
+    }
+
+    [Fact]
+    public void A_note_typed_at_the_end_without_a_newline_is_set_aside_byte_for_byte_before_the_cut()
+    {
+        var journal = new GraphJournal(_temp.Root, JournalPath, 4096);
+        journal.Append([GraphLines.Totals("e", new GraphTotals(1, 1, 5, When))], "e", 0);
+        var note = Encoding.UTF8.GetBytes("备注: check the vault key");
+        using (var file = new FileStream(JournalPath, FileMode.Append)) file.Write(note);
+
+        new GraphJournal(_temp.Root, JournalPath, 4096).Load((_, _) => { });
+
+        Assert.DoesNotContain("vault", File.ReadAllText(JournalPath), StringComparison.Ordinal);
+        Assert.Equal([.. note, (byte)'\n'], File.ReadAllBytes(TornPath));
     }
 
     [Fact]

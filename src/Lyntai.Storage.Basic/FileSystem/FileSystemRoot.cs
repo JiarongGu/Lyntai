@@ -67,12 +67,14 @@ internal sealed class FileSystemRoot : IDisposable
     }
 
     /// <summary>Appends <paramref name="text"/> and flushes it to disk before returning — the journals' write-through.
-    /// Not atomic: a crash can leave a torn tail, which a journal cuts off when it next loads. An append that
+    /// Not atomic: a crash can leave a torn tail, which a journal settles when it next loads. An append that
     /// throws cuts what it wrote, as far as the file system allows, so the next append never joins onto it.</summary>
-    public void Append(string file, string text)
+    public void Append(string file, string text) => Append(file, Utf8.GetBytes(text));
+
+    /// <summary>The same append, of bytes as given — for a fragment that may not be valid UTF-8.</summary>
+    public void Append(string file, ReadOnlySpan<byte> bytes)
     {
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file)!);
-        var bytes = Utf8.GetBytes(text);
         // unbuffered, so a failed write leaves nothing queued for SetLength or Dispose to write again
         using var stream = new FileStream(file, FileMode.Append, FileAccess.Write, FileShare.Read, bufferSize: 0);
         var length = stream.Length;

@@ -5374,9 +5374,9 @@ journal line and deletes the memory file, so an acknowledged delete or forget is
 directory entry, the idiom every **D171** domain shares because .NET cannot flush a directory: a power loss can
 bring a deleted memory back with what it learned, and a tombstone line is the option if that is ever observed.
 
-**What it will not read, it will not rewrite** (**D171** extended): a torn journal tail is cut, an unreadable
-line blocks every rewrite, and an unreadable memory file's journal state is kept, so repairing it restores
-what it learned.
+**What it will not read, it will not rewrite** (**D171** extended): an unterminated journal tail is kept when
+it parses and otherwise set aside in `<journal>.torn` before it is cut, an unreadable line blocks every
+rewrite, and an unreadable memory file's journal state is kept, so repairing it restores what it learned.
 
 **Why one core.** `InMemoryMemoryGraphStore` and this store run `MemoryGraphState`: a mutation is PLANNED
 without effect, then applied, and the file store writes the plan first. Re-implementing the semantics a
