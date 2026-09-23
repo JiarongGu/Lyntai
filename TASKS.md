@@ -15,21 +15,19 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 <!-- open-items:begin — GENERATED. Edit the per-item `item:` markers, never this table. -->
 
-## Open items — 8 across 5 Parts: 4 startable, 2 blocked, 2 watch
+## Open items — 6 across 4 Parts: 2 startable, 2 blocked, 2 watch
 
 _Generated from the per-item `<!-- item: … -->` markers by `node devtools/dev.mjs check-backlog --write`._
 _Edit a marker, never this table — `verify` fails the moment the two disagree._
 
 | line | Part | item | state | waiting on |
 | ---: | ---: | --- | --- | --- |
-| 109 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
-| 162 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
-| 221 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
-| 244 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
-| 301 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
-| 331 | 284 | Scope a live model override to what it was written for | startable |  |
-| 348 | 285 | Make a write stored WITHOUT a vector observable | startable |  |
-| 357 | 285 | Let a consumer ask whether the engine can embed right now | startable |  |
+| 107 | 33 | GEN-VERIFY-FAL — one submit → poll → fetch against fal.ai with a real key | blocked · env | a fal.ai account and key — nobody here has one, and no download substitutes… |
+| 160 | 33 | GEN7 — pipelines (3d → image → video) | startable |  |
+| 219 | 75 | Decide what an aggregator's in-band `code` means | blocked · env+data | two or three real aggregators to measure an in-band code against |
+| 242 | 99 | `verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted… | watch · data | the same nine tests to recur — the fix is unconfirmed as the cure, and a gr… |
+| 299 | 99 | `SqliteCuratedMemoryStoreTests.Dedup_race` disposes a connection another ca… | watch · data | a recurrence with a full stack — the three hypotheses a reading can reach a… |
+| 329 | 284 | Scope a live model override to what it was written for | startable |  |
 
 <!-- open-items:end -->
 
@@ -339,27 +337,6 @@ against the tree when it was filed._
   binding differs from the running one. Two shapes, neither decided: an override SCOPED to the client or
   provider it names and consulted only when resolving for it, or the router refusing, visibly, a live model no
   resolved candidate can serve.
-
-## Part 285 — a write-time embed that fails is silent, and the embedding route cannot be asked about (2026-09-24)
-
-_Reported by an adopting application against 3.2.0, which ships its own workaround; both claims were checked
-against the tree when they were filed._
-
-- [ ] **Make a write stored WITHOUT a vector observable.** `GraphMemoryEngine.SearchAsync` catches a failed <!-- item: state=startable -->
-  embed, logs "similarity search failed …; storing without signals or links" and returns nothing
-  (`src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs:520`), so `RememberAsync` succeeds and nothing in its
-  result distinguishes "indexed" from "indexed without a vector". An adopter that rebuilds or back-fills while
-  its embedder is down records the work as done and never retries — reproduced on a real llama-server, six
-  vectors before an upgrade boot and none after, the rebuild marked complete — and semantic recall is then
-  silently empty. Candidate: an outcome on the remember result saying the entry was stored without a vector or
-  signals; the shape is open.
-
-- [ ] **Let a consumer ask whether the engine can embed right now.** The route's filter lives in the internal <!-- item: state=startable -->
-  `EmbeddingRouting` (`src/Lyntai.Core/Inference/EmbeddingRouting.cs:21`), so an adopter that probes before a
-  rebuild RESTATES it — `IProviderRouterFactory.For<VectorRequest, VectorResponse>` with
-  `Supports(ProviderKinds.Vector, ProviderOperation.Complete, accepts: ProviderKinds.Text)` — a copy that drifts
-  the moment the engine's routing changes. Candidate: a public readiness probe for the engine's embedding
-  route; the item above may make it unnecessary for the rebuild case, not for a pre-flight check.
 
 ## Retired — five Parts that outlived their open work (2026-09-16)
 

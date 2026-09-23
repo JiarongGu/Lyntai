@@ -244,8 +244,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D172](#d172--dependencies-are-kept-current-and-a-major-is-taken-when-the-suites-that-exercise-it-pass-2026-09-23) | 2026-09-23 | dependencies are kept CURRENT, and a major is taken when the suites that exercise it pass |
 | [D173](#d173--lyntaistoragebasic-the-storage-backends-needing-nothing-beyond-core-share-one-package-2026-09-23) | 2026-09-23 | `Lyntai.Storage.Basic`: the storage backends needing nothing beyond Core share one package |
 | [D174](#d174--the-file-graph-store-journals-its-machine-state-and-both-in-process-stores-share-one-core-2026-09-23) | 2026-09-23 | the file graph store journals its machine state, and both in-process stores share one core |
+| [D175](#d175--a-remember-reports-what-the-write-did-the-write-side-of-memoryrecallran-2026-09-24) | 2026-09-24 | a remember REPORTS what the write did: the write side of `MemoryRecall.Ran` |
 
-_All 174 entries are live decisions._
+_All 175 entries are live decisions._
 
 <!-- index:end -->
 
@@ -5382,3 +5383,35 @@ rewrite, and an unreadable memory file's journal state is kept, so repairing it 
 without effect, then applied, and the file store writes the plan first. Re-implementing the semantics a
 fourth time was the alternative, and cross-backend divergence in this contract has cost real defects
 (`pitfalls.md` §Storage).
+
+## D175 — a remember REPORTS what the write did: the write side of `MemoryRecall.Ran` (2026-09-24)
+
+**The decision.** `IMemoryEngine.RememberAsync` returns `MemoryWriteResult`: the `Reference` it returned
+before, and `Ran`, the `MemorySources` tiers that took the write. On a write every flag reports CONTRIBUTION —
+a tier of that kind stored the entry, and `Similarity` means THIS write's vector was indexed (on a recall it
+still means enrichment is wired). A composite returns its primary's reference and the UNION of its members'
+`Ran`. The graph engine indexes the vector BEFORE its similarity links, each best-effort, so a failed link no
+longer costs the vector. Storage faults still throw; the best-effort tiers are now REPORTED instead of silent,
+which is `model-decoupling.md`'s "report which tier ran, on every result" applied to the write. An adopting
+application's rebuild was recorded done while its embedder was down, and semantic recall stayed empty.
+
+**Reading it is per engine kind.** A graph engine's write carries `Similarity` when its vector was indexed; a
+semantic engine's reports `Semantic`, which already means the vector exists (its store throws on a failed
+embed), and never `Similarity`. A rebuild is done when every write carries the flag its engine kind owes.
+
+**Alternatives rejected.** An opt-in `RequireVector` on `MemoryWrite`: a fanned-out write carries it to every
+capable member, so a member with no vector tier fails the whole blend or, ignoring it, restores the silence; a
+BYO engine ignores it silently; and it is opt-in and vector-only. It was the additive option, and it lost
+because each of those costs is permanent where this break (**D161**) is paid once. A second remember method
+returning an outcome: a second door onto remember, the shape **D102** refused for the walk. A degraded-write
+counter: it cannot say WHICH write degraded. A flag on `MemoryRef`: an identity key compared by all its
+fields, so two references to one entry would compare unequal.
+
+**Known limits.** A union can hide one member's failure — of two vector-indexing members, one indexed and one
+not, the composite still reports `Similarity`; a caller needing per-member truth writes through the member,
+which `IMemoryEngineFactory` resolves by hierarchical name. A failed annotation on the graph write path has no
+flag and is only logged; the flag set grows additively if that is ever needed.
+
+**Deferred: a readiness probe** — "can the engine embed right now?". `Ran` serves the rebuild, and a public
+probe would publish the internal embedding route's filter for a need nobody has shown. **The trigger** is a
+consumer that must decide BEFORE writing anything.

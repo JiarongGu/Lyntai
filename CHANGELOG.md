@@ -37,6 +37,20 @@ every addition.
   — and so is every public type. **What to DO:** a project referencing `Lyntai.Storage.InMemory` directly
   replaces that `PackageReference` with `Lyntai.Storage.Basic`; through the `Lyntai` bundle, nothing.
 
+- **A remember reports what the write did: `IMemoryEngine.RememberAsync` returns a `MemoryWriteResult`**
+  (**D175**) rather than a bare `MemoryRef`. `Reference` is the address it returned before; `Ran` names the
+  tiers that took the write, the write side of `MemoryRecall.Ran`. A write stored WITHOUT its vector used to
+  look exactly like one stored with it — the graph engine logged a failed embed and stored the entry anyway,
+  and skipped the embed without a word while no embedder was available — so a rebuild run while the embedder
+  was down was recorded as done and semantic recall stayed silently empty. A graph engine's write now carries
+  `Similarity` when its vector was indexed; a semantic engine's reports `Semantic`, which already means the
+  vector exists, and never `Similarity`; a composite reports the union of its members', so one member's miss
+  can hide behind another's success. **What to DO:** read `.Reference` wherever you used the returned
+  `MemoryRef`; a BYO `IMemoryEngine` returns a `MemoryWriteResult` and reports in `Ran` the tiers that took
+  the write. A rebuild that must not count a vector-less write as done checks `Ran` for `Similarity` on a
+  graph engine and for `Semantic` on a semantic one, writing through the member engine (`"<engine>/<member>"`)
+  when one member of a blend is what it needs to know about.
+
 ### Security
 
 - **Recalled memory can no longer forge a prompt section** (**D166**). Both composers rendered an item as
@@ -88,6 +102,12 @@ every addition.
 - **A headline carrying a newline no longer forges a note in the LLM judge's list.** Every candidate now
   renders as one numbered line, the rule **D166** gave the composers; a line break inside an authored
   headline used to start a line the judge read as a note of its own.
+
+- **A failed similarity link no longer costs a graph memory its vector.** The graph engine indexed a new
+  entry's vector AFTER linking it to its similar neighbours, inside the same best-effort block, so a link
+  write that threw skipped the index too and the entry was stored where no similarity search could find it.
+  The vector is now indexed first and each step is best-effort on its own; the write's `Ran` says whether
+  the vector landed.
 
 - **A Claude agent session announces its session ONCE, not once per progress tick.** The stream-json reader
   yielded `SessionStarted` for every `system` line carrying a `session_id` — and current `claude` builds

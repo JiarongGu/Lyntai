@@ -678,8 +678,12 @@ check-samples`, so a signature that drifts fails the build rather than misleadin
 
 ### Store something and get it back
 
-`RememberAsync` returns a `MemoryRef` — the handle you use to expand or link later. Recall returns
-**headlines**, not full text; that is what makes the first load cheap.
+`RememberAsync` returns a `MemoryWriteResult`: its `Reference` is the handle you use to expand or link later,
+and its `Ran` names the tiers that took the write — the write side of a recall's `Ran`, so a write stored
+WITHOUT its vector is visible (**D175**). A rebuild that must not count one as done reads it per engine kind:
+a graph engine's write carries `Similarity` when its vector was indexed, a semantic engine's carries
+`Semantic`, and a composite's is the union of its members'. Recall returns **headlines**, not full text; that
+is what makes the first load cheap.
 
 ```csharp
 await engine.RememberAsync(new MemoryWrite("project", "backend", "the deploy gate is dev.mjs verify"));
