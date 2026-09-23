@@ -243,6 +243,59 @@ public class FileSystemGraphRestartTests : IDisposable
     }
 
     [Fact]
+    public async Task A_compaction_the_file_system_refuses_fails_no_write_and_runs_once_the_journal_doubles_again()
+    {
+        var store = Open(_temp.Root, floor: 0);
+        var id = await store.UpsertAsync(Write("alpha"));
+        var obstacle = Directory.CreateDirectory(JournalPath + ".tmp"); // a rewrite writes this sibling first
+        var lengths = new List<int>();
+        async Task Recall(int i)
+        {
+            await store.WriteBackAsync("e", new GraphWriteBack([new GraphTouch(id, i)], [],
+                [new MemoryReviewWrite(id, Guid.NewGuid(), 1, 3, 5, 0, 0, 3, i, 5)], ReviewLogCap: 100));
+            lengths.Add(File.ReadAllLines(JournalPath).Length);
+        }
+
+        for (var i = 1; i <= 10; i++) await Recall(i); // compaction falls due at floor 0, and is refused
+
+        var node = await store.GetAsync("e", id);
+        Assert.Equal((10, 10d), (node!.RecallCount, node.Stability));
+        Assert.Equal(10, (await store.ReviewsAsync("e")).Count);
+        Assert.All(lengths.Zip(lengths.Skip(1)), p => Assert.True(p.Second > p.First, "every append landed and none was rewritten away"));
+
+        obstacle.Delete();
+        await Recall(11);
+        Assert.True(lengths[^1] > lengths[^2], "a refused compaction waits for the journal to double again");
+        for (var i = 12; i <= 40 && lengths[^1] > lengths[^2]; i++) await Recall(i);
+        Assert.True(lengths[^1] < lengths[^2], "a later compaction ran once nothing blocked it");
+
+        var expected = await Observe(store);
+        Assert.Equal(expected, await Observe(Open(_temp.Reopen())));
+    }
+
+    [Fact]
+    public async Task A_review_trim_the_file_system_refuses_fails_no_write_and_the_next_trim_converges()
+    {
+        var store = Open(_temp.Root);
+        var id = await store.UpsertAsync(Write("alpha"));
+        Task Batch() => store.RecordReviewsAsync("e",
+            [.. Enumerable.Range(0, 5).Select(_ => new MemoryReviewWrite(id, Guid.NewGuid(), 1, 3, 5, 0, 0, 3, 4, 5))], cap: 10);
+        await Batch();
+        var reviews = Path.Combine(Path.GetDirectoryName(JournalPath)!, "reviews.jsonl");
+        var obstacle = Directory.CreateDirectory(reviews + ".tmp");
+
+        await Batch();
+        await Batch(); // past the cap: this one trims, and the rewrite is refused
+
+        Assert.Equal(Enumerable.Range(6, 10).Select(i => (long)i), (await store.ReviewsAsync("e")).Select(r => r.Id));
+        Assert.Equal(1 + 15, File.ReadAllLines(reviews).Length); // the header, and every review still on disk
+        obstacle.Delete();
+        await Batch();
+        Assert.Equal(1 + 10, File.ReadAllLines(reviews).Length);
+        Assert.Equal(Enumerable.Range(11, 10).Select(i => (long)i), (await Open(_temp.Reopen()).ReviewsAsync("e")).Select(r => r.Id));
+    }
+
+    [Fact]
     public async Task A_memory_file_renamed_by_hand_is_updated_in_place_and_stays_deleted()
     {
         var id = await Open(_temp.Root).UpsertAsync(Write("alpha", headline: "old"));

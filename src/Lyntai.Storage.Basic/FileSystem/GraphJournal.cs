@@ -90,8 +90,9 @@ internal sealed class GraphJournal(FileSystemRoot root, string path, int compact
         Lines += lines.Count;
     }
 
-    /// <summary>Replaces the file with <paramref name="lines"/> atomically — false, touching nothing, while it
-    /// holds a line that could not be read.</summary>
+    /// <summary>Replaces the file with <paramref name="lines"/> atomically — false, leaving the file as it was,
+    /// while it holds a line that could not be read or when the file system refuses the write. Never throws for
+    /// either: a rewrite only shortens what the appends already made durable.</summary>
     public bool Rewrite(IReadOnlyCollection<string> lines, string engine, long highWater)
     {
         if (Unreadable > 0)
@@ -101,7 +102,16 @@ internal sealed class GraphJournal(FileSystemRoot root, string path, int compact
             Baseline = Lines; // try again only after it doubles once more, not on every append
             return false;
         }
-        root.Write(path, GraphLines.Header(engine, highWater) + "\n" + Text(lines));
+        try
+        {
+            root.Write(path, GraphLines.Header(engine, highWater) + "\n" + Text(lines));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            root.Logger.LogWarning(ex, "could not rewrite {File}; it keeps its appended lines and is retried once it doubles", path);
+            Baseline = Lines;
+            return false;
+        }
         (Engine, HighWater, Lines, Baseline) = (engine, highWater, lines.Count, lines.Count);
         return true;
     }
