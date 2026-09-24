@@ -81,22 +81,18 @@ internal static class ClientCandidates
     internal static bool ServesText(IModelProvider provider) =>
         provider.Capabilities.Produces.Contains(ProviderKinds.Text, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>What a backend declares it produces, for a message: <see cref="NothingProduced"/> when it
-    /// declares no kind at all.</summary>
+    /// <summary>What a backend declares it produces, for a message: "nothing" when it declares no kind at all.</summary>
     internal static string Produces(IModelProvider provider) =>
-        provider.Capabilities.Produces.Count == 0 ? NothingProduced : string.Join(" and ", provider.Capabilities.Produces);
-
-    /// <summary>How <see cref="Produces"/> names an empty declaration.</summary>
-    internal const string NothingProduced = "nothing";
+        provider.Capabilities.Produces.Count == 0 ? "nothing" : string.Join(" and ", provider.Capabilities.Produces);
 
     /// <summary>The candidates of a CONFIGURED text list that name a registered backend serving no text, each
-    /// as its spec and what it produces — a call to one can never be served, so the caller hears about it at
-    /// composition.
+    /// as its spec, what it produces, and whether it declares no kind at all — a call to one can never be
+    /// served, so the caller hears about it at composition.
     /// <para>A candidate naming NO registered backend is not reported: an adapter package may be absent in one
     /// environment, and the router skips it per call.</para></summary>
     /// <param name="candidates">The list, as the client routes over it.</param>
     /// <param name="providers">The backends it routes over; the first under an id wins, as in the router.</param>
-    internal static IReadOnlyList<(string Candidate, string Produces)> ServingNoText(
+    internal static IReadOnlyList<(string Candidate, string Produces, bool DeclaresNothing)> ServingNoText(
         IReadOnlyList<ProviderCandidate> candidates, IEnumerable<IModelProvider> providers)
     {
         var byId = new Dictionary<string, IModelProvider>(StringComparer.OrdinalIgnoreCase);
@@ -104,6 +100,7 @@ internal static class ClientCandidates
         return [.. CandidateDedup.Dedup(candidates)
             .Select(c => (Candidate: c, Provider: byId.GetValueOrDefault(c.ProviderId)))
             .Where(x => x.Provider is not null && !ServesText(x.Provider))
-            .Select(x => (ProviderCandidateSpec.Format(x.Candidate), Produces(x.Provider!)))];
+            .Select(x => (ProviderCandidateSpec.Format(x.Candidate), Produces(x.Provider!),
+                x.Provider!.Capabilities.Produces.Count == 0))];
     }
 }

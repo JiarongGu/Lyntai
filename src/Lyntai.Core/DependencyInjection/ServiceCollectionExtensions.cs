@@ -280,10 +280,10 @@ public static class LyntaiServiceCollectionExtensions
             var message = $"{client} routes text over candidate(s) " +
                 $"{string.Join(", ", dead.Select(d => $"{d.Candidate} (produces {d.Produces})"))}, naming a " +
                 "backend that produces no text, so a text call can never be served by one.";
-            if (dead.Any(d => d.Produces == ClientCandidates.NothingProduced))
+            if (dead.Any(d => d.DeclaresNothing))
                 message += " A backend that declares no output serves nothing: if it serves text, declare " +
                     "ProviderKinds.Text in its ProviderCapabilities.Produces.";
-            if (dead.Any(d => d.Produces != ClientCandidates.NothingProduced))
+            if (dead.Any(d => !d.DeclaresNothing))
                 message += $" Remove a backend of another kind from {fix}; a vector or score backend is " +
                     "selected by its kind and needs no candidate entry.";
             throw new InvalidOperationException(message);
