@@ -4989,3 +4989,17 @@ as probabilities (`.claude/knowledge/pitfalls.md`).
 - `rerank-screen` passes a model that ranks by word overlap
 - `rerank-screen`'s logit-scale check misflags a probability-output reranker
 - The Ollama-native embed path cannot segment
+
+## Part 286 — what the live-route review found outside its scope (2026-09-24)
+
+✅ done 2026-09-24 — **Outcome:** a text candidate naming a registered non-text backend is refused where a
+CONFIGURED list is first resolved and skipped per call in a run-time list, the router answering `Unsupported`
+when nothing left serves text (**D178**); a bridge fills empty capability fields with its text defaults, and a
+custom provider declaring no kind is told to declare Text. **D67 is now GATED**: `DecoratedInterfaceTests` fails a
+default body on a member of an interface the library decorates, with a ratcheted allowance for three whose
+fallback is correct, and asserts README's decorated-interface table names exactly the set it discovers.
+`IMemoryRetrievabilityPolicy.DerivedGrade` lost its default body (Breaking in `CHANGELOG.md`), and each member a
+BYO implementer might not know how to answer carries an "Implementing it" note.
+
+- A configured text candidate naming a NON-text backend is still called
+- Gate "no default body on a member of an interface the library decorates"
